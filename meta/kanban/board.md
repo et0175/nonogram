@@ -1,12 +1,12 @@
 # Kanban Board
 
-_Updated: 2026-08-27 17:55_
+_Updated: 2026-08-27 18:22_
 
 ## Wave plan
 | Wave | Cards | Status |
 |------|-------|--------|
-| 1 | CARD-001 P1 | ▶ active |
-| 2 | CARD-002 P1, CARD-003 P1 | ⏳ blocked (→ CARD-001) |
+| 1 | CARD-001 P1 | ✓ done |
+| 2 | CARD-002 P1, CARD-003 P1 | ▶ active |
 | 3 | CARD-004 P1 | ⏳ blocked (→ CARD-002) |
 | 4 | CARD-005 P1 | ⏳ blocked (→ CARD-003, CARD-004) |
 | 5 | CARD-006 P1, CARD-007 P1 | ⏳ blocked (→ CARD-004, CARD-005) |
@@ -48,11 +48,10 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-- **CARD-001** Package scaffolding and CLI entry point
-  `worktree: ../PythonProject4-card-001` · `branch: card/001-package-scaffolding-cli`
+_(none)_
 
 ## Review
 _(none)_
 
 ## Done
-_(none)_
+- **CARD-001** Package scaffolding and CLI entry point — score 9.0 (cycle 2/3) · merged db2f9d7

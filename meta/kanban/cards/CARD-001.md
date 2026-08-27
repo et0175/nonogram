@@ -1,6 +1,6 @@
 # CARD-001: Package scaffolding and CLI entry point
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/001-package-scaffolding-cli
-**Worktree:** ../PythonProject4-card-001
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 1
@@ -17,9 +17,9 @@
 **Touches:** pyproject.toml, src/nonogram/__init__.py, src/nonogram/cli.py, src/nonogram/errors.py, src/nonogram/orchestrator.py, tests/test_cli.py
 **Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-08-27T14:54:58Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-27T15:21:39Z
+**Actual:** 0.1d
+**Merge commit:** db2f9d7
 **Blocked by:** —
 
 ## What to implement
