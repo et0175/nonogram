@@ -99,4 +99,42 @@ dispatch surface and one implementation behind it.
 
 ## Worktree notes
 
-—
+Implemented on `card/003-random-grid-sourcing`; 110 tests pass
+(`./.venv/bin/python -m pytest -q`, includes CARD-001's suite). No blockers.
+Touches matched the prediction exactly — `cli.py`, `orchestrator.py`,
+`pyproject.toml` and `clues.py` untouched (G-1, G-2).
+
+- `sourcing/random_grid.py` — `generate(size, density, rng) -> list[list[bool]]`
+  (ADR-0012 boundary representation, `True` = filled, row-major). Exposes
+  `validate_size` / `validate_density` as pure functions so AC-003/AC-004/AC-011
+  are testable without argv (ADR-0010), plus `MIN_SIZE`/`MAX_SIZE`,
+  `MIN_DENSITY`/`MAX_DENSITY`, `DENSITY_TOLERANCE_POINTS = 3`, `filled_target`
+  and `density_of`.
+- Density (ADR-0003): the exact target count is computed once
+  (`round(size**2 * density / 100)`) and its positions shuffled, so the density
+  error is bounded by rounding alone (≤ 0.5 cell, i.e. ≤ 0.5 points even at
+  10x10) rather than by a per-cell Bernoulli draw's variance (σ ≈ 4.6 points at
+  10x10 / p=0.30, which would miss the ±3-point band ~1/3 of the time).
+- `rng` is a required `random.Random` argument with no default (ADR-0015, G-4);
+  validation runs before any draw, so a rejected request consumes no randomness
+  and cannot shift a shared RNG's state. A test enforces G-4 structurally by
+  AST-scanning the whole `sourcing/` package for `random.<fn>(...)` calls.
+- `sourcing/__init__.py` — one-row lookup table (`_SOURCES`) with
+  `for_mode(mode)`, `MODES`, `RANDOM`. `for_mode` returns the *callable* rather
+  than invoking it, because the three modes do not share a parameter list
+  (random: size/density; library: key; image: path) — CARD-008/CARD-015 add a
+  row and a module, no restructuring. An unregistered mode raises `ValueError`,
+  not a `NonogramError`, on purpose: argparse `choices` rejects a user-typed
+  mode at the adapter, so one arriving here is a wiring bug, not user input.
+
+Decisions a downstream card should know about:
+- Density `0` and `100` are accepted as valid percentages (AC-011 only fixes
+  "outside 0-100" as invalid); the resulting empty/full grids are degenerate
+  puzzles that CARD-005's uniqueness and difficulty stages judge on their own
+  terms.
+- `size=None` / `density=None` (i.e. `--size`/`--density` omitted — the parser
+  has no defaults) raise `SizeOutOfRange` / `InvalidDensity` rather than
+  `TypeError`. Resolving defaults remains CARD-005's job; this only guarantees
+  an unresolved value surfaces as a domain error.
+- `DENSITY_TOLERANCE_POINTS` lives in `random_grid` — CARD-005's regenerate
+  loop should import it rather than restate ADR-0003's constant.
