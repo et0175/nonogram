@@ -1,0 +1,421 @@
+# generated_by: forge:architect-synthesis
+# generated_at: 2026-08-27
+# tier: medium
+#
+# Auto-generated. Regenerate with: /forge:architect-synthesis --trace-only
+#
+# STATUS SEMANTICS AT THIS POINT IN THE PIPELINE
+#   Every FR/NFR below is `partial`: a component owns it, and the test
+#   names listed are the ones requirements.yml itself declares on the
+#   requirement's acceptance criteria (and engineering constraints) — but
+#   no code or test file exists yet. They flip to `covered` when
+#   forge:kanban done writes back AC-gate evidence as the last card for
+#   each FR ships. The listed names are therefore the delivery contract,
+#   not a claim of coverage.
+#   CON-XXX entries are `covered`: constraints are satisfied by design
+#   (module layout, packaging, absence of persistence), not by tests.
+#
+# COMP inventory is drawn in c4/components-CTX-001.puml and mirrored in
+# the `components:` section below.
+
+links:
+  # ---------------------------------------------------------------- CAP-001
+  - req: FR-001
+    description: "Random black/white solution grid, configurable 10x10..50x50"
+    capabilities: [CAP-001]
+    contexts: [CTX-001]
+    components: [COMP-003, COMP-001]
+    adrs: [ADR-0006, ADR-0010, ADR-0012, ADR-0015]
+    tests:
+      - TestGenerateRandom_ProducesRequestedSize
+      - TestGenerateRandom_AcceptsMaxSize50
+      - TestGenerateRandom_RejectsSizeAbove50
+      - TestGenerateRandom_RejectsSizeBelow10
+    notes: >-
+      Size range is a domain rule, not an argparse type check — ADR-0010
+      keeps AC-003/AC-004 validation inward of COMP-001.
+    status: partial
+
+  - req: FR-002
+    description: "Solution grid from a fixed, named built-in image library (cat, house, heart, moon), extensible"
+    capabilities: [CAP-001]
+    contexts: [CTX-001]
+    components: [COMP-003]
+    adrs: [ADR-0007, ADR-0010]
+    tests:
+      - TestGenerateLibrary_ProducesCatGrid
+      - TestGenerateLibrary_RejectsUnknownKey
+    notes: >-
+      ADR-0007 rejected an entry-point plugin registry: the library set is
+      fixed in-package, so extension means adding a template, not a hook.
+    status: partial
+
+  - req: FR-003
+    description: "Solution grid from an uploaded image via resize + Floyd-Steinberg dithering"
+    capabilities: [CAP-001]
+    contexts: [CTX-001]
+    components: [COMP-003]
+    adrs: [ADR-0006, ADR-0012]
+    tests:
+      - TestConvertImage_ProducesDitheredGrid
+      - TestConvertImage_RejectsUnreadableFile
+      - TestConvertImage_ProducesExactTargetDimensions
+    status: partial
+
+  - req: FR-004
+    description: "Configurable grid density (approximate percentage of filled cells) for random generation"
+    capabilities: [CAP-001]
+    contexts: [CTX-001]
+    components: [COMP-003, COMP-001]
+    adrs: [ADR-0003, ADR-0015]
+    tests:
+      - TestGenerateRandom_RespectsDensityParameter
+      - TestGenerateRandom_RejectsInvalidDensity
+    notes: "±3 percentage-point tolerance fixed by ADR-0003."
+    status: partial
+
+  - req: FR-015
+    description: "Every puzzle carries a name, set at creation: auto-generated (library key, or mode+timestamp) or overridden via --name"
+    capabilities: [CAP-001]
+    contexts: [CTX-001]
+    components: [COMP-002, COMP-001]
+    adrs: [ADR-0007, ADR-0010, ADR-0018]
+    tests:
+      - TestPuzzleName_AutoGeneratesModeTimestampForRandomMode
+      - TestPuzzleName_AutoGeneratesFromLibraryKey
+      - TestPuzzleName_OverrideViaFlag
+      - TestPuzzleName_RejectsEmptyName
+    notes: >-
+      The name is an attribute of AGG-001, so it lands in COMP-002 — the
+      component that owns the aggregate and constructs it once per run
+      (ADR-0007's single-enforcement-point rule); COMP-003 produces grids,
+      not Puzzle instances, so it is not the home for naming even though
+      the library key that seeds the auto-name comes from its mode. COMP-001
+      only carries the `--name` flag through: AC-045 (empty name) is domain
+      validation and stays inward of argparse per ADR-0010, mirroring how
+      FR-001's size range is handled. ADR-0018 fixes minute precision plus a
+      counter suffix on same-minute collision — AC-042's branch that most
+      needs a fixed-clock test.
+    status: partial
+
+  # ---------------------------------------------------------------- CAP-002
+  - req: FR-005
+    description: "Row/column clues computed from any solution grid by run-length encoding"
+    capabilities: [CAP-002]
+    contexts: [CTX-001]
+    components: [COMP-004]
+    adrs: [ADR-0012]
+    tests:
+      - TestComputeClues_EncodesRunLengths
+      - TestComputeClues_HandlesEmptyRow
+      - TestComputeClues_MatchesGridExactly
+    notes: "AC-014 is the INV-001 check (clues == RLE of the current grid)."
+    status: partial
+
+  # ---------------------------------------------------------------- CAP-003
+  - req: FR-006
+    description: "Nonogram solver (propagation + backtracking) reporting solution count 0/1/many, failing fast on the second solution"
+    capabilities: [CAP-003]
+    contexts: [CTX-001]
+    components: [COMP-005]
+    adrs: [ADR-0009, ADR-0011, ADR-0012, ADR-0014]
+    tests:
+      - TestSolver_ReportsUniqueSolution
+      - TestSolver_ReportsUnsolvable
+      - TestSolver_FailsFastOnSecondSolution
+      - PropertyTest_Solver_NeverFalsePositiveUniqueness
+    notes: >-
+      EC-001 (no false-positive uniqueness) is the mandatory property test;
+      ADR-0014 supplies the brute-force reference oracle it checks against.
+      COMP-005 stays a pure function of clues (ADR-0007) so the property
+      test needs no filesystem or CLI fixture.
+    status: partial
+
+  - req: FR-007
+    description: "Auto-regenerate a random/library candidate that fails the uniqueness check, bounded by a max retry count"
+    capabilities: [CAP-003]
+    contexts: [CTX-001]
+    components: [COMP-002, COMP-003, COMP-005]
+    adrs: [ADR-0002, ADR-0007, ADR-0015]
+    tests:
+      - TestRegenerate_FiresOnUniquenessFailure
+      - TestRegenerate_StopsAtMaxRetryBound
+    notes: >-
+      POL-001 / POL-005 live in COMP-002, the single enforcement point for
+      INV-003 (ADR-0007). Bound: 20 attempts (ADR-0002).
+    status: partial
+
+  - req: FR-013
+    description: "Bounded automatic pixel nudges to recover uniqueness in image mode; report failure at the cap"
+    capabilities: [CAP-003]
+    contexts: [CTX-001]
+    components: [COMP-002, COMP-003, COMP-005]
+    adrs: [ADR-0002, ADR-0004, ADR-0007]
+    tests:
+      - TestNudge_AttemptsBoundedRecovery
+      - TestNudge_ReportsFailureAtCap
+      - TestNudge_FailureMessageSuggestsRetry
+    notes: >-
+      POL-002 / POL-003 in COMP-002; the nudge itself is applied by
+      COMP-003 (it owns the grid the image produced). Cap: 5 attempts
+      (ADR-0002).
+    status: partial
+
+  # ---------------------------------------------------------------- CAP-004
+  - req: FR-008
+    description: "Difficulty selector with Easy / Medium / Hard tiers"
+    capabilities: [CAP-004]
+    contexts: [CTX-001]
+    components: [COMP-001, COMP-006]
+    adrs: [ADR-0005, ADR-0010]
+    tests:
+      - TestSelectDifficulty_AcceptsValidTier
+      - TestSelectDifficulty_RejectsUnknownTier
+    status: partial
+
+  - req: FR-009
+    description: "Weighted heuristic difficulty score from line-logic coverage, backtracking, solve time, size, clue density"
+    capabilities: [CAP-004]
+    contexts: [CTX-001]
+    components: [COMP-006, COMP-005]
+    adrs: [ADR-0009, ADR-0013]
+    tests:
+      - TestScoreDifficulty_CombinesSignals
+      - TestScoreDifficulty_ZeroBacktrackingScoresEasiest
+    notes: >-
+      The five signals are internal states of the hand-rolled solver
+      (ADR-0009), so COMP-005 emits them and COMP-006 normalizes and
+      combines them into a 0..100 score (ADR-0013).
+    status: partial
+
+  - req: FR-010
+    description: "Resample candidates until the difficulty score lands inside the requested tier's range, bounded by a max retry count"
+    capabilities: [CAP-004]
+    contexts: [CTX-001]
+    components: [COMP-002, COMP-006, COMP-003]
+    adrs: [ADR-0002, ADR-0005, ADR-0007, ADR-0013]
+    tests:
+      - TestResample_AcceptsCandidateInRange
+      - TestResample_FiresWhenScoreOutOfRange
+      - TestResample_RescoresNewCandidate
+      - TestResample_StopsAtMaxRetryBound
+    notes: "POL-004 / POL-005 in COMP-002; tier cutoffs from ADR-0005."
+    status: partial
+
+  # ---------------------------------------------------------------- CAP-005
+  - req: FR-011
+    description: "Export a finalized puzzle (clues + blank grid) as print-ready PNG and/or SVG"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-007, COMP-002]
+    adrs: [ADR-0006, ADR-0007, ADR-0008]
+    tests:
+      - TestExport_WritesPNG
+      - TestExport_WritesSVG
+      - TestExport_RejectsUnverifiedPuzzle
+    notes: >-
+      AC-030 is the INV-002 export gate — enforced in COMP-002, not in
+      COMP-007, per ADR-0007's single-enforcement-point rule.
+    status: partial
+
+  - req: FR-012
+    description: "Export the solution grid and clues as JSON and/or CSV, sufficient to exactly reconstruct the puzzle"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-007]
+    adrs: [ADR-0012, ADR-0015]
+    tests:
+      - TestExport_WritesJSON
+      - TestExport_WritesCSV
+      - TestExport_JSONRoundTripsExactly
+      - PropertyTest_Export_RoundTripsExactlyForAnyPuzzle
+    notes: >-
+      EC-002 round-trip holds because ADR-0012 exports the boundary type
+      (list[list[bool]] + clue tuples), never the solver's internal
+      bitmask. The JSON export also records the seed (ADR-0015).
+    status: partial
+
+  - req: FR-014
+    description: "Report the count of nudged cells in CLI output at export time when image mode required pixel nudges"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-001, COMP-002]
+    adrs: [ADR-0004]
+    tests:
+      - TestExport_ReportsNudgeCount
+      - TestExport_OmitsNudgeCountWhenZero
+    notes: >-
+      Requirement introduced by ADR-0004 (resolving DEC-004). The count is
+      carried on the Puzzle aggregate by COMP-002 and printed by COMP-001;
+      COMP-007 writes no nudge metadata into the image exports.
+    status: partial
+
+  - req: FR-016
+    description: "Two-page PDF export: page 1 blank puzzle + clues, page 2 answer key, both headered with puzzle name and difficulty tier"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-007, COMP-002]
+    adrs: [ADR-0006, ADR-0007, ADR-0016, ADR-0017]
+    tests:
+      - TestExport_WritesPDFPageOneBlankWithHeader
+      - TestExport_WritesPDFPageTwoAnswerKeyWithHeader
+      - TestExport_RejectsUnverifiedPuzzleForPDF
+    notes: >-
+      A fifth renderer inside COMP-007, not a new component: CON-006 makes
+      PDF a second sink on the existing PNG raster path (ADR-0006's Pillow),
+      so it fits the existing `src/nonogram/export/**.py` glob. AC-048 is
+      the same INV-002 export gate as AC-030 and is therefore enforced in
+      COMP-002, not COMP-007 (ADR-0007). The header consumes the FR-015
+      name; the on-disk filename is `<name>-<difficulty>.pdf` (ADR-0016)
+      with an incrementing suffix on collision (ADR-0017) — that suffix
+      search is export-path logic COMP-007 owns and must test.
+    status: partial
+
+  # ---------------------------------------------------------------- NFR
+  - req: NFR-001
+    description: "Generation completion time: 5s p95 for <=20x20; 30s hard timeout up to 50x50"
+    capabilities: [CAP-001, CAP-003]
+    contexts: [CTX-001]
+    components: [COMP-002, COMP-005, COMP-003]
+    adrs: [ADR-0001, ADR-0009, ADR-0011, ADR-0012]
+    tests:
+      - BenchGenerate_20x20_p95Under5s
+      - TestGenerate_50x50_RespectsTimeoutBound
+    notes: >-
+      The deadline is computed by COMP-002 and enforced cooperatively
+      inside COMP-005 at each propagation fixed point and branch node
+      (ADR-0011); SolverTimeout is converted to the EVT-012 abandonment
+      path. The int-bitmask line representation (ADR-0012) is the
+      performance mechanism the p95 target relies on.
+    status: partial
+
+  - req: NFR-002
+    description: "Bounded retry loop: max 20 regenerate/resample attempts, 5 pixel-nudge attempts"
+    capabilities: [CAP-003, CAP-004]
+    contexts: [CTX-001]
+    components: [COMP-002]
+    adrs: [ADR-0002, ADR-0007, ADR-0015]
+    tests:
+      - TestRetryLoop_BoundedIterations
+    notes: >-
+      INV-003 has exactly one home — COMP-002 — covering all three loops
+      (regenerate POL-001, nudge POL-002, resample POL-004) with POL-005
+      as the shared abandonment path. The injected Random (ADR-0015) makes
+      each loop deterministically testable.
+    status: partial
+
+  # ---------------------------------------------------------------- CON
+  - req: CON-001
+    description: "CLI tool only; no web/GUI in v1"
+    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-001]
+    adrs: [ADR-0008, ADR-0010]
+    tests: []
+    notes: >-
+      Satisfied by design: the only inbound adapter in the C4 component
+      view is COMP-001 (argparse), packaged as a console entry point.
+    status: covered
+
+  - req: CON-002
+    description: "No playable/interactive puzzle output in v1 — static PNG/SVG and JSON/CSV only"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-007]
+    adrs: [ADR-0007]
+    tests: []
+    notes: >-
+      Satisfied by design: COMP-007 renders four static formats and has no
+      interactive surface. Deferred candidate in meta/kanban/backlog.md.
+    status: covered
+
+  - req: CON-003
+    description: "No multiplayer, user accounts, or persistence beyond local file export"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-002, COMP-007]
+    adrs: [ADR-0008]
+    tests: []
+    notes: >-
+      Satisfied by design: the containers view has no database and no
+      network edge; the Puzzle aggregate lives only for the duration of one
+      process, and the export file is the sole durable artifact.
+    status: covered
+
+  - req: CON-004
+    description: "Difficulty tiers are a heuristic score bucket, not a construction guarantee"
+    capabilities: [CAP-004]
+    contexts: [CTX-001]
+    components: [COMP-006]
+    adrs: [ADR-0005, ADR-0013]
+    tests: []
+    notes: >-
+      Satisfied by design: ADR-0013's normalized weighted sum plus
+      ADR-0005's cutoffs classify a candidate; nothing in COMP-003
+      constructs a grid guaranteed to be backtracking-free.
+    status: covered
+
+  - req: CON-005
+    description: "Uniqueness check must never produce a false positive (mandatory correctness property)"
+    capabilities: [CAP-003]
+    contexts: [CTX-001]
+    components: [COMP-005]
+    adrs: [ADR-0009, ADR-0014]
+    tests: []
+    notes: >-
+      Verified by EC-001's PropertyTest_Solver_NeverFalsePositiveUniqueness
+      against ADR-0014's brute-force reference oracle; the test name is
+      carried on the FR-006 entry, which is where delivery writes back.
+      COMP-005's purity (ADR-0007) is what makes the property testable.
+    status: covered
+
+  - req: CON-006
+    description: "PDF export reuses the PNG rendering path via Pillow's built-in PDF save; no new dependency"
+    capabilities: [CAP-005]
+    contexts: [CTX-001]
+    components: [COMP-007]
+    adrs: [ADR-0006, ADR-0008]
+    tests: []
+    notes: >-
+      Satisfied by design: COMP-007 already renders pages as Pillow rasters
+      for FR-011, and PDF is that same buffer saved with save_all/append_images
+      — so ADR-0006's dependency baseline (stdlib + Pillow + NumPy) is not
+      reopened and ADR-0008's packaging is unchanged. The constraint is a
+      standing property of the export module's imports, not a behaviour a
+      test asserts; FR-016's tests exercise the path it constrains.
+    status: covered
+
+# ---------------------------------------------------------------------------
+# Component -> planned code mapping (ADR-0007 module layout, ADR-0008
+# src-layout package). These are PLANNED locations: no `_meta.as_built`, so
+# the trace-code validator reports unbuilt components as INFO, not drift.
+# ---------------------------------------------------------------------------
+components:
+  - id: COMP-001
+    name: CLI Adapter
+    context: CTX-001
+    code: ["src/nonogram/cli.py"]
+  - id: COMP-002
+    name: Pipeline Orchestrator
+    context: CTX-001
+    code: ["src/nonogram/orchestrator.py"]
+  - id: COMP-003
+    name: Grid Sourcing
+    context: CTX-001
+    code: ["src/nonogram/sourcing/**.py"]
+  - id: COMP-004
+    name: Clue Derivation
+    context: CTX-001
+    code: ["src/nonogram/clues.py"]
+  - id: COMP-005
+    name: Solver
+    context: CTX-001
+    code: ["src/nonogram/solver/**.py"]
+  - id: COMP-006
+    name: Difficulty Scoring
+    context: CTX-001
+    code: ["src/nonogram/difficulty.py"]
+  - id: COMP-007
+    name: Export Renderers
+    context: CTX-001
+    code: ["src/nonogram/export/**.py"]

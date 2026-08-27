@@ -1,0 +1,526 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+functional:
+  - id: FR-001
+    statement: >-
+      Generate a random black/white solution grid at a configurable size
+      from 10x10 to 50x50.
+    source: [US-001]
+    acceptance:
+      - id: AC-001
+        given: a request for a 20x20 random grid
+        when: the grid is generated
+        then: a 20x20 black/white grid is produced
+        kind: happy
+        test: TestGenerateRandom_ProducesRequestedSize
+      - id: AC-002
+        given: a request for the maximum supported size, 50x50
+        when: the grid is generated
+        then: a 50x50 grid is produced without error
+        kind: boundary
+        test: TestGenerateRandom_AcceptsMaxSize50
+      - id: AC-003
+        given: a request for a 60x60 grid (above the supported range)
+        when: generation is requested
+        then: the request is rejected with a size-range error and no grid is produced
+        kind: negative
+        test: TestGenerateRandom_RejectsSizeAbove50
+      - id: AC-004
+        given: a request for a 9x9 grid (below the supported range)
+        when: generation is requested
+        then: the request is rejected with a size-range error and no grid is produced
+        kind: negative
+        test: TestGenerateRandom_RejectsSizeBelow10
+
+  - id: FR-002
+    statement: >-
+      Generate a solution grid from a fixed, named built-in image library
+      (at minimum: cat, house, heart, moon), selectable by key; the library
+      set is extensible without changing this requirement.
+    source: [US-002]
+    acceptance:
+      - id: AC-005
+        given: the built-in library key "cat"
+        when: a grid is requested from the library
+        then: a grid matching the cat template at the target size is produced
+        kind: happy
+        test: TestGenerateLibrary_ProducesCatGrid
+      - id: AC-006
+        given: an unknown library key "dragon" not present in the built-in library
+        when: a grid is requested from the library
+        then: the request is rejected with an unknown-library-image error and no grid is produced
+        kind: negative
+        test: TestGenerateLibrary_RejectsUnknownKey
+
+  - id: FR-003
+    statement: >-
+      Generate a solution grid from a user-uploaded image, converted via
+      resize to the target grid size followed by Floyd-Steinberg
+      error-diffusion dithering before binarizing each cell.
+    source: [US-003]
+    acceptance:
+      - id: AC-007
+        given: a valid PNG image and a target size of 25x25
+        when: the image is converted
+        then: a 25x25 black/white grid is produced via resize and dithering
+        kind: happy
+        test: TestConvertImage_ProducesDitheredGrid
+      - id: AC-008
+        given: a path to a non-existent or corrupt image file
+        when: conversion is requested
+        then: the request fails with a "cannot read image" error and no grid is produced
+        kind: negative
+        test: TestConvertImage_RejectsUnreadableFile
+      - id: AC-009
+        given: a source image whose aspect ratio differs from the target grid
+        when: the image is converted
+        then: the output grid has exactly the requested target dimensions
+        kind: boundary
+        test: TestConvertImage_ProducesExactTargetDimensions
+
+  - id: FR-004
+    statement: >-
+      Support configuring grid density (approximate percentage of filled
+      cells) for random generation.
+    source: [US-001]
+    acceptance:
+      - id: AC-010
+        given: a requested density of 30%
+        when: a random grid is generated
+        then: the fraction of filled cells is within ±3 percentage points of 30% (ADR-0003)
+        kind: happy
+        test: TestGenerateRandom_RespectsDensityParameter
+      - id: AC-011
+        given: a requested density of 150% (outside the valid 0-100% range)
+        when: generation is requested
+        then: the request is rejected with an error and no grid is produced
+        kind: negative
+        test: TestGenerateRandom_RejectsInvalidDensity
+
+  - id: FR-005
+    statement: >-
+      Compute row and column clues from any solution grid via run-length
+      encoding of contiguous filled runs.
+    source: [US-004]
+    acceptance:
+      - id: AC-012
+        given: a grid row with pattern "██·███··"
+        when: clues are computed for that row
+        then: the row clue equals [2, 3]
+        kind: happy
+        test: TestComputeClues_EncodesRunLengths
+      - id: AC-013
+        given: a grid row with no filled cells
+        when: clues are computed for that row
+        then: the row clue is the empty-row marker [0]
+        kind: boundary
+        test: TestComputeClues_HandlesEmptyRow
+      - id: AC-014
+        given: any solution grid
+        when: clues are computed for every row and column
+        then: decoding each clue against the grid confirms it exactly matches that line's run-length encoding
+        kind: boundary
+        invariant: INV-001
+        test: TestComputeClues_MatchesGridExactly
+
+  - id: FR-006
+    statement: >-
+      Implement a nonogram solver (constraint propagation + backtracking)
+      that determines a puzzle's solution count (0, 1, or many) from its
+      clues, failing fast once a second distinct solution is found rather
+      than exhaustively enumerating all solutions.
+    source: [US-005]
+    acceptance:
+      - id: AC-015
+        given: clues with exactly one valid solution
+        when: the puzzle is solved
+        then: the solver reports solution_count = 1 and returns that solution grid
+        kind: happy
+        test: TestSolver_ReportsUniqueSolution
+      - id: AC-016
+        given: clues with zero valid solutions (a contradictory clue set)
+        when: the puzzle is solved
+        then: the solver reports solution_count = 0 and no solution grid is returned
+        kind: negative
+        test: TestSolver_ReportsUnsolvable
+      - id: AC-017
+        given: clues admitting more than one valid solution
+        when: the puzzle is solved
+        then: the solver stops immediately after finding a second distinct solution and reports solution_count >= 2, without enumerating every solution
+        kind: boundary
+        test: TestSolver_FailsFastOnSecondSolution
+    engineering_constraints:
+      - id: EC-001
+        statement: >-
+          The solver never reports solution_count = 1 for a clue set that
+          actually has 0 or more than 1 solutions, for any input clue set
+          (the uniqueness check must never produce a false positive).
+        kind: consistency
+        instances: [AC-015]
+        test: PropertyTest_Solver_NeverFalsePositiveUniqueness
+
+  - id: FR-007
+    statement: >-
+      When a random/library-generated candidate fails the uniqueness check
+      (0 or >1 solutions), discard it and regenerate a new candidate
+      automatically, bounded by a maximum retry count.
+    source: [US-006]
+    acceptance:
+      - id: AC-018
+        given: a freshly generated random or library grid whose uniqueness check reports solution_count != 1
+        when: the auto-regenerate policy evaluates
+        then: a new candidate grid is generated automatically without user interaction and re-checked
+        kind: happy
+        policy: POL-001
+        test: TestRegenerate_FiresOnUniquenessFailure
+      - id: AC-019
+        given: a candidate that has already been regenerated up to the configured maximum retry bound
+        when: another uniqueness failure occurs
+        then: generation is abandoned and a clear error is reported instead of retrying again
+        kind: boundary
+        invariant: INV-003
+        policy: POL-005
+        test: TestRegenerate_StopsAtMaxRetryBound
+
+  - id: FR-008
+    statement: >-
+      Expose a difficulty selector with tiers Easy, Medium, and Hard.
+    source: [US-008]
+    acceptance:
+      - id: AC-020
+        given: a request specifying difficulty "Medium"
+        when: generation runs
+        then: the resulting puzzle is tagged with requested tier "Medium" pending score confirmation
+        kind: happy
+        test: TestSelectDifficulty_AcceptsValidTier
+      - id: AC-021
+        given: a request specifying difficulty "Extreme" (not a supported tier)
+        when: generation is requested
+        then: the request is rejected with an unsupported-difficulty error
+        kind: negative
+        test: TestSelectDifficulty_RejectsUnknownTier
+
+  - id: FR-009
+    statement: >-
+      Score a candidate puzzle's difficulty as a weighted heuristic
+      combining cells solved by line-only logic, backtracking amount,
+      solver time, puzzle size, and clue density into a single numeric
+      score.
+    source: [US-008]
+    acceptance:
+      - id: AC-022
+        given: solver signals for a 15x15 candidate (80% of cells solved by line-logic, low backtracking, 0.2s solve time)
+        when: the candidate is scored
+        then: a single numeric difficulty score is produced reflecting the weighted combination of all signals
+        kind: happy
+        test: TestScoreDifficulty_CombinesSignals
+      - id: AC-023
+        given: a candidate solved entirely by line-logic with zero backtracking
+        when: the candidate is scored
+        then: the score falls at the easiest end of the scale
+        kind: boundary
+        test: TestScoreDifficulty_ZeroBacktrackingScoresEasiest
+
+  - id: FR-010
+    statement: >-
+      Regenerate or resample a candidate puzzle until its estimated
+      difficulty score falls within the requested tier's threshold range,
+      bounded by a maximum retry count.
+    source: [US-008]
+    acceptance:
+      - id: AC-024
+        given: a scored candidate whose score falls within the requested "Hard" tier's threshold range
+        when: the score is checked
+        then: the candidate is accepted as final and no further resampling occurs
+        kind: happy
+        test: TestResample_AcceptsCandidateInRange
+      - id: AC-025
+        given: a scored candidate whose score falls outside the requested tier's threshold range
+        when: the score is checked
+        then: the resample policy fires and a new candidate is generated
+        kind: boundary
+        policy: POL-004
+        test: TestResample_FiresWhenScoreOutOfRange
+      - id: AC-026
+        given: a newly resampled candidate produced in response to an out-of-range score
+        when: the resample completes
+        then: the new candidate is re-scored automatically before any further check
+        kind: boundary
+        policy: POL-004
+        test: TestResample_RescoresNewCandidate
+      - id: AC-027
+        given: a candidate that has already been resampled up to the configured maximum retry bound without matching the requested tier
+        when: the score is checked again
+        then: generation is abandoned with a clear error
+        kind: boundary
+        invariant: INV-003
+        policy: POL-005
+        test: TestResample_StopsAtMaxRetryBound
+
+  - id: FR-011
+    statement: >-
+      Export a finalized puzzle (clues + blank grid) as PNG and/or SVG
+      suitable for printing.
+    source: [US-009]
+    acceptance:
+      - id: AC-028
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as PNG
+        then: a PNG file containing the blank grid and clues is written to disk
+        kind: happy
+        test: TestExport_WritesPNG
+      - id: AC-029
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as SVG
+        then: an SVG file containing the blank grid and clues is written to disk
+        kind: happy
+        test: TestExport_WritesSVG
+      - id: AC-030
+        given: a puzzle that has not yet passed the uniqueness check
+        when: export is requested
+        then: export is rejected and nothing is written, because the puzzle is not ready
+        kind: negative
+        invariant: INV-002
+        test: TestExport_RejectsUnverifiedPuzzle
+
+  - id: FR-012
+    statement: >-
+      Export the underlying solution grid and clues as JSON and/or CSV,
+      sufficient to exactly reconstruct the puzzle.
+    source: [US-010]
+    acceptance:
+      - id: AC-031
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as JSON
+        then: the JSON file contains the full solution grid and clues
+        kind: happy
+        test: TestExport_WritesJSON
+      - id: AC-032
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as CSV
+        then: the CSV file contains the full solution grid and clues
+        kind: happy
+        test: TestExport_WritesCSV
+      - id: AC-033
+        given: a puzzle exported as JSON
+        when: that JSON is decoded back
+        then: the resulting grid and clues are exactly identical to the original puzzle's
+        kind: boundary
+        test: TestExport_JSONRoundTripsExactly
+    engineering_constraints:
+      - id: EC-002
+        statement: >-
+          For any finalized puzzle, decoding its exported JSON or CSV
+          representation reproduces the exact original solution grid and
+          clues.
+        kind: consistency
+        instances: [AC-033]
+        test: PropertyTest_Export_RoundTripsExactlyForAnyPuzzle
+
+  - id: FR-013
+    statement: >-
+      When an uploaded image's converted grid fails the uniqueness check,
+      attempt a bounded number of automatic pixel nudges and re-check; if
+      still not unique after the capped attempts, report failure to the
+      user rather than continuing to alter the image silently.
+    source: [US-007]
+    acceptance:
+      - id: AC-034
+        given: an uploaded image whose initial conversion fails the uniqueness check, with nudge attempts remaining under the cap
+        when: the auto-nudge policy evaluates
+        then: a bounded pixel nudge is applied automatically and the result is re-checked
+        kind: happy
+        policy: POL-002
+        test: TestNudge_AttemptsBoundedRecovery
+      - id: AC-035
+        given: an uploaded image conversion that has exhausted the configured nudge cap without reaching uniqueness
+        when: the uniqueness check is evaluated again
+        then: the tool reports failure to the user and stops altering the image
+        kind: boundary
+        invariant: INV-003
+        policy: POL-003
+        test: TestNudge_ReportsFailureAtCap
+      - id: AC-036
+        given: a reported nudge-cap failure
+        when: the failure is presented to the user
+        then: the message states that the user should retry with a different image or size
+        kind: negative
+        test: TestNudge_FailureMessageSuggestsRetry
+
+  - id: FR-014
+    statement: >-
+      When image-mode generation required one or more automatic pixel
+      nudges (FR-013) to reach a unique solution, report the count of
+      nudged cells to the user as a line in CLI output at export time.
+    source: [US-007]  # requirement introduced by ADR-0004, resolving DEC-004
+    acceptance:
+      - id: AC-040
+        given: an exported puzzle whose image conversion required 2 pixel nudges to reach uniqueness
+        when: the puzzle is exported
+        then: the CLI output includes a line stating that 2 cells were nudged
+        kind: happy
+        test: TestExport_ReportsNudgeCount
+      - id: AC-041
+        given: an exported puzzle whose image conversion reached uniqueness with zero nudges
+        when: the puzzle is exported
+        then: no nudge-count line is printed
+        kind: boundary
+        test: TestExport_OmitsNudgeCountWhenZero
+
+  - id: FR-015
+    statement: >-
+      Give every puzzle a name, which becomes an attribute of the Puzzle
+      aggregate (AGG-001) set at creation time: auto-generated by default
+      (the library key for library-sourced puzzles, e.g. "cat"; a
+      mode+timestamp for random/image-sourced puzzles, e.g.
+      "random-2026-08-27-1430"), or overridden via a --name flag.
+    source: [US-011]
+    acceptance:
+      - id: AC-042
+        given: a random-mode generation request with no --name flag, run on 2026-08-27 at 14:30
+        when: the puzzle is created
+        then: the puzzle's name is auto-generated as "random-2026-08-27-1430"
+        kind: happy
+        test: TestPuzzleName_AutoGeneratesModeTimestampForRandomMode
+      - id: AC-043
+        given: a library-mode generation request for library key "cat" with no --name flag
+        when: the puzzle is created
+        then: the puzzle's name is auto-generated as "cat"
+        kind: happy
+        test: TestPuzzleName_AutoGeneratesFromLibraryKey
+      - id: AC-044
+        given: a generation request with --name "my-cat-puzzle" supplied
+        when: the puzzle is created
+        then: the puzzle's name is set to "my-cat-puzzle", overriding the auto-generated default
+        kind: happy
+        test: TestPuzzleName_OverrideViaFlag
+      - id: AC-045
+        given: a generation request with --name "" (an empty string) supplied
+        when: the puzzle is created
+        then: the request is rejected with an invalid-name error and no puzzle is created
+        kind: negative
+        test: TestPuzzleName_RejectsEmptyName
+
+  - id: FR-016
+    statement: >-
+      Export a finalized, uniqueness-confirmed puzzle as a single two-page
+      PDF: page 1 is the blank puzzle with clues (for solving), page 2 is
+      the answer key (solution grid revealed); both pages show the
+      puzzle's name (FR-015) and difficulty tier as a header.
+    source: [US-012]
+    acceptance:
+      - id: AC-046
+        given: a finalized, uniqueness-confirmed puzzle named "cat" with difficulty tier "Medium"
+        when: it is exported as PDF
+        then: a two-page PDF file is written to disk whose page 1 shows the blank grid with clues and a header reading "cat — Medium"
+        kind: happy
+        test: TestExport_WritesPDFPageOneBlankWithHeader
+      - id: AC-047
+        given: the same finalized puzzle exported as PDF
+        when: page 2 is inspected
+        then: page 2 shows the revealed solution grid with the same "cat — Medium" header
+        kind: happy
+        test: TestExport_WritesPDFPageTwoAnswerKeyWithHeader
+      - id: AC-048
+        given: a puzzle that has not yet passed the uniqueness check
+        when: PDF export is requested
+        then: export is rejected and no PDF file is written, because the puzzle is not ready
+        kind: negative
+        invariant: INV-002
+        test: TestExport_RejectsUnverifiedPuzzleForPDF
+
+non_functional:
+  - id: NFR-001
+    category: performance
+    metric: generation_completion_time_p95
+    threshold: "5s p95 for <=20x20; 30s hard timeout for >20x20 up to 50x50 (ADR-0001)"
+    condition: >-
+      grid size <= 20x20, including any regenerate-on-failure retries, on
+      typical developer hardware
+    rationale: >-
+      Puzzle generation, including the regenerate loop, should stay within
+      interactive time for common sizes (docs/requirements.md NFR-1).
+    acceptance:
+      - id: AC-037
+        given: a 20x20 random-grid generation request under typical hardware
+        when: generation runs, including any regenerate retries
+        then: p95 completion time <= 5s
+        kind: boundary
+        test: BenchGenerate_20x20_p95Under5s
+      - id: AC-038
+        given: a 50x50 random-grid generation request (the largest supported size)
+        when: generation runs
+        then: it completes within 30s or fails clearly with a SolverTimeout error (cooperative deadline enforced inside the solver — ADR-0011) — it never hangs indefinitely
+        kind: boundary
+        test: TestGenerate_50x50_RespectsTimeoutBound
+
+  - id: NFR-002
+    category: maintainability
+    metric: max_retry_iterations
+    threshold: "20 regenerate/resample attempts; 5 pixel-nudge attempts (ADR-0002)"
+    condition: >-
+      the regenerate-on-failure loop (uniqueness check and/or difficulty
+      resampling) and the image pixel-nudge loop, for any single
+      generation request
+    rationale: >-
+      Without a hard bound, an infeasible request (e.g. an unreachable
+      difficulty at a given size) would loop forever (docs/requirements.md
+      NFR-2).
+    acceptance:
+      - id: AC-039
+        given: a generation request whose candidates never pass the uniqueness or difficulty check
+        when: the retry loop runs
+        then: it stops after at most the configured maximum retry count (20 regenerate/resample attempts, 5 pixel-nudge attempts — ADR-0002) and reports a clear failure instead of looping indefinitely
+        kind: boundary
+        invariant: INV-003
+        test: TestRetryLoop_BoundedIterations
+
+constraints:
+  - id: CON-001
+    type: technical
+    statement: >-
+      Target interface is a CLI tool; no web/GUI in v1.
+    source: docs/requirements.md Section 2, Decisions Log #5
+  - id: CON-002
+    type: technical
+    statement: >-
+      No playable/interactive puzzle output in v1 — only the static PNG/SVG,
+      JSON/CSV, and PDF exports (FR-011, FR-012, FR-016). Deferred; see
+      meta/kanban/backlog.md.
+    source: docs/requirements.md FR-14, Decisions Log #1
+  - id: CON-003
+    type: organizational
+    statement: >-
+      No multiplayer, user accounts, or persistence beyond local file
+      export, ever.
+    source: meta/business/vision.md Non-goals
+  - id: CON-004
+    type: technical
+    statement: >-
+      Difficulty classification (Easy/Medium/Hard) is a heuristic
+      score-threshold bucket, not a construction guarantee — an "Easy"
+      puzzle is not strictly guaranteed to be solvable without any
+      backtracking, only scored as likely easy.
+    source: docs/requirements.md FR-8, Decisions Log #2
+  - id: CON-005
+    type: technical
+    statement: >-
+      The uniqueness check must never produce a false positive: a puzzle
+      accepted as unique must never actually have 0 or more than 1
+      solutions. This is the mandatory correctness property the whole
+      tool depends on.
+    source: docs/requirements.md NFR-3
+    check:
+      kind: test
+      ref: PropertyTest_Solver_NeverFalsePositiveUniqueness
+    severity: mandatory
+  - id: CON-006
+    type: technical
+    statement: >-
+      PDF export renders each page as a raster image via the existing PNG
+      rendering path (FR-011) and combines them into a multi-page PDF
+      using Pillow's built-in PDF save capability; no new third-party
+      dependency is introduced, and ADR-0006's dependency baseline (stdlib
+      + Pillow + NumPy) is not reopened.
+    source: US-012, 2026-08-27

@@ -1,0 +1,84 @@
+# generated_by: forge:brainstorm
+# generated_at: 2026-08-27
+terms:
+  - id: TERM-001
+    term: Nonogram
+    definition: A picture logic puzzle solved by filling cells in a grid according to numeric row/column clues, revealing a picture.
+    context: shared
+    aliases: [Picross, Griddler]
+    source: [US-001]
+  - id: TERM-002
+    term: Clue
+    definition: The sequence of numbers for one row or column giving the lengths, in order, of consecutive runs of filled cells in that line.
+    context: shared
+    source: [US-004]
+  - id: TERM-003
+    term: Solution grid
+    definition: The underlying black/white pixel grid a puzzle's clues are derived from; hidden from the player, used to verify solving.
+    context: shared
+    source: [US-001]
+  - id: TERM-004
+    term: Uniqueness check
+    definition: >-
+      Running a nonogram solver against a puzzle's clues to confirm that
+      exactly one grid satisfies them. Sameness of two candidate solution
+      grids is defined as: every (row, column) cell matches exactly,
+      position-for-position, between the two grids — grid equality is
+      computed from a full cell-by-cell comparison, nothing looser (no
+      rotation/reflection/palette normalization). The solver counts a
+      candidate as a distinct ("second") solution the moment it finds any
+      grid that is not equal by this definition to the first one found,
+      and stops searching further once a second distinct grid is found
+      (fail-fast on ambiguity, FR-006).
+    context: shared
+    source: [US-005]
+  - id: TERM-005
+    term: Difficulty score
+    definition: A heuristic numeric score combining solver signals (line-logic coverage, backtracking amount, solver time, clue density) used to bucket a puzzle into Easy, Medium, or Hard.
+    context: shared
+    aliases: [Difficulty tier, Difficulty level]
+    source: [US-008]
+  - id: TERM-006
+    term: Puzzle
+    definition: The playable definition handed to the solver of a nonogram — clues plus grid dimensions. Distinct from the solution grid, which stays hidden from the player.
+    context: shared
+    source: [US-004, docs/requirements.md#3]
+  - id: TERM-007
+    term: Density
+    definition: The approximate percentage of filled cells requested when generating a random grid.
+    context: shared
+    source: [FR-004, docs/requirements.md#FR-4]
+  - id: TERM-008
+    term: Pixel nudge
+    definition: A bounded, automatic flip of a small number of cells in an uploaded image's converted grid, attempted when the initial conversion does not yield a unique-solution puzzle.
+    context: shared
+    aliases: [pixel adjustment]
+    source: [US-007, docs/requirements.md#FR-16]
+  - id: TERM-009
+    term: Distinct solution
+    definition: >-
+      The equality relation CON-005, INV-002, and EC-001 all depend on but
+      do not individually restate: two solution grids are the SAME solution
+      if and only if they are identical cell-by-cell across every (row,
+      column) position, compared using the list[list[bool]] boundary
+      representation fixed by ADR-0012 — no rotation, reflection, or
+      palette normalization. "Distinct" means not the same by this
+      definition. A puzzle's clue set inherits the same equality
+      transitively: two clue sets are the same puzzle only if every solution
+      grid consistent with one is also consistent with the other under this
+      definition. This is the exact relation the solver's fail-fast rule
+      (AC-017) and the mandatory correctness property (CON-005) test
+      against.
+    context: shared
+    source: [CON-005, INV-002, EC-001, AC-017, ADR-0012]
+  - id: TERM-010
+    term: Puzzle name
+    definition: >-
+      A human-readable label identifying one puzzle instance, set as an
+      attribute of the Puzzle aggregate at creation time — either
+      auto-generated (the library key for library-sourced puzzles, or a
+      mode+timestamp for random/image-sourced puzzles) or supplied by the
+      user via --name. Shown as a header on exported PDF pages alongside
+      the difficulty tier.
+    context: shared
+    source: [US-011, US-012]

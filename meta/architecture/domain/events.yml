@@ -1,0 +1,88 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+events:
+  - id: EVT-001
+    name: RandomGridGenerated
+    triggered_by: CMD-001
+    aggregate: AGG-001
+    source: [US-001]
+    payload_summary: size, density, grid
+  - id: EVT-002
+    name: LibraryGridGenerated
+    triggered_by: CMD-002
+    aggregate: AGG-001
+    source: [US-002]
+    payload_summary: library_key, size, grid
+  - id: EVT-003
+    name: UploadedImageConverted
+    triggered_by: CMD-003
+    aggregate: AGG-001
+    source: [US-003]
+    payload_summary: source_image_path, size, grid
+  - id: EVT-004
+    name: CluesComputed
+    triggered_by: CMD-004
+    aggregate: AGG-001
+    source: [US-004]
+    payload_summary: row_clues, column_clues
+  - id: EVT-005
+    name: PuzzleUniquenessConfirmed
+    triggered_by: CMD-005
+    aggregate: AGG-001
+    source: [US-005]
+    payload_summary: solution_count=1
+  - id: EVT-006
+    name: PuzzleUniquenessCheckFailed
+    triggered_by: CMD-005
+    aggregate: AGG-001
+    source: [US-005, US-006, US-007]
+    payload_summary: solution_count (0 or >1), mode
+  - id: EVT-007
+    name: PuzzleRegenerated
+    triggered_by: CMD-006
+    aggregate: AGG-001
+    source: [US-006]
+    payload_summary: retry_count, new_grid
+  - id: EVT-008
+    name: ImagePixelsAdjusted
+    triggered_by: CMD-007
+    aggregate: AGG-001
+    source: [US-007]
+    payload_summary: nudge_count, cells_flipped, new_grid
+  - id: EVT-009
+    name: ImageConversionFailed
+    triggered_by: CMD-008
+    aggregate: AGG-001
+    source: [US-007]
+    payload_summary: nudge_count_at_cap, reason
+  - id: EVT-010
+    name: DifficultyScored
+    triggered_by: CMD-009
+    aggregate: AGG-001
+    source: [US-008]
+    payload_summary: score, signals(line_logic_coverage, backtracking_amount, solver_time, size, clue_density)
+  - id: EVT-011
+    name: PuzzleResampledForDifficulty
+    triggered_by: CMD-010
+    aggregate: AGG-001
+    source: [US-008]
+    payload_summary: retry_count, requested_tier, new_grid
+  - id: EVT-012
+    name: GenerationAbandoned
+    triggered_by: CMD-011
+    aggregate: AGG-001
+    source: [US-006, US-007, US-008]
+    payload_summary: reason(uniqueness|difficulty|nudge_cap), retry_count_at_abandon
+  - id: EVT-013
+    name: PuzzleExportedAsImage
+    triggered_by: CMD-012
+    aggregate: AGG-001
+    source: [US-009]
+    payload_summary: format(png|svg), file_path
+  - id: EVT-014
+    name: PuzzleExportedAsData
+    triggered_by: CMD-013
+    aggregate: AGG-001
+    source: [US-010]
+    payload_summary: format(json|csv), file_path

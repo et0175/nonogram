@@ -1,0 +1,24 @@
+# generated_by: forge:architect-adr-writer
+# generated_at: 2026-08-27
+platform:
+  stack:
+    value: "Python 3.14 + Pillow + NumPy"
+    label: pillow_plus_numpy
+    decided_by: ADR-0006
+    status: confirmed
+  style:
+    value: >-
+      Layered pipeline package: one module per capability (sourcing/,
+      clues.py, solver/, difficulty.py, export/), a thin orchestrator owning
+      the Puzzle aggregate, a cli.py adapter limited to argument parsing.
+      Dependencies point inward only.
+    label: layered_pipeline_package
+    decided_by: ADR-0007
+    status: confirmed
+  runtime:
+    value: >-
+      Installable src-layout package (pyproject.toml, PEP 621), a
+      [project.scripts] console entry point, single local process.
+    label: installable_package_pyproject
+    decided_by: ADR-0008
+    status: confirmed

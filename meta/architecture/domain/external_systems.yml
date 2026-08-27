@@ -1,0 +1,8 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+# No external systems: per meta/business/vision.md "Context constraints", this
+# is a standalone CLI tool with no network dependency. Local file I/O (reading
+# an optional source image; writing PNG/SVG/JSON/CSV) is infrastructure, not a
+# third-party or sibling-owned system, so it is not modeled as EXT-XXX.
+external_systems: []

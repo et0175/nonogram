@@ -1,0 +1,30 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+aggregates:
+  - id: AGG-001
+    name: Puzzle
+    description: >-
+      One puzzle-generation attempt, from the moment a source grid is
+      obtained (random / built-in library / uploaded image) through clue
+      computation, uniqueness verification, difficulty scoring, and export.
+      Mode (random | library | image), size, density, and requested
+      difficulty tier are attributes of the same instance across its
+      regenerate/resample/nudge retries — it is not re-created per retry,
+      which is why the retry/nudge counter is one invariant on one
+      aggregate rather than a cross-aggregate concern.
+    invariants:
+      - id: INV-001
+        statement: >-
+          A puzzle's row and column clues always equal the run-length
+          encoding of its current solution grid (US-004, FR-005).
+      - id: INV-002
+        statement: >-
+          A puzzle is only marked ready for export after its uniqueness
+          check has confirmed exactly one solution (US-005, FR-011).
+      - id: INV-003
+        statement: >-
+          A puzzle's automatic-retry counter (regenerate attempts for
+          random/library mode, resample attempts for difficulty matching,
+          or pixel-nudge attempts for image mode) never exceeds its
+          configured maximum bound (NFR-002).

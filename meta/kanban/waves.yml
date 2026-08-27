@@ -1,0 +1,136 @@
+# generated_by: forge:kanban decompose
+# generated_at: 2026-08-27
+#
+# Wave -> increment mapping and the checkpoints `run` demands at wave end.
+# Checkpoint / Collapses / Rollback are carried verbatim from the
+# `**Checkpoint:**` / `**Collapses:**` / `**Rollback:**` lines of
+# meta/architecture/handoff.md.
+#
+# An increment spans several waves (the increments describe walking-skeleton
+# ordered scope, not card granularity). The increment's checkpoint is demanded
+# at the LAST wave of that increment; intermediate waves carry `checkpoint: null`
+# and are not gated.
+
+waves:
+  # ---------------------------------------------------------- Increment 1
+  - wave: 1
+    increment: 1
+    cards: [CARD-001]
+    checkpoint: null
+    collapses: []
+    rollback: "No persisted state, no point of no return — revert the feature branch."
+    status: pending
+
+  - wave: 2
+    increment: 1
+    cards: [CARD-002, CARD-003]
+    checkpoint: null
+    collapses: []
+    rollback: "No persisted state, no point of no return — revert the feature branch."
+    status: pending
+
+  - wave: 3
+    increment: 1
+    cards: [CARD-004]
+    checkpoint: null
+    collapses: []
+    rollback: "No persisted state, no point of no return — revert the feature branch."
+    status: pending
+
+  - wave: 4
+    increment: 1
+    cards: [CARD-005]
+    checkpoint: null
+    collapses: []
+    rollback: "No persisted state, no point of no return — revert the feature branch."
+    status: pending
+
+  - wave: 5
+    increment: 1
+    terminal_for_increment: true
+    cards: [CARD-006, CARD-007]
+    checkpoint: >-
+      `nonogram generate --mode random --size 10 --seed 42 --export json` produces a
+      valid, uniqueness-confirmed puzzle end-to-end.
+      `PropertyTest_Solver_NeverFalsePositiveUniqueness` (ADR-0014's brute-force oracle)
+      passes on >=1000 random <=8x8 grids. A 50x50 request either completes within 30s or
+      fails cleanly with `SolverTimeout` (ADR-0011) — never hangs.
+    collapses: [CON-005, DEC-009, ADR-0009, INV-002, INV-003, NFR-001]
+    rollback: "No persisted state, no point of no return — revert the feature branch."
+    status: pending
+
+  # ---------------------------------------------------------- Increment 2
+  - wave: 6
+    increment: 2
+    cards: [CARD-008, CARD-009, CARD-011, CARD-012, CARD-013]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Export, scoring, and naming are additive on top of increment 1 — revert without
+      touching the solver or orchestrator's core generation logic.
+    status: pending
+
+  - wave: 7
+    increment: 2
+    cards: [CARD-010]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Export, scoring, and naming are additive on top of increment 1 — revert without
+      touching the solver or orchestrator's core generation logic.
+    status: pending
+
+  - wave: 8
+    increment: 2
+    terminal_for_increment: true
+    cards: [CARD-014]
+    checkpoint: >-
+      Generating at each of Easy/Medium/Hard produces a puzzle whose score falls in that
+      tier's tertile band. All five export formats (PNG/SVG/JSON/CSV/PDF) are produced for
+      one puzzle; decoding the JSON export reproduces the exact original grid and clues
+      (EC-002); the PDF has a puzzle page and an answer-key page, headered with name +
+      difficulty, filed as `<name>-<difficulty>.pdf` (auto-suffixed on collision,
+      ADR-0017). Library key "cat" produces the expected grid; an unknown key is rejected
+      (AC-006).
+    collapses: [FR-008, FR-009, FR-010, EC-002, FR-002, FR-015, FR-016]
+    rollback: >-
+      Export, scoring, and naming are additive on top of increment 1 — revert without
+      touching the solver or orchestrator's core generation logic.
+    status: pending
+
+  # ---------------------------------------------------------- Increment 3
+  - wave: 9
+    increment: 3
+    cards: [CARD-015]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Image sourcing is the last additive module — revert without touching random/library
+      modes, the solver, or export.
+    status: pending
+
+  - wave: 10
+    increment: 3
+    cards: [CARD-016]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Image sourcing is the last additive module — revert without touching random/library
+      modes, the solver, or export.
+    status: pending
+
+  - wave: 11
+    increment: 3
+    terminal_for_increment: true
+    cards: [CARD-017]
+    checkpoint: >-
+      A sample photo converted at 20x20 yields a puzzle. When conversion doesn't reach
+      uniqueness immediately, the nudge loop resolves it within 5 attempts or reports
+      failure with a retry-suggestion message (AC-036). When nudges were applied, CLI
+      output states the count (AC-040); when zero nudges were needed, no line is printed
+      (AC-041).
+    collapses: [FR-003, FR-013, FR-014]
+    rollback: >-
+      Image sourcing is the last additive module — revert without touching random/library
+      modes, the solver, or export.
+    status: pending

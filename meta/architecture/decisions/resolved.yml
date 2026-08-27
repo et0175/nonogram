@@ -1,0 +1,75 @@
+# generated_by: forge:architect-adr-writer
+# generated_at: 2026-08-27
+resolved:
+  - id: DEC-001
+    resolved_by: ADR-0001
+    resolved_at: 2026-08-27
+    resolution_label: 5s_cap_30s_timeout
+  - id: DEC-002
+    resolved_by: ADR-0002
+    resolved_at: 2026-08-27
+    resolution_label: 20_retries_5_nudges
+  - id: DEC-003
+    resolved_by: ADR-0003
+    resolved_at: 2026-08-27
+    resolution_label: plus_minus_3_points
+  - id: DEC-004
+    resolved_by: ADR-0004
+    resolved_at: 2026-08-27
+    resolution_label: diff_count_only
+  - id: DEC-005
+    resolved_by: ADR-0005
+    resolved_at: 2026-08-27
+    resolution_label: tertile_split
+  - id: DEC-006
+    resolved_by: ADR-0006
+    resolved_at: 2026-08-27
+    resolution_label: pillow_plus_numpy
+  - id: DEC-007
+    resolved_by: ADR-0007
+    resolved_at: 2026-08-27
+    resolution_label: layered_pipeline_package
+  - id: DEC-008
+    resolved_by: ADR-0008
+    resolved_at: 2026-08-27
+    resolution_label: installable_package_pyproject
+  - id: DEC-009
+    resolved_by: ADR-0009
+    resolved_at: 2026-08-27
+    resolution_label: hand_rolled_line_solver
+  - id: DEC-010
+    resolved_by: ADR-0010
+    resolved_at: 2026-08-27
+    resolution_label: stdlib_argparse
+  - id: DEC-011
+    resolved_by: ADR-0011
+    resolved_at: 2026-08-27
+    resolution_label: cooperative_deadline_in_solver
+  - id: DEC-012
+    resolved_by: ADR-0012
+    resolved_at: 2026-08-27
+    resolution_label: int_bitmask_per_line
+  - id: DEC-013
+    resolved_by: ADR-0013
+    resolved_at: 2026-08-27
+    resolution_label: normalized_weighted_sum
+  - id: DEC-014
+    resolved_by: ADR-0014
+    resolved_at: 2026-08-27
+    resolution_label: brute_force_reference_oracle
+  - id: DEC-015
+    resolved_by: ADR-0015
+    resolved_at: 2026-08-27
+    resolution_label: explicit_seed_flag_recorded_in_export
+  - id: DEC-016
+    resolved_by: ADR-0016
+    resolved_at: 2026-08-27
+    resolution_label: name_plus_difficulty
+  - id: DEC-017
+    resolved_by: ADR-0017
+    resolved_at: 2026-08-27
+    resolution_label: auto_suffix
+  - id: DEC-018
+    resolved_by: ADR-0018
+    resolved_at: 2026-08-27
+    resolution_label: counter_suffix

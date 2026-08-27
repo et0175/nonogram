@@ -1,0 +1,48 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+policies:
+  - id: POL-001
+    name: AutoRegenerateOnUniquenessFailure
+    when: "EVT-006 + mode in {random, library} + retry_count < max_retries"
+    then: CMD-006
+    rationale: >-
+      US-006: the user should not have to manually retry until a random or
+      library-sourced puzzle happens to be unique — the tool discards a
+      non-unique candidate and tries again automatically.
+  - id: POL-002
+    name: AutoNudgePixelsOnImageUniquenessFailure
+    when: "EVT-006 + mode == image + nudge_count < max_nudge_cap"
+    then: CMD-007
+    rationale: >-
+      US-007/FR-016: an uploaded image is fixed and can't be silently
+      regenerated from scratch, so the recovery is a small, bounded pixel
+      adjustment instead of discarding the user's picture.
+  - id: POL-003
+    name: ReportFailureWhenNudgeCapExhausted
+    when: "EVT-006 + mode == image + nudge_count >= max_nudge_cap"
+    then: CMD-008
+    rationale: >-
+      FR-016 (Decisions Log #4 in docs/requirements.md): once the bounded
+      nudge attempts are exhausted, the tool must stop altering the user's
+      image silently and report failure instead, letting the user retry
+      with a different image or size.
+  - id: POL-004
+    name: ResampleOnDifficultyOutOfRange
+    when: "EVT-010 + score outside requested tier's threshold range + retry_count < max_retries"
+    then: CMD-010
+    rationale: >-
+      US-008/FR-011: a candidate whose difficulty score misses the
+      requested tier is not handed to the user — the tool resamples
+      automatically until the score lands in range or the retry bound is
+      hit.
+  - id: POL-005
+    name: AbandonAfterMaxRetries
+    when: "(EVT-006 or EVT-010 out-of-range) + retry_count >= max_retries"
+    then: CMD-011
+    rationale: >-
+      NFR-002: the regenerate/resample loop must have a maximum
+      retry/iteration bound so an infeasible request (e.g. an unreachable
+      difficulty at a given size, or a size/density combination that
+      rarely yields a unique puzzle) fails clearly instead of looping
+      forever.

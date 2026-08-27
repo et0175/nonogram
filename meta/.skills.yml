@@ -1,0 +1,63 @@
+version: 1
+stage: early-mvp
+language: en
+
+# Pin the machinery this project's procedures assume.
+forge:
+  min_version: "2026.8.17"
+  skew_gate: block
+
+paths:
+  architecture: meta/architecture/
+  kanban: meta/kanban/
+  backlog: meta/kanban/backlog.md
+  backlog_scored: meta/kanban/backlog-scored.yml
+  roadmap: meta/kanban/roadmap.md
+  review_reports: meta/review/
+  fix_suppress: .claude/fix-suppress.yaml
+  retro: meta/kanban/retro.md
+
+methodology:
+  default: wsjf
+  per_category:
+    feature: rice
+    enabler: wsjf
+    tech-debt: wsjf
+    compliance: wsjf
+    ops: fifo
+
+# capacity omitted — taken from stage (early-mvp)
+extra_categories: []
+
+# No frontend detected — ui: block omitted.
+
+# Small personal tool, not a market-facing product — research/marketing left off.
+# research:
+#   enabled: true
+#   max_leaders: 7
+# marketing:
+#   enabled: true
+
+# CI drift gate — .github/workflows/forge.yml scaffolded by this init run.
+# Inert until pushed to a GitHub remote with a FORGE_TOKEN secret configured.
+ci:
+  enabled: true
+  gates:
+    validator_errors: error
+    blocking_decisions: error
+    stale_artifacts: warn
+    reverse_pending: warn
+    audit_staleness: warn
+
+stakeholder_checkpoint:
+  # Solo hobby project, no external stakeholders to review async — the
+  # brainstorm HARD-GATE (user approval of captured inputs) already serves
+  # this purpose. Waived 2026-08-27.
+  skip: true
+
+# Model profiles for spawning subagents (architect, kanban).
+models:
+  profile: balanced
+
+git_tracking:
+  preset: solo
