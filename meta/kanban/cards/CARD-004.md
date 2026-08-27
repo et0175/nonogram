@@ -118,3 +118,10 @@ sentinel fed into it silently mismatches rather than erroring. If this card need
 line-vs-clue check during propagation, implement it natively against the bitmask
 representation; if it needs a POST-HOC full-line sanity check, `clue_matches_line` is
 fine for that narrower use only.
+
+[Follow-up from CARD-002 review, cycle 2] The same caveat applies to `clues.encode_line`
+itself, not just `clue_matches_line`: its docstring still says it "accepts any iterable
+of truthy/falsy cells so the solver's line logic can pass a generator or a transposed
+column," which invites the identical partial-line misuse (a `None`/unknown-cell sentinel
+is silently read as falsy/empty, not rejected). Do not feed partial lines to
+`encode_line` either — both functions are scoped to complete lines only.
