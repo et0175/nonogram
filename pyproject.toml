@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nonogram"
+version = "0.1.0"
+description = "Command-line generator for uniquely-solvable black-and-white nonogram puzzles."
+requires-python = ">=3.14"
+authors = [{ name = "Puzzle Creator" }]
+keywords = ["nonogram", "puzzle", "generator", "cli"]
+classifiers = [
+  "Environment :: Console",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Games/Entertainment :: Puzzle Games",
+]
+
+# ADR-0006 dependency baseline: stdlib + Pillow + NumPy. This list is CLOSED —
+# every later card inherits it and must not add a third-party runtime
+# dependency (CARD-001 guardrail G-2).
+#   Pillow — image decode/resize/dither on the way in (FR-003) and PNG/PDF
+#            rendering on the way out (FR-011, FR-016, CON-006).
+#   NumPy  — dense boolean-matrix work at the solver boundary (FR-006,
+#            NFR-001, narrowed by ADR-0012).
+dependencies = [
+  "Pillow>=11.0",
+  "numpy>=2.1",
+]
+
+[project.optional-dependencies]
+# Development-only; not part of the ADR-0006 runtime baseline.
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+nonogram = "nonogram.cli:main"
+
+[tool.setuptools.packages.find]
+# src-layout (ADR-0008).
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q"
