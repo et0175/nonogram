@@ -106,8 +106,16 @@ def clue_matches_line(clue: Sequence[int], line: Iterable[bool]) -> bool:
     """Is ``clue`` exactly the run-length encoding of ``line``? (INV-001)
 
     The inverse of :func:`encode_line`, and the check AC-014 applies to every
-    row and column of a grid. Used by the solver's line logic to accept or
-    reject a candidate placement of a line.
+    row and column of a grid.
+
+    Scoped to *complete* lines only: ``line`` must be a finished sequence of
+    booleans, every cell known to be filled or empty. There is no type check
+    here, and any falsy value reads as empty and any truthy value reads as
+    filled — so a partial-line representation (the solver's per-ADR-0012
+    internal state during search, where a cell can also be "unknown") is
+    silently misread rather than rejected. A solver hot-loop that reasons
+    about partial lines must not call this as-is; it needs its own
+    three-valued check.
 
     The comparison is *exact*, in both directions: ``(2, 3)`` matches only a
     line whose filled runs are 2 then 3, and an all-empty line is matched only
