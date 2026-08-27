@@ -2,11 +2,11 @@ wave: 3
 mode: interactive
 active:
   - id: CARD-004
-    phase: review
+    phase: fix
     review_cycle: 1
     branch: card/004-solver-uniqueness
     worktree: ../PythonProject4-card-004
     started: 2026-08-27T16:59:52Z
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-27T20:53:00Z
+last_updated: 2026-08-27T21:12:00Z
