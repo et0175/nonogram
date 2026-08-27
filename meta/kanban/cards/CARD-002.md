@@ -140,3 +140,49 @@ reverted. `test_cli.py`'s disk-discovered ADR-0007 layering test picks up `clues
 automatically and passes — the module imports nothing from `nonogram`.
 
 No blockers.
+
+**Review cycle 1 fix (score 7.0/10, gate 8.0).** The review found a CRITICAL
+defect: `TestComputeClues_MatchesGridExactly` was a tautology.
+`compute_clues` derives clues via `encode_line`, and `clue_matches_line`
+re-derives its own expectation by calling `encode_line` again on the same
+line — so the "matches grid exactly" assertion reduced to
+`encode_line(x) == encode_line(x)`, true for any implementation of
+`encode_line`, correct or not, since both sides shared the same function and
+thus any defect in it. The reviewer proved this by mutation testing:
+patching `encode_line` to reverse run order for every line longer than 21
+cells still passed all 166 tests in the file.
+
+Fixed by adding `_reference_encode_line` to `tests/test_clues.py`: a
+from-scratch run-length encoder written with `itertools.groupby`, sharing no
+code with `clues.encode_line`, used as an independent oracle against both
+the ~72-case (now widened, see below) property sweep and the hand-written
+edge-case examples in `test_encodes_run_lengths_at_the_edges`. Manually
+confirmed it discriminates: reproducing the reviewer's exact mutation
+(reverse run order for lines > 21 cells) now fails immediately on the new
+`_reference_encode_line` assertions, while `clue_matches_line`'s own
+assertion still passes — exactly the gap the review identified, now closed.
+
+Also widened the seeded property sweep (I-2) from ~72 to 182 grids: 9 sizes
+x 9 densities for square grids, plus 10 non-square shapes each swept across
+all 9 densities (previously non-square grids were sampled at one fixed
+density only). Still fully deterministic via the same seeded
+`random.Random`.
+
+**Correction (I-1) to this card's own earlier claim:** the line above
+calling `clue_matches_line` "the accept/reject predicate the solver's line
+logic needs" overstated its applicability. Per ADR-0012, the solver's
+internal state during search is partial/three-valued (a cell can be
+filled/empty/unknown), and `clue_matches_line` has no type check — it
+treats any falsy value as empty and any truthy value as filled, so it would
+silently misread a partial line rather than reject it. `clue_matches_line`
+is scoped to **complete** lines only (used correctly here for AC-014's
+finished-grid check); a partial-line consumer in the solver's hot loop
+(CARD-004) must not call it as-is and needs its own three-valued check.
+`clues.py`'s docstring for the function has been updated to say so
+explicitly. (CARD-004's card already carries a note about this from the
+orchestrator; this is the corresponding fix on the CARD-002 side so this
+card's notes stop overstating the function's scope.)
+
+**Verification.** `./.venv/bin/python -m pytest -q` -> **427 passed**
+(up from 207, driven by the widened property sweep and the new oracle
+assertions per case; no regressions).
