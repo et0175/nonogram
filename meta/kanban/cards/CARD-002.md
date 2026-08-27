@@ -15,7 +15,7 @@
 **Wave:** 2
 **Depends on:** CARD-001
 **Touches:** src/nonogram/clues.py, tests/test_clues.py
-**Review score:** 7.0 (cycle 1/3)
+**Review score:** 7.0 (cycle 1/3, awaiting cycle 2 confirmation)
 **Started:** 2026-08-27T15:25:27Z
 **Closed:** —
 **Actual:** —
@@ -144,3 +144,4 @@ No blockers.
 [Scope] src/nonogram/clues.py, tests/test_clues.py — matches predicted Touches exactly.
 [Build gate] PASSED (full, independently re-run by orchestrator: 207 passed, 0 failed)
 [Review 1/3] Score: 7.0 (below min_score 8) — crit: 2, imp: 3. Guardrails G-1..G-3 all ✓ holds; Touches exact; ADR-0012 conformance exemplary. CRITICAL (mutation-proven): AC-014/INV-001's named test `TestComputeClues_MatchesGridExactly` is a tautology — `clue_matches_line` re-derives via the same `encode_line` the diff is supposed to verify, so both sides of the equality share any defect in the encoder. A mutant reversing run order for lines >21 cells passes all 166 tests in the file (the 20-50 size range this tool targets). The sweep needs a decode-side oracle (reconstruct line from clue, or re-encode via a different algorithm e.g. itertools.groupby) to actually falsify the encoder — AC-014 is unmet as written. Important: (I-1) card notes overstate `clue_matches_line` as "the accept/reject predicate the solver's line logic needs" — ADR-0012 fixes the solver's state as three-valued/partial; this function silently mishandles partial lines (truthy-based, no type check). (I-2) the 72-grid sweep is a fixed corpus at import time (not a fresh generator per run) and under the engineering-standards' 100-1000 case band. (I-3) NFR-001 perf risk if CARD-004 calls this per-cell function inside its hot propagation loop — ADR-0012 exists specifically to avoid that; note for CARD-004. → routed to fix cycle.
+[Fix 1] Critical resolved: added `_reference_encode_line` (itertools.groupby, zero shared code with clues.encode_line) as an independent oracle in both the property sweep and the hand-written examples. Fix agent reproduced the reviewer's exact mutation (reverse run order >21 cells) and confirmed the new oracle assertions fail immediately while clue_matches_line's own assertion still passes — the exact gap now closed. I-2 resolved: sweep widened 72→182 grids, non-square shapes now swept across all 9 densities (previously one fixed density). I-1 resolved: corrected clue_matches_line's docstring and this card's notes to scope it to complete lines only; CARD-004 already carries the corresponding hot-loop/partial-line caveat. 427/427 passed, independently re-verified by orchestrator.

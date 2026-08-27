@@ -2,8 +2,8 @@ wave: 2
 mode: interactive
 active:
   - id: CARD-002
-    phase: fix
-    review_cycle: 1
+    phase: review
+    review_cycle: 2
     branch: card/002-clue-derivation
     worktree: ../PythonProject4-card-002
     started: 2026-08-27T15:25:27Z
@@ -15,4 +15,4 @@ active:
     started: 2026-08-27T15:25:27Z
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-27T18:59:00Z
+last_updated: 2026-08-27T19:03:00Z
