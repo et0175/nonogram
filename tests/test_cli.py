@@ -11,10 +11,14 @@ from __future__ import annotations
 
 import argparse
 import ast
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+import nonogram
 from nonogram import cli, errors, orchestrator
 
 # --------------------------------------------------------------------------
@@ -273,28 +277,168 @@ def test_orchestrator_generate_is_a_signature_only() -> None:
         orchestrator.generate(orchestrator.GenerationRequest(mode="random"))
 
 
-def _imported_modules(module: object) -> set[str]:
-    """Every module name imported by ``module``, read from its parsed source."""
-    source = Path(module.__file__).read_text(encoding="utf-8")  # type: ignore[attr-defined]
+# ADR-0007's layers, innermost last. ``cli`` is the sole inbound adapter,
+# ``orchestrator`` the only thing that composes capabilities, and ``errors`` is
+# the shared foundation every layer may raise from. Everything *else* under
+# ``nonogram/`` is a capability package (``sourcing/``, ``clues.py``,
+# ``solver/``, ``difficulty.py``, ``export/``, and whatever a later card adds)
+# — which is why the capability set is discovered from disk rather than listed.
+_ADAPTER = "cli"
+_ORCHESTRATOR = "orchestrator"
+_SHARED = frozenset({"errors"})
+
+_ADAPTER_RANK = 0
+_ORCHESTRATOR_RANK = 1
+_CAPABILITY_RANK = 2
+_SHARED_RANK = 3
+
+_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "nonogram"
+if not _PACKAGE_DIR.is_dir():  # pragma: no cover - installed-only checkout
+    _PACKAGE_DIR = Path(nonogram.__file__).parent
+
+
+def _discover_modules() -> dict[str, Path]:
+    """Every module in the package, as ``{dotted name: file}``.
+
+    Found by walking ``src/nonogram/**/*.py`` on disk, so a module a later card
+    adds is covered from the moment it lands — this test never has to be edited
+    to keep the ADR-0007 rule enforced.
+    """
+    modules: dict[str, Path] = {}
+    for path in sorted(_PACKAGE_DIR.rglob("*.py")):
+        parts = path.relative_to(_PACKAGE_DIR).with_suffix("").parts
+        if parts[-1] == "__init__":  # a package is named by its directory
+            parts = parts[:-1]
+        modules[".".join(("nonogram", *parts))] = path
+    return modules
+
+
+_MODULES = _discover_modules()
+
+
+def _component(module: str) -> str | None:
+    """The top-level name under ``nonogram`` a module belongs to.
+
+    ``nonogram.solver.line`` and ``nonogram.solver`` are both the ``solver``
+    component; ``nonogram`` itself belongs to none.
+    """
+    parts = module.split(".")
+    return parts[1] if len(parts) > 1 else None
+
+
+def _rank(component: str | None) -> int:
+    if component == _ADAPTER:
+        return _ADAPTER_RANK
+    if component is None or component == _ORCHESTRATOR:
+        # ``nonogram/__init__.py`` is not a capability; it sits with the
+        # orchestrator in that it may not reach outward to the adapter.
+        return _ORCHESTRATOR_RANK
+    if component in _SHARED:
+        return _SHARED_RANK
+    return _CAPABILITY_RANK
+
+
+def _relative_base(module: str, path: Path, level: int, tail: str | None) -> str:
+    """Resolve ``from ..x import y`` against the importing module."""
+    base = module if path.name == "__init__.py" else module.rpartition(".")[0]
+    for _ in range(level - 1):
+        base = base.rpartition(".")[0]
+    return f"{base}.{tail}" if tail else base
+
+
+def _package_imports(module: str, path: Path) -> set[str]:
+    """Names inside ``nonogram`` that ``module`` imports, read from its source."""
     imported: set[str] = set()
-    for node in ast.walk(ast.parse(source)):
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.Import):
             imported.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            imported.add(node.module)
-            imported.update(f"{node.module}.{alias.name}" for alias in node.names)
-    return imported
+        elif isinstance(node, ast.ImportFrom):
+            base = (
+                _relative_base(module, path, node.level, node.module)
+                if node.level
+                else (node.module or "")
+            )
+            if not base:
+                continue
+            imported.add(base)
+            imported.update(f"{base}.{alias.name}" for alias in node.names)
+    return {
+        name
+        for name in imported
+        if name == "nonogram" or name.startswith("nonogram.")
+    }
 
 
-@pytest.mark.parametrize("module", [orchestrator, errors], ids=["orchestrator", "errors"])
-def test_modules_inward_of_the_adapter_never_import_the_adapter(module: object) -> None:
-    """ADR-0007: dependencies point inward only; nothing imports cli.py."""
-    assert not {name for name in _imported_modules(module) if "cli" in name}
+def _imported_components(module: str, path: Path) -> set[str]:
+    return {
+        component
+        for name in _package_imports(module, path)
+        if (component := _component(name)) is not None
+    }
+
+
+def test_the_import_walk_actually_sees_the_package() -> None:
+    """Guard the guard: an empty or misrooted walk must not pass silently."""
+    assert {"nonogram", "nonogram.cli", "nonogram.orchestrator", "nonogram.errors"} <= set(
+        _MODULES
+    )
+
+
+def test_nothing_inward_of_the_adapter_imports_the_adapter() -> None:
+    """ADR-0007, first half: dependencies point inward only.
+
+    Only ``cli.py`` may know about ``cli.py``; every module the walk finds at a
+    deeper rank is checked, including ones no later card has written yet.
+    """
+    offenders = {
+        module
+        for module, path in _MODULES.items()
+        if _rank(_component(module)) != _ADAPTER_RANK
+        and _ADAPTER in _imported_components(module, path)
+    }
+    assert not offenders, f"modules importing nonogram.cli: {sorted(offenders)}"
+
+
+def test_capability_packages_never_import_each_other_laterally() -> None:
+    """ADR-0007, second half: no lateral imports between capability modules.
+
+    A capability's only outward-facing contact is the orchestrator that
+    composes it into a run, so e.g. ``solver/`` importing ``export/`` is a
+    violation even though both sit at the same rank.
+    """
+    lateral = {
+        module: sorted(
+            other
+            for other in _imported_components(module, path)
+            if other != _component(module) and _rank(other) == _CAPABILITY_RANK
+        )
+        for module, path in _MODULES.items()
+        if _rank(_component(module)) == _CAPABILITY_RANK
+    }
+    offenders = {module: others for module, others in lateral.items() if others}
+    assert not offenders, f"lateral capability imports: {offenders}"
+
+
+def test_the_shared_error_hierarchy_reaches_into_nothing() -> None:
+    """``errors.py`` is the innermost layer, so it closes the lateral loophole.
+
+    Capability modules may all import it; if it could import them back, two
+    capabilities could couple through it without a direct lateral import.
+    """
+    offenders = {
+        module: sorted(_imported_components(module, path))
+        for module, path in _MODULES.items()
+        if _rank(_component(module)) == _SHARED_RANK
+        and _imported_components(module, path)
+    }
+    assert not offenders, f"shared modules importing the package: {offenders}"
 
 
 def test_the_adapter_does_import_the_orchestrator() -> None:
     """The one dependency arrow this card establishes (COMP-001 -> COMP-002)."""
-    assert "nonogram.orchestrator" in _imported_modules(cli)
+    assert "nonogram.orchestrator" in _package_imports(
+        "nonogram.cli", _MODULES["nonogram.cli"]
+    )
 
 
 def test_package_root_imports_no_submodule() -> None:
@@ -302,7 +446,31 @@ def test_package_root_imports_no_submodule() -> None:
 
     Importing a capability module must never drag the adapter in behind it.
     """
-    import nonogram
-
-    assert not {name for name in _imported_modules(nonogram) if "nonogram" in name}
+    assert not _package_imports("nonogram", _MODULES["nonogram"])
     assert nonogram.__version__
+
+
+# --------------------------------------------------------------------------
+# The installed console entry point (ADR-0008)
+# --------------------------------------------------------------------------
+
+
+def test_the_console_script_runs_as_an_installed_command() -> None:
+    """``[project.scripts]`` is a contract only an out-of-process run checks.
+
+    Every other test calls ``cli.main([...])`` directly, which would still pass
+    if the entry point named a function that does not exist. Skipped rather
+    than failed when the package is not installed in the running interpreter.
+    """
+    script = shutil.which("nonogram", path=str(Path(sys.executable).parent)) or shutil.which(
+        "nonogram"
+    )
+    if script is None:
+        pytest.skip("the `nonogram` console script is not installed on PATH")
+
+    result = subprocess.run(
+        [script, "--help"], capture_output=True, text=True, timeout=60, check=False
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "generate" in result.stdout
