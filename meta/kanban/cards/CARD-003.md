@@ -138,3 +138,25 @@ Decisions a downstream card should know about:
   an unresolved value surfaces as a domain error.
 - `DENSITY_TOLERANCE_POINTS` lives in `random_grid` — CARD-005's regenerate
   loop should import it rather than restate ADR-0003's constant.
+
+**Review cycle 1 fixes (score 9.0/10, both Important findings resolved):**
+`test_the_guardrail_check_would_catch_a_violation` previously re-implemented
+the AST-scan logic inline instead of calling `_random_module_calls` —
+stubbing that function to `return []` still passed all 110 tests, so the
+self-test was proven vacuous. Rewrote it to write a temp file containing a
+real `random.shuffle(x)` violation and assert against the function's actual
+return value, and added a case for the `from random import shuffle` branch,
+which no test had exercised before. Separately, `_random_module_calls` had
+confirmed evasion gaps (aliased import `import random as rnd`, aliasing via
+plain assignment `r = random`, aliased from-import
+`from random import shuffle as sh`); rewrote it as a proper name-resolution
+pass — collect the module/member bindings first, then flag any `Call` whose
+callable resolves back to one of them — and added targeted tests for each
+evasion. `getattr(random, "shuffle")(x)` remains a documented, deliberate
+gap in the detector's docstring, not a coverage claim. Also fixed the
+related Minor finding: `from random import Random` (a type-annotation
+import) is now exempted from the ImportFrom binding so it no longer false-
+positives as a G-4 violation. Verified the fix is not vacuous by stubbing
+`_random_module_calls` to `return []` and confirming 5 tests then fail (they
+passed before the fix). No production code changed by this pass; G-4 still
+holds. 116 tests pass (`./.venv/bin/python -m pytest -q`).
