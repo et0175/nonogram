@@ -1,6 +1,6 @@
 # CARD-003: Random grid sourcing with size and density validation
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/003-random-grid-sourcing
-**Worktree:** ../PythonProject4-card-003
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 2
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/sourcing/__init__.py, src/nonogram/sourcing/random_grid.py, tests/test_sourcing_random.py
 **Review score:** 9.5 (cycle 2/3)
 **Started:** 2026-08-27T15:25:27Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-27T15:48:08Z
+**Actual:** 0.0d
+**Merge commit:** b0d0ef3
 **Blocked by:** —
 
 ## What to implement
