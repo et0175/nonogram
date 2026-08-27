@@ -167,3 +167,30 @@ STRUCTURE-11: `Puzzle` is an intentionally field-less placeholder class. Its sta
 INV-001..INV-003 constrain, and inventing fields here would pre-empt CARD-005 and risk
 committing the aggregate to a shape ADR-0012's grid representation contradicts; the docstring
 records what must land there instead.
+
+REVIEW-1 (cycle-1 fixes): both Important findings are closed. (a) The ADR-0007 import guard no
+longer has to be maintained by hand — the parametrized `[orchestrator, errors]` test that read
+`module.__file__` (and so could only ever see a package's `__init__.py`) is replaced by a walk of
+`src/nonogram/**/*.py` on disk that ranks every module it finds by layer (cli=0, orchestrator=1,
+capability package=2, the shared `errors` hierarchy=3) and asserts *both* halves of the ADR's
+direction rule: nothing inward of the adapter imports `nonogram.cli`, and no capability package
+imports another capability package laterally. The capability set comes from the walk, so
+`sourcing/`, `clues.py`, `solver/`, `difficulty.py` and `export/` are guarded the moment a later
+card creates them, with no edit to this test; a third assertion keeps `errors.py` from importing
+back into the package (otherwise two capabilities could couple through the shared layer), and a
+guard test fails if the walk ever stops seeing the package at all. Import resolution covers
+`import nonogram.x.y`, `from nonogram.x import y`, `from nonogram import x` and the relative
+forms — each verified to fail against a temporary violating `solver/`+`export/` pair, which also
+caught a bug in the first cut where `from ..export import x` resolved to the wrong package.
+(b) `main.py` is deleted (`git rm`), as ADR-0008 requires ("`main.py` is retired by this decision
+rather than kept alongside the package"); nothing in the build, CI or package configuration
+referenced it, so this supersedes the parenthetical in STRUCTURE-10 about how the rule is guarded.
+Two Minor findings came along cheaply: `pythonpath = ["src"]` in `[tool.pytest.ini_options]`, so
+`python -m pytest` works in a bare checkout and not only after `pip install -e .` (a pytest-native
+ini option — G-2's closed runtime baseline is untouched; verified by checking that a copy of the
+tree resolves `nonogram` from its own `src/` rather than from the editable install), and a
+subprocess smoke test asserting the `[project.scripts]` console script `nonogram --help` exits 0,
+since every other test calls `cli.main([...])` directly and would still pass if the entry point
+named a missing function — it skips, rather than fails, when the script is not installed.
+`python -m pytest`: 41 passed, 0 failed. G-1..G-5 all still hold and no guardrail waiver was
+needed.
