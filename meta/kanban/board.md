@@ -7,6 +7,7 @@ _Updated: 2026-08-27 18:22_
 |------|-------|--------|
 | 1 | CARD-001 P1 | ✓ done |
 | 2 | CARD-002 P1, CARD-003 P1 | ▶ active |
+
 | 3 | CARD-004 P1 | ⏳ blocked (→ CARD-002) |
 | 4 | CARD-005 P1 | ⏳ blocked (→ CARD-003, CARD-004) |
 | 5 | CARD-006 P1, CARD-007 P1 | ⏳ blocked (→ CARD-004, CARD-005) |
@@ -30,8 +31,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 
 ## Ready
-- **CARD-002** P1 · Clue derivation via run-length encoding  _(wave 2)_
-- **CARD-003** P1 · Random grid sourcing with size and density validation  _(wave 2)_
 - **CARD-004** P1 · Nonogram solver with fail-fast uniqueness check  _(wave 3)_
 - **CARD-005** P1 · Pipeline orchestrator and regenerate-on-failure loop  _(wave 4)_
 - **CARD-006** P1 · Cooperative generation deadline and SolverTimeout  _(wave 5)_
@@ -48,7 +47,10 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-_(none)_
+- **CARD-002** Clue derivation via run-length encoding
+  `worktree: ../PythonProject4-card-002` · `branch: card/002-clue-derivation`
+- **CARD-003** Random grid sourcing with size and density validation
+  `worktree: ../PythonProject4-card-003` · `branch: card/003-random-grid-sourcing`
 
 ## Review
 _(none)_

@@ -1,6 +1,6 @@
 # CARD-002: Clue derivation via run-length encoding
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/002-clue-derivation
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-002
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 2
 **Depends on:** CARD-001
 **Touches:** src/nonogram/clues.py, tests/test_clues.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-27T15:25:27Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
