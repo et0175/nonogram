@@ -107,4 +107,14 @@ correct; this card is where that is settled empirically rather than argued.
 
 ## Worktree notes
 
-—
+[Follow-up from CARD-002 review, cycle 1] `nonogram.clues.clue_matches_line` is a
+per-cell, tuple-allocating equality check meant for validating a COMPLETE line against
+a clue (e.g. export/orchestrator-level checks) — do NOT call it inside this card's hot
+propagation loop. ADR-0012 fixes the solver's internal state as bitmask ints specifically
+to avoid per-cell overhead at the "millions of intersections per generation run" scale;
+`clue_matches_line` reintroduces exactly that. It is also unsafe for PARTIAL lines: it
+reads any falsy/truthy value as empty/filled with no type check, so an unknown-cell
+sentinel fed into it silently mismatches rather than erroring. If this card needs a
+line-vs-clue check during propagation, implement it natively against the bitmask
+representation; if it needs a POST-HOC full-line sanity check, `clue_matches_line` is
+fine for that narrower use only.
