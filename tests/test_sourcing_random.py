@@ -289,28 +289,78 @@ _SOURCING_DIR = Path(random_grid.__file__).parent
 
 
 def _random_module_calls(path: Path) -> list[str]:
-    """Calls of the form ``random.<name>(...)`` in ``path``.
+    """Calls that resolve back to the ``random`` module or one of its members.
 
-    An annotation such as ``rng: random.Random`` is an attribute reference, not
-    a call, so it is correctly ignored; ``random.shuffle(...)`` and
-    ``random.Random()`` are both flagged — the second would mean the module
-    minted its own generator instead of using the injected one.
+    A name-resolution pass rather than a syntactic pattern match: it first
+    collects the bindings that name the ``random`` module itself
+    (``import random``, ``import random as X``, and a single-level
+    ``alias = random`` assignment) or one of its members (``from random
+    import Y [as Z]``), then walks every ``ast.Call`` and flags one whose
+    callable resolves back to one of those bindings. Reporting is normalised
+    to ``"random.<name>"`` regardless of which spelling reached it, so
+    ``random.shuffle(...)``, ``rnd.shuffle(...)`` (``import random as rnd``),
+    ``shuffle(...)`` (``from random import shuffle``) and ``r.shuffle(...)``
+    (``r = random``) all show up the same way.
+
+    An annotation such as ``rng: random.Random`` is an attribute reference,
+    not a ``Call`` node, so it is correctly ignored. ``random.Random()`` is
+    still flagged when reached through the module/attribute path, since
+    minting a fresh generator there is exactly what ADR-0015 forbids.
+    ``Random``/``SystemRandom`` are exempt from the *from-import* binding
+    only: those name the class (legitimately imported for a type annotation,
+    e.g. ``rng: random.Random``), not a module-level draw function, so
+    importing them alone is not a G-4 violation.
+
+    Known, deliberate gap: ``getattr(random, "shuffle")(x)`` is not detected.
+    Resolving a dynamically computed attribute name is beyond what a static
+    AST scan can do without executing the code — this is a documented blind
+    spot, not a coverage claim.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    calls = [
-        f"random.{node.func.attr}"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "random"
-    ]
-    calls += [
-        f"from random import {alias.name}"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module == "random"
-        for alias in node.names
-    ]
+
+    # Names bound to the `random` module itself.
+    module_aliases: set[str] = set()
+    # Names bound directly to a member of `random` (its original name kept
+    # for reporting), excluding the class imports noted above.
+    member_aliases: dict[str, str] = {}
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "random":
+                    module_aliases.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.module == "random":
+            for alias in node.names:
+                if alias.name in ("Random", "SystemRandom"):
+                    continue
+                member_aliases[alias.asname or alias.name] = alias.name
+
+    # A single-level `alias = random` assignment. Resolved in its own pass
+    # (after the loop above) so source order does not matter.
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Name)
+            and node.value.id in module_aliases
+        ):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    module_aliases.add(target.id)
+
+    calls: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id in module_aliases
+        ):
+            calls.append(f"random.{func.attr}")
+        elif isinstance(func, ast.Name) and func.id in member_aliases:
+            calls.append(f"random.{member_aliases[func.id]}")
+
     return calls
 
 
@@ -337,24 +387,100 @@ def test_no_module_level_random_usage_anywhere_in_sourcing() -> None:
     assert not offenders, f"module-level random usage: {offenders}"
 
 
-def test_the_guardrail_check_would_catch_a_violation() -> None:
+def test_the_guardrail_check_would_catch_a_violation(tmp_path: Path) -> None:
     """The G-4 check is only worth its line count if it can fail.
 
-    Runs the same detector over a snippet that does what the guardrail forbids.
+    Runs the *real* detector — not a re-implementation of its AST-scan logic
+    — against a temp file containing a genuine violation. (Proven necessary:
+    the previous version of this test re-implemented the scan inline and
+    never called ``_random_module_calls`` at all — replacing that function's
+    body with ``return []`` still passed every test.)
     """
-    snippet = _SOURCING_DIR / "__init__.py"
-    tree = ast.parse("import random\ndef f():\n    return random.shuffle([1])\n")
-    calls = [
-        node.func.attr
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "random"
-    ]
+    offender = tmp_path / "offender.py"
+    offender.write_text("import random\n\n\ndef f():\n    return random.shuffle([1])\n")
 
-    assert calls == ["shuffle"]
-    assert not _random_module_calls(snippet)
+    assert _random_module_calls(offender) == ["random.shuffle"]
+
+
+def test_the_guardrail_check_catches_the_import_from_branch(tmp_path: Path) -> None:
+    """``from random import shuffle`` was never exercised by any test."""
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "from random import shuffle\n\n\ndef f():\n    return shuffle([1])\n"
+    )
+
+    assert _random_module_calls(offender) == ["random.shuffle"]
+
+
+def test_the_guardrail_check_catches_an_aliased_module_import(
+    tmp_path: Path,
+) -> None:
+    """``import random as rnd`` must not evade the scan."""
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "import random as rnd\n\n\ndef f():\n    return rnd.shuffle([1])\n"
+    )
+
+    assert _random_module_calls(offender) == ["random.shuffle"]
+
+
+def test_the_guardrail_check_catches_an_aliased_from_import(
+    tmp_path: Path,
+) -> None:
+    """``from random import shuffle as sh`` must not evade the scan."""
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "from random import shuffle as sh\n\n\ndef f():\n    return sh([1])\n"
+    )
+
+    assert _random_module_calls(offender) == ["random.shuffle"]
+
+
+def test_the_guardrail_check_catches_aliasing_via_plain_assignment(
+    tmp_path: Path,
+) -> None:
+    """``r = random; r.shuffle(x)`` — aliasing via assignment, not import."""
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "import random\n\nr = random\n\n\ndef f():\n    return r.shuffle([1])\n"
+    )
+
+    assert _random_module_calls(offender) == ["random.shuffle"]
+
+
+def test_the_guardrail_check_does_not_flag_the_legitimate_random_class_import(
+    tmp_path: Path,
+) -> None:
+    """``from random import Random`` for a type annotation is not G-4 (Minor).
+
+    ``Random``/``SystemRandom`` are class imports, not draw functions; a
+    module using one only as a type annotation (or to accept an injected
+    instance) must not be flagged.
+    """
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "from random import Random\n\n\ndef f(rng: Random) -> None:\n"
+        "    rng.shuffle([1])\n"
+    )
+
+    assert _random_module_calls(offender) == []
+
+
+def test_the_guardrail_check_documents_the_getattr_indirection_gap(
+    tmp_path: Path,
+) -> None:
+    """Known, deliberate gap: ``getattr(random, "shuffle")(x)`` is not caught.
+
+    A static AST scan cannot resolve a runtime-computed attribute name
+    without executing the code; this test pins that limitation down rather
+    than letting it silently regress into a false claim of full coverage.
+    """
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "import random\n\n\ndef f():\n    return getattr(random, 'shuffle')([1])\n"
+    )
+
+    assert _random_module_calls(offender) == []
 
 
 # --------------------------------------------------------------------------
