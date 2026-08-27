@@ -100,4 +100,11 @@ this module, so the shape laid down here is the shape they copy.
 
 ## Worktree notes
 
-—
+[Follow-up from CARD-001 review, cycle 2] The ADR-0007 import-direction guard in tests/test_cli.py
+checks 3 of the 4 directional edges (nothing imports cli; capability packages don't import each
+other laterally; errors.py imports nothing back) but not the 4th: a capability module importing
+`nonogram.orchestrator` (outward). This card is where a real orchestrator↔capability import
+relationship first exists — either extend the guard to the general invariant
+(`rank(imported) > rank(importer)` for every discovered module, replacing the three special-case
+tests) as part of this card, or confirm orchestrator.py's own imports stay one-directional and
+leave a note for whichever card first adds capability→orchestrator coupling.
