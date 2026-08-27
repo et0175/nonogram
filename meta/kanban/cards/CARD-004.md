@@ -1,6 +1,6 @@
 # CARD-004: Nonogram solver with fail-fast uniqueness check
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/004-solver-uniqueness
-**Worktree:** ../PythonProject4-card-004
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 3
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/solver/__init__.py, src/nonogram/solver/propagate.py, src/nonogram/solver/search.py, tests/test_solver.py, tests/property/test_solver_uniqueness.py, tests/helpers/brute_force_oracle.py
 **Review score:** 9.4 (cycle 2/3)
 **Started:** 2026-08-27T16:59:52Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-27T18:00:54Z
+**Actual:** 0.1d
+**Merge commit:** aed158c
 **Blocked by:** —
 
 ## What to implement

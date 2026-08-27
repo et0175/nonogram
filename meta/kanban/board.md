@@ -1,14 +1,14 @@
 # Kanban Board
 
-_Updated: 2026-08-27 18:55_
+_Updated: 2026-08-27 21:15_
 
 ## Wave plan
 | Wave | Cards | Status |
 |------|-------|--------|
 | 1 | CARD-001 P1 | ✓ done |
 | 2 | CARD-002 P1, CARD-003 P1 | ✓ done |
-| 3 | CARD-004 P1 | ▶ active |
-| 4 | CARD-005 P1 | ⏳ blocked (→ CARD-003, CARD-004) |
+| 3 | CARD-004 P1 | ✓ done |
+| 4 | CARD-005 P1 | ▶ active |
 | 5 | CARD-006 P1, CARD-007 P1 | ⏳ blocked (→ CARD-004, CARD-005) |
 | 6 | CARD-009 P1, CARD-012 P1, CARD-013 P1, CARD-008 P2, CARD-011 P2 | ⏳ blocked (→ CARD-006, CARD-007) |
 | 7 | CARD-010 P1 | ⏳ blocked (→ CARD-009, CARD-011) |
@@ -45,8 +45,7 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-- **CARD-004** Nonogram solver with fail-fast uniqueness check
-  `worktree: ../PythonProject4-card-004` · `branch: card/004-solver-uniqueness`
+_(none)_
 
 ## Review
 _(none)_
@@ -55,3 +54,4 @@ _(none)_
 - **CARD-001** Package scaffolding and CLI entry point — score 9.0 (cycle 2/3) · merged db2f9d7
 - **CARD-002** Clue derivation via run-length encoding — score 9.0 (cycle 2/3) · merged 958a5bb
 - **CARD-003** Random grid sourcing with size and density validation — score 9.5 (cycle 2/3) · merged b0d0ef3
+- **CARD-004** Nonogram solver with fail-fast uniqueness check — score 9.4 (cycle 2/3) · merged aed158c
