@@ -15,7 +15,7 @@
 **Wave:** 2
 **Depends on:** CARD-001
 **Touches:** src/nonogram/sourcing/__init__.py, src/nonogram/sourcing/random_grid.py, tests/test_sourcing_random.py
-**Review score:** 9.0 (cycle 1/3)
+**Review score:** 9.0 (cycle 1/3, awaiting cycle 2 confirmation)
 **Started:** 2026-08-27T15:25:27Z
 **Closed:** —
 **Actual:** —
@@ -142,3 +142,4 @@ Decisions a downstream card should know about:
 [Scope] src/nonogram/sourcing/__init__.py, src/nonogram/sourcing/random_grid.py, tests/test_sourcing_random.py — matches predicted Touches exactly.
 [Build gate] PASSED (full, independently re-run by orchestrator: 110 passed, 0 failed)
 [Review 1/3] Score: 9.0 — crit: 0, imp: 2. Guardrails G-1..G-4 all ✓ holds. ADR-0003 ±3pp tolerance PROVEN exhaustively (all 4141 size/density combos, worst case 0.41pp — 6x margin). ADR-0015 reproducibility proven via 3 independent behavioral tests. Important findings (severity gate blocks despite score ≥8): (I-1) the G-4 structural AST guard's own self-test never calls the real detector against a violating file — mutation-proven non-functional (neutering the detector still passes all 110 tests). (I-2) the AST guard has evasion gaps for aliased random imports (`import random as rnd`) — mutation-confirmed missed by the guard itself, though currently caught in practice by the behavioral reproducibility tests (real backstop today; risk is CARD-008/015's future modules won't have an equivalent behavioral backstop). Reviewer's own prose framed these as "not a blocker", but per the severity gate Important findings route to a fix cycle regardless of score. → routed to fix cycle.
+[Fix 1] Both Important findings resolved: I-1's self-test now writes a temp file with a real violation and asserts against `_random_module_calls`' actual return (proven non-vacuous: stubbing the detector to `return []` now fails 5 tests, was 0). I-2's detector rewritten as a name-resolution pass covering aliased import/assignment/from-import evasions, with `getattr(random, ...)` left as a documented deliberate gap, not a coverage claim. Minor false-positive on `from random import Random` also fixed. No production code touched; G-4 unaffected. 116/116 passed, independently re-verified by orchestrator.
