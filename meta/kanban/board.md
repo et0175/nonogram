@@ -30,7 +30,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 
 ## Ready
-- **CARD-004** P1 · Nonogram solver with fail-fast uniqueness check  _(wave 3)_
 - **CARD-005** P1 · Pipeline orchestrator and regenerate-on-failure loop  _(wave 4)_
 - **CARD-006** P1 · Cooperative generation deadline and SolverTimeout  _(wave 5)_
 - **CARD-007** P1 · JSON export and the export-readiness gate  _(wave 5)_
@@ -46,7 +45,8 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-_(none)_
+- **CARD-004** Nonogram solver with fail-fast uniqueness check
+  `worktree: ../PythonProject4-card-004` · `branch: card/004-solver-uniqueness`
 
 ## Review
 _(none)_
