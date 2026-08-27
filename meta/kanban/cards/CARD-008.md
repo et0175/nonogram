@@ -83,4 +83,11 @@ increment-1 pipeline wholesale with a different grid origin.
 
 ## Worktree notes
 
-—
+[Follow-up from CARD-003 review, cycle 2] The G-4 structural test guard in
+tests/test_sourcing_random.py (`_random_module_calls`) has two known Minor gaps worth
+checking your module against before assuming the guard covers it: (1) `from random
+import Random`/`SystemRandom` is unconditionally exempted, which also silently
+un-flags `Random().shuffle(x)` — a real violation via a different import spelling than
+`random.Random()`. (2) `from random import *` is not detected at all. If this card adds
+any RNG usage, prefer the `random.Random(...)` / `import random` spellings the guard
+does catch, or tighten the guard as part of this card if it's cheap.
