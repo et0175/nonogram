@@ -11,8 +11,10 @@ Shape of the search (ADR-0009)
    this first fixed point is FR-009's "cells solved before the first branch".
 2. If the board is fully decided, that is the only solution reachable without
    guessing, and the search is over.
-3. Otherwise pick the most constrained unknown cell, guess ``filled``, and
-   propagate again; on contradiction, backtrack and guess ``empty``. Every
+3. Otherwise pick the most constrained unknown cell — the one whose row and
+   column still admit the fewest placements — guess it, and propagate again;
+   on contradiction, backtrack and try the other value. Both values are always
+   tried; the order only decides which is likelier to pay off first. Every
    guess is made on a cloned board, so undoing one is dropping a reference.
 4. Stop the instant a *second* distinct solution is recorded (AC-017).
 
@@ -159,8 +161,14 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
     width = len(columns)
     total_cells = height * width
 
-    def finish(count: int, solution: Grid | None, branches: int, backtracks: int,
-               line_logic_cells: int) -> SolveResult:
+    def finish(
+        count: int,
+        solution: Grid | None,
+        branches: int,
+        backtracks: int,
+        line_logic_cells: int,
+    ) -> SolveResult:
+        """Stamp the elapsed time on and return — every exit goes through here."""
         return SolveResult(
             solution_count=count,
             solution=solution,
@@ -183,8 +191,8 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
         # A grid with no cells: the empty grid is its only candidate, and it
         # is a solution exactly when every line's clue is the empty marker
         # (the sum check above has already established that). Handled here
-        # because ``compute_clues`` cannot round-trip a zero-row grid's column
-        # clues, so the verification below would misread this as a defect.
+        # because a zero-row grid has no cells to re-encode its column clues
+        # from, so the verification below would misread it as a defect.
         return finish(1, [[] for _ in range(height)], 0, 0, 0)
 
     board = Board.blank(rows, columns)
