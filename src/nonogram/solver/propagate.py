@@ -233,9 +233,13 @@ def mask_runs(filled: int, length: int) -> LineClue:
     """Run-length encode a fully decided line straight from its filled mask.
 
     The bitmask twin of ``clues.encode_line``, for the one case where the line
-    is complete and the DP would be wasted work. It is *not* a substitute for
-    that function at the module boundary — it takes an int, not a line — and
-    ``search`` still verifies finished grids through ``clues.compute_clues``.
+    is complete and the DP would be wasted work. It is also what verifies
+    finished grids: ``search._verified_grid`` re-encodes every completed line
+    with *this* function, natively, and never calls ``clues.compute_clues`` —
+    ADR-0007 forbids ``solver/`` importing the ``clues`` capability module
+    laterally, and ``tests/test_cli.py`` enforces that. Independence is bought
+    back from the test tree instead, where the import is legal: ``mask_runs``
+    is pinned against ``clues.encode_line`` there.
     """
     runs: list[int] = []
     run = 0

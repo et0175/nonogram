@@ -141,6 +141,35 @@ def test_reports_unique_solution_for_an_all_filled_grid() -> None:
     assert result.solution == filled
 
 
+def test_reports_unique_solution_for_a_grid_with_no_cells() -> None:
+    """The 0x0 / 0-row / 0-column grid counts as 1, not 0 — pinned deliberately.
+
+    A grid with no cells has exactly one candidate (itself) and it satisfies
+    every clue it could be given, so ``solution_count = 1`` is the answer
+    consistent with AC-015: the empty grid is its own unique solution, and
+    CARD-005's loop must be able to judge it on uniqueness like any other.
+
+    This is pinned here because the ADR-0014 oracle disagrees on this one
+    input: ``iter_solutions`` early-returns on a zero-length dimension and so
+    reports ``0``. The disagreement is unreachable from EC-001's corpus (its
+    sizes start at 1x1) and the oracle's answer is the degenerate-case
+    shortcut, not the considered one — so the solver's ``1`` stands as correct
+    and neither side is changed.
+    """
+    assert solve((), ()).solution_count == 1
+    assert solve((), ()).solution == []
+
+    # No rows, but columns that assert nothing: still the empty grid.
+    result = solve((), ((0,), (0,)))
+    assert result.solution_count == 1
+    assert result.solution == []
+
+    # No columns, three rows: the solution is three empty rows.
+    result = solve(((0,), (0,), (0,)), ())
+    assert result.solution_count == 1
+    assert result.solution == [[], [], []]
+
+
 def test_solution_grid_is_not_transposed() -> None:
     """The ADR-0012 seam: bit order and orientation, on an asymmetric grid.
 

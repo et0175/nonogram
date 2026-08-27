@@ -204,6 +204,12 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
     # Everything settled up to here came from line logic alone (FR-009).
     line_logic_cells = board.decided
 
+    # Appending without a duplicate check is safe: sibling branches are
+    # disjoint by construction. A frame fixes one cell that was unknown at its
+    # node and tries each of its two values in a separate subtree, so any two
+    # grids found under different siblings differ in at least that cell — no
+    # grid is reachable down two branches. Hence ``len(solutions) == MANY``
+    # really does mean two *distinct* solutions, which is what FR-006 counts.
     solutions: list[Grid] = []
     branch_nodes = 0
     backtracks = 0
