@@ -1,0 +1,18 @@
+wave: 2
+mode: interactive
+active:
+  - id: CARD-002
+    phase: review
+    review_cycle: 1
+    branch: card/002-clue-derivation
+    worktree: ../PythonProject4-card-002
+    started: 2026-08-27T15:25:27Z
+  - id: CARD-003
+    phase: review
+    review_cycle: 1
+    branch: card/003-random-grid-sourcing
+    worktree: ../PythonProject4-card-003
+    started: 2026-08-27T15:25:27Z
+escalated: []
+conflict_edges: []
+last_updated: 2026-08-27T18:38:00Z
