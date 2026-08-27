@@ -288,6 +288,25 @@ This is also why the property corpus stops at 8x8 and the larger-size round-trip
 `tests/test_solver.py` is fixed at 75% density: until the deadline exists, an unlucky
 mid-density grid would hang the suite rather than fail it.
 
+### Review cycle 1 — fixes applied
+
+The one Important finding was a stale docstring on `propagate.mask_runs`: it claimed
+`search` "still verifies finished grids through `clues.compute_clues`", which is the
+opposite of STRUCTURE-5 — `search._verified_grid` re-encodes natively *because*
+ADR-0007 forbids `solver/` importing the `clues` capability module laterally, and
+`tests/test_cli.py` fails any such import. Left alone, it invited a contributor to
+"restore" an import that breaks CARD-001's guard. The docstring now states the actual
+arrangement and its reason, and points at the test-tree pinning against
+`clues.encode_line` as where the independence is bought back. Two Minors were taken as
+well: a comment in `search.solve` on why the solutions list needs no duplicate check
+(sibling branches are disjoint by construction — a frame fixes one cell that was
+unknown at its node and tries both values in separate subtrees, so `MANY` really means
+two *distinct* grids), and a directed test pinning `solution_count = 1` for a grid with
+no cells, documenting that the ADR-0014 oracle's `0` there is its degenerate-dimension
+shortcut and is unreachable from EC-001's 1x1..8x8 corpus. No production behaviour and
+no oracle behaviour was changed. M-2, M-4 and M-5 were left as recorded (not gating).
+`./.venv/bin/python -m pytest` — **535 passed, 0 failed, 3.7 s** (534 + the new test).
+
 ## Failure matrix
 
 `solver/` is a pure function (ADR-0007, G-2): no filesystem, no network, no clock beyond
