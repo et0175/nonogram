@@ -15,7 +15,7 @@
 **Wave:** 6
 **Depends on:** CARD-003, CARD-006, CARD-007
 **Touches:** src/nonogram/sourcing/library.py, src/nonogram/sourcing/__init__.py, src/nonogram/sourcing/templates/, src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_sourcing_library.py
-**Review score:** —
+**Review score:** 9.2 (cycle 1/3)
 **Started:** 2026-08-28T10:17:03Z
 **Closed:** —
 **Actual:** —
@@ -268,3 +268,4 @@ No blockers.
 
 [Scope] Predicted Touches matched, plus README.md (one line, "planned"→shipped), tests/test_sourcing_random.py (2 stale "not registered yet" assertions retargeted at CARD-015's still-unregistered `image` mode — CARD-003 merged, no active contention), tests/test_orchestrator.py (same reason, one line). export/** (G-2), difficulty.py (G-1), solver/**, clues.py, pyproject.toml (G-3) untouched.
 [Build gate] PASSED (full, independently re-run by orchestrator: 746 collected, 745 passed, 1 xfailed, 0 failed, exit 0).
+[Review 1/3] Score: 9.2 — crit: 0, imp: 0, 4 minor + 1 info. Packaging finding independently reproduced (reviewer built an actual wheel with planted probe .txt files — both dropped, all 5 template .py modules shipped) — judged sound engineering given G-3 forbids pyproject.toml, not an escalation-worthy call. Deterministic-template retry-jitter design judged sound and reproducibility-preserving (validated end to end). G-5 confirmed zero discovery mechanism via grep + AST test. G-4 confirmed minimal (one field, one helper, one changed call site; named tests pass with unmodified assertions). Reviewer ran its own 328-run sweep (4 keys x sizes 10-50 x 2 seeds) confirming 0 retries/abandonments across the full range — broader than the card's own 192-run claim. 4 Minor findings: (M-1) "same cat, only outline moves" claim overstated at small sizes (measured: 45% certain cells at size 10 vs 76% at size 20, interior detail like eyes can flip) — AC-005 only tested at size 20 where the invariant is strong; (M-2) retry diversity at size 40 is only 2 distinct candidates per key, "95 movable cells" framing overstates it — reporting-honesty gap, no practical consequence (0/328 runs needed a retry); (M-3) --help doesn't list library keys despite a comment claiming it does (ADR-0010 forbids argparse choices, but naming keys in the help STRING costs nothing); (M-4) _source_arguments' silent fallback is a footgun for CARD-015 (registered-but-unmapped mode would silently misroute a path as a size int) — recommended fold into CARD-015. Final verdict: PASS — ready to merge.

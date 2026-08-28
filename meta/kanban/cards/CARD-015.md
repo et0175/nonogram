@@ -110,3 +110,15 @@ step. This card reads a user-supplied image file from disk, so a missing/unreada
 Either narrow that `except` to wrap only the export call (not the whole handler), or raise
 a proper domain error for the image-read failure before it can reach that clause as a bare
 OSError.
+
+[Follow-up from CARD-008 review, cycle 1] `orchestrator._source_arguments(request)` maps a
+request's mode to the source callable's leading positional arguments via an if/else with a
+bare fallback: `mode == LIBRARY → (library_key, size)`, else `→ (size, density)`. The
+fallback comment reasons "an unknown mode never reaches here — `for_mode` already raised,"
+which is true only for a mode that isn't *registered* at all. When this card registers
+`IMAGE: image.generate` in `sourcing/__init__.py`'s dispatch table, if the matching branch
+here is forgotten, `image.generate` silently gets called as `(size, density, rng)` — a file
+path argument bound to an integer size — producing a confusing failure instead of a clear
+wiring error. Add an explicit `mode == RANDOM` branch and raise `ValueError(f"no source
+argument list for mode {mode!r}")` in the else, rather than extending the implicit fallback
+a third time.
