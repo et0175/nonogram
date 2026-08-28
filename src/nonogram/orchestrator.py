@@ -1,6 +1,6 @@
-"""COMP-002 — the pipeline orchestrator (skeleton only; body: CARD-005).
+"""COMP-002 — the pipeline orchestrator: one generation run, end to end.
 
-ADR-0007 gives this module three jobs, none of which is implemented yet:
+ADR-0007 gives this module three jobs and nothing else:
 
 * own the Puzzle aggregate (AGG-001) for the whole of one generation run;
 * be the single enforcement point for INV-002 (a puzzle is exportable only
@@ -10,17 +10,82 @@ ADR-0007 gives this module three jobs, none of which is implemented yet:
   modules (sourcing, clues, solver, difficulty, export), which never call each
   other laterally.
 
-Dependency direction: this module must never import ``nonogram.cli``. The
-adapter depends on the orchestrator; the reverse import would invert the one
-structural rule ADR-0007 fixes.
+The pipeline (FR-007)
+---------------------
+``source a grid -> compute its clues -> count its solutions -> mark ready``.
+A candidate that is not uniquely solvable is discarded and the whole thing is
+tried again on a fresh grid (POL-001), up to :data:`MAX_REGENERATE_ATTEMPTS`
+times, after which the run is abandoned (POL-005). The check is the solver's
+alone: this module compares ``solution_count`` against 1 and does nothing else
+with it (guardrail G-3, CON-005).
+
+Why the loop is a primitive, not a ``while`` (INV-003)
+-----------------------------------------------------
+Three bounded loops exist in the model — regenerate (POL-001, this card),
+difficulty resample (POL-004, CARD-010) and pixel nudge (POL-002, CARD-016) —
+and INV-003 constrains all three with one sentence. So the counting lives in
+one place, :class:`RetryCounter` plus :func:`run_bounded`, and a loop *kind* is
+just a counter with its own bound plus a callable that produces a candidate or
+rejects it. A later card adds a counter field to :class:`Puzzle` and an attempt
+callable; it does not add a second loop, and it cannot add a second way to
+count (guardrail G-2).
+
+What counts as a retry, and what does not
+-----------------------------------------
+Only a candidate the *uniqueness check answered about* can be retried: the
+attempt callable turns ``solution_count != 1`` into a rejection and nothing
+else. Every exception — invalid input (SizeOutOfRange, InvalidDensity), a
+future ``SolverTimeout`` (ADR-0011, CARD-006), a wiring bug — travels straight
+out of the loop and ends the run. Conflating a timeout with a non-unique
+verdict would let one infeasible request spend 20 full solver deadlines, which
+is exactly the worst case ADR-0002's bound and ADR-0001's time budget exist to
+prevent; the two bounds are meant to "operate together but independently"
+(ADR-0002, Neutral).
+
+Dependency direction: this module imports the capability modules and never the
+adapter; nothing inward of it imports back (ADR-0007, enforced for every
+module in the package by ``tests/test_cli.py``).
+
+No persistence (CON-003, guardrail G-4): the aggregate below lives in memory
+for the duration of one call and is dropped when it returns or raises. The
+export file, written by COMP-007 in a later card, is the only durable artifact.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import random
+import secrets
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
-__all__ = ["GenerationRequest", "Puzzle", "generate"]
+from nonogram import clues as clue_derivation
+from nonogram import solver, sourcing
+from nonogram.errors import ExportRejected, GenerationAbandoned
+
+__all__ = [
+    "MAX_REGENERATE_ATTEMPTS",
+    "GenerationRequest",
+    "Puzzle",
+    "RetryCounter",
+    "generate",
+    "run_bounded",
+]
+
+#: The ADR-0012 boundary representation of a solution grid, row-major,
+#: ``True`` for a filled cell — the same type the sourcing modules return and
+#: the clue derivation consumes.
+Grid = list[list[bool]]
+
+#: ADR-0002: the regenerate/resample loop is capped at 20 attempts. One
+#: constant, named here because INV-003's bound is the orchestrator's business
+#: (the pixel-nudge cap of 5 lands with CARD-016's counter, same way).
+MAX_REGENERATE_ATTEMPTS = 20
+
+#: The ``solution_count`` a candidate must have to pass the uniqueness check.
+#: Written as a constant so the one comparison this module makes against the
+#: solver's verdict is impossible to misread as a re-derivation of it (G-3).
+UNIQUE_SOLUTION_COUNT = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,27 +112,281 @@ class GenerationRequest:
     out: Path | None = None
 
 
-class Puzzle:
-    """AGG-001 — one puzzle-generation attempt. Placeholder; fields: CARD-005.
+@dataclass(slots=True)
+class RetryCounter:
+    """INV-003's counter for one bounded loop kind (NFR-002, ADR-0002).
 
-    The aggregate carries a single attempt from source grid through clue
-    computation, uniqueness verification, difficulty scoring and export, across
-    all of its regenerate / resample / nudge retries — it is not re-created per
-    retry, which is why INV-003's counter is one invariant on one aggregate.
-    Its state and the invariants INV-001..INV-003 that constrain it land with
-    the generation pipeline in CARD-005; declaring speculative fields here would
-    only pre-empt that card, so this body is intentionally empty.
+    The invariant — "a puzzle's automatic-retry counter never exceeds its
+    configured maximum bound" — is a property of *this type*, which is how it
+    stays one invariant with one home across the three loop kinds that will
+    eventually exist. :meth:`record_attempt` is the only way to advance a
+    counter and it refuses to advance past :attr:`bound`, so a caller cannot
+    overshoot even by ignoring :attr:`exhausted`.
+
+    Attributes:
+        kind: What is being retried — ``"regenerate"`` here, ``"resample"``
+            and ``"pixel-nudge"`` in the later cards. Appears in the
+            abandonment message, so it is the user's word for the loop.
+        bound: The maximum number of attempts, from ADR-0002.
+        attempts: How many attempts have been started. Counted at the *start*
+            of an attempt, so an attempt that raises part-way through is still
+            counted — a retry budget must not be refunded by a crash.
     """
+
+    kind: str
+    bound: int
+    attempts: int = 0
+
+    @property
+    def exhausted(self) -> bool:
+        """Has the bound been reached? (POL-005's condition.)"""
+        return self.attempts >= self.bound
+
+    def record_attempt(self) -> int:
+        """Start one attempt and return its 1-based number.
+
+        Raises:
+            RuntimeError: the counter is already exhausted. Not a
+                ``nonogram.errors`` type and not ``GenerationAbandoned``:
+                abandonment is a domain outcome the *loop* reports, whereas
+                reaching this line means a caller drove the counter past its
+                bound by hand, which is a programming error in the pipeline.
+        """
+        if self.exhausted:
+            raise RuntimeError(
+                f"{self.kind} counter is exhausted "
+                f"({self.attempts}/{self.bound}); INV-003 forbids another attempt"
+            )
+        self.attempts += 1
+        return self.attempts
+
+
+def run_bounded[T](
+    counter: RetryCounter,
+    attempt: Callable[[], T | None],
+    *,
+    reason: str,
+) -> T:
+    """Run ``attempt`` until it produces a candidate, or abandon (POL-005).
+
+    The shared counted-loop primitive behind every bounded retry in the
+    pipeline. ``attempt`` is called with no arguments and returns the accepted
+    candidate, or ``None`` to say "this one is no good, try another" — the
+    single sentinel is why the callable's success type must not itself be
+    ``None``.
+
+    Args:
+        counter: The loop's INV-003 counter. It is advanced here and nowhere
+            else, and it is *not* reset — a counter carried on the aggregate
+            keeps the whole run's history, which is what makes the bound apply
+            per generation request rather than per call to this function.
+        attempt: Produces one candidate or ``None``. Anything it raises
+            propagates unchanged: only a rejected candidate is a retry.
+        reason: The domain-level explanation for the abandonment message —
+            what the candidates kept failing, in the user's terms. The
+            primitive owns the counting; the caller owns the wording.
+
+    Returns:
+        Whatever ``attempt`` returned on the first non-``None`` call.
+
+    Raises:
+        GenerationAbandoned: the bound was reached with every attempt
+            rejected (POL-005, CMD-011, EVT-012). The message names the count
+            and the bound so the failure reads as "infeasible request", not
+            "internal error".
+    """
+    while not counter.exhausted:
+        counter.record_attempt()
+        candidate = attempt()
+        if candidate is not None:
+            return candidate
+    raise GenerationAbandoned(
+        f"abandoned after {counter.attempts} {counter.kind} "
+        f"attempt{'s' if counter.attempts != 1 else ''} "
+        f"(bound: {counter.bound}) — {reason}"
+    )
+
+
+@dataclass(slots=True)
+class Puzzle:
+    """AGG-001 — one generation request's puzzle, across all of its retries.
+
+    Created once per :func:`generate` call and **not** re-created per retry:
+    the candidate grid and its clues are replaced in place while the counters
+    and the request they were made for stay. That is precisely why INV-003's
+    retry counter is one invariant on one aggregate rather than a
+    cross-aggregate concern (aggregates.yml, AGG-001).
+
+    Three invariants constrain it, and each has exactly one enforcement point
+    here:
+
+    INV-001  grid and clues are only ever written together, by
+             :meth:`record_candidate`, so the clues can never be stale with
+             respect to the grid.
+    INV-002  :attr:`ready_for_export` is written only by
+             :meth:`confirm_uniqueness`, only when the solver reported exactly
+             one solution. :meth:`require_ready_for_export` is the gate the
+             export cards call before writing anything.
+    INV-003  every counter is a :class:`RetryCounter`, advanced only by
+             :func:`run_bounded`. CARD-010 and CARD-016 add ``resample`` and
+             ``nudge`` fields next to :attr:`regenerate`.
+    """
+
+    #: The request this puzzle is being generated for. Held whole rather than
+    #: copied field by field: the aggregate's mode/size/density *are* the
+    #: request's, and a later export (FR-012, ADR-0015) has to record the
+    #: parameters the run was asked for anyway.
+    request: GenerationRequest
+    #: The run's effective seed — the requested one, or the one drawn for the
+    #: user when ``--seed`` was absent (ADR-0015). Always concrete, so a run
+    #: is reproducible after the fact even when nobody asked for a seed.
+    seed: int
+    #: POL-001's counter (INV-003). Bound from ADR-0002.
+    regenerate: RetryCounter = field(
+        default_factory=lambda: RetryCounter("regenerate", MAX_REGENERATE_ATTEMPTS)
+    )
+    #: The current candidate's solution grid, or ``None`` before the first one
+    #: is sourced.
+    grid: Grid | None = None
+    #: The current candidate's clues — always the run-length encoding of
+    #: :attr:`grid` (INV-001).
+    clues: clue_derivation.Clues | None = None
+    #: The solver's verdict on the current candidate: ``0``, ``1`` or
+    #: ``solver.MANY``. The solver's number, stored as given (G-3).
+    solution_count: int | None = None
+    #: INV-002's gate. Only :meth:`confirm_uniqueness` writes it.
+    ready_for_export: bool = False
+
+    @property
+    def mode(self) -> str:
+        """How the grid is sourced (AGG-001 attribute)."""
+        return self.request.mode
+
+    @property
+    def size(self) -> int | None:
+        """Requested edge length, still unvalidated (AGG-001 attribute)."""
+        return self.request.size
+
+    @property
+    def density(self) -> int | None:
+        """Requested fill percentage, still unvalidated (AGG-001 attribute)."""
+        return self.request.density
+
+    def record_candidate(self, grid: Grid) -> clue_derivation.Clues:
+        """Adopt ``grid`` as the current candidate and derive its clues.
+
+        The two writes are one operation because INV-001 relates them: a
+        caller that could set the grid alone could leave the previous
+        candidate's clues attached to it. Returns the fresh clues so the
+        caller can hand them to the solver without reading them back.
+
+        Replacing a candidate also drops the verdict about the *previous* one:
+        an unverified candidate carries no ``solution_count`` and is not
+        exportable, which keeps INV-002 true between the moment a candidate is
+        discarded and the moment its replacement is judged.
+        """
+        self.grid = grid
+        self.clues = clue_derivation.compute_clues(grid)
+        self.solution_count = None
+        self.ready_for_export = False
+        return self.clues
+
+    def confirm_uniqueness(self, solution_count: int) -> bool:
+        """Record the solver's verdict and open the export gate iff it is 1.
+
+        INV-002's single enforcement point (ADR-0007). ``solution_count``
+        arrives from ``solver.solve`` and is stored as given: the orchestrator
+        compares it against 1 and never recomputes, second-guesses or
+        short-circuits it (guardrail G-3, CON-005).
+
+        Returns:
+            Whether the candidate passed — i.e. whether the caller may stop
+            retrying (POL-001's condition, inverted).
+        """
+        self.solution_count = solution_count
+        self.ready_for_export = solution_count == UNIQUE_SOLUTION_COUNT
+        return self.ready_for_export
+
+    def require_ready_for_export(self) -> None:
+        """The INV-002 gate: raise unless the uniqueness check has passed.
+
+        Lives here and not in COMP-007 (ADR-0007's single-enforcement-point
+        rule): the export renderers call this before writing anything, so
+        there is one place that decides what "exportable" means.
+
+        Raises:
+            ExportRejected: the puzzle has not been confirmed unique.
+        """
+        if not self.ready_for_export:
+            raise ExportRejected(
+                "puzzle is not ready for export: its uniqueness check has not "
+                f"confirmed exactly one solution (solution_count="
+                f"{self.solution_count!r})"
+            )
 
 
 def generate(request: GenerationRequest) -> Puzzle:
-    """Run one generation attempt end to end and return the finished puzzle.
+    """Run one generation request end to end and return the finished puzzle.
 
-    Body: CARD-005. Raises the ``nonogram.errors`` domain errors — including
-    ``GenerationAbandoned`` (POL-005) and ``SolverTimeout`` (ADR-0011) — which
-    the CLI adapter maps onto exit codes.
+    Sources a candidate grid for ``request.mode``, derives its clues, asks the
+    solver how many solutions they have, and returns the puzzle the moment the
+    answer is exactly one. A candidate that fails is discarded and a fresh one
+    sourced automatically, with no user interaction (POL-001, FR-007), up to
+    :data:`MAX_REGENERATE_ATTEMPTS` attempts (INV-003, ADR-0002).
+
+    All randomness comes from a single ``random.Random`` built here and
+    injected into every stochastic call (ADR-0015), so the same seed replays
+    the same run — including *which* candidates were discarded. When the
+    request carries no seed one is drawn from the OS entropy pool and recorded
+    on the returned puzzle, which is what lets the adapter echo it.
+
+    Returns:
+        The :class:`Puzzle` aggregate, with ``ready_for_export`` set — the one
+        object the whole run mutated, retries included.
+
+    Raises:
+        GenerationAbandoned: no candidate was uniquely solvable within the
+            retry bound (POL-005).
+        SizeOutOfRange, InvalidDensity: the request is not valid for its mode.
+            Raised by the sourcing module on the first attempt and *not*
+            retried — an invalid request does not become valid by being asked
+            again.
+        ValueError: ``request.mode`` has no registered source. Raised before
+            the loop starts, so a wiring bug cannot be mistaken for 20
+            infeasible candidates.
     """
-    raise NotImplementedError(
-        "The generation pipeline is not implemented yet (CARD-005 owns "
-        "orchestrator.generate; CARD-001 only establishes its signature)."
+    seed = request.seed if request.seed is not None else secrets.randbits(64)
+    rng = random.Random(seed)
+    puzzle = Puzzle(request=request, seed=seed)
+
+    # Resolved once, outside the loop: the mode does not change between
+    # attempts, and an unknown mode must fail immediately rather than after
+    # burning the retry budget.
+    source = sourcing.for_mode(request.mode)
+
+    def attempt_candidate() -> Puzzle | None:
+        """One pass of the pipeline: source -> clues -> uniqueness -> verdict.
+
+        The single ``rng`` is threaded in here, which is what makes the
+        *sequence* of discarded candidates reproducible and not merely the
+        first one (ADR-0015).
+        """
+        # The argument list is the mode's, not the dispatcher's (see
+        # sourcing.for_mode): CARD-008's library key and CARD-015's image path
+        # are assembled at this call site, alongside the random mode's
+        # size/density, when those modes land.
+        grid = source(request.size, request.density, rng)
+        candidate_clues = puzzle.record_candidate(grid)
+        verdict = solver.solve(candidate_clues.rows, candidate_clues.columns)
+        if puzzle.confirm_uniqueness(verdict.solution_count):
+            return puzzle
+        return None
+
+    return run_bounded(
+        puzzle.regenerate,
+        attempt_candidate,
+        reason=(
+            "no candidate grid had exactly one solution; try a different "
+            "--size/--density combination, or another --seed"
+        ),
     )
