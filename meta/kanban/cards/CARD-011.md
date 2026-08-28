@@ -1,6 +1,6 @@
 # CARD-011: Puzzle naming (auto-generated and --name override)
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/011-puzzle-naming
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-011
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 6
 **Depends on:** CARD-005, CARD-006, CARD-007
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/cli.py, tests/test_naming.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-28T10:52:03Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -96,4 +96,108 @@ auto-name comes from its mode (trace.yml FR-015 note).
 
 ## Worktree notes
 
-—
+### What landed
+
+Touches as predicted, nothing beyond them: `src/nonogram/orchestrator.py`,
+`src/nonogram/cli.py`, `tests/test_naming.py` (34 new tests).
+
+- **`Puzzle.name`** (AGG-001) — a real field on the aggregate, written once by
+  `generate()` *before* the aggregate is constructed and never again (G-6).
+  `None` only for a `Puzzle` somebody assembles by hand, the same
+  partially-built state `grid`/`clues` already start in.
+- **`NameContext`** (COMP-002) — ADR-0018's "current run's naming context" as
+  an object: an injectable `clock` plus the set of auto-names it has `issued`.
+  `DEFAULT_NAMES` is the process-wide instance `generate()` uses;
+  `generate(request, *, names=...)` takes another one, which is what makes
+  AC-042's same-minute counter branch testable on a fixed clock instead of on a
+  minute boundary that never comes (the ADR's own "easy to under-test" con).
+- **Auto-name:** library mode → `request.library_key` verbatim (AC-043, never
+  counter-suffixed — ADR-0016 says outright that a key like `"cat"` "is not
+  guaranteed unique" and leaves that to ADR-0017's export-time suffix). Random
+  and image modes → `<mode>-<YYYY-MM-DD>-<HHMM>`, with `-1`, `-2`, … appended
+  when the context already issued that exact name (AC-042). The suffix search
+  is written in the shape of `export._free_path` on purpose: ADR-0018 chose
+  `counter_suffix` precisely so the pipeline's two collision points read as one
+  idea applied twice.
+- **`--name`** — parsing only in `cli.py` (no `type=`, no `choices=`);
+  `--name ""` parses fine and is refused inward by `NameContext.name_for` →
+  `InvalidPuzzleName` → exit code 3, before the seed is drawn and before the
+  first candidate is sourced, so no puzzle is created (AC-045, ADR-0010, G-5).
+  Whitespace-only is refused with it: it is the same emptiness for both
+  consumers the name has (a blank PDF header, a stem that sanitizes away).
+
+### The name / export-stem consolidation question
+
+**Decision: `Puzzle.name` is the single source of truth in both directions.**
+
+1. The auto-name *calls* `export.default_stem(mode, moment=...)` instead of
+   re-spelling `f"{mode}-{now:%Y-%m-%d-%H%M}"`. The convention now exists in
+   exactly one place in the codebase.
+2. `export_puzzle` derives its stem from `puzzle.name`
+   (`orchestrator._filename_stem`) instead of computing `default_stem(mode)`
+   independently.
+
+Why, concretely — without (2), the same run says two different things:
+
+| run | puzzle name | file (before) | file (after) |
+|---|---|---|---|
+| `--mode library --library-key cat` | `cat` | `library-2026-08-28-1405.json` | `cat.json` |
+| `--name my-cat-puzzle` | `my-cat-puzzle` | `random-2026-08-28-1405.json` | `my-cat-puzzle.json` |
+| random, started at 14:29:59 | `random-…-1429` | `random-…-1430.json` (second clock read!) | `random-…-1429.json` |
+
+CARD-014 then reads `puzzle.name` for the PDF header and for
+`<name>-<difficulty>.pdf` (ADR-0016), so leaving (2) undone would ship a run
+whose PDF is `cat-hard.pdf` next to its own JSON called
+`library-<timestamp>.json`. CARD-007 wrote `default_stem` as an explicit
+stand-in for exactly this handoff — "when the aggregate starts carrying a name,
+this function's caller reads it instead" is its own docstring — and this card
+is that caller.
+
+**On G-3.** The binding clause ("do not edit `src/nonogram/export/**`") is
+respected: `export/__init__.py` is untouched, `default_stem`, `write` and
+`_free_path` are unchanged, and every existing export test still passes
+unmodified — including the two that pin the stem by monkeypatching
+`export.default_stem`, because a hand-built `Puzzle` has `name is None` and
+still takes CARD-007's fallback path. What changed is one line *inside
+`export_puzzle`*, which is orchestrator code in an in-scope file. G-3's prose
+("nothing on the export path changes for it in this card") reads as a
+prediction that the aggregate attribute is self-contained; it stops being true
+the moment the name is the thing the file is named after, which is ADR-0016's
+whole premise. Recorded here rather than done silently.
+
+**Sanitization came with it.** Feeding a user-supplied `--name` into
+`directory / f"{stem}{ext}"` is a path-traversal surface that a
+machine-generated stem never had, so `_filename_stem` applies ADR-0016's
+"sanitized for filesystem-safe characters" (allow-list `[A-Za-z0-9._-]`, then
+strip leading/trailing `-.` so nothing becomes `.`, `..` or a dotfile) on the
+way to the path only — the aggregate keeps the name exactly as typed (AC-044),
+and a name that sanitizes to nothing falls back to the generated stem.
+CARD-014 composes `<name>-<difficulty>` from the same helper, so both
+components inherit one sanitization rule rather than two.
+
+### Tests
+
+`tests/test_naming.py`, 34 tests: the four AC-named ones (with a fixed-clock
+same-minute test for AC-042's counter, plus a next-minute test showing the
+counter is a same-minute device and not a run counter), the G-6 stability test
+(scripted source, three attempts, a clock that advances a minute per reading —
+the name does not move and `issued` holds exactly one entry), and a section
+pinning name → filename, including that `--name "../../escaped"` cannot write
+outside `--out`.
+
+`./.venv/bin/python -m pytest`: **831 passed, 1 xfailed** (the pre-existing
+AC-037 benchmark xfail) — baseline before this card was 797 passed, 1 xfailed,
+so 34 added and no regressions.
+
+No blockers.
+
+### Orchestrator notes
+
+- **[Scope]** Rebased cleanly onto main (`9c9ccd6` → `36211c0`) after
+  CARD-008/009/012/013 merged. Touches match predicted exactly: no scope
+  creep — `export/__init__.py` itself is untouched, only `orchestrator.py`'s
+  internal call to it changed, per the implementer's own G-3 note above.
+- **[Build gate]** PASSED (full, independently re-run by orchestrator: 928
+  collected, 927 passed, 1 xfailed, exit 0 — 928 vs the worktree's own 831
+  reflects CARD-009/012/013's tests merging in since the worktree's branch
+  point).

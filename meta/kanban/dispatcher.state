@@ -2,7 +2,8 @@ wave: 6
 mode: interactive
 active:
   - id: CARD-011
-    phase: implementation
+    phase: review
+    review_cycle: 1
     branch: card/011-puzzle-naming
     worktree: ../PythonProject4-card-011
     started: 2026-08-28T10:52:03Z

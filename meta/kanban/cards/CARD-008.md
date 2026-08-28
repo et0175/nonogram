@@ -1,6 +1,6 @@
 # CARD-008: Built-in image library sourcing
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/008-library-sourcing
-**Worktree:** ../PythonProject4-card-008
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 6
 **Depends on:** CARD-003, CARD-006, CARD-007
-**Touches:** src/nonogram/sourcing/library.py, src/nonogram/sourcing/__init__.py, src/nonogram/sourcing/templates/, src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_sourcing_library.py
+**Touches:** src/nonogram/sourcing/library.py, src/nonogram/sourcing/__init__.py, src/nonogram/sourcing/templates/, src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_sourcing_library.py, README.md, tests/test_sourcing_random.py, tests/test_orchestrator.py
 **Review score:** 9.2 (cycle 1/3)
 **Started:** 2026-08-28T10:17:03Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-28T10:51:18Z
+**Actual:** 0.1d
+**Merge commit:** 11e7cf4
 **Blocked by:** —
 
 ## What to implement
