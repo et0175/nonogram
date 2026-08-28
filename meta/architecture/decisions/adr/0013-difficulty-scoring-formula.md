@@ -1,10 +1,10 @@
 # ADR-0013: Difficulty scoring formula
 
-**Status:** Accepted
+**Status:** Accepted (revised 2026-08-28)
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
-**Migration:** —
+**Revised:** 2026-08-28
+**Migration:** grandfather
 **Pattern:** —
 **API-Posture:** —
 
@@ -43,35 +43,53 @@ size) tests directly.
 
 We adopt the **normalized_weighted_sum** alternative: each of the five FR-009
 signals is normalized to the 0..1 range against a size-relative denominator
-before being combined, and the normalized signals are then combined with a
-fixed-weight sum into a single 0..100 score.
+before being combined into a single 0..100 score. **The five signals do not
+all enter the combination the same way** — three (line-logic coverage,
+backtracking, solve time) are combined via a fixed-weight sum into an
+`effort` term; the other two (size, density) act purely as multiplicative
+discounts on that term, never as a sixth/seventh additive contribution. This
+split is load-bearing, not incidental: AC-023 (zero backtracking/full
+line-logic coverage must land at the easy extreme, *regardless of size*)
+is satisfiable only if size can never add to the score — a literal five-term
+additive sum makes AC-023 mathematically impossible to guarantee for an
+arbitrarily large, arbitrarily dense grid.
 
-Concretely:
-- Line-logic coverage is normalized as (solved-before-first-branch cells /
-  total cells), inverted, so that full line-logic coverage contributes toward
-  the easy end of the scale.
-- Backtracking amount is normalized as (branch nodes / total cells), capped at
-  1.0, so a puzzle's branch count is judged relative to its own size rather
-  than against an absolute count that would favor large grids toward "Hard."
-- Density enters as distance from the hardest midpoint — |density - 0.5| —
-  since both very sparse and very dense grids tend to be easier, and this
-  normalizer captures that non-monotonic relationship directly rather than
-  treating density as a linearly increasing difficulty term.
-- Size and density act as NORMALIZERS on the other signals rather than as
-  independent additive terms in their own right, which is what keeps scores
-  comparable across the 10x10..50x50 range instead of letting a raw sum make
-  every large puzzle "Hard" by size alone.
-- The five normalized values are combined via a fixed-weight sum into a
-  0..100 score. The weights live in one named, tunable constant table,
-  separate from the solver, exactly as docs/requirements.md FR-10's "tunable
-  later" language requires.
+Concretely, `score = 100 * effort * relief`, where:
+- `effort` is the fixed-weight sum of the three **effort signals**:
+  - Line-logic coverage, normalized as (solved-before-first-branch cells /
+    total cells), inverted, so that full line-logic coverage contributes
+    toward the easy end of the scale.
+  - Backtracking amount, normalized as (branch nodes / total cells), capped
+    at 1.0, so a puzzle's branch count is judged relative to its own size
+    rather than against an absolute count that would favor large grids
+    toward "Hard."
+  - Solver wall-clock time, normalized against a size-relative time budget.
+  - The three effort weights sum to 1.0, so `effort` itself is always in
+    `[0, 1]`.
+- `relief` is a multiplier in `[1 - w_size - w_density, 1]` — strictly
+  positive, never above 1 — built from the two **normalizer signals**:
+  - Density enters as distance from the hardest midpoint — |density - 0.5| —
+    since both very sparse and very dense grids tend to be easier, and this
+    normalizer captures that non-monotonic relationship directly rather than
+    treating density as a linearly increasing difficulty term.
+  - Size and density can only ever shrink the score (`relief <= 1`), never
+    add to it — this is the property "size and density act as NORMALIZERS,
+    not independent additive terms" actually requires, made precise as a
+    multiplier rather than left as prose two readings could satisfy.
+- The weights (both the three effort weights and the two relief weights)
+  live in one named, tunable constant table, separate from the solver,
+  exactly as docs/requirements.md FR-10's "tunable later" language requires.
 
 This satisfies AC-022 (a score reflecting the weighted combination of all
-five named signals) and AC-023 by construction: a puzzle solved entirely by
-line logic with zero backtracking normalizes to the easy extreme regardless
-of its size, because size only ever appears as a denominator. It also gives
-DEC-005 the fixed, meaningful 0..100 scale its tertile_split (or any other)
-tier-cutoff scheme needs before cutoffs can be chosen.
+five named signals — all five still move the score, just not through the
+same operation) and AC-023 **by construction, provably**: for any candidate
+with zero backtracking and full line-logic coverage, the two effort terms
+those signals drive vanish exactly (not approximately), leaving
+`effort <= w_solve_time` and hence `score <= 100 * w_solve_time` —
+independent of size, density, machine speed, or load, since `relief` can
+only shrink an already-small number. It also gives DEC-005 the fixed,
+meaningful 0..100 scale its tertile_split (or any other) tier-cutoff scheme
+needs before cutoffs can be chosen.
 
 ## Alternatives considered
 
@@ -159,3 +177,14 @@ problem than the combining formula this ADR settles.
 - 2026-08-27: Created — adopted a normalized weighted sum with size-relative
   denominators over a backtracking-dominant score and over excluding solver
   wall-clock time, establishing the 0..100 difficulty scale FR-009 requires.
+- 2026-08-28: Revised (no DEC — a clarification, not a new decision). The
+  original "Concretely" bullets asserted both "each of the five signals is
+  normalized ... combined via a fixed-weight sum" AND "size and density act
+  as normalizers ... rather than independent additive terms" — mutually
+  exclusive readings of the same Decision section. CARD-009's implementation
+  and its review resolved the ambiguity the only way AC-023 permits (proven:
+  a literal five-term additive sum makes AC-023 impossible for an arbitrarily
+  large/dense grid) — effort = fixed-weight sum of 3 signals, relief =
+  multiplicative discount from the other 2, `score = 100 * effort * relief`.
+  This revision states that shape explicitly instead of leaving it
+  reconstructable only from one card's Worktree notes.
