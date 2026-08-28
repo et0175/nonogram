@@ -303,13 +303,18 @@ def _random_module_calls(path: Path) -> list[str]:
     (``r = random``) all show up the same way.
 
     An annotation such as ``rng: random.Random`` is an attribute reference,
-    not a ``Call`` node, so it is correctly ignored. ``random.Random()`` is
-    still flagged when reached through the module/attribute path, since
-    minting a fresh generator there is exactly what ADR-0015 forbids.
-    ``Random``/``SystemRandom`` are exempt from the *from-import* binding
-    only: those name the class (legitimately imported for a type annotation,
-    e.g. ``rng: random.Random``), not a module-level draw function, so
-    importing them alone is not a G-4 violation.
+    not a ``Call`` node, so it is correctly ignored — and that alone is what
+    makes a legitimate ``from random import Random`` (imported to *type* an
+    injected generator) safe, so ``Random``/``SystemRandom`` need no
+    from-import exemption and no longer get one. Closing that exemption was
+    CARD-003 review cycle 2's first Minor follow-up, taken by CARD-008: it
+    used to un-flag ``Random().shuffle(x)`` as well, a real ADR-0015 violation
+    reached through a different import spelling than ``random.Random()``.
+
+    ``from random import *`` is the second follow-up. A star import binds every
+    draw function under its own name and the scan cannot tell which of them the
+    module then calls, so it is reported as the single offence
+    ``"random.*"`` — the import itself, not a call site.
 
     Known, deliberate gap: ``getattr(random, "shuffle")(x)`` is not detected.
     Resolving a dynamically computed attribute name is beyond what a static
@@ -321,8 +326,10 @@ def _random_module_calls(path: Path) -> list[str]:
     # Names bound to the `random` module itself.
     module_aliases: set[str] = set()
     # Names bound directly to a member of `random` (its original name kept
-    # for reporting), excluding the class imports noted above.
+    # for reporting).
     member_aliases: dict[str, str] = {}
+    # Offences that are the *import* rather than a call — see the docstring.
+    import_offences: list[str] = []
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -331,7 +338,8 @@ def _random_module_calls(path: Path) -> list[str]:
                     module_aliases.add(alias.asname or alias.name)
         elif isinstance(node, ast.ImportFrom) and node.module == "random":
             for alias in node.names:
-                if alias.name in ("Random", "SystemRandom"):
+                if alias.name == "*":
+                    import_offences.append("random.*")
                     continue
                 member_aliases[alias.asname or alias.name] = alias.name
 
@@ -347,7 +355,7 @@ def _random_module_calls(path: Path) -> list[str]:
                 if isinstance(target, ast.Name):
                     module_aliases.add(target.id)
 
-    calls: list[str] = []
+    calls: list[str] = list(import_offences)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -368,7 +376,7 @@ def test_the_source_walk_actually_sees_the_package() -> None:
     """Guard the guard below: an empty walk must not pass silently."""
     found = {path.name for path in _SOURCING_DIR.rglob("*.py")}
 
-    assert {"__init__.py", "random_grid.py"} <= found
+    assert {"__init__.py", "random_grid.py", "library.py"} <= found
 
 
 def test_no_module_level_random_usage_anywhere_in_sourcing() -> None:
@@ -455,7 +463,9 @@ def test_the_guardrail_check_does_not_flag_the_legitimate_random_class_import(
 
     ``Random``/``SystemRandom`` are class imports, not draw functions; a
     module using one only as a type annotation (or to accept an injected
-    instance) must not be flagged.
+    instance) must not be flagged. Note what does the work now: the annotation
+    is an ``ast.Name``, not an ``ast.Call``, so nothing has to exempt the
+    *import* for this to pass — see the next test for why that matters.
     """
     offender = tmp_path / "offender.py"
     offender.write_text(
@@ -464,6 +474,38 @@ def test_the_guardrail_check_does_not_flag_the_legitimate_random_class_import(
     )
 
     assert _random_module_calls(offender) == []
+
+
+def test_the_guardrail_check_catches_minting_a_generator_via_a_from_import(
+    tmp_path: Path,
+) -> None:
+    """``from random import Random`` then ``Random().shuffle(x)`` is a
+    violation (CARD-003 review cycle 2, Minor 1; closed by CARD-008).
+
+    ``random.Random()`` was already flagged through the module path, so
+    exempting the from-import binding left the identical offence reachable by
+    changing the import spelling — an unseeded generator minted inside the
+    module, which is exactly what ADR-0015 forbids.
+    """
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        "from random import Random\n\n\ndef f():\n    return Random().shuffle([1])\n"
+    )
+
+    assert _random_module_calls(offender) == ["random.Random"]
+
+
+def test_the_guardrail_check_catches_a_star_import(tmp_path: Path) -> None:
+    """``from random import *`` is a violation on sight (Minor 2, same review).
+
+    The star binds every draw function under its own name, so the scan cannot
+    say which one is called — and must not therefore say "none". The import
+    itself is reported.
+    """
+    offender = tmp_path / "offender.py"
+    offender.write_text("from random import *\n\n\ndef f():\n    return shuffle([1])\n")
+
+    assert _random_module_calls(offender) == ["random.*"]
 
 
 def test_the_guardrail_check_documents_the_getattr_indirection_gap(
@@ -503,18 +545,22 @@ def test_for_mode_dispatches_to_a_usable_grid_source() -> None:
 
 def test_for_mode_rejects_an_unregistered_mode() -> None:
     """Not a domain error on purpose: argparse's ``choices`` rejects a mode the
-    user typed (ADR-0010), so an unknown mode here is a pipeline wiring bug."""
+    user typed (ADR-0010), so an unknown mode here is a pipeline wiring bug.
+
+    ``image`` is CARD-015's mode and is the unregistered one now that CARD-008
+    has landed ``library``.
+    """
     with pytest.raises(ValueError) as excinfo:
-        sourcing.for_mode("library")
+        sourcing.for_mode("image")
 
     message = str(excinfo.value)
-    assert "library" in message
+    assert "image" in message
     assert "random" in message
 
 
 def test_the_advertised_modes_match_the_dispatch_table() -> None:
     """``MODES`` is what a caller enumerates; it must not drift from the table
     ``for_mode`` looks in as later cards register their sources."""
-    assert sourcing.MODES == ("random",)
+    assert sourcing.MODES == ("random", "library")
     for mode in sourcing.MODES:
         assert callable(sourcing.for_mode(mode))

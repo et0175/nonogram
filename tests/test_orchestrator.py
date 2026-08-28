@@ -388,7 +388,7 @@ def test_the_requested_size_and_density_reach_the_grid_source(
 def test_an_unknown_mode_fails_before_any_candidate_is_sourced() -> None:
     """A wiring bug must not be reported as 20 infeasible candidates."""
     with pytest.raises(ValueError, match="unknown grid sourcing mode"):
-        generate(_request(mode="library"))
+        generate(_request(mode="image"))
 
 
 def test_a_run_writes_no_files(

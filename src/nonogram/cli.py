@@ -91,8 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     Later cards extend *this* parser rather than adding a second one:
     ``--difficulty`` and ``--name`` (FR-008, FR-015), ``--image`` and the
-    ``library``/``image`` modes (FR-002, FR-003), and the remaining export
-    formats (FR-011, FR-012, FR-016).
+    ``image`` mode (FR-003), and the remaining export formats (FR-011, FR-012,
+    FR-016). ``--mode library`` and ``--library-key`` (FR-002) landed that way.
     """
     parser = argparse.ArgumentParser(
         prog=PROG,
@@ -111,9 +111,17 @@ def build_parser() -> argparse.ArgumentParser:
     generate.set_defaults(handler=_run_generate)
     generate.add_argument(
         "--mode",
-        choices=["random"],
+        choices=["random", "library"],
         default="random",
         help="How the solution grid is sourced (default: random).",
+    )
+    generate.add_argument(
+        "--library-key",
+        metavar="KEY",
+        help=(
+            "Which built-in image to draw in --mode library. Which keys exist "
+            "is a domain rule and is checked after parsing, not here."
+        ),
     )
     generate.add_argument(
         "--size",
@@ -195,6 +203,7 @@ def _run_generate(args: argparse.Namespace) -> int:
         mode=args.mode,
         size=args.size,
         density=args.density,
+        library_key=args.library_key,
         seed=args.seed,
         export_formats=tuple(args.export_formats or ()),
         out=args.out,
