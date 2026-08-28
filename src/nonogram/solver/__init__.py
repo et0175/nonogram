@@ -8,10 +8,18 @@ candidate grid it generates.
 
 Public surface (this is the whole API; everything else is internal)
 -------------------------------------------------------------------
-``solve(row_clues, column_clues)``  ->  :class:`SolveResult`
+``solve(row_clues, column_clues, *, deadline=None)``  ->  :class:`SolveResult`
 ``SolveResult``                     the count, the solution grid, the signals
 ``SolveSignals``                    FR-009's raw difficulty inputs
 ``MANY``                            the ``solution_count`` meaning ">= 2"
+
+``deadline`` is ADR-0011's cooperative generation deadline: an absolute
+:func:`time.monotonic` reading, computed once per generation *request* by the
+orchestrator (COMP-002) and checked here at every propagation fixed point and
+every branch node. Past it, :func:`solve` raises
+:class:`nonogram.errors.SolverTimeout` rather than returning a verdict — a
+timed-out solve has no answer, and INV-002 keeps the puzzle unexportable.
+Omitting it (the default) runs to completion, however long that takes.
 
 Boundary types only, at the edge (ADR-0012, guardrail G-3). Clues arrive as
 CARD-002's ``tuple[tuple[int, ...], ...]`` and a solution leaves as

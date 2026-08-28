@@ -12,6 +12,10 @@ This module owns two things and nothing else:
     Applies ``line_intersection`` to every dirty row and column, feeding each
     newly decided cell back to the perpendicular line, until nothing changes
     (the fixed point ADR-0009 describes).
+``check_deadline``
+    ADR-0011's cooperative deadline check, in one place so the solver's two
+    checkpoints (here and at ``search``'s branch node) raise the same error
+    with the same wording.
 
 Representation (ADR-0012)
 -------------------------
@@ -40,18 +44,69 @@ The EC-001 property test supplies the independent cross-check, from outside.
 
 Purity (ADR-0007, guardrail G-2)
 --------------------------------
-No I/O, no clock, no randomness, no module-level mutable state. Every function
-here is a total function of its arguments; ``propagate`` mutates only the
-``Board`` it is handed.
+No I/O, no randomness, no module-level mutable state. Every function here is a
+total function of its arguments; ``propagate`` mutates only the ``Board`` it is
+handed. The one clock reading is ADR-0011's cooperative deadline, and it is
+opt-in: with ``deadline=None`` — the default, and what every existing caller
+and the EC-001 property corpus pass — no clock is consulted at all and the
+functions here stay pure in the strict sense.
 """
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 
-__all__ = ["Board", "canonical_clue", "line_intersection", "mask_runs", "propagate"]
+from nonogram.errors import SolverTimeout
+
+__all__ = [
+    "Board",
+    "canonical_clue",
+    "check_deadline",
+    "line_intersection",
+    "mask_runs",
+    "propagate",
+]
 
 LineClue = tuple[int, ...]
+
+
+def check_deadline(deadline: float | None) -> None:
+    """Raise :class:`~nonogram.errors.SolverTimeout` once ``deadline`` has passed.
+
+    ADR-0011's whole enforcement mechanism, in three lines. The solver is
+    stopped *cooperatively* — no thread, no subprocess, no signal — by calling
+    this at the two checkpoints ADR-0011 names: the top of :func:`propagate`'s
+    fixed-point sweep and the top of ``search``'s branch loop.
+
+    Args:
+        deadline: An absolute :func:`time.monotonic` reading, or ``None`` to
+            disable the check entirely. ``None`` is the default everywhere, so
+            a caller that does not care about timeouts (the EC-001 property
+            corpus, the directed solver tests) pays a single ``is not None``
+            per sweep and never reads the clock.
+
+    Raises:
+        SolverTimeout: the deadline is in the past. The message reports the
+            overshoot, because "how far past the deadline did the check fire"
+            is exactly the granularity question ADR-0011 lists as this
+            mechanism's one negative consequence.
+
+    ``time.monotonic`` and not ``time.perf_counter``: the deadline is compared
+    against a value the *orchestrator* computed in a different module, so the
+    two readings have to come from the same clock, and ADR-0011 names the
+    monotonic one. (``SolveSignals.elapsed_seconds`` keeps ``perf_counter``:
+    that is a duration measured entirely inside one call, never compared
+    against anything from outside it.)
+    """
+    if deadline is not None:
+        overshoot = time.monotonic() - deadline
+        if overshoot > 0.0:
+            raise SolverTimeout(
+                f"solver passed its generation deadline {overshoot:.3f}s ago and "
+                f"stopped without a verdict (ADR-0011 cooperative deadline); the "
+                f"puzzle is abandoned, not accepted"
+            )
 
 
 def canonical_clue(clue: tuple[int, ...]) -> LineClue:
@@ -359,6 +414,7 @@ def propagate(
     board: Board,
     dirty_rows: list[bool],
     dirty_columns: list[bool],
+    deadline: float | None = None,
 ) -> bool:
     """Run line logic over the dirty lines until nothing more can be deduced.
 
@@ -367,11 +423,21 @@ def propagate(
         dirty_rows: ``dirty_rows[r]`` — row ``r`` needs (re)examining. Consumed:
             every flag is cleared by the time this returns.
         dirty_columns: The same for columns.
+        deadline: ADR-0011's cooperative deadline — an absolute
+            :func:`time.monotonic` reading, or ``None`` (the default) for no
+            deadline at all.
 
     Returns:
         ``True`` if the board is still consistent (a fixed point was reached),
         ``False`` the moment some line admits no placement at all — i.e. this
         branch of the search is contradictory and can be abandoned.
+
+    Raises:
+        SolverTimeout: ``deadline`` passed. Checked once per sweep of the outer
+            loop, which is ADR-0011's "each propagation fixed point": the check
+            fires before the first sweep and again before every re-sweep, so a
+            propagation that keeps finding more to deduce cannot outrun the
+            deadline by more than one sweep's work.
 
     A line is re-examined whenever a perpendicular line writes into it, so at
     the fixed point *every* line is known to admit at least one placement
@@ -379,11 +445,17 @@ def propagate(
     decided board as a solution: with no unknown cells left, "admits at least
     one placement" and "matches its clue" are the same statement.
 
-    ADR-0011's cooperative deadline check belongs at the top of the outer
-    ``while`` below (one check per fixed-point sweep) and at each branch node
-    in ``search``; CARD-006 owns that, and guardrail G-5 keeps it out of this
-    card. The loop is shaped so that check is a single added line, exactly as
-    ADR-0011's "Neutral" note requires of whatever solver technique landed.
+    Why the check sits on the outer loop and not deeper (CARD-006)
+    --------------------------------------------------------------
+    One sweep is at most ``height + width`` line DPs — 100 of them at the
+    50x50 upper bound, each O(length x runs) — so the overshoot this
+    granularity admits is bounded by a few tens of milliseconds against a
+    30-second budget (ADR-0001), which is the "small overshoot" ADR-0011 trades
+    for portability. Pushing the check one level down, into the per-line loops,
+    would multiply the clock reads by ~100 for an overshoot improvement of the
+    same few tens of milliseconds — invisible against the budget, but a real
+    cost on the 10x10..30x30 line-solvable grids that dominate NFR-001's p95
+    and reach their fixed point in a handful of sweeps.
     """
     height = board.height
     width = board.width
@@ -392,6 +464,7 @@ def propagate(
 
     pending = True
     while pending:
+        check_deadline(deadline)
         pending = False
 
         for row in range(height):

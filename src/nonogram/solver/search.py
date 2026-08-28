@@ -51,10 +51,21 @@ ADR-0012) without importing the clue *module*. Independence from the solver's
 own code is what the EC-001 property test provides, and it does cross-check
 against ``clues.compute_clues`` from outside.
 
+The cooperative deadline (ADR-0011, CARD-006)
+---------------------------------------------
+:func:`solve` takes an optional absolute ``deadline`` and threads it into the
+two checkpoints ADR-0011 names: every propagation fixed point (inside
+:func:`~nonogram.solver.propagate.propagate`) and every branch node (the top of
+the search loop below). Once it passes, the solver raises
+:class:`~nonogram.errors.SolverTimeout` instead of returning a verdict — a
+timed-out solve has *no* answer, which is what keeps CON-005 true: the search
+is stopped between whole steps, never mid-deduction, so it can never abandon
+with a half-formed uniqueness verdict. The deadline itself is the
+orchestrator's (COMP-002) to compute, once per generation request; the solver
+only reads the clock against it.
+
 Out of scope here (guardrail G-5): no difficulty scoring (CARD-009 consumes
-:class:`SolveSignals`), no deadline enforcement (CARD-006 hooks ADR-0011's
-check into the fixed-point and branch-node boundaries this search exposes),
-no retry loop (CARD-005).
+:class:`SolveSignals`), no retry loop (CARD-005).
 """
 
 from __future__ import annotations
@@ -66,6 +77,7 @@ from nonogram.solver.propagate import (
     Board,
     LineClue,
     canonical_clue,
+    check_deadline,
     line_intersection,
     mask_runs,
     propagate,
@@ -126,13 +138,26 @@ class SolveResult:
         return self.solution_count == 1
 
 
-def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
+def solve(
+    row_clues: ClueSet,
+    column_clues: ClueSet,
+    *,
+    deadline: float | None = None,
+) -> SolveResult:
     """Count a clue set's solutions, stopping at two (FR-006).
 
     Args:
         row_clues: One clue tuple per row, top to bottom, in CARD-002's
             boundary type — ``(0,)`` for an empty line (AC-013).
         column_clues: One clue tuple per column, left to right.
+        deadline: ADR-0011's cooperative deadline — an absolute
+            :func:`time.monotonic` reading past which the search gives up, or
+            ``None`` (the default) to run to completion however long it takes.
+            Keyword-only, and defaulted, because it is not part of the question
+            being asked: a caller that only wants the uniqueness verdict — the
+            EC-001 property corpus, every directed solver test — is unchanged
+            by its existence, which is ADR-0011's "every caller must now
+            account for it" consequence paid down to nothing.
 
     Returns:
         A :class:`SolveResult` whose ``solution_count`` is ``0`` (AC-016),
@@ -144,10 +169,17 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
             int, or the empty-line marker used alongside other runs. Not a
             domain outcome: an unsolvable puzzle is reported as
             ``solution_count = 0``, never as an exception.
+        SolverTimeout: ``deadline`` passed before the count was settled
+            (ADR-0011). Deliberately an exception and not a fourth
+            ``solution_count`` value: a timeout is not a verdict about the
+            puzzle, and a caller that pattern-matched it as one would either
+            discard a good candidate or, worse, retry a request that is out of
+            time (INV-002, and the orchestrator's own retry contract).
 
-    Pure (ADR-0007, guardrail G-2): a total function of its two arguments,
-    with no filesystem, CLI, randomness or module state involved, which is why
-    EC-001's property test needs no fixture at all.
+    Pure (ADR-0007, guardrail G-2) for a given ``deadline``: no filesystem, no
+    CLI, no randomness, no module state. With the default ``deadline=None`` no
+    clock is read at all, which is why EC-001's property test needs no fixture
+    and why the solver's answers do not depend on how fast the machine is.
 
     A ``nonogram.clues.Clues`` unpacks straight into the two arguments::
 
@@ -198,7 +230,7 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
     board = Board.blank(rows, columns)
     dirty_rows = [True] * height
     dirty_columns = [True] * width
-    if not propagate(board, dirty_rows, dirty_columns):
+    if not propagate(board, dirty_rows, dirty_columns, deadline):
         return finish(0, None, 0, 0, board.decided)
 
     # Everything settled up to here came from line logic alone (FR-009).
@@ -222,6 +254,13 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
         stack: list[tuple[Board, int, int, list[bool]]] = [_frame(board)]
         branch_nodes += 1
         while stack and len(solutions) < MANY:
+            # ADR-0011's second checkpoint. It sits on the *guess* — the top of
+            # this loop — rather than only where ``branch_nodes`` is counted,
+            # because the expensive shape of a hard 50x50 is a run of guesses
+            # that each hit an immediate contradiction and ``continue`` without
+            # ever pushing a frame; a check placed on the push alone would sit
+            # out precisely the search that most needs stopping.
+            check_deadline(deadline)
             parent, row, column, remaining = stack[-1]
             if not remaining:
                 stack.pop()
@@ -240,7 +279,7 @@ def solve(row_clues: ClueSet, column_clues: ClueSet) -> SolveResult:
             dirty_rows[row] = True
             dirty_columns[column] = True
 
-            if not propagate(child, dirty_rows, dirty_columns):
+            if not propagate(child, dirty_rows, dirty_columns, deadline):
                 backtracks += 1
                 continue
             if child.decided == total_cells:
