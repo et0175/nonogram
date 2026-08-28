@@ -111,4 +111,17 @@ loop that makes a requested tier actually come out.
 
 ## Worktree notes
 
-—
+[Follow-up from CARD-005 review, cycle 1] Two things to know about the retry primitive
+this card reuses (`orchestrator.RetryCounter` + `run_bounded`):
+1. `MAX_REGENERATE_ATTEMPTS = 20` is named for CARD-005's own loop, but ADR-0002 gives
+   the same bound (20) to resample too. Don't declare a second literal `20` for the
+   resample counter — either import/reuse the existing constant under a shared name, or
+   rename it to something like `MAX_RETRY_ATTEMPTS` with `MAX_REGENERATE_ATTEMPTS =
+   MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS`, so the two bounds can't silently drift
+   apart.
+2. The regenerate counter is deliberately NOT reset between calls to `run_bounded` —
+   its budget spans the whole request, not one invocation of the primitive. If this
+   card's resample loop wraps/nests inside the regenerate loop, confirm that's still the
+   semantics POL-004 wants (a resample attempt that itself regenerates does not get a
+   fresh 20-attempt regenerate budget), and that an inner `GenerationAbandoned` correctly
+   ends the outer loop too rather than being caught and retried as a resample failure.

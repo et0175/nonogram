@@ -15,7 +15,7 @@
 **Wave:** 4
 **Depends on:** CARD-003, CARD-004
 **Touches:** src/nonogram/orchestrator.py, tests/test_orchestrator.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-08-28T07:22:29Z
 **Closed:** —
 **Actual:** —
@@ -242,3 +242,4 @@ generation request rather than to one invocation of the primitive.
 
 [Scope] Predicted Touches (orchestrator.py, test_orchestrator.py) plus tests/test_cli.py (outside prediction — see STRUCTURE-8 for the 3 forced reasons: a stale NotImplementedError test, a fixture building Puzzle() with no args, and the ADR-0007 guard extension). No file under solver/**, clues.py, or sourcing/** touched (G-1 held). 4 actual files vs 2 predicted — flagging for reviewer judgment per the scope gate rather than silently accepting the explanation.
 [Build gate] PASSED (full, independently re-run by orchestrator: 582 passed, 0 failed, no regressions vs the pre-CARD-005 535).
+[Review 1/3] Score: 9.5 — crit: 0, imp: 0, 6 minor. Scope flag ruled justified GROWN, not a finding: reviewer checked provenance and confirmed the ADR-0007-guard-extension follow-up pre-existed on main (written by CARD-001's cycle-2 review, before implementation started) offering the implementer exactly this choice, and the other two test_cli.py edits (stale NotImplementedError assertion, incompatible Puzzle() fixture) are the necessary blast radius of the card's own AC-018. All 5 guardrails independently verified via mutation testing on a scratch copy (5/5 injected bugs caught by the real test suite): INV-003 bound exact at 20, INV-002 gate open only on solution_count==1 and closed on every new candidate, G-3 no second-guessing (one solve() call, verdict read not recomputed), seeded RNG built once and threaded through every attempt (not re-seeded per attempt), G-1/G-4 clean. ADR-0007 guard rewrite independently verified stronger than the 3 tests it replaced (walked each old predicate through the new rule, confirmed equivalence/superset; ran the real on-disk import graph through the helper — non-vacuous; mutated 3 real edges, all caught). Retry primitive judged correctly sized for CARD-010/CARD-016's known needs, not over- or under-built. 6 Minor findings (none gating): doubled meaning of "G-3" in two docstrings within the same file; INV-002's ready_for_export field is publicly assignable (INV-003's counter is structurally protected, this isn't — documented tradeoff, not enforced); MAX_REGENERATE_ATTEMPTS names a bound ADR-0002 shares with resample (CARD-010 should not restate a second 20); a redundant double-computation in a test; a marginal relaxation of the errors-import exemption; unseeded-run tests are theoretically stochastic (measured failure probability ~1.6e-7, acceptable). Final verdict: PASS — ready to merge.
