@@ -31,6 +31,7 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 
 ## Ready
 - **CARD-008** P2 · Built-in image library sourcing  _(wave 6)_
+
 - **CARD-009** P1 · Difficulty scoring formula from solver signals  _(wave 6)_
 - **CARD-010** P1 · Difficulty tier selection and resample loop  _(wave 7)_
 - **CARD-011** P2 · Puzzle naming (auto-generated and --name override)  _(wave 6)_
@@ -42,7 +43,10 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-_(none)_
+- **CARD-006** Cooperative generation deadline and SolverTimeout
+  `worktree: ../PythonProject4-card-006` · `branch: card/006-cooperative-deadline`
+- **CARD-007** JSON export and the export-readiness gate
+  `worktree: ../PythonProject4-card-007` · `branch: card/007-json-export`
 
 ## Review
 _(none)_

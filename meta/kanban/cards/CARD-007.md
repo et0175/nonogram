@@ -1,6 +1,6 @@
 # CARD-007: JSON export and the export-readiness gate
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/007-json-export
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-007
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 5
 **Depends on:** CARD-005
 **Touches:** src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/orchestrator.py, src/nonogram/cli.py, tests/test_export_json.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-28T08:42:21Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

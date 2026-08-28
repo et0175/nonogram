@@ -1,12 +1,18 @@
-wave: 4
+wave: 5
 mode: interactive
 active:
-  - id: CARD-005
-    phase: review
-    review_cycle: 1
-    branch: card/005-orchestrator-regenerate-loop
-    worktree: ../PythonProject4-card-005
-    started: 2026-08-28T07:22:29Z
+  - id: CARD-006
+    phase: implementation
+    branch: card/006-cooperative-deadline
+    worktree: ../PythonProject4-card-006
+    started: 2026-08-28T08:42:21Z
+  - id: CARD-007
+    phase: implementation
+    branch: card/007-json-export
+    worktree: ../PythonProject4-card-007
+    started: 2026-08-28T08:42:21Z
 escalated: []
-conflict_edges: []
-last_updated: 2026-08-28T10:53:00Z
+conflict_edges:
+  - pair: [CARD-006, CARD-007]
+    reason: "predicted: orchestrator.py (overlap 0.2, below max_overlap 0.3 — parallel by user choice, not auto-serialized)"
+last_updated: 2026-08-28T08:42:21Z
