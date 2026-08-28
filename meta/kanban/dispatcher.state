@@ -2,18 +2,12 @@ wave: 5
 mode: interactive
 active:
   - id: CARD-006
-    phase: implementation
+    phase: review
+    review_cycle: 0
     branch: card/006-cooperative-deadline
     worktree: ../PythonProject4-card-006
     started: 2026-08-28T08:42:21Z
-  - id: CARD-007
-    phase: review
-    review_cycle: 2
-    branch: card/007-json-export
-    worktree: ../PythonProject4-card-007
-    started: 2026-08-28T08:42:21Z
 escalated: []
-conflict_edges:
-  - pair: [CARD-006, CARD-007]
-    reason: "predicted: orchestrator.py (overlap 0.2, below max_overlap 0.3 — parallel by user choice)"
-last_updated: 2026-08-28T12:31:00Z
+conflict_edges: []
+last_updated: 2026-08-28T12:40:00Z
+notes: "AC-037 benchmark genuinely fails (real performance finding, not a bug) — paused for user decision before review/merge"
