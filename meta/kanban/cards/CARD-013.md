@@ -1,6 +1,6 @@
 # CARD-013: CSV export and exact round-trip fidelity
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -97,4 +97,142 @@ round-trip property that makes both formats trustworthy as an interchange repres
 
 ## Worktree notes
 
-—
+### Summary
+
+FR-012 completed: CSV export, decoders for both formats, and EC-002's property test.
+
+- **`export/csv_export.py`** (new) — `document(payload) -> str`, `render(payload, path)`,
+  `decode(text) -> ExportPayload`, `read(path) -> ExportPayload`. Stdlib `csv` only (G-5).
+- **`export/json_export.py`** — CARD-007's `document`/`render` untouched; added the inverse
+  half, `parse(document)` / `decode(text)` / `read(path)`, in the same style (the
+  `document`↔`parse` pair mirrors the existing `document`→`render` split, so the shape is
+  still assertable without a filesystem).
+- **`export/__init__.py`** — one added row, `CSV: ExportFormat(CSV, ".csv", csv_export.render)`,
+  plus the `CSV = "csv"` constant and the `csv_export` import (G-1: additive, the table was
+  not restructured). `cli.py` and `orchestrator.py` untouched — `--export csv` works because
+  argparse's choices come from the registry (verified end to end by
+  `test_the_cli_accepts_csv_without_the_adapter_being_edited` and a manual CLI run).
+- Both decoders return an `ExportPayload`, so the decode is the exact inverse of the render
+  including ADR-0015's provenance. `ExportPayload` is imported *inside* the two functions:
+  `export/__init__.py` imports these modules to build its registry, so the boundary type is
+  only bound after that import finishes — which it always has by call time.
+- G-4 held: only ADR-0012's boundary type is serialized (`list[list[bool]]` cell by cell,
+  clues as integer tuples). Both decoders reject the numeric/bitmask spellings outright, so
+  the internal representation cannot leak back in through the reader either.
+
+Two pre-existing tests in `tests/test_export_json.py` had to move (not in the predicted
+Touches, but they asserted the registry's *former* contents):
+`test_the_registry_knows_the_json_format` pinned `FORMATS == (export.JSON,)` — now asserts
+membership plus no duplicate names, so CARD-012/CARD-014's rows will not break it; and
+`test_an_unregistered_format_is_rejected_by_the_cli` used `"csv"` as its stand-in for an
+unknown format — now `"pdf"` (CARD-014's, still unregistered). The JSON decoder's rejection
+cases were added to that file too, next to CARD-007's writer tests.
+
+### The CSV layout (the design decision of this card)
+
+CSV is flat and this export holds three different shapes — scalar metadata, a rectangular
+0/1 matrix, and two *ragged* integer-tuple lists. The layout says in the file itself where
+each block starts. Four sections, each opened by a one-cell marker row, in this fixed order:
+
+```
+#meta
+version,1
+seed,42
+mode,random
+size,4
+density,50
+#grid
+1,1,0,0
+0,0,0,0
+1,1,1,1
+0,1,1,0
+#row-clues
+2
+0
+4
+2
+#column-clues
+1,1
+1,2
+2
+1
+```
+
+Decisions and why:
+
+- **`#`-prefixed marker rows.** Every data row in every section is a row of bare integers,
+  so no data row can be read as a marker and no marker as data. Alternative considered and
+  rejected: header rows naming the columns — they cannot delimit a *ragged* block, since a
+  clue row and a header row are both "some cells".
+- **Fixed order, each section exactly once.** The decoder checks that the markers seen, in
+  the order seen, are exactly `SECTIONS`. Accepting any order would also accept a file whose
+  two clue blocks were swapped — a silent transposition, which is a fidelity bug, not an
+  error a user would notice.
+- **`#meta` is `key,value` rows**, all five keys required, no others accepted. `size`/`density`
+  are `int | None` in the payload (ADR-0015 records them *as asked for*, and "not asked" is a
+  real answer), so `None` is an empty value — `size,` — and decodes back to `None`, never `0`
+  or `""`.
+- **Grid cells are `1`/`0` and nothing else.** Cell by cell, not one integer per line: a
+  bitmask would make the file's fidelity depend on bit order and mask width (G-4). The
+  decoder rejects `true`, `2` or an empty cell, so two different files can never decode to
+  the same grid.
+- **Clue rows are written ragged, never padded.** CSV's raggedness is the feature here:
+  padding to the longest clue would put cells in the file that a decoder has to guess were
+  not really runs.
+- **The `(0,)` empty-line marker round-trips as a `0` cell**, so it comes back as `(0,)` and
+  never as `()`. Note this module does *not* need to know `clues.EMPTY_LINE_CLUE` — it
+  serializes whatever tuples it is handed. What it does instead is close the one hole: an
+  empty clue tuple `()` would serialize to a blank line, indistinguishable from a stray one,
+  so **`decode` rejects a blank row anywhere**, including a trailing blank line at the end of
+  the file (which would otherwise be one more `#column-clues` entry). The single input that
+  could not survive the round trip therefore fails loudly instead of coming back altered.
+- The decoder is strict throughout — 18 documented rejection cases in
+  `tests/test_export_csv.py`, 15 more for JSON in `tests/test_export_json.py`. Deliberate:
+  EC-002 is a *fidelity* property, and a decoder that repaired what it read would still
+  "round-trip" a file it had quietly altered while the property passed.
+- Line terminator is `\n` (not `csv`'s default `\r\n`) to match the JSON renderer; the reader
+  accepts either, so a file that made a round trip through a Windows tool still decodes.
+
+### The property test's corpus (EC-002)
+
+`tests/property/test_export_roundtrip.py`, house style: one module-level `SEED = 20260828`,
+a seeded `random.Random`, no `hypothesis` (ADR-0006's baseline is closed), and the case count
+asserted *inside* the tests so the corpus cannot quietly shrink below the bar.
+
+- **2030 cases** = 2000 drawn + 30 hand-picked. `REQUIRED_CASES = 500` is the asserted floor.
+- **Sizes 1..50, cycled not sampled** — every edge length is drawn exactly 40 times, and
+  `test_the_corpus_covers_what_ec_002_asks_for` asserts `{sizes} == set(range(1, 51))`. A
+  uniform sample would leave some size uncovered on some seeds.
+- **Densities** `(0.0, 0.05, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95, 1.0)`, cycled — both extremes in
+  deliberately: 0.0 gives the all-empty lines the `(0,)` marker exists for, 1.0 the all-filled
+  ones. Asserted: >= 100 cases contain an all-empty line, >= 100 an all-filled line.
+- **Hand-picked degenerate shapes** the draw would essentially never produce: fully empty,
+  fully filled, a single filled cell, alternating stripes and a checkerboard (the most runs a
+  line can hold), each at sizes 1, 2, 3, 10, 49, 50.
+- **Provenance varies too** — modes cycle through `random`/`library`/`image`, seeds are drawn,
+  and every 7th/11th case leaves `size`/`density` unrequested (`None`). >= 100 such cases
+  asserted. Per ADR-0015's warning, the grid/clue equality and the provenance equality are
+  asserted as two *separately worded* claims, so neither stands in for the other.
+- **Clues are derived** with `compute_clues` (INV-001), so the corpus is a corpus of puzzles
+  rather than of arbitrary integer tuples.
+- **Where the files are.** The two per-format property tests run the serializer pair in
+  memory (full corpus, ~0.4 s each); `test_a_slice_of_the_corpus_round_trips_through_real_files`
+  puts every 19th case (107 of them, spanning all 50 sizes — the stride is coprime with both
+  the size cycle of 50 and the density cycle of 9) through `render` → `read` on disk, so the
+  file layer is covered without paying 4000 temp files for it. AC-033 and its CSV twin are
+  end-to-end on top: `generate` at the pinned seed 0 / 10x10 / 50%, `export_puzzle`, decode,
+  compare — the property tied to an actually uniqueness-confirmed puzzle.
+- **Mutation-checked.** Four injected bugs were each caught by the property test at case 0:
+  an empty meta cell decoding to `0` instead of `None`; `(0,)` collapsing to `()`; clues
+  decoding to lists instead of tuples; grid cells decoding to ints instead of bools.
+
+### Results
+
+`./.venv/bin/python -m pytest -q` → **700 passed, 1 xfailed** in ~17 s (the xfail is the
+pre-existing, already-tracked AC-037 benchmark gate — not this card's). Baseline before the
+card was 637 passed + 1 xfailed, so +63 tests and no regressions.
+
+No blockers.
+
+[Scope] Predicted Touches matched, plus tests/test_export_json.py (outside prediction — 2 pre-existing "registry has exactly one row" assertions updated to membership checks, same pattern as CARD-007/012's scope notes). cli.py, orchestrator.py untouched (registry-driven, no wiring needed). export/png.py, svg.py, layout.py untouched (G-1). sourcing/**, difficulty.py, solver/**, clues.py untouched (G-2/G-3).
+[Build gate] PASSED (full, independently re-run by orchestrator: 701 collected, 700 passed, 1 xfailed, 0 failed, exit 0).

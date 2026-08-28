@@ -1,6 +1,6 @@
 # CARD-012: PNG and SVG export renderers
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -95,4 +95,141 @@ these outputs (it is the JSON/CSV export's job, and the PDF answer key's).
 
 ## Worktree notes
 
-—
+### Summary
+
+Delivered on `card/012-png-svg-export`. Four source files, one test file:
+
+- `src/nonogram/export/layout.py` (new) — the shared print geometry, a pure function.
+- `src/nonogram/export/png.py` (new) — the Pillow raster, with the `Image` exposed (CON-006).
+- `src/nonogram/export/svg.py` (new) — stdlib-generated XML, no new dependency (G-4).
+- `src/nonogram/export/__init__.py` — **two rows added** to `_FORMATS`, plus the `PNG`/`SVG`
+  name constants and one stale docstring sentence. Nothing restructured (G-1).
+- `tests/test_export_image.py` (new) — 50 tests covering AC-028/029/030 and the geometry.
+
+`orchestrator.py` was **not** touched. Predicted as a possible Touch; verified unnecessary —
+`export_puzzle()` already dispatches through the registry and already calls
+`require_ready_for_export()` before building the payload, so registering two rows is the
+whole of the wiring. `cli.py` was not touched either (G-2): `--export`'s `choices` come from
+`export.FORMATS`, and a test asserts both new formats parse with the adapter unedited.
+
+Two stale assertions in pre-existing test files had to move, both about *the registry having
+exactly one row* rather than about anything this card changed:
+
+- `tests/test_export_json.py::test_the_registry_knows_the_json_format` asserted
+  `FORMATS == (JSON,)`. Now asserts JSON's membership and its renderer — pinning the whole
+  tuple in the JSON renderer's own file would make every later card's row look like a JSON
+  regression. Its sibling `test_an_unregistered_format_is_a_wiring_bug...` used `"png"` as its
+  example of an unknown format; it now uses `"pdf"` (CARD-014's, still unregistered).
+- `tests/test_cli.py`'s `format-not-in-increment-1` usage-error case passed `--export png`;
+  same substitution to `pdf`. `json_export.py` itself was not edited (G-1).
+
+### Design notes
+
+**`layout.py` — the geometry decisions.** `compute_layout(row_clues, column_clues) -> Layout`,
+returning plain ints/floats/tuples: `GridLine(index, position, start, end, width, major)` and
+`ClueEntry(value, line, depth, center_x, center_y)`. No Pillow type, no SVG string, no path in
+the signature, which is what lets CARD-014's PDF consume it without inheriting either
+renderer's library.
+
+- *Grid size is not a parameter.* It is not separate information — `len(row_clues)` is the row
+  count and `len(column_clues)` the column count, and INV-001 makes the clue sets the encoding
+  of the grid, so a size argument could only ever agree with them or be a bug. Mismatched clue
+  sets (rows but no columns) raise `ValueError` as a pipeline bug.
+- *Gutters are derived, not fixed.* Each is as deep as the longest clue in its direction, so a
+  puzzle whose rows never need more than three numbers does not carry a gutter sized for
+  twenty-five. Minimum depth is 1, which the `(0,)` empty-line marker (AC-013) guarantees.
+- *Clues are aligned against the grid* — rows right-aligned, columns bottom-aligned — so the
+  last number of every clue abuts the edge, which is how a printed nonogram is read.
+- *Grid lines span the gutters.* The line between column 4 and 5 continues up through the
+  column-clue gutter; that is what makes a clue readable as belonging to its line. The corner
+  block where the two gutters meet stays empty.
+- *Every 5th rule.* `_is_major(index, last)` is `index % 5 == 0 or index == last`, so a 12-wide
+  grid gets heavy rules at 0, 5, 10 **and** 12 — the frame closes even when the width is not a
+  multiple of five. Heavy is exactly 2x thin; both renderers draw thin rules first so a heavy
+  line stays visually continuous where it crosses one.
+- *Integer arithmetic throughout.* Centres are `origin + index * cell + cell // 2`, not
+  `round((index + 0.5) * cell)` — the rounded form drifts a pixel from the grid line at odd
+  cell sizes (Python's banker's rounding on the `.5`), which showed up as clue text sitting
+  off-centre in its box. Caught by the alignment tests.
+
+**PNG resolution: 300 DPI, A4, with a clamped cell.** The card asks for "legible when printed
+at A4", which is a physical statement, so the geometry is computed in millimetres and converted
+once at `DPI = 300`. 300 is the print convention: at 150 a thin rule and a small clue digit both
+alias, at 600 the 50x50 page is 4x the bytes for detail no home printer resolves. Page constants
+are A4 portrait with a 12 mm margin.
+
+The cell is then the largest that fits the printable area, clamped into 2.0 mm .. 6.5 mm:
+
+| puzzle | cells across (gutter + grid) | cell | image |
+|---|---|---|---|
+| 10x10, short clues | 15 | 77 px (6.5 mm) | 1285 x 1285 |
+| 20x20, short clues | 25-ish | 77 px (6.5 mm) | 2055 x 2055 |
+| 50x50, typical clues | 63 | 41 px (3.5 mm) | 2457 x 2457 |
+| 50x50, worst-case 25-number clues | 75 | 29 px (2.5 mm) | 2459 x 2459 |
+
+The **cap** stops a 10x10 being blown up into a poster — past ~6.5 mm a cell is not easier to
+mark, just more paper. The **floor** is the honest limit of the format: a maximum-size puzzle
+with maximum-length clues needs 75 cells across, and rather than shrink past the point where a
+pencil mark is meaningless the layout holds 2 mm cells and lets the image exceed A4 (a user
+printing a 50x50 is scaling it or using A3 either way; a silently unreadable page is worse).
+`write_png` stamps the DPI into the PNG's `pHYs` chunk, without which a viewer assumes 72 DPI
+and prints the page at four times its intended size. The SVG carries the same information as a
+physical `width`/`height` in inches over a pixel `viewBox` — a pixel `width` would be re-read at
+the consumer's own 96/in and print at a third size.
+
+**Why the `Image` object is exposed (CON-006).** `render_image(payload) -> PIL.Image` is the
+real entry point; `write_png(payload, path) -> Path` is the sink that adds the DPI tag and
+nothing else; `render(payload, path) -> None` is the `Renderer` the registry dispatches through.
+CON-006 makes FR-016's PDF *a second sink on this same raster* (Pillow's
+`save_all`/`append_images`), which is what keeps PDF one card rather than a reopened dependency
+decision. A module exposing only "write a PNG here" would force CARD-014 to write a throwaway
+file and read it back, or to redraw the page against a second geometry that could drift from
+this one. It also makes the drawing assertable without a filesystem or a decoder — the same
+benefit `json_export.document` gives the JSON shape.
+
+**The blank grid is structural, not a rule to remember.** `compute_layout` is handed the clues
+and never the grid, so no filled-cell coordinate exists downstream for either renderer to draw.
+`test_the_output_does_not_depend_on_the_solution_grid` proves it the strong way: byte-identical
+PNG raster and byte-identical SVG markup for a payload carrying the real solution and one
+carrying `grid=[]`. The solution is not merely omitted from the page — it is never read.
+
+**INV-002 (G-5).** No readiness check exists in any of the three new modules; a test asserts
+that at source level for `png.py`, `svg.py` and `layout.py`, alongside CARD-007's package-wide
+scan. AC-030 is tested per-format (PNG and SVG, `solution_count` unjudged / 0 / MANY), plus a
+multi-format case proving a refused export leaves *none* of the formats behind, plus the CLI
+path (exit code 5, message on stderr, empty destination).
+
+### Test results
+
+`./.venv/bin/python -m pytest -q`: **688 passed, 1 xfailed** in ~15s. The xfail is the
+pre-existing, already-tracked AC-037 benchmark. Baseline before this card was 636 passed +
+1 xfailed; the +52 is 50 new tests in `tests/test_export_image.py` and 2 parametrize expansions
+in `test_export_json.py::test_every_registered_format_is_accepted_by_the_cli`, which iterates
+`export.FORMATS`. No regressions.
+
+AC coverage:
+- **AC-028** `TestExport_WritesPNG` -> `test_export_writes_png` (real pipeline, pinned seed 0),
+  plus `test_the_png_contains_the_clues`, `test_the_png_grid_is_blank`,
+  `test_the_png_records_its_print_resolution`.
+- **AC-029** `TestExport_WritesSVG` -> `test_export_writes_svg` (same pinned seed), plus
+  `test_the_svg_draws_the_grid_and_the_clues`, `test_the_svg_grid_is_blank`,
+  `test_the_svg_declares_a_physical_size_over_a_pixel_viewbox`.
+- **AC-030** `TestExport_RejectsUnverifiedPuzzle` ->
+  `test_export_rejects_an_unverified_puzzle[png|svg]`,
+  `test_export_rejects_an_image_the_solver_did_not_call_unique`,
+  `test_a_rejected_multi_format_export_writes_none_of_the_formats`,
+  `test_a_rejected_image_export_reaches_the_user_as_exit_code_five`.
+
+Both outputs were also verified visually: the PNG and the SVG (rendered via `qlmanage`) are the
+same drawing, pixel for pixel in layout — blank grid, both gutters populated, heavy rules every
+five.
+
+### Merge note for the orchestrator
+
+`export/__init__.py` will conflict with CARD-013, which registers `csv`. This card's edit there
+is three added rows (`PNG`/`SVG` constants, two `_FORMATS` entries, two `__all__` entries) plus
+one docstring sentence that no longer says "only the JSON renderer exists today". The resolution
+is to keep both sides' rows.
+
+[Scope] Predicted Touches plus tests/test_cli.py and tests/test_export_json.py (outside prediction — 2 pre-existing "registry has exactly one row" assertions updated to membership checks; no assertion's intent changed, same pattern as CARD-007's scope note). orchestrator.py NOT touched (predicted but verified unnecessary — export_puzzle() already dispatches through the registry). cli.py untouched (G-2). export/csv_export.py, json_export.py's existing content, sourcing/**, difficulty.py, solver/**, clues.py untouched (G-1/G-2/G-3 held).
+[Build gate] PASSED (full, independently re-run by orchestrator: 689 collected, 688 passed, 1 xfailed, 0 failed, exit 0).
