@@ -154,6 +154,11 @@ def captured_requests(
     The adapter's job is to hand the request inward and translate what comes
     back; running the real generation here would test COMP-002 (which
     ``tests/test_orchestrator.py`` does) and make these argv tests stochastic.
+
+    The export step is stubbed out for the same reason — and because it is the
+    one part of the pipeline that writes to disk, so leaving it live would have
+    these argv tests dropping files in the working directory. What the adapter
+    does with the paths it gets back is covered in ``tests/test_export_json.py``.
     """
     seen: list[orchestrator.GenerationRequest] = []
 
@@ -161,7 +166,11 @@ def captured_requests(
         seen.append(request)
         return orchestrator.Puzzle(request=request, seed=request.seed or 0)
 
+    def fake_export(puzzle: orchestrator.Puzzle) -> tuple[Path, ...]:
+        return ()
+
     monkeypatch.setattr(orchestrator, "generate", fake_generate)
+    monkeypatch.setattr(orchestrator, "export_puzzle", fake_export)
     return seen
 
 
