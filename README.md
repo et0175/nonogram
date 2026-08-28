@@ -9,10 +9,12 @@ hand-rolled constraint-propagation solver before exporting it.
 
 ## Status
 
-Under active development. The grid-sourcing, clue-derivation and uniqueness-solver
-components are built and independently tested, but the end-to-end generation pipeline
-(`nonogram generate`) is not wired up yet — running it currently raises
-`NotImplementedError`. See `meta/kanban/board.md` for what's shipped and what's next.
+Under active development. `nonogram generate` now runs the full pipeline end to end
+(source a grid → derive clues → verify uniqueness, auto-regenerating on an ambiguous
+or unsolvable candidate up to a bounded retry cap), for the random grid source. There
+is no timeout on the uniqueness check yet and no export writer, so `--export` is
+accepted but nothing is written to disk. See `meta/kanban/board.md` for what's shipped
+and what's next.
 
 ## Usage
 
