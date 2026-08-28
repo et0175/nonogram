@@ -45,8 +45,6 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 ## In Progress
 - **CARD-006** Cooperative generation deadline and SolverTimeout
   `worktree: ../PythonProject4-card-006` · `branch: card/006-cooperative-deadline`
-- **CARD-007** JSON export and the export-readiness gate
-  `worktree: ../PythonProject4-card-007` · `branch: card/007-json-export`
 
 ## Review
 _(none)_
@@ -57,3 +55,4 @@ _(none)_
 - **CARD-003** Random grid sourcing with size and density validation — score 9.5 (cycle 2/3) · merged b0d0ef3
 - **CARD-004** Nonogram solver with fail-fast uniqueness check — score 9.4 (cycle 2/3) · merged aed158c
 - **CARD-005** Pipeline orchestrator and regenerate-on-failure loop — score 9.5 (cycle 1/3) · merged 92332f2
+- **CARD-007** JSON export and the export-readiness gate — score 9.4 (cycle 2/3) · merged d4fa0c9
