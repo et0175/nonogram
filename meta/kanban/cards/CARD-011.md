@@ -168,12 +168,17 @@ whole premise. Recorded here rather than done silently.
 **Sanitization came with it.** Feeding a user-supplied `--name` into
 `directory / f"{stem}{ext}"` is a path-traversal surface that a
 machine-generated stem never had, so `_filename_stem` applies ADR-0016's
-"sanitized for filesystem-safe characters" (allow-list `[A-Za-z0-9._-]`, then
-strip leading/trailing `-.` so nothing becomes `.`, `..` or a dotfile) on the
-way to the path only — the aggregate keeps the name exactly as typed (AC-044),
-and a name that sanitizes to nothing falls back to the generated stem.
-CARD-014 composes `<name>-<difficulty>` from the same helper, so both
-components inherit one sanitization rule rather than two.
+"sanitized for filesystem-safe characters" (allow-list `[\w.-]`, Unicode-aware
+so non-ASCII letters such as Cyrillic, accented Latin and CJK survive intact
+rather than being truncated, then strip leading/trailing `-.` so nothing
+becomes `.`, `..` or a dotfile) on the way to the path only — the aggregate
+keeps the name exactly as typed (AC-044), and a name that sanitizes to nothing
+falls back to the generated stem. (Cycle-1 review F-001/F-002: the allow-list
+started ASCII-only, `[A-Za-z0-9._-]`, which truncated non-ASCII names into a
+misleading stem instead of falling back; widened to `[\w.-]` and pinned with
+explicit `path.stem` assertions in `tests/test_naming.py`, including a
+mixed-script case.) CARD-014 composes `<name>-<difficulty>` from the same
+helper, so both components inherit one sanitization rule rather than two.
 
 ### Tests
 
@@ -187,9 +192,20 @@ outside `--out`.
 
 `./.venv/bin/python -m pytest`: **831 passed, 1 xfailed** (the pre-existing
 AC-037 benchmark xfail) — baseline before this card was 797 passed, 1 xfailed,
-so 34 added and no regressions.
+so 34 added and no regressions. Post-fix-cycle: 930 passed, 1 xfailed (3 new
+non-ASCII stem cases added to the F-002 test).
 
 No blockers.
+
+- **[Fix 1]** F-001/F-002 both fixed: `_UNSAFE_STEM_CHARACTERS` widened
+  `[A-Za-z0-9._-]+` → `[\w.-]+` (Unicode-aware, traversal-safety preserved);
+  `tests/test_naming.py` now pins `path.stem` explicitly on every sanitizer
+  case plus 3 new non-ASCII regression cases. Scope unchanged
+  (`src/nonogram/orchestrator.py`, `tests/test_naming.py`,
+  `src/nonogram/cli.py`, this card file). **[Build gate]** PASSED
+  (independently re-run: 930 passed, 1 xfailed, exit 0). Review YAML
+  findings F-001/F-002 marked `status: fixed`; F-003–F-008 (deferred
+  Minor/out-of-scope) untouched.
 
 ### Orchestrator notes
 

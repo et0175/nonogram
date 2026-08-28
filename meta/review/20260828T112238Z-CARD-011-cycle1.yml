@@ -104,7 +104,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -138,7 +138,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
