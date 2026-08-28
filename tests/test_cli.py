@@ -149,12 +149,17 @@ def test_out_of_domain_range_values_pass_the_parser_untouched(
 def captured_requests(
     monkeypatch: pytest.MonkeyPatch,
 ) -> list[orchestrator.GenerationRequest]:
-    """Replace the (unimplemented) pipeline with a recorder."""
+    """Replace the pipeline with a recorder.
+
+    The adapter's job is to hand the request inward and translate what comes
+    back; running the real generation here would test COMP-002 (which
+    ``tests/test_orchestrator.py`` does) and make these argv tests stochastic.
+    """
     seen: list[orchestrator.GenerationRequest] = []
 
     def fake_generate(request: orchestrator.GenerationRequest) -> orchestrator.Puzzle:
         seen.append(request)
-        return orchestrator.Puzzle()
+        return orchestrator.Puzzle(request=request, seed=request.seed or 0)
 
     monkeypatch.setattr(orchestrator, "generate", fake_generate)
     return seen
@@ -271,12 +276,6 @@ def test_non_domain_exceptions_are_not_swallowed(
 # --------------------------------------------------------------------------
 
 
-def test_orchestrator_generate_is_a_signature_only() -> None:
-    """Guardrail G-4: the pipeline body belongs to CARD-005."""
-    with pytest.raises(NotImplementedError):
-        orchestrator.generate(orchestrator.GenerationRequest(mode="random"))
-
-
 # ADR-0007's layers, innermost last. ``cli`` is the sole inbound adapter,
 # ``orchestrator`` the only thing that composes capabilities, and ``errors`` is
 # the shared foundation every layer may raise from. Everything *else* under
@@ -377,6 +376,39 @@ def _imported_components(module: str, path: Path) -> set[str]:
     }
 
 
+def _outward_imports(imports: dict[str, set[str]]) -> dict[str, list[str]]:
+    """The ADR-0007 rule itself: ``rank(imported) > rank(importer)``, always.
+
+    Takes ``{dotted module: the components it imports}`` rather than reading
+    the disk itself, so the rule can be exercised against a fabricated package
+    below and cannot pass vacuously.
+
+    Two imports are exempt, and both are exemptions about *identity* rather
+    than about direction:
+
+    * a module importing its own component (``solver.search`` importing
+      ``solver.propagate``) — that is a module's internals, not a dependency
+      between layers;
+    * the package root, ``nonogram`` itself, which appears in the walk for
+      every ``from nonogram import x``. It re-exports nothing (pinned by
+      ``test_package_root_imports_no_submodule``), so importing it couples the
+      importer to nothing at all.
+    """
+    offenders: dict[str, list[str]] = {}
+    for module, components in imports.items():
+        own = _component(module)
+        outward = sorted(
+            other
+            for other in components
+            if other is not None
+            and other != own
+            and _rank(other) <= _rank(own)
+        )
+        if outward:
+            offenders[module] = outward
+    return offenders
+
+
 def test_the_import_walk_actually_sees_the_package() -> None:
     """Guard the guard: an empty or misrooted walk must not pass silently."""
     assert {"nonogram", "nonogram.cli", "nonogram.orchestrator", "nonogram.errors"} <= set(
@@ -384,54 +416,69 @@ def test_the_import_walk_actually_sees_the_package() -> None:
     )
 
 
-def test_nothing_inward_of_the_adapter_imports_the_adapter() -> None:
-    """ADR-0007, first half: dependencies point inward only.
+def test_every_import_in_the_package_points_inward() -> None:
+    """ADR-0007's dependency rule, as the one invariant it actually is.
 
-    Only ``cli.py`` may know about ``cli.py``; every module the walk finds at a
-    deeper rank is checked, including ones no later card has written yet.
+    ``cli -> orchestrator -> capability modules -> errors``: an import may only
+    reach a *deeper* rank than the module making it. That single comparison
+    covers all four directional edges at once — nothing inward of the adapter
+    imports ``cli``; no capability imports another capability laterally; no
+    capability reaches back out to the orchestrator (the edge this package had
+    no real instance of until COMP-002 acquired a body); and ``errors`` — the
+    innermost layer, which every layer may raise from — imports nothing back,
+    so two capabilities cannot couple through it either.
+
+    The rule is applied to every module the walk finds on disk, including ones
+    no card has written yet, which is why this test never needs editing as the
+    package grows.
     """
-    offenders = {
-        module
-        for module, path in _MODULES.items()
-        if _rank(_component(module)) != _ADAPTER_RANK
-        and _ADAPTER in _imported_components(module, path)
+    imports = {
+        module: _imported_components(module, path) for module, path in _MODULES.items()
     }
-    assert not offenders, f"modules importing nonogram.cli: {sorted(offenders)}"
+
+    assert not _outward_imports(imports), (
+        "ADR-0007 violation — these imports point outward or sideways: "
+        f"{_outward_imports(imports)}"
+    )
 
 
-def test_capability_packages_never_import_each_other_laterally() -> None:
-    """ADR-0007, second half: no lateral imports between capability modules.
-
-    A capability's only outward-facing contact is the orchestrator that
-    composes it into a run, so e.g. ``solver/`` importing ``export/`` is a
-    violation even though both sit at the same rank.
+@pytest.mark.parametrize(
+    ("module", "imported", "edge"),
+    [
+        pytest.param("nonogram.solver.search", "cli", "capability -> adapter", id="cap-to-cli"),
+        pytest.param("nonogram.solver.search", "export", "capability -> capability", id="lateral"),
+        pytest.param(
+            "nonogram.sourcing",
+            "orchestrator",
+            "capability -> orchestrator",
+            id="cap-to-orchestrator",
+        ),
+        pytest.param("nonogram.errors", "solver", "shared -> capability", id="errors-reaches-back"),
+        pytest.param("nonogram.orchestrator", "cli", "orchestrator -> adapter", id="orch-to-cli"),
+    ],
+)
+def test_the_import_rule_rejects_each_forbidden_edge(
+    module: str, imported: str, edge: str
+) -> None:
+    """Guard the guard, part two: a rank table that had silently degenerated
+    (every module the same rank, say) would let the test above pass on an
+    empty result. So the rule is shown rejecting one fabricated import per
+    forbidden edge — including the capability -> orchestrator one that had no
+    real instance in the package before CARD-005.
     """
-    lateral = {
-        module: sorted(
-            other
-            for other in _imported_components(module, path)
-            if other != _component(module) and _rank(other) == _CAPABILITY_RANK
-        )
-        for module, path in _MODULES.items()
-        if _rank(_component(module)) == _CAPABILITY_RANK
-    }
-    offenders = {module: others for module, others in lateral.items() if others}
-    assert not offenders, f"lateral capability imports: {offenders}"
+    assert _outward_imports({module: {imported}}) == {module: [imported]}, edge
 
 
-def test_the_shared_error_hierarchy_reaches_into_nothing() -> None:
-    """``errors.py`` is the innermost layer, so it closes the lateral loophole.
-
-    Capability modules may all import it; if it could import them back, two
-    capabilities could couple through it without a direct lateral import.
-    """
-    offenders = {
-        module: sorted(_imported_components(module, path))
-        for module, path in _MODULES.items()
-        if _rank(_component(module)) == _SHARED_RANK
-        and _imported_components(module, path)
-    }
-    assert not offenders, f"shared modules importing the package: {offenders}"
+def test_the_import_rule_allows_the_legitimate_edges() -> None:
+    """The mirror image: the arrows ADR-0007's component diagram does draw."""
+    assert not _outward_imports(
+        {
+            "nonogram.cli": {"orchestrator", "errors"},
+            "nonogram.orchestrator": {"sourcing", "clues", "solver", "errors"},
+            "nonogram.solver.search": {"solver", "errors"},  # own package
+            "nonogram.sourcing": {"errors"},
+        }
+    )
 
 
 def test_the_adapter_does_import_the_orchestrator() -> None:
