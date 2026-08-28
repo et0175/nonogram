@@ -98,7 +98,11 @@ def test_export_flag_repeats_into_a_list() -> None:
         pytest.param([], id="no-subcommand"),
         pytest.param(["solve"], id="unknown-subcommand"),
         pytest.param(["generate", "--mode", "image"], id="mode-not-in-increment-1"),
-        pytest.param(["generate", "--export", "png"], id="format-not-in-increment-1"),
+        # Was ``png`` until CARD-012 registered it. The case is about an
+        # *unregistered* ``--export`` value being argparse's to refuse,
+        # whatever the registry happens to hold — so it now names ``pdf``,
+        # the format still to come (CARD-014).
+        pytest.param(["generate", "--export", "pdf"], id="format-not-registered"),
         pytest.param(["generate", "--size", "big"], id="size-not-an-integer"),
         pytest.param(["generate", "--seed", "x"], id="seed-not-an-integer"),
         pytest.param(["generate", "--nope"], id="unknown-flag"),
