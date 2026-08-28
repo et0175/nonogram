@@ -101,4 +101,12 @@ non-unique conversion, not silently regenerating.
 
 ## Worktree notes
 
-—
+[Follow-up from CARD-007 review, cycle 2] `cli.py`'s `main()` currently has a bare
+`except OSError` clause wrapping the whole `args.handler(args)` call, added by CARD-007 to
+report a bad `--out` path cleanly. It maps every `OSError` to `ExitCode.EXPORT_REJECTED`
+(5) on the premise — true only until now — that an `OSError` can only come from the export
+step. This card reads a user-supplied image file from disk, so a missing/unreadable
+`--image` path will now be misreported as "export rejected" instead of an input error.
+Either narrow that `except` to wrap only the export call (not the whole handler), or raise
+a proper domain error for the image-read failure before it can reach that clause as a bare
+OSError.
