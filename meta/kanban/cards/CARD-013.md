@@ -236,3 +236,34 @@ No blockers.
 
 [Scope] Predicted Touches matched, plus tests/test_export_json.py (outside prediction — 2 pre-existing "registry has exactly one row" assertions updated to membership checks, same pattern as CARD-007/012's scope notes). cli.py, orchestrator.py untouched (registry-driven, no wiring needed). export/png.py, svg.py, layout.py untouched (G-1). sourcing/**, difficulty.py, solver/**, clues.py untouched (G-2/G-3).
 [Build gate] PASSED (full, independently re-run by orchestrator: 701 collected, 700 passed, 1 xfailed, 0 failed, exit 0).
+
+### Review cycle 1 fix (Important finding)
+
+The review (9.0/10) found neither decoder cross-checked clue counts against
+the grid's actual dimensions: a truncated export (a dropped last CSV line, a
+dropped `clues.columns` entry in JSON) decoded silently into a wrong-shaped
+puzzle rather than raising — e.g. `column_clues=((1,),)` accepted against a
+2-column grid. Realistic (truncated download, partial write, hand edit), not
+reachable by EC-002's own corpus (the encoder never emits such a file), but a
+real gap in the "strict throughout" claim.
+
+Fixed in both `csv_export.decode` and `json_export.parse`: after the grid and
+both clue sets are individually decoded, a new `_check_clue_counts` helper in
+each module checks `len(row_clues) == len(grid)` and, following
+`clues.compute_clues`'s own empty-grid convention ("an empty grid yields two
+empty clue sets"), `len(column_clues) == len(grid[0]) if grid else 0` —
+raising `ValueError` in the same message style as the existing rectangularity
+checks. Added rejection cases to both test files: the reviewer's literal
+example (a 2-column grid decoding against a single column clue), a genuine
+truncation (drop the CSV file's last line / pop the JSON document's last
+`clues.columns` entry) reproducing the exact reported scenario, and a
+same-shape row-clue-count counterpart, plus one confirming test that the
+empty-grid/no-clues case still decodes (guards against the new check
+over-rejecting the one legitimate zero case).
+
+`./.venv/bin/python -m pytest -q` → **893 passed, 1 xfailed** (894 collected,
+0 failed) — no regressions across the full suite, which now also carries
+CARD-008/009/012's tests post-rebase. EC-002's property test
+(`tests/property/test_export_roundtrip.py`) passes unchanged, as expected:
+the new check only rejects shapes the encoder never produces, so the
+property's own corpus never exercises the new branch.
