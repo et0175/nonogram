@@ -713,7 +713,13 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
 #: "sanitized for filesystem-safe characters"). Deliberately an allow-list:
 #: a name is user input, and ``--name "../../secrets"`` must become a file in
 #: ``--out`` and not a write outside it.
-_UNSAFE_STEM_CHARACTERS = re.compile(r"[^A-Za-z0-9._-]+")
+#:
+#: ``\w`` on a ``str`` pattern is Unicode-aware (re.UNICODE is the default),
+#: so this keeps non-ASCII letters (Cyrillic, accented Latin, CJK, ...) intact
+#: instead of silently truncating them, while still excluding "/", "\\", ":",
+#: NUL and lookalike/format separators such as U+202E, U+2044 and U+FF0F —
+#: none of those are ever matched by \w.
+_UNSAFE_STEM_CHARACTERS = re.compile(r"[^\w.-]+")
 
 
 def _filename_stem(puzzle: Puzzle) -> str:

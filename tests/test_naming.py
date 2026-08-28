@@ -472,12 +472,26 @@ def test_a_name_cannot_write_outside_the_output_directory(tmp_path: Path) -> Non
 
     assert path.parent == destination
     assert path.name == "escaped.json"
+    assert path.stem == "escaped"
     assert list(tmp_path.iterdir()) == [destination]
 
 
-@pytest.mark.parametrize("name", ["a b/c", "cat:2026", "cat*"])
+@pytest.mark.parametrize(
+    ("name", "stem"),
+    [
+        ("a b/c", "a-b-c"),
+        ("cat:2026", "cat-2026"),
+        ("cat*", "cat"),
+        # Non-ASCII letters are filesystem-safe and must survive sanitization
+        # intact rather than being truncated to whatever ASCII remains
+        # (regression coverage for the Unicode-aware \w allow-list).
+        ("кот-2026", "кот-2026"),
+        ("café", "café"),
+        ("日本語", "日本語"),
+    ],
+)
 def test_a_name_keeps_its_shape_on_the_aggregate_however_the_file_is_spelled(
-    tmp_path: Path, name: str
+    tmp_path: Path, name: str, stem: str
 ) -> None:
     """Sanitization is applied to the filename, never to the name: AC-044 asks
     for the name back verbatim, and the PDF header (CARD-014) shows it as
@@ -489,6 +503,7 @@ def test_a_name_keeps_its_shape_on_the_aggregate_however_the_file_is_spelled(
     assert puzzle.name == name
     assert path.parent == tmp_path
     assert path.suffix == ".json"
+    assert path.stem == stem
 
 
 def test_a_name_that_sanitizes_to_nothing_falls_back_to_the_convention(
@@ -503,6 +518,7 @@ def test_a_name_that_sanitizes_to_nothing_falls_back_to_the_convention(
     assert puzzle.name == "..."
     assert path.parent == tmp_path
     assert path.name.startswith("random-") and path.name.endswith(".json")
+    assert path.stem.startswith("random-")
 
 
 def test_an_unnamed_aggregate_still_exports_under_the_card_007_convention(
