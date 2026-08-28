@@ -1,6 +1,6 @@
 # CARD-006: Cooperative generation deadline and SolverTimeout
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/006-cooperative-deadline
-**Worktree:** ../PythonProject4-card-006
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 5
 **Depends on:** CARD-004, CARD-005
-**Touches:** src/nonogram/solver/propagate.py, src/nonogram/solver/search.py, src/nonogram/orchestrator.py, src/nonogram/errors.py, tests/test_timeout.py, tests/bench_generate.py
+**Touches:** src/nonogram/solver/propagate.py, src/nonogram/solver/search.py, src/nonogram/orchestrator.py, src/nonogram/solver/__init__.py, tests/test_timeout.py, tests/bench_generate.py, tests/conftest.py, tests/test_orchestrator.py
 **Review score:** 9.2 (cycle 1/3)
 **Started:** 2026-08-28T08:42:21Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-28T10:00:05Z
+**Actual:** 0.2d
+**Merge commit:** a04a8b8
 **Blocked by:** —
 
 ## What to implement

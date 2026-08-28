@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-08-28 07:55_
+_Updated: 2026-08-28 10:02_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -9,8 +9,8 @@ _Updated: 2026-08-28 07:55_
 | 2 | CARD-002 P1, CARD-003 P1 | ✓ done |
 | 3 | CARD-004 P1 | ✓ done |
 | 4 | CARD-005 P1 | ✓ done |
-| 5 | CARD-006 P1, CARD-007 P1 | ▶ active |
-| 6 | CARD-009 P1, CARD-012 P1, CARD-013 P1, CARD-008 P2, CARD-011 P2 | ⏳ blocked (→ CARD-006, CARD-007) |
+| 5 | CARD-006 P1, CARD-007 P1 | ✓ done |
+| 6 | CARD-009 P1, CARD-012 P1, CARD-013 P1, CARD-008 P2, CARD-011 P2 | ▶ active |
 | 7 | CARD-010 P1 | ⏳ blocked (→ CARD-009, CARD-011) |
 | 8 | CARD-014 P2 | ⏳ blocked (→ CARD-010, CARD-012, CARD-013) |
 | 9 | CARD-015 P2 | ⏳ blocked (→ CARD-008, CARD-014) |
@@ -27,12 +27,11 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - Interactive/playable puzzle output (web or local UI to solve the puzzle)
 
 ## Architecture
-_(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
+_(none — 18 ADRs accepted (ADR-0001 revised 2026-08-28), 0 open decisions; handoff absorbed)_
 
 ## Ready
-- **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up from ADR-0001 revision)_
+- **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up from ADR-0001 revision; depends on CARD-006, done)_
 - **CARD-008** P2 · Built-in image library sourcing  _(wave 6)_
-
 - **CARD-009** P1 · Difficulty scoring formula from solver signals  _(wave 6)_
 - **CARD-010** P1 · Difficulty tier selection and resample loop  _(wave 7)_
 - **CARD-011** P2 · Puzzle naming (auto-generated and --name override)  _(wave 6)_
@@ -47,8 +46,7 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 _(none)_
 
 ## Review
-- **CARD-006** Cooperative generation deadline and SolverTimeout · cycle 1/3
-  `worktree: ../PythonProject4-card-006` · `branch: card/006-cooperative-deadline`
+_(none)_
 
 ## Done
 - **CARD-001** Package scaffolding and CLI entry point — score 9.0 (cycle 2/3) · merged db2f9d7
@@ -56,4 +54,5 @@ _(none)_
 - **CARD-003** Random grid sourcing with size and density validation — score 9.5 (cycle 2/3) · merged b0d0ef3
 - **CARD-004** Nonogram solver with fail-fast uniqueness check — score 9.4 (cycle 2/3) · merged aed158c
 - **CARD-005** Pipeline orchestrator and regenerate-on-failure loop — score 9.5 (cycle 1/3) · merged 92332f2
+- **CARD-006** Cooperative generation deadline and SolverTimeout — score 9.2 (cycle 1/3) · merged a04a8b8
 - **CARD-007** JSON export and the export-readiness gate — score 9.4 (cycle 2/3) · merged d4fa0c9
