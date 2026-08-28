@@ -1,6 +1,6 @@
 # CARD-007: JSON export and the export-readiness gate
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -88,4 +88,135 @@ scope line ("minimal JSON export (FR-012, partial)")._
 
 ## Worktree notes
 
-—
+### Summary
+
+Increment 1's walking skeleton closes: `nonogram generate --mode random --size 10
+--density 50 --seed 42 --export json --out DIR` now writes a real file and prints
+its path. 617 tests pass (582 pre-existing, unchanged; 35 new in
+`tests/test_export_json.py`). No blocker.
+
+Files:
+
+- `src/nonogram/export/__init__.py` (new) — COMP-007's format registry and the
+  shared write-to-`--out` plumbing.
+- `src/nonogram/export/json_export.py` (new) — the JSON renderer.
+- `src/nonogram/orchestrator.py` — one additive function, `export_puzzle()`, plus
+  one import and one `__all__` entry; `generate()` itself is untouched.
+- `src/nonogram/cli.py` — `--export` choices derived from the registry; `_run_generate`
+  reports the written paths and (ADR-0015) an auto-drawn seed.
+- `tests/test_cli.py` — the `captured_requests` fixture now also stubs
+  `orchestrator.export_puzzle`; see "Test-file edit outside Touches" below.
+
+### Structure: why the registry derives the CLI's `--export` choices
+
+`export/__init__.py` mirrors `sourcing/__init__.py`'s shape — a private `_FORMATS`
+dict, a public `FORMATS` tuple, a `for_format()` lookup that raises `ValueError`
+(not a `NonogramError`) because an unknown format is a wiring bug, not user input
+argparse already rejected. Two deliberate differences from `sourcing`:
+
+1. **A row is a record, not a bare callable.** `ExportFormat(name, extension, render)`.
+   The three sourcing modes do not share a parameter list, so `for_mode` returns a
+   callable and stops there. The five export formats *do* share one — render this
+   puzzle to this path — so the table can also own the one other per-format fact
+   there is, the file extension. CARD-012/013/014 then add exactly one line each and
+   nothing outside this file learns a per-format special case.
+2. **`cli.py` reads `FORMATS` instead of repeating it.** `sourcing`'s docstring says
+   the CLI "mirrors these strings" for `--mode`; this card's item 1 explicitly
+   overrides that for formats, and the reason is the four follow-on cards. With
+   `choices=list(export.FORMATS)` and a help string built from the same tuple, adding
+   a registry row makes the new format parse, appear in `--help`, and be rejected when
+   misspelled — with the adapter untouched. `test_registering_a_format_reaches_the_cli_without_editing_the_adapter`
+   pins that claim by monkeypatching a fake `"svg"` row in and parsing it; it is the
+   test that fails if someone later re-hardcodes the list.
+
+   Layering check: `cli -> export` skips the orchestrator, which ADR-0007's rule
+   (`rank(imported) > rank(importer)`) permits and `tests/test_cli.py::test_every_import_in_the_package_points_inward`
+   confirms. The alternative — re-exporting the tuple through the orchestrator — would
+   put a capability's registry on COMP-002's surface to avoid an import that is already
+   legal and inward.
+
+### Structure: the gate, and why export is a second orchestrator call
+
+`export_puzzle(puzzle)` is a separate function, **not** a tail of `generate()`.
+Two reasons, one of which is a pre-existing test:
+
+- `tests/test_orchestrator.py::test_a_run_writes_no_files` asserts `generate()` writes
+  nothing even when the request carries `out=` and `export_formats=("json",)`. That is
+  CON-003 stated as a property of the pure pipeline, and it still holds.
+- The abandonment path (`test_an_abandoned_run_writes_nothing`) stays trivially true,
+  and any non-CLI caller can generate without opting out of I/O.
+
+INV-002 is enforced in exactly one place — `export_puzzle` calls the existing
+`Puzzle.require_ready_for_export()` (CARD-005) before building anything (G-3). Nothing
+in `export/` can re-check it, and that is structural rather than conventional:
+`ExportPayload` has no readiness field, and `export/` cannot import the orchestrator
+under ADR-0007 anyway. `test_the_renderer_does_not_re_check_readiness` asserts both.
+The gate is skipped entirely when no format was requested — a run that asked for no
+export cannot be "refused" one.
+
+G-4: what crosses into `export/` is `list[list[bool]]` + `tuple[tuple[int, ...], ...]`
++ seed/mode/size/density (ADR-0012 boundary types, ADR-0015 provenance). The solver's
+bitmask never leaves `solver/`. `json_export.document()` is split from `render()` so
+the shape is assertable without a filesystem and CARD-013's round-trip (AC-033/EC-002)
+has one function to invert. Document shape: `version`, `seed`, `request{mode,size,density}`,
+`grid`, `clues{rows,columns}`.
+
+### Decision: the default `--out` filename
+
+Checked `meta/architecture/` first (as instructed) rather than inventing one. Three
+existing sources, none of which cover the JSON case directly:
+
+- **ADR-0016** fixes `<puzzle-name>-<difficulty>.pdf` — but scoped to FR-016, and both
+  inputs are later cards (FR-015's name, FR-008's difficulty). Not available now.
+- **FR-015 / AC-042** *does* fix the auto-generated **name**: `"random-2026-08-27-1430"`
+  (mode + timestamp to the minute) for random-sourced puzzles.
+- **ADR-0017** fixes the collision policy: auto-suffix `-1`, `-2`, never overwrite.
+
+Decisions taken:
+
+1. **`--out` is a directory, not a file path.** The flag's existing help text already
+   said "Where exports are written (default: the working directory)", and `--export` is
+   repeatable — one run can ask for several formats, which have to land as several files
+   somewhere the user chose. So `--out` names that directory (created if missing) and the
+   filename is always computed. Help/metavar updated to `DIR` to say so out loud.
+2. **Stem = FR-015's own convention, computed now**: `export.default_stem(mode)` returns
+   `f"{mode}-{now:%Y-%m-%d-%H%M}"` — literally AC-042's format. Deliberately *not* a new
+   convention: when FR-015 lands and the aggregate carries a `name`, the caller reads
+   `puzzle.name` instead and the filenames users already have keep their shape. Adding a
+   `name` field to `Puzzle` now would be FR-015's card, so it was not done (`moment=` is
+   injectable purely so the convention is testable without freezing the clock).
+3. **Collisions auto-suffix (ADR-0017), applied here.** ADR-0017's letter is FR-016/PDF,
+   but its reasoning is about a *computed* export path colliding, which is exactly this
+   case — two runs of the same mode in the same minute. Since every path this plumbing
+   produces is computed (see 1), the policy applies uniformly and lives in the one shared
+   `write()` so all five formats inherit it, in the same spirit as the single gate.
+   Applying the project's own accepted decision to the analogous case seemed better than
+   silently overwriting, which ADR-0017 explicitly rejects as data loss.
+4. **Repeated formats are collapsed** (`--export json --export json` writes one file):
+   the user asked for JSON, not for two copies of it.
+
+### Two small inclusions worth flagging at review
+
+- **The seed echo.** ADR-0015 (in this card's ADR list) states as a standing consequence
+  that when `--seed` is absent the drawn seed "must be printed to the user at run time",
+  and `_run_generate`'s CARD-001 placeholder comment named it alongside the export paths
+  as the reporting this card's area owns. It is one guarded `print` and its absence would
+  leave an unseeded run's only record inside a file the user may not have asked for.
+- **Test-file edit outside the predicted Touches.** `tests/test_cli.py`'s
+  `captured_requests` fixture replaces the pipeline with a recorder; the adapter now makes
+  two inward calls, so the fixture stubs `export_puzzle` too. Without it those argv tests
+  would either hit the INV-002 gate on their fake unready puzzle (exit 5) or drop files in
+  the working directory. The fixture's stated intent is unchanged; no assertion was
+  touched. No guardrail covers `tests/**`, and `src/nonogram/solver/**`, `errors.py`,
+  `sourcing/**`, `clues.py` and `pyproject.toml` were all left alone (G-1, G-2, G-5).
+
+### Merge note (parallel CARD-006)
+
+Kept the `orchestrator.py` footprint minimal for the expected rebase: one word added to
+the existing `from nonogram import ...` line, one `__all__` entry, one two-line docstring
+correction (the module header said the export file is "written by COMP-007 in a later
+card"), and a new function appended at the end of the file. `generate()`, `run_bounded()`,
+`RetryCounter` and `Puzzle` are byte-identical to main.
+
+[Scope] Predicted Touches plus tests/test_cli.py (outside prediction — fixture updated to stub the new export_puzzle call so existing argv tests don't hit the gate or write files; no assertion changed). No file under solver/**, errors.py, sourcing/**, clues.py, pyproject.toml touched (G-1/G-2/G-5 held).
+[Build gate] PASSED (full, independently re-run by orchestrator: 617 passed, 0 failed, no regressions vs the pre-CARD-007 582).
