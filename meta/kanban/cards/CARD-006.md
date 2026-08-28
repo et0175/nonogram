@@ -1,6 +1,6 @@
 # CARD-006: Cooperative generation deadline and SolverTimeout
 
-**Status:** review
+**Status:** blocked
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — architect: AC-037 (20x20 p95 ≤5s) genuinely unmet at 30-40% density (median hits the 30s cap); user chose to revisit ADR-0001's threshold rather than merge-and-defer or block on solver work
 
 ## What to implement
 
@@ -330,3 +330,5 @@ reduce conflict with CARD-007's parallel export wiring — confirmed by the orch
 rebase onto CARD-007's merge was clean, zero conflicts.
 
 [Build gate] PASSED except one deliberate, honest finding — independently re-run by orchestrator after rebasing onto main (CARD-007 merged first): 636 passed, 1 failed (tests/bench_generate.py::test_20x20_p95_is_under_5s — AC-037 not met, see above). All 582 pre-existing tests pass unchanged; tests/test_solver.py (31) and tests/property/test_solver_uniqueness.py (2) independently re-run in isolation, confirmed unchanged pass counts (G-2 held).
+
+[Escalated] 2026-08-28T12:40:00Z — AC-037 (20x20 p95 ≤5s) genuinely unmet at 30-40% density: p95 censored at the 30s hard cap (true p95 unbounded), median also 30s. Not a defect in this card — the deadline mechanism itself (AC-038) is solid and independently verified. Root cause is the solver's search strength at mid/low density (a CARD-004-adjacent gap, out of this card's scope per G-2). ADR-0001 itself anticipated this exact scenario in its own Negative-consequences section. User chose: escalate to architect to revisit ADR-0001's threshold, rather than (a) merge-and-defer to a follow-up solver-strength card, or (b) block the wave until the solver is strengthened first. Station: architect. Route: /forge:architect to revisit ADR-0001 (and possibly AC-037's density scoping), then re-run this card's benchmark against whatever the revised requirement says. Worktree and branch kept (card/006-cooperative-deadline, ../PythonProject4-card-006) — the deadline-mechanism implementation is not discarded, only the benchmark's pass/fail criterion is in question.

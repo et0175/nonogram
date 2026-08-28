@@ -9,7 +9,7 @@ _Updated: 2026-08-28 07:55_
 | 2 | CARD-002 P1, CARD-003 P1 | ✓ done |
 | 3 | CARD-004 P1 | ✓ done |
 | 4 | CARD-005 P1 | ✓ done |
-| 5 | CARD-006 P1, CARD-007 P1 | ▶ active |
+| 5 | CARD-006 P1, CARD-007 P1 | ▶ active ⚠ (CARD-006 escalated) |
 | 6 | CARD-009 P1, CARD-012 P1, CARD-013 P1, CARD-008 P2, CARD-011 P2 | ⏳ blocked (→ CARD-006, CARD-007) |
 | 7 | CARD-010 P1 | ⏳ blocked (→ CARD-009, CARD-011) |
 | 8 | CARD-014 P2 | ⏳ blocked (→ CARD-010, CARD-012, CARD-013) |
@@ -43,11 +43,14 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-- **CARD-006** Cooperative generation deadline and SolverTimeout
-  `worktree: ../PythonProject4-card-006` · `branch: card/006-cooperative-deadline`
+_(none)_
 
 ## Review
 _(none)_
+
+## Blocked
+- **CARD-006** ⚠ Cooperative generation deadline and SolverTimeout  ← escalated — architect: AC-037 (20x20 p95 ≤5s) genuinely unmet at 30-40% density; revisiting ADR-0001's threshold
+  `worktree: ../PythonProject4-card-006` (kept) · → /forge:architect
 
 ## Done
 - **CARD-001** Package scaffolding and CLI entry point — score 9.0 (cycle 2/3) · merged db2f9d7

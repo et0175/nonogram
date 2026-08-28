@@ -1,13 +1,11 @@
 wave: 5
 mode: interactive
-active:
+active: []
+escalated:
   - id: CARD-006
-    phase: review
-    review_cycle: 0
-    branch: card/006-cooperative-deadline
-    worktree: ../PythonProject4-card-006
-    started: 2026-08-28T08:42:21Z
-escalated: []
+    reason: "AC-037 (20x20 p95<=5s) genuinely unmet at 30-40% density; user chose to escalate to architect to revisit ADR-0001's threshold"
+    station: architect
+    route: "/forge:architect to revisit ADR-0001, then re-run CARD-006's benchmark"
+    at: 2026-08-28T12:40:00Z
 conflict_edges: []
 last_updated: 2026-08-28T12:40:00Z
-notes: "AC-037 benchmark genuinely fails (real performance finding, not a bug) — paused for user decision before review/merge"
