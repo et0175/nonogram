@@ -2,10 +2,9 @@
 
 A solution grid can be sourced three ways — drawn at random (FR-001/FR-004),
 taken from the built-in image library (FR-002, CARD-008) or converted from an
-uploaded image (FR-003, CARD-015). Only the random path exists today (guardrail
-G-3), so this package is a one-row lookup table plus the module behind it:
-adding a mode later means registering a callable in :data:`_SOURCES`, not
-reshaping the dispatch.
+uploaded image (FR-003, CARD-015). The first two exist today; adding the third
+means registering a callable in :data:`_SOURCES`, not reshaping the dispatch —
+which is exactly what CARD-008 did to land the library row, one line.
 
 :func:`for_mode` returns the *sourcing callable* rather than calling it,
 because the three modes do not share a parameter list — random takes size and
@@ -24,14 +23,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from nonogram.sourcing import random_grid
+from nonogram.sourcing import library, random_grid
 
-__all__ = ["MODES", "RANDOM", "GridSource", "for_mode"]
+__all__ = ["LIBRARY", "MODES", "RANDOM", "GridSource", "for_mode"]
 
 #: The ``--mode`` value each source is selected by. The CLI's argparse
 #: ``choices`` mirrors these strings (syntactic rejection of an unknown mode
 #: happens there, ADR-0010); this table is the domain-side registry.
 RANDOM = "random"
+LIBRARY = "library"
 
 #: What every mode's entry point looks like from the dispatcher's side: it
 #: returns a grid in the ADR-0012 boundary representation. Arguments are
@@ -40,7 +40,7 @@ GridSource = Callable[..., list[list[bool]]]
 
 _SOURCES: dict[str, GridSource] = {
     RANDOM: random_grid.generate,
-    # CARD-008: LIBRARY -> library.generate
+    LIBRARY: library.generate,
     # CARD-015: IMAGE   -> image.generate
 }
 
@@ -56,7 +56,9 @@ def for_mode(mode: str) -> GridSource:
 
     Returns:
         The callable that sources a grid for that mode. Call it with the
-        mode's own arguments — for :data:`RANDOM`, ``(size, density, rng)``.
+        mode's own arguments — ``(size, density, rng)`` for :data:`RANDOM`,
+        ``(key, size, rng)`` for :data:`LIBRARY`. The orchestrator assembles
+        that list per mode at its own call site.
 
     Raises:
         ValueError: ``mode`` is not registered. Deliberately *not* a

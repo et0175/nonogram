@@ -3,8 +3,9 @@
 A command-line tool that generates nonogram (picross) puzzles guaranteed to have
 **exactly one, purely-logical solution** — the property a random black/white grid
 usually lacks, and that hand-designing a puzzle around is tedious to get right. It
-sources a solution grid (random today; a built-in image library and user-uploaded
-images are planned), derives its row/column clues, and verifies uniqueness with a
+sources a solution grid (at random, or from a built-in image library of named
+shapes — `--mode library --library-key cat`; user-uploaded images are planned),
+derives its row/column clues, and verifies uniqueness with a
 hand-rolled constraint-propagation solver before exporting it.
 
 ## Status

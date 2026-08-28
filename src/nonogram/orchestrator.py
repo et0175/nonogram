@@ -126,6 +126,11 @@ class GenerationRequest:
     mode: str
     size: int | None = None
     density: int | None = None
+    #: ``--library-key`` (FR-002, CARD-008): which built-in image ``library``
+    #: mode draws. Unvalidated like the rest — key membership is a domain rule
+    #: (AC-006, ADR-0010), checked by the sourcing module, not here and not by
+    #: argparse. Meaningless in the other modes, where it stays ``None``.
+    library_key: str | None = None
     seed: int | None = None
     export_formats: tuple[str, ...] = ()
     out: Path | None = None
@@ -344,6 +349,30 @@ class Puzzle:
             )
 
 
+def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
+    """The mode-specific leading arguments of ``request``'s grid source.
+
+    ``sourcing.for_mode`` hands back a callable without collapsing the modes
+    behind one signature, because they do not share a parameter list — random
+    takes size and density, library takes a key and a size, CARD-015's image
+    mode will take a path. Assembling that list is therefore the composing
+    layer's job, and this is the one place it happens (ADR-0007: the
+    orchestrator composes, the capability modules do not know about each
+    other).
+
+    The run's ``random.Random`` is *not* included: every source takes it last
+    and :func:`generate` appends it at the call site, so a mode cannot
+    accidentally be wired up without it (ADR-0015).
+
+    An unknown mode does not reach here — ``sourcing.for_mode`` has already
+    raised — so the fallback is the random shape rather than a second error
+    path saying the same thing.
+    """
+    if request.mode == sourcing.LIBRARY:
+        return (request.library_key, request.size)
+    return (request.size, request.density)
+
+
 def generate(request: GenerationRequest) -> Puzzle:
     """Run one generation request end to end and return the finished puzzle.
 
@@ -366,10 +395,11 @@ def generate(request: GenerationRequest) -> Puzzle:
     Raises:
         GenerationAbandoned: no candidate was uniquely solvable within the
             retry bound (POL-005).
-        SizeOutOfRange, InvalidDensity: the request is not valid for its mode.
-            Raised by the sourcing module on the first attempt and *not*
-            retried — an invalid request does not become valid by being asked
-            again.
+        SizeOutOfRange, InvalidDensity, UnknownLibraryImage: the request is not
+            valid for its mode. Raised by the sourcing module on the first
+            attempt and *not* retried — an invalid request does not become
+            valid by being asked again, and POL-001 forbids a library retry
+            from switching to a key that would be.
         SolverTimeout: the request ran out of time (ADR-0011). Raised by the
             solver and *not* caught here: a timeout says nothing about the
             candidate, so retrying it would spend the rest of a budget that has
@@ -395,6 +425,7 @@ def generate(request: GenerationRequest) -> Puzzle:
     # attempts, and an unknown mode must fail immediately rather than after
     # burning the retry budget.
     source = sourcing.for_mode(request.mode)
+    source_arguments = _source_arguments(request)
 
     def attempt_candidate() -> Puzzle | None:
         """One pass of the pipeline: source -> clues -> uniqueness -> verdict.
@@ -404,10 +435,13 @@ def generate(request: GenerationRequest) -> Puzzle:
         first one (ADR-0015).
         """
         # The argument list is the mode's, not the dispatcher's (see
-        # sourcing.for_mode): CARD-008's library key and CARD-015's image path
-        # are assembled at this call site, alongside the random mode's
-        # size/density, when those modes land.
-        grid = source(request.size, request.density, rng)
+        # sourcing.for_mode and _source_arguments): the random mode's
+        # size/density and the library mode's key/size are assembled per mode,
+        # and CARD-015's image path joins them there. The RNG is appended here
+        # for every mode alike — including library's, whose only draw is
+        # POL-001's boundary tie-break, which is what makes a library retry a
+        # different rendering of the same template rather than a repeat.
+        grid = source(*source_arguments, rng)
         candidate_clues = puzzle.record_candidate(grid)
         verdict = solver.solve(
             candidate_clues.rows, candidate_clues.columns, deadline=deadline
