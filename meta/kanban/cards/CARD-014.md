@@ -100,4 +100,11 @@ on the existing PNG raster path (trace.yml FR-016 note).
 
 ## Worktree notes
 
-—
+[Follow-up from CARD-007 review, cycle 1] `orchestrator.py`'s export plumbing currently
+computes ONE filename stem for the whole run (`default_stem(mode)`, the FR-015/AC-042
+`<mode>-<timestamp>` convention) and passes it to `export.write()` per format. ADR-0016
+fixes the PDF filename as `<puzzle-name>-<difficulty>.pdf`, a different convention. The
+plumbing already supports a per-call stem (`export.write(..., stem=...)` takes it as an
+argument), so giving PDF its own stem is a change in `orchestrator.py`'s call site, not in
+`export/` — don't be surprised to find the single-stem-for-all-formats assumption baked in
+and needing a small generalization here.

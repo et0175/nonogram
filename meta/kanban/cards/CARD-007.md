@@ -15,7 +15,7 @@
 **Wave:** 5
 **Depends on:** CARD-005
 **Touches:** src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/orchestrator.py, src/nonogram/cli.py, tests/test_export_json.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-08-28T08:42:21Z
 **Closed:** —
 **Actual:** —
@@ -220,3 +220,4 @@ card"), and a new function appended at the end of the file. `generate()`, `run_b
 
 [Scope] Predicted Touches plus tests/test_cli.py (outside prediction — fixture updated to stub the new export_puzzle call so existing argv tests don't hit the gate or write files; no assertion changed). No file under solver/**, errors.py, sourcing/**, clues.py, pyproject.toml touched (G-1/G-2/G-5 held).
 [Build gate] PASSED (full, independently re-run by orchestrator: 617 passed, 0 failed, no regressions vs the pre-CARD-007 582).
+[Review 1/3] Score: 9.0 — crit: 0, imp: 1. Scope flag ruled justified GROWN (tests/test_cli.py diff verified +9/-0, fixture-only, no assertion changed). All 5 guardrails independently verified. Manual exercise confirmed a real JSON file with correct shape, ADR-0017 collision suffixing, and the ADR-0015 seed echo — all working as designed. Important finding: (I-1) `--out` pointing at an existing file (or an unwritable dir) crashes with a raw traceback (unhandled OSError/FileExistsError escapes cli.py's exception handling, which only catches NonogramError) — reproduced by the reviewer. This is the first card to touch the filesystem, so it's a newly-introduced user-facing gap, and likely: this card itself changed --out's metavar from PATH to DIR, so passing a filename is the obvious mistake. G-1 forbids adding a new NonogramError subclass this wave (errors.py is CARD-006's territory) — reviewer's suggested fix: catch OSError directly in cli.py (in scope) and map it to a clean message + exit code, without touching errors.py. 4 Minor findings, none gating: (M-1) cli->export is a real import edge the C4 diagram doesn't draw yet (permitted by the layering rule, just undocumented); (M-2) one shared filename stem will need to become per-format at CARD-014 (PDF's ADR-0016 naming) — noted there; (M-3) tests reach into a private _FORMATS dict (justified, no public API exists yet); (M-4) a TOCTOU race in collision-path selection, low severity for a single-process CLI. → routed to fix cycle.
