@@ -2,8 +2,8 @@
 
 A finalized puzzle can leave the process five ways — PNG and SVG (FR-011,
 CARD-012), JSON and CSV (FR-012, CARD-013 for the CSV half) and PDF (FR-016,
-CARD-014). Only the JSON renderer exists today (guardrail G-5), so this package
-is a one-row lookup table plus the module behind it: adding a format later means
+CARD-014). JSON, PNG and SVG exist today, so this package
+is a short lookup table plus the modules behind it: adding a format means
 registering an :class:`ExportFormat` in :data:`_FORMATS`, not reshaping the
 dispatch.
 
@@ -57,11 +57,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from nonogram.export import json_export
+from nonogram.export import json_export, png, svg
 
 __all__ = [
     "FORMATS",
     "JSON",
+    "PNG",
+    "SVG",
     "ExportFormat",
     "ExportPayload",
     "Renderer",
@@ -72,6 +74,11 @@ __all__ = [
 
 #: The ``--export`` value the JSON renderer is selected by (FR-012).
 JSON = "json"
+
+#: The ``--export`` values the two print-ready renderers are selected by
+#: (FR-011, CARD-012).
+PNG = "png"
+SVG = "svg"
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +130,8 @@ class ExportFormat:
 
 _FORMATS: dict[str, ExportFormat] = {
     JSON: ExportFormat(JSON, ".json", json_export.render),
-    # CARD-012: PNG -> png_export.render (".png"), SVG -> svg_export.render (".svg")
+    PNG: ExportFormat(PNG, ".png", png.render),
+    SVG: ExportFormat(SVG, ".svg", svg.render),
     # CARD-013: CSV -> csv_export.render (".csv")
     # CARD-014: PDF -> pdf_export.render (".pdf")
 }

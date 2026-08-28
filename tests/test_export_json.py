@@ -99,10 +99,16 @@ def _load(path: Path) -> dict[str, object]:
 
 
 def test_the_registry_knows_the_json_format() -> None:
-    assert export.FORMATS == (export.JSON,), (
-        "increment 1 exports JSON only (guardrail G-5); PNG/SVG, CSV and PDF "
-        "are CARD-012/013/014"
-    )
+    """JSON is registered, and stays registered as later cards add their rows.
+
+    Was ``FORMATS == (JSON,)`` while JSON was the only format; CARD-012 added
+    the PNG and SVG rows, so what this asserts now is membership rather than
+    the whole table — the table's *contents* belong to whichever card owns each
+    row, and pinning the tuple here would make every later registration look
+    like a regression in the JSON renderer's own test file.
+    """
+    assert export.JSON in export.FORMATS
+    assert export.for_format(export.JSON).render is json_export.render
 
 
 def test_a_registry_row_carries_its_extension_and_its_renderer() -> None:
@@ -117,8 +123,8 @@ def test_an_unregistered_format_is_a_wiring_bug_not_a_domain_error() -> None:
     """Same choice as ``sourcing.for_mode``: argparse already rejected this
     for the user, so reaching here means the pipeline asked for a format that
     does not exist — not something to map onto an exit code."""
-    with pytest.raises(ValueError, match="unknown export format 'png'"):
-        export.for_format("png")
+    with pytest.raises(ValueError, match="unknown export format 'pdf'"):
+        export.for_format("pdf")
 
 
 @pytest.mark.parametrize("name", export.FORMATS)
