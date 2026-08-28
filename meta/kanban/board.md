@@ -30,7 +30,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 
 ## Ready
-- **CARD-005** P1 · Pipeline orchestrator and regenerate-on-failure loop  _(wave 4)_
 - **CARD-006** P1 · Cooperative generation deadline and SolverTimeout  _(wave 5)_
 - **CARD-007** P1 · JSON export and the export-readiness gate  _(wave 5)_
 - **CARD-008** P2 · Built-in image library sourcing  _(wave 6)_
@@ -45,7 +44,8 @@ _(none — 18 ADRs accepted, 0 open decisions; handoff absorbed)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-_(none)_
+- **CARD-005** Pipeline orchestrator and regenerate-on-failure loop
+  `worktree: ../PythonProject4-card-005` · `branch: card/005-orchestrator-regenerate-loop`
 
 ## Review
 _(none)_

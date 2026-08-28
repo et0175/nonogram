@@ -1,6 +1,6 @@
 # CARD-005: Pipeline orchestrator and regenerate-on-failure loop
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/005-orchestrator-regenerate-loop
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-005
 **Source:** meta/architecture/handoff.md#increment-1
 **Idea:** —
 **Wave:** 4
 **Depends on:** CARD-003, CARD-004
 **Touches:** src/nonogram/orchestrator.py, tests/test_orchestrator.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-28T07:22:29Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
