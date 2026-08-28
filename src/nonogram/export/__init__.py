@@ -2,7 +2,7 @@
 
 A finalized puzzle can leave the process five ways — PNG and SVG (FR-011,
 CARD-012), JSON and CSV (FR-012, CARD-013 for the CSV half) and PDF (FR-016,
-CARD-014). JSON, PNG and SVG exist today, so this package
+CARD-014). JSON, PNG, SVG and CSV exist today, so this package
 is a short lookup table plus the modules behind it: adding a format means
 registering an :class:`ExportFormat` in :data:`_FORMATS`, not reshaping the
 dispatch.
@@ -57,9 +57,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from nonogram.export import json_export, png, svg
+from nonogram.export import csv_export, json_export, png, svg
 
 __all__ = [
+    "CSV",
     "FORMATS",
     "JSON",
     "PNG",
@@ -79,6 +80,9 @@ JSON = "json"
 #: (FR-011, CARD-012).
 PNG = "png"
 SVG = "svg"
+
+#: The ``--export`` value the CSV renderer is selected by (FR-012, CARD-013).
+CSV = "csv"
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +136,7 @@ _FORMATS: dict[str, ExportFormat] = {
     JSON: ExportFormat(JSON, ".json", json_export.render),
     PNG: ExportFormat(PNG, ".png", png.render),
     SVG: ExportFormat(SVG, ".svg", svg.render),
-    # CARD-013: CSV -> csv_export.render (".csv")
+    CSV: ExportFormat(CSV, ".csv", csv_export.render),
     # CARD-014: PDF -> pdf_export.render (".pdf")
 }
 

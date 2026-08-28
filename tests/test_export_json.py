@@ -102,13 +102,15 @@ def test_the_registry_knows_the_json_format() -> None:
     """JSON is registered, and stays registered as later cards add their rows.
 
     Was ``FORMATS == (JSON,)`` while JSON was the only format; CARD-012 added
-    the PNG and SVG rows, so what this asserts now is membership rather than
-    the whole table — the table's *contents* belong to whichever card owns each
-    row, and pinning the tuple here would make every later registration look
-    like a regression in the JSON renderer's own test file.
+    the PNG and SVG rows and CARD-013 added csv, so what this asserts now is
+    membership rather than the whole table — the table's *contents* belong to
+    whichever card owns each row, and pinning the tuple here would make every
+    later registration look like a regression in the JSON renderer's own test
+    file.
     """
     assert export.JSON in export.FORMATS
     assert export.for_format(export.JSON).render is json_export.render
+    assert len(set(export.FORMATS)) == len(export.FORMATS), "duplicate format name"
 
 
 def test_a_registry_row_carries_its_extension_and_its_renderer() -> None:
@@ -134,8 +136,11 @@ def test_every_registered_format_is_accepted_by_the_cli(name: str) -> None:
 
 
 def test_an_unregistered_format_is_rejected_by_the_cli() -> None:
+    """``pdf`` is CARD-014's and not registered yet — the stand-in for "a
+    format this build does not have", which used to be ``csv`` until CARD-013
+    registered it."""
     with pytest.raises(SystemExit) as excinfo:
-        cli.build_parser().parse_args(["generate", "--export", "csv"])
+        cli.build_parser().parse_args(["generate", "--export", "pdf"])
     assert excinfo.value.code == cli.ExitCode.USAGE
 
 
@@ -300,6 +305,150 @@ def test_the_document_is_built_without_touching_the_filesystem() -> None:
     )
 
     assert json_export.document(payload)["grid"] == [[True, False]]
+
+
+# --------------------------------------------------------------------------
+# The decoder (CARD-013) — what it refuses
+# --------------------------------------------------------------------------
+#
+# EC-002's round trip lives in ``tests/property/test_export_roundtrip.py``,
+# stated over both formats at once. What is asserted here is the half a
+# round-trip test structurally cannot see: an encoder/decoder pair that agreed
+# on a wrong reading would round-trip perfectly. So every documented rejection
+# gets a case, because a decoder that repaired what it read — coercing ``1``
+# into ``true``, filling in a missing field — would still pass the property
+# while having quietly altered the file.
+
+
+def _document(**replacement: object) -> dict[str, object]:
+    """A valid document with one field replaced — one defect at a time."""
+    payload = export.ExportPayload(
+        grid=[[True, False], [False, True]],
+        row_clues=((1,), (1,)),
+        column_clues=((1,), (1,)),
+        seed=7,
+        mode="random",
+        size=2,
+        density=50,
+    )
+    document = json_export.document(payload)
+    document.update(replacement)
+    return document
+
+
+def test_the_decoder_inverts_the_document_exactly() -> None:
+    payload = export.ExportPayload(
+        grid=[[True, False]],
+        row_clues=((1,),),
+        column_clues=((1,), (0,)),
+        seed=1,
+        mode="random",
+    )
+
+    assert json_export.parse(json_export.document(payload)) == payload
+
+
+@pytest.mark.parametrize(
+    ("document", "message"),
+    [
+        pytest.param(_document(version=2), "unsupported JSON export version", id="future-version"),
+        pytest.param(_document(version="1"), "expected an integer", id="version-as-string"),
+        pytest.param({"seed": 1}, "missing field 'version'", id="missing-version"),
+        pytest.param(_document(seed=None), "expected an integer", id="null-seed"),
+        pytest.param(_document(seed=True), "expected an integer", id="bool-seed"),
+        pytest.param(_document(request={"mode": "random", "size": 2}), "missing field 'density'", id="missing-parameter"),
+        pytest.param(_document(request={"mode": 1, "size": None, "density": None}), "expected a string", id="non-string-mode"),
+        pytest.param(_document(request=[]), "request: expected an object", id="request-not-an-object"),
+        pytest.param(_document(grid=[[1, 0], [0, 1]]), "expected true or false", id="numeric-cells"),
+        pytest.param(_document(grid=[[True, False], [True]]), "the grid is rectangular", id="ragged-grid"),
+        pytest.param(_document(grid="TF"), "grid: expected an array", id="grid-as-string"),
+        pytest.param(_document(clues={"rows": [[1], [1]]}), "missing field 'columns'", id="missing-clue-set"),
+        pytest.param(_document(clues={"rows": [["1"], [1]], "columns": [[1], [1]]}), "expected an integer", id="clue-as-string"),
+        pytest.param(_document(clues={"rows": [1, 1], "columns": [[1], [1]]}), "expected an array", id="clue-not-an-array"),
+        pytest.param([], "document: expected an object", id="not-an-object"),
+        pytest.param(
+            _document(clues={"rows": [[1], [1]], "columns": [[1]]}),
+            r"1 column clue\(s\) for a grid of 2 column\(s\)",
+            id="column-clue-count-mismatch",
+        ),
+        pytest.param(
+            _document(clues={"rows": [[1]], "columns": [[1], [1]]}),
+            r"1 row clue\(s\) for a grid of 2 row\(s\)",
+            id="row-clue-count-mismatch",
+        ),
+    ],
+)
+def test_the_decoder_rejects_a_malformed_document(document: object, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        json_export.parse(document)
+
+
+def test_the_decoder_rejects_a_document_truncated_by_dropping_a_column_clue() -> None:
+    """A realistic failure mode, not a synthetic one: a truncated download, a
+    partial write or a hand-edited file can drop the trailing
+    ``clues.columns`` entry from an otherwise well-formed export. Every field
+    is still individually well-shaped, so only the cross-check against the
+    grid's own width catches the missing entry.
+    """
+    payload = export.ExportPayload(
+        grid=[[True, False, True], [False, True, False]],
+        row_clues=((1, 1), (1,)),
+        column_clues=((1,), (1,), (1,)),
+        seed=3,
+        mode="random",
+    )
+    document = json_export.document(payload)
+    document["clues"]["columns"].pop()  # simulate a dropped trailing entry
+
+    with pytest.raises(ValueError, match=r"2 column clue\(s\) for a grid of 3 column\(s\)"):
+        json_export.parse(document)
+
+
+def test_the_decoder_rejects_column_clues_that_do_not_match_the_grid_width() -> None:
+    """The reviewer's counterexample, literally: a 2-column grid must not
+    silently decode with ``column_clues=((1,),)``."""
+    document = {
+        "version": 1,
+        "seed": 1,
+        "request": {"mode": "random", "size": None, "density": None},
+        "grid": [[True, False], [False, True]],
+        "clues": {"rows": [[1], [1]], "columns": [[1]]},
+    }
+
+    with pytest.raises(ValueError, match=r"1 column clue\(s\) for a grid of 2 column\(s\)"):
+        json_export.parse(document)
+
+
+def test_the_decoder_accepts_an_empty_grid_with_no_clues() -> None:
+    """The empty-grid convention (``clues.compute_clues``: an empty grid
+    yields two empty clue sets) is what the new check must not reject."""
+    document = {
+        "version": 1,
+        "seed": 1,
+        "request": {"mode": "random", "size": None, "density": None},
+        "grid": [],
+        "clues": {"rows": [], "columns": []},
+    }
+
+    payload = json_export.parse(document)
+
+    assert (payload.grid, payload.row_clues, payload.column_clues) == ([], (), ())
+
+
+def test_the_decoder_rejects_text_that_is_not_json() -> None:
+    """``json.JSONDecodeError`` is a ``ValueError``, so a caller has one
+    exception type for "this file is not one of ours" either way."""
+    with pytest.raises(ValueError):
+        json_export.decode("not json at all")
+
+
+def test_reading_a_file_inverts_writing_one(tmp_path: Path) -> None:
+    path = export_puzzle(_puzzle(tmp_path, seed=11))[0]
+
+    decoded = json_export.read(path)
+
+    assert decoded.grid == UNIQUE
+    assert (decoded.seed, decoded.mode) == (11, "random")
 
 
 # --------------------------------------------------------------------------
