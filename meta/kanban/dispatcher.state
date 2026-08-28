@@ -1,6 +1,11 @@
-wave: 6
+wave: 7
 mode: interactive
-active: []
+active:
+  - id: CARD-010
+    phase: implementation
+    branch: card/010-difficulty-tier-resample
+    worktree: ../PythonProject4-card-010
+    started: 2026-08-28T12:00:00Z
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-28T11:50:00Z
+last_updated: 2026-08-28T12:00:00Z
