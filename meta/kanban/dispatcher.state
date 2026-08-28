@@ -1,12 +1,6 @@
 wave: 6
 mode: interactive
-active:
-  - id: CARD-013
-    phase: fix
-    review_cycle: 1
-    branch: card/013-csv-export-roundtrip
-    worktree: ../PythonProject4-card-013
-    started: 2026-08-28T10:17:03Z
+active: []
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-28T10:58:00Z
+last_updated: 2026-08-28T11:50:00Z

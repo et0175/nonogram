@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-08-28 10:02_
+_Updated: 2026-08-28 11:55_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -10,15 +10,12 @@ _Updated: 2026-08-28 10:02_
 | 3 | CARD-004 P1 | ✓ done |
 | 4 | CARD-005 P1 | ✓ done |
 | 5 | CARD-006 P1, CARD-007 P1 | ✓ done |
-| 6 | CARD-009 P1, CARD-012 P1, CARD-013 P1, CARD-008 P2, CARD-011 P2 | ▶ active |
-| 7 | CARD-010 P1 | ⏳ blocked (→ CARD-009, CARD-011) |
-| 8 | CARD-014 P2 | ⏳ blocked (→ CARD-010, CARD-012, CARD-013) |
-| 9 | CARD-015 P2 | ⏳ blocked (→ CARD-008, CARD-014) |
+| 6 | CARD-008 P2, CARD-009 P1, CARD-011 P2, CARD-012 P1, CARD-013 P1 | ✓ done |
+| 7 | CARD-010 P1 | ▶ active |
+| 8 | CARD-014 P2 | ⏳ blocked (→ CARD-010) |
+| 9 | CARD-015 P2 | ⏳ blocked (→ CARD-014) |
 | 10 | CARD-016 P2 | ⏳ blocked (→ CARD-015) |
 | 11 | CARD-017 P3 | ⏳ blocked (→ CARD-016) |
-
-_Wave checkpoints: [meta/kanban/waves.yml](waves.yml) — increment 1 closes at wave 5,
-increment 2 at wave 8, increment 3 at wave 11._
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -27,35 +24,34 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - Interactive/playable puzzle output (web or local UI to solve the puzzle)
 
 ## Architecture
-_(none — 18 ADRs accepted (ADR-0001 revised 2026-08-28), 0 open decisions; handoff absorbed)_
+_(none)_
 
 ## Ready
-- **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up from ADR-0001 revision; depends on CARD-006, done)_
-- **CARD-011** P2 · Puzzle naming (auto-generated and --name override)  _(wave 6, queued — conflict edge to CARD-008/CARD-012)_
 - **CARD-010** P1 · Difficulty tier selection and resample loop  _(wave 7)_
-- **CARD-014** P2 · Two-page PDF export with answer key  _(wave 8)_
-- **CARD-015** P2 · Uploaded-image conversion via resize and Floyd-Steinberg dithering  _(wave 9)_
-- **CARD-016** P2 · Bounded pixel-nudge recovery loop for image mode  _(wave 10)_
-- **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
+- **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up to CARD-006/AC-037, ADR-0001 revised)_
 
 ## In Progress
-- **CARD-008** Built-in image library sourcing
-  `worktree: ../PythonProject4-card-008` · `branch: card/008-library-sourcing`
-- **CARD-009** Difficulty scoring formula from solver signals
-  `worktree: ../PythonProject4-card-009` · `branch: card/009-difficulty-scoring`
-- **CARD-012** PNG and SVG export renderers
-  `worktree: ../PythonProject4-card-012` · `branch: card/012-png-svg-export`
-- **CARD-013** CSV export and exact round-trip fidelity
-  `worktree: ../PythonProject4-card-013` · `branch: card/013-csv-export-roundtrip`
+_(none)_
 
 ## Review
 _(none)_
 
 ## Done
-- **CARD-001** Package scaffolding and CLI entry point — score 9.0 (cycle 2/3) · merged db2f9d7
-- **CARD-002** Clue derivation via run-length encoding — score 9.0 (cycle 2/3) · merged 958a5bb
-- **CARD-003** Random grid sourcing with size and density validation — score 9.5 (cycle 2/3) · merged b0d0ef3
-- **CARD-004** Nonogram solver with fail-fast uniqueness check — score 9.4 (cycle 2/3) · merged aed158c
-- **CARD-005** Pipeline orchestrator and regenerate-on-failure loop — score 9.5 (cycle 1/3) · merged 92332f2
-- **CARD-006** Cooperative generation deadline and SolverTimeout — score 9.2 (cycle 1/3) · merged a04a8b8
-- **CARD-007** JSON export and the export-readiness gate — score 9.4 (cycle 2/3) · merged d4fa0c9
+- **CARD-001** Package scaffolding and CLI entry point
+- **CARD-002** Clue derivation via run-length encoding
+- **CARD-003** Random grid sourcing with size and density validation
+- **CARD-004** Nonogram solver with fail-fast uniqueness check
+- **CARD-005** Pipeline orchestrator and regenerate-on-failure loop
+- **CARD-006** Cooperative generation deadline and SolverTimeout
+- **CARD-007** JSON export and the export-readiness gate
+- **CARD-008** Built-in image library sourcing
+- **CARD-009** Difficulty scoring formula from solver signals
+- **CARD-011** Puzzle naming (auto-generated and --name override)
+- **CARD-012** PNG and SVG export renderers
+- **CARD-013** CSV export and exact round-trip fidelity
+
+## Blocked
+_(none)_
+
+## Skipped
+_(none)_
