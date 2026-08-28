@@ -561,3 +561,43 @@ def test_a_rejected_export_reaches_the_user_as_exit_code_five(
     assert exit_code == cli.ExitCode.EXPORT_REJECTED
     assert "not ready for export" in capsys.readouterr().err
     assert _written(tmp_path) == []
+
+
+def test_an_out_directory_that_is_actually_a_file_reaches_the_user_cleanly(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Review finding (cycle 1): ``--out`` colliding with an existing file
+    made ``directory.mkdir(..., exist_ok=True)`` raise ``FileExistsError`` —
+    an ``OSError`` subclass, not a ``NonogramError`` — which used to escape
+    ``main()`` as a raw traceback instead of a clean message and exit code.
+
+    Reproduces the reviewer's exact repro command (mode/size/density/seed),
+    against a real ``--out`` collision rather than a mock, so the fix is
+    pinned at the same layer the crash was found in: the CLI's own exception
+    handling, not the export plumbing that already documents the ``OSError``.
+    """
+    blocked = tmp_path / "notadir"
+    blocked.write_text("not a directory", encoding="utf-8")
+
+    exit_code = cli.main(
+        [
+            "generate",
+            "--size",
+            "10",
+            "--density",
+            "40",
+            "--seed",
+            "3",
+            "--export",
+            "json",
+            "--out",
+            str(blocked),
+        ]
+    )
+
+    assert exit_code == cli.ExitCode.EXPORT_REJECTED
+    captured = capsys.readouterr()
+    assert captured.err.startswith(f"{cli.PROG}: error: ")
+    assert "Traceback" not in captured.err
+    assert blocked.read_text(encoding="utf-8") == "not a directory"

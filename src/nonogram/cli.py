@@ -216,6 +216,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except NonogramError as error:
         print(f"{PROG}: error: {error}", file=sys.stderr)
         return exit_code_for(error)
+    except OSError as error:
+        # Not a NonogramError: ``export.write`` documents that ``--out``
+        # pointing at something unusable (an existing file in the way, an
+        # unwritable directory, ...) raises the stdlib's own OSError rather
+        # than a domain error. It still needs a clean report instead of a
+        # raw traceback, and it can only happen during export, so it is
+        # reported under the same exit code as ExportRejected.
+        print(f"{PROG}: error: {error}", file=sys.stderr)
+        return ExitCode.EXPORT_REJECTED
 
 
 if __name__ == "__main__":  # pragma: no cover
