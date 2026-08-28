@@ -31,19 +31,22 @@ _(none — 18 ADRs accepted (ADR-0001 revised 2026-08-28), 0 open decisions; han
 
 ## Ready
 - **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up from ADR-0001 revision; depends on CARD-006, done)_
-- **CARD-008** P2 · Built-in image library sourcing  _(wave 6)_
-- **CARD-009** P1 · Difficulty scoring formula from solver signals  _(wave 6)_
+- **CARD-011** P2 · Puzzle naming (auto-generated and --name override)  _(wave 6, queued — conflict edge to CARD-008/CARD-012)_
 - **CARD-010** P1 · Difficulty tier selection and resample loop  _(wave 7)_
-- **CARD-011** P2 · Puzzle naming (auto-generated and --name override)  _(wave 6)_
-- **CARD-012** P1 · PNG and SVG export renderers  _(wave 6)_
-- **CARD-013** P1 · CSV export and exact round-trip fidelity  _(wave 6)_
 - **CARD-014** P2 · Two-page PDF export with answer key  _(wave 8)_
 - **CARD-015** P2 · Uploaded-image conversion via resize and Floyd-Steinberg dithering  _(wave 9)_
 - **CARD-016** P2 · Bounded pixel-nudge recovery loop for image mode  _(wave 10)_
 - **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 
 ## In Progress
-_(none)_
+- **CARD-008** Built-in image library sourcing
+  `worktree: ../PythonProject4-card-008` · `branch: card/008-library-sourcing`
+- **CARD-009** Difficulty scoring formula from solver signals
+  `worktree: ../PythonProject4-card-009` · `branch: card/009-difficulty-scoring`
+- **CARD-012** PNG and SVG export renderers
+  `worktree: ../PythonProject4-card-012` · `branch: card/012-png-svg-export`
+- **CARD-013** CSV export and exact round-trip fidelity
+  `worktree: ../PythonProject4-card-013` · `branch: card/013-csv-export-roundtrip`
 
 ## Review
 _(none)_

@@ -1,6 +1,6 @@
 # CARD-012: PNG and SVG export renderers
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/012-png-svg-export
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-012
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 6
 **Depends on:** CARD-006, CARD-007
 **Touches:** src/nonogram/export/png.py, src/nonogram/export/svg.py, src/nonogram/export/layout.py, src/nonogram/export/__init__.py, src/nonogram/orchestrator.py, tests/test_export_image.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-28T10:17:03Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

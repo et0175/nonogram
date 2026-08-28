@@ -1,6 +1,6 @@
 # CARD-013: CSV export and exact round-trip fidelity
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/013-csv-export-roundtrip
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-013
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 6
 **Depends on:** CARD-006, CARD-007
 **Touches:** src/nonogram/export/csv_export.py, src/nonogram/export/json_export.py, src/nonogram/export/__init__.py, tests/test_export_csv.py, tests/property/test_export_roundtrip.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-28T10:17:03Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
