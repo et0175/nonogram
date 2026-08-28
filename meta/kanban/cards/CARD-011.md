@@ -1,6 +1,6 @@
 # CARD-011: Puzzle naming (auto-generated and --name override)
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/011-puzzle-naming
-**Worktree:** ../PythonProject4-card-011
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 6
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/cli.py, tests/test_naming.py
 **Review score:** 9.4 (cycle 2/3)
 **Started:** 2026-08-28T10:52:03Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-28T11:45:00Z
+**Actual:** 0.5d
+**Merge commit:** 0d7f028
 **Blocked by:** —
 
 ## What to implement
