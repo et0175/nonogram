@@ -42,6 +42,20 @@ is exactly the worst case ADR-0002's bound and ADR-0001's time budget exist to
 prevent; the two bounds are meant to "operate together but independently"
 (ADR-0002, Neutral).
 
+Naming (FR-015, ADR-0018)
+-------------------------
+Every puzzle carries a :attr:`Puzzle.name`, resolved *once* by :func:`generate`
+before the aggregate exists and never touched again — not by a regenerate, a
+resample or a pixel nudge (guardrail G-6, AGG-001). Naming lands here and not
+in a capability module for the same reason the invariants do: COMP-002 is what
+owns the aggregate and constructs it once per run (ADR-0007), whereas COMP-003
+produces grids, not :class:`Puzzle` instances, even though the library key that
+seeds a library puzzle's name comes from its mode.
+
+The name is also the *only* source of a run's export filename stem
+(:func:`export_puzzle`), so the name a user reads and the file they get cannot
+drift apart — see :func:`_filename_stem`.
+
 Dependency direction: this module imports the capability modules and never the
 adapter; nothing inward of it imports back (ADR-0007, enforced for every
 module in the package by ``tests/test_cli.py``).
@@ -55,21 +69,26 @@ that is abandoned or never asked for an export leaves no trace on disk.
 
 from __future__ import annotations
 
+import itertools
 import random
+import re
 import secrets
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from nonogram import clues as clue_derivation
 from nonogram import export, solver, sourcing
-from nonogram.errors import ExportRejected, GenerationAbandoned
+from nonogram.errors import ExportRejected, GenerationAbandoned, InvalidPuzzleName
 
 __all__ = [
+    "DEFAULT_NAMES",
     "GENERATION_BUDGET_SECONDS",
     "MAX_REGENERATE_ATTEMPTS",
     "GenerationRequest",
+    "NameContext",
     "Puzzle",
     "RetryCounter",
     "export_puzzle",
@@ -131,9 +150,131 @@ class GenerationRequest:
     #: (AC-006, ADR-0010), checked by the sourcing module, not here and not by
     #: argparse. Meaningless in the other modes, where it stays ``None``.
     library_key: str | None = None
+    #: ``--name`` (FR-015): the user's name for the puzzle, overriding the
+    #: auto-generated one. Unvalidated like the rest — ``--name ""`` parses
+    #: fine and is rejected inward, by :meth:`NameContext.name_for`, before any
+    #: puzzle exists (AC-045, ADR-0010, guardrail G-5). ``None`` means "no
+    #: ``--name`` was given", which is what selects the auto-generated name;
+    #: it is *not* the same as the empty string.
+    name: str | None = None
     seed: int | None = None
     export_formats: tuple[str, ...] = ()
     out: Path | None = None
+
+
+@dataclass(slots=True)
+class NameContext:
+    """ADR-0018's *naming context*: what a same-minute collision is judged against.
+
+    FR-015 gives an unnamed puzzle a default name, and ADR-0018 fixes its
+    precision at the minute — ``"random-2026-08-27-1430"`` — plus "a small
+    disambiguating counter ('-1', '-2', ...) appended only when a same-minute
+    auto-generated name already exists in the current run's naming context".
+    "The current run's naming context" is this object: the set of auto-names
+    already issued through it. :data:`DEFAULT_NAMES` is the process-wide one
+    :func:`generate` uses, which for the single-user, single-process CLI of
+    CON-001 means "the names this invocation has handed out" — one, normally.
+
+    It exists as an injectable object rather than a module-level counter for
+    the reason ADR-0018 anticipates in its own Consequences: the counter branch
+    "only executes when two or more same-mode generations land in the same
+    clock minute ... which makes it easy to under-test". A test hands
+    :func:`generate` a context with a frozen :attr:`clock` and gets that branch
+    on demand, without waiting for a minute boundary or monkeypatching
+    ``datetime``.
+
+    The disambiguation deliberately mirrors ``export._free_path``'s shape:
+    ADR-0018 adopted the counter suffix precisely so that the pipeline's two
+    collision points — name generation here, file collision at export — read as
+    one idea applied twice rather than two different ones.
+
+    Attributes:
+        clock: Reads the wall clock the timestamp is taken from. An argument so
+            the convention is testable without freezing real time (AC-042).
+        issued: Every auto-generated name this context has handed out. An
+            explicit ``--name`` is not recorded here and is never counter-
+            suffixed: it is the user's word for the puzzle, and AC-044 asks for
+            it back verbatim.
+    """
+
+    clock: Callable[[], datetime] = datetime.now
+    issued: set[str] = field(default_factory=set)
+
+    def name_for(self, request: GenerationRequest) -> str:
+        """The name a puzzle for ``request`` is created with (FR-015).
+
+        Args:
+            request: The run as the caller asked for it. Its ``name`` decides
+                between the override and the auto-generated default; its
+                ``mode`` and ``library_key`` shape the latter.
+
+        Returns:
+            ``request.name`` verbatim when one was given, else the
+            auto-generated name for the request's mode.
+
+        Raises:
+            InvalidPuzzleName: ``request.name`` was given but is empty
+                (AC-045). Raised here, inward of argparse, because name
+                validity is a domain rule and not argument syntax (ADR-0010,
+                guardrail G-5) — and raised *before* :func:`generate` builds
+                anything, so a rejected name leaves no puzzle behind.
+        """
+        if request.name is not None:
+            return _validated_name(request.name)
+        return self._auto_name(request)
+
+    def _auto_name(self, request: GenerationRequest) -> str:
+        """FR-015's default: the library key, or mode plus timestamp."""
+        if request.mode == sourcing.LIBRARY and request.library_key:
+            # AC-043: the key verbatim, and *not* disambiguated. A library key
+            # is not a timestamp, so two "cat" puzzles are two renderings of
+            # the same picture rather than a same-minute accident; ADR-0016
+            # states outright that an auto-generated key like "cat" "is not
+            # guaranteed unique" and leaves that collision to ADR-0017's
+            # export-time suffix. A missing key falls through to the timestamp
+            # name — the run then fails in sourcing with UnknownLibraryImage,
+            # which is the error that request deserves, not a naming one.
+            return request.library_key
+        # AC-042. The format itself comes from ``export.default_stem`` rather
+        # than being written out a second time here — see :func:`_filename_stem`
+        # for why the two must not drift.
+        base = export.default_stem(request.mode, moment=self.clock())
+        return self._disambiguated(base)
+
+    def _disambiguated(self, base: str) -> str:
+        """ADR-0018's counter: ``base``, or the first free ``base-N``."""
+        candidates = itertools.chain(
+            (base,), (f"{base}-{suffix}" for suffix in itertools.count(1))
+        )
+        for candidate in candidates:
+            if candidate not in self.issued:
+                self.issued.add(candidate)
+                return candidate
+        raise AssertionError("unreachable: count() is infinite")  # pragma: no cover
+
+
+#: The naming context :func:`generate` uses when the caller does not supply
+#: one: one per process, which is ADR-0018's "current run" for a CLI that
+#: generates a single puzzle per invocation (CON-001).
+DEFAULT_NAMES = NameContext()
+
+
+def _validated_name(name: str) -> str:
+    """AC-045: an explicit name has to be a name.
+
+    Whitespace-only is rejected alongside the empty string the criterion names:
+    the two are the same thing to every consumer the name has — a PDF header
+    that renders as blank (FR-016) and a filename stem that sanitizes away to
+    nothing (ADR-0016). Nothing else is refused and nothing is rewritten: the
+    name is the user's, and ADR-0016's filesystem sanitization applies to the
+    *filename* derived from it, not to the name itself (:func:`_filename_stem`).
+    """
+    if not name.strip():
+        raise InvalidPuzzleName(
+            "puzzle name must not be empty; pass a name to --name or omit the "
+            "flag to get the auto-generated one"
+        )
+    return name
 
 
 @dataclass(slots=True)
@@ -265,6 +406,19 @@ class Puzzle:
     #: user when ``--seed`` was absent (ADR-0015). Always concrete, so a run
     #: is reproducible after the fact even when nobody asked for a seed.
     seed: int
+    #: FR-015's name, as :meth:`NameContext.name_for` resolved it — the library
+    #: key, ``"<mode>-<YYYY-MM-DD>-<HHMM>"`` or whatever ``--name`` said.
+    #:
+    #: Written once, by :func:`generate`, *before* the first attempt, and never
+    #: again: a regenerate replaces the candidate grid, not the puzzle, so the
+    #: name a run reports is the name it started with (guardrail G-6, AGG-001).
+    #:
+    #: ``None`` only for an aggregate assembled by hand rather than by
+    #: :func:`generate` — the same partially-built state :attr:`grid` and
+    #: :attr:`clues` start in. :func:`export_puzzle` falls back to
+    #: ``export.default_stem`` for one of those; nothing produced by the
+    #: pipeline ever takes that path.
+    name: str | None = None
     #: POL-001's counter (INV-003). Bound from ADR-0002.
     regenerate: RetryCounter = field(
         default_factory=lambda: RetryCounter("regenerate", MAX_REGENERATE_ATTEMPTS)
@@ -373,7 +527,9 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
     return (request.size, request.density)
 
 
-def generate(request: GenerationRequest) -> Puzzle:
+def generate(
+    request: GenerationRequest, *, names: NameContext | None = None
+) -> Puzzle:
     """Run one generation request end to end and return the finished puzzle.
 
     Sources a candidate grid for ``request.mode``, derives its clues, asks the
@@ -388,6 +544,19 @@ def generate(request: GenerationRequest) -> Puzzle:
     request carries no seed one is drawn from the OS entropy pool and recorded
     on the returned puzzle, which is what lets the adapter echo it.
 
+    The puzzle's name (FR-015) is resolved first, before the seed is drawn and
+    before the aggregate exists: an unusable one must leave nothing behind
+    (AC-045), and a usable one must be fixed for the whole run — every retry
+    below replaces the *candidate*, never the puzzle, so the name is written
+    exactly once here and read thereafter (guardrail G-6).
+
+    Args:
+        request: The run as the caller asked for it.
+        names: ADR-0018's naming context, for the same-minute counter and the
+            clock the auto-name's timestamp is read from. Defaults to the
+            process-wide :data:`DEFAULT_NAMES`; a caller passes its own to make
+            the timestamp deterministic (AC-042).
+
     Returns:
         The :class:`Puzzle` aggregate, with ``ready_for_export`` set — the one
         object the whole run mutated, retries included.
@@ -395,6 +564,9 @@ def generate(request: GenerationRequest) -> Puzzle:
     Raises:
         GenerationAbandoned: no candidate was uniquely solvable within the
             retry bound (POL-005).
+        InvalidPuzzleName: ``--name`` was given as an empty name (AC-045).
+            Raised before anything is sourced or constructed, so the run leaves
+            no puzzle behind.
         SizeOutOfRange, InvalidDensity, UnknownLibraryImage: the request is not
             valid for its mode. Raised by the sourcing module on the first
             attempt and *not* retried — an invalid request does not become
@@ -412,9 +584,13 @@ def generate(request: GenerationRequest) -> Puzzle:
             the loop starts, so a wiring bug cannot be mistaken for 20
             infeasible candidates.
     """
+    # FR-015, first and once: an invalid name must abort before a puzzle
+    # exists (AC-045), and a valid one is the run's for good (G-6).
+    name = (names if names is not None else DEFAULT_NAMES).name_for(request)
+
     seed = request.seed if request.seed is not None else secrets.randbits(64)
     rng = random.Random(seed)
-    puzzle = Puzzle(request=request, seed=seed)
+    puzzle = Puzzle(request=request, seed=seed, name=name)
 
     # ADR-0011: one absolute instant for the whole request, fixed here before
     # the first attempt and shared by every solve below, so the retry loop
@@ -483,6 +659,10 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
     Repeated formats (``--export json --export json``) are collapsed to the
     first occurrence — the user asked for JSON, not for two copies of it.
 
+    All formats of one run share one filename stem, and that stem is the
+    puzzle's FR-015 name rather than a second, independently computed
+    convention (:func:`_filename_stem`).
+
     Args:
         puzzle: The finished aggregate from :func:`generate`. Its request
             supplies both the formats and the destination directory.
@@ -521,9 +701,55 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
     )
     # One stem for the whole run, so a multi-format export produces one named
     # puzzle in several formats rather than several differently-named files.
-    stem = export.default_stem(puzzle.mode)
+    stem = _filename_stem(puzzle)
     directory = puzzle.request.out if puzzle.request.out is not None else Path.cwd()
 
     return tuple(
         export.write(payload, name, directory=directory, stem=stem) for name in formats
     )
+
+
+#: Everything a filename stem may not contain, as runs (ADR-0016's
+#: "sanitized for filesystem-safe characters"). Deliberately an allow-list:
+#: a name is user input, and ``--name "../../secrets"`` must become a file in
+#: ``--out`` and not a write outside it.
+_UNSAFE_STEM_CHARACTERS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _filename_stem(puzzle: Puzzle) -> str:
+    """The run's export filename stem — the puzzle's own name, made safe.
+
+    Why the name and not a separately-computed timestamp (FR-015, ADR-0016)
+    ----------------------------------------------------------------------
+    ``export.default_stem`` was written by CARD-007 as a stand-in — "when the
+    aggregate starts carrying a name, this function's caller reads it instead"
+    is its own docstring — and this is that caller. Reading the name here is
+    what keeps one run's answer to "what is this puzzle called?" identical on
+    screen, in the file name and (CARD-014) in the PDF header. Computing a
+    second timestamp at export time instead would let a run started at 14:29:59
+    be named ``random-...-1429`` and written to ``random-...-1430.json``, and
+    would name a library run's file ``library-<timestamp>`` while the puzzle
+    itself is called ``cat``.
+
+    The reverse duplication is avoided too: the auto-name is not a re-spelling
+    of ``default_stem``'s format but a *call* to it
+    (:meth:`NameContext._auto_name`), so the ``"<mode>-<YYYY-MM-DD>-<HHMM>"``
+    convention exists in exactly one place for both purposes.
+
+    Sanitization is ADR-0016's rule ("both components sanitized for
+    filesystem-safe characters"), applied to the name on its way to a path and
+    never to the name itself: ``--name`` is a display name, and AC-044 asks for
+    it back verbatim from the aggregate. CARD-014 composes its
+    ``<name>-<difficulty>.pdf`` from this same helper, so the two components
+    are sanitized by one rule rather than two.
+
+    A puzzle with no name at all is an aggregate somebody assembled by hand
+    rather than one :func:`generate` produced; it falls back to CARD-007's
+    stand-in, which is the same convention by construction.
+    """
+    if puzzle.name is None:
+        return export.default_stem(puzzle.mode)
+    # ``strip`` takes the leading and trailing dots with it, so no name can
+    # sanitize into ``.``, ``..`` or a dotfile.
+    stem = _UNSAFE_STEM_CHARACTERS.sub("-", puzzle.name).strip("-.")
+    return stem or export.default_stem(puzzle.mode)
