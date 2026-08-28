@@ -217,3 +217,29 @@ the existing `from nonogram import ...` line, one `__all__` entry, one two-line 
 correction (the module header said the export file is "written by COMP-007 in a later
 card"), and a new function appended at the end of the file. `generate()`, `run_bounded()`,
 `RetryCounter` and `Puzzle` are byte-identical to main.
+
+### Review cycle 1 fix: `--out` colliding with an existing file raised a raw traceback
+
+The one Important finding (score 9.0/10, all 5 guardrails held): `export.write()`'s
+`directory.mkdir(parents=True, exist_ok=True)` raises `OSError` (`FileExistsError` when
+`--out` names an existing file, `PermissionError` for an unwritable directory) and that
+propagated straight through `orchestrator.export_puzzle()` to `cli.py`'s `main()`, whose
+`try`/`except` only caught `NonogramError` — so the user saw a Python traceback instead of
+a clean message. This wave's guardrails keep `errors.py` off this card's Touches (CARD-006
+owns it in parallel this wave), so no new `NonogramError` subclass was added.
+
+Fix, entirely inside `cli.py` (already in Touches): `main()` gained a second `except
+OSError as error:` clause alongside the existing `except NonogramError`, printing
+`"nonogram: error: <message>"` to stderr in the same style and returning
+`ExitCode.EXPORT_REJECTED` — reused rather than adding a new code, since an `OSError` from
+`export.write()` can only occur during the export step, which already owns that code.
+`test_non_domain_exceptions_are_not_swallowed` (a `RuntimeError`) still passes — only
+`OSError` is caught, bugs still get their traceback.
+
+Added `test_an_out_directory_that_is_actually_a_file_reaches_the_user_cleanly` in
+`tests/test_export_json.py`, reproducing the reviewer's exact repro command against a real
+file-collision (not a mock): asserts exit code 5, a `"nonogram: error: "`-prefixed stderr
+message with no traceback, and that the pre-existing file at `--out` is left untouched.
+Full suite: 618 passed (617 pre-existing + 1 new), no regressions. Manually re-ran the
+reviewer's repro (`nonogram generate --size 10 --density 40 --seed 3 --export json --out
+<existing file>`) — now exits 5 with a clean message instead of a traceback.
