@@ -90,9 +90,9 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser.
 
     Later cards extend *this* parser rather than adding a second one:
-    ``--difficulty`` and ``--name`` (FR-008, FR-015), ``--image`` and the
-    ``image`` mode (FR-003), and the remaining export formats (FR-011, FR-012,
-    FR-016). ``--mode library`` and ``--library-key`` (FR-002) landed that way.
+    ``--difficulty`` (FR-008), ``--image`` and the ``image`` mode (FR-003), and
+    the remaining export formats (FR-011, FR-012, FR-016). ``--mode library``
+    and ``--library-key`` (FR-002) and ``--name`` (FR-015) landed that way.
     """
     parser = argparse.ArgumentParser(
         prog=PROG,
@@ -138,6 +138,16 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PERCENT",
         help=(
             "Target share of filled cells, in percent. The valid range is a "
+            "domain rule and is checked after parsing, not here."
+        ),
+    )
+    generate.add_argument(
+        "--name",
+        metavar="NAME",
+        help=(
+            "Name for the puzzle, shown on the printed page and used for the "
+            "export filename. Defaults to the library key, or to "
+            "<mode>-<YYYY-MM-DD>-<HHMM>. What counts as a usable name is a "
             "domain rule and is checked after parsing, not here."
         ),
     )
@@ -204,6 +214,11 @@ def _run_generate(args: argparse.Namespace) -> int:
         size=args.size,
         density=args.density,
         library_key=args.library_key,
+        # Carried through exactly as typed, empty string included: FR-015's
+        # name rule is domain validation (AC-045) and belongs inward of
+        # argparse, not in a ``type=`` here (ADR-0010, guardrail G-5). It comes
+        # back as InvalidPuzzleName -> exit code 3.
+        name=args.name,
         seed=args.seed,
         export_formats=tuple(args.export_formats or ()),
         out=args.out,
