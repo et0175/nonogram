@@ -48,7 +48,9 @@ module in the package by ``tests/test_cli.py``).
 
 No persistence (CON-003, guardrail G-4): the aggregate below lives in memory
 for the duration of one call and is dropped when it returns or raises. The
-export file, written by COMP-007 in a later card, is the only durable artifact.
+export file, written by COMP-007 out of :func:`export_puzzle`, is the only
+durable artifact — and :func:`generate` itself still writes nothing, so a run
+that is abandoned or never asked for an export leaves no trace on disk.
 """
 
 from __future__ import annotations
@@ -60,7 +62,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from nonogram import clues as clue_derivation
-from nonogram import solver, sourcing
+from nonogram import export, solver, sourcing
 from nonogram.errors import ExportRejected, GenerationAbandoned
 
 __all__ = [
@@ -68,6 +70,7 @@ __all__ = [
     "GenerationRequest",
     "Puzzle",
     "RetryCounter",
+    "export_puzzle",
     "generate",
     "run_bounded",
 ]
@@ -389,4 +392,73 @@ def generate(request: GenerationRequest) -> Puzzle:
             "no candidate grid had exactly one solution; try a different "
             "--size/--density combination, or another --seed"
         ),
+    )
+
+
+def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
+    """Write ``puzzle`` in every format its request asked for (FR-011, FR-012).
+
+    A separate step from :func:`generate`, not a tail of it, for two reasons.
+    Generation is pure — CON-003's "no persistence beyond file export" reads,
+    in code, as "the only function that touches the filesystem is this one" —
+    and a caller that wants a puzzle without a file (every test in this
+    package, and any future non-CLI caller) should not have to opt out of I/O.
+
+    This is INV-002's enforcement point in the export direction: the gate is
+    :meth:`Puzzle.require_ready_for_export`, called here, once, before any
+    payload is built. The renderers in ``nonogram.export`` do not re-check it
+    and must not — ADR-0007 gives a cross-capability invariant exactly one home
+    so that all five formats inherit the same answer (guardrail G-3). The
+    payload they receive carries no readiness flag at all, which is what makes
+    that structural rather than a convention.
+
+    Nothing is written when no format was requested, and the gate is not
+    consulted either: a run that asked for no export cannot be "refused" one.
+
+    Repeated formats (``--export json --export json``) are collapsed to the
+    first occurrence — the user asked for JSON, not for two copies of it.
+
+    Args:
+        puzzle: The finished aggregate from :func:`generate`. Its request
+            supplies both the formats and the destination directory.
+
+    Returns:
+        The paths written, in the order the formats were requested — the
+        adapter's material for reporting the run's output. Empty when the
+        request asked for no export.
+
+    Raises:
+        ExportRejected: the puzzle's uniqueness check has not confirmed
+            exactly one solution (INV-002, AC-030/AC-048).
+        OSError: the destination could not be created or written.
+    """
+    formats = tuple(dict.fromkeys(puzzle.request.export_formats))
+    if not formats:
+        return ()
+
+    puzzle.require_ready_for_export()
+
+    grid, puzzle_clues = puzzle.grid, puzzle.clues
+    if grid is None or puzzle_clues is None:  # pragma: no cover - INV-002 implies both
+        raise RuntimeError(
+            "puzzle is ready for export but carries no candidate; "
+            "ready_for_export is only ever set for a recorded candidate"
+        )
+
+    payload = export.ExportPayload(
+        grid=grid,
+        row_clues=puzzle_clues.rows,
+        column_clues=puzzle_clues.columns,
+        seed=puzzle.seed,
+        mode=puzzle.mode,
+        size=puzzle.size,
+        density=puzzle.density,
+    )
+    # One stem for the whole run, so a multi-format export produces one named
+    # puzzle in several formats rather than several differently-named files.
+    stem = export.default_stem(puzzle.mode)
+    directory = puzzle.request.out if puzzle.request.out is not None else Path.cwd()
+
+    return tuple(
+        export.write(payload, name, directory=directory, stem=stem) for name in formats
     )
