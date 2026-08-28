@@ -440,7 +440,11 @@ def test_a_solver_timeout_is_not_treated_as_a_uniqueness_failure(
     source = _ScriptedSource(AMBIGUOUS, repeat_last=True)
     _install_source(monkeypatch, source)
 
-    def timing_out(rows: object, columns: object) -> SolveResult:
+    def timing_out(rows: object, columns: object, **_: object) -> SolveResult:
+        # ``**_`` absorbs the ``deadline=`` keyword CARD-006 added to
+        # ``solver.solve``. This test predates it and pins the *loop's* side of
+        # the contract, which is unchanged by how the solver learns the
+        # deadline; the assertion below is untouched.
         raise SolverTimeout("deadline exceeded")
 
     monkeypatch.setattr(orchestrator.solver, "solve", timing_out)
@@ -463,7 +467,9 @@ def test_a_zero_solution_verdict_is_retried_like_a_many_verdict(
     _install_source(monkeypatch, source)
     counts = iter([0, 0, 1])
     monkeypatch.setattr(
-        orchestrator.solver, "solve", lambda rows, columns: _verdict(next(counts))
+        # ``**_`` absorbs CARD-006's ``deadline=`` keyword — see the note on
+        # ``timing_out`` above.
+        orchestrator.solver, "solve", lambda rows, columns, **_: _verdict(next(counts))
     )
 
     puzzle = generate(_request())

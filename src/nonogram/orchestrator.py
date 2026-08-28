@@ -34,8 +34,8 @@ What counts as a retry, and what does not
 -----------------------------------------
 Only a candidate the *uniqueness check answered about* can be retried: the
 attempt callable turns ``solution_count != 1`` into a rejection and nothing
-else. Every exception — invalid input (SizeOutOfRange, InvalidDensity), a
-future ``SolverTimeout`` (ADR-0011, CARD-006), a wiring bug — travels straight
+else. Every exception — invalid input (SizeOutOfRange, InvalidDensity),
+``SolverTimeout`` (ADR-0011), a wiring bug — travels straight
 out of the loop and ends the run. Conflating a timeout with a non-unique
 verdict would let one infeasible request spend 20 full solver deadlines, which
 is exactly the worst case ADR-0002's bound and ADR-0001's time budget exist to
@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import random
 import secrets
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,6 +67,7 @@ from nonogram import export, solver, sourcing
 from nonogram.errors import ExportRejected, GenerationAbandoned
 
 __all__ = [
+    "GENERATION_BUDGET_SECONDS",
     "MAX_REGENERATE_ATTEMPTS",
     "GenerationRequest",
     "Puzzle",
@@ -84,6 +86,20 @@ Grid = list[list[bool]]
 #: constant, named here because INV-003's bound is the orchestrator's business
 #: (the pixel-nudge cap of 5 lands with CARD-016's counter, same way).
 MAX_REGENERATE_ATTEMPTS = 20
+
+#: ADR-0001's hard time bound for one generation *request*, in seconds: 30s up
+#: to the 50x50 maximum size. Enforced as ADR-0011's cooperative deadline —
+#: :func:`generate` turns it into an absolute monotonic instant once per
+#: request and hands that same instant to every solver call the request makes,
+#: retries included. Deliberately not a per-solve budget: 20 retries times a
+#: per-solve 30s would be a ten-minute "timeout", and ADR-0002's attempt bound
+#: and this time bound are meant to operate together but independently.
+#:
+#: ADR-0001's other number, the 5s p95 for grids up to 20x20, is *not* here:
+#: that one is a benchmark gate (AC-037, ``tests/bench_generate.py``), not a
+#: failure boundary, and ADR-0001's "Neutral" section asks that the asymmetry
+#: stay explicit rather than collapsing the two into one enforced constant.
+GENERATION_BUDGET_SECONDS = 30.0
 
 #: The ``solution_count`` a candidate must have to pass the uniqueness check.
 #: Written as a constant so the one comparison this module makes against the
@@ -354,6 +370,14 @@ def generate(request: GenerationRequest) -> Puzzle:
             Raised by the sourcing module on the first attempt and *not*
             retried — an invalid request does not become valid by being asked
             again.
+        SolverTimeout: the request ran out of time (ADR-0011). Raised by the
+            solver and *not* caught here: a timeout says nothing about the
+            candidate, so retrying it would spend the rest of a budget that has
+            already expired. It is EVT-012 abandonment by another name — the
+            CLI maps it to the same GENERATION_FAILED exit code as
+            ``GenerationAbandoned`` — and because ``confirm_uniqueness`` is
+            never reached on this path, the puzzle is left unexportable
+            (INV-002, guardrail G-4).
         ValueError: ``request.mode`` has no registered source. Raised before
             the loop starts, so a wiring bug cannot be mistaken for 20
             infeasible candidates.
@@ -361,6 +385,11 @@ def generate(request: GenerationRequest) -> Puzzle:
     seed = request.seed if request.seed is not None else secrets.randbits(64)
     rng = random.Random(seed)
     puzzle = Puzzle(request=request, seed=seed)
+
+    # ADR-0011: one absolute instant for the whole request, fixed here before
+    # the first attempt and shared by every solve below, so the retry loop
+    # cannot extend the budget by taking another turn.
+    deadline = time.monotonic() + GENERATION_BUDGET_SECONDS
 
     # Resolved once, outside the loop: the mode does not change between
     # attempts, and an unknown mode must fail immediately rather than after
@@ -380,7 +409,9 @@ def generate(request: GenerationRequest) -> Puzzle:
         # size/density, when those modes land.
         grid = source(request.size, request.density, rng)
         candidate_clues = puzzle.record_candidate(grid)
-        verdict = solver.solve(candidate_clues.rows, candidate_clues.columns)
+        verdict = solver.solve(
+            candidate_clues.rows, candidate_clues.columns, deadline=deadline
+        )
         if puzzle.confirm_uniqueness(verdict.solution_count):
             return puzzle
         return None
