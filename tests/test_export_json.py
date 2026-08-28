@@ -366,11 +366,73 @@ def test_the_decoder_inverts_the_document_exactly() -> None:
         pytest.param(_document(clues={"rows": [["1"], [1]], "columns": [[1], [1]]}), "expected an integer", id="clue-as-string"),
         pytest.param(_document(clues={"rows": [1, 1], "columns": [[1], [1]]}), "expected an array", id="clue-not-an-array"),
         pytest.param([], "document: expected an object", id="not-an-object"),
+        pytest.param(
+            _document(clues={"rows": [[1], [1]], "columns": [[1]]}),
+            r"1 column clue\(s\) for a grid of 2 column\(s\)",
+            id="column-clue-count-mismatch",
+        ),
+        pytest.param(
+            _document(clues={"rows": [[1]], "columns": [[1], [1]]}),
+            r"1 row clue\(s\) for a grid of 2 row\(s\)",
+            id="row-clue-count-mismatch",
+        ),
     ],
 )
 def test_the_decoder_rejects_a_malformed_document(document: object, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         json_export.parse(document)
+
+
+def test_the_decoder_rejects_a_document_truncated_by_dropping_a_column_clue() -> None:
+    """A realistic failure mode, not a synthetic one: a truncated download, a
+    partial write or a hand-edited file can drop the trailing
+    ``clues.columns`` entry from an otherwise well-formed export. Every field
+    is still individually well-shaped, so only the cross-check against the
+    grid's own width catches the missing entry.
+    """
+    payload = export.ExportPayload(
+        grid=[[True, False, True], [False, True, False]],
+        row_clues=((1, 1), (1,)),
+        column_clues=((1,), (1,), (1,)),
+        seed=3,
+        mode="random",
+    )
+    document = json_export.document(payload)
+    document["clues"]["columns"].pop()  # simulate a dropped trailing entry
+
+    with pytest.raises(ValueError, match=r"2 column clue\(s\) for a grid of 3 column\(s\)"):
+        json_export.parse(document)
+
+
+def test_the_decoder_rejects_column_clues_that_do_not_match_the_grid_width() -> None:
+    """The reviewer's counterexample, literally: a 2-column grid must not
+    silently decode with ``column_clues=((1,),)``."""
+    document = {
+        "version": 1,
+        "seed": 1,
+        "request": {"mode": "random", "size": None, "density": None},
+        "grid": [[True, False], [False, True]],
+        "clues": {"rows": [[1], [1]], "columns": [[1]]},
+    }
+
+    with pytest.raises(ValueError, match=r"1 column clue\(s\) for a grid of 2 column\(s\)"):
+        json_export.parse(document)
+
+
+def test_the_decoder_accepts_an_empty_grid_with_no_clues() -> None:
+    """The empty-grid convention (``clues.compute_clues``: an empty grid
+    yields two empty clue sets) is what the new check must not reject."""
+    document = {
+        "version": 1,
+        "seed": 1,
+        "request": {"mode": "random", "size": None, "density": None},
+        "grid": [],
+        "clues": {"rows": [], "columns": []},
+    }
+
+    payload = json_export.parse(document)
+
+    assert (payload.grid, payload.row_clues, payload.column_clues) == ([], (), ())
 
 
 def test_the_decoder_rejects_text_that_is_not_json() -> None:

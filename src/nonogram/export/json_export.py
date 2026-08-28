@@ -129,7 +129,9 @@ def parse(source: Any) -> ExportPayload:
 
     Raises:
         ValueError: the document is not of :data:`SCHEMA_VERSION`, is missing
-            a field, or has a field of the wrong shape or type.
+            a field, has a field of the wrong shape or type, or the clue
+            counts do not match the grid's dimensions (e.g. a dropped
+            ``clues.columns`` entry).
     """
     # Imported here, not at module scope: ``nonogram.export.__init__`` imports
     # this module to build its registry, so the boundary type is only bound
@@ -151,10 +153,15 @@ def parse(source: Any) -> ExportPayload:
     if not isinstance(mode, str):
         raise ValueError(f"request.mode: expected a string, found {mode!r}")
 
+    grid = _grid(_field(document_, "grid", "document"))
+    row_clues = _clues(_field(clues, "rows", "clues"), "clues.rows")
+    column_clues = _clues(_field(clues, "columns", "clues"), "clues.columns")
+    _check_clue_counts(grid, row_clues, column_clues)
+
     return ExportPayload(
-        grid=_grid(_field(document_, "grid", "document")),
-        row_clues=_clues(_field(clues, "rows", "clues"), "clues.rows"),
-        column_clues=_clues(_field(clues, "columns", "clues"), "clues.columns"),
+        grid=grid,
+        row_clues=row_clues,
+        column_clues=column_clues,
         seed=_int(_field(document_, "seed", "document"), "seed"),
         mode=mode,
         size=_optional_int(_field(request, "size", "request"), "request.size"),
@@ -235,3 +242,32 @@ def _clues(value: Any, where: str) -> tuple[tuple[int, ...], ...]:
         )
         for index, clue in enumerate(_rows(value, where))
     )
+
+
+def _check_clue_counts(
+    grid: list[list[bool]],
+    row_clues: tuple[tuple[int, ...], ...],
+    column_clues: tuple[tuple[int, ...], ...],
+) -> None:
+    """The two clue sets must have one entry per grid line, no more, no fewer.
+
+    A truncated file — a dropped ``clues.columns`` entry, a partial write, a
+    hand edit — can still be a well-formed JSON document with well-formed
+    ``clues.rows``/``clues.columns`` arrays while holding too few (or too
+    many) entries for the grid's actual shape: each array is validated on its
+    own, so nothing upstream of this notices that ``clues.columns`` has one
+    entry for a two-column grid. This is the same structural check as the
+    grid's own rectangularity check, applied across fields instead of within
+    one.
+    """
+    if len(row_clues) != len(grid):
+        raise ValueError(
+            f"clues.rows: {len(row_clues)} row clue(s) for a grid of "
+            f"{len(grid)} row(s)"
+        )
+    expected_columns = len(grid[0]) if grid else 0
+    if len(column_clues) != expected_columns:
+        raise ValueError(
+            f"clues.columns: {len(column_clues)} column clue(s) for a grid "
+            f"of {expected_columns} column(s)"
+        )

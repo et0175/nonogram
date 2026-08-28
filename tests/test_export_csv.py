@@ -383,6 +383,16 @@ def _broken(**replacement: str) -> str:
         pytest.param(_broken(**{"1,1,0,0\n": "1,1,0,true\n"}), "expected '1' or '0'", id="non-binary-cell"),
         pytest.param(_broken(**{"1,1,0,0\n": "1,1,0,2\n"}), "expected '1' or '0'", id="out-of-range-cell"),
         pytest.param(_broken(**{"1,2\n": "1,x\n"}), "expected an integer", id="non-integer-clue"),
+        pytest.param(
+            _broken(**{"2\n#column-clues\n": "#column-clues\n"}),
+            r"3 row clue\(s\) for a grid of 4 row\(s\)",
+            id="row-clue-count-mismatch",
+        ),
+        pytest.param(
+            _broken(**{"2\n1\n": "2\n"}),
+            r"3 column clue\(s\) for a grid of 4 column\(s\)",
+            id="column-clue-count-mismatch",
+        ),
     ],
 )
 def test_the_decoder_rejects_a_malformed_file(text: str, message: str) -> None:
@@ -395,6 +405,46 @@ def test_the_decoder_rejects_a_malformed_file(text: str, message: str) -> None:
     """
     with pytest.raises(ValueError, match=message):
         csv_export.decode(text)
+
+
+def test_the_decoder_rejects_a_file_truncated_by_dropping_its_last_line() -> None:
+    """A realistic failure mode, not a synthetic one: a truncated download, a
+    partial write or a hand-edited file can drop the last line of an
+    otherwise well-formed export. Every section is still complete, in order,
+    and each row is individually well-shaped, so only the cross-check between
+    the clue counts and the grid's own dimensions catches the missing
+    ``#column-clues`` entry.
+    """
+    text = csv_export.document(_payload())
+    truncated = "".join(text.splitlines(keepends=True)[:-1])
+
+    with pytest.raises(ValueError, match=r"3 column clue\(s\) for a grid of 4 column\(s\)"):
+        csv_export.decode(truncated)
+
+
+def test_the_decoder_rejects_column_clues_that_do_not_match_the_grid_width() -> None:
+    """The reviewer's counterexample, literally: a 2-column grid decoded
+    alongside a single column clue must not silently become
+    ``column_clues=((1,),)`` for a 2-column puzzle."""
+    text = (
+        "#meta\nversion,1\nseed,1\nmode,random\nsize,\ndensity,\n"
+        "#grid\n1,0\n0,1\n"
+        "#row-clues\n1\n1\n"
+        "#column-clues\n1\n"
+    )
+
+    with pytest.raises(ValueError, match=r"1 column clue\(s\) for a grid of 2 column\(s\)"):
+        csv_export.decode(text)
+
+
+def test_the_decoder_accepts_an_empty_grid_with_no_clues() -> None:
+    """The empty-grid convention (``clues.compute_clues``: an empty grid
+    yields two empty clue sets) is what the new check must not reject."""
+    text = "#meta\nversion,1\nseed,1\nmode,random\nsize,\ndensity,\n#grid\n#row-clues\n#column-clues\n"
+
+    payload = csv_export.decode(text)
+
+    assert (payload.grid, payload.row_clues, payload.column_clues) == ([], (), ())
 
 
 def test_the_decoder_rejects_a_file_that_is_not_an_export() -> None:

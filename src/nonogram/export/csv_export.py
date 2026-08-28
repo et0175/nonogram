@@ -204,8 +204,10 @@ def decode(text: str) -> ExportPayload:
 
     Raises:
         ValueError: the text is not a CSV export of :data:`SCHEMA_VERSION`, a
-            section is missing, out of order or repeated, or a row inside one
-            does not have that section's shape.
+            section is missing, out of order or repeated, a row inside one
+            does not have that section's shape, or the clue counts do not
+            match the grid's dimensions (e.g. a truncated file that dropped a
+            trailing clue line).
     """
     # Imported here, not at module scope: ``nonogram.export.__init__`` imports
     # this module to build its registry, so the boundary type is only bound
@@ -216,10 +218,13 @@ def decode(text: str) -> ExportPayload:
     sections = _split_sections(text)
     meta = _decode_meta(sections[META])
     grid = _decode_grid(sections[GRID])
+    row_clues = _decode_clues(sections[ROW_CLUES], ROW_CLUES)
+    column_clues = _decode_clues(sections[COLUMN_CLUES], COLUMN_CLUES)
+    _check_clue_counts(grid, row_clues, column_clues)
     return ExportPayload(
         grid=grid,
-        row_clues=_decode_clues(sections[ROW_CLUES], ROW_CLUES),
-        column_clues=_decode_clues(sections[COLUMN_CLUES], COLUMN_CLUES),
+        row_clues=row_clues,
+        column_clues=column_clues,
         seed=meta["seed"],
         mode=meta["mode"],
         size=meta["size"],
@@ -326,6 +331,35 @@ def _decode_clues(rows: list[list[str]], section: str) -> tuple[tuple[int, ...],
         tuple(_int(run, f"{section}: line {number}") for run in row)
         for number, row in enumerate(rows, start=1)
     )
+
+
+def _check_clue_counts(
+    grid: list[list[bool]],
+    row_clues: tuple[tuple[int, ...], ...],
+    column_clues: tuple[tuple[int, ...], ...],
+) -> None:
+    """The two clue blocks must have one entry per grid line, no more, no fewer.
+
+    A truncated file — a dropped last line, a partial write, a hand edit — can
+    still parse as a well-formed ``#row-clues``/``#column-clues`` block while
+    holding too few (or too many) entries for the grid's actual shape. Nothing
+    upstream of this catches that: each block is decoded on its own, so a
+    ``#column-clues`` section with one line for a two-column grid silently
+    becomes a same-shaped-looking payload with the wrong number of columns'
+    worth of clues. This is the same structural check as the grid's own
+    rectangularity check, applied across sections instead of within one.
+    """
+    if len(row_clues) != len(grid):
+        raise ValueError(
+            f"{ROW_CLUES}: {len(row_clues)} row clue(s) for a grid of "
+            f"{len(grid)} row(s)"
+        )
+    expected_columns = len(grid[0]) if grid else 0
+    if len(column_clues) != expected_columns:
+        raise ValueError(
+            f"{COLUMN_CLUES}: {len(column_clues)} column clue(s) for a grid "
+            f"of {expected_columns} column(s)"
+        )
 
 
 def _int(value: str, where: str) -> int:
