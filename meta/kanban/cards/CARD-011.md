@@ -15,7 +15,7 @@
 **Wave:** 6
 **Depends on:** CARD-005, CARD-006, CARD-007
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/cli.py, tests/test_naming.py
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-08-28T10:52:03Z
 **Closed:** —
 **Actual:** —
@@ -201,3 +201,23 @@ No blockers.
   collected, 927 passed, 1 xfailed, exit 0 — 928 vs the worktree's own 831
   reflects CARD-009/012/013's tests merging in since the worktree's branch
   point).
+- **[Review 1/3] 8.5/10 — FAIL (severity gate).** Report:
+  `meta/review/20260828T112238Z-CARD-011-cycle1.yml`. G-3 export-stem
+  consolidation ruled **legitimate, not a finding** (guardrail's stated
+  rationale — CARD-012/013 ownership this wave — is spent now both have
+  merged; `export/**` itself is untouched). Path-traversal sanitization
+  independently re-verified sound (29-name adversarial corpus). Two Important
+  findings block merge regardless of score:
+  - F-001: `_UNSAFE_STEM_CHARACTERS` is ASCII-only — a non-ASCII `--name`
+    (Cyrillic/accented/etc.) is silently truncated to a misleading filename
+    stem instead of falling back, with no warning. Fix: widen the allow-list
+    to `[^\w.-]+` (Unicode-aware `\w`), verified to preserve every
+    traversal-safety property while keeping non-ASCII names intact.
+  - F-002: no test asserts the sanitized `path.stem` value itself — only
+    `puzzle.name`, `path.parent`, `path.suffix` — which is why F-001 shipped
+    green. Fix: add stem assertions (incl. a mixed-script case) to
+    `tests/test_naming.py`.
+  Five Minor/out-of-scope notes deferred, not fix-cycle-blocking (README
+  status staleness pre-existing; `default_stem` docstring staleness folds
+  into CARD-014; over-long `--name` exit-code grouping; `DEFAULT_NAMES`
+  process-wide mutation latent-trap; one loosely-named test).

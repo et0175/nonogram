@@ -1,0 +1,351 @@
+version: 1
+generated_at: "2026-08-28T11:22:38Z"
+target: "card/011-puzzle-naming @ 36211c0 (git diff main...HEAD)"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/orchestrator.py
+    - src/nonogram/cli.py
+    - src/nonogram/errors.py
+    - src/nonogram/export/__init__.py
+    - tests/test_naming.py
+    - tests/test_export_json.py
+    - meta/kanban/cards/CARD-011.md
+    - meta/architecture/decisions/adr/0016-pdf-filename-convention.md
+    - meta/architecture/decisions/adr/0017-export-filename-collision-policy.md
+    - meta/architecture/decisions/adr/0018-auto-generated-name-precision.md
+    - meta/architecture/requirements.yml (FR-015/FR-016)
+  not_reached:
+    - src/nonogram/solver/**
+    - src/nonogram/sourcing/**
+    - src/nonogram/export/{png,svg,json_export,csv_export}.py
+    - tests/property/**
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 921, removed: 8 }
+  max_fan_in: { symbol: "orchestrator.generate", callers: 61 }
+  other_fan_in:
+    - { symbol: "orchestrator.export_puzzle", callers: 42 }
+    - { symbol: "export.default_stem", callers: 6 }
+    - { symbol: "orchestrator._filename_stem", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]   # 7 commits/12mo on the touched pair, 1 fix-typed
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — every historical co-change peer of orchestrator.py/cli.py above 1 occurrence (tests/test_orchestrator.py, tests/test_cli.py, tests/test_export_json.py) is either in this diff's test tree or provably unaffected; the repository is ~2 weeks old so the 12-month window is the whole history"
+
+system_contract:
+  rules_checked: 4
+  holds: 3
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff touches no solver code (G-4 verified: 0 lines under src/nonogram/solver/**, src/nonogram/clues.py); uniqueness verdicts reach naming only as a retry signal. Covering property test PropertyTest_Solver_NeverFalsePositiveUniqueness (tests/property/test_solver_uniqueness.py) unchanged and green in the orchestrator's 927-pass run."
+    - "INV-001 ✓ holds — clue derivation untouched (clues.py not in the diff); Puzzle.record_candidate/confirm_uniqueness unchanged, naming writes only the new Puzzle.name field. Checked by TestComputeClues_MatchesGridExactly, green."
+    - "INV-002 ✓ holds — orchestrator.py:684 require_ready_for_export() is still called before any payload is built and before _filename_stem() at orchestrator.py:704; the new stem helper is downstream of the gate and cannot bypass it. Checked by test_export_rejects_an_unverified_puzzle, plus new evidence tests/test_naming.py:435 (rejected --name writes nothing)."
+    - "INV-003 ✓ holds — RetryCounter and the regenerate loop are unchanged; the name is resolved once before the loop (orchestrator.py:589) and is not re-derived per attempt. Re-derived by tests/test_naming.py:471 which asserts puzzle.regenerate.attempts == 3 against a 3-candidate scripted source. Checked by TestRegenerate_StopsAtMaxRetryBound / TestRetryLoop_BoundedIterations, untouched."
+
+root_causes:
+  - id: RC-1
+    title: "The filename-stem allow-list is ASCII-only and its output is never asserted by a test"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "The export-filename consolidation is real behaviour change with no model artifact recording it"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/orchestrator.py
+    line: 718
+    title: "Non-ASCII --name silently loses its filename identity (truncated, not fallback)"
+    description: |
+      `_UNSAFE_STEM_CHARACTERS = re.compile(r"[^A-Za-z0-9._-]+")` is an ASCII-only
+      allow-list, so every non-ASCII letter in a user-supplied --name is replaced
+      before the stem is built. Verified by execution against the built package:
+
+          --name "мой-пазл-1"  -> file "1.json"
+          --name "кот-2026"    -> file "2026.json"
+          --name "café"        -> file "caf.json"
+          --name "Grüße-2026"  -> file "Gr-e-2026.json"
+          --name "кот"         -> file "random-2026-08-28-1421.json"
+
+      Only the last case takes the documented "sanitizes to nothing -> fall back to
+      the convention" path (orchestrator.py:755). The mixed-script cases do NOT fall
+      back: they produce a truncated, misleading filename with no warning — which is
+      precisely the name/file drift this card's consolidation exists to prevent.
+
+      Nothing in FR-015, ADR-0016 ("both components sanitized for filesystem-safe
+      characters") or CON-001 restricts --name to ASCII, and non-ASCII letters are
+      filesystem-safe on APFS/ext4/NTFS. The allow-list is stricter than the ADR
+      requires, and the extra strictness is what causes the loss.
+
+      This is code added by this diff (_filename_stem and the regex are both new),
+      on the user-input-to-filesystem surface the card newly created.
+    suggestion: |
+      Widen the class to Unicode word characters, which preserves the traversal
+      property exactly (\w never matches "/", "\\", ":", NUL, or Cf format
+      characters such as U+202E, and never matches U+2044 / U+FF0F lookalike
+      slashes — verified against the same 29-name adversarial corpus):
+
+          _UNSAFE_STEM_CHARACTERS = re.compile(r"[^\w.-]+")   # str pattern => Unicode \w
+
+      Keep the `.strip("-.")` and the empty-stem fallback unchanged. Then add the
+      stem assertions F-002 asks for, including a mixed-script case.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_naming.py
+    line: 540
+    title: "The sanitizer's output stem is never asserted, so F-001 passed a green suite"
+    description: |
+      `test_a_name_keeps_its_shape_on_the_aggregate_however_the_file_is_spelled`
+      is the only test covering sanitization of ordinary names, and it asserts
+      `puzzle.name == name`, `path.parent == tmp_path` and `path.suffix == ".json"`.
+      The suffix is guaranteed by the export registry, not by the sanitizer, and the
+      parent is guaranteed by `export.write`'s `directory` argument — so no assertion
+      in the parametrized case constrains what the sanitizer actually produced. Its
+      three cases ("a b/c", "cat:2026", "cat*") are all ASCII.
+
+      Only two names in the whole file pin a stem: "../../escaped" -> "escaped"
+      (line 528) and "..." -> startswith("random-") (line 553). Everything between
+      those two extremes is unverified, which is exactly the band F-001 lives in.
+    suggestion: |
+      Assert `path.stem` in the parametrized test, with the expected value in the
+      parameter list, and extend the cases to include at least one mixed-script name
+      (e.g. "кот-2026" or "Grüße-2026") and one name with an extension-like tail
+      ("name.json"). This turns the parametrization into a real characterization of
+      the sanitization rule rather than a smoke test.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-011.md
+    line: 44
+    title: "Card contract item 4 ('This card writes it nowhere on disk') was contradicted, and the worktree notes argue only G-3"
+    description: |
+      The card's "## What to implement" item 4 states: "The name is an attribute of
+      the aggregate only. Its consumers are later cards ... This card writes it
+      nowhere on disk." The implementation makes the name the on-disk filename for
+      JSON, PNG, SVG and CSV — four already-shipped formats (CARD-007/012/013) whose
+      output filenames observably change from `<mode>-<timestamp>` to `<name>`.
+
+      The worktree notes ("### The name / export-stem consolidation question") argue
+      the decision carefully but against guardrail G-3 only; they never address item
+      4, which is the clause the change most directly contradicts, nor ADR-0016's own
+      Neutral clause: "This convention is scoped to PDF export (FR-016) only; it does
+      not retroactively change how FR-011 (PNG/SVG) or FR-012 (JSON/CSV) name their
+      output files ... unless a future ADR unifies them."
+
+      Ruling: not a guardrail violation and not a merge blocker. G-3's binding clause
+      is verifiably respected (0 lines under src/nonogram/export/**), its concurrency
+      rationale is spent (CARD-012 merged at 03162da, CARD-013 at f3fc230 — both on
+      main; the only live worktree is card-011's), CARD-007's merged docstring
+      pre-designated this exact caller change, the alternative ships a real bug, and
+      the change is one line in an in-scope file. What is missing is the record.
+    suggestion: |
+      Do not revert. Record the decision where the model can see it: either a short
+      ADR (or an ADR-0016 amendment) stating that FR-011/FR-012 export stems now
+      derive from Puzzle.name, or an FR-015 acceptance criterion pinning
+      name -> filename. Also add the item-4 discussion to the card's worktree notes
+      so the next reader sees the clause that was overridden, not only G-3.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/__init__.py
+    line: 168
+    title: "export.default_stem's docstring is now stale — it still says FR-015 'has not landed'"
+    description: |
+      `default_stem` documents itself as a stand-in: "The filename stem to use when
+      the puzzle has no name of its own yet ... That card has not landed, so this
+      reproduces FR-015's own convention." After this diff, FR-015 HAS landed, and
+      default_stem's role inverted: it is now the single canonical home of the
+      "<mode>-<YYYY-MM-DD>-<HHMM>" convention, called BY the naming layer
+      (orchestrator.py:241) as well as by the fallback path. A reader of export/
+      alone gets the wrong picture.
+
+      The implementer could not fix this without violating G-3, so this is correctly
+      deferred, not an oversight. Noting it so it does not get lost: G-3's owners
+      (CARD-012, CARD-013) have both merged, so the file has no live owner and the
+      correction is now conflict-free.
+    suggestion: |
+      Fold a one-paragraph docstring correction into CARD-014 (the next card that
+      legitimately owns src/nonogram/export/**) or a trivial follow-up card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 755
+    title: "An over-long --name surfaces as OSError/exit 5 after the whole run, not as InvalidPuzzleName/exit 3"
+    description: |
+      The stem is unbounded, so a --name longer than the filesystem's NAME_MAX
+      reaches the writer. Verified end to end with a 300-character name:
+
+          nonogram: error: [Errno 63] File name too long: '.../xxx….json'
+          exit 5
+
+      No traceback and no data loss (cli.main's OSError handler at cli.py:241 does
+      its job), but two things are off. The exit code says EXPORT_REJECTED, while the
+      CLI's own grouping rule is "what the user has to do about the failure" — here
+      the user must change --name, i.e. INVALID_INPUT (3), the same group AC-045's
+      empty name lands in. And the failure arrives only after a full generation run
+      (up to ADR-0001's 30s budget) has been spent and discarded, whereas AC-045's
+      sibling rejection happens before the seed is drawn.
+    suggestion: |
+      Add a length bound to `_validated_name` (e.g. reject a name whose sanitized
+      stem would exceed ~200 characters) so an unusable name is refused inward, up
+      front, as InvalidPuzzleName — same place, same exit code and same
+      "no puzzle is created" property AC-045 already establishes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 259
+    title: "DEFAULT_NAMES is process-wide mutable state and name_for() mutates on a read"
+    description: |
+      `DEFAULT_NAMES = NameContext()` is a module-level singleton whose `issued` set
+      grows without bound, and `NameContext.name_for()` — a query-shaped method —
+      mutates it via `_disambiguated`. Harmless in production (CON-001: one puzzle
+      per invocation, so `issued` never exceeds one entry) and correct for ADR-0018's
+      "current run's naming context", but it makes the default path order-dependent
+      inside one process: two tests calling `generate(request)` without `names=` in
+      the same clock minute would see the second name carry a "-1" suffix. Today
+      exactly one test takes that path (tests/test_naming.py:576) and it asserts
+      loosely (`startswith("random-")`), so nothing is flaky now — this is a latent
+      trap for the next test that wants an exact default name.
+
+      Related: an explicit --name is deliberately not recorded in `issued`, so in a
+      future batch mode a user-supplied name equal to an auto-name would not
+      disambiguate. Not reachable today.
+    suggestion: |
+      Either add an autouse fixture that gives each test a fresh
+      `orchestrator.DEFAULT_NAMES`, or note the ordering dependency in the
+      NameContext docstring so the next author does not assert an exact default name.
+      Optionally rename `name_for` to something command-shaped (`issue_name`) to make
+      the mutation visible at the call site.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_naming.py
+    line: 564
+    title: "test_the_naming_context_is_not_shared_between_processes_by_accident asserts nothing about its title"
+    description: |
+      The test's name promises something about cross-process sharing; its body
+      asserts `isinstance(DEFAULT_NAMES, NameContext)` (a type check that cannot
+      fail given the module-level construction two lines of source away) and that the
+      default clock is within 5 seconds of `datetime.now()`. The second assertion is
+      the only real one, and it verifies "the default clock is the real clock", not
+      process isolation.
+    suggestion: |
+      Rename it to what it checks (e.g. `test_the_default_context_reads_the_real_clock`)
+      and drop the isinstance assertion, or replace the body with something that
+      actually pins the per-process scoping (e.g. that a caller-supplied context does
+      not write into DEFAULT_NAMES.issued).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/orchestrator.py
+    line: 409
+    title: "Puzzle.name is Optional, so AGG-001's 'named at creation' stays representable-as-violated"
+    description: |
+      FR-015 and AGG-001 say every puzzle has a name set at creation, but the field
+      is `name: str | None = None`. That leaves an unnamed aggregate constructible,
+      which forces `_filename_stem` to carry a None branch and will force CARD-014's
+      PDF header to carry one too. The docstring justifies it by analogy to
+      grid/clues, but those are genuinely progressive while the name is not.
+
+      Recorded as a question, not a defect: making the field required would have
+      meant editing the five hand-built `Puzzle(...)` call sites in
+      tests/test_export_{json,image,csv}.py, tests/test_orchestrator.py,
+      tests/test_sourcing_library.py and tests/test_cli.py — all outside this card's
+      declared `Touches:`. Optional was the in-scope choice, and it is tested
+      (tests/test_naming.py:511), not dead.
+    suggestion: |
+      When a later card legitimately touches those test files, consider making
+      `name` required and deleting the None branches rather than propagating one
+      into CARD-014's PDF header.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
