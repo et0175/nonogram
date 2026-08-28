@@ -1,39 +1,17 @@
 wave: 6
 mode: interactive
 active:
-  - id: CARD-008
-    phase: review
-    review_cycle: 1
-    branch: card/008-library-sourcing
-    worktree: ../PythonProject4-card-008
-    started: 2026-08-28T10:17:03Z
-  - id: CARD-009
-    phase: review
-    review_cycle: 1
-    branch: card/009-difficulty-scoring
-    worktree: ../PythonProject4-card-009
-    started: 2026-08-28T10:17:03Z
-  - id: CARD-012
-    phase: review
-    review_cycle: 1
-    branch: card/012-png-svg-export
-    worktree: ../PythonProject4-card-012
-    started: 2026-08-28T10:17:03Z
+  - id: CARD-011
+    phase: implementation
+    branch: card/011-puzzle-naming
+    worktree: ../PythonProject4-card-011
+    started: 2026-08-28T10:52:03Z
   - id: CARD-013
-    phase: review
+    phase: fix
     review_cycle: 1
     branch: card/013-csv-export-roundtrip
     worktree: ../PythonProject4-card-013
     started: 2026-08-28T10:17:03Z
 escalated: []
-conflict_edges:
-  - pair: [CARD-008, CARD-011]
-    reason: "predicted: cli.py, orchestrator.py (overlap 0.67)"
-  - pair: [CARD-011, CARD-012]
-    reason: "predicted: orchestrator.py (overlap 0.33)"
-  - pair: [CARD-012, CARD-013]
-    reason: "observed: export/__init__.py (both register a format row)"
-queued:
-  - id: CARD-011
-    reason: "conflict edge to CARD-008 and CARD-012, both active — starts on refill once one merges"
-last_updated: 2026-08-28T14:05:00Z
+conflict_edges: []
+last_updated: 2026-08-28T10:58:00Z
