@@ -108,3 +108,10 @@ Read CARD-004's Worktree notes (STRUCTURE-3/4, the performance findings table) a
 Worktree notes (the AC-037 finding, the exact density/seed breakdown) before designing the
 lookahead — both already contain detailed profiling data this card should build on rather than
 re-measure from scratch.
+
+[Follow-up from CARD-006 review, cycle 1] `tests/test_timeout.py` has three tests sharing one
+fixture case (`size=50, density=50, seed=7` at a scaled 0.25s budget) to exercise the
+"solver cannot finish in time" path. If this card's search strengthening makes that specific
+case finishable within 0.25s, all three will break together, and the failure will look like a
+timeout-mechanism regression rather than "the fixture got easy — pick a harder one." Check
+this before concluding CARD-006's mechanism broke.
