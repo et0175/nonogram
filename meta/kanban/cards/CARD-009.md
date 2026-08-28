@@ -1,6 +1,6 @@
 # CARD-009: Difficulty scoring formula from solver signals
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/009-difficulty-scoring
-**Worktree:** ../PythonProject4-card-009
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 6
 **Depends on:** CARD-004, CARD-006, CARD-007
-**Touches:** src/nonogram/difficulty.py, src/nonogram/solver/__init__.py, src/nonogram/solver/search.py, tests/test_difficulty.py
+**Touches:** src/nonogram/difficulty.py, tests/test_difficulty.py
 **Review score:** 9.2 (cycle 1/3)
 **Started:** 2026-08-28T10:17:03Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-28T10:55:03Z
+**Actual:** 0.1d
+**Merge commit:** 9427cb7
 **Blocked by:** —
 
 ## What to implement
