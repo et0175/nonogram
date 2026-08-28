@@ -15,7 +15,7 @@
 **Wave:** 6
 **Depends on:** CARD-005, CARD-006, CARD-007
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/cli.py, tests/test_naming.py
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.4 (cycle 2/3)
 **Started:** 2026-08-28T10:52:03Z
 **Closed:** —
 **Actual:** —
@@ -237,3 +237,15 @@ No blockers.
   status staleness pre-existing; `default_stem` docstring staleness folds
   into CARD-014; over-long `--name` exit-code grouping; `DEFAULT_NAMES`
   process-wide mutation latent-trap; one loosely-named test).
+- **[Review 2/3] 9.4/10 — PASS.** Report:
+  `meta/review/20260828T113930Z-CARD-011-cycle2.yml`. Both F-001/F-002
+  independently re-verified fixed: 71-name adversarial traversal corpus plus
+  an exhaustive Unicode-codepoint scan (0 of 1,114,112 codepoints matched by
+  `\w` fall in Cc/Cf/Zs/Zl/Zp or NFKD-decompose to a separator/NUL) confirm
+  the widened allow-list cannot reopen path traversal; non-ASCII names now
+  round-trip intact. F-002's new stem assertions confirmed non-vacuous via
+  3-mutant mutation test (all 3 killed). No new Critical/Important findings.
+  One new Minor (NFD-decomposed accented names still lose diacritics —
+  not a regression, same as the old ASCII behavior; folds into CARD-014).
+  Full suite independently re-run: 930 passed, 1 xfailed, exit 0. Diff scope
+  confirmed unchanged (single hunk in orchestrator.py for the fix). Merging.

@@ -1,0 +1,336 @@
+version: 1
+generated_at: "2026-08-28T11:39:30Z"
+target: "card/011-puzzle-naming @ 36211c0 + uncommitted fix delta (confirmation review, cycle 2/3)"
+overall_score: 9.4
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - src/nonogram/orchestrator.py (naming + export sections, full delta)
+    - tests/test_naming.py (sanitizer + fallback sections, full delta)
+    - meta/kanban/cards/CARD-011.md (contract, guardrails, system contract, worktree notes)
+    - meta/review/20260828T112238Z-CARD-011-cycle1.yml
+  not_reached:
+    - src/nonogram/cli.py (unchanged by the fix delta; carried from cycle 1)
+    - src/nonogram/export/** (unchanged; G-3 territory)
+    - src/nonogram/solver/**, src/nonogram/sourcing/** (unchanged; G-1/G-4 territory)
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 921, removed: 8 }        # full card diff vs main, unchanged from cycle 1
+  fix_delta: { files: 3, added: 36, removed: 9 }    # the cycle-1 fix, uncommitted
+  max_fan_in: { symbol: "orchestrator.generate", callers: 61 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — carried from cycle 1; the fix delta adds no new file, so no new co-change peer can be missing"
+
+test_run:
+  command: "./.venv/bin/python -m pytest"
+  exit_code: 0
+  result: "930 passed, 1 xfailed in 17.18s"
+  matches_implementer_claim: true
+
+mutation_check:
+  ran: true
+  note: "deferred certification from cycle 1 discharged on this stable cycle"
+  mutants: 3
+  killed: 3
+  survived: 0
+  detail:
+    - "M1 _UNSAFE_STEM_CHARACTERS -> r'[^A-Za-z0-9._-]+' (revert F-001's fix): KILLED — 3 failures (кот-2026, café, 日本語). F-002's new assertions are non-vacuous."
+    - "M2 drop .strip('-.') at orchestrator.py:760: KILLED — 3 failures incl. test_a_name_cannot_write_outside_the_output_directory."
+    - "M3 'return stem or export.default_stem(...)' -> 'return stem': KILLED — test_a_name_that_sanitizes_to_nothing_falls_back_to_the_convention."
+  restore_verified: "sha256 8609542edfb5f938bb9bd72e3ddae711f0d1e0edef4accdd28e6a53e8248e70e after every mutant; git diff --stat identical to pre-check state"
+
+system_contract:
+  rules_checked: 4
+  holds: 3
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "CON-005 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). The fix delta touches 0 lines under src/nonogram/solver/** and src/nonogram/clues.py (git diff --name-only). PropertyTest_Solver_NeverFalsePositiveUniqueness green in this cycle's 930-pass run."
+    - "INV-001 ✓ holds — carried(cycle 1, delta-clean): clues.py is not in the fix delta. TestComputeClues_MatchesGridExactly (tests/test_clues.py:230) green in the 930-pass run."
+    - "INV-002 ✓ holds — re-verified (delta intersects orchestrator.py): git diff -U0 shows exactly one hunk, @@ -716 +716,7 @@, the _UNSAFE_STEM_CHARACTERS constant and its comment. require_ready_for_export() at orchestrator.py:684 still precedes _filename_stem() at :704, and the widened regex is downstream of the gate. tests/test_export_json.py:459 and tests/test_export_image.py:678 test_export_rejects_an_unverified_puzzle green."
+    - "INV-003 ✓ holds — re-verified (delta intersects orchestrator.py): RetryCounter (:281–:327), run_bounded (:329) and the regenerate loop lie entirely outside the single :716 hunk. tests/test_orchestrator.py::test_regenerate_stops_at_max_retry_bound (:558) and ::test_retry_loop_bounded_iterations (:631) green."
+
+guardrails:
+  - "G-1 ✓ holds — 0 files under src/nonogram/sourcing/** in the full diff vs main."
+  - "G-2 ✓ holds — src/nonogram/difficulty.py absent from the diff."
+  - "G-3 ✓ holds — 0 files under src/nonogram/export/** in the diff."
+  - "G-4 ✓ holds — 0 files under src/nonogram/solver/**, src/nonogram/clues.py in the diff."
+  - "G-5 ✓ holds — carried(cycle 1, delta-clean): the fix delta does not touch src/nonogram/cli.py; --name validation still lives in _validated_name (orchestrator.py:262), inward of argparse."
+  - "G-6 ✓ holds — carried(cycle 1, delta-clean): the orchestrator delta is confined to the export-stem regex at :716; generate()'s once-only name resolution is untouched."
+
+root_causes:
+  - id: RC-1
+    title: "The filename-stem allow-list is ASCII-only and its output is never asserted by a test"
+    finding_ids: [F-001, F-002]
+    status: resolved
+  - id: RC-2
+    title: "The export-filename consolidation is real behaviour change with no model artifact recording it"
+    finding_ids: [F-003, F-004]
+    status: open
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/orchestrator.py
+    line: 722
+    title: "Non-ASCII --name silently loses its filename identity (truncated, not fallback)"
+    description: |
+      CYCLE-2 CONFIRMATION — VERIFIED FIXED.
+
+      (a) Regex changed as claimed. orchestrator.py:722 now reads
+          `_UNSAFE_STEM_CHARACTERS = re.compile(r"[^\w.-]+")`, with a comment
+          recording why \w is Unicode-aware on a str pattern.
+
+      (b) Path traversal still fully blocked. Re-ran and extended the adversarial
+          corpus to 71 names against the real `_filename_stem` — ../../escaped,
+          20x ../ + etc/passwd, /etc/passwd, //etc//passwd, ..\..\win,
+          ..\..\..\Windows\System32\drivers\etc\hosts, C:\Windows\win.ini,
+          \\server\share\file, NUL bytes ("a\x00b", "\x00", "a\x00/../../b"),
+          ".", "..", "...", "....", ".hidden", "~/secrets", "$HOME/x",
+          CR/LF/TAB, and the lookalike/format set U+202E (RTL override),
+          U+2044, U+FF0F, U+2215, U+29F8, U+200B, U+200D, U+00A0, U+FEFF,
+          U+0085, U+2024, U+FF0E, U+3002. Result: 0 escapes. Every stem stayed a
+          single path component (no os.sep, no NUL, never "", "." or ".."; lexical
+          normpath join always resolved inside the target directory).
+
+          Stronger than the corpus, and the reason the fix is safe by construction:
+          an exhaustive scan of all 1,114,112 Unicode codepoints found that
+          (i) 0 codepoints matched by \w are in category Cc/Cf/Zs/Zl/Zp, and
+          (ii) 0 codepoints matched by \w NFKD-decompose to "/", "\\", ":" or NUL.
+          Python's \w on a str is `ch.isalnum() or ch == '_'`, i.e. Unicode L*/N*
+          plus underscore — no separator, control or format character can be in it.
+
+      (c) Non-ASCII survives intact: кот-2026, мой-пазл-1, café, Grüße-2026,
+          日本語, パズル-01, 한글이름, Ω-omega, naïve_name, Ⅻ-roman, ½-vulgar,
+          and astral-plane 𝔘𝔫𝔦𝔠𝔬𝔡𝔢 all round-trip unchanged. The cycle-1
+          truncations ("café"->"caf", "кот-2026"->"2026") are gone.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "uncommitted fix delta on card/011-puzzle-naming"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_naming.py
+    line: 494
+    title: "The sanitizer's output stem is never asserted, so F-001 passed a green suite"
+    description: |
+      CYCLE-2 CONFIRMATION — VERIFIED FIXED, and the assertions are non-vacuous.
+
+      `test_a_name_keeps_its_shape_on_the_aggregate_however_the_file_is_spelled`
+      is now parametrized over (name, stem) with the expected stem pinned per
+      case: ("a b/c","a-b-c"), ("cat:2026","cat-2026"), ("cat*","cat"),
+      ("кот-2026","кот-2026"), ("café","café"), ("日本語","日本語"), and asserts
+      `path.stem == stem` (tests/test_naming.py:506). Two more stem assertions
+      were added: `path.stem == "escaped"` on the traversal test (:475) and
+      `path.stem.startswith("random-")` on the fallback test (:521).
+
+      Non-vacuity proven by mutation (this cycle discharges cycle 1's deferred
+      certification): reverting the regex to the ASCII-only form fails exactly the
+      three non-ASCII cases with the right messages
+      (`assert 'random-2026-08-28-1436' == '日本語'`, and the caf/2026 truncations).
+      Two further mutants confirm the neighbouring guards are also pinned:
+      dropping `.strip("-.")` fails 3 tests including the traversal test, and
+      dropping the empty-stem fallback fails the "..." test. 3 mutants, 3 killed.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "uncommitted fix delta on card/011-puzzle-naming"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 760
+    title: "Decomposed (NFD) non-ASCII names still lose their accents in the stem"
+    description: |
+      NEW in cycle 2, non-gating, and NOT a regression introduced by the fix.
+
+      `\w` matches Unicode letters and digits but not combining marks (category
+      Mn/Mc), so a name in NFD form is still mangled: --name "e\u0301clair"
+      (the decomposed spelling of "éclair") sanitizes to stem "e-clair", because
+      the combining acute becomes a "-". The precomposed NFC "café" now works
+      correctly, so the same user-visible name behaves differently depending on
+      which normalization form the shell/input method produced.
+
+      Milder than F-001 in every respect — the stem is still contained, still
+      readable, still non-empty (no misleading fallback), and the aggregate keeps
+      the name verbatim per AC-044 — and the old ASCII-only regex produced the
+      identical "e-clair", so nothing regressed. Recorded because it is the last
+      residue of RC-1 and because it will resurface in CARD-014's PDF header.
+    suggestion: |
+      Normalize before sanitizing: `unicodedata.normalize("NFC", puzzle.name)`
+      ahead of the `sub()` at orchestrator.py:760. One import, one call, and it
+      makes the stem independent of the input's normalization form. Add an NFD
+      case to the parametrized test if adopted.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-011.md
+    line: 44
+    title: "Card contract item 4 ('This card writes it nowhere on disk') was contradicted, and the worktree notes argue only G-3"
+    description: |
+      Carried from cycle 1, deliberately not re-litigated. Confirmed untouched by
+      the fix cycle: the CARD-011.md delta is confined to the sanitization
+      paragraph of the worktree notes (lines ~168-180); the item-4 / ADR-0016
+      Neutral-clause discussion the finding asks for was not added.
+    suggestion: |
+      Unchanged from cycle 1: record the decision in an ADR or an FR-015
+      acceptance criterion, and add the item-4 discussion to the worktree notes.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/__init__.py
+    line: 168
+    title: "export.default_stem's docstring is now stale — it still says FR-015 'has not landed'"
+    description: |
+      Carried from cycle 1. Confirmed untouched: src/nonogram/export/** has 0
+      files in the diff vs main (G-3 respected).
+    suggestion: |
+      Unchanged from cycle 1: fold the docstring correction into CARD-014.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 262
+    title: "An over-long --name surfaces as OSError/exit 5 after the whole run, not as InvalidPuzzleName/exit 3"
+    description: |
+      Carried from cycle 1. Confirmed untouched: the orchestrator delta is one
+      hunk at :716, and `_validated_name` (:262) is unchanged.
+
+      One refinement the fix cycle introduces, worth folding into the eventual fix
+      rather than opening a separate finding: the widened allow-list makes the stem
+      unbounded in *bytes* as well as in characters. A 100-character CJK name is
+      300 UTF-8 bytes — fine on APFS (255-character limit, verified: the write
+      succeeds on this machine) but over NAME_MAX on ext4/NTFS (255 bytes).
+      F-005's suggested "~200 characters" bound should therefore be expressed
+      against the encoded length, not the character count.
+    suggestion: |
+      Unchanged from cycle 1, with the byte-length refinement above.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 259
+    title: "DEFAULT_NAMES is process-wide mutable state and name_for() mutates on a read"
+    description: |
+      Carried from cycle 1. Confirmed untouched: NameContext (:203-:253) and
+      DEFAULT_NAMES (:259) lie outside the single :716 delta hunk.
+    suggestion: |
+      Unchanged from cycle 1.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_naming.py
+    line: 580
+    title: "test_the_naming_context_is_not_shared_between_processes_by_accident asserts nothing about its title"
+    description: |
+      Carried from cycle 1. Confirmed untouched: the test_naming.py delta is five
+      hunks between lines 475 and 521; this test now sits ~16 lines lower purely
+      from the insertions above it, with no change to its body.
+    suggestion: |
+      Unchanged from cycle 1.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/orchestrator.py
+    line: 409
+    title: "Puzzle.name is Optional, so AGG-001's 'named at creation' stays representable-as-violated"
+    description: |
+      Carried from cycle 1. Confirmed untouched: Puzzle's field declarations are
+      outside the delta hunk, and `_filename_stem`'s `puzzle.name is None` branch
+      (:756) is unchanged.
+    suggestion: |
+      Unchanged from cycle 1.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
