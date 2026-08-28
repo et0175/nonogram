@@ -15,7 +15,7 @@
 **Wave:** 6
 **Depends on:** CARD-006, CARD-007
 **Touches:** src/nonogram/export/png.py, src/nonogram/export/svg.py, src/nonogram/export/layout.py, src/nonogram/export/__init__.py, src/nonogram/orchestrator.py, tests/test_export_image.py
-**Review score:** —
+**Review score:** 9.3 (cycle 1/3)
 **Started:** 2026-08-28T10:17:03Z
 **Closed:** —
 **Actual:** —
@@ -233,3 +233,4 @@ is to keep both sides' rows.
 
 [Scope] Predicted Touches plus tests/test_cli.py and tests/test_export_json.py (outside prediction — 2 pre-existing "registry has exactly one row" assertions updated to membership checks; no assertion's intent changed, same pattern as CARD-007's scope note). orchestrator.py NOT touched (predicted but verified unnecessary — export_puzzle() already dispatches through the registry). cli.py untouched (G-2). export/csv_export.py, json_export.py's existing content, sourcing/**, difficulty.py, solver/**, clues.py untouched (G-1/G-2/G-3 held).
 [Build gate] PASSED (full, independently re-run by orchestrator: 689 collected, 688 passed, 1 xfailed, 0 failed, exit 0).
+[Review 1/3] Score: 9.3 — crit: 0, imp: 0, 8 minor + 2 info. Every load-bearing claim independently verified via mutation testing (leaked-solution mutant, dropped pHYs tag mutant, px-instead-of-inches SVG mutant, broken-every-5th-rule mutant, gate-moved-after-write mutant — all caught by the named tests, not just "an exception was raised"). layout.py confirmed genuinely pure (no grid/size/Pillow/SVG types in signature). Blank-grid claim confirmed structural (byte-identical output regardless of solution). G-5 confirmed sole enforcement point via mutation. CON-006 three-layer design (render_image/write_png/render) confirmed real, with the written file proven byte-identical to the exposed raster. PNG resolution/geometry design (300 DPI, A4, physical-units-first, integer centre arithmetic avoiding banker's-rounding drift) judged sound engineering, no reconsideration needed. All 8 Minor findings non-gating (docstring overstating an unreachable 2mm clamp floor — M-1; a near-tautological test — M-2; test duplication with weaker coverage than CARD-007's package-wide scan — M-3; cosmetic assertion — M-4; SVG/PNG stroke-rendering not literally pixel-identical despite "pixel for pixel" phrasing — M-5; docstring rewrap artifact sitting in the exact hunk CARD-013 will conflict on — M-6, worth fixing before merge; line-length nits — M-7; missing 50x50 smoke test — M-8, manually verified fine by reviewer: 2459x2459px, 0.04s render). Final verdict: PASS — ready to merge.
