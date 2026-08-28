@@ -73,3 +73,7 @@ resolved:
     resolved_by: ADR-0018
     resolved_at: 2026-08-27
     resolution_label: counter_suffix
+  - id: DEC-019
+    resolved_by: ADR-0001
+    resolved_at: 2026-08-28
+    resolution_label: keep_and_track_gap
