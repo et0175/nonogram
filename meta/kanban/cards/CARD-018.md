@@ -1,6 +1,6 @@
 # CARD-018: Strengthen solver search to meet AC-037 at 20x20 mid/low density
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -115,3 +115,285 @@ fixture case (`size=50, density=50, seed=7` at a scaled 0.25s budget) to exercis
 case finishable within 0.25s, all three will break together, and the failure will look like a
 timeout-mechanism regression rather than "the fixture got easy — pick a harder one." Check
 this before concluding CARD-006's mechanism broke.
+
+---
+
+### Implementation summary (CARD-018, this worktree)
+
+Three changes, all inside `src/nonogram/solver/`, in the order they matter:
+
+1. **Probing replaces plain guessing at every search node (`search.py`).** At a stalled
+   board the search now takes the most constrained unknown cells and, for each, tentatively
+   assigns *both* values and propagates. A value whose propagation contradicts cannot appear
+   in any solution, so the other one is **forced** — applied for real, with the probe's own
+   propagated board kept, so nothing is recomputed. If both contradict, the node is refuted
+   outright. Only when a whole pass forces nothing does the search branch, on the cell whose
+   two probes propagated furthest, reusing the two boards the probes already built. This is
+   the lever CARD-006's notes and ADR-0001's revision named: a wrong subtree is rejected at
+   the node instead of hundreds of levels down.
+2. **A per-solve memo for the line DP (`propagate.LineCache`).** Probing multiplies
+   `line_intersection` calls by roughly ten, and sibling probes at one node re-ask
+   ninety-eight of a hundred lines the *identical* question. Measured hit rate on a hard
+   20x20: **89.5%** (1,514,543 lookups, 158,830 misses). Without it probing is a net loss;
+   with it a hard solve is ~5x faster on top of the tree reduction. The memo is created in
+   `solve()` and dies with the call — no module state (the property
+   `test_solving_the_same_clues_twice_gives_the_same_answer` pins that), and `propagate`'s
+   new `cache=` argument defaults to `None`, which is the pre-CARD-018 behaviour exactly.
+3. **A restart schedule (`_SEARCH_ROUNDS`).** A round that exceeds its node limit is
+   abandoned whole and re-run with a **wider probe and a larger limit**:
+   `(8, 400) → (16, 1200) → (32, 3600) → (64, 10800)`, then the limit keeps tripling.
+   Round 0 is undiversified — it follows the heuristic's own best branch, so ordinary
+   puzzles are on the same short path they were on before. Later rounds spread the branch
+   choice over the candidates probing found equally live, chosen by a hash of
+   `(round, node)` rather than a random draw, so the solver stays deterministic and pure
+   (ADR-0007). Because the limit grows without bound, a round eventually gets the whole
+   tree, which is what keeps restarting **complete**.
+
+Public API untouched (G-1): `solve(row_clues, column_clues, *, deadline=None)`,
+`SolveResult`, `SolveSignals`, `MANY` are all as they were, and
+`solver/__init__.py` was not edited at all. `LineCache`/`LINE_CACHE_LIMIT` are additions to
+`solver.propagate`'s `__all__`, not to the package's re-exports.
+
+**Why the restart schedule is in scope even though the card said "probing".** It is not a
+second idea bolted on; it is what the probing measurements demanded. With probing alone,
+26 of 439 sampled 20x20 candidates (5.9%) still exceeded 2s. A *randomised* depth-first
+descent — no probing at all — found two distinct solutions for one of them in **0.05s**
+where the probing search had run **300s** without finding any. That is the signature of a
+heuristic getting stuck, not of a hard instance, and no single fixed heuristic escapes it:
+each one has its own ~5% adversarial set. Restarting is the only lever that addresses it,
+and widening the probe on restart addresses the *other* failure shape at the same time (see
+the schedule comparison below).
+
+### Why the pruning is sound (G-3) — the argument, before the evidence
+
+Everything rests on one property `propagate` already had: **it only ever writes cells that
+every placement of some line agrees on, given what is known, and it only ever returns
+`False` when some line admits no placement at all.** So for any board `B`, every solution
+extending `B` also extends the board propagation leaves behind, and `propagate(B) == False`
+means no solution extends `B`. Given that, probing cell `c` with value `v`:
+
+- **The probe contradicts.** Then no solution extends `B + (c = v)`. Every solution
+  extending `B` assigns `c` one of exactly two values, so every one of them extends
+  `B + (c = ¬v)`. Forcing `¬v` therefore discards nothing. Keeping the probe's *propagated*
+  board discards nothing either: its extra cells are forced deductions from a board every
+  remaining solution extends.
+- **Both probes contradict.** No solution extends `B + (c = filled)` and none extends
+  `B + (c = empty)`, so none extends `B`. Refuting the node discards nothing.
+- **Neither contradicts.** Nothing is deduced and nothing is discarded. The two probe
+  boards become the node's children, and their union covers every solution extending `B`
+  precisely because they disagree only on `c`.
+
+Every step a probing pass takes is one of those three, so **no branch that could still lead
+to a valid solution is ever rejected.** Nothing new is *gained* either — the other half of
+CON-005 — because a board is only counted as a solution after `_verified_grid` re-encodes
+every finished line from its masks and compares it with the clue it was solved from, exactly
+as before.
+
+Branch ordering and restarts cannot change a verdict for a separate, weaker reason: **both
+children of a branch are always explored**, so ordering only moves work in time; and **a
+cut-off round is discarded whole**, never half-believed, so a partial exploration can never
+contribute a count. A verdict is only ever taken from a round that finished on its own terms.
+
+*One place the argument had a hole, found by testing and closed.* If a probing pass ever
+finished with nothing forced *and* nothing to branch on, while the board still had unknown
+cells, the node would have been silently treated as refuted — a solvable puzzle reported as
+having no solutions. It is unreachable in production (an incomplete board has an unknown
+cell, and the candidate ranking sees every unknown cell before taking its first
+`probe_width`), but a probe width of 0 reaches it by slicing the candidate list to nothing,
+and the first draft returned "dead" there. It now raises a `RuntimeError` naming itself a
+solver defect, and `test_a_probe_that_cannot_branch_raises_instead_of_reporting_no_solutions`
+pins that. This is the one bug this card's soundness work actually caught, and it was caught
+by the differential test below, not by the argument.
+
+### Evidence that it is sound, not just argued
+
+| check | scale | result |
+|---|---|---|
+| `tests/property/test_solver_uniqueness.py` (EC-001, in-suite) | 2400 cases, 1x1..8x8, every one cross-checked against the ADR-0014 oracle | **0 mismatches** |
+| Same oracle cross-check, **fresh seeds outside the suite** (101/202/303/404/505/606/707/808) | **24,000** further cases (8 seeds x 3000) | **0 mismatches**; verdict mix ~7,290 unsolvable / ~13,607 unique / ~3,103 ambiguous |
+| Verdict invariance across search configurations, EC-001 corpus | 2400 cases x 5 configurations (probe width 1, probe width "all", restart after every node, tiny limits, one unbounded round) | **0 differing verdicts** |
+| Verdict invariance at sizes the property corpus omits | 240 grids 10x10..16x16 x 5 configurations, plus a round-trip check that every unique verdict returns the source grid | **0 differing verdicts, 0 bad grids** |
+
+The invariance checks matter more than their size suggests: EC-001's corpus stops at 8x8,
+where almost nothing is large enough to reach a restart, so the diversified branch path
+would otherwise have been **untested by the mandatory property**. Shrinking the schedule
+instead of growing the puzzles is what puts every one of those 2400 cases through it. Both
+invariance checks are now in `tests/test_solver.py` as
+`test_the_verdict_does_not_depend_on_probe_width_or_restarts`.
+
+### Fresh measurements
+
+All on this machine, Python 3.14.3, `deadline` set as noted. "Before" is this branch's
+merge base (CARD-004's search + CARD-006's deadline).
+
+**Per-solve, 20x20, uncensored (300s budget), the six seeds CARD-006 sampled.**
+
+| density / seed | before | after | before branch nodes | after branch nodes |
+|---|---|---|---|---|
+| 30 / 1 | 13.108s | **0.050s** | 16,854 | 76 |
+| 30 / 3 | 11.250s | **0.058s** | 17,862 | 73 |
+| 40 / 0 | 97.844s | **1.954s** | 133,913 | 1,646 |
+| 40 / 4 | 28.610s | 0.4s-class | 59,296 | — |
+
+**Whole requests, CARD-006's exact benchmark corpus, uncensored at the real 30s budget** —
+directly comparable to the table in CARD-006's own notes:
+
+| density | before (CARD-006) | after |
+|---|---|---|
+| 30 | 30.000s x5, **all timed out** | 1.440 / 2.132 / 1.257 / 2.569 / 1.317s — **all completed** (abandoned after 20 candidates) |
+| 40 | 30.000s x5, **all timed out** | 30.003 timeout / 30.002 timeout / 25.546 / 29.946 / 13.095s |
+| 50 | 0.006-0.134s | 0.006-0.176s |
+| 60 | 0.002-0.005s | 0.002-0.005s |
+
+p95 (nearest-rank, n=20) is still censored at the cap, because 2 of 20 samples exceed it —
+but the *median* moved from 30.000s (half the corpus never finished) to **0.06s**.
+
+**The full 10-90% sweep AC-037 actually asks about**, censored at the 5s cap exactly as the
+benchmark does (`GENERATION_BUDGET_SECONDS = 5.0`, so an over-cap request is a censored
+lower bound), 5 seeds per density:
+
+| density | request times (s) | over cap |
+|---|---|---|
+| 10 | 2.88 2.05 2.54 2.37 2.55 | 0/5 |
+| 20 | 1.47 1.62 1.59 1.52 1.98 | 0/5 |
+| 25 | 1.50 1.91 1.36 1.64 1.46 | 0/5 |
+| 30 | 1.63 2.46 2.50 4.67 2.82 | 0/5 |
+| 32 | 3.82 **5.00+** 3.57 3.20 2.85 | 1/5 |
+| 35 | **5.00+ x5** | 5/5 |
+| 38 | **5.00+ x5** | 5/5 |
+| 40 | **5.00+ x5** | 5/5 |
+| 42 | **5.00+ x4**, 3.11 | 4/5 |
+| 45 | 0.28 **5.00+** 0.84 1.73 0.81 | 1/5 |
+| 48 | 0.13 0.40 0.30 0.07 0.04 | 0/5 |
+| 50 | 0.06 0.06 0.18 0.02 0.01 | 0/5 |
+| 60 | <=0.01 | 0/5 |
+| 70 / 80 / 90 | <=0.01 | 0/5 |
+
+Before this card the same sweep timed out at the **30s** cap on 3 of 5 seeds at density 10,
+2 of 5 at 20, 1 of 5 at 30 and 4 of 5 at 40 — i.e. the gap was never only "30-40%" as
+CARD-006's four-density corpus suggested; it reached down to 10%. That part is now closed.
+
+**No regression on the fast path** (best of 7 over 8 seeded grids each; the CARD-006 column
+is that card's own table, measured the same way):
+
+| configuration | CARD-006 | after |
+|---|---|---|
+| 10x10 @ 50% | 6.58 ms | 3.57 ms |
+| 20x20 @ 50% | 90.10 ms | 69.20 ms |
+| 20x20 @ 75% | 8.21 ms | 7.64 ms |
+| 30x30 @ 75% | 22.79 ms | 23.79 ms |
+| 40x40 @ 75% | 62.67 ms | 63.73 ms |
+| 50x50 @ 75% | 126.44 ms | 125.91 ms |
+
+Line-solvable grids never branch, so they never probe: they are unchanged, as they should
+be. The two configurations that do branch got faster.
+
+### AC-037: the `xfail` was **narrowed, not removed** — and exactly which band remains
+
+Per the card's instruction and G-5, the marker stays and only its `reason=` text changed.
+`strict=True`, the censoring mechanics, the early stop, the corpus, the rank and the
+threshold are all untouched (the diff to `tests/bench_generate.py` is the reason string and
+nothing else).
+
+**Met now, across the whole seed set:** densities **10-32%** and **45-100%**.
+**Still unmet:** roughly **32-45%**, worst at **35-42%**, where a 20x20 request runs
+13-30s+ against a 5s cap. The benchmark's own corpus (30/40/50/60) therefore has its
+density-30 column newly green and its density-40 column still red, which is why the gate
+still fails and the marker still belongs there.
+
+**Why the residual band is where it is, and why more of the same would not close it.** At
+35-42% a random 20x20 sits at the uniqueness phase transition: candidates have very few
+solutions, so a request pays for near-exhaustive refutation on each of up to 20 candidates.
+The shape is a heavy tail, not a uniform slowdown — at density 35, 18 of 20 candidates
+finish in under 0.5s and two take 4.3s and 9.6s. Two candidates were checked directly to
+separate "hard for this heuristic" from "hard in itself": **200 randomised depth-first
+restarts of 3,000 nodes each — 600,000 nodes, with the branch order rerolled every time —
+found zero solutions** for either. Instances that survive that are not waiting on a better
+branch heuristic. Closing this band needs a different class of inference (clause learning,
+or a line-placement encoding handed to a real CP/SAT engine), which is an ADR-scale decision
+about ADR-0006's closed dependency baseline, not a tuning pass.
+
+Time is now dominated by `line_intersection` itself (55% of a hard solve after memoisation,
+88% before it), so the remaining constant-factor headroom in pure Python is small — well
+under the 3.6x that density 35 alone would need, and far under what 40% would.
+
+**Schedule tuning is not the missing piece either**, and it was measured rather than assumed.
+On the 26-instance corpus of candidates probing alone could not finish, the shipped schedule
+`(8,400)(16,1200)(32,3600)(64,10800)` left **1** unfinished at 15s against **7** and **5**
+for two other width/limit ladders. At whole-request level over densities 32/35/40/42 x seeds
+0-2 (15s cap): shipped **121.3s total, 6/12 over cap**; a faster-bailing ladder
+`(8,150)(24,600)(48,2400)(96,9600)` **101.6s, 5/12**; a wider-earlier one
+`(8,300)(32,900)(64,2700)(128,8100)` **123.4s, 6/12**. The faster-bailing ladder wins on
+total but regresses a case that the shipped one keeps at 5.7s to over 15s — sign-mixed on 12
+samples, and decisively behind on the 26-instance corpus. Not worth trading a validated
+ladder for.
+
+**The two ingredients are both load-bearing.** On the same 26-instance corpus: restarting
+that re-runs the *same* branch order settles none of them (by construction — it revisits the
+same nodes) and left 13 of 26 unfinished at 20s; restarting with a diversified order left
+**5**; adding the widening probe to that left **1**. At whole-request level, in the same
+32/35/40/42 x seeds 0-2 comparison, disabling restarts entirely (one unbounded round of
+probing at width 8) costs **159.3s total, 9/12 over cap** against the shipped schedule's
+**121.3s, 6/12** — so the restart ladder earns its complexity even inside the band it does
+not close. Probing without restarts is what produced the 26 in the first place.
+
+### `test_timeout.py` fixture check (CARD-006's follow-up note) — checked, not assumed
+
+CARD-006's notes warned that if this card's work made `size=50, density=50, seed=7`
+finishable inside the scaled 0.25s budget, all three tests sharing that fixture would break
+together and would *look* like a deadline-mechanism regression. Checked explicitly:
+
+- at the scaled **0.25s** budget: `SolverTimeout` after **0.2502s** — still unfinishable,
+  overshoot still ~0.2ms;
+- at the real **30s** budget: `SolverTimeout` after **30.0002s** — still unfinishable on real
+  solver work, i.e. the fixture is nowhere near the boundary, not merely on the right side of
+  it;
+- `tests/test_timeout.py` in isolation: **16 passed**, including all six AC-038 tests.
+
+So the fixture did **not** get easy and needs no replacement. That is unsurprising in
+hindsight: a mid-density 50x50 is orders of magnitude beyond a mid-density 20x20, and this
+card's gains are largest exactly where the tree was small enough for probing to collapse it.
+
+### Test run result
+
+`./.venv/bin/python -m pytest` (fresh venv, Python 3.14.3): **1164 passed, 1 xfailed,
+0 failed** — the xfail being AC-037's benchmark, narrowed as described above.
+
+- `tests/property/test_solver_uniqueness.py` — the mandatory EC-001 property — passes; run
+  repeatedly and, additionally, cross-checked against the ADR-0014 oracle over 24,000 further
+  cases at eight fresh seeds outside the suite: **0 mismatches**.
+- `tests/test_solver.py` — AC-015/016/017 pass **unchanged**; 8 tests added (probe/restart
+  verdict invariance x4 configurations, restart-schedule completeness, the "cannot branch"
+  defect guard, the `backtracks` signal, and the line memo's fidelity to the DP).
+- `tests/test_timeout.py` — AC-038 passes, see the fixture check above.
+- `tests/bench_generate.py` — `test_20x20_p95_is_under_5s` XFAIL (strict, so it is still a
+  real gate that will fail loudly the day it starts passing); the benchmark's own two
+  contract tests pass.
+
+### Scope
+
+[Scope] Predicted Touches matched for `src/nonogram/solver/search.py`,
+`src/nonogram/solver/propagate.py`, `tests/bench_generate.py`, `tests/test_solver.py`.
+**One deviation, flagged rather than done silently:** `tests/test_timeout.py` — its
+`_blind_propagation` test double reimplements `propagate`'s signature, so it had to grow the
+new `cache=` keyword and forward it. Signature-only; not one assertion, threshold or fixture
+was touched, and this is the same kind of change CARD-006 itself made to
+`tests/test_orchestrator.py` for the `deadline=` keyword. Guardrail G-4's files
+(`orchestrator.py`, `cli.py`, `export/**`, `sourcing/**`, `clues.py`, `pyproject.toml`) are
+all untouched, as is `src/nonogram/solver/__init__.py` (G-1).
+
+### Orchestrator notes
+
+- **[Scope]** Independently confirmed: touched files exactly match predicted
+  plus the one flagged `tests/test_timeout.py` deviation (signature-only,
+  verified by reading the diff directly). G-1/G-4 confirmed clean (empty
+  diff on `solver/__init__.py`, `orchestrator.py`, `cli.py`, `export/**`,
+  `sourcing/**`, `clues.py`, `pyproject.toml`). `bench_generate.py`'s diff
+  confirmed to be the `reason=` string only — `strict=True` and all
+  censoring/early-stop/corpus/rank/threshold mechanics untouched (G-5).
+- **[Build gate]** PASSED (full, independently re-run by orchestrator in a
+  fresh venv: 1164 passed, 1 xfailed, exit 0). The mandatory property test
+  independently re-run 3 additional times (deterministic per house style —
+  seeded `random.Random`, not flaky-random). Independently reproduced one
+  headline performance number from scratch (20x20/density30/seed1): 0.049s,
+  matching the implementer's claimed 0.050s exactly.
