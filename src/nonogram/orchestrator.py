@@ -60,13 +60,27 @@ returned, so running image mode through the regenerate loop would spend a
 twentieth of the time budget re-confirming one verdict and then report an
 "abandoned after 20 attempts" that never had 20 attempts in it.
 
-So image mode does not enter either bounded loop: :func:`generate` converts
-once, and a conversion that is not uniquely solvable — or that misses the
-requested tier — ends the run immediately with a message naming that cause.
-Both counters stay at zero, which is the observable form of "this mode is not
-in POL-001". POL-002's bounded pixel nudge (FR-013, CARD-016) is the recovery
-path for this branch, and it lands here as a third :class:`RetryCounter` next
-to the two below — the one place INV-003 counts anything.
+So image mode does not enter either of those bounded loops: :func:`generate`
+converts once, and the regenerate and resample counters stay at zero, which is
+the observable form of "this mode is not in POL-001/POL-004".
+
+Its recovery path is POL-002's bounded pixel nudge (FR-013, CARD-016) instead,
+and it is a third :class:`RetryCounter` next to the two below rather than a
+different mechanism — the one place INV-003 counts anything. What it retries is
+not the *source* but the grid the source already returned: each round asks
+``sourcing.image`` to flip one more cell of the conversion and re-runs the
+whole judgement on the result, so at most :data:`MAX_NUDGE_ATTEMPTS` pixels of
+the user's picture are ever altered and every one of those grids is a real
+solver verdict, not an assumption (CON-005). At the cap the loop reports and
+stops (POL-003) — there is no unbounded "one more try" behind it. A conversion
+that misses the requested *tier* still ends the run immediately: POL-004 cannot
+help a fixed source either, and nudging is a uniqueness remedy, not a
+difficulty dial.
+
+The split of POL-002 across two components is trace.yml's FR-013 note: the
+policy (when, how often, what to say at the cap) is here, the mechanism (which
+cell to flip) is in ``sourcing.image.nudge``, which owns the grid the image
+produced and counts nothing.
 
 Naming (FR-015, ADR-0018)
 -------------------------
@@ -108,10 +122,12 @@ from pathlib import Path
 from nonogram import clues as clue_derivation
 from nonogram import difficulty, export, solver, sourcing
 from nonogram.errors import ExportRejected, GenerationAbandoned, InvalidPuzzleName
+from nonogram.sourcing import image as image_source
 
 __all__ = [
     "DEFAULT_NAMES",
     "GENERATION_BUDGET_SECONDS",
+    "MAX_NUDGE_ATTEMPTS",
     "MAX_REGENERATE_ATTEMPTS",
     "MAX_RESAMPLE_ATTEMPTS",
     "MAX_RETRY_ATTEMPTS",
@@ -142,6 +158,20 @@ Grid = list[list[bool]]
 #: number, from the same ADR, and so genuinely its own constant).
 MAX_RETRY_ATTEMPTS = 20
 MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
+
+#: ADR-0002's *other* number: POL-002's pixel-nudge cap is 5, and this is
+#: deliberately **not** written as a fraction or an alias of
+#: :data:`MAX_RETRY_ATTEMPTS` (CARD-016 guardrail G-2). The 20 above and the 5
+#: here are two independent judgements from the same ADR about two different
+#: things — how many *fresh* candidates it is worth drawing before a request is
+#: called infeasible, versus how much of the user's own picture it is
+#: acceptable to alter behind their back. Chaining them would say the two move
+#: together, and they do not: a retune of the retry bound must not silently
+#: license twenty edits to an uploaded photograph.
+#:
+#: The bound lives here, next to the other one, because INV-003 has exactly one
+#: home — COMP-002. ``sourcing.image`` applies the nudge and counts nothing.
+MAX_NUDGE_ATTEMPTS = 5
 
 #: ADR-0001's hard time bound for one generation *request*, in seconds: 30s up
 #: to the 50x50 maximum size. Enforced as ADR-0011's cooperative deadline —
@@ -444,9 +474,9 @@ class Puzzle:
              one solution. :meth:`require_ready_for_export` is the gate the
              export cards call before writing anything.
     INV-003  every counter is a :class:`RetryCounter`, advanced only by
-             :func:`run_bounded`. :attr:`regenerate` (POL-001) and
-             :attr:`resample` (POL-004) are two of the three; CARD-016 adds
-             ``nudge`` next to them.
+             :func:`run_bounded`. :attr:`regenerate` (POL-001),
+             :attr:`resample` (POL-004) and :attr:`nudge` (POL-002) are all
+             three of them, and no other field counts anything.
     """
 
     #: The request this puzzle is being generated for. Held whole rather than
@@ -485,10 +515,22 @@ class Puzzle:
         default_factory=lambda: RetryCounter("regenerate", MAX_REGENERATE_ATTEMPTS)
     )
     #: POL-004's counter (INV-003) — one per aggregate, alongside
-    #: :attr:`regenerate` and (CARD-016) the nudge counter, sharing ADR-0002's
-    #: bound through :data:`MAX_RETRY_ATTEMPTS` rather than restating it.
+    #: :attr:`regenerate` and :attr:`nudge`, sharing ADR-0002's bound with the
+    #: former through :data:`MAX_RETRY_ATTEMPTS` rather than restating it.
     resample: RetryCounter = field(
         default_factory=lambda: RetryCounter("resample", MAX_RESAMPLE_ATTEMPTS)
+    )
+    #: POL-002's counter (INV-003, FR-013, CARD-016): how many pixel nudges
+    #: this run has applied to an uploaded image's conversion. The third and
+    #: last of the model's bounded loops, and the only one with its own bound
+    #: — :data:`MAX_NUDGE_ATTEMPTS`, 5 rather than 20.
+    #:
+    #: Zero for every run that is not in image mode, and zero for an image run
+    #: whose conversion was uniquely solvable first time: the loop is entered
+    #: only by the branch that needs it. CARD-017 reports this number to the
+    #: user; this card only carries it (guardrail G-5).
+    nudge: RetryCounter = field(
+        default_factory=lambda: RetryCounter("pixel-nudge", MAX_NUDGE_ATTEMPTS)
     )
     #: The current candidate's solution grid, or ``None`` before the first one
     #: is sourced.
@@ -708,20 +750,38 @@ def _uniqueness_reason(tier: difficulty.Tier | None) -> str:
 
 
 def _image_uniqueness_reason(solution_count: int | None) -> str:
-    """POL-005's wording for an image conversion that is not a puzzle.
+    """POL-003's wording when the nudge cap is reached (AC-035, AC-036).
 
     Image mode's counterpart of :func:`_uniqueness_reason`, and it has to be a
-    different sentence rather than a reused one: nothing was *retried* here, so
-    a message about 20 discarded candidates would describe a loop that never
-    ran (guardrail G-4). It says outright that the image was not re-drawn,
-    because a user who has seen random mode silently recover would otherwise
-    read a single failure as the tool giving up early.
+    different sentence rather than a reused one: what ran here was not POL-001.
+    The image was *never re-drawn* — an uploaded picture converts to the same
+    grid every time — and what the cap counts is edits to that one conversion,
+    so a message about 20 discarded candidate grids would describe a loop that
+    never ran (CARD-015 guardrail G-4).
 
-    The levers it names are the ones that actually change the answer for a
-    fixed picture: the grid size (which changes what the dither resolves the
-    picture into) and the picture itself. ``--seed`` is deliberately absent —
-    the conversion does not draw from the RNG, so re-seeding an image run
-    reproduces exactly the same grid.
+    Three things it has to say, and each is an acceptance criterion rather than
+    a courtesy:
+
+    * what failed — the conversion is not a puzzle, and why (the count);
+    * that the tool has **stopped** (POL-003, AC-035). A user who has watched
+      the tool silently repair other runs needs to be told that the repair was
+      tried, was bounded, and is over — otherwise "failed" reads as either
+      "gave up immediately" or "may still be editing my picture";
+    * what to do next (AC-036) — a different image, or a different ``--size``.
+
+    ``--seed`` is deliberately absent from those levers: the conversion does not
+    draw from the RNG and neither does the nudge, so re-seeding an image run
+    reproduces exactly the same grid and exactly the same five edits.
+
+    Args:
+        solution_count: The solver's verdict on the conversion, as recorded.
+            The *initial* one — this string is built before the nudge loop
+            starts, because :func:`run_bounded` takes its reason up front, and
+            the initial conversion is the thing the user actually handed over.
+
+    Returns:
+        The reason clause; :func:`run_bounded` prefixes the attempt count and
+        the bound, so the user reads both how far the tool went and why.
     """
     detail = (
         "its clues have more than one solution"
@@ -730,9 +790,11 @@ def _image_uniqueness_reason(solution_count: int | None) -> str:
     )
     return (
         f"the converted image is not a uniquely-solvable puzzle ({detail}); an "
-        "uploaded image is fixed and is never re-drawn automatically, so try a "
-        "different --size, or an image with larger, more clearly separated "
-        "areas of light and dark"
+        "uploaded image is fixed and is never re-drawn automatically, so the "
+        f"tool adjusted up to {MAX_NUDGE_ATTEMPTS} pixels of the converted grid "
+        "instead and has now stopped altering it — retry with a different "
+        "image, or a different --size (an image with larger, more clearly "
+        "separated areas of light and dark converts best)"
     )
 
 
@@ -836,20 +898,30 @@ def generate(
         The :class:`Puzzle` aggregate, with ``ready_for_export`` set — the one
         object the whole run mutated, retries included.
 
-    Image mode (FR-003) takes neither loop
-    --------------------------------------
-    An uploaded image cannot be re-drawn, so ``--mode image`` converts once and
-    fails cleanly on a candidate either check rejects, leaving both counters at
-    zero — see "A source that cannot be re-drawn" in the module docstring, and
-    ``sourcing.image`` for why the conversion is deterministic. The bounded
-    pixel-nudge recovery for that branch is CARD-016's (guardrail G-3).
+    Image mode (FR-003) takes a third loop of its own
+    -------------------------------------------------
+    An uploaded image cannot be re-drawn, so ``--mode image`` converts exactly
+    once and leaves the regenerate and resample counters at zero — see "A
+    source that cannot be re-drawn" in the module docstring, and
+    ``sourcing.image`` for why the conversion is deterministic.
+
+    When that single conversion is not uniquely solvable, POL-002's bounded
+    pixel nudge runs instead (FR-013): up to :data:`MAX_NUDGE_ATTEMPTS` rounds,
+    each flipping one more cell of the *original* conversion and re-solving the
+    result in full. The first uniquely-solvable nudge is the run's puzzle; at
+    the cap the run is abandoned with a message that says the tool has stopped
+    altering the image and what to try instead (POL-003, AC-035/AC-036). A
+    conversion that is unique but misses the requested tier is not nudged — the
+    nudge is a uniqueness remedy — and ends the run as it did before.
 
     Raises:
         GenerationAbandoned: the run gave up (POL-005) — the retry bound was
             exhausted with no candidate uniquely solvable (AC-019) or none
-            scored inside the requested tier (AC-027), or, in image mode, the
-            single conversion failed one of those two checks. The message says
-            which, and in image mode says that nothing was retried.
+            scored inside the requested tier (AC-027); or, in image mode, the
+            conversion missed the requested tier, or neither it nor any of its
+            :data:`MAX_NUDGE_ATTEMPTS` nudges was uniquely solvable (AC-035).
+            The message says which, and in image mode says that the picture was
+            never re-drawn and is no longer being altered.
         UnreadableImage: ``--mode image`` was given no readable picture to
             convert (AC-008). Raised by the sourcing module on the one attempt
             and, like the other invalid-request errors, not retried.
@@ -906,12 +978,16 @@ def generate(
     source = sourcing.for_mode(request.mode)
     source_arguments = _source_arguments(request)
 
-    def attempt_candidate() -> Puzzle | None:
-        """One pass of the pipeline: source -> clues -> uniqueness -> score.
+    def judge_candidate(grid: Grid) -> Puzzle | None:
+        """Judge one already-sourced grid: clues -> uniqueness -> score.
 
-        The single ``rng`` is threaded in here, which is what makes the
-        *sequence* of discarded candidates reproducible and not merely the
-        first one (ADR-0015).
+        The tail of the pipeline, shared by every loop in this function so that
+        *where a candidate grid came from* — a fresh draw, a library
+        re-rendering, an uploaded image, a nudged uploaded image — cannot
+        change how it is judged. That is CON-005 and CARD-016's guardrail G-4
+        made structural rather than repeated: there is exactly one
+        ``solver.solve`` call in the module, so a nudged grid is genuinely
+        re-solved and can no more be assumed unique than a random one.
 
         A candidate that survives the uniqueness check is scored before it is
         returned, so every candidate the resample loop above ever sees is
@@ -922,14 +998,6 @@ def generate(
         the solve of a uniquely-solvable clue set) and is skipped, so POL-001's
         path costs exactly what it did before this card.
         """
-        # The argument list is the mode's, not the dispatcher's (see
-        # sourcing.for_mode and _source_arguments): the random mode's
-        # size/density and the library mode's key/size are assembled per mode,
-        # and CARD-015's image path joins them there. The RNG is appended here
-        # for every mode alike — including library's, whose only draw is
-        # POL-001's boundary tie-break, which is what makes a library retry a
-        # different rendering of the same template rather than a repeat.
-        grid = source(*source_arguments, rng)
         candidate_clues = puzzle.record_candidate(grid)
         verdict = solver.solve(
             candidate_clues.rows, candidate_clues.columns, deadline=deadline
@@ -942,6 +1010,22 @@ def generate(
             difficulty.score_difficulty(verdict.signals, candidate_clues.rows)
         )
         return puzzle
+
+    def attempt_candidate() -> Puzzle | None:
+        """One pass of the pipeline: source -> clues -> uniqueness -> score.
+
+        The single ``rng`` is threaded in here, which is what makes the
+        *sequence* of discarded candidates reproducible and not merely the
+        first one (ADR-0015).
+        """
+        # The argument list is the mode's, not the dispatcher's (see
+        # sourcing.for_mode and _source_arguments): the random mode's
+        # size/density and the library mode's key/size are assembled per mode,
+        # and CARD-015's image path joins them there. The RNG is appended here
+        # for every mode alike — including library's, whose only draw is
+        # POL-001's boundary tie-break, which is what makes a library retry a
+        # different rendering of the same template rather than a repeat.
+        return judge_candidate(source(*source_arguments, rng))
 
     def attempt_candidate_in_tier() -> Puzzle | None:
         """One resample round: a unique candidate, kept only if it is in tier.
@@ -959,15 +1043,48 @@ def generate(
         return candidate if candidate.difficulty_in_requested_tier else None
 
     if request.mode == sourcing.IMAGE:
-        # POL-002, not POL-001/POL-004 (guardrails G-3, G-4). See "A source
-        # that cannot be re-drawn" in the module docstring: the conversion runs
-        # exactly once, both counters stay at zero, and a candidate that fails
-        # either check ends the run with a message that says why rather than
-        # being replaced by an identical one.
+        # POL-002, not POL-001/POL-004. See "A source that cannot be re-drawn"
+        # in the module docstring: the conversion runs exactly once — the
+        # regenerate and resample counters stay at zero, because asking for a
+        # second candidate would return the first one — and recovery is
+        # POL-002's bounded nudge instead.
         candidate = attempt_candidate()
         if candidate is None:
-            raise GenerationAbandoned(
-                _image_uniqueness_reason(puzzle.solution_count)
+            converted = puzzle.grid
+            if converted is None:  # pragma: no cover - a judged candidate has a grid
+                raise RuntimeError(
+                    "image conversion was judged but recorded no grid to nudge"
+                )
+
+            def attempt_nudged_candidate() -> Puzzle | None:
+                """One POL-002 round: nudge the conversion, judge the result.
+
+                ``puzzle.nudge.attempts`` is read rather than tracked
+                separately: :func:`run_bounded` advances the counter *before*
+                calling this, so it is already this attempt's 1-based number,
+                and taking it from the counter is what keeps INV-003's single
+                home (guardrail G-2) from acquiring a shadow copy.
+
+                Every round nudges ``converted`` — the original conversion —
+                and not the previous round's grid, so attempt *n* differs from
+                the user's picture by exactly *n* pixels and no earlier edit
+                can be undone by a later one (see ``sourcing.image.nudge``).
+                The result then goes through :func:`judge_candidate` like any
+                other candidate: the solver's verdict on the nudged grid is the
+                only thing that ends this loop successfully (CON-005, G-4).
+                """
+                return judge_candidate(
+                    image_source.nudge(converted, puzzle.nudge.attempts)
+                )
+
+            # POL-003 lives in run_bounded's exhaustion branch: at the bound it
+            # raises instead of nudging again, which is what "stops altering
+            # the image" is in code (AC-035, guardrail G-3). There is no
+            # fallback attempt after it and nothing catches it here.
+            candidate = run_bounded(
+                puzzle.nudge,
+                attempt_nudged_candidate,
+                reason=_image_uniqueness_reason(puzzle.solution_count),
             )
         if not candidate.difficulty_in_requested_tier:
             raise GenerationAbandoned(_image_tier_reason(requested_tier))

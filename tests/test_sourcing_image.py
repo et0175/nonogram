@@ -610,16 +610,17 @@ _AMBIGUOUS = [[False] * 10 for _ in range(10)]
 _AMBIGUOUS[2][2] = _AMBIGUOUS[3][3] = True
 
 
-def test_a_non_unique_conversion_fails_cleanly_without_regenerating(
+def test_a_non_unique_conversion_is_never_re_sourced(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """G-4, stated the way the guardrail is: the source is asked for exactly
     **one** candidate.
 
-    "Fails cleanly" alone would be satisfied by a run that quietly took one
-    turn of the regenerate loop, so the assertion that matters is the count —
-    one call to the source, and both INV-003 counters left at zero, meaning
-    the loop was not entered rather than entered and exited early.
+    CARD-016 changed what happens *after* that one candidate is rejected — the
+    run no longer ends there, it nudges the converted grid (POL-002, see
+    ``tests/test_nudge.py``) — but not this: a nudge edits the grid already in
+    hand, so however a run turns out, the picture is decoded once. The
+    regenerate counter left at zero is the same fact read off the aggregate.
     """
     source = _CountingSource(_AMBIGUOUS)
     _install_source(monkeypatch, source)
@@ -627,13 +628,11 @@ def test_a_non_unique_conversion_fails_cleanly_without_regenerating(
         mode="image", image=WIDE, size=10, seed=1
     )
 
-    with pytest.raises(GenerationAbandoned) as excinfo:
-        orchestrator.generate(request)
+    puzzle = orchestrator.generate(request)
 
     assert source.candidates_requested == 1
-    message = str(excinfo.value)
-    assert "never re-drawn" in message
-    assert "attempt" not in message  # nothing was retried, so nothing is counted
+    assert puzzle.regenerate.attempts == 0
+    assert puzzle.nudge.attempts == 1
 
 
 def test_a_non_unique_conversion_leaves_both_retry_counters_at_zero(
@@ -643,8 +642,9 @@ def test_a_non_unique_conversion_leaves_both_retry_counters_at_zero(
 
     The puzzle is captured by patching the class's constructor path — the
     counters belong to COMP-002 (INV-003, guardrail G-6) and image mode must
-    leave them untouched, which is also what makes CARD-016's nudge counter a
-    genuinely new one rather than a reuse of POL-001's.
+    leave *these two* untouched, which is what makes CARD-016's nudge counter a
+    genuinely new one rather than a reuse of POL-001's. One aggregate per run,
+    nudges included: a nudge replaces the candidate, never the puzzle.
     """
     source = _CountingSource(_AMBIGUOUS)
     _install_source(monkeypatch, source)
@@ -658,17 +658,13 @@ def test_a_non_unique_conversion_leaves_both_retry_counters_at_zero(
 
     monkeypatch.setattr(orchestrator, "Puzzle", capturing)
 
-    with pytest.raises(GenerationAbandoned):
-        orchestrator.generate(
-            orchestrator.GenerationRequest(
-                mode="image", image=WIDE, size=10, seed=1
-            )
-        )
+    orchestrator.generate(
+        orchestrator.GenerationRequest(mode="image", image=WIDE, size=10, seed=1)
+    )
 
     assert len(built) == 1
     assert built[0].regenerate.attempts == 0
     assert built[0].resample.attempts == 0
-    assert built[0].ready_for_export is False
 
 
 def test_a_successful_image_run_also_spends_no_retry_attempt() -> None:
@@ -685,16 +681,19 @@ def test_a_successful_image_run_also_spends_no_retry_attempt() -> None:
 def test_a_real_image_that_converts_ambiguously_reports_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The same failure without a scripted source anywhere: ``bands.png`` at
-    10x10 genuinely converts to a grid whose clues have more than one solution.
+    """The same failure without a scripted source anywhere: ``wide.png`` at
+    22x22 genuinely converts to a grid whose clues have more than one solution,
+    and stays that way through all five of CARD-016's nudges.
 
     A pinned case, in the sense ``tests/test_orchestrator.py`` uses the word —
-    if the dithering or the solver changes such that this size becomes unique,
-    re-pin it by re-running the 10..30 sweep this comment names rather than
-    deleting the test.
+    if the dithering, the solver or the nudge heuristic changes such that this
+    size becomes unique, re-pin it by re-running the 10..25 sweep this comment
+    names rather than deleting the test. (It was ``bands.png`` at 10x10 until
+    CARD-016: that conversion is now repaired by two nudges, which is
+    ``tests/test_nudge.py``'s real-image recovery case.)
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(BANDS), "--size", "10"]
+        ["generate", "--mode", "image", "--image", str(WIDE), "--size", "22"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -755,20 +754,17 @@ def test_the_regenerate_loop_still_fires_for_the_modes_it_owns(
 
 
 def test_the_image_module_exposes_no_retry_machinery() -> None:
-    """G-3 and G-6 as an API-surface pin: the pixel-nudge loop (FR-013) and its
-    count (FR-014) belong to CARD-016/017 and to COMP-002, so a nudge or a
-    counter appearing in this module would have to be a deliberate act rather
-    than a drift."""
-    assert image.__all__ == [
-        "RESAMPLING",
-        "binarize",
-        "generate",
-        "load_greyscale",
-        "square_crop_box",
-        "to_grid",
-    ]
+    """G-3 and G-6 as an API-surface pin, narrowed by CARD-016 to the half that
+    is still this module's business.
+
+    The *loop* (FR-013) and its *count* (FR-014) belong to COMP-002; CARD-016
+    landed the nudge **mechanism** here on purpose, and the pin that keeps the
+    split honest is now in ``tests/test_nudge.py``
+    (``test_the_image_module_counts_nothing_itself``). What remains true here
+    is the part that never moved: no retry loop, no counter, no bound.
+    """
     assert not hasattr(image, "RetryCounter")
-    assert not any("nudge" in name.lower() for name in vars(image))
+    assert not any(name.startswith("MAX_") for name in vars(image))
 
 
 def test_the_other_two_sources_are_untouched() -> None:
