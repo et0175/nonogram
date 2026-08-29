@@ -40,14 +40,15 @@
       matters more than file size.                                                 @tech-debt
 
 ## Surfaced during delivery (Wave 9, 2026-08-29)
-- [ ] **Decision needed:** EXIF orientation is ignored when converting an uploaded photo —
-      a phone photo carrying rotation metadata converts cropped along the wrong (stored,
-      not displayed) axis. The grid is still correctly sized (no AC/guardrail violated),
-      but "the user's uploaded photo" is this feature's headline input, and the original
-      handoff called image conversion "the last untested technical risk". One-line fix
-      available if wanted (`ImageOps.exif_transpose` before flattening, no-op on files
-      with no orientation tag) — flagged as a decision rather than fixed unilaterally
-      since it wasn't in CARD-015's AC/guardrail contract.                          @tech-debt
+- [x] ~~EXIF orientation ignored when converting an uploaded photo~~ — fixed 2026-08-29
+      directly on main (commit follows): `load_greyscale` now applies
+      `ImageOps.exif_transpose` before flattening, a no-op on files with no
+      orientation tag. New test constructs a JPEG with an asymmetric marker, stores
+      it pre-rotated with an Orientation=6 tag, and asserts the converted grid
+      matches the un-rotated source exactly — verified to genuinely fail without
+      the fix (reverted it locally, confirmed the test catches it) before
+      confirming it passes with the fix restored. Full suite: 1122 passed, 1
+      xfailed, no regressions.                                                    @tech-debt
 - [ ] Export metadata (JSON/CSV) doesn't record the `--image` path or `--library-key`
       the way it records mode/size/density/seed — an image- or library-sourced export
       isn't self-describing enough to reproduce the run from the file alone. Pre-existing

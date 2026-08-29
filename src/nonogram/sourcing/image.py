@@ -73,7 +73,7 @@ import random
 from os import PathLike
 
 import numpy
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from nonogram.errors import UnreadableImage
 from nonogram.sourcing import random_grid
@@ -120,6 +120,13 @@ def load_greyscale(source: str | PathLike[str]) -> Image.Image:
     here (AC-008), so nothing downstream — and in particular nothing the user
     sees — is phrased in Pillow's vocabulary.
 
+    EXIF orientation is applied before anything else touches the pixels
+    (``ImageOps.exif_transpose``), so a phone photo is rotated/cropped along
+    the axis the user actually sees rather than the axis the file happens to
+    store it in. A no-op, and one that strips the tag, on a file with no
+    orientation metadata — the common case for anything not straight off a
+    camera.
+
     Transparency is flattened onto **white** before the greyscale conversion.
     A bare ``convert("L")`` on an RGBA image ignores the alpha channel and reads
     whatever colour happens to sit under the transparent pixels, which for the
@@ -146,7 +153,7 @@ def load_greyscale(source: str | PathLike[str]) -> Image.Image:
             # corrupt body raises here, inside the guarded block, rather than
             # later at the caller's first pixel access.
             opened.load()
-            return _flattened(opened)
+            return _flattened(ImageOps.exif_transpose(opened))
     except _UNREADABLE as error:
         raise UnreadableImage(
             f"cannot read image {str(source)!r}: {error}"

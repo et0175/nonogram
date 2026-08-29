@@ -353,6 +353,55 @@ def test_the_aspect_ratio_policy_holds_on_the_other_axis() -> None:
     assert any(grid[10][6:14])
 
 
+def _ink(grid: list[list[bool]]) -> set[tuple[int, int]]:
+    return {
+        (row, column)
+        for row, cells in enumerate(grid)
+        for column, cell in enumerate(cells)
+        if cell
+    }
+
+
+def test_exif_orientation_is_applied_before_the_crop(tmp_path: Path) -> None:
+    """A phone photo's EXIF orientation is honoured, not the axis the file
+    happens to be stored along.
+
+    A camera held rotated stores the sensor's raw raster in one orientation
+    and records the correction needed to display it upright in an EXIF tag
+    (``Orientation``). Cropping the *stored* raster without applying that tag
+    crops along the wrong axis — silently ruining the picture on exactly the
+    input this feature exists for.
+
+    Built rather than a repo fixture (JPEG EXIF is fiddly to keep byte-stable
+    across Pillow versions, same reasoning as the transparent-PNG test
+    above). ``displayed`` carries a small, deliberately off-centre marker —
+    the aspect-ratio tests above use a symmetric pattern, which turns out to
+    be *unable* to distinguish "orientation honoured" from "orientation
+    ignored" here, since a symmetric image's crop is unaffected by rotation.
+    An asymmetric marker is required to tell them apart, and it does:
+    honouring the tag reproduces ``displayed``'s own conversion exactly;
+    ignoring it (verified by also saving the same rotated raster with no
+    EXIF tag at all) puts the marker at a different position entirely.
+    """
+    displayed = Image.new("L", (60, 20), 255)
+    displayed.paste(0, (23, 2, 33, 8))  # off-centre: neither axis is symmetric
+
+    stored = displayed.transpose(Image.Transpose.ROTATE_90)
+    exif = stored.getexif()
+    exif[0x0112] = 6  # "rotate 90 CW to display correctly"
+    oriented = tmp_path / "phone.jpg"
+    stored.save(oriented, format="JPEG", quality=100, exif=exif)
+
+    reference_source = tmp_path / "displayed.png"
+    displayed.save(reference_source)
+
+    reference = image.generate(reference_source, 20, _rng())
+    honoured = image.generate(oriented, 20, _rng())
+
+    assert honoured == reference
+    assert _ink(honoured)  # the marker did land somewhere, not just "matched by both being blank"
+
+
 @pytest.mark.parametrize("source", [WIDE, TALL])
 def test_the_outer_thirds_of_the_source_do_not_reach_the_grid_at_all(
     source: Path,
