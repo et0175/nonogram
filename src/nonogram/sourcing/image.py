@@ -52,15 +52,22 @@ into two flat blobs, while error diffusion trades grey *level* for filled-cell
 *density*, which is what makes a mid-tone region readable at all on a grid this
 coarse.
 
-No retry loop lives here (guardrails G-3, G-6)
-----------------------------------------------
+No retry loop lives here (guardrails G-3, G-6; CARD-016 G-2)
+------------------------------------------------------------
 An uploaded image is fixed: unlike a random draw or a library template's
 boundary tie-break, asking this module for "another" grid returns the identical
-grid. So image mode is not wired into POL-001's regenerate loop — the
-orchestrator fails the run cleanly when the conversion is not uniquely solvable
-— and the bounded pixel-nudge recovery (POL-002, FR-013) lands with CARD-016,
-in COMP-002, where INV-003's counter already lives. There is no counter, no
-loop and no nudge in this file, by design.
+grid. So image mode is not wired into POL-001's regenerate loop.
+
+CARD-016 splits POL-002's bounded pixel-nudge recovery (FR-013) along exactly
+that line, and trace.yml's FR-013 note is the split: the *policy* — when to
+nudge, how many times, and what to say when the cap is reached — lives in
+COMP-002, where INV-003's counter already is, and the *mechanism* — which cell
+to flip — lives here, in the module that owns what the conversion produced.
+:func:`nudge` is that mechanism and the whole of this module's part in it. It
+takes the attempt number as an argument and keeps none: there is still no
+counter, no loop and no bound in this file, by design (guardrail G-2), and
+nothing here decides whether a nudged grid is good — the orchestrator re-runs
+the real solver on every one of them (CON-005, guardrail G-4).
 
 Layering (ADR-0007): a capability module. It imports its own package's
 ``random_grid`` for the shared size rule and ``nonogram.errors``; never the
@@ -83,6 +90,8 @@ __all__ = [
     "binarize",
     "generate",
     "load_greyscale",
+    "nudge",
+    "nudge_cells",
     "square_crop_box",
     "to_grid",
 ]
@@ -301,3 +310,234 @@ def generate(
     size = random_grid.validate_size(size)
     greyscale = load_greyscale(source)
     return to_grid(binarize(greyscale, size))
+
+
+#: How far apart two cells flipped by the same nudge must be, as a Chebyshev
+#: distance. ``1`` means "not touching, diagonals included", and it exists
+#: because of how :func:`nudge_cells` ranks: the four cells of one switching
+#: 2x2 block all score identically, so an unspaced top-``n`` would spend a whole
+#: nudge budget inside a single block — and flipping *both* cells of a diagonal
+#: pair simply turns that block into the other diagonal, which is the same
+#: ambiguity again. Spacing makes each successive flip break a different local
+#: structure.
+_NUDGE_SPACING = 1
+
+
+def _switch_counts(rows: list[list[bool]]) -> dict[tuple[int, int], int]:
+    """How many 2x2 "switching" blocks each cell belongs to.
+
+    The heuristic's primary signal. A 2x2 block whose two diagonals each hold
+    one value and the other holds the other —
+
+    ::
+
+        # .        . #
+        . #   or   # .
+
+    — is the canonical seed of a non-unique nonogram: exchanging the two
+    diagonals moves no cell into or out of any run when the block sits in the
+    interior of otherwise-equal lines, so the clue set cannot tell the two
+    apart. Real ambiguity is usually a chain of such blocks rather than a lone
+    one, which is why this counts *participation* rather than flagging blocks:
+    a cell shared by several of them is where a chain is anchored, and is
+    therefore the flip most likely to break the whole chain at once.
+    """
+    counts: dict[tuple[int, int], int] = {}
+    for row in range(len(rows) - 1):
+        top, bottom = rows[row], rows[row + 1]
+        for column in range(len(top) - 1):
+            upper_left, upper_right = top[column], top[column + 1]
+            lower_left, lower_right = bottom[column], bottom[column + 1]
+            if (
+                upper_left != upper_right
+                and upper_left == lower_right
+                and upper_right == lower_left
+            ):
+                for cell in (
+                    (row, column),
+                    (row, column + 1),
+                    (row + 1, column),
+                    (row + 1, column + 1),
+                ):
+                    counts[cell] = counts.get(cell, 0) + 1
+    return counts
+
+
+def _boundary_counts(rows: list[list[bool]]) -> dict[tuple[int, int], int]:
+    """How many orthogonal neighbours disagree with each cell.
+
+    The heuristic's secondary signal — the card's "at a run boundary", counted.
+    A cell with no disagreeing neighbour is buried inside a solid block or a
+    wide expanse of paper, where a flip splits a run in two (or plants a stray
+    dot) and changes the picture more than it changes the puzzle. A cell with
+    three or four is an isolated dot or a single-cell notch: the flimsiest part
+    of the drawing, where a clue is most likely to be doing the least work.
+    """
+    height = len(rows)
+    width = len(rows[0]) if height else 0
+    counts: dict[tuple[int, int], int] = {}
+    for row in range(height):
+        for column in range(width):
+            value = rows[row][column]
+            different = sum(
+                1
+                for neighbour_row, neighbour_column in (
+                    (row - 1, column),
+                    (row + 1, column),
+                    (row, column - 1),
+                    (row, column + 1),
+                )
+                if 0 <= neighbour_row < height
+                and 0 <= neighbour_column < width
+                and rows[neighbour_row][neighbour_column] != value
+            )
+            if different:
+                counts[(row, column)] = different
+    return counts
+
+
+def nudge_cells(grid: list[list[bool]], count: int) -> tuple[tuple[int, int], ...]:
+    """The ``count`` cells of ``grid`` a nudge should flip, best first.
+
+    The ranking, split out of :func:`nudge` so the choice of cell can be
+    inspected (and tested) without diffing two grids. Every cell of the grid is
+    ranked, so a supply of candidates always exists — even for a blank or solid
+    conversion, where neither signal fires and the order falls back to
+    centre-outward.
+
+    The sort key, in order:
+
+    1. switching-block participation, descending (:func:`_switch_counts`);
+    2. disagreeing-neighbour count, descending (:func:`_boundary_counts`);
+    3. distance from the centre of the grid, ascending — a tie-break with a
+       reason: the middle of the picture carries the subject, so a flip there
+       is more likely to be inside the structure the clues are ambiguous about
+       than one in a corner, and the crop policy above has already thrown the
+       edges away once;
+    4. row then column, so the result is fully deterministic.
+
+    Selection is greedy over that ranking with a :data:`_NUDGE_SPACING`
+    exclusion around each cell already chosen. If spacing cannot supply
+    ``count`` cells (a grid too small to hold them), the shortfall is filled
+    from the rest of the ranking in order rather than returning fewer.
+
+    Args:
+        grid: The converted grid, in the ADR-0012 boundary representation.
+        count: How many cells to pick. ``0`` or less picks none.
+
+    Returns:
+        Up to ``count`` ``(row, column)`` pairs, best first, all distinct. The
+        first ``k`` of the answer for ``count = n`` are the answer for
+        ``count = k``, which is what makes the nudges of one run nest.
+    """
+    rows = [[bool(cell) for cell in row] for row in grid]
+    height = len(rows)
+    width = len(rows[0]) if height else 0
+    if count <= 0 or height == 0 or width == 0:
+        return ()
+
+    switch = _switch_counts(rows)
+    boundary = _boundary_counts(rows)
+
+    def rank(cell: tuple[int, int]) -> tuple[int, int, int, int, int]:
+        row, column = cell
+        # Doubled offsets keep the centre distance an exact integer for grids
+        # of either parity, so the ordering never depends on float rounding.
+        centre_distance = max(
+            abs(2 * row - (height - 1)), abs(2 * column - (width - 1))
+        )
+        return (
+            -switch.get(cell, 0),
+            -boundary.get(cell, 0),
+            centre_distance,
+            row,
+            column,
+        )
+
+    ranked = sorted(
+        ((row, column) for row in range(height) for column in range(width)), key=rank
+    )
+
+    chosen: list[tuple[int, int]] = []
+    for cell in ranked:
+        if len(chosen) == count:
+            break
+        if all(
+            max(abs(cell[0] - taken[0]), abs(cell[1] - taken[1])) > _NUDGE_SPACING
+            for taken in chosen
+        ):
+            chosen.append(cell)
+    if len(chosen) < count:
+        remaining = [cell for cell in ranked if cell not in set(chosen)]
+        chosen.extend(remaining[: count - len(chosen)])
+    return tuple(chosen)
+
+
+def nudge(grid: list[list[bool]], attempt_number: int) -> list[list[bool]]:
+    """POL-002's pixel nudge: ``grid`` with ``attempt_number`` cells flipped.
+
+    The mechanism half of FR-013 (the policy half is COMP-002's bounded loop).
+    The orchestrator hands in the grid the conversion produced and the 1-based
+    number of the nudge attempt it is on, and gets back a *new* grid — the
+    argument is never mutated, so the run's original conversion stays available
+    for the next attempt and for the failure message.
+
+    Cumulative, and cumulative *from the conversion* rather than from the
+    previous nudge: attempt ``n`` flips the best ``n`` cells of the original
+    grid (:func:`nudge_cells`), so after ``n`` attempts exactly ``n`` pixels of
+    the user's picture have been changed and each attempt is a strict extension
+    of the one before it. Nudging the previously nudged grid instead would make
+    each attempt's ranking depend on the last attempt's flip, which lets a flip
+    be undone by the next one and turns a five-attempt budget into a two-grid
+    oscillation. It also keeps POL-003 honest at the cap: "stops altering the
+    image" is observable as "the grid is the conversion plus at most five
+    pixels", not "the grid has drifted somewhere unknown".
+
+    The heuristic, and what else was considered
+    -------------------------------------------
+    Which cell to flip is a guess, and the card says so — this is the risk
+    CARD-016 exists to collapse. The guess made here is that a nonogram's
+    non-uniqueness lives in 2x2 switching blocks, so the ranking is
+    "participates in the most of them, then sits on the most run boundaries,
+    then nearest the middle" (:func:`nudge_cells` spells the key out). It is a
+    *structural* guess about the grid, not a reading of the solver: the solver
+    reports how many solutions a clue set has and which cells line logic
+    settled (``SolveSignals``), but not which cells the two solutions disagreed
+    on, and COMP-003 may not ask it anything anyway (ADR-0007) — a capability
+    module never calls a sibling. Flipping a cell the solver could not decide,
+    the card's other suggestion, is therefore the strictly better heuristic
+    that this codebase cannot express today; it would need the solver to
+    surface a disagreement mask and the orchestrator to pass it in, which is a
+    change to COMP-005's contract and out of this card's scope (guardrail G-1).
+
+    Everything here is deliberately in one swappable function: the loop above
+    calls :func:`nudge` and nothing else, so a better heuristic — a
+    disagreement mask, a density-preserving swap, a flip chosen to lengthen the
+    shortest clue — replaces the body of these two functions and leaves
+    COMP-002 untouched.
+
+    Args:
+        grid: The converted grid, in the ADR-0012 boundary representation.
+        attempt_number: Which nudge attempt this is, counted from ``1`` by
+            COMP-002's :class:`~nonogram.orchestrator.RetryCounter`. It is an
+            argument rather than module state precisely so that INV-003 has one
+            home (guardrail G-2): this module counts nothing.
+
+    Returns:
+        A fresh row-major ``list[list[bool]]`` of the same dimensions, with
+        ``attempt_number`` cells flipped.
+
+    Raises:
+        ValueError: ``attempt_number`` is not at least 1. A nudge is an attempt
+            that has already been counted, so a zeroth one is a wiring bug in
+            the caller rather than a domain outcome — the same reasoning
+            ``_source_arguments``' own ``ValueError`` follows.
+    """
+    if attempt_number < 1:
+        raise ValueError(
+            f"nudge attempt numbers start at 1, got {attempt_number!r}"
+        )
+    nudged = [[bool(cell) for cell in row] for row in grid]
+    for row, column in nudge_cells(grid, attempt_number):
+        nudged[row][column] = not nudged[row][column]
+    return nudged
