@@ -197,3 +197,17 @@ same AC-037/CARD-018 reason string as before this card, confirmed via
   One Minor (a rationale comment overstates the implemented condition —
   fix the comment, not the placement) deferred to the fix cycle alongside
   the two Important findings.
+- **[Fix 1]** All three fixed. F-001: new
+  `test_export_reports_singular_nudge_count`, reusing `test_nudge.py`'s
+  pinned `_ONE_SWITCH` scripted source via `_install_source`, asserts the
+  exact string `"1 cell was nudged to reach a unique solution"`. F-002:
+  `test_export_omits_nudge_count_when_zero` now drives `--mode image
+  --image wide.png --size 20 --seed 1` (the already-pinned zero-nudge
+  image conversion) instead of `--mode random`, genuinely instantiating
+  AC-041's own stated given. F-003 (Minor): the rationale comment reworded
+  to state precisely what's implemented — the print isn't gated on
+  `--export` being requested at all, only suppressed by an export
+  `OSError`; placement itself untouched, per the review's own ruling that
+  it was already correct. **[Build gate]** PASSED (independently re-run:
+  1156 passed, 1 xfailed, exit 0; scope confirmed clean — only `cli.py`
+  and `tests/test_nudge_reporting.py` touched).
