@@ -1,6 +1,6 @@
 # CARD-010: Difficulty tier selection and resample loop
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/010-difficulty-tier-resample
-**Worktree:** ../PythonProject4-card-010
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 7
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/difficulty.py, src/nonogram/cli.py, tests/test_resample.py, tests/test_difficulty_tiers.py
 **Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-08-28T12:00:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-29T00:20:00Z
+**Actual:** 0.5d
+**Merge commit:** 9b31b14
 **Blocked by:** —
 
 ## What to implement

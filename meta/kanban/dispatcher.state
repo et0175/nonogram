@@ -1,12 +1,6 @@
 wave: 7
 mode: interactive
-active:
-  - id: CARD-010
-    phase: review
-    review_cycle: 1
-    branch: card/010-difficulty-tier-resample
-    worktree: ../PythonProject4-card-010
-    started: 2026-08-28T12:00:00Z
+active: []
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-28T12:00:00Z
+last_updated: 2026-08-29T00:20:00Z
