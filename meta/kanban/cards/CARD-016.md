@@ -1,6 +1,6 @@
 # CARD-016: Bounded pixel-nudge recovery loop for image mode
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/016-pixel-nudge-recovery
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-016
 **Source:** meta/architecture/handoff.md#increment-3
 **Idea:** —
 **Wave:** 10
 **Depends on:** CARD-015
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/sourcing/image.py, tests/test_nudge.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-29T09:20:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
