@@ -1,6 +1,6 @@
 # CARD-014: Two-page PDF export with answer key
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/014-pdf-export
-**Worktree:** ../PythonProject4-card-014
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-2
 **Idea:** —
 **Wave:** 8
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/export/pdf.py, src/nonogram/export/__init__.py, src/nonogram/export/layout.py, src/nonogram/orchestrator.py, tests/test_export_pdf.py
 **Review score:** 9.2 (cycle 1/3)
 **Started:** 2026-08-29T00:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-29T06:00:00Z
+**Actual:** 0.7d
+**Merge commit:** 4a8f47c
 **Blocked by:** —
 
 ## What to implement
