@@ -547,20 +547,22 @@ def test_for_mode_rejects_an_unregistered_mode() -> None:
     """Not a domain error on purpose: argparse's ``choices`` rejects a mode the
     user typed (ADR-0010), so an unknown mode here is a pipeline wiring bug.
 
-    ``image`` is CARD-015's mode and is the unregistered one now that CARD-008
-    has landed ``library``.
+    The table is complete as of CARD-015 — random, library and image are the
+    three modes the model names — so the unregistered mode asked for here is a
+    made-up one rather than the next card's.
     """
     with pytest.raises(ValueError) as excinfo:
-        sourcing.for_mode("image")
+        sourcing.for_mode("webcam")
 
     message = str(excinfo.value)
-    assert "image" in message
+    assert "webcam" in message
     assert "random" in message
 
 
 def test_the_advertised_modes_match_the_dispatch_table() -> None:
     """``MODES`` is what a caller enumerates; it must not drift from the table
-    ``for_mode`` looks in as later cards register their sources."""
-    assert sourcing.MODES == ("random", "library")
+    ``for_mode`` looks in — CARD-008 added ``library`` to both rows, CARD-015
+    ``image``."""
+    assert sourcing.MODES == ("random", "library", "image")
     for mode in sourcing.MODES:
         assert callable(sourcing.for_mode(mode))

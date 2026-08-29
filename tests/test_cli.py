@@ -97,7 +97,12 @@ def test_export_flag_repeats_into_a_list() -> None:
     [
         pytest.param([], id="no-subcommand"),
         pytest.param(["solve"], id="unknown-subcommand"),
-        pytest.param(["generate", "--mode", "image"], id="mode-not-in-increment-1"),
+        # Was ``library`` until CARD-008 registered it and ``image`` until
+        # CARD-015 did. The case is about an *unregistered* ``--mode`` value
+        # being argparse's to refuse; with all three modes the model names now
+        # registered, the stand-in is a mode the tool deliberately does not
+        # have — the same move the ``--export`` case below already had to make.
+        pytest.param(["generate", "--mode", "webcam"], id="mode-not-registered"),
         # Was ``png`` until CARD-012 registered it and ``pdf`` until CARD-014
         # did. The case is about an *unregistered* ``--export`` value being
         # argparse's to refuse, whatever the registry happens to hold. With all
@@ -215,6 +220,10 @@ ERROR_EXIT_CODES = [
     (errors.SizeOutOfRange, cli.ExitCode.INVALID_INPUT),
     (errors.InvalidDensity, cli.ExitCode.INVALID_INPUT),
     (errors.UnknownLibraryImage, cli.ExitCode.INVALID_INPUT),
+    # CARD-015 (AC-008): the user's own file being unreadable is an *input*
+    # error, not the export failure the wide ``except OSError`` in ``main``
+    # would once have reported it as.
+    (errors.UnreadableImage, cli.ExitCode.INVALID_INPUT),
     (errors.InvalidPuzzleName, cli.ExitCode.INVALID_INPUT),
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),

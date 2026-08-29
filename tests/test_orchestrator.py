@@ -386,9 +386,16 @@ def test_the_requested_size_and_density_reach_the_grid_source(
 
 
 def test_an_unknown_mode_fails_before_any_candidate_is_sourced() -> None:
-    """A wiring bug must not be reported as 20 infeasible candidates."""
+    """A wiring bug must not be reported as 20 infeasible candidates.
+
+    ``image`` was the stand-in for an unregistered mode until CARD-015
+    registered it; the case is about a mode that is not in the dispatch table
+    at all, so it is now a made-up one. (A mode that *is* registered but has no
+    argument list is the sibling wiring bug, covered in
+    ``tests/test_sourcing_image.py``.)
+    """
     with pytest.raises(ValueError, match="unknown grid sourcing mode"):
-        generate(_request(mode="image"))
+        generate(_request(mode="webcam"))
 
 
 def test_a_run_writes_no_files(

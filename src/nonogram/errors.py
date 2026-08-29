@@ -40,6 +40,19 @@ class UnknownLibraryImage(NonogramError):
     """No built-in library image is registered under the requested key (FR-002)."""
 
 
+class UnreadableImage(NonogramError):
+    """The uploaded image cannot be read (FR-003).
+
+    Raised by ``nonogram.sourcing.image`` for every way a ``--image`` path can
+    fail to become a picture: missing, unreadable, not an image at all,
+    truncated, or the flag omitted in image mode (AC-008). It exists so that
+    Pillow's own exception types never surface to the user — and, just as
+    importantly, so that a failure to read the user's *input* is reported as an
+    input error rather than travelling out as a bare ``OSError`` that the
+    adapter would have to guess the origin of.
+    """
+
+
 class GenerationAbandoned(NonogramError):
     """A bounded generation loop hit its retry cap without a usable puzzle.
 

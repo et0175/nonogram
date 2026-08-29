@@ -34,6 +34,7 @@ from nonogram.errors import (
     SizeOutOfRange,
     SolverTimeout,
     UnknownLibraryImage,
+    UnreadableImage,
     UnsupportedDifficulty,
 )
 
@@ -67,6 +68,11 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     SizeOutOfRange: ExitCode.INVALID_INPUT,
     InvalidDensity: ExitCode.INVALID_INPUT,
     UnknownLibraryImage: ExitCode.INVALID_INPUT,
+    # The user's own file, unreadable: an *input* error like a bad size or an
+    # unknown library key, and pointedly not EXPORT_REJECTED — reading
+    # ``--image`` and writing ``--out`` are opposite ends of the run, and the
+    # difference is exactly what the user has to go and fix (AC-008).
+    UnreadableImage: ExitCode.INVALID_INPUT,
     InvalidPuzzleName: ExitCode.INVALID_INPUT,
     UnsupportedDifficulty: ExitCode.INVALID_INPUT,
     GenerationAbandoned: ExitCode.GENERATION_FAILED,
@@ -92,10 +98,11 @@ def exit_code_for(error: NonogramError) -> ExitCode:
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser.
 
-    Later cards extend *this* parser rather than adding a second one:
-    ``--image`` and the ``image`` mode (FR-003), and the remaining export
-    formats (FR-011, FR-012, FR-016). ``--mode library`` and ``--library-key``
-    (FR-002), ``--name`` (FR-015) and ``--difficulty`` (FR-008) landed that way.
+    Every card extends *this* parser rather than adding a second one:
+    ``--mode library`` and ``--library-key`` (FR-002), ``--name`` (FR-015),
+    ``--difficulty`` (FR-008), the export formats (FR-011, FR-012, FR-016) and
+    now ``--mode image`` with ``--image`` (FR-003) all landed that way. What is
+    still to come — CARD-017's nudge-count reporting — is output, not argv.
     """
     parser = argparse.ArgumentParser(
         prog=PROG,
@@ -114,7 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     generate.set_defaults(handler=_run_generate)
     generate.add_argument(
         "--mode",
-        choices=["random", "library"],
+        choices=["random", "library", "image"],
         default="random",
         help="How the solution grid is sourced (default: random).",
     )
@@ -124,6 +131,23 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Which built-in image to draw in --mode library. Which keys exist "
             "is a domain rule and is checked after parsing, not here."
+        ),
+    )
+    # ``type=Path`` and nothing else, deliberately (ADR-0010, guardrail G-5).
+    # Turning a string into a Path is syntax — the same conversion ``--out``
+    # gets — whereas "does this file exist and decode as a picture?" is a
+    # question about the world, answered by the sourcing module and reported as
+    # ``UnreadableImage`` -> exit code 3 (AC-008). An
+    # ``argparse.FileType``/existence check here would spend that criterion's
+    # message and exit code on a usage error instead.
+    generate.add_argument(
+        "--image",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Picture to convert in --mode image. Whether the file exists and "
+            "can be read is a domain rule and is checked after parsing, not "
+            "here."
         ),
     )
     generate.add_argument(
@@ -225,16 +249,33 @@ def _run_generate(args: argparse.Namespace) -> int:
     Reporting is the translation back out: the written paths, and the seed when
     the user did not choose one — ADR-0015 requires the auto-drawn seed be
     printed, since otherwise a reproducible run has nowhere to be read from
-    until the export file is opened. Both go to stdout; errors go to stderr in
-    :func:`main`.
+    until the export file is opened. Both go to stdout; a domain error goes to
+    stderr in :func:`main`, and the one failure this function reports itself is
+    the export ``OSError`` below.
 
-    The FR-014 nudge count joins them when image mode lands (CARD-015/016).
+    The FR-014 nudge count joins them with CARD-016/017's recovery loop.
+
+    The ``OSError`` clause below is CARD-007's, moved down here from
+    :func:`main` and narrowed to the one call it was always about (CARD-007
+    review follow-up). It was written when export was the only thing in the
+    process that touched the filesystem, which made "any ``OSError`` is a
+    failed export" true by accident of scope; ``--mode image`` reads a
+    user-supplied file, so wrapping the whole handler would report a missing
+    picture as "export rejected". The picture is now doubly guarded — the
+    sourcing module raises ``UnreadableImage`` for it, so no bare ``OSError``
+    from a read reaches an exception handler at all — but the premise that made
+    the wide clause safe is gone either way, and a clause is better scoped to
+    what it can actually explain than left to catch whatever a later card adds.
     """
     request = orchestrator.GenerationRequest(
         mode=args.mode,
         size=args.size,
         density=args.density,
         library_key=args.library_key,
+        # A Path, not an opened file: readability is the domain's question
+        # (AC-008), so a missing path travels inward and comes back as
+        # UnreadableImage -> exit code 3.
+        image=args.image,
         # Carried through exactly as typed, empty string included: FR-015's
         # name rule is domain validation (AC-045) and belongs inward of
         # argparse, not in a ``type=`` here (ADR-0010, guardrail G-5). It comes
@@ -252,29 +293,50 @@ def _run_generate(args: argparse.Namespace) -> int:
     puzzle = orchestrator.generate(request)
     if request.seed is None:
         print(f"seed: {puzzle.seed}")
-    for path in orchestrator.export_puzzle(puzzle):
+    try:
+        written = orchestrator.export_puzzle(puzzle)
+    except OSError as error:
+        # Not a NonogramError: ``export.write`` documents that ``--out``
+        # pointing at something unusable (an existing file in the way, an
+        # unwritable directory, ...) raises the stdlib's own OSError rather
+        # than a domain error. It still needs a clean report instead of a raw
+        # traceback, and here — unlike in ``main`` — the error demonstrably
+        # came from writing the export, so reporting it under the same exit
+        # code as ExportRejected says something true about it.
+        _report(error)
+        return ExitCode.EXPORT_REJECTED
+    for path in written:
         print(f"wrote {path}")
     return ExitCode.OK
 
 
+def _report(error: BaseException) -> None:
+    """Print one failure to stderr in the tool's single error format.
+
+    One function so the two places that report a failure — the domain-error
+    clause in :func:`main` and the export ``OSError`` clause in
+    :func:`_run_generate` — cannot drift into two different-looking messages.
+    """
+    print(f"{PROG}: error: {error}", file=sys.stderr)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Console-script entry point (``nonogram``). Returns a process exit code."""
+    """Console-script entry point (``nonogram``). Returns a process exit code.
+
+    Every failure the tool has a word for is a :class:`NonogramError` and is
+    reported here. The one exception a handler deals with itself is the
+    ``OSError`` an export write can raise — see :func:`_run_generate` — which
+    is caught around that call rather than around the whole handler, so this
+    function does not have to guess where in a run an ``OSError`` came from.
+    Anything else really is unexpected and keeps its traceback.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
         return args.handler(args)
     except NonogramError as error:
-        print(f"{PROG}: error: {error}", file=sys.stderr)
+        _report(error)
         return exit_code_for(error)
-    except OSError as error:
-        # Not a NonogramError: ``export.write`` documents that ``--out``
-        # pointing at something unusable (an existing file in the way, an
-        # unwritable directory, ...) raises the stdlib's own OSError rather
-        # than a domain error. It still needs a clean report instead of a
-        # raw traceback, and it can only happen during export, so it is
-        # reported under the same exit code as ExportRejected.
-        print(f"{PROG}: error: {error}", file=sys.stderr)
-        return ExitCode.EXPORT_REJECTED
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -49,6 +49,25 @@ is exactly the worst case ADR-0002's bound and ADR-0001's time budget exist to
 prevent; the two bounds are meant to "operate together but independently"
 (ADR-0002, Neutral).
 
+A source that cannot be re-drawn (image mode, POL-002)
+------------------------------------------------------
+POL-001's whole premise is that a rejected candidate can be replaced by a
+*different* one. That holds for the random source (a fresh draw) and for the
+library source (the same template at a different boundary tie-break); it does
+not hold for an uploaded image, whose conversion at a given size is fully
+determined. Asking ``sourcing.image`` for another grid returns the grid it just
+returned, so running image mode through the regenerate loop would spend a
+twentieth of the time budget re-confirming one verdict and then report an
+"abandoned after 20 attempts" that never had 20 attempts in it.
+
+So image mode does not enter either bounded loop: :func:`generate` converts
+once, and a conversion that is not uniquely solvable — or that misses the
+requested tier — ends the run immediately with a message naming that cause.
+Both counters stay at zero, which is the observable form of "this mode is not
+in POL-001". POL-002's bounded pixel nudge (FR-013, CARD-016) is the recovery
+path for this branch, and it lands here as a third :class:`RetryCounter` next
+to the two below — the one place INV-003 counts anything.
+
 Naming (FR-015, ADR-0018)
 -------------------------
 Every puzzle carries a :attr:`Puzzle.name`, resolved *once* by :func:`generate`
@@ -168,6 +187,12 @@ class GenerationRequest:
     #: (AC-006, ADR-0010), checked by the sourcing module, not here and not by
     #: argparse. Meaningless in the other modes, where it stays ``None``.
     library_key: str | None = None
+    #: ``--image`` (FR-003, CARD-015): the picture ``image`` mode converts.
+    #: Unvalidated like the rest — whether the path exists and decodes is a
+    #: domain concern, checked by the sourcing module and reported as
+    #: ``UnreadableImage``, not by an argparse ``type=`` (AC-008, ADR-0010,
+    #: guardrail G-5). Meaningless in the other modes, where it stays ``None``.
+    image: Path | None = None
     #: ``--name`` (FR-015): the user's name for the puzzle, overriding the
     #: auto-generated one. Unvalidated like the rest — ``--name ""`` parses
     #: fine and is rejected inward, by :meth:`NameContext.name_for`, before any
@@ -603,23 +628,39 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
 
     ``sourcing.for_mode`` hands back a callable without collapsing the modes
     behind one signature, because they do not share a parameter list — random
-    takes size and density, library takes a key and a size, CARD-015's image
-    mode will take a path. Assembling that list is therefore the composing
-    layer's job, and this is the one place it happens (ADR-0007: the
-    orchestrator composes, the capability modules do not know about each
-    other).
+    takes size and density, library takes a key and a size, image takes a path
+    and a size. Assembling that list is therefore the composing layer's job,
+    and this is the one place it happens (ADR-0007: the orchestrator composes,
+    the capability modules do not know about each other).
 
     The run's ``random.Random`` is *not* included: every source takes it last
     and :func:`generate` appends it at the call site, so a mode cannot
     accidentally be wired up without it (ADR-0015).
 
-    An unknown mode does not reach here — ``sourcing.for_mode`` has already
-    raised — so the fallback is the random shape rather than a second error
-    path saying the same thing.
+    Every registered mode gets its own branch, and the ``else`` raises
+    (CARD-008 review follow-up). Until CARD-015 the random shape was an
+    implicit fallback, on the reasoning that ``sourcing.for_mode`` has already
+    rejected an unknown mode — true only of a mode that is not *registered* at
+    all. The moment ``image`` was registered, that fallback would have called
+    ``image.generate(size, density, rng)`` and bound a file path to an integer,
+    turning a one-line wiring omission into a confusing failure several frames
+    away. A mode registered in the dispatch table but not here is now a loud,
+    local ``ValueError`` instead.
+
+    Raises:
+        ValueError: ``request.mode`` has a registered source but no argument
+            list here. A wiring bug inside the pipeline, deliberately not a
+            ``nonogram.errors`` type — the same reasoning ``sourcing.for_mode``
+            gives for its own ``ValueError``.
     """
-    if request.mode == sourcing.LIBRARY:
+    mode = request.mode
+    if mode == sourcing.RANDOM:
+        return (request.size, request.density)
+    if mode == sourcing.LIBRARY:
         return (request.library_key, request.size)
-    return (request.size, request.density)
+    if mode == sourcing.IMAGE:
+        return (request.image, request.size)
+    raise ValueError(f"no source argument list for mode {mode!r}")
 
 
 #: POL-001's abandonment wording when no tier was requested: what 20 discarded
@@ -663,6 +704,51 @@ def _uniqueness_reason(tier: difficulty.Tier | None) -> str:
         f"share one {MAX_RETRY_ATTEMPTS}-attempt budget; try another "
         "--difficulty, a different --size/--density combination, or another "
         "--seed"
+    )
+
+
+def _image_uniqueness_reason(solution_count: int | None) -> str:
+    """POL-005's wording for an image conversion that is not a puzzle.
+
+    Image mode's counterpart of :func:`_uniqueness_reason`, and it has to be a
+    different sentence rather than a reused one: nothing was *retried* here, so
+    a message about 20 discarded candidates would describe a loop that never
+    ran (guardrail G-4). It says outright that the image was not re-drawn,
+    because a user who has seen random mode silently recover would otherwise
+    read a single failure as the tool giving up early.
+
+    The levers it names are the ones that actually change the answer for a
+    fixed picture: the grid size (which changes what the dither resolves the
+    picture into) and the picture itself. ``--seed`` is deliberately absent —
+    the conversion does not draw from the RNG, so re-seeding an image run
+    reproduces exactly the same grid.
+    """
+    detail = (
+        "its clues have more than one solution"
+        if solution_count is not None and solution_count >= solver.MANY
+        else "its clues have no solution at all"
+    )
+    return (
+        f"the converted image is not a uniquely-solvable puzzle ({detail}); an "
+        "uploaded image is fixed and is never re-drawn automatically, so try a "
+        "different --size, or an image with larger, more clearly separated "
+        "areas of light and dark"
+    )
+
+
+def _image_tier_reason(tier: difficulty.Tier | None) -> str:
+    """POL-005's wording for an image whose puzzle missed the requested tier.
+
+    The same shape of statement as :func:`_image_uniqueness_reason` for the
+    same reason: POL-004's resample cannot help a source that returns the
+    identical grid every time, so the run ends here and says so.
+    """
+    band = _band_text(tier) if tier is not None else "requested band"
+    return (
+        f"the converted image scored outside the {band} of the 0-100 "
+        "difficulty scale, and an uploaded image is fixed — a resample would "
+        "convert the same picture again; try another --difficulty, a different "
+        "--size, or another image"
     )
 
 
@@ -750,10 +836,23 @@ def generate(
         The :class:`Puzzle` aggregate, with ``ready_for_export`` set — the one
         object the whole run mutated, retries included.
 
+    Image mode (FR-003) takes neither loop
+    --------------------------------------
+    An uploaded image cannot be re-drawn, so ``--mode image`` converts once and
+    fails cleanly on a candidate either check rejects, leaving both counters at
+    zero — see "A source that cannot be re-drawn" in the module docstring, and
+    ``sourcing.image`` for why the conversion is deterministic. The bounded
+    pixel-nudge recovery for that branch is CARD-016's (guardrail G-3).
+
     Raises:
-        GenerationAbandoned: the run exhausted a retry bound (POL-005) — no
-            candidate was uniquely solvable (AC-019), or none scored inside the
-            requested tier (AC-027). The message says which.
+        GenerationAbandoned: the run gave up (POL-005) — the retry bound was
+            exhausted with no candidate uniquely solvable (AC-019) or none
+            scored inside the requested tier (AC-027), or, in image mode, the
+            single conversion failed one of those two checks. The message says
+            which, and in image mode says that nothing was retried.
+        UnreadableImage: ``--mode image`` was given no readable picture to
+            convert (AC-008). Raised by the sourcing module on the one attempt
+            and, like the other invalid-request errors, not retried.
         InvalidPuzzleName: ``--name`` was given as an empty name (AC-045).
             Raised before anything is sourced or constructed, so the run leaves
             no puzzle behind.
@@ -773,8 +872,9 @@ def generate(
             ``GenerationAbandoned`` — and because ``confirm_uniqueness`` is
             never reached on this path, the puzzle is left unexportable
             (INV-002, guardrail G-4).
-        ValueError: ``request.mode`` has no registered source. Raised before
-            the loop starts, so a wiring bug cannot be mistaken for 20
+        ValueError: ``request.mode`` has no registered source, or has one but
+            no argument list in :func:`_source_arguments`. Both are raised
+            before the loop starts, so a wiring bug cannot be mistaken for 20
             infeasible candidates.
     """
     # FR-015, first and once: an invalid name must abort before a puzzle
@@ -857,6 +957,21 @@ def generate(
             reason=_uniqueness_reason(requested_tier),
         )
         return candidate if candidate.difficulty_in_requested_tier else None
+
+    if request.mode == sourcing.IMAGE:
+        # POL-002, not POL-001/POL-004 (guardrails G-3, G-4). See "A source
+        # that cannot be re-drawn" in the module docstring: the conversion runs
+        # exactly once, both counters stay at zero, and a candidate that fails
+        # either check ends the run with a message that says why rather than
+        # being replaced by an identical one.
+        candidate = attempt_candidate()
+        if candidate is None:
+            raise GenerationAbandoned(
+                _image_uniqueness_reason(puzzle.solution_count)
+            )
+        if not candidate.difficulty_in_requested_tier:
+            raise GenerationAbandoned(_image_tier_reason(requested_tier))
+        return candidate
 
     return run_bounded(
         puzzle.resample,
