@@ -1,6 +1,6 @@
 # CARD-017: Nudge-count reporting in CLI output
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/017-nudge-count-reporting
-**Worktree:** ../PythonProject4-card-017
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-3
 **Idea:** —
 **Wave:** 11
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_nudge_reporting.py
 **Review score:** 9.6 (cycle 2/3)
 **Started:** 2026-08-29T10:40:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-29T11:10:00Z
+**Actual:** 0.1d
+**Merge commit:** 65b5fb2
 **Blocked by:** —
 
 ## What to implement

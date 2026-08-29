@@ -65,8 +65,14 @@
       instead of CARD-016's "retry with a different image/size" advice. Low
       probability (the expensive full-search case is usually the one that
       recovers), but worth knowing when reporting exits for image mode.            @tech-debt
-- [ ] Until CARD-017 ships nudge-count reporting, a successful nudged image run
-      silently alters the user's picture with no visible signal (up to 5 pixels
-      changed from what they uploaded) — correct per CARD-016's own guardrail
-      G-5 (out of scope for CARD-016), but a real user-facing gap while the two
-      cards are half-landed. Keep CARD-017 prioritized close behind.               @tech-debt
+- [x] ~~Until CARD-017 ships nudge-count reporting, nudged image runs are
+      silent~~ — resolved 2026-08-29, CARD-017 (Wave 11) shipped the count line.
+                                                                                     @tech-debt
+
+## Surfaced during delivery (Wave 11, 2026-08-29)
+- [ ] `tests/test_nudge_reporting.py`'s AC-040 test (`test_export_reports_nudge_count`)
+      asserts only the substring `"2 cells were nudged"`, leaving the line's tail
+      ("to reach a unique solution" — the clause carrying the *why*, which ADR-0004's
+      disclosure is actually about) unpinned. The fix-cycle's new singular-boundary
+      test already pins the full sentence; make the plural one match for consistency.
+                                                                                     @tech-debt
