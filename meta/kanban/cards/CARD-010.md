@@ -15,7 +15,7 @@
 **Wave:** 7
 **Depends on:** CARD-009, CARD-011
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/difficulty.py, src/nonogram/cli.py, tests/test_resample.py, tests/test_difficulty_tiers.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-08-28T12:00:00Z
 **Closed:** —
 **Actual:** —
@@ -271,3 +271,25 @@ cannot be papering over a collaborator that does not behave as assumed.
 - **[Build gate]** PASSED (full, independently re-run by orchestrator in a
   fresh venv: 1003 passed, 1 xfailed, exit 0; AC-037 xfail unchanged in
   status and reason).
+- **[Review 1/3] 9.5/10 — PASS.** Report:
+  `meta/review/20260829T000000Z-CARD-010-cycle1.yml`. All 6 ACs and all 6
+  guardrails verified directly against code (not just tests), including
+  hand-tracing the resample/regenerate loop composition: the regenerate
+  counter is never reset between resample rounds, so the whole request
+  shares one 20-grid sourcing budget (`MAX_RESAMPLE_ATTEMPTS` is therefore
+  structurally non-binding except in the exact lockstep case — noted as
+  Minor F-004, not a defect, since it's the ADR-0002-conformant reading).
+  G-3 (no steering of sourcing toward a tier) and G-6 (no AC-037 benchmark
+  regression — file untouched, scoring runs post-uniqueness-check only,
+  work is byte-identical to before with no `--difficulty`) both
+  independently reproduced. Byte-identical no-tier abandonment message
+  claim verified directly against the diff. Zero Critical/Important
+  findings; four Minor polish items (docstring over-claim, unused fixture,
+  a comment clarification, one docstring wording nit) — none blocking.
+  **Out-of-scope observation surfaced, not this card's to fix:**
+  `--difficulty hard` is unreachable at every size/density independently
+  measured by the reviewer (ceiling ~43 vs. ADR-0005's floor of 66) —
+  exactly the risk ADR-0005's own Consequences section predicted and
+  deferred pending real distributions; these are the first real ones.
+  Needs a backlog card for an ADR-0005/ADR-0013 weights/cutoffs retune,
+  not a code fix here. Merging.

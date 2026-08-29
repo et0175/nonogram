@@ -1,0 +1,170 @@
+version: 1
+generated_at: "2026-08-29T00:00:00Z"
+target: "CARD-010 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-010, branch card/010-difficulty-tier-resample, working tree vs main"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/orchestrator.py
+    - src/nonogram/difficulty.py
+    - src/nonogram/cli.py
+    - src/nonogram/errors.py
+    - tests/test_resample.py
+    - tests/test_difficulty_tiers.py
+    - tests/test_cli.py (import guard + exit-code table)
+    - tests/bench_generate.py (read, confirmed untouched)
+    - meta/architecture/decisions/adr/0002-retry-and-nudge-bounds.md
+    - meta/architecture/decisions/adr/0005-difficulty-tier-cutoffs.md
+    - meta/architecture/domain/aggregates.yml
+    - meta/architecture/trace.yml
+    - meta/architecture/requirements.yml (CON-004, CON-005, FR-011)
+    - meta/kanban/cards/CARD-010.md
+  not_reached:
+    - src/nonogram/solver/** (untouched by the diff; read only for the signals contract)
+    - tests/test_orchestrator.py (untouched; grepped for message/counter assertions, not read whole)
+    - tests/test_difficulty.py (untouched)
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 1571, removed: 63 }
+  max_fan_in: { symbol: "orchestrator.GenerationRequest", callers: 42 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]
+  cochange_missing: ["tests/test_orchestrator.py"]
+  unmeasured:
+    cochange_missing: "no_eligible_fact — repo is 2 days old (initial commit 2026-08-27, 101 commits); the 12-month window contains the entire history, so 'test_orchestrator.py co-changed 3/7 times with orchestrator.py' is a small-sample signal, and it is satisfied here by two new dedicated test modules rather than an edit to that file"
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — solver/** untouched (git diff --stat lists only cli.py, difficulty.py, errors.py, orchestrator.py, test_cli.py + 2 new test files); the orchestrator's sole uniqueness comparison is still puzzle.confirm_uniqueness(verdict.solution_count) at orchestrator.py:834, restructured from `if ...: return puzzle` to `if not ...: return None` with identical semantics; tests/property/test_solver_uniqueness.py present and untouched, green in the verified 1003-passed run"
+    - "INV-001 ✓ holds — Puzzle.record_candidate (orchestrator.py:516) is still the only writer of grid+clues and still writes them together; the diff adds only `self.difficulty_score = None` to it. tests/test_clues.py untouched and green"
+    - "INV-002 ✓ holds — ready_for_export is still written only by confirm_uniqueness and reset by record_candidate; the tier check is a separate predicate (difficulty_in_requested_tier) that never writes it. A tier-rejected candidate is never returned from generate(). tests/test_export_json.py / test_export_csv.py untouched and green"
+    - "INV-003 ✓ holds — both counters are RetryCounter instances with bound MAX_RETRY_ATTEMPTS=20, advanced only inside run_bounded's `while not counter.exhausted` guard (orchestrator.py:388); record_attempt() raises RuntimeError rather than overshooting. Live checks: test_resample.py::test_stops_at_max_retry_bound, ::test_stops_at_max_retry_bound_without_exceeding_any_counter, and the untouched TestRegenerate_StopsAtMaxRetryBound / TestRetryLoop_BoundedIterations in tests/test_orchestrator.py. Note: the rule's fourth named check, TestNudge_ReportsFailureAtCap, does not exist yet — it belongs to CARD-016's unbuilt pixel-nudge loop, not to this diff"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_difficulty_tiers.py
+    line: 207
+    title: "Test docstring promises two assertions, body makes one"
+    description: |
+      `test_an_unknown_tier_is_a_domain_error_and_not_an_argparse_usage_error`
+      says "Two halves of one rule. The parser must *accept* the string ... and
+      the tool must then refuse it with its own message on stderr and
+      INVALID_INPUT", but the body asserts only `args.difficulty == "extreme"`.
+      The second half is genuinely covered — by the next test,
+      `test_an_unknown_tier_reaches_the_user_as_exit_code_three` — so there is
+      no coverage gap, only a name/docstring that over-claims what this test
+      would catch if it regressed.
+    suggestion: |
+      Either narrow the docstring/name to the G-4 half it actually checks, or
+      fold the exit-code assertion into this test.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_resample.py
+    line: 384
+    title: "Unused monkeypatch fixture"
+    description: |
+      `test_a_replaced_candidate_carries_no_score_until_it_is_rescored` takes a
+      `monkeypatch: pytest.MonkeyPatch` parameter it never uses — the test
+      drives the aggregate directly. Harmless, but it reads as if the test
+      patches a collaborator when it does not.
+    suggestion: "Drop the parameter."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_resample.py
+    line: 144
+    title: "_install_scorer docstring says 'for the orchestrator only'; the patch is global"
+    description: |
+      `_install_scorer` does `monkeypatch.setattr(orchestrator.difficulty,
+      "score_difficulty", scorer)`. `orchestrator.difficulty` IS the shared
+      `nonogram.difficulty` module object, so the substitution is process-wide
+      for the duration of the test, not scoped to the orchestrator. It is
+      correctly undone at teardown and the suite is not run under xdist, so
+      nothing is broken today; the docstring is simply describing an isolation
+      the mechanism does not provide.
+    suggestion: |
+      Reword the docstring (the substitution is of the collaborator function
+      globally, restored at teardown), or note the constraint if the suite ever
+      gains worker parallelism.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/orchestrator.py
+    line: 466
+    title: "MAX_RESAMPLE_ATTEMPTS is structurally non-binding whenever regeneration occurs"
+    description: |
+      Because `attempt_candidate_in_tier` runs the inner regenerate loop, every
+      resample round consumes at least one regenerate attempt and neither
+      counter is reset. Therefore `resample.attempts <= regenerate.attempts` at
+      all times, and the resample bound can only ever be the one that trips in
+      the exact lockstep case (every round found a unique candidate on its
+      first draw). In every run where any regeneration happens, the run ends on
+      the regenerate bound instead.
+
+      This is not a defect — it is exactly what ADR-0002 asks for ("the
+      regenerate/resample loop ... is capped at 20 attempts", justified by
+      bounding total solver invocations), and the tier-aware
+      `_uniqueness_reason` exists precisely to report the right cause on that
+      path. But the two-constant surface (`MAX_REGENERATE_ATTEMPTS` /
+      `MAX_RESAMPLE_ATTEMPTS`) reads as though a run gets 20 of each, and a
+      future reader retuning one of them may expect an independence the loop
+      shape does not have.
+    suggestion: |
+      One sentence in the `MAX_RETRY_ATTEMPTS` comment stating the derived
+      property outright — "resample.attempts can never exceed
+      regenerate.attempts, so the effective budget for a request is 20 sourced
+      grids in total, not 20 per loop" — would close the gap between the two
+      names and the one budget.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
