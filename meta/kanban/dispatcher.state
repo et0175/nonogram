@@ -2,7 +2,8 @@ wave: 10
 mode: interactive
 active:
   - id: CARD-016
-    phase: implementation
+    phase: review
+    review_cycle: 1
     branch: card/016-pixel-nudge-recovery
     worktree: ../PythonProject4-card-016
     started: 2026-08-29T09:20:00Z
