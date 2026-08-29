@@ -1,0 +1,194 @@
+version: 1
+generated_at: "2026-08-29T10:45:00Z"
+target: "CARD-017 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-017, branch card/017-nudge-count-reporting, working tree vs main"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/cli.py
+    - tests/test_nudge_reporting.py
+    - src/nonogram/orchestrator.py
+    - src/nonogram/sourcing/image.py
+    - tests/test_nudge.py
+    - tests/test_cli.py
+    - meta/kanban/cards/CARD-017.md
+  not_reached:
+    - src/nonogram/solver/
+    - src/nonogram/export/
+    - meta/architecture/decisions/
+  confidence: high
+metrics:
+  diff: { files: 2, added: 22, removed: 1 }
+  max_fan_in: { symbol: "cli._run_generate", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: ["tests/test_cli.py"]
+  unmeasured:
+    hotspots: "no_eligible_fact — repository is 2 days old; the 12-month churn window contains the whole project history (cli.py: 7 commits, 1 fix-tagged), so no meaningful hotspot signal exists"
+
+system_contract:
+  rules_checked: 4
+  holds: 1
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "INV-003 ✓ holds — the diff only READS puzzle.nudge.attempts (cli.py:322). record_attempt (orchestrator.py:391) is the sole mutator and is untouched; no RetryCounter is constructed or written anywhere in cli.py (grep for 'nudge'/'RetryCounter' in the diff returns the single read). Bound tests untouched and green: tests/test_nudge.py::test_nudge_reports_failure_at_cap_without_exceeding_the_bound, tests/test_resample.py::test_stops_at_max_retry_bound, tests/test_orchestrator.py::test_regenerate_stops_at_max_retry_bound."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff adds four lines of stdout formatting in the CLI adapter, strictly downstream of every solver.solve call; it neither invokes the solver nor influences a uniqueness verdict. Check ref tests/property/test_solver_uniqueness.py::test_never_false_positive_uniqueness exists and is untouched."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no grid or clue is constructed, read or compared anywhere in the diff (grep for 'grid' in cli.py returns only two pre-existing help strings). Check ref tests/test_clues.py::test_matches_grid_exactly exists and is untouched."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the new print sits after orchestrator.export_puzzle returns, downstream of require_ready_for_export (orchestrator.py:1147); it cannot influence the gate. Check refs tests/test_export_json.py::test_export_rejects_an_unverified_puzzle and the PDF equivalent exist and are untouched."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_nudge_reporting.py
+    line: 90
+    title: "Boundary value 1 untested: the singular-wording branch and the `nudged > 0` threshold's first true value have no coverage"
+    description: |
+      The diff introduces one threshold (`if nudged > 0`, cli.py:323) and one
+      derived branch pair (`cell_word`/`verb`, cli.py:324-325) whose singular
+      arms fire only at `nudged == 1`. No test in the repository drives the CLI
+      with `puzzle.nudge.attempts == 1`: the two new tests pin 2 and 0, and no
+      other test calls `cli.main` on a nudging run. Consequences:
+
+      - Two of the four new production lines ("cell", "was") are dead as far as
+        the suite is concerned — the singular sentence is never produced or
+        asserted anywhere.
+      - The mutant `if nudged > 1:` survives the entire suite. That mutant is
+        not academic: the nudge cap is 5, so a single-nudge run is the most
+        common non-zero case (tests/test_nudge.py:214-230 pins exactly such a
+        run), and under the mutant the tool would alter one pixel of the user's
+        picture and say nothing — precisely the outcome ADR-0004/FR-014 exists
+        to prevent.
+
+      The implementer's own worktree notes acknowledge the singular case is
+      reachable ("the nudge cap is 5 so the count is always in 1..5 when
+      nonzero") but no test was added for it.
+    suggestion: |
+      Add a third test to tests/test_nudge_reporting.py driving `cli.main`
+      against a single-nudge run and asserting the exact singular line
+      `"1 cell was nudged to reach a unique solution"`. The repo already has a
+      pinned single-nudge scenario to reuse: `_ONE_SWITCH` + `_install_source`
+      from tests/test_nudge.py (test_nudge_attempts_bounded_recovery_repairs_an_
+      ambiguous_conversion, which pins `puzzle.nudge.attempts == 1`), so the
+      monkeypatched scripted source can be lifted directly rather than hunting
+      for a new one-nudge image fixture.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: feature
+    type: gap
+    file: tests/test_nudge_reporting.py
+    line: 74
+    title: "AC-041's test substitutes a random-mode run for the AC's stated image-conversion given"
+    description: |
+      AC-041 reads: "given an exported puzzle whose **image conversion** reached
+      uniqueness with zero nudges, when the puzzle is exported, then no
+      nudge-count line is printed."
+      `test_export_omits_nudge_count_when_zero` instead runs `--mode random`
+      (tests/test_nudge_reporting.py:73-74) — a mode that structurally cannot
+      enter the nudge branch at all (orchestrator.py:1046 gates it on
+      `request.mode == sourcing.IMAGE`). The test therefore verifies the
+      `RetryCounter` default, not the AC's scenario.
+
+      This is not merely pedantic. A concrete regression it cannot catch: if a
+      future change made the image branch record an initial attempt (counting
+      the conversion itself as attempt 1), every image-mode user would see a
+      spurious "1 cell was nudged" line while this test stayed green, because
+      random mode never touches that branch.
+
+      A stronger fixture already exists and is pinned: `wide.png` at size 20,
+      seed 1 converts uniquely on the first try with `nudge.attempts == 0` and
+      `ready_for_export is True` (tests/test_nudge.py:573-580,
+      test_a_unique_conversion_is_never_nudged) — whose own docstring says it
+      exists so "CARD-017 can report '0 nudges' as a fact rather than as a
+      default". Using it costs one changed argument list.
+    suggestion: |
+      Point the AC-041 test at `--mode image --image wide.png --size 20 --seed 1`
+      (the pinned zero-nudge conversion), keeping the `"nudged" not in out`
+      assertion as-is. Optionally keep the random-mode case as a second,
+      non-AC test asserting other modes never print the line.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/cli.py
+    line: 311
+    title: "The \"at export time\" rationale overstates the implemented condition: the line also prints when nothing was exported"
+    description: |
+      The new comment (cli.py:311-318) and the docstring (cli.py:256-260) frame
+      the placement as an export-time report. The implemented condition is
+      weaker: `--export` is optional (cli.py:213-223), and with no `--export`
+      flag `orchestrator.export_puzzle` returns `()` without raising or even
+      consulting the INV-002 gate (orchestrator.py:1146-1148). Such a run prints
+      no "wrote" lines but still prints the nudge line. The only case where the
+      current placement differs from printing right after `generate()` is the
+      export `OSError` branch.
+
+      No AC is violated (AC-040 requires the line on export; nothing forbids it
+      otherwise) and the behaviour is arguably the right one — the picture was
+      altered whether or not a file was asked for. The finding is that the
+      recorded rationale claims a condition the code does not implement, which
+      will mislead the next reader of that comment.
+    suggestion: |
+      Reword the comment to state what the code does: printed after a
+      successful (or not-attempted) export, i.e. suppressed only when export
+      failed — and say why that suppression is wanted (nonzero exit, no
+      artifact produced, so a "2 cells were nudged" line would describe a file
+      that does not exist).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_nudge_reporting.py
+    line: 63
+    title: "AC-040 asserts a substring, leaving the line's tail unpinned"
+    description: |
+      `assert "2 cells were nudged" in out` pins the count and the plural
+      wording but not the rest of the sentence ("to reach a unique solution").
+      A change that truncated or reworded the tail — the half that explains
+      *why* the cells were altered, which is the ADR-0004 disclosure's whole
+      point — passes.
+    suggestion: |
+      Assert the full line: `"2 cells were nudged to reach a unique solution" in out`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

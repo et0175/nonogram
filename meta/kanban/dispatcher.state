@@ -2,7 +2,7 @@ wave: 11
 mode: interactive
 active:
   - id: CARD-017
-    phase: review
+    phase: fix
     review_cycle: 1
     branch: card/017-nudge-count-reporting
     worktree: ../PythonProject4-card-017

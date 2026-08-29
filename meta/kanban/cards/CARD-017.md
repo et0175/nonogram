@@ -15,7 +15,7 @@
 **Wave:** 11
 **Depends on:** CARD-016
 **Touches:** src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_nudge_reporting.py
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-08-29T10:40:00Z
 **Closed:** —
 **Actual:** —
@@ -171,3 +171,29 @@ same AC-037/CARD-018 reason string as before this card, confirmed via
 - **[Build gate]** PASSED (full, independently re-run by orchestrator using
   the implementer's own worktree venv: 1155 passed, 1 xfailed, exit 0;
   AC-037 xfail unchanged in status and reason).
+- **[Review 1/3] 8.5/10 — FAIL (severity gate).** Report:
+  `meta/review/20260829T104500Z-CARD-017-cycle1.yml`. Production code
+  ruled correct — including an explicit ruling on the placement decision
+  (printing after the export loop rather than right after `generate()`):
+  the reviewer found the implementer's own rationale understated (the line
+  actually still prints on a no-`--export` run; the *only* case it
+  suppresses is an export `OSError`), and ruled the placement is not just
+  defensible but the *better* choice — no artifact reached disk on that
+  path, so there's nothing to disclose, and the count is deterministic and
+  recoverable via re-run regardless. Two Important findings block merge
+  regardless of score, both test-only:
+  - F-001: the singular/boundary case (exactly 1 nudge) is completely
+    untested — two of the four new production lines (`"cell"`, `"was"`)
+    never execute in the suite, and the mutant `if nudged > 1:` survives.
+    Fix: add a test reusing `test_nudge.py`'s existing single-nudge
+    scripted source.
+  - F-002: AC-041's test substitutes a random-mode run for the AC's stated
+    "image conversion reached uniqueness with zero nudges" scenario —
+    structurally can't reach the nudge branch, so it verifies the counter
+    default rather than the AC's own given. A stronger pinned zero-nudge
+    *image* fixture already exists (`wide.png`@20/seed 1) whose own
+    docstring says it exists for exactly this card. Fix: point the test at
+    it instead.
+  One Minor (a rationale comment overstates the implemented condition —
+  fix the comment, not the placement) deferred to the fix cycle alongside
+  the two Important findings.
