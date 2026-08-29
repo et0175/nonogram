@@ -38,3 +38,21 @@
       pixels) — invisible at print size, no AC/NFR currently governs it, but worth
       checking `quality=95` or an alternate save path if crisp reproduction ever
       matters more than file size.                                                 @tech-debt
+
+## Surfaced during delivery (Wave 9, 2026-08-29)
+- [ ] **Decision needed:** EXIF orientation is ignored when converting an uploaded photo —
+      a phone photo carrying rotation metadata converts cropped along the wrong (stored,
+      not displayed) axis. The grid is still correctly sized (no AC/guardrail violated),
+      but "the user's uploaded photo" is this feature's headline input, and the original
+      handoff called image conversion "the last untested technical risk". One-line fix
+      available if wanted (`ImageOps.exif_transpose` before flattening, no-op on files
+      with no orientation tag) — flagged as a decision rather than fixed unilaterally
+      since it wasn't in CARD-015's AC/guardrail contract.                          @tech-debt
+- [ ] Export metadata (JSON/CSV) doesn't record the `--image` path or `--library-key`
+      the way it records mode/size/density/seed — an image- or library-sourced export
+      isn't self-describing enough to reproduce the run from the file alone. Pre-existing
+      since CARD-008 (library mode), widened by one mode in CARD-015.               @tech-debt
+- [ ] `meta/kanban/cards/CARD-015.md`'s System contract cites
+      `TestNudge_ReportsFailureAtCap` as an INV-003 check; it doesn't exist yet — it's a
+      forward reference to CARD-016's nudge counter. Confirm it lands when CARD-016 ships
+      rather than staying a dead reference.                                        @tech-debt

@@ -1,6 +1,6 @@
 # CARD-015: Uploaded-image conversion via resize and Floyd-Steinberg dithering
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/015-image-conversion
-**Worktree:** ../PythonProject4-card-015
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-3
 **Idea:** —
 **Wave:** 9
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/sourcing/image.py, src/nonogram/sourcing/__init__.py, src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_sourcing_image.py, tests/fixtures/
 **Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-08-29T06:10:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-29T09:00:00Z
+**Actual:** 0.6d
+**Merge commit:** 563891e
 **Blocked by:** —
 
 ## What to implement

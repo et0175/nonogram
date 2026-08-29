@@ -1,12 +1,6 @@
 wave: 9
 mode: interactive
-active:
-  - id: CARD-015
-    phase: review
-    review_cycle: 1
-    branch: card/015-image-conversion
-    worktree: ../PythonProject4-card-015
-    started: 2026-08-29T06:10:00Z
+active: []
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-29T06:10:00Z
+last_updated: 2026-08-29T09:00:00Z
