@@ -59,8 +59,19 @@ such a puzzle cannot leave the easiest band of the scale (ADR-0005 puts the
 Easy cutoff at 33) even on a machine slow enough to burn its whole solve-time
 budget on a single propagation sweep. In practice a line-logic-only solve
 finishes in a thousandth of that budget and scores a small fraction of a
-point. The tier cutoffs themselves are CARD-010's to add here, next to the
-formula; this card owns the scale, not the bands drawn on it.
+point.
+
+The bands drawn on that scale (ADR-0005)
+----------------------------------------
+:class:`Tier` and :func:`tier_for_score` split the same 0..100 range into
+ADR-0005's three equal bands — Easy ``[0, 33]``, Medium ``(33, 66]``, Hard
+``(66, 100]`` — from the two named cutoffs :data:`EASY_MAX_SCORE` and
+:data:`MEDIUM_MAX_SCORE`. They live here rather than in the orchestrator for
+the reason ADR-0005 gives: cutoffs and weights are one tuning surface, and the
+resample loop, the CLI and Increment 2's tertile checkpoint all have to agree
+on which band a score is in. :func:`parse_tier` is the same module's answer to
+"is ``--difficulty extreme`` a tier?" (AC-021) — a domain rule, kept out of
+argparse (ADR-0010).
 
 Guardrail G-5 / CON-004: this is a heuristic classifier of candidates the
 generator already produced. Nothing here shapes a grid, and nothing here is a
@@ -80,11 +91,18 @@ Usage::
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
+from types import MappingProxyType
 from typing import Protocol
 
+from nonogram.errors import UnsupportedDifficulty
+
 __all__ = [
+    "EASY_MAX_SCORE",
     "MAX_SUPPORTED_CELLS",
+    "MEDIUM_MAX_SCORE",
     "MIN_SUPPORTED_CELLS",
     "NormalizedSignals",
     "SCORE_MAX",
@@ -92,9 +110,13 @@ __all__ = [
     "SIGNAL_WEIGHTS",
     "SignalWeights",
     "SolverSignals",
+    "TIER_BANDS",
+    "Tier",
     "clue_density",
     "normalize_signals",
+    "parse_tier",
     "score_difficulty",
+    "tier_for_score",
 ]
 
 #: One clue tuple per line, in the ADR-0012 boundary type.
@@ -103,6 +125,133 @@ ClueSet = tuple[tuple[int, ...], ...]
 #: The ends of ADR-0013's fixed scale. Every score lands inside them.
 SCORE_MIN = 0.0
 SCORE_MAX = 100.0
+
+#: ADR-0005's two tier cutoffs, drawn on the scale above: the 0..100 range is
+#: split into three equal-width bands — Easy ``[0, 33]``, Medium ``(33, 66]``,
+#: Hard ``(66, 100]``. They live here, next to :data:`SIGNAL_WEIGHTS`, and not
+#: in the orchestrator, because ADR-0005 puts cutoffs and weights on the same
+#: "tunable later" axis: a retune driven by real score distributions moves both
+#: from one place, and there is exactly one answer to "which band is this
+#: score in" for the resample loop, the CLI and Increment 2's tertile
+#: checkpoint to share (CARD-010 point 2).
+#:
+#: Provisional by ADR-0005's own admission — an equal split is "divide by
+#: three", not calibration — which is why they are named constants a developer
+#: can move rather than a threshold recomputed per run: resample behaviour has
+#: to be the same on the same inputs from one run to the next.
+EASY_MAX_SCORE = 33.0
+MEDIUM_MAX_SCORE = 66.0
+
+
+class Tier(StrEnum):
+    """FR-008's user-facing difficulty selector: Easy, Medium or Hard.
+
+    A :class:`~enum.StrEnum` so the tier *is* its ``--difficulty`` spelling —
+    the value a user types, an export payload carries and (CARD-014) a PDF
+    filename is built from are one string, with no lookup table between them.
+    The capitalized form AC-020 uses for display is :attr:`label`.
+
+    The members carry no thresholds of their own: :func:`tier_for_score` is the
+    single classifier and :data:`TIER_BANDS` the single table, both derived
+    from :data:`EASY_MAX_SCORE`/:data:`MEDIUM_MAX_SCORE`, so a retune cannot
+    move a band without moving the classification with it.
+
+    CON-004 / guardrail G-3: a tier is a bucket a *scored* candidate fell into,
+    never a construction target. Asking for ``Tier.EASY`` makes the pipeline
+    discard candidates that scored outside the Easy band (POL-004); it does not
+    steer a grid toward being easy, and it promises nothing about how the
+    puzzle feels to solve.
+    """
+
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+    @property
+    def label(self) -> str:
+        """The tier as AC-020 writes it — ``"Medium"``, not ``"medium"``."""
+        return self.value.capitalize()
+
+    @property
+    def band(self) -> tuple[float, float]:
+        """This tier's ``(low, high)`` score band (ADR-0005).
+
+        Half-open at the bottom and closed at the top — ``low < score <= high``
+        — except :attr:`EASY`, whose band includes :data:`SCORE_MIN` itself.
+        :meth:`contains` is what a caller should ask; this is for reporting the
+        band and for tests that need to see where it sits.
+        """
+        return TIER_BANDS[self]
+
+    def contains(self, score: float) -> bool:
+        """Does ``score`` fall in this tier's band? (POL-004's condition.)
+
+        Asked through :func:`tier_for_score` rather than by comparing against
+        :attr:`band` a second time, so "which tier is this score" and "is this
+        score in that tier" cannot disagree at a boundary.
+        """
+        return tier_for_score(score) is self
+
+
+#: Each tier's ``(low, high)`` band, derived from the two cutoffs above rather
+#: than written out as four numbers — see :meth:`Tier.band` for the open/closed
+#: ends. Read-only: the bands are a fact about :data:`EASY_MAX_SCORE` and
+#: :data:`MEDIUM_MAX_SCORE`, so the supported way to move one is to move a
+#: cutoff.
+TIER_BANDS: Mapping[Tier, tuple[float, float]] = MappingProxyType(
+    {
+        Tier.EASY: (SCORE_MIN, EASY_MAX_SCORE),
+        Tier.MEDIUM: (EASY_MAX_SCORE, MEDIUM_MAX_SCORE),
+        Tier.HARD: (MEDIUM_MAX_SCORE, SCORE_MAX),
+    }
+)
+
+
+def tier_for_score(score: float) -> Tier:
+    """Which tier a score falls in (ADR-0005).
+
+    Total on the whole real line, not just on 0..100: a score below
+    :data:`SCORE_MIN` reads as Easy and one above :data:`SCORE_MAX` as Hard.
+    :func:`score_difficulty` cannot produce either, and a classifier that
+    raised on them would only turn a scale bug into a crash at the point
+    furthest from its cause.
+
+    The cutoffs belong to the *lower* band (``33.0`` is Easy, ``66.0`` is
+    Medium), which is ADR-0005's ``Easy = [0, 33], Medium = (33, 66],
+    Hard = (66, 100]`` read literally.
+    """
+    if score <= EASY_MAX_SCORE:
+        return Tier.EASY
+    if score <= MEDIUM_MAX_SCORE:
+        return Tier.MEDIUM
+    return Tier.HARD
+
+
+def parse_tier(text: str) -> Tier:
+    """Resolve what the user typed into a :class:`Tier` (FR-008, AC-021).
+
+    The domain-side check ``--difficulty`` deliberately does not do in argparse
+    (ADR-0010, guardrail G-4): which tiers exist is a domain rule, so a
+    misspelled tier reaches this function as an ordinary string and leaves it
+    as a :class:`~nonogram.errors.NonogramError` the CLI maps to an exit code —
+    not as an argparse usage error.
+
+    Surrounding whitespace and case are not part of the rule: ``"Medium"`` is
+    AC-020's own spelling of the tier whose flag value is ``medium``, and
+    refusing it would be pedantry rather than validation.
+
+    Raises:
+        UnsupportedDifficulty: ``text`` names no supported tier (AC-021). The
+            message lists the three that exist, since the user's next move is
+            to pick one of them.
+    """
+    try:
+        return Tier(text.strip().lower())
+    except ValueError:
+        supported = ", ".join(tier.value for tier in Tier)
+        raise UnsupportedDifficulty(
+            f"unsupported difficulty tier {text!r}; supported tiers are: {supported}"
+        ) from None
 
 #: The supported grid range (docs/requirements.md decision 6: 10x10..50x50), in
 #: cells — the denominators the size normalizer stretches between. A grid

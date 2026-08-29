@@ -9,10 +9,11 @@ code on the way out.
 
 *Parsing only* (ADR-0010, guardrail G-3): argparse expresses syntax — is this
 an integer, is this one of the known subcommands, is this a path — and nothing
-else. Size range (AC-003/AC-004), density range (AC-011) and name validity
-(AC-045) are domain rules enforced inward of this component, so they are
-deliberately absent from the ``type=``/``choices=`` configuration below. A
-50000-cell request parses fine here and is rejected inward.
+else. Size range (AC-003/AC-004), density range (AC-011), name validity
+(AC-045) and which difficulty tiers exist (AC-021) are domain rules enforced
+inward of this component, so they are deliberately absent from the
+``type=``/``choices=`` configuration below. A 50000-cell request parses fine
+here and is rejected inward.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from collections.abc import Sequence
 from enum import IntEnum
 from pathlib import Path
 
-from nonogram import export, orchestrator
+from nonogram import difficulty, export, orchestrator
 from nonogram.errors import (
     ExportRejected,
     GenerationAbandoned,
@@ -33,6 +34,7 @@ from nonogram.errors import (
     SizeOutOfRange,
     SolverTimeout,
     UnknownLibraryImage,
+    UnsupportedDifficulty,
 )
 
 __all__ = ["ExitCode", "build_parser", "exit_code_for", "main"]
@@ -66,6 +68,7 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     InvalidDensity: ExitCode.INVALID_INPUT,
     UnknownLibraryImage: ExitCode.INVALID_INPUT,
     InvalidPuzzleName: ExitCode.INVALID_INPUT,
+    UnsupportedDifficulty: ExitCode.INVALID_INPUT,
     GenerationAbandoned: ExitCode.GENERATION_FAILED,
     SolverTimeout: ExitCode.GENERATION_FAILED,
     ExportRejected: ExitCode.EXPORT_REJECTED,
@@ -90,9 +93,9 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser.
 
     Later cards extend *this* parser rather than adding a second one:
-    ``--difficulty`` (FR-008), ``--image`` and the ``image`` mode (FR-003), and
-    the remaining export formats (FR-011, FR-012, FR-016). ``--mode library``
-    and ``--library-key`` (FR-002) and ``--name`` (FR-015) landed that way.
+    ``--image`` and the ``image`` mode (FR-003), and the remaining export
+    formats (FR-011, FR-012, FR-016). ``--mode library`` and ``--library-key``
+    (FR-002), ``--name`` (FR-015) and ``--difficulty`` (FR-008) landed that way.
     """
     parser = argparse.ArgumentParser(
         prog=PROG,
@@ -139,6 +142,24 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Target share of filled cells, in percent. The valid range is a "
             "domain rule and is checked after parsing, not here."
+        ),
+    )
+    # No ``choices=`` here, deliberately, and this is the one flag where that
+    # is easy to get wrong: the three tiers are a closed set, so argparse
+    # *could* enforce them — but AC-021 asks for an unsupported tier to be
+    # rejected as a domain error with the tool's own message and exit code 3,
+    # not as an argparse usage error with exit code 2 (ADR-0010, guardrail
+    # G-4). The names below are still read from ``difficulty.Tier`` rather than
+    # spelled out, so ``--help`` cannot drift from what ``parse_tier`` accepts;
+    # what is read is the vocabulary, not the rule.
+    generate.add_argument(
+        "--difficulty",
+        metavar="TIER",
+        help=(
+            f"Difficulty tier to generate for "
+            f"({', '.join(difficulty.Tier)}). Candidates whose difficulty "
+            "score misses the tier are discarded and resampled. Which tiers "
+            "exist is a domain rule and is checked after parsing, not here."
         ),
     )
     generate.add_argument(
@@ -219,6 +240,11 @@ def _run_generate(args: argparse.Namespace) -> int:
         # argparse, not in a ``type=`` here (ADR-0010, guardrail G-5). It comes
         # back as InvalidPuzzleName -> exit code 3.
         name=args.name,
+        # Same story as ``name``: carried through as typed, because "is
+        # ``extreme`` a tier?" is FR-008's domain rule (AC-021) and not
+        # argument syntax. It comes back as UnsupportedDifficulty -> exit
+        # code 3.
+        difficulty=args.difficulty,
         seed=args.seed,
         export_formats=tuple(args.export_formats or ()),
         out=args.out,
