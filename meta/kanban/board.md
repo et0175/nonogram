@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-08-29 06:02_
+_Updated: 2026-08-29 09:02_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -13,8 +13,8 @@ _Updated: 2026-08-29 06:02_
 | 6 | CARD-008 P2, CARD-009 P1, CARD-011 P2, CARD-012 P1, CARD-013 P1 | ✓ done |
 | 7 | CARD-010 P1 | ✓ done |
 | 8 | CARD-014 P2 | ✓ done |
-| 9 | CARD-015 P2 | ▶ active |
-| 10 | CARD-016 P2 | ⏳ blocked (→ CARD-015) |
+| 9 | CARD-015 P2 | ✓ done |
+| 10 | CARD-016 P2 | ▶ active |
 | 11 | CARD-017 P3 | ⏳ blocked (→ CARD-016) |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -24,15 +24,17 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - Interactive/playable puzzle output (web or local UI to solve the puzzle)
 - Retune difficulty score weights/cutoffs (ADR-0005/ADR-0013) — Hard tier unreachable
 - Decision needed: non-ASCII `--name` renders as tofu boxes in the PDF header
+- Decision needed: EXIF orientation ignored when converting an uploaded photo
 - Vacuous PNG gutter-ink test (`test_the_png_contains_the_clues`)
 - Stale README Status section
 - PDF pages embed lossy JPEG raster
+- Export metadata doesn't record `--image` path or `--library-key`
 
 ## Architecture
 _(none)_
 
 ## Ready
-- **CARD-015** P2 · Uploaded-image conversion via resize and Floyd-Steinberg dithering  _(wave 9)_
+- **CARD-016** P2 · Bounded pixel-nudge recovery loop for image mode  _(wave 10)_
 - **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up to CARD-006/AC-037, ADR-0001 revised)_
 
 ## In Progress
@@ -56,6 +58,7 @@ _(none)_
 - **CARD-012** PNG and SVG export renderers
 - **CARD-013** CSV export and exact round-trip fidelity
 - **CARD-014** Two-page PDF export with answer key
+- **CARD-015** Uploaded-image conversion via resize and Floyd-Steinberg dithering
 
 ## Blocked
 _(none)_
