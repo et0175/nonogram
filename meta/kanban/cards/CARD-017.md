@@ -15,7 +15,7 @@
 **Wave:** 11
 **Depends on:** CARD-016
 **Touches:** src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_nudge_reporting.py
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.6 (cycle 2/3)
 **Started:** 2026-08-29T10:40:00Z
 **Closed:** —
 **Actual:** —
@@ -137,7 +137,9 @@ plus its test file:
 
 No other files touched; nothing outside the predicted `Touches:` scope.
 
-**Tests added.**
+**Tests added (post-fix-cycle state — see `[Fix 1]` below; this section
+originally described only the first two, now updated to match what actually
+shipped).**
 - `test_export_reports_nudge_count` (AC-040) — drives the real CLI
   (`cli.main`) end to end in `--mode image` against the pre-existing pinned
   fixture `tests/fixtures/bands.png` at size 10, seed 1, which
@@ -145,22 +147,28 @@ No other files touched; nothing outside the predicted `Touches:` scope.
   already pins at `puzzle.nudge.attempts == 2` — reused rather than
   re-deriving a new nudging fixture. Asserts `"2 cells were nudged"` appears
   in stdout.
-- `test_export_omits_nudge_count_when_zero` (AC-041) — an ordinary
-  `--mode random` run (which never enters the nudge loop, so the counter
-  stays at its `0` default) asserts `"nudged"` does not appear anywhere in
-  stdout at all.
+- `test_export_omits_nudge_count_when_zero` (AC-041) — drives `--mode image
+  --image wide.png --size 20 --seed 1`, the pinned zero-nudge *image*
+  conversion `tests/test_nudge.py::test_a_unique_conversion_is_never_nudged`
+  already relies on (`puzzle.nudge.attempts == 0`) — genuinely instantiating
+  AC-041's own stated given, not a `--mode random` run (cycle-1 review F-002:
+  random mode can't reach the nudge branch at all, so it only verified the
+  counter's zero default). Asserts `"nudged"` does not appear anywhere in
+  stdout.
+- `test_export_reports_singular_nudge_count` (AC-040 boundary, added in the
+  fix cycle for F-001) — reuses `tests/test_nudge.py`'s `_ONE_SWITCH`
+  scripted source via `_install_source` to drive exactly one nudge; asserts
+  the full sentence `"1 cell was nudged to reach a unique solution"`.
 
-Both run the real pipeline (real solver, real image conversion) rather than
-scripting `puzzle.nudge` by hand, consistent with this codebase's stated
+All three run the real pipeline (real solver, real image conversion) rather
+than scripting `puzzle.nudge` by hand, consistent with this codebase's stated
 preference for exercising the real path over faking aggregate state.
 
-**Test run result.** Fresh venv built in the worktree
-(`python3.14 -m venv .venv && ./.venv/bin/pip install -e '.[dev]'`). Full
-suite: `1155 passed, 1 xfailed` (baseline before this card: `1153 passed, 1
-xfailed`; the +2 accounts exactly for the two new tests — no regressions).
-The pre-existing xfail is unchanged: `tests/bench_generate.py::test_20x20_p95_is_under_5s`,
-same AC-037/CARD-018 reason string as before this card, confirmed via
-`pytest -rx`.
+**Test run result (post-fix-cycle).** Full suite: `1156 passed, 1 xfailed`
+(pre-card baseline `1153 passed, 1 xfailed`; the +3 accounts exactly for the
+three tests above — no regressions). The pre-existing xfail is unchanged:
+`tests/bench_generate.py::test_20x20_p95_is_under_5s`, same AC-037/CARD-018
+reason string as before this card.
 
 ### Orchestrator notes
 
@@ -211,3 +219,18 @@ same AC-037/CARD-018 reason string as before this card, confirmed via
   it was already correct. **[Build gate]** PASSED (independently re-run:
   1156 passed, 1 xfailed, exit 0; scope confirmed clean — only `cli.py`
   and `tests/test_nudge_reporting.py` touched).
+- **[Review 2/3] 9.6/10 — PASS.** Report:
+  `meta/review/20260829T105112Z-CARD-017-cycle2.yml`. Both fixes verified
+  by mutation, not just re-reading: re-introduced the exact `if nudged >
+  1:` mutant locally and confirmed the new singular-boundary test now
+  kills it (F-001), and re-introduced the exact "image branch spuriously
+  records an attempt" mutant and confirmed the new image-mode AC-041 test
+  kills it **while the old random-mode formulation would not have** —
+  demonstrating the fix's discriminating power is real, not argued.
+  Comment reword (F-003) spot-checked accurate on all three claims. Full
+  suite independently re-run: 1156 passed, 1 xfailed, exit 0, matching
+  exactly. Diff scope confirmed clean. One new Minor (F-005, non-gating):
+  this card's own worktree notes weren't updated for the fix cycle and
+  briefly contradicted the shipped code (fixed in this sync — see the
+  "Tests added" section above, now describing all three tests and the
+  correct 1156 count). Zero Critical/Important findings. Merging.

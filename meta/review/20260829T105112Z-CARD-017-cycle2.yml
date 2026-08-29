@@ -1,0 +1,281 @@
+version: 1
+generated_at: "2026-08-29T10:51:12Z"
+target: "CARD-017 cycle 2 (confirmation) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-017, branch card/017-nudge-count-reporting, uncommitted working tree vs main"
+overall_score: 9.6
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/cli.py
+    - tests/test_nudge_reporting.py
+    - tests/test_nudge.py
+    - src/nonogram/orchestrator.py
+    - meta/kanban/cards/CARD-017.md
+    - meta/review/20260829T104500Z-CARD-017-cycle1.yml
+  not_reached:
+    - src/nonogram/solver/
+    - src/nonogram/export/
+    - meta/architecture/decisions/
+  confidence: high
+metrics:
+  diff: { files: 3, added: 148, removed: 2 }
+  max_fan_in: { symbol: "cli._run_generate", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — repository is 2 days old; the 12-month churn window contains the whole project history, so no meaningful hotspot signal exists"
+    cochange_missing: "no_eligible_fact — same 12-month window; the fix delta is uncommitted, so no commit pairs exist to mine for co-change peers"
+    fix_delta_diff: "tooling_failure — the cycle-1 and cycle-2 states are both uncommitted working-tree changes, so cycle1→cycle2 could not be diffed mechanically; the delta was reconstructed by comparing the current files against the cycle-1 report's verbatim citations"
+
+system_contract:
+  rules_checked: 4
+  holds: 1
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "INV-003 ✓ holds — re-derived fresh (cli.py is in the fix delta, so not carried). grep for 'nudge|RetryCounter|record_attempt' in src/nonogram/cli.py returns only reads/comments: the single read at cli.py:323 (`nudged = puzzle.nudge.attempts`), the branch at 324-327, and prose at 105/256-260/321. No counter is constructed or mutated in the adapter. record_attempt (orchestrator.py:391) remains the sole mutator and is untouched (git status shows orchestrator.py unmodified after the Step 8f mutation restore). Bound tests untouched and green in the 1156-pass run: tests/test_nudge.py::test_nudge_reports_failure_at_cap, tests/test_resample.py::test_stops_at_max_retry_bound."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: grep for 'solver\\.|solve(' in src/nonogram/cli.py returns 0 hits; the fix delta adds one CLI-driving test and reworded prose, neither invoking the solver nor influencing a uniqueness verdict. Check ref tests/property/test_solver_uniqueness.py::test_never_false_positive_uniqueness confirmed present (line 175) and untouched."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: grep for 'compute_clues|encode_line|grid\\[' in src/nonogram/cli.py returns 0 hits; no grid or clue is constructed, read or compared anywhere in the delta. Check ref tests/test_clues.py::test_matches_grid_exactly confirmed present (line 301) and untouched."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: grep for 'ready_for_export|require_ready' in src/nonogram/cli.py returns 0 hits; the new print sits after orchestrator.export_puzzle returns, downstream of require_ready_for_export (orchestrator.py:1110). Check refs tests/test_export_json.py::test_export_rejects_an_unverified_puzzle (line 461) and tests/test_export_pdf.py::test_export_rejects_an_unverified_puzzle_for_pdf (line 648) confirmed present and untouched."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_nudge_reporting.py
+    line: 111
+    title: "Boundary value 1 untested: the singular-wording branch and the `nudged > 0` threshold's first true value have no coverage"
+    description: |
+      CARRIED FROM CYCLE 1 — VERIFIED FIXED.
+
+      Fix: tests/test_nudge_reporting.py:111-148 adds
+      `test_export_reports_singular_nudge_count`, which installs
+      `_CountingSource(_ONE_SWITCH)` via `_install_source` (both imported from
+      tests/test_nudge.py at line 44) and then drives the real `cli.main`.
+
+      (a) The run genuinely reaches `puzzle.nudge.attempts == 1`, and the
+          evidence is transitive rather than asserted separately, which is
+          stronger: the assertion pins the rendered string `"1 cell was
+          nudged ..."`, and cli.py:323-327 can only emit that string when
+          `nudged == 1` (0 prints nothing, >=2 prints "cells"/"were"). The
+          underlying pin is independent and pre-existing —
+          tests/test_nudge.py:214-231
+          (`test_nudge_attempts_bounded_recovery_repairs_an_ambiguous_conversion`)
+          asserts `puzzle.nudge.attempts == 1` for the same scripted source at
+          the orchestrator level, and tests/test_nudge.py:135-149
+          (`test_the_scripted_grids_are_what_the_ac_tests_assume`) guards the
+          fixture itself against becoming accidentally unique or accidentally
+          two-nudge, using the real solver.
+
+      (b) The assertion pins the full singular sentence, not a substring of it:
+          `assert "1 cell was nudged to reach a unique solution" in out`
+          (line 148) — strictly stronger than AC-040's own assertion (see the
+          still-open F-004).
+
+      (c) Mutation check executed. Injected `if nudged > 1:` at cli.py:324;
+          result `1 failed, 2 passed` — the sole failure was
+          `test_export_reports_singular_nudge_count`. The mutant that survived
+          the entire suite at cycle 1 is now killed, and killed specifically by
+          the new test (the two pre-existing tests still survived it, which
+          confirms cycle 1's diagnosis was precise and the fix targets exactly
+          the gap it named). File restored and verified: `git diff --stat`
+          returns to `cli.py | 20 +++-` with `nudged > 0` present and
+          `nudged > 1` absent.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "tests/test_nudge_reporting.py:111-148 (uncommitted)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: feature
+    type: gap
+    file: tests/test_nudge_reporting.py
+    line: 78
+    title: "AC-041's test substitutes a random-mode run for the AC's stated image-conversion given"
+    description: |
+      CARRIED FROM CYCLE 1 — VERIFIED FIXED, with the discriminating-power gain
+      demonstrated empirically rather than argued.
+
+      Fix: tests/test_nudge_reporting.py:78-108 now drives
+      `--mode image --image wide.png --size 20 --seed 1`.
+
+      (a) The run genuinely goes through the image conversion path and genuinely
+          lands at `attempts == 0` because the conversion is unique on the first
+          try — not because a default was never disturbed. orchestrator.py:1051
+          calls `attempt_candidate()` once; when it returns non-None the nudge
+          block at 1052-1088 is never entered, so `puzzle.nudge` is never
+          advanced. That this specific fixture takes that branch is pinned
+          independently and pre-existing:
+          tests/test_nudge.py:573-580 (`test_a_unique_conversion_is_never_nudged`)
+          asserts `puzzle.nudge.attempts == 0` and `ready_for_export is True`
+          for `WIDE, size=20, seed=1`, and its docstring states it exists so
+          "CARD-017 can report '0 nudges' as a fact rather than as a default".
+          The CLI test also asserts `exit_code == ExitCode.OK`, so the image
+          conversion demonstrably completed rather than erroring out before
+          reaching the branch.
+
+      (b) Discriminating power confirmed by mutation, including a control that
+          isolates the gain over cycle 1's version. Injected the exact
+          hypothetical bug F-002 named — a spurious attempt recorded by the
+          image branch when no nudge was needed:
+
+              candidate = attempt_candidate()
+          +   if candidate is not None:
+          +       puzzle.nudge.record_attempt()
+              if candidate is None:
+
+          Result: `1 failed, 2 passed` — the sole failure was
+          `test_export_omits_nudge_count_when_zero`. Control run under the same
+          mutant, driving `--mode random --size 10 --density 40 --seed 1`
+          through `cli.main`: exit 0, `"nudged" in out` -> False. So cycle 1's
+          random-mode formulation would have SURVIVED this mutant while the
+          new image-mode formulation kills it. The gain is real, not a
+          different way of observing the same default.
+
+          orchestrator.py restored and verified: `git status --porcelain` shows
+          it unmodified; the whole-diff sanity check returns exactly
+          `103 insertions(+), 2 deletions(-)` across cli.py and the card file,
+          byte-identical to the pre-mutation capture.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "tests/test_nudge_reporting.py:78-108 (uncommitted)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/cli.py
+    line: 314
+    title: "The \"at export time\" rationale overstates the implemented condition"
+    description: |
+      CARRIED FROM CYCLE 1 — VERIFIED FIXED (spot-check).
+
+      The reworded comment at cli.py:314-322 now states the implemented
+      condition accurately on all three counts, each re-derived against the
+      code:
+
+      - "the only run this placement actually suppresses the line for is one
+        whose export raised OSError above (that branch returns first)" — true:
+        cli.py:302-311, the `except OSError` clause returns
+        `ExitCode.EXPORT_REJECTED` before reaching line 323.
+      - "It is not gated on --export actually being requested — with no
+        --export flag at all, `written` is simply empty and this still prints"
+        — true: orchestrator.py:1117-1118 documents "Nothing is written when no
+        format was requested, and the gate is not consulted either", so
+        `export_puzzle` returns `()` and the loop at cli.py:312-313 is a no-op
+        while line 324 still evaluates.
+      - "'at export time' describes intent, not the implemented condition" —
+        the exact distinction cycle 1 asked to be recorded.
+
+      The updated docstring at cli.py:256-260 is likewise accurate ("printed
+      after the written paths and only when `puzzle.nudge.attempts` is
+      nonzero"). No overstatement remains.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "src/nonogram/cli.py:314-322 (uncommitted)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_nudge_reporting.py
+    line: 75
+    title: "AC-040 asserts a substring, leaving the line's tail unpinned"
+    description: |
+      CARRIED FROM CYCLE 1 — still open, deliberately deferred, not
+      re-litigated. `assert "2 cells were nudged" in out` (line 75) pins the
+      count and plural wording but not "to reach a unique solution".
+
+      One cycle-2 observation worth recording for whoever picks this up: the
+      new singular test (line 148) DOES assert the full sentence, so the file
+      is now internally inconsistent about how tightly it pins the line — which
+      makes the one-word fix to line 75 cheaper and more obviously correct than
+      it was at cycle 1. Non-gating either way.
+    suggestion: |
+      Assert the full line: `"2 cells were nudged to reach a unique solution" in out`,
+      matching what line 148 already does.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-017.md
+    line: 147
+    title: "Worktree notes were not updated for the fix cycle and now contradict the tests they describe"
+    description: |
+      NEW AT CYCLE 2. The fix delta changed cli.py and tests/test_nudge_reporting.py
+      but left the card's `## Worktree notes` at their cycle-1 text, which now
+      describes an implementation that no longer exists:
+
+      - Line 147-151 states `test_export_omits_nudge_count_when_zero` (AC-041)
+        is "an ordinary `--mode random` run (which never enters the nudge loop,
+        so the counter stays at its `0` default)". The test now drives
+        `--mode image --image wide.png --size 20 --seed 1`
+        (tests/test_nudge_reporting.py:88-103). This is precisely the sentence
+        cycle 1's F-002 was raised against, preserved verbatim as the card's
+        permanent record of what was built.
+      - The "**Tests added.**" section lists two tests; there are now three
+        (`test_export_reports_singular_nudge_count` is unmentioned anywhere in
+        the card).
+      - Line 159 reports "Full suite: `1155 passed, 1 xfailed`"; the suite is
+        now `1156 passed, 1 xfailed` (verified twice this cycle).
+      - The G-3 compliance bullet (line 59-60 region of the notes) still cites
+        the random-mode reasoning for the zero-nudge guardrail.
+
+      Severity is `low`, not `Important`, deliberately: every code-level
+      artefact — the cli.py comment, the cli.py docstring, and the test module
+      docstring at tests/test_nudge_reporting.py:1-34 — is accurate and was
+      updated. Only the card's narrative lags. But CLAUDE.md states a card's
+      "`## Worktree notes` section is often the best source of *why* a piece of
+      code looks the way it does", and these notes become the permanent record
+      the moment the card is closed, so a stale claim here outlives the fix
+      cycle that made it stale.
+    suggestion: |
+      Before the merge commit, append a short fix-cycle paragraph to
+      `## Worktree notes`: the three tests (not two), the AC-041 test's move
+      from `--mode random` to the pinned `wide.png` image conversion and why,
+      the new singular boundary test, and the corrected suite total
+      (1156 passed, 1 xfailed). Correcting the stale sentences in place is
+      acceptable too, provided the change from the cycle-1 form is stated
+      rather than silently overwritten.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
