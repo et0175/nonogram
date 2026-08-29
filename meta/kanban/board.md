@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-08-29 10:32_
+_Updated: 2026-08-29 13:58_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -15,7 +15,7 @@ _Updated: 2026-08-29 10:32_
 | 8 | CARD-014 P2 | ✓ done |
 | 9 | CARD-015 P2 | ✓ done |
 | 10 | CARD-016 P2 | ✓ done |
-| 11 | CARD-017 P3 | ▶ active |
+| 11 | CARD-017 P3 | ✓ done |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -29,13 +29,12 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - PDF pages embed lossy JPEG raster
 - Export metadata doesn't record `--image` path or `--library-key`
 - Image mode can spend up to 6 solves against the shared deadline instead of 1
-- Nudged image runs alter the picture silently until CARD-017 ships
+- AC-040 test pins only a substring, not the full disclosure sentence
 
 ## Architecture
 _(none)_
 
 ## Ready
-- **CARD-017** P3 · Nudge-count reporting in CLI output  _(wave 11)_
 - **CARD-018** P2 · Strengthen solver search to meet AC-037 at 20x20 mid/low density  _(unscheduled — follow-up to CARD-006/AC-037, ADR-0001 revised)_
 
 ## In Progress
@@ -61,6 +60,7 @@ _(none)_
 - **CARD-014** Two-page PDF export with answer key
 - **CARD-015** Uploaded-image conversion via resize and Floyd-Steinberg dithering
 - **CARD-016** Bounded pixel-nudge recovery loop for image mode
+- **CARD-017** Nudge-count reporting in CLI output
 
 ## Blocked
 _(none)_
