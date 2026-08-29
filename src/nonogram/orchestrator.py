@@ -10,25 +10,32 @@ ADR-0007 gives this module three jobs and nothing else:
   modules (sourcing, clues, solver, difficulty, export), which never call each
   other laterally.
 
-The pipeline (FR-007)
----------------------
-``source a grid -> compute its clues -> count its solutions -> mark ready``.
-A candidate that is not uniquely solvable is discarded and the whole thing is
-tried again on a fresh grid (POL-001), up to :data:`MAX_REGENERATE_ATTEMPTS`
-times, after which the run is abandoned (POL-005). The check is the solver's
-alone: this module compares ``solution_count`` against 1 and does nothing else
-with it (guardrail G-3, CON-005).
+The pipeline (FR-007, FR-010)
+-----------------------------
+``source a grid -> compute its clues -> count its solutions -> score it ->
+mark ready``. A candidate that is not uniquely solvable is discarded and the
+whole thing is tried again on a fresh grid (POL-001); a candidate that *is*
+unique but whose difficulty score misses the requested tier is discarded and
+resampled the same way (POL-004). Both are bounded by the same ADR-0002 number
+(:data:`MAX_RETRY_ATTEMPTS`), after which the run is abandoned (POL-005).
 
-Why the loop is a primitive, not a ``while`` (INV-003)
------------------------------------------------------
-Three bounded loops exist in the model — regenerate (POL-001, this card),
-difficulty resample (POL-004, CARD-010) and pixel nudge (POL-002, CARD-016) —
-and INV-003 constrains all three with one sentence. So the counting lives in
-one place, :class:`RetryCounter` plus :func:`run_bounded`, and a loop *kind* is
-just a counter with its own bound plus a callable that produces a candidate or
-rejects it. A later card adds a counter field to :class:`Puzzle` and an attempt
-callable; it does not add a second loop, and it cannot add a second way to
-count (guardrail G-2).
+Neither verdict is this module's to form: it compares ``solution_count``
+against 1 and asks COMP-006 which band a score is in, and does nothing else
+with either (guardrail G-3, CON-005, CON-004). In particular a requested tier
+never reaches the *sourcing* of a grid — POL-004 discards and re-draws
+candidates, it does not steer construction toward a tier.
+
+Why the loops are a primitive, not a ``while`` (INV-003)
+-------------------------------------------------------
+Three bounded loops exist in the model — regenerate (POL-001), difficulty
+resample (POL-004) and pixel nudge (POL-002, CARD-016) — and INV-003
+constrains all three with one sentence. So the counting lives in one place,
+:class:`RetryCounter` plus :func:`run_bounded`, and a loop *kind* is just a
+counter with its own bound plus a callable that produces a candidate or
+rejects it. The resample loop added by CARD-010 is that and nothing more: a
+second counter field on :class:`Puzzle` and a second attempt callable wrapped
+around the first, with no second way to count and no second bound literal
+(guardrail G-2). CARD-016's nudge loop is expected to land the same way.
 
 What counts as a retry, and what does not
 -----------------------------------------
@@ -80,13 +87,15 @@ from datetime import datetime
 from pathlib import Path
 
 from nonogram import clues as clue_derivation
-from nonogram import export, solver, sourcing
+from nonogram import difficulty, export, solver, sourcing
 from nonogram.errors import ExportRejected, GenerationAbandoned, InvalidPuzzleName
 
 __all__ = [
     "DEFAULT_NAMES",
     "GENERATION_BUDGET_SECONDS",
     "MAX_REGENERATE_ATTEMPTS",
+    "MAX_RESAMPLE_ATTEMPTS",
+    "MAX_RETRY_ATTEMPTS",
     "GenerationRequest",
     "NameContext",
     "Puzzle",
@@ -101,10 +110,19 @@ __all__ = [
 #: the clue derivation consumes.
 Grid = list[list[bool]]
 
-#: ADR-0002: the regenerate/resample loop is capped at 20 attempts. One
-#: constant, named here because INV-003's bound is the orchestrator's business
-#: (the pixel-nudge cap of 5 lands with CARD-016's counter, same way).
-MAX_REGENERATE_ATTEMPTS = 20
+#: ADR-0002: the regenerate/resample loop is capped at 20 attempts. **One**
+#: number for both loop kinds, and deliberately one *constant* — ADR-0002 gives
+#: regenerate and resample the same bound, so two literals could silently drift
+#: apart under a retune that only found one of them. The aliases below are the
+#: names the two counters are constructed under; they exist so a reader of
+#: ``RetryCounter("resample", MAX_RESAMPLE_ATTEMPTS)`` sees which policy's bound
+#: is meant, without that reading being a second, independent number.
+#:
+#: Named here because INV-003's bound is the orchestrator's business (the
+#: pixel-nudge cap of 5 lands with CARD-016's counter, same way — a *different*
+#: number, from the same ADR, and so genuinely its own constant).
+MAX_RETRY_ATTEMPTS = 20
+MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
 
 #: ADR-0001's hard time bound for one generation *request*, in seconds: 30s up
 #: to the 50x50 maximum size. Enforced as ADR-0011's cooperative deadline —
@@ -157,6 +175,14 @@ class GenerationRequest:
     #: ``--name`` was given", which is what selects the auto-generated name;
     #: it is *not* the same as the empty string.
     name: str | None = None
+    #: ``--difficulty`` (FR-008, CARD-010): the tier the user asked for, as a
+    #: plain string — ``"medium"``, ``"Medium"``, ``"extreme"``, whatever was
+    #: typed. Which tiers exist is a domain rule, so this is *not* a
+    #: :class:`nonogram.difficulty.Tier` yet: ``difficulty.parse_tier`` turns it
+    #: into one inward of the CLI and rejects an unsupported tier there
+    #: (AC-021, ADR-0010, guardrail G-4). ``None`` means "no tier requested",
+    #: which switches POL-004's resample check off — not "Easy".
+    difficulty: str | None = None
     seed: int | None = None
     export_formats: tuple[str, ...] = ()
     out: Path | None = None
@@ -393,8 +419,9 @@ class Puzzle:
              one solution. :meth:`require_ready_for_export` is the gate the
              export cards call before writing anything.
     INV-003  every counter is a :class:`RetryCounter`, advanced only by
-             :func:`run_bounded`. CARD-010 and CARD-016 add ``resample`` and
-             ``nudge`` fields next to :attr:`regenerate`.
+             :func:`run_bounded`. :attr:`regenerate` (POL-001) and
+             :attr:`resample` (POL-004) are two of the three; CARD-016 adds
+             ``nudge`` next to them.
     """
 
     #: The request this puzzle is being generated for. Held whole rather than
@@ -419,9 +446,24 @@ class Puzzle:
     #: ``export.default_stem`` for one of those; nothing produced by the
     #: pipeline ever takes that path.
     name: str | None = None
+    #: FR-008's requested tier, resolved once by :func:`generate` *before* the
+    #: first candidate exists and never re-read from the request afterwards —
+    #: the tier a run is judged against is fixed for the run, exactly like
+    #: :attr:`name` (AC-020).
+    #:
+    #: ``None`` when the user asked for no particular difficulty, which is what
+    #: makes POL-004's check vacuous rather than absent: the loop still runs,
+    #: every candidate is still scored, and the first unique one is accepted.
+    requested_tier: difficulty.Tier | None = None
     #: POL-001's counter (INV-003). Bound from ADR-0002.
     regenerate: RetryCounter = field(
         default_factory=lambda: RetryCounter("regenerate", MAX_REGENERATE_ATTEMPTS)
+    )
+    #: POL-004's counter (INV-003) — one per aggregate, alongside
+    #: :attr:`regenerate` and (CARD-016) the nudge counter, sharing ADR-0002's
+    #: bound through :data:`MAX_RETRY_ATTEMPTS` rather than restating it.
+    resample: RetryCounter = field(
+        default_factory=lambda: RetryCounter("resample", MAX_RESAMPLE_ATTEMPTS)
     )
     #: The current candidate's solution grid, or ``None`` before the first one
     #: is sourced.
@@ -432,6 +474,14 @@ class Puzzle:
     #: The solver's verdict on the current candidate: ``0``, ``1`` or
     #: ``solver.MANY``. The solver's number, stored as given (G-3).
     solution_count: int | None = None
+    #: COMP-006's score for the current candidate on ADR-0013's 0..100 scale,
+    #: or ``None`` while the candidate is unscored — which is every candidate
+    #: that has not yet passed the uniqueness check, since the score of a
+    #: non-unique clue set means nothing. Dropped by
+    #: :meth:`record_candidate` along with the rest of the previous
+    #: candidate's verdict, so a resampled candidate cannot be checked against
+    #: its predecessor's score (AC-026).
+    difficulty_score: float | None = None
     #: INV-002's gate. Only :meth:`confirm_uniqueness` writes it.
     ready_for_export: bool = False
 
@@ -466,6 +516,7 @@ class Puzzle:
         self.grid = grid
         self.clues = clue_derivation.compute_clues(grid)
         self.solution_count = None
+        self.difficulty_score = None
         self.ready_for_export = False
         return self.clues
 
@@ -484,6 +535,50 @@ class Puzzle:
         self.solution_count = solution_count
         self.ready_for_export = solution_count == UNIQUE_SOLUTION_COUNT
         return self.ready_for_export
+
+    @property
+    def difficulty_tier(self) -> difficulty.Tier | None:
+        """Which tier the current candidate actually *scored* into (ADR-0005).
+
+        The counterpart of :attr:`requested_tier`: what the puzzle turned out
+        to be, rather than what was asked for. ``None`` until the candidate has
+        been scored. Classified through ``difficulty.tier_for_score`` on every
+        read instead of being stored alongside the score, so the tier and the
+        cutoffs it comes from cannot fall out of step with each other.
+        """
+        if self.difficulty_score is None:
+            return None
+        return difficulty.tier_for_score(self.difficulty_score)
+
+    @property
+    def difficulty_in_requested_tier(self) -> bool:
+        """POL-004's condition: does the current candidate match the request?
+
+        ``True`` when no tier was requested — there is no band to miss — and
+        ``False`` for a candidate that has not been scored yet, so "in tier" is
+        never claimed on the strength of a previous candidate's score (AC-026).
+        """
+        if self.requested_tier is None:
+            return True
+        return self.difficulty_score is not None and self.requested_tier.contains(
+            self.difficulty_score
+        )
+
+    def record_difficulty(self, score: float) -> bool:
+        """Record COMP-006's score for the current candidate and judge it.
+
+        POL-004's decision point. The score is stored as COMP-006 gave it —
+        unrounded and un-bucketed — for the same reason the solver's count is
+        (guardrail G-3): this module composes capabilities, it does not
+        second-guess them.
+
+        Returns:
+            :attr:`difficulty_in_requested_tier` for the score just recorded:
+            ``True`` when the candidate may be kept (AC-024), ``False`` when
+            POL-004's resample must fire (AC-025).
+        """
+        self.difficulty_score = score
+        return self.difficulty_in_requested_tier
 
     def require_ready_for_export(self) -> None:
         """The INV-002 gate: raise unless the uniqueness check has passed.
@@ -527,16 +622,84 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
     return (request.size, request.density)
 
 
+#: POL-001's abandonment wording when no tier was requested: what 20 discarded
+#: candidates were all failing, in the user's terms, plus the levers that
+#: change the answer. Unchanged from CARD-005 — a run with no ``--difficulty``
+#: is the run CARD-005 shipped, message included (guardrail G-5).
+_UNIQUENESS_REASON = (
+    "no candidate grid had exactly one solution; try a different "
+    "--size/--density combination, or another --seed"
+)
+
+
+def _band_text(tier: difficulty.Tier) -> str:
+    """``"Hard band (66-100)"`` — a tier named *and* placed on the scale.
+
+    The band is spelled out rather than left as a bare tier name because the
+    user cannot see the 0..100 scale from the outside; saying where the tier
+    sits on it is what makes an abandonment message actionable rather than
+    merely truthful (AC-027's "clear error").
+    """
+    low, high = tier.band
+    return f"{tier.label} band ({low:g}-{high:g})"
+
+
+def _uniqueness_reason(tier: difficulty.Tier | None) -> str:
+    """POL-001's abandonment wording, in the presence of a requested tier.
+
+    The two loops share one attempt budget (see :func:`generate`), so when a
+    tier is requested the regenerate loop can be the one that exhausts it even
+    though candidates *were* found unique and discarded for their difficulty.
+    Reporting only the uniqueness failure there would name the wrong cause, so
+    this message names both checks and says outright that they share a budget —
+    which is also the fact a user needs to make sense of "20 attempts" when
+    they can see the tool rejected candidates for two different reasons.
+    """
+    if tier is None:
+        return _UNIQUENESS_REASON
+    return (
+        "no candidate grid was both uniquely solvable and scored inside the "
+        f"{_band_text(tier)} of the 0-100 difficulty scale — the two checks "
+        f"share one {MAX_RETRY_ATTEMPTS}-attempt budget; try another "
+        "--difficulty, a different --size/--density combination, or another "
+        "--seed"
+    )
+
+
+def _resample_reason(tier: difficulty.Tier | None) -> str:
+    """POL-004's abandonment wording — the band that kept being missed.
+
+    Narrower than :func:`_uniqueness_reason` because the resample loop rejects
+    for exactly one cause: every round it discarded *was* a uniquely-solvable
+    candidate, and only its score was wrong.
+
+    A run that requested no tier cannot reach POL-004's abandonment at all —
+    its resample check is vacuous, so the first round returns — but the
+    primitive takes the reason up front, and a message that asserted its own
+    unreachability would be a worse failure than one that simply says what
+    happened.
+    """
+    if tier is None:  # pragma: no cover - the vacuous check never abandons
+        return "no candidate grid was usable"
+    return (
+        f"no candidate scored inside the {_band_text(tier)} of the 0-100 "
+        "difficulty scale; try another --difficulty, a different "
+        "--size/--density combination, or another --seed"
+    )
+
+
 def generate(
     request: GenerationRequest, *, names: NameContext | None = None
 ) -> Puzzle:
     """Run one generation request end to end and return the finished puzzle.
 
     Sources a candidate grid for ``request.mode``, derives its clues, asks the
-    solver how many solutions they have, and returns the puzzle the moment the
-    answer is exactly one. A candidate that fails is discarded and a fresh one
-    sourced automatically, with no user interaction (POL-001, FR-007), up to
-    :data:`MAX_REGENERATE_ATTEMPTS` attempts (INV-003, ADR-0002).
+    solver how many solutions they have, scores the ones that are uniquely
+    solvable, and returns the puzzle the moment a candidate is both unique and
+    in the requested difficulty tier. A candidate that fails either test is
+    discarded and a fresh one sourced automatically, with no user interaction
+    (POL-001 and POL-004, FR-007 and FR-010), within the bounds INV-003 fixes
+    (ADR-0002) — see "The two loops" below.
 
     All randomness comes from a single ``random.Random`` built here and
     injected into every stochastic call (ADR-0015), so the same seed replays
@@ -544,11 +707,37 @@ def generate(
     request carries no seed one is drawn from the OS entropy pool and recorded
     on the returned puzzle, which is what lets the adapter echo it.
 
-    The puzzle's name (FR-015) is resolved first, before the seed is drawn and
-    before the aggregate exists: an unusable one must leave nothing behind
-    (AC-045), and a usable one must be fixed for the whole run — every retry
-    below replaces the *candidate*, never the puzzle, so the name is written
-    exactly once here and read thereafter (guardrail G-6).
+    The puzzle's name (FR-015) and its requested tier (FR-008) are resolved
+    first, before the seed is drawn and before the aggregate exists: an
+    unusable one of either must leave nothing behind (AC-045, AC-021), and a
+    usable one must be fixed for the whole run — every retry below replaces the
+    *candidate*, never the puzzle, so both are written exactly once here and
+    read thereafter (guardrail G-6, AC-020).
+
+    The two loops (POL-001 inside POL-004)
+    --------------------------------------
+    POL-004's resample loop *wraps* POL-001's regenerate loop rather than
+    replacing it (guardrail G-5): one resample round runs the whole regenerate
+    loop to get a uniquely-solvable candidate, then keeps it only if its score
+    is in tier. Two consequences are deliberate, and both follow from
+    ``run_bounded`` being one primitive used twice (guardrail G-2):
+
+    *The retry budget is the request's, not the round's.* Neither counter is
+    reset between rounds, so the regenerate budget spans the whole request: a
+    resample round does **not** get a fresh 20 candidates to find a unique one
+    in. Across a run at most :data:`MAX_RETRY_ATTEMPTS` grids are ever sourced,
+    however the two rejection causes divide them up, which is what keeps
+    scoring inside the loop from multiplying the work NFR-001 budgets
+    (guardrail G-6). It also means a request that keeps missing its tier ends
+    on whichever bound it exhausts first — POL-005 abandons either way, and
+    both messages name what the candidates kept failing, the shared budget
+    included (:func:`_uniqueness_reason`).
+
+    *An exhausted inner loop ends the outer one.* ``GenerationAbandoned`` from
+    the regenerate loop travels straight out through the resample attempt
+    (``run_bounded`` re-raises whatever an attempt raises), so a run that
+    cannot produce a unique candidate at all reports that — it is not caught
+    and re-tried as though it were a tier miss.
 
     Args:
         request: The run as the caller asked for it.
@@ -562,11 +751,15 @@ def generate(
         object the whole run mutated, retries included.
 
     Raises:
-        GenerationAbandoned: no candidate was uniquely solvable within the
-            retry bound (POL-005).
+        GenerationAbandoned: the run exhausted a retry bound (POL-005) — no
+            candidate was uniquely solvable (AC-019), or none scored inside the
+            requested tier (AC-027). The message says which.
         InvalidPuzzleName: ``--name`` was given as an empty name (AC-045).
             Raised before anything is sourced or constructed, so the run leaves
             no puzzle behind.
+        UnsupportedDifficulty: ``--difficulty`` named no supported tier
+            (AC-021). Raised alongside the name check, before anything is
+            sourced or constructed.
         SizeOutOfRange, InvalidDensity, UnknownLibraryImage: the request is not
             valid for its mode. Raised by the sourcing module on the first
             attempt and *not* retried — an invalid request does not become
@@ -587,10 +780,20 @@ def generate(
     # FR-015, first and once: an invalid name must abort before a puzzle
     # exists (AC-045), and a valid one is the run's for good (G-6).
     name = (names if names is not None else DEFAULT_NAMES).name_for(request)
+    # FR-008, same shape and for the same reason: an unsupported tier is the
+    # request being wrong (AC-021), so it is refused here — before a seed is
+    # drawn, before the aggregate exists and long before a solver runs.
+    requested_tier = (
+        difficulty.parse_tier(request.difficulty)
+        if request.difficulty is not None
+        else None
+    )
 
     seed = request.seed if request.seed is not None else secrets.randbits(64)
     rng = random.Random(seed)
-    puzzle = Puzzle(request=request, seed=seed, name=name)
+    puzzle = Puzzle(
+        request=request, seed=seed, name=name, requested_tier=requested_tier
+    )
 
     # ADR-0011: one absolute instant for the whole request, fixed here before
     # the first attempt and shared by every solve below, so the retry loop
@@ -604,11 +807,20 @@ def generate(
     source_arguments = _source_arguments(request)
 
     def attempt_candidate() -> Puzzle | None:
-        """One pass of the pipeline: source -> clues -> uniqueness -> verdict.
+        """One pass of the pipeline: source -> clues -> uniqueness -> score.
 
         The single ``rng`` is threaded in here, which is what makes the
         *sequence* of discarded candidates reproducible and not merely the
         first one (ADR-0015).
+
+        A candidate that survives the uniqueness check is scored before it is
+        returned, so every candidate the resample loop above ever sees is
+        already carrying its own score — which is what makes AC-026 ("the new
+        candidate is re-scored automatically before any further check")
+        structural rather than a step somebody has to remember to repeat.
+        Scoring a *rejected* candidate would be meaningless (COMP-006 scores
+        the solve of a uniquely-solvable clue set) and is skipped, so POL-001's
+        path costs exactly what it did before this card.
         """
         # The argument list is the mode's, not the dispatcher's (see
         # sourcing.for_mode and _source_arguments): the random mode's
@@ -622,17 +834,34 @@ def generate(
         verdict = solver.solve(
             candidate_clues.rows, candidate_clues.columns, deadline=deadline
         )
-        if puzzle.confirm_uniqueness(verdict.solution_count):
-            return puzzle
-        return None
+        if not puzzle.confirm_uniqueness(verdict.solution_count):
+            return None
+        # COMP-006, off the signals of the solve that just happened — no second
+        # solve, and no re-derivation of anything the solver reported (FR-009).
+        puzzle.record_difficulty(
+            difficulty.score_difficulty(verdict.signals, candidate_clues.rows)
+        )
+        return puzzle
+
+    def attempt_candidate_in_tier() -> Puzzle | None:
+        """One resample round: a unique candidate, kept only if it is in tier.
+
+        POL-004. The inner :func:`run_bounded` is POL-001's loop verbatim — a
+        resample does not replace regeneration, it composes with it (guardrail
+        G-5) — and the tier check is applied to what that loop produced, which
+        is by construction a scored candidate.
+        """
+        candidate = run_bounded(
+            puzzle.regenerate,
+            attempt_candidate,
+            reason=_uniqueness_reason(requested_tier),
+        )
+        return candidate if candidate.difficulty_in_requested_tier else None
 
     return run_bounded(
-        puzzle.regenerate,
-        attempt_candidate,
-        reason=(
-            "no candidate grid had exactly one solution; try a different "
-            "--size/--density combination, or another --seed"
-        ),
+        puzzle.resample,
+        attempt_candidate_in_tier,
+        reason=_resample_reason(requested_tier),
     )
 
 

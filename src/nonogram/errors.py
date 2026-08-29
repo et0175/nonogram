@@ -11,11 +11,12 @@ This module deliberately has no imports and no behaviour: every class is a
 marker the raiser fills with a human-readable message.
 
 Placement note (ADR-0010, guardrail G-3): the *checks* that raise
-``SizeOutOfRange``, ``InvalidDensity``, ``UnknownLibraryImage`` and
-``InvalidPuzzleName`` belong to the domain layer, not to argparse. The CLI
-parses syntax only; AC-003/AC-004 (size range), AC-011 (density range),
-AC-006 (library key) and AC-045 (name validity) are tested as domain rules
-against pure functions, without going through argv.
+``SizeOutOfRange``, ``InvalidDensity``, ``UnknownLibraryImage``,
+``InvalidPuzzleName`` and ``UnsupportedDifficulty`` belong to the domain layer,
+not to argparse. The CLI parses syntax only; AC-003/AC-004 (size range),
+AC-011 (density range), AC-006 (library key), AC-045 (name validity) and
+AC-021 (difficulty tier) are tested as domain rules against pure functions,
+without going through argv.
 """
 
 
@@ -66,3 +67,12 @@ class ExportRejected(NonogramError):
 
 class InvalidPuzzleName(NonogramError):
     """The supplied puzzle name cannot be used (FR-015)."""
+
+
+class UnsupportedDifficulty(NonogramError):
+    """The requested difficulty tier is not one of Easy/Medium/Hard (FR-008).
+
+    Raised by ``nonogram.difficulty.parse_tier``, inward of argparse: which
+    tiers exist is a domain rule and not argument syntax, so ``--difficulty``
+    carries no ``choices=`` (AC-021, ADR-0010, CARD-010 guardrail G-4).
+    """

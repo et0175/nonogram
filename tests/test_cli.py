@@ -214,6 +214,7 @@ ERROR_EXIT_CODES = [
     (errors.InvalidDensity, cli.ExitCode.INVALID_INPUT),
     (errors.UnknownLibraryImage, cli.ExitCode.INVALID_INPUT),
     (errors.InvalidPuzzleName, cli.ExitCode.INVALID_INPUT),
+    (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),
     (errors.SolverTimeout, cli.ExitCode.GENERATION_FAILED),
     (errors.ExportRejected, cli.ExitCode.EXPORT_REJECTED),
