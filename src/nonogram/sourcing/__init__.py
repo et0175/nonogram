@@ -2,9 +2,10 @@
 
 A solution grid can be sourced three ways — drawn at random (FR-001/FR-004),
 taken from the built-in image library (FR-002, CARD-008) or converted from an
-uploaded image (FR-003, CARD-015). The first two exist today; adding the third
-means registering a callable in :data:`_SOURCES`, not reshaping the dispatch —
-which is exactly what CARD-008 did to land the library row, one line.
+uploaded image (FR-003, CARD-015). All three exist now, and each of the last
+two landed as one row in :data:`_SOURCES` rather than as a reshaped dispatch,
+which is what the split between "return the callable" and "assemble its
+arguments" was for. The table is closed: the model names no fourth mode.
 
 :func:`for_mode` returns the *sourcing callable* rather than calling it,
 because the three modes do not share a parameter list — random takes size and
@@ -23,15 +24,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from nonogram.sourcing import library, random_grid
+from nonogram.sourcing import image, library, random_grid
 
-__all__ = ["LIBRARY", "MODES", "RANDOM", "GridSource", "for_mode"]
+__all__ = ["IMAGE", "LIBRARY", "MODES", "RANDOM", "GridSource", "for_mode"]
 
 #: The ``--mode`` value each source is selected by. The CLI's argparse
 #: ``choices`` mirrors these strings (syntactic rejection of an unknown mode
 #: happens there, ADR-0010); this table is the domain-side registry.
 RANDOM = "random"
 LIBRARY = "library"
+IMAGE = "image"
 
 #: What every mode's entry point looks like from the dispatcher's side: it
 #: returns a grid in the ADR-0012 boundary representation. Arguments are
@@ -41,7 +43,7 @@ GridSource = Callable[..., list[list[bool]]]
 _SOURCES: dict[str, GridSource] = {
     RANDOM: random_grid.generate,
     LIBRARY: library.generate,
-    # CARD-015: IMAGE   -> image.generate
+    IMAGE: image.generate,
 }
 
 #: The modes this build can source a grid for, in registration order.
@@ -57,8 +59,10 @@ def for_mode(mode: str) -> GridSource:
     Returns:
         The callable that sources a grid for that mode. Call it with the
         mode's own arguments — ``(size, density, rng)`` for :data:`RANDOM`,
-        ``(key, size, rng)`` for :data:`LIBRARY`. The orchestrator assembles
-        that list per mode at its own call site.
+        ``(key, size, rng)`` for :data:`LIBRARY`, ``(path, size, rng)`` for
+        :data:`IMAGE`. The orchestrator assembles that list per mode at its own
+        call site, where an unregistered *argument list* is refused as loudly
+        as an unregistered mode is here.
 
     Raises:
         ValueError: ``mode`` is not registered. Deliberately *not* a
