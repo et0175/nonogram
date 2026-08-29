@@ -1,6 +1,6 @@
 # CARD-018: Strengthen solver search to meet AC-037 at 20x20 mid/low density
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/018-solver-search-strength
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-018
 **Source:** meta/architecture/decisions/adr/0001-generation-time-thresholds.md (revision, DEC-019)
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-006
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, tests/bench_generate.py, tests/test_solver.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-08-29T11:20:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

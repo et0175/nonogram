@@ -1,6 +1,11 @@
-wave: 11
+wave: unscheduled
 mode: interactive
-active: []
+active:
+  - id: CARD-018
+    phase: implementation
+    branch: card/018-solver-search-strength
+    worktree: ../PythonProject4-card-018
+    started: 2026-08-29T11:20:00Z
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-29T11:10:00Z
+last_updated: 2026-08-29T11:20:00Z
