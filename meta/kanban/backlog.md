@@ -53,7 +53,20 @@
       the way it records mode/size/density/seed — an image- or library-sourced export
       isn't self-describing enough to reproduce the run from the file alone. Pre-existing
       since CARD-008 (library mode), widened by one mode in CARD-015.               @tech-debt
-- [ ] `meta/kanban/cards/CARD-015.md`'s System contract cites
-      `TestNudge_ReportsFailureAtCap` as an INV-003 check; it doesn't exist yet — it's a
-      forward reference to CARD-016's nudge counter. Confirm it lands when CARD-016 ships
-      rather than staying a dead reference.                                        @tech-debt
+- [x] ~~`TestNudge_ReportsFailureAtCap` forward reference~~ — resolved 2026-08-29,
+      CARD-016 shipped `test_nudge_reports_failure_at_cap` in `tests/test_nudge.py`.
+                                                                                     @tech-debt
+
+## Surfaced during delivery (Wave 10, 2026-08-29)
+- [ ] A large/hard uploaded image can now spend up to 6 solver invocations
+      (1 conversion + 5 nudges) against the shared 30s generation deadline instead of
+      1 — the budget itself isn't breached (the deadline is absolute across all
+      solves), but on an unlucky image this could surface a generic `SolverTimeout`
+      instead of CARD-016's "retry with a different image/size" advice. Low
+      probability (the expensive full-search case is usually the one that
+      recovers), but worth knowing when reporting exits for image mode.            @tech-debt
+- [ ] Until CARD-017 ships nudge-count reporting, a successful nudged image run
+      silently alters the user's picture with no visible signal (up to 5 pixels
+      changed from what they uploaded) — correct per CARD-016's own guardrail
+      G-5 (out of scope for CARD-016), but a real user-facing gap while the two
+      cards are half-landed. Keep CARD-017 prioritized close behind.               @tech-debt
