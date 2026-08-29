@@ -2,10 +2,9 @@
 
 A finalized puzzle can leave the process five ways — PNG and SVG (FR-011,
 CARD-012), JSON and CSV (FR-012, CARD-013 for the CSV half) and PDF (FR-016,
-CARD-014). JSON, PNG, SVG and CSV exist today, so this package
-is a short lookup table plus the modules behind it: adding a format means
-registering an :class:`ExportFormat` in :data:`_FORMATS`, not reshaping the
-dispatch.
+CARD-014). All five exist today, so this package is a short lookup table plus
+the modules behind it: adding a format means registering an
+:class:`ExportFormat` in :data:`_FORMATS`, not reshaping the dispatch.
 
 The registry is the *only* list of format names in the codebase
 --------------------------------------------------------------
@@ -57,12 +56,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from nonogram.export import csv_export, json_export, png, svg
+from nonogram.export import csv_export, json_export, pdf, png, svg
 
 __all__ = [
     "CSV",
     "FORMATS",
     "JSON",
+    "PDF",
     "PNG",
     "SVG",
     "ExportFormat",
@@ -83,6 +83,12 @@ SVG = "svg"
 
 #: The ``--export`` value the CSV renderer is selected by (FR-012, CARD-013).
 CSV = "csv"
+
+#: The ``--export`` value the two-page PDF renderer is selected by (FR-016,
+#: CARD-014). The only format whose filename is not the puzzle's bare name:
+#: ADR-0016 spells it ``<name>-<difficulty>.pdf``, which the orchestrator
+#: composes and passes in as this format's ``stem``.
+PDF = "pdf"
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +112,17 @@ class ExportPayload:
             the domain default. Recorded as *asked for*, alongside the seed,
             so the request can be replayed exactly (ADR-0015).
         density: The requested fill percentage, same nullability, same reason.
+        name: FR-015's puzzle name, verbatim — what the PDF header shows
+            (FR-016) and what the filename stem was derived from. ``None`` for
+            an aggregate that never got a name.
+        difficulty: FR-008's tier **as it is displayed** — ``"Medium"``, not
+            ``"medium"``. A plain string and not a ``difficulty.Tier`` for the
+            same reason the clues arrive as tuples rather than as the solver's
+            bitmasks (ADR-0012): a capability module may not import a sibling
+            capability (ADR-0007), so the tier's display spelling is resolved
+            once by the orchestrator — through ``Tier.label``, the single
+            source of that spelling — and carried across the boundary as a
+            value. ``None`` until the puzzle has been scored.
     """
 
     grid: list[list[bool]]
@@ -115,6 +132,8 @@ class ExportPayload:
     mode: str
     size: int | None = None
     density: int | None = None
+    name: str | None = None
+    difficulty: str | None = None
 
 
 #: What a renderer looks like from the dispatcher's side: it writes one payload
@@ -137,7 +156,7 @@ _FORMATS: dict[str, ExportFormat] = {
     PNG: ExportFormat(PNG, ".png", png.render),
     SVG: ExportFormat(SVG, ".svg", svg.render),
     CSV: ExportFormat(CSV, ".csv", csv_export.render),
-    # CARD-014: PDF -> pdf_export.render (".pdf")
+    PDF: ExportFormat(PDF, ".pdf", pdf.render),
 }
 
 #: The formats this build can export, in registration order. ``cli.py`` builds
@@ -224,6 +243,10 @@ def write(
         name: A registered format name.
         directory: Where the file goes; created if it does not exist.
         stem: The filename without its extension — see :func:`default_stem`.
+            Per call, not per run: four of the five formats are written under
+            the puzzle's name, while ADR-0016 gives the PDF its own
+            ``<name>-<difficulty>`` stem, and which stem a format takes is the
+            composing layer's decision rather than this dispatcher's.
 
     Returns:
         The path actually written, suffix included if there was a collision.

@@ -888,9 +888,11 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
     Repeated formats (``--export json --export json``) are collapsed to the
     first occurrence — the user asked for JSON, not for two copies of it.
 
-    All formats of one run share one filename stem, and that stem is the
+    All formats of one run share one *base* filename stem, and that stem is the
     puzzle's FR-015 name rather than a second, independently computed
-    convention (:func:`_filename_stem`).
+    convention (:func:`_filename_stem`). What each format actually writes under
+    is :func:`_stem_for_format`'s answer for it — the base name for four of the
+    five, and ADR-0016's ``<name>-<difficulty>`` for the PDF.
 
     Args:
         puzzle: The finished aggregate from :func:`generate`. Its request
@@ -919,6 +921,7 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
             "ready_for_export is only ever set for a recorded candidate"
         )
 
+    tier = puzzle.difficulty_tier
     payload = export.ExportPayload(
         grid=grid,
         row_clues=puzzle_clues.rows,
@@ -927,14 +930,29 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
         mode=puzzle.mode,
         size=puzzle.size,
         density=puzzle.density,
+        # FR-016's header, as values rather than as domain objects: the tier's
+        # display spelling is resolved here, through ``Tier.label``, because
+        # COMP-007 may not import COMP-006 to ask (ADR-0007).
+        name=puzzle.name,
+        difficulty=tier.label if tier is not None else None,
     )
-    # One stem for the whole run, so a multi-format export produces one named
-    # puzzle in several formats rather than several differently-named files.
+    # One *base* stem for the whole run — the puzzle's name — so a multi-format
+    # export produces one named puzzle in several formats rather than several
+    # differently-named files. Resolved once and passed down rather than
+    # recomputed per format: the unnamed-aggregate fallback reads the clock
+    # (``export.default_stem``), and a run that straddled a minute boundary
+    # would otherwise write ``...-1429.json`` next to ``...-1430.png``.
     stem = _filename_stem(puzzle)
     directory = puzzle.request.out if puzzle.request.out is not None else Path.cwd()
 
     return tuple(
-        export.write(payload, name, directory=directory, stem=stem) for name in formats
+        export.write(
+            payload,
+            name,
+            directory=directory,
+            stem=_stem_for_format(name, base=stem, tier=tier),
+        )
+        for name in formats
     )
 
 
@@ -974,9 +992,10 @@ def _filename_stem(puzzle: Puzzle) -> str:
     Sanitization is ADR-0016's rule ("both components sanitized for
     filesystem-safe characters"), applied to the name on its way to a path and
     never to the name itself: ``--name`` is a display name, and AC-044 asks for
-    it back verbatim from the aggregate. CARD-014 composes its
-    ``<name>-<difficulty>.pdf`` from this same helper, so the two components
-    are sanitized by one rule rather than two.
+    it back verbatim from the aggregate. CARD-014's ``<name>-<difficulty>.pdf``
+    is composed from this same stem (:func:`_stem_for_format`) and its tier
+    goes through the same :func:`_sanitized_component`, so ADR-0016's two
+    components are sanitized by one rule rather than by two.
 
     A puzzle with no name at all is an aggregate somebody assembled by hand
     rather than one :func:`generate` produced; it falls back to CARD-007's
@@ -984,7 +1003,56 @@ def _filename_stem(puzzle: Puzzle) -> str:
     """
     if puzzle.name is None:
         return export.default_stem(puzzle.mode)
-    # ``strip`` takes the leading and trailing dots with it, so no name can
-    # sanitize into ``.``, ``..`` or a dotfile.
-    stem = _UNSAFE_STEM_CHARACTERS.sub("-", puzzle.name).strip("-.")
-    return stem or export.default_stem(puzzle.mode)
+    return _sanitized_component(puzzle.name) or export.default_stem(puzzle.mode)
+
+
+def _sanitized_component(text: str) -> str:
+    """One filename component, made filesystem-safe (ADR-0016).
+
+    The rule itself, factored out of :func:`_filename_stem` so that ADR-0016's
+    *both* components — the puzzle's name and the difficulty tier joined to it
+    for the PDF — are sanitized by one function rather than by two that can
+    drift. ``strip`` takes the leading and trailing dots with it, so no
+    component can sanitize into ``.``, ``..`` or a dotfile, and a component
+    that sanitizes away entirely comes back as ``""`` for the caller to decide
+    about.
+    """
+    return _UNSAFE_STEM_CHARACTERS.sub("-", text).strip("-.")
+
+
+def _stem_for_format(
+    format_name: str, *, base: str, tier: difficulty.Tier | None
+) -> str:
+    """The filename stem one format writes under.
+
+    Four of the five formats are the puzzle's name and nothing else. The PDF is
+    the exception ADR-0016 carves out: ``<name>-<difficulty>.pdf``, so that the
+    file on disk says both what the puzzle is called and how hard it turned out
+    to be — the same two facts FR-016 puts in the page header — and so that two
+    same-named puzzles at different tiers do not collide before ADR-0017's
+    suffix search has to run. ADR-0016 scopes that convention to the PDF alone
+    and explicitly leaves FR-011/FR-012's filenames as they are, which is why
+    this is one named exception rather than a per-format naming policy.
+
+    The tier is joined in its own lowercase spelling (``cat-hard.pdf``, ADR-0016's
+    own example) — ``Tier``'s value, not its display :attr:`~difficulty.Tier.label`,
+    the two being one string apart precisely so a filename and a header can
+    each take the form they need without a lookup table between them.
+
+    Args:
+        format_name: The registered format about to be written.
+        base: The run's base stem — :func:`_filename_stem`'s answer, computed
+            once for the whole run.
+        tier: The tier the puzzle scored into, or ``None`` if it was never
+            scored (a hand-assembled aggregate). An untiered puzzle keeps the
+            bare name: half of the convention is not a filename, and a
+            ``cat-.pdf`` or ``cat-None.pdf`` would be worse than a ``cat.pdf``
+            that merely omits what nobody measured.
+
+    Returns:
+        The stem to hand ``export.write``.
+    """
+    if format_name != export.PDF or tier is None:
+        return base
+    suffix = _sanitized_component(tier.value)
+    return f"{base}-{suffix}" if suffix else base

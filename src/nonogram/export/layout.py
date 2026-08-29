@@ -1,10 +1,17 @@
 """COMP-007 — the shared print geometry behind every rendered puzzle (FR-011).
 
-Three renderers eventually draw the same picture: the PNG raster (this card),
-the SVG vector (this card) and CARD-014's PDF, which CON-006 makes a second
-sink on the PNG raster path rather than a new dependency. "The same picture"
-has to mean the same *numbers*, so the numbers live here, once, and the
-renderers only choose how to stroke them.
+Three renderers draw the same picture: the PNG raster (CARD-012), the SVG vector
+(CARD-012) and CARD-014's PDF, which CON-006 makes a second sink on the PNG
+raster path rather than a new dependency. "The same picture" has to mean the
+same *numbers*, so the numbers live here, once, and the renderers only choose
+how to stroke them.
+
+The one thing not all three draw is a header. It is measured here anyway
+(:func:`header_band`) — a page's geometry is this module's subject whoever ends
+up drawing it — but as a separate measurement laid *above* a computed
+:class:`Layout` rather than as a parameter of :func:`compute_layout`, so that
+the two formats without a header pay nothing for the one with it. See
+:func:`header_band`.
 
 A pure function of the clues, and of nothing else
 -------------------------------------------------
@@ -70,6 +77,8 @@ from dataclasses import dataclass
 
 __all__ = [
     "DPI",
+    "HEADER_BAND_MM",
+    "HEADER_FONT_MM",
     "MAX_CELL_MM",
     "MIN_CELL_MM",
     "MAJOR_RULE_EVERY",
@@ -78,8 +87,10 @@ __all__ = [
     "PAGE_WIDTH_MM",
     "ClueEntry",
     "GridLine",
+    "HeaderBand",
     "Layout",
     "compute_layout",
+    "header_band",
 ]
 
 #: Output resolution in dots per inch. 300 is the conventional print target:
@@ -103,6 +114,15 @@ MIN_CELL_MM = 2.0
 
 #: Every Nth grid line is stroked heavy — the standard nonogram counting aid.
 MAJOR_RULE_EVERY = 5
+
+#: The strip CARD-014's PDF adds *above* a rendered page for its
+#: ``<name> — <tier>`` header, and the type size the header is set in, both in
+#: millimetres. 5 mm is roughly 14 pt: larger than any clue digit at any cell
+#: size, so the title reads as a title, and the 12 mm band leaves a clear
+#: half-band of white above and below it. See :func:`header_band` for why the
+#: band is measured here but added by the renderer.
+HEADER_BAND_MM = 12.0
+HEADER_FONT_MM = 5.0
 
 #: Clue digits, as a fraction of the cell they sit in. 0.62 leaves a visible
 #: gap on both sides of a two-digit clue (the widest that can occur: the
@@ -248,6 +268,65 @@ class Layout:
     def height_inches(self) -> float:
         """:attr:`height` as a physical measurement at :attr:`dpi`."""
         return self.height / self.dpi
+
+
+@dataclass(frozen=True, slots=True)
+class HeaderBand:
+    """The strip a titled page carries above the drawing (FR-016).
+
+    Attributes:
+        height: How tall the band is, in device pixels — what the page grows
+            by, and how far down the puzzle drawing moves.
+        center_x: The horizontal centre of the band.
+        center_y: The vertical centre, measured from the *page's* top edge
+            (which is the band's own top edge, the band being the first thing
+            on the page). A renderer centres the title on ``(center_x,
+            center_y)``, the same ``anchor="mm"`` placement rule the clue
+            numbers use.
+        font_size: The size to set the title in.
+    """
+
+    height: int
+    center_x: int
+    center_y: int
+    font_size: int
+
+
+def header_band(layout: Layout) -> HeaderBand:
+    """Measure the title strip for a page drawn to ``layout`` (FR-016).
+
+    Why this is a second function and not a parameter of
+    :func:`compute_layout`
+    ----------------------------------------------------------------------
+    Only the PDF carries a header: FR-011's PNG and SVG are the bare printable
+    puzzle, and CON-006 makes the PDF a second *sink* on that same raster
+    rather than a second drawing. Folding a header into
+    :func:`compute_layout` would move ``grid_top`` — and with it every clue
+    centre and every ruled line — for all three renderers, so a format that
+    shows no header would still be paying for one in its coordinates. Measured
+    separately and added on top, the band is strictly additive: the PNG and the
+    PDF's puzzle page are the same pixels, offset by :attr:`HeaderBand.height`.
+
+    The type size is physical (:data:`HEADER_FONT_MM` at :data:`DPI`) and not a
+    fraction of the cell, unlike :attr:`Layout.clue_font_size`. A clue digit has
+    to fit inside its cell, so it must scale with it; a title has a whole page
+    width to sit in and only has to be legible, and pinning it to the cell would
+    set a 50x50 puzzle's header in the same 2 mm type as its clues.
+
+    Args:
+        layout: The geometry of the page the band goes above — read only for
+            its width, so the title is centred over the drawing.
+
+    Returns:
+        The :class:`HeaderBand` the renderer draws into.
+    """
+    height = _mm_to_px(HEADER_BAND_MM)
+    return HeaderBand(
+        height=height,
+        center_x=layout.width // 2,
+        center_y=height // 2,
+        font_size=max(1, _mm_to_px(HEADER_FONT_MM)),
+    )
 
 
 def _mm_to_px(millimetres: float) -> int:
