@@ -1,6 +1,6 @@
 # CARD-017: Nudge-count reporting in CLI output
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.25d
@@ -80,4 +80,94 @@ than the CLI needs. The decision is a single count line at export time.
 
 ## Worktree notes
 
-—
+**Correction confirmed against code first.** The card's own text says
+`nudge_count` is carried on `Puzzle`; the actual field (from CARD-016) is
+`puzzle.nudge`, a `RetryCounter` (same type as `regenerate`/`resample`), and
+the count to print is `puzzle.nudge.attempts` (an `int`, default `0` via
+`RetryCounter`'s dataclass default). Read `orchestrator.py`'s `Puzzle` and
+`RetryCounter` classes before writing anything, per the task's instruction —
+confirmed the field name and that CARD-016 already left a comment on it
+("CARD-017 reports this number to the user; this card only carries it
+(guardrail G-5)").
+
+**What was built.** One change, in `src/nonogram/cli.py`'s `_run_generate`:
+after the existing `for path in written: print(f"wrote {path}")` loop, four
+new lines read `puzzle.nudge.attempts` and, only when it is greater than
+zero, print a line of the form `"2 cells were nudged to reach a unique
+solution"` (with `cell`/`was` for the singular case, though the nudge cap is
+5 so the count is always in `1..5` when nonzero). Nothing is printed when the
+count is zero — no `if/else`, just the single `if nudged > 0:` guard, so
+there is no "0 cells nudged" branch to accidentally add later (G-3).
+
+**Placement decision (documented per the task's instruction to use judgment
+and record the choice).** Placed the line *after* the `"wrote {path}"` loop,
+not right after `puzzle = orchestrator.generate(request)`. Reasoning:
+
+- AC-040 and AC-041 are both phrased as "when the puzzle is exported" — the
+  count is framed as an export-time report, not a generation-time one, even
+  though the underlying number is fixed the moment `generate()` returns.
+- Placing it after the export loop means nothing prints if export fails
+  with an `OSError` (the `except` branch returns before reaching this code),
+  which matches "the report is a CLI output line only ... at export time"
+  more literally than printing it unconditionally right after generation,
+  before it's known whether export will even happen.
+- It reads naturally alongside the other export-time report (`wrote
+  {path}`), keeping the two "what happened during this run" lines adjacent
+  in stdout, with the reproducibility line (`seed: ...`) staying where it
+  was, printed right after generation since that one really is about
+  generation, not export.
+
+**Guardrail compliance.**
+- G-1: `src/nonogram/export/**` untouched; no nudge metadata added to any
+  export format. Verified via `git diff --stat` — only `cli.py` changed.
+- G-2: `sourcing/**`, `solver/**`, `clues.py`, `difficulty.py` untouched.
+- G-3: zero nudges prints nothing (`test_export_omits_nudge_count_when_zero`
+  asserts `"nudged" not in out`, not merely that a specific string is
+  absent).
+- G-4: count only — no diff, no image, no coordinates.
+- G-5: `puzzle.nudge.attempts` is read directly; no grid comparison of any
+  kind appears in `cli.py`.
+
+**Touches vs. prediction.** Matches the predicted list except
+`orchestrator.py`, which needed *no* change at all — `puzzle.nudge.attempts`
+already existed from CARD-016 exactly as needed, so this card is CLI-only
+plus its test file:
+- `src/nonogram/cli.py` (the print statement + docstring update)
+- `tests/test_nudge_reporting.py` (new — AC-040/AC-041)
+
+No other files touched; nothing outside the predicted `Touches:` scope.
+
+**Tests added.**
+- `test_export_reports_nudge_count` (AC-040) — drives the real CLI
+  (`cli.main`) end to end in `--mode image` against the pre-existing pinned
+  fixture `tests/fixtures/bands.png` at size 10, seed 1, which
+  `tests/test_nudge.py::test_nudge_attempts_bounded_recovery_on_a_real_image`
+  already pins at `puzzle.nudge.attempts == 2` — reused rather than
+  re-deriving a new nudging fixture. Asserts `"2 cells were nudged"` appears
+  in stdout.
+- `test_export_omits_nudge_count_when_zero` (AC-041) — an ordinary
+  `--mode random` run (which never enters the nudge loop, so the counter
+  stays at its `0` default) asserts `"nudged"` does not appear anywhere in
+  stdout at all.
+
+Both run the real pipeline (real solver, real image conversion) rather than
+scripting `puzzle.nudge` by hand, consistent with this codebase's stated
+preference for exercising the real path over faking aggregate state.
+
+**Test run result.** Fresh venv built in the worktree
+(`python3.14 -m venv .venv && ./.venv/bin/pip install -e '.[dev]'`). Full
+suite: `1155 passed, 1 xfailed` (baseline before this card: `1153 passed, 1
+xfailed`; the +2 accounts exactly for the two new tests — no regressions).
+The pre-existing xfail is unchanged: `tests/bench_generate.py::test_20x20_p95_is_under_5s`,
+same AC-037/CARD-018 reason string as before this card, confirmed via
+`pytest -rx`.
+
+### Orchestrator notes
+
+- **[Scope]** Touches match predicted minus `orchestrator.py` (needed no
+  change — `puzzle.nudge.attempts` already existed from CARD-016). No
+  deviation, no silent creep. G-1/G-2 confirmed clean (empty diff on
+  `export/**`, `sourcing/**`, `solver/**`, `clues.py`, `difficulty.py`).
+- **[Build gate]** PASSED (full, independently re-run by orchestrator using
+  the implementer's own worktree venv: 1155 passed, 1 xfailed, exit 0;
+  AC-037 xfail unchanged in status and reason).
