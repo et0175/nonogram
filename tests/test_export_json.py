@@ -125,8 +125,8 @@ def test_an_unregistered_format_is_a_wiring_bug_not_a_domain_error() -> None:
     """Same choice as ``sourcing.for_mode``: argparse already rejected this
     for the user, so reaching here means the pipeline asked for a format that
     does not exist — not something to map onto an exit code."""
-    with pytest.raises(ValueError, match="unknown export format 'pdf'"):
-        export.for_format("pdf")
+    with pytest.raises(ValueError, match="unknown export format 'xlsx'"):
+        export.for_format("xlsx")
 
 
 @pytest.mark.parametrize("name", export.FORMATS)
@@ -136,11 +136,13 @@ def test_every_registered_format_is_accepted_by_the_cli(name: str) -> None:
 
 
 def test_an_unregistered_format_is_rejected_by_the_cli() -> None:
-    """``pdf`` is CARD-014's and not registered yet — the stand-in for "a
-    format this build does not have", which used to be ``csv`` until CARD-013
-    registered it."""
+    """``xlsx`` is the stand-in for "a format this build does not have", which
+    used to be ``csv`` until CARD-013 registered it and ``pdf`` until CARD-014
+    did. All five planned formats now exist, so the stand-in is a format the
+    tool deliberately does not have — FR-012 answers the spreadsheet case with
+    CSV — rather than the next card's."""
     with pytest.raises(SystemExit) as excinfo:
-        cli.build_parser().parse_args(["generate", "--export", "pdf"])
+        cli.build_parser().parse_args(["generate", "--export", "xlsx"])
     assert excinfo.value.code == cli.ExitCode.USAGE
 
 
