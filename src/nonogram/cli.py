@@ -253,7 +253,11 @@ def _run_generate(args: argparse.Namespace) -> int:
     stderr in :func:`main`, and the one failure this function reports itself is
     the export ``OSError`` below.
 
-    The FR-014 nudge count joins them with CARD-016/017's recovery loop.
+    The FR-014 nudge count (CARD-017) joins them, printed after the written
+    paths and only when ``puzzle.nudge.attempts`` is nonzero — the count is
+    read directly off the ``Puzzle`` aggregate that CARD-016's recovery loop
+    populated, never recomputed here (guardrail G-5), and its absence *is*
+    the zero-nudges signal (AC-041, guardrail G-3).
 
     The ``OSError`` clause below is CARD-007's, moved down here from
     :func:`main` and narrowed to the one call it was always about (CARD-007
@@ -307,6 +311,20 @@ def _run_generate(args: argparse.Namespace) -> int:
         return ExitCode.EXPORT_REJECTED
     for path in written:
         print(f"wrote {path}")
+    # FR-014/CARD-017: printed here, after the "wrote {path}" lines, so that
+    # the only run this placement actually suppresses the line for is one
+    # whose export raised ``OSError`` above (that branch returns first). It is
+    # not gated on ``--export`` actually being requested — with no
+    # ``--export`` flag at all, ``written`` is simply empty and this still
+    # prints — so "at export time" describes intent, not the implemented
+    # condition. The count itself is read straight off the aggregate
+    # (guardrail G-5) and printed only when it is nonzero — zero nudges
+    # prints nothing at all (AC-041, guardrail G-3).
+    nudged = puzzle.nudge.attempts
+    if nudged > 0:
+        cell_word = "cell" if nudged == 1 else "cells"
+        verb = "was" if nudged == 1 else "were"
+        print(f"{nudged} {cell_word} {verb} nudged to reach a unique solution")
     return ExitCode.OK
 
 
