@@ -1,6 +1,6 @@
 # CARD-015: Uploaded-image conversion via resize and Floyd-Steinberg dithering
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -122,3 +122,135 @@ path argument bound to an integer size — producing a confusing failure instead
 wiring error. Add an explicit `mode == RANDOM` branch and raise `ValueError(f"no source
 argument list for mode {mode!r}")` in the else, rather than extending the implicit fallback
 a third time.
+
+---
+
+[Implementation, CARD-015] What landed, and the decisions behind it.
+
+**`sourcing/image.py` (new).** `generate(source, size, rng) -> list[list[bool]]`, registered
+as `IMAGE: image.generate` in `sourcing/__init__.py`'s dispatch table. The pipeline is
+`open -> flatten transparency onto white -> greyscale -> centre-crop to square -> resize to
+size x size -> Floyd-Steinberg dither -> ink is a filled cell`, split into four named
+functions (`load_greyscale`, `square_crop_box`, `binarize`, `to_grid`) so the aspect-ratio
+policy and the polarity can each be tested without an image or a threshold in the way.
+Dithering is `Image.convert("1", dither=Image.Dither.FLOYDSTEINBERG)` — Pillow's own
+Floyd-Steinberg, named explicitly rather than left as the mode-`"1"` default — and NumPy
+does the arithmetic on the far side of it, one vectorised comparison against black instead
+of a per-pixel loop (ADR-0006's division of labour, guardrail G-2: no new dependency).
+
+The `rng` argument is accepted and deliberately never drawn from. That is the whole reason
+image mode cannot join POL-001 (below), and it is asserted directly: two different seeds
+give the same grid, and the RNG handed in comes back with its state untouched.
+
+**Aspect-ratio policy (AC-009): centre-crop, then resize.** The source is cropped to its
+largest centred square and that square is resized to the grid, so the output is exactly
+`size` x `size` whatever the input's proportions were. Both alternatives were rejected for
+reasons written into the module docstring. *Stretch* keeps every pixel but distorts the
+subject, and at 10..50 cells there is no resolution to spare for the viewer to mentally
+un-stretch a squashed face — a nonogram's whole payoff is that the solved grid is a
+recognisable picture. *Letterbox* keeps proportions but spends the scarcest resource there
+is on nothing: a 16:9 photo padded into a 25x25 grid burns ~7 of its 25 rows on blank paper,
+which is both a worse picture and a worse puzzle (an empty row is a `0` clue and a free line
+for the solver). Cropping loses the ends of the long axis; that is the honest cost, and it
+is centred rather than anchored because the subject of a photograph is near the middle far
+more often than at an edge. The `wide.png`/`tall.png` fixtures are built so one assertion
+tells all three policies apart: their outer thirds are black, so under a stretch or a
+letterbox that ink would reach the grid, and under the crop it does not.
+
+**AC-008.** `errors.UnreadableImage` covers every way a `--image` can fail to become a
+picture — missing, unreadable, a directory, a corrupt/undecodable file, or the flag omitted
+in image mode. `Image.open` is followed by `.load()` inside the guarded block, because
+Pillow is lazy and a truncated body would otherwise raise at the caller's first pixel
+access, outside the guard. Tested structurally as well as behaviourally: `UnidentifiedImageError`
+is itself an `OSError`, so the test asserts the escaping exception is a `NonogramError` and
+is *not* an `OSError` of any kind, with Pillow's exception demoted to a chained `__cause__`.
+
+**G-4 — image mode genuinely bypasses POL-001.** `orchestrator.generate` grew an explicit
+`request.mode == sourcing.IMAGE` branch that converts **once**: no `run_bounded`, no counter
+advanced, and a candidate that fails either the uniqueness check or the requested tier ends
+the run with `GenerationAbandoned` carrying its own wording (`_image_uniqueness_reason` /
+`_image_tier_reason`). Neither message mentions attempts, because nothing was retried, and
+neither offers `--seed` as a lever, because re-seeding an image run reproduces the identical
+grid. The test that matters is not "it fails cleanly" — a run that quietly took one turn of
+the regenerate loop would satisfy that — but the count: a scripted source is asked for
+exactly one candidate, and both INV-003 counters are read off the aggregate at zero,
+including on the happy path. `TestRegenerate_FiresOnUniquenessFailure` in
+`tests/test_orchestrator.py` is untouched and still scoped to random/library mode; a test
+here re-asserts from the new module that exempting image mode exempted nothing else. There
+is also a pinned real-file case: `bands.png` at 10x10 genuinely converts to a non-unique
+grid and comes back through the CLI as exit code 4.
+
+No pixel-nudge loop and no nudge count (G-3), and no counter in `image.py` (G-6) — INV-003's
+counter keeps its single home in COMP-002, where CARD-016's nudge counter is expected to
+land next to `regenerate` and `resample`.
+
+**Follow-up 1 (CARD-007 review, cycle 2) — resolved, both ways.** The bare `except OSError`
+that wrapped the whole `args.handler(args)` call in `main()` is gone. It has been moved into
+`_run_generate` and narrowed to wrap only `orchestrator.export_puzzle(puzzle)`, which is the
+call it was always about; the two reporting sites now share one `_report` helper so the
+message format cannot drift. Independently of that, an image read never produces a bare
+`OSError` at all — `sourcing.image` raises `UnreadableImage`, which the CLI maps to
+`ExitCode.INVALID_INPUT` (3), the same group as a bad size or an unknown library key, and
+explicitly not `EXPORT_REJECTED` (5). Three tests pin the outcome: a missing `--image` exits
+3 with `cannot read image` on stderr and no traceback; a non-export `OSError` is no longer
+swallowed as an export failure (it stays unhandled, which is the honest outcome for a
+failure the adapter has no story for); and an export `OSError` is still reported cleanly,
+so what CARD-007 added the clause for still works. `tests/test_export_json.py`'s original
+`--out`-is-a-file repro passes unchanged.
+
+**Follow-up 2 (CARD-008 review, cycle 1) — resolved as suggested.**
+`orchestrator._source_arguments` now has three explicit branches (`RANDOM`, `LIBRARY`,
+`IMAGE`) and raises `ValueError(f"no source argument list for mode {mode!r}")` in the else,
+the note's exact wording. Confirmed the hazard was real before fixing it: with the implicit
+fallback, registering `IMAGE` would have called `image.generate(size, density, rng)` and
+bound a file path to an integer. Two tests guard it — the `else` by name, and a loop
+asserting every mode in `sourcing.MODES` has an argument list.
+
+**Files touched beyond the predicted `Touches:`** (flagged rather than done silently, per
+CARD-010/011/014):
+
+* `src/nonogram/errors.py` — required by AC-008's own wording ("a 'cannot read image'
+  domain error **from `errors.py`**"); one new `UnreadableImage` class, no behaviour.
+* `tests/test_sourcing_random.py` — `test_the_advertised_modes_match_the_dispatch_table`
+  asserted `MODES == ("random", "library")`, and `test_for_mode_rejects_an_unregistered_mode`
+  used `"image"` as its unregistered stand-in. Registering the mode necessarily breaks both.
+  The stand-in is now a made-up `"webcam"`; the dispatch table is closed at three modes, so
+  no future card inherits the same edit.
+* `tests/test_orchestrator.py` — same stand-in substitution in
+  `test_an_unknown_mode_fails_before_any_candidate_is_sourced`, same reason.
+* `tests/test_cli.py` — same stand-in substitution in the usage-error parametrization
+  (`--mode image` now parses), plus `UnreadableImage` added to `ERROR_EXIT_CODES`, which
+  `test_every_domain_error_has_an_exit_code` requires of every declared domain error.
+
+Fixtures: `tests/fixtures/bands.png` (32x32, black / mid-grey / white bands — the mid band
+is the dithering witness, since a 50% threshold renders a flat 128 field as one solid
+colour), `wide.png` (60x20) and `tall.png` (20x60, its transpose, so the crop is pinned on
+both axes), and `corrupt.png` (a real PNG signature followed by garbage). 88, 100, 97 and 53
+bytes respectively. Exotic one-off inputs — a flat mid-grey field, an RGBA image with a
+transparent hole — are built in `tmp_path` instead, since a repo fixture should be something
+a reader can open and recognise.
+
+Both non-obvious behaviours were mutation-checked before the notes were written: replacing
+the crop with a stretch fails 8 tests, and replacing Floyd-Steinberg with `Dither.NONE`
+fails 5.
+
+**Test run.** `./.venv/bin/python -m pytest` → **1121 passed, 1 xfailed** (baseline before
+this card: 1045 passed, 1 xfailed). No regressions. The pre-existing AC-037 xfail
+(`tests/bench_generate.py::test_20x20_p95_is_under_5s`) is unchanged in both status and
+reason — still the ADR-0001/CARD-018 solver search-strength gap. The 76 added cases are the
+74 in `tests/test_sourcing_image.py` plus two that came free from existing
+parametrizations widening (`--mode` choices, the error/exit-code table).
+
+### Orchestrator notes
+
+- **[Scope]** Touches match predicted plus four explicitly-flagged files
+  (`src/nonogram/errors.py` for the new `UnreadableImage` class required by
+  AC-008's own wording; `tests/test_sourcing_random.py`,
+  `tests/test_orchestrator.py`, `tests/test_cli.py` — all three used
+  `"image"` as their unregistered-mode stand-in, now `"webcam"`, since the
+  mode is now real). No silent creep. G-1 confirmed clean (empty diff on
+  `random_grid.py`, `library.py`, `solver/**`, `export/**`, `clues.py`,
+  `difficulty.py`); G-2 confirmed clean (`pyproject.toml` untouched).
+- **[Build gate]** PASSED (full, independently re-run by orchestrator in a
+  fresh venv: 1121 passed, 1 xfailed, exit 0; AC-037 xfail unchanged in
+  status and reason).
