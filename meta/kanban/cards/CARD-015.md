@@ -15,7 +15,7 @@
 **Wave:** 9
 **Depends on:** CARD-008, CARD-014
 **Touches:** src/nonogram/sourcing/image.py, src/nonogram/sourcing/__init__.py, src/nonogram/cli.py, src/nonogram/orchestrator.py, tests/test_sourcing_image.py, tests/fixtures/
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-08-29T06:10:00Z
 **Closed:** —
 **Actual:** —
@@ -254,3 +254,27 @@ parametrizations widening (`--mode` choices, the error/exit-code table).
 - **[Build gate]** PASSED (full, independently re-run by orchestrator in a
   fresh venv: 1121 passed, 1 xfailed, exit 0; AC-037 xfail unchanged in
   status and reason).
+- **[Review 1/3] 9.5/10 — PASS.** Report:
+  `meta/review/20260829T083758Z-CARD-015-cycle1.yml`. G-4 (the most
+  safety-critical guardrail here) verified by tracing actual control flow,
+  not test names: `run_bounded`/`record_attempt` are reachable only through
+  the tail call at line 976, and the image branch's three exits (two
+  raises, one return) all precede that line — no fall-through path exists.
+  AC-009's aspect-ratio policy independently re-implemented (crop vs.
+  stretch vs. letterbox) and confirmed the fixtures genuinely discriminate
+  (both rejected alternatives fail 4/6 assertions). AC-008 re-verified
+  against six real failure classes (missing/directory/corrupt/empty/
+  chmod-000/truncated) — no Pillow exception ever escapes. Both follow-up
+  resolutions (CARD-007's OSError narrowing, CARD-008's explicit
+  `_source_arguments` branches) verified correct and that the original
+  CARD-007 repro still passes. "rng accepted but never drawn from" grepped
+  directly (zero `rng.*` calls in the module). Zero Critical/Important
+  findings. One Minor, explicitly called out as the team's call rather
+  than decided unilaterally: **EXIF orientation is ignored** — a phone
+  photo with rotation metadata converts cropped along the wrong axis (the
+  grid is still correctly sized, so no AC/guardrail is violated, but this
+  is the card's headline input and the handoff calls image conversion "the
+  last untested technical risk"). Reviewer notes it's a one-line fix
+  (`ImageOps.exif_transpose` before flattening) if wanted now, or a natural
+  CARD-016 companion. Merging; surfacing the EXIF question to the user
+  before deciding whether to fix now.

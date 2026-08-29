@@ -1,0 +1,113 @@
+version: 1
+generated_at: "2026-08-29T08:37:58Z"
+target: "CARD-015 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-015, branch card/015-image-conversion, working tree vs main (uncommitted)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/sourcing/image.py"
+    - "src/nonogram/sourcing/__init__.py"
+    - "src/nonogram/orchestrator.py"
+    - "src/nonogram/cli.py"
+    - "src/nonogram/errors.py"
+    - "tests/test_sourcing_image.py"
+    - "tests/test_cli.py"
+    - "tests/test_orchestrator.py"
+    - "tests/test_sourcing_random.py"
+    - "tests/test_export_json.py (CARD-007 repro)"
+    - "tests/fixtures/*.png (decoded and inspected)"
+    - "meta/architecture/trace.yml (FR-003 row, component code: map)"
+    - "meta/kanban/cards/CARD-015.md"
+  not_reached:
+    - "src/nonogram/solver/** (guarded by G-1, diff verified empty; not re-read)"
+    - "src/nonogram/export/** (guarded by G-1, diff verified empty; json_export read only for request-metadata handling)"
+    - "src/nonogram/difficulty.py (guarded, diff empty)"
+  confidence: high
+
+metrics:
+  diff: { files: 12, added: 1487, removed: 52 }
+  max_fan_in: { symbol: "sourcing.for_mode", callers: 10 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py", "src/nonogram/cli.py"]
+  cochange_missing: ["tests/test_naming.py", "src/nonogram/export/__init__.py"]
+  unmeasured:
+    hotspots: >-
+      tooling_failure — the repository's first commit is 2026-08-27 (two days old),
+      so the 12-month churn/defect-density window contains the whole history and
+      cannot separate "hot" from "recently created". orchestrator.py (9 commits)
+      and cli.py (6) are listed as the most-touched files, not as statistically
+      hot ones.
+    cochange_missing: >-
+      no_eligible_fact — same two-day history. test_naming.py and
+      export/__init__.py co-changed twice each with the touched files; with 11
+      total commits that is not a signal strong enough to gate on. Both were
+      checked by hand and neither needs a change (default_stem is mode-generic;
+      the JSON exporter enumerates mode/size/density only, for library mode too).
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — the diff adds a grid *source*, not a verdict path: the image branch reaches the solver through the same `attempt_candidate` closure every mode uses (orchestrator.py:932-938), calling `solver.solve(...)` then `puzzle.confirm_uniqueness(verdict.solution_count)` with the count stored as given. `git diff main -- src/nonogram/solver` is empty; the check `PropertyTest_Solver_NeverFalsePositiveUniqueness` exists in tests/property/ and passes in the green run."
+    - "INV-001 ✓ holds — every image grid enters the aggregate through `puzzle.record_candidate(grid)` (orchestrator.py:933), the single write point that sets grid and clues together; clues.py diff is empty. `to_grid` returns row-major `list[list[bool]]` of plain Python bools (pinned by test_convert_image_produces_a_dithered_grid_of_plain_python_bools), so the RLE encoder receives the boundary type it always has. Check TestComputeClues_MatchesGridExactly exists (2 refs)."
+    - "INV-002 ✓ holds — the image branch returns a puzzle only after `confirm_uniqueness` returned True (attempt_candidate returns None otherwise, orchestrator.py:937-938), and the uniqueness-failure path raises with ready_for_export False — asserted directly at tests/test_sourcing_image.py:622. export/** diff is empty; checks TestExport_RejectsUnverifiedPuzzle / ...ForPDF exist."
+    - "INV-003 ✓ holds — `RetryCounter.record_attempt` is called from exactly one place, `run_bounded` (orchestrator.py:412), and the IMAGE branch (orchestrator.py:961-974) calls `attempt_candidate()` directly and returns before either `run_bounded` call site, so neither counter is advanced. Re-derivable: tests/test_sourcing_image.py:620-621 (failure path) and :632-633 (happy path) read both counters off the aggregate at 0, and :584 asserts the source was asked for exactly one candidate. Note: three of INV-003's four declared check refs exist (TestRegenerate_StopsAtMaxRetryBound, TestResample_StopsAtMaxRetryBound, TestRetryLoop_BoundedIterations); TestNudge_ReportsFailureAtCap does not exist yet — it is CARD-016's, a model-side forward reference, not a gap in this diff."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/sourcing/image.py
+    line: 122
+    title: "EXIF orientation is ignored, so a phone photo converts rotated and cropped on the wrong axis"
+    description: |
+      `load_greyscale` opens the file and hands it straight to `_flattened`
+      without consulting the EXIF Orientation tag (0x0112). For the card's
+      headline use case — "the user's uploaded photo" — this is the common
+      case, not an exotic one: phone cameras store a portrait shot as a
+      landscape raster plus Orientation=6/8, and every viewer the user has
+      seen the picture in applies that tag.
+
+      Verified empirically rather than argued: a 60x20 JPEG saved with
+      Orientation=6 (black outer thirds, the wide.png pattern) converts with
+      the outer thirds cropped away — i.e. the module cropped the *stored*
+      landscape axis. `ImageOps.exif_transpose` on the same file reports the
+      display size as (20, 60), the other axis. The result the user sees is a
+      picture rotated 90 degrees, with the crop taken across the wrong
+      dimension, so centre-crop-then-resize discards the wrong ends.
+
+      Not gating: AC-007/008/009 all hold (the output is still exactly
+      size x size), no guardrail or standing rule is implicated, and the four
+      repo fixtures are PNGs with no EXIF, so no test is wrong. It is a
+      real-input quality gap in a card whose stated purpose is that
+      "dithering quality is unproven until real images run through it".
+    suggestion: |
+      One line in `load_greyscale`, inside the existing guarded block:
+
+          opened.load()
+          return _flattened(ImageOps.exif_transpose(opened))
+
+      (`from PIL import ImageOps`). `exif_transpose` returns the image
+      unchanged when there is no orientation tag, and returns a new image
+      when there is, so nothing about the PNG fixtures changes. Add a fixture
+      or a tmp_path JPEG with Orientation=6 asserting that the crop lands on
+      the display axis. If the team would rather defer, this is a natural
+      companion to CARD-016 — but record it, don't let it be discovered by a
+      user with a phone.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
