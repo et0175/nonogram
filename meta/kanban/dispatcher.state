@@ -2,7 +2,8 @@ wave: 8
 mode: interactive
 active:
   - id: CARD-014
-    phase: implementation
+    phase: review
+    review_cycle: 1
     branch: card/014-pdf-export
     worktree: ../PythonProject4-card-014
     started: 2026-08-29T00:30:00Z

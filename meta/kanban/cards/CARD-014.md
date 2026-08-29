@@ -1,6 +1,6 @@
 # CARD-014: Two-page PDF export with answer key
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -100,11 +100,136 @@ on the existing PNG raster path (trace.yml FR-016 note).
 
 ## Worktree notes
 
-[Follow-up from CARD-007 review, cycle 1] `orchestrator.py`'s export plumbing currently
-computes ONE filename stem for the whole run (`default_stem(mode)`, the FR-015/AC-042
-`<mode>-<timestamp>` convention) and passes it to `export.write()` per format. ADR-0016
-fixes the PDF filename as `<puzzle-name>-<difficulty>.pdf`, a different convention. The
-plumbing already supports a per-call stem (`export.write(..., stem=...)` takes it as an
-argument), so giving PDF its own stem is a change in `orchestrator.py`'s call site, not in
-`export/` — don't be surprised to find the single-stem-for-all-formats assumption baked in
-and needing a small generalization here.
+[Follow-up from CARD-007 review, cycle 1 — **stale, kept for history**: this predates
+CARD-011's stem consolidation; see below for current state.] `orchestrator.py`'s export
+plumbing currently computes ONE filename stem for the whole run (`default_stem(mode)`, the
+FR-015/AC-042 `<mode>-<timestamp>` convention) and passes it to `export.write()` per
+format. ADR-0016 fixes the PDF filename as `<puzzle-name>-<difficulty>.pdf`, a different
+convention. The plumbing already supports a per-call stem (`export.write(..., stem=...)`
+takes it as an argument), so giving PDF its own stem is a change in `orchestrator.py`'s
+call site, not in `export/` — don't be surprised to find the single-stem-for-all-formats
+assumption baked in and needing a small generalization here.
+
+### What was built (CARD-014 implementation)
+
+**`src/nonogram/export/pdf.py` (new).** The fifth renderer. `render_pages(payload)` returns
+`(puzzle_page, answer_page)` as Pillow `Image`s; `write_pdf` saves them with
+`img1.save(path, format="PDF", save_all=True, append_images=[img2], resolution=300.0)`.
+No new dependency (G-1) — `pyproject.toml` untouched, and a test now pins the runtime
+dependency list to exactly `{pillow, numpy}` so "no new dependency" is asserted rather
+than asserted-about-three-named-libraries.
+
+Page 1 is **literally** `png.render_image(payload)` — CARD-012's raster, unmodified, with
+the header band composited above it (a test asserts the page-1 pixels below the band are
+byte-identical to `png.render_image`'s output). Page 2 is that image `.copy()`-ed with the
+filled cells painted in, addressed by the same `origin + index * cell` arithmetic
+`layout.py` used for the rules. `png.py`/`svg.py`/`csv_export.py` were **not** edited (G-2)
+and needed no change to be reusable — CARD-012's decision to expose the `Image` rather than
+only a file sink is exactly what made this a one-card renderer.
+
+**`src/nonogram/export/layout.py`.** Added `HeaderBand` + `header_band(layout)` (+
+`HEADER_BAND_MM = 12.0`, `HEADER_FONT_MM = 5.0`). Deliberately a *second* measurement laid
+above a computed `Layout`, not a parameter of `compute_layout`: folding a header into
+`compute_layout` would move `grid_top` and every clue centre for the PNG and SVG too, which
+have no header. `compute_layout` is byte-for-byte unchanged, so CARD-012's output is
+untouched.
+
+**`src/nonogram/export/__init__.py`.** One registry row (`PDF: ExportFormat(PDF, ".pdf",
+pdf.render)`) — the CLI picked the format up unedited, as the registry design promised.
+`ExportPayload` gained two display fields, `name` and `difficulty`.
+
+### Key design decisions
+
+**Per-format stems (the generalization the stale note above anticipated).** The note above
+predates CARD-011: `export_puzzle` no longer uses `default_stem(mode)`, it uses
+`_filename_stem(puzzle)`. The single-shared-stem loop was generalized as follows:
+
+* `_filename_stem(puzzle)` is still called **once** per run and stays the *base* stem. It is
+  not recomputed per format on purpose — its unnamed-aggregate fallback reads the clock, so
+  a run straddling a minute boundary would otherwise write `...-1429.json` next to
+  `...-1430.png`.
+* `_stem_for_format(format_name, *, base, tier)` decides what each format actually writes
+  under: `base` for JSON/CSV/PNG/SVG, `f"{base}-{tier}"` for PDF only. ADR-0016 scopes its
+  convention to PDF and explicitly leaves FR-011/FR-012's filenames alone, so this is one
+  named exception rather than a per-format naming policy pushed into the registry.
+* The sanitizer was **factored, not duplicated**: `_UNSAFE_STEM_CHARACTERS.sub(...).strip("-.")`
+  moved out of `_filename_stem` into `_sanitized_component(text)`, which both the name and
+  the tier suffix now go through — ADR-0016's "both components sanitized" by one rule, as
+  `_filename_stem`'s own docstring asked for.
+* Tier spelling: the **filename** takes `Tier.value` (`cat-medium.pdf`, ADR-0016's own
+  `cat-hard.pdf` example), the **header** takes `Tier.label` (`"cat — Medium"`, AC-046).
+  `Tier` being a `StrEnum` is what lets those be one string apart with no lookup table.
+* An unscored aggregate (`difficulty_tier is None`) keeps the bare name — `cat.pdf`, never
+  `cat-.pdf`/`cat-None.pdf`.
+
+**Collision handling was reused, not rebuilt (ADR-0017, G-5).** `export.write` →
+`_free_path` already implements the `-1`, `-2`, ... search CARD-007 built, and it asks the
+filesystem on every candidate rather than remembering a counter. PDF inherits it by being a
+registry row; this card added **no** collision code, only tests for it on the PDF path —
+the sequence past the first collision, and a file appearing in between (the second export
+lands on `-2` and the intruder's bytes are intact).
+
+**The readiness gate stayed put (G-4, AC-048/INV-002).** `export_puzzle`'s existing
+`puzzle.require_ready_for_export()` covers PDF for free. `pdf.py` contains no readiness
+check, pinned by a source-level test (the same guard `test_export_image.py` applies to
+`png`/`svg`).
+
+**The header separator is a stroked rule, not a glyph.** Pillow's bundled default face
+(`ImageFont.load_default(size=...)`) is an **ASCII subset**: `"—"` (U+2014) sets as a
+`.notdef` box, so a naive `draw.text("cat — Medium")` would put a tofu box in the middle of
+every PDF this tool produces. Since an em dash *is* a horizontal rule, `_draw_header` draws
+it as one — no glyph, no second font, no dependence on the host's font stack (which
+`png._clue_font` documents as a rule). `pdf.header_text(payload)` still returns the literal
+AC-046 string `"cat — Medium"`. A test pins the font gap so nobody "simplifies" the header
+drawing back into a single `draw.text` call.
+
+**The header always fits the page.** `--name` is arbitrary user text (AC-045 only forbids
+blank) and a small puzzle's page is narrow, so an over-wide header is set smaller (down to
+a third of the nominal size) and, if it still does not fit, the name is elided with `...`
+rather than run off both edges.
+
+### Scope notes / findings
+
+1. **Three pre-existing tests outside `Touches:` had to change** (the established
+   hand-on pattern each format card has performed): `pdf` was the stand-in for "a format
+   this build does not have" in `tests/test_cli.py` (`format-not-registered`) and twice in
+   `tests/test_export_json.py` (`for_format("pdf")` raises; argparse rejects `--export pdf`)
+   — exactly as `png` was until CARD-012 and `csv` until CARD-013. PDF is the last planned
+   format, so the stand-in is now `xlsx`, a format the tool deliberately does not have
+   (FR-012 answers the spreadsheet case with CSV). No behaviour was changed, only the
+   placeholder format name.
+2. **Finding (not fixed here, CARD-012's file):** `tests/test_export_image.py`'s
+   `test_the_png_contains_the_clues` asserts `crop(...).getbbox() is not None`. On an
+   ink-on-**white** RGB image that is vacuously true (white is non-zero), so the assertion
+   cannot fail — the gutters are never actually checked for ink. This card's own tests use
+   an explicit `_has_ink` (`convert("L").getextrema()[0] < 128`) instead. Editing
+   `test_export_image.py` was out of scope; worth a follow-up card.
+3. **Finding:** `README.md` still says "no export writer, so `--export` is ..." — stale
+   since CARD-007 and now four formats out of date. Left alone (docs are `forge:readme`'s).
+4. **Known limitation:** CARD-011 keeps Unicode names verbatim (`кот`, `café`, `日本語`), but
+   the only font the Pillow-only baseline can guarantee is that ASCII subset, so a non-ASCII
+   *name* sets as `.notdef` boxes in the PDF header. Fixing it means either a font
+   dependency (reopens ADR-0006/G-1) or shipping a font file, so it is flagged rather than
+   decided here. The filename is unaffected — sanitization is Unicode-aware and the file is
+   still `кот-medium.pdf`.
+5. Pillow's PDF writer stamps `/Title` with the output filename stem and a creation date.
+   No solver state, nudge metadata or interactive layer is embedded (G-6).
+
+### Test run
+
+`./.venv/bin/python -m pytest`: **1045 passed, 1 xfailed**, from a 1003-passed/1-xfailed
+baseline. The delta is 41 new tests in `tests/test_export_pdf.py` plus one extra
+parametrization of the existing `test_every_registered_format_is_accepted_by_the_cli` (it
+iterates `export.FORMATS`, now five formats). The pre-existing AC-037 xfail
+(`tests/bench_generate.py::test_20x20_p95_is_under_5s`, tracked by CARD-018) is unchanged
+in status and reason. No regressions.
+
+### Orchestrator notes
+
+- **[Scope]** Touches match predicted plus three explicitly-flagged pre-existing
+  test edits (`tests/test_cli.py`, `tests/test_export_json.py` — placeholder
+  unregistered-format name `"pdf"` → `"xlsx"`, since PDF is now real; no
+  behaviour changed). No silent creep.
+- **[Build gate]** PASSED (full, independently re-run by orchestrator in a
+  fresh venv: 1045 passed, 1 xfailed, exit 0; AC-037 xfail unchanged in
+  status and reason). `pyproject.toml` confirmed untouched (G-1).
