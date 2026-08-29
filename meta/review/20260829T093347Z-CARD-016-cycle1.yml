@@ -1,0 +1,169 @@
+version: 1
+generated_at: "2026-08-29T09:33:47Z"
+target: "card/016-pixel-nudge-recovery working tree vs main (uncommitted)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/orchestrator.py"
+    - "src/nonogram/sourcing/image.py"
+    - "tests/test_nudge.py"
+    - "tests/test_sourcing_image.py"
+    - "meta/kanban/cards/CARD-016.md"
+    - "meta/architecture/trace.yml (FR-013)"
+    - "meta/architecture/requirements.yml (FR-013 AC-034..036, NFR-002)"
+    - "meta/architecture/decisions/adr/0002-retry-and-nudge-bounds.md"
+    - "meta/architecture/decisions/adr/0004-pixel-nudge-diff-reporting.md"
+    - "tests/test_cli.py (ADR-0007 layer guard)"
+    - "src/nonogram/cli.py (exit-code table)"
+  not_reached:
+    - "src/nonogram/solver/** (read only for deadline semantics; diff vs main is empty)"
+    - "src/nonogram/export/** (unchanged)"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 455, removed: 102 }
+  max_fan_in: { symbol: "orchestrator.generate", callers: 17 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the four co-change peers of the touched files
+      (tests/test_cli.py x6, src/nonogram/cli.py x6, tests/test_orchestrator.py x4,
+      src/nonogram/errors.py x3) were each grepped for image-mode assertions and
+      none carries any; their absence from this diff is correct, not a gap.
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — `grep -rn '\\.solve(' src/nonogram/` returns exactly one hit (orchestrator.py:1002, inside judge_candidate); the nudge path reaches it via attempt_nudged_candidate -> judge_candidate with no branch that bypasses puzzle.confirm_uniqueness. solver/** diff vs main is empty, so PropertyTest_Solver_NeverFalsePositiveUniqueness (tests/property/test_solver_uniqueness.py) is unchanged and green in the 1153-passed run."
+    - "INV-001 ✓ holds — nudged grids enter the aggregate only through Puzzle.record_candidate (orchestrator.py:583-584), which writes grid and clues as one operation. TestComputeClues_MatchesGridExactly green; tests/test_nudge.py::test_nudge_attempts_bounded_recovery_keeps_the_clues_matching_the_grid asserts puzzle.clues == clues.compute_clues(puzzle.grid) after a nudge."
+    - "INV-002 ✓ holds — ready_for_export is still written only by confirm_uniqueness (orchestrator.py:603) and reset to False by record_candidate on every nudge round. TestExport_RejectsUnverifiedPuzzle / ...ForPDF green; tests/test_nudge.py::test_nudge_reports_failure_at_cap_without_exceeding_the_bound asserts ready_for_export is False at the cap."
+    - "INV-003 ✓ holds — the nudge counter is a third RetryCounter('pixel-nudge', MAX_NUDGE_ATTEMPTS) field on Puzzle (orchestrator.py:526-528), advanced only by run_bounded; `grep -n 'MAX_\\|attempts' src/nonogram/sourcing/image.py` shows only the attempt_number parameter, no counter or bound. Mutation-verified: flipping RetryCounter.exhausted's `>=` to `>` fails 5 tests including test_nudge_reports_failure_at_cap_stops_altering_the_image."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_sourcing_image.py
+    line: 681
+    title: "Re-pinned real-image cap test is now an exact duplicate of a test_nudge.py case"
+    description: |
+      test_a_real_image_that_converts_ambiguously_reports_it was re-pinned from
+      bands.png@10 to wide.png@22. That is a valid pinned failure case — I
+      re-ran the implementer's 10..25 sweep over all three fixtures and
+      reproduced it exactly (bands@10 recovers in 2, wide@19 in 1, tall@12 in 3,
+      tall@19 in 1; wide@22 and tall@22 reach the cap). But the re-pinned test
+      is now behaviourally identical to
+      tests/test_nudge.py:498 test_nudge_reports_failure_at_cap_through_the_cli:
+      same fixture, same --size 22, same cli.main argv, same
+      ExitCode.GENERATION_FAILED assertion, and the same
+      `"uniquely-solvable" in stderr` substring. No coverage was lost, but the
+      two tests can now only ever fail together.
+    suggestion: |
+      Point one of the two at tall.png@22, which the sweep confirms also
+      survives all five nudges, so the pair pins two independent real-image cap
+      cases rather than one twice. Or drop the test_sourcing_image.py copy and
+      leave the CLI-level cap case to test_nudge.py.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/sourcing/image.py
+    line: 527
+    title: "nudge()'s Returns clause promises exactly attempt_number flips; nudge_cells only guarantees 'up to'"
+    description: |
+      nudge()'s docstring Returns says "with ``attempt_number`` cells flipped",
+      unconditionally, while nudge_cells' own contract says "Up to ``count``"
+      and genuinely returns fewer when the grid holds fewer than `count` cells
+      (the greedy spacing pass plus the shortfall fill are both capped by the
+      cell count). Unreachable through generate() — random_grid.MIN_SIZE is 10,
+      so every conversion has >= 100 cells against a cap of 5 — but nudge is
+      exported in image.__all__ and a future caller reading only its docstring
+      would over-trust it.
+    suggestion: |
+      Either weaken nudge()'s Returns to "up to ``attempt_number`` cells
+      flipped" (matching nudge_cells), or raise on
+      `attempt_number > height * width` the way the `< 1` guard already treats a
+      caller-wiring bug.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/orchestrator.py
+    line: 125
+    title: "COMP-002 imports the concrete sourcing.image module, bypassing the for_mode dispatcher"
+    description: |
+      `from nonogram.sourcing import image as image_source` is the first time
+      the orchestrator names a concrete mode module; every other source
+      interaction goes through sourcing.for_mode(request.mode). It is legal
+      under ADR-0007 (tests/test_cli.py's rank walk puts sourcing at rank 2 and
+      orchestrator at rank 1, so the direction is outward) and defensible —
+      nudging is not part of the GridSource protocol, and the call is gated
+      behind `request.mode == sourcing.IMAGE`. The consequence is visible in the
+      tests: _install_source monkeypatches orchestrator.sourcing.for_mode while
+      image_source.nudge stays the real function, i.e. the source and its
+      recovery mechanism now resolve through two different channels.
+    suggestion: |
+      No change needed for this card. If a second image-like mode ever lands,
+      move nudge behind the dispatcher (e.g. an optional capability lookup
+      alongside for_mode) rather than adding a second direct import.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/sourcing/image.py
+    line: 471
+    title: "Shortfall branch rebuilds set(chosen) once per ranked cell"
+    description: |
+      `remaining = [cell for cell in ranked if cell not in set(chosen)]`
+      constructs the set on every iteration, i.e. O(n * k) instead of O(n).
+      Dead code in practice (the branch only fires when greedy spacing cannot
+      supply `count` cells, impossible at MIN_SIZE 10 with a cap of 5), and
+      negligible at 2500 cells even if it did fire.
+    suggestion: "Hoist `taken = set(chosen)` above the comprehension."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

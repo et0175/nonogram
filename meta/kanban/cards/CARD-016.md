@@ -15,7 +15,7 @@
 **Wave:** 10
 **Depends on:** CARD-015
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/sourcing/image.py, tests/test_nudge.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-08-29T09:20:00Z
 **Closed:** —
 **Actual:** —
@@ -268,3 +268,36 @@ reason.
 - **[Build gate]** PASSED (full, independently re-run by orchestrator in a
   fresh venv: 1153 passed, 1 xfailed, exit 0; AC-037 xfail unchanged in
   status and reason).
+- **[Review 1/3] 9.5/10 — PASS.** Report:
+  `meta/review/20260829T093347Z-CARD-016-cycle1.yml`. G-4 (every nudged
+  grid genuinely re-solved) confirmed mechanically: exactly one
+  `solver.solve` call site in the whole package, shared unbranched by
+  every mode. The "cumulative from original conversion" design (attempt N
+  flips the best N cells of the *original* grid, never built incrementally
+  on attempt N-1) was explicitly interrogated for a non-monotonic-flip risk
+  and ruled sound: proven structurally (the ranking is count-independent,
+  so `chosen(n)` is a prefix of one fixed sequence) and empirically
+  (24,000-case property brute-force, zero violations) — `puzzle.nudge.attempts`
+  is genuinely the cell-diff count CARD-017 will want, not a separate
+  quantity to keep in sync. G-2/G-3 (independent 5-attempt bound, no
+  aliasing to the 20-attempt family, hard stop at cap) mutation-verified.
+  Nudge heuristic (switching-block participation → disagreeing-neighbour
+  count → distance-from-centre → position, with Chebyshev-1 spacing)
+  independently re-swept: confirmed 4-of-6 previously-failing fixture/size
+  combinations now recover, matching the implementer's own claim exactly.
+  The four flagged `test_sourcing_image.py` edits ruled legitimate (no
+  weakened coverage — the dropped `__all__` assertion moved intact to
+  `test_nudge.py`). Zero Critical/Important findings. Four Minor: one
+  re-pinned test is an exact duplicate of a `test_nudge.py` case (zero
+  added signal, not wrong); `nudge()`'s docstring overclaims exactly
+  `attempt_number` flips when `nudge_cells` really guarantees "up to";
+  orchestrator resolves the image source through two channels (`for_mode`
+  for sourcing, direct import for nudging) — legal, revisit if a second
+  image-like mode ever lands; one minor perf nit (rebuilds a `set` per
+  ranked cell, dead code at the real minimum grid size). Two out-of-scope
+  notes worth keeping in view: image mode can now spend up to 6 solves
+  against the shared 30s deadline instead of 1 (budget not breached, but a
+  large/hard image could surface `SolverTimeout` instead of AC-036's
+  advice); and until CARD-017 lands, a successful nudged run alters the
+  puzzle with no user-visible signal (correct per this card's own G-5, but
+  worth keeping CARD-017 adjacent on the board). Merging.
