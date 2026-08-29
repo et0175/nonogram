@@ -1,0 +1,206 @@
+version: 1
+generated_at: "2026-08-29T05:44:00Z"
+target: "CARD-014 — working tree vs main, branch card/014-pdf-export, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-014"
+overall_score: 9.2
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/pdf.py"
+    - "src/nonogram/export/__init__.py"
+    - "src/nonogram/export/layout.py"
+    - "src/nonogram/export/png.py"
+    - "src/nonogram/orchestrator.py (export_puzzle + stem helpers)"
+    - "tests/test_export_pdf.py"
+    - "tests/test_cli.py (structural import guard + argparse cases)"
+    - "tests/test_export_json.py (placeholder rename)"
+    - "meta/kanban/cards/CARD-014.md"
+    - "meta/architecture/trace.yml (FR-016)"
+    - "meta/architecture/decisions/adr/0016-*.md, 0017-*.md"
+  not_reached:
+    - "src/nonogram/solver/** (untouched by the diff; confirmed empty git diff, not read)"
+    - "src/nonogram/difficulty.py (untouched; Tier.value/Tier.label read indirectly via tests)"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 208, removed: 34, new_files: 2, new_file_lines: 1121 }
+  max_fan_in: { symbol: "orchestrator.export_puzzle", callers: 76 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the repository's full history is younger than the 12-month window; the only co-change peers of the touched files (orchestrator.py, export/__init__.py) are both present in this diff"
+    hotspots: "measured — orchestrator.py has the highest churn of the touched files (8 commits) and 2 fix-class commits across src/nonogram/{orchestrator.py,export/}"
+
+system_contract:
+  rules_checked: 4
+  holds: 2
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "CON-005 ⚠ unchecked — no_eligible_fact: `git diff main -- src/nonogram/solver` is empty; this card adds no code path that judges uniqueness, it only consumes the aggregate's recorded verdict."
+    - "INV-001 ✓ holds — pdf.py never re-derives clues: page 1 is png.render_image(payload) (pdf.py:290), which reads only payload.row_clues/column_clues, and _reveal paints from payload.grid; both halves are built from one aggregate read in orchestrator.export_puzzle (`grid, puzzle_clues = puzzle.grid, puzzle.clues`, orchestrator.py:917). Re-derivable: tests/test_export_pdf.py::test_page_two_reveals_the_solution samples every cell centre against ANSWER (passes, re-run 2026-08-29)."
+    - "INV-002 ✓ holds — one gate, orchestrator.py:915 `puzzle.require_ready_for_export()`, called before the payload is built; pdf.py contains no readiness check (source-level guard tests/test_export_pdf.py::test_the_pdf_renderer_is_not_a_second_gate). Rejection re-derived by running tests/test_export_pdf.py::test_export_rejects_an_unverified_puzzle_for_pdf and ::test_export_rejects_a_pdf_the_solver_did_not_call_unique[no-solutions|many-solutions] — all pass, destination directory empty. NOTE: system_rules.py --verify-refs reports `INV-002 → TestExport_RejectsUnverifiedPuzzleForPDF` as a partial dead_check_ref; that is the project's standing trace-id→pytest-name convention (mapped in the test module docstring, identical in shape to CARD-012's TestExport_WritesPNG), not a gap introduced here."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry/bound code in the diff; the orchestrator hunk is confined to export_puzzle, _filename_stem, _sanitized_component and _stem_for_format."
+
+root_causes:
+  - id: RC-1
+    title: "Pillow's bundled default face is an ASCII subset — the only font the G-1 dependency baseline can guarantee"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "The reused raster is a content-sized image, not a page — which only becomes visible once it is a PDF MediaBox"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/export/pdf.py
+    line: 201
+    title: "A non-ASCII --name renders as .notdef boxes in the PDF header"
+    description: |
+      Verified independently, not taken from the card's notes: with
+      `ImageFont.load_default(size=60)`, the glyph bitmaps for "—" (U+2014),
+      "–" (U+2013), "…" (U+2026) and every letter of "кот"/"café" are
+      byte-identical to the bitmap for the permanently-unassigned U+FFFE, i.e.
+      the .notdef box. The card correctly solves the *separator* case by
+      stroking the em dash as a rule, but the *name* case is untouched: CARD-011
+      keeps `--name` verbatim (AC-044/AC-045 permit any non-blank string), so
+      `--export pdf --name кот` ships a PDF whose AC-046 header reads as three
+      tofu boxes. The filename is unaffected (the sanitizer is Unicode-aware).
+
+      Not raised above Minor deliberately: every in-card fix violates a
+      guardrail — a font package reopens ADR-0006/G-1, and mangling the name to
+      fit the font contradicts AC-044's verbatim requirement. The implementer
+      escalating rather than deciding is the correct move; what is missing is
+      that the escalation currently lives only in the card's worktree notes and
+      has not reached meta/kanban/backlog.md, where Wave 7's surfaced findings
+      went.
+    suggestion: |
+      Route to the user/architect as a decision, and record it in
+      meta/kanban/backlog.md at `done`:
+        (a) ship a DejaVu-class TTF as package data (a data file, not a
+            dependency — arguably does not reopen ADR-0006, but is a decision
+            the architect should make explicitly), or
+        (b) accept ASCII-only headers and say so in the CLI help for --name, or
+            reject non-ASCII --name at the CLI boundary as a domain error.
+      Do not fix inside CARD-014.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/pdf.py
+    line: 306
+    title: "PDF pages are content-sized, not A4 — and write_pdf's docstring plus a test name claim otherwise"
+    description: |
+      `Layout.width/height` is `grid_right + margin` / `grid_bottom + margin`
+      (layout.py:498-499) — the size of the *drawing*, A4-constrained but not A4.
+      For a PDF that number becomes the page's /MediaBox, so the emitted pages
+      are (measured, all sizes at 300 DPI + the 12 mm band):
+        4x4   63.2 x  75.2 mm     20x20 200.1 x 212.1 mm
+        10x10 115.3 x 127.3 mm     50x50 205.6 x 217.6 mm
+      A 10x10 puzzle therefore prints as a 115x127 mm page, not an A4 sheet.
+      That is inherited geometry the card was told to reuse (CON-006, G-2), no
+      AC or ADR states a page size, and the physical scale is correct — so this
+      is a design question, not a defect.
+
+      What *is* inaccurate is the claim: `write_pdf`'s docstring says
+      `resolution` "is what makes the pages A4-sized in the document", and
+      tests/test_export_pdf.py::test_the_written_pages_are_a4_sized_at_the_print_resolution
+      is named for A4 while its assertion computes the content size. The
+      statement is true only in the sense that the page is A4-*constrained*.
+
+      Checked and cleared: the 12 mm header band cannot push a page past A4
+      height — `_fit_cell` takes min(width-fit, height-fit) and width binds for
+      every square grid up to 50x50 (worst measured height 223.5 mm vs 297 mm).
+    suggestion: |
+      Reword write_pdf's docstring to "reproduces the intended physical size
+      instead of Pillow's 72-DPI assumption" and rename the test to
+      test_the_written_pages_carry_the_layout_size_at_the_print_resolution.
+      Whether the MediaBox should be full A4 with the drawing centred is a
+      product decision for a follow-up card, not a fix here.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/pdf.py
+    line: 313
+    title: "Pillow stores RGB pages as lossy JPEG (/DCTDecode) — artifacts and ~11x the bytes on a pure line drawing"
+    description: |
+      Measured on the produced file, not inferred: every page object in the
+      emitted PDF carries `/Filter /DCTDecode` and `/ColorSpace /DeviceRGB` —
+      Pillow's PdfImagePlugin JPEG-encodes any RGB image. Decoding the embedded
+      stream back and diffing against `pdf.render_pages()`'s own raster on a 4x4
+      puzzle: max per-pixel deviation 45/255, 248 pixels deviating by >20, and
+      1473 pure-white pixels turned grey — mild JPEG ringing around the rules
+      and clue digits of an artifact whose whole point (png.py's INK/BACKGROUND
+      comment) is "no anti-aliased grey in the paper". Size cost on a 50x50:
+      1,428,100 bytes of PDF vs 127,303 bytes for the equivalent PNG.
+      Not a merge blocker — the degradation is invisible at print size and no
+      AC or NFR constrains it — but it is an unflagged property of a deliverable
+      the card describes as a print artifact.
+    suggestion: |
+      Try `puzzle_page.save(..., quality="keep"/95)` or convert the pages to
+      mode "1" for a lossless CCITTFaxDecode stream; mode "1" would destroy the
+      clue digits' anti-aliasing that png.py's _MODE comment deliberately keeps,
+      so measure before switching. Worth a one-line experiment, not a redesign.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_pdf.py
+    line: 394
+    title: "test_the_header_draws_a_rule_between_the_two_halves asserts less than its name and docstring claim"
+    description: |
+      The docstring says "the extra one sits between them", but the assertions
+      are only `both.tobytes() != name_only.tobytes()` and that both banners
+      carry ink. A header that appended the rule after "Medium", or drew it in
+      the wrong place entirely, passes. The property that actually matters
+      (a horizontal stroke at band.center_y, between the last pixel of "cat" and
+      the first of "Medium") is never asserted, and this is the one piece of
+      AC-046's header the card draws by hand rather than inheriting.
+    suggestion: |
+      Assert the geometry directly: crop the band, find the dark-pixel columns
+      on the row `band.center_y`, and assert a contiguous run of ink whose
+      x-extent lies strictly between the ink extents of the "cat"-only and
+      "Medium"-only renders — or, cheaper, assert that the row through
+      band.center_y in the gap region has ink in the two-part render and none in
+      the name-only render.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

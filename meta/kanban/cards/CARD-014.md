@@ -15,7 +15,7 @@
 **Wave:** 8
 **Depends on:** CARD-010, CARD-012, CARD-013
 **Touches:** src/nonogram/export/pdf.py, src/nonogram/export/__init__.py, src/nonogram/export/layout.py, src/nonogram/orchestrator.py, tests/test_export_pdf.py
-**Review score:** —
+**Review score:** 9.2 (cycle 1/3)
 **Started:** 2026-08-29T00:30:00Z
 **Closed:** —
 **Actual:** —
@@ -233,3 +233,24 @@ in status and reason. No regressions.
 - **[Build gate]** PASSED (full, independently re-run by orchestrator in a
   fresh venv: 1045 passed, 1 xfailed, exit 0; AC-037 xfail unchanged in
   status and reason). `pyproject.toml` confirmed untouched (G-1).
+- **[Review 1/3] 9.2/10 — PASS.** Report:
+  `meta/review/20260829T054400Z-CARD-014-cycle1.yml`. All 8 judgment points
+  independently re-verified against the actual bytes, not just the tests —
+  including decoding the emitted PDF and diffing the embedded raster.
+  **Explicit ruling on the em-dash-as-rule header (point 6): legitimate,
+  satisfies AC-046/047's literal wording, not a finding.** Pillow's bundled
+  font genuinely cannot set "—" (verified: identical bitmap to an
+  unassigned codepoint), and every alternative either fails the AC's
+  literal string, substitutes a different character, or reopens G-1/ADR-0006
+  — stroking the em dash as the rule it typographically is was ruled the
+  only route *to* AC-046, not a workaround around it. Zero Critical/Important
+  findings. Four Minor: (F-001) non-ASCII `--name` renders as tofu boxes in
+  the PDF header — deliberately not escalated to Important since every
+  in-card fix breaks a guardrail, but needs a **user decision**, not left
+  to die in worktree notes; (F-002) PDF pages are content-sized not
+  literally A4 despite a docstring/test name implying otherwise (harmless,
+  doc-only mismatch); (F-003) Pillow saves pages as lossy JPEG internally,
+  measurable pixel drift on white background (invisible at print size, no
+  AC/NFR governs it); (F-004) one test's docstring claims more than its
+  assertion checks (a rule "between" the header halves — only checked that
+  the two halves differ, not that the rule sits between them). Merging.
