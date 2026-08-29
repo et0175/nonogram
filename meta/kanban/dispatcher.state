@@ -1,6 +1,11 @@
-wave: 7
+wave: 8
 mode: interactive
-active: []
+active:
+  - id: CARD-014
+    phase: implementation
+    branch: card/014-pdf-export
+    worktree: ../PythonProject4-card-014
+    started: 2026-08-29T00:30:00Z
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-29T00:20:00Z
+last_updated: 2026-08-29T00:30:00Z
