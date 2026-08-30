@@ -1,8 +1,12 @@
 """COMP-008 — the web UI adapter, the tool's second inbound surface (FR-017).
 
 A *sibling* of :mod:`nonogram.cli`, not a layer above or below it (ADR-0019).
-The two adapters are the same rank in ADR-0007's dependency graph, they never
-import each other, and the same two rules shape both.
+The two adapters are the same rank in ADR-0007's dependency graph and the same
+two rules shape both. The single edge between them is ``cli`` importing this
+package to launch it, because ADR-0008 keeps one console entry point and
+``nonogram serve`` is a subcommand of it; the reverse — ``web`` importing
+``cli`` — is a guard violation (``_LAUNCH_EDGE`` in ``tests/test_cli.py`` is an
+ordered pair, not a mutual exemption).
 
 *Direction* (ADR-0007): this package imports the orchestrator; nothing inward
 of it ever imports back. The structural guard in ``tests/test_cli.py`` knows
