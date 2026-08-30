@@ -9,9 +9,10 @@ ADR-0020 records that as a *required consequence* rather than a framework
 default, for a reason worth restating: a default can change under you between
 releases, and a default is not checkable. A constant that no parameter,
 environment variable or keyword argument can override is both. There is
-deliberately no ``host=`` argument on :func:`create_server` or :func:`serve` —
-adding one would turn AC-052 from a property of the code into a property of how
-it happens to be called (F-9).
+deliberately no ``host=`` argument anywhere in this module's API —
+:func:`create_server` takes a port and :func:`serve_on` takes the server that
+port produced. Adding one would turn AC-052 from a property of the code into a
+property of how it happens to be called (F-9).
 
 Threading, from ``ThreadingHTTPServer``, is not about concurrency: BCON-0001
 forbids a second user and ADR-0021 relies on there being exactly one generation
@@ -27,7 +28,7 @@ from http.server import ThreadingHTTPServer
 
 from nonogram.web.handler import WebUIRequestHandler
 
-__all__ = ["DEFAULT_PORT", "LOOPBACK_HOST", "LoopbackHTTPServer", "create_server", "serve"]
+__all__ = ["DEFAULT_PORT", "LOOPBACK_HOST", "LoopbackHTTPServer", "create_server", "serve_on"]
 
 #: The only interface this server ever listens on (NFR-003, AC-052,
 #: BCON-0001). A module constant, not a parameter — see the module docstring.
@@ -83,8 +84,16 @@ def create_server(port: int = DEFAULT_PORT) -> LoopbackHTTPServer:
     return LoopbackHTTPServer((LOOPBACK_HOST, port), WebUIRequestHandler)
 
 
-def serve(port: int = DEFAULT_PORT) -> None:
-    """Serve the web UI until interrupted, then release the port.
+def serve_on(server: LoopbackHTTPServer) -> None:
+    """Serve an already-bound server until interrupted, then release the port.
+
+    Takes a bound server rather than a port, and that split is deliberate: the
+    bind is the only step whose failure means "pass a different ``--port``"
+    (F-1, F-2), so ``cli._run_serve`` calls :func:`create_server` inside its
+    ``except`` and this function outside it. An ``OSError`` raised *after* a
+    successful bind — a selector failure, an ``accept`` the stdlib re-raises —
+    is therefore not reported to the user as a port problem, because nothing
+    here is catching it on that assumption.
 
     ``Ctrl-C`` arrives as a ``KeyboardInterrupt`` inside ``serve_forever`` and
     is a deliberate stop, not a failure: it is swallowed here and
@@ -98,7 +107,6 @@ def serve(port: int = DEFAULT_PORT) -> None:
     still running is abandoned — the same accepted outcome ADR-0021 already
     records for a browser that times out first.
     """
-    server = create_server(port)
     print(f"serving on http://{LOOPBACK_HOST}:{server.server_port}/ — press Ctrl-C to stop")
     try:
         server.serve_forever()

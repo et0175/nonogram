@@ -195,7 +195,7 @@ def test_a_bind_failure_is_reported_as_invalid_input(
     def boom(port: int) -> None:
         raise error
 
-    monkeypatch.setattr(web, "serve", boom)
+    monkeypatch.setattr(web, "create_server", boom)
 
     assert cli.main(["serve"]) == cli.ExitCode.INVALID_INPUT
     captured = capsys.readouterr()
@@ -203,24 +203,66 @@ def test_a_bind_failure_is_reported_as_invalid_input(
     assert "Traceback" not in captured.err
 
 
+def test_a_failure_after_the_bind_is_not_reported_as_a_port_problem(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failure matrix F-1: the ``except`` covers the bind and nothing else.
+
+    Every failure that clause reports carries one implied instruction — pass a
+    different ``--port`` — and that instruction is only true of a socket that
+    would not bind. An ``OSError`` from *inside* the serve loop (a selector
+    failure, an ``accept`` the stdlib re-raises) means something else entirely,
+    so it must not be swallowed into ``INVALID_INPUT`` with that advice
+    attached. It keeps its traceback instead.
+
+    This is the test the two-call split in :func:`cli._run_serve` exists for: a
+    single ``try`` around one combined call cannot tell the two apart, and would
+    pass every other test in this file while telling the user the wrong thing.
+    """
+    monkeypatch.setattr(web, "create_server", lambda port: object())
+
+    def boom_after_bind(server: object) -> None:
+        raise OSError(9, "Bad file descriptor")
+
+    monkeypatch.setattr(web, "serve_on", boom_after_bind)
+
+    with pytest.raises(OSError):
+        cli.main(["serve"])
+
+
 def test_serve_exits_zero_when_the_server_stops(monkeypatch: pytest.MonkeyPatch) -> None:
     """Failure matrix F-6: Ctrl-C is a deliberate stop, not a failure.
 
-    ``web.serve`` swallows the ``KeyboardInterrupt`` and returns once the port
-    is released; the subcommand's contribution is turning that into exit 0.
+    ``web.serve_on`` swallows the ``KeyboardInterrupt`` and returns once the
+    port is released; the subcommand's contribution is turning that into exit 0.
     """
-    monkeypatch.setattr(web, "serve", lambda port: None)
+    monkeypatch.setattr(web, "create_server", lambda port: object())
+    monkeypatch.setattr(web, "serve_on", lambda server: None)
 
     assert cli.main(["serve"]) == cli.ExitCode.OK
 
 
 def test_serve_passes_the_requested_port_through(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The whole of the subcommand's translation, in one assertion."""
+    """The whole of the subcommand's translation, in one assertion.
+
+    The port reaches the *bind*, and the object the bind produced is what the
+    serve loop is handed — the two halves of the split, pinned together so a
+    later edit cannot quietly rebind inside the loop.
+    """
     seen: list[int] = []
-    monkeypatch.setattr(web, "serve", seen.append)
+    served: list[object] = []
+    bound = object()
+
+    def bind(port: int) -> object:
+        seen.append(port)
+        return bound
+
+    monkeypatch.setattr(web, "create_server", bind)
+    monkeypatch.setattr(web, "serve_on", served.append)
 
     assert cli.main(["serve", "--port", "1234"]) == cli.ExitCode.OK
     assert seen == [1234]
+    assert served == [bound]
 
 
 def test_generate_is_unchanged_by_the_second_subcommand() -> None:
@@ -610,6 +652,26 @@ def test_the_adapter_allowlist_is_closed_at_the_two_known_adapters() -> None:
     """
     assert _ADAPTERS == {"cli", "web"}
     assert _rank("cli") == _rank("web") == _ADAPTER_RANK
+
+
+def test_the_launch_edge_is_closed_at_the_single_ordered_pair() -> None:
+    """The *second* exemption gets the same pin as the first.
+
+    :data:`_ADAPTERS` is pinned literally above because a set that grows
+    quietly is how the rule erodes; :data:`_LAUNCH_EDGE` is an exemption of
+    exactly the same kind and had no equivalent pin.
+    ``test_the_import_rule_rejects_each_forbidden_edge[web-to-cli]`` catches the
+    reverse pair being added, but not a *different* pair — turning this into a
+    container of edges and adding, say, ``("export", "web")`` would be caught by
+    nothing, because the forbidden-edge parametrisation enumerates named edges
+    and that one is not among them.
+
+    So the assertion is on the literal value and on its type: one ordered pair,
+    not a set of them. Widening it has to be a deliberate edit to this line.
+    """
+    assert _LAUNCH_EDGE == ("cli", "web")
+    assert isinstance(_LAUNCH_EDGE, tuple)
+    assert len(_LAUNCH_EDGE) == 2
 
 
 def test_every_import_in_the_package_points_inward() -> None:

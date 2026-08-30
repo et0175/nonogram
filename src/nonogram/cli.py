@@ -377,23 +377,31 @@ def _run_serve(args: argparse.Namespace) -> int:
     job is the one thing COMP-008 must not own, which is the process exit code
     (the same division ``main`` already makes for domain errors).
 
-    Ctrl-C is a deliberate stop and exits 0: ``web.serve`` swallows the
+    Ctrl-C is a deliberate stop and exits 0: ``web.serve_on`` swallows the
     ``KeyboardInterrupt`` and returns normally once the port is released.
 
-    The ``except`` clause is the bind failure, and it is deliberately not a
-    ``NonogramError``: "this port is taken" is not a fact about puzzles, so the
-    domain error hierarchy is not widened to carry it (guardrails G-2, G-4).
-    ``OverflowError`` sits beside ``OSError`` because CPython's socket layer
-    raises it — not an ``OSError`` — for a port outside 0..65535, which is
-    exactly what ``--port 99999`` produces. Both mean the same thing to the
-    user and both get ``INVALID_INPUT``: the fix is always a different
-    ``--port``, which is the grouping rule :data:`_EXIT_CODES` is built on.
+    The ``except`` clause covers the *bind and nothing else*, which is why the
+    call is split in two: ``web.create_server`` inside the ``try``, the serve
+    loop outside it. Every failure this clause reports means the same thing to
+    the user — pass a different ``--port`` — and that is only true of the bind.
+    An ``OSError`` raised after a successful bind (a selector failure, an
+    ``accept`` the stdlib re-raises) is a bug, not a port that is taken, and it
+    keeps its traceback rather than being dressed up as bad input.
+
+    The failure is deliberately not a ``NonogramError``: "this port is taken"
+    is not a fact about puzzles, so the domain error hierarchy is not widened to
+    carry it (guardrails G-2, G-4). ``OverflowError`` sits beside ``OSError``
+    because CPython's socket layer raises it — not an ``OSError`` — for a port
+    outside 0..65535, which is exactly what ``--port 99999`` produces. Both mean
+    the same thing to the user and both get ``INVALID_INPUT``: the grouping rule
+    :data:`_EXIT_CODES` is built on.
     """
     try:
-        web.serve(args.port)
+        server = web.create_server(args.port)
     except (OSError, OverflowError) as error:
         _report(error)
         return ExitCode.INVALID_INPUT
+    web.serve_on(server)
     return ExitCode.OK
 
 

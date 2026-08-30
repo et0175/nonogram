@@ -21,6 +21,8 @@ maintenance.
 Module layout, mirroring the concerns ADR-0020 names::
 
     server.py   the socket: loopback-only bind, the serve loop, shutdown
+                (``create_server`` binds, ``serve_on`` runs — two calls, so
+                ``cli`` can report a bind failure without also owning the loop)
     handler.py  the router: one ``(method, path)`` table, one handler class
     pages.py    the HTML: the form page as a string constant (no templating)
 
@@ -35,6 +37,6 @@ BCON-0001). The absence of an auth check is the decision, not an oversight.
 
 from __future__ import annotations
 
-from nonogram.web.server import DEFAULT_PORT, LOOPBACK_HOST, create_server, serve
+from nonogram.web.server import DEFAULT_PORT, LOOPBACK_HOST, create_server, serve_on
 
-__all__ = ["DEFAULT_PORT", "LOOPBACK_HOST", "create_server", "serve"]
+__all__ = ["DEFAULT_PORT", "LOOPBACK_HOST", "create_server", "serve_on"]

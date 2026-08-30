@@ -16,11 +16,16 @@ real handler.
 
 The one thing this module must *not* grow is a decision about a request's
 *content*. Reading a form field is HTTP; judging whether ``size=5000`` is
-allowed is the domain's (ADR-0019/R1, guardrail G-4).
+allowed is the domain's (ADR-0019/R1, guardrail G-4). The two checks this
+module does make — the ``Host`` header and the connection's idle timeout — are
+on the opposite side of that line: both are facts about the *transport*, both
+are answered with a status code or a closed socket, and neither knows what a
+puzzle is.
 """
 
 from __future__ import annotations
 
+import html
 import urllib.parse
 from collections.abc import Callable
 from http import HTTPStatus
@@ -28,10 +33,45 @@ from http.server import BaseHTTPRequestHandler
 
 from nonogram.web import pages
 
-__all__ = ["ROUTES", "WebUIRequestHandler"]
+__all__ = ["ALLOWED_HOSTS", "IDLE_TIMEOUT_S", "ROUTES", "WebUIRequestHandler"]
 
 _HTML = "text/html; charset=utf-8"
 _TEXT = "text/plain; charset=utf-8"
+
+#: Seconds a connection may stay silent before the standard library drops it
+#: (F-11). ``socketserver.StreamRequestHandler.setup`` turns this into a
+#: ``settimeout`` on the accepted socket, so a client that connects and never
+#: sends a request line stops holding a thread. Generous enough that no real
+#: browser request is at risk — the only thing being bounded is *silence*.
+IDLE_TIMEOUT_S = 30
+
+#: Host names a request may name (F-12). Loopback binding stops a *network*
+#: peer, but not the browser the user is already running: any page it loads can
+#: aim a request at ``http://127.0.0.1:8765/``, and a name an attacker controls
+#: that resolves to 127.0.0.1 would make the reply same-origin readable (DNS
+#: rebinding). Checking the ``Host`` header closes the browser-mediated half of
+#: the access control that the bind address alone cannot.
+#:
+#: This is an HTTP concern, not a domain rule: it is a fact about which *name*
+#: the request used, decided before routing and answered with a status code
+#: (guardrail G-4, ADR-0019/R1).
+ALLOWED_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _host_is_local(host_header: str) -> bool:
+    """Whether a ``Host`` header names this loopback server.
+
+    The port is ignored — ``--port`` chooses it and a browser echoes whatever
+    it dialled — so only the name is compared. Parsed with ``urlsplit`` rather
+    than by splitting on ``":"`` so that ``[::1]:8765`` and a bare ``::1`` are
+    both read correctly, and anything ``urlsplit`` cannot read at all is not
+    local.
+    """
+    try:
+        hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
+    except ValueError:
+        return False
+    return hostname in ALLOWED_HOSTS
 
 
 class WebUIRequestHandler(BaseHTTPRequestHandler):
@@ -54,6 +94,15 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
     #: Cosmetic — nothing routes on it.
     server_version = "nonogram-web"
 
+    #: Per-connection socket timeout (F-11). Without it
+    #: ``StreamRequestHandler.setup`` leaves the socket blocking and the
+    #: ``rfile.readline`` that reads the request line waits forever, so every
+    #: client that connects and says nothing holds one of
+    #: ``ThreadingHTTPServer``'s daemon threads for the life of the process.
+    #: With it, the stdlib's ``handle_one_request`` catches the expiry, sets
+    #: ``close_connection`` and lets the thread end.
+    timeout = IDLE_TIMEOUT_S
+
     # ``do_<METHOD>`` is the standard library's dispatch protocol, so the
     # capitalisation is not this module's choice.
     def do_GET(self) -> None:
@@ -61,7 +110,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         self._dispatch("GET")
 
     def _dispatch(self, method: str) -> None:
-        """Look up ``(method, path)`` and run the route, or answer ``404``.
+        """Check the ``Host``, then look up ``(method, path)`` or answer ``404``.
 
         The query string is split off before the lookup so that ``/?x=1`` and
         ``/`` are the same route — the router matches paths, not URLs. Nothing
@@ -69,14 +118,34 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         (CON-008's submission is a ``POST``), so the parsed query is discarded
         rather than kept as an unused attribute a later card might mistake for
         a supported input.
+
+        The ``Host`` check comes first (F-12). A header naming anything but
+        loopback gets ``400`` and no route runs: it is a request that reached
+        this server under a name it does not answer to, which is a malformed
+        request, not a refused credential — there is still no ``401``, no
+        ``403`` and nothing to authenticate (AC-053). A request with *no*
+        ``Host`` at all is served: HTTP/1.0 clients are allowed to omit it, and
+        the browser-mediated attack this closes always sends one.
+
+        The 404 body escapes the path it echoes. The response is
+        ``text/plain`` and carries ``nosniff``, so markup in it is inert twice
+        over rather than once (F-7).
         """
+        host_header = self.headers.get("Host")
+        if host_header is not None and not _host_is_local(host_header):
+            self._respond(
+                HTTPStatus.BAD_REQUEST,
+                _TEXT,
+                f"unrecognised host: {html.escape(host_header)}\n",
+            )
+            return
         path = urllib.parse.urlsplit(self.path).path
         route = ROUTES.get((method, path))
         if route is None:
             self._respond(
                 HTTPStatus.NOT_FOUND,
                 _TEXT,
-                f"no such page: {path}\n",
+                f"no such page: {html.escape(path)}\n",
             )
             return
         route(self)
@@ -88,10 +157,17 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         ``len(body)`` — the form page is ASCII today but a puzzle name is not
         constrained to be (FR-015), and a character count would truncate the
         response for the first non-ASCII name CARD-020 echoes back.
+
+        ``X-Content-Type-Options: nosniff`` is sent on every response, so a
+        declared ``text/plain`` stays text however the body reads. The bodies
+        that echo anything from the request are escaped as well; the header is
+        the belt to that pair of braces, and it costs one line for every route
+        a later card adds rather than one decision per route.
         """
         payload = body.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
@@ -101,8 +177,11 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         No credential is read on the way in and none is demanded on the way
         out: an ``Authorization`` header, a cookie, or neither all produce this
-        same page (AC-053). Loopback binding is the whole of the access control
-        (NFR-003, BCON-0001).
+        same page (AC-053). The access control is the bind address plus the
+        ``Host`` check in :meth:`_dispatch` — the second closes the one path the
+        first cannot, a request steered here by a browser under a name that is
+        not loopback (NFR-003, BCON-0001, F-8, F-12). Neither reads a
+        credential, and there is nothing to authenticate.
         """
         self._respond(HTTPStatus.OK, _HTML, pages.FORM_PAGE)
 
