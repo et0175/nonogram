@@ -11,15 +11,21 @@ Shape of the search (ADR-0009, CARD-018)
    this first fixed point is FR-009's "cells solved before the first branch".
 2. If the board is fully decided, that is the only solution reachable without
    guessing, and the search is over.
-3. Otherwise *probe*: take the most constrained unknown cells, and for each one
-   tentatively assign both values and propagate. A value whose propagation
-   contradicts cannot appear in any solution, so the other value is forced and
-   is applied for real; if both contradict, the whole node is refuted. Only
-   when a probing pass forces nothing does the search actually branch, on the
-   cell whose two probes propagated furthest, keeping the two boards the probes
-   already produced as its children.
-4. Stop the instant a *second* distinct solution is recorded (AC-017).
-5. If a pass over the tree exceeds its node limit without settling the verdict,
+3. Otherwise descend, one cell at a time. At every node a *pass* takes some
+   set of unknown cells and, for each, tentatively assigns both values and
+   propagates. A value whose propagation contradicts cannot appear in any
+   solution, so the other value is forced and is applied for real; if both
+   contradict, the whole node is refuted. Only when a pass forces nothing does
+   the search actually branch, keeping the two boards the pass already
+   produced as its children.
+4. *How wide that pass looks is the round's business.* Round 0 looks at one
+   cell — the single most constrained one, exactly the cell the pre-CARD-018
+   search would have guessed at — which makes it a plain descent with a free
+   contradiction check and nothing else. Later rounds *probe*: they look at
+   the ``probe_width`` most constrained cells at once, which prunes far harder
+   and costs proportionally more (see :data:`_SEARCH_ROUNDS`).
+5. Stop the instant a *second* distinct solution is recorded (AC-017).
+6. If a pass over the tree exceeds its node limit without settling the verdict,
    restart it with a wider probe and a larger limit (see
    :data:`_SEARCH_ROUNDS`). The limits grow without bound, so the search is
    still complete; what changes is that a hard instance is not held hostage to
@@ -129,29 +135,52 @@ ClueSet = tuple[tuple[int, ...], ...]
 #: never "exactly 2".
 MANY = 2
 
+#: Round 0's "probe width": not a width at all, but the marker for the round
+#: that does not probe. See :data:`_SEARCH_ROUNDS`.
+_NO_PROBE = 0
+
 #: The restart schedule (CARD-018): ``(probe_width, node_limit)`` per round.
 #:
 #: ``probe_width`` is how many of the most constrained unknown cells a probing
 #: pass examines, and ``node_limit`` how many search nodes the round may visit
 #: before it is abandoned and the next one started.
 #:
-#: Round 0 is deliberately cheap and deliberately *undiversified*: it probes a
-#: narrow front and takes the heuristic's own best branch, which is what keeps
-#: the overwhelming majority of clue sets — everything line logic nearly
-#: settles, every puzzle in the EC-001 corpus — on the same short path they
-#: were on before this schedule existed. The later rounds exist for the
-#: minority that round 0 cannot finish, and they widen on both axes at once,
-#: because measurement showed the two failures are different: some instances
-#: are hard because one early guess was wrong (a re-run that branches
-#: elsewhere finds a solution in milliseconds) and others because the inference
-#: is too weak to prune (a wider probe cuts them from tens of seconds to one).
+#: **Round 0 does not probe at all** (:data:`_NO_PROBE`). It looks at the one
+#: cell the pre-CARD-018 heuristic would have guessed at (:func:`_branch_cell`)
+#: and branches there, so it is the old search plus a free contradiction check
+#: — and it is bounded, so a board it cannot settle quickly falls through to
+#: the probing rounds rather than grinding on.
+#:
+#: That escape hatch is not decoration; it is what the first cut of this card
+#: got wrong (review cycle 1, F-002). Probing every node from node 0 pays for
+#: pruning on boards that need none: at 20x20 and 10-25% density a candidate is
+#: massively ambiguous, a second solution turns up a couple of hundred nodes in,
+#: and the tree probing builds there is the *same size* as the plain one — 7,329
+#: nodes against 4,139 on one measured request — for 3.4x the cost per node.
+#: Measured over that request's twenty candidates: plain 0.37s, probing 2.29s.
+#: The cell ranking matters as much as the width does, which is why round 0
+#: keeps the old heuristic rather than taking the top of the probe ranking:
+#: width 1 over the *probe* ranking does not finish that request at all.
+#:
+#: The probing rounds exist for the minority round 0 cannot finish, and they
+#: widen on both axes at once, because measurement showed the two failures are
+#: different: some instances are hard because one early guess was wrong (a
+#: re-run that branches elsewhere finds a solution in milliseconds) and others
+#: because the inference is too weak to prune (a wider probe cuts them from
+#: tens of seconds to one).
 #:
 #: Past the last entry the probe width stays put and the node limit keeps
 #: multiplying by :data:`_NODE_LIMIT_GROWTH`, so the limit is unbounded in the
 #: limit and a search that needs the whole tree eventually gets it. That is
 #: what keeps restarting *complete*: a verdict is only ever taken from a round
 #: that finished on its own terms, never from one that ran out of nodes.
-_SEARCH_ROUNDS: tuple[tuple[int, int], ...] = ((8, 400), (16, 1200), (32, 3600), (64, 10800))
+_SEARCH_ROUNDS: tuple[tuple[int, int], ...] = (
+    (_NO_PROBE, 400),
+    (8, 400),
+    (16, 1200),
+    (32, 3600),
+    (64, 10800),
+)
 
 #: How much the node limit grows per round once :data:`_SEARCH_ROUNDS` is
 #: exhausted. Geometric growth bounds the total cost of the abandoned rounds at
@@ -180,11 +209,40 @@ class SolveSignals:
     line_logic_cells: int
     #: Cells in the grid — ADR-0013's size-relative denominator.
     total_cells: int
-    #: How many times the search had to guess a cell because propagation
-    #: stalled. ADR-0013's "backtracking amount" term.
+    #: Search nodes the solve expanded past line logic — one per board taken
+    #: off the search stack, whether the search went on to guess there, settled
+    #: it by forced deduction, or refuted it outright. ADR-0013's "backtracking
+    #: amount" term (see ADR-0013's 2026-08-30 History note).
+    #:
+    #: Before CARD-018 this was "how many times the search had to guess a
+    #: cell", and the two were the same number, because guessing was the only
+    #: thing a node could do. CARD-018's probing gave a node two more
+    #: outcomes — deduce, and refute — and counting only the guesses would then
+    #: report 0 for a puzzle whose whole search was forced deductions past a
+    #: stalled fixed point, i.e. score real search work as free. What the term
+    #: has always been *for* is how much the search had to do beyond line
+    #: logic, and that is what it still counts. ``0`` exactly when line logic
+    #: alone finished the puzzle, which is the anchor AC-023 rests on.
+    #:
+    #: Counted for the restart round that produced the verdict, not summed over
+    #: the abandoned ones (CARD-018 review cycle 1, F-001): a puzzle's
+    #: difficulty is a property of the puzzle, and adding in the nodes of
+    #: rounds whose findings were thrown away would make two equally hard
+    #: puzzles score differently according to how unlucky one heuristic got.
     branch_nodes: int
-    #: How many guesses ran straight into a contradiction. Distinct from
-    #: ``branch_nodes``: a puzzle can branch a lot and never backtrack.
+    #: How many tentative cell assignments ran straight into a contradiction —
+    #: a subtree proved empty without being descended into. Distinct from
+    #: ``branch_nodes``: a puzzle can expand many nodes and never backtrack.
+    #: Before CARD-018 the search discovered these by guessing and having
+    #: propagation refuse the guess; it now discovers most of them by probing,
+    #: which is the same event found earlier, so the same assignments are
+    #: counted — one per refuted assignment, and two when both values of one
+    #: cell are refuted.
+    #:
+    #: Telemetry only: ADR-0013's formula does not read this field (see
+    #: ``difficulty.SolverSignals``), which is why probing finding *more* of
+    #: them than guessing did changes no score. Scoped to the deciding round,
+    #: like ``branch_nodes``.
     backtracks: int
     #: Wall-clock seconds for the whole solve, from a monotonic clock.
     elapsed_seconds: float
@@ -317,10 +375,13 @@ def solve(
     if board.decided == total_cells:
         return finish(1, _verified_grid(board), 0, 0, line_logic_cells)
 
-    counters = _Counters()
+    # One counter set per round, so the signals returned describe the round
+    # that actually produced the verdict (F-001). An abandoned round proved
+    # nothing and contributes nothing, to the count as to the signals.
     round_index = 0
     while True:
         probe_width, node_limit = _round(round_index)
+        counters = _Counters()
         found = _search(board, cache, probe_width, node_limit, round_index, deadline, counters)
         if found is not _CUT_OFF:
             solutions = found  # type: ignore[assignment]
@@ -336,20 +397,42 @@ def solve(
 
 @dataclass(slots=True)
 class _Counters:
-    """FR-009's two search signals, accumulated across every restart round.
+    """FR-009's two search signals, for one restart round.
 
-    They are counted per solve rather than per round on purpose: what CARD-009
-    scores is how much work the puzzle cost, and a puzzle that needed three
-    rounds cost all three.
+    Scoped to a round rather than to the whole solve (CARD-018 review cycle 1,
+    F-001), and only the round that settles the verdict is ever reported: a
+    round abandoned at its node limit has proved nothing about the puzzle, so
+    letting its nodes into ADR-0013's score would be measuring the heuristic's
+    luck instead of the puzzle's difficulty.
     """
 
-    #: Search nodes expanded — every board the search took off its stack,
-    #: whether it went on to branch there, settle it by forced values, or
-    #: refute it. ``0`` exactly when line logic alone finished the puzzle.
+    #: Search nodes expanded — every board this round took off its stack,
+    #: whether it went on to guess there, settle it by forced values, or refute
+    #: it. ``0`` exactly when line logic alone finished the puzzle.
     branch_nodes: int = 0
-    #: Refuted assignments: every probe that ran into a contradiction, which is
-    #: a subtree the search proved empty without descending into it.
+    #: Refuted assignments: every tentative cell value propagation ruled out,
+    #: which is a subtree the search proved empty without descending into it.
+    #: Both values of a cell refuted counts as two, because two assignments
+    #: were refuted.
     backtracks: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _Pending:
+    """A branch not taken yet: assign ``value`` at ``(row, column)`` on ``board``.
+
+    Round 0's laziness in one object (:func:`_descend`). ``board`` is the
+    parent at its fixed point, so the assignment and its propagation are
+    exactly the work the eager path would have done — deferred, not skipped,
+    and paid for only if the search comes back for this branch at all. It
+    cannot change a verdict: the sibling is always on the stack beneath its
+    partner, so both values of the cell are always explored.
+    """
+
+    board: Board
+    row: int
+    column: int
+    value: bool
 
 
 def _round(index: int) -> tuple[int, int]:
@@ -379,12 +462,13 @@ def _search(
             what a line deduces from a given state does not depend on which
             round asked, so a restart re-treads its predecessor's ground at
             memo speed rather than recomputing it.
-        probe_width: How many candidate cells each probing pass examines.
+        probe_width: How many candidate cells each pass examines, or
+            :data:`_NO_PROBE` for round 0's plain one-cell descent.
         node_limit: Give up and return :data:`_CUT_OFF` after this many nodes.
         round_index: 0 for the first round, which follows the branch heuristic
             exactly; later rounds spread their branch choice across the
             candidates the probes found equally live (see :func:`_diversified`).
-        counters: Mutated with this round's node and refutation counts.
+        counters: Mutated with this round's branch and refutation counts.
 
     Returns:
         The solutions found — at most :data:`MANY`, and every one of them
@@ -401,7 +485,7 @@ def _search(
     mean two *distinct* solutions, which is what FR-006 counts.
     """
     solutions: list[Grid] = []
-    stack: list[Board] = [root.clone()]
+    stack: list[Board | _Pending] = [root.clone()]
     nodes = 0
     while stack and len(solutions) < MANY:
         # ADR-0011's second checkpoint. It sits at the top of the loop that
@@ -412,8 +496,25 @@ def _search(
         check_deadline(deadline)
         if nodes >= node_limit:
             return _CUT_OFF
-        board = stack.pop()
+        item = stack.pop()
         nodes += 1
+        if isinstance(item, _Pending):
+            # Round 0's deferred second value (see :func:`_descend`): the
+            # assignment is made and propagated only now, because the search
+            # actually came back for it. A contradiction here is the classic
+            # backtrack — the subtree is empty and was never entered.
+            survived, item = _probe(
+                item.board, item.row, item.column, item.value, deadline, cache
+            )
+            if not survived:
+                counters.backtracks += 1
+                continue
+        board = item
+        # FR-009's ``branch_nodes``: one per node this round expands. It is
+        # this round's own count, never a running total across the rounds it
+        # abandoned (F-001) — ``counters`` is rebuilt per round by
+        # :func:`solve`, and only the round that settles the verdict is
+        # reported.
         counters.branch_nodes += 1
         outcome = _expand(board, cache, probe_width, round_index, nodes, deadline, counters)
         if outcome is None:
@@ -435,27 +536,33 @@ def _expand(
     node_index: int,
     deadline: float | None,
     counters: _Counters,
-) -> tuple[Board, Board | None] | None:
+) -> tuple[Board, Board | _Pending | None] | None:
     """Probe one node until it is settled, refuted, or ready to branch.
 
     Returns:
         ``None`` if the node is refuted — no solution extends this board.
         ``(board, None)`` if probing settled it completely; that board is a
-        solution. ``(first, second)`` otherwise: the two boards to explore, in
-        the order to explore them.
+        solution. ``(first, second)`` otherwise: the two branches to explore,
+        in the order to explore them.
 
     The loop is the probing pass described in the module docstring. Each pass
-    walks the most constrained unknown cells, tries both values of each, and
-    acts on the outcome; a pass that forced at least one value starts over,
-    because the board it is reasoning about has changed and the cells worth
-    probing may have too. A pass that forces nothing has reached the limit of
-    what this inference can see, and the node branches.
+    walks the ``probe_width`` most constrained unknown cells, tries both values
+    of each, and acts on the outcome; a pass that forced at least one value
+    starts over, because the board it is reasoning about has changed and the
+    cells worth probing may have too. A pass that forces nothing has reached
+    the limit of what this inference can see, and the node branches.
+
+    Round 0 does not come through here at all: it is :func:`_descend`, the
+    plain one-cell guess, and :data:`_SEARCH_ROUNDS` explains why it has to be.
 
     The soundness of every step here is the argument in the module docstring:
     a contradicting probe rules its value out of *every* solution, so forcing
     the other one — and keeping the propagated board that came with it —
     discards nothing.
     """
+    if probe_width == _NO_PROBE:
+        return _descend(board, cache, deadline, counters)
+
     height = board.height
     width = board.width
     total_cells = height * width
@@ -480,12 +587,15 @@ def _expand(
             empty_ok, empty_child = _probe(board, row, column, False, deadline, cache)
 
             if not filled_ok and not empty_ok:
-                # Neither value survives, so nothing extends this board.
-                counters.backtracks += 1
+                # Neither value survives, so nothing extends this board. Two
+                # assignments were refuted here, and ``backtracks`` counts
+                # refuted assignments (F-001).
+                counters.backtracks += 2
                 return None
             if not filled_ok or not empty_ok:
                 # Exactly one survives, so it is not a guess at all: it is a
                 # deduction, and the probe already propagated its consequences.
+                # The *other* value was refuted, which is the one backtrack.
                 counters.backtracks += 1
                 board = empty_child if not filled_ok else filled_child
                 forced = True
@@ -540,11 +650,12 @@ def _expand(
             # silently declaring a live node dead — the one shape of bug
             # CON-005 forbids. It is unreachable: the loop returns early when
             # the board is complete, so an incomplete board has an unknown
-            # cell, and :func:`_probe_candidates` ranks *every* unknown cell
-            # before taking its first ``probe_width``. Left as a loud failure
-            # rather than a comment because the cheap way to break it — a
-            # probe width of 0, which slices the candidate list to nothing —
-            # would otherwise report "no solutions" for a solvable puzzle.
+            # cell; :func:`_probe_candidates` ranks *every* unknown cell before
+            # taking its first ``probe_width``, and :func:`_branch_cell` always
+            # names one. Left as a loud failure rather than a comment because a
+            # candidate ranking that returned nothing would otherwise report
+            # "no solutions" for a solvable puzzle — the exact shape CON-005
+            # forbids.
             raise RuntimeError(
                 f"probing produced no branch for a board with "
                 f"{total_cells - board.decided} unknown cells (probe width "
@@ -584,6 +695,167 @@ def _probe(
     dirty_rows[row] = True
     dirty_columns[column] = True
     return propagate(child, dirty_rows, dirty_columns, deadline, cache), child
+
+
+def _descend(
+    board: Board,
+    cache: LineCache,
+    deadline: float | None,
+    counters: _Counters,
+) -> tuple[Board, _Pending | None] | None:
+    """Round 0's node: guess at one cell, propagating only what is needed.
+
+    The pre-CARD-018 search, restated against this module's node contract. It
+    picks the one cell :func:`_branch_cell` names, tries the better-supported
+    value, and — if that value survives — hands the *other* value back as a
+    :class:`_Pending`, unpropagated, to be paid for only if the search ever
+    comes back for it. That laziness is the whole point: a node costs one
+    propagation here against a probing node's ``2 * probe_width``.
+
+    Same three outcomes as :func:`_expand`, and sound for the same reason: if
+    the first value's propagation contradicts, no solution assigns it, so the
+    other value is forced rather than guessed (and if that contradicts too,
+    nothing extends this board). Both values are still always reachable.
+
+    Why this round exists at all, and why it uses this ranking rather than the
+    probe ranking, is :data:`_SEARCH_ROUNDS`' story: on a massively ambiguous
+    board a second solution is a couple of hundred plain nodes away, and
+    probing to get there is pure overhead. It is not merely a width choice —
+    taking the top *one* cell of the *probe* ranking, on the 20x20 density-10
+    request that motivated this split, failed to finish two of that request's
+    twenty candidates in 85s and 253s, where this ranking settles every one of
+    them in about 30ms.
+    """
+    total_cells = board.height * board.width
+    while True:
+        check_deadline(deadline)
+        if board.decided == total_cells:
+            return board, None
+
+        row, column = _branch_cell(board)
+        preferred = _preferred_value(board, cache, row, column)
+        survived, child = _probe(board, row, column, preferred, deadline, cache)
+        if survived:
+            return child, _Pending(board, row, column, not preferred)
+
+        # The preferred value is impossible, so the other one is forced. Not a
+        # guess: the same deduction a probing pass would have made.
+        counters.backtracks += 1
+        survived, child = _probe(board, row, column, not preferred, deadline, cache)
+        if not survived:
+            counters.backtracks += 1
+            return None
+        board = child
+
+
+def _preferred_value(
+    board: Board, cache: LineCache, row: int, column: int
+) -> bool:
+    """Which value of ``(row, column)`` to try first: the better-supported one.
+
+    "Support" is the product of the placements the cell's row still admits and
+    the placements its column still admits, once the cell is forced that way —
+    the exact fraction of the two lines' surviving placements that agree with
+    the value. Both values are always explored, so this only decides which
+    subtree is entered first, but on an under-constrained grid it decides it
+    well, because following it is following the puzzle's own bias.
+    """
+    column_bit = 1 << column
+    row_bit = 1 << row
+    filled_support = _support(
+        cache, cache.rows[row], board.row_clues[row], board.width,
+        board.row_filled[row] | column_bit, board.row_empty[row],
+    ) * _support(
+        cache, cache.columns[column], board.column_clues[column], board.height,
+        board.column_filled[column] | row_bit, board.column_empty[column],
+    )
+    empty_support = _support(
+        cache, cache.rows[row], board.row_clues[row], board.width,
+        board.row_filled[row], board.row_empty[row] | column_bit,
+    ) * _support(
+        cache, cache.columns[column], board.column_clues[column], board.height,
+        board.column_filled[column], board.column_empty[column] | row_bit,
+    )
+    return filled_support >= empty_support
+
+
+def _branch_cell(board: Board) -> tuple[int, int]:
+    """The most constrained unknown cell: ``(row, column)`` (ADR-0009).
+
+    "Most constrained" is measured by how many placements a line still admits,
+    not by how many of its cells are unknown. Placement count is the line's
+    actual remaining freedom: a 50-cell line with twenty unknown cells but only
+    two possible placements is one guess away from being settled, while a line
+    with four unknown cells and six placements is not. Propagation already
+    computed and cached those counts, so the heuristic is a scan of two int
+    lists rather than a re-run of the line DP.
+
+    The cell chosen is the intersection of the least-free line with the
+    least-free perpendicular line through it — so both of the lines a guess
+    triggers propagation on are near-forced, which is what makes a wrong guess
+    surface as a contradiction immediately instead of hundreds of levels deep.
+
+    Ties break toward the lowest index, keeping the choice deterministic and
+    the whole solve reproducible for a given clue set.
+
+    Both orientations are considered, because a nearly-forced column constrains
+    a cell exactly as much as a nearly-forced row does.
+
+    Raises:
+        RuntimeError: the board has no unknown cell. The caller checks for
+            completion before asking, so this is a solver defect, not an
+            outcome — and it is the same "nothing to branch on" shape
+            :func:`_expand` refuses to treat as "no solutions".
+    """
+    best_freedom = -1
+    best_is_row = True
+    best_index = -1
+
+    for row in range(board.height):
+        if board.width == (board.row_filled[row] | board.row_empty[row]).bit_count():
+            continue  # fully decided: nothing here to branch on
+        freedom = board.row_placements[row]
+        if best_index < 0 or freedom < best_freedom:
+            best_freedom = freedom
+            best_is_row = True
+            best_index = row
+    for column in range(board.width):
+        decided = (board.column_filled[column] | board.column_empty[column]).bit_count()
+        if board.height == decided:
+            continue
+        freedom = board.column_placements[column]
+        if best_index < 0 or freedom < best_freedom:
+            best_freedom = freedom
+            best_is_row = False
+            best_index = column
+
+    if best_index < 0:  # pragma: no cover - the caller checks for completion
+        raise RuntimeError("no unknown cell to branch on: the board is complete")
+
+    if best_is_row:
+        unknown_bits = ~(board.row_filled[best_index] | board.row_empty[best_index])
+        best_cell = -1
+        best_cross = -1
+        for column in range(board.width):
+            if not (unknown_bits >> column) & 1:
+                continue
+            cross = board.column_placements[column]
+            if best_cell < 0 or cross < best_cross:
+                best_cell = column
+                best_cross = cross
+        return best_index, best_cell
+
+    unknown_bits = ~(board.column_filled[best_index] | board.column_empty[best_index])
+    best_cell = -1
+    best_cross = -1
+    for row in range(board.height):
+        if not (unknown_bits >> row) & 1:
+            continue
+        cross = board.row_placements[row]
+        if best_cell < 0 or cross < best_cross:
+            best_cell = row
+            best_cross = cross
+    return best_cell, best_index
 
 
 def _probe_candidates(board: Board, limit: int) -> list[tuple[int, int]]:

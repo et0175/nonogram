@@ -361,7 +361,18 @@ class SolverSignals(Protocol):
 
     @property
     def branch_nodes(self) -> int:
-        """Guesses the search had to make because propagation stalled."""
+        """Search nodes the solver had to expand past line logic.
+
+        Before CARD-018 this read "guesses the search had to make because
+        propagation stalled", and the two were the same number, because
+        guessing was all a node could do. CARD-018's probing gave a node two
+        further outcomes — deduce, and refute — so the count is now over the
+        nodes expanded rather than the guesses alone (ADR-0013, History
+        2026-08-30). It is still ``0`` exactly when line logic alone finished
+        the puzzle, which is what AC-023's easy anchor rests on, and it still
+        grows with how much the search had to do, which is what the weight is
+        for.
+        """
 
     @property
     def elapsed_seconds(self) -> float:

@@ -676,15 +676,22 @@ def test_restart_rounds_widen_the_probe_and_grow_the_node_limit_without_bound() 
     keeps multiplying, so every finite search tree is eventually reachable.
     Round 0 is pinned as the cheapest round: it is the one every ordinary
     puzzle finishes in, and widening it would tax the whole corpus to help the
-    few cases that need round 2.
+    few cases that need round 2. Cheapest here means *it does not probe at
+    all* — CARD-018 review cycle 1 (F-002) measured probing from node 0 as a
+    5x regression on the low-density 20x20 class the old search already
+    finished in milliseconds, so round 0 is the plain one-cell descent and only
+    the later rounds probe.
     """
-    from nonogram.solver.search import _SEARCH_ROUNDS, _round
+    from nonogram.solver.search import _NO_PROBE, _SEARCH_ROUNDS, _round
 
     widths = [width for width, _ in _SEARCH_ROUNDS]
     limits = [limit for _, limit in _SEARCH_ROUNDS]
     assert widths == sorted(widths), "probe width must not shrink between rounds"
     assert limits == sorted(limits), "the node limit must not shrink between rounds"
-    assert min(widths) >= 1, "a probe width of 0 would leave nothing to branch on"
+    assert widths[0] == _NO_PROBE, "round 0 must be the cheap, non-probing descent"
+    assert min(widths[1:]) >= 1, (
+        "a probing round of width 0 would leave nothing to branch on"
+    )
     assert _round(0) == _SEARCH_ROUNDS[0]
 
     beyond = [
@@ -702,17 +709,22 @@ def test_a_probe_that_cannot_branch_raises_instead_of_reporting_no_solutions(
 
     ``_expand`` refutes a node when probing proves both of a cell's values
     impossible. If it ever reached the same "nothing to branch on" state for a
-    board that still had unknown cells — a probe width of 0 does exactly that,
-    by slicing the candidate list to nothing — the search would report a
-    solvable puzzle as having no solutions. CON-005 says crash instead of
-    answering wrongly, so this pins that it crashes.
+    board that still had unknown cells — a candidate ranking that came back
+    empty does exactly that — the search would report a solvable puzzle as
+    having no solutions. CON-005 says crash instead of answering wrongly, so
+    this pins that it crashes.
+
+    The empty ranking is injected rather than provoked through the schedule:
+    since F-002 a probe width of 0 is round 0's "do not probe" marker, not a
+    slice of nothing, so the ranking itself is the thing to break.
     """
     from nonogram.solver import search as search_module
 
     rows = columns = ((1,), (1,))
     assert solve(rows, columns).solution_count == MANY
 
-    monkeypatch.setattr(search_module, "_SEARCH_ROUNDS", ((0, 10**9),))
+    monkeypatch.setattr(search_module, "_probe_candidates", lambda board, limit: [])
+    monkeypatch.setattr(search_module, "_SEARCH_ROUNDS", ((4, 10**9),))
 
     with pytest.raises(RuntimeError, match="solver defect"):
         solve(rows, columns)
@@ -723,8 +735,8 @@ def test_probing_reports_a_refuted_branch_as_a_backtrack() -> None:
 
     CARD-018 moved most refutations from "descend, then discover the
     contradiction" to "probe, and never descend". The signal has to follow the
-    work: a probe that contradicts is a subtree proved empty, so it counts, and
-    CARD-009's difficulty score keeps measuring the same thing.
+    work: a probe that contradicts is a subtree proved empty, so it counts,
+    exactly as a guess propagation refused used to.
     """
     rows = ((1,), (1,), (1, 1), (1, 1))
     columns = ((1,), (2,), (2,), (1,))
@@ -735,6 +747,76 @@ def test_probing_reports_a_refuted_branch_as_a_backtrack() -> None:
     assert result.solution_count == 0
     assert result.signals.backtracks > 0
     assert result.signals.branch_nodes > 0, "the verdict came from the search, not line logic"
+
+
+def test_the_signals_count_the_deciding_round_and_nothing_else() -> None:
+    """FR-009's two search signals, pinned against what the search really did.
+
+    CARD-018 review cycle 1 (F-001) found both of them describing something
+    other than their own documentation: ``branch_nodes`` was summed over every
+    *abandoned* restart round as well as the one that produced the verdict, so
+    two equally hard puzzles scored differently according to how unlucky one
+    heuristic got; and ``backtracks`` charged 1 for a node where *two* probes
+    were refuted. ADR-0013's heaviest term reads ``branch_nodes``, and the
+    orchestrator discards a candidate whose score misses the requested
+    ``--difficulty`` tier, so neither is telemetry nobody looks at.
+
+    Both are checked here against an independent count taken from the search's
+    own control flow: every ``_expand`` call is a node expanded, every ``_probe``
+    that comes back refuted is a refuted assignment, and both are bucketed per
+    restart round. The schedule is shrunk so the corpus reaches restarts at
+    all — the production one would finish this puzzle in round 0 — which is the
+    same technique the invariance tests above use.
+    """
+    from nonogram.solver import search as search_module
+
+    expanded: list[int] = []
+    refuted: list[int] = []
+    real_search = search_module._search
+    real_expand = search_module._expand
+    real_probe = search_module._probe
+
+    def spy_search(*args: object, **kwargs: object) -> object:
+        expanded.append(0)
+        refuted.append(0)
+        return real_search(*args, **kwargs)
+
+    def spy_expand(*args: object, **kwargs: object) -> object:
+        expanded[-1] += 1
+        return real_expand(*args, **kwargs)
+
+    def spy_probe(*args: object, **kwargs: object) -> object:
+        survived, child = real_probe(*args, **kwargs)
+        if not survived:
+            refuted[-1] += 1
+        return survived, child
+
+    rng = random.Random(4242)
+    grid = [[rng.random() < 0.35 for _ in range(12)] for _ in range(12)]
+    rows, columns = compute_clues(grid)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(search_module, "_search", spy_search)
+        patch.setattr(search_module, "_expand", spy_expand)
+        patch.setattr(search_module, "_probe", spy_probe)
+        patch.setattr(
+            search_module,
+            "_SEARCH_ROUNDS",
+            ((search_module._NO_PROBE, 2), (8, 4), (16, 8), (32, 10**9)),
+        )
+        result = solve(rows, columns)
+
+    assert len(expanded) >= 3, "the fixture stopped reaching restarts — pick a harder one"
+    assert sum(expanded) > expanded[-1], (
+        "the abandoned rounds did no work, so this cannot show they are excluded"
+    )
+    assert result.signals.branch_nodes == expanded[-1], (
+        "branch_nodes must count the deciding round's nodes, not every round's"
+    )
+    assert result.signals.backtracks == refuted[-1], (
+        "backtracks must count refuted assignments in the deciding round, "
+        "one per refuted assignment"
+    )
 
 
 def test_the_line_memo_answers_exactly_what_the_line_dp_would(monkeypatch) -> None:
