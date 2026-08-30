@@ -576,6 +576,204 @@ def test_finds_the_source_grid_at_production_sizes(size: int) -> None:
 
 
 # --------------------------------------------------------------------------
+# Probing and restarts (CARD-018) — they may cost work, never change a verdict
+# --------------------------------------------------------------------------
+#
+# CARD-018 made the search prune harder (probe both values of a cell, force the
+# survivor when one of them contradicts) and restart with a wider probe when a
+# round runs long. Both are meant to be *speed* changes: the same clue set must
+# come back with the same count no matter how wide the probe is or how often
+# the search restarts. That is exactly the shape of bug the mandatory property
+# (EC-001) exists to catch — but the property corpus tops out at 8x8, where
+# hardly any case is big enough to reach a restart at all. These tests reach it
+# deliberately, by shrinking the schedule instead of growing the puzzles.
+
+
+#: Search configurations that must all agree. Each is a ``_SEARCH_ROUNDS``
+#: replacement: ``(probe_width, node_limit)`` per restart round.
+_SEARCH_CONFIGURATIONS = {
+    # The narrowest possible inference: one probed cell per pass, no restart.
+    "one-cell-probe": ((1, 10**9),),
+    # The strongest: every unknown cell probed at every node, no restart.
+    "probe-everything": ((10**6, 10**9),),
+    # A restart after almost every node, so the diversified branch choice —
+    # the part of the search the production schedule reaches only on the
+    # hardest instances — runs on every case in the corpus.
+    "restart-constantly": ((1, 1), (2, 2), (4, 3), (8, 5), (16, 9)),
+    # Restarts *and* a narrow probe, so a case can need many rounds.
+    "narrow-and-restarting": ((3, 5), (3, 11), (3, 23)),
+}
+
+
+def _search_configuration_corpus() -> list[
+    tuple[list[list[bool]], tuple[tuple[int, ...], ...], tuple[tuple[int, ...], ...]]
+]:
+    """Seeded grids big enough to branch, small enough to solve many times.
+
+    10x10..16x16 spans the sizes where the search does real work: below it line
+    logic often finishes on its own, above it a mid-density case can cost
+    seconds, and this corpus is solved once per configuration.
+    """
+    rng = random.Random(9090)
+    corpus = []
+    for index in range(96):
+        size = 10 + (index % 7)
+        density = (0.15, 0.25, 0.35, 0.45, 0.6, 0.8)[index % 6]
+        grid = [[rng.random() < density for _ in range(size)] for _ in range(size)]
+        rows, columns = compute_clues(grid)
+        corpus.append((grid, rows, columns))
+    return corpus
+
+
+_SEARCH_CONFIGURATION_CORPUS = _search_configuration_corpus()
+
+
+@pytest.mark.parametrize("configuration", sorted(_SEARCH_CONFIGURATIONS))
+def test_the_verdict_does_not_depend_on_probe_width_or_restarts(
+    configuration: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CARD-018 guardrail G-3: pruning and restarting are speed, not semantics.
+
+    The production schedule's answer is the reference, and every other
+    configuration has to match it case for case. A probe that rejected a branch
+    it should not have would show up here as a count that dropped — typically
+    to 0 — under the wider probe or the restarting schedule, which is precisely
+    the failure a soundness argument has to be able to rule out.
+
+    Solutions are checked too, not only counts: a unique verdict must return
+    the grid the clues came from, whichever configuration produced it.
+    """
+    from nonogram.solver import search as search_module
+
+    reference = [
+        solve(rows, columns).solution_count
+        for _, rows, columns in _SEARCH_CONFIGURATION_CORPUS
+    ]
+    assert reference.count(1) >= 20, "corpus no longer contains unique puzzles"
+    assert reference.count(MANY) >= 20, "corpus no longer contains ambiguous puzzles"
+
+    monkeypatch.setattr(
+        search_module, "_SEARCH_ROUNDS", _SEARCH_CONFIGURATIONS[configuration]
+    )
+
+    for expected, (grid, rows, columns) in zip(
+        reference, _SEARCH_CONFIGURATION_CORPUS, strict=True
+    ):
+        result = solve(rows, columns)
+        assert result.solution_count == expected, (
+            f"{configuration} disagreed with the production schedule: "
+            f"{result.solution_count} vs {expected} for rows={rows} columns={columns}"
+        )
+        if result.is_unique:
+            assert result.solution == grid
+
+
+def test_restart_rounds_widen_the_probe_and_grow_the_node_limit_without_bound() -> None:
+    """Why restarting stays *complete* (CARD-018).
+
+    A restart schedule whose node limit stopped growing would be a solver that
+    could answer "I do not know" — and this one never does, because the limit
+    keeps multiplying, so every finite search tree is eventually reachable.
+    Round 0 is pinned as the cheapest round: it is the one every ordinary
+    puzzle finishes in, and widening it would tax the whole corpus to help the
+    few cases that need round 2.
+    """
+    from nonogram.solver.search import _SEARCH_ROUNDS, _round
+
+    widths = [width for width, _ in _SEARCH_ROUNDS]
+    limits = [limit for _, limit in _SEARCH_ROUNDS]
+    assert widths == sorted(widths), "probe width must not shrink between rounds"
+    assert limits == sorted(limits), "the node limit must not shrink between rounds"
+    assert min(widths) >= 1, "a probe width of 0 would leave nothing to branch on"
+    assert _round(0) == _SEARCH_ROUNDS[0]
+
+    beyond = [
+        _round(index)[1]
+        for index in range(len(_SEARCH_ROUNDS), len(_SEARCH_ROUNDS) + 6)
+    ]
+    assert beyond == sorted(beyond)
+    assert beyond[-1] > 10 * limits[-1]
+
+
+def test_a_probe_that_cannot_branch_raises_instead_of_reporting_no_solutions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The one way probing could quietly lie, made loud.
+
+    ``_expand`` refutes a node when probing proves both of a cell's values
+    impossible. If it ever reached the same "nothing to branch on" state for a
+    board that still had unknown cells — a probe width of 0 does exactly that,
+    by slicing the candidate list to nothing — the search would report a
+    solvable puzzle as having no solutions. CON-005 says crash instead of
+    answering wrongly, so this pins that it crashes.
+    """
+    from nonogram.solver import search as search_module
+
+    rows = columns = ((1,), (1,))
+    assert solve(rows, columns).solution_count == MANY
+
+    monkeypatch.setattr(search_module, "_SEARCH_ROUNDS", ((0, 10**9),))
+
+    with pytest.raises(RuntimeError, match="solver defect"):
+        solve(rows, columns)
+
+
+def test_probing_reports_a_refuted_branch_as_a_backtrack() -> None:
+    """FR-009's ``backtracks`` still means "a subtree the search ruled out".
+
+    CARD-018 moved most refutations from "descend, then discover the
+    contradiction" to "probe, and never descend". The signal has to follow the
+    work: a probe that contradicts is a subtree proved empty, so it counts, and
+    CARD-009's difficulty score keeps measuring the same thing.
+    """
+    rows = ((1,), (1,), (1, 1), (1, 1))
+    columns = ((1,), (2,), (2,), (1,))
+    assert count_solutions_by_cell(rows, columns) == 0
+
+    result = solve(rows, columns)
+
+    assert result.solution_count == 0
+    assert result.signals.backtracks > 0
+    assert result.signals.branch_nodes > 0, "the verdict came from the search, not line logic"
+
+
+def test_the_line_memo_answers_exactly_what_the_line_dp_would(monkeypatch) -> None:
+    """CARD-018's memo is an optimisation, and this is what that has to mean.
+
+    ``LineCache`` is the only mutable thing the solver carries, so the risk it
+    introduces is a stale or mis-keyed answer — two different line states
+    colliding on one key would corrupt a deduction silently. It is checked
+    directly here rather than only through the verdicts it produces: every
+    lookup must equal a fresh :func:`line_intersection` call, including across
+    the wholesale clear the memo does when it fills up.
+    """
+    from nonogram.solver.propagate import LineCache
+
+    #: One line per memo, which is the contract: a memo's key packs only the
+    #: two knowledge masks, because within one line the clue and the length do
+    #: not vary. Four different lines, so a key that leaked between them would
+    #: be caught rather than hidden by everything sharing one shape.
+    lines = (((2, 1), 6), ((3,), 8), ((1, 1, 1), 7), (canonical_clue((0,)), 5))
+
+    rng = random.Random(31337)
+    # A limit far below the number of distinct states below, so the wholesale
+    # clear fires many times during the run and is covered too.
+    cache = LineCache.blank(len(lines), 0, limit=64)
+    checked = 0
+    for _ in range(3000):
+        index = rng.randrange(len(lines))
+        runs, length = lines[index]
+        known_filled, known_empty = _random_knowledge(rng, length)
+        known_empty &= ~known_filled
+        assert cache.deduce(cache.rows[index], runs, length, known_filled, known_empty) == (
+            line_intersection(runs, length, known_filled, known_empty)
+        )
+        checked += 1
+    assert checked == 3000
+    assert cache.entries <= cache.limit, "the memo grew past the bound it promises"
+
+
+# --------------------------------------------------------------------------
 # The oracle itself (ADR-0014) — an unverified oracle is just a second guess
 # --------------------------------------------------------------------------
 

@@ -140,13 +140,17 @@ def report(budget_seconds: float = 30.0) -> None:  # pragma: no cover - develope
 
 @pytest.mark.xfail(
     reason=(
-        "AC-037 genuinely unmet at 20x20/30-40% density (p95 unbounded, censored "
-        "at the 30s cap) — ADR-0001 revised 2026-08-28 (resolves DEC-019) to "
-        "reaffirm the 5s target rather than narrow it, tracking the gap as a "
-        "solver search-strength issue: see CARD-018 (strengthen subtree "
-        "rejection via lookahead/probing). Remove this marker once CARD-018 "
-        "lands and this benchmark passes across the full density range — do "
-        "not remove it on partial data."
+        "AC-037 still unmet, but in a much narrower band than when CARD-006 "
+        "marked this: CARD-018's probing search closed 10-30% and >=45% "
+        "outright (density 30 went from 5-of-5 requests unbounded at the 30s "
+        "cap to 1.3-2.6s; 10-25% now runs 1.4-2.9s where it also used to time "
+        "out) and left the 5s cap missed only in the ~32-45% band, worst at "
+        "35-42%, where this corpus's density-40 column still runs 13-30s+. "
+        "The residual is dominated by individual candidate grids that are hard "
+        "in themselves rather than hard for one heuristic — see CARD-018's "
+        "worktree notes for the evidence and the full 10-90% sweep. Removing "
+        "this marker needs the whole density range under the cap, not this "
+        "corpus alone: do not remove it on partial data."
     ),
     strict=True,
 )
