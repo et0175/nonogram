@@ -66,7 +66,18 @@ def _host_is_local(host_header: str) -> bool:
     than by splitting on ``":"`` so that ``[::1]:8765`` and a bare ``::1`` are
     both read correctly, and anything ``urlsplit`` cannot read at all is not
     local.
+
+    ``@`` and ``/`` are refused before parsing. A ``Host`` is an authority, not
+    a URL: userinfo and a path have no meaning in it, and RFC 7230 §5.4 admits
+    neither. ``urlsplit`` would read ``user:pass@127.0.0.1`` and
+    ``127.0.0.1/../evil`` as loopback — correctly, since the *host component*
+    of both really is loopback, so neither was ever a hole — but that makes the
+    set of accepted header *values* unbounded in shape while the set of
+    accepted *names* is exactly three. Refusing the two characters keeps the
+    two sets the same size, which is what row F-12 declares.
     """
+    if "@" in host_header or "/" in host_header:
+        return False
     try:
         hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
     except ValueError:
@@ -123,20 +134,39 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         loopback gets ``400`` and no route runs: it is a request that reached
         this server under a name it does not answer to, which is a malformed
         request, not a refused credential — there is still no ``401``, no
-        ``403`` and nothing to authenticate (AC-053). A request with *no*
-        ``Host`` at all is served: HTTP/1.0 clients are allowed to omit it, and
-        the browser-mediated attack this closes always sends one.
+        ``403`` and nothing to authenticate (AC-053).
+
+        *Every* ``Host`` header is read, not just the first. RFC 7230 §5.4
+        forbids more than one, and a message carrying two that disagree has no
+        single answer to "which name did this request use" — so it is refused
+        before either is compared. Repeating one identical value says nothing
+        new and is served.
+
+        A request with *no* ``Host`` at all is served, on **every** protocol
+        version and not only HTTP/1.0. That is deliberate: the attack this
+        check closes is browser-mediated, and a browser cannot suppress the
+        header (``Host`` is a forbidden header name to ``fetch``/XHR), so a
+        missing one is never the attacker's shape. Refusing it would only cost
+        HTTP/1.0 clients — ``curl --http1.0``, and this module's own AC-052
+        interface probes, which send ``GET / HTTP/1.0`` with no ``Host``.
 
         The 404 body escapes the path it echoes. The response is
         ``text/plain`` and carries ``nosniff``, so markup in it is inert twice
         over rather than once (F-7).
         """
-        host_header = self.headers.get("Host")
-        if host_header is not None and not _host_is_local(host_header):
+        host_headers = self.headers.get_all("Host") or []
+        if len(set(host_headers)) > 1:
             self._respond(
                 HTTPStatus.BAD_REQUEST,
                 _TEXT,
-                f"unrecognised host: {html.escape(host_header)}\n",
+                "conflicting host headers\n",
+            )
+            return
+        if host_headers and not _host_is_local(host_headers[0]):
+            self._respond(
+                HTTPStatus.BAD_REQUEST,
+                _TEXT,
+                f"unrecognised host: {html.escape(host_headers[0])}\n",
             )
             return
         path = urllib.parse.urlsplit(self.path).path

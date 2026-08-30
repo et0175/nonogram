@@ -40,7 +40,7 @@ Two independent probes are used, because they fail for different reasons:
   on BSD, which would make the probe answer "free" for a ``0.0.0.0`` server.
 
 The rest of the module covers what the failure matrix in
-``meta/kanban/cards/CARD-019.md`` declares (F-1 through F-9), the form page,
+``meta/kanban/cards/CARD-019.md`` declares (F-1 through F-12), the form page,
 and the two boundaries guardrail G-4 draws.
 """
 
@@ -436,17 +436,24 @@ class TestWebServer_ProcessesRequestsWithoutAuthentication:
         is the realistic version: a later card reaching for ``401`` or
         ``HTTPStatus.UNAUTHORIZED`` by hand.
 
-        Read from the AST rather than from the raw text, for two reasons. The
-        earlier substring form banned the bare strings ``"401"``/``"403"``
-        anywhere in the package, which would fire on a port number, a byte
-        count or a docstring — over-broad in a way that makes a future card
-        edit *this test* to land unrelated work, and a test that gets edited
-        under pressure stops guarding anything. And prose about the absence
-        (this docstring included, and the ones in ``handler.py`` that explain
-        why there is no ``403``) is exactly what a source-text scan cannot tell
-        apart from the thing itself. Docstrings are therefore excluded and only
-        real code is examined: status *literals*, attribute names, and the
-        header string as it would actually be written.
+        Read from the AST rather than from the raw text, because prose about
+        the absence (this docstring included, and the ones in ``handler.py``
+        that explain why there is no ``403``) is exactly what a source-text
+        scan cannot tell apart from the thing itself. Docstrings are therefore
+        excluded by node identity and only real code is examined: status
+        *literals*, attribute names, and the header string as it would actually
+        be written. The earlier substring form banned the bare strings
+        ``"401"``/``"403"`` anywhere in the package, prose included, so its own
+        explanation would have tripped it.
+
+        What that does **not** buy is immunity from a benign *code* literal:
+        ``_MAX_BODY_BYTES = 403`` still fails this test, because a status in
+        this package is written as a plain integer and there is no way to tell
+        one position from another without teaching the scan the shape of every
+        call that could carry one. Two integers out of the whole range are
+        affected and the failure message names the line, so the answer is to
+        spell that constant differently — never to widen this scan, which is
+        the edit that would quietly end the guard.
         """
         assert _WEB_SOURCES, "no web adapter sources found"
         for path in _WEB_SOURCES:
@@ -601,16 +608,24 @@ def test_a_body_sent_with_a_get_is_never_read(
         # for it. The stdlib parses "9.9" fine and answers 505 — a different
         # status for a different failure, and the row now says so.
         pytest.param(b"GET / HTTP/9.9\r\n\r\n", b" 505 ", id="unsupported-version"),
-        # F-4's first numeric bound: http.client._MAXLINE is 65536, and the
-        # request line here is over it by construction.
+        # F-4's request-line bound, comfortably past it. The exact edge is
+        # pinned by test_the_declared_size_bounds_are_exact below.
         pytest.param(
             b"GET /" + b"x" * 70000 + b" HTTP/1.0\r\n\r\n", b" 414 ", id="over-long-uri"
         ),
-        # F-4's second: _MAXHEADERS is 100, so 150 is past it.
+        # F-4's header-count bound, comfortably past it (the edge is 99/100).
         pytest.param(
             b"GET / HTTP/1.0\r\n" + b"".join(b"X-%d: 1\r\n" % n for n in range(150)) + b"\r\n",
             b" 431 ",
             id="too-many-headers",
+        ),
+        # F-4's third bound and the *second* cause of a 431: one header line
+        # over _MAXLINE ("Line too long"), which is a different failure from
+        # too many headers wearing the same status.
+        pytest.param(
+            b"GET / HTTP/1.0\r\nX-Long: " + b"a" * 70000 + b"\r\n\r\n",
+            b" 431 ",
+            id="over-long-header-value",
         ),
     ],
 )
@@ -619,16 +634,99 @@ def test_the_stdlib_rejects_a_bad_request_line_before_the_router(
 ) -> None:
     """F-4 and F-10: each declared status, pinned against a live socket.
 
-    All five are ``BaseHTTPRequestHandler.parse_request``'s answers rather than
+    All six are ``BaseHTTPRequestHandler.parse_request``'s answers rather than
     this card's, and an inherited default that has been read is still a
     declaration — which is the reason to pin it: the matrix originally declared
     ``400`` for an unsupported HTTP version and the stdlib answers ``505``. A
     row asserted from memory rather than from the wire is how that survived,
-    so all four statuses and both numeric bounds are exercised here.
+    so every declared status is exercised here and every declared *bound* is
+    exercised at its edge in the test below.
     """
     received = _raw_exchange(running_server.server_port, request_bytes)
 
     assert status in received, received[:120]
+
+
+def _request_line_of(total_bytes: int) -> bytes:
+    """A request line of exactly ``total_bytes``, CRLF included."""
+    suffix = b" HTTP/1.0\r\n"
+    line = b"GET /" + b"x" * (total_bytes - len(b"GET /") - len(suffix)) + suffix
+    assert len(line) == total_bytes
+    return line
+
+
+def _header_line_of(total_bytes: int) -> bytes:
+    """One header line of exactly ``total_bytes``, CRLF included."""
+    name = b"X-Long: "
+    line = name + b"a" * (total_bytes - len(name) - len(b"\r\n")) + b"\r\n"
+    assert len(line) == total_bytes
+    return line
+
+
+@pytest.mark.parametrize(
+    ("request_bytes", "status", "note"),
+    [
+        # Request line: the largest accepted line is 65536 bytes including its
+        # CRLF. Accepted means *routed* — "/xxx..." is no route, so the honest
+        # answer is a 404 from this card's own router, which is also the proof
+        # that the request got past parse_request at all.
+        pytest.param(_request_line_of(65536) + b"\r\n", b" 404 ", "accepted", id="uri-at-limit"),
+        pytest.param(_request_line_of(65537) + b"\r\n", b" 414 ", "refused", id="uri-over-limit"),
+        # Header count: _MAXHEADERS is 100, but http.client.parse_headers
+        # appends the terminating CRLF to the very list it length-checks, so
+        # the ceiling on real header *fields* is 99. This is the bound the
+        # matrix declared as "<= 100" and the wire refuted twice.
+        pytest.param(
+            b"GET / HTTP/1.0\r\n" + b"".join(b"X-%d: 1\r\n" % n for n in range(99)) + b"\r\n",
+            b" 200 ",
+            "accepted",
+            id="99-headers",
+        ),
+        pytest.param(
+            b"GET / HTTP/1.0\r\n" + b"".join(b"X-%d: 1\r\n" % n for n in range(100)) + b"\r\n",
+            b" 431 ",
+            "refused",
+            id="100-headers",
+        ),
+        # Header line length: the same _MAXLINE as the request line, applied
+        # per header line. A single over-long *value* is the second, distinct
+        # cause of a 431.
+        pytest.param(
+            b"GET / HTTP/1.0\r\n" + _header_line_of(65536) + b"\r\n",
+            b" 200 ",
+            "accepted",
+            id="header-line-at-limit",
+        ),
+        pytest.param(
+            b"GET / HTTP/1.0\r\n" + _header_line_of(65537) + b"\r\n",
+            b" 431 ",
+            "refused",
+            id="header-line-over-limit",
+        ),
+    ],
+)
+def test_the_declared_size_bounds_are_exact(
+    running_server: server.LoopbackHTTPServer,
+    request_bytes: bytes,
+    status: bytes,
+    note: str,
+) -> None:
+    """F-4's three numeric bounds, each probed on both sides of its edge.
+
+    A bound is only declared if something would notice it moving. The tests
+    above send 70000 bytes and 150 headers — comfortably past every limit, and
+    therefore green for *any* limit at or below those figures, which is how the
+    matrix came to declare "headers <= 100" when the wire refuses 100. Each
+    bound is pinned here at N (accepted) and N+1 (refused) instead, so the
+    declaration and the behaviour cannot drift apart again.
+
+    The sizes are counted in *whole line bytes, CRLF included*, because that is
+    what the standard library measures: ``readline(_MAXLINE + 1)`` and then
+    ``len(line) > _MAXLINE``.
+    """
+    received = _raw_exchange(running_server.server_port, request_bytes)
+
+    assert status in received, (note, received[:120])
 
 
 def test_a_client_that_disconnects_does_not_take_the_server_down(
@@ -952,6 +1050,18 @@ def test_a_loopback_host_header_is_served(
         pytest.param("127.0.0.1.evil.example.com", id="suffixed-loopback"),
         pytest.param("notlocalhost", id="prefixed-name"),
         pytest.param("", id="empty"),
+        # A ``Host`` is an authority, not a URL. ``urlsplit`` reads the host
+        # component of all three of these as loopback — which it genuinely is,
+        # so none of them was ever a hole — but a header carrying userinfo or a
+        # path is not a host name, and accepting it would make the set of
+        # accepted header *values* unbounded while F-12 declares exactly three
+        # accepted *names*. The reversal that would be a hole,
+        # ``127.0.0.1@evil.example.com``, was already refused and stays here to
+        # prove the narrowing did not replace the parse with a substring test.
+        pytest.param("user:pass@127.0.0.1", id="userinfo"),
+        pytest.param("evil.example.com@127.0.0.1", id="userinfo-lookalike"),
+        pytest.param("127.0.0.1/../evil", id="path-component"),
+        pytest.param("127.0.0.1@evil.example.com", id="reversed-userinfo"),
     ],
 )
 def test_a_foreign_host_header_is_refused_before_routing(
@@ -991,19 +1101,69 @@ def test_a_refused_host_is_not_echoed_as_markup(
     assert b"<" not in response.body
 
 
+@pytest.mark.parametrize(
+    "version",
+    [
+        pytest.param(b"HTTP/1.0", id="http-1.0"),
+        # RFC 7230 §5.4 requires 400 here. The leniency is applied to *every*
+        # version on purpose, and the row says so rather than resting on the
+        # HTTP/1.0 half alone: it is stated here so a later card that reads
+        # "HTTP/1.0 clients may omit it" does not conclude 1.1 is refused.
+        pytest.param(b"HTTP/1.1", id="http-1.1"),
+    ],
+)
 def test_a_request_with_no_host_header_at_all_is_served(
-    running_server: server.LoopbackHTTPServer,
+    running_server: server.LoopbackHTTPServer, version: bytes
 ) -> None:
-    """F-12's deliberate gap: HTTP/1.0 may omit ``Host``, so an absent one passes.
+    """F-12's deliberate gap: an absent ``Host`` passes, on any version.
 
     Sent raw, because ``http.client`` always supplies the header. The check is
-    against the browser-mediated attack, and a browser always sends a ``Host``;
-    refusing a request that omits one would break an HTTP/1.0 client (``curl
-    --http1.0``, and this module's own interface probes) for no security gain.
+    against the browser-mediated attack, and a browser cannot suppress the
+    header — ``Host`` is a forbidden header name to ``fetch``/XHR, so an absent
+    one is never the attacker's shape. Refusing a request that omits one would
+    break an HTTP/1.0 client (``curl --http1.0``, and this module's own AC-052
+    interface probes, which is the evidence chain that would break) for no
+    security gain.
     """
-    received = _raw_exchange(running_server.server_port, b"GET / HTTP/1.0\r\n\r\n")
+    received = _raw_exchange(running_server.server_port, b"GET / " + version + b"\r\n\r\n")
 
     assert received.startswith(b"HTTP/1.0 200 OK")
+
+
+@pytest.mark.parametrize(
+    ("hosts", "expected"),
+    [
+        # RFC 7230 §5.4: more than one Host field is a bad request. Both orders
+        # are checked because reading only the *first* header accepts one of
+        # them and refuses the other — which is exactly the asymmetry this
+        # test exists to remove.
+        pytest.param((b"127.0.0.1", b"evil.example.com"), b"HTTP/1.0 400", id="local-then-foreign"),
+        pytest.param((b"evil.example.com", b"127.0.0.1"), b"HTTP/1.0 400", id="foreign-then-local"),
+        # Two *different* loopback names still disagree about which name the
+        # request used, so they are refused too.
+        pytest.param((b"127.0.0.1", b"localhost"), b"HTTP/1.0 400", id="two-loopback-names"),
+        # One value repeated says nothing new — served.
+        pytest.param((b"127.0.0.1", b"127.0.0.1"), b"HTTP/1.0 200", id="repeated-identical"),
+    ],
+)
+def test_duplicate_host_headers_are_refused_unless_they_agree(
+    running_server: server.LoopbackHTTPServer, hosts: tuple[bytes, ...], expected: bytes
+) -> None:
+    """F-12: *every* ``Host`` is read, not just the first.
+
+    Sent raw, because ``http.client``'s header mapping cannot express a
+    repeated field. Not browser-reachable — page-controlled JavaScript cannot
+    add a second ``Host`` any more than it can remove the first — and there is
+    no proxy in front of a loopback socket to disagree with about which one is
+    authoritative. Pinned anyway because CARD-020's ``POST /generate``
+    inherits this check, and "the first one wins" is the shape that turns into
+    a request-smuggling difference the moment anything sits in front of it.
+    """
+    request = b"GET / HTTP/1.0\r\n" + b"".join(b"Host: " + h + b"\r\n" for h in hosts) + b"\r\n"
+
+    received = _raw_exchange(running_server.server_port, request)
+
+    assert received.startswith(expected), received[:120]
 
 
 def test_the_host_check_runs_before_the_router(
@@ -1042,10 +1202,17 @@ def test_the_allowlist_is_the_three_loopback_names() -> None:
 def test_the_form_page_is_served_as_html(
     running_server: server.LoopbackHTTPServer,
 ) -> None:
+    """The 200 path's headers, ``nosniff`` included.
+
+    ``_respond``'s docstring says ``nosniff`` is sent on *every* response, and
+    only the 404 params were pinning it — the inverse of where it matters most
+    once CARD-020 renders a result page built from user input.
+    """
     response = _request(running_server.server_port)
 
     assert response.status == 200
     assert response.headers["Content-Type"] == "text/html; charset=utf-8"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert int(response.headers["Content-Length"]) == len(response.body)
     assert response.body.startswith(b"<!DOCTYPE html>")
 
