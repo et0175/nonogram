@@ -3,7 +3,8 @@
 Package layout (ADR-0007, layered pipeline package; one bounded context,
 CTX-001)::
 
-    cli.py           COMP-001  the only inbound adapter (argparse)
+    cli.py           COMP-001  inbound adapter (argparse)
+    web/             COMP-008  inbound adapter (HTTP), sibling of cli.py
     orchestrator.py  COMP-002  owns the Puzzle aggregate (AGG-001) and the
                                generation policies POL-001..POL-005
     sourcing/        COMP-003  CAP-001  (later card)
@@ -12,11 +13,14 @@ CTX-001)::
     difficulty.py    COMP-006  CAP-004  (later card)
     export/          COMP-007  CAP-005  (later card)
 
-Dependencies point inward only: ``cli`` imports ``orchestrator``, the
+Dependencies point inward only: the two adapters import ``orchestrator``, the
 orchestrator imports the capability modules, and capability modules never
-import ``cli`` nor each other laterally. This package's ``__init__`` therefore
-re-exports nothing and imports no submodule — importing ``nonogram`` must never
-drag the adapter in behind a capability module.
+import an adapter nor each other laterally. There are exactly two adapters
+(ADR-0019) and they do not call each other; the single exception is that
+``cli`` imports ``web`` to launch it, because ADR-0008 keeps one console entry
+point and ``nonogram serve`` is a subcommand of it. This package's ``__init__``
+therefore re-exports nothing and imports no submodule — importing ``nonogram``
+must never drag an adapter in behind a capability module.
 """
 
 __version__ = "0.1.0"

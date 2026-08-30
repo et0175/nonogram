@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 import nonogram
-from nonogram import cli, errors, orchestrator
+from nonogram import cli, errors, orchestrator, web
 
 # --------------------------------------------------------------------------
 # Parser wiring
@@ -119,6 +119,174 @@ def test_malformed_command_line_is_a_usage_error(argv: list[str]) -> None:
     with pytest.raises(SystemExit) as excinfo:
         cli.build_parser().parse_args(argv)
     assert excinfo.value.code == cli.ExitCode.USAGE
+
+
+# --------------------------------------------------------------------------
+# The `serve` subcommand (CARD-019, FR-017, ADR-0008/ADR-0019)
+# --------------------------------------------------------------------------
+
+
+def test_serve_is_a_sibling_subcommand_of_generate(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """ADR-0008's one console entry point now has two subcommands.
+
+    ``serve`` launches COMP-008 and ``generate`` still runs the CLI pipeline —
+    two adapters, one command, and neither listed as a mode of the other.
+    """
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--help"])
+
+    assert excinfo.value.code == 0
+    out = capsys.readouterr().out
+    assert "generate" in out
+    assert "serve" in out
+
+
+def test_serve_defaults_to_the_web_packages_port() -> None:
+    """One default, defined in COMP-008 and read here (not copied)."""
+    assert _parse("serve").port == web.DEFAULT_PORT
+
+
+def test_serve_takes_a_port_and_nothing_else() -> None:
+    """Guardrail G-1/AC-052: there is no ``--host`` for a user to widen.
+
+    The bind address is a constant inside ``nonogram.web``, so the criterion
+    is a property of the code rather than of how it was invoked. A flag here
+    would undo that, which is why this test names the whole option surface
+    rather than just checking ``--port`` exists.
+    """
+    assert set(vars(_parse("serve"))) == {"command", "handler", "port"}
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["serve", "--host", "0.0.0.0"])
+
+
+def test_serve_does_not_range_check_the_port() -> None:
+    """ADR-0010 again: argparse parses, something further in refuses.
+
+    ``--port 99999`` is syntactically an integer and parses; the socket layer
+    is what rejects it, which is why :func:`cli._run_serve` catches
+    ``OverflowError`` alongside ``OSError``.
+    """
+    assert _parse("serve", "--port", "99999").port == 99999
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(OSError(48, "Address already in use"), id="port-in-use"),
+        pytest.param(OSError(13, "Permission denied"), id="privileged-port"),
+        pytest.param(OverflowError("bind(): port must be 0-65535."), id="port-out-of-range"),
+    ],
+)
+def test_a_bind_failure_is_reported_as_invalid_input(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+) -> None:
+    """Failure matrix F-1/F-2: one message, exit code 3, no traceback.
+
+    All three failures are the same instruction to the user — pass a different
+    ``--port`` — which is the grouping rule ``_EXIT_CODES`` is built on. None of
+    them becomes a ``NonogramError``: a busy socket is not a fact about puzzles
+    (guardrails G-2, G-4).
+    """
+
+    def boom(port: int) -> None:
+        raise error
+
+    monkeypatch.setattr(web, "create_server", boom)
+
+    assert cli.main(["serve"]) == cli.ExitCode.INVALID_INPUT
+    captured = capsys.readouterr()
+    assert captured.err.startswith("nonogram: error: ")
+    assert "Traceback" not in captured.err
+
+
+def test_a_failure_after_the_bind_is_not_reported_as_a_port_problem(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failure matrix F-1: the ``except`` covers the bind and nothing else.
+
+    Every failure that clause reports carries one implied instruction — pass a
+    different ``--port`` — and that instruction is only true of a socket that
+    would not bind. An ``OSError`` from *inside* the serve loop (a selector
+    failure, an ``accept`` the stdlib re-raises) means something else entirely,
+    so it must not be swallowed into ``INVALID_INPUT`` with that advice
+    attached. It keeps its traceback instead.
+
+    This is the test the two-call split in :func:`cli._run_serve` exists for: a
+    single ``try`` around one combined call cannot tell the two apart, and would
+    pass every other test in this file while telling the user the wrong thing.
+    """
+    monkeypatch.setattr(web, "create_server", lambda port: object())
+
+    def boom_after_bind(server: object) -> None:
+        raise OSError(9, "Bad file descriptor")
+
+    monkeypatch.setattr(web, "serve_on", boom_after_bind)
+
+    with pytest.raises(OSError):
+        cli.main(["serve"])
+
+
+def test_serve_exits_zero_when_the_server_stops(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Failure matrix F-6: Ctrl-C is a deliberate stop, not a failure.
+
+    ``web.serve_on`` swallows the ``KeyboardInterrupt`` and returns once the
+    port is released; the subcommand's contribution is turning that into exit 0.
+    """
+    monkeypatch.setattr(web, "create_server", lambda port: object())
+    monkeypatch.setattr(web, "serve_on", lambda server: None)
+
+    assert cli.main(["serve"]) == cli.ExitCode.OK
+
+
+def test_serve_passes_the_requested_port_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The whole of the subcommand's translation, in one assertion.
+
+    The port reaches the *bind*, and the object the bind produced is what the
+    serve loop is handed — the two halves of the split, pinned together so a
+    later edit cannot quietly rebind inside the loop.
+    """
+    seen: list[int] = []
+    served: list[object] = []
+    bound = object()
+
+    def bind(port: int) -> object:
+        seen.append(port)
+        return bound
+
+    monkeypatch.setattr(web, "create_server", bind)
+    monkeypatch.setattr(web, "serve_on", served.append)
+
+    assert cli.main(["serve", "--port", "1234"]) == cli.ExitCode.OK
+    assert seen == [1234]
+    assert served == [bound]
+
+
+def test_generate_is_unchanged_by_the_second_subcommand() -> None:
+    """Guardrail G-1, as a comparison rather than as a promise.
+
+    Every ``generate`` destination and its default, unchanged by ADR-0019's
+    second adapter landing in the same parser. Spelled out here so that a flag
+    quietly acquiring a default — or ``serve`` bleeding an option into the
+    shared parser — fails rather than passing unnoticed.
+    """
+    assert vars(_parse("generate")) == {
+        "command": "generate",
+        "handler": cli._run_generate,
+        "mode": "random",
+        "library_key": None,
+        "image": None,
+        "size": None,
+        "density": None,
+        "difficulty": None,
+        "name": None,
+        "seed": None,
+        "export_formats": None,
+        "out": None,
+    }
 
 
 # --------------------------------------------------------------------------
@@ -301,15 +469,35 @@ def test_non_domain_exceptions_are_not_swallowed(
 # --------------------------------------------------------------------------
 
 
-# ADR-0007's layers, innermost last. ``cli`` is the sole inbound adapter,
-# ``orchestrator`` the only thing that composes capabilities, and ``errors`` is
-# the shared foundation every layer may raise from. Everything *else* under
-# ``nonogram/`` is a capability package (``sourcing/``, ``clues.py``,
-# ``solver/``, ``difficulty.py``, ``export/``, and whatever a later card adds)
-# — which is why the capability set is discovered from disk rather than listed.
-_ADAPTER = "cli"
+# ADR-0007's layers, innermost last. ``orchestrator`` is the only thing that
+# composes capabilities, and ``errors`` is the shared foundation every layer
+# may raise from. Everything *else* under ``nonogram/`` is a capability package
+# (``sourcing/``, ``clues.py``, ``solver/``, ``difficulty.py``, ``export/``,
+# and whatever a later card adds) — which is why the capability set is
+# discovered from disk rather than listed.
+#
+# The inbound adapters are the one thing that *is* listed, and the listing is
+# the point: ADR-0019 adds COMP-008 (``web``) as a sibling of COMP-001
+# (``cli``) at the same rank, so both may import the orchestrator and nothing
+# else about the rule changes. A guard with an allowlist is weaker than a guard
+# without one (ADR-0019, Negative), so this set is closed at two names and is
+# deliberately not a pattern — a third adapter is a decision, not a rename.
+# ``test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`` fails if it
+# ever grows.
+_ADAPTERS = frozenset({"cli", "web"})
 _ORCHESTRATOR = "orchestrator"
 _SHARED = frozenset({"errors"})
+
+# The one import permitted *within* the adapter rank, in this direction only.
+# ADR-0008 keeps a single ``[project.scripts]`` console entry point, and
+# ADR-0019 puts ``nonogram serve`` in the argparse tree that entry point owns
+# — so launching COMP-008 means ``cli`` imports ``web``. That is a launch edge,
+# not a call between two request paths: the CLI never routes HTTP and the web
+# adapter never parses argv. The reversed pair stays forbidden and is pinned as
+# such by ``test_the_import_rule_rejects_each_forbidden_edge`` below, which is
+# what keeps this exemption a single directed edge rather than "adapters may
+# import each other".
+_LAUNCH_EDGE = ("cli", "web")
 
 _ADAPTER_RANK = 0
 _ORCHESTRATOR_RANK = 1
@@ -351,7 +539,7 @@ def _component(module: str) -> str | None:
 
 
 def _rank(component: str | None) -> int:
-    if component == _ADAPTER:
+    if component in _ADAPTERS:
         return _ADAPTER_RANK
     if component is None or component == _ORCHESTRATOR:
         # ``nonogram/__init__.py`` is not a capability; it sits with the
@@ -408,8 +596,8 @@ def _outward_imports(imports: dict[str, set[str]]) -> dict[str, list[str]]:
     the disk itself, so the rule can be exercised against a fabricated package
     below and cannot pass vacuously.
 
-    Two imports are exempt, and both are exemptions about *identity* rather
-    than about direction:
+    Three imports are exempt. The first two are about *identity* rather than
+    about direction:
 
     * a module importing its own component (``solver.search`` importing
       ``solver.propagate``) — that is a module's internals, not a dependency
@@ -418,6 +606,12 @@ def _outward_imports(imports: dict[str, set[str]]) -> dict[str, list[str]]:
       every ``from nonogram import x``. It re-exports nothing (pinned by
       ``test_package_root_imports_no_submodule``), so importing it couples the
       importer to nothing at all.
+
+    The third, :data:`_LAUNCH_EDGE`, *is* about direction and is the only one:
+    ``cli`` may import ``web`` because ADR-0008's single console entry point
+    puts ``nonogram serve`` in ``cli.py``'s argparse tree. It is one ordered
+    pair, not a rule about the adapter rank — ``web`` importing ``cli`` is
+    still a violation, and so is every capability importing either of them.
     """
     offenders: dict[str, list[str]] = {}
     for module, components in imports.items():
@@ -427,6 +621,7 @@ def _outward_imports(imports: dict[str, set[str]]) -> dict[str, list[str]]:
             for other in components
             if other is not None
             and other != own
+            and (own, other) != _LAUNCH_EDGE
             and _rank(other) <= _rank(own)
         )
         if outward:
@@ -436,9 +631,47 @@ def _outward_imports(imports: dict[str, set[str]]) -> dict[str, list[str]]:
 
 def test_the_import_walk_actually_sees_the_package() -> None:
     """Guard the guard: an empty or misrooted walk must not pass silently."""
-    assert {"nonogram", "nonogram.cli", "nonogram.orchestrator", "nonogram.errors"} <= set(
-        _MODULES
-    )
+    assert {
+        "nonogram",
+        "nonogram.cli",
+        "nonogram.web",
+        "nonogram.orchestrator",
+        "nonogram.errors",
+    } <= set(_MODULES)
+
+
+def test_the_adapter_allowlist_is_closed_at_the_two_known_adapters() -> None:
+    """ADR-0019's allowlist is two names, and staying two names is the rule.
+
+    The exemption this guard grants is the weakest part of it (ADR-0019,
+    Negative): every name in :data:`_ADAPTERS` is a module allowed to import
+    the orchestrator, so the set growing quietly — by a rename, by a helper
+    package someone thought of as "adapter-ish" — is exactly how the rule
+    erodes. Pinning the literal set means adding a third adapter has to be a
+    deliberate edit to this line, reviewed as the architectural change it is.
+    """
+    assert _ADAPTERS == {"cli", "web"}
+    assert _rank("cli") == _rank("web") == _ADAPTER_RANK
+
+
+def test_the_launch_edge_is_closed_at_the_single_ordered_pair() -> None:
+    """The *second* exemption gets the same pin as the first.
+
+    :data:`_ADAPTERS` is pinned literally above because a set that grows
+    quietly is how the rule erodes; :data:`_LAUNCH_EDGE` is an exemption of
+    exactly the same kind and had no equivalent pin.
+    ``test_the_import_rule_rejects_each_forbidden_edge[web-to-cli]`` catches the
+    reverse pair being added, but not a *different* pair — turning this into a
+    container of edges and adding, say, ``("export", "web")`` would be caught by
+    nothing, because the forbidden-edge parametrisation enumerates named edges
+    and that one is not among them.
+
+    So the assertion is on the literal value and on its type: one ordered pair,
+    not a set of them. Widening it has to be a deliberate edit to this line.
+    """
+    assert _LAUNCH_EDGE == ("cli", "web")
+    assert isinstance(_LAUNCH_EDGE, tuple)
+    assert len(_LAUNCH_EDGE) == 2
 
 
 def test_every_import_in_the_package_points_inward() -> None:
@@ -471,6 +704,11 @@ def test_every_import_in_the_package_points_inward() -> None:
     ("module", "imported", "edge"),
     [
         pytest.param("nonogram.solver.search", "cli", "capability -> adapter", id="cap-to-cli"),
+        # The same edge against the *second* adapter. ADR-0019 widened the
+        # allowlist, and this is the half of it that must not have widened:
+        # a capability reaching COMP-008 is the same violation as reaching
+        # COMP-001, and would be invisible if only ``cli`` were checked.
+        pytest.param("nonogram.solver.search", "web", "capability -> web adapter", id="cap-to-web"),
         pytest.param("nonogram.solver.search", "export", "capability -> capability", id="lateral"),
         pytest.param(
             "nonogram.sourcing",
@@ -480,6 +718,16 @@ def test_every_import_in_the_package_points_inward() -> None:
         ),
         pytest.param("nonogram.errors", "solver", "shared -> capability", id="errors-reaches-back"),
         pytest.param("nonogram.orchestrator", "cli", "orchestrator -> adapter", id="orch-to-cli"),
+        pytest.param(
+            "nonogram.orchestrator", "web", "orchestrator -> web adapter", id="orch-to-web"
+        ),
+        # The reverse of :data:`_LAUNCH_EDGE`, and the reason that exemption is
+        # an ordered pair rather than "the adapter rank is flat". ``cli``
+        # importing ``web`` is ADR-0008's one console entry point launching
+        # COMP-008; ``web`` importing ``cli`` would be the web adapter reaching
+        # into argv parsing and exit codes, which is not a thing it has any
+        # business doing.
+        pytest.param("nonogram.web.server", "cli", "web adapter -> cli adapter", id="web-to-cli"),
     ],
 )
 def test_the_import_rule_rejects_each_forbidden_edge(
@@ -498,7 +746,8 @@ def test_the_import_rule_allows_the_legitimate_edges() -> None:
     """The mirror image: the arrows ADR-0007's component diagram does draw."""
     assert not _outward_imports(
         {
-            "nonogram.cli": {"orchestrator", "errors"},
+            "nonogram.cli": {"orchestrator", "errors", "web"},  # web: the launch edge
+            "nonogram.web.handler": {"orchestrator", "errors", "export", "web"},
             "nonogram.orchestrator": {"sourcing", "clues", "solver", "errors"},
             "nonogram.solver.search": {"solver", "errors"},  # own package
             "nonogram.sourcing": {"errors"},
@@ -511,6 +760,21 @@ def test_the_adapter_does_import_the_orchestrator() -> None:
     assert "nonogram.orchestrator" in _package_imports(
         "nonogram.cli", _MODULES["nonogram.cli"]
     )
+
+
+def test_the_web_adapter_never_imports_the_cli_adapter() -> None:
+    """ADR-0019's siblings, read off disk rather than off a fabricated dict.
+
+    ``test_the_import_rule_rejects_each_forbidden_edge`` shows the *rule*
+    rejecting ``web -> cli``; this shows the package not attempting it. The two
+    fail for different reasons — the rule degenerating versus COMP-008 actually
+    reaching for argv — and only this one would catch a real import landing in
+    ``web/`` behind a rule that had been quietly loosened.
+    """
+    for module, path in _MODULES.items():
+        if _component(module) != "web":
+            continue
+        assert "cli" not in _imported_components(module, path), module
 
 
 def test_package_root_imports_no_submodule() -> None:

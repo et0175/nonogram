@@ -1,4 +1,11 @@
-"""COMP-001 — the CLI adapter, the tool's only inbound surface (CON-001).
+"""COMP-001 — the CLI adapter, one of the tool's two inbound surfaces.
+
+It was the only one until CARD-019: CON-007 supersedes CON-001's "no web/GUI"
+and FR-017 adds a second adapter, COMP-008 (``nonogram.web``), a *sibling* of
+this module rather than a layer around it (ADR-0019). The only thing that
+crosses between them is the ``serve`` subcommand below, which exists here
+because ADR-0008 keeps exactly one ``[project.scripts]`` console entry point —
+one command, two subcommands, two adapters behind them.
 
 Two rules shape this module.
 
@@ -24,7 +31,7 @@ from collections.abc import Sequence
 from enum import IntEnum
 from pathlib import Path
 
-from nonogram import difficulty, export, orchestrator
+from nonogram import difficulty, export, orchestrator, web
 from nonogram.errors import (
     ExportRejected,
     GenerationAbandoned,
@@ -233,6 +240,40 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # COMP-008's launcher (FR-017, ADR-0019), a *sibling* of ``generate`` and
+    # not a mode of it: the two subcommands share this parser because ADR-0008
+    # keeps one console entry point, and share nothing else. Adding it changes
+    # no ``generate`` flag, default or exit code (guardrail G-1) — subparsers
+    # were already required by ``required=True`` above, so even "no subcommand"
+    # behaves exactly as before.
+    serve = subcommands.add_parser(
+        "serve",
+        help="Serve the local web UI at http://127.0.0.1:8765/.",
+        description=(
+            "Serve the same generation options as a form in the browser. "
+            "Listens on 127.0.0.1 only and requires no authentication: the "
+            "loopback bind is the whole of the access control. Ctrl-C stops it."
+        ),
+    )
+    serve.set_defaults(handler=_run_serve)
+    # ``type=int`` and nothing else, for the same reason ``--size`` carries no
+    # range (ADR-0010): syntax here, rejection further in. There is no domain
+    # rule about port numbers to push inward, so the rejection comes from the
+    # socket layer instead — ``--port 99999`` binds nothing and is reported by
+    # :func:`_run_serve` below. No ``--host``: the bind address is a constant
+    # in ``nonogram.web``, not an option, because NFR-003/AC-052 is a property
+    # of the code and must not become a property of how it was invoked.
+    serve.add_argument(
+        "--port",
+        type=int,
+        default=web.DEFAULT_PORT,
+        metavar="PORT",
+        help=(
+            f"TCP port to listen on (default: {web.DEFAULT_PORT}). "
+            "Always on 127.0.0.1; the interface is not configurable."
+        ),
+    )
+
     return parser
 
 
@@ -325,6 +366,42 @@ def _run_generate(args: argparse.Namespace) -> int:
         cell_word = "cell" if nudged == 1 else "cells"
         verb = "was" if nudged == 1 else "were"
         print(f"{nudged} {cell_word} {verb} nudged to reach a unique solution")
+    return ExitCode.OK
+
+
+def _run_serve(args: argparse.Namespace) -> int:
+    """Hand the process over to COMP-008 until the user stops it (FR-017).
+
+    The whole subcommand is one call. Everything about HTTP — the socket, the
+    router, the form page — belongs to ``nonogram.web``; this function's only
+    job is the one thing COMP-008 must not own, which is the process exit code
+    (the same division ``main`` already makes for domain errors).
+
+    Ctrl-C is a deliberate stop and exits 0: ``web.serve_on`` swallows the
+    ``KeyboardInterrupt`` and returns normally once the port is released.
+
+    The ``except`` clause covers the *bind and nothing else*, which is why the
+    call is split in two: ``web.create_server`` inside the ``try``, the serve
+    loop outside it. Every failure this clause reports means the same thing to
+    the user — pass a different ``--port`` — and that is only true of the bind.
+    An ``OSError`` raised after a successful bind (a selector failure, an
+    ``accept`` the stdlib re-raises) is a bug, not a port that is taken, and it
+    keeps its traceback rather than being dressed up as bad input.
+
+    The failure is deliberately not a ``NonogramError``: "this port is taken"
+    is not a fact about puzzles, so the domain error hierarchy is not widened to
+    carry it (guardrails G-2, G-4). ``OverflowError`` sits beside ``OSError``
+    because CPython's socket layer raises it — not an ``OSError`` — for a port
+    outside 0..65535, which is exactly what ``--port 99999`` produces. Both mean
+    the same thing to the user and both get ``INVALID_INPUT``: the grouping rule
+    :data:`_EXIT_CODES` is built on.
+    """
+    try:
+        server = web.create_server(args.port)
+    except (OSError, OverflowError) as error:
+        _report(error)
+        return ExitCode.INVALID_INPUT
+    web.serve_on(server)
     return ExitCode.OK
 
 
