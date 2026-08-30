@@ -8,19 +8,26 @@ package to launch it, because ADR-0008 keeps one console entry point and
 ``cli`` — is a guard violation (``_LAUNCH_EDGE`` in ``tests/test_cli.py`` is an
 ordered pair, not a mutual exemption).
 
-*Direction* (ADR-0007): this package imports the orchestrator; nothing inward
-of it ever imports back. The structural guard in ``tests/test_cli.py`` knows
+*Direction* (ADR-0007): this package imports inward only, and never outward or
+laterally. What it imports today is the difficulty and export registries
+(``pages.py`` reads them to render the form's choices); the orchestrator is
+inward of it too and it is *permitted* to import it, but as shipped it does
+not — there is nothing yet to hand the orchestrator. Nothing inward of this
+package ever imports back. The structural guard in ``tests/test_cli.py`` knows
 exactly two adapter names — ``cli`` and ``web`` — at one rank, so a capability
 module still cannot import either of them, nor another capability laterally.
 
-*Parsing only* (ADR-0010, ADR-0019/R1, guardrail G-4): everything here is HTTP
-— routing, rendering, request parsing, and mapping form fields onto
-``orchestrator.GenerationRequest``. Not one domain rule lives in this package.
-A form submitted with ``size=5000`` builds a request carrying 5000 and is
-rejected inward, by the same ``SizeOutOfRange`` the CLI surfaces, exactly as a
-``--size 5000`` argv would be. That is what makes AC-050's "the same domain
-error the CLI would raise" true by construction rather than by parallel
-maintenance.
+*HTTP only* (ADR-0010, ADR-0019/R1, guardrail G-4): everything here is HTTP.
+Today that is routing and rendering; request parsing and the mapping of form
+fields onto ``orchestrator.GenerationRequest`` are CARD-020's, excluded from
+this package by CARD-019's guardrail G-5 and not present in it. Not one domain
+rule lives here, and none will: when CARD-020 adds the mapping, a form
+submitted with ``size=5000`` is to build a request carrying 5000 and be
+rejected inward by the same ``SizeOutOfRange`` the CLI surfaces, exactly as a
+``--size 5000`` argv would be — which is how AC-050's "the same domain error
+the CLI would raise" becomes true by construction rather than by parallel
+maintenance. That is a statement about the card that adds the code, not about
+this one.
 
 Module layout, mirroring the concerns ADR-0020 names::
 

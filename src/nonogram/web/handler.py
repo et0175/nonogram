@@ -9,10 +9,14 @@ second dispatch mechanism beside it.
 
 Why there is no ``do_POST`` here: this card renders the form and does not
 submit it (guardrail G-5). ``BaseHTTPRequestHandler`` answers a method it has
-no ``do_*`` for with ``501 Unsupported method``, which is the truthful status
-for an endpoint that does not exist yet — truer than a ``405`` this card would
+no ``do_*`` for with ``501 Not Implemented``, which is the truthful status for
+an endpoint that does not exist yet — truer than a ``405`` this card would
 have to write code to produce, and it disappears the moment CARD-020 adds the
-real handler.
+real handler. The *body* of that 501, and of the other four statuses the
+standard library produces before routing, is written by this module's
+:meth:`WebUIRequestHandler.send_error` rather than by the stdlib's, so that
+every response really does carry ``nosniff`` and none of them echoes the
+request back.
 
 The one thing this module must *not* grow is a decision about a request's
 *content*. Reading a form field is HTTP; judging whether ``size=5000`` is
@@ -63,18 +67,29 @@ def _host_is_local(host_header: str) -> bool:
 
     The port is ignored — ``--port`` chooses it and a browser echoes whatever
     it dialled — so only the name is compared. Parsed with ``urlsplit`` rather
-    than by splitting on ``":"`` so that ``[::1]:8765`` and a bare ``::1`` are
-    both read correctly, and anything ``urlsplit`` cannot read at all is not
-    local.
+    than by splitting on ``":"`` so that a bracketed ``[::1]:8765`` is read as
+    the host ``::1`` and not as ``[``; anything ``urlsplit`` cannot read as a
+    host is not local, which is why a *bare* ``::1`` is refused (``urlsplit``
+    returns ``None`` for it, and RFC 7230 §5.4 requires the brackets anyway).
 
     ``@`` and ``/`` are refused before parsing. A ``Host`` is an authority, not
     a URL: userinfo and a path have no meaning in it, and RFC 7230 §5.4 admits
     neither. ``urlsplit`` would read ``user:pass@127.0.0.1`` and
     ``127.0.0.1/../evil`` as loopback — correctly, since the *host component*
-    of both really is loopback, so neither was ever a hole — but that makes the
-    set of accepted header *values* unbounded in shape while the set of
-    accepted *names* is exactly three. Refusing the two characters keeps the
-    two sets the same size, which is what row F-12 declares.
+    of both really is loopback, so neither was ever a hole — and refusing the
+    two characters is a narrowing of the accepted *shapes*, nothing more.
+
+    What it is **not** is a bound on the accepted value set. ``urlsplit``
+    splits on ``#`` and ``?`` exactly as it splits on ``@`` and ``/``, and
+    neither is refused here: ``127.0.0.1#evil.example.com`` and
+    ``localhost?evil`` are both read as loopback and served, and the port is
+    never validated (``127.0.0.1:notaport`` is served too). The earlier
+    rationale for this narrowing claimed it "keeps the two sets the same size";
+    it does not, and the claim is withdrawn rather than repaired. What this
+    function actually enforces is one sentence: *the host component, as*
+    ``urlsplit`` *reads it, must be one of three names*. Bounding the shape
+    space is EC-004's property and lands with CARD-020 (NFR-004); widening the
+    check here is out of this function's scope on purpose.
     """
     if "@" in host_header or "/" in host_header:
         return False
@@ -180,7 +195,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             return
         route(self)
 
-    def _respond(self, status: HTTPStatus, content_type: str, body: str) -> None:
+    def _respond(self, status: HTTPStatus | int, content_type: str, body: str) -> None:
         """Write one complete response: status line, headers, body.
 
         ``Content-Length`` is measured from the encoded bytes, not from
@@ -193,6 +208,14 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         that echo anything from the request are escaped as well; the header is
         the belt to that pair of braces, and it costs one line for every route
         a later card adds rather than one decision per route.
+
+        "Every response" is literal, and it is only literal because
+        :meth:`send_error` funnels the standard library's own error statuses
+        through here too. Before that override, five of the nine statuses this
+        adapter can produce (400, 414, 431, 501, 505) were written by
+        ``BaseHTTPRequestHandler.send_error``: ``text/html`` with no ``nosniff``
+        for three of them, and — on the two whose request line never parsed —
+        no headers whatsoever. The sentence above was false for all five.
         """
         payload = body.encode("utf-8")
         self.send_response(status)
@@ -200,7 +223,61 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        if payload:
+            self.wfile.write(payload)
+
+    # ``send_error`` is the standard library's hook name, so the spelling is
+    # not this module's choice, and neither is the signature.
+    def send_error(
+        self,
+        code: int,
+        message: str | None = None,
+        explain: str | None = None,
+    ) -> None:
+        """Answer a request the standard library rejected, on this module's terms.
+
+        ``BaseHTTPRequestHandler`` handles 400 (unparseable request line or
+        version), 414 (over-long request line), 431 (too many header fields, or
+        one over-long header line), 501 (a method with no ``do_*``) and 505 (a
+        well-formed version this server does not speak) before ``do_GET`` is
+        ever reached, and it writes all five through this hook. Its own version
+        replies ``text/html`` with no ``X-Content-Type-Options`` and interpolates
+        ``message``/``explain`` — which is where the request's own method and
+        version token live — into that HTML body, and into the *status line*
+        too: the stdlib's 501 reads ``501 Unsupported method ('POST')``.
+
+        Routing them through :meth:`_respond` instead buys two things and costs
+        nothing: ``nosniff`` and ``text/plain`` really are on *every* response,
+        and nothing off the wire is echoed in a body or a reason phrase.
+        ``message`` and ``explain`` are therefore accepted and deliberately
+        dropped from the response; they still reach the server's own log,
+        exactly as before, so an operator debugging a client can still see what
+        was sent.
+
+        The ``request_version`` reset is what makes that possible for two of the
+        five. ``parse_request`` assigns the *parsed* version only after it has
+        accepted it, so on the 400 and 505 paths it is still the ``HTTP/0.9``
+        default when the error is written — and ``send_response_only`` and
+        ``end_headers`` both no-op for ``HTTP/0.9``. As shipped, those two
+        statuses therefore reached the client as a bare body with **no status
+        line and no headers at all**: not merely no ``nosniff`` but no
+        ``Content-Type`` and no status either. Answering a request whose version
+        could not be read with this server's own version is what RFC 9112 §2.3
+        expects, and it is the only way "on every response" can be true.
+
+        A ``HEAD`` has no ``do_HEAD``, so it arrives here as a 501; RFC 9110
+        §9.3.2 forbids a body on the response to one, and the standard library
+        suppresses it. So does this: the body is empty and ``Content-Length``
+        is ``0``.
+        """
+        short = self.responses.get(code, ("", ""))[0]
+        self.log_error("code %d, message %s", code, message if message else short)
+        self.close_connection = True
+        if self.request_version == "HTTP/0.9":
+            self.request_version = self.protocol_version
+        head = getattr(self, "command", None) == "HEAD"
+        line = f"{int(code)} {short}".rstrip()
+        self._respond(code, _TEXT, "" if head else f"{line}\n")
 
     def _serve_form(self) -> None:
         """``GET /`` — the option surface, rendered (FR-017).

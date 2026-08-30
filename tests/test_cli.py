@@ -770,10 +770,25 @@ def test_the_web_adapter_never_imports_the_cli_adapter() -> None:
     fail for different reasons — the rule degenerating versus COMP-008 actually
     reaching for argv — and only this one would catch a real import landing in
     ``web/`` behind a rule that had been quietly loosened.
+
+    What this loop consumes is the *filtered* set, not ``_MODULES`` — so the
+    non-empty assertion has to be about the filter (AC-059). A selector that
+    stopped matching (a renamed component, a moved package) would loop zero
+    times and report green while enforcing nothing. The four modules are
+    pinned by name rather than by count, so a module vanishing from the sweep
+    fails and a module being added does not.
     """
-    for module, path in _MODULES.items():
-        if _component(module) != "web":
-            continue
+    web_modules = {
+        module: path for module, path in _MODULES.items() if _component(module) == "web"
+    }
+    assert set(web_modules) >= {
+        "nonogram.web",
+        "nonogram.web.handler",
+        "nonogram.web.pages",
+        "nonogram.web.server",
+    }, sorted(web_modules)
+
+    for module, path in web_modules.items():
         assert "cli" not in _imported_components(module, path), module
 
 
