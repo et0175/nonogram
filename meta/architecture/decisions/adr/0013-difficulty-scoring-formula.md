@@ -188,3 +188,24 @@ problem than the combining formula this ADR settles.
   multiplicative discount from the other 2, `score = 100 * effort * relief`.
   This revision states that shape explicitly instead of leaving it
   reconstructable only from one card's Worktree notes.
+- 2026-08-30: Addendum (no DEC — CARD-018 changed what the solver can do at a
+  node, not what this ADR decided). The Decision above defines the
+  backtracking-amount term as `(branch nodes / total cells)`. When it was
+  written, "branch node" and "guess" were the same event: a node the search
+  reached could only guess a cell. CARD-018's probing search gave a node two
+  further outcomes — settle it by forced deduction, or refute it outright —
+  and `branch nodes` now counts **every node the search expands past line
+  logic**, whichever of the three that node turned out to be. The term's
+  behaviour under this ADR is unchanged in the two places the ADR reasons
+  about it: it is still `0` exactly when line logic alone finished the puzzle
+  (so AC-023's easy anchor is untouched), and it still grows with how much
+  work the search had to do beyond line logic (so the weight still means what
+  it was given for). Counting only the guesses instead would report `0` for a
+  puzzle whose entire search past a stalled fixed point was forced deductions,
+  scoring real search work as free. One correctness note this addendum also
+  records: the count is taken from the restart round that produced the verdict
+  and is not summed across the rounds that round abandoned — an abandoned
+  round proved nothing about the puzzle, and including it made the score a
+  function of the heuristic's luck rather than of the puzzle. The original
+  Decision text above is unchanged; this note records what the quantity it
+  names now measures. See CARD-018's review cycle 1, finding F-001.

@@ -52,7 +52,7 @@ from nonogram.clues import compute_clues
 from nonogram.errors import ExportRejected, SolverTimeout
 from nonogram.orchestrator import GenerationRequest, Puzzle, generate
 from nonogram.solver import solve
-from nonogram.solver.propagate import Board, check_deadline, propagate
+from nonogram.solver.propagate import Board, LineCache, check_deadline, propagate
 
 # --------------------------------------------------------------------------
 # Fixtures and helpers
@@ -338,8 +338,12 @@ def _blind_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
         dirty_rows: list[bool],
         dirty_columns: list[bool],
         deadline: float | None = None,
+        cache: LineCache | None = None,
     ) -> bool:
-        return real_propagate(board, dirty_rows, dirty_columns, None)
+        # ``cache`` is CARD-018's per-solve line memo: forwarded untouched, so
+        # the substitution changes exactly one thing — the deadline — and the
+        # search still runs at its normal speed underneath.
+        return real_propagate(board, dirty_rows, dirty_columns, None, cache)
 
     monkeypatch.setattr(search_module, "propagate", deadline_blind_propagate)
 

@@ -16,6 +16,12 @@ This module owns two things and nothing else:
     ADR-0011's cooperative deadline check, in one place so the solver's two
     checkpoints (here and at ``search``'s branch node) raise the same error
     with the same wording.
+``LineCache``
+    A memo of ``line_intersection``'s answers for one solve (CARD-018). The
+    probing search in ``search`` asks the same line the same question over and
+    over — sibling probes at one node differ in two lines and agree on the
+    other ninety-eight — so the memo is what makes probing affordable rather
+    than a constant-factor tax.
 
 Representation (ADR-0012)
 -------------------------
@@ -50,6 +56,14 @@ handed. The one clock reading is ADR-0011's cooperative deadline, and it is
 opt-in: with ``deadline=None`` — the default, and what every existing caller
 and the EC-001 property corpus pass — no clock is consulted at all and the
 functions here stay pure in the strict sense.
+
+:class:`LineCache` is mutable, but it is *handed in* by the caller rather than
+kept here, so it is one solve's scratch space and not module state: two calls
+to ``solve`` share nothing, which is what
+``test_solving_the_same_clues_twice_gives_the_same_answer`` pins. It is also
+semantically invisible — it only ever returns what :func:`line_intersection`
+would have returned for the same arguments, so a run with a memo and a run
+without reach the same verdict by the same route.
 """
 
 from __future__ import annotations
@@ -61,6 +75,8 @@ from nonogram.errors import SolverTimeout
 
 __all__ = [
     "Board",
+    "LINE_CACHE_LIMIT",
+    "LineCache",
     "canonical_clue",
     "check_deadline",
     "line_intersection",
@@ -69,6 +85,25 @@ __all__ = [
 ]
 
 LineClue = tuple[int, ...]
+
+#: What one line deduction is: the two agreed masks and the placement count,
+#: or ``None`` for "this line admits no placement at all".
+LineDeduction = tuple[int, int, int] | None
+
+#: Distinguishes "not memoised yet" from a memoised ``None`` (a line that
+#: admits no placement) — the latter is a perfectly ordinary cached answer and
+#: the single most valuable one to keep, since it is what prunes a branch.
+_MISSING: object = object()
+
+#: How many line deductions one solve's memo may hold before it is emptied and
+#: refilled. A hard 20x20 solve misses on roughly 25,000 distinct line states,
+#: so this leaves comfortable headroom there while bounding the memo's memory
+#: at a few tens of megabytes on a 50x50 run that would otherwise accumulate
+#: entries for its whole 30-second budget (ADR-0001). Clearing wholesale rather
+#: than evicting one entry at a time keeps the hot path a plain dict lookup
+#: with no bookkeeping: the memo is an optimisation, and a rebuilt memo costs
+#: recomputation, never correctness.
+LINE_CACHE_LIMIT = 60_000
 
 
 def check_deadline(deadline: float | None) -> None:
@@ -310,6 +345,102 @@ def mask_runs(filled: int, length: int) -> LineClue:
 
 
 @dataclass(slots=True)
+class LineCache:
+    """One solve's memo of :func:`line_intersection`, kept per line (CARD-018).
+
+    The probing search asks the same line the same question relentlessly. Two
+    sibling probes at one node assign different values to *one* cell, so the
+    ninety-eight lines they do not touch are re-examined in identical states;
+    and two nodes in different subtrees routinely arrive at the same state for
+    a given line by different routes. Measured on the 20x20 mid-density grids
+    CARD-018 exists for, 84-89% of all line deductions in a solve are repeats,
+    and memoising them cuts a solve's wall clock by about a factor of five —
+    which is what turns probing from a constant-factor tax into a net win.
+
+    Why per line and not one flat dict
+    ----------------------------------
+    Keyed by ``(runs, length, known_filled, known_empty)`` a single dict would
+    hash the clue tuple on every lookup, on the hot path, to buy sharing
+    between two lines that happen to have the same clue *and* the same state —
+    rare, and worth less than it costs. One dict per line lets the key collapse
+    to a single int (see :meth:`deduce`), which hashes in constant time.
+
+    Why it is not module state
+    --------------------------
+    It is created by :func:`~nonogram.solver.search.solve` and dies with the
+    call, so two solves share nothing and the solver stays the pure function
+    ADR-0007 and the EC-001 corpus rely on. Passing ``cache=None`` (the
+    default) disables it entirely, which is what keeps every pre-CARD-018
+    caller — and every test that calls :func:`propagate` directly — unchanged.
+    """
+
+    #: One memo per row, indexed by row, and one per column. Each maps a
+    #: packed ``(known_filled, known_empty)`` state to that line's deduction.
+    rows: list[dict[int, LineDeduction]]
+    columns: list[dict[int, LineDeduction]]
+    #: How many entries all the memos hold between them, so the limit can be
+    #: enforced without walking them.
+    entries: int
+    limit: int
+
+    @classmethod
+    def blank(cls, height: int, width: int, limit: int = LINE_CACHE_LIMIT) -> LineCache:
+        """An empty memo sized for a ``height`` x ``width`` board."""
+        return cls(
+            rows=[{} for _ in range(height)],
+            columns=[{} for _ in range(width)],
+            entries=0,
+            limit=limit,
+        )
+
+    def deduce(
+        self,
+        memo: dict[int, LineDeduction],
+        runs: LineClue,
+        length: int,
+        known_filled: int,
+        known_empty: int,
+    ) -> LineDeduction:
+        """:func:`line_intersection`, answered from ``memo`` when it can be.
+
+        Args:
+            memo: This line's memo — ``self.rows[r]`` or ``self.columns[c]``.
+                Passed in rather than looked up here so the caller, which
+                already knows which line it is working on, does not pay an
+                index dispatch per lookup. **One memo belongs to one line**:
+                see the key note below.
+            runs, length, known_filled, known_empty: Exactly
+                :func:`line_intersection`'s arguments, and the answer is
+                exactly its answer.
+
+        The key packs the two masks into one int: shifting ``known_empty`` up
+        by ``length`` makes the pair injective without allocating a tuple. That
+        is why a memo may only ever be used for *one* line — the key does not
+        carry ``runs`` or ``length``, so feeding two different lines through
+        one memo would let their states collide. Every caller here holds a
+        memo indexed by the very line it is deducing, which makes that
+        structural rather than a rule to remember.
+        """
+        key = (known_empty << length) | known_filled
+        deduced = memo.get(key, _MISSING)
+        if deduced is _MISSING:
+            deduced = line_intersection(runs, length, known_filled, known_empty)
+            if self.entries >= self.limit:
+                self.clear()
+            memo[key] = deduced
+            self.entries += 1
+        return deduced  # type: ignore[return-value]
+
+    def clear(self) -> None:
+        """Drop everything memoised so far, keeping the memo bounded."""
+        for memo in self.rows:
+            memo.clear()
+        for memo in self.columns:
+            memo.clear()
+        self.entries = 0
+
+
+@dataclass(slots=True)
 class Board:
     """The solver's three-valued knowledge of one grid, as ADR-0012 bitmasks.
 
@@ -415,6 +546,7 @@ def propagate(
     dirty_rows: list[bool],
     dirty_columns: list[bool],
     deadline: float | None = None,
+    cache: LineCache | None = None,
 ) -> bool:
     """Run line logic over the dirty lines until nothing more can be deduced.
 
@@ -426,6 +558,11 @@ def propagate(
         deadline: ADR-0011's cooperative deadline — an absolute
             :func:`time.monotonic` reading, or ``None`` (the default) for no
             deadline at all.
+        cache: One solve's :class:`LineCache`, or ``None`` (the default) to
+            call :func:`line_intersection` directly every time. Purely a speed
+            choice: the memo returns what the function would have returned, so
+            the deductions, the fixed point and the verdict are identical
+            either way (CARD-018).
 
     Returns:
         ``True`` if the board is still consistent (a fixed point was reached),
@@ -461,6 +598,12 @@ def propagate(
     width = board.width
     row_clues = board.row_clues
     column_clues = board.column_clues
+    # Bound once rather than tested per line: ``deduce is None`` is the whole
+    # "no memo" branch, and with a memo the bound method skips an attribute
+    # lookup on a path that runs hundreds of thousands of times per solve.
+    deduce = cache.deduce if cache is not None else None
+    row_memos = cache.rows if cache is not None else ()
+    column_memos = cache.columns if cache is not None else ()
 
     pending = True
     while pending:
@@ -471,9 +614,18 @@ def propagate(
             if not dirty_rows[row]:
                 continue
             dirty_rows[row] = False
-            deduced = line_intersection(
-                row_clues[row], width, board.row_filled[row], board.row_empty[row]
-            )
+            if deduce is None:
+                deduced = line_intersection(
+                    row_clues[row], width, board.row_filled[row], board.row_empty[row]
+                )
+            else:
+                deduced = deduce(
+                    row_memos[row],
+                    row_clues[row],
+                    width,
+                    board.row_filled[row],
+                    board.row_empty[row],
+                )
             if deduced is None:
                 return False
             filled, empty, placements = deduced
@@ -505,12 +657,21 @@ def propagate(
             if not dirty_columns[column]:
                 continue
             dirty_columns[column] = False
-            deduced = line_intersection(
-                column_clues[column],
-                height,
-                board.column_filled[column],
-                board.column_empty[column],
-            )
+            if deduce is None:
+                deduced = line_intersection(
+                    column_clues[column],
+                    height,
+                    board.column_filled[column],
+                    board.column_empty[column],
+                )
+            else:
+                deduced = deduce(
+                    column_memos[column],
+                    column_clues[column],
+                    height,
+                    board.column_filled[column],
+                    board.column_empty[column],
+                )
             if deduced is None:
                 return False
             filled, empty, placements = deduced

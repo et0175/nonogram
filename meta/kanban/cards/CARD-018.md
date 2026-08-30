@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** CARD-006
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, tests/bench_generate.py, tests/test_solver.py
-**Review score:** —
+**Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-08-29T11:20:00Z
 **Closed:** —
 **Actual:** —
@@ -88,6 +88,8 @@ that follow-up: strengthen subtree rejection so fewer wrong branches are explore
 
 - CON-005 — The uniqueness check must never produce a false positive: a puzzle accepted as unique must never actually have 0 or more than 1 solutions (check: PropertyTest_Solver_NeverFalsePositiveUniqueness)
 - INV-001 — A puzzle's row and column clues always equal the run-length encoding of its current solution grid (check: TestComputeClues_MatchesGridExactly)
+- INV-002 — A puzzle is only marked ready for export after its uniqueness check has confirmed exactly one solution (check: TestExport_RejectsUnverifiedPuzzle, TestExport_RejectsUnverifiedPuzzleForPDF)
+- INV-003 — A puzzle's automatic-retry counter (regenerate/resample/nudge attempts) never exceeds its configured maximum bound (check: TestNudge_ReportsFailureAtCap, TestRegenerate_StopsAtMaxRetryBound, TestResample_StopsAtMaxRetryBound, TestRetryLoop_BoundedIterations)
 
 ## Architecture context
 
@@ -397,3 +399,153 @@ all untouched, as is `src/nonogram/solver/__init__.py` (G-1).
   seeded `random.Random`, not flaky-random). Independently reproduced one
   headline performance number from scratch (20x20/density30/seed1): 0.049s,
   matching the implementer's claimed 0.050s exactly.
+- **[Guard]** Implementation work was present but uncommitted in the worktree
+  (`git log main..HEAD` empty; six files modified in the working tree,
+  matching the documented summary exactly). Committed on `card/018-solver-
+  search-strength` as `935e69f` before entering the review cycle.
+- **[System contract]** section stale — refreshed from the model:
+  +INV-002, +INV-003 (`system_rules.py --card CARD-018`; their scope globs
+  include `src/nonogram/solver/**.py`, which this card touches). CON-005/
+  INV-001 unchanged.
+- **[Scope]** Independently confirmed: `excess` = `tests/test_timeout.py`
+  outside the card's `Touches:` (1/5 changed files, ~20%, below the ~25%
+  GROWN threshold); `comp_spread` = 0 (the file matches no additional
+  component's `code:` glob in trace.yml — COMP-005 is `src/nonogram/
+  solver/**.py` only). No ready sibling cards to poach from. Verdict:
+  IN_SCOPE.
+- **[Review 1/3]** Score: 6.5 — crit: 0, imp: 3. Report:
+  `meta/review/20260830T094818Z-CARD-018-cycle1.yml` (synced from worktree).
+  System contract: 4/4 rules ✓ holds (CON-005, INV-001, INV-002, INV-003) — no
+  violations. Findings: F-001 `branch_nodes`/`backtracks` silently redefined,
+  ADR-0013's difficulty formula reads the stale meaning (violates: G-1);
+  F-002 unconditional probing regresses 20x20 low-density by 5-6x (violates:
+  NFR-001); F-003 the xfail reason's density-10 "before" number doesn't
+  reproduce and hides F-002's regression. No Critical findings.
+- **[Review sync]** 1 report(s) → meta/review/.
+- **[Adversarial]** F-001 CONFIRMED — independent skeptic re-derived the meaning
+  change directly from `search.py`/`difficulty.py` (branch_nodes now counts every
+  popped node incl. probe-refuted/settled, accumulates across abandoned restart
+  rounds; backtracks counts forced deductions too), confirmed ADR-0013/difficulty.py
+  docstrings still state the old meaning, confirmed no test's assertion would catch
+  either change.
+- **[Adversarial]** F-002 CONFIRMED — independent skeptic reproduced a 2.6x-8.5x
+  regression on isolated 20x20 low-density `solve()` calls (best-of-3, module
+  identity asserted per-subprocess) and confirmed the mechanism: round 0's
+  unconditional 16-probe pass has no density-aware fast path.
+- **[Adversarial]** F-003 CONFIRMED — independent skeptic re-benchmarked density-10
+  on `main` (5 seeds, ~0.35-0.42s each, `GenerationAbandoned`, 0/5 near either cap),
+  contradicting the xfail reason's and the card's own "used to time out" claim.
+- **[Review 1/3]** 0 CONFIRMED critical, 3 CONFIRMED important → severity gate
+  blocks success regardless of score. Entering fix cycle 1.
+- **[Fix 1] declarations** — commit `d7a9ec9` (new commit; `935e69f` intact).
+  F-001 resolved by option (b): the widened `branch_nodes` meaning is KEPT and
+  all three declaration sites updated (`SolveSignals` docstrings,
+  `difficulty.SolverSignals` protocol docstring, ADR-0013 dated History
+  addendum). Option (a) was attempted first and rejected on evidence — narrowing
+  to guesses-only reports `0` for a search that was entirely forced deduction,
+  scoring real work as free, and broke 3 tests. Two genuine bugs fixed either
+  way: `_Counters` is now rebuilt per restart round (no summing across abandoned
+  rounds), and a double-refuted node counts 2 backtracks, not 1. New test
+  `test_the_signals_count_the_deciding_round_and_nothing_else` fails against
+  cycle-1 behaviour.
+  F-002 resolved by making round 0 NON-probing (`_descend`, the pre-CARD-018
+  heuristic with the sibling deferred as `_Pending`) rather than by weakening
+  probing: `_SEARCH_ROUNDS` is now (no probe,400) → (8,400) → (16,1200) →
+  (32,3600) → (64,10800). Density 10 is now 0.26-0.29s — BELOW the pre-card
+  0.34-0.38s. Hard band 32-42% unregressed (A/B at 15s: 6-of-12 over cap both
+  ladders). Whole-sweep over-cap count 39/80 (before) → 22/80 (now).
+  F-003 corrected in place with verified numbers in both the xfail `reason=`
+  and the card's own tables/prose, including both reading hazards the review
+  named (10-32% are *abandoned* requests; 32% sits in threshold noise).
+- **[Scope]** ⚠ Fix cycle 1 edited two files outside the card's `Touches:`
+  — `src/nonogram/difficulty.py` (ONE protocol docstring) and
+  `meta/architecture/decisions/adr/0013-difficulty-scoring-formula.md` (appended
+  History note, Decision text untouched). Both verified documentation-only, no
+  behaviour or formula change. Directed deliberately by the fix instruction as
+  F-001 option (b)'s "update all three declaration sites" — the review had filed
+  the `difficulty.py` half under Out-of-scope observations for a follow-up card,
+  so this is a conscious in-card resolution instead, recorded rather than
+  silent. G-4's forbidden set (`orchestrator.py`, `cli.py`, `export/**`,
+  `sourcing/**`, `clues.py`, `pyproject.toml`) remains untouched — independently
+  verified via `git diff --name-only 935e69f..HEAD`.
+- **[Build gate]** PASSED (full suite, fix agent): 1165 passed, 1 xfailed, 0
+  failed, exit 0. The +1 vs cycle 1 is the new signals test; the xfail is
+  AC-037, still `strict=True`. EC-001 property passes, plus 12,000 fresh
+  out-of-suite oracle cases (0 mismatches) and 240 grids x 5 configurations
+  including the cycle-1 ladder (0 differing verdicts).
+- **[Review 2/3]** Score: 9.0 — crit: 0, imp: 0 ✓ threshold reached + no
+  critical/important. Report:
+  `meta/review/20260830T111102Z-CARD-018-cycle2.yml` (synced from worktree).
+  CONFIRMATION MODE, but **0 verdict lines carried** — the reviewer's own
+  intersection check found every rule's scope covers `solver/**.py` and/or
+  `difficulty.py`, both in the fix delta (CON-005 is `scope: global`), so all 4
+  system rules and all 5 guardrails were re-verified from scratch.
+  System contract: 4 rules checked, 4 ✓ holds, 0 ⚠ unchecked, 0 ✗ violated.
+  All three cycle-1 findings independently re-derived as RESOLVED, not accepted
+  on the fix agent's claims: F-001 verified by tabulating the actual increment
+  sites against the docstrings (1 site for `branch_nodes`, 5 for `backtracks`)
+  and by a scratch-copy revert experiment proving the new test fails on the old
+  behaviour (`assert 21 == 7`); F-002 verified by the reviewer's own three-tree
+  interleaved measurement (density 10: merge base 0.346-0.380s → cycle 1
+  1.489-2.247s → now 0.266-0.288s, i.e. ~1.3x faster than pre-card) plus the
+  discriminating hard-band A/B (cycle-1 ladder 8/15 over cap vs shipped 7/15 —
+  the statistic AC-037 decides on does not regress); F-003 verified against the
+  merge base. G-3's `_Pending` soundness re-derived from the code, including the
+  load-bearing clone-before-propagate premise the fix agent's own argument had
+  omitted.
+  3 Minor findings, none gating: the new regression test pins 1 of 3 counter
+  changes; no in-suite configuration exercises `_descend`/`_Pending` past round
+  0's budget; one non-reproducing superlative ("fastest point on the whole
+  sweep") survives inside the corrected xfail `reason=`.
+- **[Review sync]** 1 report(s) → meta/review/.
+- **[8h spot-check]** 3/3 sampled holds reproduced (CON-005, INV-002, INV-003)
+  by an independent skeptic re-deriving each verdict's cited evidence rather
+  than re-arguing it: property test 2 passed/exit 0; `-k unverified` 1 passed
+  each on json+pdf/exit 0; nudge 6 / orchestrator 6 / resample 3, all exit 0.
+  Its own AST comparison against `main` independently confirms `SolveSignals`'
+  field names/types/ORDER, the `solve()` signature and `MANY == 2` are
+  untouched. Went beyond the cited evidence: a 2,252-case differential against
+  `brute_force_oracle.count_solutions` at a fresh seed, run BOTH stock and with
+  `_SEARCH_ROUNDS` monkeypatched to `((0,3),(2,3),(4,5))` to force constant
+  cut-offs and `_Pending` re-entry — **0 mismatches** in both configurations.
+  Enumerated all four paths that discard a stack item and found each sound.
+  Confirmed the new geometric restart ladder introduces no unboundedness that
+  pre-card `main` did not already have (main had no node limit at all).
+- **[Merge hazard]** ⚠ `meta/kanban/cards/CARD-018.md` was committed ON THE
+  BRANCH (in `935e69f`, my error at the commit step — the kanban procedure
+  excludes `meta/` from worktree commits precisely because this file has two
+  writers). The branch copy is STALE: it predates every orchestrator note in
+  main's copy ([Review 1/3], [Adversarial] x3, [Fix 1], [Review 2/3],
+  [8h spot-check], Review score 9.0). At merge, main's copy of this file must
+  win — do not let the branch version replay over it. `meta/architecture/
+  decisions/adr/0013-difficulty-scoring-formula.md` is also committed on the
+  branch, but that one is legitimate content that SHOULD reach main (the F-001
+  History addendum) and main has no competing edit to it.
+- **[AC/EC check]** GATE: 6 verified, 0 violated, 0 unverified. No
+  `## Engineering constraints` section on this card, so no EC verified directly
+  — EC-001 is covered under G-3.
+  **AC-037 verified as CORRECTLY DECLARED UNMET**: the criterion itself is NOT
+  satisfied and the card did not fake it. `test_20x20_p95_is_under_5s` collects
+  and reports XFAIL (not XPASS) with `strict=True` intact. The verifier
+  re-measured the whole sweep independently and reproduced the card's table
+  point for point (0/5 over cap at 10/20/25/30, 2/5 at 32, 5/5 at 35/38/40, 4/5
+  at 42, 1/5 at 45, 0/5 at 48+) — judging the claimed ~32-45% residual band
+  conservative rather than understated.
+  G-1 verified incl. byte-identical `__all__`/`MANY`/`SolveSignals` field order
+  /`solve()` signature vs the merge base, and `propagate.__all__` additive only
+  (6 → 8 entries, none removed). Noted non-violation: `branch_nodes`' SEMANTICS
+  changed while its SURFACE did not — deliberate, reviewed, documented.
+  G-2 verified mechanically: `tests/test_solver.py` is +280/-0 (zero deletions,
+  so no AC-015/016/017 assertion could have been edited); `test_timeout.py`'s
+  +6/-2 is confined to the `_blind_propagation` double's `cache=` forwarding.
+  CARD-006's fixture hazard did NOT materialise — all 16 timeout tests pass.
+  G-3 verified in two independent ways beyond the property test: every mutation
+  site in `search.py` enumerated (only lines 692/697, both on `board.clone()`),
+  proving a `_Pending`'s captured board is immutable for its stack lifetime;
+  plus a differential against the merge-base solver over 280 grids at 10x10-
+  16x16 (large enough to actually engage restarts, unlike EC-001's 1x1-8x8
+  corpus) — IDENTICAL verdicts AND byte-identical witness grids. Plus 6,000
+  fresh out-of-suite oracle cases at verifier-chosen seeds, 0 mismatches.
+  G-4/G-5 verified mechanically (ADR-0013 is +21/-0 appended under `## History`;
+  `bench_generate.py` is exactly 1 hunk, all inside `reason=`, `strict=True`
+  unchanged context).
