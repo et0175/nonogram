@@ -291,7 +291,13 @@ def _header_orientation(opened: Image.Image) -> int | None:
     ``NonogramError``; letting one out would put a stack trace in front of a
     user whose file converts fine. Hence the bare ``except Exception``: the set
     of things a third-party header parser can raise is not enumerable, and every
-    member of it means the same thing here.
+    member of it means the same thing here. The tag lookup sits inside the same
+    guard as the parse: Pillow 12.3.0 parses the IFD eagerly in ``load``, so
+    ``get`` is a plain dictionary read today and 13 crafted blocks (bad magic,
+    truncated header, IFD offset past the end, entry types 0/2/5/7/13/99, lying
+    and oversized entry counts) could not make it raise — but the argument above
+    is about a parser this project does not pin a version of, and it applies to
+    both lines or to neither.
 
     A file whose EXIF sits somewhere ``open`` does not reach also reports no
     orientation here, while ``exif_transpose`` *would* still find it. That
@@ -306,9 +312,9 @@ def _header_orientation(opened: Image.Image) -> int | None:
     exif = Image.Exif()
     try:
         exif.load(raw)
+        return exif.get(_ORIENTATION_TAG)
     except Exception:  # noqa: BLE001 — a corrupt tag is not an unreadable file
         return None
-    return exif.get(_ORIENTATION_TAG)
 
 
 def _checked_extents(
@@ -607,13 +613,21 @@ def generate(
     validate_aspect_ratio(*probed, size, size)
     greyscale = load_greyscale(source)
     if greyscale.size != probed:
-        # The header probe and the decode disagreed about the picture's shape —
-        # only possible when the EXIF orientation sits somewhere ``Image.open``
-        # does not reach (a PNG ``eXIf`` chunk after ``IDAT``). Judge the extent
-        # the crop will actually use, so the guard cannot be talked into
-        # accepting a request that discards most of the picture. G-4 is intact:
-        # this line is unreachable for a request the cheap probe already
-        # refused, so no refused request pays for a decode.
+        # The header probe and the decode disagreed about the picture's shape.
+        # Two measured classes reach here, so the test is on the extents rather
+        # than on a format: a PNG whose ``eXIf`` chunk follows ``IDAT`` (which
+        # ``Image.open`` does not reach), and an orientation-tagged TIFF (whose
+        # reader applies the orientation to ``size`` and then lets
+        # ``exif_transpose`` apply it a second time). Judge the extent the crop
+        # will actually use, so the guard cannot be talked into accepting a
+        # request that discards most of the picture.
+        #
+        # This is the one path on which a refusal costs a decode: the cheap
+        # probe still refuses the common case for free, but a request the probe
+        # accepted and the truth rejects is refused only after ``load_greyscale``
+        # has run. Cropping, dithering, clue derivation and the solver stay
+        # unreachable for it. See failure-matrix rows 12 and 14 — G-4's
+        # unqualified wording is narrowed there to match this.
         validate_aspect_ratio(*greyscale.size, size, size)
     return to_grid(binarize(greyscale, size, size))
 

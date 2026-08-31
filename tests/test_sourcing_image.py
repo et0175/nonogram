@@ -852,6 +852,18 @@ def test_the_guard_runs_before_the_picture_is_decoded(tmp_path: Path) -> None:
     with pytest.raises(ImageNeedsManualCrop):
         _convert(truncated, 30, 14)  # does not fit -> never reaches the decode
 
+    # The narrowed half of G-4, pinned so it cannot drift back to the
+    # unqualified claim: on a source where the probe and the decode disagree, a
+    # refusal *does* cost a decode. The probe accepts 15x30 here, so the
+    # refusal below can only have come from the re-check, which runs after
+    # ``load_greyscale``. Cropping, dithering and the solver stay unreachable.
+    disagreeing = _png_with_a_trailing_exif_chunk(
+        tmp_path / "g4-trailing-exif.png", 563, 980, 6
+    )
+    image.validate_aspect_ratio(*image.probe_extent(disagreeing), 15, 30)
+    with pytest.raises(ImageNeedsManualCrop):
+        _convert(disagreeing, 15, 30)
+
 
 def test_the_probe_reads_the_repo_fixtures_at_their_stored_extent() -> None:
     """The five repo fixtures carry no EXIF at all, so this pins exactly one
@@ -1025,6 +1037,27 @@ def test_the_guard_judges_the_extent_the_crop_will_actually_use(
     # And a grid that suits the displayed picture converts, so the re-check
     # refuses the mismatch rather than everything that reaches it.
     assert _shape(_convert(source, 20, 20)) == (20, {20})
+
+    # The same disagreement, reached by a wholly different mechanism, which is
+    # why the re-check tests the extents and not the format. An
+    # orientation-tagged TIFF carries no ``info["exif"]`` at all, so
+    # ``_header_orientation`` returns None and the probe reports what
+    # ``Image.open`` gives it -- but Pillow's TIFF reader has *already* applied
+    # the orientation to that size, and ``exif_transpose`` then applies it a
+    # second time. Stored 60x40 + orientation 6: probe (40, 60), decode
+    # (60, 40). Measured on Pillow 12.3.0.
+    tiff = tmp_path / "orientation.tiff"
+    Image.new("L", (60, 40), 128).save(tiff, tiffinfo={0x0112: 6})
+
+    assert image.probe_extent(tiff) == (40, 60)
+    with image.load_greyscale(tiff) as rotated:
+        assert rotated.size == (60, 40)
+
+    # Fails open without the re-check: the probe accepts this pair, the truth
+    # does not.
+    image.validate_aspect_ratio(*image.probe_extent(tiff), 10, 30)
+    with pytest.raises(ImageNeedsManualCrop):
+        _convert(tiff, 10, 30)
 
 
 def test_the_probe_reports_an_unreadable_file_as_one() -> None:
