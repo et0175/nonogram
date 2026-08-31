@@ -382,9 +382,13 @@ def header_band(layout: Layout) -> HeaderBand:
     without the band is a cell the PDF cannot fit on A4 (NFR-005 defines page
     fit over drawing *plus* band for exactly this reason). So the band is free
     in a headerless format's coordinates and not quite free in its cell — and
-    only where the height term binds at all, which needs a drawing about 1.5x
-    taller than it is wide. Across CON-011's 441 extents at three gutter depths
-    it moves the cell in 13% of cases, by at most 0.25mm.
+    only where the height term binds at all, which needs a drawing about 1.40x
+    taller than it is wide. Measured across CON-011's 441 extents at the three
+    clue patterns :mod:`tests.property.test_layout_cell_size` sweeps: it moves
+    the cell in **169 of 1323 cases (12.8%)**, by at most 0.25mm — three device
+    pixels at :data:`DPI`. Over the two shallower patterns alone it is 58 of
+    882 (6.6%); the difference is the tall alternating-rows regime, where the
+    height term binds most often.
 
     The type size is physical (:data:`HEADER_FONT_MM` at :data:`DPI`) and not a
     fraction of the cell, unlike :attr:`Layout.clue_font_size`. A clue digit has

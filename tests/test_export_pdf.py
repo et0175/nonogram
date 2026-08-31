@@ -223,11 +223,6 @@ def _page_boxes_as_numbers(path: Path) -> list[tuple[float, float, float, float]
     ]
 
 
-def _page_sizes(path: Path) -> list[tuple[float, float]]:
-    """Every page's size in PostScript points — the far corner of its box."""
-    return [(box[2], box[3]) for box in _page_boxes_as_numbers(path)]
-
-
 # ==========================================================================
 # The registry row — one row, and the CLI picks it up unedited
 # ==========================================================================

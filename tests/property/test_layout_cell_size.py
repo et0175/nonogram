@@ -122,14 +122,29 @@ def _sparse(width: int, height: int) -> list[list[bool]]:
 def _alternating_rows(width: int, height: int) -> list[list[bool]]:
     """Rows alternately full and empty: the *tallest* drawing a shape allows.
 
-    Every row clue is one number and every column clue is ``height // 2`` of
-    them, so the row gutter is 1 cell and the column gutter is half the height
-    — a drawing that grows down while staying as narrow as the grid. That is
-    the only regime in which page fit's *height* term binds at all (A4 prints
-    186mm across against 273mm down, so a drawing has to be about 1.5x taller
-    than wide before height is the smaller quotient), and therefore the only
-    regime in which the header band's reservation can be observed. The shape
-    that broke first was a 10x25 of exactly this form.
+    Every row clue is one number and every column clue is ``ceil(height / 2)``
+    of them, so the row gutter is 1 cell and the column gutter is half the
+    height — a drawing that grows down while staying as narrow as the grid.
+    This is the regime in which page fit's *height* term binds most often, and
+    the shape that broke first was a 10x25 of exactly this form.
+
+    It is **not** the only such regime, and this docstring claimed it was until
+    cycle 2 measured it. The height term binds for alternating-rows 111 times,
+    checkerboard 58, a dot lattice 58, random 4. Decisively: remove the band
+    reservation and run :func:`_assert_the_page_fits_a4` over only the three
+    *pre-existing* patterns and 58 cases still fail, the first at 10x25
+    checkerboard. This pattern strengthens the corpus; it is not what makes the
+    assertion capable of catching the regression.
+
+    The distinction is load-bearing. The false version invited a maintainer to
+    scope :func:`_assert_the_page_fits_a4` to this pattern alone and delete 58
+    real witnesses, restoring exactly the blindness that let the regression
+    ship. Assert the page fit on every case the corpus generates.
+
+    (The crossover, corrected: A4 prints 186mm across against 273mm down, less
+    the 12mm now reserved for the band — 261mm — so a drawing must be about
+    **1.40x** taller than wide before height is the smaller quotient. The 1.5x
+    previously stated was computed from the pre-reservation height.)
     """
     return [[row % 2 == 0 for _ in range(width)] for row in range(height)]
 
