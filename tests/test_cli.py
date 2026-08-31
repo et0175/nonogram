@@ -392,6 +392,12 @@ ERROR_EXIT_CODES = [
     # error, not the export failure the wide ``except OSError`` in ``main``
     # would once have reported it as.
     (errors.UnreadableImage, cli.ExitCode.INVALID_INPUT),
+    # CARD-026 (AC-076/AC-077): a picture that read perfectly but is too
+    # differently shaped from the requested grid. The same group for the same
+    # reason — the user goes and changes what they passed in — and pointedly a
+    # row of its own rather than a subclass of ``UnreadableImage``, since the
+    # file is not what is wrong.
+    (errors.ImageNeedsManualCrop, cli.ExitCode.INVALID_INPUT),
     (errors.InvalidPuzzleName, cli.ExitCode.INVALID_INPUT),
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),

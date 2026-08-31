@@ -51,8 +51,8 @@ Real images too
 ---------------
 The scripted grids show the loop; two pinned fixture conversions show that it
 works on an actual picture. ``bands.png`` at 10x10 really does convert to an
-ambiguous grid that two nudges repair, and ``wide.png`` at 22x22 really does
-survive all five. Both are *pinned cases* in the sense
+ambiguous grid that two nudges repair, and ``landscape.png`` at 22x22 really
+does survive all five. Both are *pinned cases* in the sense
 ``tests/test_sourcing_image.py`` uses the phrase: if the dither, the solver or
 the heuristic changes such that these sizes behave differently, re-pin them by
 re-running a 10..25 sweep over the fixtures rather than deleting the test.
@@ -82,6 +82,14 @@ from nonogram.sourcing import image
 FIXTURES = Path(__file__).parent / "fixtures"
 BANDS = FIXTURES / "bands.png"
 WIDE = FIXTURES / "wide.png"
+#: CARD-026 re-pinned the two real-image cases below onto this fixture.
+#: ``wide.png`` is 60x20, a 3:1 source, and FR-021 now *refuses* it against a
+#: square grid — it keeps only 33% of the picture — so it can no longer be
+#: converted at 20x20 or 22x22 at all. ``landscape.png`` is 60x40, a 3:2 source
+#: that keeps 67% and is comfortably inside the accepted band; a fresh 10..25
+#: sweep (the module docstring's own re-pinning recipe) picked the same two
+#: sizes, which is a coincidence worth naming rather than relying on.
+LANDSCAPE = FIXTURES / "landscape.png"
 
 Grid = list[list[bool]]
 
@@ -422,11 +430,11 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     """The cap reached by an actual picture rather than a scripted grid (a
     pinned case, re-pinned by sweeping the fixtures — see the module docstring).
 
-    ``wide.png`` at 22x22 converts to a grid that all five nudges leave
+    ``landscape.png`` at 22x22 converts to a grid that all five nudges leave
     ambiguous, which is the run AC-035 describes end to end.
     """
     with pytest.raises(GenerationAbandoned) as excinfo:
-        generate(GenerationRequest(mode="image", image=WIDE, size=22, seed=1))
+        generate(GenerationRequest(mode="image", image=LANDSCAPE, size=22, seed=1))
 
     assert "pixel-nudge" in str(excinfo.value)
 
@@ -440,7 +448,7 @@ def test_nudge_reports_failure_at_cap_through_the_cli(
     asserts the wiring rather than a second policy.
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(WIDE), "--size", "22"]
+        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -548,12 +556,14 @@ def test_the_image_module_counts_nothing_itself() -> None:
     assert image.__all__ == [
         "RESAMPLING",
         "binarize",
+        "fit_crop_box",
         "generate",
         "load_greyscale",
         "nudge",
         "nudge_cells",
-        "square_crop_box",
+        "probe_extent",
         "to_grid",
+        "validate_aspect_ratio",
     ]
     assert not hasattr(image, "RetryCounter")
     assert not any(
@@ -574,7 +584,9 @@ def test_a_unique_conversion_is_never_nudged() -> None:
     """The loop is entered only by the branch that needs it: a conversion that
     passes the uniqueness check first time leaves the counter at zero, so
     CARD-017 can report "0 nudges" as a fact rather than as a default."""
-    puzzle = generate(GenerationRequest(mode="image", image=WIDE, size=20, seed=1))
+    puzzle = generate(
+        GenerationRequest(mode="image", image=LANDSCAPE, size=20, seed=1)
+    )
 
     assert puzzle.nudge.attempts == 0
     assert puzzle.ready_for_export is True
@@ -593,7 +605,7 @@ def test_a_tier_miss_is_not_nudged(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(
             GenerationRequest(
-                mode="image", image=WIDE, size=20, seed=1, difficulty="hard"
+                mode="image", image=LANDSCAPE, size=20, seed=1, difficulty="hard"
             )
         )
 

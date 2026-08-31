@@ -17,7 +17,7 @@ about what the *CLI* prints.
 ``tests/test_nudge.py::test_nudge_attempts_bounded_recovery_on_a_real_image``
 already relies on (``puzzle.nudge.attempts == 2``); AC-040 reuses it rather
 than re-deriving a fixture that happens to need nudging. AC-041 uses
-``wide.png`` at 20x20, seed 1 — the pinned zero-nudge conversion
+``landscape.png`` at 20x20, seed 1 — the pinned zero-nudge conversion
 ``tests/test_nudge.py::test_a_unique_conversion_is_never_nudged`` already
 relies on (``puzzle.nudge.attempts == 0``, ``ready_for_export is True``),
 whose own docstring says it exists so "CARD-017 can report '0 nudges' as a
@@ -45,7 +45,10 @@ from tests.test_nudge import _ONE_SWITCH, _CountingSource, _install_source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BANDS = FIXTURES / "bands.png"
-WIDE = FIXTURES / "wide.png"
+#: Re-pinned from ``wide.png`` by CARD-026 — see the note beside
+#: ``tests/test_nudge.py``'s own ``LANDSCAPE``: a 3:1 source into a square grid
+#: is now an FR-021 refusal, so the zero-nudge pin moved to a 3:2 one.
+LANDSCAPE = FIXTURES / "landscape.png"
 
 
 def test_export_reports_nudge_count(
@@ -82,8 +85,8 @@ def test_export_omits_nudge_count_when_zero(
     no nudge-count line at all, not "0 cells nudged".
 
     Drives ``--mode image`` (not ``random``, which cannot reach the nudge
-    branch at all) against the pinned zero-nudge conversion ``wide.png`` at
-    size 20, seed 1 — see module docstring for the pin this reuses.
+    branch at all) against the pinned zero-nudge conversion ``landscape.png``
+    at size 20, seed 1 — see module docstring for the pin this reuses.
     """
     exit_code = cli.main(
         [
@@ -91,7 +94,7 @@ def test_export_omits_nudge_count_when_zero(
             "--mode",
             "image",
             "--image",
-            str(WIDE),
+            str(LANDSCAPE),
             "--size",
             "20",
             "--seed",
