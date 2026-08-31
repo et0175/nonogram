@@ -59,6 +59,14 @@ _BLACK = (0, 0, 0)
 #: test's tier changes meaning (ADR-0005's bands are 0-33 / 33-66 / 66-100).
 MEDIUM_SCORE = 50.0
 
+#: A4 portrait in PostScript points — 210 x 297mm at 72pt to the inch, spelled
+#: out here rather than read from ``layout_module``. A page bound that derives
+#: its sheet size from the module that sized the page asserts only that the two
+#: agree; these literals are the second opinion that makes "it fits A4" a claim
+#: about paper.
+A4_WIDTH_PT = 210.0 / 25.4 * 72
+A4_HEIGHT_PT = 297.0 / 25.4 * 72
+
 
 def _grid(*patterns: str) -> list[list[bool]]:
     return [[glyph == _FILLED for glyph in pattern] for pattern in patterns]
@@ -189,6 +197,32 @@ def _pdf_page_boxes(path: Path) -> list[str]:
     return [box.decode("ascii") for box in boxes]
 
 
+def _page_boxes_as_numbers(path: Path) -> list[tuple[float, float, float, float]]:
+    """Every page's ``/MediaBox`` in PostScript points, as four numbers.
+
+    Read as numbers and not as the text of the box: Pillow writes each
+    coordinate in its own shortest form (``220.8``, never ``220.80``), so a
+    formatted expected string asserts as much about float repr as about the
+    page, and changes meaning the moment a cell size does.
+
+    All four coordinates, not just the far corner. A ``/MediaBox`` is
+    ``[llx lly urx ury]``, so the near corner is as much part of the page as
+    the far one: a box pinned only by ``(urx, ury)`` is the right *size* at an
+    unasserted origin, and a page offset from the sheet's corner prints
+    cropped. The whole-string comparison this replaced did assert the origin;
+    dropping to two fields would have quietly given that up.
+    """
+    return [
+        (
+            float(box.split()[2]),
+            float(box.split()[3]),
+            float(box.split()[4]),
+            float(box.split()[5]),
+        )
+        for box in _pdf_page_boxes(path)
+    ]
+
+
 # ==========================================================================
 # The registry row — one row, and the CLI picks it up unedited
 # ==========================================================================
@@ -249,20 +283,88 @@ def test_export_writes_a_two_page_pdf(tmp_path: Path) -> None:
     assert len(_pdf_page_boxes(written)) == 2, "a one-page PDF is not an answer key"
 
 
-def test_the_written_pages_are_a4_sized_at_the_print_resolution(tmp_path: Path) -> None:
+def test_both_written_pages_carry_the_layouts_geometry_within_a4(tmp_path: Path) -> None:
     """Without the resolution the PDF writer assumes 72 DPI and the page comes
-    out 4.17x too large — the ``pHYs`` tag's problem, one format along."""
+    out 4.17x too large — the ``pHYs`` tag's problem, one format along.
+
+    Named for what it measures. The expected box is derived from the same
+    :func:`compute_layout` and :func:`header_band` the exporter calls, so the
+    first two assertions say "the writer did not corrupt the geometry, and the
+    two sheets print alike" — not "the page is A4", which they cannot say
+    without a second, independent statement of how big A4 is. The third
+    assertion is that statement, and it is a *bound*, not an equality: a
+    ``/MediaBox`` is the drawing's own size, so a 10x10 page is 100mm wide and
+    correctly so. What A4 owes it is only that it fits.
+    """
     puzzle = _puzzle(tmp_path, grid=ANSWER)
     geometry = _layout_for(ANSWER)
     band = _band_for(ANSWER)
     expected = (
-        f"/MediaBox [ 0 0 {geometry.width / DPI * 72:.2f} "
-        f"{(geometry.height + band.height) / DPI * 72:.2f} ]"
+        0.0,
+        0.0,
+        geometry.width / DPI * 72,
+        (geometry.height + band.height) / DPI * 72,
     )
 
-    boxes = _pdf_page_boxes(export_puzzle(puzzle)[0])
+    boxes = _page_boxes_as_numbers(export_puzzle(puzzle)[0])
 
-    assert boxes == [expected, expected], "the two sheets do not print alike"
+    assert boxes == [pytest.approx(expected), pytest.approx(expected)], (
+        "the two sheets do not print alike, or one does not start at the sheet's corner"
+    )
+    for _, _, width_pt, height_pt in boxes:
+        assert width_pt <= A4_WIDTH_PT, f"{width_pt}pt wide overruns A4's {A4_WIDTH_PT}pt"
+        assert height_pt <= A4_HEIGHT_PT, f"{height_pt}pt tall overruns A4's {A4_HEIGHT_PT}pt"
+
+
+def _diagonal(width: int, height: int) -> list[list[bool]]:
+    """Every third cell: a middling, realistic clue depth in both directions."""
+    return [[(row + column) % 3 == 0 for column in range(width)] for row in range(height)]
+
+
+def _alternating_rows(width: int, height: int) -> list[list[bool]]:
+    """Rows alternately full and empty — a 1-cell row gutter and a column
+    gutter half the grid's height, i.e. the tallest drawing a shape can make."""
+    return [[row % 2 == 0 for _ in range(width)] for row in range(height)]
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "pattern"),
+    [
+        pytest.param(10, 10, _diagonal, id="cap-bound"),
+        pytest.param(30, 30, _diagonal, id="page-fit-bound"),
+        pytest.param(10, 25, _alternating_rows, id="tall-drawing-height-bound"),
+        pytest.param(10, 26, _alternating_rows, id="tall-drawing-worst-case"),
+    ],
+)
+def test_a_titled_page_still_fits_a4_at_the_cell_sizes_nfr_005_produces(
+    width: int, height: int, pattern
+) -> None:
+    """The PDF is the one format that adds a band above the drawing, so it is
+    where NFR-005's larger cells have the least room to spare (AC-080, AC-081).
+
+    Page fit reserves the band for every format (see ``layout._fit_cell``), so
+    what this checks is that the reservation is the *right* one — that the band
+    a titled page actually draws still lands on the sheet after the cell has
+    been sized around it.
+
+    The first two cases are the ends of the supported range, where the comfort
+    cap binds and where page fit does. They are square and shallow-guttered,
+    both fit with room to spare, and on their own they certified nothing: the
+    third and fourth cases are the shapes that broke. A grid whose rows
+    alternate full and empty draws a 1-cell row gutter and a gutter half its
+    height deep, so it grows *down* — the only direction in which A4's 273mm of
+    printable height can run out before its 186mm of width. At 25 and 26 rows
+    the cap sits at 7.0 and 6.9mm, above the flat 6.5mm it replaced, and sizing
+    the cell on the drawing alone put those pages 34 and 77 device pixels off
+    the bottom of the sheet.
+    """
+    grid = pattern(width, height)
+    geometry = _layout_for(grid)
+    band = _band_for(grid)
+
+    assert (geometry.columns, geometry.rows) == (width, height)
+    assert geometry.width <= round(layout_module.PAGE_WIDTH_MM / 25.4 * DPI)
+    assert geometry.height + band.height <= round(layout_module.PAGE_HEIGHT_MM / 25.4 * DPI)
 
 
 def test_page_one_is_the_blank_puzzle_with_its_clues() -> None:
