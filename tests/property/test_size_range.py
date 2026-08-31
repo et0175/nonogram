@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-from nonogram import cli, sourcing
+from nonogram import cli, difficulty, sourcing
 from nonogram.errors import SizeOutOfRange
 from nonogram.sourcing import random_grid
 
@@ -105,6 +105,33 @@ def test_the_range_this_property_is_written_around_is_the_one_in_force() -> None
         MAX_SUPPORTED,
     )
     assert set(sourcing.MODES) == {sourcing.RANDOM, sourcing.LIBRARY, sourcing.IMAGE}
+
+
+def test_difficultys_cell_span_agrees_with_the_source_range() -> None:
+    """The range's *second* definition, bound to the first from the test tree.
+
+    ``difficulty.py`` restates the supported range as cell counts —
+    ``MIN_SUPPORTED_CELLS = 10 * 10`` and ``MAX_SUPPORTED_CELLS = 30 * 30`` —
+    and CARD-023 had to hand-edit the maximum from ``50 * 50`` alongside
+    ``random_grid.MAX_SIZE``. Two definitions of one fact, kept in step by
+    hand, is a silent-drift hazard: the next range change can move one and
+    leave the other, and nothing in ``tests/test_difficulty.py`` would fail
+    because it imports difficulty's own constants.
+
+    The duplication cannot be removed. ``difficulty`` (COMP-006) and
+    ``random_grid`` (COMP-003) are both capability modules, and ADR-0007
+    forbids a lateral import between them — the structural guard in
+    ``tests/test_cli.py`` would fail the moment ``difficulty`` imported
+    ``random_grid`` to derive the constant. So the binding has to live where
+    a cross-boundary import is legal, which is here in the test tree.
+
+    This is not a gate: ``difficulty`` clamps rather than raises, so a
+    disagreement would skew difficulty scores rather than admit an
+    out-of-range grid. It is exactly the kind of quiet wrongness that a
+    property file about the range should refuse to leave unpinned.
+    """
+    assert difficulty.MIN_SUPPORTED_CELLS == random_grid.MIN_SIZE**2
+    assert difficulty.MAX_SUPPORTED_CELLS == random_grid.MAX_SIZE**2
 
 
 @pytest.mark.parametrize("mode", sourcing.MODES)
