@@ -300,7 +300,7 @@ def test_the_size_rule_is_checked_before_the_file_is_opened() -> None:
         image.generate(FIXTURES / "absent.png", 60, _rng())
 
 
-@pytest.mark.parametrize("size", [9, 51, None])
+@pytest.mark.parametrize("size", [9, 31, 51, None])
 def test_the_supported_size_range_is_the_same_as_every_other_mode(
     size: int | None,
 ) -> None:
@@ -309,7 +309,7 @@ def test_the_supported_size_range_is_the_same_as_every_other_mode(
     with pytest.raises(SizeOutOfRange):
         image.generate(BANDS, size, _rng())
 
-    assert random_grid.MIN_SIZE == 10 and random_grid.MAX_SIZE == 50
+    assert random_grid.MIN_SIZE == 10 and random_grid.MAX_SIZE == 30
 
 
 # --------------------------------------------------------------------------
@@ -318,7 +318,7 @@ def test_the_supported_size_range_is_the_same_as_every_other_mode(
 
 
 @pytest.mark.parametrize("source", [WIDE, TALL, BANDS])
-@pytest.mark.parametrize("size", [10, 17, 25, 50])
+@pytest.mark.parametrize("size", [10, 17, 25, 30])
 def test_convert_image_produces_exact_target_dimensions(
     source: Path, size: int
 ) -> None:

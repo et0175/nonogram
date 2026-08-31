@@ -299,7 +299,7 @@ def test_generate_is_unchanged_by_the_second_subcommand() -> None:
     [
         ("--size", "0"),
         ("--size", "9"),
-        ("--size", "51"),
+        ("--size", "31"),
         ("--size", "-5"),
         ("--density", "-1"),
         ("--density", "0"),

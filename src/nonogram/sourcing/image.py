@@ -23,7 +23,7 @@ two rejected alternatives, and why:
 * **Stretch** (resize the whole image straight to ``size`` x ``size``) keeps
   every pixel but distorts the subject: a circle becomes an ellipse, a face is
   squashed or drawn out. A nonogram's entire payoff is that the solved grid is
-  a *recognisable* picture, and at 10..50 cells there is no resolution to spare
+  a *recognisable* picture, and at 10..30 cells there is no resolution to spare
   for the viewer to mentally un-stretch it.
 * **Letterbox** (pad the short axis to square with white) keeps proportions but
   spends the scarcest resource there is on nothing: a 16:9 photo letterboxed
@@ -196,7 +196,7 @@ def square_crop_box(width: int, height: int) -> tuple[int, int, int, int]:
         are both ``min(width, height)``. An odd leftover pixel goes to the
         *far* side, because integer division floors the near offset; that is a
         half-pixel bias on one axis of a source that is about to be resized to
-        at most 50 cells, and pinning it explicitly is worth more than
+        at most 30 cells, and pinning it explicitly is worth more than
         pretending it can be avoided.
 
     Raises:

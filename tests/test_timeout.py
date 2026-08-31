@@ -1,18 +1,25 @@
-"""AC-038 and the ADR-0011 cooperative deadline mechanism behind it.
+"""AC-084 and the ADR-0011 cooperative deadline mechanism behind it.
 
-    AC-038  TestGenerate_50x50_RespectsTimeoutBound
-            ->  TestGenerate_50x50_RespectsTimeoutBound (the class below)
+    AC-084  TestGenerate_30x30_RespectsTimeoutBound
+            ->  TestGenerate_30x30_RespectsTimeoutBound (the class below)
 
-*given* a 50x50 random-grid generation request (the largest supported size),
+*given* a 30x30 random-grid generation request (the largest supported grid
+under CON-011) using a seed measured to drive the solver past the deadline,
 *when* generation runs, *then* it completes within 30s or fails clearly with a
 `SolverTimeout` — it never hangs indefinitely.
+
+AC-084 supersedes AC-038, which said the same thing at 50x50. Only the size
+moved: CON-011 narrowed the supported range to 10..30 for print legibility
+(NFR-005), so a 50x50 request is now rejected by ``validate_size`` before the
+solver is ever entered, and a fixture built on one would be testing input
+validation while claiming to test the deadline.
 
 The two halves of that "or" are tested separately, because they are different
 claims and only one of them is about the timeout at all:
 
-* a 50x50 request the solver *can* finish returns a real, exportable puzzle
+* a 30x30 request the solver *can* finish returns a real, exportable puzzle
   well inside the bound — under the production 30s budget, unfaked;
-* a 50x50 request the solver *cannot* finish stops with ``SolverTimeout``
+* a 30x30 request the solver *cannot* finish stops with ``SolverTimeout``
   rather than running forever.
 
 Why the second one does not wait 30 real seconds
@@ -25,13 +32,19 @@ near-immediate deadline, with no reliance on real wall-clock waits". The number
 30.0 is pinned by its own one-line test, so the substitution scales a constant
 this file has checked rather than assuming one.
 
-The mid-density 50x50 used for that case is the known-hard class from CARD-004's
-performance findings: line logic settles almost nothing (22 of 2500 cells on
-one sample there) and the search has to grind. It is genuinely unfinishable in
-the time given, so the timeout is the mechanism firing on real solver work, not
-a deadline that expired before the solver was ever asked anything.
+The scaling is only honest if the request is one that really does outrun the
+full budget, and at 30x30 that had to be re-measured rather than inherited:
+CARD-018 strengthened line logic (bidirectional probing, a per-solve line memo,
+a widening restart schedule), so CARD-004's 50x50 parameters say nothing about
+what is hard three sizes down. :data:`HARD_DENSITY` and the seed below are the
+result of that search — see CARD-023's worktree notes for the seeds, densities
+and times. The headline: at 30x30 and 40% density, the *first* candidate grid
+alone keeps the solver busy for more than 60 seconds, so the request is
+genuinely unfinishable inside ADR-0001's 30s and the short budget expires on
+real solver work rather than on a deadline that had passed before the solver
+was asked anything.
 
-Beyond AC-038, the module-level tests below pin the mechanism's three
+Beyond AC-084, the module-level tests below pin the mechanism's three
 load-bearing properties: the deadline is checked *inside* the two loops rather
 than once at the entrance (otherwise "never hangs" is false), it covers the
 whole request rather than each retry, and it is entirely absent when no
@@ -53,23 +66,65 @@ from nonogram.errors import ExportRejected, SolverTimeout
 from nonogram.orchestrator import GenerationRequest, Puzzle, generate
 from nonogram.solver import solve
 from nonogram.solver.propagate import Board, LineCache, check_deadline, propagate
+from nonogram.sourcing import random_grid
 
 # --------------------------------------------------------------------------
 # Fixtures and helpers
 # --------------------------------------------------------------------------
 
+#: The largest grid CON-011 supports, read from the one place that defines it
+#: (ADR-0022/R2). The tests below also assert the resulting grid is 30 cells a
+#: side, so the fixture is anchored to AC-084's "30x30" rather than to wherever
+#: the constant drifts next.
+MAX_SUPPORTED_SIZE = random_grid.MAX_SIZE
+
 #: A budget short enough to keep the suite quick, long enough that the solver
-#: is genuinely working when it expires (the observed overshoot at 50x50 is
-#: about a millisecond, so this is hundreds of checks deep, not one).
+#: is genuinely working when it expires (the observed overshoot at 30x30 is
+#: under a millisecond, so this is hundreds of checks deep, not one).
 SHORT_BUDGET_SECONDS = 0.25
 
-#: The density CARD-004 measured as the hard class at 40x40 and above: line
-#: logic settles almost nothing and the search grinds.
-HARD_DENSITY = 50
+#: The density CARD-023 measured as the hard class at 30x30, the largest grid
+#: CON-011 supports: line logic settles almost nothing and the search grinds.
+#: Measured, not inherited — 50%, the hard class CARD-004 found at 50x50, is
+#: *easy* at 30x30 today (its candidates solve in tens of milliseconds and the
+#: request ends in ``GenerationAbandoned``, not a timeout), while every seed
+#: tried at 40% and 45% outran the full 30s budget.
+HARD_DENSITY = 40
+
+#: The seed used with :data:`HARD_DENSITY`. Nothing distinguishes it — every
+#: seed measured at this density outran the budget — but it is pinned so the
+#: fixture is a fixed, reproducible request rather than a lucky draw.
+HARD_SEED = 7
 
 #: High density is the easy class at every supported size — line-solvable with
-#: no branching at all, ~30ms for a whole 50x50 request.
+#: no branching at all, ~3ms for the one candidate a 30x30 request needs.
 EASY_DENSITY = 75
+
+#: A budget the hard fixture's *first* candidate must already outrun, used by
+#: the premise test below. Sixty times under the measured >60s, so it is
+#: checking the fixture and not this machine's speed.
+#:
+#: Deliberately 1.0s and not AC-084's real 30s deadline. The gap is a known,
+#: accepted blind window: a solve landing in [1s, 30s) falsifies AC-084's
+#: premise while this test stays green. Closing it would cost 30 seconds of
+#: wall clock on every future suite run, forever, and the measured margin makes
+#: the regression remote — this seed's first candidate exceeded 60s (>2x
+#: ADR-0001's whole budget) when measured, so reaching the window needs a
+#: 30-60x solver improvement on this instance. CARD-018 was an improvement of
+#: roughly that order on *some* grids, which is why the margin is recorded here
+#: rather than assumed: whoever disturbs this fixture next should re-measure and
+#: update this number, not trust it.
+PREMISE_BUDGET_SECONDS = 1.0
+
+
+def _hard_request() -> GenerationRequest:
+    """AC-084's request: 30x30, at the density measured to outrun the budget."""
+    return GenerationRequest(
+        mode="random",
+        size=MAX_SUPPORTED_SIZE,
+        density=HARD_DENSITY,
+        seed=HARD_SEED,
+    )
 
 
 def _branching_clues() -> tuple[tuple[tuple[int, ...], ...], tuple[tuple[int, ...], ...]]:
@@ -135,15 +190,15 @@ def _blank_board(
 
 
 # --------------------------------------------------------------------------
-# AC-038 — TestGenerate_50x50_RespectsTimeoutBound
+# AC-084 — TestGenerate_30x30_RespectsTimeoutBound
 # --------------------------------------------------------------------------
 
 
-class TestGenerate_50x50_RespectsTimeoutBound:
-    """AC-038: a 50x50 request completes inside the bound or fails clearly."""
+class TestGenerate_30x30_RespectsTimeoutBound:
+    """AC-084: a 30x30 request completes inside the bound or fails clearly."""
 
     def test_the_enforced_bound_is_adr_0001s_thirty_seconds(self) -> None:
-        """The number AC-038 names, pinned where the mechanism reads it.
+        """The number AC-084 names, pinned where the mechanism reads it.
 
         Everything else in this class either runs under this budget or
         substitutes a smaller one for it; without this assertion, a budget that
@@ -151,49 +206,92 @@ class TestGenerate_50x50_RespectsTimeoutBound:
         """
         assert orchestrator.GENERATION_BUDGET_SECONDS == 30.0
 
-    def test_a_50x50_request_the_solver_can_finish_completes_inside_the_bound(
+    def test_a_30x30_request_the_solver_can_finish_completes_inside_the_bound(
         self,
     ) -> None:
-        """The first half of AC-038's "or", under the real production budget.
+        """The first half of AC-084's "or", under the real production budget.
 
-        No monkeypatching at all: a genuine 50x50 request, ADR-0001's real 30s
-        deadline, and a verified unique puzzle at the end of it. The margin is
-        not close — a line-solvable 50x50 is tens of milliseconds — which is
-        the point: the timeout exists for the hard class, and must not be
-        collecting the easy one on the way past.
+        No monkeypatching at all: a genuine 30x30 request at the largest size
+        CON-011 supports, ADR-0001's real 30s deadline, and a verified unique
+        puzzle at the end of it. The margin is not close — a line-solvable
+        30x30 is a few milliseconds — which is the point: the timeout exists
+        for the hard class, and must not be collecting the easy one on the way
+        past.
         """
         started = time.monotonic()
         puzzle = generate(
-            GenerationRequest(mode="random", size=50, density=EASY_DENSITY, seed=1)
+            GenerationRequest(
+                mode="random", size=MAX_SUPPORTED_SIZE, density=EASY_DENSITY, seed=1
+            )
         )
         elapsed = time.monotonic() - started
 
         assert elapsed < orchestrator.GENERATION_BUDGET_SECONDS
         assert puzzle.ready_for_export is True
         assert puzzle.solution_count == 1
-        assert len(puzzle.grid or []) == 50
+        assert len(puzzle.grid or []) == 30
 
-    def test_a_50x50_request_the_solver_cannot_finish_raises_solver_timeout(
+    def test_a_30x30_request_the_solver_cannot_finish_raises_solver_timeout(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The second half: the hard class stops clearly instead of hanging.
 
-        Mid-density 50x50 is CARD-004's known-hard class, and it is asked for
-        with a real grid, real clues and the real solver — only ADR-0001's
-        budget is scaled down, per this module's docstring. What is asserted is
-        the *shape* of the failure: a named domain error, not a hang, not a
-        ``RecursionError``, and not a puzzle.
+        :data:`HARD_DENSITY` at 30x30 is CARD-023's measured hard class — this
+        exact request runs past ADR-0001's full 30s budget, on its first
+        candidate alone — and it is asked for with a real grid, real clues and
+        the real solver. Only ADR-0001's budget is scaled down, per this
+        module's docstring. What is asserted is the *shape* of the failure: a
+        named domain error, not a hang, not a ``RecursionError``, and not a
+        puzzle.
         """
         monkeypatch.setattr(
             orchestrator, "GENERATION_BUDGET_SECONDS", SHORT_BUDGET_SECONDS
         )
 
         with pytest.raises(SolverTimeout) as raised:
-            generate(
-                GenerationRequest(mode="random", size=50, density=HARD_DENSITY, seed=7)
-            )
+            generate(_hard_request())
 
         assert "deadline" in str(raised.value)
+
+    def test_the_hard_fixtures_first_candidate_alone_outruns_a_budget(self) -> None:
+        """The premise the timeout half rests on, asserted rather than assumed.
+
+        This reproduces the request's very first candidate — the orchestrator
+        seeds one ``random.Random(seed)`` and draws it exactly this way — and
+        shows the solver cannot finish even that one inside
+        :data:`PREMISE_BUDGET_SECONDS`.
+
+        **What it catches, stated precisely.** It catches the seed becoming
+        *trivially* easy, which is the failure this card exists to prevent: the
+        naive substitution (keep density 50, swap 50x50 for 30x30) solves in
+        ~0.04s and fails here loudly, as does EASY_DENSITY at ~0.003s.
+
+        It does **not** verify AC-084's own wording, "a seed measured to drive
+        the solver past the deadline". That deadline is
+        :data:`~nonogram.orchestrator.GENERATION_BUDGET_SECONDS` = 30s; this
+        asserts 1.0s. A solve landing in [1s, 30s) falsifies AC-084's premise
+        while this stays green — an accepted blind window, because closing it
+        costs 30s of wall clock on every future suite run forever. See
+        :data:`PREMISE_BUDGET_SECONDS` for the measured margin that makes the
+        regression remote.
+
+        Note the timeout half does not go vacuous inside that window either: at
+        8s per candidate the 0.25s scaled budget still expires mid-solve on real
+        solver work. What would be false there is this premise claim, not the
+        deadline mechanism the timeout half exercises.
+
+        The day a solver improvement makes this seed easy, this goes red and
+        says *re-measure*, instead of the fixture quietly becoming a test of
+        nothing.
+        """
+        request = _hard_request()
+        grid = random_grid.generate(
+            request.size, request.density, random.Random(request.seed)
+        )
+        rows, columns = compute_clues(grid)
+
+        with pytest.raises(SolverTimeout):
+            solve(rows, columns, deadline=time.monotonic() + PREMISE_BUDGET_SECONDS)
 
     def test_the_overshoot_past_the_deadline_is_small(
         self, monkeypatch: pytest.MonkeyPatch
@@ -206,7 +304,7 @@ class TestGenerate_50x50_RespectsTimeoutBound:
         a whole budget's worth — so the test is not measuring this machine's
         speed, while still failing loudly if a checkpoint were ever moved
         somewhere a long-running step could hide behind (the observed overshoot
-        at 50x50 is about a millisecond).
+        at 30x30 is 0.3-0.7 ms, against a 250 ms budget).
         """
         monkeypatch.setattr(
             orchestrator, "GENERATION_BUDGET_SECONDS", SHORT_BUDGET_SECONDS
@@ -214,9 +312,7 @@ class TestGenerate_50x50_RespectsTimeoutBound:
 
         started = time.monotonic()
         with pytest.raises(SolverTimeout):
-            generate(
-                GenerationRequest(mode="random", size=50, density=HARD_DENSITY, seed=7)
-            )
+            generate(_hard_request())
         elapsed = time.monotonic() - started
 
         assert elapsed < 2 * SHORT_BUDGET_SECONDS
@@ -235,9 +331,7 @@ class TestGenerate_50x50_RespectsTimeoutBound:
         monkeypatch.setattr(
             orchestrator, "GENERATION_BUDGET_SECONDS", SHORT_BUDGET_SECONDS
         )
-        request = GenerationRequest(
-            mode="random", size=50, density=HARD_DENSITY, seed=7
-        )
+        request = _hard_request()
 
         result: Puzzle | None = None
         with pytest.raises(SolverTimeout):
