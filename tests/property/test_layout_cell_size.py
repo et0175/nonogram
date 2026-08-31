@@ -129,15 +129,20 @@ def _alternating_rows(width: int, height: int) -> list[list[bool]]:
     the shape that broke first was a 10x25 of exactly this form.
 
     It is **not** the only such regime, and this docstring claimed it was until
-    cycle 2 measured it. The height term binds for alternating-rows 111 times,
-    checkerboard 58, a dot lattice 58, random 4. Decisively: remove the band
-    reservation and run :func:`_assert_the_page_fits_a4` over only the three
-    *pre-existing* patterns and 58 cases still fail, the first at 10x25
-    checkerboard. This pattern strengthens the corpus; it is not what makes the
-    assertion capable of catching the regression.
+    cycle 2 measured it. Decisively: remove the band reservation and run
+    :func:`_assert_the_page_fits_a4` over only the three *pre-existing* patterns
+    (``_random_grid``, ``_checkerboard``, ``_sparse``) and **61** cases still
+    fail — 58 checkerboard plus 3 random — the first at 10x25 checkerboard. This
+    pattern strengthens the corpus; it is not what makes the assertion capable
+    of catching the regression.
+
+    (Counting how often the band reservation changes the cell, per pattern over
+    441 extents: alternating-rows 111, checkerboard 58, random 3, sparse 0. That
+    is a different quantity from *how often page fit's height term binds*, which
+    is larger; earlier revisions of this docstring conflated the two.)
 
     The distinction is load-bearing. The false version invited a maintainer to
-    scope :func:`_assert_the_page_fits_a4` to this pattern alone and delete 58
+    scope :func:`_assert_the_page_fits_a4` to this pattern alone and delete 61
     real witnesses, restoring exactly the blindness that let the regression
     ship. Assert the page fit on every case the corpus generates.
 

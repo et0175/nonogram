@@ -75,7 +75,7 @@ actually take::
   drawing — still fits the printable area of A4. The band is counted for all
   three formats, not only the PDF that draws it: it costs a wide drawing
   nothing (the band eats height, and the width term binds unless a drawing is
-  about 1.5x taller than it is wide), and for the tall drawings where the
+  about 1.40x taller than it is wide), and for the tall drawings where the
   height term does bind, a cell chosen without it is a cell the PDF cannot put
   on a sheet. That is not hypothetical — a 10x25 whose rows alternate full and
   empty is an ordinary uniquely-solvable puzzle, and sized on the drawing alone
@@ -383,12 +383,27 @@ def header_band(layout: Layout) -> HeaderBand:
     fit over drawing *plus* band for exactly this reason). So the band is free
     in a headerless format's coordinates and not quite free in its cell — and
     only where the height term binds at all, which needs a drawing about 1.40x
-    taller than it is wide. Measured across CON-011's 441 extents at the three
-    clue patterns :mod:`tests.property.test_layout_cell_size` sweeps: it moves
-    the cell in **169 of 1323 cases (12.8%)**, by at most 0.25mm — three device
-    pixels at :data:`DPI`. Over the two shallower patterns alone it is 58 of
-    882 (6.6%); the difference is the tall alternating-rows regime, where the
-    height term binds most often.
+    taller than it is wide.
+
+    Measured cost, over CON-011's 441 extents at each of the **four** clue
+    patterns :mod:`tests.property.test_layout_cell_size` sweeps — naming them
+    rather than counting them, because two different three-pattern subsets of
+    this corpus both have 1323 cases and quoting a bare denominator has already
+    caused one round of confusion:
+
+    ===================  ================
+    pattern              cells moved /441
+    ===================  ================
+    ``_random_grid``                    3
+    ``_checkerboard``                  58
+    ``_sparse``                         0
+    ``_alternating_rows``             111
+    ===================  ================
+
+    **172 of 1764 (9.8%)** over the whole corpus, by at most 0.2540mm — exactly
+    three device pixels at :data:`DPI`. Almost all of it is the tall
+    alternating-rows regime, where the height term binds most often; ``_sparse``
+    never moves at all.
 
     The type size is physical (:data:`HEADER_FONT_MM` at :data:`DPI`) and not a
     fraction of the cell, unlike :attr:`Layout.clue_font_size`. A clue digit has
@@ -490,7 +505,8 @@ def _fit_cell(
     that makes it, instead of a global this function silently consults. A
     caller that genuinely draws no band can pass ``0.0``; today none does, and
     the cost of the shared reservation is confined to drawings tall enough for
-    the height term to bind at all (roughly 1.5x taller than wide).
+    the height term to bind at all (roughly 1.40x taller than wide, since
+    the band's reservation leaves 261mm of height against 186mm of width).
 
     The cap is a ceiling and page fit wins whenever it is the smaller of the
     two — for anything from about 20 cells a side up, that is always (see the
