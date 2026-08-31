@@ -103,6 +103,17 @@ EASY_DENSITY = 75
 #: A budget the hard fixture's *first* candidate must already outrun, used by
 #: the premise test below. Sixty times under the measured >60s, so it is
 #: checking the fixture and not this machine's speed.
+#:
+#: Deliberately 1.0s and not AC-084's real 30s deadline. The gap is a known,
+#: accepted blind window: a solve landing in [1s, 30s) falsifies AC-084's
+#: premise while this test stays green. Closing it would cost 30 seconds of
+#: wall clock on every future suite run, forever, and the measured margin makes
+#: the regression remote — this seed's first candidate exceeded 60s (>2x
+#: ADR-0001's whole budget) when measured, so reaching the window needs a
+#: 30-60x solver improvement on this instance. CARD-018 was an improvement of
+#: roughly that order on *some* grids, which is why the margin is recorded here
+#: rather than assumed: whoever disturbs this fixture next should re-measure and
+#: update this number, not trust it.
 PREMISE_BUDGET_SECONDS = 1.0
 
 
@@ -245,15 +256,33 @@ class TestGenerate_30x30_RespectsTimeoutBound:
     def test_the_hard_fixtures_first_candidate_alone_outruns_a_budget(self) -> None:
         """The premise the timeout half rests on, asserted rather than assumed.
 
-        AC-084 asks for "a seed measured to drive the solver past the
-        deadline", and a scaled-down budget only stands in for the real one if
-        that is true. This reproduces the request's very first candidate — the
-        orchestrator seeds one ``random.Random(seed)`` and draws it exactly
-        this way — and shows the solver cannot finish even that one inside a
-        budget four times the scaled one. Measured at over 60 seconds when this
-        was written, so the assertion has enormous headroom; the day a solver
-        improvement makes this seed easy, this goes red and says *re-measure*,
-        instead of the fixture quietly becoming a test of nothing.
+        This reproduces the request's very first candidate — the orchestrator
+        seeds one ``random.Random(seed)`` and draws it exactly this way — and
+        shows the solver cannot finish even that one inside
+        :data:`PREMISE_BUDGET_SECONDS`.
+
+        **What it catches, stated precisely.** It catches the seed becoming
+        *trivially* easy, which is the failure this card exists to prevent: the
+        naive substitution (keep density 50, swap 50x50 for 30x30) solves in
+        ~0.04s and fails here loudly, as does EASY_DENSITY at ~0.003s.
+
+        It does **not** verify AC-084's own wording, "a seed measured to drive
+        the solver past the deadline". That deadline is
+        :data:`~nonogram.orchestrator.GENERATION_BUDGET_SECONDS` = 30s; this
+        asserts 1.0s. A solve landing in [1s, 30s) falsifies AC-084's premise
+        while this stays green — an accepted blind window, because closing it
+        costs 30s of wall clock on every future suite run forever. See
+        :data:`PREMISE_BUDGET_SECONDS` for the measured margin that makes the
+        regression remote.
+
+        Note the timeout half does not go vacuous inside that window either: at
+        8s per candidate the 0.25s scaled budget still expires mid-solve on real
+        solver work. What would be false there is this premise claim, not the
+        deadline mechanism the timeout half exercises.
+
+        The day a solver improvement makes this seed easy, this goes red and
+        says *re-measure*, instead of the fixture quietly becoming a test of
+        nothing.
         """
         request = _hard_request()
         grid = random_grid.generate(

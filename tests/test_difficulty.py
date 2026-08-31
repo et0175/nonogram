@@ -260,11 +260,19 @@ def test_zero_backtracking_scores_easiest_at_every_size_and_density() -> None:
     ADR-0013's whole reason for making size and density normalizers instead of
     additive terms: "a puzzle solved entirely by line logic, with zero
     backtracking, must land at the easy extreme *regardless of size*". A
-    50x50 at the hardest density is where an additive size term would betray
-    that — it is the largest supported grid, scored at the density the density
-    term peaks on — so it is in the sweep, alongside the smallest.
+    30x30 at the hardest density is where an additive size term would betray
+    that — it is the largest supported grid (CON-011), scored at the density
+    the density term peaks on — so it is in the sweep, alongside the smallest.
+
+    The interior values are literals rather than expressions so that the sweep
+    keeps four *distinct* sizes when the supported range moves. CARD-023
+    narrowed MAX_SUPPORTED_CELLS from 50x50 to 30x30 and the old interior 900
+    collapsed onto the new maximum, silently costing this sweep a case; 625
+    (25x25) sits inside 10..30 and restores it.
     """
-    for total_cells in (MIN_SUPPORTED_CELLS, 400, 900, MAX_SUPPORTED_CELLS):
+    sizes = (MIN_SUPPORTED_CELLS, 400, 625, MAX_SUPPORTED_CELLS)
+    assert len(set(sizes)) == 4, f"the size sweep lost a distinct case: {sizes}"
+    for total_cells in sizes:
         for density in (0.0, 0.1, HARDEST_DENSITY, 0.9, 1.0):
             signals = _Signals(
                 line_logic_cells=total_cells,
@@ -390,8 +398,8 @@ def test_a_big_easy_puzzle_does_not_outscore_a_small_hard_one() -> None:
     """ADR-0013's named failure mode, stated as a test.
 
     "A big easy puzzle must not out-score a small hard one purely on cell
-    count" — the raw-sum failure that would make every 50x50 Hard by size
-    alone. The big one here is the largest supported grid, solved without a
+    count" — the raw-sum failure that would make every maximum-size grid Hard
+    by size alone. The big one here is the largest supported grid, solved without a
     single guess; the small one is at the bottom of the supported range and
     fought for most of its cells.
     """
