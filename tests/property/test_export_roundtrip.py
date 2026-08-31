@@ -107,8 +107,16 @@ REQUIRED_CASES = 500
 
 #: EC-002's non-square floor. A corpus of squares cannot discharge the
 #: round-trip property any more (see the corpus gate for why), so the count is
-#: a named bar rather than an accident of the cycle strides.
+#: a named bar rather than an accident of the cycle strides. This is the bar
+#: that actually binds: :data:`REQUIRED_CASES` above is the older, weaker floor
+#: and a corpus small enough to fail it now fails this one first.
 REQUIRED_NON_SQUARE_CASES = 1500
+
+#: The decoupling floor. Not a size bar but a *shape* bar: the fewest distinct
+#: heights any single width may appear with. 1 would mean height is a function
+#: of width — a corpus that no longer discharges EC-002 however large it is.
+#: Measured on the shipped corpus: 40.
+REQUIRED_HEIGHTS_PER_WIDTH = 10
 
 #: The supported grid edge lengths (AC-038 caps the range at 50).
 SIZES: tuple[int, ...] = tuple(range(1, 51))
@@ -231,13 +239,22 @@ def _corpus(count: int) -> list[Case]:
     supposed to close rather than open.
 
     Width and height cycle on *different* strides, so the corpus is mostly
-    rectangular rather than mostly square. The height stride is 3, coprime with
-    the 50-long size cycle, which is what makes every (width, height) residue
-    pair reachable instead of pinning height to a function of width — the exact
-    degeneracy that would let a decoder infer one dimension from the other and
-    still pass. Squares still occur (every 50th case or so) and the hand-picked
-    shapes below add more, because AC-031..033's square round-trips must keep
-    holding too.
+    rectangular rather than mostly square.
+
+    **The decoupler is the ``index // len(SIZES)`` term, not the stride.**
+    Writing ``index = 50q + r``, width is ``r`` and height collapses to
+    ``(3r + q) mod 50`` — it is ``q``, the lap counter, that makes a given
+    width meet many different heights. The coprime stride 3 only spreads the
+    heights within a lap; ``(index * 3) % 50`` *alone* is a bijection of
+    ``r`` and would pin height to a pure function of width, which is exactly
+    the degeneracy that lets a decoder infer one extent from the other and
+    still pass. That is not a hypothetical: it survives every other assertion
+    in this module, so the corpus gate asserts the decoupling directly rather
+    than trusting this paragraph.
+
+    Squares still occur (every 50th case or so) and the hand-picked shapes
+    below add more, because AC-031..033's square round-trips must keep holding
+    too.
     """
     rng = random.Random(SEED)
     cases: list[Case] = []
@@ -380,6 +397,22 @@ def test_the_corpus_covers_what_ec_002_asks_for() -> None:
     assert any(case.width > case.height for case in CASES), "no wide cases"
     assert any(case.height > case.width for case in CASES), "no tall cases"
 
+    # The property the non-square floor above does NOT give us. A corpus can be
+    # 97% non-square and still be degenerate: if height is a pure function of
+    # width, a decoder that computes one extent from the other round-trips
+    # every case perfectly. Measured on this corpus, every width meets 40
+    # distinct heights; the bar is set well below that so ordinary tuning does
+    # not trip it, but any change collapsing height onto width does.
+    heights_per_width: dict[int, set[int]] = {}
+    for case in CASES:
+        heights_per_width.setdefault(case.width, set()).add(case.height)
+    thinnest = min(len(heights) for heights in heights_per_width.values())
+    assert thinnest >= REQUIRED_HEIGHTS_PER_WIDTH, (
+        f"some width is paired with only {thinnest} distinct height(s): the "
+        "corpus has collapsed height onto width, and a decoder that infers "
+        "one extent from the other would pass it"
+    )
+
     empty_lines = sum(
         1
         for case in CASES
@@ -397,6 +430,18 @@ def test_the_corpus_covers_what_ec_002_asks_for() -> None:
         if case.payload.width is None
         or case.payload.height is None
         or case.payload.density is None
+    )
+
+    # The docstring promises a case where one extent was asked for and the
+    # other was not; `unrequested` above is an `or` across three fields and a
+    # corpus with only `density=None` would satisfy it. Gate the shape itself.
+    mixed_extent = sum(
+        1
+        for case in CASES
+        if (case.payload.width is None) != (case.payload.height is None)
+    )
+    assert mixed_extent >= 50, (
+        f"only {mixed_extent} cases record one extent but not the other"
     )
 
     assert empty_lines >= 100, f"only {empty_lines} cases contain an all-empty line"
@@ -647,26 +692,43 @@ def test_property_export_rejects_every_version_other_than_its_own() -> None:
     sample = CASES[:: max(1, len(CASES) // 40)]
     assert len(sample) >= 20, "the version sweep needs a spread of documents"
 
-    wrong = [v for v in (*range(0, 12), 99, 1000, -1) if v != json_export.SCHEMA_VERSION]
-    assert 1 in wrong, "the superseded version must be in the sweep"
+    # Swept per format against ITS OWN version. ADR-0023 bumped both to 2
+    # together, but nothing binds them: the day CSV moves to 3 alone, a shared
+    # list would quietly start asserting that CSV rejects its own documents.
+    candidates = (*range(0, 12), 12, 20, 99, 1000, -1)
+    wrong_by_format = {
+        "json": [v for v in candidates if v != json_export.SCHEMA_VERSION],
+        "csv": [v for v in candidates if v != csv_export.SCHEMA_VERSION],
+    }
+    assert 1 in wrong_by_format["json"] and 1 in wrong_by_format["csv"], (
+        "the superseded version must be in both sweeps"
+    )
 
     for case in sample:
-        for version in wrong:
+        for version in wrong_by_format["json"]:
             document = json_export.document(case.payload)
             document["version"] = version
             try:
                 json_export.decode(json.dumps(document))
             except ValueError as error:
                 message = str(error)
-                assert str(version) in message and str(json_export.SCHEMA_VERSION) in message, (
-                    f"{case.describe()}: JSON error names {message!r}, "
-                    f"not both {version} and {json_export.SCHEMA_VERSION}"
+                # The phrase, not a loose digit: a bare `str(version) in
+                # message` passes on "version 2" when sweeping 12 or 20, which
+                # is why those two are now in the candidate list.
+                assert f"version {version}" in message and (
+                    f"version {json_export.SCHEMA_VERSION}" in message
+                    or f"expected {json_export.SCHEMA_VERSION}" in message
+                    or f"of version {json_export.SCHEMA_VERSION}" in message
+                ), (
+                    f"{case.describe()}: JSON error {message!r} does not name "
+                    f"both {version} and {json_export.SCHEMA_VERSION}"
                 )
             else:  # pragma: no cover - a pass here is the failure
                 raise AssertionError(
                     f"{case.describe()}: JSON accepted version {version}"
                 )
 
+        for version in wrong_by_format["csv"]:
             text = csv_export.document(case.payload).replace(
                 f"version,{csv_export.SCHEMA_VERSION}", f"version,{version}", 1
             )
@@ -674,9 +736,13 @@ def test_property_export_rejects_every_version_other_than_its_own() -> None:
                 csv_export.decode(text)
             except ValueError as error:
                 message = str(error)
-                assert str(version) in message and str(csv_export.SCHEMA_VERSION) in message, (
-                    f"{case.describe()}: CSV error names {message!r}, "
-                    f"not both {version} and {csv_export.SCHEMA_VERSION}"
+                assert f"version {version}" in message and (
+                    f"version {csv_export.SCHEMA_VERSION}" in message
+                    or f"expected {csv_export.SCHEMA_VERSION}" in message
+                    or f"of version {csv_export.SCHEMA_VERSION}" in message
+                ), (
+                    f"{case.describe()}: CSV error {message!r} does not name "
+                    f"both {version} and {csv_export.SCHEMA_VERSION}"
                 )
             else:  # pragma: no cover - a pass here is the failure
                 raise AssertionError(f"{case.describe()}: CSV accepted version {version}")
@@ -688,3 +754,67 @@ def test_property_export_rejects_every_version_other_than_its_own() -> None:
             case.payload.grid
         )
         assert csv_export.decode(csv_export.document(case.payload)).grid == case.payload.grid
+
+
+# --------------------------------------------------------------------------
+# AC-060 / AC-061 — the card's two headline criteria, as named tests
+# --------------------------------------------------------------------------
+#
+# The corpus above round-trips 30x12 among two thousand other shapes, but
+# neither AC is discharged by "it is in there somewhere": both name a test,
+# and a named check-ref that resolves to nothing is how an untested criterion
+# comes to read as covered. Both go through a real file (render -> read), not
+# document()/decode(), because the criterion is about an exported puzzle.
+
+
+def _rectangular_payload() -> ExportPayload:
+    """A 30 wide x 12 tall puzzle — deliberately not square, and deliberately
+    not symmetric under transposition, so a decoder that swapped the two or
+    derived one from the grid could not pass by coincidence."""
+    grid = [[(row + column) % 3 == 0 for column in range(30)] for row in range(12)]
+    rows, columns = compute_clues(grid)
+    return ExportPayload(
+        grid=grid,
+        row_clues=rows,
+        column_clues=columns,
+        seed=4242,
+        mode="random",
+        width=30,
+        height=12,
+        density=None,
+    )
+
+
+def test_json_round_trips_rectangular_dimensions(tmp_path: Path) -> None:
+    """AC-060: a 30x12 puzzle exported as JSON decodes back with width 30 and
+    height 12, both read from the file's metadata rather than inferred."""
+    payload = _rectangular_payload()
+    path = tmp_path / "rectangle.json"
+    json_export.render(payload, path)
+
+    # Read from the file's own bytes: the extent must be recorded, not implied.
+    request = json.loads(path.read_text(encoding="utf-8"))["request"]
+    assert (request["width"], request["height"]) == (30, 12)
+
+    decoded = json_export.read(path)
+    assert decoded.width == 30
+    assert decoded.height == 12
+    assert (len(decoded.grid[0]), len(decoded.grid)) == (30, 12)
+    _assert_round_trip(Case(0, "AC-060 30x12", payload), decoded, "json")
+
+
+def test_csv_round_trips_rectangular_dimensions(tmp_path: Path) -> None:
+    """AC-061: the same puzzle through CSV, for the same reason."""
+    payload = _rectangular_payload()
+    path = tmp_path / "rectangle.csv"
+    csv_export.render(payload, path)
+
+    text = path.read_text(encoding="utf-8")
+    assert "width,30" in text and "height,12" in text
+    assert "size," not in text  # the version-1 scalar must be gone
+
+    decoded = csv_export.read(path)
+    assert decoded.width == 30
+    assert decoded.height == 12
+    assert (len(decoded.grid[0]), len(decoded.grid)) == (30, 12)
+    _assert_round_trip(Case(0, "AC-061 30x12", payload), decoded, "csv")
