@@ -53,8 +53,18 @@ IDLE_TIMEOUT_S = 30
 #: peer, but not the browser the user is already running: any page it loads can
 #: aim a request at ``http://127.0.0.1:8765/``, and a name an attacker controls
 #: that resolves to 127.0.0.1 would make the reply same-origin readable (DNS
-#: rebinding). Checking the ``Host`` header closes the browser-mediated half of
-#: the access control that the bind address alone cannot.
+#: rebinding). Checking the ``Host`` header closes **DNS rebinding only**: a
+#: request that reached this server under a name it does not answer to.
+#:
+#: It does **not** close the other browser-mediated reach. A page on any origin
+#: can still aim a request at ``http://127.0.0.1:<port>/`` with an allowlisted
+#: ``Host`` — a browser sets ``Host`` from the *target*, not from the page —
+#: and be served (verified on the wire: ``Host: 127.0.0.1:<port>`` +
+#: ``Origin: https://evil.example.com`` + ``Sec-Fetch-Site: cross-site`` →
+#: ``200`` and the form). Nothing here reads ``Origin``, ``Referer`` or
+#: ``Sec-Fetch-Site``. That is NFR-004 / CON-010, unimplemented, owned by
+#: CARD-020, and must not be assumed closed by the card that adds
+#: ``POST /generate``.
 #:
 #: This is an HTTP concern, not a domain rule: it is a fact about which *name*
 #: the request used, decided before routing and answered with a status code
@@ -158,9 +168,9 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         new and is served.
 
         A request with *no* ``Host`` at all is served, on **every** protocol
-        version and not only HTTP/1.0. That is deliberate: the attack this
-        check closes is browser-mediated, and a browser cannot suppress the
-        header (``Host`` is a forbidden header name to ``fetch``/XHR), so a
+        version and not only HTTP/1.0. That is deliberate: the rebinding attack
+        this check closes is browser-mediated, and a browser cannot suppress
+        the header (``Host`` is a forbidden header name to ``fetch``/XHR), so a
         missing one is never the attacker's shape. Refusing it would only cost
         HTTP/1.0 clients — ``curl --http1.0``, and this module's own AC-052
         interface probes, which send ``GET / HTTP/1.0`` with no ``Host``.
@@ -211,11 +221,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         "Every response" is literal, and it is only literal because
         :meth:`send_error` funnels the standard library's own error statuses
-        through here too. Before that override, five of the nine statuses this
-        adapter can produce (400, 414, 431, 501, 505) were written by
-        ``BaseHTTPRequestHandler.send_error``: ``text/html`` with no ``nosniff``
-        for three of them, and — on the two whose request line never parsed —
-        no headers whatsoever. The sentence above was false for all five.
+        through here too. This adapter can produce seven distinct statuses —
+        200, 400, 404, 414, 431, 501, 505 — and five of them (400, 414, 431,
+        501, 505) were written by ``BaseHTTPRequestHandler.send_error`` before
+        that override: ``text/html`` with no ``nosniff`` for three of them,
+        and — on the 400 and 505 paths, where ``parse_request`` had not yet
+        accepted a version — no status line and no headers whatsoever. The
+        sentence above was false for all five.
         """
         payload = body.encode("utf-8")
         self.send_response(status)
@@ -250,9 +262,18 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         nothing: ``nosniff`` and ``text/plain`` really are on *every* response,
         and nothing off the wire is echoed in a body or a reason phrase.
         ``message`` and ``explain`` are therefore accepted and deliberately
-        dropped from the response; they still reach the server's own log,
-        exactly as before, so an operator debugging a client can still see what
-        was sent.
+        dropped from the response. ``message`` still reaches the server's own
+        log, exactly as before, so an operator debugging a client can still see
+        what was sent; ``explain`` is a static canned string from
+        ``responses`` and is dropped entirely — the stdlib logged only
+        ``message`` too, so nothing was lost.
+
+        One deliberate side effect: 431's reason phrase is now the canonical
+        ``Request Header Fields Too Large`` for both of its causes, where the
+        stdlib distinguished them as ``Too many headers`` and ``Line too
+        long``. The two remain distinguishable in the log, not on the wire.
+        That is the price of not echoing the request, and reason phrases are
+        advisory per RFC 9112 §4.
 
         The ``request_version`` reset is what makes that possible for two of the
         five. ``parse_request`` assigns the *parsed* version only after it has
@@ -285,10 +306,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         No credential is read on the way in and none is demanded on the way
         out: an ``Authorization`` header, a cookie, or neither all produce this
         same page (AC-053). The access control is the bind address plus the
-        ``Host`` check in :meth:`_dispatch` — the second closes the one path the
-        first cannot, a request steered here by a browser under a name that is
-        not loopback (NFR-003, BCON-0001, F-8, F-12). Neither reads a
-        credential, and there is nothing to authenticate.
+        ``Host`` check in :meth:`_dispatch`, and nothing else — the first stops
+        a network peer, the second stops DNS rebinding, a request steered here
+        by a browser under a name that is not loopback (NFR-003, BCON-0001,
+        F-8, F-12). Neither reads a credential, and there is nothing to
+        authenticate. Neither closes browser-mediated *cross-origin* reach
+        either: a page on any origin can still aim a request here with an
+        allowlisted ``Host`` and be served (NFR-004 / CON-010, CARD-020).
         """
         self._respond(HTTPStatus.OK, _HTML, pages.FORM_PAGE)
 

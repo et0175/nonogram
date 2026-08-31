@@ -624,9 +624,12 @@ def test_post_is_not_implemented_in_this_card(
 ) -> None:
     """F-5, guardrail G-5: submission is CARD-020's, and says so honestly.
 
-    ``BaseHTTPRequestHandler`` answers a method with no ``do_*`` with 501, so
+    ``BaseHTTPRequestHandler`` chooses 501 for a method with no ``do_*``, so
     the form posts to an endpoint that reports itself unimplemented rather than
-    to one this card half-built.
+    to one this card half-built. The *status* is the stdlib's; the *response*
+    is ``WebUIRequestHandler.send_error``'s (``501 Not Implemented``,
+    ``text/plain``, ``nosniff``) — pinned by
+    ``TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound``.
     """
     response = _request(
         running_server.server_port, method="POST", path=pages.FORM_ACTION, body=b"size=10"
@@ -1115,9 +1118,14 @@ def test_a_loopback_host_header_is_served(
         # A ``Host`` is an authority, not a URL. ``urlsplit`` reads the host
         # component of all three of these as loopback — which it genuinely is,
         # so none of them was ever a hole — but a header carrying userinfo or a
-        # path is not a host name, and accepting it would make the set of
-        # accepted header *values* unbounded while F-12 declares exactly three
-        # accepted *names*. The reversal that would be a hole,
+        # path is not a host name, and refusing the two characters narrows the
+        # accepted *shapes*. It does NOT bound the accepted value set to the
+        # size of the accepted name set: ``urlsplit`` splits on ``#`` and ``?``
+        # exactly as it splits on ``@`` and ``/`` and neither is refused
+        # (``127.0.0.1#evil.example.com`` and ``localhost?evil`` are served),
+        # and the port is never validated. That rationale is withdrawn, not
+        # repaired — bounding the shape space is EC-004's property and lands
+        # with CARD-020. The reversal that would be a hole,
         # ``127.0.0.1@evil.example.com``, was already refused and stays here to
         # prove the narrowing did not replace the parse with a substring test.
         pytest.param("user:pass@127.0.0.1", id="userinfo"),
@@ -1131,11 +1139,20 @@ def test_a_foreign_host_header_is_refused_before_routing(
 ) -> None:
     """F-12: a request naming another host is answered 400 and never routed.
 
-    This is the half of the access control a loopback bind cannot provide. The
-    kernel stops a *network* peer, but the browser the user is already running
-    is on this host, and any page it loads can aim a request at
-    ``http://127.0.0.1:<port>/`` — under a hostname the attacker controls,
-    which is what makes the reply readable to that page.
+    This is the DNS-rebinding half of the access control, and only that half.
+    The kernel stops a *network* peer, but the browser the user is already
+    running is on this host, and a page it loads can reach
+    ``http://127.0.0.1:<port>/`` under a hostname the attacker controls, which
+    is what would make the reply readable to that page. That name is what this
+    check refuses.
+
+    It does not refuse the *other* browser-mediated reach: a browser sets
+    ``Host`` from the *target*, so a page on any origin posting to
+    ``http://127.0.0.1:<port>/`` sends an allowlisted ``Host`` and is served
+    (verified on the wire, with ``Origin`` and ``Sec-Fetch-Site: cross-site``
+    both present: ``200`` and the form — nothing in ``web/`` reads either
+    header). That is NFR-004 / CON-010, unimplemented, owned by CARD-020, and
+    no test here may be read as evidence that it is closed.
 
     Refused with ``400``, not ``401``/``403``: nothing was authenticated and
     nothing was forbidden to a principal. The request named a host this server
@@ -1180,7 +1197,7 @@ def test_a_request_with_no_host_header_at_all_is_served(
     """F-12's deliberate gap: an absent ``Host`` passes, on any version.
 
     Sent raw, because ``http.client`` always supplies the header. The check is
-    against the browser-mediated attack, and a browser cannot suppress the
+    against the browser-mediated *rebinding* attack, and a browser cannot suppress the
     header — ``Host`` is a forbidden header name to ``fetch``/XHR, so an absent
     one is never the attacker's shape. Refusing a request that omits one would
     break an HTTP/1.0 client (``curl --http1.0``, and this module's own AC-052
@@ -1436,12 +1453,18 @@ class TestWebGuards_EveryStructuralLoopAssertsNonEmpty:
         matching — a renamed component, a moved package — would leave the loop
         with nothing to do and the ``web -> cli`` prohibition unchecked. Emptied
         here by handing it a module table with no web module in it.
+
+        ``match=`` pins the *pinned-set* message specifically, as the four
+        ``_WEB_SOURCES`` siblings pin theirs. A bare ``pytest.raises`` would be
+        satisfied by the loop's own ``cli not in _imported_components`` failure
+        — a different defect entirely — and matching on ``nonogram.web`` would
+        not discriminate either, since that clause reports the module name.
         """
         monkeypatch.setattr(
             cli_tests, "_MODULES", {"nonogram.cli": cli_tests._MODULES["nonogram.cli"]}
         )
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match="web modules missing from the sweep"):
             cli_tests.test_the_web_adapter_never_imports_the_cli_adapter()
 
     def test_the_same_guard_passes_on_the_real_module_table(self) -> None:
@@ -1495,11 +1518,53 @@ class TestWebDocstrings_MatchTheShippedPackage:
         for sentence in sentences:
             assert "CARD-020" in sentence, sentence
 
+    def test_the_docstring_does_not_credit_the_stdlib_with_writing_the_501(self) -> None:
+        """The claim CARD-022's own ``send_error`` override falsified.
+
+        AC-060 is about the docstring *as a whole*, not about the two sentences
+        cycle 1 was pointed at. "a ``POST`` gets the standard library's own
+        ``501``" was true until this package overrode ``send_error``; the
+        status is still the stdlib's decision, the response is not. Pinned
+        against the code fact rather than against prose: while the override is
+        present in ``WebUIRequestHandler``'s own ``__dict__``, no sentence may
+        hand the whole 501 back to the standard library, and some sentence must
+        name the method that writes it.
+        """
+        assert "send_error" in vars(handler.WebUIRequestHandler)
+
+        text = " ".join((web.__doc__ or "").split())
+        sentences = [s for s in text.split(". ") if "501" in s]
+
+        assert sentences, "the docstring no longer says what a POST gets"
+        for sentence in sentences:
+            assert "standard library's own" not in sentence, sentence
+        assert any("send_error" in sentence for sentence in sentences), sentences
+
+    def test_the_docstring_names_every_access_control_check_the_package_makes(self) -> None:
+        """"the bind address **and nothing else**" was false — there are two.
+
+        The ``Host`` check refuses a request before routing, which is access
+        control by any reading, and ``handler.py`` says so in two places. The
+        behavioural half is asserted first so this is not prose checked against
+        prose: the second check demonstrably discriminates.
+        """
+        assert handler._host_is_local("127.0.0.1") is True
+        assert handler._host_is_local("evil.example.com") is False
+
+        text = " ".join((web.__doc__ or "").split())
+        sentences = [s for s in text.split(". ") if "Access control" in s]
+
+        assert sentences, "the docstring no longer says what the access control is"
+        for sentence in sentences:
+            assert "and nothing else" not in sentence, sentence
+            assert "Host" in sentence, sentence
+
     def test_the_package_really_does_no_request_mapping_yet(self) -> None:
         """The behavioural half of the claim above, so it is not prose-on-prose."""
         assert not hasattr(handler.WebUIRequestHandler, "do_POST")
         assert {method for method, _ in handler.ROUTES} == {"GET"}
 
+        assert _WEB_SOURCES, "no web adapter sources found"
         for path in _WEB_SOURCES:
             source = path.read_text(encoding="utf-8")
             tree = ast.parse(source)

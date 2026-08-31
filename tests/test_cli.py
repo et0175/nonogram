@@ -781,12 +781,13 @@ def test_the_web_adapter_never_imports_the_cli_adapter() -> None:
     web_modules = {
         module: path for module, path in _MODULES.items() if _component(module) == "web"
     }
-    assert set(web_modules) >= {
+    missing = {
         "nonogram.web",
         "nonogram.web.handler",
         "nonogram.web.pages",
         "nonogram.web.server",
-    }, sorted(web_modules)
+    } - set(web_modules)
+    assert not missing, f"web modules missing from the sweep: {sorted(missing)}"
 
     for module, path in web_modules.items():
         assert "cli" not in _imported_components(module, path), module
