@@ -17,10 +17,11 @@ The layout, exactly
 Four sections, each opened by a one-cell marker row, in this fixed order::
 
     #meta
-    version,1
+    version,2
     seed,42
     mode,random
-    size,4
+    width,4
+    height,4
     density,50
     #grid
     1,1,0,0
@@ -45,11 +46,18 @@ Four sections, each opened by a one-cell marker row, in this fixed order::
   data. All four must appear, exactly once, in the order above — a decoder
   that accepted them in any order would also accept a file whose two clue
   blocks had been swapped, which is a silent transposition, not an error.
-* **``#meta``** is one ``key,value`` row per field, all five keys required and
-  no others accepted. ``size`` and ``density`` are optional in the payload
-  (ADR-0015 records them as *asked for*, and "not asked" is a real answer), so
-  a ``None`` is written as an empty value — ``size,`` — and read back as
-  ``None`` rather than as ``0`` or ``""``. ``version`` is :data:`SCHEMA_VERSION`.
+* **``#meta``** is one ``key,value`` row per field, all six keys required and
+  no others accepted. ``width``, ``height`` and ``density`` are optional in
+  the payload (ADR-0015 records them as *asked for*, and "not asked" is a real
+  answer), so a ``None`` is written as an empty value — ``width,`` — and read
+  back as ``None`` rather than as ``0`` or ``""``. ``version`` is
+  :data:`SCHEMA_VERSION`. The extent is this pair and never a scalar
+  ``size``: ADR-0023 replaced version 1's single edge length precisely because
+  it could not describe a rectangle, and the decoder reads both keys from the
+  file rather than deriving either from ``#grid`` — what ``#meta`` records is
+  the request, and a request may have named neither dimension. ``version`` is
+  checked before the rest of the key set, because an older schema brings an
+  older key set with it and the version is the fact that explains it.
 * **``#grid``** is one row per grid line, top to bottom, one cell per column,
   ``1`` filled and ``0`` empty — ADR-0012's boundary type written out cell by
   cell, never the solver's per-line bitmask (guardrail G-4). A bitmask would
@@ -106,10 +114,18 @@ __all__ = [
 ]
 
 #: Version of the layout documented above. Bumped only by a change an existing
-#: reader could not survive. Deliberately its own number rather than a shared
-#: one with ``json_export``: the two formats are decoded by two parsers and
-#: nothing says a change to one is a change to the other.
-SCHEMA_VERSION = 1
+#: reader could not survive — 2 since ADR-0023 replaced the ``#meta`` block's
+#: scalar ``size`` key with ``width``/``height``, which for this format is a
+#: hard break either way: the key set is closed, so a reader of version 1
+#: rejects the added keys outright. A version-1 file is *refused*, not
+#: migrated (ADR-0023/R2); there is deliberately no compatibility read path.
+#:
+#: Deliberately its own number rather than a shared one with ``json_export``:
+#: the two formats are decoded by two parsers and nothing says a change to one
+#: is a change to the other. That both constants read 2 today is a coincidence
+#: of history — ADR-0023 changed both formats, for each format's own reason —
+#: and not a link between them.
+SCHEMA_VERSION = 2
 
 #: The four section markers, in the order they must appear in the file.
 META = "#meta"
@@ -119,7 +135,7 @@ COLUMN_CLUES = "#column-clues"
 SECTIONS: tuple[str, ...] = (META, GRID, ROW_CLUES, COLUMN_CLUES)
 
 #: The ``#meta`` keys, all required and no others accepted.
-_META_KEYS: tuple[str, ...] = ("version", "seed", "mode", "size", "density")
+_META_KEYS: tuple[str, ...] = ("version", "seed", "mode", "width", "height", "density")
 
 #: A grid cell, both ways.
 _FILLED, _EMPTY = "1", "0"
@@ -144,7 +160,8 @@ def document(payload: ExportPayload) -> str:
     writer.writerow(["version", SCHEMA_VERSION])
     writer.writerow(["seed", payload.seed])
     writer.writerow(["mode", payload.mode])
-    writer.writerow(["size", "" if payload.size is None else payload.size])
+    writer.writerow(["width", "" if payload.width is None else payload.width])
+    writer.writerow(["height", "" if payload.height is None else payload.height])
     writer.writerow(["density", "" if payload.density is None else payload.density])
 
     writer.writerow([GRID])
@@ -227,7 +244,12 @@ def decode(text: str) -> ExportPayload:
         column_clues=column_clues,
         seed=meta["seed"],
         mode=meta["mode"],
-        size=meta["size"],
+        # Both dimensions come out of ``#meta``. Neither is derived from the
+        # other and neither is reconstructed from ``#grid`` (ADR-0023/R1) —
+        # the block records what was requested, which a rectangle needs two
+        # numbers for and an unparameterised run needs none.
+        width=meta["width"],
+        height=meta["height"],
         density=meta["density"],
     )
 
@@ -266,32 +288,49 @@ def _split_sections(text: str) -> dict[str, list[list[str]]]:
 
 
 def _decode_meta(rows: list[list[str]]) -> dict[str, object]:
-    """The ``#meta`` block: five ``key,value`` rows, no more and no fewer."""
+    """The ``#meta`` block: six ``key,value`` rows, no more and no fewer.
+
+    The version is checked *before* the key set, not after (ADR-0023/R2). A
+    file from an older schema has an older set of keys too — a version-1
+    export carries ``size`` where this one carries ``width``/``height`` — so
+    validating the key set first would report ``unknown key 'size'`` and bury
+    the one fact that explains it. The version error names both versions,
+    which is the whole diagnosis for a user holding an old file; "there is a
+    key here I do not recognise" sends them looking for a corrupt file
+    instead. Nothing is loosened by the reordering: for a file that *does*
+    declare this version, every refusal below fires exactly as before.
+    """
     fields: dict[str, str] = {}
     for row in rows:
         if len(row) != 2:
             raise ValueError(f"{META}: expected a key,value row, found {row}")
         key, value = row
-        if key not in _META_KEYS:
-            raise ValueError(f"{META}: unknown key {key!r}")
         if key in fields:
             raise ValueError(f"{META}: duplicate key {key!r}")
         fields[key] = value
 
-    missing = [key for key in _META_KEYS if key not in fields]
-    if missing:
-        raise ValueError(f"{META}: missing key(s) {missing}")
-
+    if "version" not in fields:
+        raise ValueError(f"{META}: missing key(s) ['version']")
     version = _int(fields["version"], f"{META}: version")
     if version != SCHEMA_VERSION:
         raise ValueError(
             f"unsupported CSV export version {version}; this build reads "
             f"version {SCHEMA_VERSION}"
         )
+
+    unknown = [key for key in fields if key not in _META_KEYS]
+    if unknown:
+        raise ValueError(f"{META}: unknown key {unknown[0]!r}")
+
+    missing = [key for key in _META_KEYS if key not in fields]
+    if missing:
+        raise ValueError(f"{META}: missing key(s) {missing}")
+
     return {
         "seed": _int(fields["seed"], f"{META}: seed"),
         "mode": fields["mode"],
-        "size": _optional_int(fields["size"], f"{META}: size"),
+        "width": _optional_int(fields["width"], f"{META}: width"),
+        "height": _optional_int(fields["height"], f"{META}: height"),
         "density": _optional_int(fields["density"], f"{META}: density"),
     }
 

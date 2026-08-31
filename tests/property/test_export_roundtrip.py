@@ -1,4 +1,4 @@
-"""EC-002 / FR-012: an export decodes back to exactly the puzzle it came from.
+"""EC-002 / FR-012 / ADR-0023: what an export writes, and what it reads back.
 
     PropertyTest_Export_RoundTripsExactlyForAnyPuzzle
         -> test_round_trips_exactly_for_any_puzzle_as_json
@@ -7,9 +7,25 @@
         -> test_the_two_formats_decode_to_the_same_payload
         -> test_the_corpus_covers_what_ec_002_asks_for  (the corpus's own gate)
 
+    PropertyTest_Export_MetadataCarriesBothDimensionsForAnyPuzzle  (ADR-0023/R1)
+        -> test_metadata_carries_both_dimensions_for_any_puzzle
+
+    PropertyTest_Export_RejectsEveryVersionOtherThanItsOwn  (ADR-0023/R2)
+        -> test_rejects_every_version_other_than_its_own
+
     AC-033  TestExport_JSONRoundTripsExactly -> test_json_round_trips_exactly
             (EC-002's named instance, on one real pipeline-finalized puzzle;
              test_csv_round_trips_exactly is the CSV instance beside it)
+
+    AC-060  TestExport_JSONRoundTripsRectangularDimensions
+                -> test_json_round_trips_rectangular_dimensions
+    AC-061  TestExport_CSVRoundTripsRectangularDimensions
+                -> test_csv_round_trips_rectangular_dimensions
+
+The three ADR-0023 tests live here, beside EC-002's, because they are claims
+about the same pair of functions over the same corpus. Splitting them into the
+per-format files would mean two copies of the corpus, and the metadata property
+is only worth anything *because* the corpus contains rectangles.
 
 EC-002 states a property of the *pair* — writer and decoder — over any
 finalized puzzle, in both formats. So it is checked the way EC-001 is: over a
@@ -43,11 +59,19 @@ seeded corpus plus hand-picked edge shapes. The case count is asserted inside
 the tests rather than left to a comment, so shrinking the corpus can never
 quietly drop below the bar.
 
-Three things the corpus is built to contain, because EC-002 names them:
+Four things the corpus is built to contain, because EC-002 and ADR-0023 name
+them:
 
-* **The whole supported size range.** Every edge length from 1 to 50 (AC-038's
-  ceiling) appears — asserted, not hoped for. 1x1 is where a one-cell grid and
-  a one-run clue coincide; 50x50 is where a row is 50 CSV cells wide.
+* **The whole supported size range, in both dimensions.** Every edge length
+  from 1 to 50 (AC-038's ceiling) appears as a width and as a height —
+  asserted, not hoped for. 1x1 is where a one-cell grid and a one-run clue
+  coincide; 50x50 is where a row is 50 CSV cells wide.
+* **Rectangles, in the majority.** Since ADR-0023 the extent is two fields
+  rather than one, and the failure this property now exists to catch is a
+  decoder that reconstructs one dimension from the other — from its partner,
+  or from the grid. A corpus of squares cannot catch it: every wrong answer
+  is right on a square. So most drawn cases are non-square, in both
+  orientations, and the corpus gate asserts a floor on how many.
 * **A density spread including both extremes.** An all-empty line is the
   ``(0,)`` marker (AC-013) and an all-filled line is a single full-width run;
   both are legal sourcing outcomes (CARD-003) and both are the shapes a flat
@@ -55,9 +79,11 @@ Three things the corpus is built to contain, because EC-002 names them:
   a zero.
 * **Hand-picked degenerate shapes** the random draw would essentially never
   produce: fully empty and fully filled grids at both ends of the size range,
-  a single filled cell in a large grid, maximal-run stripes and a checkerboard
-  (the most clue-runs a line can hold), and payloads whose ``size``/``density``
-  were never requested at all (``None``, not zero).
+  single-row and single-column grids, a single filled cell in a large grid,
+  maximal-run stripes and a checkerboard (the most clue-runs a line can hold),
+  and payloads whose ``width``/``height``/``density`` were never requested at
+  all (``None``, not zero) — including the mixed case where one half of the
+  extent pair was asked for and the other was not.
 """
 
 from __future__ import annotations
@@ -78,6 +104,11 @@ SEED = 20260828
 #: EC-002's floor. Comfortably below :data:`CASE_COUNT` so the bar is not also
 #: the ceiling — the whole corpus, both formats, costs a couple of seconds.
 REQUIRED_CASES = 500
+
+#: EC-002's non-square floor. A corpus of squares cannot discharge the
+#: round-trip property any more (see the corpus gate for why), so the count is
+#: a named bar rather than an accident of the cycle strides.
+REQUIRED_NON_SQUARE_CASES = 1500
 
 #: The supported grid edge lengths (AC-038 caps the range at 50).
 SIZES: tuple[int, ...] = tuple(range(1, 51))
@@ -101,11 +132,15 @@ class Case:
     payload: ExportPayload
 
     @property
-    def size(self) -> int:
+    def width(self) -> int:
+        return len(self.payload.grid[0])
+
+    @property
+    def height(self) -> int:
         return len(self.payload.grid)
 
     def describe(self) -> str:
-        return f"case {self.index} ({self.label}, {self.size}x{self.size})"
+        return f"case {self.index} ({self.label}, {self.width}x{self.height})"
 
 
 def _payload(
@@ -113,7 +148,8 @@ def _payload(
     *,
     seed: int,
     mode: str,
-    size: int | None,
+    width: int | None,
+    height: int | None,
     density: int | None,
 ) -> ExportPayload:
     """A payload whose clues really are the grid's run-length encoding (INV-001).
@@ -130,13 +166,16 @@ def _payload(
         column_clues=columns,
         seed=seed,
         mode=mode,
-        size=size,
+        width=width,
+        height=height,
         density=density,
     )
 
 
-def _random_grid(rng: random.Random, size: int, density: float) -> list[list[bool]]:
-    """A random square grid at roughly ``density`` filled.
+def _random_grid(
+    rng: random.Random, width: int, height: int, density: float
+) -> list[list[bool]]:
+    """A random ``width`` x ``height`` grid at roughly ``density`` filled.
 
     Drawn here rather than through ``nonogram.sourcing.random_grid.generate``
     because that module enforces the 10x10..50x50 request range (AC-003/
@@ -144,31 +183,43 @@ def _random_grid(rng: random.Random, size: int, density: float) -> list[list[boo
     to reach the 1x1 end of the representable range as well. The draw is still
     seeded and reproducible, which is the only property of it this test needs.
     """
-    return [[rng.random() < density for _ in range(size)] for _ in range(size)]
+    return [[rng.random() < density for _ in range(width)] for _ in range(height)]
 
 
-def _edge_grid(kind: str, size: int) -> list[list[bool]]:
+def _edge_grid(kind: str, width: int, height: int) -> list[list[bool]]:
     """The degenerate shapes a random draw would essentially never produce."""
     match kind:
         case "empty":  # every line encodes to the (0,) marker (AC-013)
-            return [[False] * size for _ in range(size)]
+            return [[False] * width for _ in range(height)]
         case "full":  # every line is one full-width run
-            return [[True] * size for _ in range(size)]
+            return [[True] * width for _ in range(height)]
         case "one-cell":  # a single filled cell adrift in empty lines
-            grid = [[False] * size for _ in range(size)]
-            grid[size // 2][size // 2] = True
+            grid = [[False] * width for _ in range(height)]
+            grid[height // 2][width // 2] = True
             return grid
         case "stripes":  # alternating rows: full runs beside empty markers
-            return [[row % 2 == 0] * size for row in range(size)]
+            return [[row % 2 == 0] * width for row in range(height)]
         case "checkerboard":  # the most runs a line can hold
-            return [[(row + column) % 2 == 0 for column in range(size)] for row in range(size)]
+            return [
+                [(row + column) % 2 == 0 for column in range(width)]
+                for row in range(height)
+            ]
         case _:  # pragma: no cover - guards a typo in _EDGE_KINDS
             raise AssertionError(f"unknown edge grid {kind!r}")
 
 
 #: The hand-picked cases, appended to the drawn ones.
 _EDGE_KINDS: tuple[str, ...] = ("empty", "full", "one-cell", "stripes", "checkerboard")
-_EDGE_SIZES: tuple[int, ...] = (1, 2, 3, 10, 49, 50)
+#: Hand-picked extents. Squares stay (the version-1 corpus was all squares and
+#: those cases must keep holding), and rectangles are added on both sides of
+#: square — including 30x12, the card's worked example, in both orientations,
+#: and the 1xN / Nx1 degenerate strips where a decoder that reconstructs one
+#: dimension from the other goes wrong most visibly.
+_EDGE_SHAPES: tuple[tuple[int, int], ...] = (
+    (1, 1), (2, 2), (3, 3), (10, 10), (49, 49), (50, 50),
+    (1, 2), (2, 1), (2, 3), (3, 2), (12, 30), (30, 12),
+    (1, 50), (50, 1), (49, 50), (50, 49),
+)
 
 
 def _corpus(count: int) -> list[Case]:
@@ -178,42 +229,57 @@ def _corpus(count: int) -> list[Case]:
     hit the same number of times — a uniform sample would leave some size
     uncovered on some seeds, which is the kind of gap a property test is
     supposed to close rather than open.
+
+    Width and height cycle on *different* strides, so the corpus is mostly
+    rectangular rather than mostly square. The height stride is 3, coprime with
+    the 50-long size cycle, which is what makes every (width, height) residue
+    pair reachable instead of pinning height to a function of width — the exact
+    degeneracy that would let a decoder infer one dimension from the other and
+    still pass. Squares still occur (every 50th case or so) and the hand-picked
+    shapes below add more, because AC-031..033's square round-trips must keep
+    holding too.
     """
     rng = random.Random(SEED)
     cases: list[Case] = []
     for index in range(count):
-        size = SIZES[index % len(SIZES)]
+        width = SIZES[index % len(SIZES)]
+        height = SIZES[(index * 3 + index // len(SIZES)) % len(SIZES)]
         density = DENSITIES[index % len(DENSITIES)]
         # Provenance varies too, including the "never asked for" shape
-        # ADR-0015 records as None rather than as zero.
-        requested_size: int | None = None if index % 7 == 0 else size
+        # ADR-0015 records as None rather than as zero. The two extents are
+        # dropped independently: a document carrying one of the pair but not
+        # the other is a shape the decoder has to survive (ADR-0023/R1).
+        requested_width: int | None = None if index % 7 == 0 else width
+        requested_height: int | None = None if index % 13 == 0 else height
         requested_density: int | None = None if index % 11 == 0 else int(density * 100)
         cases.append(
             Case(
                 index,
                 f"drawn d={density}",
                 _payload(
-                    _random_grid(rng, size, density),
+                    _random_grid(rng, width, height, density),
                     seed=rng.getrandbits(63),
                     mode=_MODES[index % len(_MODES)],
-                    size=requested_size,
+                    width=requested_width,
+                    height=requested_height,
                     density=requested_density,
                 ),
             )
         )
 
     for kind in _EDGE_KINDS:
-        for size in _EDGE_SIZES:
+        for width, height in _EDGE_SHAPES:
             index = len(cases)
             cases.append(
                 Case(
                     index,
                     f"edge {kind}",
                     _payload(
-                        _edge_grid(kind, size),
+                        _edge_grid(kind, width, height),
                         seed=index,
                         mode="random",
-                        size=size,
+                        width=width,
+                        height=height,
                         density=None,
                     ),
                 )
@@ -261,10 +327,17 @@ def _assert_round_trip(case: Case, decoded: ExportPayload, fmt: str) -> None:
 
     # ADR-0015, separately: the provenance travels with the puzzle, and a
     # parameter that was never requested comes back as None, not as zero.
-    assert (decoded.seed, decoded.mode, decoded.size, decoded.density) == (
+    assert (
+        decoded.seed,
+        decoded.mode,
+        decoded.width,
+        decoded.height,
+        decoded.density,
+    ) == (
         original.seed,
         original.mode,
-        original.size,
+        original.width,
+        original.height,
         original.density,
     ), f"{case.describe()}: {fmt} provenance changed"
 
@@ -279,9 +352,33 @@ def test_the_corpus_covers_what_ec_002_asks_for() -> None:
     assert len(CASES) >= REQUIRED_CASES, (
         f"EC-002 needs >= {REQUIRED_CASES} cases, the corpus has {len(CASES)}"
     )
-    assert {case.size for case in CASES} == set(SIZES), (
-        "the corpus must cover every supported edge length from 1 to 50"
+    assert {case.width for case in CASES} == set(SIZES), (
+        "the corpus must cover every supported edge length from 1 to 50 as a WIDTH"
     )
+    assert {case.height for case in CASES} == set(SIZES), (
+        "the corpus must cover every supported edge length from 1 to 50 as a HEIGHT"
+    )
+
+    # EC-002's new failure mode, and the reason a square-only corpus can no
+    # longer discharge it: what can break fidelity now is a decoder that
+    # reconstructs one dimension from the other, and every square case in the
+    # corpus is consistent with exactly that bug. So the non-square count is
+    # asserted here rather than left to follow from how the cycles happen to
+    # line up — narrowing the strides back to a square corpus must FAIL this
+    # gate, not silently weaken the two properties below.
+    non_square = sum(1 for case in CASES if case.width != case.height)
+    squares = len(CASES) - non_square
+    assert non_square >= REQUIRED_NON_SQUARE_CASES, (
+        f"EC-002 needs >= {REQUIRED_NON_SQUARE_CASES} non-square cases, "
+        f"the corpus has {non_square}"
+    )
+    # And squares must not vanish either: AC-031..033 are square round-trips.
+    assert squares >= 50, f"only {squares} square cases left in the corpus"
+
+    # Both orientations of the same shape, so no test can pass by assuming
+    # width <= height (or the reverse).
+    assert any(case.width > case.height for case in CASES), "no wide cases"
+    assert any(case.height > case.width for case in CASES), "no tall cases"
 
     empty_lines = sum(
         1
@@ -291,11 +388,15 @@ def test_the_corpus_covers_what_ec_002_asks_for() -> None:
     full_lines = sum(
         1
         for case in CASES
-        if (case.size,) in case.payload.row_clues
-        or (case.size,) in case.payload.column_clues
+        if (case.width,) in case.payload.row_clues
+        or (case.height,) in case.payload.column_clues
     )
     unrequested = sum(
-        1 for case in CASES if case.payload.size is None or case.payload.density is None
+        1
+        for case in CASES
+        if case.payload.width is None
+        or case.payload.height is None
+        or case.payload.density is None
     )
 
     assert empty_lines >= 100, f"only {empty_lines} cases contain an all-empty line"
@@ -415,9 +516,14 @@ def test_json_round_trips_exactly(tmp_path: Path) -> None:
     assert decoded.grid == puzzle.grid
     assert decoded.row_clues == expected.rows
     assert decoded.column_clues == expected.columns
-    assert (decoded.seed, decoded.mode, decoded.size, decoded.density) == (
+    # A square request, so ADR-0023's pair records 10 twice — the orchestrator
+    # feeds both extents from the one scalar until CARD-027 (FR-018) gives the
+    # request a pair of its own. Asserted as two fields, not one, so this test
+    # keeps meaning the same thing after that card lands.
+    assert (decoded.seed, decoded.mode, decoded.width, decoded.height, decoded.density) == (
         0,
         "random",
+        10,
         10,
         50,
     )
@@ -441,9 +547,144 @@ def test_csv_round_trips_exactly(tmp_path: Path) -> None:
     expected = compute_clues(puzzle.grid)
     assert decoded.grid == puzzle.grid
     assert (decoded.row_clues, decoded.column_clues) == (expected.rows, expected.columns)
-    assert (decoded.seed, decoded.mode, decoded.size, decoded.density) == (
+    # A square request, so ADR-0023's pair records 10 twice — the orchestrator
+    # feeds both extents from the one scalar until CARD-027 (FR-018) gives the
+    # request a pair of its own. Asserted as two fields, not one, so this test
+    # keeps meaning the same thing after that card lands.
+    assert (decoded.seed, decoded.mode, decoded.width, decoded.height, decoded.density) == (
         0,
         "random",
         10,
+        10,
         50,
     )
+
+
+# --------------------------------------------------------------------------
+# ADR-0023's two rules, as properties over the same corpus
+# --------------------------------------------------------------------------
+
+
+def test_property_export_metadata_carries_both_dimensions_for_any_puzzle() -> None:
+    """PropertyTest_Export_MetadataCarriesBothDimensionsForAnyPuzzle (ADR-0023/R1).
+
+    Asserted on the *serialized bytes*, not on a decoded payload, because the
+    rule is about what the file carries. A decoder that reconstructed height
+    from the grid it just read would satisfy a round-trip assertion perfectly
+    while writing a document that had lost the value — which is precisely the
+    version-1 shape ADR-0023 replaced.
+
+    Three claims per case, both formats: both extent fields are present, a
+    scalar ``size`` is absent, and the value written is the one asked for
+    (including ``None``, which ADR-0015 distinguishes from zero).
+    """
+    checked = 0
+    for case in CASES:
+        payload = case.payload
+
+        request = json_export.document(payload)["request"]
+        assert "width" in request and "height" in request, (
+            f"{case.describe()}: JSON request block is missing an extent field"
+        )
+        assert "size" not in request, (
+            f"{case.describe()}: JSON still writes a scalar 'size' (schema v1)"
+        )
+        assert (request["width"], request["height"]) == (payload.width, payload.height), (
+            f"{case.describe()}: JSON extent is not the one requested"
+        )
+
+        # Only the #meta block: the document continues into the grid and clue
+        # sections, which are not key/value rows.
+        meta_lines: list[str] = []
+        for line in csv_export.document(payload).splitlines()[1:]:
+            if line.startswith("#"):
+                break
+            if line:
+                meta_lines.append(line)
+        meta = dict(line.split(",", 1) for line in meta_lines)
+        assert "width" in meta and "height" in meta, (
+            f"{case.describe()}: CSV #meta is missing an extent key"
+        )
+        assert "size" not in meta, (
+            f"{case.describe()}: CSV still writes a scalar 'size' (schema v1)"
+        )
+        # None is written as an empty value and must not become "0" or "None".
+        assert meta["width"] == ("" if payload.width is None else str(payload.width)), (
+            f"{case.describe()}: CSV width {meta['width']!r} is not what was requested"
+        )
+        assert meta["height"] == ("" if payload.height is None else str(payload.height)), (
+            f"{case.describe()}: CSV height {meta['height']!r} is not what was requested"
+        )
+        checked += 1
+
+    assert checked >= REQUIRED_CASES, (
+        f"ADR-0023/R1 needs >= {REQUIRED_CASES} cases, checked {checked}"
+    )
+    # Non-vacuous in the direction that matters: the claim is only meaningful
+    # if the corpus contains documents whose two extents actually differ.
+    differing = sum(
+        1
+        for case in CASES
+        if case.payload.width is not None
+        and case.payload.height is not None
+        and case.payload.width != case.payload.height
+    )
+    assert differing >= REQUIRED_NON_SQUARE_CASES // 2, (
+        f"only {differing} cases write two different extents"
+    )
+
+
+def test_property_export_rejects_every_version_other_than_its_own() -> None:
+    """PropertyTest_Export_RejectsEveryVersionOtherThanItsOwn (ADR-0023/R2).
+
+    Every version a document can declare except the decoder's own is refused
+    by exact comparison, with an error naming both numbers — never a
+    best-effort read. Version 1 is in the sweep as one case among many rather
+    than as a special one, which is the point of G-3: there is no migration
+    path, so the superseded version is not privileged over any other wrong
+    value.
+    """
+    sample = CASES[:: max(1, len(CASES) // 40)]
+    assert len(sample) >= 20, "the version sweep needs a spread of documents"
+
+    wrong = [v for v in (*range(0, 12), 99, 1000, -1) if v != json_export.SCHEMA_VERSION]
+    assert 1 in wrong, "the superseded version must be in the sweep"
+
+    for case in sample:
+        for version in wrong:
+            document = json_export.document(case.payload)
+            document["version"] = version
+            try:
+                json_export.decode(json.dumps(document))
+            except ValueError as error:
+                message = str(error)
+                assert str(version) in message and str(json_export.SCHEMA_VERSION) in message, (
+                    f"{case.describe()}: JSON error names {message!r}, "
+                    f"not both {version} and {json_export.SCHEMA_VERSION}"
+                )
+            else:  # pragma: no cover - a pass here is the failure
+                raise AssertionError(
+                    f"{case.describe()}: JSON accepted version {version}"
+                )
+
+            text = csv_export.document(case.payload).replace(
+                f"version,{csv_export.SCHEMA_VERSION}", f"version,{version}", 1
+            )
+            try:
+                csv_export.decode(text)
+            except ValueError as error:
+                message = str(error)
+                assert str(version) in message and str(csv_export.SCHEMA_VERSION) in message, (
+                    f"{case.describe()}: CSV error names {message!r}, "
+                    f"not both {version} and {csv_export.SCHEMA_VERSION}"
+                )
+            else:  # pragma: no cover - a pass here is the failure
+                raise AssertionError(f"{case.describe()}: CSV accepted version {version}")
+
+    # The decoder's own version must still be accepted, or the test above
+    # would pass just as well against a decoder that refuses everything.
+    for case in sample:
+        assert json_export.decode(json.dumps(json_export.document(case.payload))).grid == (
+            case.payload.grid
+        )
+        assert csv_export.decode(csv_export.document(case.payload)).grid == case.payload.grid

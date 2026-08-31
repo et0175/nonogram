@@ -1160,7 +1160,14 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
         column_clues=puzzle_clues.columns,
         seed=puzzle.seed,
         mode=puzzle.mode,
-        size=puzzle.size,
+        # ADR-0023's extent pair, still fed from one scalar: the request
+        # carries a single ``--size`` until CARD-027 gives it a width/height
+        # pair of its own (FR-018), and a square request is exactly what
+        # ``width == height`` records. Nothing downstream of here assumes the
+        # two are equal — the two formats write and read them independently —
+        # so that card's change is this construction site and nothing else.
+        width=puzzle.size,
+        height=puzzle.size,
         density=puzzle.density,
         # FR-016's header, as values rather than as domain objects: the tier's
         # display spelling is resolved here, through ``Tier.label``, because

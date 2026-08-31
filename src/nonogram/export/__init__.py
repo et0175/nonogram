@@ -108,9 +108,18 @@ class ExportPayload:
         column_clues: Column clues, left to right.
         seed: The run's effective seed, always concrete (ADR-0015).
         mode: How the grid was sourced — ``"random"`` today.
-        size: The requested edge length, or ``None`` if the request left it to
-            the domain default. Recorded as *asked for*, alongside the seed,
-            so the request can be replayed exactly (ADR-0015).
+        width: The requested number of columns, or ``None`` if the request
+            left it to the domain default. Recorded as *asked for*, alongside
+            the seed, so the request can be replayed exactly (ADR-0015).
+        height: The requested number of rows, same nullability, same reason.
+            A pair rather than one edge length because a grid's extent is a
+            ``(width, height)`` pair everywhere else in the system (ADR-0022),
+            and an export that reduced it to a scalar could not describe a
+            rectangle at all (ADR-0023). The two are independent: a request
+            that named one and left the other to the default records exactly
+            that, since ADR-0015 says what was *asked for*, not what was
+            produced — the grid's actual extent is derivable from
+            :attr:`grid`, and always was.
         density: The requested fill percentage, same nullability, same reason.
         name: FR-015's puzzle name, verbatim — what the PDF header shows
             (FR-016) and what the filename stem was derived from. ``None`` for
@@ -130,7 +139,8 @@ class ExportPayload:
     column_clues: tuple[tuple[int, ...], ...]
     seed: int
     mode: str
-    size: int | None = None
+    width: int | None = None
+    height: int | None = None
     density: int | None = None
     name: str | None = None
     difficulty: str | None = None

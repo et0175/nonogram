@@ -4,6 +4,11 @@ AC / test-id mapping — the trace.yml names, kept traceable from these
 pytest-idiomatic function names:
 
     AC-032  TestExport_WritesCSV  -> test_export_writes_csv*
+    ADR-0023/R2 TestExport_RejectsSupersededSchemaVersion
+                -> test_a_version_1_file_is_refused_and_not_migrated
+                   (the CSV instance; the JSON one is in tests/test_export_json.py,
+                    and the property over every other version value is in
+                    tests/property/test_export_roundtrip.py)
 
 EC-002's round-trip property, and AC-033's named JSON instance of it, live in
 ``tests/property/test_export_roundtrip.py`` — the property is stated over both
@@ -65,7 +70,8 @@ def _payload(
         "column_clues": columns,
         "seed": 42,
         "mode": "random",
-        "size": len(cells),
+        "width": len(cells[0]) if cells else 0,
+        "height": len(cells),
         "density": 50,
     }
     defaults.update(fields)
@@ -200,7 +206,8 @@ def test_the_csv_export_records_the_seed_and_parameters(tmp_path: Path) -> None:
         ["version", str(csv_export.SCHEMA_VERSION)],
         ["seed", "4242"],
         ["mode", "random"],
-        ["size", "2"],
+        ["width", "2"],
+        ["height", "2"],
         ["density", "50"],
     ]
 
@@ -233,10 +240,11 @@ def test_the_layout_is_exactly_the_documented_one() -> None:
     """
     assert csv_export.document(_payload()) == (
         "#meta\n"
-        "version,1\n"
+        "version,2\n"
         "seed,42\n"
         "mode,random\n"
-        "size,4\n"
+        "width,4\n"
+        "height,4\n"
         "density,50\n"
         "#grid\n"
         "1,1,0,0\n"
@@ -309,16 +317,41 @@ def test_an_all_filled_grid_round_trips(tmp_path: Path) -> None:
     assert csv_export.decode(csv_export.document(payload)) == payload
 
 
-def test_an_unrequested_size_and_density_stay_none(tmp_path: Path) -> None:
+def test_an_unrequested_extent_and_density_stay_none(tmp_path: Path) -> None:
     """ADR-0015 records the parameters *as asked for*, and "not asked" is a
-    real answer — an empty cell, decoded back to ``None`` rather than ``0``."""
-    payload = _payload(size=None, density=None)
+    real answer — an empty cell, decoded back to ``None`` rather than ``0``.
+
+    Both halves of ADR-0023's extent pair get the empty-cell treatment, not
+    just the one that used to be ``size``: a format that wrote ``height,0``
+    for an unrequested height would report a request that was never made.
+    """
+    payload = _payload(width=None, height=None, density=None)
 
     assert _section(csv_export.document(payload), csv_export.META)[3:] == [
-        ["size", ""],
+        ["width", ""],
+        ["height", ""],
         ["density", ""],
     ]
     assert csv_export.decode(csv_export.document(payload)) == payload
+
+
+def test_one_half_of_the_extent_pair_can_be_unrequested_on_its_own(
+    tmp_path: Path,
+) -> None:
+    """The two keys are independent, in the file as in the payload.
+
+    A decoder that read one and derived the other — from its partner or from
+    ``#grid`` — would turn "asked for 30 columns, said nothing about rows"
+    into a request nobody made (ADR-0023/R1).
+    """
+    payload = _payload(width=30, height=None)
+
+    assert _section(csv_export.document(payload), csv_export.META)[3:5] == [
+        ["width", "30"],
+        ["height", ""],
+    ]
+    decoded = csv_export.decode(csv_export.document(payload))
+    assert (decoded.width, decoded.height) == (30, None)
 
 
 def test_a_mode_containing_a_comma_is_quoted_and_survives() -> None:
@@ -364,17 +397,21 @@ def _broken(**replacement: str) -> str:
             id="repeated-section",
         ),
         pytest.param(
-            "#grid\n1\n#meta\nversion,1\nseed,1\nmode,r\nsize,\ndensity,\n"
+            "#grid\n1\n#meta\nversion,2\nseed,1\nmode,r\nwidth,\nheight,\ndensity,\n"
             "#row-clues\n1\n#column-clues\n1\n",
             "in that order",
             id="out-of-order-sections",
         ),
         pytest.param(_broken(**{"#meta\n": "#metadata\n"}), "unknown section", id="unknown-marker"),
         pytest.param(_broken(**{"#meta\n": "#meta,extra\n"}), "trailing cells", id="marker-with-cells"),
-        pytest.param("version,1\n" + csv_export.document(_payload()), "data before", id="leading-data"),
+        pytest.param("version,2\n" + csv_export.document(_payload()), "data before", id="leading-data"),
         pytest.param(_broken(**{"1,1,0,0\n": "\n"}), "blank row", id="blank-row"),
-        pytest.param(_broken(**{"version,1\n": "version,2\n"}), "unsupported CSV export version", id="future-version"),
+        pytest.param(_broken(**{"version,2\n": "version,3\n"}), "unsupported CSV export version", id="future-version"),
+        pytest.param(_broken(**{"version,2\n": "version,1\n"}), "unsupported CSV export version", id="superseded-version"),
         pytest.param(_broken(**{"seed,42\n": ""}), "missing key", id="missing-meta-key"),
+        pytest.param(_broken(**{"width,4\n": ""}), r"missing key\(s\) \['width'\]", id="missing-width"),
+        pytest.param(_broken(**{"height,4\n": ""}), r"missing key\(s\) \['height'\]", id="missing-height"),
+        pytest.param(_broken(**{"width,4\nheight,4\n": "size,4\n"}), "unknown key 'size'", id="version-1-style-meta"),
         pytest.param(_broken(**{"seed,42\n": "seed,42,43\n"}), "key,value row", id="three-cell-meta-row"),
         pytest.param(_broken(**{"seed,42\n": "nonce,42\n"}), "unknown key", id="unknown-meta-key"),
         pytest.param(_broken(**{"mode,random\n": "mode,random\nmode,other\n"}), "duplicate key", id="duplicate-meta-key"),
@@ -427,7 +464,7 @@ def test_the_decoder_rejects_column_clues_that_do_not_match_the_grid_width() -> 
     alongside a single column clue must not silently become
     ``column_clues=((1,),)`` for a 2-column puzzle."""
     text = (
-        "#meta\nversion,1\nseed,1\nmode,random\nsize,\ndensity,\n"
+        "#meta\nversion,2\nseed,1\nmode,random\nwidth,\nheight,\ndensity,\n"
         "#grid\n1,0\n0,1\n"
         "#row-clues\n1\n1\n"
         "#column-clues\n1\n"
@@ -440,7 +477,10 @@ def test_the_decoder_rejects_column_clues_that_do_not_match_the_grid_width() -> 
 def test_the_decoder_accepts_an_empty_grid_with_no_clues() -> None:
     """The empty-grid convention (``clues.compute_clues``: an empty grid
     yields two empty clue sets) is what the new check must not reject."""
-    text = "#meta\nversion,1\nseed,1\nmode,random\nsize,\ndensity,\n#grid\n#row-clues\n#column-clues\n"
+    text = (
+        "#meta\nversion,2\nseed,1\nmode,random\nwidth,\nheight,\ndensity,\n"
+        "#grid\n#row-clues\n#column-clues\n"
+    )
 
     payload = csv_export.decode(text)
 
@@ -480,3 +520,39 @@ def test_a_file_written_with_windows_line_endings_still_decodes() -> None:
 def test_the_decoder_rejects_an_empty_file() -> None:
     with pytest.raises(ValueError, match="in that order"):
         csv_export.decode("")
+
+
+# --------------------------------------------------------------------------
+# ADR-0023/R2 — TestExport_RejectsSupersededSchemaVersion (the CSV instance)
+# --------------------------------------------------------------------------
+
+
+def test_a_version_1_file_is_refused_and_not_migrated(tmp_path: Path) -> None:
+    """A whole, well-formed version-1 export, refused on sight (guardrail G-3).
+
+    Written out as the file this tool actually shipped before ADR-0023 rather
+    than as the current example with its version cell edited: the point is
+    that the *old key set* is not a shape this build knows how to read, and a
+    fixture derived from the new layout could not show that. There is no
+    compatibility read path and no upgrade shim — a build that migrated an old
+    file would be guessing at which dimension the scalar meant.
+
+    The error names both versions, which for a user holding an old file is the
+    whole diagnosis: what they have, and what this build reads.
+    """
+    version_1 = (
+        "#meta\nversion,1\nseed,42\nmode,random\nsize,2\ndensity,50\n"
+        "#grid\n1,1\n1,0\n"
+        "#row-clues\n2\n1\n"
+        "#column-clues\n2\n1\n"
+    )
+    path = tmp_path / "old.csv"
+    path.write_text(version_1, encoding="utf-8")
+
+    with pytest.raises(ValueError) as excinfo:
+        csv_export.read(path)
+
+    message = str(excinfo.value)
+    assert "unsupported CSV export version 1" in message
+    assert f"version {csv_export.SCHEMA_VERSION}" in message
+    assert csv_export.SCHEMA_VERSION == 2, "ADR-0023 bumped the CSV schema to 2"
