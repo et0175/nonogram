@@ -9,33 +9,68 @@ export — is reused unchanged.
 
 The pipeline, in one line
 -------------------------
-``open -> flatten transparency onto white -> greyscale -> crop to square ->
-resize to size x size -> Floyd-Steinberg dither -> ink is a filled cell``.
+``open -> flatten transparency onto white -> greyscale -> crop to the requested
+grid's aspect ratio -> resize to width x height -> Floyd-Steinberg dither ->
+ink is a filled cell``.
 
-Aspect-ratio policy: **centre-crop, then resize** (AC-009)
-----------------------------------------------------------
-AC-009 only demands that the output be exactly ``size`` x ``size`` whatever the
-source's proportions are; *how* to get there is a choice, and this module makes
-one deliberately. A non-square source is centre-cropped to its largest centred
-square (:func:`square_crop_box`) and that square is resized to the grid. The
-two rejected alternatives, and why:
+Aspect-ratio policy: **centre-crop to the grid's ratio, then resize**
+---------------------------------------------------------------------
+The grid drives the picture, not the reverse (ADR-0022). The user asks for a
+grid of ``width`` x ``height`` cells; the source is fitted to *that* shape by
+taking its largest centred sub-rectangle whose aspect ratio is ``width /
+height`` (:func:`fit_crop_box`) and resizing that rectangle to the grid
+(AC-059, AC-071..AC-074, FR-020). The square crop this module used to take is
+now simply the ``width == height`` case of the same function — the policy below
+is generalized, not replaced.
 
-* **Stretch** (resize the whole image straight to ``size`` x ``size``) keeps
+*How* to reach the requested dimensions is a choice, and this module makes one
+deliberately. The two rejected alternatives, and why:
+
+* **Stretch** (resize the whole image straight to ``width`` x ``height``) keeps
   every pixel but distorts the subject: a circle becomes an ellipse, a face is
   squashed or drawn out. A nonogram's entire payoff is that the solved grid is
   a *recognisable* picture, and at 10..30 cells there is no resolution to spare
-  for the viewer to mentally un-stretch it.
-* **Letterbox** (pad the short axis to square with white) keeps proportions but
-  spends the scarcest resource there is on nothing: a 16:9 photo letterboxed
-  into a 25x25 grid burns ~7 of its 25 rows on blank paper, which is both a
-  worse picture and a worse puzzle (a wholly empty row is a ``0`` clue and a
-  free line for the solver).
+  for the viewer to mentally un-stretch it. ADR-0022/R3 forbids it outright.
+* **Letterbox** (pad the short axis with white until the source matches the
+  grid's ratio) keeps proportions but spends the scarcest resource there is on
+  nothing: a 16:9 picture letterboxed into a 25x25 grid fits into 14 rows
+  (``25 * 9 / 16``) and burns the remaining 11 on blank paper — 44% of the
+  grid, and the retained fraction the refusal rule below computes for that same
+  pairing is 0.563, so cropping keeps more than half the *picture* where
+  letterboxing spends nearly half the *puzzle*. Both a worse picture and a
+  worse puzzle (a wholly empty
+  row is a ``0`` clue and a free line for the solver). The argument only gets
+  stronger now that the grid can be rectangular: a user who wants their portrait
+  silhouette whole no longer has to pad it into a square, they can ask for a
+  portrait grid, so padding would be spending rows to avoid a shape the tool now
+  supports directly.
 
 Cropping loses the ends of the long axis, which is the honest cost of the
-choice and is why it is centred rather than anchored: the subject of a
-photograph is near the middle far more often than at an edge. A user who wants
-the whole frame crops or pads it themselves before passing it in — that is a
-picture-editing decision, and this tool is a puzzle generator.
+choice and is why it is centred rather than anchored: the subject of a picture
+is near the middle far more often than at an edge.
+
+The refusal rule: never discard more than half the picture (FR-021)
+--------------------------------------------------------------------
+A centred crop to a target ratio retains exactly
+``min(r_src, r_tgt) / max(r_src, r_tgt)`` of the source, where ``r = width /
+height`` — the cropped axis is scaled by that factor and the other axis is kept
+whole. So "the crop would discard more than half the user's picture" is exactly
+"the two ratios differ by more than 2x", and that is what
+:func:`validate_aspect_ratio` refuses, with a message telling the user to crop
+the picture themselves first (AC-075..AC-079, CON-012, ADR-0022/R3). The
+boundary is **inclusive**: a square source into a 30x15 grid retains exactly
+half and is accepted. The check is a pure predicate on four integers, decided by
+integer cross-multiplication rather than float division, and it runs before the
+file's pixels are ever decoded — a refused request pays for a header read and
+nothing else.
+
+Scope: silhouettes, not photographs (CON-013)
+----------------------------------------------
+This module targets high-contrast black-and-white silhouettes. The dither
+tuning, the crop policy and the uniqueness/nudge budget are all calibrated for
+them. Photographic input is **out of scope** rather than
+unsupported-with-a-warning: it will convert, and nothing will complain, but
+nothing here is aiming at it and no acceptance criterion covers it.
 
 Why Pillow does the dithering
 -----------------------------
@@ -82,18 +117,20 @@ from os import PathLike
 import numpy
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from nonogram.errors import UnreadableImage
+from nonogram.errors import ImageNeedsManualCrop, UnreadableImage
 from nonogram.sourcing import random_grid
 
 __all__ = [
     "RESAMPLING",
     "binarize",
+    "fit_crop_box",
     "generate",
     "load_greyscale",
     "nudge",
     "nudge_cells",
-    "square_crop_box",
+    "probe_extent",
     "to_grid",
+    "validate_aspect_ratio",
 ]
 
 #: The resampling filter the crop is scaled down with. Lanczos over
@@ -180,51 +217,263 @@ def _flattened(image: Image.Image) -> Image.Image:
     return Image.alpha_composite(paper, image.convert("RGBA")).convert("L")
 
 
-def square_crop_box(width: int, height: int) -> tuple[int, int, int, int]:
-    """The largest centred square inside a ``width`` x ``height`` image.
+#: EXIF's ``Orientation`` tag, and the four of its eight values that exchange
+#: the two axes (transpose, rotate 90, transverse, rotate 270). ``ImageOps.
+#: exif_transpose`` acts on the same four and ignores anything outside 2..8, so
+#: :func:`probe_extent` and :func:`load_greyscale` agree on what "the picture's
+#: width" means — a phone photo stored on its side is measured, and cropped,
+#: along the axis the user actually sees.
+_ORIENTATION_TAG = 0x0112
+_AXIS_SWAPPING_ORIENTATIONS = frozenset({5, 6, 7, 8})
+
+
+def probe_extent(source: str | PathLike[str]) -> tuple[int, int]:
+    """The source's ``(width, height)`` in pixels, without decoding it.
+
+    Exists for guardrail G-4: :func:`validate_aspect_ratio` needs the source's
+    shape, and nothing else, to decide whether the request is refused — so a
+    refused request must not pay for a decode. ``Image.open`` is lazy and reads
+    the header only, which carries both the extent and the EXIF orientation, so
+    the guard's four integers are available for the price of a header parse.
+
+    The extent returned is the *displayed* one: the axes are exchanged for the
+    four orientations that rotate the picture a quarter turn, which is exactly
+    what :func:`load_greyscale`'s ``exif_transpose`` will do to the pixels a
+    moment later. Measuring the stored raster instead would judge a portrait
+    phone photo as landscape and refuse — or badly crop — the very input this
+    feature is for.
+
+    Args:
+        source: Path to the user's image file, as given.
+
+    Returns:
+        ``(width, height)`` in pixels, as the user sees the picture.
+
+    Raises:
+        UnreadableImage: the same failures :func:`load_greyscale` reports, from
+            the same guard — a file whose header cannot even be parsed is an
+            unreadable image (AC-008) and is reported as one *before* the aspect
+            ratio is considered, since its shape is not known at all.
+    """
+    try:
+        with Image.open(source) as opened:
+            width, height = opened.size
+            orientation = _header_orientation(opened)
+    except _UNREADABLE as error:
+        raise UnreadableImage(
+            f"cannot read image {str(source)!r}: {error}"
+        ) from error
+    if orientation in _AXIS_SWAPPING_ORIENTATIONS:
+        return (height, width)
+    return (width, height)
+
+
+def _header_orientation(opened: Image.Image) -> int | None:
+    """``opened``'s EXIF orientation, read from the header alone.
+
+    Pointedly **not** ``opened.getexif()``: for PNG that call decodes the whole
+    file (Pillow looks for an ``eXIf`` chunk and falls back to ``load()`` when
+    there is none), which is the one thing :func:`probe_extent` exists to avoid.
+    ``Image.open`` puts the raw EXIF block in ``info`` for the formats that
+    carry one in their header — JPEG above all, which is what a phone produces
+    and therefore what orientation handling is for — so parsing that block is
+    both cheap and enough.
+
+    A file whose EXIF sits somewhere ``open`` does not reach reports no
+    orientation here while ``exif_transpose`` would still find it. That is a
+    deliberate, declared gap: it costs a crop along the stored axis instead of
+    the displayed one for a hypothetical PNG with a trailing ``eXIf`` chunk, and
+    the alternative costs a full decode on every conversion of every PNG.
+    """
+    raw = opened.info.get("exif")
+    if not raw:
+        return None
+    exif = Image.Exif()
+    exif.load(raw)
+    return exif.get(_ORIENTATION_TAG)
+
+
+def _checked_extents(
+    source_width: int, source_height: int, target_width: int, target_height: int
+) -> None:
+    """Reject the two degenerate extents both public geometry functions share.
+
+    A zero-pixel *source* axis is the user's file being unusable — Pillow can
+    hold a 0-width image, there is nothing to convert, and the reason is the
+    file — so it is reported as the same input error as an undecodable one
+    rather than as an arithmetic accident downstream.
+
+    A zero-or-negative *target* axis is a different animal: grid extents come
+    from :func:`~nonogram.sourcing.random_grid.validate_size` and are 10..30 by
+    the time anything here sees them (CON-011), so a target of ``0`` is a wiring
+    bug in the caller, not a domain outcome. It gets ``ValueError``, the same
+    way :func:`nudge` treats a zeroth nudge attempt.
+    """
+    if source_width <= 0 or source_height <= 0:
+        raise UnreadableImage(
+            "image has no pixels to convert "
+            f"(its size is {source_width}x{source_height})"
+        )
+    if target_width <= 0 or target_height <= 0:
+        raise ValueError(
+            "grid extents are at least 1 cell a side, got "
+            f"{target_width}x{target_height}"
+        )
+
+
+def fit_crop_box(
+    source_width: int, source_height: int, target_width: int, target_height: int
+) -> tuple[int, int, int, int]:
+    """The largest centred crop of the source having the *grid's* aspect ratio.
 
     The aspect-ratio policy, on its own so it can be reasoned about (and
     tested) without an image in the way — see the module docstring for why
-    cropping rather than stretching or padding.
+    cropping rather than stretching or padding, and FR-020/EC-006 for the
+    property this is the implementation of.
+
+    Exactly one axis is cropped: whichever of the two is longer *relative to the
+    grid*. The other is kept whole, which is what makes this the largest such
+    rectangle — the box touches both source edges on that axis, so it cannot be
+    grown without leaving the source. ``target_width == target_height``
+    reproduces the largest centred square this function used to return under its
+    old name ``square_crop_box`` (AC-072).
+
+    All the arithmetic is integer. The ideal crop extent
+    (``source_height * target_width / target_height`` on the cropped axis, or
+    its transpose) is generally not a whole number of pixels, so it is floored:
+    the box is the largest *integer* rectangle that does not exceed the target
+    ratio on the cropped axis. Python's integers are arbitrary-precision, so
+    there is nothing here for an overflow to happen to at any image size Pillow
+    can decode.
 
     Args:
-        width: Source width in pixels.
-        height: Source height in pixels.
+        source_width: Source width in pixels.
+        source_height: Source height in pixels.
+        target_width: Requested grid width in cells.
+        target_height: Requested grid height in cells.
 
     Returns:
-        A Pillow crop box ``(left, upper, right, lower)`` whose width and height
-        are both ``min(width, height)``. An odd leftover pixel goes to the
-        *far* side, because integer division floors the near offset; that is a
-        half-pixel bias on one axis of a source that is about to be resized to
-        at most 30 cells, and pinning it explicitly is worth more than
-        pretending it can be avoided.
+        A Pillow crop box ``(left, upper, right, lower)`` lying entirely inside
+        the source, touching both source edges on at least one axis. An odd
+        leftover pixel on the cropped axis goes to the *far* side, because
+        integer division floors the near offset; the two discarded margins
+        therefore differ by at most one pixel (AC-073). That is a half-pixel
+        bias on one axis of a source about to be resized to at most 30 cells,
+        and pinning it explicitly is worth more than pretending it can be
+        avoided.
+
+        Both returned extents are at least 1 pixel. The floor above can reach
+        ``0`` only on a source with an axis of one or two pixels; clamping keeps
+        the box usable as a ``resize`` argument, at the cost of a crop whose
+        ratio is then not the grid's. Nothing else in the module can produce
+        that case: :func:`validate_aspect_ratio` refuses every request where the
+        two ratios differ by more than 2x, and inside that band a floor to zero
+        needs a source axis in ``{1, 2}``.
 
     Raises:
-        UnreadableImage: the image has no pixels on one of its axes. Pillow can
-            hold a 0-width image; there is nothing to convert and the user's
-            file is the reason, so it is reported as the same input error as an
-            undecodable one rather than as an arithmetic accident downstream.
+        UnreadableImage: the source has no pixels on one of its axes.
+        ValueError: a target extent is zero or negative — a caller bug, see
+            :func:`_checked_extents`.
     """
-    if width <= 0 or height <= 0:
-        raise UnreadableImage(
-            f"image has no pixels to convert (its size is {width}x{height})"
-        )
-    edge = min(width, height)
-    left = (width - edge) // 2
-    upper = (height - edge) // 2
-    return (left, upper, left + edge, upper + edge)
+    _checked_extents(source_width, source_height, target_width, target_height)
+    if source_width * target_height >= source_height * target_width:
+        # The source is wider than the grid (or exactly as wide): height is kept
+        # whole and width is cropped down to the grid's ratio.
+        crop_height = source_height
+        crop_width = max(1, source_height * target_width // target_height)
+    else:
+        crop_width = source_width
+        crop_height = max(1, source_width * target_height // target_width)
+    left = (source_width - crop_width) // 2
+    upper = (source_height - crop_height) // 2
+    return (left, upper, left + crop_width, upper + crop_height)
 
 
-def binarize(greyscale: Image.Image, size: int) -> Image.Image:
-    """Crop, resize to ``size`` x ``size`` and Floyd-Steinberg dither.
+def _retained(
+    source_width: int, source_height: int, target_width: int, target_height: int
+) -> tuple[int, int]:
+    """``(kept, whole)`` — the retained fraction of the source, as a ratio.
+
+    ``min(r_src, r_tgt) / max(r_src, r_tgt)`` with ``r = width / height``,
+    rearranged into two integers by cross-multiplication so that the comparison
+    the guard makes on it is exact at every input. Dividing the two ratios as
+    floats and comparing against ``0.5`` gets the inclusive boundary wrong for
+    inputs where the quotient is representable only approximately, which is the
+    whole reason AC-075 exists (guardrail G-5).
+    """
+    source_over_target = source_width * target_height
+    target_over_source = source_height * target_width
+    return (
+        min(source_over_target, target_over_source),
+        max(source_over_target, target_over_source),
+    )
+
+
+def validate_aspect_ratio(
+    source_width: int, source_height: int, target_width: int, target_height: int
+) -> None:
+    """Refuse a request whose crop would discard more than half the source.
+
+    FR-021/CON-012/ADR-0022/R3, as a pure predicate over the same four integers
+    :func:`fit_crop_box` takes — which is what lets it run before the picture's
+    pixels are decoded, let alone dithered or solved (EC-007). The centred crop
+    keeps exactly ``min(r_src, r_tgt) / max(r_src, r_tgt)`` of the source, so
+    "would discard more than half" is precisely "the ratios differ by more than
+    2x".
+
+    The boundary is **inclusive**: retaining exactly half — a square source into
+    a 30x15 grid, say — is accepted (AC-075). The comparison is therefore
+    ``2 * kept >= whole`` on the two integers :func:`_retained` returns, never a
+    float division against ``0.5``.
+
+    Args:
+        source_width: Source width in pixels.
+        source_height: Source height in pixels.
+        target_width: Requested grid width in cells.
+        target_height: Requested grid height in cells.
+
+    Raises:
+        ImageNeedsManualCrop: the ratios differ by more than 2x. The message
+            names both extents, says what fraction of the picture would survive,
+            and tells the user to crop it themselves before retrying (AC-077).
+            The percentage in it is a float only in the *rendering* — the
+            decision above never is.
+        UnreadableImage: the source has no pixels on one of its axes.
+        ValueError: a target extent is zero or negative.
+    """
+    _checked_extents(source_width, source_height, target_width, target_height)
+    kept, whole = _retained(
+        source_width, source_height, target_width, target_height
+    )
+    if 2 * kept >= whole:
+        return
+    raise ImageNeedsManualCrop(
+        f"a {source_width}x{source_height} picture is too differently shaped "
+        f"from a {target_width}x{target_height} grid: fitting it would keep "
+        f"only {100 * kept / whole:.0f}% of the picture. Crop the picture "
+        "yourself to roughly the grid's proportions first, or ask for a grid "
+        "shaped more like the picture."
+    )
+
+
+def binarize(
+    greyscale: Image.Image, target_width: int, target_height: int
+) -> Image.Image:
+    """Crop to the grid's ratio, resize to ``target_width`` x ``target_height``
+    and Floyd-Steinberg dither.
 
     Args:
         greyscale: The source in mode ``"L"``, at its original dimensions.
-        size: The target square edge length. Assumed validated —
-            :func:`generate` validates before calling.
+        target_width: Requested grid width in cells.
+        target_height: Requested grid height in cells.
 
     Returns:
-        A ``size`` x ``size`` image in Pillow's bilevel ``"1"`` mode.
+        A ``target_width`` x ``target_height`` image in Pillow's bilevel ``"1"``
+        mode — note Pillow's ``(width, height)`` order, which is the transpose
+        of the row-major grid :func:`to_grid` builds from it.
+
+    The extents are assumed already validated, exactly as ``size`` was before
+    them: :func:`generate` checks the range and the aspect ratio before calling.
 
     The crop and the resize are one call: ``resize`` takes the source rectangle
     as its ``box`` argument, so the intermediate cropped image is never
@@ -232,9 +481,9 @@ def binarize(greyscale: Image.Image, size: int) -> Image.Image:
     rather than a re-quantised copy of it.
     """
     scaled = greyscale.resize(
-        (size, size),
+        (target_width, target_height),
         resample=RESAMPLING,
-        box=square_crop_box(*greyscale.size),
+        box=fit_crop_box(*greyscale.size, target_width, target_height),
     )
     # Pillow's default dither for a 1-bit target *is* Floyd-Steinberg; naming it
     # anyway, because "the default" is not what the card asked for.
@@ -291,25 +540,38 @@ def generate(
     Returns:
         A row-major ``list[list[bool]]`` of ``size`` rows of ``size`` cells,
         ``True`` for filled (ADR-0012) — exactly the requested dimensions
-        whatever the source's aspect ratio was (AC-009).
+        whenever the source's aspect ratio is inside FR-021's accepted band
+        (AC-059).
 
     Raises:
         UnreadableImage: ``source`` is ``None``, missing, unreadable or not a
             decodable image (AC-008). Pillow's own exception never reaches the
             caller.
         SizeOutOfRange: ``size`` is outside the supported range.
+        ImageNeedsManualCrop: the source's aspect ratio differs from the grid's
+            by more than 2x, so fitting it would throw away more than half the
+            picture (AC-076, FR-021).
 
-    Validation runs before the file is opened, so a request that was invalid
-    anyway does not also pay for a decode — the same "reject before you work"
-    contract the other two sources keep.
+    The three checks run in the order the user can act on them, and each runs
+    before the work it would have paid for: the size range before the file is
+    touched at all, the aspect ratio after a header read and before the decode,
+    the decode before the conversion. So an invalid request never pays for a
+    decode and a refused one never pays for a dither — the "reject before you
+    work" contract the other two sources keep (guardrail G-4, EC-007).
+
+    This card deliberately still takes a scalar ``size`` and passes ``(size,
+    size)`` to both new functions, which are already general. CARD-027 replaces
+    these two call sites with the request's ``(width, height)`` pair (FR-018,
+    ADR-0022/R1) and changes nothing else here.
     """
     if source is None:
         raise UnreadableImage(
             "image mode needs an --image PATH pointing at the picture to convert"
         )
     size = random_grid.validate_size(size)
+    validate_aspect_ratio(*probe_extent(source), size, size)
     greyscale = load_greyscale(source)
-    return to_grid(binarize(greyscale, size))
+    return to_grid(binarize(greyscale, size, size))
 
 
 #: How far apart two cells flipped by the same nudge must be, as a Chebyshev

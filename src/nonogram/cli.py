@@ -35,6 +35,7 @@ from nonogram import difficulty, export, orchestrator, web
 from nonogram.errors import (
     ExportRejected,
     GenerationAbandoned,
+    ImageNeedsManualCrop,
     InvalidDensity,
     InvalidPuzzleName,
     NonogramError,
@@ -80,6 +81,14 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     # ``--image`` and writing ``--out`` are opposite ends of the run, and the
     # difference is exactly what the user has to go and fix (AC-008).
     UnreadableImage: ExitCode.INVALID_INPUT,
+    # Read fine, wrong shape (FR-021). A case of its own because the MRO walk
+    # below reaches nothing else: ``ImageNeedsManualCrop`` deliberately does not
+    # subclass ``UnreadableImage`` (the file is not the problem), so without
+    # this row it would fall through to INTERNAL_ERROR. It is a bad *input* like
+    # every other entry in this group — the user goes and changes what they
+    # passed in, here by cropping the picture or asking for a differently
+    # shaped grid.
+    ImageNeedsManualCrop: ExitCode.INVALID_INPUT,
     InvalidPuzzleName: ExitCode.INVALID_INPUT,
     UnsupportedDifficulty: ExitCode.INVALID_INPUT,
     GenerationAbandoned: ExitCode.GENERATION_FAILED,

@@ -53,6 +53,20 @@ class UnreadableImage(NonogramError):
     """
 
 
+class ImageNeedsManualCrop(NonogramError):
+    """The uploaded image is too differently shaped from the grid (FR-021).
+
+    Named for what the user has to do about it rather than for where it was
+    raised: fitting this picture to this grid would centre-crop away more than
+    half of it, so the tool refuses and asks the user to crop it themselves
+    first (CON-012, ADR-0022/R3, AC-077). Deliberately *not* a subclass of
+    ``UnreadableImage`` — the file read perfectly, and telling the user their
+    picture is unreadable when it is merely the wrong shape sends them to fix
+    the wrong thing. It is still an *input* error, and the CLI's exit-code table
+    puts it in the same group.
+    """
+
+
 class GenerationAbandoned(NonogramError):
     """A bounded generation loop hit its retry cap without a usable puzzle.
 

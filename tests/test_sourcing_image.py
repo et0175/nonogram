@@ -4,10 +4,36 @@ Acceptance criteria, by the card's test names:
 
     AC-007  TestConvertImage_ProducesDitheredGrid        -> test_convert_image_produces_a_dithered_grid*
     AC-008  TestConvertImage_RejectsUnreadableFile       -> test_convert_image_rejects_an_unreadable_file*
-    AC-009  TestConvertImage_ProducesExactTargetDimensions
-                                                         -> test_convert_image_produces_exact_target_dimensions*
+    AC-059  TestConvertImage_ProducesExactTargetDimensionsWithinAcceptedRatioBand
+                                                         -> test_convert_image_produces_exact_target_dimensions_within_the_accepted_ratio_band
+    AC-071  TestFitImage_CropsToRequestedAspectRatio     -> test_fit_image_crops_to_the_requested_aspect_ratio
+    AC-072  TestFitImage_SquareGridReproducesSquareCropBox
+                                                         -> test_fit_image_square_grid_reproduces_the_square_crop_box
+    AC-073  TestFitImage_CropIsCentredOnBothAxes         -> test_fit_image_crop_is_centred_on_both_axes
+    AC-074  TestFitImage_ProducesExactDimensionsWithoutLetterbox
+                                                         -> test_fit_image_produces_exact_dimensions_without_letterbox
+    AC-075  TestAspectGuard_AcceptsExactlyTwoFoldRatioDifference
+                                                         -> test_aspect_guard_accepts_exactly_a_two_fold_ratio_difference
+    AC-076  TestAspectGuard_RefusesRatioDifferenceAboveTwoFold
+                                                         -> test_aspect_guard_refuses_a_ratio_difference_above_two_fold
+    AC-077  TestAspectGuard_RefusalMessageSuggestsManualCrop
+                                                         -> test_aspect_guard_refusal_message_suggests_a_manual_crop
+    AC-078  TestAspectGuard_ThresholdIsSymmetricInSourceAndTarget
+                                                         -> test_aspect_guard_threshold_is_symmetric_in_source_and_target
+    AC-079  TestAspectGuard_AcceptsWellMatchedPortraitSource
+                                                         -> test_aspect_guard_accepts_a_well_matched_portrait_source
 
-Fixtures live in ``tests/fixtures/`` and are deliberately tiny (under 100 bytes
+    ADR-0022/R3  TestFitImage_RefusesRatioMismatchBeyondTwice
+                                                         -> test_fit_image_refuses_a_ratio_mismatch_beyond_twice
+
+AC-009 is **superseded** by AC-059 (FR-021). Its unqualified "a source image
+whose aspect ratio differs from the target grid ... the output grid has exactly
+the requested target dimensions" became false the moment a >2x difference became
+a refusal, so it now asserts a converted grid for inputs the tool must reject.
+Its test name ``TestConvertImage_ProducesExactTargetDimensions`` is deliberately
+not reused.
+
+Fixtures live in ``tests/fixtures/`` and are deliberately tiny (under 200 bytes
 each). Their content is chosen so that the assertions below can *distinguish*
 implementations rather than merely observe one:
 
@@ -15,20 +41,37 @@ implementations rather than merely observe one:
                  The mid band is the dithering witness: a plain 50% threshold
                  renders a flat 128 region as one solid colour, error diffusion
                  renders it as a mixed, roughly half-filled texture.
+``landscape.png``  60x40 (3:2), vertical bands — a black sixth, white with a
+                 16x16 black core, a black sixth. Against a square grid the
+                 centred crop is the middle 40x40, which is *exactly* the two
+                 black bands discarded: the grid's first and last columns come
+                 out **empty**, whereas a stretch would put the black bands in
+                 them. One assertion therefore tells the two policies apart.
+                 3:2 against 1:1 keeps 67% of the picture, comfortably inside
+                 FR-021's accepted band.
+``portrait.png`` the transpose of ``landscape.png``, so the crop is pinned on
+                 both axes rather than only on the one that happened to be
+                 tested.
 ``wide.png``     60x20, vertical thirds — black, white with a small black core,
-                 black. Centre-cropping keeps only the middle third, so the
-                 outer edges of the grid come out **empty**; a stretch would put
-                 the black thirds in the grid's first and last columns. One
-                 assertion therefore tells the two policies apart.
-``tall.png``     the transpose of ``wide.png``, so the crop is pinned on both
-                 axes rather than only on the one that happened to be tested.
+                 black. At 3:1 against a square grid it keeps only 33% of the
+                 picture, so since CARD-026 it is not a crop fixture at all: it
+                 is the natural **refusal** witness for FR-021, and the
+                 conversion tests that used to run against it moved to
+                 ``landscape.png``.
+``tall.png``     the transpose of ``wide.png``.
 ``corrupt.png``  a real PNG signature followed by garbage — a file that claims
                  to be a picture and is not.
 
 Images that are exotic rather than representative (a flat mid-grey field, an
 RGBA image with a transparent hole) are built in ``tmp_path`` instead: they
 exist to pin one behaviour each, and a repo fixture should be something a
-reader of the test tree can open and recognise.
+reader of the test tree can open and recognise. The three sources AC-071..AC-079
+name by pixel extent — 563x980, 600x600, 980x563 — are built the same way, by
+the ``silhouette`` factory below: nothing about their *content* matters, only
+their dimensions, and writing those dimensions in the test that depends on them
+beats storing three more files whose sizes a reader would have to go and check.
+``pictures/eagle-silhouette1.jpg`` is 563x980 and is the increment's worked
+example; it is not in the test tree and these criteria do not need it to be.
 """
 
 from __future__ import annotations
@@ -39,11 +82,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageDraw, UnidentifiedImageError
 
 from nonogram import cli, orchestrator, sourcing
 from nonogram.errors import (
     GenerationAbandoned,
+    ImageNeedsManualCrop,
     NonogramError,
     SizeOutOfRange,
     UnreadableImage,
@@ -53,6 +97,8 @@ from nonogram.sourcing import image, library, random_grid
 FIXTURES = Path(__file__).parent / "fixtures"
 
 BANDS = FIXTURES / "bands.png"
+LANDSCAPE = FIXTURES / "landscape.png"
+PORTRAIT = FIXTURES / "portrait.png"
 WIDE = FIXTURES / "wide.png"
 TALL = FIXTURES / "tall.png"
 CORRUPT = FIXTURES / "corrupt.png"
@@ -80,9 +126,98 @@ def _flat(value: int, tmp_path: Path, name: str = "flat.png", size: int = 64) ->
     return path
 
 
+@pytest.fixture(scope="session")
+def silhouette(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Callable[[int, int], Path]:
+    """A factory for a high-contrast silhouette of an exact pixel extent.
+
+    AC-071..AC-079 are stated over three sources named only by their dimensions
+    (563x980, 600x600, 980x563 — the shapes of this project's own pictures).
+    What they contain is irrelevant to every one of those criteria, so they are
+    built rather than stored, with the dimensions written where the criterion
+    that needs them is. Session-scoped and memoised: the largest is half a
+    megapixel and several tests want the same one.
+
+    The content is a centred black ellipse on white — a silhouette, which is
+    what image mode is for (CON-013) — inset far enough that a crop of either
+    orientation still contains ink to observe.
+    """
+    directory = tmp_path_factory.mktemp("silhouettes")
+    built: dict[tuple[int, int], Path] = {}
+
+    def build(width: int, height: int) -> Path:
+        if (width, height) not in built:
+            path = directory / f"silhouette-{width}x{height}.png"
+            picture = Image.new("L", (width, height), 255)
+            inset_x, inset_y = width // 4, height // 4
+            ImageDraw.Draw(picture).ellipse(
+                (inset_x, inset_y, width - inset_x, height - inset_y), fill=0
+            )
+            picture.save(path)
+            built[(width, height)] = path
+        return built[(width, height)]
+
+    return build
+
+
+@pytest.fixture(scope="session")
+def solid_black(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Callable[[int, int], Path]:
+    """A factory for a wholly black image of an exact pixel extent.
+
+    The letterbox witness: nothing in it is white, so *any* padding the
+    conversion added would show up as an empty cell in the grid.
+    """
+    directory = tmp_path_factory.mktemp("solids")
+
+    def build(width: int, height: int) -> Path:
+        path = directory / f"solid-{width}x{height}.png"
+        if not path.exists():
+            Image.new("L", (width, height), 0).save(path)
+        return path
+
+    return build
+
+
+def _convert(source: Path, target_width: int, target_height: int) -> list[list[bool]]:
+    """The image pipeline at an arbitrary grid extent — guard, then convert.
+
+    Deliberately *not* ``image.generate``: guardrail G-2 keeps ``generate``'s
+    scalar ``size`` signature in this card, so a rectangular request has no
+    caller yet. These four lines are exactly the body CARD-027 will wire the
+    request's ``(width, height)`` pair into (FR-018), which is what makes the
+    criteria below testable at a rectangular target today.
+    """
+    image.validate_aspect_ratio(
+        *image.probe_extent(source), target_width, target_height
+    )
+    return image.to_grid(
+        image.binarize(image.load_greyscale(source), target_width, target_height)
+    )
+
+
 # --------------------------------------------------------------------------
 # The fixtures themselves — guard the guard (see the module docstring)
 # --------------------------------------------------------------------------
+
+
+def test_the_two_crop_fixtures_are_inside_the_accepted_ratio_band() -> None:
+    """The premise the conversion tests below rest on, made explicit.
+
+    ``landscape.png`` and ``portrait.png`` exist *because* ``wide.png`` and
+    ``tall.png`` stopped being convertible at a square grid: 3:1 against 1:1
+    keeps a third of the picture and FR-021 refuses it. The replacement pair had
+    to be shaped mildly enough to be accepted and extremely enough that the crop
+    is still observable, and this asserts both halves at the size the
+    conversion tests actually use.
+    """
+    for accepted in (LANDSCAPE, PORTRAIT):
+        image.validate_aspect_ratio(*image.probe_extent(accepted), 20, 20)
+    for refused in (WIDE, TALL):
+        with pytest.raises(ImageNeedsManualCrop):
+            image.validate_aspect_ratio(*image.probe_extent(refused), 20, 20)
 
 
 def test_the_fixture_images_are_present_and_shaped_as_documented() -> None:
@@ -90,6 +225,10 @@ def test_the_fixture_images_are_present_and_shaped_as_documented() -> None:
     regenerated at another size would weaken the tests without failing them."""
     with Image.open(BANDS) as bands:
         assert bands.size == (32, 32)
+    with Image.open(LANDSCAPE) as landscape:
+        assert landscape.size == (60, 40)
+    with Image.open(PORTRAIT) as portrait:
+        assert portrait.size == (40, 60)
     with Image.open(WIDE) as wide:
         assert wide.size == (60, 20)
     with Image.open(TALL) as tall:
@@ -99,7 +238,7 @@ def test_the_fixture_images_are_present_and_shaped_as_documented() -> None:
 
 def test_the_fixture_images_stay_tiny() -> None:
     """They live in the repo (card step 5), so their size is part of the deal."""
-    for fixture in (BANDS, WIDE, TALL, CORRUPT):
+    for fixture in (BANDS, LANDSCAPE, PORTRAIT, WIDE, TALL, CORRUPT):
         assert fixture.stat().st_size < 1024
 
 
@@ -194,9 +333,9 @@ def test_transparent_areas_are_paper_and_not_ink(tmp_path: Path) -> None:
 
 
 def test_the_conversion_is_reproducible_for_the_same_file_and_size() -> None:
-    grid = image.generate(WIDE, 20, _rng())
+    grid = image.generate(LANDSCAPE, 20, _rng())
 
-    assert image.generate(WIDE, 20, _rng()) == grid
+    assert image.generate(LANDSCAPE, 20, _rng()) == grid
 
 
 def test_the_conversion_never_draws_from_the_run_rng() -> None:
@@ -313,31 +452,51 @@ def test_the_supported_size_range_is_the_same_as_every_other_mode(
 
 
 # --------------------------------------------------------------------------
-# AC-009 (boundary) — TestConvertImage_ProducesExactTargetDimensions
+# AC-059 (boundary) —
+# TestConvertImage_ProducesExactTargetDimensionsWithinAcceptedRatioBand
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("source", [WIDE, TALL, BANDS])
+def test_convert_image_produces_exact_target_dimensions_within_the_accepted_ratio_band(
+    silhouette: Callable[[int, int], Path],
+) -> None:
+    """AC-059 verbatim, on the criterion's own numbers.
+
+    A 563x980 portrait source (ratio 0.574) into a 15x30 grid (ratio 0.500):
+    the ratios differ by 1.15x, inside FR-021's accepted 2x band, and the output
+    grid has exactly 15 columns and 30 rows.
+
+    Replaces AC-009, whose unqualified "differs from the target grid" now covers
+    inputs the tool refuses — see the module docstring.
+    """
+    grid = _convert(silhouette(563, 980), 15, 30)
+
+    assert _shape(grid) == (30, {15})
+
+
+@pytest.mark.parametrize("source", [LANDSCAPE, PORTRAIT, BANDS])
 @pytest.mark.parametrize("size", [10, 17, 25, 30])
-def test_convert_image_produces_exact_target_dimensions(
+def test_convert_image_produces_exact_square_dimensions_for_every_accepted_source(
     source: Path, size: int
 ) -> None:
-    """AC-009 verbatim: whatever the source's aspect ratio, the grid has
-    exactly the requested dimensions — including the 3:1 and 1:3 fixtures at
-    both ends of the supported size range."""
+    """AC-059's claim generalised over the square grids ``generate`` can still
+    be asked for in this card: whatever an accepted source's aspect ratio, the
+    grid has exactly the requested dimensions, at both ends of the supported
+    size range."""
     assert _shape(image.generate(source, size, _rng())) == (size, {size})
 
 
 def test_the_aspect_ratio_policy_is_centre_crop_and_not_stretch() -> None:
     """The documented policy, asserted where the two answers differ.
 
-    ``wide.png`` is black | white-with-a-black-core | black in vertical thirds.
-    Centre-cropping converts the middle third alone, so the grid's first and
-    last columns are empty and its centre holds the core. A stretch would map
-    the outer black thirds onto the grid's outer columns instead — so this one
-    test tells the implemented policy from the rejected one.
+    ``landscape.png`` is 60x40: a black sixth | white with a black core | a
+    black sixth. Against a square grid the centred crop is the middle 40x40,
+    which is exactly the two black bands discarded, so the grid's first and last
+    columns are empty and its centre holds the core. A stretch would map the
+    outer black bands onto the grid's outer columns instead — so this one test
+    tells the implemented policy from the rejected one.
     """
-    grid = image.generate(WIDE, 20, _rng())
+    grid = image.generate(LANDSCAPE, 20, _rng())
 
     outer_columns = [row[0] for row in grid] + [row[-1] for row in grid]
     assert not any(outer_columns)
@@ -346,8 +505,8 @@ def test_the_aspect_ratio_policy_is_centre_crop_and_not_stretch() -> None:
 
 def test_the_aspect_ratio_policy_holds_on_the_other_axis() -> None:
     """The same claim for a portrait source: the crop is not an accident of
-    which axis the wide fixture happened to be long on."""
-    grid = image.generate(TALL, 20, _rng())
+    which axis the landscape fixture happened to be long on."""
+    grid = image.generate(PORTRAIT, 20, _rng())
 
     assert not any(grid[0]) and not any(grid[-1])
     assert any(grid[10][6:14])
@@ -383,8 +542,8 @@ def test_exif_orientation_is_applied_before_the_crop(tmp_path: Path) -> None:
     ignoring it (verified by also saving the same rotated raster with no
     EXIF tag at all) puts the marker at a different position entirely.
     """
-    displayed = Image.new("L", (60, 20), 255)
-    displayed.paste(0, (23, 2, 33, 8))  # off-centre: neither axis is symmetric
+    displayed = Image.new("L", (60, 40), 255)
+    displayed.paste(0, (23, 4, 33, 16))  # off-centre: neither axis is symmetric
 
     stored = displayed.transpose(Image.Transpose.ROTATE_90)
     exif = stored.getexif()
@@ -402,18 +561,18 @@ def test_exif_orientation_is_applied_before_the_crop(tmp_path: Path) -> None:
     assert _ink(honoured)  # the marker did land somewhere, not just "matched by both being blank"
 
 
-@pytest.mark.parametrize("source", [WIDE, TALL])
-def test_the_outer_thirds_of_the_source_do_not_reach_the_grid_at_all(
+@pytest.mark.parametrize("source", [LANDSCAPE, PORTRAIT])
+def test_the_outer_bands_of_the_source_do_not_reach_the_grid_at_all(
     source: Path,
 ) -> None:
     """The third policy, excluded: letterboxing.
 
-    Padding the short axis to square keeps the *whole* source, so ``wide.png``'s
-    two black outer thirds would land somewhere in the grid — squeezed into a
-    middle band with blank rows above and below it. Cropping discards them
-    outright. So the strongest statement of the policy is that the only ink in
-    the grid comes from the black core at the centre of the middle third: every
-    filled cell is inside the central block, and there are some.
+    Padding the short axis to square keeps the *whole* source, so
+    ``landscape.png``'s two black outer bands would land somewhere in the grid —
+    squeezed into a middle band with blank rows above and below it. Cropping
+    discards them outright. So the strongest statement of the policy is that the
+    only ink in the grid comes from the black core at the centre: every filled
+    cell is inside the central block, and there are some.
     """
     grid = image.generate(source, 20, _rng())
     ink = {
@@ -437,22 +596,262 @@ def test_the_outer_thirds_of_the_source_do_not_reach_the_grid_at_all(
         (4, 7, (0, 1, 4, 5)),
     ],
 )
-def test_the_crop_box_is_the_largest_centred_square(
+def test_the_crop_box_for_a_square_grid_is_the_largest_centred_square(
     width: int, height: int, expected: tuple[int, int, int, int]
 ) -> None:
-    box = image.square_crop_box(width, height)
+    """``square_crop_box``'s whole table, carried over verbatim onto its
+    replacement at a square target — the boxes are literals, not values
+    re-derived from the function under test, so they pin where the crop is and
+    which side keeps the odd leftover pixel."""
+    box = image.fit_crop_box(width, height, 20, 20)
 
     assert box == expected
     left, upper, right, lower = box
     assert right - left == lower - upper == min(width, height)
 
 
-@pytest.mark.parametrize(("width", "height"), [(0, 10), (10, 0), (0, 0)])
+@pytest.mark.parametrize(("width", "height"), [(0, 10), (10, 0), (0, 0), (-3, 10)])
 def test_an_image_with_no_pixels_is_an_input_error(width: int, height: int) -> None:
     """A degenerate source is the user's file being unusable, not an
-    arithmetic accident several frames later."""
+    arithmetic accident several frames later. Preserved from
+    ``square_crop_box``, and asserted on the guard too — the guard runs first,
+    so it is the one that actually reports it on the ``generate`` path."""
     with pytest.raises(UnreadableImage):
-        image.square_crop_box(width, height)
+        image.fit_crop_box(width, height, 20, 20)
+    with pytest.raises(UnreadableImage):
+        image.validate_aspect_ratio(width, height, 20, 20)
+
+
+@pytest.mark.parametrize(
+    ("target_width", "target_height"), [(0, 20), (20, 0), (-1, 20)]
+)
+def test_a_zero_extent_grid_is_a_caller_bug_and_not_an_input_error(
+    target_width: int, target_height: int
+) -> None:
+    """The other degenerate extent, declared and separated from the first.
+
+    Grid extents reach these functions only after
+    ``random_grid.validate_size``, so a target of ``0`` cannot come from a user
+    — it is a wiring bug, and gets ``ValueError`` the way ``nudge`` treats a
+    zeroth attempt, not a domain error the CLI would map to an exit code.
+    """
+    with pytest.raises(ValueError) as excinfo:
+        image.fit_crop_box(60, 40, target_width, target_height)
+    assert not isinstance(excinfo.value, NonogramError)
+
+    with pytest.raises(ValueError):
+        image.validate_aspect_ratio(60, 40, target_width, target_height)
+
+
+# --------------------------------------------------------------------------
+# AC-071..AC-074 (FR-020) — TestFitImage_* : the crop box at a rectangular grid
+# --------------------------------------------------------------------------
+
+
+def test_fit_image_crops_to_the_requested_aspect_ratio() -> None:
+    """AC-071 verbatim, on the criterion's own numbers.
+
+    A 563x980 portrait silhouette and a requested 15x30 grid (target ratio
+    0.500): the crop box has aspect ratio 0.500 and is the largest such
+    rectangle fitting inside 563x980 — 490x980, the full height and 490 of the
+    563 columns. Every number here is the criterion's, written as a literal.
+    """
+    left, upper, right, lower = image.fit_crop_box(563, 980, 15, 30)
+
+    assert (right - left, lower - upper) == (490, 980)
+    assert (right - left) / (lower - upper) == 0.500
+    # The largest such rectangle: one more column would need 982 rows.
+    assert right - left <= 563 and lower - upper <= 980
+    assert 2 * (right - left + 1) > 980
+
+
+def test_fit_image_square_grid_reproduces_the_square_crop_box() -> None:
+    """AC-072: at a 20x20 grid the generalization returns exactly what the old
+    ``square_crop_box`` returned for 563x980 — the largest centred square,
+    ``(0, 208, 563, 771)``. The expected box is the literal the removed
+    function produced, not a call to anything still in the tree.
+    """
+    assert image.fit_crop_box(563, 980, 20, 20) == (0, 208, 563, 771)
+
+
+def test_fit_image_crop_is_centred_on_both_axes() -> None:
+    """AC-073: the discarded margins on the cropped axis differ by at most one
+    pixel. 563 - 490 = 73 columns are discarded, 36 on the near side and 37 on
+    the far one — the half-pixel bias the module docstring pins deliberately.
+    """
+    left, upper, right, lower = image.fit_crop_box(563, 980, 15, 30)
+
+    assert (left, 563 - right) == (36, 37)
+    assert abs(left - (563 - right)) <= 1
+    assert (upper, 980 - lower) == (0, 0)
+
+
+def test_fit_image_produces_exact_dimensions_without_letterbox(
+    silhouette: Callable[[int, int], Path],
+    solid_black: Callable[[int, int], Path],
+) -> None:
+    """AC-074: converted end to end, a 563x980 source into a 15x30 grid gives
+    exactly 15 columns by 30 rows, with no letterbox padding row or column and
+    no anisotropic stretch.
+
+    "No letterbox" is asserted the way the policy is falsifiable: an all-black
+    source has no white in it anywhere, so *any* padding would show up as an
+    empty cell. A stretch is excluded separately by the crop box's own ratio.
+    """
+    grid = _convert(silhouette(563, 980), 15, 30)
+    assert _shape(grid) == (30, {15})
+
+    solid = _convert(solid_black(563, 980), 15, 30)
+    assert all(all(row) for row in solid)
+
+
+# --------------------------------------------------------------------------
+# AC-075..AC-079 (FR-021) — TestAspectGuard_* : the >2x refusal
+# --------------------------------------------------------------------------
+
+
+def test_aspect_guard_accepts_exactly_a_two_fold_ratio_difference(
+    silhouette: Callable[[int, int], Path],
+) -> None:
+    """AC-075, the inclusive boundary (guardrail G-5).
+
+    A 600x600 square source (r_src 1.000) into a 30x15 grid (r_tgt 2.000): the
+    ratios differ by exactly 2.000x, the retained fraction is exactly 0.500, and
+    the request is **accepted** — a 30x15 grid is produced. An implementation
+    that compared a float quotient against 0.5 with a strict ``>`` fails here,
+    which is the entire reason this criterion exists.
+    """
+    image.validate_aspect_ratio(600, 600, 30, 15)
+
+    grid = _convert(silhouette(600, 600), 30, 15)
+    assert _shape(grid) == (15, {30})
+
+
+def test_aspect_guard_refuses_a_ratio_difference_above_two_fold(
+    silhouette: Callable[[int, int], Path],
+) -> None:
+    """AC-076: 600x600 into 30x14 (r_tgt 2.143) retains 0.467 and is refused,
+    and no grid is produced.
+
+    Guardrail G-4's half of EC-007 is asserted with it: the refusal reaches the
+    caller before the picture's pixels are decoded, observed by pointing the
+    guard at a file whose header is fine and whose body is not. A conversion
+    that got as far as decoding would raise ``UnreadableImage`` instead.
+    """
+    with pytest.raises(ImageNeedsManualCrop):
+        image.validate_aspect_ratio(600, 600, 30, 14)
+
+    source = silhouette(600, 600)
+    with pytest.raises(ImageNeedsManualCrop):
+        _convert(source, 30, 14)
+
+
+def test_aspect_guard_refusal_message_suggests_a_manual_crop() -> None:
+    """AC-077: the message the user reads says to crop the picture themselves
+    before retrying, and names both shapes so they know what to crop it to."""
+    with pytest.raises(ImageNeedsManualCrop) as excinfo:
+        image.validate_aspect_ratio(600, 600, 30, 14)
+
+    message = str(excinfo.value)
+    assert "Crop the picture yourself" in message
+    assert "600x600" in message and "30x14" in message
+
+
+def test_aspect_guard_threshold_is_symmetric_in_source_and_target() -> None:
+    """AC-078: a 980x563 landscape source (r_src 1.741) into a 12x30 portrait
+    grid (r_tgt 0.400) retains 0.230 and is refused with the same error — the
+    threshold does not care which of the two is the wider."""
+    with pytest.raises(ImageNeedsManualCrop):
+        image.validate_aspect_ratio(980, 563, 12, 30)
+
+    # The mirror image of the same pairing, refused just as flatly.
+    with pytest.raises(ImageNeedsManualCrop):
+        image.validate_aspect_ratio(563, 980, 30, 12)
+
+
+def test_aspect_guard_accepts_a_well_matched_portrait_source(
+    silhouette: Callable[[int, int], Path],
+) -> None:
+    """AC-079: a 563x980 portrait silhouette (r_src 0.574) into a 15x30 grid
+    (r_tgt 0.500) retains 0.870 — the increment's worked example — so the
+    request is accepted and a 15x30 grid is produced."""
+    image.validate_aspect_ratio(563, 980, 15, 30)
+
+    assert _shape(_convert(silhouette(563, 980), 15, 30)) == (30, {15})
+
+
+def test_fit_image_refuses_a_ratio_mismatch_beyond_twice() -> None:
+    """ADR-0022/R3's named check, as the rule states it: an uploaded image is
+    fitted by a centred crop, and a request whose grid and source aspect ratios
+    differ by more than 2x is refused rather than cropped.
+
+    Both halves, on one pairing: 60x20 (3:1) into a 20x20 grid would keep a
+    third of the picture, so it is refused; the same source into a 30x10 grid
+    (3:1) matches exactly and converts. The refusal is not "image mode is
+    fragile", it is "this grid shape and this picture do not go together".
+    """
+    with pytest.raises(ImageNeedsManualCrop):
+        image.validate_aspect_ratio(60, 20, 20, 20)
+
+    assert _shape(_convert(WIDE, 30, 10)) == (10, {30})
+
+
+def test_the_guard_runs_before_the_picture_is_decoded(tmp_path: Path) -> None:
+    """Guardrail G-4, made observable rather than asserted about the source.
+
+    A file with a valid PNG header and a truncated body decodes to nothing. Ask
+    for a grid it *fits*, and the run gets as far as the decode and fails with
+    ``UnreadableImage``; ask for a grid it does not fit, and the aspect refusal
+    comes back instead — which can only happen if the guard ran first. Loading,
+    greyscaling, dithering and the solver are all downstream of that decode.
+    """
+    whole = tmp_path / "whole.png"
+    Image.new("L", (600, 600), 0).save(whole)
+    truncated = tmp_path / "truncated.png"
+    truncated.write_bytes(whole.read_bytes()[: -len(whole.read_bytes()) // 3])
+
+    with pytest.raises(UnreadableImage):
+        _convert(truncated, 30, 15)  # fits (exactly 2x) -> reaches the decode
+
+    with pytest.raises(ImageNeedsManualCrop):
+        _convert(truncated, 30, 14)  # does not fit -> never reaches the decode
+
+
+def test_the_probe_measures_the_picture_the_user_sees() -> None:
+    """The probe and the loader must agree on which axis is the width, or the
+    guard would judge a rotated phone photo on the wrong shape.
+
+    Asserted as an equality against ``load_greyscale``'s own post-EXIF size, so
+    the two cannot drift: the probe reads the orientation tag out of the header
+    and swaps, ``exif_transpose`` rotates the pixels, and the sizes match.
+    """
+    for source in (BANDS, LANDSCAPE, PORTRAIT, WIDE, TALL):
+        assert image.probe_extent(source) == image.load_greyscale(source).size
+
+
+def test_the_probe_honours_exif_orientation(tmp_path: Path) -> None:
+    """The same equality on the input it exists for: a picture stored on its
+    side with an orientation tag saying so."""
+    displayed = Image.new("L", (60, 40), 255)
+    displayed.paste(0, (23, 4, 33, 16))
+    stored = displayed.transpose(Image.Transpose.ROTATE_90)
+    exif = stored.getexif()
+    exif[0x0112] = 6  # "rotate 90 CW to display correctly"
+    oriented = tmp_path / "phone.jpg"
+    stored.save(oriented, format="JPEG", quality=100, exif=exif)
+
+    assert image.probe_extent(oriented) == (60, 40)
+    assert image.probe_extent(oriented) == image.load_greyscale(oriented).size
+
+
+def test_the_probe_reports_an_unreadable_file_as_one() -> None:
+    """A header that cannot be parsed is AC-008's error, raised before the
+    aspect ratio is considered at all — the shape is not known, so there is
+    nothing for the guard to judge."""
+    with pytest.raises(UnreadableImage) as excinfo:
+        image.probe_extent(CORRUPT)
+
+    assert "cannot read image" in str(excinfo.value)
 
 
 # --------------------------------------------------------------------------
@@ -473,10 +872,10 @@ def test_for_mode_dispatches_to_a_usable_image_source() -> None:
     """The dispatch seam end to end: look the mode up, then source a grid with
     the mode's own argument list."""
     source = sourcing.for_mode("image")
-    grid = source(WIDE, 20, _rng())
+    grid = source(LANDSCAPE, 20, _rng())
 
     assert _shape(grid) == (20, {20})
-    assert grid == image.generate(WIDE, 20, _rng())
+    assert grid == image.generate(LANDSCAPE, 20, _rng())
 
 
 def test_the_orchestrator_assembles_the_image_argument_list() -> None:
@@ -538,7 +937,7 @@ def test_an_image_run_goes_through_the_existing_pipeline() -> None:
     """FR-003 end to end: source -> clues -> uniqueness -> scored -> ready, on
     a real file, with nothing about the downstream pipeline changed."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=WIDE, size=20, seed=1
+        mode="image", image=LANDSCAPE, size=20, seed=1
     )
     puzzle = orchestrator.generate(request)
 
@@ -671,7 +1070,9 @@ def test_a_successful_image_run_also_spends_no_retry_attempt() -> None:
     """The happy path of the same rule, on a real file: image mode never enters
     either loop, so a run that works reports zero attempts rather than one."""
     puzzle = orchestrator.generate(
-        orchestrator.GenerationRequest(mode="image", image=WIDE, size=20, seed=1)
+        orchestrator.GenerationRequest(
+            mode="image", image=LANDSCAPE, size=20, seed=1
+        )
     )
 
     assert puzzle.regenerate.attempts == 0
@@ -681,7 +1082,7 @@ def test_a_successful_image_run_also_spends_no_retry_attempt() -> None:
 def test_a_real_image_that_converts_ambiguously_reports_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The same failure without a scripted source anywhere: ``wide.png`` at
+    """The same failure without a scripted source anywhere: ``landscape.png`` at
     22x22 genuinely converts to a grid whose clues have more than one solution,
     and stays that way through all five of CARD-016's nudges.
 
@@ -690,10 +1091,12 @@ def test_a_real_image_that_converts_ambiguously_reports_it(
     size becomes unique, re-pin it by re-running the 10..25 sweep this comment
     names rather than deleting the test. (It was ``bands.png`` at 10x10 until
     CARD-016: that conversion is now repaired by two nudges, which is
-    ``tests/test_nudge.py``'s real-image recovery case.)
+    ``tests/test_nudge.py``'s real-image recovery case. It was ``wide.png`` at
+    22x22 until CARD-026 made a 3:1 source into a square grid an FR-021
+    refusal; the re-run sweep put ``landscape.png`` at the same size.)
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(WIDE), "--size", "22"]
+        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -704,7 +1107,7 @@ def test_a_missed_difficulty_tier_also_fails_without_resampling() -> None:
     """POL-004 cannot help a fixed source either — resampling would convert the
     same picture again — so the tier miss ends the run with its own message."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=WIDE, size=20, seed=1, difficulty="hard"
+        mode="image", image=LANDSCAPE, size=20, seed=1, difficulty="hard"
     )
 
     with pytest.raises(GenerationAbandoned) as excinfo:
@@ -958,7 +1361,7 @@ def test_an_image_run_exports_like_any_other(tmp_path: Path) -> None:
             "--mode",
             "image",
             "--image",
-            str(WIDE),
+            str(LANDSCAPE),
             "--size",
             "20",
             "--export",
