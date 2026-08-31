@@ -39,7 +39,7 @@ line between column 4 and column 5 continues up through the column-clue gutter
 — because that is what makes a clue number readable as belonging to its line.
 Every fifth line, and both outer borders, is stroked heavier
 (:attr:`Layout.thick_rule` against :attr:`Layout.thin_rule`); counting to
-twelve along a fifty-cell row is the thing a solver actually does with a ruler
+twelve along a thirty-cell row is the thing a solver actually does with a ruler
 otherwise, and the every-5th rule is the convention that makes it unnecessary.
 
 Why the sizes are what they are (the A4 / 300 DPI target)
@@ -52,19 +52,38 @@ stamp onto their output (the PNG as a ``dpi`` tag, the SVG as a physical
 ``width``/``height`` in inches over a pixel ``viewBox``) so that a printer
 reproduces the intended size instead of guessing.
 
-:func:`compute_layout` then picks the largest cell that fits the printable
-area of an A4 sheet, clamped into ``[MIN_CELL_MM, MAX_CELL_MM]``:
+:func:`compute_layout` then sizes the cell as NFR-005 defines it — the
+comfortable size for a grid that big, held down to whatever the sheet can
+actually take::
 
-* the *cap* stops a 10x10 puzzle from being blown up into a poster with
-  four-centimetre cells — beyond about 6.5 mm a cell stops getting easier to
-  mark and just wastes paper;
-* the *floor* is the honest limit of the format. A 50x50 grid whose clues run
-  to twenty-five numbers needs seventy-five cells across; at that point the
-  cells are 2 mm and the page is full. Rather than shrink past the point where
-  a pencil mark is meaningless, the layout keeps 2 mm cells and lets the image
-  grow past A4 — a user printing a maximum-size puzzle is scaling it down or
-  printing it on A3 either way, and a silently unreadable page would be the
-  worse answer.
+    cell = min(comfort_cap(max(columns, rows)), page_fit)
+
+* the *comfort cap* (:func:`comfort_cap_mm`) is how big a cell wants to be at
+  that grid size: 9.0 mm at 10 cells a side, declining to 6.5 mm at 30
+  (CON-011's largest supported grid), linearly interpolated between NFR-005's
+  chosen points and flat outside them. It is a function of the **grid's**
+  longer side and of nothing else — a gutter makes a drawing wider, not a cell
+  harder to mark. The declining curve replaces a single flat 6.5 mm cap, under
+  which a 10x10 and a 25x25 printed *identically* at 6.52 mm and a 10x10 came
+  out about 30% smaller than it was meant to be.
+* *page fit* is the largest cell whose whole drawing — grid plus both clue
+  gutters — still fits the printable area of A4.
+* the cap is a **ceiling, never a floor**: where the two disagree, page fit
+  wins. From about 20 cells a side up, the gutter makes page fit the smaller
+  term every time — at 45% density a 30x30 draws 40 cells across, which is
+  260 mm of paper at 6.5 mm cells against the 186 mm A4 actually prints. A cap
+  honoured where the page allows it is a real gain at the small sizes a person
+  prints most; a cap treated as a target would be a promise the format cannot
+  keep.
+* the *floor* (:data:`MIN_CELL_MM`) is the honest limit of the format, and is
+  deliberately untouched by the above. No supported puzzle reaches it: the
+  worst 30x30 draws 45 cells across and still gets a ~4 mm cell, and page fit
+  would have to fall below 2 mm — over ninety cells across — before the floor
+  bites at all. It is the backstop for that case, and it answers it by keeping
+  2 mm cells and letting the image grow past A4 rather than shrinking past the
+  point where a pencil mark is meaningless: a user printing a drawing that
+  large is scaling it down or printing it on A3 either way, and a silently
+  unreadable page would be the worse answer.
 
 Layering (ADR-0007): a capability submodule — stdlib only, no siblings, no
 orchestrator, and (guardrail G-3) no notion whatsoever of whether the puzzle
@@ -76,6 +95,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 __all__ = [
+    "CELL_COMFORT_MM",
     "DPI",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
@@ -89,13 +109,14 @@ __all__ = [
     "GridLine",
     "HeaderBand",
     "Layout",
+    "comfort_cap_mm",
     "compute_layout",
     "header_band",
 ]
 
 #: Output resolution in dots per inch. 300 is the conventional print target:
 #: at 150 a thin rule and a small clue digit both start to alias, and at 600
-#: the 50x50 page is four times the bytes for detail no home printer resolves.
+#: the 30x30 page is four times the bytes for detail no home printer resolves.
 DPI = 300
 
 #: A4, portrait, in millimetres (ISO 216).
@@ -106,10 +127,33 @@ PAGE_HEIGHT_MM = 297.0
 #: unprintable margin of a typical inkjet, and enough to hold the sheet by.
 PAGE_MARGIN_MM = 12.0
 
-#: The cell-size clamp, in millimetres. See the module docstring: the cap is
-#: "large enough to mark, larger is just paper", the floor is "small enough
-#: that a 50x50 still fits, smaller is not a puzzle any more".
-MAX_CELL_MM = 6.5
+#: NFR-005's chosen comfort values: how big a printed cell should be, in
+#: millimetres, for a grid whose *larger* dimension is that many cells. Five
+#: decided points, read as a piecewise-linear curve by :func:`comfort_cap_mm`
+#: — the points were decided, the line between them is interpolation. Kept as
+#: ``(cells, mm)`` pairs in ascending order of ``cells``; the curve must stay
+#: non-increasing in ``cells`` (EC-008), which is the whole content of "a
+#: bigger grid gets a smaller cell".
+CELL_COMFORT_MM: tuple[tuple[int, float], ...] = (
+    (10, 9.0),
+    (15, 8.0),
+    (20, 7.5),
+    (25, 7.0),
+    (30, 6.5),
+)
+
+#: The comfort value for the largest supported grid (CON-011: 30 cells a
+#: side), in millimetres. This is no longer *the* cap — the cap is
+#: :func:`comfort_cap_mm`, one value per grid size — only the bottom end of
+#: its curve, kept under a name because it is the one point of that curve a
+#: reader has reason to reach for directly.
+MAX_CELL_MM = CELL_COMFORT_MM[-1][1]
+
+#: The cell-size floor, in millimetres: smaller than this is not a puzzle any
+#: more, it is a grey square. Unlike the comfort cap above, the floor wins
+#: over page fit rather than yielding to it — see the module docstring for why
+#: an oversized image beats a silently unreadable page. No supported puzzle
+#: comes near it (the worst 30x30 still prints at about 4 mm).
 MIN_CELL_MM = 2.0
 
 #: Every Nth grid line is stroked heavy — the standard nonogram counting aid.
@@ -126,7 +170,7 @@ HEADER_FONT_MM = 5.0
 
 #: Clue digits, as a fraction of the cell they sit in. 0.62 leaves a visible
 #: gap on both sides of a two-digit clue (the widest that can occur: the
-#: longest possible run is 50, AC-038) without the numbers touching the rules.
+#: longest possible run is 30, CON-011) without the numbers touching the rules.
 _CLUE_FONT_RATIO = 0.62
 
 #: Thin and heavy rule widths, as a fraction of the cell. The thin rule is
@@ -311,7 +355,7 @@ def header_band(layout: Layout) -> HeaderBand:
     fraction of the cell, unlike :attr:`Layout.clue_font_size`. A clue digit has
     to fit inside its cell, so it must scale with it; a title has a whole page
     width to sit in and only has to be legible, and pinning it to the cell would
-    set a 50x50 puzzle's header in the same 2 mm type as its clues.
+    set a 30x30 puzzle's header in the same 3 mm type as its clues.
 
     Args:
         layout: The geometry of the page the band goes above — read only for
@@ -344,22 +388,69 @@ def _gutter_depth(clue_set: ClueSet) -> int:
     return max((len(clue) for clue in clue_set), default=1)
 
 
-def _fit_cell(total_columns: int, total_rows: int) -> int:
-    """The cell size, in device pixels, for a drawing this many cells across.
+def comfort_cap_mm(larger_dimension: int) -> float:
+    """How big a printed cell may be for a grid this many cells on its longer
+    side, in millimetres (NFR-005).
 
-    The largest cell whose whole drawing — gutters included, which is why the
-    arguments are *totals* and not the grid's own dimensions — still fits the
-    printable area of an A4 sheet, clamped into the ``MIN_CELL_MM`` ..
-    ``MAX_CELL_MM`` band. See the module docstring for why the clamp is
-    allowed to win over the fit at the bottom end.
+    :data:`CELL_COMFORT_MM`'s five decided points, linearly interpolated
+    between neighbours and held flat outside the range: a grid smaller than
+    the first point gets the first point's value and one larger than the last
+    gets the last's, because extrapolating a curve that was only ever decided
+    over 10..30 would be inventing numbers rather than reading them. CON-011
+    keeps every real puzzle inside that range anyway; the flat ends exist so
+    that this is a total function on any int a caller can hold.
+
+    Args:
+        larger_dimension: ``max(columns, rows)`` of the **grid** — not of the
+            drawing. The clue gutter widens the page, not the cell.
+
+    Returns:
+        The cell edge the cap allows, in millimetres. Non-increasing in
+        ``larger_dimension`` (EC-008).
+    """
+    if larger_dimension <= CELL_COMFORT_MM[0][0]:
+        return CELL_COMFORT_MM[0][1]
+    for (left_cells, left_mm), (right_cells, right_mm) in zip(
+        CELL_COMFORT_MM, CELL_COMFORT_MM[1:], strict=False
+    ):
+        if larger_dimension <= right_cells:
+            travelled = (larger_dimension - left_cells) / (right_cells - left_cells)
+            return left_mm + travelled * (right_mm - left_mm)
+    return CELL_COMFORT_MM[-1][1]
+
+
+def _fit_cell(total_columns: int, total_rows: int, *, larger_dimension: int) -> int:
+    """The cell size in device pixels: ``min(comfort cap, page fit)`` (NFR-005).
+
+    Two measurements of the same cell, and they are functions of different
+    things — which is why this takes both the drawing's totals and the grid's
+    own longer side:
+
+    * *page fit* is the largest cell whose whole drawing still fits the
+      printable area of an A4 sheet. Gutters included, which is why
+      ``total_columns``/``total_rows`` are totals and not the grid's own
+      dimensions.
+    * the *comfort cap* is what :func:`comfort_cap_mm` assigns to
+      ``larger_dimension``, the longer side of the grid alone.
+
+    The cap is a ceiling and page fit wins whenever it is the smaller of the
+    two — for anything from about 20 cells a side up, that is always (see the
+    module docstring). It is converted to whole pixels by truncation rather
+    than rounding, so "the printed cell never exceeds the cap" (EC-008) holds
+    exactly in millimetres instead of to within half a device pixel.
+
+    :data:`MIN_CELL_MM` is the one clamp still allowed to win *over* page fit,
+    exactly as before: below it the drawing is allowed to outgrow A4 rather
+    than shrink past the point where a pencil mark is meaningless.
     """
     printable_width = _mm_to_px(PAGE_WIDTH_MM - 2 * PAGE_MARGIN_MM)
     printable_height = _mm_to_px(PAGE_HEIGHT_MM - 2 * PAGE_MARGIN_MM)
-    fitted = min(
+    page_fit = min(
         printable_width // max(total_columns, 1),
         printable_height // max(total_rows, 1),
     )
-    return max(_mm_to_px(MIN_CELL_MM), min(_mm_to_px(MAX_CELL_MM), fitted))
+    cap = int(comfort_cap_mm(larger_dimension) / 25.4 * DPI)
+    return max(_mm_to_px(MIN_CELL_MM), min(cap, page_fit))
 
 
 def _rule_widths(cell: int) -> tuple[int, int]:
@@ -482,7 +573,15 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
     row_gutter_cells = _gutter_depth(row_clues)
     column_gutter_cells = _gutter_depth(column_clues)
 
-    cell = _fit_cell(row_gutter_cells + columns, column_gutter_cells + rows)
+    # The two terms of NFR-005 read different things off the same puzzle: page
+    # fit measures the drawing (grid + gutters), the comfort cap measures the
+    # grid. Both come from the clue sets, so compute_layout still needs nothing
+    # but them.
+    cell = _fit_cell(
+        row_gutter_cells + columns,
+        column_gutter_cells + rows,
+        larger_dimension=max(columns, rows),
+    )
     margin = _mm_to_px(PAGE_MARGIN_MM)
     thin, thick = _rule_widths(cell)
 

@@ -189,6 +189,17 @@ def _pdf_page_boxes(path: Path) -> list[str]:
     return [box.decode("ascii") for box in boxes]
 
 
+def _page_sizes(path: Path) -> list[tuple[float, float]]:
+    """Every page's size in PostScript points, as numbers.
+
+    Read as numbers and not as the text of the box: Pillow writes each
+    coordinate in its own shortest form (``220.8``, never ``220.80``), so a
+    formatted expected string asserts as much about float repr as about the
+    page, and changes meaning the moment a cell size does.
+    """
+    return [(float(box.split()[4]), float(box.split()[5])) for box in _pdf_page_boxes(path)]
+
+
 # ==========================================================================
 # The registry row — one row, and the CLI picks it up unedited
 # ==========================================================================
@@ -256,13 +267,36 @@ def test_the_written_pages_are_a4_sized_at_the_print_resolution(tmp_path: Path) 
     geometry = _layout_for(ANSWER)
     band = _band_for(ANSWER)
     expected = (
-        f"/MediaBox [ 0 0 {geometry.width / DPI * 72:.2f} "
-        f"{(geometry.height + band.height) / DPI * 72:.2f} ]"
+        geometry.width / DPI * 72,
+        (geometry.height + band.height) / DPI * 72,
     )
 
-    boxes = _pdf_page_boxes(export_puzzle(puzzle)[0])
+    sizes = _page_sizes(export_puzzle(puzzle)[0])
 
-    assert boxes == [expected, expected], "the two sheets do not print alike"
+    assert sizes == [pytest.approx(expected), pytest.approx(expected)], (
+        "the two sheets do not print alike"
+    )
+
+
+@pytest.mark.parametrize(
+    "side",
+    [pytest.param(10, id="cap-bound"), pytest.param(30, id="page-fit-bound")],
+)
+def test_a_titled_page_still_fits_a4_at_the_cell_sizes_nfr_005_produces(side: int) -> None:
+    """The PDF is the one format that adds a band above the drawing, so it is
+    where NFR-005's larger cells have the least room to spare (AC-080, AC-081).
+
+    Page fit measures the drawing alone — the band is deliberately additive, so
+    that the two formats without a header pay nothing for the one with it — and
+    this is the check that the addition still lands on a sheet of A4 at both
+    ends of the range: where the comfort cap binds and where page fit does.
+    """
+    grid = [[(row + column) % 3 == 0 for column in range(side)] for row in range(side)]
+    geometry = _layout_for(grid)
+    band = _band_for(grid)
+
+    assert geometry.width <= round(layout_module.PAGE_WIDTH_MM / 25.4 * DPI)
+    assert geometry.height + band.height <= round(layout_module.PAGE_HEIGHT_MM / 25.4 * DPI)
 
 
 def test_page_one_is_the_blank_puzzle_with_its_clues() -> None:

@@ -6,6 +6,14 @@ pytest-idiomatic function names:
     AC-028  TestExport_WritesPNG               -> test_export_writes_png*
     AC-029  TestExport_WritesSVG               -> test_export_writes_svg*
     AC-030  TestExport_RejectsUnverifiedPuzzle -> test_export_rejects_an_unverified_puzzle*
+    AC-080  TestLayout_SmallGridTakesTheComfortCap
+            -> test_a_small_grid_takes_the_comfort_cap
+    AC-081  TestLayout_LargeGridIsPageFitBoundNotCapBound
+            -> test_a_large_grid_is_page_fit_bound_not_cap_bound
+    AC-082  TestLayout_CapComesFromLargerDimensionRegardlessOfOrientation
+            -> test_the_cap_comes_from_the_larger_dimension_regardless_of_orientation
+    AC-083  TestLayout_InterpolatesBetweenChosenCellSizes
+            -> test_the_cap_interpolates_between_the_chosen_cell_sizes
 
 AC-030 is INV-002's gate seen from the image formats. The gate itself is one
 check in COMP-002 that all five renderers inherit (ADR-0007, guardrail G-5), and
@@ -130,6 +138,35 @@ def _cell_centres(geometry: Layout) -> list[tuple[int, int]]:
 def _layout_for(grid: list[list[bool]]) -> Layout:
     """The geometry COMP-007 computes for ``grid``'s clues."""
     return compute_layout(*compute_clues(grid))
+
+
+def _patterned(width: int, height: int) -> list[list[bool]]:
+    """A ``width`` x ``height`` grid with a realistic clue depth.
+
+    The every-third-cell diagonal: a fixed, readable pattern whose gutters are
+    close to what a real puzzle at a middling density produces (four cells deep
+    at 10x10, ten at 30x30), so NFR-005's tests measure the page a person would
+    actually print rather than a degenerate one.
+    """
+    return [[(row + column) % 3 == 0 for column in range(width)] for row in range(height)]
+
+
+def _cell_mm(geometry: Layout) -> float:
+    """``geometry``'s cell edge as the physical measurement NFR-005 is about."""
+    return geometry.cell / geometry.dpi * 25.4
+
+
+def _assert_fits_printable_area(geometry: Layout) -> None:
+    """The whole drawing sits inside A4's printable area (AC-080, AC-081)."""
+    printable_width = round(
+        (layout_module.PAGE_WIDTH_MM - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
+    )
+    printable_height = round(
+        (layout_module.PAGE_HEIGHT_MM - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
+    )
+
+    assert geometry.width - 2 * geometry.margin <= printable_width
+    assert geometry.height - 2 * geometry.margin <= printable_height
 
 
 #: A grid dense enough that a renderer leaking the solution would be obvious:
@@ -318,23 +355,98 @@ def test_a_typical_puzzle_fits_an_a4_sheet() -> None:
 
 
 def test_a_small_puzzle_is_not_blown_up_into_a_poster() -> None:
-    """The cap: beyond ~6.5mm a cell stops getting easier to mark and just
-    wastes paper, so a 5x5 gets a comfortable cell, not a quarter of the page."""
+    """The cap: a cell stops getting easier to mark past a point and then just
+    wastes paper, so a tiny grid gets a comfortable cell, not a quarter of the
+    page. Below NFR-005's smallest decided size the curve is flat, so a 5x5 is
+    capped at the 10-cell value rather than at an extrapolated one."""
     geometry = compute_layout(tuple((1,) for _ in range(5)), tuple((1,) for _ in range(5)))
 
-    assert geometry.cell <= round(layout_module.MAX_CELL_MM / 25.4 * layout_module.DPI)
+    assert _cell_mm(geometry) <= 9.0
+    assert _cell_mm(geometry) == pytest.approx(9.0, abs=0.2)
 
 
-def test_the_largest_puzzle_keeps_a_markable_cell() -> None:
-    """The floor. A 50x50 whose clues run to 25 numbers needs 75 cells across;
-    the layout holds the cell at the 2mm minimum rather than shrinking past the
-    point where a pencil mark means anything."""
-    worst = tuple(tuple(1 for _ in range(25)) for _ in range(50))
+def test_the_largest_drawing_keeps_a_markable_cell() -> None:
+    """The floor, and the one clamp still allowed to beat page fit (G-3).
+
+    No supported puzzle reaches it — CON-011 stops at 30 cells a side, and the
+    worst 30x30 still prints at about 4mm — so this pins it on the deliberately
+    out-of-range drawing that does: 180 cells across is well past the ~92 at
+    which page fit falls below 2mm. The layout holds the cell at the minimum
+    rather than shrinking past the point where a pencil mark means anything, and
+    lets the image outgrow A4 instead.
+    """
+    worst = tuple(tuple(1 for _ in range(60)) for _ in range(120))
 
     geometry = compute_layout(worst, worst)
 
-    assert geometry.cell >= round(layout_module.MIN_CELL_MM / 25.4 * layout_module.DPI)
+    assert geometry.cell == round(layout_module.MIN_CELL_MM / 25.4 * layout_module.DPI)
+    assert geometry.width > round(layout_module.PAGE_WIDTH_MM / 25.4 * layout_module.DPI)
     assert geometry.clue_font_size >= 8
+
+
+# --------------------------------------------------------------------------
+# NFR-005 — cell = min(comfort cap, page fit)
+#
+# The four criteria are split by WHICH TERM BINDS: AC-080/082/083 are the sizes
+# where the cap is observable at all, AC-081 is where the page overrules it.
+# Each names its expected millimetre value as a literal, deliberately — deriving
+# it from ``layout.CELL_COMFORT_MM`` would follow that table wherever it went
+# and assert nothing about where the decided values actually are.
+# --------------------------------------------------------------------------
+
+
+def test_a_small_grid_takes_the_comfort_cap() -> None:
+    """AC-080. A 10x10's four-deep gutter still leaves the page room to spare,
+    so the cap is what the printed cell measures: 9.0mm, not the 6.52mm a single
+    flat cap used to hand every grid from 10x10 to 25x25 alike."""
+    geometry = _layout_for(_patterned(10, 10))
+
+    assert _cell_mm(geometry) == pytest.approx(9.0, abs=0.2)
+    _assert_fits_printable_area(geometry)
+
+
+def test_a_large_grid_is_page_fit_bound_not_cap_bound() -> None:
+    """AC-081, and guardrail G-3's ceiling-not-floor rule where it bites.
+
+    A 30x30 draws forty cells across once its clue gutter is counted, which is
+    260mm of paper at the 6.5mm the cap allows, against the 186mm A4 prints. The
+    cap is not a promise the format can keep at that size, so page fit overrules
+    it — and the page still holds the whole drawing, which is the point.
+    """
+    geometry = _layout_for(_patterned(30, 30))
+
+    assert _cell_mm(geometry) < 6.5
+    _assert_fits_printable_area(geometry)
+
+
+@pytest.mark.parametrize(
+    ("width", "height"),
+    [pytest.param(12, 10, id="landscape"), pytest.param(10, 12, id="portrait")],
+)
+def test_the_cap_comes_from_the_larger_dimension_regardless_of_orientation(
+    width: int, height: int
+) -> None:
+    """AC-082. The cap is a function of ``max(width, height)``, so a 12x10 and a
+    10x12 print the same cell — 12's 8.6mm, never 10's 9.0mm. Both reach
+    ``compute_layout`` as clue sets and nothing else (G-4): the extent is
+    derived from the clues, which is what keeps this independent of any
+    rectangular ``(width, height)`` request.
+    """
+    geometry = _layout_for(_patterned(width, height))
+
+    assert (geometry.columns, geometry.rows) == (width, height)
+    assert _cell_mm(geometry) == pytest.approx(8.6, abs=0.2)
+    _assert_fits_printable_area(geometry)
+
+
+def test_the_cap_interpolates_between_the_chosen_cell_sizes() -> None:
+    """AC-083. 13 is not one of the five decided sizes: it sits three fifths of
+    the way from 10 (9.0mm) to 15 (8.0mm), so it prints at 8.4mm. The points
+    were decided, the line between them is interpolation."""
+    geometry = _layout_for(_patterned(13, 11))
+
+    assert _cell_mm(geometry) == pytest.approx(9.0 - (13 - 10) / (15 - 10) * (9.0 - 8.0), abs=0.2)
+    _assert_fits_printable_area(geometry)
 
 
 def test_the_layout_reports_its_physical_size() -> None:
