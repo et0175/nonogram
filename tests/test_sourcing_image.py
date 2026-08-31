@@ -77,7 +77,10 @@ example; it is not in the test tree and these criteria do not need it to be.
 from __future__ import annotations
 
 import argparse
+import io
 import random
+import struct
+import zlib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -186,15 +189,21 @@ def _convert(source: Path, target_width: int, target_height: int) -> list[list[b
 
     Deliberately *not* ``image.generate``: guardrail G-2 keeps ``generate``'s
     scalar ``size`` signature in this card, so a rectangular request has no
-    caller yet. These four lines are exactly the body CARD-027 will wire the
-    request's ``(width, height)`` pair into (FR-018), which is what makes the
-    criteria below testable at a rectangular target today.
+    caller yet. This is exactly the body CARD-027 will wire the request's
+    ``(width, height)`` pair into (FR-018), which is what makes the criteria
+    below testable at a rectangular target today — including the re-check of a
+    decoded extent the header lied about, so the mirror stays a mirror and a
+    rectangular request gets the same CON-012 guarantee a square one does.
     """
-    image.validate_aspect_ratio(
-        *image.probe_extent(source), target_width, target_height
-    )
+    probed = image.probe_extent(source)
+    image.validate_aspect_ratio(*probed, target_width, target_height)
+    greyscale = image.load_greyscale(source)
+    if greyscale.size != probed:
+        image.validate_aspect_ratio(
+            *greyscale.size, target_width, target_height
+        )
     return image.to_grid(
-        image.binarize(image.load_greyscale(source), target_width, target_height)
+        image.binarize(greyscale, target_width, target_height)
     )
 
 
@@ -655,14 +664,20 @@ def test_fit_image_crops_to_the_requested_aspect_ratio() -> None:
     0.500): the crop box has aspect ratio 0.500 and is the largest such
     rectangle fitting inside 563x980 — 490x980, the full height and 490 of the
     563 columns. Every number here is the criterion's, written as a literal.
+
+    "Largest" is derived rather than restated: the widest column count whose
+    ``2 * columns`` rows still fit in 980 is found by search over the source's
+    own width, so it is an expectation this test computes and not a consequence
+    of the box it is checking. (The three assertions this replaced — the ratio,
+    the in-bounds check and a maximality arithmetic — were all implied by the
+    literal pin above them and could not fail on their own.)
     """
     left, upper, right, lower = image.fit_crop_box(563, 980, 15, 30)
 
-    assert (right - left, lower - upper) == (490, 980)
-    assert (right - left) / (lower - upper) == 0.500
-    # The largest such rectangle: one more column would need 982 rows.
-    assert right - left <= 563 and lower - upper <= 980
-    assert 2 * (right - left + 1) > 980
+    widest_that_fits = max(
+        columns for columns in range(1, 563 + 1) if 2 * columns <= 980
+    )
+    assert (right - left, lower - upper) == (widest_that_fits, 980) == (490, 980)
 
 
 def test_fit_image_square_grid_reproduces_the_square_crop_box() -> None:
@@ -678,11 +693,16 @@ def test_fit_image_crop_is_centred_on_both_axes() -> None:
     """AC-073: the discarded margins on the cropped axis differ by at most one
     pixel. 563 - 490 = 73 columns are discarded, 36 on the near side and 37 on
     the far one — the half-pixel bias the module docstring pins deliberately.
+
+    ``36`` and ``37`` are the criterion's "at most one pixel apart" **and** the
+    direction of the bias, in one assertion; a separate ``abs(near - far) <= 1``
+    could not fail once this one holds, so it is not written.
     """
     left, upper, right, lower = image.fit_crop_box(563, 980, 15, 30)
 
     assert (left, 563 - right) == (36, 37)
-    assert abs(left - (563 - right)) <= 1
+    # The uncropped axis: nothing discarded at either end, which is a different
+    # claim about a different axis and can fail on its own.
     assert (upper, 980 - lower) == (0, 0)
 
 
@@ -748,13 +768,29 @@ def test_aspect_guard_refuses_a_ratio_difference_above_two_fold(
 
 def test_aspect_guard_refusal_message_suggests_a_manual_crop() -> None:
     """AC-077: the message the user reads says to crop the picture themselves
-    before retrying, and names both shapes so they know what to crop it to."""
+    before retrying, and names both shapes so they know what to crop it to.
+
+    The percentage it quotes is **floored**, and the case that forces it is a
+    request refused just past the boundary: 401x200 into 20x20 retains 0.4988,
+    which rounds to 50 — and keeping exactly 50% is the *accepted* boundary
+    (G-5, AC-075). A user refused at "50% of the picture" would reasonably
+    conclude the tool contradicts its own rule, so the figure is floored to 49.
+    """
     with pytest.raises(ImageNeedsManualCrop) as excinfo:
         image.validate_aspect_ratio(600, 600, 30, 14)
 
     message = str(excinfo.value)
     assert "Crop the picture yourself" in message
     assert "600x600" in message and "30x14" in message
+    assert "46% of the picture" in message  # 8400/18000 = 0.4667
+
+    with pytest.raises(ImageNeedsManualCrop) as excinfo:
+        image.validate_aspect_ratio(401, 200, 20, 20)
+
+    assert "49% of the picture" in str(excinfo.value)
+    # The accepted neighbour it must not be confused with: one pixel narrower
+    # retains exactly a half and raises nothing at all.
+    image.validate_aspect_ratio(400, 200, 20, 20)
 
 
 def test_aspect_guard_threshold_is_symmetric_in_source_and_target() -> None:
@@ -817,31 +853,178 @@ def test_the_guard_runs_before_the_picture_is_decoded(tmp_path: Path) -> None:
         _convert(truncated, 30, 14)  # does not fit -> never reaches the decode
 
 
-def test_the_probe_measures_the_picture_the_user_sees() -> None:
-    """The probe and the loader must agree on which axis is the width, or the
-    guard would judge a rotated phone photo on the wrong shape.
+def test_the_probe_reads_the_repo_fixtures_at_their_stored_extent() -> None:
+    """The five repo fixtures carry no EXIF at all, so this pins exactly one
+    thing: on a file with no orientation metadata the probe reports the stored
+    extent, and reports the same extent the loader ends up with.
 
-    Asserted as an equality against ``load_greyscale``'s own post-EXIF size, so
-    the two cannot drift: the probe reads the orientation tag out of the header
-    and swaps, ``exif_transpose`` rotates the pixels, and the sizes match.
+    Named for what it checks rather than for orientation handling — every
+    fixture here would satisfy it under *any* orientation policy, including
+    none, so the orientation claim is carried by the parametrised test below and
+    not by this one.
     """
     for source in (BANDS, LANDSCAPE, PORTRAIT, WIDE, TALL):
-        assert image.probe_extent(source) == image.load_greyscale(source).size
+        with Image.open(source) as opened:
+            assert "exif" not in opened.info
+            stored = opened.size
+        with image.load_greyscale(source) as loaded:
+            assert image.probe_extent(source) == stored == loaded.size
 
 
-def test_the_probe_honours_exif_orientation(tmp_path: Path) -> None:
-    """The same equality on the input it exists for: a picture stored on its
-    side with an orientation tag saying so."""
-    displayed = Image.new("L", (60, 40), 255)
-    displayed.paste(0, (23, 4, 33, 16))
-    stored = displayed.transpose(Image.Transpose.ROTATE_90)
+@pytest.mark.parametrize("orientation", [1, 2, 3, 4, 5, 6, 7, 8, 9])
+def test_the_probe_honours_exif_orientation(
+    tmp_path: Path, orientation: int
+) -> None:
+    """Failure-matrix row 13, over every value of the tag rather than one.
+
+    One stored 60x40 raster is written eight times with each defined EXIF
+    orientation, and once with a value outside the defined range. The probe must
+    exchange the axes for exactly ``{5, 6, 7, 8}`` — the quarter-turn four — and
+    leave them alone for ``1..4`` (the identity, the two mirrors and the half
+    turn, none of which changes the extent) and for the out-of-range ``9``.
+
+    The second assertion is the one that matters most: the probe's answer must
+    equal the extent ``load_greyscale`` actually produces. A disagreement
+    between the two is not a cosmetic difference — it is the bug class that made
+    the FR-021 guard judge one shape while the crop used another (row 14), so it
+    is pinned here at every orientation rather than inferred from the four-value
+    set in the module.
+    """
+    stored = Image.new("L", (60, 40), 255)
+    stored.paste(0, (23, 4, 33, 16))
     exif = stored.getexif()
-    exif[0x0112] = 6  # "rotate 90 CW to display correctly"
-    oriented = tmp_path / "phone.jpg"
+    exif[0x0112] = orientation
+    oriented = tmp_path / f"phone-{orientation}.jpg"
     stored.save(oriented, format="JPEG", quality=100, exif=exif)
 
-    assert image.probe_extent(oriented) == (60, 40)
-    assert image.probe_extent(oriented) == image.load_greyscale(oriented).size
+    quarter_turn = orientation in {5, 6, 7, 8}
+    assert image.probe_extent(oriented) == ((40, 60) if quarter_turn else (60, 40))
+    with image.load_greyscale(oriented) as loaded:
+        assert image.probe_extent(oriented) == loaded.size
+
+
+def _jpeg_with_a_raw_exif_block(path: Path, block: bytes) -> Path:
+    """A 60x40 JPEG carrying ``block`` verbatim as its APP1 segment.
+
+    Written by hand rather than through Pillow's ``exif=`` argument, because the
+    point is a block Pillow would never *write*: the segment's declared length
+    is correct, so the file is a well-formed JPEG and decodes normally, and only
+    the EXIF payload inside it is nonsense.
+    """
+    plain = Image.new("L", (60, 40), 255)
+    plain.paste(0, (10, 10, 30, 30))
+    buffer = io.BytesIO()
+    plain.save(buffer, format="JPEG", quality=100)
+    data = buffer.getvalue()
+
+    segment = b"\xff\xe1" + struct.pack(">H", len(block) + 2) + block
+    path.write_bytes(data[:2] + segment + data[2:])
+    return path
+
+
+def test_a_corrupt_exif_block_is_not_an_unreadable_picture(
+    tmp_path: Path,
+) -> None:
+    """Regression: the probe must not raise Pillow's own exceptions.
+
+    ``Image.Exif().load`` on a spliced APP1 segment raises ``SyntaxError: not a
+    TIFF file`` for a bad magic and ``struct.error: unpack requires a buffer of
+    4 bytes`` for a block cut off inside the TIFF header. Neither is an
+    ``OSError``, a ``ValueError`` or a
+    ``NonogramError``, so before this fix both escaped ``probe_extent``,
+    ``generate`` and ``cli.main``'s only handler and reached the user as a stack
+    trace — on a file that ``load_greyscale`` reads perfectly, because
+    ``exif_transpose`` tolerates a corrupt block.
+
+    An unreadable orientation tag *is* the "no orientation" case, so the probe
+    reports the stored extent, agrees with the loader, and the picture converts.
+    """
+    # Both measured against Pillow 12.3.0 in this venv, on the exact bytes
+    # below: a block whose magic is wrong, and one cut off inside the eight-byte
+    # TIFF header itself. (A *complete* header pointing at a missing IFD does
+    # not raise — Pillow warns and yields no tags — so it is not a case here.)
+    corruptions = {
+        "bad-magic.jpg": b"\xff\xff\xff\xff\x00\x00\x00\x08",  # SyntaxError
+        "truncated-header.jpg": b"MM\x00\x2a\x00",  # struct.error
+    }
+    for name, header in corruptions.items():
+        path = _jpeg_with_a_raw_exif_block(
+            tmp_path / name, b"Exif\x00\x00" + header
+        )
+
+        assert image.probe_extent(path) == (60, 40), name
+        with image.load_greyscale(path) as loaded:
+            assert image.probe_extent(path) == loaded.size, name
+        assert _shape(image.generate(path, 20, _rng())) == (20, {20}), name
+
+
+def _png_with_a_trailing_exif_chunk(
+    path: Path, width: int, height: int, orientation: int
+) -> Path:
+    """A PNG whose ``eXIf`` chunk sits *after* ``IDAT``, where ``Image.open``
+    does not reach it.
+
+    Legal PNG — the chunk may appear either side of ``IDAT`` — and the one
+    construction on which ``probe_extent`` and ``load_greyscale`` disagree:
+    the header parse never sees the orientation, ``exif_transpose`` does.
+    """
+    buffer = io.BytesIO()
+    Image.new("L", (width, height), 0).save(buffer, format="PNG")
+    data = buffer.getvalue()
+
+    tags = Image.Exif()
+    tags[0x0112] = orientation
+    payload = tags.tobytes()
+    if payload.startswith(b"Exif\x00\x00"):
+        payload = payload[len(b"Exif\x00\x00") :]
+    chunk = (
+        struct.pack(">I", len(payload))
+        + b"eXIf"
+        + payload
+        + struct.pack(">I", zlib.crc32(b"eXIf" + payload) & 0xFFFFFFFF)
+    )
+    end = data.rindex(b"\x00\x00\x00\x00IEND")
+    path.write_bytes(data[:end] + chunk + data[end:])
+    return path
+
+
+def test_the_guard_judges_the_extent_the_crop_will_actually_use(
+    tmp_path: Path,
+) -> None:
+    """CON-012 on the one input where the probe and the decode disagree.
+
+    A 563x980 PNG carrying ``eXIf`` orientation 6 after ``IDAT`` is stored
+    portrait and displayed landscape: ``probe_extent`` reports (563, 980) and
+    ``load_greyscale`` produces (980, 563). Measured on this tree.
+
+    Judging the probed extent alone, a 15x30 grid was **accepted** while the
+    crop it then took retained 0.287 of the displayed picture — the guard
+    failing open on exactly the thing FR-021 exists to prevent. The conversion
+    now re-checks the decoded extent whenever it contradicts the header, so the
+    request is refused with the manual-crop error instead.
+
+    The other direction is the declared residue: a 30x15 grid retains 0.870 of
+    the displayed picture and is nonetheless refused, because the cheap probe
+    refuses it before the decode that would have corrected the shape. A false
+    refusal carrying an actionable message is the acceptable half of this
+    trade; silently discarding 71% of the user's picture is not (row 14).
+    """
+    source = _png_with_a_trailing_exif_chunk(
+        tmp_path / "trailing-exif.png", 563, 980, 6
+    )
+
+    assert image.probe_extent(source) == (563, 980)
+    with image.load_greyscale(source) as loaded:
+        assert loaded.size == (980, 563)
+
+    with pytest.raises(ImageNeedsManualCrop):
+        _convert(source, 15, 30)
+    with pytest.raises(ImageNeedsManualCrop):
+        _convert(source, 30, 15)
+
+    # And a grid that suits the displayed picture converts, so the re-check
+    # refuses the mismatch rather than everything that reaches it.
+    assert _shape(_convert(source, 20, 20)) == (20, {20})
 
 
 def test_the_probe_reports_an_unreadable_file_as_one() -> None:

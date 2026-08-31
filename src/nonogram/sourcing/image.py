@@ -279,17 +279,35 @@ def _header_orientation(opened: Image.Image) -> int | None:
     and therefore what orientation handling is for — so parsing that block is
     both cheap and enough.
 
-    A file whose EXIF sits somewhere ``open`` does not reach reports no
-    orientation here while ``exif_transpose`` would still find it. That is a
-    deliberate, declared gap: it costs a crop along the stored axis instead of
-    the displayed one for a hypothetical PNG with a trailing ``eXIf`` chunk, and
-    the alternative costs a full decode on every conversion of every PNG.
+    **Total by construction: it answers "no orientation" rather than raising.**
+    A corrupt EXIF block is not an unreadable picture — ``exif_transpose``
+    tolerates one and converts the pixels perfectly — so the only honest answer
+    here is the one it independently reaches: no usable orientation tag.
+    ``Image.Exif().load`` reports a bad block with whatever its TIFF parser
+    happens to raise (measured on Pillow 12.3.0: ``SyntaxError: not a TIFF
+    file`` for a bad magic, ``struct.error: unpack requires a buffer of 4
+    bytes`` for a block cut off inside the eight-byte TIFF header), none of
+    which is in :data:`_UNREADABLE` and none of which is a
+    ``NonogramError``; letting one out would put a stack trace in front of a
+    user whose file converts fine. Hence the bare ``except Exception``: the set
+    of things a third-party header parser can raise is not enumerable, and every
+    member of it means the same thing here.
+
+    A file whose EXIF sits somewhere ``open`` does not reach also reports no
+    orientation here, while ``exif_transpose`` *would* still find it. That
+    disagreement is declared rather than avoided (the alternative costs a full
+    decode on every conversion of every PNG); :func:`generate` closes it by
+    re-running the guard on the extent the decode actually produced whenever the
+    two differ — see failure-matrix row 14.
     """
     raw = opened.info.get("exif")
     if not raw:
         return None
     exif = Image.Exif()
-    exif.load(raw)
+    try:
+        exif.load(raw)
+    except Exception:  # noqa: BLE001 — a corrupt tag is not an unreadable file
+        return None
     return exif.get(_ORIENTATION_TAG)
 
 
@@ -436,8 +454,13 @@ def validate_aspect_ratio(
         ImageNeedsManualCrop: the ratios differ by more than 2x. The message
             names both extents, says what fraction of the picture would survive,
             and tells the user to crop it themselves before retrying (AC-077).
-            The percentage in it is a float only in the *rendering* — the
-            decision above never is.
+            The percentage is floored, not rounded, and no float is involved in
+            producing it either: a request refused at 0.4988 retained (401x200
+            into 20x20, measured) must not be reported as "50% of the picture"
+            when keeping exactly 50% is the *accepted* boundary — a user told
+            they were refused at the accepted figure would reasonably conclude
+            the tool is wrong. Flooring makes the number an understatement in
+            the safe direction: every refusal reports at most 49%.
         UnreadableImage: the source has no pixels on one of its axes.
         ValueError: a target extent is zero or negative.
     """
@@ -450,7 +473,7 @@ def validate_aspect_ratio(
     raise ImageNeedsManualCrop(
         f"a {source_width}x{source_height} picture is too differently shaped "
         f"from a {target_width}x{target_height} grid: fitting it would keep "
-        f"only {100 * kept / whole:.0f}% of the picture. Crop the picture "
+        f"only {100 * kept // whole}% of the picture. Crop the picture "
         "yourself to roughly the grid's proportions first, or ask for a grid "
         "shaped more like the picture."
     )
@@ -559,6 +582,17 @@ def generate(
     decode and a refused one never pays for a dither — the "reject before you
     work" contract the other two sources keep (guardrail G-4, EC-007).
 
+    The aspect check runs a *second* time, and only when the decoded picture
+    turns out not to be the shape the header advertised — the one case where
+    :func:`probe_extent` and :func:`load_greyscale` can disagree (a PNG whose
+    ``eXIf`` chunk follows ``IDAT``). Judging the probed extent alone would let
+    such a request through the guard while the crop discarded most of it, which
+    is exactly what CON-012 forbids. The re-check costs nothing on the refused
+    path — it is downstream of a decode a refused request never reaches — so
+    G-4 is unaffected: the cheap probe still refuses the common case before any
+    pixel is read, and the rare disagreement is caught after the decode rather
+    than never (failure-matrix row 14).
+
     This card deliberately still takes a scalar ``size`` and passes ``(size,
     size)`` to both new functions, which are already general. CARD-027 replaces
     these two call sites with the request's ``(width, height)`` pair (FR-018,
@@ -569,8 +603,18 @@ def generate(
             "image mode needs an --image PATH pointing at the picture to convert"
         )
     size = random_grid.validate_size(size)
-    validate_aspect_ratio(*probe_extent(source), size, size)
+    probed = probe_extent(source)
+    validate_aspect_ratio(*probed, size, size)
     greyscale = load_greyscale(source)
+    if greyscale.size != probed:
+        # The header probe and the decode disagreed about the picture's shape —
+        # only possible when the EXIF orientation sits somewhere ``Image.open``
+        # does not reach (a PNG ``eXIf`` chunk after ``IDAT``). Judge the extent
+        # the crop will actually use, so the guard cannot be talked into
+        # accepting a request that discards most of the picture. G-4 is intact:
+        # this line is unreachable for a request the cheap probe already
+        # refused, so no refused request pays for a decode.
+        validate_aspect_ratio(*greyscale.size, size, size)
     return to_grid(binarize(greyscale, size, size))
 
 

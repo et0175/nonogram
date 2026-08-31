@@ -14,10 +14,13 @@ What the corpus is, and why it is not ``hypothesis``
 CLAUDE.md's test policy: no ``hypothesis`` (it is not in ADR-0006's dependency
 baseline), so a "property" test here builds a large seeded corpus by hand with
 stdlib ``random.Random`` and asserts a **minimum case count inside the test**,
-so the corpus cannot silently shrink into vacuity. Each property below also
-asserts a minimum count for *each side* of the outcome it is about — a corpus
-that only contained refusals would pass a guard that refuses everything, which
-is exactly the failure EC-007's "if and only if" is written to exclude.
+so the corpus cannot silently shrink into vacuity. Every property below whose
+verdict has two sides also asserts a minimum count for *each* of them — a
+corpus that only contained refusals would pass a guard that refuses everything,
+which is exactly the failure EC-007's "if and only if" is written to exclude.
+Measured on this tree at the seeds below, the splits are comfortable rather
+than marginal: the primary EC-007 corpus is 796 accepted / 704 refused of 1500,
+and the symmetry corpus 405 / 395 of 800.
 
 Where the expectations come from
 --------------------------------
@@ -26,9 +29,11 @@ Not from the functions under test. The crop box is checked against its
 (:mod:`fractions`) rather than by re-running the implementation's integer
 floor-division — and, for every source small enough to brute-force,
 against an independent **search**: enumerate every rectangle of exactly the
-target ratio that fits inside the source, and require the returned box to
-contain all of them. That search shares no line of reasoning with the
-implementation.
+target ratio that fits inside the source, and bound the returned box **from
+both sides** against them — it must contain every one of them, and it must not
+reach the next one up. A one-sided containment claim is not an oracle: the box
+that returns the whole source contains every exact rectangle too. That search
+shares no line of reasoning with the implementation.
 
 The threshold constants (``0.5`` retained, a ``2x`` ratio difference) are
 written as literals here for the same reason ``tests/property/test_size_range``
@@ -249,16 +254,29 @@ def test_property_fit_image_crop_box_is_the_largest_centred_rectangle_of_target_
     assert accepted >= 300, accepted
 
 
-def test_property_fit_image_contains_every_exact_ratio_rectangle_that_fits() -> None:
-    """EC-006's "largest", against an independent brute-force search.
+def test_property_fit_image_is_bracketed_by_the_exact_ratio_rectangles_that_fit() -> None:
+    """EC-006's "largest", against an independent brute-force search, **both
+    ways**.
 
-    For every source small enough to enumerate, every whole-pixel rectangle of
-    *exactly* the target ratio that fits inside the source must fit inside the
-    returned crop box on both axes. A formula that floored the wrong way, or
-    that cropped the wrong axis, would drop one of them.
+    For every source small enough to enumerate, let the search produce every
+    whole-pixel rectangle of *exactly* the target ratio that fits inside the
+    source. Those rectangles are the multiples ``(k * p, k * q)`` of the target
+    ratio in lowest terms, and the returned crop box is bracketed between two
+    consecutive ones:
 
-    Deliberately a different kind of check from the bracket above: this one
-    knows nothing about floors, only about which rectangles exist.
+    * **From below** — it contains every one of them, on both axes. A formula
+      that cropped the wrong axis drops the largest.
+    * **From above** — it reaches neither extent of the *next* multiple, the
+      first one that does not fit. This is the half that makes the search an
+      oracle rather than a rubber stamp: containment alone is satisfied by
+      returning the whole source, which is precisely the stretch ADR-0022/R3
+      forbids, and by any over-large box a ceil would produce.
+
+    Both bounds are read off the enumeration, not off a formula: the largest
+    fitting multiple comes from the search, and the step to the next one is the
+    target ratio reduced by :class:`~fractions.Fraction`. Mutation-checked when
+    it was written — ``return (0, 0, source_width, source_height)``, cropping
+    the other axis, and ``-(-x // y)`` in place of ``x // y`` each fail here.
     """
     rng = random.Random(SEED + 1)
     targets = _target_extents()
@@ -272,25 +290,33 @@ def test_property_fit_image_contains_every_exact_ratio_rectangle_that_fits() -> 
         left, upper, right, lower = image.fit_crop_box(
             source_width, source_height, target_width, target_height
         )
-        exact = _largest_exact_ratio_rectangles(
-            source_width, source_height, target_width, target_height
-        )
+        crop_width, crop_height = right - left, lower - upper
+        where = (source_width, source_height, target_width, target_height)
+        exact = _largest_exact_ratio_rectangles(*where)
+
         for width, height in exact:
-            assert width <= right - left, (
-                source_width, source_height, target_width, target_height,
-                (width, height),
+            assert width <= crop_width, (where, (width, height))
+            assert height <= lower - upper, (where, (width, height))
+
+        if exact:
+            # The next multiple of the target ratio after the largest one that
+            # fits. The box must not reach it on either axis, or it would be
+            # keeping pixels an exactly-proportioned crop cannot use.
+            widest, tallest = max(exact)
+            ratio = _ratio(target_width, target_height)
+            step_width, step_height = ratio.numerator, ratio.denominator
+            assert crop_width < widest + step_width, (where, (widest, tallest))
+            assert crop_height < tallest + step_height, (
+                where, (widest, tallest)
             )
-            assert height <= lower - upper, (
-                source_width, source_height, target_width, target_height,
-                (width, height),
-            )
+
         cases += 1
         with_a_witness += bool(exact)
 
     assert cases == 400
-    # Most small sources admit no exactly-proportioned rectangle at all, so the
-    # containment claim would be vacuous without this: it pins that the search
-    # really did produce rectangles to check against.
+    # Most small sources admit no exactly-proportioned rectangle at all, so both
+    # brackets would be vacuous without this: it pins that the search really did
+    # produce rectangles to check against.
     assert with_a_witness >= 100, with_a_witness
 
 
@@ -380,8 +406,19 @@ def test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary() -> No
     For each of the 441 grid shapes, two sources are constructed by exact
     integer arithmetic: one whose ratio is precisely twice the grid's, and one
     a single pixel past that. The first retains exactly one half and must be
-    **accepted**; the second retains less and must be refused. A float
-    comparison against ``0.5``, or a strict ``>``, fails on the first.
+    **accepted**; the second retains less and must be refused. A strict ``>``
+    on the retained fraction fails on the first — that is what this pins.
+
+    It does **not** pin the integer decision itself, and says so rather than
+    claiming it: substituting ``(kept / whole) >= 0.5`` for the implementation's
+    ``2 * kept >= whole`` leaves this test, the three other guard properties and
+    AC-075 all green (measured). With source extents at most 4000 px and grid
+    sides at most 30, both cross-products stay under 120000, every one of them
+    is exactly representable as a ``float``, and IEEE division of ``x`` by
+    ``2 * x`` is exact — so no *reachable* input distinguishes the two
+    decisions. The integer form is kept because it is unconditionally right
+    rather than right within a bound nobody re-checks when the bound moves, not
+    because a test can currently tell.
 
     Constructed rather than sampled, because a random corpus essentially never
     lands on an exact boundary — which is how a boundary bug survives one.
@@ -436,18 +473,30 @@ def test_property_aspect_guard_is_symmetric_in_which_side_is_wider() -> None:
     stay acceptable when both are rotated a quarter turn. An implementation
     that compared ``r_src`` against ``r_tgt`` with the wrong sign somewhere
     passes the one-sided examples and fails here.
+
+    Symmetry alone is satisfied by a guard that accepts everything and by one
+    that refuses everything, so both verdicts are counted: the corpus splits 405
+    accepted / 395 refused at this seed (measured), and the floors below are set
+    well under those so a re-seed does not break the test, while a corpus that
+    collapsed onto one verdict would.
     """
     rng = random.Random(SEED + 4)
     cases = _pairs(rng, 800)
+    accepted = refused = 0
 
     for source_width, source_height, target_width, target_height in cases:
-        assert _accepts(
+        verdict = _accepts(
             source_width, source_height, target_width, target_height
-        ) is _accepts(
+        )
+        assert verdict is _accepts(
             source_height, source_width, target_height, target_width
         ), (source_width, source_height, target_width, target_height)
+        accepted += verdict
+        refused += not verdict
 
     assert len(cases) >= 800
+    assert accepted >= 100, accepted
+    assert refused >= 100, refused
 
 
 def test_property_a_degenerate_source_is_refused_before_the_ratio_is_considered() -> None:
