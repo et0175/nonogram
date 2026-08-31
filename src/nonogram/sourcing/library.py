@@ -65,18 +65,18 @@ Two consequences, stated rather than hidden:
   :data:`CANONICAL_THRESHOLD` is the midpoint of the band and exists so callers
   and tests can render the unjittered shape deliberately.
 * When ``size`` is an exact whole-number *magnification* of
-  :data:`TEMPLATE_EDGE` — 16, 32 and 48 for a 16-cell template within the
-  supported 10..50 range — every target cell lands wholly inside one template
-  cell, every coverage fraction is 0 or 1, no cell is on the boundary, and the
-  threshold has nothing to act on. At those three sizes a retry really is a
+  :data:`TEMPLATE_EDGE` — 16 alone for a 16-cell template inside the supported
+  range, which CON-011 caps at 30 — every target cell lands wholly inside one
+  template cell, every coverage fraction is 0 or 1, no cell is on the boundary,
+  and the threshold has nothing to act on. At that one size a retry really is a
   no-op and the loop will spend its budget confirming the same verdict. That is
   a property of a deterministic source, not a bug in the loop, and fixing it
   inside the loop would mean teaching the orchestrator that some sources are
   deterministic — new structure this card is forbidden to add (guardrail G-4)
-  and that FR-002 does not ask for. At the other 38 supported sizes, including
-  every one where the ratio merely *looks* round (20, 40: 16/20 is 0.8, not a
-  whole number of template cells per grid cell), the boundary is genuinely
-  jittered and consecutive attempts differ.
+  and that FR-002 does not ask for. At the other 20 supported sizes, including
+  the one where the ratio merely *looks* round (20: 16/20 is 0.8, not a whole
+  number of template cells per grid cell), the boundary is genuinely jittered
+  and consecutive attempts differ.
 
 Layering (ADR-0007): a capability module. It imports its own package's
 ``random_grid`` for the shared size rule and ``templates`` for the data, and

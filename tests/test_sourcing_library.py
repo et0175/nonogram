@@ -30,7 +30,7 @@ from pathlib import Path
 import pytest
 
 from nonogram import cli, errors, orchestrator, sourcing
-from nonogram.sourcing import library
+from nonogram.sourcing import library, random_grid
 from nonogram.sourcing.templates import cat, heart, house, moon
 
 SEED = 20260828
@@ -39,9 +39,11 @@ SEED = 20260828
 #: every cell is wholly inside or wholly outside the shape and the tie-break has
 #: nothing to act on. Derived here rather than hard-coded so the list follows
 #: :data:`library.TEMPLATE_EDGE` if the templates are ever redrawn.
+SUPPORTED_SIZES = range(random_grid.MIN_SIZE, random_grid.MAX_SIZE + 1)
+
 DEGENERATE_SIZES = tuple(
     size
-    for size in range(10, 51)
+    for size in SUPPORTED_SIZES
     if size % library.TEMPLATE_EDGE == 0 or library.TEMPLATE_EDGE % size == 0
 )
 
@@ -252,7 +254,7 @@ def test_malformed_art_is_a_packaging_bug_not_a_domain_error(
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("size", [10, 11, 16, 17, 20, 33, 47, 49, 50])
+@pytest.mark.parametrize("size", [10, 11, 16, 17, 20, 23, 29, 30])
 @pytest.mark.parametrize("key", library.KEYS)
 def test_a_template_scales_to_any_supported_size(key: str, size: int) -> None:
     """The card's headline requirement: ``--size 20`` with key ``cat`` yields a
@@ -273,7 +275,7 @@ def test_coverage_accounts_for_the_whole_template_area() -> None:
     template = library.template_for("heart")
     filled = sum(cell for row in template for cell in row)
 
-    for size in (10, 13, 20, 37):
+    for size in (10, 13, 20, 29):
         numerators, denominator = library.coverage(template, size)
         total = sum(sum(row) for row in numerators)
         # Each of the size^2 target cells carries `denominator` units of
@@ -290,9 +292,17 @@ def test_an_exact_magnification_replicates_the_template_block_by_block() -> None
     32 is 16 doubled, so every template cell becomes a 2x2 block and nothing is
     interpolated — the strongest available statement that the grid really is
     the template's shape and not an approximation of it.
+
+    Driven through :func:`library.render` rather than :func:`library.generate`
+    because CON-011 caps a *requested* grid at 30 a side, so 32 is no longer a
+    size the mode entry point will accept. The geometry core takes an
+    already-validated size and is size-agnostic by contract, and 16 — the only
+    exact magnification left inside 10..30 — is the identity, which would prove
+    nothing about block replication. So the multiplication is exercised where
+    it lives, and the request range is enforced by the tests that own it.
     """
     template = library.template_for("house")
-    grid = library.generate("house", 32, _rng())
+    grid = library.render(template, 32, library.CANONICAL_THRESHOLD)
 
     for row in range(32):
         for column in range(32):
@@ -350,7 +360,7 @@ def test_an_absent_key_is_rejected_rather_than_defaulted() -> None:
         assert key in message
 
 
-@pytest.mark.parametrize("size", [-1, 0, 1, 9, 51, 60, 1000, None])
+@pytest.mark.parametrize("size", [-1, 0, 1, 9, 31, 51, 60, 1000, None])
 def test_the_shared_size_rule_applies_to_library_mode_too(size: int | None) -> None:
     """The supported range is a rule about the puzzle, not about the source, so
     library mode reuses ``random_grid.validate_size`` rather than restating it —
@@ -468,12 +478,12 @@ def test_at_an_exact_magnification_a_retry_is_honestly_a_no_op(size: int) -> Non
 
     When the grid is a whole-number magnification of the template no cell is on
     the boundary, so the threshold has nothing to act on and every attempt
-    renders the same grid. A library run at 16, 32 or 48 that is not uniquely
+    renders the same grid. A library run at 16 that is not uniquely
     solvable will therefore spend its retry budget confirming one verdict and
     abandon — a property of a deterministic source, not a defect in POL-001's
     loop, and the reason this is a test rather than a comment.
     """
-    assert size in (16, 32, 48)
+    assert size == 16
     rng = _rng()
     grids = {
         tuple(tuple(row) for row in library.generate("cat", size, rng))
@@ -486,11 +496,13 @@ def test_at_an_exact_magnification_a_retry_is_honestly_a_no_op(size: int) -> Non
 def test_every_other_supported_size_does_vary_between_attempts() -> None:
     """The flip side: the no-op above is the exception, not the rule.
 
-    38 of the 41 supported sizes — including 20 and 40, where the ratio only
-    *looks* round — give the retry loop a genuinely different candidate.
+    20 of the 21 supported sizes — including 20, where the ratio only *looks*
+    round — give the retry loop a genuinely different candidate. CON-011's
+    10..30 range is named below as well as read from the constant, so this
+    keeps saying something if the constant ever moves again.
     """
     varying = []
-    for size in range(10, 51):
+    for size in SUPPORTED_SIZES:
         rng = _rng()
         grids = {
             tuple(tuple(row) for row in library.generate("cat", size, rng))
@@ -499,8 +511,10 @@ def test_every_other_supported_size_does_vary_between_attempts() -> None:
         if len(grids) > 1:
             varying.append(size)
 
-    assert set(varying) == set(range(10, 51)) - set(DEGENERATE_SIZES)
-    assert len(varying) == 38
+    assert set(SUPPORTED_SIZES) == set(range(10, 31))
+    assert DEGENERATE_SIZES == (16,)
+    assert set(varying) == set(range(10, 31)) - {16}
+    assert len(varying) == 20
 
 
 # --------------------------------------------------------------------------

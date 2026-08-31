@@ -8,11 +8,14 @@ solver's int-bitmask representation is its own internal business; nothing here
 knows about it, which is what keeps the sourcing seam and the export boundary
 (EC-002) reasoning about one simple, JSON-native structure.
 
-*Validation placement* (ADR-0010): the supported size range (AC-003, AC-004)
-and the valid density range (AC-011) are rules about the Puzzle domain, not
-about argument syntax, so they live here and raise the ``nonogram.errors``
-types. The CLI only turns those errors into a message and an exit code; a
-60x60 request parses fine at the adapter and is rejected here.
+*Validation placement* (ADR-0010): the supported size range — 10..30 cells a
+side inclusive (CON-011, AC-003, AC-004) — and the valid density range
+(AC-011) are rules about the Puzzle domain, not about argument syntax, so they
+live here and raise the ``nonogram.errors`` types. This module is the single
+normative statement of the range: ``library.generate`` and ``image.generate``
+both delegate to :func:`validate_size` rather than restating it (ADR-0022/R2).
+The CLI only turns those errors into a message and an exit code; a 60x60
+request parses fine at the adapter and is rejected here.
 
 *Injected randomness* (ADR-0015, guardrail G-4): every draw goes through a
 ``random.Random`` the caller passes in. This module never touches the
@@ -50,9 +53,12 @@ __all__ = [
     "validate_size",
 ]
 
-#: Supported square-grid edge lengths, inclusive on both ends (FR-001, NFR-001).
+#: Supported square-grid edge lengths, inclusive on both ends (FR-019, NFR-001).
+#: CON-011 caps this at 30, and the reason is print legibility rather than
+#: solver cost: past about 30 cells a side the printed cell drops under ~6 mm
+#: on a sheet of paper (NFR-005) and stops being comfortable to mark by hand.
 MIN_SIZE = 10
-MAX_SIZE = 50
+MAX_SIZE = 30
 
 #: Valid requested density, in percent, inclusive on both ends (FR-004): 0
 #: yields an all-empty grid and 100 an all-filled one. Both are degenerate

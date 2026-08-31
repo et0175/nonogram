@@ -8,8 +8,8 @@ the mapping is spelled out here and repeated in each test's docstring:
 AC           architecture test name                       test below
 ===========  ===========================================  ==================================================
 AC-001       TestGenerateRandom_ProducesRequestedSize     test_generate_random_produces_requested_size
-AC-002       TestGenerateRandom_AcceptsMaxSize50          test_generate_random_accepts_max_size_50
-AC-003       TestGenerateRandom_RejectsSizeAbove50        test_generate_random_rejects_size_above_50
+AC-002       TestGenerateRandom_AcceptsMaxSide30          test_generate_random_accepts_max_side_30
+AC-003       TestGenerateRandom_RejectsSideAbove30        test_generate_random_rejects_size_above_30
 AC-004       TestGenerateRandom_RejectsSizeBelow10        test_generate_random_rejects_size_below_10
 AC-010       TestGenerateRandom_RespectsDensityParameter  test_generate_random_respects_density_parameter
 AC-011       TestGenerateRandom_RejectsInvalidDensity     test_generate_random_rejects_invalid_density
@@ -64,33 +64,45 @@ def test_generate_random_produces_requested_size() -> None:
     assert all(cell is True or cell is False for row in grid for cell in row)
 
 
-def test_generate_random_accepts_max_size_50() -> None:
-    """AC-002 / TestGenerateRandom_AcceptsMaxSize50 (boundary).
+def test_generate_random_accepts_max_side_30() -> None:
+    """AC-002 / TestGenerateRandom_AcceptsMaxSide30 (boundary, CON-011).
 
-    The maximum supported size, 50x50, is generated without error.
+    The maximum supported size, 30x30, is generated without error. The number
+    is named here as well as read from the constant: a boundary test that only
+    reads ``MAX_SIZE`` follows the constant wherever it moves and so proves
+    nothing about *where* the boundary is — which is exactly the property
+    CON-011 narrowed.
     """
+    assert random_grid.MAX_SIZE == 30
+
     grid = random_grid.generate(random_grid.MAX_SIZE, 30, _rng())
 
-    assert _shape(grid) == (50, {50})
+    assert _shape(grid) == (30, {30})
 
 
-def test_generate_random_rejects_size_above_50() -> None:
-    """AC-003 / TestGenerateRandom_RejectsSizeAbove50 (negative).
+def test_generate_random_rejects_size_above_30() -> None:
+    """AC-003 / TestGenerateRandom_RejectsSideAbove30 (negative, CON-011).
 
-    A 60x60 request is rejected with a size-range error and no grid is
-    produced — the domain raises, per ADR-0010, without argv involved.
+    A 31x31 request — one cell past the narrowed maximum — is rejected with a
+    size-range error and no grid is produced; the domain raises, per ADR-0010,
+    without argv involved. 60x60, the size the criterion was originally written
+    around, is checked alongside it so the far side of the range is covered
+    too.
     """
-    with pytest.raises(errors.SizeOutOfRange) as excinfo:
-        random_grid.generate(60, 30, _rng())
+    for size in (31, 60):
+        with pytest.raises(errors.SizeOutOfRange) as excinfo:
+            random_grid.generate(size, 30, _rng())
 
-    assert "60" in str(excinfo.value)
+        assert str(size) in str(excinfo.value)
 
 
 def test_generate_random_rejects_size_below_10() -> None:
-    """AC-004 / TestGenerateRandom_RejectsSizeBelow10 (negative).
+    """AC-004 / TestGenerateRandom_RejectsSideBelow10 (negative).
 
     A 9x9 request is rejected with a size-range error and no grid is produced.
     """
+    assert random_grid.MIN_SIZE == 10
+
     with pytest.raises(errors.SizeOutOfRange) as excinfo:
         random_grid.generate(9, 30, _rng())
 
@@ -112,7 +124,7 @@ def test_generate_random_respects_density_parameter() -> None:
         grid = random_grid.generate(random_grid.MIN_SIZE, 30, _rng(seed))
         assert abs(random_grid.density_of(grid) - 30) <= tolerance
 
-    for size in (10, 11, 17, 20, 33, 49, 50):
+    for size in (10, 11, 17, 20, 23, 29, 30):
         for seed in range(5):
             grid = random_grid.generate(size, 30, _rng(seed))
             assert abs(random_grid.density_of(grid) - 30) <= tolerance, (size, seed)
@@ -135,12 +147,12 @@ def test_generate_random_rejects_invalid_density() -> None:
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("size", [10, 11, 25, 49, 50])
+@pytest.mark.parametrize("size", [10, 11, 25, 29, 30])
 def test_every_size_in_the_supported_range_is_accepted(size: int) -> None:
     assert _shape(random_grid.generate(size, 40, _rng())) == (size, {size})
 
 
-@pytest.mark.parametrize("size", [-1, 0, 1, 9, 51, 60, 1000, None])
+@pytest.mark.parametrize("size", [-1, 0, 1, 9, 31, 51, 60, 1000, None])
 def test_sizes_outside_the_supported_range_are_rejected(size: int | None) -> None:
     """Both ends of the range, and an unspecified size, are domain errors.
 
@@ -196,7 +208,7 @@ def test_a_rejected_request_draws_no_randomness() -> None:
 
 
 @pytest.mark.parametrize("density", [0, 5, 25, 30, 50, 75, 95, 100])
-@pytest.mark.parametrize("size", [10, 20, 50])
+@pytest.mark.parametrize("size", [10, 20, 30])
 def test_density_holds_across_the_size_and_density_space(
     size: int, density: int
 ) -> None:
@@ -215,7 +227,7 @@ def test_the_filled_count_is_exact_not_merely_within_tolerance() -> None:
     target exactly, so the only density error left is that rounding (at most
     half a cell), rather than a per-cell draw's variance.
     """
-    for size in (10, 20, 50):
+    for size in (10, 20, 30):
         for density in (0, 3, 30, 67, 100):
             grid = random_grid.generate(size, density, _rng())
             filled = sum(cell for row in grid for cell in row)

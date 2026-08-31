@@ -253,13 +253,13 @@ def parse_tier(text: str) -> Tier:
             f"unsupported difficulty tier {text!r}; supported tiers are: {supported}"
         ) from None
 
-#: The supported grid range (docs/requirements.md decision 6: 10x10..50x50), in
-#: cells — the denominators the size normalizer stretches between. A grid
+#: The supported grid range (CON-011: 10x10..30x30), in cells — the
+#: denominators the size normalizer stretches between. A grid
 #: outside the range clamps rather than raising: an out-of-size puzzle is an
 #: input-validation matter for COMP-002, and a scorer is the wrong place to
 #: discover it.
 MIN_SUPPORTED_CELLS = 10 * 10
-MAX_SUPPORTED_CELLS = 50 * 50
+MAX_SUPPORTED_CELLS = 30 * 30
 
 #: The density at which a grid is hardest to solve, and so where the density
 #: normalizer peaks. ADR-0013: "both very sparse and very dense grids tend to
@@ -403,7 +403,7 @@ class NormalizedSignals:
     branch_pressure: float
     #: Elapsed time against the grid's size-scaled budget, capped at 1.0.
     time_pressure: float
-    #: Where the grid sits in the supported 10x10..50x50 range: 0.0 at the
+    #: Where the grid sits in the supported 10x10..30x30 range: 0.0 at the
     #: smallest supported grid, 1.0 at the largest.
     size_pressure: float
     #: Nearness to the hardest density: 1.0 at :data:`HARDEST_DENSITY`, 0.0 at

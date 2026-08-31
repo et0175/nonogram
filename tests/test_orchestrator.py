@@ -418,7 +418,7 @@ def test_a_run_writes_no_files(
 
 def test_an_invalid_request_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     """An invalid request does not become valid by being asked 20 times."""
-    source = _RaisingSource(SizeOutOfRange("grid size must be between 10 and 50"))
+    source = _RaisingSource(SizeOutOfRange("grid size must be between 10 and 30"))
     _install_source(monkeypatch, source)
 
     with pytest.raises(SizeOutOfRange):
