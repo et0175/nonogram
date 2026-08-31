@@ -29,10 +29,12 @@ from nonogram import difficulty, export
 
 __all__ = ["FORM_ACTION", "FORM_PAGE"]
 
-#: Where the form posts. CARD-020 routes it; until then a submission gets the
-#: standard library's ``501 Unsupported method`` (guardrail G-5). The path is
-#: named here rather than inlined so that card adds its route against a
-#: constant this page already agrees with.
+#: Where the form posts. CARD-020 routes it; until then a submission gets a
+#: ``501`` (guardrail G-5) — the status is the standard library's, since there
+#: is no ``do_POST``, but the response is written by
+#: :meth:`nonogram.web.handler.WebUIRequestHandler.send_error` and reads
+#: ``501 Not Implemented``. The path is named here rather than inlined so that
+#: card adds its route against a constant this page already agrees with.
 FORM_ACTION = "/generate"
 
 #: ``--mode``'s three values, mirrored by hand from ``cli.py`` for the reason

@@ -53,7 +53,7 @@ import re
 import socket
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import NamedTuple
@@ -62,6 +62,11 @@ import pytest
 
 from nonogram import cli, difficulty, export, web
 from nonogram.web import handler, pages, server
+
+# The ``web -> cli`` guard lives in the CLI's test module because that is where
+# the ADR-0007 rank table lives; AC-059 exercises it here alongside its three
+# siblings, so the module is imported rather than the guard reimplemented.
+from tests import test_cli as cli_tests
 
 #: Cap on any single request in this module. Loopback answers in microseconds;
 #: this only bounds a genuinely stuck exchange so a failure is a failure rather
@@ -114,16 +119,80 @@ def _docstring_nodes(tree: ast.Module) -> frozenset[int]:
     return frozenset(docstrings)
 
 
+def _auth_vocabulary_hits(source: str, name: str = "<source>") -> list[str]:
+    """Every place ``source`` writes authentication vocabulary in *code*.
+
+    Lifted out of ``test_the_package_contains_no_authentication_vocabulary`` so
+    the scan itself can be shown to discriminate, against fabricated sources,
+    rather than only ever being run over a package that is expected to be
+    clean — a scan that had silently stopped matching would look identical.
+
+    The header name is compared case-insensitively (AC-062). HTTP field names
+    are case-insensitive (RFC 9110 §5.1), so ``send_header("www-authenticate",
+    …)`` is the same challenge as ``WWW-Authenticate`` and the earlier
+    case-sensitive ``in`` walked straight past it.
+    """
+    hits: list[str] = []
+    tree = ast.parse(source)
+    docstrings = _docstring_nodes(tree)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in _AUTH_STATUS_NAMES:
+            hits.append(f"{name}:{node.lineno} names HTTPStatus.{node.attr}")
+        if isinstance(node, ast.Name) and node.id in _AUTH_STATUS_NAMES:
+            hits.append(f"{name}:{node.lineno} names {node.id}")
+        if isinstance(node, ast.Constant) and id(node) not in docstrings:
+            if node.value in _AUTH_STATUS_CODES:
+                hits.append(f"{name}:{node.lineno} uses the literal {node.value!r}")
+            if isinstance(node.value, str) and "www-authenticate" in node.value.lower():
+                hits.append(f"{name}:{node.lineno} writes a challenge header")
+    return hits
+
+
+def _web_component_imports() -> set[str]:
+    """The ``nonogram`` components ``web/`` imports, read off disk.
+
+    A local re-derivation rather than an import of ``tests.test_cli``'s
+    machinery: this one answers "what does the package's own docstring claim
+    about its imports" (AC-060), which is a different question from the ADR-0007
+    rank rule that test file enforces, and the two must not degenerate together.
+    """
+    names: set[str] = set()
+    for path in _WEB_SOURCES:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                names.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                base = node.module or ""
+                if node.level:
+                    base = f"nonogram.web.{base}" if base else "nonogram.web"
+                if not base:
+                    continue
+                names.add(base)
+                names.update(f"{base}.{alias.name}" for alias in node.names)
+    return {
+        parts[1]
+        for name in names
+        if (parts := name.split("."))[0] == "nonogram" and len(parts) > 1
+    }
+
+
 # --------------------------------------------------------------------------
 # Running-server helpers
 # --------------------------------------------------------------------------
 
 
 class _Response(NamedTuple):
-    """One response, fully read, so the connection can be closed before asserts."""
+    """One response, fully read, so the connection can be closed before asserts.
+
+    ``headers`` is the parsed ``HTTPMessage`` rather than ``dict(getheaders())``
+    so that ``in`` and ``[]`` are case-insensitive, as HTTP field names are
+    (RFC 9110 §5.1). A plain dict keyed on the wire spelling made
+    ``"WWW-Authenticate" not in response.headers`` a check on one spelling out
+    of many (AC-062); the message object makes it a check on the header.
+    """
 
     status: int
-    headers: dict[str, str]
+    headers: http.client.HTTPMessage
     body: bytes
 
 
@@ -176,7 +245,7 @@ def _request(
     try:
         conn.request(method, path, body=body, headers=headers or {})
         response = conn.getresponse()
-        return _Response(response.status, dict(response.getheaders()), response.read())
+        return _Response(response.status, response.headers, response.read())
     finally:
         conn.close()
 
@@ -345,7 +414,12 @@ class TestWebServer_BindsLoopbackOnlyByDefault:
         The signature check above covers the front door; this covers a literal
         ``"0.0.0.0"`` or an ``INADDR_ANY`` appearing anywhere in ``src/`` — the
         way a "just for testing" widening actually gets in.
+
+        ``_WEB_SOURCES`` is asserted non-empty first (AC-059): it is a glob
+        evaluated once at import, and a loop over an empty list reports green
+        while checking nothing.
         """
+        assert _WEB_SOURCES, "no web adapter sources found"
         for path in _WEB_SOURCES:
             source = path.read_text(encoding="utf-8")
             for token in ("0.0.0.0", "INADDR_ANY", "getfqdn", "gethostname"):
@@ -454,28 +528,16 @@ class TestWebServer_ProcessesRequestsWithoutAuthentication:
         affected and the failure message names the line, so the answer is to
         spell that constant differently — never to widen this scan, which is
         the edit that would quietly end the guard.
+
+        The scan itself lives in :func:`_auth_vocabulary_hits` so that
+        ``TestAuthScan_IsCaseInsensitiveOnHeaderNames`` can show it firing on a
+        fabricated source; run only over a package expected to be clean, a scan
+        that had stopped matching would look exactly like this one passing.
         """
         assert _WEB_SOURCES, "no web adapter sources found"
         for path in _WEB_SOURCES:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            docstrings = _docstring_nodes(tree)
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Attribute):
-                    assert node.attr not in _AUTH_STATUS_NAMES, (
-                        f"{path.name}:{node.lineno} names HTTPStatus.{node.attr}"
-                    )
-                if isinstance(node, ast.Name):
-                    assert node.id not in _AUTH_STATUS_NAMES, (
-                        f"{path.name}:{node.lineno} names {node.id}"
-                    )
-                if isinstance(node, ast.Constant) and id(node) not in docstrings:
-                    assert node.value not in _AUTH_STATUS_CODES, (
-                        f"{path.name}:{node.lineno} uses the literal {node.value!r}"
-                    )
-                    if isinstance(node.value, str):
-                        assert "WWW-Authenticate" not in node.value, (
-                            f"{path.name}:{node.lineno} writes a challenge header"
-                        )
+            hits = _auth_vocabulary_hits(path.read_text(encoding="utf-8"), path.name)
+            assert not hits, hits[0]
 
 
 # --------------------------------------------------------------------------
@@ -562,9 +624,12 @@ def test_post_is_not_implemented_in_this_card(
 ) -> None:
     """F-5, guardrail G-5: submission is CARD-020's, and says so honestly.
 
-    ``BaseHTTPRequestHandler`` answers a method with no ``do_*`` with 501, so
+    ``BaseHTTPRequestHandler`` chooses 501 for a method with no ``do_*``, so
     the form posts to an endpoint that reports itself unimplemented rather than
-    to one this card half-built.
+    to one this card half-built. The *status* is the stdlib's; the *response*
+    is ``WebUIRequestHandler.send_error``'s (``501 Not Implemented``,
+    ``text/plain``, ``nosniff``) — pinned by
+    ``TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound``.
     """
     response = _request(
         running_server.server_port, method="POST", path=pages.FORM_ACTION, body=b"size=10"
@@ -1053,9 +1118,14 @@ def test_a_loopback_host_header_is_served(
         # A ``Host`` is an authority, not a URL. ``urlsplit`` reads the host
         # component of all three of these as loopback — which it genuinely is,
         # so none of them was ever a hole — but a header carrying userinfo or a
-        # path is not a host name, and accepting it would make the set of
-        # accepted header *values* unbounded while F-12 declares exactly three
-        # accepted *names*. The reversal that would be a hole,
+        # path is not a host name, and refusing the two characters narrows the
+        # accepted *shapes*. It does NOT bound the accepted value set to the
+        # size of the accepted name set: ``urlsplit`` splits on ``#`` and ``?``
+        # exactly as it splits on ``@`` and ``/`` and neither is refused
+        # (``127.0.0.1#evil.example.com`` and ``localhost?evil`` are served),
+        # and the port is never validated. That rationale is withdrawn, not
+        # repaired — bounding the shape space is EC-004's property and lands
+        # with CARD-020. The reversal that would be a hole,
         # ``127.0.0.1@evil.example.com``, was already refused and stays here to
         # prove the narrowing did not replace the parse with a substring test.
         pytest.param("user:pass@127.0.0.1", id="userinfo"),
@@ -1069,11 +1139,20 @@ def test_a_foreign_host_header_is_refused_before_routing(
 ) -> None:
     """F-12: a request naming another host is answered 400 and never routed.
 
-    This is the half of the access control a loopback bind cannot provide. The
-    kernel stops a *network* peer, but the browser the user is already running
-    is on this host, and any page it loads can aim a request at
-    ``http://127.0.0.1:<port>/`` — under a hostname the attacker controls,
-    which is what makes the reply readable to that page.
+    This is the DNS-rebinding half of the access control, and only that half.
+    The kernel stops a *network* peer, but the browser the user is already
+    running is on this host, and a page it loads can reach
+    ``http://127.0.0.1:<port>/`` under a hostname the attacker controls, which
+    is what would make the reply readable to that page. That name is what this
+    check refuses.
+
+    It does not refuse the *other* browser-mediated reach: a browser sets
+    ``Host`` from the *target*, so a page on any origin posting to
+    ``http://127.0.0.1:<port>/`` sends an allowlisted ``Host`` and is served
+    (verified on the wire, with ``Origin`` and ``Sec-Fetch-Site: cross-site``
+    both present: ``200`` and the form — nothing in ``web/`` reads either
+    header). That is NFR-004 / CON-010, unimplemented, owned by CARD-020, and
+    no test here may be read as evidence that it is closed.
 
     Refused with ``400``, not ``401``/``403``: nothing was authenticated and
     nothing was forbidden to a principal. The request named a host this server
@@ -1118,7 +1197,7 @@ def test_a_request_with_no_host_header_at_all_is_served(
     """F-12's deliberate gap: an absent ``Host`` passes, on any version.
 
     Sent raw, because ``http.client`` always supplies the header. The check is
-    against the browser-mediated attack, and a browser cannot suppress the
+    against the browser-mediated *rebinding* attack, and a browser cannot suppress the
     header — ``Host`` is a forbidden header name to ``fetch``/XHR, so an absent
     one is never the attacker's shape. Refusing a request that omits one would
     break an HTTP/1.0 client (``curl --http1.0``, and this module's own AC-052
@@ -1279,7 +1358,12 @@ def test_the_web_package_imports_no_domain_validator() -> None:
     it catches the specific way this boundary erodes: importing the domain's
     validators into the adapter "to give a nicer message" instead of letting
     the value travel inward and come back as a ``NonogramError``.
+
+    ``_WEB_SOURCES`` is asserted non-empty first (AC-059): this loop is cited
+    as the enforcement of ADR-0019/R1, and an empty glob would have it certify
+    that rule by reading nothing.
     """
+    assert _WEB_SOURCES, "no web adapter sources found"
     for path in _WEB_SOURCES:
         source = path.read_text(encoding="utf-8")
         for token in ("validate_size", "validate_density", "parse_tier"):
@@ -1294,8 +1378,397 @@ def test_the_web_package_raises_nothing() -> None:
     caught here for rendering. A ``raise`` statement anywhere in ``web/`` would
     mean this package had grown a judgement of its own — which is exactly what
     guardrail G-4 and ADR-0019/R1 put inward of it.
+
+    ``_WEB_SOURCES`` is asserted non-empty first (AC-059): this loop is cited
+    as the enforcement of guardrail G-4, and an empty glob would have it
+    certify that guardrail by parsing nothing.
     """
+    assert _WEB_SOURCES, "no web adapter sources found"
     for path in _WEB_SOURCES:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         raises = [node for node in ast.walk(tree) if isinstance(node, ast.Raise)]
         assert not raises, f"{path.name} raises at line {raises[0].lineno}"
+
+
+# --------------------------------------------------------------------------
+# CARD-022 — the claims the package makes about itself, and the guards that
+# were supposed to be checking them (AC-059..AC-062)
+# --------------------------------------------------------------------------
+
+
+class TestWebGuards_EveryStructuralLoopAssertsNonEmpty:
+    """AC-059: no structural guard here can pass by looping over nothing.
+
+    Each of these tests works by *enumerating* something discovered at import
+    time — ``_WEB_SOURCES`` from a ``rglob``, the web modules from a filter over
+    ``tests.test_cli._MODULES`` — and asserting a property of every item found.
+    A loop over an empty collection asserts that property of nothing and reports
+    green. That is how two tests cited by three consecutive review cycles as the
+    enforcement of ADR-0019/R1 and guardrail G-4 came to be evidence for nothing
+    at all: the glob was never asserted non-empty, so a rename of the package
+    directory would have retired both guards silently.
+
+    This class is the mutation those cycles never ran, made permanent. Each
+    guard is invoked with its own collection emptied and must *fail*.
+    """
+
+    @pytest.mark.parametrize(
+        "guard",
+        [
+            pytest.param(
+                lambda: (
+                    TestWebServer_BindsLoopbackOnlyByDefault()
+                ).test_no_module_in_the_package_names_another_bind_address(),
+                id="bind-address-sweep",
+            ),
+            pytest.param(
+                lambda: (
+                    TestWebServer_ProcessesRequestsWithoutAuthentication()
+                ).test_the_package_contains_no_authentication_vocabulary(),
+                id="auth-vocabulary-scan",
+            ),
+            pytest.param(
+                test_the_web_package_imports_no_domain_validator, id="no-domain-validator"
+            ),
+            pytest.param(test_the_web_package_raises_nothing, id="raises-nothing"),
+        ],
+    )
+    def test_a_source_sweep_fails_when_the_glob_finds_nothing(
+        self, monkeypatch: pytest.MonkeyPatch, guard: Callable[[], None]
+    ) -> None:
+        """All four ``_WEB_SOURCES`` loops, each against an empty source list."""
+        monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])
+
+        with pytest.raises(AssertionError, match="no web adapter sources found"):
+            guard()
+
+    def test_the_web_to_cli_guard_fails_when_the_selector_matches_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The fourth guard, whose empty collection is a *filter*, not a glob.
+
+        ``test_the_web_adapter_never_imports_the_cli_adapter`` walks every module
+        in the package and skips the ones that are not ``web``. The collection it
+        actually consumes is that filtered set, so a selector that stopped
+        matching — a renamed component, a moved package — would leave the loop
+        with nothing to do and the ``web -> cli`` prohibition unchecked. Emptied
+        here by handing it a module table with no web module in it.
+
+        ``match=`` pins the *pinned-set* message specifically, as the four
+        ``_WEB_SOURCES`` siblings pin theirs. A bare ``pytest.raises`` would be
+        satisfied by the loop's own ``cli not in _imported_components`` failure
+        — a different defect entirely — and matching on ``nonogram.web`` would
+        not discriminate either, since that clause reports the module name.
+        """
+        monkeypatch.setattr(
+            cli_tests, "_MODULES", {"nonogram.cli": cli_tests._MODULES["nonogram.cli"]}
+        )
+
+        with pytest.raises(AssertionError, match="web modules missing from the sweep"):
+            cli_tests.test_the_web_adapter_never_imports_the_cli_adapter()
+
+    def test_the_same_guard_passes_on_the_real_module_table(self) -> None:
+        """The control: unmonkeypatched, it still passes — so the failure above
+        is the emptying and not a broken call."""
+        cli_tests.test_the_web_adapter_never_imports_the_cli_adapter()
+
+
+class TestWebDocstrings_MatchTheShippedPackage:
+    """AC-060: every factual claim ``web/__init__.py`` makes is true of the code.
+
+    The COMP-008 docstring is the first thing anyone reads about this package,
+    and it shipped saying two things that were not so: that the package imports
+    the orchestrator (nothing under ``web/`` does), and that it performs request
+    parsing and maps form fields onto ``GenerationRequest`` (CARD-019's guardrail
+    G-5 excluded both; CARD-020 adds them). Prose is not usually testable, but
+    *these* claims are — they are claims about imports and about routes.
+    """
+
+    def test_the_package_imports_exactly_what_the_docstring_names(self) -> None:
+        """"the difficulty and export registries" — and nothing else outward."""
+        assert _web_component_imports() - {"web"} == {"difficulty", "export"}
+
+    def test_the_docstring_claims_no_import_the_package_does_not_make(self) -> None:
+        """The specific false sentence, pinned so it cannot come back.
+
+        One-directional on purpose: claiming an import obliges the import to
+        exist, while making an import does not oblige a sentence. CARD-020 may
+        well import the orchestrator, and this test is not a demand that it also
+        phrase the docstring a particular way — only that it not describe an
+        edge that is not there.
+        """
+        docstring = " ".join((web.__doc__ or "").split())
+        imported = _web_component_imports()
+
+        for component in ("orchestrator", "sourcing", "clues", "solver", "difficulty"):
+            if f"imports the {component}" in docstring:
+                assert component in imported, component
+
+    def test_the_docstring_claims_no_responsibility_the_package_lacks(self) -> None:
+        """Request parsing and the ``GenerationRequest`` mapping are forthcoming.
+
+        Pinned as: the docstring still names the mapping (a reader needs to know
+        where it went), and every sentence that names it also names the card that
+        brings it. A present-tense claim would not.
+        """
+        text = " ".join((web.__doc__ or "").split())
+        sentences = [s for s in text.split(". ") if "GenerationRequest" in s]
+
+        assert sentences, "the docstring no longer says where the mapping lives"
+        for sentence in sentences:
+            assert "CARD-020" in sentence, sentence
+
+    def test_the_docstring_does_not_credit_the_stdlib_with_writing_the_501(self) -> None:
+        """The claim CARD-022's own ``send_error`` override falsified.
+
+        AC-060 is about the docstring *as a whole*, not about the two sentences
+        cycle 1 was pointed at. "a ``POST`` gets the standard library's own
+        ``501``" was true until this package overrode ``send_error``; the
+        status is still the stdlib's decision, the response is not. Pinned
+        against the code fact rather than against prose: while the override is
+        present in ``WebUIRequestHandler``'s own ``__dict__``, no sentence may
+        hand the whole 501 back to the standard library, and some sentence must
+        name the method that writes it.
+        """
+        assert "send_error" in vars(handler.WebUIRequestHandler)
+
+        text = " ".join((web.__doc__ or "").split())
+        sentences = [s for s in text.split(". ") if "501" in s]
+
+        assert sentences, "the docstring no longer says what a POST gets"
+        for sentence in sentences:
+            assert "standard library's own" not in sentence, sentence
+        assert any("send_error" in sentence for sentence in sentences), sentences
+
+    def test_the_docstring_names_every_access_control_check_the_package_makes(self) -> None:
+        """"the bind address **and nothing else**" was false — there are two.
+
+        The ``Host`` check refuses a request before routing, which is access
+        control by any reading, and ``handler.py`` says so in two places. The
+        behavioural half is asserted first so this is not prose checked against
+        prose: the second check demonstrably discriminates.
+        """
+        assert handler._host_is_local("127.0.0.1") is True
+        assert handler._host_is_local("evil.example.com") is False
+
+        text = " ".join((web.__doc__ or "").split())
+        sentences = [s for s in text.split(". ") if "Access control" in s]
+
+        assert sentences, "the docstring no longer says what the access control is"
+        for sentence in sentences:
+            assert "and nothing else" not in sentence, sentence
+            assert "Host" in sentence, sentence
+
+    def test_the_package_really_does_no_request_mapping_yet(self) -> None:
+        """The behavioural half of the claim above, so it is not prose-on-prose."""
+        assert not hasattr(handler.WebUIRequestHandler, "do_POST")
+        assert {method for method, _ in handler.ROUTES} == {"GET"}
+
+        assert _WEB_SOURCES, "no web adapter sources found"
+        for path in _WEB_SOURCES:
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+            docstrings = _docstring_nodes(tree)
+            code = [
+                node
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Constant) and id(node) not in docstrings
+            ]
+            assert not any(
+                isinstance(node.value, str) and "GenerationRequest" in node.value
+                for node in code
+            ), path.name
+
+
+#: One request shape per status the standard library answers before ``do_GET``
+#: is reached. Kept as raw bytes because ``http.client`` cannot express a
+#: malformed request line, and keyed by the status each must provoke.
+_STDLIB_ERROR_REQUESTS: dict[int, bytes] = {
+    400: b"this is not a request line\r\n\r\n",
+    414: b"GET /" + b"x" * 70000 + b" HTTP/1.0\r\n\r\n",
+    431: b"GET / HTTP/1.0\r\n" + b"".join(b"X-%d: 1\r\n" % n for n in range(150)) + b"\r\n",
+    501: b"POST / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n",
+    505: b"GET / HTTP/9.9\r\n\r\n",
+}
+
+#: The exact status line each must now produce. Spelled out rather than looked
+#: up in ``BaseHTTPRequestHandler.responses``, so the reason phrase is asserted
+#: against a second source and not against the handler's own table. Note the
+#: 501: the standard library's reads ``501 Unsupported method ('POST')``, with
+#: the request's method in the *reason phrase*.
+_STDLIB_ERROR_STATUS_LINES: dict[int, bytes] = {
+    400: b"HTTP/1.0 400 Bad Request",
+    414: b"HTTP/1.0 414 URI Too Long",
+    431: b"HTTP/1.0 431 Request Header Fields Too Large",
+    501: b"HTTP/1.0 501 Not Implemented",
+    505: b"HTTP/1.0 505 HTTP Version Not Supported",
+}
+
+
+class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
+    """AC-061: ``_respond``'s "sent on every response" is literally true.
+
+    Five statuses — 400, 414, 431, 501, 505 — are written before routing, by
+    ``BaseHTTPRequestHandler.send_error``. Its own version replies ``text/html``
+    with no ``X-Content-Type-Options`` and interpolates the request's method or
+    version token into the body, so the docstring's claim was false for five of
+    the nine statuses this adapter can produce, and the tests that pinned the
+    header only ever looked at the four ``_respond`` writes.
+
+    ``WebUIRequestHandler.send_error`` now funnels all five through ``_respond``.
+    These tests pin the result on the wire rather than trusting the override:
+    the statuses are unchanged, the header is present, and nothing from the
+    request comes back.
+    """
+
+    @pytest.mark.parametrize("status", sorted(_STDLIB_ERROR_REQUESTS))
+    def test_the_status_is_unchanged_and_carries_the_declared_header(
+        self, running_server: server.LoopbackHTTPServer, status: int
+    ) -> None:
+        received = _raw_exchange(running_server.server_port, _STDLIB_ERROR_REQUESTS[status])
+        head, _, body = received.partition(b"\r\n\r\n")
+        lowered = head.lower()
+
+        # A status line at all is part of the claim, and for 400 and 505 it is
+        # new: ``parse_request`` assigns the parsed version only after accepting
+        # it, so on those two paths ``request_version`` was still the HTTP/0.9
+        # default and both ``send_response_only`` and ``end_headers`` no-op'd.
+        # As CARD-019 shipped, the client got a bare HTML body with no status
+        # line and no headers whatsoever — no Content-Type either, so "no
+        # nosniff" understated it.
+        # The reason phrase is written out here rather than read back from
+        # ``handler.WebUIRequestHandler.responses``, which is the table the
+        # handler itself formats from: re-deriving it there would assert only
+        # that the same lookup was done twice.
+        assert head.splitlines()[0] == _STDLIB_ERROR_STATUS_LINES[status], received[:120]
+        assert b"x-content-type-options: nosniff" in lowered, received[:200]
+        assert b"content-type: text/plain; charset=utf-8" in lowered, received[:200]
+        assert b"<" not in body, body[:200]
+
+    @pytest.mark.parametrize(
+        ("request_bytes", "echo"),
+        [
+            pytest.param(b"POST / HTTP/1.0\r\n\r\n", b"POST", id="method"),
+            pytest.param(
+                b"<script>alert(1)</script> / HTTP/1.0\r\n\r\n", b"script", id="markup-method"
+            ),
+            pytest.param(b"GET / HTTP/9.9\r\n\r\n", b"9.9", id="version"),
+        ],
+    )
+    def test_no_error_body_echoes_anything_off_the_wire(
+        self, running_server: server.LoopbackHTTPServer, request_bytes: bytes, echo: bytes
+    ) -> None:
+        """The stdlib escapes what it reflects; this handler reflects nothing.
+
+        Escaped markup in an ``text/html`` error body was inert, but inert by
+        the standard library's escaping rather than by anything this package
+        owns or tests. There is nothing to escape now.
+        """
+        received = _raw_exchange(running_server.server_port, request_bytes)
+
+        assert echo not in received, received[:200]
+
+    def test_a_head_request_gets_no_body(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """RFC 9110 §9.3.2 — and the one thing the stdlib's ``send_error`` did
+        that a naive override would have lost."""
+        received = _raw_exchange(running_server.server_port, b"HEAD / HTTP/1.0\r\n\r\n")
+        head, _, body = received.partition(b"\r\n\r\n")
+
+        assert b" 501 " in head.splitlines()[0], received[:120]
+        assert b"content-length: 0" in head.lower(), received[:200]
+        assert body == b"", body[:200]
+
+    def test_the_routed_responses_still_carry_it_too(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The other half of "every": the four statuses ``_respond`` already had.
+
+        200 (the form), 404 (no route), and both 400s the ``Host`` check writes.
+        Asserted here as one set so the claim is checked whole rather than one
+        route at a time.
+        """
+        port = running_server.server_port
+        responses = [
+            _request(port),
+            _request(port, path="/no-such-page"),
+            _request(port, headers={"Host": "evil.example.com"}),
+        ]
+        raw_conflicting = _raw_exchange(
+            port, b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\nHost: evil.example.com\r\n\r\n"
+        )
+
+        assert [r.status for r in responses] == [200, 404, 400]
+        for response in responses:
+            assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert b"x-content-type-options: nosniff" in raw_conflicting.lower()
+        assert b" 400 " in raw_conflicting.splitlines()[0]
+
+
+class TestAuthScan_IsCaseInsensitiveOnHeaderNames:
+    """AC-062: a challenge header is detected however it is spelled.
+
+    HTTP field names are case-insensitive (RFC 9110 §5.1), so
+    ``send_header("www-authenticate", …)`` is a challenge exactly as
+    ``WWW-Authenticate`` is. Both checks that look for one compared the wire
+    spelling: the AST scan with ``"WWW-Authenticate" not in node.value``, and
+    the behavioural assertion against a ``dict`` keyed on the header as sent.
+    Either would have waved a lowercase challenge through.
+    """
+
+    @pytest.mark.parametrize(
+        "spelling",
+        ["WWW-Authenticate", "www-authenticate", "Www-Authenticate", "WWW-AUTHENTICATE"],
+    )
+    def test_the_source_scan_sees_every_spelling(self, spelling: str) -> None:
+        source = f'def _challenge(self):\n    self.send_header({spelling!r}, "Basic")\n'
+
+        assert _auth_vocabulary_hits(source, "fabricated.py") == [
+            "fabricated.py:2 writes a challenge header"
+        ]
+
+    def test_the_source_scan_is_not_simply_always_positive(self) -> None:
+        """The control. Without it the test above proves only that the scan
+        returns something, not that it returns something *about the header*."""
+        source = 'def _serve(self):\n    self.send_header("Content-Type", "text/plain")\n'
+
+        assert _auth_vocabulary_hits(source, "fabricated.py") == []
+
+    def test_the_source_scan_still_ignores_a_docstring(self) -> None:
+        """The property the AST form was introduced for, kept while widening it:
+        prose *about* the absent header must not read as the header."""
+        source = '"""There is no www-authenticate here."""\n'
+
+        assert _auth_vocabulary_hits(source, "fabricated.py") == []
+
+    @pytest.mark.parametrize("spelling", ["WWW-Authenticate", "www-authenticate"])
+    def test_a_response_carrying_the_header_is_detected(self, spelling: str) -> None:
+        """The behavioural half, through the same accessor
+        ``test_no_endpoint_ever_challenges`` uses.
+
+        A handler that really does send the header is served over a real socket
+        and the assertion that test makes is shown to catch it — for both
+        spellings, which the previous ``dict(getheaders())`` could not.
+        """
+
+        class _ChallengingHandler(handler.WebUIRequestHandler):
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header(spelling, 'Basic realm="nonogram"')
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+        challenging = server.LoopbackHTTPServer(
+            (server.LOOPBACK_HOST, 0), _ChallengingHandler
+        )
+        with _running(challenging) as running:
+            response = _request(running.server_port)
+
+        assert "WWW-Authenticate" in response.headers
+
+    def test_the_shipped_handler_carries_no_such_header(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The control for the probe above: the real server sends none (AC-053)."""
+        assert "WWW-Authenticate" not in _request(running_server.server_port).headers
