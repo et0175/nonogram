@@ -157,16 +157,27 @@ def _cell_mm(geometry: Layout) -> float:
 
 
 def _assert_fits_printable_area(geometry: Layout) -> None:
-    """The whole drawing sits inside A4's printable area (AC-080, AC-081)."""
+    """The whole printed page sits inside A4's printable area (AC-080, AC-081).
+
+    "The whole page" means the drawing *plus* the header band a titled sheet
+    carries above it, which is what NFR-005 defines page fit over. Measuring the
+    drawing alone is the measurement that let a cap raised to 7.0mm at 25 cells
+    push 50 supported shapes off A4 with the suite green: those pages overran
+    the sheet only once the band was added, so a check that stopped at
+    ``geometry.height`` could not see it. The band is added for every format,
+    not only the PDF, because all three renderers size their cell from one
+    :func:`compute_layout` — see ``_fit_cell``.
+    """
     printable_width = round(
         (layout_module.PAGE_WIDTH_MM - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
     )
     printable_height = round(
         (layout_module.PAGE_HEIGHT_MM - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
     )
+    band = layout_module.header_band(geometry)
 
     assert geometry.width - 2 * geometry.margin <= printable_width
-    assert geometry.height - 2 * geometry.margin <= printable_height
+    assert geometry.height - 2 * geometry.margin + band.height <= printable_height
 
 
 #: A grid dense enough that a renderer leaking the solution would be obvious:

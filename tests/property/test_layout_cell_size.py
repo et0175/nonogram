@@ -15,6 +15,16 @@ thing that was decided:
    non-increasing function of the larger dimension across the whole range.
    Half 1 alone would pass trivially on a cap that jumped around, or on one
    that returned a metre for everything.
+3. **The page still holds the page.** The other half of the ``min()`` — the
+   one AC-080 and AC-081 both state in their ``then`` and neither of their
+   examples measured — over the *same* corpus as half 1: grid, plus both clue
+   gutters, plus the header band a titled sheet carries above them, inside a
+   sheet of A4. A cap raised without this is a cap that prints off the paper,
+   which is exactly what happened first time round: sized on the drawing
+   alone, 50 shapes in this corpus overran A4 once the band was added, none of
+   which had under the flat 6.5mm cap the new rule replaced. Halves 1 and 2
+   were green throughout — a ceiling is only half of ``min()``, and the other
+   half needs asserting too or the first one is licence to grow.
 
 Both halves are checked against an *independent* reading of NFR-005's five
 chosen values, spelled out below as literals. A test that derived its
@@ -36,7 +46,7 @@ import pytest
 
 from nonogram.clues import compute_clues
 from nonogram.export import layout
-from nonogram.export.layout import compute_layout
+from nonogram.export.layout import Layout, compute_layout
 
 SEED = 20260831
 
@@ -53,6 +63,12 @@ CHOSEN: tuple[tuple[int, float], ...] = (
 #: CON-011's supported band, named here for the same reason as the values.
 MIN_SUPPORTED = 10
 MAX_SUPPORTED = 30
+
+#: A4 portrait in millimetres (ISO 216), as literals for the same reason the
+#: chosen cell sizes are literals: a test that read ``layout.PAGE_WIDTH_MM``
+#: would follow the module onto A5 without noticing.
+A4_WIDTH_MM = 210.0
+A4_HEIGHT_MM = 297.0
 
 #: How close two millimetre measurements have to be to count as the same
 #: number. One device pixel at 300 DPI is ~0.085mm; the layout truncates the
@@ -103,6 +119,42 @@ def _sparse(width: int, height: int) -> list[list[bool]]:
     return grid
 
 
+def _alternating_rows(width: int, height: int) -> list[list[bool]]:
+    """Rows alternately full and empty: the *tallest* drawing a shape allows.
+
+    Every row clue is one number and every column clue is ``height // 2`` of
+    them, so the row gutter is 1 cell and the column gutter is half the height
+    — a drawing that grows down while staying as narrow as the grid. That is
+    the only regime in which page fit's *height* term binds at all (A4 prints
+    186mm across against 273mm down, so a drawing has to be about 1.5x taller
+    than wide before height is the smaller quotient), and therefore the only
+    regime in which the header band's reservation can be observed. The shape
+    that broke first was a 10x25 of exactly this form.
+    """
+    return [[row % 2 == 0 for _ in range(width)] for row in range(height)]
+
+
+def _assert_the_page_fits_a4(geometry: Layout, *, label: str) -> None:
+    """The whole printed page — drawing plus header band — lands on A4.
+
+    The band is measured with :func:`layout.header_band`, the same call the PDF
+    exporter makes, rather than re-derived from :data:`layout.HEADER_BAND_MM`:
+    what has to fit is the page a renderer actually produces, so the band that
+    is asserted must be the band that is drawn.
+    """
+    band = layout.header_band(geometry)
+    page_width_px = round(A4_WIDTH_MM / 25.4 * layout.DPI)
+    page_height_px = round(A4_HEIGHT_MM / 25.4 * layout.DPI)
+
+    assert geometry.width <= page_width_px, (
+        f"{label}: {geometry.width}px wide overruns A4's {page_width_px}px"
+    )
+    assert geometry.height + band.height <= page_height_px, (
+        f"{label}: {geometry.height}px of drawing plus a {band.height}px band "
+        f"overruns A4's {page_height_px}px"
+    )
+
+
 def test_the_module_encodes_the_chosen_values_and_nothing_else() -> None:
     """The one place the literals above and the module's constants are tied
     together. Everything else in this file reads the literals."""
@@ -144,11 +196,19 @@ def test_the_five_chosen_sizes_are_on_the_curve_exactly() -> None:
 
 
 def test_no_supported_puzzle_prints_a_cell_larger_than_its_cap() -> None:
-    """EC-008's first half, over every shape CON-011 supports.
+    """EC-008's first and third halves, over every shape CON-011 supports.
 
-    Three puzzles per shape — a random-density one, the deepest gutter the
-    shape allows and the shallowest — so the corpus spans both terms of the
-    ``min()`` at every one of the 441 supported extents, square and not.
+    Four puzzles per shape — a random-density one, the deepest gutter the shape
+    allows, the shallowest, and the *tallest* — so the corpus spans both terms
+    of the ``min()`` at every one of the 441 supported extents, square and not,
+    and both axes of the page-fit term.
+
+    Every case carries two assertions, not one. ``printed <= cap`` is EC-008 as
+    written; ``page fits A4`` is the clause AC-080 and AC-081 both end on, and
+    the one that was going unmeasured while the cap was being raised. They fail
+    in opposite directions — a cell too large for the paper passes the first
+    and fails the second — which is the whole reason both belong on the same
+    corpus rather than on two corpora chosen to suit each.
     """
     rng = random.Random(SEED)
     expected = _expected_cap_mm()
@@ -162,19 +222,21 @@ def test_no_supported_puzzle_prints_a_cell_larger_than_its_cap() -> None:
                 _random_grid(width, height, rng),
                 _checkerboard(width, height),
                 _sparse(width, height),
+                _alternating_rows(width, height),
             ):
                 geometry = compute_layout(*compute_clues(grid))
                 cap = expected[max(width, height)]
                 printed = _cell_mm(geometry.cell)
 
                 assert printed <= cap, f"{width}x{height} printed {printed}mm over a {cap}mm cap"
+                _assert_the_page_fits_a4(geometry, label=f"{width}x{height}")
                 cases += 1
                 if printed > cap - _ONE_PIXEL_MM:
                     at_the_cap += 1
                 else:
                     under_the_cap += 1
 
-    assert cases >= 3 * 21 * 21
+    assert cases >= 4 * 21 * 21
     # A ceiling nothing ever reaches would satisfy the assertion above just as
     # well as the real rule, and so would one nothing ever falls below. Both
     # sides of the ``min()`` must actually be observed to bind.

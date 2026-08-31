@@ -10,8 +10,12 @@ The one thing not all three draw is a header. It is measured here anyway
 (:func:`header_band`) — a page's geometry is this module's subject whoever ends
 up drawing it — but as a separate measurement laid *above* a computed
 :class:`Layout` rather than as a parameter of :func:`compute_layout`, so that
-the two formats without a header pay nothing for the one with it. See
-:func:`header_band`.
+a format without a header carries none of it in its *coordinates*: the PNG and
+the PDF's puzzle page are the same pixels, offset by the band's height. The one
+thing every format does share is the band's claim on the *sheet*: the cell is
+sized so that drawing **plus** band fits A4 (NFR-005 defines page fit that
+way), because a cell chosen without the band is a cell the PDF cannot print.
+See :func:`header_band` and :func:`_fit_cell`.
 
 A pure function of the clues, and of nothing else
 -------------------------------------------------
@@ -66,8 +70,16 @@ actually take::
   harder to mark. The declining curve replaces a single flat 6.5 mm cap, under
   which a 10x10 and a 25x25 printed *identically* at 6.52 mm and a 10x10 came
   out about 30% smaller than it was meant to be.
-* *page fit* is the largest cell whose whole drawing — grid plus both clue
-  gutters — still fits the printable area of A4.
+* *page fit* is the largest cell whose whole page — grid, plus both clue
+  gutters, plus the :data:`HEADER_BAND_MM` strip a titled page lays above the
+  drawing — still fits the printable area of A4. The band is counted for all
+  three formats, not only the PDF that draws it: it costs a wide drawing
+  nothing (the band eats height, and the width term binds unless a drawing is
+  about 1.5x taller than it is wide), and for the tall drawings where the
+  height term does bind, a cell chosen without it is a cell the PDF cannot put
+  on a sheet. That is not hypothetical — a 10x25 whose rows alternate full and
+  empty is an ordinary uniquely-solvable puzzle, and sized on the drawing alone
+  it overruns A4 by 34 device pixels once the band is added.
 * the cap is a **ceiling, never a floor**: where the two disagree, page fit
   wins. From about 20 cells a side up, the gutter makes page fit the smaller
   term every time — at 45% density a 30x30 draws 40 cells across, which is
@@ -152,8 +164,21 @@ MAX_CELL_MM = CELL_COMFORT_MM[-1][1]
 #: The cell-size floor, in millimetres: smaller than this is not a puzzle any
 #: more, it is a grey square. Unlike the comfort cap above, the floor wins
 #: over page fit rather than yielding to it — see the module docstring for why
-#: an oversized image beats a silently unreadable page. No supported puzzle
-#: comes near it (the worst 30x30 still prints at about 4 mm).
+#: an oversized image beats a silently unreadable page.
+#:
+#: **A backstop for out-of-range drawings only, and knowingly so.** Measured
+#: over all 441 extents CON-011 supports at three gutter depths: the smallest
+#: cell any of them gets is 48 px / 4.06 mm (a 30x10 checkerboard, 45 cells
+#: across), against this floor's 24 px. Page fit has to fall under 24 px for
+#: the floor to engage at all, which needs 92 cells across or 129 down —
+#: three times CON-011's widest grid plus its deepest gutter. So the guarantee
+#: "the floor still beats page fit" (guardrail G-3) is certified against a
+#: synthetic drawing (``test_the_largest_drawing_keeps_a_markable_cell``'s
+#: 120x60 clue set) rather than a constructible puzzle, because the domain can
+#: no longer construct one. That is recorded rather than hidden: the clamp is
+#: live code for a case only a future widening of CON-011, or a future format
+#: with a much deeper gutter, would reach — and a later reader tempted to
+#: delete it as dead should reach that conclusion on purpose.
 MIN_CELL_MM = 2.0
 
 #: Every Nth grid line is stroked heavy — the standard nonogram counting aid.
@@ -351,6 +376,16 @@ def header_band(layout: Layout) -> HeaderBand:
     separately and added on top, the band is strictly additive: the PNG and the
     PDF's puzzle page are the same pixels, offset by :attr:`HeaderBand.height`.
 
+    What *is* shared is the band's claim on the sheet. :func:`_fit_cell`
+    reserves :data:`HEADER_BAND_MM` out of the printable height for every
+    format, because all three read one :func:`compute_layout` and a cell chosen
+    without the band is a cell the PDF cannot fit on A4 (NFR-005 defines page
+    fit over drawing *plus* band for exactly this reason). So the band is free
+    in a headerless format's coordinates and not quite free in its cell — and
+    only where the height term binds at all, which needs a drawing about 1.5x
+    taller than it is wide. Across CON-011's 441 extents at three gutter depths
+    it moves the cell in 13% of cases, by at most 0.25mm.
+
     The type size is physical (:data:`HEADER_FONT_MM` at :data:`DPI`) and not a
     fraction of the cell, unlike :attr:`Layout.clue_font_size`. A clue digit has
     to fit inside its cell, so it must scale with it; a title has a whole page
@@ -419,19 +454,39 @@ def comfort_cap_mm(larger_dimension: int) -> float:
     return CELL_COMFORT_MM[-1][1]
 
 
-def _fit_cell(total_columns: int, total_rows: int, *, larger_dimension: int) -> int:
+def _fit_cell(
+    total_columns: int,
+    total_rows: int,
+    *,
+    larger_dimension: int,
+    reserved_height_mm: float,
+) -> int:
     """The cell size in device pixels: ``min(comfort cap, page fit)`` (NFR-005).
 
     Two measurements of the same cell, and they are functions of different
     things — which is why this takes both the drawing's totals and the grid's
     own longer side:
 
-    * *page fit* is the largest cell whose whole drawing still fits the
-      printable area of an A4 sheet. Gutters included, which is why
+    * *page fit* is the largest cell whose whole page still fits the printable
+      area of an A4 sheet. Gutters included, which is why
       ``total_columns``/``total_rows`` are totals and not the grid's own
-      dimensions.
+      dimensions; and ``reserved_height_mm`` included too, which is the strip
+      a renderer lays above the drawing without :func:`compute_layout` knowing
+      any of its geometry.
     * the *comfort cap* is what :func:`comfort_cap_mm` assigns to
       ``larger_dimension``, the longer side of the grid alone.
+
+    Why the reserved strip is a parameter here and a constant at the call site
+    ----------------------------------------------------------------------
+    The band is the PDF's, and only the PDF draws it — but the *cell* it
+    implies is shared, because all three renderers read one
+    :func:`compute_layout` and the PDF must be able to print the result. Taking
+    the reservation as an argument rather than reading :data:`HEADER_BAND_MM`
+    off the module keeps that a decision of the caller, visible at the one line
+    that makes it, instead of a global this function silently consults. A
+    caller that genuinely draws no band can pass ``0.0``; today none does, and
+    the cost of the shared reservation is confined to drawings tall enough for
+    the height term to bind at all (roughly 1.5x taller than wide).
 
     The cap is a ceiling and page fit wins whenever it is the smaller of the
     two — for anything from about 20 cells a side up, that is always (see the
@@ -440,14 +495,16 @@ def _fit_cell(total_columns: int, total_rows: int, *, larger_dimension: int) -> 
     exactly in millimetres instead of to within half a device pixel.
 
     :data:`MIN_CELL_MM` is the one clamp still allowed to win *over* page fit,
-    exactly as before: below it the drawing is allowed to outgrow A4 rather
-    than shrink past the point where a pencil mark is meaningless.
+    exactly as before: below it the page is allowed to outgrow A4 rather than
+    shrink past the point where a pencil mark is meaningless.
     """
     printable_width = _mm_to_px(PAGE_WIDTH_MM - 2 * PAGE_MARGIN_MM)
-    printable_height = _mm_to_px(PAGE_HEIGHT_MM - 2 * PAGE_MARGIN_MM)
+    printable_height = _mm_to_px(PAGE_HEIGHT_MM - 2 * PAGE_MARGIN_MM) - _mm_to_px(
+        reserved_height_mm
+    )
     page_fit = min(
         printable_width // max(total_columns, 1),
-        printable_height // max(total_rows, 1),
+        max(printable_height, 0) // max(total_rows, 1),
     )
     cap = int(comfort_cap_mm(larger_dimension) / 25.4 * DPI)
     return max(_mm_to_px(MIN_CELL_MM), min(cap, page_fit))
@@ -574,13 +631,16 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
     column_gutter_cells = _gutter_depth(column_clues)
 
     # The two terms of NFR-005 read different things off the same puzzle: page
-    # fit measures the drawing (grid + gutters), the comfort cap measures the
-    # grid. Both come from the clue sets, so compute_layout still needs nothing
-    # but them.
+    # fit measures the page (grid + gutters + the header band a titled sheet
+    # carries above them), the comfort cap measures the grid. Both come from
+    # the clue sets, so compute_layout still needs nothing but them (G-4) —
+    # HEADER_BAND_MM is a constant of this module, not an argument a caller
+    # supplies, so reserving it costs the signature nothing.
     cell = _fit_cell(
         row_gutter_cells + columns,
         column_gutter_cells + rows,
         larger_dimension=max(columns, rows),
+        reserved_height_mm=HEADER_BAND_MM,
     )
     margin = _mm_to_px(PAGE_MARGIN_MM)
     thin, thick = _rule_widths(cell)
