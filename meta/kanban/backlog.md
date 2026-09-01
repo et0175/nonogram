@@ -178,3 +178,42 @@
       the picture-fidelity item above is the narrower, answerable slice of exactly that
       gap.                                                                     @feature
 
+- [ ] **Make printed cell size generic and configurable, and reconsider the default** —
+      NFR-005's comfort curve was tailored for seniors; the owner's judgement
+      (2026-09-01) is that 9mm and 8mm are too big and ~7mm is a better default for a
+      larger side of 25 or less.
+      **Measured first, because the change is narrower than it looks** (5 puzzles per
+      size at 45% density, 2026-09-01): the comfort cap only binds at 10x10 (prints
+      8.97mm against a 9.00 cap) and 15x15 (7.96 against 8.00). From 20 cells up A4
+      page-fit is already the binding term and the cap is dead weight — 20x20 prints
+      6.60-6.86mm against a 7.50 cap, 25x25 prints 5.25-5.59 against 7.00, 30x30 prints
+      4.57-4.74 against 6.50. So a flat 7mm cap for <=25 changes exactly two sizes:
+      10x10 8.97 -> 7.00 and 15x15 7.96 -> 7.00. Everything from 20 up is untouched
+      because it already prints below 7mm. Note also that page-fit varies by PUZZLE, not
+      just by size (the 20x20 range above), since it depends on how deep the clue gutter
+      runs.
+      **Frame it honestly as a revert, not a retune.** If the cap is constant at 7mm and
+      only binds at 10 and 15, NFR-005's "declining function of the larger dimension"
+      stops declining anywhere it has effect — it becomes a flat ceiling, which is
+      structurally what the code had BEFORE CARD-025 (`MAX_CELL_MM = 6.5`). The proposal
+      is therefore: revert CARD-025's five-point curve to a flat cap and raise it from
+      6.5 to 7.0. That is defensible — a curve where only two of five points ever bind is
+      more machinery than the problem needs — but NFR-005's wording and EC-008's
+      non-increasing property must move with it rather than being quietly contradicted.
+      **The configurability half is the more valuable one and is independent of the
+      number.** Whatever default is chosen, someone will want a different one, and the
+      seniors framing was always a guess about one audience. A `--cell-size MM` override
+      is small and fits the existing shape: argparse parses it, the domain validates it
+      (ADR-0010), and it becomes one more term in `min(comfort cap, page fit)`.
+      **The decision it forces:** what does `--cell-size 9` mean on a 30x30, where page
+      fit allows only ~4.7mm? Three candidate answers — silently clamp to page fit,
+      produce a page larger than A4, or refuse. There is precedent for the second:
+      `MIN_CELL_MM` (2.0) already lets the drawing exceed A4 rather than shrink below the
+      point where a pencil mark is meaningless. Worth knowing that the honest answer for
+      someone who genuinely wants big cells on a big grid is not a flag at all but A3 or
+      tiling across sheets — a materially bigger feature this sits next to.
+      **Sequencing:** batch this with the `--size N` semantics decision that currently
+      gates CARD-027. Both change printed output and both touch NFR-005/ADR-0022
+      territory; deciding them in one architecture pass avoids a third revision of the
+      same area in a week.                                                     @feature
+

@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-01 15:00_
+_Updated: 2026-09-01 15:20_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -54,6 +54,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - Three inaccurate prose claims in `src/nonogram/web/handler.py`
 - **Measure how close the finished puzzle is to the source picture** — nothing does today
 - **Elaborate difficulty measurement** — 12 analyzer intake lines written 2026-08-30, never formalized
+- **Configurable cell size + reconsider the default** — cap only binds at 10 and 15; batch with `--size N`
 
 ## Architecture
 _(none)_
