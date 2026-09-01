@@ -729,7 +729,8 @@ functional:
   - id: FR-021
     statement: >-
       Refuse a generation request whose grid aspect ratio differs from the
-      uploaded source image's by more than 2x, with an explanatory error
+      uploaded source image's INK BOUNDING BOX ratio (ADR-0022 revision
+      2026-09-01, DEC-025 — not its as-decoded file ratio) by more than 2x, with an explanatory error
       that tells the user to crop the picture themselves first. The centred
       crop of FR-020 retains exactly min(r_src, r_tgt) / max(r_src, r_tgt)
       of the source (r = width/height), so "discards more than half" is
@@ -1274,8 +1275,9 @@ constraints:
     type: technical
     statement: >-
       A generation request whose grid aspect ratio differs from the
-      uploaded source image's by more than 2x is refused with an
-      explanatory error rather than converted (FR-021). The centred crop of
+      uploaded source image's INK BOUNDING BOX ratio (ADR-0022 revision
+      2026-09-01, DEC-025 — not its as-decoded file ratio) by more than 2x
+      is refused with an explanatory error rather than converted (FR-021). The centred crop of
       FR-020 retains exactly min(r_src, r_tgt) / max(r_src, r_tgt) of the
       source with r = width/height, so this is exactly the rule "never
       silently discard more than half the user's picture". Retaining

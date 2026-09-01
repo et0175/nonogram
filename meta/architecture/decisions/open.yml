@@ -29,6 +29,14 @@
 #       DEC-026. blocks: [].
 
 #
+# DEC-025 (surfaced 2026-09-01 with the FR-022 trim) was resolved the same day —
+# ADR-0022 REVISED (not a new ADR: the >2x aspect guard is that ADR's own rule
+# R3, and one concern gets one ADR). Resolution: judge_trimmed_extent — the
+# guard measures the source's ink bounding box, computed and judged BEFORE any
+# crop is applied so EC-007's refuse-before-cropping guarantee is untouched.
+# CON-012 and FR-021 were re-worded to match. Full record: resolved.yml + the
+# ADR's own History entry.
+#
 # DEC-020, DEC-021, DEC-022 (surfaced 2026-08-30 for the local web UI capability)
 # were resolved the same day — ADR-0020 (stdlib_http_server), ADR-0019
 # (parallel_adapter_component), ADR-0021 (synchronous_blocking_request)
@@ -82,58 +90,6 @@
 #   prior_pattern fields are injected on this run.
 
 open:
-  - id: DEC-025
-    question: >
-      FR-021/CON-012's refusal of a grid/source aspect-ratio mismatch above
-      2x — should it measure the uploaded source image's ORIGINAL (as
-      decoded) extent, or its FR-022-TRIMMED (ink-bounding-box) extent, now
-      that FR-022 trims a source before the fit? The two readings can
-      disagree: cat.jpg goes from 580x580 (r=1.00) original to 330x462
-      (r=0.71) trimmed; dear1.jpg goes from 450x450 (r=1.00) original to
-      287x425 (r=0.68) trimmed. A tall, thin subject centred on a square
-      canvas could be accepted judged on the original extent and refused
-      judged on the trimmed one. Swept over all 14 corpus pictures at 20x20,
-      zero verdicts flip today — the corpus does not force the choice, so it
-      must be made on what CON-012 is meant to protect, not on evidence.
-    surfaced_from:
-      kind: ambiguity
-      ref: [CON-012, FR-021, FR-022]
-    axis: null
-    default: null
-    alternatives:
-      - label: judge_trimmed_extent
-        summary: >-
-          Move the FR-021/CON-012 aspect guard to run AFTER FR-022's trim,
-          measuring the ink bounding box's aspect ratio against the
-          requested grid.
-        pros:
-          - "Matches what CON-012 actually protects — the user's picture content, not incidental white margin around it; a margin is not \"the user's picture\" CON-012 says must not be silently discarded."
-          - "One canonical \"source extent\" concept in the pipeline: the guard and FR-020's crop both then operate on the same (trimmed) extent, rather than the guard judging one extent and the crop acting on another."
-        cons:
-          - "Re-touches CON-012's subject (from \"the uploaded source image's extent\" to \"the trimmed ink bounding box\") and the EC-007 clause \"refused before any cropping...\" corrected only days earlier (2026-08-31, CARD-026 cycle 2) — the guard would now also depend on the trim step, adding a second post-decode dependency to a clause already narrowed once."
-          - "The guard needs the decoded AND trimmed pixels before it can run, so — like EC-007's PNG/TIFF header-vs-decode disagreement — the fail-before-work guarantee gets weaker a second time, now needing the trim to have run too."
-      - label: judge_original_extent
-        summary: >-
-          Keep the FR-021/CON-012 aspect guard exactly where it is today,
-          measuring the untrimmed, as-decoded source extent; FR-022's trim
-          runs afterward, only for requests the guard already accepted.
-        pros:
-          - "No change to CON-012, EC-007, or the guard's position in the pipeline — it stays exactly where it was judged and re-verified as recently as 2026-08-31."
-          - "One extent (\"the file as decoded\") used consistently for both the FR-019 size-range check and the FR-021 aspect check."
-        cons:
-          - "Can accept a request that FR-022's own trim then reveals to be a poor match — a tall, thin subject on a square canvas passes the untrimmed 1:1 check but is the same 0.71/0.68 trimmed ratio the trimmed reading would refuse, so the 2x rule stops protecting what its own rationale (\"never silently discard more than half the user's picture\") claims once trimming is in the pipeline."
-          - "The corpus doesn't validate this reading either — zero verdict flips across all 14 pictures at 20x20 means this choice, like the trimmed one, rests on interpretation, not measured evidence."
-    criteria_refs: [CON-012, FR-021, FR-022]
-    status: open
-    # Deliberately EMPTY, not synthesis-blocking; deviation flagged in the
-    # 2026-09-01 domain-extraction report and reviewed 2026-09-01. Rationale:
-    # architect-validate's _check_synthesis_blockers makes an open
-    # synthesis-blocking DEC a hard ERROR once c4/ exists. On the merits the
-    # empty value is also correct here — DEC-025 moves where a guard runs
-    # INSIDE COMP-003; no component, container or context boundary changes, so
-    # the C4 model does not go stale on it. Revisit if that stops being true.
-    blocks: []
-    depends_on: []
   - id: DEC-026
     question: >
       ADR-0016 fixes the PDF export filename as `<name>-<difficulty>.pdf`.

@@ -77,3 +77,28 @@ resolved:
     resolved_by: ADR-0001
     resolved_at: 2026-08-28
     resolution_label: keep_and_track_gap
+  - id: DEC-021
+    resolved_by: ADR-0019
+    resolved_at: 2026-08-30
+    resolution_label: parallel_adapter_component
+  - id: DEC-022
+    resolved_by: ADR-0021
+    resolved_at: 2026-08-30
+    resolution_label: synchronous_blocking_request
+  - id: DEC-020
+    resolved_by: ADR-0020
+    resolved_at: 2026-08-30
+    resolution_label: stdlib_http_server
+  - id: DEC-023
+    resolved_by: ADR-0022
+    resolved_at: 2026-08-31
+    resolution_label: width_height_pair_sides_10_to_30
+  - id: DEC-024
+    resolved_by: ADR-0023
+    resolved_at: 2026-08-31
+    resolution_label: width_height_fields_schema_version_2
+  - id: DEC-025
+    question: "Does the >2x aspect guard judge the source's original or trimmed extent?"
+    resolved_by: ADR-0022
+    resolution_label: judge_trimmed_extent
+    date: 2026-09-01
