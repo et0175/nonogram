@@ -1346,74 +1346,107 @@ non_functional:
         test: PropertyTest_Layout_CellSizeNeverExceedsComfortCap
 
   - id: NFR-006
-    # New 2026-09-01 (raw-requirements.md, "Page orientation must follow the
-    # grid's shape"). Prerequisite for the NFR-005/EC-008 amendment above —
+    # New 2026-09-01. AMENDED the same day, before shipping: the first version
+    # turned the sheet on the grid's SHAPE ("landscape iff width > height").
+    # That is the wrong choice in 102 of 882 in-range cases because it states
+    # orientation over the GRID while page fit is governed by the DRAWING, and
+    # a wide grid can draw tall behind a deep column gutter. Three of its five
+    # original criteria (40x20, 45x25, 20x40) also asserted grids CON-011 makes
+    # unrequestable. Prerequisite for the NFR-005/EC-008 amendment above —
     # NFR-005's page_fit term is computed AFTER this orientation choice.
     category: usability
     metric: page_orientation
     threshold: >-
-      landscape (the grid's longer side maps to the page's longer
-      printable axis, 297 mm) when width > height; portrait (the grid's
-      longer side maps to the page's longer printable axis) when
-      height >= width, including the square case width == height.
+      the orientation printed is whichever of portrait and landscape yields
+      the LARGER printed cell for that particular puzzle; a tie resolves to
+      portrait. Not a function of the grid's shape alone.
     condition: >-
       for every PNG, SVG and PDF export of any supported grid, chosen
       before NFR-005's page_fit term is computed, since page_fit depends on
       which physical page axis each grid dimension lands on
     rationale: >-
       Deriving a rectangular shape from a bare `--size N` (FR-023) is not a
-      separable nicety once the page stays fixed: a landscape picture at
-      `--size 30` becomes a 30x10 grid that prints at 2.29mm per cell on a
-      fixed-portrait A4 and 6.60mm turned — deriving the shape without
-      turning the page actively harms exactly the pictures the feature
-      exists to help. Measured across shapes: 40x20 goes 3.39mm ->
-      5.00mm turned (+47%), 45x25 goes 3.05mm -> 4.40mm turned (+44%);
-      tall grids keep portrait (20x40 measures 4.91mm portrait against
-      3.22mm if forced landscape) and squares stay portrait too, by a
-      small margin (30x30 measures 4.40mm portrait against 4.06mm
-      landscape). Source: US-022, brainstorm 2026-09-01.
+      separable nicety once the page stays fixed: a 30x10 grid prints 5.93mm
+      per cell upright and 6.43mm turned, so deriving the shape without
+      turning the page harms exactly the puzzles the derivation exists to
+      help. But turning on the grid's SHAPE is the wrong rule. Page fit is
+      governed by the drawing, not the grid, and a wide grid can draw tall
+      behind a deep column gutter: a 26x25 alternating-rows puzzle prints
+      4.57mm on the landscape sheet its shape asks for, against 6.86mm
+      upright — a 33% loss. Measured mean printed cell over 441 in-range
+      extents x 2 gutter-heavy patterns: shape rule 6.626mm, drawing-based
+      6.746mm, larger-cell-wins 6.749mm. Larger-cell-wins is optimal by
+      construction; the drawing-based alternative merely approximates it and
+      carries a circularity (a drawing's extent depends on cell size, which
+      depends on page size, which depends on orientation), so it is undefined
+      until an orientation has already been chosen. DERIVED CONSEQUENCE,
+      recorded here rather than legislated as a separate rule: a grid whose
+      larger side is 15 or less never turns, because it is cap-bound in both
+      orientations and the tie resolves to portrait. Swept over 441 extents x
+      4 clue patterns: the smallest larger-dimension that ever turns is 16,
+      and 419 of 1764 cases turn overall, concentrated at 27..30. A small
+      puzzle therefore cannot be turned gratuitously; it turns only when it
+      is genuinely page-constrained, which is when turning buys something.
+      Source: US-022, brainstorm 2026-09-01, amended during CARD-034 review.
     acceptance:
       - id: AC-099
-        given: a 30x10 landscape-shaped grid
+        given: a 30x10 alternating-rows grid, whose landscape layout prints a larger cell than its portrait one
         when: it is rendered for print at 300 DPI
-        then: the page turns to landscape and the cell prints at 6.60 mm, versus 2.29 mm on a fixed-portrait page
+        then: landscape is selected, printing 6.43 mm against the 5.93 mm the upright sheet would give
         kind: happy
-        test: TestPageOrientation_WideGridTurnsLandscapeAt660mm
+        test: TestPageOrientation_WideGridTurnsWhenLandscapeCellIsLarger
       - id: AC-100
-        given: a 40x20 landscape-shaped grid
+        given: a 26x10 checkerboard grid, the largest measured orientation gain in the supported range
         when: it is rendered for print at 300 DPI
-        then: landscape is selected, printing at 5.00 mm per cell, a 47% increase over the 3.39 mm a fixed-portrait page would give
+        then: landscape is selected, printing 6.86 mm against 4.74 mm upright — a gain of 2.12 mm
         kind: boundary
-        test: TestPageOrientation_40x20GainsFortySevenPercentFromLandscape
+        test: TestPageOrientation_LargestInRangeGainTurnsLandscape
       - id: AC-101
-        given: a 45x25 landscape-shaped grid
+        given: a 30x20 alternating-rows grid — WIDER than it is tall, so the superseded shape rule would have turned it
         when: it is rendered for print at 300 DPI
-        then: landscape is selected, printing at 4.40 mm per cell, a 44% increase over the 3.05 mm a fixed-portrait page would give
+        then: portrait is selected, printing 5.93 mm against the 5.76 mm landscape would give — a wide grid stays upright when upright prints larger
         kind: boundary
-        test: TestPageOrientation_45x25GainsFortyFourPercentFromLandscape
+        test: TestPageOrientation_WideGridStaysPortraitWhenPortraitCellIsLarger
       - id: AC-102
-        given: a 20x40 tall grid
+        given: a 10x30 tall grid
         when: it is rendered for print at 300 DPI
-        then: portrait is selected (its natural fit), printing at 4.91 mm, versus 3.22 mm if forced landscape
+        then: portrait is selected, printing 5.76 mm against 3.81 mm if forced landscape
         kind: boundary
-        test: TestPageOrientation_TallGridKeepsPortraitAt491mm
+        test: TestPageOrientation_TallGridStaysPortrait
       - id: AC-103
         given: a 30x30 square grid
         when: it is rendered for print at 300 DPI
-        then: portrait is selected by default, printing at 4.40 mm, versus 4.06 mm if forced landscape — a small but real margin
+        then: portrait is selected, printing 5.76 mm against 3.81 mm landscape — derived from the cell comparison, not from a square special case
         kind: boundary
-        test: TestPageOrientation_SquareGridDefaultsPortraitBySmallMargin
+        test: TestPageOrientation_SquareGridStaysPortraitByCellComparison
+      - id: AC-105
+        given: a 26x25 alternating-rows grid — the witness that separates this rule from the superseded shape rule
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected at 6.86 mm; the shape rule would have turned it landscape and printed 4.57 mm, losing 33%
+        kind: negative
+        test: TestPageOrientation_WideGridWithTallDrawingStaysPortrait
+      - id: AC-106
+        given: every grid in the supported range whose larger side is 15 or less, across four clue patterns
+        when: each is rendered for print at 300 DPI
+        then: none of them turns — all print portrait, because a small grid is cap-bound in both orientations and the tie resolves to portrait
+        kind: boundary
+        test: TestPageOrientation_SmallGridsNeverTurn
     engineering_constraints:
       - id: EC-010
         statement: >-
-          For any accepted grid (width, height) with each side in 10..30,
-          the export orientation is landscape if and only if width >
-          height, and portrait otherwise (width <= height, including the
-          square case) — for every supported grid, not only the five
-          measured examples.
+          For any accepted grid (width, height) with each side in 10..30 and
+          any clue set it can produce, the export orientation is the one of
+          portrait and landscape whose layout yields the larger printed cell,
+          and portrait when the two are equal — for every supported grid and
+          clue set, not only the measured examples. It is a function of the
+          whole puzzle, not of (width, height) alone: two grids of identical
+          extent can print on differently turned sheets when their clue
+          gutters differ, and a 26x25 is portrait or landscape according to
+          which prints larger.
         kind: consistency
-        instances: [AC-099, AC-102, AC-103]
-        test: PropertyTest_PageOrientation_LandscapeIffWidthGreaterThanHeight
+        instances: [AC-099, AC-101, AC-103, AC-105, AC-106]
+        test: PropertyTest_PageOrientation_LargerCellWinsTiesToPortrait
+
 
 constraints:
   - id: CON-001
