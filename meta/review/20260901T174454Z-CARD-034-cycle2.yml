@@ -1,0 +1,237 @@
+version: 1
+generated_at: "2026-09-01T17:44:54Z"
+target: "CARD-034 cycle 2 of max 3, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-034, diff 0b0cd81~1..HEAD (edcb958); architecture-driven rework f590fb3. FULL re-review — cycle 1's 9.0 was against a superseded implementation and does not carry."
+overall_score: 8.8
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/layout.py (full, 934 lines)"
+    - "tests/property/test_layout_cell_size.py (full)"
+    - "tests/test_export_image.py (helpers + every NFR-005/NFR-006 test)"
+    - "tests/test_export_pdf.py (helpers + both A4-bound tests)"
+    - "meta/kanban/cards/CARD-034.md (full, incl. ## Architecture revision and ## Worktree notes)"
+    - "meta/architecture/requirements.yml (NFR-005, NFR-006, EC-008, EC-010, AC-099..AC-106 diff)"
+    - "meta/architecture/trace.yml (NFR-005/NFR-006 rows)"
+    - "meta/review/20260901T154730Z-CARD-034-cycle1.yml"
+    - "src/nonogram/export/{png,svg,pdf}.py (compute_layout call sites, orientation coupling — grep only)"
+  not_reached:
+    - "src/nonogram/web/**"
+    - "src/nonogram/solver/**"
+    - "src/nonogram/sourcing/**"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 1606, removed: 152 }
+  max_fan_in: { symbol: "compute_layout", callers: 52 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/export/layout.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — layout.py's co-change peers (tests/test_export_pdf.py, tests/property/test_layout_cell_size.py, tests/test_export_image.py) are all present in this diff; png.py/svg.py/pdf.py were checked by grep and need no change (no renderer reads Layout.orientation or PAGE_WIDTH_MM/PAGE_HEIGHT_MM, and no Layout(...) is constructed outside layout.py, so the new required dataclass field breaks no caller)."
+
+system_contract:
+  rules_checked: 16
+  holds: 8
+  unchecked: 8
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff adds no import to layout.py beyond the pre-existing stdlib `dataclasses`/`typing`; pyproject.toml is not in the diff; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full-suite run on edcb958 (1377 passed, 1 xfailed)."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ is absent from the diff; the package-wide guard test_every_import_in_the_package_points_inward green on edcb958."
+    - "ADR-0022/R1 ✓ holds — review-lens: Layout still carries rows/columns as a pair plus orientation (layout.py:361-363); compute_layout's signature is unchanged and still derives the extent from the two clue sets; the new internals (drawing_columns/drawing_rows/larger_dimension, layout.py:858-860) are private locals, not a public scalar 'size'. comfort_cap_mm(larger_dimension) is a pre-existing cap-curve input, unchanged."
+    - "ADR-0022/R2 ⚠ unchecked — check_ref_missing: TestValidateExtent_RejectsSideAboveThirty is present in no file under tests/; manual read of this diff found no violation (layout.py validates nothing and G-4 keeps sourcing/** out of the footprint)."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: nothing in this diff touches image fitting; TestFitImage_RefusesRatioMismatchBeyondTwice exists and is green on edcb958."
+    - "ADR-0022/R4 ⚠ unchecked — check_ref_missing: PropertyTest_BareSize_DerivesShorterSideFromSourceShape is present in no file under tests/ (CARD-033's work, excluded by G-4)."
+    - "ADR-0023/R1 ✓ holds — no export encoder is in the diff; grep over src/ shows `orientation` appears in no export format module outside layout.py, so Layout.orientation reaches no json/csv metadata field."
+    - "CON-005 ✓ holds — no solver file is in the diff; PropertyTest_Solver_NeverFalsePositiveUniqueness (tests/property/test_solver_uniqueness.py) green on edcb958."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the diff touches no web server code; TestWebServer_BindsLoopbackOnlyByDefault exists and is green on edcb958."
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest is present in no file under tests/; nothing in this diff bears on the rule."
+    - "CON-011 ⚠ unchecked — check_ref_missing: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 is present in no file under tests/ (the property is tested under a different name in tests/property/test_size_range.py). Manual read: EC-010's rewritten property test sweeps exactly 10..30 on both sides (441 extents x 4 patterns, counts asserted), and the diff adds no production path accepting a side outside the band."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect guard is untouched; PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore exists and is green on edcb958."
+    - "INV-001 ✓ holds — compute_layout still reads rows/columns from len(row_clues)/len(column_clues) alone (layout.py:837) and never sees a grid; the new orientation choice consumes only clue-derived gutter depths; TestComputeClues_MatchesGridExactly green on edcb958."
+    - "INV-002 ✓ holds — the export gate is not in the diff; TestExport_RejectsUnverifiedPuzzle and TestExport_RejectsUnverifiedPuzzleForPDF green on edcb958."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry/nudge/resample path is in the diff; its four named tests exist and are green on edcb958."
+    - "INV-004 ⚠ unchecked — no_eligible_fact: sourcing/** is excluded by G-4 and absent from the diff; TestGenerateRandom_* exist and are green on edcb958."
+
+root_causes:
+  - id: RC-1
+    title: "the cycle-2 rework re-measured every derived figure in shipped source correctly, but the same discipline was not applied to the figures written into the card (mutation counts, turn distribution) — the cycle-1 finding family regenerated one layer out"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "the property test's independence claim is stated absolutely ('everything else reads the literals') while one module constant, DPI, is read straight from the module under test and pinned nowhere"
+    finding_ids: [F-003]
+  - id: RC-3
+    title: "trace.yml was deliberately left for the card-close step, so the model still states the superseded orientation rule as fact"
+    finding_ids: [F-004]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-034.md
+    line: 232
+    title: "Worktree notes' mutation figure 'Always-landscape: 17 fail' measures 16"
+    description: |
+      The `[Mutation results — 4 mutants, all killed]` note states four counts.
+      Re-run independently (mutate `_orientation_for`'s return in place, run the
+      full suite, restore, verify sha256 6f734c91cdafab82… byte-identical):
+
+        * `columns > rows` shape rule          → 5 failing tests   (stated 5 ✓,
+          and exactly the five named: EC-010's property test, AC-101, AC-105,
+          AC-106, AC-082[wide])
+        * always-portrait                      → 7 failing tests   (stated 7 ✓,
+          exactly the seven named)
+        * tie-to-landscape (`>=` for `>`)      → 7 failing tests   (stated 7 ✓)
+        * always-landscape                     → **16** failing tests
+          (stated **17**)
+
+      Both spellings of the always-landscape mutant (`return "landscape"` inside
+      `_orientation_for`, and `orientation = "landscape"` at the compute_layout
+      call site) give the same 16 node ids, so this is not an artefact of where
+      the mutation was applied.
+
+      Nothing about the conclusion changes — 16 killers is emphatic — but the
+      figure is a stated checkable fact in a codebase whose standing rule is
+      that such facts are true.
+    suggestion: |
+      Change "Always-landscape: 17 fail" to 16 in CARD-034.md's revision
+      Worktree notes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-034.md
+    line: 336
+    title: "'the 5-9 turns per dimension at 16..21' — measured 5, 7, 11, 16, 17, 21"
+    description: |
+      The `## Architecture revision` section's closing paragraph ("Do NOT add a
+      small-grid floor or a minimum-gain threshold") justifies itself with "…
+      would suppress the 5-9 turns per dimension at 16..21 that gain real cell
+      size."
+
+      Turns by larger dimension, replayed on the property test's own corpus
+      (441 extents x 4 patterns, SEED 20260831, same pattern order):
+
+          16→5  17→7  18→11  19→16  20→17  21→21
+
+      So the range is 5..21, not 5-9; only the first two dimensions fall in the
+      stated band. Every other figure in this section reproduces exactly (102 of
+      882; means 6.626 / 6.746 / 6.749; smallest turning dimension 16; 446 of
+      1764; concentration at 27..30 = 240 of 446).
+
+      The argument the number supports is *strengthened*, not weakened, by the
+      correction — which is why this is Minor. It is listed because it is a new
+      member of the finding family this card is being watched for, and because
+      the line was committed in f590fb3, i.e. it is inside the diff under
+      review rather than inherited.
+    suggestion: |
+      Restate as measured, e.g. "would suppress the 5 to 21 turns per dimension
+      at 16..21 that gain real cell size", or drop the count and keep the
+      qualitative claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_layout_cell_size.py
+    line: 295
+    title: "'Everything else in this file reads the literals' is not true of layout.DPI, which is read by the EC-010 oracle and pinned nowhere"
+    description: |
+      `test_the_module_encodes_the_chosen_values_and_nothing_else`'s docstring
+      says: "The one place the literals above and the module's constants are
+      tied together. Everything else in this file reads the literals." The
+      module docstring makes the same claim ("the module's constants are pinned
+      against these literals once, in the first test, and everything else is
+      built from the literals").
+
+      Verified true for every NFR-005 decided value — CELL_COMFORT_MM,
+      MAX_CELL_MM, MIN_CELL_MM/FLOOR_MM, PAGE_WIDTH_MM/PAGE_HEIGHT_MM against
+      A4_SHORT/LONG_EDGE_MM, PAGE_MARGIN_MM, HEADER_BAND_MM are all pinned in
+      that one test, so the focus question ("do the literals silently drift the
+      day a constant changes?") answers *no* for all of them. One exception:
+      `layout.DPI` is read directly at lines 109, 130, 228, 229, 230, 236, 237,
+      259, 261 and 262 — including inside `_independent_cell_px`, the oracle
+      EC-010 is checked against — and a grep over tests/ finds no test pinning
+      DPI to 300 anywhere in the tree.
+
+      Consequence, small but real: the oracle takes its resolution from the
+      module it is supposed to be a second opinion on. A change to DPI moves
+      the oracle and the implementation together, and no test in this file (or
+      any other) would notice. Both EC-008's ceiling and EC-010's comparison
+      happen to be robust to a uniform DPI change, so this is a claim defect
+      rather than a coverage hole with teeth — but the claim is absolute and
+      the exception is in the newly-added oracle.
+    suggestion: |
+      Either add `DPI = 300` to the literal block and `assert layout.DPI == DPI`
+      to the tie-down test (one line, and it makes the sentence true), or narrow
+      the sentence to what holds: "…the module's decided *geometry* constants
+      are tied to the literals here; DPI is read from the module, since it is a
+      unit conversion rather than one of NFR-005's decided values."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 799
+    title: "trace.yml's NFR-006 row still states the superseded shape rule as the requirement's description"
+    description: |
+      The row reads `description: "Page orientation follows the grid's shape:
+      wide grid to landscape, tall or square to portrait"`, lists the six
+      superseded test names (TestPageOrientation_WideGridTurnsLandscapeAt660mm
+      … PropertyTest_PageOrientation_LandscapeIffWidthGreaterThanHeight) and
+      notes "not yet implemented — no kanban card cut for it".
+
+      All three are now false: requirements.yml's NFR-006 was rewritten in this
+      same diff to larger-cell-wins, the tests were renamed, and the rule is
+      implemented and green. The model therefore asserts the *opposite* of the
+      shipped behaviour, which is a stronger form of staleness than cycle 1
+      saw (then it merely said "not yet implemented").
+
+      The card records this as deliberate ("[Not done, deliberately] — trace
+      write-back is the card-close step"), and forge:kanban does own that step,
+      so this is not a defect of the implementation. Filed so it cannot be
+      lost at close, and because a reader of the model between now and close
+      gets the superseded rule stated as fact.
+    suggestion: |
+      At card close, rewrite the NFR-006 row's description to the larger-cell
+      rule, replace the six test names with the ones that exist, drop the "not
+      yet implemented" note, and set status accordingly. Also worth correcting
+      `adrs: [ADR-0006]` — the card already flags that as a mis-link inherited
+      from NFR-005 and an architect-station change.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

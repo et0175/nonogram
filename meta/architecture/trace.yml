@@ -797,22 +797,34 @@ links:
   status: partial
 
 - req: NFR-006
-  description: "Page orientation follows the grid's shape: wide grid to
-    landscape, tall or square to portrait"
+  description: "The sheet is turned whichever way prints the LARGER cell; ties
+    resolve to portrait. Not a function of the grid's shape."
   capabilities: [CAP-005]
   contexts: [CTX-001]
   components: [COMP-007]
+  # ADR-0006 is the DEPENDENCY BASELINE ADR and has nothing to do with print
+  # geometry — a mis-link NFR-006 inherited by copying NFR-005's row, flagged at
+  # the decompose station 2026-09-01. Page layout has no owning ADR; correcting
+  # that is an architect-station change, not this card's, so the link is left as
+  # found rather than silently repointed.
   adrs: [ADR-0006]
   tests:
-  - TestPageOrientation_WideGridTurnsLandscapeAt660mm
-  - TestPageOrientation_40x20GainsFortySevenPercentFromLandscape
-  - TestPageOrientation_45x25GainsFortyFourPercentFromLandscape
-  - TestPageOrientation_TallGridKeepsPortraitAt491mm
-  - TestPageOrientation_SquareGridDefaultsPortraitBySmallMargin
-  - PropertyTest_PageOrientation_LandscapeIffWidthGreaterThanHeight
+  - TestPageOrientation_WideGridTurnsWhenLandscapeCellIsLarger
+  - TestPageOrientation_LargestInRangeGainTurnsLandscape
+  - TestPageOrientation_WideGridStaysPortraitWhenPortraitCellIsLarger
+  - TestPageOrientation_TallGridStaysPortrait
+  - TestPageOrientation_SquareGridStaysPortraitByCellComparison
+  - TestPageOrientation_WideGridWithTallDrawingStaysPortrait
+  - TestPageOrientation_SmallGridsNeverTurn
+  - PropertyTest_PageOrientation_LargerCellWinsTiesToPortrait
   notes: >-
-    Written by the 2026-09-01 domain-extraction delta; not yet implemented —
-    no kanban card cut for it. Prerequisite for NFR-005's page_fit term now
+    Written by the 2026-09-01 domain-extraction delta and AMENDED the same day
+    before shipping: the original shape-based rule ("landscape iff width >
+    height") was wrong in 102 of 882 in-range cases, worst a 26x25 printing
+    4.57mm against 6.86mm upright, because it stated orientation over the GRID
+    while page fit is governed by the DRAWING. Implemented by CARD-034; the six
+    superseded test names this row carried until 2026-09-01 are replaced above
+    (cycle-2 F-004 — the row asserted the opposite of shipped behaviour). Prerequisite for NFR-005's page_fit term now
     that FR-018/CARD-027 introduces rectangular grids: NFR-005/EC-008 were
     amended the same day (AC-104) to stop claiming cell size is a function of
     max(width, height) alone, and this requirement is the fix that makes

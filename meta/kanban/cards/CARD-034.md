@@ -298,7 +298,8 @@ are current.
   reverted shape rule): **5 tests fail** — EC-010's property test, AC-101,
   AC-105, AC-106 and AC-082[wide]. Always-portrait: 7 fail (property test,
   AC-099, AC-100, AC-106, AC-104 and both wide PDF cases). Always-landscape:
-  17 fail. Tie-to-landscape (`>=` for `>`): 7 fail, incl. AC-106 and the
+  16 fail (recorded as 17 in cycle 2; re-run gives 16). Tie-to-landscape
+  (`>=` for `>`): 7 fail, incl. AC-106 and the
   property test. Source restored and verified byte-identical after each run
   (sha256 `bb4c891f61df…`). Separately confirmed the claim the image helper's
   docstring makes: with orientation forced portrait, AC-099's and AC-100's
@@ -396,5 +397,17 @@ considered and rejected. A grid whose larger side is <= 15 already never turns,
 because it is cap-bound in both orientations and the tie resolves to portrait
 (swept: smallest turning dimension is 16). That is a DERIVED consequence and
 AC-106 pins it; legislating it would add an arbitrary number next to the cap
-table and would suppress the 5-9 turns per dimension at 16..21 that gain real
-cell size.
+table and would suppress the turns per dimension at 16..21 that gain real
+cell size — measured on the property corpus those are 5, 7, 11, 16, 17 and 21,
+  a range of 5..21 rather than the 5-9 first written here, which came from a
+  different pattern set (cycle-2 F-002).
+
+- **[Correction to an orchestrator claim, 2026-09-01]** The orchestrator reported
+  that reverting orientation to `columns > rows` "fails 84 tests". That figure is
+  meaningless and is withdrawn. `_orientation_for` no longer takes `columns` or
+  `rows` — it takes the drawing's totals — so substituting them produced undefined
+  names and measured a BROKEN MODULE, not a reverted rule. The correct minimal
+  revert fails **5** tests, which is what this card recorded and what cycle 2
+  independently confirmed, naming exactly the right five (EC-010's property test,
+  AC-101, AC-105, AC-106 and AC-082[wide]). The property holds; the orchestrator's
+  verification of it did not.

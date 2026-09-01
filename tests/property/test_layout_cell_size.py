@@ -293,7 +293,13 @@ def _assert_the_page_fits_a4(geometry: Layout, *, owed: str, label: str) -> None
 
 def test_the_module_encodes_the_chosen_values_and_nothing_else() -> None:
     """The one place the literals above and the module's constants are tied
-    together. Everything else in this file reads the literals."""
+    together. Everything else in this file reads the literals — with one
+    exception that used to go unstated: ``layout.DPI`` is read directly in ten
+    places here, including :func:`_independent_cell_px`, so the oracle is not
+    fully literal-derived and would follow the module silently if DPI ever
+    changed. It is pinned below rather than left as an unexamined dependency
+    (cycle-2 F-003)."""
+    assert layout.DPI == 300
     assert layout.CELL_COMFORT_MM == CHOSEN
     assert layout.MAX_CELL_MM == 6.5
     assert layout.MIN_CELL_MM == FLOOR_MM
