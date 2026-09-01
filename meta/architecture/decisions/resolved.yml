@@ -107,4 +107,9 @@ resolved:
     resolved_by: ADR-0006
     resolution_label: ship_unicode_ttf_as_package_data
     date: 2026-09-01
+  - id: DEC-028
+    question: "Does 'the grid drives the picture' still hold for a bare --size N?"
+    resolved_by: ADR-0022
+    resolution_label: narrow_grid_drives_picture_to_fully_specified_requests
+    date: 2026-09-01
 

@@ -742,6 +742,34 @@ links:
     this entry.
   status: partial
 
+- req: FR-023
+  description: "A bare `--size N` derives the shorter side from the source's
+    own shape (round(N * short/long)), clamped at MIN_SIZE only"
+  capabilities: [CAP-001]
+  contexts: [CTX-001]
+  components: [COMP-001, COMP-008, COMP-002, COMP-003]
+  adrs: [ADR-0010, ADR-0022]
+  tests:
+  - TestDeriveShape_ImageBareSizeDerivesFromInkBoundingBoxRatio
+  - TestDeriveShape_CorpusMeanRetentionRisesTo99Percent
+  - TestDeriveShape_LibraryTemplateRatioAppliesSquareToday
+  - TestDeriveShape_RandomSourceStaysSquare
+  - TestDeriveShape_ExplicitNxMBypassesDerivation
+  - TestDeriveShape_WidestAcceptedRatioIsExactlyNOverFiveToOne
+  - TestDeriveShape_RefusesBeyondCeilingNamingSmallestWorkingSize
+  - PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused
+  notes: >-
+    Written by the 2026-09-01 domain-extraction delta (raw-requirements.md,
+    the last seven entries); not yet implemented — no kanban card cut for it.
+    Depends on FR-018/CARD-027 landing the (width, height) pair first (still
+    `ready`, not merged) and on FR-022's ink-bounding-box trim for the image
+    mode reading. Narrowly amends ADR-0022's "grid drives the picture, not the
+    reverse" principle — surfaced as DEC-028 (decisions/open.yml), not yet
+    resolved, so the ADR-0022 reference above points at the pre-revision text.
+    FR-021/CON-012's own >2x refusal becomes structurally unreachable on this
+    derived path by construction, per the requirement's own statement.
+  status: partial
+
 - req: NFR-005
   description: "Printed cell size is a declining function of max(width, height) per
     docs/cell_size.md"
@@ -760,6 +788,35 @@ links:
     len(column_clues) rather than a size parameter, so it is likely already
     rectangle-tolerant; what changes is the MAX_CELL_MM = 6.5 flat cap, which
     today makes every grid from 10x10 to 25x25 print an identical 6.52 mm cell.
+    AMENDED 2026-09-01: this row's description/tests predate NFR-005's
+    2026-08-31 rewrite to the min(comfort_cap, page_fit) formula and are
+    themselves stale relative to requirements.yml — pre-existing drift, not
+    introduced by this delta, left as found; requirements.yml's AC-080..
+    AC-083/AC-104 and EC-008 are the current source of truth for NFR-005's
+    tests.
+  status: partial
+
+- req: NFR-006
+  description: "Page orientation follows the grid's shape: wide grid to
+    landscape, tall or square to portrait"
+  capabilities: [CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-007]
+  adrs: [ADR-0006]
+  tests:
+  - TestPageOrientation_WideGridTurnsLandscapeAt660mm
+  - TestPageOrientation_40x20GainsFortySevenPercentFromLandscape
+  - TestPageOrientation_45x25GainsFortyFourPercentFromLandscape
+  - TestPageOrientation_TallGridKeepsPortraitAt491mm
+  - TestPageOrientation_SquareGridDefaultsPortraitBySmallMargin
+  - PropertyTest_PageOrientation_LandscapeIffWidthGreaterThanHeight
+  notes: >-
+    Written by the 2026-09-01 domain-extraction delta; not yet implemented —
+    no kanban card cut for it. Prerequisite for NFR-005's page_fit term now
+    that FR-018/CARD-027 introduces rectangular grids: NFR-005/EC-008 were
+    amended the same day (AC-104) to stop claiming cell size is a function of
+    max(width, height) alone, and this requirement is the fix that makes
+    page_fit well-defined per grid at all.
   status: partial
 
 - req: CON-011

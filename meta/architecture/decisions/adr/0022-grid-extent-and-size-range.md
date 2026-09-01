@@ -1,6 +1,6 @@
 # ADR-0022: Grid extent is a width/height pair, and each side is 10..30
 
-**Status:** Accepted (revised 2026-09-01)
+**Status:** Accepted (revised 2026-09-01, twice)
 **Date:** 2026-08-31
 **Deciders:** Puzzle Creator (project owner)
 **Revised:** 2026-09-01
@@ -107,7 +107,62 @@ a refused request. This ordering is the decision, not an implementation detail:
 guarding after the trim had been applied would break EC-007 for the third time
 in a week.
 
+**"The grid drives the picture" holds for a FULLY SPECIFIED request; a bare
+`--size N` is completed by the source** (revision 2026-09-01, second of the day,
+resolving DEC-028). This narrows the principle above rather than reversing it.
+`--size 30x20` still means exactly 30 by 20 and the picture is fitted to it —
+the grid drives, as before. But `--size 30` leaves the second dimension
+*unstated*, and the question is what fills the gap. Until now the answer was an
+implicit "assume square", which is not a neutral default: it is a shape claim
+about the user's picture that the tool has no basis for. The source's own shape
+is the better answer, because the source is the only thing in the request that
+actually knows.
+
+So a bare N is the grid's **longer** side, and the shorter side is
+`round(N * short/long)` of the source's own ratio (FR-023) — image mode uses
+FR-022's ink bounding box, library mode the template's ratio, and random mode,
+having no shape of its own, stays square. Measured over the committed 25-image
+corpus at N=25: mean retained content rises from **76% to 99%**, and the number
+of pictures keeping under 90% falls from **20 of 25 to zero**.
+
+**Why the longer side, and not the shorter or the area.** This is the load-bearing
+argument and it is structural, not aesthetic: with N as the longer side, the
+derived side is `<= N <= MAX_SIZE` **by construction**, so nothing ever needs
+clamping at the top. Reading N as the shorter side, or as an area budget, lets
+the other dimension run past MAX_SIZE and require a top clamp — and a top clamp
+crops content, which is the precise harm this whole line of work exists to
+prevent. An earlier draft of this decision argued for the longer side on the
+grounds that it would make N determine the printed cell size; **that argument was
+measured and is false** — with the page turned to match the grid, a 20x10 prints
+9.74mm and a 20x20 prints 6.43mm at the same N, because the short side still
+consumes page through the clue gutter. It is retracted here so it cannot be
+inherited by anything downstream; the structural argument is the one that holds.
+
+**The bottom clamp is the one place the source cannot be followed, and it
+refuses rather than lies.** The derived side is clamped to `MIN_SIZE` (10) at the
+bottom, so the grid stops tracking the source at `N:10`. Combined with the >2x
+rule this yields an exact ceiling: the most elongated source a given N can
+accept is `N/5 : 1` — 2:1 at `--size 10`, 4:1 at `--size 20`, 6:1 at `--size 30`.
+A consequence worth stating plainly because it is counter-intuitive: **asking for
+a smaller puzzle refuses pictures a larger one would accept.** Such a request is
+refused rather than silently clamped, and the message names the smallest `--size N`
+that would accommodate the source unclamped — because FR-021's existing advice
+("crop the picture yourself") is the wrong remedy here: cropping is not what fixes
+it.
+
 ## Alternatives considered
+
+### Leave "the grid drives the picture" unqualified (rejected 2026-09-01)
+Keep the principle as written and let a bare `--size N` go on meaning N x N, with
+shape-fitting available only through an explicit flag or an explicit `NxM`.
+Nothing to revise, no sequencing pressure on CARD-027, and the rule stays a single
+sentence. Rejected because "assume square" is not the neutral default it looks
+like — it is an unfounded claim about the user's picture, made by the component
+least equipped to make it, and it costs a measured 24 percentage points of the
+picture on this project's own corpus. The principle was never really about
+squareness; it was about the user's stated intent taking precedence over the
+file's. A dimension the user did not state is not intent, and treating it as such
+is what this revision corrects.
 
 ### Judge the untrimmed, as-decoded source extent (rejected 2026-09-01)
 Leave the guard exactly where it sits today and let FR-022's trim run
@@ -180,6 +235,13 @@ unprintable output is not a range, it is a trap.
 - The refusal rule turns a silent quality loss into a message. Today a badly
   shaped source is quietly cropped to a third of itself and the user finds out
   by looking at the puzzle.
+- (2026-09-01, DEC-028) A bare `--size N` stops making an unfounded claim about
+  the user's picture. On the 25-image corpus the mean retained content goes from
+  76% to 99%, and no picture keeps under 90%.
+- (2026-09-01, DEC-028) The >2x refusal becomes structurally unreachable on the
+  derived path, since the grid matches the source's ratio by construction. It
+  survives for explicit `NxM` — where the user genuinely asked for a shape the
+  picture does not have — and for sources past the `N/5 : 1` ceiling.
 - (2026-09-01) The refusal message becomes true rather than nominal. The
   percentage it quotes is now the fraction of the user's actual picture that
   would survive, which is what CON-012 always claimed to protect and what the
@@ -187,6 +249,20 @@ unprintable output is not a range, it is a trap.
 
 ### Negative
 
+- (2026-09-01, DEC-028) `--size N` changes meaning for image sources: a script
+  that passed `--size 20` and relied on getting 20x20 now gets a shape derived
+  from its picture. Random and library modes are unaffected in practice (all four
+  registered templates are 16x16), and `--size 20x20` still forces a square, but
+  this is a behaviour change and not merely an addition.
+- (2026-09-01, DEC-028) Asking for a smaller puzzle can now refuse a picture that
+  a larger one accepts — the `N/5 : 1` ceiling. It is stated in FR-023 and carried
+  in the refusal message rather than left for a user to deduce, but it remains a
+  genuinely surprising shape of rule.
+- (2026-09-01, DEC-028) This is the second revision of this ADR in one day
+  (DEC-025 moved the aspect guard onto the ink bounding box that same morning).
+  One ADR absorbing two decisions in a day concentrates review load and makes the
+  History section, not the Decision section, the place a reader must go to
+  understand the sequence.
 - (2026-09-01) The aspect guard can no longer refuse before decoding. A trim
   can move a ratio in either direction, so no sound refusal is derivable from
   the file header alone, and every image request now pays for a full decode
@@ -244,6 +320,11 @@ unprintable output is not a range, it is a trap.
   scope: {code: ["src/nonogram/sourcing/**", "src/nonogram/cli.py"]}
   check: {kind: test, ref: TestValidateExtent_RejectsSideAboveThirty}
   severity: mandatory
+- id: ADR-0022/R4
+  statement: A `--size` token carrying both dimensions specifies the grid exactly and the source is fitted to it. A bare `--size N` sets the grid's LONGER side to N and derives the other side from the source's own aspect ratio, clamped to MIN_SIZE at the bottom only and never at the top. A source whose ratio exceeds N/5 is refused with a message naming the smallest N that would accommodate it, never silently clamped.
+  scope: {code: ["src/nonogram/cli.py", "src/nonogram/orchestrator.py", "src/nonogram/sourcing/**"]}
+  check: {kind: test, ref: PropertyTest_BareSize_DerivesShorterSideFromSourceShape}
+  severity: mandatory
 - id: ADR-0022/R3
   statement: An uploaded image is fitted to the requested grid's aspect ratio by a centred crop, never by stretching and never by padding. A request whose grid aspect ratio differs by more than 2x from the source's INK BOUNDING BOX ratio — not from its as-decoded file ratio — is refused rather than cropped. The bounding box is computed and judged before any crop is applied, so a refused request is still refused before any cropping runs.
   scope: {code: ["src/nonogram/sourcing/image.py"]}
@@ -288,3 +369,19 @@ unprintable output is not a range, it is a trap.
   (keep the as-decoded extent; guard twice) are recorded above. Migration stays
   `rewrite`: the merged CARD-026 guard measures the old extent and must be
   brought to this decision by the card that implements FR-022.
+
+- 2026-09-01 (second revision of the day) — Revised — resolves DEC-028. Previous
+  decision: a bare `--size N` meant an N x N square for every source mode. Reason:
+  "assume square" is not a neutral default but an unfounded shape claim about the
+  user's picture, and it cost a measured 24 percentage points of retained content
+  on the project's own 25-image corpus (76% square vs 99% derived; 20 of 25
+  pictures under 90% vs none). The principle "the grid drives the picture" is
+  narrowed, not reversed: it governs a fully specified `--size NxM`, while a bare
+  `--size N` is completed from the source's own shape. Also RETRACTS, before it
+  could be inherited, the argument that reading N as the longer side would make N
+  determine printed cell size — measured false (20x10 prints 9.74mm against
+  20x20's 6.43mm at the same N). The reading survives on the structural argument
+  instead: only "longer side" guarantees both sides land in range without a top
+  clamp, and a top clamp would crop content. Rejected alternative recorded above.
+  New rule R4. Migration stays `rewrite`: CARD-027 (FR-018) is `Revision pending`
+  and must be built against this reading, not the previous one.

@@ -27,7 +27,27 @@
 #     * DEC-027 — ADR-0006 (dependency baseline) revision: ship a small Unicode
 #       TTF as package data. Already decided by the user; same reasoning as
 #       DEC-026. blocks: [].
+# updated_at: 2026-09-01 (delta mode — the last seven raw-requirements.md
+#   entries, about what a bare `--size N` means. One DEC surfaced:
+#     * DEC-028 — a narrow amendment to ADR-0022's "grid drives the picture,
+#       not the reverse" principle: the grid still drives whenever the user
+#       gives both dimensions explicitly (--size NxM); a bare --size N leaves
+#       the shorter side unspecified and FR-023 has the source fill it in.
+#       Already decided by the user; recorded as a DEC only because writing
+#       the ADR revision itself is forge:architect-adr-writer's job — same
+#       reasoning as DEC-026/DEC-027. blocks: []. The CARD-027 sequencing
+#       note (raw-requirements.md, third of the seven entries) is context,
+#       not its own requirement, and is folded into this DEC's question
+#       rather than given its own id.
 
+#
+# DEC-028 (surfaced 2026-09-01 with FR-023) was resolved the same day — ADR-0022
+# REVISED for the second time that day. Resolution:
+# narrow_grid_drives_picture_to_fully_specified_requests. "The grid drives the
+# picture" now governs an explicit --size NxM; a bare --size N is completed from
+# the source's own shape. New rule ADR-0022/R4. The revision also retracts the
+# measured-false argument that N would determine printed cell size. Full record:
+# resolved.yml and the ADR's History.
 #
 # DEC-027 (surfaced 2026-09-01) was resolved the same day — ADR-0006 REVISED.
 # Resolution: ship_unicode_ttf_as_package_data. The runtime dependency set is
@@ -148,3 +168,5 @@ open:
     status: open
     blocks: []
     depends_on: []
+
+

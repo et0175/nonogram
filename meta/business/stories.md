@@ -99,3 +99,14 @@ US-019: As a Puzzle Creator, I want the printed puzzle's cells to be a
 US-020: As a Puzzle Creator, I want a picture's blank white margin trimmed
         away before it's fitted to the grid, so the puzzle isn't wasted on
         empty border cells that carry none of my picture.
+
+## Size derivation and page orientation (2026-09-01)
+
+US-021: As a Puzzle Creator, I want a bare `--size N` to derive the grid's
+        shorter side from my picture's own shape instead of forcing a
+        square, so a landscape or portrait picture keeps far more of its
+        content without my having to work out an NxM by hand.
+
+US-022: As a Puzzle Creator, I want the printed page to turn to match a
+        wide or tall grid, so a rectangular puzzle isn't squeezed onto the
+        wrong page axis and printed with cramped cells.

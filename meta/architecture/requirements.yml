@@ -49,6 +49,38 @@
 #        DEC-026 in decisions/open.yml for forge:architect-adr-writer.
 #     5. NOT formalized as a requirement — an ADR-0006 revision, surfaced as
 #        DEC-027 in decisions/open.yml for forge:architect-adr-writer.
+# updated_at: 2026-09-01 (delta mode — the LAST SEVEN raw-requirements.md
+#   entries dated 2026-09-01, about what a bare `--size N` means once
+#   FR-018/CARD-027 lands the (width, height) pair:
+#     1. FR-023 (new) — a bare `--size N` derives the shorter side from the
+#        source's own shape (round(N * short/long), clamped at MIN_SIZE only
+#        at the bottom); `--size NxM` is unaffected. Includes the N/5:1
+#        widest-accepted-ratio consequence and the refuse-naming-smallest-N
+#        decision (AC-097/AC-098, EC-009).
+#     2. NOT formalized as a requirement — a narrow amendment to ADR-0022's
+#        "grid drives the picture" principle, surfaced as DEC-028 in
+#        decisions/open.yml for forge:architect-adr-writer.
+#     3. NOT formalized as a requirement — CARD-027 sequencing context, folded
+#        into DEC-028's question/notes rather than given its own id.
+#     4. Folded into FR-023 above (round(N * short/long), per-source-mode
+#        shape meaning) — same entry, continued.
+#     5. Folded into FR-023 above (the N/5:1 ceiling and the refuse-and-name-
+#        smallest-N decision) — same entry, continued.
+#     6. NFR-006 (new) — page orientation follows the grid's shape (wide ->
+#        landscape, tall/square -> portrait); prerequisite for NFR-005's
+#        page_fit term now that grids can be rectangular.
+#     7. NFR-005 and EC-008 AMENDED IN PLACE (ids/kinds/test refs stable, the
+#        2026-08-31 EC-007 amendment precedent): printed cell size is not a
+#        function of max(width, height) alone — a 40x20 and a 20x40 sharing
+#        max() = 40 measured 3.39mm and 4.91mm on a fixed-orientation page,
+#        and still 5.00mm vs 4.91mm once NFR-006 is applied (AC-104). The
+#        genuinely-held property is restated as a ceiling (never exceeds the
+#        comfort cap), not monotonicity or equality of the final value.
+#   Two new stories: US-021 (FR-023), US-022 (NFR-006).
+#   The ~13 unprocessed raw-requirements.md entries derived from
+#   docs/monogram_analyzer.md (technique levels, branching, information gain,
+#   dependency depth, symmetry, image-complexity metrics, `nonogram analyze`)
+#   are UNTOUCHED by this delta — deliberately deferred, left unprocessed.
 # tier: medium
 functional:
   - id: FR-001
@@ -860,6 +892,98 @@ functional:
         kind: boundary
         test: TestTrimToInk_MidGreyThresholdOutperformsNearWhiteThreshold
 
+  - id: FR-023
+    # New 2026-09-01 (raw-requirements.md, entries dated 2026-09-01: "A bare
+    # --size N means...", "The derived side is round(N * short/long)...",
+    # "The bottom clamp has a consequence..."). Formalizes what a bare
+    # `--size N` (no explicit NxM) means once FR-018/CARD-027 makes extent a
+    # (width, height) pair. Narrowly amends ADR-0022's "grid drives the
+    # picture" principle — surfaced as DEC-028, not written here (writing the
+    # ADR revision is forge:architect-adr-writer's job). Rejected alternatives
+    # to the refusal path (kept here for traceability, not restated in the
+    # ADR): silently auto-bumping N to the smallest value that would fit
+    # (makes --size a request rather than an instruction the tool honours
+    # exactly), and lowering MIN_SIZE for derived sides (reopens CON-011's
+    # floor and produces thin strips no solving experience has evaluated).
+    statement: >-
+      When a generation request's `--size` token is a bare N (no explicit
+      NxM), N is the grid's LONGER side; the other side is derived from the
+      source's own shape as round(N * short/long), where short/long is the
+      source's own aspect ratio — image mode: FR-022's ink-bounding-box
+      ratio; library mode: the template's own ratio (today all four
+      registered templates are 16x16 square, so this is N x N until a
+      rectangular template exists); random mode: no shape of its own, so N
+      x N. The derived side is clamped to MIN_SIZE (10) at the bottom only
+      — never at the top, since N <= MAX_SIZE by construction already keeps
+      both sides in range, which is why "longer side" is the correct
+      reading of a bare N. An explicit `--size NxM` token continues to
+      specify both sides directly and is unaffected by this derivation.
+      Because the bottom clamp exists, a source whose long:short ratio
+      exceeds N/5 (2:1 at --size 10, 4:1 at --size 20, 6:1 at --size 30)
+      cannot be reached by that N without clamping; rather than silently
+      clamp, such a request is REFUSED, and the error names the smallest
+      `--size N` that would accommodate the source's ratio unclamped.
+    source: [US-021]
+    acceptance:
+      - id: AC-092
+        given: eagle-silhouette1.jpg (563x980, ratio 0.574) and a bare `--size 25` request
+        when: the request is parsed and fitted
+        then: the derived grid is 14 wide by 25 tall (round(25 * 563/980) = 14), retaining ~97% of the source under FR-020's crop, versus ~57% for the previous 25x25 square reading
+        kind: happy
+        test: TestDeriveShape_ImageBareSizeDerivesFromInkBoundingBoxRatio
+      - id: AC-093
+        given: the 25-image corpus committed under pictures/, each fitted at a bare `--size 25`
+        when: each picture's derived shape is compared against the previous 25x25 square reading
+        then: mean retained content rises from 76% (square) to 99% (derived), and the count of pictures retaining under 90% falls from 20 of 25 to 0
+        kind: boundary
+        test: TestDeriveShape_CorpusMeanRetentionRisesTo99Percent
+      - id: AC-094
+        given: the built-in library key "cat" (a 16x16 square template) and a bare `--size 25` request
+        when: the request is parsed
+        then: the derived grid is 25x25, because the template's own ratio is 1:1 today
+        kind: boundary
+        test: TestDeriveShape_LibraryTemplateRatioAppliesSquareToday
+      - id: AC-095
+        given: a random-mode request with a bare `--size 20`
+        when: the request is parsed
+        then: the derived grid is 20x20, since a random source has no shape of its own
+        kind: happy
+        test: TestDeriveShape_RandomSourceStaysSquare
+      - id: AC-096
+        given: an explicit `--size 15x30` request
+        when: the request is parsed
+        then: the grid is exactly 15 wide by 30 tall as given, and the derivation rule does not apply
+        kind: boundary
+        test: TestDeriveShape_ExplicitNxMBypassesDerivation
+      - id: AC-097
+        given: three bare-size requests, `--size 10`, `--size 20`, `--size 30`, each paired with a source whose long:short ratio is exactly N/5 (2:1, 4:1, 6:1 respectively)
+        when: each request is parsed and fitted
+        then: each derives a grid whose short side lands exactly on MIN_SIZE (10) — the bottom clamp reached exactly at the boundary, not short of it — and is accepted, not refused
+        kind: boundary
+        test: TestDeriveShape_WidestAcceptedRatioIsExactlyNOverFiveToOne
+      - id: AC-098
+        given: a source image with long:short ratio 5:1 and a bare `--size 15` request (ceiling at N=15 is 15/5 = 3:1)
+        when: the request is parsed
+        then: the request is refused, and the error states the picture needs `--size 25` or larger rather than telling the user to crop it themselves
+        kind: negative
+        test: TestDeriveShape_RefusesBeyondCeilingNamingSmallestWorkingSize
+    engineering_constraints:
+      - id: EC-009
+        statement: >-
+          For any bare `--size N` with N in 10..30 and any source aspect
+          ratio r = short/long (0 < r <= 1), in every source mode: the
+          derived long side always equals N (never clamped above MAX_SIZE);
+          the derived short side equals round(N * r) whenever that value is
+          >= MIN_SIZE (10); and whenever round(N * r) would fall below
+          MIN_SIZE — equivalently, whenever the source's long:short ratio
+          exceeds N/5 — the request is refused rather than silently clamped,
+          with the refusal naming the smallest N for which round(N * r) >=
+          MIN_SIZE. This holds for every N and every source ratio, not only
+          the measured examples.
+        kind: consistency
+        instances: [AC-092, AC-095, AC-097, AC-098]
+        test: PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused
+
 non_functional:
   - id: NFR-001
     category: performance
@@ -1035,6 +1159,22 @@ non_functional:
         test: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
 
   - id: NFR-005
+    # AMENDED 2026-09-01 (raw-requirements.md, entry dated 2026-09-01: "AMENDS
+    # NFR-005 and EC-008"). Id, kind, metric and existing AC ids/tests stay
+    # stable (EC-007 2026-08-31 amendment precedent) — only the threshold,
+    # condition and rationale are corrected. The comfort-cap half of min() was
+    # always genuinely a function of max(width, height) and is untouched; the
+    # "cell size is non-increasing in max(width, height)" closing sentence
+    # was not — measured on a fixed-orientation page, a 40x20 and a 20x40
+    # share max() = 40 but print at 3.39mm and 4.91mm, a 45% gap for the same
+    # max() value. That sentence is removed and replaced with the honest
+    # bound: the FINAL cell size never exceeds the cap, but is not itself a
+    # function of max(width, height) alone. NFR-006 (page orientation follows
+    # the grid's shape) is the fix that makes page_fit well-defined per grid
+    # at all, by removing the ambiguity of which page axis each side lands
+    # on; it does not, by itself, restore monotonicity in max(width,
+    # height), because page_fit also depends on the clue gutter (already
+    # true before rectangles, per the 2026-08-31 EC-008 rewrite).
     category: usability
     metric: printed_cell_size_mm
     threshold: >-
@@ -1044,15 +1184,25 @@ non_functional:
       20 -> 7.5 mm, 25 -> 7.0 mm, 30 -> 6.5 mm, linearly interpolated
       between those points — and page_fit is the largest cell that keeps
       the whole drawing (grid PLUS clue gutter PLUS header band) inside
-      the A4 printable area. The comfort cap is a CEILING, never a floor:
-      when the two disagree, page_fit wins. Cell size is non-increasing
-      in max(width, height), and never below MIN_CELL_MM.
+      the A4 printable area, computed AFTER NFR-006 assigns the grid's
+      longer side to the page's longer printable axis (297 mm) and its
+      shorter side to the page's shorter axis (210 mm). The comfort cap is
+      a CEILING, never a floor: when the two disagree, page_fit wins, and
+      cell size never falls below MIN_CELL_MM. The comfort cap alone is a
+      non-increasing function of max(width, height); the FINAL cell size
+      (after page_fit) is NOT a function of max(width, height) alone — two
+      grids sharing the same larger dimension are not guaranteed the same
+      final cell size, because page_fit also depends on the clue gutter
+      (a property of the puzzle's actual clues, not its dimensions) and,
+      before NFR-006 assigns a consistent page axis per side, on which
+      dimension happened to land on which physical axis.
     condition: >-
       for every PNG, SVG and PDF export of any supported grid, with
       comfort_cap computed from the LARGER of the two grid dimensions and
-      page_fit computed from the drawing's true extent in cells, which
-      includes the clue gutter and therefore depends on the puzzle's
-      actual clues, not on its dimensions alone
+      page_fit computed from the drawing's true extent in cells along each
+      page axis (per NFR-006's orientation assignment), which includes the
+      clue gutter and therefore depends on the puzzle's actual clues, not
+      on its dimensions alone
     rationale: >-
       A cell has to be big enough to mark with a pencil, and how big it can
       be is set by the longer side of the grid, not by its area — so a
@@ -1085,6 +1235,26 @@ non_functional:
       preserves layout.py's existing floor behaviour: below MIN_CELL_MM
       the drawing is allowed to exceed A4 rather than shrink past the
       point where a pencil mark is meaningless.
+      AMENDED 2026-09-01 (surfaced while deciding a bare `--size N`,
+      FR-023): this NFR's own "cell size is non-increasing in max(width,
+      height)" claim does not survive rectangles. Measured on a
+      fixed-orientation (unturned) page: a 40x20 and a 20x40 share
+      max(width, height) = 40 but print at 3.39mm and 4.91mm respectively —
+      a 45% gap between two grids with the same max() value, so the FINAL
+      cell size was never a genuine function of that term alone. The
+      comfort-cap half of min() was always correctly stated (it is a table
+      lookup on max(width, height), independent of orientation); only the
+      page_fit half and the overall monotonicity claim over the combined
+      value were wrong. NFR-006 fixes the ambiguity by always mapping the
+      grid's longer side to the page's longer axis, so page_fit becomes
+      well-defined per grid rather than depending on an unstated
+      orientation choice — but even with NFR-006 applied, two grids
+      sharing the same larger dimension are still not guaranteed the same
+      final cell size (5.00mm vs 4.91mm for a 40x20 vs a 20x40, both
+      turned per NFR-006), because the clue gutter still varies with the
+      puzzle's actual clues. The property this NFR guarantees is a
+      CEILING, not monotonicity or equality of the final value — see the
+      corresponding EC-008 amendment.
     acceptance:
       # AC-080..AC-083 split deliberately by WHICH TERM OF min() BINDS. Measured
       # at 45% density: the comfort cap binds only up to about 15 cells per side;
@@ -1117,6 +1287,15 @@ non_functional:
         then: the cell edge measures 8.4 mm +/-0.2 mm — linear interpolation, 9.0 - (13-10)/(15-10) * (9.0-8.0)
         kind: boundary
         test: TestLayout_InterpolatesBetweenChosenCellSizes
+      # Added 2026-09-01 with the NFR-005 amendment above (FR-023 delta):
+      # proves the corrected claim directly against the measured 40x20/20x40
+      # pair, both after NFR-006's orientation rule is applied.
+      - id: AC-104
+        given: a 40x20 grid (turned landscape per NFR-006) and a 20x40 grid (already portrait per NFR-006), both sharing larger dimension 40
+        when: each is rendered for print at 300 DPI
+        then: the two do not print the same cell size — 40x20 measures 5.00 mm and 20x40 measures 4.91 mm — so max(width, height) alone does not determine the final cell size even after orientation is applied
+        kind: boundary
+        test: TestLayout_SameLargerDimensionDoesNotGuaranteeSameCellSize
     engineering_constraints:
       # REWRITTEN 2026-08-31 when NFR-005 became a CAP rather than a target.
       # The original statement said cell size is non-increasing in the larger
@@ -1130,18 +1309,111 @@ non_functional:
       # LARGER cell. Stating the property over the cap instead keeps it true and
       # still pins the thing that matters: the cap is a ceiling that is honoured
       # everywhere and exceeded nowhere.
+      # AMENDED 2026-09-01 (raw-requirements.md, "AMENDS NFR-005 and EC-008").
+      # Id, kind and test ref stay stable (EC-007 2026-08-31 amendment
+      # precedent). The trap this amendment avoids: simply adding "and depends
+      # on width and height both" would not fix it, because max(width, height)
+      # IS a well-defined function of the grid — the thing that was actually
+      # ill-posed is treating the FINAL cell size as a function of max() alone,
+      # since two grids sharing the same max() (40x20 and 20x40) measured
+      # 3.39mm and 4.91mm on a fixed-orientation page, a 45% gap. The
+      # restatement below keeps the property that genuinely holds (a ceiling)
+      # instead of asserting monotonicity or equality that does not.
       - id: EC-008
         statement: >-
-          For every supported grid, the printed cell size is less than or equal
-          to the comfort cap that docs/cell_size.md's chosen values assign to
-          that grid's larger dimension; and that cap is itself a non-increasing
-          function of the larger dimension across the whole 10..30 range. The
-          FINAL cell size is not required to be monotone in the larger
-          dimension, because page-fit depends on the clue gutter and so on the
-          puzzle's clues rather than on its dimensions.
+          For every supported grid, the printed cell size is less than or
+          equal to the comfort cap that docs/cell_size.md's chosen values
+          assign to that grid's larger dimension; that cap is itself a
+          non-increasing function of the larger dimension across the whole
+          10..30 range and does not depend on orientation. The FINAL cell
+          size is bounded above by that cap but is NOT a function of the
+          larger dimension (max(width, height)) alone, for two independent
+          reasons: page-fit depends on the clue gutter, a property of the
+          puzzle's actual clues rather than its dimensions; and, before
+          NFR-006's orientation rule is applied, max(width, height) alone
+          does not determine which physical page axis (210mm or 297mm)
+          each side lands on — two grids sharing the same larger dimension
+          (a 40x20 and a 20x40, both max() = 40) measured 3.39mm and
+          4.91mm on a fixed-orientation page. Even with NFR-006 applied,
+          matching larger dimensions are still not guaranteed the same
+          final cell size (5.00mm vs 4.91mm for the same pair), because
+          the clue-gutter dependency remains. The property this
+          constraint guarantees is the CEILING — the final cell size never
+          exceeds the comfort cap — not monotonicity or equality of the
+          final value.
         kind: consistency
-        instances: [AC-080, AC-081, AC-082, AC-083]
+        instances: [AC-080, AC-081, AC-082, AC-083, AC-104]
         test: PropertyTest_Layout_CellSizeNeverExceedsComfortCap
+
+  - id: NFR-006
+    # New 2026-09-01 (raw-requirements.md, "Page orientation must follow the
+    # grid's shape"). Prerequisite for the NFR-005/EC-008 amendment above —
+    # NFR-005's page_fit term is computed AFTER this orientation choice.
+    category: usability
+    metric: page_orientation
+    threshold: >-
+      landscape (the grid's longer side maps to the page's longer
+      printable axis, 297 mm) when width > height; portrait (the grid's
+      longer side maps to the page's longer printable axis) when
+      height >= width, including the square case width == height.
+    condition: >-
+      for every PNG, SVG and PDF export of any supported grid, chosen
+      before NFR-005's page_fit term is computed, since page_fit depends on
+      which physical page axis each grid dimension lands on
+    rationale: >-
+      Deriving a rectangular shape from a bare `--size N` (FR-023) is not a
+      separable nicety once the page stays fixed: a landscape picture at
+      `--size 30` becomes a 30x10 grid that prints at 2.29mm per cell on a
+      fixed-portrait A4 and 6.60mm turned — deriving the shape without
+      turning the page actively harms exactly the pictures the feature
+      exists to help. Measured across shapes: 40x20 goes 3.39mm ->
+      5.00mm turned (+47%), 45x25 goes 3.05mm -> 4.40mm turned (+44%);
+      tall grids keep portrait (20x40 measures 4.91mm portrait against
+      3.22mm if forced landscape) and squares stay portrait too, by a
+      small margin (30x30 measures 4.40mm portrait against 4.06mm
+      landscape). Source: US-022, brainstorm 2026-09-01.
+    acceptance:
+      - id: AC-099
+        given: a 30x10 landscape-shaped grid
+        when: it is rendered for print at 300 DPI
+        then: the page turns to landscape and the cell prints at 6.60 mm, versus 2.29 mm on a fixed-portrait page
+        kind: happy
+        test: TestPageOrientation_WideGridTurnsLandscapeAt660mm
+      - id: AC-100
+        given: a 40x20 landscape-shaped grid
+        when: it is rendered for print at 300 DPI
+        then: landscape is selected, printing at 5.00 mm per cell, a 47% increase over the 3.39 mm a fixed-portrait page would give
+        kind: boundary
+        test: TestPageOrientation_40x20GainsFortySevenPercentFromLandscape
+      - id: AC-101
+        given: a 45x25 landscape-shaped grid
+        when: it is rendered for print at 300 DPI
+        then: landscape is selected, printing at 4.40 mm per cell, a 44% increase over the 3.05 mm a fixed-portrait page would give
+        kind: boundary
+        test: TestPageOrientation_45x25GainsFortyFourPercentFromLandscape
+      - id: AC-102
+        given: a 20x40 tall grid
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected (its natural fit), printing at 4.91 mm, versus 3.22 mm if forced landscape
+        kind: boundary
+        test: TestPageOrientation_TallGridKeepsPortraitAt491mm
+      - id: AC-103
+        given: a 30x30 square grid
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected by default, printing at 4.40 mm, versus 4.06 mm if forced landscape — a small but real margin
+        kind: boundary
+        test: TestPageOrientation_SquareGridDefaultsPortraitBySmallMargin
+    engineering_constraints:
+      - id: EC-010
+        statement: >-
+          For any accepted grid (width, height) with each side in 10..30,
+          the export orientation is landscape if and only if width >
+          height, and portrait otherwise (width <= height, including the
+          square case) — for every supported grid, not only the five
+          measured examples.
+        kind: consistency
+        instances: [AC-099, AC-102, AC-103]
+        test: PropertyTest_PageOrientation_LandscapeIffWidthGreaterThanHeight
 
 constraints:
   - id: CON-001
