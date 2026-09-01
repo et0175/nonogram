@@ -1,6 +1,6 @@
 # CARD-032: Ship a Unicode TTF as package data so a non-ASCII name prints in the PDF header
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/032-unicode-pdf-header-font
-**Worktree:** ../PythonProject4-card-032
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-6
 **Idea:** —
 **Wave:** 19
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/export/pdf.py, src/nonogram/export/fonts/, pyproject.toml, tests/test_export_pdf.py
 **Review score:** 8.5 (cycle 1/3), 9.0 (cycle 2/3) — gate passed; residual F-101..F-105 closed in eb289b4
 **Started:** 2026-09-01T12:26:14Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-01T14:03:34Z
+**Actual:** 0.2d
+**Merge commit:** 5bd126a991511b07fd144226fd135e596eb28fe9
 **Blocked by:** —
 
 ## What to implement

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-01
+- CARD-032 (feature): A puzzle named in Cyrillic, Greek or accented Latin now prints its name in the PDF header instead of a row of empty boxes — the package ships its own Unicode font (DejaVu Sans) rather than relying on Pillow's ASCII-only default. Installing the tool pulls in nothing new; the font travels inside the package. Names in Chinese, Japanese, Korean, Thai or Devanagari are still unsupported, and Hebrew or Arabic names render but without the joining those scripts need.
+
 ## 2026-08-31
 - CARD-026 (feature): Uploaded images are now fitted to the requested grid's shape — the largest centred crop with the grid's aspect ratio is taken and resized, instead of always cropping to a square. A request whose picture and grid differ in shape by more than 2x (keeping under half the picture) is refused with an explanatory error rather than silently cropped.
 - CARD-025 (feature): Printed cell size is now `min(comfort cap, page fit)` rather than a flat 6.5 mm ceiling — a 10x10 puzzle prints a 9 mm cell instead of the 6.52 mm that every grid from 10x10 through 25x25 used to get. Page fit still wins whenever the two disagree, which from about 20 cells a side is always.

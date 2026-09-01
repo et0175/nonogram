@@ -4,7 +4,7 @@
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
 **Revised:** 2026-09-01
-**Migration:** rewrite
+**Migration:** rewrite (DISCHARGED 2026-09-01 by CARD-032, merge 5bd126a)
 **Pattern:** —
 **API-Posture:** —
 
@@ -139,5 +139,10 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
   statement: The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party package joins the installed dependencies without revising this ADR. Non-executable static assets (fonts and similar data files) may ship as package data instead, and doing so is not a dependency change.
   scope: {code: ["pyproject.toml", "src/nonogram/**"]}
   check: {kind: test, ref: TestDependencyBaseline_IsExactlyPillowAndNumpy}
+  # Check ref went LIVE 2026-09-01 with CARD-032 (merge 5bd126a):
+  # tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed parses
+  # pyproject and pins the installed set to exactly {pillow, numpy}. The rule's
+  # first implementation is that same card's bundled font — the case the rule was
+  # written to permit.
   severity: mandatory
 ```
