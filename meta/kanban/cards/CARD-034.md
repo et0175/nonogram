@@ -1,6 +1,6 @@
 # CARD-034: The page turns to match the grid, and the cell-size rule stops lying
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
