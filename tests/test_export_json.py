@@ -5,6 +5,11 @@ pytest-idiomatic function names:
 
     AC-031  TestExport_WritesJSON              -> test_export_writes_json*
     INV-002 TestExport_RejectsUnverifiedPuzzle -> test_export_rejects_an_unverified_puzzle*
+    ADR-0023/R2 TestExport_RejectsSupersededSchemaVersion
+                -> test_a_version_1_file_is_refused_and_not_migrated
+                   (the JSON instance; the CSV one is in tests/test_export_csv.py,
+                    and the property over every other version value is in
+                    tests/property/test_export_roundtrip.py)
 
 INV-002's gate is delivered by this card even though its acceptance criteria
 are named against the other formats (AC-030 for PNG/SVG, AC-048 for PDF): the
@@ -252,7 +257,8 @@ def test_the_export_records_the_generation_parameters(tmp_path: Path) -> None:
 
     assert _load(export_puzzle(puzzle)[0])["request"] == {
         "mode": "random",
-        "size": 2,
+        "width": 2,
+        "height": 2,
         "density": 50,
     }
 
@@ -261,6 +267,34 @@ def test_the_export_carries_a_schema_version(tmp_path: Path) -> None:
     assert _load(export_puzzle(_puzzle(tmp_path))[0])["version"] == (
         json_export.SCHEMA_VERSION
     )
+
+
+def test_the_request_block_records_an_extent_pair_and_never_a_scalar_size(
+    tmp_path: Path,
+) -> None:
+    """ADR-0023/R1, at the JSON seam.
+
+    The document is scanned for a ``size`` key at any depth rather than only
+    in ``request``: JSON ignores keys it does not know, so a half-updated
+    writer that left ``size`` in beside the pair would break nothing and be
+    caught by nothing — which is precisely the two-sources-of-truth outcome
+    the ADR rejected the "keep both" alternative to avoid.
+    """
+    document = _load(export_puzzle(_puzzle(tmp_path, size=2))[0])
+
+    assert set(document["request"]) == {"mode", "width", "height", "density"}
+    assert _keys_anywhere(document) & {"size"} == set()
+
+
+def _keys_anywhere(value: object) -> set[str]:
+    """Every mapping key in a decoded JSON document, at any depth."""
+    if isinstance(value, dict):
+        return set(value) | {
+            key for item in value.values() for key in _keys_anywhere(item)
+        }
+    if isinstance(value, list):
+        return {key for item in value for key in _keys_anywhere(item)}
+    return set()
 
 
 # --------------------------------------------------------------------------
@@ -330,7 +364,8 @@ def _document(**replacement: object) -> dict[str, object]:
         column_clues=((1,), (1,)),
         seed=7,
         mode="random",
-        size=2,
+        width=2,
+        height=2,
         density=50,
     )
     document = json_export.document(payload)
@@ -353,13 +388,17 @@ def test_the_decoder_inverts_the_document_exactly() -> None:
 @pytest.mark.parametrize(
     ("document", "message"),
     [
-        pytest.param(_document(version=2), "unsupported JSON export version", id="future-version"),
-        pytest.param(_document(version="1"), "expected an integer", id="version-as-string"),
+        pytest.param(_document(version=3), "unsupported JSON export version", id="future-version"),
+        pytest.param(_document(version=1), "unsupported JSON export version", id="superseded-version"),
+        pytest.param(_document(version="2"), "expected an integer", id="version-as-string"),
         pytest.param({"seed": 1}, "missing field 'version'", id="missing-version"),
         pytest.param(_document(seed=None), "expected an integer", id="null-seed"),
         pytest.param(_document(seed=True), "expected an integer", id="bool-seed"),
-        pytest.param(_document(request={"mode": "random", "size": 2}), "missing field 'density'", id="missing-parameter"),
-        pytest.param(_document(request={"mode": 1, "size": None, "density": None}), "expected a string", id="non-string-mode"),
+        pytest.param(_document(request={"mode": "random", "width": 2, "height": 2}), "missing field 'density'", id="missing-parameter"),
+        pytest.param(_document(request={"mode": "random", "height": 2, "density": 50}), "missing field 'width'", id="missing-width"),
+        pytest.param(_document(request={"mode": "random", "width": 2, "density": 50}), "missing field 'height'", id="missing-height"),
+        pytest.param(_document(request={"mode": "random", "size": 2, "density": 50}), "missing field 'width'", id="version-1-style-request"),
+        pytest.param(_document(request={"mode": 1, "width": None, "height": None, "density": None}), "expected a string", id="non-string-mode"),
         pytest.param(_document(request=[]), "request: expected an object", id="request-not-an-object"),
         pytest.param(_document(grid=[[1, 0], [0, 1]]), "expected true or false", id="numeric-cells"),
         pytest.param(_document(grid=[[True, False], [True]]), "the grid is rectangular", id="ragged-grid"),
@@ -410,9 +449,9 @@ def test_the_decoder_rejects_column_clues_that_do_not_match_the_grid_width() -> 
     """The reviewer's counterexample, literally: a 2-column grid must not
     silently decode with ``column_clues=((1,),)``."""
     document = {
-        "version": 1,
+        "version": 2,
         "seed": 1,
-        "request": {"mode": "random", "size": None, "density": None},
+        "request": {"mode": "random", "width": None, "height": None, "density": None},
         "grid": [[True, False], [False, True]],
         "clues": {"rows": [[1], [1]], "columns": [[1]]},
     }
@@ -425,9 +464,9 @@ def test_the_decoder_accepts_an_empty_grid_with_no_clues() -> None:
     """The empty-grid convention (``clues.compute_clues``: an empty grid
     yields two empty clue sets) is what the new check must not reject."""
     document = {
-        "version": 1,
+        "version": 2,
         "seed": 1,
-        "request": {"mode": "random", "size": None, "density": None},
+        "request": {"mode": "random", "width": None, "height": None, "density": None},
         "grid": [],
         "clues": {"rows": [], "columns": []},
     }
@@ -442,6 +481,48 @@ def test_the_decoder_rejects_text_that_is_not_json() -> None:
     exception type for "this file is not one of ours" either way."""
     with pytest.raises(ValueError):
         json_export.decode("not json at all")
+
+
+# --------------------------------------------------------------------------
+# ADR-0023/R2 — TestExport_RejectsSupersededSchemaVersion (the JSON instance)
+# --------------------------------------------------------------------------
+
+
+def test_a_version_1_file_is_refused_and_not_migrated(tmp_path: Path) -> None:
+    """A whole, well-formed version-1 export, refused on sight (guardrail G-3).
+
+    Written out as the document this tool actually shipped before ADR-0023 —
+    ``request.size`` and all — rather than as a current document with its
+    version field edited: the claim is that the *old shape* is not something
+    this build reads, and a fixture derived from the new shape could not show
+    that. There is no compatibility read path and no upgrade shim; a build
+    that migrated an old file would be guessing which dimension the scalar
+    meant, which for a rectangle it cannot know.
+
+    The error names both versions, which for a user holding an old file is the
+    whole diagnosis: what they have, and what this build reads.
+    """
+    path = tmp_path / "old.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "seed": 42,
+                "request": {"mode": "random", "size": 2, "density": 50},
+                "grid": [[True, True], [True, False]],
+                "clues": {"rows": [[2], [1]], "columns": [[2], [1]]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        json_export.read(path)
+
+    message = str(excinfo.value)
+    assert "unsupported JSON export version 1" in message
+    assert f"version {json_export.SCHEMA_VERSION}" in message
+    assert json_export.SCHEMA_VERSION == 2, "ADR-0023 bumped the JSON schema to 2"
 
 
 def test_reading_a_file_inverts_writing_one(tmp_path: Path) -> None:

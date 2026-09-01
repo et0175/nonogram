@@ -8,6 +8,30 @@ things at once — the puzzle (grid + clues), its provenance (seed + request
 parameters) and a schema version so a future reader can tell which it is
 holding.
 
+The document shape, exactly (version 2)
+---------------------------------------
+::
+
+    {
+      "version": 2,
+      "seed": 42,
+      "request": {"mode": "random", "width": 4, "height": 4, "density": 50},
+      "grid": [[true, true, false, false], ...],
+      "clues": {"rows": [[2], [0], [4], [2]], "columns": [[1, 1], ...]}
+    }
+
+``request`` is the provenance block: what was *asked for* (ADR-0015), not what
+was produced. Its four keys are all required and each of ``width``, ``height``
+and ``density`` may be ``null`` — "not asked" is a real answer, distinct from
+zero. ADR-0023 replaced version 1's scalar ``"size"`` with the ``width``/
+``height`` pair, because a single edge length cannot describe a rectangle;
+nothing here reconstructs either dimension from the grid, and neither does
+:func:`parse` — the extent this block records is the request's, and a request
+may have named neither. Keys beyond the ones named here are ignored rather
+than refused — the one place this decoder is more forgiving than the CSV one,
+whose ``#meta`` block accepts no key it does not know (see ADR-0023's
+Context).
+
 The grid is written as ADR-0012's boundary type, a plain ``list[list[bool]]``
 of JSON ``true``/``false``, and the clues as arrays of integers — never the
 solver's internal per-line bitmask (guardrail G-4). EC-002's round-trip
@@ -48,10 +72,14 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
 
 __all__ = ["SCHEMA_VERSION", "decode", "document", "parse", "read", "render"]
 
-#: Version of the document shape below. Bumped only by a change that an
-#: existing reader could not survive; CARD-013's CSV export and round-trip
-#: decode are written against this number.
-SCHEMA_VERSION = 1
+#: Version of the document shape above. Bumped only by a change that an
+#: existing reader could not survive — 2 since ADR-0023 replaced the request
+#: block's scalar ``size`` with ``width``/``height``, which is exactly such a
+#: change. A version-1 document is *refused*, not migrated: :func:`parse`
+#: compares this number with ``!=`` and there is deliberately no compatibility
+#: read path, because a best-effort decode of an older shape is how a file
+#: quietly becomes a different puzzle (ADR-0023/R2).
+SCHEMA_VERSION = 2
 
 
 def document(payload: ExportPayload) -> dict[str, Any]:
@@ -65,7 +93,8 @@ def document(payload: ExportPayload) -> dict[str, Any]:
         "seed": payload.seed,
         "request": {
             "mode": payload.mode,
-            "size": payload.size,
+            "width": payload.width,
+            "height": payload.height,
             "density": payload.density,
         },
         "grid": [list(row) for row in payload.grid],
@@ -164,7 +193,12 @@ def parse(source: Any) -> ExportPayload:
         column_clues=column_clues,
         seed=_int(_field(document_, "seed", "document"), "seed"),
         mode=mode,
-        size=_optional_int(_field(request, "size", "request"), "request.size"),
+        # Both dimensions are read from the file. Neither is derived from the
+        # other, and neither is reconstructed from the grid (ADR-0023/R1):
+        # this block records the *request*, so a rectangle stays a rectangle
+        # and a dimension nobody asked for stays None.
+        width=_optional_int(_field(request, "width", "request"), "request.width"),
+        height=_optional_int(_field(request, "height", "request"), "request.height"),
         density=_optional_int(_field(request, "density", "request"), "request.density"),
     )
 

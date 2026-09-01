@@ -1,0 +1,367 @@
+version: 1
+generated_at: "2026-09-01T18:27:35Z"
+target: "card/024-export-extent-schema-v2 @ 5fb8fc2 (git diff main...HEAD; cycle 1 was 6a69090, fix 1e612ae, merge 9d82768)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/__init__.py"
+    - "src/nonogram/export/json_export.py"
+    - "src/nonogram/export/csv_export.py"
+    - "src/nonogram/orchestrator.py (export_puzzle construction site; GenerationRequest/Puzzle extent fields)"
+    - "tests/property/test_export_roundtrip.py (full, 822 lines)"
+    - "tests/test_export_json.py (diff + fixtures)"
+    - "tests/test_export_csv.py (diff + fixtures)"
+    - "meta/architecture/decisions/adr/0023-export-metadata-grid-extent.md (full, incl. ## Rules)"
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (header + ## Rules)"
+    - "meta/architecture/requirements.yml (FR-012/AC-060/AC-061/EC-002, AC-003/004/038, NFR-005/EC-008 headers)"
+    - "meta/architecture/trace.yml (FR-012 block)"
+    - "meta/kanban/cards/CARD-024.md (full, incl. Worktree notes)"
+    - "meta/review/20260831T172938Z-CARD-024-cycle1.yml (full)"
+  not_reached:
+    - "src/nonogram/export/layout.py|png.py|svg.py|pdf.py (G-1 forbidden; confirmed absent from the diff by name-only, not read)"
+    - "src/nonogram/web/**, src/nonogram/solver/**, src/nonogram/sourcing/** (no eligible fact; confirmed absent from the diff)"
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 1194, removed: 99 }
+  max_fan_in: { symbol: "export.ExportPayload", callers: 13, note: "13 files reference it; 60 reference sites" }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/export/json_export.py"]
+  cochange_missing: []
+  suite:
+    export_subsuite: "129 passed (tests/property/test_export_roundtrip.py + tests/test_export_json.py + tests/test_export_csv.py), re-run on this head"
+    import_guard: "tests/test_cli.py::test_every_import_in_the_package_points_inward — 1 passed on this head"
+    full_suite: "1393 passed, 1 xfailed — orchestrator-verified, not re-derived here; the two subsets above were re-run independently and agree"
+  mutation_check:
+    mutants_applied: 5
+    killed: 4
+    survived: 1
+    note: >-
+      Run despite review.mutation_check: false, because the orchestrator
+      explicitly asked for F-003's mutant to be re-derived. Method per cycle
+      1's F-010: pattern occurrence counted and asserted == 1 before each
+      mutation, __pycache__ cleared before and after every run, interpreter
+      run with -B -p no:cacheprovider, file restored from a byte copy and
+      md5-verified after each. `git status --short` is empty at end of review.
+      M6  corpus lap term removed  -> KILLED (was the cycle-1 survivor)
+      MA  json parse height=len(grid), scoped to AC-060 test only -> SURVIVED
+      MA2 same mutant vs the whole JSON suite -> KILLED by the corpus property
+      MB  json parse height read from request["width"] (square inference) -> KILLED by AC-060 test
+      MC  csv decode width=meta["height"] (swap) -> KILLED by AC-061 test
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact - the repository's first commit is 2026-08-27, five days
+      before this review, so the 12-month window holds the repo's entire life:
+      3-5 commits per touched file. The co-change set of the two exporters is
+      exactly each other, and both are in this diff. An empty peer set here is
+      not evidence of no missing peer.
+
+system_contract:
+  rules_checked: 15
+  holds: 7
+  unchecked: 8
+  violated: 0
+  verdicts:
+    - "INV-001 ✓ holds — every corpus payload derives its clues through clues.compute_clues (_payload, tests/property/test_export_roundtrip.py:169) and so does the new AC fixture (_rectangular_payload, :775); no test invents clue tuples. TestComputeClues_MatchesGridExactly untouched by the diff; export subsuite 129 passed on this head."
+    - "INV-002 ✓ holds — the ready-for-export gate is untouched: the whole orchestrator.py delta is the ExportPayload construction at lines 1160-1173, below the gate. test_export_rejects_an_unverified_puzzle (tests/test_export_json.py:542) untouched and green."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the diff contains no regenerate/resample/nudge counter (git diff main...HEAD --name-only lists only the export modules, orchestrator.py and three test files)."
+    - "INV-004 ⚠ unchecked — no_eligible_fact: `git diff main...HEAD -- src/ | grep -E 'MAX_SIZE|MIN_SIZE'` is empty; src/nonogram/sourcing/random_grid.py:60-61 still reads MIN_SIZE=10, MAX_SIZE=30. The export corpus deliberately spans 1..50, which is the export boundary, outside INV-004's source-mode scope."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/** absent from the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** absent from the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** absent from the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: G-6 assigns the range narrowing to CARD-023; MAX_SIZE/MIN_SIZE verified untouched (see INV-004)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: src/nonogram/sourcing/image.py absent from the diff."
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is absent from the diff; the changed modules add no import (json/csv/random were already imported), so the runtime dependency set is unchanged."
+    - "ADR-0019/R1 ✓ holds — checker cited, not re-derived: tests/test_cli.py::test_every_import_in_the_package_points_inward (the ast walk over src/nonogram/**/*.py) run on this head, 1 passed."
+    - "ADR-0022/R1 ✓ holds for the half this card owns — no export field reduces extent to a scalar any more (ExportPayload.width/height, src/nonogram/export/__init__.py:142-143). GenerationRequest.size (orchestrator.py:213) is still a scalar and still violates the rule repo-wide; verified on the MERGED tree that CARD-027 has not landed, so this is the same sequencing state cycle 1 recorded, not a regression, and G-6 forbids this card from touching it."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: src/nonogram/cli.py and src/nonogram/sourcing/** are absent from the diff."
+    - "ADR-0023/R1 ✓ holds — both writers emit width+height and no scalar size (json_export.py:96-97, csv_export.py:163-164); both decoders read both from the document (json_export.py:200-201, csv_export.py:251-252) and derive neither. Re-derived by mutation on this head: `height=len(grid)` in json_export.parse is KILLED by test_round_trips_exactly_for_any_puzzle_as_json (a corpus case with height=None exposes it), and `width=meta[\"height\"]` in csv_export.decode is KILLED by test_csv_round_trips_rectangular_dimensions."
+    - "ADR-0023/R2 ✓ holds — check ref TestExport_RejectsSupersededSchemaVersion resolves to test_a_version_1_file_is_refused_and_not_migrated in BOTH tests/test_export_json.py:491 and tests/test_export_csv.py:530, each on a whole version-1 document rather than an edited version-2 one. Exact `!=` preserved (json_export.py:173, csv_export.py:311) and the error names both numbers; the sweep in test_property_export_rejects_every_version_other_than_its_own now asserts the phrase `version {n}` per format against each format's OWN SCHEMA_VERSION, with 12 and 20 in the candidate set so the old digit-substring weakness cannot return. No compatibility read path exists: `grep -n 'version in (|version <=|version >=|migrate|upgrade'` over both decoders hits only prose comments."
+
+root_causes:
+  - id: RC-1
+    title: "The traceability index and commit narrative in this card's test files assert facts about themselves that do not hold"
+    finding_ids: [F-201, F-202, F-203, F-204]
+
+findings:
+  - id: F-201
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/property/test_export_roundtrip.py
+    line: 10
+    title: "Two entries in the module docstring's index still name functions that do not exist"
+    description: |
+      Lines 10-14 map two of the card's engineering constraints onto pytest
+      function names:
+
+          PropertyTest_Export_MetadataCarriesBothDimensionsForAnyPuzzle  (ADR-0023/R1)
+              -> test_metadata_carries_both_dimensions_for_any_puzzle
+          PropertyTest_Export_RejectsEveryVersionOtherThanItsOwn  (ADR-0023/R2)
+              -> test_rejects_every_version_other_than_its_own
+
+      Neither snake_case name exists anywhere in the repo:
+      `grep -rn "def test_metadata_carries_both_dimensions_for_any_puzzle\|def
+      test_rejects_every_version_other_than_its_own" tests/` returns nothing.
+      The real functions are
+      `test_property_export_metadata_carries_both_dimensions_for_any_puzzle`
+      (line 613) and `test_property_export_rejects_every_version_other_than_its_own`
+      (line 682) — the index is missing the `test_property_export_` prefix on
+      both arrows.
+
+      Provenance, so the fix is aimed correctly: these arrows were written in
+      6a69090 with the functions already carrying the longer names, so they
+      have never resolved. Cycle 1's F-002 examined this exact index block and
+      asserted the opposite — "every other entry in it ... resolves to a real
+      function" — which is why the fix commit corrected only the AC-060/AC-061
+      entries and left these two. This is the same defect class F-002 named
+      (an index claiming a mapping that does not exist), still live in the
+      cycle-2 code.
+
+      Bounded, not fatal: the PascalCase trace-ids DO resolve by grep, because
+      each real function's own docstring opens with its id (lines 614 and 683).
+      So the two ADR-0023 engineering constraints are genuinely verified and
+      the check-refs are findable — it is the index's arrows, and only those,
+      that are dead. Hence medium rather than the high cycle 1 gave F-002,
+      where the target tests did not exist at all.
+    suggestion: |
+      Change the two arrows to the actual function names:
+      `test_property_export_metadata_carries_both_dimensions_for_any_puzzle`
+      and `test_property_export_rejects_every_version_other_than_its_own`.
+      Worth pairing with the standing rule proposed in the family-regression
+      note: a cheap grep gate (every `-> test_...` arrow in a test module's
+      index resolves to a `def` in that module) would have caught this and
+      cycle-1's F-001/F-002 mechanically.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/property/test_export_roundtrip.py
+    line: 66
+    title: "The corpus's range rationale cites AC-038 as the 1..50 ceiling; AC-038 was superseded and no longer caps anything"
+    description: |
+      Line 66 (a line this card rewrote in 6a69090) reads "Every edge length
+      from 1 to 50 (AC-038's ceiling) appears as a width and as a height", and
+      the SIZES constant at line 121 repeats it: "The supported grid edge
+      lengths (AC-038 caps the range at 50)."
+
+      requirements.yml:1011-1017 marks AC-038 SUPERSEDED 2026-08-30 by AC-084
+      under CON-011, with the explicit note that "at MAX_SIZE=30 a 50x50
+      request is no longer merely large, it is INVALID". The corpus's choice
+      of 1..50 is still defensible — the export boundary is deliberately wider
+      than the source-mode range, and the file says so at lines 188-192 — but
+      the authority it cites for the number no longer exists.
+
+      Two neighbouring statements in the same file have the same shape:
+        * line 189, `_random_grid`'s docstring: "that module enforces the
+          10x10..50x50 request range (AC-003/AC-004)". It enforces 10..30
+          (src/nonogram/sourcing/random_grid.py:60-61).
+        * line 482, `test_round_trips_exactly_for_any_puzzle_as_csv`'s
+          docstring: "the empty ``size``/``density`` cells all have to
+          survive". There is no `size` cell any more — this card removed it.
+      Lines 121, 189 and 482 are pre-existing and untouched by this card;
+      line 66 is not, which is why the finding is filed here rather than as an
+      out-of-scope note. All four are one root cause with F-201.
+    suggestion: |
+      Retitle the range rationale against a live authority — the export
+      boundary's own reach, or CON-011/AC-084 with an explicit "wider than the
+      source-mode range on purpose, see _random_grid" — and drop the AC-038
+      citations. Fix line 482's `size` reference at the same time; G-5 makes
+      exactly this class of stale key name a finding for the export modules,
+      and the test file is the card's traceability artifact.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-203
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_csv.py
+    line: 338
+    title: "Cycle-1 F-008 is not fixed, and the fix commit's message says it is"
+    description: |
+      `test_one_half_of_the_extent_pair_can_be_unrequested_on_its_own` still
+      declares `tmp_path: Path` (lines 338-340) and still never uses it — the
+      test works entirely through `csv_export.document`/`decode`. That was
+      cycle-1's F-008.
+
+      Commit 1e612ae's message states "F-107 removed an unused tmp_path
+      parameter that implied a file round trip the test does not perform", but
+      `git show 1e612ae --stat` shows the commit touches exactly one file,
+      `tests/property/test_export_roundtrip.py`, and `git show 1e612ae | grep
+      tmp_path` shows only additions (the two new AC tests). Nothing was
+      removed from tests/test_export_csv.py.
+
+      Trivial on its own; recorded because the commit message is the artifact
+      a later reader trusts to know which findings were addressed, and this is
+      the third distinct instance in this card of a narrative asserting a
+      checkable fact that does not hold.
+    suggestion: "Drop the unused `tmp_path` parameter (and the same one on the neighbouring test_an_unrequested_extent_and_density_stay_none, line 320, which predates this card)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-204
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/export/csv_export.py
+    line: 291
+    title: "Out of scope — _decode_meta's check reordering is a behaviour change beyond the card's stated scope"
+    description: |
+      The card asked for a key-set change and a version bump. The fix also
+      reorders `_decode_meta` so the version is validated before the key set,
+      so a version-1 file reports "unsupported CSV export version 1" rather
+      than "unknown key 'size'". The rationale is documented at lines 291-300,
+      the change is covered by two new parametrized cases (`superseded-version`
+      and `version-1-style-meta`, tests/test_export_csv.py:409-413), and the
+      docstring's claim — "for a file that does declare this version, every
+      refusal below fires exactly as before" — checks out: the row-shape,
+      duplicate, unknown-key and missing-key refusals all still fire on a
+      version-2 document, and the unknown-key message still names the
+      first offending key in file order (dicts preserve insertion order).
+
+      Noted, not filed as a defect: it is the right behaviour for ADR-0023/R2's
+      "the error names both versions is the whole diagnosis", it is tested, and
+      it loosens nothing. Recorded only so the scope expansion is visible.
+    suggestion: "No action. Confirm the scope expansion was intended when closing the card."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-205
+    severity: info
+    category: ops
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 443
+    title: "Out of scope (model) — the card's two ADR-0023 engineering constraints exist only on the card"
+    description: |
+      CARD-024's `## Engineering constraints` declares EC(ADR-0023/R1) and
+      EC(ADR-0023/R2) with the test refs
+      PropertyTest_Export_MetadataCarriesBothDimensionsForAnyPuzzle and
+      PropertyTest_Export_RejectsEveryVersionOtherThanItsOwn. FR-012's
+      `engineering_constraints:` block in requirements.yml carries only EC-002,
+      and `grep -n PropertyTest_Export_ meta/architecture/{requirements,trace}.yml`
+      finds only PropertyTest_Export_RoundTripsExactlyForAnyPuzzle.
+
+      Both tests exist and pass, and both rules are separately carried by
+      ADR-0023's `## Rules` block, so nothing is unverified — but a reader
+      auditing FR-012 from requirements.yml will not see them. Cycle 1's F-009
+      flagged the model artifacts as uncommitted; they are committed on main
+      now (AC-060/AC-061 at requirements.yml:425-436, the two test names in
+      trace.yml:296-297), and this is the residue.
+    suggestion: "Either add the two ECs to FR-012's engineering_constraints block, or record on the card that they live in ADR-0023's Rules block by design."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-206
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/property/test_export_roundtrip.py
+    line: 788
+    title: "Out of scope (nuance) — AC-060's named test kills square-inference but not grid-derivation; the corpus covers the gap"
+    description: |
+      Recorded because the orchestrator asked whether the two new AC tests can
+      be made to pass vacuously. They cannot be made to pass on AC-060/AC-061
+      as WORDED ("rather than inferred as a square"): mutant MB, which reads
+      height out of `request["width"]`, is killed by
+      test_json_round_trips_rectangular_dimensions, and mutant MC, which swaps
+      the pair in csv_export.decode, is killed by
+      test_csv_round_trips_rectangular_dimensions.
+
+      One weaker mutant does survive the named test in isolation: MA, which
+      derives height from `len(grid)` in json_export.parse, passes
+      test_json_round_trips_rectangular_dimensions alone — because that
+      fixture's grid really is 12 rows tall. It is killed the moment the
+      corpus runs (test_round_trips_exactly_for_any_puzzle_as_json fails on
+      case 0, where the payload requested height=None and the mutant returns
+      1). So ADR-0023/R1's "no decoder reconstructs a dimension" is enforced
+      by the property, not by the AC test, which is the correct division of
+      labour — no finding.
+    suggestion: "None. If the AC tests are ever expected to stand alone, add a case with height=None to them."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-207
+    severity: info
+    category: ops
+    type: risk
+    file: tests/property/test_export_roundtrip.py
+    line: 1
+    title: "Family regression across three cards — proposal for a standing rule"
+    description: |
+      Cycle-1's F-002 and F-003 were both "a docstring asserts a checkable fact
+      that does not hold as stated". Per the orchestrator, the same family has
+      since dominated CARD-032 and CARD-034. This cycle's F-201, F-202 and
+      F-203 are three more members, in this card's own files:
+        * F-201 — an index arrow naming a function that does not exist (the
+          same index block cycle 1 audited and cleared);
+        * F-202 — four claims citing a superseded AC, a stale size range, and
+          a removed metadata key;
+        * F-203 — a commit message claiming a fix the commit does not contain.
+
+      That is four cards in a row. It is a project-level pattern, not a
+      per-card slip, and it is worth promoting to a standing rule rather than
+      re-learning card by card. Two mechanical checks would have caught every
+      instance above except F-203:
+        1. every `-> test_...` arrow in a test module's traceability index
+           resolves to a `def` in that module (catches F-201, and cycle-1's
+           F-001/F-002);
+        2. no docstring or comment cites an AC/FR/EC id whose
+           requirements.yml status is `superseded` (catches F-202).
+      Both are grep-and-parse, no new dependency. Suggest routing through
+      forge:retrospective's family-clustering step for promotion into an ADR
+      rule or a requirements delta.
+    suggestion: "Raise with forge:retrospective as a family for promotion into a standing rule; the two checks above are cheap enough to run in the CI gate."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

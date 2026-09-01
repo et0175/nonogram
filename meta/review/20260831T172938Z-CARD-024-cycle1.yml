@@ -1,0 +1,460 @@
+version: 1
+generated_at: "2026-08-31T17:29:38Z"
+target: "card/024-export-extent-schema-v2 @ 6a69090 (diff 547d317..6a69090)"
+overall_score: 6.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/__init__.py"
+    - "src/nonogram/export/json_export.py"
+    - "src/nonogram/export/csv_export.py"
+    - "src/nonogram/orchestrator.py (export_puzzle construction site + GenerationRequest/Puzzle.size)"
+    - "tests/property/test_export_roundtrip.py (full, 691 lines)"
+    - "tests/test_export_json.py (diff + surrounding fixtures)"
+    - "tests/test_export_csv.py (diff + surrounding fixtures)"
+    - "meta/architecture/decisions/adr/0023-export-metadata-grid-extent.md"
+    - "meta/kanban/cards/CARD-024.md"
+    - "meta/architecture/requirements.yml (FR-012 block, AC-060/AC-061)"
+  not_reached:
+    - "src/nonogram/export/layout.py|png.py|svg.py|pdf.py (G-1 forbidden; confirmed absent from the diff, not read)"
+    - "src/nonogram/web/** (no eligible fact)"
+    - "src/nonogram/solver/** (no eligible fact)"
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 585, removed: 97 }
+  max_fan_in: { symbol: "export.ExportPayload", callers: 14 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]
+  cochange_missing: []
+  suite: "1368 passed, 1 xfailed (baseline 1354 passed, 1 xfailed) - head claim VERIFIED"
+  mutation_check:
+    mutants_applied: 9
+    killed: 8
+    survived: 1
+    note: >-
+      All 9 patterns were verified to match exactly once before the suite ran;
+      none silently failed to apply. All files restored and md5-verified
+      identical to pre-review. IMPORTANT METHOD NOTE: the first run produced
+      two false results because CPython reused stale __pycache__ bytecode - the
+      M5 (width/height swap in json_export.parse) mutant is byte-length
+      identical to the original, so a same-second restore left the .pyc
+      validation stamp (mtime seconds + size) unchanged and later mutants ran
+      against swapped bytecode. Results below are from the re-run with
+      __pycache__ cleared and `python -B -p no:cacheprovider`.
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact - the 12-month window holds only 3-4 commits per touched
+      export file and the co-change set is exactly the two exporters, both of
+      which ARE in this diff; the repository is younger than the window, so an
+      empty peer set is not evidence of no missing peer.
+
+system_contract:
+  rules_checked: 13
+  holds: 6
+  unchecked: 7
+  violated: 0
+  verdicts:
+    - "INV-001 ✓ holds — the property corpus derives every payload's clues through clues.compute_clues (tests/property/test_export_roundtrip.py:162) rather than inventing tuples; TestComputeClues_MatchesGridExactly (tests/test_clues.py:230) untouched and green in the 1368-test run."
+    - "INV-002 ✓ holds — the ready_for_export gate is untouched by the diff (no change in orchestrator.export_puzzle above line 1160); TestExport_RejectsUnverifiedPuzzle (tests/test_export_json.py:542) and TestExport_RejectsUnverifiedPuzzleForPDF (tests/test_export_pdf.py:750) green."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the diff touches no regenerate/resample/nudge counter."
+    - "INV-004 ⚠ unchecked — no_eligible_fact: no sourcing or range code in the diff; `git diff 547d317..6a69090 | grep -E 'MAX_SIZE|MIN_SIZE'` returns nothing. (The property corpus deliberately spans 1..50 at the export boundary, which is outside INV-004's source-mode scope and documented at tests/property/test_export_roundtrip.py:180-184.)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/** absent from the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** absent from the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** absent from the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: G-6 puts the range narrowing in CARD-023; MAX_SIZE/MIN_SIZE verified untouched."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: src/nonogram/sourcing/image.py absent from the diff."
+    - "ADR-0019/R1 ✓ holds — the import-boundary structural guard test_every_import_in_the_package_points_inward (tests/test_cli.py:683) walks src/nonogram/**/*.py with ast and is green on this head; the diff adds no import to any export module."
+    - "ADR-0022/R1 ✓ holds for the half this card owns — no export field reduces extent to a scalar any more (ExportPayload.width/height, src/nonogram/export/__init__.py:142-143). The request-side scalars GenerationRequest.size (orchestrator.py:213) and Puzzle.size (orchestrator.py:561) still exist and still violate the rule repo-wide; that is CARD-027's (FR-018) and is explicitly forbidden to this card by G-6, so it is a sequencing state, not a regression introduced here."
+    - "ADR-0023/R1 ✓ holds — both writers emit width+height and no scalar size (json_export.py:96-97, csv_export.py:163-164); both decoders read both from the document (json_export.py:200-202, csv_export.py:251-252) and derive neither. Re-derived by mutation: M1 (JSON reverts to a scalar size), M3 (CSV decodes height from len(grid)) and M8 (CSV writes 0 instead of empty for an unrequested height) were each KILLED."
+    - "ADR-0023/R2 ✓ holds — check ref TestExport_RejectsSupersededSchemaVersion resolves to test_a_version_1_file_is_refused_and_not_migrated in BOTH tests/test_export_json.py:491 and tests/test_export_csv.py:530 (whole version-1 documents, not edited version-2 ones). Exact `!=` comparison preserved in both decoders; mutants M2/M2b (`version not in (1, SCHEMA_VERSION)`) were KILLED in both formats."
+
+root_causes:
+  - id: RC-1
+    title: "AC-060/AC-061 were never implemented, and the property module's index claims they were"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "The corpus's non-degeneracy rests on a mechanism its own docstring misidentifies, and is not gated"
+    finding_ids: [F-003]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: feature
+    type: gap
+    file: tests/property/test_export_roundtrip.py
+    line: 20
+    title: "AC-060 and AC-061 have no test — the named tests do not exist anywhere in the repo"
+    description: |
+      The card's two headline acceptance criteria name
+      `TestExport_JSONRoundTripsRectangularDimensions` and
+      `TestExport_CSVRoundTripsRectangularDimensions`
+      (meta/architecture/requirements.yml:381 and :387, repeated verbatim in
+      CARD-024.md's `## Acceptance criteria`). Neither test exists.
+
+      Re-derived, not assumed:
+        * `grep -rn "def test.*rectangular\|RoundTripsRectangular" tests/` returns
+          exactly two hits, both inside the docstring at
+          tests/property/test_export_roundtrip.py:20 and :22 — no function
+          definitions.
+        * The complete list of `^def ` in that file is lines 146, 175, 189, 225,
+          308, 345, 415, 433, 446, 472, 493, 532, 568, 637. The two names the
+          docstring maps AC-060/AC-061 to
+          (`test_json_round_trips_rectangular_dimensions`,
+          `test_csv_round_trips_rectangular_dimensions`) are not among them.
+        * No rectangular payload reaches disk. The corpus does contain 30x12
+          (indices 1229, 2011, 2027, 2043, 2059, 2075) and 12x30 (2010, 2026,
+          2042, 2058, 2074), but only through the in-memory
+          `document`/`decode` pair. The on-disk slice is `CASES[::19]`; its
+          edge-case members are 49x50, 2x2, 49x49 and 2x1 — no 30x12 or 12x30
+          case makes the `render`/`read` round trip that AC-060/AC-061's
+          "exported as JSON / decoded back" describes.
+
+      The underlying BEHAVIOUR is well covered (2010 non-square cases in the
+      corpus, 105 non-square cases on disk), so this is not a correctness bug —
+      it is a delivery gap plus a dead check-ref. That combination is worse
+      than a plain omission: trace.yml will resolve AC-060/AC-061 to test names
+      that do not exist and mark FR-012 covered, and the reviewer of the next
+      card sees a green suite and an index that says the criteria are tested.
+    suggestion: |
+      Add two tests with the exact names the criteria require, each doing a
+      30x12 round trip through the real file layer:
+
+        def test_json_round_trips_rectangular_dimensions(tmp_path):  # AC-060
+            payload = _payload(_random_or_fixed_30x12_grid, width=30, height=12, ...)
+            json_export.render(payload, tmp_path / "r.json")
+            decoded = json_export.read(tmp_path / "r.json")
+            assert (decoded.width, decoded.height) == (30, 12)
+            assert len(decoded.grid[0]) == 30 and len(decoded.grid) == 12
+
+      and the CSV twin, then fix the docstring index at lines 20-23 to point at
+      them. Assert 30 and 12 as two distinct values (not `== payload.width`),
+      so a decoder that derived one from the other cannot satisfy the test.
+    confidence: high
+    source: static
+    violates: AC-060
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/property/test_export_roundtrip.py
+    line: 20
+    title: "The module docstring's AC index asserts coverage that does not exist"
+    description: |
+      Lines 20-23 read:
+
+          AC-060  TestExport_JSONRoundTripsRectangularDimensions
+                      -> test_json_round_trips_rectangular_dimensions
+          AC-061  TestExport_CSVRoundTripsRectangularDimensions
+                      -> test_csv_round_trips_rectangular_dimensions
+
+      This index is the file's own traceability contract — every other entry in
+      it (AC-033, EC-002's three property names, the ADR-0023/R2 entries in
+      tests/test_export_json.py:8 and tests/test_export_csv.py:7) resolves to a
+      real function. These two do not. A reader auditing AC coverage from the
+      index alone concludes the criteria are tested; the suite is green, so
+      nothing contradicts them.
+
+      Filed separately from F-001 because the fix is separate: F-001 is "write
+      the tests", this is "the index must never claim a test that is not
+      there". If the tests are deferred rather than written, this line must
+      say so explicitly rather than name a phantom function.
+    suggestion: |
+      Either add the two functions (F-001) so the index becomes true, or remove
+      the AC-060/AC-061 entries from the index and record the gap on the card
+      as an explicit deferral. Do not leave the index naming functions that do
+      not exist.
+    confidence: high
+    source: static
+    violates: AC-061
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: risk
+    file: tests/property/test_export_roundtrip.py
+    line: 234
+    title: "Verified surviving mutant: the corpus gate does not enforce the non-degeneracy the docstring claims, and the stated mechanism is wrong"
+    description: |
+      `_corpus`'s docstring (lines 233-237) says:
+
+          "The height stride is 3, coprime with the 50-long size cycle, which
+          is what makes every (width, height) residue pair reachable instead of
+          pinning height to a function of width"
+
+      That reasoning is backwards. Writing index = 50q + r (so width = r+1),
+      the actual expression `(index*3 + index//50) % 50` evaluates to
+      (151q + 3r) mod 50 = (q + 3r) mod 50 — it is the `index // len(SIZES)`
+      term (q) that decouples height from width, giving 40-43 distinct heights
+      per width (measured). The coprime stride 3 alone would give
+      (3*index) mod 50 = 3r mod 50, a BIJECTION of width — i.e. exactly the
+      "height is a function of width" degeneracy the docstring claims the
+      stride prevents.
+
+      Confirmed by mutation, not by argument. Mutant M6 replaces the stride
+      with `SIZES[(index * 3) % len(SIZES)]`, making height a pure deterministic
+      function of width, and it **SURVIVES** the whole export suite
+      (tests/property/test_export_roundtrip.py + tests/test_export_json.py +
+      tests/test_export_csv.py, all green). It survives because the gate at
+      line 371 asserts only a non-square floor, and such a corpus still yields
+      1970 non-square cases against the bar of 1500.
+
+      The commit message repeats the same wrong rationale ("Width and height
+      therefore cycle on coprime strides (3 against the 50-long size cycle) so
+      height is not a function of width"). The hazard is concrete: a future
+      maintainer simplifying the expression on the strength of the docstring's
+      own explanation would silently restore the degeneracy, and every gate in
+      the file would stay green.
+
+      Scope note, so this is not overstated: the gate DOES catch the realistic
+      bugs. Mutants M4 (corpus reverts to squares), M3 (CSV decodes height from
+      len(grid)) and M1 (JSON reverts to a scalar size) were all killed. What
+      survives is only the contrived "decoder reimplements the same modular
+      function" case. The finding is about the false rationale plus an
+      unasserted invariant, not about the realistic failure mode.
+    suggestion: |
+      Two independent fixes, both cheap:
+        1. Correct the docstring (and the card's Worktree notes) to attribute
+           the decoupling to the `index // len(SIZES)` term, not to the coprime
+           stride.
+        2. Assert the property directly in
+           `test_the_corpus_covers_what_ec_002_asks_for`, e.g.
+
+             by_width = defaultdict(set)
+             for case in CASES: by_width[case.width].add(case.height)
+             assert min(len(h) for h in by_width.values()) >= 10, (
+                 "height must not be a function of width"
+             )
+
+           Measured today: min 40, max 43 — so the bar has real margin.
+    confidence: high
+    source: static
+    violates: EC-002
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_export_roundtrip.py
+    line: 650
+    title: "The version sweep couples the two SCHEMA_VERSIONs that ADR-0023 says may diverge"
+    description: |
+      `wrong = [v for v in (*range(0, 12), 99, 1000, -1) if v != json_export.SCHEMA_VERSION]`
+      excludes only the JSON constant, then feeds the same list to the CSV
+      decoder at line 670. ADR-0023 is explicit that the two constants are
+      independent and "that both read 2 today is a coincidence of history".
+      The first time csv_export.SCHEMA_VERSION moves to 3 while JSON stays at
+      2, the sweep will hand the CSV decoder its own current version and the
+      test fails on a document that is correctly accepted.
+
+      Fail-loud rather than silent, hence low — but it will fire on an
+      unrelated card and read as a regression there.
+    suggestion: |
+      Filter per format inside the loop, e.g. build the JSON sweep against
+      json_export.SCHEMA_VERSION and the CSV sweep against
+      csv_export.SCHEMA_VERSION, and keep the `assert 1 in wrong` guard for
+      both.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_export_roundtrip.py
+    line: 661
+    title: "Substring assertion is weaker than the 'names both versions' claim it stands for"
+    description: |
+      `assert str(version) in message and str(SCHEMA_VERSION) in message` is a
+      digit-substring test, not a "names both versions" test: a message reading
+      "unsupported version 1000" would satisfy `str(1) in message`.
+
+      It happens to be sound for the current sweep — none of the swept values
+      (0, 1, 3..11, 99, 1000, -1) contains the digit "2", so a decoder that
+      dropped its own version from the message is genuinely caught — but the
+      soundness is an accident of the chosen value set, not a property of the
+      assertion. Adding 12, 21 or 20 to the sweep would silently weaken it.
+    suggestion: |
+      Assert the shape rather than the digits, e.g.
+      `assert f"version {version}" in message and f"version {SCHEMA_VERSION}" in message`,
+      which is what both decoders actually emit.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_export_roundtrip.py
+    line: 106
+    title: "REQUIRED_CASES = 500 is now a dead constant and its docstring is misleading"
+    description: |
+      REQUIRED_CASES is documented as EC-002's floor, "comfortably below
+      CASE_COUNT so the bar is not also the ceiling". It can no longer bind: at
+      a 500-case corpus the drawn cases yield ~490 non-square and 10 squares,
+      which fails BOTH `non_square >= 1500` (line 371) and `squares >= 50`
+      (line 376) long before the 500-case bar is reached. The real floor is now
+      REQUIRED_NON_SQUARE_CASES = 1500, i.e. CASE_COUNT can never drop below
+      roughly 1530 without a different assertion firing first.
+
+      Measured margins on the current corpus (2080 cases): non_square 2010 vs
+      1500, squares 70 vs 50, widths and heights each covering all of 1..50.
+      Both floors are met with real margin — this is a documentation/coherence
+      point, not a coverage gap.
+    suggestion: |
+      Either drop REQUIRED_CASES or restate its docstring to say it is a
+      lower-order floor that the non-square bar now dominates, so a future
+      reader does not tune CASE_COUNT against a constant that cannot bind.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_export_roundtrip.py
+    line: 394
+    title: "The gate's 'unrequested' counter does not assert the mixed-extent case the docstring promises"
+    description: |
+      The module docstring (lines 84-86) says the corpus includes "payloads
+      whose width/height/density were never requested at all (None, not zero) —
+      including the mixed case where one half of the extent pair was asked for
+      and the other was not". The gate's counter at lines 394-400 uses `or`
+      across all three fields, so a corpus in which only `density` is ever None
+      would satisfy `unrequested >= 100` while containing no mixed-extent case
+      at all.
+
+      Measured today the corpus is fine — 286 width-None, 154 height-None, 22
+      both-None, 396 mixed — so nothing is currently uncovered, and the
+      behaviour itself is separately pinned by
+      tests/test_export_csv.py::test_one_half_of_the_extent_pair_can_be_unrequested_on_its_own.
+      The gap is that the gate does not protect the docstring's claim.
+    suggestion: |
+      Add one line to the gate:
+      `assert sum(1 for c in CASES if (c.payload.width is None) != (c.payload.height is None)) >= 50`
+      (measured 396, so the bar has margin).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_csv.py
+    line: 338
+    title: "New test declares an unused tmp_path fixture"
+    description: |
+      `test_one_half_of_the_extent_pair_can_be_unrequested_on_its_own(tmp_path)`
+      never touches `tmp_path` — it works entirely in memory through
+      `csv_export.document` / `csv_export.decode`. (The neighbouring
+      `test_an_unrequested_extent_and_density_stay_none` has the same unused
+      parameter, but that one predates this card.) Harmless, but it implies a
+      file round trip the test does not perform, which is exactly the claim
+      AC-061 needs and does not have (F-001).
+    suggestion: "Drop the parameter, or make the test actually round-trip through render/read."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: info
+    category: ops
+    type: question
+    file: meta/architecture/requirements.yml
+    line: 376
+    title: "Out of scope — the card's model artifacts are not in the reviewed commit"
+    description: |
+      6a69090 contains only the seven code/test files. requirements.yml (681
+      insertions, carrying AC-060/AC-061 themselves), ADR-0022, ADR-0023 and
+      CARD-024.md are uncommitted/untracked in the worktree. trace.yml carries
+      no AC-060/AC-061 entry yet. Noted so the sync/commit step does not lose
+      them; not a defect of this diff.
+    suggestion: "Confirm the architect-side artifacts are committed or synced before the card closes."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: ops
+    type: risk
+    file: tests/property/test_export_roundtrip.py
+    line: 1
+    title: "Out of scope (process) — mutation checks in this repo give false results unless __pycache__ is cleared"
+    description: |
+      Worth recording because it likely explains the orchestrator's own
+      unreliable mutation run. A mutant that preserves file byte-length — the
+      width/height swap in json_export.parse is exactly such a mutant, since
+      the two lines simply exchange contents — leaves the .pyc validation stamp
+      (mtime in whole seconds + source size) unchanged when the restore lands
+      in the same second as the mutation. CPython then reuses the MUTATED
+      bytecode for every subsequent run. In this review's first pass that
+      produced one false KILL and contaminated the two mutants that ran after
+      it; the results reported here are from a re-run with __pycache__ removed
+      before every mutant and `python -B -p no:cacheprovider`.
+    suggestion: |
+      Any future mutation check in this repo should clear __pycache__ between
+      mutants and run the interpreter with -B, and should verify each mutation
+      pattern matched exactly once before drawing a conclusion from a PASS.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
