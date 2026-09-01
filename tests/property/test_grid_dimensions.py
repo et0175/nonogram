@@ -340,21 +340,52 @@ _SCALAR_EXTENT_NAMES = frozenset(
     {"size", "grid_size", "edge", "edge_length", "side", "n"}
 )
 
-#: Annotations that could carry a cell count. A grid extent is a number of
-#: cells, so it is an ``int``; this is what excludes
-#: ``difficulty.SignalWeights.size``, a ``float`` normalizer weight that has
-#: nothing to do with how big a grid is (and that CARD-027's guardrail G-4
-#: forbids touching). The exclusion is a property of the type, not an
-#: allowlisted name, so it cannot be stretched to cover a real violation.
-_INT_ANNOTATIONS = frozenset({"int", "int | None", "None | int", "Optional[int]"})
-
-
 def _is_public(name: str) -> bool:
     return not name.startswith("_")
 
 
 def _annotation_is_int(node: ast.expr | None) -> bool:
-    return node is not None and ast.unparse(node) in _INT_ANNOTATIONS
+    """Does this annotation admit an ``int``, structurally rather than by spelling?
+
+    A grid extent is a number of cells, so an extent-named binding that admits
+    an ``int`` is a scalar-extent boundary. What must NOT be caught is
+    ``difficulty.SignalWeights.size``, a ``float`` normalizer weight that has
+    nothing to do with how big a grid is (and which guardrail G-4 forbids
+    touching anyway).
+
+    This was first written as exact string equality against four spellings, and
+    cycle-1 review broke it in five ways: ``typing.Optional[int]``,
+    ``Annotated[int, ...]``, ``builtins.int`` and the string form ``'int'`` all
+    slipped past, and so did an **unannotated** parameter — an undeclared third
+    exclusion the comment did not admit to. The comment additionally claimed the
+    exclusion "cannot be stretched to cover a real violation", which was exactly
+    backwards. So the test now walks the annotation instead of spelling it:
+
+    * any ``int`` reachable in the annotation's own tree counts — that covers
+      unions, ``Optional``, ``Annotated``, and dotted forms like
+      ``builtins.int``, without enumerating them;
+    * a string annotation is re-parsed and walked, so quoting is not an escape;
+    * **an absent annotation counts as a hit**. An unannotated public parameter
+      called ``size`` is a scalar-extent boundary whatever anyone intended, and
+      this project has no mypy or ruff to notice it. That is a real rule, and it
+      is declared here rather than left as a silent third exclusion.
+
+    ``float`` is excluded because ``float`` contains no ``int`` NODE — the walk
+    is token-level, not substring, so ``Point`` and ``print`` do not match either.
+    """
+    if node is None:
+        return True
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        try:
+            node = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return True
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name) and sub.id == "int":
+            return True
+        if isinstance(sub, ast.Attribute) and sub.attr == "int":
+            return True
+    return False
 
 
 def _scalar_extent_offences(path: Path) -> list[str]:

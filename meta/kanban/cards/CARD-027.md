@@ -225,7 +225,7 @@ mode a `--size` token can have.
 | 5 | `random_grid.generate` / `library.generate` / `image.generate` | invalid extent | Validated **before** any work: no cell is drawn, no RNG value consumed, no template rendered, no image file opened. Two rejected calls followed by a valid one produce the grid the single valid call would. | — |
 | 6 | `library.generate` | invalid extent **and** unknown key | `UnknownLibraryImage` wins — the key is resolved first, unchanged from before this card. | — |
 | 7 | `image.generate` | extent valid, grid aspect ratio more than 2x from the source's | `ImageNeedsManualCrop` (CARD-026's guard, untouched by this card — G-6). Now genuinely reachable for a non-square request, which is what it was built for. | — |
-| 8 | `image.generate` | extent valid, source unreadable/missing | `UnreadableImage`, unchanged. Ordering is still range → probe → aspect → decode (EC-007). | — |
+| 8 | `image.generate` | extent valid, source unreadable/missing | `UnreadableImage`, unchanged. Full ordering is **missing-source guard → range → probe → aspect → decode** (EC-007). Corrected at cycle-1 F-004: this row first declared it as `range → probe → aspect → decode`, omitting the `source is None` guard that precedes `validate_extent` (`sourcing/image.py:614-619`). Verified: `image.generate(None, 40, 20, rng)` raises `UnreadableImage`, NOT `SizeOutOfRange`, while a valid path with the same 40x20 raises `SizeOutOfRange`. That is the mirror of row 6, which was declared correctly, so the omission was inconsistency rather than a wrong belief about the code. | — |
 | 9 | Every row above, at the CLI | any `NonogramError` | `cli.main` maps it through `exit_code_for`'s MRO walk; all of rows 4–8 are `INVALID_INPUT` (exit 3), never argparse's exit 2. | — |
 
 Not applicable, stated so the reviewer does not look for it: no timeout, no
@@ -338,7 +338,7 @@ untouched here.
   No export behaviour, format, schema or assertion changed.
 - **Stale `50x50` docstrings remain in `src/nonogram/solver/**` and
   `src/nonogram/export/**`** (`solver/search.py`, `solver/propagate.py`,
-  `export/json_export.py`, `export/svg.py`). They were left stale by CARD-023's
+  `export/json_export.py`, `export/svg.py`, and — missed in the first pass and added at cycle-1 F-005 — `src/nonogram/web/pages.py`'s form label, which still says "square grid edge length" (fenced by G-7; CARD-028 owns that field)). They were left stale by CARD-023's
   narrowing to 30, not by this card, and G-1/G-5 put both packages off limits —
   flagged here rather than fixed.
 
