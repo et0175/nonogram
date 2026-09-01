@@ -15,7 +15,7 @@
 **Wave:** 16
 **Depends on:** —
 **Touches:** src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py, src/nonogram/orchestrator.py, tests/test_export_json.py, tests/test_export_csv.py, tests/property/test_export_roundtrip.py
-**Review score:** —
+**Review score:** 6.0 (cycle 1/3, failed gate), 9.0 (cycle 2/3) — gate passed; F-201..F-203 closed in 427d6ff
 **Started:** 2026-08-31T16:14:49Z
 **Closed:** —
 **Actual:** —
@@ -242,3 +242,31 @@ Concretely:
   they had nothing unique, so main's versions were taken. Recorded because
   merging without checking would have resurrected a retracted claim.
 
+- **[AC/EC check] All criteria/constraints ✓** — verified 2026-09-01 from FRESH
+  evidence on the merged tree (41 commits of main brought in), not carried from
+  cycle 1 (which FAILED at 6.0 with 1 critical / 2 high).
+  - **AC-060 / AC-061 ✓** — re-derived independently of the tests that assert
+    them: a real 30x12 payload round-tripped through `json_export.document ->
+    decode` and `csv_export.document -> decode`, with the grid deliberately
+    `(row+column)%3` so it is ASYMMETRIC under transposition and a swapped pair
+    cannot pass by coincidence. Extent survives as 30/12, grid and both clue sets
+    come back exact, cells are `bool` not `int`, provenance survives, and
+    `width != height` so nothing was square-inferred. Cycle 2 additionally killed
+    two mutants here — reading height from `request["width"]` (AC-060's own
+    "inferred as a square" wording) and swapping the pair.
+  - **EC-002 ✓** — `PropertyTest_Export_RoundTripsExactlyForAnyPuzzle` green over
+    its 2080-case corpus (min 40 / max 43 heights per width, 70 square, 2010
+    non-square, 396 mixed-extent, all measured by the cycle-2 reviewer).
+  - **ADR-0023/R2 ✓** — probed directly: a version-1 JSON document is REFUSED,
+    not best-effort read, and the error names both numbers —
+    `"unsupported JSON export version 1; this build reads version 2"`.
+  - **Correction to this gate's own first run:** it initially reported AC-060 and
+    AC-061 as FAILING on a full-dataclass equality check, because `name` and
+    `difficulty` come back as `None`. That is not a defect and the check was
+    wrong: the JSON schema is `clues/grid/request/seed/version` with `request`
+    holding `density/height/mode/width`, and name and difficulty are deliberately
+    NOT persisted — they are presentation metadata carried by the filename and
+    the PDF header. EC-002's contract is the puzzle and its provenance, which is
+    exactly why `_assert_round_trip` exists as a purpose-built helper rather than
+    a bare `==`. Recorded because a gate that reports a false failure costs a
+    cycle and teaches people to distrust it.
