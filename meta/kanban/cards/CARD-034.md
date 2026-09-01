@@ -107,8 +107,15 @@ Plus, on the corrected NFR-005:
   it is. No new paper size, no tiling.
 - G-2: `MIN_CELL_MM`'s floor behaviour is unchanged: below it the drawing is still
   allowed to exceed the page rather than shrink past legibility.
-- G-3: Square grids keep printing portrait. The measured margin is small (4.40
-  against 4.06) but it is the existing behaviour and every current test assumes it.
+- G-3: **AMENDED 2026-09-01 with NFR-006's rule change.** Was: "square grids keep
+  printing portrait". That is false in general under the amended rule and must not
+  be restored — a square whose row gutters run deeper than its column gutters draws
+  wider than tall and genuinely prints larger turned (measured on the property
+  corpus: 18x18 and 19x19 at random density turn; 20x20 and 30x30 stay upright).
+  Removing the square special case is the POINT of the amendment. What survives is
+  the specific outcome AC-103 pins: a 30x30 prints portrait, at 5.76mm against
+  3.81mm turned — derived from the cell comparison, not asserted as a shape rule.
+  Do not add a square branch to make the old sentence true again.
 - G-4: Do not edit `src/nonogram/orchestrator.py` or `src/nonogram/sourcing/**` —
   the bare-N derivation is CARD-033's this wave.
 - G-5: Do not weaken, delete or rewrite `PropertyTest_Layout_CellSizeNeverExceedsComfortCap`.

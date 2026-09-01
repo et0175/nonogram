@@ -1383,10 +1383,25 @@ non_functional:
       recorded here rather than legislated as a separate rule: a grid whose
       larger side is 15 or less never turns, because it is cap-bound in both
       orientations and the tie resolves to portrait. Swept over 441 extents x
-      4 clue patterns: the smallest larger-dimension that ever turns is 16,
-      and 419 of 1764 cases turn overall, concentrated at 27..30. A small
+      4 clue patterns (random, checkerboard, sparse, alternating-rows — the
+      corpus EC-010's property test sweeps): the smallest larger-dimension
+      that ever turns is 16, and 446 of 1764 cases turn overall, concentrated
+      at 27..30. (An earlier draft said 419; that came from a different
+      pattern set and does not reproduce on the corpus the test actually
+      uses. The ordinal facts — smallest turning dimension 16, concentration
+      at the top — hold on both.) A small
       puzzle therefore cannot be turned gratuitously; it turns only when it
       is genuinely page-constrained, which is when turning buys something.
+      SQUARES ARE NOT EXEMPT, and this follows from the rule rather than
+      being an oversight: a square grid whose row gutters run deeper than its
+      column gutters draws wider than it is tall and genuinely prints larger
+      turned. Measured on the property corpus, 18x18 and 19x19 at random
+      density both turn, while 20x20 and 30x30 stay upright. Any statement
+      that "squares print portrait" is therefore false in general — true of
+      AC-103's 30x30, not of every square. Removing the square special case
+      is the point of this amendment; a square is simply a grid whose two
+      orientations are usually, but not always, close enough that portrait
+      wins.
       Source: US-022, brainstorm 2026-09-01, amended during CARD-034 review.
     acceptance:
       - id: AC-099
@@ -1428,7 +1443,7 @@ non_functional:
       - id: AC-106
         given: every grid in the supported range whose larger side is 15 or less, across four clue patterns
         when: each is rendered for print at 300 DPI
-        then: none of them turns — all print portrait, because a small grid is cap-bound in both orientations and the tie resolves to portrait
+        then: none of them turns — all print portrait, because a small grid is cap-bound in both orientations (so the two tie and the tie resolves to portrait) or else portrait wins outright; measured, 132 of 144 small cases tie and the other 12 are outright portrait wins
         kind: boundary
         test: TestPageOrientation_SmallGridsNeverTurn
     engineering_constraints:
