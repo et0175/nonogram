@@ -824,12 +824,14 @@ links:
     4.57mm against 6.86mm upright, because it stated orientation over the GRID
     while page fit is governed by the DRAWING. Implemented by CARD-034; the six
     superseded test names this row carried until 2026-09-01 are replaced above
-    (cycle-2 F-004 — the row asserted the opposite of shipped behaviour). Prerequisite for NFR-005's page_fit term now
+    (cycle-2 F-004 — the row asserted the opposite of shipped behaviour). SHIPPED
+    2026-09-01, merge 151ce3d; all eight named tests are live and the AC/EC gate
+    verified every criterion from re-derived evidence. Prerequisite for NFR-005's page_fit term now
     that FR-018/CARD-027 introduces rectangular grids: NFR-005/EC-008 were
     amended the same day (AC-104) to stop claiming cell size is a function of
     max(width, height) alone, and this requirement is the fix that makes
     page_fit well-defined per grid at all.
-  status: partial
+  status: covered
 
 - req: CON-011
   description: "Each grid side is 10..30 inclusive; MAX_SIZE = 30 project-wide, every

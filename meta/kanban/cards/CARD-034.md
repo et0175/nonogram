@@ -1,6 +1,6 @@
 # CARD-034: The page turns to match the grid, and the cell-size rule stops lying
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/034-page-orientation-follows-grid
-**Worktree:** ../PythonProject4-card-034
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-7
 **Idea:** —
 **Wave:** 20
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/export/layout.py, tests/test_export_image.py, tests/test_export_pdf.py, tests/property/test_layout_cell_size.py
 **Review score:** 9.0 (cycle 1/3, superseded implementation), 8.8 (cycle 2/3) — gate passed; F-001..F-004 closed in 3fe11f1
 **Started:** 2026-09-01T14:56:02Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-01T18:04:06Z
+**Actual:** 0.4d
+**Merge commit:** 151ce3d1f85f714b60309cad3bf624f26d6600be
 **Blocked by:** —
 
 ## What to implement

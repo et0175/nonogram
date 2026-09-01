@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-01 18:30_
+_Updated: 2026-09-01 18:10_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -27,7 +27,7 @@ _Updated: 2026-09-01 18:30_
 | 17 | CARD-026 P1 | ✓ done |
 | 18 | CARD-027 P1 | ⏳ blocked (→ CARD-024) · gate CLEARED |
 | 19 | CARD-028 P2, CARD-030 P1, CARD-031 P2, CARD-032 ✓ done | ⏳ blocked (→ CARD-020, CARD-027) |
-| 20 | CARD-033 P1, CARD-034 P1 | ⏳ blocked (→ CARD-027) · CARD-034 has no deps |
+| 20 | CARD-033 P1, CARD-034 ✓ done | ⏳ blocked (→ CARD-027) |
 | — | CARD-018 ✓ done · CARD-029 P3 | ⏸ ready (CARD-023/025 both done) |
 
 _Increment 5 starts at wave 16, not 15: this table renumbered increment 4 when CARD-022
@@ -70,7 +70,6 @@ _(none)_
 - **CARD-030** P1 · Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it  _(wave 19, after CARD-027)_
 - **CARD-031** P2 · Image-mode puzzles auto-name from the source file's stem  _(wave 19, after CARD-027)_
 - **CARD-033** P1 · A bare `--size N` derives the shorter side from the source's shape  _(wave 20, after CARD-027)_
-- **CARD-034** P1 · The page turns to match the grid, and the cell-size rule stops lying  _(wave 20, no dependencies — runnable now)_
 
 ## In Progress
 - **CARD-024** Export metadata carries width and height at schema version 2
@@ -102,3 +101,4 @@ _(none)_
 - **CARD-025** Printed cell size becomes min(comfort cap, page fit)
 - **CARD-026** Fit uploaded images to the requested grid shape, refusing a >2x aspect mismatch  ⚠ follow-up → CARD-030 (ADR-0022 revised)
 - **CARD-032** Ship a Unicode TTF as package data so a non-ASCII name prints in the PDF header
+- **CARD-034** The page turns whichever way prints the larger cell; NFR-005/EC-008 corrected
