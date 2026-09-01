@@ -1,6 +1,6 @@
 # CARD-024: Export metadata carries width and height at schema version 2
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -224,4 +224,21 @@ Concretely:
 
 ## Worktree notes
 
-—
+- **[Resumed 2026-09-01]** This card was implemented and reviewed on 2026-08-31
+  (cycle 1: **6.0**, 1 critical / 2 high — a failing gate), then fixed in
+  `1e612ae`, then left. No cycle 2 ran, `Review score` was never stamped, and
+  these notes stayed empty, so the board showed it as ordinary in-progress work
+  rather than as something one review short of done.
+- **[Brought up to date]** The branch was 41 commits behind main. `main` merged
+  in cleanly, no conflicts: **1393 passed, 1 xfailed** (main's 1377 plus this
+  card's 16). Nothing here was broken by CARD-034's orientation change or
+  CARD-032's bundled font.
+- **[Stale artefacts discarded, checked first]** The worktree carried untracked
+  copies of ADR-0022, ADR-0023 and a modified `requirements.yml` from 2026-08-31.
+  All were stale: ADR-0022's copy had none of that day's two revisions, and
+  `requirements.yml`'s unique lines were the PRE-amendment text — including
+  NFR-005's old "Cell size is non-increasing in max(width, height)", the exact
+  false claim the 2026-09-01 delta removed. Main had 435 lines they lacked and
+  they had nothing unique, so main's versions were taken. Recorded because
+  merging without checking would have resurrected a retracted claim.
+
