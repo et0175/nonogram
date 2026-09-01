@@ -1,0 +1,316 @@
+version: 1
+generated_at: "2026-09-01T12:45:59Z"
+target: "CARD-032 cycle 1 — worktree ../PythonProject4-card-032, commit 805d3e0 vs HEAD~1 (108c793); working tree clean, no uncommitted changes"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/export/pdf.py (full)"
+    - "src/nonogram/export/png.py (full)"
+    - "src/nonogram/export/layout.py (docstring + header_band region)"
+    - "tests/test_export_pdf.py (diff + helpers _stamp/_band_for/_layout_for/_payload/_puzzle)"
+    - "pyproject.toml (diff)"
+    - "meta/architecture/decisions/adr/0006-dependency-baseline.md (full, incl. ## Rules)"
+    - "meta/kanban/cards/CARD-032.md (full)"
+    - "meta/kanban/backlog.md (Wave 8 section)"
+    - "src/nonogram/export/fonts/ (sha256 + size only; TTF/LICENSE bytes not read)"
+  not_reached:
+    - "src/nonogram/export/__init__.py (_filename_stem / sanitizer — confirmed absent from the diff, not re-read)"
+    - "tests/test_cli.py structural import guard (relied on the suite run, not re-read)"
+    - "meta/architecture/trace.yml (component mapping taken from the card's Architecture context)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 601, removed: 38 }
+  max_fan_in: { symbol: "pdf._header_font / pdf._font_bytes / pdf.FONT_*", callers: 2 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — src/nonogram/export/pdf.py has 2 commits in the 12-month window (repo is ~5 days old) and 0 fix/bug commits; there is no churn or defect-density signal to derive"
+    cochange_missing: "no_eligible_fact — the only historical co-change peer of pdf.py is tests/test_export_pdf.py (2/2 commits), and it IS in this diff; the window contains too little history to surface an absent peer"
+
+system_contract:
+  rules_checked: 13
+  holds: 2
+  unchecked: 11
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed pins `packages == {\"pillow\", \"numpy\"}` parsed from pyproject's [project].dependencies; the pyproject hunk adds only [tool.setuptools.package-data]; the three new imports (io, functools, importlib) are asserted against sys.stdlib_module_names by test_the_pdf_renderer_imports_pillow_and_nothing_third_party. Bundled asset is non-executable data (TTF + LICENSE), which R1 explicitly admits."
+    - "INV-002 ✓ holds — the diff adds no export entry point and no gate; TestExport_RejectsUnverifiedPuzzleForPDF (tests/test_export_pdf.py:924) is untouched and green in the 1363-pass run, and test_the_pdf_renderer_is_not_a_second_gate is unchanged."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file under src/nonogram/web/."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature, request field or export field changed; grid extent is not read by pdf.py's header path."
+    - "ADR-0023/R1 ⚠ unchecked — no_eligible_fact: the PDF renderer writes no metadata fields; nothing in the diff touches an export document shape."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ is not in the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no HTTP server code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no HTTP server code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-dimension validation path in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard or image-sourcing code in the diff."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues/_reveal untouched; the diff is confined to header typography and resource loading."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry/regenerate/resample/nudge code in the diff."
+    - "INV-004 ⚠ unchecked — no_eligible_fact: no grid-side bound is read or written by the diff."
+
+root_causes:
+  - id: RC-1
+    title: "Coverage and rationale claims in the rewritten pdf.py docstrings were carried over from the ADR/card prose instead of being re-derived against the file that actually shipped"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/export/pdf.py
+    line: 54
+    title: "Module docstring names Arabic and Hebrew as scripts that 'still render as tofu' — the bundled DejaVu Sans covers both"
+    description: |
+      The module docstring (lines 51-55) states:
+
+        "A name written in a script it does not cover — Chinese, Japanese, Arabic,
+        Hebrew — still renders as tofu, by exactly the same mechanism one layer down."
+
+      Two of the four named scripts are wrong. Re-derived against the file this card
+      actually shipped (src/nonogram/export/fonts/DejaVuSans.ttf, sha256
+      7da195a7…, DejaVu 2.37), using the diff's own `.notdef`-comparison technique at
+      size 40 against U+FFFE:
+
+        Hebrew   א U+05D0  COVERED (advance 27 vs notdef 24)
+        Arabic   ب U+0628  COVERED (advance 38 vs notdef 24)
+        Chinese  猫 U+732B  TOFU    (advance 24 == notdef 24)
+        Japanese ね U+306D  TOFU
+        Korean   가 U+AC00  TOFU
+        Thai     ก U+0E01  TOFU
+        Devanagari क U+0915 TOFU
+        (Greek α, Armenian ա, Georgian ა all COVERED)
+
+      This codebase holds docstrings to be true, and this is the one docstring the card
+      explicitly mandated ("Say so in the module docstring rather than implying full
+      Unicode support" — CARD-032 "What this does not fix"). It does not overclaim, it
+      *underclaims*, but it is a false statement of a checkable fact in the exact place
+      the card put the honesty obligation.
+
+      There is a real limitation hiding behind the wrong one, and the corrected text
+      should state it instead: Pillow 12.3.0 in this venv reports `features.check("raqm")
+      == False`, so there is no complex-script shaping and no bidi. A Hebrew name would
+      set right-to-left characters in left-to-right order; an Arabic name would set
+      isolated, unjoined letterforms. Those names do not tofu — they render *wrongly*,
+      which is a different and more surprising failure than the one the docstring
+      currently describes.
+
+      ADR-0006's "Negative (2026-09-01 revision)" bullet and CARD-032's "What this does
+      not fix" carry the same four-script list, so the error originates upstream of the
+      diff; the docstring is where it becomes a code-level false claim.
+    suggestion: |
+      Replace the example list with scripts verified absent from the shipped file —
+      Chinese, Japanese, Korean, Thai, Devanagari — and add one sentence for the
+      shaping/bidi gap, e.g.:
+
+        "A name written in a script it does not cover — Chinese, Japanese, Korean,
+        Thai, Devanagari — still renders as tofu, by exactly the same mechanism one
+        layer down. And coverage is not the only boundary: Pillow is built without
+        Raqm here, so the scripts DejaVu *does* cover but that need shaping or bidi
+        (Arabic, Hebrew) set as unjoined, left-to-right letterforms rather than as
+        tofu — wrong in a different way, not fixed by this card."
+
+      Consider a follow-up note on ADR-0006's revision bullet and the card so the
+      upstream prose stops propagating the wrong list.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "068f419"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/pdf.py
+    line: 282
+    title: "The retained justification for the stroked separator rests on a typographic claim that does not hold for an outline font"
+    description: |
+      `_draw_header`'s rewritten docstring is now the sole standing justification for
+      keeping the separator stroked once the ASCII-subset necessity is gone (G-2 is the
+      other half). It argues:
+
+        "…the stroke's length, weight and the air around it are fixed fractions of the
+        type size (:data:`_RULE_LENGTH_RATIO` and friends), so the separator looks the
+        same at every size the fitting below can pick, which a glyph's own advance width
+        does not guarantee."
+
+      A scalable outline glyph's advance is also a fixed fraction of the type size: at
+      size 40 the bundled face reports `getlength("—") == 40.00`, exactly 1.0 em, i.e.
+      precisely as linear in size as `size * (_RULE_LENGTH_RATIO + 2*_RULE_GAP_RATIO)`.
+      Meanwhile the stroke's own weight is `max(1, round(size * _RULE_WEIGHT_RATIO))`
+      (line 330) — clamped and rounded, so it is the *stroke* that stops scaling linearly
+      at the small end of the fitting range (`_MIN_HEADER_FONT_RATIO`), not the glyph.
+
+      This is not a behavioral defect — the code does what it says — but the claim is
+      unsubstantiated and, on the weight axis, inverted, in a codebase where a docstring
+      is held to be true and where this particular docstring exists to stop a future
+      contributor "simplifying" the separator back to a glyph.
+    suggestion: |
+      Either drop the advance-width clause and rest the justification on G-2 alone
+      ("the card changes the face and nothing else about the header; turning the rule
+      back into a glyph is a separate, deliberate change to the page"), or replace it
+      with a claim that survives checking (grid-fitting/hinting at small ppem, if that
+      is what was meant — and say so).
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "068f419"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/pdf.py
+    line: 154
+    title: "The 'raises rather than falls back to load_default' contract is asserted only in prose — no test pins it"
+    description: |
+      CARD-032's implementation notes and `_font_bytes`'s docstring (lines 154-158) both
+      state that a missing or unreadable resource must raise rather than be papered over
+      with `ImageFont.load_default`, "silently reinstating [which] would reproduce the
+      tofu it exists to fix while reporting success."
+
+      Today that holds by construction — `_font_bytes` has no `try`/`except` — but nothing
+      in the suite would fail if someone added one. Grepped tests/: the only occurrences of
+      `load_default` are in the two comparison tests (lines 498, 547), which use it as a
+      *reference face*, and `_font_bytes` is called once (line 647) purely to check the TTF
+      magic bytes. There is no test for the missing-resource path and no `cache_clear()`
+      anywhere in the suite.
+
+      This is the one designed error path the card names explicitly, and it is exactly the
+      regression the card was written to prevent, so it is worth a pin.
+    suggestion: |
+      Add a test alongside `test_the_font_ships_as_package_data_and_not_as_a_dependency`:
+
+        def test_a_missing_bundled_font_raises_instead_of_falling_back(monkeypatch):
+            pdf._font_bytes.cache_clear()
+            pdf._header_font.cache_clear()
+            monkeypatch.setattr(pdf, "FONT_RESOURCE", "fonts/NotAFont.ttf")
+            try:
+                with pytest.raises(FileNotFoundError):
+                    pdf._font_bytes()
+            finally:
+                pdf._font_bytes.cache_clear()
+                pdf._header_font.cache_clear()
+
+      (The cache_clear pair on both sides matters: `_font_bytes` is `lru_cache(maxsize=1)`
+      and would otherwise serve the real bytes, and would leave the fake resource's failure
+      uncached but the real bytes evicted for later tests.)
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "068f419"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/pdf.py
+    line: 166
+    title: "A rendered PDF page now mixes two typefaces (DejaVu header, Pillow default clue digits) and nothing says so"
+    description: |
+      `render_pages` builds both pages from `png.render_image` (pdf.py:373), whose
+      `_draw_clues` uses `png._clue_font` → `ImageFont.load_default(size=…)`
+      (png.py:69-79). Only the header moved to the bundled face, so every PDF this
+      tool now writes sets its title in DejaVu Sans and its clue digits in Pillow's
+      embedded Aileron.
+
+      Leaving png.py alone is the correct call: it is outside the card's `Touches`, clue
+      digits are ASCII decimal digits so no tofu is possible there, and `png._clue_font`'s
+      own rationale (host-independent output) is untouched and still true. The problem is
+      only that the consequence is stated nowhere — not in the module docstring's "Why a
+      font ships inside this package" section, not in the card's worktree notes, not in
+      meta/kanban/backlog.md (whose Wave-8 entry, lines 16-25, is the only place this
+      subject is tracked and still describes the pre-card state).
+
+      `_header_font`'s docstring makes it slightly worse than silent: "The bundled face and
+      not a system one, for the reason ``png._clue_font`` documents" invites the reader to
+      assume the two functions are now aligned, at exactly the moment they diverged.
+    suggestion: |
+      One sentence in pdf.py's module docstring, e.g. after the "coverage is now the
+      boundary" paragraph: "Only the header moved. Clue digits still come out of
+      ``png._clue_font``'s Pillow default face (they are ASCII decimal digits, so nothing
+      there can tofu), which means a page now carries two typefaces — deliberate, and
+      outside this card's Touches." Then either a backlog entry for unifying the two, or
+      an explicit note that the mix is accepted.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "068f419"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: ops
+    type: gap
+    file: meta/kanban/backlog.md
+    line: 16
+    title: "The Wave-8 backlog item this card resolves is still unchecked"
+    description: |
+      meta/kanban/backlog.md lines 16-25 ("Decision needed: a non-ASCII `--name` … renders
+      as `.notdef` tofu boxes") is the item ADR-0006's revision and this card close, and it
+      is still `- [ ]` with its three options (a/b/c) presented as open. Option (a) was
+      taken. Normally kanban's `done` step, not the card, but worth naming so it is not
+      lost at merge.
+    suggestion: |
+      Tick it at merge with a pointer to ADR-0006 (revised 2026-09-01) and CARD-032, or
+      leave it and let forge:kanban done handle it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "068f419"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_export_pdf.py
+    line: 642
+    title: "Substring heuristic `assert \"font\" not in ...dependencies` is near-tautological"
+    description: |
+      `test_the_font_ships_as_package_data_and_not_as_a_dependency` ends its
+      dependency-side assertion with a substring scan of the joined dependency list for the
+      literal "font". It can only ever catch a package whose *name* contains "font"
+      (fonttools, fonts-*), and cannot catch reportlab, fpdf, or matplotlib — the realistic
+      ways a font could arrive as a dependency.
+
+      Not a defect: the real pin lives in `test_the_dependency_baseline_is_still_closed`
+      (`packages == {"pillow", "numpy"}`), which is exact and would catch all of them, so
+      the substring line is redundant rather than misleading. Noted only because the
+      docstring above it ("it must have arrived without touching the installed dependency
+      set") is carried by the *other* test, not by this line.
+    suggestion: |
+      Either drop the line, or replace it with the same exact set comparison so the test's
+      docstring is carried by the test's own body.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "068f419"
+    dismissed_reason: null
+    learned_pattern: null

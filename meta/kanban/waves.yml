@@ -134,3 +134,154 @@ waves:
       Image sourcing is the last additive module — revert without touching random/library
       modes, the solver, or export.
     status: pending
+
+  # ---------------------------------------------------------- Increment 4
+  # Added 2026-08-30 by the web-UI delta (FR-017, NFR-003, CON-007, CON-008,
+  # EC-003, COMP-008; ADR-0019/0020/0021). The three cards form a sequential
+  # chain — each depends on the one before — so each takes its own wave.
+  - wave: 12
+    increment: 4
+    cards: [CARD-019]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      The web adapter is purely additive — no capability module, the orchestrator, or the
+      CLI changes behavior. Revert the branch; the only non-additive edit is the import
+      guard's allowlist, which reverts with it.
+    status: pending
+
+  - wave: 13
+    increment: 4
+    cards: [CARD-020]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      The web adapter is purely additive — no capability module, the orchestrator, or the
+      CLI changes behavior. Revert the branch; the only non-additive edit is the import
+      guard's allowlist, which reverts with it.
+    status: pending
+
+  - wave: 14
+    increment: 4
+    terminal_for_increment: true
+    cards: [CARD-021]
+    checkpoint: >-
+      `nonogram serve` starts a server reachable at 127.0.0.1 and refusing every other
+      interface (AC-052), requiring no credentials (AC-053). Submitting the form for
+      library key "cat" at 20x20/Medium with png+json selected reports success and the
+      written file paths, having run the same pipeline the CLI runs (AC-049). A 60x60
+      submission is rejected with the same size-range domain error the CLI raises, writing
+      nothing (AC-050). A submission whose candidates exhaust the retry bound reports the
+      abandonment and its reason without hanging or returning an unhandled server error
+      (AC-051). A real PNG uploaded through the browser converts through the same image
+      pipeline the CLI's --image uses.
+    collapses: [FR-017, NFR-003, EC-003, CON-007, CON-008]
+    rollback: >-
+      The web adapter is purely additive — no capability module, the orchestrator, or the
+      CLI changes behavior. Revert the branch; the only non-additive edit is the import
+      guard's allowlist, which reverts with it.
+    status: pending
+
+  # ---------------------------------------------------------- Increment 5
+  # Added 2026-08-31 by the rectangular-grid delta (FR-018..FR-021, NFR-005,
+  # CON-011..CON-013, EC-005..EC-008, COMP-001/003/006/007/008; ADR-0022/0023).
+  # Wave 15 is three independent cards: the range narrowing, the export schema
+  # bump and the print cell-size fix touch disjoint files and none depends on
+  # the others. Waves 16-18 are the sequential chain into the extent pair.
+  - wave: 16
+    increment: 5
+    cards: [CARD-023, CARD-024, CARD-025]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Not purely additive. MAX_SIZE narrows (grids 31..50 become unrequestable) and both
+      export schemas bump to version 2, after which version-1 files no longer load. Revert
+      the branch to restore both; no data is rewritten in place, so nothing is lost that
+      the branch did not create.
+    status: pending
+
+  - wave: 17
+    increment: 5
+    cards: [CARD-026]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Not purely additive. MAX_SIZE narrows (grids 31..50 become unrequestable) and both
+      export schemas bump to version 2, after which version-1 files no longer load. Revert
+      the branch to restore both; no data is rewritten in place, so nothing is lost that
+      the branch did not create.
+    status: pending
+
+  - wave: 18
+    increment: 5
+    cards: [CARD-027]
+    checkpoint: null
+    collapses: []
+    rollback: >-
+      Not purely additive. MAX_SIZE narrows (grids 31..50 become unrequestable) and both
+      export schemas bump to version 2, after which version-1 files no longer load. Revert
+      the branch to restore both; no data is rewritten in place, so nothing is lost that
+      the branch did not create.
+    status: pending
+
+  - wave: 19
+    increment: 5
+    terminal_for_increment: true
+    cards: [CARD-028]
+    checkpoint: >-
+      `nonogram generate --mode image --image pictures/eagle-silhouette1.jpg --size 15x30
+      --export pdf` produces a uniquely-solvable 15x30 puzzle retaining ~87% of the source
+      (against 57% under today's square crop). `--size 30x10` against that same portrait
+      source is REFUSED with the ratio message rather than cropped (AC boundary at exactly
+      2x accepted, just past it refused). `--size 31x30` is rejected by the range rule. A
+      printed 10x10 measures 9.0mm per cell +/-0.2mm where today it measures 6.52mm, and a
+      30x30 still fits A4 by falling back to page-fit. Both export formats round-trip a
+      rectangle exactly (EC-002) at schema version 2, and a version-1 document is refused
+      with a version error naming both versions.
+    collapses: [FR-018, FR-019, FR-020, FR-021, NFR-005, CON-011, CON-012, CON-013,
+                EC-005, EC-006, EC-007, EC-008, ADR-0022, ADR-0023, AC-084]
+    rollback: >-
+      Not purely additive. MAX_SIZE narrows (grids 31..50 become unrequestable) and both
+      export schemas bump to version 2, after which version-1 files no longer load. Revert
+      the branch to restore both; no data is rewritten in place, so nothing is lost that
+      the branch did not create.
+    status: pending
+  - wave: 19
+    increment: 6
+    checkpoint: >-
+      `nonogram generate --mode image --image pictures/img_2.png --size 20 --export pdf`
+      produces a puzzle with at most one blank row/column at each edge, where today it
+      produces six deep and spends 300 of 400 cells on border; the file is named
+      `img_2-...` rather than `image-<date>-<time>-...`. A picture whose ink box differs
+      from the requested grid by more than 2x is refused, and the percentage the message
+      quotes is the fraction of the picture's CONTENT that survives — checkable against
+      img_2.png, which the old guard accepted at a claimed 100% while keeping 55%.
+      Instrumenting fit_crop_box/binarize/to_grid shows none is reached for a refused
+      request, so EC-007 still holds with the trim in the pipeline. `--name кот --export
+      pdf` prints Cyrillic in the header instead of empty boxes.
+    collapses: [FR-022, AC-086, AC-087, AC-088, AC-089, AC-090, AC-091, ADR-0022-migration, ADR-0006-migration]
+    rollback: >-
+      The trim and the guard change are one revert (they must move together — the guard's
+      new subject only exists once the trim does). Naming and the font are independently
+      revertible and touch no solver, no export geometry, and no schema. No point of no
+      return: nothing persists and no export format version changes.
+    status: pending
+  - wave: 20
+    increment: 7
+    checkpoint: >-
+      `nonogram generate --mode image --image pictures/eagle-silhouette1.jpg --size 25
+      --export pdf` produces a 14x25 grid retaining ~97% of the picture where a square
+      25x25 retains 57%, on a portrait sheet. The same command against a landscape
+      source produces a wide grid on a LANDSCAPE sheet with measurably larger cells
+      than the portrait equivalent. `--size 25x25` against that source still produces
+      a square, unchanged. A 5:1 source at `--size 15` is refused with a message
+      naming 25 as the smallest size that would take it. `--size 30x20` and
+      `--size 20x30` both print, and no test claims they share a cell size.
+    collapses: [FR-023, NFR-006, AC-092, AC-104, EC-009, EC-010, ADR-0022-R4-migration, NFR-005-correction]
+    rollback: >-
+      The bare-N derivation is additive over Increment 5's (width, height) pair —
+      reverting it restores `--size N` to N x N without touching the pair. Orientation
+      is independently revertible and touches only export layout. No schema or format
+      version changes.
+    status: pending
+

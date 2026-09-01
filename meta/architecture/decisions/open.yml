@@ -1,4 +1,172 @@
 # generated_by: forge:architect
 # generated_at: 2026-08-27
-# tier: medium
-open: []
+# updated_at: 2026-08-30 (delta mode — local web UI capability, FR-017/NFR-003/CON-007/CON-008/EC-003)
+# updated_at: 2026-09-01 (delta mode — domain-extraction on the raw-requirements.md
+#   entries dated 2026-09-01. Three DECs surfaced, none decided here:
+#     * DEC-025 — genuinely open (entry 2 of that delta): whether FR-021/CON-012's
+#       >2x aspect-mismatch refusal judges the source image's ORIGINAL extent or
+#       its FR-022-TRIMMED extent. The task instructing this run asked for this DEC to be
+#       synthesis-blocking, and architecturally that is the right call — this
+#       decision changes what CON-012 means, which is exactly what should block
+#       trusting the existing C4 model. Recorded here as blocks: [] INSTEAD,
+#       because c4/ already exists in this repo and architect-validate's
+#       _check_synthesis_blockers turns an open DEC that lists synthesis as
+#       blocked into a hard ERROR whenever c4/ is present ("c4/ exists but 1 decision(s) still
+#       block synthesis... resolve, or remove 'synthesis' from blocks") — and
+#       this run's instructions also require introducing zero new ERRORs. Flagged
+#       in the domain-extraction report as a deviation the caller should review:
+#       make it synthesis-blocking again (and accept/plan around the
+#       resulting ERROR) if a stale, DEC-025-invalidated C4 model should actually
+#       block further synthesis work until resolved.
+#     * DEC-026 — ADR-0016 (PDF filename convention) revision to
+#       `<name>-<WxH>-<difficulty>.pdf`; already decided by the user, recorded
+#       here only because writing the ADR itself is forge:architect-adr-writer's
+#       job. blocks: [] — sequencing constraint (must follow FR-018/CARD-027) is
+#       carried as a comment on the entry, not a `depends_on` (CARD-027 is not a
+#       DEC id).
+#     * DEC-027 — ADR-0006 (dependency baseline) revision: ship a small Unicode
+#       TTF as package data. Already decided by the user; same reasoning as
+#       DEC-026. blocks: [].
+# updated_at: 2026-09-01 (delta mode — the last seven raw-requirements.md
+#   entries, about what a bare `--size N` means. One DEC surfaced:
+#     * DEC-028 — a narrow amendment to ADR-0022's "grid drives the picture,
+#       not the reverse" principle: the grid still drives whenever the user
+#       gives both dimensions explicitly (--size NxM); a bare --size N leaves
+#       the shorter side unspecified and FR-023 has the source fill it in.
+#       Already decided by the user; recorded as a DEC only because writing
+#       the ADR revision itself is forge:architect-adr-writer's job — same
+#       reasoning as DEC-026/DEC-027. blocks: []. The CARD-027 sequencing
+#       note (raw-requirements.md, third of the seven entries) is context,
+#       not its own requirement, and is folded into this DEC's question
+#       rather than given its own id.
+
+#
+# DEC-028 (surfaced 2026-09-01 with FR-023) was resolved the same day — ADR-0022
+# REVISED for the second time that day. Resolution:
+# narrow_grid_drives_picture_to_fully_specified_requests. "The grid drives the
+# picture" now governs an explicit --size NxM; a bare --size N is completed from
+# the source's own shape. New rule ADR-0022/R4. The revision also retracts the
+# measured-false argument that N would determine printed cell size. Full record:
+# resolved.yml and the ADR's History.
+#
+# DEC-027 (surfaced 2026-09-01) was resolved the same day — ADR-0006 REVISED.
+# Resolution: ship_unicode_ttf_as_package_data. The runtime dependency set is
+# unchanged (stdlib + Pillow + NumPy); the revision draws a line between
+# executable dependencies, still closed, and static data, admissible as package
+# data. New standing rule ADR-0006/R1 holds that line. Migration: rewrite — no
+# FR obliges the work, so without an audit-proposed card the tofu persists.
+#
+# DEC-025 (surfaced 2026-09-01 with the FR-022 trim) was resolved the same day —
+# ADR-0022 REVISED (not a new ADR: the >2x aspect guard is that ADR's own rule
+# R3, and one concern gets one ADR). Resolution: judge_trimmed_extent — the
+# guard measures the source's ink bounding box, computed and judged BEFORE any
+# crop is applied so EC-007's refuse-before-cropping guarantee is untouched.
+# CON-012 and FR-021 were re-worded to match. Full record: resolved.yml + the
+# ADR's own History entry.
+#
+# DEC-020, DEC-021, DEC-022 (surfaced 2026-08-30 for the local web UI capability)
+# were resolved the same day — ADR-0020 (stdlib_http_server), ADR-0019
+# (parallel_adapter_component), ADR-0021 (synchronous_blocking_request)
+# respectively. Full records: decisions/resolved.yml + the ADR files themselves.
+#
+# Delta run notes — what was checked and deliberately NOT surfaced:
+#
+# * Category 0 (platform baseline): style (ADR-0007) and runtime (ADR-0008) are
+#   CONFIRMED in platform.yml and are NOT re-surfaced — the web UI is an
+#   additional inbound adapter of the same single local process, so neither the
+#   layered-pipeline style nor the installable-package/console-script runtime is
+#   put back in question by this delta. The `stack` axis IS re-opened, but only
+#   in the narrow, additive sense DEC-020 states: what serves the web UI's HTTP
+#   layer. Python 3.14 + Pillow + NumPy stays fixed either way; DEC-020 asks only
+#   whether ONE more runtime dependency joins that baseline.
+#
+# * CON-001 -> CON-007 supersession: already recorded in requirements.yml with
+#   status: superseded / superseded_by: CON-007, with the replacement CON-007
+#   carrying the full "both interfaces are first-class" statement. That is a
+#   requirements-level change that domain-extraction completed; re-litigating it
+#   as a DEC would be duplicate work. Checked and confirmed complete (both
+#   directions of the link present, replacement statement is not a stub). NOT
+#   surfaced.
+#
+# * NFR-003 ("binds 127.0.0.1 only, no authentication") — assessed for its own
+#   security/deployment-posture DEC and deliberately COLLAPSED, not surfaced:
+#     - the "no auth" half is already a hard business constraint (BCON-0001,
+#       severity: hard) and a technical constraint (CON-003: no user accounts,
+#       ever). One option only => constraint, not decision.
+#     - the "loopback only" half is a one-line consequence of whichever option
+#       DEC-020 picks (HTTPServer(("127.0.0.1", port), ...) for the stdlib
+#       options; host="127.0.0.1" — already the default — for a micro-framework).
+#       No candidate in DEC-020 makes loopback binding hard, and none makes it
+#       the default-off. There is no trade-off left to decide, so per
+#       occam's razor this is recorded as a required consequence inside DEC-020's
+#       criteria_refs rather than as a redundant DEC.
+#   AC-052/AC-053 remain the verification, and DEC-020's chosen ADR must state
+#   the explicit bind address as a consequence.
+#
+# * Launch mechanism (`nonogram serve` subcommand under the existing ADR-0010
+#   argparse tree vs. a second [project.scripts] console entry point): a real
+#   choice but not an architectural one — it changes no component boundary, no
+#   NFR, and no C4 element. Folded into DEC-021's alternatives as a consequence
+#   of where the adapter lives, per occam's razor.
+#
+# * Concurrency (two submissions at once): BCON-0001 forbids multiple concurrent
+#   users outright and CON-003 forbids shared state. Constraint, not decision.
+#   Noted inside DEC-022 rather than surfaced.
+#
+# * No pattern library present (~/.forge/decision-patterns.yml absent), so no
+#   prior_pattern fields are injected on this run.
+
+open:
+  - id: DEC-026
+    question: >
+      ADR-0016 fixes the PDF export filename as `<name>-<difficulty>.pdf`.
+      The 2026-09-01 raw-requirements entry asks to revise it to
+      `<name>-<WxH>-<difficulty>.pdf`, adding the grid extent between the
+      name and the tier (spelled `20x20`, never `20*20` — `*` is illegal in
+      Windows filenames and the existing sanitizer already strips it). The
+      user has already decided this; recorded as a DEC only because writing
+      the ADR revision itself is forge:architect-adr-writer's job.
+      SEQUENCING: do not resolve/write this ADR revision until FR-018/
+      CARD-027 has landed the (width, height) pair on the export path —
+      formalizing it against today's scalar `size` field would force an
+      immediate rewrite.
+    surfaced_from:
+      kind: technology
+      ref: [ADR-0016, FR-018]
+    axis: null
+    default: null
+    alternatives:
+      - label: revise_to_name_extent_difficulty
+        summary: >-
+          Revise ADR-0016 to `<name>-<WxH>-<difficulty>.pdf`, adding the
+          width x height extent as a third filename component. This is the
+          alternative the user has already chosen.
+        pros:
+          - "Matches FR-018's (width, height) request shape now that grids can be rectangular (FR-019/CON-011) — a rectangular puzzle's filename becomes self-describing about its shape, not just its name and tier."
+          - "The \"-<difficulty>\" half of ADR-0016 is unchanged; the collision-narrowing rationale ADR-0016 already gives for including difficulty applies unchanged to also including extent (two same-named, same-tiered puzzles at different sizes would otherwise still collide on filename)."
+        cons:
+          - "Formalizing this against today's scalar `size` field would need an immediate rewrite once FR-018/CARD-027 lands the (width, height) pair — safe to write only after that card merges."
+          - "Longer, less predictable filename to type back on the command line, compounding ADR-0016's already-noted negative consequence."
+      - label: keep_name_difficulty_only
+        summary: Leave ADR-0016 as `<name>-<difficulty>.pdf`, unchanged.
+        pros:
+          - "No ADR revision needed, no sequencing dependency on FR-018/CARD-027."
+        cons:
+          - "Does not reflect the explicit 2026-09-01 user decision to add the extent, and leaves open the same collision gap ADR-0016 already accepted narrowing (two same-named, same-tiered puzzles at different sizes collide on filename)."
+    criteria_refs: [FR-018]
+    # HELD 2026-09-01 by explicit decision, not oversight. Presented to the
+    # project owner alongside DEC-025/DEC-027 and deliberately left open: the
+    # sequencing constraint in this DEC's own question is binding, and
+    # CARD-027 (FR-018, the (width, height) pair on the export path) is still
+    # `ready`, not merged. Two alternatives were offered and declined —
+    # writing the revision forward-looking against FR-018's accepted-but-
+    # unimplemented spec, and dropping the constraint outright. Reason for the
+    # choice: ADR-0016 is a convention other cards read as normative, and one
+    # describing a filename shape the code cannot yet produce is a trap for
+    # the next reader. Nothing is blocked by the wait (blocks: []), and
+    # CARD-027 is next in the queue. RESOLVE THIS once CARD-027 merges.
+    status: open
+    blocks: []
+    depends_on: []
+
+

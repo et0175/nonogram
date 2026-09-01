@@ -1,6 +1,6 @@
 # CARD-018: Strengthen solver search to meet AC-037 at 20x20 mid/low density
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, tests/bench_generate.py, tests/test_solver.py
 **Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-08-29T11:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-08-30T14:35:00Z
+**Actual:** 3.4d
+**Merge commit:** 873a207
 **Blocked by:** —
 
 ## What to implement
@@ -549,3 +549,14 @@ all untouched, as is `src/nonogram/solver/__init__.py` (G-1).
   G-4/G-5 verified mechanically (ADR-0013 is +21/-0 appended under `## History`;
   `bench_generate.py` is exactly 1 hunk, all inside `reason=`, `strict=True`
   unchanged context).
+- **[Merge]** Merged to main as `873a207` (--no-ff). Merge gate: full suite on
+  the MERGED tree = **1165 passed, 1 xfailed**, matching the pre-merge result —
+  the xfail is AC-037's benchmark, still strict, still correctly red.
+  The predicted merge hazard materialised exactly as recorded: `CARD-018.md`
+  conflicted (branch copy vs main's orchestrator copy) and was resolved in
+  favour of main's 551-line version, preserving every [Review]/[Adversarial]/
+  [Fix]/[8h spot-check]/[AC/EC check] note. ADR-0013's History addendum came
+  through from the branch cleanly (main had no competing edit).
+  Nothing outside the card's footprint was committed — the user's in-flight
+  `README.md`, `docs/monogram_analyzer.md` and `puzzle/` were verified unstaged
+  before the merge commit.

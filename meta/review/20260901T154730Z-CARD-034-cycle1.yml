@@ -1,0 +1,250 @@
+version: 1
+generated_at: "2026-09-01T15:47:30Z"
+target: "CARD-034 cycle 1 of max 3, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-034, diff HEAD~1..HEAD (0b0cd81)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/layout.py"
+    - "tests/property/test_layout_cell_size.py"
+    - "tests/test_export_image.py"
+    - "tests/test_export_pdf.py"
+    - "meta/kanban/cards/CARD-034.md"
+    - "meta/architecture/requirements.yml (NFR-005/NFR-006/EC-008/EC-010, both worktree and main copies)"
+    - "src/nonogram/export/pdf.py, png.py (page-box derivation)"
+    - "docs/ (checked for stale A4/portrait claims — none)"
+  not_reached:
+    - "src/nonogram/web/**"
+    - "src/nonogram/solver/**"
+    - "src/nonogram/sourcing/**"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 664, removed: 89 }
+  max_fan_in: { symbol: "compute_layout", callers: 51 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/export/layout.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the three top co-change peers of layout.py (tests/test_export_pdf.py 5, tests/property/test_layout_cell_size.py 5, tests/test_export_image.py 4) are all present in this diff; the remaining peers (png.py, svg.py, pdf.py, export/__init__.py) were checked and need no change (grep confirms no renderer reads PAGE_WIDTH_MM/PAGE_HEIGHT_MM or writes a page box)."
+
+system_contract:
+  rules_checked: 16
+  holds: 8
+  unchecked: 8
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff's only new import is `from typing import Literal` (stdlib, layout.py:127); pyproject.toml is not in the 5-file diff; TestDependencyBaseline_IsExactlyPillowAndNumpy green on 0b0cd81 (full suite run in worktree)."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ is absent from the diff; the package-wide import guard test_every_import_in_the_package_points_inward green on 0b0cd81."
+    - "ADR-0022/R1 ✓ holds — review-lens: Layout keeps `rows`/`columns` as a pair and gains `orientation` beside them (layout.py:342-346); compute_layout still derives the extent from the two clue sets and takes no scalar size; no new public signature or field reduces extent to a scalar. Pre-existing `comfort_cap_mm(larger_dimension)` is a cap-curve input, not a grid extent, and is unchanged by this diff."
+    - "ADR-0022/R2 ⚠ unchecked — check_ref_missing: TestValidateExtent_RejectsSideAboveThirty is not present anywhere under tests/; manual read of this diff found no violation (layout.py performs no validation and G-4 keeps sourcing/** out)."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: nothing in this diff touches image fitting; TestFitImage_RefusesRatioMismatchBeyondTwice exists and is green on 0b0cd81."
+    - "ADR-0022/R4 ⚠ unchecked — check_ref_missing: PropertyTest_BareSize_DerivesShorterSideFromSourceShape is not present under tests/ (CARD-033's work, deliberately excluded by G-4)."
+    - "ADR-0023/R1 ✓ holds — no export encoder is in the diff; grep over src/ shows `orientation` appears in no export format module, so Layout.orientation is not written to json/csv metadata."
+    - "CON-005 ✓ holds — no solver file is in the diff; PropertyTest_Solver_NeverFalsePositiveUniqueness (tests/property/test_solver_uniqueness.py) green on 0b0cd81."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the diff touches no web server code; TestWebServer_BindsLoopbackOnlyByDefault exists and is green on 0b0cd81."
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest is not present under tests/; nothing in this diff bears on the rule."
+    - "CON-011 ⚠ unchecked — check_ref_missing: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 is not present under tests/ (tests/property/test_size_range.py carries the near-identical PropertyTest_SizeRange_EverySourceModeRejectsSizeOutside10To30, so the property is tested under a different name). Manual read: EC-010's new property test sweeps exactly 10..30 on both sides (441 extents, counts asserted), and the diff adds no production path that accepts a side outside the band."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect guard is untouched; PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore exists and is green on 0b0cd81."
+    - "INV-001 ✓ holds — compute_layout still reads rows/columns from len(row_clues)/len(column_clues) only (layout.py:765) and never sees a grid; TestComputeClues_MatchesGridExactly green on 0b0cd81."
+    - "INV-002 ✓ holds — the export gate is not in the diff; TestExport_RejectsUnverifiedPuzzle and TestExport_RejectsUnverifiedPuzzleForPDF green on 0b0cd81."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry/nudge/resample path is in the diff; its four named tests exist and are green on 0b0cd81."
+    - "INV-004 ⚠ unchecked — no_eligible_fact: sourcing/** is excluded by G-4 and absent from the diff; TestGenerateRandom_* exist and are green on 0b0cd81."
+
+root_causes:
+  - id: RC-1
+    title: "layout.py's derived figures were all re-measured after the orientation rule landed; one figure in the test tree (and its mirror on the card) was not"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "the three orientation-aware test helpers are honest about WHICH sheet they measure, but their discriminating power and their landscape coverage were assumed rather than measured"
+    finding_ids: [F-002, F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: tests/property/test_layout_cell_size.py
+    line: 340
+    title: "The EC-010 property test's docstring states the wrong witness count (116/108); measured 129/121"
+    description: |
+      test_the_sheet_turns_landscape_exactly_when_the_grid_is_wider_than_tall's
+      docstring says an implementation that turned the page on the drawing's
+      shape "agrees with EC-010 almost everywhere and splits from it on **116**
+      of these 1764 cases — 108 wide grids that draw tall behind a deep column
+      gutter, 8 tall grids that draw wide behind a deep row gutter."
+
+      Re-measured by replaying the test's own loop (same SEED, same pattern
+      order, same `(width > height) != (geometry.width > geometry.height)`
+      predicate): the count is **129 = 121 wide + 8 tall**. The 8 is right; the
+      total and the wide half are not. The same figure is reached by all three
+      plausible readings of "the drawing" — Layout.width/height (129), the
+      drawing minus margins (129), and the totals `_fit_cell` receives (129) —
+      so this is not an ambiguity in what was measured.
+
+      The same 116 is mirrored in CARD-034's Worktree notes ("plus a floor of
+      100 on the cases where grid shape and drawing shape disagree (there are
+      116)").
+
+      This is the only re-measured figure in the card's footprint that does not
+      reproduce. Every other one does, exactly: band reservation moves 441 of
+      1764 cases by at most 0.5080 mm with per-pattern counts 72/151/11/207;
+      crossover 1.403x portrait and 0.637x landscape; printable 186/261 mm
+      portrait and 273/174 mm landscape; smallest corpus cell 46 px / 3.895 mm
+      at 30x29 checkerboard with a 45x44 drawing; floor thresholds 92/129
+      portrait and 135/86 landscape; 234 failures (151 checkerboard + 72 random
+      + 11 sparse, first at 10x25 checkerboard) with the band reservation
+      removed over the three pre-existing patterns; 840 wide cases with 444 up
+      and 117 down, best +2.12 mm at 25x10 checkerboard (4.83 -> 6.94), worst
+      26x25 alternating 6.86 -> 4.57 with a 27x38 drawing.
+
+      The assertion itself (`grid_and_drawing_disagree >= 100`) is unaffected
+      and still holds with margin. The defect is the stated fact, which in this
+      codebase is held to be true.
+    suggestion: |
+      Change 116 -> 129 and 108 -> 121 in the docstring at
+      tests/property/test_layout_cell_size.py:340, and the "(there are 116)" in
+      CARD-034.md's Worktree notes -> 129. Consider raising the floor from 100
+      to something closer to the measured value (e.g. 110) now that the true
+      count is known, so the corpus cannot lose a fifth of the witness set
+      unnoticed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_image.py
+    line: 186
+    title: "_assert_fits_printable_area's docstring claims it fails on a wrongly-turned page; it does not for the always-portrait direction"
+    description: |
+      The helper's docstring says the printable area is derived from the grid
+      "so that a page turned the wrong way is measured against the sheet it
+      should have been printed on and fails."
+
+      The first half is true and was verified (it reads geometry.columns/rows,
+      never geometry.orientation — so it is genuinely independent of the value
+      under test, which is what G-5's sibling requirement asks for). The
+      "and fails" half is false in the direction that matters most. Probed by
+      monkeypatching layout._orientation_for to always return "portrait" and
+      calling the helper on the card's own AC grids:
+
+          40x20  -> helper PASSED on a wrongly-portrait page
+          45x25  -> helper PASSED
+          30x10  -> helper PASSED
+
+      The reason is structural: a page fitted to the portrait sheet is smaller
+      than one fitted to landscape, and a smaller drawing trivially fits the
+      landscape bound it is then measured against. Only the reverse error (a
+      tall grid wrongly turned landscape, whose width can reach 273 mm against
+      portrait's 186 mm) is caught.
+
+      The property test's own `_assert_the_page_fits_a4` DOES catch
+      always-portrait — verified by mutation, see the note below — but it does
+      so through the wide-grids-that-draw-tall witnesses (F-001's set), not
+      through the ordinary wide shapes this helper is applied to.
+    suggestion: |
+      Either narrow the claim ("...measured against the sheet it was owed —
+      which catches a tall grid wrongly turned landscape; the reverse error
+      produces an under-sized page that any sheet holds, and is caught by the
+      explicit orientation assertions above"), or add an equality-shaped check
+      that the drawing actually uses the sheet it was owed rather than merely
+      fitting inside it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_pdf.py
+    line: 73
+    title: "_a4_bounds_pt's landscape branch is never exercised — no PDF test uses a wide grid"
+    description: |
+      `_a4_bounds_pt` was added to make the PDF suite's A4 bounds
+      orientation-aware, but every grid the two A4-bound PDF tests use is
+      square or tall: ANSWER (test_both_written_pages_carry_the_layouts_geometry_within_a4)
+      and the parametrized 10x10, 30x30, 10x25, 10x26
+      (test_a_titled_page_still_fits_a4_at_the_cell_sizes_nfr_005_produces).
+      So `geometry.columns > geometry.rows` is never true and the landscape
+      return is dead in this suite.
+
+      Confirmed by mutation: all three orientation mutants (always-portrait,
+      squares-landscape, orientation-from-the-drawing) were killed, but none of
+      them killed a single test in tests/test_export_pdf.py.
+
+      This matters more than it would have before the card: the PDF is the only
+      format that actually draws the header band, and on a landscape sheet the
+      printable height falls from 261 mm to 174 mm, which is why the band
+      reservation's bite trebled from 172 to 441 corpus cases. NFR-006's effect
+      on the format with the least headroom is uncovered in that format's own
+      suite. (The geometry itself IS covered end-to-end by the property test's
+      `_assert_the_page_fits_a4` across all 441 extents including landscape,
+      and the PDF page box is derived from the rendered image size at
+      `resolution=DPI` rather than from a hard-coded MediaBox, so the residual
+      risk is low — hence Minor, not Important.)
+    suggestion: |
+      Add one wide case to the parametrize list of
+      test_a_titled_page_still_fits_a4_at_the_cell_sizes_nfr_005_produces —
+      e.g. `pytest.param(26, 25, _alternating_rows, id="wide-grid-draws-tall")`,
+      which is the worst landscape loser in the corpus (6.86 -> 4.57 mm, a
+      27x38 drawing) and therefore the case where a titled landscape page has
+      the least room.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_image.py
+    line: 680
+    title: "AC-104's printable-area check runs on a leaked loop variable, so it only checks the portrait layout"
+    description: |
+      test_the_same_larger_dimension_does_not_guarantee_the_same_cell_size ends:
+
+          for geometry in (turned, upright):
+              assert _cell_mm(geometry) <= layout_module.comfort_cap_mm(40)
+          _assert_fits_printable_area(geometry)
+
+      The trailing call uses the loop variable left bound after the loop, i.e.
+      `upright` (the 20x40 portrait case). `turned` — the 40x20 landscape
+      layout that is the whole point of the test — is never checked against the
+      printable area. Every other new AC test calls the helper on the layout it
+      just built.
+    suggestion: |
+      Move the call inside the loop:
+
+          for geometry in (turned, upright):
+              assert _cell_mm(geometry) <= layout_module.comfort_cap_mm(40)
+              _assert_fits_printable_area(geometry)
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

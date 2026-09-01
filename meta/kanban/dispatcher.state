@@ -1,12 +1,8 @@
-wave: unscheduled
+wave: 17
 mode: interactive
-active:
-  - id: CARD-018
-    phase: review
-    review_cycle: 1
-    branch: card/018-solver-search-strength
-    worktree: ../PythonProject4-card-018
-    started: 2026-08-29T11:20:00Z
+active: []
 escalated: []
 conflict_edges: []
-last_updated: 2026-08-29T11:20:00Z
+last_updated: 2026-09-01T01:50:00Z
+# CARD-026 closed 2026-09-01 (merge 547d317). Wave 17 complete; no dispatcher
+# is running — CARD-024 (wave 16) was started outside this state file.
