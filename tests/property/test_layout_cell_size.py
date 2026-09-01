@@ -337,7 +337,7 @@ def test_the_sheet_turns_landscape_exactly_when_the_grid_is_wider_than_tall() ->
     turned the page on the drawing's shape (or on the totals ``_fit_cell``
     receives, which is the easy mistake to make, since those are what page fit
     is actually measured from) agrees with EC-010 almost everywhere and splits
-    from it on **116** of these 1764 cases — 108 wide grids that draw tall
+    from it on **129** of these 1764 cases — 121 wide grids that draw tall
     behind a deep column gutter, 8 tall grids that draw wide behind a deep row
     gutter. The final assertion keeps that witness set from evaporating.
     """

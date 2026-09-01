@@ -1363,8 +1363,14 @@ non_functional:
     rationale: >-
       Deriving a rectangular shape from a bare `--size N` (FR-023) is not a
       separable nicety once the page stays fixed: a landscape picture at
-      `--size 30` becomes a 30x10 grid that prints at 2.29mm per cell on a
-      fixed-portrait A4 and 6.60mm turned — deriving the shape without
+      `--size 30` becomes a 30x10 grid that prints at 4.49mm per cell on a
+      fixed-portrait A4 and 6.43mm turned (CORRECTED 2026-09-01 during
+      CARD-034: the figures first recorded here, 2.29mm and 6.60mm, were wrong
+      in two independent ways — 2.29mm is the 60x10's portrait figure, an
+      adjacent row in the source measurement table, and 6.60mm is the landscape
+      PAGE FIT, above which NFR-005's comfort cap binds at 6.5mm for a larger
+      dimension of 30. The direction is unchanged and the gain is +43%, not the
+      ~3x the original pair implied.) — deriving the shape without
       turning the page actively harms exactly the pictures the feature
       exists to help. Measured across shapes: 40x20 goes 3.39mm ->
       5.00mm turned (+47%), 45x25 goes 3.05mm -> 4.40mm turned (+44%);
@@ -1376,7 +1382,7 @@ non_functional:
       - id: AC-099
         given: a 30x10 landscape-shaped grid
         when: it is rendered for print at 300 DPI
-        then: the page turns to landscape and the cell prints at 6.60 mm, versus 2.29 mm on a fixed-portrait page
+        then: the page turns to landscape and the cell prints at 6.43 mm — its landscape page fit is 6.60 mm, above which NFR-005's comfort cap binds at 6.5 mm for a larger dimension of 30 — versus 4.49 mm on a fixed-portrait page (both figures CORRECTED 2026-09-01 during CARD-034; the original 6.60/2.29 pair confused page fit with printed cell, and took 2.29 mm from the 60x10 row rather than the 30x10)
         kind: happy
         test: TestPageOrientation_WideGridTurnsLandscapeAt660mm
       - id: AC-100

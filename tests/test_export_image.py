@@ -184,9 +184,24 @@ def _assert_fits_printable_area(geometry: Layout) -> None:
     against the one this grid's shape is owed — landscape when the grid is
     wider than it is tall, portrait otherwise — derived here from the grid
     rather than read off ``geometry.orientation``, so that a page turned the
-    wrong way is measured against the sheet it should have been printed on and
-    fails.
+    wrong way is measured against the sheet it should have been printed on.
+
+    The fit bound alone only catches HALF of "turned the wrong way", which is
+    why the orientation itself is asserted below (cycle-1 F-002). A wrongly
+    *landscape* page overruns the portrait sheet it was owed and is caught by
+    the bound. A wrongly *portrait* page does not: ``_fit_cell`` shrinks the
+    cell until the drawing fits the narrower sheet, so the drawing comes out
+    SMALLER and sits comfortably inside the landscape bound it is measured
+    against. Measured on 40x20, 45x25 and 30x10 with orientation forced
+    portrait: every one passed the bound.
     """
+    expected_orientation = (
+        "landscape" if geometry.columns > geometry.rows else "portrait"
+    )
+    assert geometry.orientation == expected_orientation, (
+        f"{geometry.columns}x{geometry.rows} printed {geometry.orientation}, "
+        f"not the {expected_orientation} sheet NFR-006 owes it"
+    )
     short_edge, long_edge = layout_module.PAGE_WIDTH_MM, layout_module.PAGE_HEIGHT_MM
     across, down = (
         (long_edge, short_edge) if geometry.columns > geometry.rows else (short_edge, long_edge)
@@ -677,7 +692,10 @@ def test_the_same_larger_dimension_does_not_guarantee_the_same_cell_size() -> No
     # Both still under the one thing EC-008 does promise: the cap for 40.
     for geometry in (turned, upright):
         assert _cell_mm(geometry) <= layout_module.comfort_cap_mm(40)
-    _assert_fits_printable_area(geometry)
+        # Inside the loop deliberately: at module scope this ran once on the
+        # leaked loop variable, so `turned` — the whole point of the case —
+        # was never checked against the printable area (cycle-1 F-004).
+        _assert_fits_printable_area(geometry)
 
 
 def test_the_layout_reports_its_physical_size() -> None:

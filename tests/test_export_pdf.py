@@ -80,6 +80,20 @@ def _a4_bounds_pt(geometry: Layout) -> tuple[float, float]:
     two edges, which would pass either way round, is exactly what this must not
     do.
     """
+    expected = "landscape" if geometry.columns > geometry.rows else "portrait"
+    # The bounds below are an UPPER bound only, and that catches just half of
+    # "turned the wrong way" (cycle-1 F-003, and the same hole F-002 found in
+    # the image helper). A wrongly-landscape page overruns the portrait sheet
+    # it was owed and is caught. A wrongly-PORTRAIT page is not: `_fit_cell`
+    # shrinks the cell until the drawing fits the narrower sheet, so the
+    # drawing comes out smaller and sits inside the landscape bound it is
+    # measured against. Verified by mutation: with `_orientation_for` forced to
+    # portrait, every PDF case still passed the bounds. Asserting the
+    # orientation itself is what closes it.
+    assert geometry.orientation == expected, (
+        f"{geometry.columns}x{geometry.rows} printed {geometry.orientation}, "
+        f"not the {expected} sheet NFR-006 owes it"
+    )
     if geometry.columns > geometry.rows:
         return A4_LONG_EDGE_PT, A4_SHORT_EDGE_PT
     return A4_SHORT_EDGE_PT, A4_LONG_EDGE_PT
@@ -354,6 +368,11 @@ def _alternating_rows(width: int, height: int) -> list[list[bool]]:
         pytest.param(30, 30, _diagonal, id="page-fit-bound"),
         pytest.param(10, 25, _alternating_rows, id="tall-drawing-height-bound"),
         pytest.param(10, 26, _alternating_rows, id="tall-drawing-worst-case"),
+        # Cycle-1 F-003: every case above is square or tall, so `_a4_bounds_pt`'s
+        # landscape branch was dead and all three orientation mutants killed zero
+        # PDF tests — NFR-006 was uncovered in the one format that draws a band.
+        pytest.param(26, 10, _alternating_rows, id="wide-drawing-landscape-sheet"),
+        pytest.param(30, 12, _diagonal, id="wide-drawing-page-fit-bound"),
     ],
 )
 def test_a_titled_page_still_fits_a4_at_the_cell_sizes_nfr_005_produces(

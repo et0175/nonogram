@@ -199,7 +199,7 @@ Plus, on the corrected NFR-005:
   (`test_the_sheet_turns_landscape_exactly_when_the_grid_is_wider_than_tall`)
   joins the same file and the same corpus: 210 wide, 210 tall and 21 square
   extents x 4 patterns, counts asserted per side, plus a floor of 100 on the
-  cases where grid shape and drawing shape disagree (there are 116) so the
+  cases where grid shape and drawing shape disagree (there are 129 — 121 wide, 8 tall; the 116 first recorded here was wrong, cycle-1 F-001) so the
   corpus cannot lose the only witnesses that tell the two candidate rules
   apart.
 
