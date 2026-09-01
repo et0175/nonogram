@@ -61,13 +61,28 @@ _BLACK = (0, 0, 0)
 #: test's tier changes meaning (ADR-0005's bands are 0-33 / 33-66 / 66-100).
 MEDIUM_SCORE = 50.0
 
-#: A4 portrait in PostScript points — 210 x 297mm at 72pt to the inch, spelled
-#: out here rather than read from ``layout_module``. A page bound that derives
-#: its sheet size from the module that sized the page asserts only that the two
-#: agree; these literals are the second opinion that makes "it fits A4" a claim
-#: about paper.
-A4_WIDTH_PT = 210.0 / 25.4 * 72
-A4_HEIGHT_PT = 297.0 / 25.4 * 72
+#: A4's two edges in PostScript points — 210 and 297mm at 72pt to the inch,
+#: spelled out here rather than read from ``layout_module``. A page bound that
+#: derives its sheet size from the module that sized the page asserts only that
+#: the two agree; these literals are the second opinion that makes "it fits A4"
+#: a claim about paper.
+A4_SHORT_EDGE_PT = 210.0 / 25.4 * 72
+A4_LONG_EDGE_PT = 297.0 / 25.4 * 72
+
+
+def _a4_bounds_pt(geometry: Layout) -> tuple[float, float]:
+    """A4's width and height in points, held the way this grid turns it.
+
+    NFR-006: a grid wider than it is tall prints landscape, so the sheet's two
+    bounds swap. Which way up is derived here from the grid's own extent rather
+    than read off ``geometry.orientation``, so a page turned the wrong way is
+    still measured against the sheet it was owed — and taking ``max`` of the
+    two edges, which would pass either way round, is exactly what this must not
+    do.
+    """
+    if geometry.columns > geometry.rows:
+        return A4_LONG_EDGE_PT, A4_SHORT_EDGE_PT
+    return A4_SHORT_EDGE_PT, A4_LONG_EDGE_PT
 
 
 def _grid(*patterns: str) -> list[list[bool]]:
@@ -313,9 +328,12 @@ def test_both_written_pages_carry_the_layouts_geometry_within_a4(tmp_path: Path)
     assert boxes == [pytest.approx(expected), pytest.approx(expected)], (
         "the two sheets do not print alike, or one does not start at the sheet's corner"
     )
+    sheet_width_pt, sheet_height_pt = _a4_bounds_pt(geometry)
     for _, _, width_pt, height_pt in boxes:
-        assert width_pt <= A4_WIDTH_PT, f"{width_pt}pt wide overruns A4's {A4_WIDTH_PT}pt"
-        assert height_pt <= A4_HEIGHT_PT, f"{height_pt}pt tall overruns A4's {A4_HEIGHT_PT}pt"
+        assert width_pt <= sheet_width_pt, f"{width_pt}pt wide overruns A4's {sheet_width_pt}pt"
+        assert height_pt <= sheet_height_pt, (
+            f"{height_pt}pt tall overruns A4's {sheet_height_pt}pt"
+        )
 
 
 def _diagonal(width: int, height: int) -> list[list[bool]]:
@@ -364,9 +382,11 @@ def test_a_titled_page_still_fits_a4_at_the_cell_sizes_nfr_005_produces(
     geometry = _layout_for(grid)
     band = _band_for(grid)
 
+    sheet_width_pt, sheet_height_pt = _a4_bounds_pt(geometry)
+
     assert (geometry.columns, geometry.rows) == (width, height)
-    assert geometry.width <= round(layout_module.PAGE_WIDTH_MM / 25.4 * DPI)
-    assert geometry.height + band.height <= round(layout_module.PAGE_HEIGHT_MM / 25.4 * DPI)
+    assert geometry.width <= round(sheet_width_pt / 72 * DPI)
+    assert geometry.height + band.height <= round(sheet_height_pt / 72 * DPI)
 
 
 def test_page_one_is_the_blank_puzzle_with_its_clues() -> None:

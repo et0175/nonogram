@@ -1,6 +1,6 @@
 # CARD-034: The page turns to match the grid, and the cell-size rule stops lying
 
-**Status:** ready
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/034-page-orientation-follows-grid
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-034
 **Source:** meta/architecture/handoff.md#increment-7
 **Idea:** —
 **Wave:** 20
 **Depends on:** —
-**Touches:** src/nonogram/export/layout.py, tests/test_export_layout.py, tests/property/test_layout_cell_size.py
+**Touches:** src/nonogram/export/layout.py, tests/test_export_image.py, tests/test_export_pdf.py, tests/property/test_layout_cell_size.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-01T14:56:02Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -31,8 +31,9 @@ tall and square grids portrait. Measured, pure page-fit: 40x20 goes 3.39mm ->
 5.00mm turned (+47%), 45x25 3.05 -> 4.40 (+44%), 60x10 2.29 -> 3.39 (+48%); 20x40
 keeps portrait (4.91 against 3.22 forced landscape) and 30x30 keeps it narrowly
 (4.40 against 4.06). This is not a nicety: once CARD-033 derives shapes, a
-landscape picture at `--size 30` becomes a 30x10 grid printing at **2.29mm** on a
-fixed portrait sheet — deriving the shape without turning the page actively harms
+landscape picture at `--size 30` becomes a 30x10 grid printing at **4.49mm** on a
+fixed portrait sheet (6.43mm turned; the 6.60mm figure elsewhere is page fit,
+above which NFR-005's cap binds) — deriving the shape without turning the page actively harms
 the pictures the derivation exists to help.
 
 **2. NFR-005 and EC-008 stop claiming cell size is a function of
@@ -59,7 +60,7 @@ the figures above were measured. That is what keeps this card independent of the
 - **AC-099** (happy) — test: `TestPageOrientation_WideGridTurnsLandscapeAt660mm`
   - **given** a 30x10 landscape-shaped grid
   - **when** it is rendered for print at 300 DPI
-  - **then** the page turns to landscape and the cell prints at 6.60 mm, versus 2.29 mm on a fixed-portrait page
+  - **then** the page turns to landscape and the cell prints at 6.43 mm — its landscape page fit is 6.60 mm, above which NFR-005's comfort cap binds at 6.5 mm for a larger dimension of 30 — versus 4.49 mm on a fixed-portrait page (both figures CORRECTED 2026-09-01 during CARD-034; the original 6.60/2.29 pair confused page fit with printed cell, and took 2.29 mm from the 60x10 row rather than the 30x10)
 - **AC-100** (boundary) — test: `TestPageOrientation_40x20GainsFortySevenPercentFromLandscape`
   - **given** a 40x20 landscape-shaped grid
   - **when** it is rendered for print at 300 DPI
@@ -135,5 +136,93 @@ Plus, on the corrected NFR-005:
   architect-station change, not this card's.
 
 ## Worktree notes
+
+- **[Env]** forge 2026.8.17 (project requires >= 2026.8.17 — skew gate passed).
+- **[Drift gate]** clean — `meta/drift-pending.yml` does not intersect this card's footprint.
+
+### Implementation (2026-09-01)
+
+- **[Where orientation is decided]** `layout._orientation_for(columns, rows)`,
+  called once from `compute_layout` and passed into `_fit_cell`, which swaps
+  A4's two edges through the new `_page_size_mm(orientation)`. `compute_layout`
+  keeps its `(row_clues, column_clues)` signature: the extent is still read off
+  the clue sets, so no caller has to know it. `Layout` gains one field,
+  `orientation`, because EC-010 is otherwise unobservable from the outside and
+  a reader of a 5.00 mm cell cannot tell which sheet it came off.
+  `PAGE_WIDTH_MM`/`PAGE_HEIGHT_MM` keep their names and their values and now
+  mean *the portrait sheet*, with `_page_size_mm` the only place they swap
+  (G-1: one paper size, turned).
+
+- **[The five measured figures all reproduce exactly]** 40x20 3.39 -> 5.00,
+  45x25 3.05 -> 4.40, 60x10 2.29 -> 3.39, 20x40 stays portrait at 4.91 (3.22
+  forced landscape), 30x30 stays portrait at 4.40 (4.06 landscape). Page fit
+  depends on the clue gutter, so "a 40x20" is not by itself a page: the figures
+  pin down the gutter depths they were measured at (row/column) — 40x20 14/8,
+  45x25 16/9, 60x10 19/5, 20x40 7/13, 30x30 12/12 — which is what an ordinary
+  puzzle of that shape produces at about half density, and the AC tests build
+  grids with exactly those depths rather than seeding an RNG and hoping.
+
+- **[AC-099's numbers are both wrong; the behaviour it asks for is
+  implemented]** Not raised as a `[BLOCKER]` because nothing about it needs a
+  guardrail broken — but it needs recording. (a) *6.60 mm is the page fit, not
+  what a 30x10 prints.* Its larger dimension is 30, so NFR-005 caps it at
+  6.5 mm and it prints 6.43 mm. Asserting 6.60 mm on the printed cell would
+  mean lifting EC-008's ceiling, i.e. G-5. The test asserts landscape, the
+  6.60 mm landscape page fit, the 4.49 mm portrait one, and the 6.43 mm the
+  cap actually yields. (b) *2.29 mm is the 60x10's portrait figure*, not the
+  30x10's (4.49 mm) — the two shapes sit side by side in NFR-006's rationale
+  and the number appears to have been copied across. The 60x10 pair is
+  asserted in the same test so the criterion's number stays covered.
+
+- **[Surprise: the rule costs cell size on 117 of 840 wide shapes]** EC-010
+  states orientation over the **grid**, but page fit is about the **drawing**,
+  and a wide grid can draw tall behind a deep column gutter. Swept over the
+  441 supported extents at the property test's four clue patterns, turning the
+  page moves 444 wide cases up (best: 25x10 checkerboard, 4.83 -> 6.94 mm) and
+  117 **down** (worst: 26x25 alternating rows, 6.86 -> 4.57 mm, a 33% loss —
+  its drawing is 27 across by 38 down). Implemented as EC-010 states it, since
+  a "turn it whichever way fits better" rule would make page orientation a
+  function of a puzzle's clue depths — two 26x25s printing on differently
+  turned sheets. Recorded in `_orientation_for`'s docstring with the numbers,
+  not smoothed over. Worth a look at the architect station if the intent was
+  "the sheet follows the drawing".
+
+- **[EC-008's property test was extended, not rewritten]**
+  `PropertyTest_Layout_CellSizeNeverExceedsComfortCap` already asserted the
+  ceiling the amended EC-008 states (the model's
+  `...NonIncreasingInLargerDimension` name exists nowhere in the tree), so its
+  three halves are untouched. What changed is its A4 check, which hard-coded
+  210x297: it now measures against the sheet the shape is *owed*, derived from
+  a second reading of EC-010 written out in the test file — not from
+  `geometry.orientation`, and not from `max()` of the two edges, which would
+  pass on a page turned the wrong way. EC-010's own property test
+  (`test_the_sheet_turns_landscape_exactly_when_the_grid_is_wider_than_tall`)
+  joins the same file and the same corpus: 210 wide, 210 tall and 21 square
+  extents x 4 patterns, counts asserted per side, plus a floor of 100 on the
+  cases where grid shape and drawing shape disagree (there are 116) so the
+  corpus cannot lose the only witnesses that tell the two candidate rules
+  apart.
+
+- **[Mutation check]** Three mutants, all caught: always-portrait (fails 2 AC
+  tests), squares-landscape (fails EC-010's property test and AC-103),
+  orientation-from-the-drawing (fails EC-010's property test *and* the EC-008
+  page-fit half).
+
+- **[Docstring re-measurement]** Turning the page changed several numbers that
+  were stated as fact in prose. Re-measured and corrected rather than left:
+  the band reservation now moves the cell on 441 of 1764 corpus cases (was
+  172) by up to 0.508 mm (was 0.254), because a landscape sheet has 174 mm of
+  printable height to a portrait one's 261 mm — so the height term binds past
+  a 0.64x aspect rather than a 1.40x one; the smallest cell in the corpus is
+  now 46 px / 3.89 mm at 30x29 checkerboard (was 48 px / 4.06 mm at 30x10);
+  and the floor's engagement thresholds gain a landscape pair (135 across or
+  86 down, against portrait's 92/129).
+
+- **[Card metadata]** `Touches` named `tests/test_export_layout.py`, which does
+  not exist, and omitted `tests/test_export_image.py` (23 `compute_layout`
+  call sites, the NFR-005 AC tests) and `tests/test_export_pdf.py` (hard-coded
+  A4 portrait bounds). The orchestrator's brief said this had already been
+  corrected; it had not. Corrected in place — no file outside the corrected
+  list was touched.
 
 —

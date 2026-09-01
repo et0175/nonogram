@@ -14,6 +14,18 @@ pytest-idiomatic function names:
             -> test_the_cap_comes_from_the_larger_dimension_regardless_of_orientation
     AC-083  TestLayout_InterpolatesBetweenChosenCellSizes
             -> test_the_cap_interpolates_between_the_chosen_cell_sizes
+    AC-099  TestPageOrientation_WideGridTurnsLandscapeAt660mm
+            -> test_a_wide_grid_turns_the_page_to_landscape
+    AC-100  TestPageOrientation_40x20GainsFortySevenPercentFromLandscape
+            -> test_a_forty_by_twenty_gains_forty_seven_percent_from_landscape
+    AC-101  TestPageOrientation_45x25GainsFortyFourPercentFromLandscape
+            -> test_a_forty_five_by_twenty_five_gains_forty_four_percent_from_landscape
+    AC-102  TestPageOrientation_TallGridKeepsPortraitAt491mm
+            -> test_a_tall_grid_keeps_the_page_portrait
+    AC-103  TestPageOrientation_SquareGridDefaultsPortraitBySmallMargin
+            -> test_a_square_grid_defaults_to_portrait_by_a_small_margin
+    AC-104  TestLayout_SameLargerDimensionDoesNotGuaranteeSameCellSize
+            -> test_the_same_larger_dimension_does_not_guarantee_the_same_cell_size
 
 AC-030 is INV-002's gate seen from the image formats. The gate itself is one
 check in COMP-002 that all five renderers inherit (ADR-0007, guardrail G-5), and
@@ -167,12 +179,23 @@ def _assert_fits_printable_area(geometry: Layout) -> None:
     ``geometry.height`` could not see it. The band is added for every format,
     not only the PDF, because all three renderers size their cell from one
     :func:`compute_layout` — see ``_fit_cell``.
+
+    Since NFR-006 the sheet has two ways up, so the printable area is measured
+    against the one this grid's shape is owed — landscape when the grid is
+    wider than it is tall, portrait otherwise — derived here from the grid
+    rather than read off ``geometry.orientation``, so that a page turned the
+    wrong way is measured against the sheet it should have been printed on and
+    fails.
     """
+    short_edge, long_edge = layout_module.PAGE_WIDTH_MM, layout_module.PAGE_HEIGHT_MM
+    across, down = (
+        (long_edge, short_edge) if geometry.columns > geometry.rows else (short_edge, long_edge)
+    )
     printable_width = round(
-        (layout_module.PAGE_WIDTH_MM - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
+        (across - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
     )
     printable_height = round(
-        (layout_module.PAGE_HEIGHT_MM - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
+        (down - 2 * layout_module.PAGE_MARGIN_MM) / 25.4 * layout_module.DPI
     )
     band = layout_module.header_band(geometry)
 
@@ -457,6 +480,203 @@ def test_the_cap_interpolates_between_the_chosen_cell_sizes() -> None:
     geometry = _layout_for(_patterned(13, 11))
 
     assert _cell_mm(geometry) == pytest.approx(9.0 - (13 - 10) / (15 - 10) * (9.0 - 8.0), abs=0.2)
+
+
+# --------------------------------------------------------------------------
+# NFR-006 — the sheet turns to match the grid
+#
+# Every figure below is a *page fit* measurement: the largest cell the sheet
+# can take, with NFR-005's comfort cap out of the picture. That is the quantity
+# turning the page actually moves, and the quantity the criteria were measured
+# in. ``_page_fit_mm`` recomputes it here from NFR-005's own words and A4's own
+# numbers rather than calling ``layout._fit_cell``, so a change to the module's
+# page arithmetic has to disagree with a second implementation before these
+# tests will follow it.
+#
+# Page fit depends on the clue gutter as well as the grid, so "a 40x20" is not
+# by itself a page: each case names the gutter depths it was measured at, and
+# ``_with_gutters`` builds a real grid that has exactly those. The depths are
+# the ones an ordinary puzzle of that shape produces at about half density.
+# --------------------------------------------------------------------------
+
+
+def _with_gutters(
+    width: int, height: int, row_runs: int, column_runs: int
+) -> list[list[bool]]:
+    """A ``width`` x ``height`` grid whose deepest clues are exactly that deep.
+
+    A comb along the top row — every other cell filled, ``row_runs`` of them —
+    gives row 0 exactly ``row_runs`` numbers and every column it touches
+    exactly one. A second comb down column 0 does the same to that column
+    without adding a run to any row it lands on, since each of those rows is
+    otherwise empty. So the row gutter is ``row_runs`` deep, the column gutter
+    ``column_runs``, and no other line is deeper than one.
+
+    Needs ``2 * runs - 1`` cells to lay a comb in, which every case below has.
+    """
+    grid = [[False] * width for _ in range(height)]
+    for run in range(row_runs):
+        grid[0][2 * run] = True
+    for run in range(column_runs):
+        grid[2 * run][0] = True
+    return grid
+
+
+def _page_fit_mm(grid: list[list[bool]], *, orientation: str) -> float:
+    """The largest cell A4 can take for ``grid``, that way up, cap ignored.
+
+    NFR-005's page-fit term, written out from the requirement rather than
+    called: A4 is 210 x 297 mm, 12 mm of margin comes off each of the four
+    edges, 12 mm more of height is reserved for the header band, and the
+    drawing that has to fit is the grid plus each gutter. Turning the sheet
+    swaps which edge is which and nothing else (G-1).
+    """
+    row_clues, column_clues = compute_clues(grid)
+    row_gutter = max(len(clue) for clue in row_clues)
+    column_gutter = max(len(clue) for clue in column_clues)
+    across_mm, down_mm = (297.0, 210.0) if orientation == "landscape" else (210.0, 297.0)
+    printable_across = round((across_mm - 2 * 12.0) / 25.4 * 300)
+    printable_down = round((down_mm - 2 * 12.0) / 25.4 * 300) - round(12.0 / 25.4 * 300)
+    cell_px = min(
+        printable_across // (row_gutter + len(column_clues)),
+        printable_down // (column_gutter + len(row_clues)),
+    )
+    return cell_px / 300 * 25.4
+
+
+def test_a_wide_grid_turns_the_page_to_landscape() -> None:
+    """AC-099, and the shape FR-023's derivation makes routine.
+
+    A 30x10 at an ordinary gutter depth fits 6.60mm of cell on a turned sheet
+    against 4.49mm on a fixed portrait one — the page-fit measurement the
+    criterion quotes.
+
+    Two corrections to the criterion's own numbers, both recorded here rather
+    than smoothed over, because they are the sort of thing a later reader will
+    otherwise re-derive from scratch:
+
+    * **6.60mm is the page fit, not what this grid prints.** 30x10's larger
+      dimension is 30, so NFR-005 caps it at 6.5mm and the cell comes out at
+      6.43mm (6.5mm truncated to a whole device pixel). This is the ceiling of
+      EC-008 doing exactly its job — page fit stopped being the binding term —
+      and asserting the criterion's 6.60mm on ``geometry.cell`` would mean
+      lifting that ceiling. Both numbers are pinned below.
+    * **2.29mm is not this grid's portrait figure**, it is the 60x10's, from
+      the same measured set (NFR-006's rationale lists both shapes). A 30x10
+      prints 4.49mm on a fixed portrait sheet. The 60x10 pair is asserted too,
+      so the criterion's number stays covered by a test even though it belongs
+      to the neighbouring shape.
+    """
+    grid = _with_gutters(30, 10, row_runs=11, column_runs=4)
+
+    geometry = _layout_for(grid)
+
+    assert geometry.orientation == "landscape"
+    assert _page_fit_mm(grid, orientation="landscape") == pytest.approx(6.60, abs=0.01)
+    assert _page_fit_mm(grid, orientation="portrait") == pytest.approx(4.49, abs=0.01)
+    # The cap, not page fit, is what this particular shape ends up printing.
+    assert _cell_mm(geometry) == pytest.approx(6.43, abs=0.01)
+    assert _cell_mm(geometry) <= 6.5
+    _assert_fits_printable_area(geometry)
+
+    # Where the criterion's 2.29mm comes from: the 60x10 of the same measured
+    # set, whose page fit the cap never touches.
+    sixty = _with_gutters(60, 10, row_runs=19, column_runs=5)
+    assert _page_fit_mm(sixty, orientation="portrait") == pytest.approx(2.29, abs=0.01)
+    assert _page_fit_mm(sixty, orientation="landscape") == pytest.approx(3.39, abs=0.01)
+    assert _cell_mm(_layout_for(sixty)) == pytest.approx(3.39, abs=0.01)
+
+
+def test_a_forty_by_twenty_gains_forty_seven_percent_from_landscape() -> None:
+    """AC-100. 3.39mm on a fixed portrait sheet, 5.00mm turned: the cell is not
+    a little bigger, it is half again as big, and 40 is far enough past the
+    comfort curve's last decided point that the cap never comes into it."""
+    grid = _with_gutters(40, 20, row_runs=14, column_runs=8)
+
+    geometry = _layout_for(grid)
+    portrait = _page_fit_mm(grid, orientation="portrait")
+
+    assert geometry.orientation == "landscape"
+    assert portrait == pytest.approx(3.39, abs=0.01)
+    assert _cell_mm(geometry) == pytest.approx(5.00, abs=0.01)
+    assert _cell_mm(geometry) / portrait == pytest.approx(1.47, abs=0.01)
+    _assert_fits_printable_area(geometry)
+
+
+def test_a_forty_five_by_twenty_five_gains_forty_four_percent_from_landscape() -> None:
+    """AC-101. The same win at a shape half again as large, so the gain is a
+    property of turning the page and not of one lucky extent."""
+    grid = _with_gutters(45, 25, row_runs=16, column_runs=9)
+
+    geometry = _layout_for(grid)
+    portrait = _page_fit_mm(grid, orientation="portrait")
+
+    assert geometry.orientation == "landscape"
+    assert portrait == pytest.approx(3.05, abs=0.01)
+    assert _cell_mm(geometry) == pytest.approx(4.40, abs=0.01)
+    assert _cell_mm(geometry) / portrait == pytest.approx(1.44, abs=0.01)
+    _assert_fits_printable_area(geometry)
+
+
+def test_a_tall_grid_keeps_the_page_portrait() -> None:
+    """AC-102. The other half of "if and only if": a 20x40 is already on the
+    sheet that suits it, and turning it would cost a third of the cell (4.91mm
+    down to 3.22mm). A rule that turned every rectangle would pass AC-100 and
+    fail here."""
+    grid = _with_gutters(20, 40, row_runs=7, column_runs=13)
+
+    geometry = _layout_for(grid)
+
+    assert geometry.orientation == "portrait"
+    assert _cell_mm(geometry) == pytest.approx(4.91, abs=0.01)
+    assert _page_fit_mm(grid, orientation="landscape") == pytest.approx(3.22, abs=0.01)
+    _assert_fits_printable_area(geometry)
+
+
+def test_a_square_grid_defaults_to_portrait_by_a_small_margin() -> None:
+    """AC-103, and guardrail G-3. A square grid has no longer side to lay along
+    the sheet's longer axis, so the tie has to be broken by fiat — portrait,
+    which is what every earlier version of this module did. It is not a free
+    choice made to preserve behaviour: the drawing is the grid *plus* its row
+    gutter, so a 30x30 draws wider than it is tall and portrait genuinely wins,
+    4.40mm against 4.06mm. The margin is small, which is why it is asserted
+    rather than assumed."""
+    grid = _with_gutters(30, 30, row_runs=12, column_runs=12)
+
+    geometry = _layout_for(grid)
+
+    assert geometry.orientation == "portrait"
+    assert _cell_mm(geometry) == pytest.approx(4.40, abs=0.01)
+    assert _page_fit_mm(grid, orientation="landscape") == pytest.approx(4.06, abs=0.01)
+    assert _page_fit_mm(grid, orientation="landscape") < _cell_mm(geometry)
+    _assert_fits_printable_area(geometry)
+
+
+def test_the_same_larger_dimension_does_not_guarantee_the_same_cell_size() -> None:
+    """AC-104, and the reason NFR-005 and EC-008 had to be amended.
+
+    A 40x20 and a 20x40 share ``max(width, height) = 40``. On a fixed portrait
+    sheet they printed 3.39mm and 4.91mm — a 45% gap for the same max() — which
+    is why "cell size is a function of max(width, height)" was ill-posed rather
+    than merely imprecise. Turning the page narrows the gap to 5.00mm against
+    4.91mm but does not close it, because page fit still depends on the clue
+    gutter, and the gutter is a property of the puzzle's clues. So what EC-008
+    guarantees is the ceiling both of them obey, not the equality neither does.
+    """
+    wide = _with_gutters(40, 20, row_runs=14, column_runs=8)
+    tall = _with_gutters(20, 40, row_runs=7, column_runs=13)
+
+    turned = _layout_for(wide)
+    upright = _layout_for(tall)
+
+    assert max(turned.columns, turned.rows) == max(upright.columns, upright.rows) == 40
+    assert (turned.orientation, upright.orientation) == ("landscape", "portrait")
+    assert _cell_mm(turned) == pytest.approx(5.00, abs=0.01)
+    assert _cell_mm(upright) == pytest.approx(4.91, abs=0.01)
+    assert turned.cell != upright.cell
+    # Both still under the one thing EC-008 does promise: the cap for 40.
+    for geometry in (turned, upright):
+        assert _cell_mm(geometry) <= layout_module.comfort_cap_mm(40)
     _assert_fits_printable_area(geometry)
 
 
