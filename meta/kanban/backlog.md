@@ -178,42 +178,51 @@
       the picture-fidelity item above is the narrower, answerable slice of exactly that
       gap.                                                                     @feature
 
-- [ ] **Make printed cell size generic and configurable, and reconsider the default** —
-      NFR-005's comfort curve was tailored for seniors; the owner's judgement
-      (2026-09-01) is that 9mm and 8mm are too big and ~7mm is a better default for a
-      larger side of 25 or less.
-      **Measured first, because the change is narrower than it looks** (5 puzzles per
-      size at 45% density, 2026-09-01): the comfort cap only binds at 10x10 (prints
-      8.97mm against a 9.00 cap) and 15x15 (7.96 against 8.00). From 20 cells up A4
-      page-fit is already the binding term and the cap is dead weight — 20x20 prints
-      6.60-6.86mm against a 7.50 cap, 25x25 prints 5.25-5.59 against 7.00, 30x30 prints
-      4.57-4.74 against 6.50. So a flat 7mm cap for <=25 changes exactly two sizes:
-      10x10 8.97 -> 7.00 and 15x15 7.96 -> 7.00. Everything from 20 up is untouched
-      because it already prints below 7mm. Note also that page-fit varies by PUZZLE, not
-      just by size (the 20x20 range above), since it depends on how deep the clue gutter
-      runs.
-      **Frame it honestly as a revert, not a retune.** If the cap is constant at 7mm and
-      only binds at 10 and 15, NFR-005's "declining function of the larger dimension"
-      stops declining anywhere it has effect — it becomes a flat ceiling, which is
-      structurally what the code had BEFORE CARD-025 (`MAX_CELL_MM = 6.5`). The proposal
-      is therefore: revert CARD-025's five-point curve to a flat cap and raise it from
-      6.5 to 7.0. That is defensible — a curve where only two of five points ever bind is
-      more machinery than the problem needs — but NFR-005's wording and EC-008's
-      non-increasing property must move with it rather than being quietly contradicted.
-      **The configurability half is the more valuable one and is independent of the
-      number.** Whatever default is chosen, someone will want a different one, and the
-      seniors framing was always a guess about one audience. A `--cell-size MM` override
-      is small and fits the existing shape: argparse parses it, the domain validates it
-      (ADR-0010), and it becomes one more term in `min(comfort cap, page fit)`.
-      **The decision it forces:** what does `--cell-size 9` mean on a 30x30, where page
-      fit allows only ~4.7mm? Three candidate answers — silently clamp to page fit,
-      produce a page larger than A4, or refuse. There is precedent for the second:
-      `MIN_CELL_MM` (2.0) already lets the drawing exceed A4 rather than shrink below the
-      point where a pencil mark is meaningless. Worth knowing that the honest answer for
-      someone who genuinely wants big cells on a big grid is not a flag at all but A3 or
-      tiling across sheets — a materially bigger feature this sits next to.
-      **Sequencing:** batch this with the `--size N` semantics decision that currently
-      gates CARD-027. Both change printed output and both touch NFR-005/ADR-0022
-      territory; deciding them in one architecture pass avoids a third revision of the
-      same area in a week.                                                     @feature
+- [ ] **Three hard-coded cell-size modes, replacing the comfort table** — NFR-005's
+      curve was tailored for seniors; the owner's judgement (2026-09-01) is that 9mm and
+      8mm are too big, ~7mm is the better default, and a free-form `--cell-size MM` flag
+      is overkill for today. Three named modes instead.
+      **Measured on A4 (5 puzzles per size at 45% density, comfort cap lifted to expose
+      pure page-fit, 2026-09-01) — cell size and grid size are NOT independent:**
 
+      | target cell | largest grid A4 can actually deliver it on |
+      |---|---|
+      | 9mm | 14x14 |
+      | 8mm | 16x16 |
+      | 7mm | 19x19 |
+      | 6mm | 22x22 |
+
+      Past 22 cells a side, nothing yields more than 6mm. Pure page-fit runs 12.36mm at
+      10x10 down to 4.57mm at 30x30.
+      **The consequence to accept before building three of anything: the modes produce
+      IDENTICAL output for any grid of 20 or more**, because page-fit takes over above
+      each threshold and they converge. They bite only on grids <= 19. That is still
+      worth having — it is most of the small-grid range — but it must not come as a
+      surprise when `large` and `standard` render the same 30x30.
+      **Shape:** each mode is ONE target number and page-fit clamps it —
+      `cell = min(mode_target, page_fit)`. Suggested values: `large` 9mm (the current
+      senior-oriented intent, kept as an option rather than the default; real to 14x14),
+      `standard` 7mm (the new default; real to 19x19), `compact` 5.5mm (grid big, cells
+      small, for people who prefer that trade).
+      **The most valuable half — report when the mode does not get what it asked for.**
+      e.g. "large cells requested (9.0mm); this 25x25 prints at 5.4mm — A4 cannot do
+      better. A 14x14 would print at 9.0mm." This is the same idiom the project already
+      uses for FR-021's aspect refusal and FR-014's nudge count: turn a silent
+      degradation into a message. It tells the user the one thing they cannot work out
+      themselves — that their GRID is why their cells are small.
+      **Bonus, and it settles an earlier question: the five-point `CELL_COMFORT_MM` table
+      can be deleted entirely.** Page-fit is already a declining function of the larger
+      dimension (12.36 -> 4.57mm), produced by geometry rather than by a hand-tuned
+      table; the comfort cap's only real job is stopping a 10x10 from printing 12mm
+      cells. So `min(mode_target, page_fit)` satisfies NFR-005's "declining function"
+      BY CONSTRUCTION. This is therefore not a revert of CARD-025 to a flat cap (the
+      framing considered and discarded on 2026-09-01) — it replaces a table with the
+      constraint that was doing the work anyway.
+      **Subtlety to verify rather than assume:** page-fit varies per PUZZLE, not just per
+      size, because it depends on clue-gutter depth — a sparse 20x20 may page-fit
+      slightly larger than a dense 19x19. EC-008's non-increasing property may need to be
+      stated over the mode target rather than the realized value. Exactly the kind of
+      thing that passes review and fails a property test later.
+      **Sequencing:** batch with the `--size N` semantics decision now gating CARD-027.
+      Both change printed output and both touch NFR-005 territory; one architecture pass
+      avoids revising the same area a third time in a week.                    @feature
