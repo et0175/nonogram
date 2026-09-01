@@ -23,3 +23,21 @@ htmlcov/
 # Regenerate: /forge:init gitignore
 meta/architecture/handoff.md
 # ────────────────────────────────────────────────────────────────────────────
+
+# ─── Generated puzzle exports ───────────────────────────────────────────────
+# The picture corpora are committed INPUTS: pictures/ is a test fixture the
+# FR-022 acceptance criteria measure against, silhouette/ is the source library.
+# The puzzles generated FROM them are regenerable output — the exporter writes
+# <name>-<difficulty>.pdf next to its own source, so they accumulate in these
+# directories on every run.
+pictures/**/*.pdf
+pictures/**/*.svg
+pictures/**/*.json
+pictures/**/*.csv
+silhouette/**/*.pdf
+silhouette/**/*.svg
+silhouette/**/*.json
+silhouette/**/*.csv
+
+# macOS Finder metadata (four were sitting untracked in silhouette/).
+.DS_Store
