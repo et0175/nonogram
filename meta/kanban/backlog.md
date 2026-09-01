@@ -76,3 +76,73 @@
       disclosure is actually about) unpinned. The fix-cycle's new singular-boundary
       test already pins the full sentence; make the plural one match for consistency.
                                                                                      @tech-debt
+
+## Deferred from Local web UI brainstorm (2026-08-30)
+- [ ] In-browser preview of the generated puzzle in the web UI (render the PNG
+      inline after generation, instead of only confirming file paths)          @feature
+- [ ] Progress/status feedback in the web UI for long-running generations —
+      CARD-018's own measurements show some 20x20 mid-density requests still
+      take up to ~30s, which is a poor experience behind a plain "submit and
+      wait" form                                                                @feature
+- [ ] Browse/list previously generated puzzles from the web UI                 @feature
+
+## Deferred from CARD-022 (2026-08-31)
+- [ ] `test_the_form_lists_every_registered_export_format` (tests/test_web_server.py)
+      enumerates `export.FORMATS` with no minimum-count assertion, so it passes
+      vacuously if the registry empties. Its sibling
+      `test_the_form_lists_every_difficulty_tier_plus_an_unset_choice` has the same
+      shape and is saved only by a trailing non-loop assertion. Same pattern
+      AC-059 exists to eliminate, and same class as the existing
+      `test_the_png_contains_the_clues` entry above; CLAUDE.md's convention
+      ("assert a minimum case count inside the test itself so the corpus can't
+      silently shrink") covers all three. Out of CARD-022's scope.       @tech-debt
+- [ ] Measure or permanently retire the withdrawn shutdown bound from CARD-019's
+      failure matrix row F-6. CARD-022 withdrew the number rather than measuring
+      it; a matrix row with no bound is a declaration that has stopped declaring.
+                                                                         @tech-debt
+- [ ] Three inaccurate claims in `src/nonogram/web/handler.py`'s own prose, found by
+      CARD-022's cycle-2 review (F-101/F-102/F-103) and deliberately NOT fixed there:
+      the loop of correcting-claims-then-introducing-new-ones had run three cycles and
+      a fourth pass was judged more likely to add a sixth than to converge.
+      (a) `_respond`'s pre-override 400 description over-generalises — CPython 3.14.3
+          assigns `request_version` BEFORE the word-count syntax check, so a >=4-word
+          request line with a valid trailing version reached `send_error(400)` WITH a
+          status line. Repeated at handler.py:280 and in CARD-019 row F-4.
+      (b) `explain` is documented as "a static canned string from `responses`" — it is
+          not; that table is what the STDLIB's send_error consults. Only the two 431
+          call sites pass `explain`, as `str(err)` from `http.client`. The load-bearing
+          half (nothing request-derived reaches it) is correct.
+      (c) `test_the_docstring_names_every_access_control_check...`'s docstring says
+          handler.py "says so in two places"; the same delta reduced it to one.
+      All three are prose-only; the modules are executable-identical.        @tech-debt
+
+## Surfaced during design discussion (2026-09-01)
+
+- [ ] **Measure how close the finished puzzle is to the source picture** — a fidelity /
+      recognizability metric. Nothing in the codebase measures this today (verified
+      2026-09-01: no similarity, PSNR, SSIM or Hamming computation exists; the word
+      "fidelity" appears only in the EC-002 *export round-trip* sense, which is an
+      unrelated property). This is the gap worth naming: FR-020's aspect fit, FR-022's
+      margin trim, and the 2026-09-01 decision to derive the grid shape from the picture
+      are ALL aimed at "the puzzle should look like the picture", and every one of them
+      was justified with *proxies* — retained-source-area percentages and blank-border
+      counts. Those are inputs to fidelity, not fidelity. The only existing signal is
+      FR-014's nudge count, which is partial and indirect: it counts the pixels the
+      uniqueness-recovery loop deliberately flipped, and is blind to the far larger loss
+      from downsampling, dithering and cropping.
+      Cheap concrete form: upscale the dithered grid back to the source's dimensions,
+      threshold the (trimmed) original the same way, and report per-cell agreement as a
+      percentage. One pure function over two images, no new dependency, inside ADR-0006's
+      baseline.
+      What it would buy: (a) a user could choose a size knowing what it costs — "20x20
+      recovers 91% of your picture, 25x25 recovers 96%" — which is exactly the question
+      a person feeding in their own photos actually has; (b) it would retroactively
+      validate, or contradict, all three of the 2026-09-01 design decisions, which
+      currently rest on argument plus proxy measurements; (c) it gives the difficulty
+      retune below a second axis, since a puzzle can be hard AND unrecognizable, and
+      those should not be conflated.
+      Note `docs/monogram_analyzer.md` deliberately declined to auto-compute "quality"
+      because that brainstorm gave no algorithm for it. This item is narrower and does
+      have one: not "is this a good puzzle" but "how much of the picture survived".
+                                                                                @feature
+

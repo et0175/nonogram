@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-01 14:30_
+_Updated: 2026-09-01 14:45_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -52,6 +52,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - `test_the_form_lists_every_registered_export_format` is a weak/vacuous web test
 - Measure or permanently retire CARD-019's withdrawn shutdown bound
 - Three inaccurate prose claims in `src/nonogram/web/handler.py`
+- **Measure how close the finished puzzle is to the source picture** — nothing does today
 
 ## Architecture
 _(none)_
