@@ -146,3 +146,35 @@
       have one: not "is this a good puzzle" but "how much of the picture survived".
                                                                                 @feature
 
+- [ ] **Elaborate how difficulty is measured** — deepen the signals, not just retune the
+      numbers. Distinct from the Wave 7 retune item above, and they should not be
+      confused: that one keeps today's formula and moves its weights/cutoffs (Hard is
+      unreachable — measured ceiling ~43 against a floor of 66); this one is about the
+      formula being thin in the first place. Today's score is five weighted solver
+      signals — backtracking 0.45, line logic 0.40, size 0.15, clue density 0.15, solve
+      time 0.15 (`src/nonogram/difficulty.py`, ADR-0005/ADR-0013) — and solve time is
+      the only one that varies with the machine rather than the puzzle, which is why it
+      is weighted lightest.
+      **The elaboration is already specified and does not need designing.** 12 intake
+      lines derived from `docs/monogram_analyzer.md` were written into
+      `meta/architecture/inputs/raw-requirements.md` on 2026-08-30 (currently around
+      L65-L76) and were never formalized into `requirements.yml` — verified 2026-09-01.
+      They cover: six-level technique classification with a histogram, branching /
+      ambiguity tracking, information gain per deduction, a separate non-fail-fast
+      search pass for backtracking statistics, dependency depth and bottleneck
+      detection, clue-density statistics, grid symmetry, and image-complexity metrics.
+      So the next step is an architect delta over those existing lines, not a
+      brainstorm.
+      Two decisions already recorded in that same intake and worth preserving when it is
+      picked up: (a) all of it lives behind a NEW on-demand entry point (e.g. `nonogram
+      analyze`) run against an already-generated puzzle — none of it runs during
+      `generate`, and none of it is bound by NFR-001's generation-time budget; (b)
+      FR-009's existing score and the Easy/Medium/Hard resample loop are unchanged by it
+      — every new signal is an additive diagnostic, not wired into tier selection. That
+      second one is what keeps this from being a risky change to a shipped mechanism.
+      Also recorded there: difficulty, complexity and quality should be three
+      independent outputs rather than one conflated score, and "quality" was
+      deliberately left uncomputed because that brainstorm gave no algorithm for it —
+      the picture-fidelity item above is the narrower, answerable slice of exactly that
+      gap.                                                                     @feature
+
