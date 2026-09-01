@@ -70,17 +70,48 @@ A4_SHORT_EDGE_PT = 210.0 / 25.4 * 72
 A4_LONG_EDGE_PT = 297.0 / 25.4 * 72
 
 
-def _a4_bounds_pt(geometry: Layout) -> tuple[float, float]:
-    """A4's width and height in points, held the way this grid turns it.
+def _owed_orientation(geometry: Layout) -> str:
+    """Which sheet NFR-006 owes this puzzle: the one that prints a larger cell.
 
-    NFR-006: a grid wider than it is tall prints landscape, so the sheet's two
-    bounds swap. Which way up is derived here from the grid's own extent rather
-    than read off ``geometry.orientation``, so a page turned the wrong way is
-    still measured against the sheet it was owed — and taking ``max`` of the
-    two edges, which would pass either way round, is exactly what this must not
-    do.
+    Not circular, and the distinction matters. What is under test is the
+    orientation **choice**; what this asks ``layout`` for is a **cell size**,
+    twice, with the sheet supplied rather than chosen — ``_fit_cell`` takes the
+    orientation as an argument and has no opinion about which one a puzzle
+    gets. Asking ``geometry.orientation`` instead would compare the value under
+    test against itself; deriving it from ``columns > rows`` would assert the
+    superseded shape rule, under which a wide grid with a deep column gutter is
+    turned when it should stay upright.
+
+    The drawing's totals come from the :class:`Layout`'s gutter depths and
+    extent, which are inputs to the cell computation rather than results of the
+    orientation choice.
     """
-    expected = "landscape" if geometry.columns > geometry.rows else "portrait"
+    across = geometry.row_gutter_cells + geometry.columns
+    down = geometry.column_gutter_cells + geometry.rows
+    fitted = {
+        sheet: layout_module._fit_cell(
+            across,
+            down,
+            larger_dimension=max(geometry.columns, geometry.rows),
+            orientation=sheet,
+            reserved_height_mm=layout_module.HEADER_BAND_MM,
+        )
+        for sheet in ("portrait", "landscape")
+    }
+    return "landscape" if fitted["landscape"] > fitted["portrait"] else "portrait"
+
+
+def _a4_bounds_pt(geometry: Layout) -> tuple[float, float]:
+    """A4's width and height in points, held the way this puzzle turns it.
+
+    NFR-006: the sheet whose fitted cell is larger wins, so the two bounds
+    swap for a puzzle that turns. Which way up comes from
+    :func:`_owed_orientation` rather than off ``geometry.orientation``, so a
+    page turned the wrong way is still measured against the sheet it was owed —
+    and taking ``max`` of the two edges, which would pass either way round, is
+    exactly what this must not do.
+    """
+    expected = _owed_orientation(geometry)
     # The bounds below are an UPPER bound only, and that catches just half of
     # "turned the wrong way" (cycle-1 F-003, and the same hole F-002 found in
     # the image helper). A wrongly-landscape page overruns the portrait sheet
@@ -94,7 +125,7 @@ def _a4_bounds_pt(geometry: Layout) -> tuple[float, float]:
         f"{geometry.columns}x{geometry.rows} printed {geometry.orientation}, "
         f"not the {expected} sheet NFR-006 owes it"
     )
-    if geometry.columns > geometry.rows:
+    if expected == "landscape":
         return A4_LONG_EDGE_PT, A4_SHORT_EDGE_PT
     return A4_SHORT_EDGE_PT, A4_LONG_EDGE_PT
 
@@ -361,6 +392,12 @@ def _alternating_rows(width: int, height: int) -> list[list[bool]]:
     return [[row % 2 == 0 for _ in range(width)] for row in range(height)]
 
 
+def _checkerboard(width: int, height: int) -> list[list[bool]]:
+    """Every clue all 1s — the deepest gutter a shape can have, and so the
+    widest drawing, which is what makes a grid worth turning the sheet for."""
+    return [[(row + column) % 2 == 0 for column in range(width)] for row in range(height)]
+
+
 @pytest.mark.parametrize(
     ("width", "height", "pattern"),
     [
@@ -371,7 +408,11 @@ def _alternating_rows(width: int, height: int) -> list[list[bool]]:
         # Cycle-1 F-003: every case above is square or tall, so `_a4_bounds_pt`'s
         # landscape branch was dead and all three orientation mutants killed zero
         # PDF tests — NFR-006 was uncovered in the one format that draws a band.
-        pytest.param(26, 10, _alternating_rows, id="wide-drawing-landscape-sheet"),
+        # Both cases below are ones the amended rule actually turns: a 26x10
+        # whose rows merely alternate ties on the two sheets and stays upright
+        # (AC-106's regime), so the checkerboard's 13-deep row gutter is what
+        # keeps the landscape branch live.
+        pytest.param(26, 10, _checkerboard, id="wide-drawing-landscape-sheet"),
         pytest.param(30, 12, _diagonal, id="wide-drawing-page-fit-bound"),
     ],
 )
