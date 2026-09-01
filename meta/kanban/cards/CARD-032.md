@@ -84,6 +84,17 @@ support.
 - G-5: Do not edit `src/nonogram/orchestrator.py` — owned by CARD-031
 - G-6: Out of scope — the `<name>-<WxH>-<difficulty>.pdf` filename shape is DEC-026, held
   open until CARD-027 merges.
+- G-7: **Font provenance is not negotiable.** The bundled file must be DejaVu Sans
+  obtained from the DejaVu project's own distribution
+  (`https://github.com/dejavu-fonts/dejavu-fonts`), and its `LICENSE` must ship beside
+  it in the package. **Do NOT copy any font out of `/System/Library/Fonts`,
+  `/Library/Fonts`, or `~/Library/Fonts`.** Verified 2026-09-01: this machine has no
+  DejaVu anywhere and Pillow bundles no TTF, while the macOS font directories are full
+  of Arial, Helvetica and Times — all proprietary and NOT redistributable. Bundling one
+  of those would put a licence violation into the repository, and it is the single
+  easiest wrong turn on this card. If the real file cannot be obtained, raise
+  `[BLOCKER]` and stop; do not substitute a different font, and do not fall back to
+  `ImageFont.load_default()` while claiming the card is done.
 
 ## System contract
 

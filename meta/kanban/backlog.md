@@ -180,51 +180,59 @@
       the picture-fidelity item above is the narrower, answerable slice of exactly that
       gap.                                                                     @feature
 
-- [ ] **Three hard-coded cell-size modes, replacing the comfort table** — NFR-005's
-      curve was tailored for seniors; the owner's judgement (2026-09-01) is that 9mm and
-      8mm are too big, ~7mm is the better default, and a free-form `--cell-size MM` flag
-      is overkill for today. Three named modes instead.
-      **Measured on A4 (5 puzzles per size at 45% density, comfort cap lifted to expose
-      pure page-fit, 2026-09-01) — cell size and grid size are NOT independent:**
+- [ ] **A 40x40 "advanced" grid mode — image and library sources only** — supersedes the
+      three-cell-size-modes idea, which the owner cancelled on 2026-09-01 in favour of
+      this. Raise the supported range so an advanced user can ask for 40x40, printing at
+      **3.30mm** per cell on portrait A4 (measured).
+      **Feasibility is source-dependent, and that is the whole design constraint**
+      (measured 2026-09-01, 45s deadline): a 40x40 derived from a picture (eagle, cat,
+      img_2, wolf_face) verifies unique in **0.00-0.04s**, while a 40x40 random grid at
+      45% density **times out with no verdict**. A structured silhouette has long runs
+      and large uniform regions so line-logic alone cracks it; random mid-density noise
+      is the solver's pathological class (CLAUDE.md already names 40x40+ random as
+      known-hard). So the mode is **image/library only** — offering it for random would
+      ship a request that cannot complete.
+      **The uncomfortable adjacent finding: random mode already fails INSIDE today's
+      range.** Same measurement, 3 seeds each at 45%: 20x20 solves in 0.02-0.08s; 25x25
+      gives 1.60s / 0.08s / TIMEOUT; 30x30 gives TIMEOUT / TIMEOUT / 2.14s; 35x35 and up
+      always time out. Corroborated the same day by CLI runs, where 5 of 8 `nonogram
+      generate` invocations failed with "abandoned after 20 regenerations" or "solver
+      passed its generation deadline". CON-011's "10..30 inclusive, every source mode"
+      is therefore **nominal for random** — it genuinely works to about 20-25. This item
+      does not cause that gap, it makes it impossible to ignore; the range should
+      probably become source-dependent rather than one number for all three modes.
+      **Pair it with page orientation.** A 40-wide grid is exactly the case that suffers
+      most from the fixed portrait page and gains most from turning it (measured, pure
+      page-fit): 40x20 prints 3.39mm portrait vs 5.00mm landscape (+47%); 45x25 3.05 vs
+      4.40 (+44%); 60x10 2.29 vs 3.39 (+48%); tall grids prefer portrait (20x40 4.91 vs
+      3.22). Matching the sheet's orientation to the grid's recovers ~45% of cell size on
+      every rectangle, and it is one conditional in `layout.py` — the geometry is already
+      there.
+      **Two corrections to shipped prose this work should carry** (both measured
+      2026-09-01): CON-011 justifies capping at 30 with "beyond about 30 cells a side the
+      printed cell drops under ~6mm" — but 6mm is actually crossed at about **22** cells,
+      and a 30x30 prints at 4.40-4.57mm, well under the threshold its own rationale
+      invokes. And for reference, the theoretical A4 ceiling is about **70x70**, where
+      page-fit reaches the 2.0mm `MIN_CELL_MM` floor; past that the cell pins at 2.03mm
+      and the page grows beyond A4 instead.
+      See also the NFR-005 entry below — that one is a trap sitting in CARD-027's path
+      and should be resolved with, or before, this.                            @feature
 
-      | target cell | largest grid A4 can actually deliver it on |
-      |---|---|
-      | 9mm | 14x14 |
-      | 8mm | 16x16 |
-      | 7mm | 19x19 |
-      | 6mm | 22x22 |
-
-      Past 22 cells a side, nothing yields more than 6mm. Pure page-fit runs 12.36mm at
-      10x10 down to 4.57mm at 30x30.
-      **The consequence to accept before building three of anything: the modes produce
-      IDENTICAL output for any grid of 20 or more**, because page-fit takes over above
-      each threshold and they converge. They bite only on grids <= 19. That is still
-      worth having — it is most of the small-grid range — but it must not come as a
-      surprise when `large` and `standard` render the same 30x30.
-      **Shape:** each mode is ONE target number and page-fit clamps it —
-      `cell = min(mode_target, page_fit)`. Suggested values: `large` 9mm (the current
-      senior-oriented intent, kept as an option rather than the default; real to 14x14),
-      `standard` 7mm (the new default; real to 19x19), `compact` 5.5mm (grid big, cells
-      small, for people who prefer that trade).
-      **The most valuable half — report when the mode does not get what it asked for.**
-      e.g. "large cells requested (9.0mm); this 25x25 prints at 5.4mm — A4 cannot do
-      better. A 14x14 would print at 9.0mm." This is the same idiom the project already
-      uses for FR-021's aspect refusal and FR-014's nudge count: turn a silent
-      degradation into a message. It tells the user the one thing they cannot work out
-      themselves — that their GRID is why their cells are small.
-      **Bonus, and it settles an earlier question: the five-point `CELL_COMFORT_MM` table
-      can be deleted entirely.** Page-fit is already a declining function of the larger
-      dimension (12.36 -> 4.57mm), produced by geometry rather than by a hand-tuned
-      table; the comfort cap's only real job is stopping a 10x10 from printing 12mm
-      cells. So `min(mode_target, page_fit)` satisfies NFR-005's "declining function"
-      BY CONSTRUCTION. This is therefore not a revert of CARD-025 to a flat cap (the
-      framing considered and discarded on 2026-09-01) — it replaces a table with the
-      constraint that was doing the work anyway.
-      **Subtlety to verify rather than assume:** page-fit varies per PUZZLE, not just per
-      size, because it depends on clue-gutter depth — a sparse 20x20 may page-fit
-      slightly larger than a dense 19x19. EC-008's non-increasing property may need to be
-      stated over the mode target rather than the realized value. Exactly the kind of
-      thing that passes review and fails a property test later.
-      **Sequencing:** batch with the `--size N` semantics decision now gating CARD-027.
-      Both change printed output and both touch NFR-005 territory; one architecture pass
-      avoids revising the same area a third time in a week.                    @feature
+- [ ] **NFR-005's "declining function of max(width, height)" is not a valid model for
+      rectangles, and EC-008 is ill-posed because of it** — measured 2026-09-01. A 40x20
+      and a 20x40 have the SAME `max(width, height)` of 40 and print at **3.39mm** and
+      **4.91mm** on portrait A4. So printed cell size is not a function of
+      `max(width, height)` at all: on a fixed-orientation page width and height are not
+      interchangeable, because 40 columns fight the 210mm axis while 40 rows get the
+      297mm one. A 40x20 even prints smaller cells than a 30x30 despite having fewer
+      cells (800 vs 900).
+      **Why this is urgent rather than merely wrong:** EC-008's property test
+      `PropertyTest_Layout_CellSizeNonIncreasingInLargerDimension` is currently safe only
+      because every grid this tool can produce is square. **CARD-027 introduces
+      rectangles**, so it is the card that walks into this, and it is already cut and
+      gated. The finding is also written into CARD-027's `## Architecture revision`
+      section so whoever picks it up meets it there rather than in a review cycle.
+      Fix direction: state the property over the term that actually binds (cells along
+      each page axis), not over `max()`; and/or choose page orientation from the grid's
+      shape, which makes the two axes symmetric again and is worth doing regardless
+      (~45% bigger cells on every rectangle — see the 40x40 entry above).    @tech-debt

@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-01 15:40_
+_Updated: 2026-09-01 16:10_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -54,7 +54,8 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - Three inaccurate prose claims in `src/nonogram/web/handler.py`
 - **Measure how close the finished puzzle is to the source picture** — nothing does today
 - **Elaborate difficulty measurement** — 12 analyzer intake lines written 2026-08-30, never formalized
-- **Three cell-size modes, replacing the comfort table** — 9mm fits 14x14, 7mm fits 19x19; batch with `--size N`
+- **40x40 advanced mode — image/library only** — random already times out at 25-30
+- **NFR-005's max(w,h) model breaks on rectangles** — 40x20 vs 20x40 differ 45%; trap in CARD-027's path
 
 ## Architecture
 _(none)_
