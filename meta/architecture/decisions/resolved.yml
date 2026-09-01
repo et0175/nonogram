@@ -102,3 +102,9 @@ resolved:
     resolved_by: ADR-0022
     resolution_label: judge_trimmed_extent
     date: 2026-09-01
+  - id: DEC-027
+    question: "May a Unicode TTF ship as package data, given ADR-0006's closed dependency baseline?"
+    resolved_by: ADR-0006
+    resolution_label: ship_unicode_ttf_as_package_data
+    date: 2026-09-01
+

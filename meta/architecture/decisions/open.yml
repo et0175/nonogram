@@ -29,6 +29,13 @@
 #       DEC-026. blocks: [].
 
 #
+# DEC-027 (surfaced 2026-09-01) was resolved the same day — ADR-0006 REVISED.
+# Resolution: ship_unicode_ttf_as_package_data. The runtime dependency set is
+# unchanged (stdlib + Pillow + NumPy); the revision draws a line between
+# executable dependencies, still closed, and static data, admissible as package
+# data. New standing rule ADR-0006/R1 holds that line. Migration: rewrite — no
+# FR obliges the work, so without an audit-proposed card the tofu persists.
+#
 # DEC-025 (surfaced 2026-09-01 with the FR-022 trim) was resolved the same day —
 # ADR-0022 REVISED (not a new ADR: the >2x aspect guard is that ADR's own rule
 # R3, and one concern gets one ADR). Resolution: judge_trimmed_extent — the
@@ -130,51 +137,3 @@ open:
     status: open
     blocks: []
     depends_on: []
-  - id: DEC-027
-    question: >
-      ADR-0006 fixes the runtime dependency baseline at stdlib + Pillow +
-      NumPy. A non-ASCII puzzle name (e.g. Cyrillic "кот") currently renders
-      as `.notdef` tofu boxes in the PDF header because Pillow's bundled
-      default font is ASCII-only — re-verified 2026-09-01: "к", "о", "т" and
-      "é" each render a bitmap identical to an unassigned codepoint, while
-      "c" renders correctly. The 2026-09-01 raw-requirements entry asks to
-      ship a small Unicode TTF as PACKAGE DATA (not a new pip dependency) to
-      fix this, resolving the backlog item raised by CARD-011/CARD-014
-      (2026-08-29). The user has already decided this — option (a) of the
-      three the backlog item listed; recorded as a DEC only because writing
-      the ADR revision itself is forge:architect-adr-writer's job.
-    surfaced_from:
-      kind: technology
-      ref: [ADR-0006, CON-006]
-    axis: null
-    default: null
-    alternatives:
-      - label: ship_unicode_ttf_as_package_data
-        summary: >-
-          Bundle a small Unicode-coverage TTF as package data (package_data/
-          MANIFEST, not a pip install_requires entry); PDF export uses it
-          for header text instead of Pillow's built-in default font. This is
-          the alternative the user has already chosen.
-        pros:
-          - "Runtime dependency set stays exactly stdlib + Pillow + NumPy — ADR-0006's closed baseline (and CON-006's restatement of it) is not reopened, only what ships inside the package grows, a materially smaller and more reviewable change than a new pip dependency."
-          - "Filenames are already Unicode-safe (the sanitizer passes \"кот\" through verbatim); this closes the one remaining place — the PDF header text — where a non-ASCII name silently degrades."
-          - "Urgency raised directly by the image-mode auto-naming change (FR-015 amendment, this same delta): a Cyrillic filename stem now becomes the puzzle name automatically, making a non-ASCII name the common case for image-sourced puzzles, not an edge case a user chose deliberately via --name."
-        cons:
-          - "Adds a binary font file to the package's install footprint and a licensing/attribution obligation ADR-0006's original dependency analysis never had to weigh."
-          - "The bundled font's own Unicode coverage becomes a new, implicit boundary — a name using a script the font doesn't cover reintroduces the tofu-box failure one layer down, for a smaller set of scripts."
-      - label: mangle_or_reject_non_ascii_name
-        summary: >-
-          Keep the ASCII-only default font; either transliterate/strip
-          non-ASCII characters from the name before rendering the header, or
-          reject a non-ASCII --name at the CLI boundary.
-        pros:
-          - "No package-data addition, no font licensing question, ADR-0006 stays completely untouched."
-        cons:
-          - "Already one of the three options the CARD-011/CARD-014 backlog item listed and explicitly NOT the one the user chose on 2026-09-01."
-          - "Mangling silently loses information the filename already preserves verbatim; rejecting turns the image-mode auto-naming change (FR-015 amendment) into a trap for any non-English filename."
-    criteria_refs: [CON-006]
-    status: open
-    blocks: []
-    depends_on: []
-
-resolved: []

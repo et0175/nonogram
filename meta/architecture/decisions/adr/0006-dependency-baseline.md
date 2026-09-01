@@ -1,10 +1,10 @@
 # ADR-0006: Dependency baseline — stdlib + Pillow + NumPy
 
-**Status:** Accepted
+**Status:** Accepted (revised 2026-09-01)
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
-**Migration:** —
+**Revised:** 2026-09-01
+**Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
 
@@ -22,7 +22,57 @@ We adopt **stdlib + Pillow + NumPy** as the dependency baseline: Pillow owns ima
 
 This departs from the recommended default of "stdlib + Pillow only." The default's own analysis is correct as far as it goes — Pillow alone is a smaller, cheaper baseline and NumPy's boolean-array masks are not obviously faster than Python ints-as-bitmasks at line lengths that fit in one machine word (<=50 bits). But the owner is deliberately trading that smaller footprint for headroom at the top of the supported range: NumPy makes the 50x50 upper bound (FR-001, AC-038) comfortably within the ADR-0001 time budget rather than resting on the assumption that pure-Python line logic will be fast enough, and it gives the solver a vectorized path to fall back on if profiling after FR-006 lands shows pure-Python integer bitmasks are not enough. A second heavyweight dependency for a personal tool is a real cost, but it is a cost paid once at install time, not a recurring one, and it is judged acceptable in exchange for not having to revisit this decision under time pressure if the pure-Python path turns out to be the bottleneck at 50x50.
 
+**A Unicode TTF ships as package data** (revision 2026-09-01, resolving
+DEC-027). The runtime dependency set is unchanged and stays exactly stdlib +
+Pillow + NumPy; what grows is what ships *inside* the package, not what pip
+installs alongside it. That distinction is the whole decision: a font is data,
+not code — it executes nothing, imports nothing, and cannot break on a version
+bump — so admitting it costs none of the audit surface, install fragility, or
+transitive-dependency risk this ADR's baseline exists to keep out.
+
+The problem it solves is a silent, verified degradation. Pillow bundles no TTF
+at all; `ImageFont.load_default()` returns an embedded ASCII-only face, so any
+non-ASCII character in a PDF header renders as `.notdef` tofu. Re-verified
+2026-09-01: `к`, `о`, `т` and `é` each produce a bitmap byte-identical to an
+unassigned codepoint, while `c` renders correctly. Filenames were never
+affected — the sanitizer is already Unicode-aware and passes `кот` through
+verbatim — so the failure is confined to header text, which is exactly why it
+went unnoticed long enough to sit in the backlog since 2026-08-29.
+
+What forced it now is the FR-015 amendment in the same 2026-09-01 delta: image
+mode began auto-naming puzzles from the source file's stem. A Cyrillic filename
+therefore becomes a puzzle name automatically, without anyone typing `--name`.
+The failure moved from an edge case a user opted into to the default path for
+image-sourced puzzles, which is what turned a deferred backlog question into a
+decision.
+
+The concrete font is **DejaVu Sans** (Bitstream Vera-derived licence,
+permissive, redistribution and bundling explicitly allowed), chosen for Latin +
+Cyrillic + Greek coverage in one widely-vetted file. The implementing card may
+subset it to the covered scripts to cut the install footprint — subsetting
+tools are build-time, not runtime, and so do not touch this baseline either.
+The specific file and any subsetting are settled inside the boundary this ADR
+draws; the boundary itself is: fonts ship as data, never as a pip dependency.
+
 ## Alternatives considered
+
+### Mangle or reject a non-ASCII name (rejected 2026-09-01)
+Keep the ASCII-only default face and either transliterate the name, strip it to
+ASCII, or refuse the request at the CLI boundary when `--export pdf` is asked
+for. Cheapest by far, and it touches no packaging at all. Rejected on all three
+variants: transliteration and stripping both contradict AC-044, which keeps an
+explicit `--name` verbatim, and would now silently rewrite the user's own
+filename; refusal turns the user's ordinary filenames into a recurring error
+they must work around on every image puzzle, which is a worse outcome than the
+cosmetic defect it prevents. All three answer a naming question by damaging
+naming, when the actual fault is font coverage.
+
+### Add a font library as a pip dependency (rejected 2026-09-01)
+Depend on a package that supplies fonts, letting pip resolve and update it.
+Rejected because it reopens precisely what this ADR closed — a third
+install-time dependency, its transitive tree, and its version churn — to obtain
+a static binary asset that will never need updating. Buying data through a code
+dependency is the expensive way to get it.
 
 ### pillow_only (recommended default — not chosen)
 
@@ -35,6 +85,8 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 ## Consequences
 
 ### Positive
+- (2026-09-01) A non-ASCII puzzle name prints correctly instead of as tofu, closing the one place where a Unicode name silently degraded — and doing so without reopening the dependency baseline, since the font is data rather than code.
+- (2026-09-01) The code/data distinction this revision draws is reusable: any future static asset (an extra font, an icon) is admissible on the same reasoning, while the bar for a new importable dependency stays exactly where it was.
 - Vectorized row/column mask intersection gives the solver hot loop materially faster line operations than pure-Python bitmasks would need to achieve on their own, making the 50x50 upper bound (FR-001, AC-038) comfortable against the ADR-0001 30s timeout rather than marginal.
 - Direct, cheap conversion between a NumPy array and a Pillow image keeps the FR-003 (image-in) and FR-011 (image-out) boundary simple even with two libraries in play.
 - FR-003's dithering and PNG decode/resize remain a Pillow library call, not a hand-written algorithm — none of NumPy's benefit is bought at the cost of reimplementing image codecs.
@@ -49,6 +101,11 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 - This ADR fixes the DEPENDENCY baseline only; how grids are actually represented internally (NumPy arrays end-to-end vs. NumPy only at the solver boundary vs. something else) is DEC-012's decision, which this ADR narrows but does not resolve.
 - Should solver profiling after FR-006 lands show NumPy's vectorized masks are not in fact faster than integer bitmasks at 50x50, the dependency stays justified by the image-I/O half of the pipeline alone, but the solver-side rationale for it would need revisiting.
 
+### Negative (2026-09-01 revision)
+- The package gains a binary file in its install footprint, and with it a licensing and attribution obligation the original dependency analysis never had to weigh. DejaVu Sans's licence is permissive and allows bundling, but the obligation to ship its notice is real and new.
+- The bundled font's own coverage becomes a new implicit boundary. A name in a script it does not cover — Chinese, Japanese, Arabic, Hebrew — reproduces the identical tofu failure one layer down. This revision shrinks the failing set; it does not eliminate it, and a future request for those scripts is a new decision, not a bug in this one.
+- Nothing mechanically prevents a later contributor from reading this revision as permission to bundle anything. The `## Rules` block below exists to hold the line at *non-executable data*.
+
 ## References
 
 - DEC-006 (resolved by this ADR)
@@ -61,3 +118,26 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 ## History
 
 - 2026-08-27: Created — adopted stdlib + Pillow + NumPy over the recommended stdlib + Pillow-only default, trading a second dependency for vectorized solver headroom at the 50x50 upper bound.
+- 2026-09-01 — Revised — resolves DEC-027. Previous decision: the baseline
+  admitted no bundled assets, so PDF header text used Pillow's ASCII-only
+  default face and any non-ASCII name rendered as `.notdef` tofu (verified:
+  `к`, `о`, `т`, `é` all byte-identical to an unassigned codepoint). Reason:
+  the FR-015 amendment in the same delta made image mode auto-name from the
+  source filename, so a Cyrillic name became the default path for image-sourced
+  puzzles rather than something a user opted into via `--name`. A Unicode TTF
+  now ships as package data. The runtime dependency set is unchanged — the
+  revision draws a line between executable dependencies (still closed) and
+  static data (admissible), which is what makes the change smaller than
+  reopening the baseline. Rejected alternatives recorded above: mangling or
+  rejecting the name, and taking a font through a pip dependency. Migration is
+  `rewrite` rather than `on-touch` because no FR obliges this work — without an
+  audit-proposed card the tofu simply persists.
+
+## Rules
+```yaml
+- id: ADR-0006/R1
+  statement: The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party package joins the installed dependencies without revising this ADR. Non-executable static assets (fonts and similar data files) may ship as package data instead, and doing so is not a dependency change.
+  scope: {code: ["pyproject.toml", "src/nonogram/**"]}
+  check: {kind: test, ref: TestDependencyBaseline_IsExactlyPillowAndNumpy}
+  severity: mandatory
+```
