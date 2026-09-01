@@ -639,7 +639,14 @@ def test_the_font_ships_as_package_data_and_not_as_a_dependency() -> None:
 
     assert "fonts/*.ttf" in package_data
     assert "fonts/LICENSE" in package_data
-    assert "font" not in " ".join(manifest["project"]["dependencies"]).lower()
+
+    # The real pin — same exact set comparison as
+    # test_the_dependency_baseline_is_still_closed — so this test's own
+    # docstring ("arrived without touching the installed dependency set") is
+    # carried by this test's body, not borrowed from a sibling.
+    dependencies = manifest["project"]["dependencies"]
+    packages = {re.split(r"[<>=!~\[ ]", line)[0].lower() for line in dependencies}
+    assert packages == {"pillow", "numpy"}
 
     # ``\x00\x01\x00\x00`` is a TrueType file's magic; the alternative is
     # ``true``/``ttcf``. Checked so an empty or truncated file fails here rather
@@ -654,6 +661,33 @@ def test_the_font_ships_as_package_data_and_not_as_a_dependency() -> None:
         .read_text(encoding="utf-8")
     )
     assert "Bitstream Vera" in licence and "DejaVu" in licence
+
+
+def test_a_missing_bundled_font_raises_instead_of_falling_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``_font_bytes``'s own docstring: a missing/unreadable resource must raise,
+    never fall back to :func:`PIL.ImageFont.load_default`.
+
+    Nothing else in the suite would fail if a future edit wrapped the read in a
+    ``try``/``except`` that papered over the failure — that fallback is exactly
+    the defect this card exists to fix, reinstated silently. This pins the
+    designed error path directly.
+
+    ``_font_bytes`` is ``lru_cache(maxsize=1)``, so the cache is cleared before
+    pointing it at a resource that does not exist (otherwise the real bytes
+    already cached would be served regardless of ``FONT_RESOURCE``) and cleared
+    again afterwards, in a ``finally``, so the real bytes are back for every
+    other test in this module rather than leaving the failure cached in their
+    place.
+    """
+    pdf._font_bytes.cache_clear()
+    monkeypatch.setattr(pdf, "FONT_RESOURCE", "fonts/NotAFont.ttf")
+    try:
+        with pytest.raises(FileNotFoundError):
+            pdf._font_bytes()
+    finally:
+        pdf._font_bytes.cache_clear()
 
 
 def test_the_header_font_is_the_bundled_file_and_not_the_hosts(tmp_path: Path) -> None:

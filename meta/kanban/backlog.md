@@ -14,7 +14,7 @@
       change.                                                                       @tech-debt
 
 ## Surfaced during delivery (Wave 8, 2026-08-29)
-- [ ] **Decision needed:** a non-ASCII `--name` (e.g. `кот`, `café`) renders as `.notdef`
+- [x] **Decision needed:** a non-ASCII `--name` (e.g. `кот`, `café`) renders as `.notdef`
       tofu boxes in the PDF header — Pillow's bundled default font is an ASCII-only
       subset (verified: identical bitmap to an unassigned codepoint). CARD-011 keeps
       `--name` verbatim (AC-044) and CARD-014 could not fix this without breaking a
@@ -25,6 +25,8 @@
       document ASCII-only PDF headers as a known limitation, (c) reject non-ASCII
       `--name` at the CLI boundary when `--export pdf` is requested. Needs a product
       call, not a code fix.                                                        @tech-debt
+      Resolved 2026-09-01: option (a) taken — ADR-0006 revised to admit a bundled
+      TTF as package data (dependency set unchanged), implemented by CARD-032.
 - [ ] `tests/test_export_image.py::test_the_png_contains_the_clues` is vacuous —
       asserts `crop(...).getbbox() is not None` on an ink-on-white RGB image, which is
       always true (white is non-zero), so the gutters are never actually checked for

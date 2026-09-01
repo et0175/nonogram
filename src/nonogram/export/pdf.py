@@ -51,9 +51,23 @@ redistribution and requires the notice travel with the file.
 
 **The font's coverage is now the boundary, and it is not all of Unicode.**
 DejaVu Sans covers Latin, Cyrillic and Greek (among others), which is what this
-buys. A name written in a script it does not cover — Chinese, Japanese, Arabic,
-Hebrew — still renders as tofu, by exactly the same mechanism one layer down.
-This shrinks the failing set; it does not empty it.
+buys. A name written in a script it does not cover — Chinese, Japanese, Korean,
+Thai, Devanagari — still renders as tofu, by exactly the same mechanism one
+layer down. This shrinks the failing set; it does not empty it.
+
+Coverage is not the only boundary, either: this venv's Pillow reports
+``features.check("raqm") == False``, so there is no complex-script shaping and
+no bidi. DejaVu *does* cover Arabic and Hebrew, but without Raqm a name in
+either sets as isolated, unjoined letterforms in left-to-right order rather
+than as tofu — wrong in a different way, and not fixed by this card.
+
+Only the header moved. A page's clue digits still come out of
+``png._clue_font``'s Pillow default face (:func:`_header_font` is not
+consulted there) — they are ASCII decimal digits, so nothing about that
+choice can tofu, and ``png.py`` is outside this card's Touches. The
+consequence is that a rendered page now carries two typefaces: the title in
+the bundled DejaVu Sans, the clue numbers in Pillow's embedded default. That
+mix is deliberate and accepted, not an oversight.
 
 What is *not* on the page (guardrail G-6)
 ------------------------------------------
@@ -163,12 +177,21 @@ def _font_bytes() -> bytes:
 def _header_font(size: int) -> ImageFont.FreeTypeFont:
     """The bundled DejaVu Sans at ``size`` pixels.
 
-    The bundled face and not a system one, for the reason ``png._clue_font``
-    documents: the output must not depend on which fonts the machine running
-    the generator happens to have installed. What is new is that the bundled
-    face is now a real Unicode TTF rather than Pillow's ASCII-only default, so
-    a Cyrillic or Greek name sets as itself instead of as a row of ``.notdef``
-    boxes. Scripts DejaVu Sans does not cover still do not set — see the module
+    The bundled face and not a system one, for the same reason
+    ``png._clue_font`` documents: the output must not depend on which fonts
+    the machine running the generator happens to have installed. What is new
+    is that the bundled face is now a real Unicode TTF rather than Pillow's
+    ASCII-only default, so a Cyrillic or Greek name sets as itself instead of
+    as a row of ``.notdef`` boxes. Scripts DejaVu Sans does not cover still
+    do not set — see the module docstring.
+
+    That reason is shared; the *face* is not. ``png._clue_font`` still
+    returns ``ImageFont.load_default()`` — this card's Touches is
+    :mod:`nonogram.export.pdf` only, and clue digits are ASCII decimal
+    digits, so nothing about leaving ``png.py`` alone can tofu. The
+    consequence is that every page this module writes now carries two
+    typefaces: the header in the bundled DejaVu Sans, the clue numbers still
+    in Pillow's embedded default. Deliberate, and accepted — see the module
     docstring.
 
     Cached by size: :func:`_draw_header` re-measures at a second size when a
@@ -274,14 +297,20 @@ def _draw_header(
     ``.notdef`` box. That constraint is gone — the package now ships its own
     DejaVu Sans (:func:`_header_font`), which does carry the em dash.
 
-    The rule stays anyway. Guardrail G-2 changes the face the header is drawn
-    with and nothing else about the header, and a stroked rule and a set em
-    dash are visibly different marks: the stroke's length, weight and the air
-    around it are fixed fractions of the type size
-    (:data:`_RULE_LENGTH_RATIO` and friends), so the separator looks the same
-    at every size the fitting below can pick, which a glyph's own advance width
-    does not guarantee. Turning it back into a glyph is a deliberate change to
-    the page, not a simplification.
+    The rule stays anyway — not because the glyph would misbehave (a
+    scalable outline glyph's advance is itself a fixed fraction of the type
+    size, exactly as linear as the stroke's nominal length) but because
+    guardrail G-2 changes the face the header is drawn with and nothing else
+    about the header, and a stroked rule and a set em dash are visibly
+    different marks on the page. Turning it back into a glyph is a
+    deliberate change, not a simplification, and is out of scope here.
+
+    The stroke does have one property the glyph would not: its *weight* is
+    ``max(1, round(size * _RULE_WEIGHT_RATIO))`` (see the ``draw.line`` call
+    below) — clamped to a minimum of one pixel and rounded to a whole one, so
+    at the small end of the fitting range (:data:`_MIN_HEADER_FONT_RATIO`)
+    the rule's thickness stops scaling linearly with size even though its
+    length still does.
 
     A non-ASCII *name*, by contrast, is now set rather than boxed — that is the
     whole of what changed here — for names in the scripts DejaVu Sans covers.

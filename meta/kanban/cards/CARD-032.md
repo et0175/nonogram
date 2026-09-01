@@ -44,7 +44,7 @@ correctly from the src-layout. ADR-0006/R1 is the standing rule that draws this 
 this card is its first implementation.
 
 **What this does not fix, and must not claim to.** The bundled font's own coverage becomes
-the new boundary. A name in a script it does not cover — Chinese, Japanese, Arabic, Hebrew
+the new boundary. A name in a script it does not cover — Chinese, Japanese, Korean, Thai, Devanagari
 — reproduces the identical tofu failure one layer down. This card shrinks the failing set;
 it does not eliminate it. Say so in the module docstring rather than implying full Unicode
 support.
@@ -170,13 +170,25 @@ support.
   longer true and this codebase treats a false docstring as a defect.
 - **[G-3]** `_filename_stem` / `_sanitized_component` untouched;
   `orchestrator.py` (G-5) and `sourcing/image.py` (G-4) untouched.
+- **[Mixed typefaces — known, accepted]** Only the header moved to the bundled
+  DejaVu Sans. `png._clue_font` (outside this card's Touches) still returns
+  `ImageFont.load_default()` for the clue digits, so a rendered page now
+  carries two typefaces. This is correct, not a gap: `png.py` is untouched by
+  design (G-3/G-4/G-5 neighbour) and clue digits are ASCII decimal digits, so
+  nothing about leaving it alone can tofu. Stated in `pdf.py`'s module
+  docstring and `_header_font`'s docstring — flagging for the reviewer to
+  confirm this is accepted as a known visual consequence, not something this
+  card should have unified.
 - **[Scope]** No `SCOPE+` entries. Everything landed inside the card's Touches:
   `src/nonogram/export/pdf.py`, new `src/nonogram/export/fonts/`,
   `pyproject.toml`, `tests/test_export_pdf.py`.
 - **[Honesty about coverage]** The module docstring states plainly that the
   bundled font's own coverage is the new boundary and that Chinese, Japanese,
-  Arabic and Hebrew names still render as tofu. No claim of full Unicode
-  support anywhere.
+  Korean, Thai and Devanagari names still render as tofu. It also names the
+  separate shaping/bidi boundary: Pillow here has no Raqm, so a covered but
+  unshaped script (Arabic, Hebrew) sets as unjoined, left-to-right
+  letterforms rather than tofu — wrong in a different way, not fixed by this
+  card. No claim of full Unicode support anywhere.
 - **[Tests]** Full suite: **1363 passed, 1 xfailed** (baseline 1354 + 1 xfailed;
   +9 from this card, one existing test renamed rather than added). New:
   `test_the_notdef_comparison_can_actually_tell_tofu_from_a_glyph`,
