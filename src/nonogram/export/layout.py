@@ -56,11 +56,39 @@ stamp onto their output (the PNG as a ``dpi`` tag, the SVG as a physical
 ``width``/``height`` in inches over a pixel ``viewBox``) so that a printer
 reproduces the intended size instead of guessing.
 
+The sheet turns whichever way prints the larger cell (NFR-006)
+--------------------------------------------------------------
+A4 is the only paper this module knows, but it is not always the same way up.
+Page fit is a different measurement on a turned sheet — 186 mm across by
+273 mm down becomes 273 mm across by 186 mm down — so :func:`_orientation_for`
+measures the cell **both ways and keeps the larger**, a tie going to portrait
+(EC-010). That is the whole rule: orientation is not a function of the grid's
+extent, and two puzzles of the same extent can print on differently turned
+sheets when their clue gutters differ.
+
+The rule it replaced turned the sheet on the grid's *shape* — landscape iff
+``columns > rows`` — which reads the wrong object: what has to fit the paper
+is the **drawing**, grid plus both gutters plus the band, and a wide grid can
+draw tall behind a deep column gutter. A 26x25 whose rows alternate full and
+empty draws 27 cells across by 38 down, and prints 6.86 mm upright against the
+4.57 mm the landscape sheet its shape asks for would give. Measured over
+CON-011's 441 extents at the two gutter-heavy clue patterns
+:mod:`tests.property.test_layout_cell_size` sweeps, the shape rule costs cell
+size on 102 of those 882 cases and gains on none, for a mean printed cell of
+6.626 mm against this rule's 6.749 mm.
+
+Turning is worth having where it applies: a 26x10 checkerboard goes 4.74 mm to
+6.86 mm, a 30x10 5.93 mm to 6.43 mm. It is also self-limiting, without a rule
+saying so — a small grid is held by the comfort cap on both sheets, so the two
+cells come out equal and the tie keeps it upright. Swept over the 441 extents
+at four clue patterns, 446 of the 1764 cases turn, none of them below a larger
+dimension of 16.
+
 :func:`compute_layout` then sizes the cell as NFR-005 defines it — the
 comfortable size for a grid that big, held down to whatever the sheet can
 actually take::
 
-    cell = min(comfort_cap(max(columns, rows)), page_fit)
+    cell = min(comfort_cap(max(columns, rows)), page_fit(orientation))
 
 * the *comfort cap* (:func:`comfort_cap_mm`) is how big a cell wants to be at
   that grid size: 9.0 mm at 10 cells a side, declining to 6.5 mm at 30
@@ -72,26 +100,34 @@ actually take::
   out about 30% smaller than it was meant to be.
 * *page fit* is the largest cell whose whole page — grid, plus both clue
   gutters, plus the :data:`HEADER_BAND_MM` strip a titled page lays above the
-  drawing — still fits the printable area of A4. The band is counted for all
-  three formats, not only the PDF that draws it: it costs a wide drawing
-  nothing (the band eats height, and the width term binds unless a drawing is
-  about 1.40x taller than it is wide), and for the tall drawings where the
-  height term does bind, a cell chosen without it is a cell the PDF cannot put
-  on a sheet. That is not hypothetical — a 10x25 whose rows alternate full and
-  empty is an ordinary uniquely-solvable puzzle, and sized on the drawing alone
-  it overruns A4 by 34 device pixels once the band is added.
+  drawing — still fits the printable area of A4 **as the puzzle turned it**. The
+  band is counted for all three formats, not only the PDF that draws it: it
+  eats height, so it only ever costs a drawing whose height term binds — which
+  on a portrait sheet means a drawing about 1.40x taller than it is wide
+  (186 mm across against 261 mm down once the band is reserved) and on a
+  landscape one about 0.64x, since a turned sheet leaves 273 mm across against
+  only 174 mm down. Where the height term does bind, a cell chosen without the
+  band is a cell the PDF cannot put on a sheet. That is not hypothetical — a
+  10x25 whose rows alternate full and empty is an ordinary uniquely-solvable
+  puzzle, and sized on the drawing alone it overruns A4 by 34 device pixels
+  once the band is added.
 * the cap is a **ceiling, never a floor**: where the two disagree, page fit
-  wins. From about 20 cells a side up, the gutter makes page fit the smaller
-  term every time — at 45% density a 30x30 draws 40 cells across, which is
-  260 mm of paper at 6.5 mm cells against the 186 mm A4 actually prints. A cap
-  honoured where the page allows it is a real gain at the small sizes a person
-  prints most; a cap treated as a target would be a promise the format cannot
-  keep.
+  wins. Which of the two binds is as much a question of the gutter as of the
+  grid's size — a 30x30 checkerboard draws 45 cells across, 293 mm of paper at
+  the 6.5 mm the cap allows against the 186 mm A4 actually prints, so page fit
+  overrules the cap; a 20x20 with a single filled cell draws 21 across and sits
+  at its 7.5 mm cap with room to spare. Over the four-pattern sweep, 564 of the
+  1364 cases at 20 cells a side or more are page-fit bound and the other 800
+  are at the cap. A cap honoured where the page allows it is a real gain at the
+  small sizes a person prints most; a cap treated as a target would be a
+  promise the format cannot keep.
 * the *floor* (:data:`MIN_CELL_MM`) is the honest limit of the format, and is
-  deliberately untouched by the above. No supported puzzle reaches it: the
-  worst 30x30 draws 45 cells across and still gets a ~4 mm cell, and page fit
-  would have to fall below 2 mm — over ninety cells across — before the floor
-  bites at all. It is the backstop for that case, and it answers it by keeping
+  deliberately untouched by the above — turning the sheet does not move it.
+  No supported puzzle reaches it: the worst 30x30 draws 45 cells across and
+  still gets a ~4 mm cell, and page fit would have to fall below 2 mm — over
+  ninety cells across a portrait sheet, over a hundred and thirty across a
+  landscape one — before the floor bites at all. It is the backstop for that
+  case, and it answers it by keeping
   2 mm cells and letting the image grow past A4 rather than shrinking past the
   point where a pencil mark is meaningless: a user printing a drawing that
   large is scaling it down or printing it on A3 either way, and a silently
@@ -105,6 +141,7 @@ it is measuring may be exported.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 __all__ = [
     "CELL_COMFORT_MM",
@@ -121,6 +158,7 @@ __all__ = [
     "GridLine",
     "HeaderBand",
     "Layout",
+    "Orientation",
     "comfort_cap_mm",
     "compute_layout",
     "header_band",
@@ -131,7 +169,12 @@ __all__ = [
 #: the 30x30 page is four times the bytes for detail no home printer resolves.
 DPI = 300
 
-#: A4, portrait, in millimetres (ISO 216).
+#: A4 held **portrait**, in millimetres (ISO 216) — the orientation these two
+#: names describe, and the one a puzzle keeps unless turning the sheet prints
+#: it a larger cell (NFR-006), in which case the two swap.
+#: :func:`_page_size_mm` is the one place that swap happens, so that every
+#: other reference to A4 in this module can go on meaning the same physical
+#: piece of paper.
 PAGE_WIDTH_MM = 210.0
 PAGE_HEIGHT_MM = 297.0
 
@@ -167,11 +210,16 @@ MAX_CELL_MM = CELL_COMFORT_MM[-1][1]
 #: an oversized image beats a silently unreadable page.
 #:
 #: **A backstop for out-of-range drawings only, and knowingly so.** Measured
-#: over all 441 extents CON-011 supports at three gutter depths: the smallest
-#: cell any of them gets is 48 px / 4.06 mm (a 30x10 checkerboard, 45 cells
-#: across), against this floor's 24 px. Page fit has to fall under 24 px for
-#: the floor to engage at all, which needs 92 cells across or 129 down —
-#: three times CON-011's widest grid plus its deepest gutter. So the guarantee
+#: over all 441 extents CON-011 supports at four clue patterns, each on the
+#: sheet NFR-006 turns it to: the smallest cell any of them gets is 48 px /
+#: 4.06 mm — three checkerboards, 30x28, 30x29 and 30x30, each drawing 45 cells
+#: across and so having to fit 45 of them into the 186 mm of width a portrait
+#: sheet leaves (the 30x30 stays upright because turning it would print only
+#: 3.81 mm) — against this floor's 24 px.
+#: Page fit has to fall under 24 px for the floor to engage at all, which needs
+#: 92 cells across or 129 down on a portrait sheet, and 135 across or 86 down on a
+#: landscape one — nearly twice CON-011's widest grid plus its deepest gutter
+#: even by the easiest of those four routes. So the guarantee
 #: "the floor still beats page fit" (guardrail G-3) is certified against a
 #: synthetic drawing (``test_the_largest_drawing_keeps_a_markable_cell``'s
 #: 120x60 clue set) rather than a constructible puzzle, because the domain can
@@ -207,6 +255,10 @@ _THIN_RULE_RATIO = 1 / 30
 #: types ``nonogram.clues`` produces and ``ExportPayload`` carries (ADR-0012).
 type LineClue = tuple[int, ...]
 type ClueSet = tuple[LineClue, ...]
+
+#: Which way up the A4 sheet is held (NFR-006). Two values and no third: this
+#: module has one paper size, and turning it is the only freedom it has.
+type Orientation = Literal["portrait", "landscape"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +324,15 @@ class Layout:
     Attributes:
         rows: Grid height in cells.
         columns: Grid width in cells.
+        orientation: Which way up the A4 sheet this cell was sized against
+            (NFR-006) — ``"landscape"`` when the turned sheet printed a larger
+            cell for this puzzle, ``"portrait"`` otherwise, ties included. It
+            is not a coordinate: the drawing is measured to its own extent, so
+            no renderer has to rotate anything. It is recorded because it names
+            the sheet page fit was computed against, and neither a reader of a
+            :class:`Layout` nor the extent it carries can tell which sheet a
+            6.86 mm cell came off — two puzzles of the same extent can be on
+            different ones.
         cell: The side of one square cell.
         margin: The blank border on all four sides.
         row_gutter_cells: How many clue boxes deep the left gutter is — the
@@ -299,6 +360,7 @@ class Layout:
 
     rows: int
     columns: int
+    orientation: Orientation
     cell: int
     margin: int
     row_gutter_cells: int
@@ -382,8 +444,9 @@ def header_band(layout: Layout) -> HeaderBand:
     without the band is a cell the PDF cannot fit on A4 (NFR-005 defines page
     fit over drawing *plus* band for exactly this reason). So the band is free
     in a headerless format's coordinates and not quite free in its cell — and
-    only where the height term binds at all, which needs a drawing about 1.40x
-    taller than it is wide.
+    only where the height term binds at all, which on a portrait sheet needs a
+    drawing about 1.40x taller than it is wide, and on a landscape one only
+    about 0.64x.
 
     Measured cost, over CON-011's 441 extents at each of the **four** clue
     patterns :mod:`tests.property.test_layout_cell_size` sweeps — naming them
@@ -394,16 +457,24 @@ def header_band(layout: Layout) -> HeaderBand:
     ===================  ================
     pattern              cells moved /441
     ===================  ================
-    ``_random_grid``                    3
-    ``_checkerboard``                  58
-    ``_sparse``                         0
-    ``_alternating_rows``             111
+    ``_random_grid``                   74
+    ``_checkerboard``                 151
+    ``_sparse``                        10
+    ``_alternating_rows``             118
     ===================  ================
 
-    **172 of 1764 (9.8%)** over the whole corpus, by at most 0.2540mm — exactly
-    three device pixels at :data:`DPI`. Almost all of it is the tall
-    alternating-rows regime, where the height term binds most often; ``_sparse``
-    never moves at all.
+    **353 of 1764 (20.0%)** over the whole corpus, by at most 0.5080mm —
+    exactly six device pixels at :data:`DPI`. Counted the way the question is
+    actually asked: drop the reservation and let NFR-006 re-choose the sheet
+    without it, since the band now moves the orientation as well as the cell.
+    Those counts were 3, 58, 0 and 111 (172 of 1764, 9.8%, at most three
+    pixels) when every page was portrait, and they doubled because a landscape
+    sheet has 174 mm of printable height to a portrait one's 261 mm: the band's
+    12 mm is a much larger share of a much smaller axis, so the height term it
+    comes out of binds on most landscape drawings rather than on a tall
+    minority. The reservation is correspondingly more load-bearing than it was,
+    not less — ``_sparse``, which never moved a single cell before, now moves
+    ten.
 
     The type size is physical (:data:`HEADER_FONT_MM` at :data:`DPI`) and not a
     fraction of the cell, unlike :attr:`Layout.clue_font_size`. A clue digit has
@@ -442,6 +513,18 @@ def _gutter_depth(clue_set: ClueSet) -> int:
     return max((len(clue) for clue in clue_set), default=1)
 
 
+def _page_size_mm(orientation: Orientation) -> tuple[float, float]:
+    """The A4 sheet's width and height in millimetres, held that way up.
+
+    The single place :data:`PAGE_WIDTH_MM` and :data:`PAGE_HEIGHT_MM` are
+    allowed to swap. A4 is A4 either way (G-1: no second paper size, no
+    tiling); only the axis each measurement lands on changes.
+    """
+    if orientation == "landscape":
+        return PAGE_HEIGHT_MM, PAGE_WIDTH_MM
+    return PAGE_WIDTH_MM, PAGE_HEIGHT_MM
+
+
 def comfort_cap_mm(larger_dimension: int) -> float:
     """How big a printed cell may be for a grid this many cells on its longer
     side, in millimetres (NFR-005).
@@ -460,7 +543,12 @@ def comfort_cap_mm(larger_dimension: int) -> float:
 
     Returns:
         The cell edge the cap allows, in millimetres. Non-increasing in
-        ``larger_dimension`` (EC-008).
+        ``larger_dimension``, and independent of orientation: a 12x10 and a
+        10x12 share a cap, and the cap is the same number offered to both
+        candidate sheets when :func:`_orientation_for` compares them (EC-008).
+        That is why it decides where the two sheets *tie* — wherever the cap is
+        the binding term on both, the cells are equal and the puzzle stays
+        upright.
     """
     if larger_dimension <= CELL_COMFORT_MM[0][0]:
         return CELL_COMFORT_MM[0][1]
@@ -478,6 +566,7 @@ def _fit_cell(
     total_rows: int,
     *,
     larger_dimension: int,
+    orientation: Orientation,
     reserved_height_mm: float,
 ) -> int:
     """The cell size in device pixels: ``min(comfort cap, page fit)`` (NFR-005).
@@ -487,13 +576,21 @@ def _fit_cell(
     own longer side:
 
     * *page fit* is the largest cell whose whole page still fits the printable
-      area of an A4 sheet. Gutters included, which is why
+      area of an A4 sheet held ``orientation`` way up — 186 mm across by 273 mm
+      down, or 273 mm across by 186 mm down, which are different constraints on
+      the same drawing. The way up is an **argument**, never something this
+      function decides or looks up: that is what lets :func:`_orientation_for`
+      call it once per sheet and keep the larger answer (NFR-006), and a
+      version of this function that consulted the chosen orientation would make
+      that comparison recursive. Gutters included, which is why
       ``total_columns``/``total_rows`` are totals and not the grid's own
       dimensions; and ``reserved_height_mm`` included too, which is the strip
       a renderer lays above the drawing without :func:`compute_layout` knowing
       any of its geometry.
     * the *comfort cap* is what :func:`comfort_cap_mm` assigns to
-      ``larger_dimension``, the longer side of the grid alone.
+      ``larger_dimension``, the longer side of the grid alone — the one term
+      of the two that a turned sheet leaves untouched, and therefore the term
+      that decides when the two sheets tie.
 
     Why the reserved strip is a parameter here and a constant at the call site
     ----------------------------------------------------------------------
@@ -505,21 +602,26 @@ def _fit_cell(
     that makes it, instead of a global this function silently consults. A
     caller that genuinely draws no band can pass ``0.0``; today none does, and
     the cost of the shared reservation is confined to drawings tall enough for
-    the height term to bind at all (roughly 1.40x taller than wide, since
-    the band's reservation leaves 261mm of height against 186mm of width).
+    the height term to bind at all — roughly 1.40x taller than wide on a
+    portrait sheet (the reservation leaves 261mm of height against 186mm of
+    width) and roughly 0.64x on a landscape one (174mm against 273mm), which
+    is why turning the page makes the band's reservation bite more often, not
+    less.
 
     The cap is a ceiling and page fit wins whenever it is the smaller of the
-    two — for anything from about 20 cells a side up, that is always (see the
-    module docstring). It is converted to whole pixels by truncation rather
-    than rounding, so "the printed cell never exceeds the cap" (EC-008) holds
-    exactly in millimetres instead of to within half a device pixel.
+    two — over the four-pattern sweep, on 564 of the 1364 cases at 20 cells a
+    side or more (see the module docstring). The cap is converted to whole
+    pixels by truncation rather than rounding, so "the printed cell never
+    exceeds the cap" (EC-008) holds exactly in millimetres instead of to within
+    half a device pixel.
 
     :data:`MIN_CELL_MM` is the one clamp still allowed to win *over* page fit,
     exactly as before: below it the page is allowed to outgrow A4 rather than
     shrink past the point where a pencil mark is meaningless.
     """
-    printable_width = _mm_to_px(PAGE_WIDTH_MM - 2 * PAGE_MARGIN_MM)
-    printable_height = _mm_to_px(PAGE_HEIGHT_MM - 2 * PAGE_MARGIN_MM) - _mm_to_px(
+    page_width_mm, page_height_mm = _page_size_mm(orientation)
+    printable_width = _mm_to_px(page_width_mm - 2 * PAGE_MARGIN_MM)
+    printable_height = _mm_to_px(page_height_mm - 2 * PAGE_MARGIN_MM) - _mm_to_px(
         reserved_height_mm
     )
     page_fit = min(
@@ -528,6 +630,90 @@ def _fit_cell(
     )
     cap = int(comfort_cap_mm(larger_dimension) / 25.4 * DPI)
     return max(_mm_to_px(MIN_CELL_MM), min(cap, page_fit))
+
+
+def _orientation_for(
+    total_columns: int,
+    total_rows: int,
+    *,
+    larger_dimension: int,
+    reserved_height_mm: float,
+) -> Orientation:
+    """Which way up the sheet goes for this puzzle (NFR-006, EC-010).
+
+    **Whichever sheet prints the larger cell**, with a tie going to portrait.
+    Not a function of the grid's extent: the same 30x20 turns or does not
+    according to how deep its clue gutters are, because what has to fit the
+    paper is the drawing — grid plus both gutters plus the band a titled sheet
+    carries — and a wide grid can draw tall behind a deep column gutter.
+
+    The rule this replaced turned the sheet on the grid's *shape* (landscape
+    iff ``columns > rows``). That states orientation over the grid while page
+    fit is governed by the drawing, and it costs cell size on 102 of the 882
+    cases in CON-011's range at the two gutter-heavy clue patterns
+    :mod:`tests.property.test_layout_cell_size` sweeps: worst is a
+    26x25 whose rows alternate full and empty, which draws 27 cells across by
+    38 down and so prints 6.86 mm upright against the 4.57 mm the landscape
+    sheet its shape asks for would give — a 33% loss. Mean printed cell over
+    the same corpus: 6.626 mm on the shape rule, 6.749 mm here.
+
+    Why the comparison and not a formula
+    ------------------------------------
+    There is no closed form to compare against. "Turn it if the *drawing* is
+    wider than it is tall" is the obvious approximation and is circular: a
+    drawing's extent in millimetres depends on the cell, the cell depends on
+    page fit, and page fit depends on the orientation being chosen. Comparing
+    the two fitted cells has no such loop — :func:`_fit_cell` takes the
+    orientation as an argument and never asks which one was chosen, so it can
+    be evaluated for both sheets and the larger answer kept. **This is the one
+    invariant to preserve here:** the dependency runs one way, from this
+    function into :func:`_fit_cell`, and a "convenience" that had page fit
+    consult the chosen orientation, or had this call :func:`compute_layout`,
+    would close the loop into unbounded recursion.
+
+    Ties go to portrait, and they are common rather than a corner: wherever the
+    comfort cap is the binding term on both sheets the two cells are equal by
+    construction. That is what keeps a small grid upright without a rule saying
+    so. Swept over CON-011's 441 extents at the four clue patterns
+    :mod:`tests.property.test_layout_cell_size` uses, 446 of the 1764 cases
+    turn, concentrated at 27..30, and the smallest larger-dimension that turns
+    at all is 16: of the 144 cases at 15 or fewer, 132 tie on the cap and the
+    remaining 12 are won outright by portrait. So a small puzzle is never
+    turned gratuitously — it turns only once it is genuinely page-constrained,
+    which is when turning buys something. That is a consequence of the
+    comparison, not a rule written alongside it, and NFR-006/AC-106 record it
+    as such.
+
+    Args:
+        total_columns: The drawing's width in cells — the grid plus its row
+            gutter, exactly what :func:`_fit_cell` measures.
+        total_rows: The drawing's height in cells, gutter included.
+        larger_dimension: ``max(columns, rows)`` of the grid, for the comfort
+            cap. Orientation-independent, but it decides where the cap binds
+            and therefore where the two sheets tie.
+        reserved_height_mm: The strip reserved above the drawing, passed
+            through so both candidate sheets are measured on the same terms as
+            the one that wins.
+
+    Returns:
+        ``"landscape"`` when the turned sheet prints a strictly larger cell,
+        ``"portrait"`` otherwise.
+    """
+    upright = _fit_cell(
+        total_columns,
+        total_rows,
+        larger_dimension=larger_dimension,
+        orientation="portrait",
+        reserved_height_mm=reserved_height_mm,
+    )
+    turned = _fit_cell(
+        total_columns,
+        total_rows,
+        larger_dimension=larger_dimension,
+        orientation="landscape",
+        reserved_height_mm=reserved_height_mm,
+    )
+    return "landscape" if turned > upright else "portrait"
 
 
 def _rule_widths(cell: int) -> tuple[int, int]:
@@ -628,6 +814,14 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
     solution never reaches this function, which is the structural reason the
     renderers cannot leak it onto a page they are only given coordinates for.
 
+    The sheet's orientation is derived here too, from those same clue sets:
+    the cell is measured on both sheets and the larger one wins, ties staying
+    upright (NFR-006, :func:`_orientation_for`). It is deliberately *not* a
+    parameter — a caller that had to supply it would have to know not just the
+    extent but the gutters, and the whole reason this function reads its
+    dimensions off the clues is that nothing upstream should have to hand them
+    over twice.
+
     Args:
         row_clues: Row clues, top to bottom, in the ADR-0012 boundary type.
         column_clues: Column clues, left to right.
@@ -652,14 +846,29 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
 
     # The two terms of NFR-005 read different things off the same puzzle: page
     # fit measures the page (grid + gutters + the header band a titled sheet
-    # carries above them), the comfort cap measures the grid. Both come from
-    # the clue sets, so compute_layout still needs nothing but them (G-4) —
-    # HEADER_BAND_MM is a constant of this module, not an argument a caller
-    # supplies, so reserving it costs the signature nothing.
+    # carries above them) against a sheet held a given way up, the comfort cap
+    # measures the grid. NFR-006 picks the way up by measuring the cell both
+    # ways and keeping the larger, so the same four numbers describe the
+    # drawing for the choice and for the cell that follows it — named once
+    # here rather than threaded through, so the two cannot drift apart. All of
+    # them come from the clue sets, so compute_layout still needs nothing but
+    # them (G-4): HEADER_BAND_MM is a constant of this module, not an argument
+    # a caller supplies, and the orientation is derived here rather than passed
+    # in so that no caller has to know the extent.
+    drawing_columns = row_gutter_cells + columns
+    drawing_rows = column_gutter_cells + rows
+    larger_dimension = max(columns, rows)
+    orientation = _orientation_for(
+        drawing_columns,
+        drawing_rows,
+        larger_dimension=larger_dimension,
+        reserved_height_mm=HEADER_BAND_MM,
+    )
     cell = _fit_cell(
-        row_gutter_cells + columns,
-        column_gutter_cells + rows,
-        larger_dimension=max(columns, rows),
+        drawing_columns,
+        drawing_rows,
+        larger_dimension=larger_dimension,
+        orientation=orientation,
         reserved_height_mm=HEADER_BAND_MM,
     )
     margin = _mm_to_px(PAGE_MARGIN_MM)
@@ -673,6 +882,7 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
     return Layout(
         rows=rows,
         columns=columns,
+        orientation=orientation,
         cell=cell,
         margin=margin,
         row_gutter_cells=row_gutter_cells,
