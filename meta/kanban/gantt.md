@@ -86,6 +86,9 @@ gantt
     CARD-030 P1 Trim to ink box + guard moves onto it    :crit, card30, after card27, 1d
     CARD-031 P2 Image mode names from the file stem      :card31, after card27, 6h
     CARD-032 P2 Unicode TTF as package data (PDF header) :card32, 0, 12h
+  section Wave 20 - increment 7
+    CARD-033 P1 Bare --size N derives the shorter side    :crit, card33, after card27, 12h
+    CARD-034 P1 Page turns to match grid; cell rule fixed :crit, card34, 0, 12h
 ```
 
 ## Critical path
@@ -126,6 +129,7 @@ forbids; the web adapter (CARD-028) follows the pair it consumes.
 | 12–14 | _(none)_ | one card per wave — no pairs to serialize |
 | 16 | _(none)_ | CARD-023 ∩ CARD-024 ∩ CARD-025 have disjoint footprints — sourcing+difficulty vs. the two structured formats vs. `layout.py` — so all three run concurrently |
 | 17–18 | _(none)_ | one card per wave — no pairs to serialize |
+| 20 | _(none)_ | CARD-033 ∩ CARD-034 verified disjoint — orchestrator/sourcing vs export/layout — so they run concurrently; their G-4/G-5 guardrails state the split as a contract. CARD-034 has no dependency and is drawn from day 0: it is grouped into wave 20 by increment, not blocked by anything, and its tests build clue sets directly rather than going through --size |
 | 19 | _(none)_ | CARD-028/030/031/032 have disjoint footprints — the web form vs. `sourcing/image.py` vs. `orchestrator.py` vs. `export/pdf.py` — so all four run concurrently. CARD-030's G-4/G-5 and CARD-031's G-5/G-6 state that split as a contract rather than leaving it to the conflict graph. CARD-032 has NO dependency at all (`Depends on: —`) and is drawn from day 0 rather than `after card27`: it is grouped into wave 19 because it belongs to increment 6, not because anything blocks it — it is runnable today |
 
 `src/nonogram/orchestrator.py`, `src/nonogram/cli.py` and

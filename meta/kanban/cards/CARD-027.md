@@ -5,7 +5,7 @@
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** architectural
-**Revision pending:** true
+**Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/027-grid-extent-width-height-pair
@@ -186,6 +186,7 @@ Also required by ADR-0022/R2's own `check:` — the direct unit on the shared va
 - ADR-0022/R1 — Grid extent crosses module boundaries as a (width, height) pair. No public function signature, request field, or export field reduces a grid's extent to a single scalar "si... (check: review-lens)
 - ADR-0022/R2 — Each grid side is validated to 10..30 inclusive, as a pure domain function inward of the CLI adapter, for every source mode. The CLI parses the --size NxM form but never en... (check: TestValidateExtent_RejectsSideAboveThirty)
 - ADR-0022/R3 — An uploaded image is fitted to the requested grid's aspect ratio by a centred crop, never by stretching and never by padding. A request whose grid aspect ratio differs by m... (check: TestFitImage_RefusesRatioMismatchBeyondTwice)
+- ADR-0022/R4 — A `--size` token carrying both dimensions specifies the grid exactly and the source is fitted to it. A bare `--size N` sets the grid's LONGER side to N and derives the othe... (check: PropertyTest_BareSize_DerivesShorterSideFromSourceShape)
 - CON-005 — The uniqueness check must never produce a false positive: a puzzle accepted as unique must never actually have 0 or more than 1 solutions. This is the mandatory correctness... (check: PropertyTest_Solver_NeverFalsePositiveUniqueness)
 - CON-009 — The web UI's HTTP server binds its listening socket to 127.0.0.1 (loopback) only, and refuses connections arriving on any other interface. Restates NFR-003/AC-052 as a gate... (check: TestWebServer_BindsLoopbackOnlyByDefault)
 - CON-010 — The web UI's HTTP server refuses any request the browser itself marks as cross-site (a Sec-Fetch-Site value other than same-origin/none, or an Origin header naming a non-lo... (check: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest)
@@ -209,70 +210,33 @@ Also required by ADR-0022/R2's own `check:` — the direct unit on the shared va
 
 —
 
-## Architecture revision (2026-09-01)
+## Architecture revision (2026-09-01) — RESOLVED, gate cleared
 
-**Reason:** the meaning of a bare `--size N` is being changed before this card builds it.
+**Status: absorbed.** This card was gated on 2026-09-01 because it defines what a
+bare `--size N` means and that meaning was being changed underneath it. The
+change is now decided and formalized, so the gate is cleared and this section
+records the settled delta rather than an open question.
 
-**Was:** `--size 30` means 30x30 (a square), `--size 30x20` means 30 wide by 20 tall.
-This card's "What to implement" specifies exactly that.
+**What was decided.** FR-023 and ADR-0022/R4: `--size NxM` specifies both sides
+exactly (this card's job, unchanged); a bare `--size N` sets the LONGER side and
+derives the other from the source's shape. The derivation itself is **CARD-033**,
+which depends on this card — so THIS card lands the `(width, height)` pair,
+`--size NxM` parsing, and per-side range validation, and a bare `--size N` may
+continue to mean N x N when this card merges. That is an increment, not a
+contradiction: FR-023 is delivered by CARD-033 immediately after.
 
-**Should be:** `--size 30` means **30 cells on the grid's LONGER side**, with the other
-side derived from the source's own shape — for an image, the TRIMMED (ink bounding box)
-ratio FR-022 computes. `--size 30x20` is unchanged. A source with no shape of its own
-(random) stays square, so the whole rule is: *N is the longer side, the other side
-follows the source's shape, and a shapeless source is square.*
+**Why the split, given both cards touch the same files.** The expensive, risky
+work is the pair refactor — the request type, all three source modes and their
+tests. Once that exists, changing what a bare N maps to is a localized change in
+one place. Doing them as one card would exceed `sizing.max_estimate` and put a
+structural refactor and a policy rule in the same review.
 
-**Delta:**
-- `--size N` parsing is unchanged (still one integer); what changes is what the domain
-  does with it — the derived side is computed inward of the CLI, per ADR-0010.
-- Image mode needs the ink box before it can derive, so this now depends on CARD-030's
-  trim. The two cards' order flips, or they merge.
-- FR-021/CON-012's >2x refusal becomes structurally unreachable on the derived path
-  (the grid matches the source ratio by construction) and survives only for explicit
-  `NxM`. That is a change in the guard's REACH, not in its rule.
-- Rounding leaves 97-100% retained rather than exactly 100%; a source past ~3:1 clamps
-  its short side to MIN_SIZE 10 and reintroduces some crop.
+**What this card must NOT do:** implement the derivation, the `N/5 : 1` refusal,
+or page orientation. Those are CARD-033 and CARD-034, and building them here is
+the scope growth the SCOPE GATE exists to catch.
 
-**Evidence (committed 25-image corpus, N=25):** mean retained content 76% square vs 99%
-derived; pictures keeping under 90% fall from 20 of 25 to 0; the eagle silhouette goes
-57% -> 97%. No picture needed a clamp.
-
-**Why this card is gated rather than merely annotated:** it is the card that defines the
-semantics, and it is next in the queue. `Revision pending: true` makes `start` refuse it
-and `run` schedule it as blocked, which is the intended effect — building the old meaning
-and changing it afterwards costs a second rewrite of the CLI, the request type, all three
-source modes and their tests. The gate clears when the architect delta formalizes the
-requirement and this card is re-decomposed.
-
-## Architecture revision addendum (2026-09-01) — a trap in this card's path
-
-**NFR-005's model breaks the moment this card lands, and EC-008 becomes ill-posed.**
-
-NFR-005 states printed cell size as "a declining function of `max(width, height)`".
-Measured 2026-09-01 on portrait A4: a **40x20 prints at 3.39mm** and a **20x40 at
-4.91mm** — same `max()` of 40, a 45% difference. So cell size is not a function of
-`max(width, height)` at all. On a fixed-orientation page the two axes are not
-interchangeable: 40 columns fight the 210mm side while 40 rows get the 297mm one. A
-40x20 even prints smaller cells than a 30x30 despite having fewer cells (800 vs 900).
-
-**Why this card specifically.** `EC-008`'s property test —
-`PropertyTest_Layout_CellSizeNonIncreasingInLargerDimension` — is currently safe only
-because every grid this tool can produce is square, so `max()` is unambiguous. THIS is
-the card that introduces rectangles. Implementing it against the current wording means
-either writing a property test that cannot hold, or quietly narrowing it to squares and
-leaving the requirement contradicted by the code.
-
-**Do not invent the fix in the worktree.** Both candidate directions are
-architecture-level and belong at the architect station:
-- restate the property over the term that actually binds — cells along each page axis —
-  rather than over `max()`; and/or
-- choose page orientation from the grid's shape, which makes the axes symmetric again.
-  Measured gain, independent of this problem: 40x20 3.39 -> 5.00mm (+47%), 45x25 3.05 ->
-  4.40 (+44%), 60x10 2.29 -> 3.39 (+48%); tall grids keep portrait.
-
-**Also relevant to this card's own scope:** random-mode uniqueness verification already
-fails inside CON-011's supported range — 25x25 times out on 1 of 3 seeds and 30x30 on 2
-of 3, at 45% density. CON-011's "10..30 inclusive, every source mode" is nominal for
-random. A rectangle card that widens the shape space should not assume the range is
-uniformly achievable across source modes.
-
+**Also settled, and relevant to this card's tests:** NFR-005 and EC-008 no longer
+claim printed cell size is a function of `max(width, height)` — it is not, and the
+property was ill-posed for rectangles. If a test here asserts anything about cell
+size across shapes, take the corrected ceiling-bound wording, not the old one.
+CARD-034 owns that correction.

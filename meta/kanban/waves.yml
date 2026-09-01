@@ -266,4 +266,22 @@ waves:
       revertible and touch no solver, no export geometry, and no schema. No point of no
       return: nothing persists and no export format version changes.
     status: pending
+  - wave: 20
+    increment: 7
+    checkpoint: >-
+      `nonogram generate --mode image --image pictures/eagle-silhouette1.jpg --size 25
+      --export pdf` produces a 14x25 grid retaining ~97% of the picture where a square
+      25x25 retains 57%, on a portrait sheet. The same command against a landscape
+      source produces a wide grid on a LANDSCAPE sheet with measurably larger cells
+      than the portrait equivalent. `--size 25x25` against that source still produces
+      a square, unchanged. A 5:1 source at `--size 15` is refused with a message
+      naming 25 as the smallest size that would take it. `--size 30x20` and
+      `--size 20x30` both print, and no test claims they share a cell size.
+    collapses: [FR-023, NFR-006, AC-092, AC-104, EC-009, EC-010, ADR-0022-R4-migration, NFR-005-correction]
+    rollback: >-
+      The bare-N derivation is additive over Increment 5's (width, height) pair —
+      reverting it restores `--size N` to N x N without touching the pair. Orientation
+      is independently revertible and touches only export layout. No schema or format
+      version changes.
+    status: pending
 

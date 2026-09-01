@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-01 17:05_
+_Updated: 2026-09-01 18:30_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -25,8 +25,9 @@ _Updated: 2026-09-01 17:05_
 | 15 | CARD-021 P2 | ⏳ blocked (→ CARD-020) |
 | 16 | CARD-023 ✓ done · CARD-025 ✓ done · CARD-024 P1 | ▶ active (CARD-024 in progress) |
 | 17 | CARD-026 P1 | ✓ done |
-| 18 | CARD-027 P1 ⚠ | ⏳ blocked (→ CARD-024) · revision pending — gated |
+| 18 | CARD-027 P1 | ⏳ blocked (→ CARD-024) · gate CLEARED |
 | 19 | CARD-028 P2, CARD-030 P1, CARD-031 P2, CARD-032 ✓ done | ⏳ blocked (→ CARD-020, CARD-027) |
+| 20 | CARD-033 P1, CARD-034 P1 | ⏳ blocked (→ CARD-027) · CARD-034 has no deps |
 | — | CARD-018 ✓ done · CARD-029 P3 | ⏸ ready (CARD-023/025 both done) |
 
 _Increment 5 starts at wave 16, not 15: this table renumbered increment 4 when CARD-022
@@ -63,11 +64,13 @@ _(none)_
 ## Ready
 - **CARD-020** P1 · Web UI generation submission — form to pipeline to result page  _(wave 14)_
 - **CARD-021** P2 · Image upload via hand-rolled multipart parsing  _(wave 15, after CARD-020)_
-- **CARD-027** P1 · Grid extent as a (width, height) pair through the request, `--size NxM`, and all three source modes ⚠ ← revision pending  _(wave 18 — GATED: `--size N` semantics being changed before it is built)_
+- **CARD-027** P1 · Grid extent as a (width, height) pair through the request, `--size NxM`, and all three source modes  _(wave 18, after CARD-024 — gate cleared)_
 - **CARD-028** P2 · Web form's size field accepts the `NxM` extent token  _(wave 19, after CARD-020/027)_
 - **CARD-029** P3 · Retire the last stale 10..50 range claims left by CON-011  _(unblocked — CARD-023/025 done)_
 - **CARD-030** P1 · Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it  _(wave 19, after CARD-027)_
 - **CARD-031** P2 · Image-mode puzzles auto-name from the source file's stem  _(wave 19, after CARD-027)_
+- **CARD-033** P1 · A bare `--size N` derives the shorter side from the source's shape  _(wave 20, after CARD-027)_
+- **CARD-034** P1 · The page turns to match the grid, and the cell-size rule stops lying  _(wave 20, no dependencies — runnable now)_
 
 ## In Progress
 - **CARD-024** Export metadata carries width and height at schema version 2
