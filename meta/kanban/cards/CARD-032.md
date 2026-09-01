@@ -15,7 +15,7 @@
 **Wave:** 19
 **Depends on:** —
 **Touches:** src/nonogram/export/pdf.py, src/nonogram/export/fonts/, pyproject.toml, tests/test_export_pdf.py
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3), 9.0 (cycle 2/3) — gate passed; residual F-101..F-105 closed in eb289b4
 **Started:** 2026-09-01T12:26:14Z
 **Closed:** —
 **Actual:** —
@@ -204,3 +204,28 @@ support.
   `test_the_pdf_renderer_imports_pillow_and_nothing_third_party` gained the
   three new stdlib roots plus a second, list-independent assertion that every
   non-Pillow root is in `sys.stdlib_module_names`.
+
+- **[AC/EC check] All criteria/constraints ✓** — verified 2026-09-01 from FRESH
+  evidence by the orchestrator, not carried from the implementer's or reviewer's
+  reports. 13 named tests run green in a clean run.
+  - **AC (Cyrillic header renders)** ✓ — and confirmed visually, not only by
+    assertion: rendering `кот — Medium` with the bundled face against Pillow's
+    default produced `кот — Medium` vs `▯▯▯ ▯`. The defect and the fix were both
+    seen, not inferred.
+  - **AC (Cyrillic name still reaches the filename)** ✓ — `кот-...` unchanged.
+  - **EC(ADR-0006/R1)** ✓ — `dependencies` re-extracted from `HEAD~3:pyproject.toml`
+    and compared: byte-identical. The font arrives via
+    `[tool.setuptools.package-data]` only, and `pip wheel` was used to confirm it
+    actually lands in the built wheel rather than trusting the config.
+  - **G-1** ✓ dependencies unchanged · **G-2** ✓ two-page structure and header
+    composition green · **G-3** ✓ orchestrator.py diff is 0 lines · **G-4/G-5** ✓
+    zero hits for `sourcing/image.py`, `orchestrator.py`, `png.py` across all three
+    commits · **G-6** ✓ no DEC-026 filename work leaked in · **G-7** ✓ font sha256
+    re-derived as `7da195a74c55bef988d0d48f…`, matching the card, and the LICENSE
+    matches an independent upstream fetch.
+  - **Declared limitation, stated rather than left implicit:** Arabic and Hebrew are
+    covered by the font and are NOT tofu, but Pillow here has no Raqm, so they set
+    as isolated unjoined letterforms in left-to-right order. That is wrong in a
+    different way and is explicitly out of this card's scope. It is pinned by
+    `test_the_shaping_caveat_matches_the_running_pillow`, which fails if Pillow
+    ever gains Raqm and the docstring's account goes stale.
