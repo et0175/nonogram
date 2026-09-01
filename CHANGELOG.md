@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-01
+- CARD-024 (feature): Saved puzzle files (JSON and CSV) now record a puzzle's width and height separately instead of a single size, so a non-square puzzle survives being saved and re-opened. Files are version 2; a version-1 file is refused with a message naming both versions rather than being half-read.
 - CARD-034 (feature): Puzzles now print on whichever way up the sheet gives bigger squares to write in — a wide puzzle turns the page sideways, a tall one stays upright — instead of always printing portrait. Small puzzles are unaffected: they already print at the comfortable size, so there is nothing to gain by turning them. The rule is 'whichever prints bigger', not 'whichever way the puzzle leans', because a wide puzzle with deep clue columns can actually need the upright sheet.
 - CARD-032 (feature): A puzzle named in Cyrillic, Greek or accented Latin now prints its name in the PDF header instead of a row of empty boxes — the package ships its own Unicode font (DejaVu Sans) rather than relying on Pillow's ASCII-only default. Installing the tool pulls in nothing new; the font travels inside the package. Names in Chinese, Japanese, Korean, Thai or Devanagari are still unsupported, and Hebrew or Arabic names render but without the joining those scripts need.
 

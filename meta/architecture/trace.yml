@@ -303,7 +303,7 @@ links:
     EC-002 round-trip holds because ADR-0012 exports the boundary type
     (list[list[bool]] + clue tuples), never the solver's internal
     bitmask. The JSON export also records the seed (ADR-0015).
-  status: partial
+  status: covered
 
 - req: FR-014
   description: "Report the count of nudged cells in CLI output at export time when

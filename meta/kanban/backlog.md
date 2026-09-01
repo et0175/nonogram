@@ -236,3 +236,40 @@
       each page axis), not over `max()`; and/or choose page orientation from the grid's
       shape, which makes the two axes symmetric again and is worth doing regardless
       (~45% bigger cells on every rectangle — see the 40x40 entry above).    @tech-debt
+
+- [ ] **Two mechanical checks for the docstring-truth family, which has now hit four cards** —
+      promote to a standing rule rather than keep catching it per card. The family is
+      *"a docstring, comment or card note asserts a checkable fact that does not hold as
+      stated"*. Confirmed across CARD-024 (F-002, F-003, F-201, F-202, F-203),
+      CARD-032 (F-001, F-002, F-101, F-102, F-104, F-105) and CARD-034 (F-001, F-002,
+      F-003, and cycle 2's F-001..F-003) — plus six figures the orchestrator itself got
+      wrong on 2026-09-01. This codebase deliberately holds docstrings to be TRUE, which
+      is a real strength, but the enforcement is entirely human and it leaks steadily.
+      **Check 1 — every AC-index arrow resolves.** Test modules here open with an index
+      mapping requirement ids to functions (`AC-060  TestExport_Json...  -> test_json_...`).
+      Assert every `-> test_...` target is a `def` in that module. It would have caught
+      CARD-024's F-201 and the two arrows F-001 named.
+      **Check 2 — no live citation of a retired id.** Assert no test docstring cites an
+      AC/FR/EC whose `requirements.yml` status is `superseded`. It would have caught
+      F-202, where AC-038 (superseded by AC-084 under CON-011) was cited as the authority
+      for a range bound.
+      **Both need exclusions, and this is the part worth recording** — measured 2026-09-01
+      by running them over the whole tree before proposing them:
+      - Check 1 flagged 5 arrows outside CARD-024; **all five were false positives**,
+        wildcard/prefix notation (`-> test_page_two_*`). Excluding that form, there are
+        ZERO genuine dead arrows in the tree. So the check must skip a target ending in
+        `*` or `...`.
+      - Check 2 must skip mentions inside prose that says an id WAS superseded, or it
+        flags its own corrections — CARD-024's own fix note trips it.
+      Without those exclusions both fire mostly noise, and a check that cries wolf gets
+      switched off, which is worse than not having it.
+      **Live findings check 2 already has**, not fixed because they are outside any open
+      card's scope: `test_naming.py` and `test_sourcing_random.py` cite FR-001
+      (superseded by FR-019), `test_sourcing_image.py` cites AC-009 (superseded by
+      AC-059), `test_timeout.py` cites AC-038 (superseded by AC-084). Four real stale
+      citations sitting in the suite today.
+      Where it belongs: cheapest as a test in `tests/` (the project already has structural
+      guards there — `test_cli.py` walks the package with `ast` to enforce import
+      direction, so the idiom exists). `forge:retrospective` is the route for promoting a
+      review-finding family into a standing rule.                            @tech-debt
+

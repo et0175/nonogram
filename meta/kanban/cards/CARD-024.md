@@ -1,6 +1,6 @@
 # CARD-024: Export metadata carries width and height at schema version 2
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/024-export-extent-schema-v2
-**Worktree:** ../PythonProject4-card-024
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-5
 **Idea:** —
 **Wave:** 16
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py, src/nonogram/orchestrator.py, tests/test_export_json.py, tests/test_export_csv.py, tests/property/test_export_roundtrip.py
 **Review score:** 6.0 (cycle 1/3, failed gate), 9.0 (cycle 2/3) — gate passed; F-201..F-203 closed in 427d6ff
 **Started:** 2026-08-31T16:14:49Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-01T18:45:39Z
+**Actual:** 3.3d
+**Merge commit:** 938e52c0cc584ffe11245cd2c2bbb75134ef3bc3
 **Blocked by:** —
 
 ## What to implement
