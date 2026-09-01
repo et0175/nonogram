@@ -103,7 +103,7 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 
 ### Negative (2026-09-01 revision)
 - The package gains a binary file in its install footprint, and with it a licensing and attribution obligation the original dependency analysis never had to weigh. DejaVu Sans's licence is permissive and allows bundling, but the obligation to ship its notice is real and new.
-- The bundled font's own coverage becomes a new implicit boundary. A name in a script it does not cover — Chinese, Japanese, Arabic, Hebrew — reproduces the identical tofu failure one layer down. This revision shrinks the failing set; it does not eliminate it, and a future request for those scripts is a new decision, not a bug in this one.
+- The bundled font's own coverage becomes a new implicit boundary. A name in a script it does not cover — Chinese, Japanese, Korean, Thai or Devanagari (VERIFIED 2026-09-01 against the shipped DejaVu Sans 2.37; Cyrillic, Latin-1, Hebrew and Arabic all render) — reproduces the identical tofu failure one layer down. This revision shrinks the failing set; it does not eliminate it, and a future request for those scripts is a new decision, not a bug in this one.
 - Nothing mechanically prevents a later contributor from reading this revision as permission to bundle anything. The `## Rules` block below exists to hold the line at *non-executable data*.
 
 ## References

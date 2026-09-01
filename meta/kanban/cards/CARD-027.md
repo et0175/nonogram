@@ -244,3 +244,35 @@ and changing it afterwards costs a second rewrite of the CLI, the request type, 
 source modes and their tests. The gate clears when the architect delta formalizes the
 requirement and this card is re-decomposed.
 
+## Architecture revision addendum (2026-09-01) — a trap in this card's path
+
+**NFR-005's model breaks the moment this card lands, and EC-008 becomes ill-posed.**
+
+NFR-005 states printed cell size as "a declining function of `max(width, height)`".
+Measured 2026-09-01 on portrait A4: a **40x20 prints at 3.39mm** and a **20x40 at
+4.91mm** — same `max()` of 40, a 45% difference. So cell size is not a function of
+`max(width, height)` at all. On a fixed-orientation page the two axes are not
+interchangeable: 40 columns fight the 210mm side while 40 rows get the 297mm one. A
+40x20 even prints smaller cells than a 30x30 despite having fewer cells (800 vs 900).
+
+**Why this card specifically.** `EC-008`'s property test —
+`PropertyTest_Layout_CellSizeNonIncreasingInLargerDimension` — is currently safe only
+because every grid this tool can produce is square, so `max()` is unambiguous. THIS is
+the card that introduces rectangles. Implementing it against the current wording means
+either writing a property test that cannot hold, or quietly narrowing it to squares and
+leaving the requirement contradicted by the code.
+
+**Do not invent the fix in the worktree.** Both candidate directions are
+architecture-level and belong at the architect station:
+- restate the property over the term that actually binds — cells along each page axis —
+  rather than over `max()`; and/or
+- choose page orientation from the grid's shape, which makes the axes symmetric again.
+  Measured gain, independent of this problem: 40x20 3.39 -> 5.00mm (+47%), 45x25 3.05 ->
+  4.40 (+44%), 60x10 2.29 -> 3.39 (+48%); tall grids keep portrait.
+
+**Also relevant to this card's own scope:** random-mode uniqueness verification already
+fails inside CON-011's supported range — 25x25 times out on 1 of 3 seeds and 30x30 on 2
+of 3, at 45% density. CON-011's "10..30 inclusive, every source mode" is nominal for
+random. A rectangle card that widens the shape space should not assume the range is
+uniformly achievable across source modes.
+
