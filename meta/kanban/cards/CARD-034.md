@@ -43,6 +43,17 @@ the 210mm axis while 40 rows get the 297mm one. EC-008's property was therefore
 **ill-posed, not merely imprecise** — the function it asserts does not exist — and
 is safe today only because every grid this tool can produce is square.
 
+**Read this before touching EC-008 — the model was corrected, the CODE was already
+right.** Verified at the decompose station 2026-09-01: the existing property test
+is `PropertyTest_Layout_CellSizeNeverExceedsComfortCap`
+(`tests/property/test_layout_cell_size.py`) and it already asserts a **ceiling
+bound**, which is exactly what the amended EC-008 now states. The name the model
+used to carry, `PropertyTest_Layout_CellSizeNonIncreasingInLargerDimension`,
+exists nowhere in the codebase — it was a dead check ref, and the amendment
+incidentally fixed it. So EC-008 needs **no rewrite of its property**. What it
+needs is EXTENSION: the ceiling must be shown to still hold once rectangles and
+orientation exist. Do not replace a correct test.
+
 **Do not "fix" EC-008 by mentioning both dimensions.** That was checked and it
 still does not hold: even with orientation applied, 40x20 and 20x40 measure 5.00mm
 and 4.91mm, so neither equality nor monotonicity is true. The requirement restates
@@ -107,8 +118,14 @@ Plus, on the corrected NFR-005:
   Do not add a square branch to make the old sentence true again.
 - G-4: Do not edit `src/nonogram/orchestrator.py` or `src/nonogram/sourcing/**` —
   the bare-N derivation is CARD-033's this wave.
-- G-5: Do not weaken or delete EC-008's existing property test to make room for the
-  restatement; amend it to the ceiling bound and keep it executing.
+- G-5: Do not weaken, delete or rewrite `PropertyTest_Layout_CellSizeNeverExceedsComfortCap`.
+  It already asserts the ceiling the amended EC-008 states — extend it to rectangles
+  and to the orientation rule, and keep every existing case executing.
+- G-6: `tests/test_export_image.py` uses `compute_layout` in 23 places and both it
+  and `tests/test_export_pdf.py` hard-code `PAGE_WIDTH_MM`/`PAGE_HEIGHT_MM`. They are
+  IN this card's Touches precisely because turning the page will reach them. Update
+  them to the orientation rule where they assert page geometry; do NOT relax an
+  assertion into a tautology to make it pass on both orientations.
 
 ## System contract
 
@@ -146,6 +163,14 @@ Plus, on the corrected NFR-005:
 
 - **[Env]** forge 2026.8.17 (project requires >= 2026.8.17 — skew gate passed).
 - **[Drift gate]** clean — `meta/drift-pending.yml` does not intersect this card's footprint.
+
+- **[Card defect fixed at the decompose station, 2026-09-01]** `Touches:` named
+  `tests/test_export_layout.py`, which does not exist, and omitted the two files
+  that actually assert page geometry — `tests/test_export_pdf.py` (3 uses of
+  `compute_layout`) and `tests/test_export_image.py` (23). Corrected before the card
+  was started: a footprint declared too narrow is what makes the SCOPE GATE fire on
+  a card's own legitimate work, and it is the failure mode cmd-decompose 6c source 3
+  exists to prevent.
 
 ### Implementation (2026-09-01)
 
