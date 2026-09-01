@@ -134,6 +134,17 @@ open:
         cons:
           - "Does not reflect the explicit 2026-09-01 user decision to add the extent, and leaves open the same collision gap ADR-0016 already accepted narrowing (two same-named, same-tiered puzzles at different sizes collide on filename)."
     criteria_refs: [FR-018]
+    # HELD 2026-09-01 by explicit decision, not oversight. Presented to the
+    # project owner alongside DEC-025/DEC-027 and deliberately left open: the
+    # sequencing constraint in this DEC's own question is binding, and
+    # CARD-027 (FR-018, the (width, height) pair on the export path) is still
+    # `ready`, not merged. Two alternatives were offered and declined —
+    # writing the revision forward-looking against FR-018's accepted-but-
+    # unimplemented spec, and dropping the constraint outright. Reason for the
+    # choice: ADR-0016 is a convention other cards read as normative, and one
+    # describing a filename shape the code cannot yet produce is a trap for
+    # the next reader. Nothing is blocked by the wait (blocks: []), and
+    # CARD-027 is next in the queue. RESOLVE THIS once CARD-027 merges.
     status: open
     blocks: []
     depends_on: []
