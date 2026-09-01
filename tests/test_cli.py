@@ -68,7 +68,7 @@ def test_generate_parses_the_full_flag_surface() -> None:
     )
     assert args.command == "generate"
     assert args.mode == "random"
-    assert args.size == 15
+    assert args.extent == (15, 15)
     assert args.density == 45
     assert args.seed == 1234
     assert args.export_formats == ["json"]
@@ -78,7 +78,7 @@ def test_generate_parses_the_full_flag_surface() -> None:
 def test_generate_defaults_leave_every_optional_unset() -> None:
     args = _parse("generate")
     assert args.mode == "random"
-    assert args.size is None
+    assert args.extent is None
     assert args.density is None
     assert args.seed is None
     assert args.export_formats is None
@@ -279,7 +279,7 @@ def test_generate_is_unchanged_by_the_second_subcommand() -> None:
         "mode": "random",
         "library_key": None,
         "image": None,
-        "size": None,
+        "extent": None,
         "density": None,
         "difficulty": None,
         "name": None,
@@ -295,28 +295,45 @@ def test_generate_is_unchanged_by_the_second_subcommand() -> None:
 
 
 @pytest.mark.parametrize(
-    ("flag", "value"),
+    ("flag", "value", "dest", "expected"),
     [
-        ("--size", "0"),
-        ("--size", "9"),
-        ("--size", "31"),
-        ("--size", "-5"),
-        ("--density", "-1"),
-        ("--density", "0"),
-        ("--density", "101"),
-        ("--density", "9999"),
+        # The four square-token rows CARD-023 left here, kept verbatim in what
+        # they assert: a bare N is still one number the parser must not judge.
+        # Only the *shape* of what it parses to has moved, from ``N`` to
+        # ``(N, N)`` (CARD-027, guardrail G-2 — extend, do not delete).
+        ("--size", "0", "extent", (0, 0)),
+        ("--size", "9", "extent", (9, 9)),
+        ("--size", "31", "extent", (31, 31)),
+        ("--size", "-5", "extent", (-5, -5)),
+        # ...and the rectangular tokens the same rule now has to cover. Each
+        # side is judged separately inward, so a token legal on one axis and
+        # not the other must still reach the domain intact — which is exactly
+        # what a range check in argparse would prevent.
+        ("--size", "40x20", "extent", (40, 20)),
+        ("--size", "20x40", "extent", (20, 40)),
+        ("--size", "31x30", "extent", (31, 30)),
+        ("--size", "30x9", "extent", (30, 9)),
+        ("--size", "0x0", "extent", (0, 0)),
+        ("--size", "9999x9999", "extent", (9999, 9999)),
+        ("--density", "-1", "density", -1),
+        ("--density", "0", "density", 0),
+        ("--density", "101", "density", 101),
+        ("--density", "9999", "density", 9999),
     ],
 )
 def test_out_of_domain_range_values_pass_the_parser_untouched(
-    flag: str, value: str
+    flag: str, value: str, dest: str, expected: object
 ) -> None:
-    """Size and density ranges are domain rules (ADR-0010, G-3).
+    """Grid-side and density ranges are domain rules (ADR-0010, G-2/G-3).
 
     They must NOT be encoded as argparse ``type=``/``choices=`` checks, so the
     parser is required to accept these values and hand them inward unchanged.
+    ``--size``'s ``type=`` is allowed to *split* ``WxH`` into two integers —
+    that is syntax — and nothing else; every row here would be rejected by a
+    parser that had learned the 10..30 bound.
     """
     args = _parse("generate", flag, value)
-    assert getattr(args, flag.lstrip("-")) == int(value)
+    assert getattr(args, dest) == expected
 
 
 # --------------------------------------------------------------------------
@@ -364,13 +381,143 @@ def test_main_hands_the_orchestrator_the_parsed_request(
     assert captured_requests == [
         orchestrator.GenerationRequest(
             mode="random",
-            size=20,
+            width=20,
+            height=20,
             density=50,
             seed=7,
             export_formats=("json",),
             out=None,
         )
     ]
+
+
+# --------------------------------------------------------------------------
+# FR-018 — the `--size N` / `--size WxH` token (CARD-027, ADR-0022/R1+R2)
+# --------------------------------------------------------------------------
+
+
+def test_cli_parses_rectangular_size_token(
+    captured_requests: list[orchestrator.GenerationRequest],
+) -> None:
+    """AC-062 / TestCLI_ParsesRectangularSizeToken (happy).
+
+    ``--size 30x20`` reaches the domain as width 30, height 20 — width first,
+    the order the token is written in and the order every signature inward of
+    here takes. Asserted through ``cli.main`` rather than through the parser
+    alone, because the criterion is about what the *request* carries.
+    """
+    assert cli.main(["generate", "--size", "30x20"]) == cli.ExitCode.OK
+
+    request = captured_requests[0]
+    assert (request.width, request.height) == (30, 20)
+
+
+def test_cli_square_size_shorthand_sets_both_sides(
+    captured_requests: list[orchestrator.GenerationRequest],
+) -> None:
+    """AC-063 / TestCLI_SquareSizeShorthandSetsBothSides (boundary).
+
+    ``--size 30`` still means 30x30, so no existing invocation, script or
+    documented example breaks (ADR-0022: one flag, and the square case
+    unchanged). FR-023's reading of a bare N — the grid's *longer* side, with
+    the other derived from the source's own shape — is CARD-033's and is
+    deliberately not implemented here; until it lands a bare N is a square, and
+    this test is what will have to change when it does.
+    """
+    assert cli.main(["generate", "--size", "30"]) == cli.ExitCode.OK
+
+    request = captured_requests[0]
+    assert (request.width, request.height) == (30, 30)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        pytest.param("30x", id="missing-height"),
+        pytest.param("x20", id="missing-width"),
+        pytest.param("3x4x5", id="three-parts"),
+        pytest.param("30X20", id="uppercase-separator"),
+        pytest.param("30*20", id="asterisk-separator"),
+        pytest.param("30,20", id="comma-separator"),
+        pytest.param("30.5", id="not-a-whole-number"),
+        pytest.param("", id="empty"),
+        pytest.param("x", id="separator-alone"),
+    ],
+)
+def test_cli_rejects_malformed_size_token(
+    token: str, captured_requests: list[orchestrator.GenerationRequest]
+) -> None:
+    """AC-064 / TestCLI_RejectsMalformedSizeToken (negative).
+
+    A token that is neither ``N`` nor ``NxM`` is an argparse *usage* error: exit
+    code 2, the flag named in the message, and — the half the criterion is
+    really about — **no request constructed**. That last assertion is what
+    separates this from an ordinary bad-value test: a malformed token must not
+    reach the domain at all, whereas an out-of-range one must (the test below).
+
+    ``30X20`` and ``30*20`` are here because the separator is ``x``, exactly
+    (ADR-0022 chose it after reproducing zsh's glob failure on ``*``); a
+    lookalike is a usage error rather than a silent synonym.
+    """
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["generate", "--size", token])
+
+    assert excinfo.value.code == cli.ExitCode.USAGE
+    assert captured_requests == []
+
+
+def test_cli_names_the_flag_in_a_malformed_token_message(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The other half of AC-064: the message has to say which flag."""
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["generate", "--size", "30x"])
+
+    assert "--size" in capsys.readouterr().err
+
+
+def test_cli_out_of_range_side_rejected_by_domain_not_argparse(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC-065 / TestCLI_OutOfRangeSideRejectedByDomainNotArgparse (negative).
+
+    ``--size 40x20`` is well formed, so it parses; the width is out of range, so
+    the *domain* refuses it — the tool's own message, naming the offending side,
+    and exit code 3. Never argparse's exit code 2, which is what a ``choices=``
+    or a range-checking ``type=`` on the flag would produce (ADR-0010, G-2).
+
+    The whole point is the pair of assertions: that the exit code is
+    ``INVALID_INPUT`` *and* not ``USAGE``. Either alone would pass under the
+    wrong placement.
+    """
+    exit_code = cli.main(["generate", "--size", "40x20"])
+
+    assert exit_code == cli.ExitCode.INVALID_INPUT
+    assert exit_code != cli.ExitCode.USAGE
+
+    message = capsys.readouterr().err
+    assert message.startswith(f"{cli.PROG}: error: ")
+    assert "width" in message
+    assert "40" in message
+
+
+def test_cli_out_of_range_height_is_refused_by_the_domain_too() -> None:
+    """The same claim on the other axis, so the rule is not "the first number".
+
+    ``--size 30x9`` is legal on the width and one short on the height.
+    """
+    assert cli.main(["generate", "--size", "30x9"]) == cli.ExitCode.INVALID_INPUT
+
+
+def test_the_size_help_documents_both_forms(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``--help`` has to teach the rectangular form; nothing else advertises it."""
+    with pytest.raises(SystemExit):
+        cli.main(["generate", "--help"])
+
+    out = capsys.readouterr().out
+    assert "WxH" in out
 
 
 def test_main_normalises_an_absent_export_flag_to_an_empty_tuple(

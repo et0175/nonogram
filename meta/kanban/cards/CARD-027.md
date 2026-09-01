@@ -1,6 +1,6 @@
 # CARD-027: Grid extent as a (width, height) pair through the request, `--size NxM`, and all three source modes
 
-**Status:** ready
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/027-grid-extent-width-height-pair
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-027
 **Source:** meta/architecture/handoff.md#increment-5
 **Idea:** —
 **Wave:** 18
 **Depends on:** CARD-023, CARD-024, CARD-026
 **Touches:** src/nonogram/cli.py, src/nonogram/orchestrator.py, src/nonogram/sourcing/random_grid.py, src/nonogram/sourcing/library.py, src/nonogram/sourcing/image.py, src/nonogram/difficulty.py, tests/test_cli.py, tests/test_orchestrator.py, tests/test_sourcing_random.py, tests/test_sourcing_library.py, tests/test_sourcing_image.py, tests/property/test_grid_dimensions.py, README.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-01T18:48:34Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -206,9 +206,141 @@ Also required by ADR-0022/R2's own `check:` — the direct unit on the shared va
 - **Components:** COMP-001, COMP-002, COMP-003, COMP-006
 - **Trace:** meta/architecture/trace.yml
 
+## Failure matrix
+
+Declared **before** implementation, per the card's `Complexity: architectural`
+obligation. This card adds no I/O, no concurrency, no retry and no new external
+boundary — but it is not the one-line "no failure-bearing boundary" case either,
+because it owns a *parsing* boundary (argv) and a *validation* boundary (the
+domain extent rule) and the whole point of ADR-0010/ADR-0022/R2 is which of the
+two refuses what. The rows are those two boundaries crossed with every failure
+mode a `--size` token can have.
+
+| # | Operation / boundary | Failure mode | DECLARED behaviour | Bound |
+|---|---|---|---|---|
+| 1 | `cli._extent_token` (argparse `type=`) | token is not `N` or `NxM` — `30x`, `x20`, `3x4x5`, `big`, `3.5`, `""` | `argparse.ArgumentTypeError` → argparse's own usage error naming `--size`, exit code 2 (`ExitCode.USAGE`). **No `GenerationRequest` is constructed.** (AC-064) | one token, no retry, no I/O |
+| 2 | `cli._extent_token` | token is well-formed but out of range — `40x20`, `0`, `9`, `31`, `-5`, `30x9` | Parses to an `(int, int)` pair and is carried inward **unchanged**. argparse applies no `choices=` and no range-checking `type=` (ADR-0010, G-2). The refusal comes from row 4. (AC-065) | — |
+| 3 | `cli._extent_token` | separator case/extras — `30X20`, `30 x 20` | `X` is **not** a separator: `30X20` is row 1 (usage error). Each side is parsed with Python's `int()`, which tolerates surrounding whitespace, a leading sign and `_` digit separators (`1_0` is 10). Declared, not defended: these are the documented semantics of `int()` and are harmless — every such value still faces row 4. | — |
+| 4 | `random_grid.validate_extent` (the single pure domain rule, reached by all three modes) | either side is `None` or outside `MIN_SIZE..MAX_SIZE` | `SizeOutOfRange` naming **which** side and its value. Width is judged first, so a request bad on both sides reports width. Pure function: no I/O, no randomness drawn, no partial grid. (AC-069, AC-070, EC-005) | total function, single call, no retry |
+| 5 | `random_grid.generate` / `library.generate` / `image.generate` | invalid extent | Validated **before** any work: no cell is drawn, no RNG value consumed, no template rendered, no image file opened. Two rejected calls followed by a valid one produce the grid the single valid call would. | — |
+| 6 | `library.generate` | invalid extent **and** unknown key | `UnknownLibraryImage` wins — the key is resolved first, unchanged from before this card. | — |
+| 7 | `image.generate` | extent valid, grid aspect ratio more than 2x from the source's | `ImageNeedsManualCrop` (CARD-026's guard, untouched by this card — G-6). Now genuinely reachable for a non-square request, which is what it was built for. | — |
+| 8 | `image.generate` | extent valid, source unreadable/missing | `UnreadableImage`, unchanged. Ordering is still range → probe → aspect → decode (EC-007). | — |
+| 9 | Every row above, at the CLI | any `NonogramError` | `cli.main` maps it through `exit_code_for`'s MRO walk; all of rows 4–8 are `INVALID_INPUT` (exit 3), never argparse's exit 2. | — |
+
+Not applicable, stated so the reviewer does not look for it: no timeout, no
+backoff, no circuit breaker, no idempotency key, no partial write, no schema
+migration. The one durable artifact (the export file) is CARD-024's and is
+untouched here.
+
 ## Worktree notes
 
-—
+- **[Env]** forge 2026.8.17 (project requires >= 2026.8.17 — skew gate passed).
+- **[Dependency gate]** CARD-023, CARD-024 and CARD-026 all `done` — this card's
+  three dependencies are satisfied for the first time since it was cut.
+- **[Drift gate]** ⚠ warn, and worth reading before acting on: six of this card's
+  files appear in `meta/drift-pending.yml` by EXACT path match, so the gate fires
+  genuinely. But the events are this session's OWN commits (the newest three are
+  timestamped minutes before this card started and name `export/layout.py` from
+  CARD-034's merge), not unreconciled external change. Treat as signal noise from
+  forge recording its own work, not as a reason to distrust the tree.
+
+### Structural decisions (later cards read these as the local convention)
+
+- **STRUCTURE: the pair is always `(width, height)`, in that order, in every
+  signature, field, tuple and error message** — because the user-facing token is
+  `WxH` (ADR-0022) and the export payload already orders them that way
+  (CARD-024). The one place the order inverts is Pillow's `(width, height)` vs a
+  row-major `list[list[bool]]`'s `height` rows, and that inversion was already
+  named in `image.binarize`'s docstring; nothing new is introduced.
+
+- **STRUCTURE: `validate_size(size)` is REPLACED by `validate_extent(width,
+  height) -> tuple[int, int]`, not supplemented by it.** ADR-0022/R1 forbids a
+  public signature that reduces extent to one scalar, and leaving the scalar
+  validator alive "for convenience" would leave every later card a legal way to
+  keep writing square code. The per-side check is a private `_validate_side`, so
+  there is exactly one public statement of the rule and exactly one message
+  format. Callers that only need one side do not exist — nothing in the model
+  validates half an extent.
+
+- **STRUCTURE: the range error names the offending side.** `grid width must be
+  between 10 and 30 inclusive, got 40` rather than `grid size must be...`. With
+  two independent sides, an unattributed message makes the user guess which one
+  they typed wrong. Width is judged first when both are bad — declared in the
+  failure matrix rather than left to argument order.
+
+- **STRUCTURE: argparse holds the pair under `dest="extent"`, not `dest="size"`.**
+  The *flag* stays `--size` (G-3, ADR-0022: one flag, and no existing invocation
+  breaks). The parsed *value* is no longer a size, so naming the namespace
+  attribute `size` would leave the codebase's most-copied example of "extent" a
+  scalar noun holding a pair. `--size`'s `type=` is a pure tokenizer: it splits
+  and calls `int()`, and enforces no bound (ADR-0010, G-2).
+
+- **STRUCTURE: `_source_arguments` threads `(width, height)` positionally into
+  each mode, immediately after the mode's own leading argument.** Random is
+  `(width, height, density)`, library `(key, width, height)`, image `(path,
+  width, height)` — the RNG still appended by the caller. So every mode reads
+  "what the mode is about, then the extent, then the run's randomness", which is
+  the shape CARD-033 will extend.
+
+- **STRUCTURE: ADR-0022/R1 is enforced structurally, by an `ast` walk of
+  `src/nonogram/**/*.py`, in the style of `tests/test_cli.py`'s import guard**
+  (`PropertyTest_Extent_NoPublicBoundaryReducesGridToOneScalar`). It bans a
+  scalar-extent name (`size`, `grid_size`, `edge`, `edge_length`) as an
+  `int`-annotated parameter of a **public** function, as a public class field, or
+  as the name of a public `int`-returning accessor. Two deliberate exclusions,
+  each principled rather than an allowlist entry: **private** helpers
+  (`export/pdf._header_font(size: int)` — a type size in pixels, not a boundary),
+  and **non-`int`** annotations (`difficulty.SignalWeights.size: float` — a
+  normalizer weight; G-4 forbids touching it, and a grid extent is a count of
+  cells and can never be a float). A module a later card adds is covered from the
+  moment it lands, exactly like the import rule.
+
+- **STRUCTURE: `difficulty.py` is NOT edited.** Card item 6 asks only that
+  `total_cells` stay correct for a rectangle; it is already sourced from the
+  solver's signals, which count the clue sets rather than squaring a side, so a
+  rectangle needs no change and a diff here would be G-4 scope growth. The
+  `MIN_SUPPORTED_CELLS`/`MAX_SUPPORTED_CELLS` cross-check moves into the new
+  property file unchanged.
+
+### Implementation record
+
+- **`tests/property/test_size_range.py` is deleted, replaced by
+  `tests/property/test_grid_dimensions.py`**, as EC-005 instructs. The new
+  corpus has its own precondition test
+  (`test_the_corpus_really_does_move_the_two_sides_independently`), which
+  asserts a floor on each of the three rejection classes — width-only bad,
+  height-only bad, both bad — so EC-005's "a corpus that only moves them
+  together proves nothing" cannot regress silently into a square corpus.
+- **`_convert` in `tests/test_sourcing_image.py` now delegates to
+  `image.generate`.** CARD-026 wrote it as a hand-assembled copy of `generate`'s
+  body precisely *because* `generate` took a scalar and a rectangular request
+  had no caller; this card supplies the caller, so the copy is retired rather
+  than left to drift from the shipped pipeline. All of CARD-026's rectangular AC
+  tests (AC-059, AC-071..AC-079) now run through the real entry point, which is
+  the strongest available evidence the wiring is right.
+- **Guardrail G-7 held, and the ordering consequence it predicts materialised as
+  predicted — as a *declaration*, not a red suite.** `src/nonogram/web/**` is
+  untouched. The CLI/web option-parity guard in `tests/test_web_server.py` now
+  records two deliberate differences instead of one (`image`, argv-only, from
+  CARD-021; and `extent` on argv against `size` on the form, until CARD-028),
+  each as an exact set so neither gap can widen unnoticed. Nothing in the web
+  adapter is *wrong* today: its `size` field is a plain text input that nothing
+  wires to a `GenerationRequest` yet (CARD-020 owns that), so the adapter is
+  older, not broken. No `[BLOCKER]` was raised.
+- **Guardrail G-5 came closest to conflicting, and was honoured in substance.**
+  `tests/test_export_*.py` and `tests/property/test_export_roundtrip.py` are on
+  G-5's do-not-edit list, but they construct `GenerationRequest(size=...)`, and
+  keeping a `size` alias on the request to avoid touching them is exactly what
+  ADR-0022/R1 forbids. The edit there is therefore the mechanical minimum —
+  `size=N` becomes `width=N, height=N` — plus retiring two comments that said
+  the pair was "fed from one scalar until CARD-027", which this card made false.
+  No export behaviour, format, schema or assertion changed.
+- **Stale `50x50` docstrings remain in `src/nonogram/solver/**` and
+  `src/nonogram/export/**`** (`solver/search.py`, `solver/propagate.py`,
+  `export/json_export.py`, `export/svg.py`). They were left stale by CARD-023's
+  narrowing to 30, not by this card, and G-1/G-5 put both packages off limits —
+  flagged here rather than fixed.
 
 ## Architecture revision (2026-09-01) — RESOLVED, gate cleared
 

@@ -553,7 +553,7 @@ def test_json_round_trips_exactly(tmp_path: Path) -> None:
     puzzle = generate(
         GenerationRequest(
             mode="random",
-            size=10,
+            width=10, height=10,
             density=50,
             seed=0,
             export_formats=("json",),
@@ -568,10 +568,10 @@ def test_json_round_trips_exactly(tmp_path: Path) -> None:
     assert decoded.grid == puzzle.grid
     assert decoded.row_clues == expected.rows
     assert decoded.column_clues == expected.columns
-    # A square request, so ADR-0023's pair records 10 twice — the orchestrator
-    # feeds both extents from the one scalar until CARD-027 (FR-018) gives the
-    # request a pair of its own. Asserted as two fields, not one, so this test
-    # keeps meaning the same thing after that card lands.
+    # A square request, so ADR-0023's pair records 10 twice — the request now
+    # carries a (width, height) pair of its own (FR-018), and the two happen to
+    # be equal here. Asserted as two fields rather than one, which is what let
+    # this test go on meaning the same thing across that change.
     assert (decoded.seed, decoded.mode, decoded.width, decoded.height, decoded.density) == (
         0,
         "random",
@@ -586,7 +586,7 @@ def test_csv_round_trips_exactly(tmp_path: Path) -> None:
     puzzle = generate(
         GenerationRequest(
             mode="random",
-            size=10,
+            width=10, height=10,
             density=50,
             seed=0,
             export_formats=("csv",),
@@ -599,10 +599,10 @@ def test_csv_round_trips_exactly(tmp_path: Path) -> None:
     expected = compute_clues(puzzle.grid)
     assert decoded.grid == puzzle.grid
     assert (decoded.row_clues, decoded.column_clues) == (expected.rows, expected.columns)
-    # A square request, so ADR-0023's pair records 10 twice — the orchestrator
-    # feeds both extents from the one scalar until CARD-027 (FR-018) gives the
-    # request a pair of its own. Asserted as two fields, not one, so this test
-    # keeps meaning the same thing after that card lands.
+    # A square request, so ADR-0023's pair records 10 twice — the request now
+    # carries a (width, height) pair of its own (FR-018), and the two happen to
+    # be equal here. Asserted as two fields rather than one, which is what let
+    # this test go on meaning the same thing across that change.
     assert (decoded.seed, decoded.mode, decoded.width, decoded.height, decoded.density) == (
         0,
         "random",

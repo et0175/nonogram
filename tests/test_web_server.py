@@ -1311,18 +1311,29 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     shared request-assembly layer — and it is only *accepted* if somebody
     notices it happening.
 
-    ``image`` is the one deliberate difference: a file upload is a multipart
-    form control, which is CARD-021's work (guardrail G-5). It is asserted as
-    an exact singleton rather than filtered away, so the gap cannot grow
-    quietly.
+    There are exactly two deliberate differences, and both are named here as
+    exact sets rather than filtered away, so neither gap can grow quietly:
+
+    * ``image`` — argv only. A file upload is a multipart form control, which
+      is CARD-021's work (guardrail G-5).
+    * ``extent`` on argv against ``size`` on the form — CARD-027 turned
+      ``--size`` into a ``(width, height)`` pair carried under the ``extent``
+      destination (FR-018, ADR-0022/R1), and its guardrail G-7 reserves the web
+      form's extent field for CARD-028. So for exactly the interval between
+      those two cards the *same option* is spelled differently on the two
+      adapters. This is the ordering consequence G-7 predicts: the web adapter
+      is feature-incomplete, not broken — its ``size`` field is still a plain
+      text input that nothing wires to a request (CARD-020 owns that), so
+      nothing about it is wrong today, only older. CARD-028 renames it and both
+      halves of this assertion drop back to their pre-CARD-027 shape.
     """
     argv_options = set(vars(cli.build_parser().parse_args(["generate"]))) - {
         "command",
         "handler",
     }
 
-    assert argv_options - _form_field_names() == {"image"}
-    assert _form_field_names() - argv_options == set()
+    assert argv_options - _form_field_names() == {"image", "extent"}
+    assert _form_field_names() - argv_options == {"size"}
 
 
 def test_the_form_lists_every_registered_export_format() -> None:

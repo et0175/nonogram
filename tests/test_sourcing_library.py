@@ -35,20 +35,25 @@ from nonogram.sourcing.templates import cat, heart, house, moon
 
 SEED = 20260828
 
-#: Sizes at which the template's own resolution divides the grid exactly, so
-#: every cell is wholly inside or wholly outside the shape and the tie-break has
-#: nothing to act on. Derived here rather than hard-coded so the list follows
-#: :data:`library.TEMPLATE_EDGE` if the templates are ever redrawn.
+#: Every length CON-011 allows a grid *side* to have. Named ``SIZES`` because
+#: the square case is what most of this file exercises; the rectangular
+#: behaviour has its own tests, which name their two extents explicitly.
 SUPPORTED_SIZES = range(random_grid.MIN_SIZE, random_grid.MAX_SIZE + 1)
 
+#: Side lengths at which the template's own resolution divides that axis
+#: exactly, so every target cell on it is built from whole template cells.
+#: Both axes have to be one of these for the tie-break to have nothing left to
+#: act on (see the module docstring in ``library.py``), which inside 10..30
+#: makes 16x16 the one degenerate extent. Derived rather than hard-coded so the
+#: list follows :data:`library.TEMPLATE_EDGE` if the templates are ever redrawn.
 DEGENERATE_SIZES = tuple(
     size
     for size in SUPPORTED_SIZES
     if size % library.TEMPLATE_EDGE == 0 or library.TEMPLATE_EDGE % size == 0
 )
 
-#: A size where the rescale genuinely has boundary cells — the interesting case
-#: for everything about the tie-break.
+#: A side length where the rescale genuinely has boundary cells — the
+#: interesting case for everything about the tie-break.
 JITTERED_SIZE = 20
 
 
@@ -57,7 +62,11 @@ def _rng(seed: int = SEED) -> random.Random:
 
 
 def _shape(grid: list[list[bool]]) -> tuple[int, set[int]]:
-    """Row count and the set of row lengths — a square grid has one length."""
+    """``(row count, the set of row lengths)`` — the grid's height and width.
+
+    A *set* of row lengths rather than one number, so a ragged grid can never be
+    mistaken for a rectangle of the right width.
+    """
     return len(grid), {len(row) for row in grid}
 
 
@@ -66,10 +75,11 @@ def _certain_cells(key: str, size: int) -> dict[tuple[int, int], bool]:
 
     These are the ones no threshold can move (:data:`library.MIN_EDGE_THRESHOLD`
     and :data:`library.MAX_EDGE_THRESHOLD` are strictly inside ``(0, 1)``), so
-    they are what "matches the template at the target size" means for a source
-    whose boundary is deliberately jittered.
+    they are what "matches the template at the target extent" means for a source
+    whose boundary is deliberately jittered. Square-only by design — its callers
+    are the AC tests, which are about the shape rather than about the extent.
     """
-    numerators, denominator = library.coverage(library.template_for(key), size)
+    numerators, denominator = library.coverage(library.template_for(key), size, size)
     return {
         (row, column): numerator == denominator
         for row, values in enumerate(numerators)
@@ -95,7 +105,7 @@ def test_generate_library_produces_cat_grid() -> None:
     every cell the cat wholly covers or does not touch has the template's value,
     and it is recognisably *this* template rather than any other in the library.
     """
-    grid = library.generate("cat", JITTERED_SIZE, _rng())
+    grid = library.generate("cat", JITTERED_SIZE, JITTERED_SIZE, _rng())
 
     assert _shape(grid) == (JITTERED_SIZE, {JITTERED_SIZE})
     assert all(cell is True or cell is False for row in grid for cell in row)
@@ -106,7 +116,7 @@ def test_generate_library_produces_cat_grid() -> None:
 
     # ...and it is the cat, not merely "a shape at the right size".
     others = {
-        key: library.generate(key, JITTERED_SIZE, _rng())
+        key: library.generate(key, JITTERED_SIZE, JITTERED_SIZE, _rng())
         for key in library.KEYS
         if key != "cat"
     }
@@ -121,7 +131,7 @@ def test_generate_library_rejects_unknown_key() -> None:
     and the message lists what the user could have asked for instead.
     """
     with pytest.raises(errors.UnknownLibraryImage) as excinfo:
-        library.generate("dragon", JITTERED_SIZE, _rng())
+        library.generate("dragon", JITTERED_SIZE, JITTERED_SIZE, _rng())
 
     message = str(excinfo.value)
     assert "dragon" in message
@@ -259,10 +269,46 @@ def test_malformed_art_is_a_packaging_bug_not_a_domain_error(
 def test_a_template_scales_to_any_supported_size(key: str, size: int) -> None:
     """The card's headline requirement: ``--size 20`` with key ``cat`` yields a
     20x20 grid, and so does every other supported size and key."""
-    grid = library.generate(key, size, _rng())
+    grid = library.generate(key, size, size, _rng())
 
     assert _shape(grid) == (size, {size})
     assert 0 < sum(cell for row in grid for cell in row) < size * size
+
+
+@pytest.mark.parametrize("extent", [(30, 12), (12, 30), (10, 30), (29, 11), (16, 20)])
+@pytest.mark.parametrize("key", library.KEYS)
+def test_a_template_scales_to_a_rectangular_grid(
+    key: str, extent: tuple[int, int]
+) -> None:
+    """FR-018/ADR-0022/R1: the two target lengths are independent.
+
+    ``_axis_overlaps`` was always per axis; this is the assertion that both of
+    its call sites now get the target's *own* length rather than one number
+    twice. The shape is checked as ``(rows, {row length})``, so a signature that
+    transposed the pair would fail here rather than pass by symmetry, and the
+    grid is required to still be a recognisable silhouette (neither all-empty
+    nor all-filled) at every shape.
+    """
+    width, height = extent
+    grid = library.generate(key, width, height, _rng())
+
+    assert _shape(grid) == (height, {width})
+    assert 0 < sum(cell for row in grid for cell in row) < width * height
+
+
+def test_a_rectangle_and_its_transpose_are_different_grids() -> None:
+    """The strongest available statement that the two arguments are not aliases.
+
+    A ``30x12`` cat and a ``12x30`` cat are both legal requests. If the pair
+    were collapsed anywhere — into a max, a min, or one value passed twice — one
+    of these would come back the wrong shape or the two would agree.
+    """
+    wide = library.generate("cat", 30, 12, _rng())
+    tall = library.generate("cat", 12, 30, _rng())
+
+    assert _shape(wide) == (12, {30})
+    assert _shape(tall) == (30, {12})
+    assert [list(column) for column in zip(*wide)] != tall
 
 
 def test_coverage_accounts_for_the_whole_template_area() -> None:
@@ -271,19 +317,23 @@ def test_coverage_accounts_for_the_whole_template_area() -> None:
     the numerators must sum to the template's filled cell count times the
     denominator divided by the number of target cells... which is easier to
     state as: the mean coverage equals the template's filled fraction, exactly.
+
+    Rectangles are in the corpus because the identity is over ``width *
+    height``: a square-only corpus cannot tell that product from one side
+    squared.
     """
     template = library.template_for("heart")
     filled = sum(cell for row in template for cell in row)
 
-    for size in (10, 13, 20, 29):
-        numerators, denominator = library.coverage(template, size)
+    for width, height in ((10, 10), (13, 13), (20, 20), (29, 29), (30, 12), (12, 30)):
+        numerators, denominator = library.coverage(template, width, height)
         total = sum(sum(row) for row in numerators)
-        # Each of the size^2 target cells carries `denominator` units of
+        # Each of the width*height target cells carries `denominator` units of
         # template area between them, of which `filled` template cells' worth
         # is filled.
         assert total * (len(template) * len(template[0])) == (
-            filled * denominator * size * size
-        )
+            filled * denominator * width * height
+        ), (width, height)
 
 
 def test_an_exact_magnification_replicates_the_template_block_by_block() -> None:
@@ -302,7 +352,7 @@ def test_an_exact_magnification_replicates_the_template_block_by_block() -> None
     it lives, and the request range is enforced by the tests that own it.
     """
     template = library.template_for("house")
-    grid = library.render(template, 32, library.CANONICAL_THRESHOLD)
+    grid = library.render(template, 32, 32, library.CANONICAL_THRESHOLD)
 
     for row in range(32):
         for column in range(32):
@@ -326,7 +376,7 @@ def test_scaling_does_not_lose_a_whole_row_of_the_shape() -> None:
 
     # What area coverage does: every target row that overlaps filled template
     # area carries some of it, so no part of the shape is silently dropped.
-    numerators, _ = library.coverage(template, 11)
+    numerators, _ = library.coverage(template, 11, 11)
     assert sum(1 for row in template if any(row)) == 15
     assert sum(1 for row in numerators if any(row)) == 11
 
@@ -341,7 +391,7 @@ def test_an_unknown_key_is_rejected_however_it_is_misspelled(key: str) -> None:
     """Key lookup is exact — no case folding, no trimming. A user who typed
     ``Cat`` gets the list of real keys rather than a silent near-miss."""
     with pytest.raises(errors.UnknownLibraryImage):
-        library.generate(key, JITTERED_SIZE, _rng())
+        library.generate(key, JITTERED_SIZE, JITTERED_SIZE, _rng())
 
 
 def test_an_absent_key_is_rejected_rather_than_defaulted() -> None:
@@ -351,7 +401,7 @@ def test_an_absent_key_is_rejected_rather_than_defaulted() -> None:
     the error names the alternatives instead.
     """
     with pytest.raises(errors.UnknownLibraryImage) as excinfo:
-        library.generate(None, JITTERED_SIZE, _rng())
+        library.generate(None, JITTERED_SIZE, JITTERED_SIZE, _rng())
 
     message = str(excinfo.value)
     assert "--library-key" in message
@@ -360,22 +410,27 @@ def test_an_absent_key_is_rejected_rather_than_defaulted() -> None:
         assert key in message
 
 
-@pytest.mark.parametrize("size", [-1, 0, 1, 9, 31, 51, 60, 1000, None])
-def test_the_shared_size_rule_applies_to_library_mode_too(size: int | None) -> None:
+@pytest.mark.parametrize("side", [-1, 0, 1, 9, 31, 51, 60, 1000, None])
+def test_the_shared_extent_rule_applies_to_library_mode_too(side: int | None) -> None:
     """The supported range is a rule about the puzzle, not about the source, so
-    library mode reuses ``random_grid.validate_size`` rather than restating it —
-    including the ``None`` case, which must be a domain error and never a
-    ``TypeError`` from a comparison."""
+    library mode reuses ``random_grid.validate_extent`` rather than restating it
+    — including the ``None`` case, which must be a domain error and never a
+    ``TypeError`` from a comparison.
+
+    Each axis is checked with the other held legal, so the delegation is shown
+    to cover both sides rather than only the one a square request would move."""
     with pytest.raises(errors.SizeOutOfRange):
-        library.generate("cat", size, _rng())
+        library.generate("cat", side, 20, _rng())
+    with pytest.raises(errors.SizeOutOfRange):
+        library.generate("cat", 20, side, _rng())
 
 
-def test_the_key_is_judged_before_the_size() -> None:
+def test_the_key_is_judged_before_the_extent() -> None:
     """Both arguments are wrong; the key is what the mode is about, so that is
     the error the user is told about first. Pinned because it is otherwise an
     accident of statement order."""
     with pytest.raises(errors.UnknownLibraryImage):
-        library.generate("dragon", 60, _rng())
+        library.generate("dragon", 60, 60, _rng())
 
 
 def test_a_rejected_request_draws_no_randomness() -> None:
@@ -386,7 +441,7 @@ def test_a_rejected_request_draws_no_randomness() -> None:
     rng = _rng()
     for bad_key, bad_size in (("dragon", 20), ("cat", 60), ("cat", 9), (None, 20)):
         with pytest.raises(errors.NonogramError):
-            library.generate(bad_key, bad_size, rng)
+            library.generate(bad_key, bad_size, bad_size, rng)
 
     assert rng.getstate() == _rng().getstate()
 
@@ -395,7 +450,7 @@ def test_the_rng_is_a_required_argument() -> None:
     """No default RNG: a defaulted one would reintroduce unseeded randomness at
     the exact call site ADR-0015 exists to make reproducible."""
     with pytest.raises(TypeError):
-        library.generate("cat", 20)  # type: ignore[call-arg]
+        library.generate("cat", 20, 20)  # type: ignore[call-arg]
 
 
 # --------------------------------------------------------------------------
@@ -430,7 +485,7 @@ def test_the_tie_break_moves_the_outline_and_never_the_shape(key: str) -> None:
         library.CANONICAL_THRESHOLD,
         library.MAX_EDGE_THRESHOLD,
     ):
-        grid = library.render(template, JITTERED_SIZE, threshold)
+        grid = library.render(template, JITTERED_SIZE, JITTERED_SIZE, threshold)
         for (row, column), expected in certain.items():
             assert grid[row][column] is expected, (key, threshold, row, column)
 
@@ -439,8 +494,8 @@ def test_the_same_seed_and_parameters_reproduce_the_same_grid() -> None:
     """ADR-0015 holds for library mode on exactly the terms it holds for random
     mode: the threshold is the only stochastic input and it comes from the run's
     RNG, so seed plus key plus size fixes the grid."""
-    first = library.generate("cat", 23, _rng(4242))
-    second = library.generate("cat", 23, _rng(4242))
+    first = library.generate("cat", 23, 23, _rng(4242))
+    second = library.generate("cat", 23, 23, _rng(4242))
 
     assert first == second
 
@@ -453,8 +508,8 @@ def test_successive_draws_from_one_rng_render_a_different_outline() -> None:
     twenty identical solver verdicts.
     """
     rng = _rng()
-    first = library.generate("cat", JITTERED_SIZE, rng)
-    second = library.generate("cat", JITTERED_SIZE, rng)
+    first = library.generate("cat", JITTERED_SIZE, JITTERED_SIZE, rng)
+    second = library.generate("cat", JITTERED_SIZE, JITTERED_SIZE, rng)
 
     assert first != second
 
@@ -467,7 +522,7 @@ def test_a_retry_stays_on_the_same_template() -> None:
     certain = _certain_cells("moon", JITTERED_SIZE)
 
     for _ in range(20):
-        grid = library.generate("moon", JITTERED_SIZE, rng)
+        grid = library.generate("moon", JITTERED_SIZE, JITTERED_SIZE, rng)
         for (row, column), expected in certain.items():
             assert grid[row][column] is expected
 
@@ -486,7 +541,7 @@ def test_at_an_exact_magnification_a_retry_is_honestly_a_no_op(size: int) -> Non
     assert size == 16
     rng = _rng()
     grids = {
-        tuple(tuple(row) for row in library.generate("cat", size, rng))
+        tuple(tuple(row) for row in library.generate("cat", size, size, rng))
         for _ in range(5)
     }
 
@@ -505,7 +560,7 @@ def test_every_other_supported_size_does_vary_between_attempts() -> None:
     for size in SUPPORTED_SIZES:
         rng = _rng()
         grids = {
-            tuple(tuple(row) for row in library.generate("cat", size, rng))
+            tuple(tuple(row) for row in library.generate("cat", size, size, rng))
             for _ in range(6)
         }
         if len(grids) > 1:
@@ -515,6 +570,33 @@ def test_every_other_supported_size_does_vary_between_attempts() -> None:
     assert DEGENERATE_SIZES == (16,)
     assert set(varying) == set(range(10, 31)) - {16}
     assert len(varying) == 20
+
+
+def test_the_no_op_needs_both_axes_magnified_not_just_one() -> None:
+    """The module docstring's per-axis restatement of the degenerate case.
+
+    With the axes rescaled independently, "an exact magnification" became a
+    condition on each of them: 16 cells on one axis alone leaves the *other*
+    axis with boundary cells, so the threshold still has something to act on and
+    consecutive attempts still differ. 16x16 is the only extent inside 10..30
+    where both axes are magnified — which is what makes the claim above
+    ("the only degenerate extent is 16x16") a statement about the pair rather
+    than a leftover from the square era.
+    """
+    for width, height in ((16, 20), (20, 16), (16, 30), (10, 16)):
+        rng = _rng()
+        grids = {
+            tuple(tuple(row) for row in library.generate("cat", width, height, rng))
+            for _ in range(6)
+        }
+        assert len(grids) > 1, (width, height)
+
+    rng = _rng()
+    square = {
+        tuple(tuple(row) for row in library.generate("cat", 16, 16, rng))
+        for _ in range(6)
+    }
+    assert len(square) == 1
 
 
 # --------------------------------------------------------------------------
@@ -535,29 +617,33 @@ def test_for_mode_dispatches_to_a_usable_library_source() -> None:
     """The dispatch seam end to end: look the mode up, then source a grid with
     the mode's own argument list."""
     source = sourcing.for_mode("library")
-    grid = source("heart", JITTERED_SIZE, _rng())
+    grid = source("heart", JITTERED_SIZE, JITTERED_SIZE, _rng())
 
     assert _shape(grid) == (JITTERED_SIZE, {JITTERED_SIZE})
-    assert grid == library.generate("heart", JITTERED_SIZE, _rng())
+    assert grid == library.generate("heart", JITTERED_SIZE, JITTERED_SIZE, _rng())
 
 
 def test_the_orchestrator_assembles_the_library_argument_list() -> None:
-    """The key and size go to the source in the mode's order, and the RNG is
-    appended by the call site for every mode alike."""
+    """The key and extent go to the source in the mode's order, and the RNG is
+    appended by the call site for every mode alike.
+
+    The extent is a *pair* in the argument list, sitting directly after the
+    mode's own leading argument (ADR-0022/R1) — a rectangle here, so a call site
+    that passed one number twice would fail rather than pass by symmetry."""
     request = orchestrator.GenerationRequest(
-        mode="library", library_key="moon", size=14, density=99
+        mode="library", library_key="moon", width=14, height=22, density=99
     )
 
-    assert orchestrator._source_arguments(request) == ("moon", 14)
+    assert orchestrator._source_arguments(request) == ("moon", 14, 22)
 
 
 def test_the_orchestrator_still_assembles_the_random_argument_list() -> None:
     """The library row must not have changed what random mode is called with."""
     request = orchestrator.GenerationRequest(
-        mode="random", size=14, density=35, library_key="moon"
+        mode="random", width=14, height=22, density=35, library_key="moon"
     )
 
-    assert orchestrator._source_arguments(request) == (14, 35)
+    assert orchestrator._source_arguments(request) == (14, 22, 35)
 
 
 def test_a_library_run_goes_through_the_existing_pipeline() -> None:
@@ -568,7 +654,7 @@ def test_a_library_run_goes_through_the_existing_pipeline() -> None:
     confirmed-unique puzzle with its own retry counter, holding the cat.
     """
     request = orchestrator.GenerationRequest(
-        mode="library", library_key="cat", size=15, seed=3
+        mode="library", library_key="cat", width=15, height=15, seed=3
     )
     puzzle = orchestrator.generate(request)
 
@@ -588,7 +674,7 @@ def test_an_unknown_key_fails_the_run_before_any_retry_is_spent() -> None:
     travels straight out of the bounded loop (it is not a rejected candidate),
     so the counter stops at the first attempt rather than at twenty."""
     request = orchestrator.GenerationRequest(
-        mode="library", library_key="dragon", size=15, seed=3
+        mode="library", library_key="dragon", width=15, height=15, seed=3
     )
 
     with pytest.raises(errors.UnknownLibraryImage):
@@ -597,7 +683,7 @@ def test_an_unknown_key_fails_the_run_before_any_retry_is_spent() -> None:
 
 def test_the_same_seed_replays_a_whole_library_run() -> None:
     request = orchestrator.GenerationRequest(
-        mode="library", library_key="house", size=17, seed=11
+        mode="library", library_key="house", width=17, height=17, seed=11
     )
 
     assert orchestrator.generate(request).grid == orchestrator.generate(request).grid
@@ -663,7 +749,7 @@ def test_the_cli_parses_the_library_flags_into_the_request(
     assert exit_code == cli.ExitCode.OK
     assert seen == [
         orchestrator.GenerationRequest(
-            mode="library", size=20, library_key="cat", seed=None
+            mode="library", width=20, height=20, library_key="cat", seed=None
         )
     ]
 

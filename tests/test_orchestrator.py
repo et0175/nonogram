@@ -117,12 +117,16 @@ class _ScriptedSource:
     def __init__(self, *grids: list[list[bool]], repeat_last: bool = False) -> None:
         self._grids = list(grids)
         self._repeat_last = repeat_last
-        self.calls: list[tuple[int | None, int | None, random.Random]] = []
+        self.calls: list[tuple[int | None, int | None, int | None, random.Random]] = []
 
     def __call__(
-        self, size: int | None, density: int | None, rng: random.Random
+        self,
+        width: int | None,
+        height: int | None,
+        density: int | None,
+        rng: random.Random,
     ) -> list[list[bool]]:
-        self.calls.append((size, density, rng))
+        self.calls.append((width, height, density, rng))
         index = min(len(self.calls) - 1, len(self._grids) - 1)
         if not self._repeat_last and len(self.calls) > len(self._grids):
             raise AssertionError(
@@ -143,7 +147,13 @@ class _RaisingSource:
         self._error = error
         self.calls = 0
 
-    def __call__(self, size: int | None, density: int | None, rng: random.Random):
+    def __call__(
+        self,
+        width: int | None,
+        height: int | None,
+        density: int | None,
+        rng: random.Random,
+    ):
         self.calls += 1
         raise self._error
 
@@ -163,8 +173,14 @@ def _install_source(
 
 
 def _request(**overrides: object) -> GenerationRequest:
-    """A minimal valid request; the scripted source ignores size/density."""
-    fields: dict[str, object] = {"mode": "random", "size": 10, "density": 50, "seed": 0}
+    """A minimal valid request; the scripted source ignores extent/density."""
+    fields: dict[str, object] = {
+        "mode": "random",
+        "width": 10,
+        "height": 10,
+        "density": 50,
+        "seed": 0,
+    }
     fields.update(overrides)
     return GenerationRequest(**fields)  # type: ignore[arg-type]
 
@@ -179,11 +195,15 @@ def _puzzle(**overrides: object) -> Puzzle:
 
 
 def test_the_aggregate_carries_the_requests_attributes() -> None:
-    """AGG-001's mode/size/density are attributes of the one instance."""
-    puzzle = _puzzle(mode="random", size=15, density=40)
+    """AGG-001's mode/extent/density are attributes of the one instance.
+
+    The extent is two attributes, not one (ADR-0022/R1), and a rectangle here
+    so that reading either from the wrong field would fail.
+    """
+    puzzle = _puzzle(mode="random", width=15, height=22, density=40)
 
     assert puzzle.mode == "random"
-    assert puzzle.size == 15
+    assert (puzzle.width, puzzle.height) == (15, 22)
     assert puzzle.density == 40
 
 
@@ -298,7 +318,7 @@ def test_the_pipeline_produces_a_verified_puzzle_end_to_end() -> None:
     Pinned seed: at 10x10 / 50% density, seed 0's first candidate is already
     unique (sweep: seeds 0..11 all converge within four attempts).
     """
-    puzzle = generate(_request(size=10, density=50, seed=0))
+    puzzle = generate(_request(width=10, height=10, density=50, seed=0))
 
     assert puzzle.ready_for_export is True
     assert puzzle.solution_count == 1
@@ -356,7 +376,7 @@ def test_every_attempt_draws_from_the_one_injected_random(
 
     generate(_request(seed=7))
 
-    rngs = [rng for _, _, rng in source.calls]
+    rngs = [rng for *_, rng in source.calls]
     assert len(rngs) == 3
     assert all(rng is rngs[0] for rng in rngs)
     assert isinstance(rngs[0], random.Random)
@@ -380,9 +400,9 @@ def test_the_requested_size_and_density_reach_the_grid_source(
     source = _ScriptedSource(UNIQUE)
     _install_source(monkeypatch, source)
 
-    generate(_request(size=12, density=35))
+    generate(_request(width=12, height=25, density=35))
 
-    assert [(size, density) for size, density, _ in source.calls] == [(12, 35)]
+    assert [call[:3] for call in source.calls] == [(12, 25, 35)]
 
 
 def test_an_unknown_mode_fails_before_any_candidate_is_sourced() -> None:
@@ -422,7 +442,7 @@ def test_an_invalid_request_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> N
     _install_source(monkeypatch, source)
 
     with pytest.raises(SizeOutOfRange):
-        generate(_request(size=60))
+        generate(_request(width=60, height=60))
 
     assert source.calls == 1
 
@@ -431,7 +451,7 @@ def test_an_invalid_size_reaches_the_domain_check_unmocked() -> None:
     """The same path with the real sourcing module (ADR-0010: validation is
     inward of the CLI, so a missing --size is rejected here)."""
     with pytest.raises(SizeOutOfRange):
-        generate(_request(size=None))
+        generate(_request(width=None, height=None))
 
 
 def test_a_solver_timeout_is_not_treated_as_a_uniqueness_failure(
@@ -546,7 +566,7 @@ def test_regenerate_fires_on_a_real_random_candidate() -> None:
     uniquely solvable and the loop converges on the third (sweep over seeds
     0..11: 1, 3, 4, 2, 2, 1, 4, 4, 1, 2, 2, 1 attempts).
     """
-    puzzle = generate(_request(size=10, density=50, seed=1))
+    puzzle = generate(_request(width=10, height=10, density=50, seed=1))
 
     assert puzzle.regenerate.attempts > 1
     assert puzzle.ready_for_export is True
@@ -593,7 +613,7 @@ def test_regenerate_stops_at_max_retry_bound_for_a_real_request() -> None:
     0, 1, 4, 5, 10 and 11 all exhaust the budget).
     """
     with pytest.raises(GenerationAbandoned):
-        generate(_request(size=10, density=30, seed=0))
+        generate(_request(width=10, height=10, density=30, seed=0))
 
 
 def test_an_abandoned_run_writes_nothing(

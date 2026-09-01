@@ -1,19 +1,27 @@
 """COMP-003 tests — the random grid source and the mode-dispatch seam.
 
-Acceptance-criterion traceability (card CARD-003; trace.yml FR-001, FR-004).
-The architecture names each check in PascalCase; pytest collects snake_case, so
-the mapping is spelled out here and repeated in each test's docstring:
+Acceptance-criterion traceability (cards CARD-003 and CARD-027; trace.yml
+FR-019, FR-004). The architecture names each check in PascalCase; pytest
+collects snake_case, so the mapping is spelled out here and repeated in each
+test's docstring:
 
-===========  ===========================================  ==================================================
-AC           architecture test name                       test below
-===========  ===========================================  ==================================================
-AC-001       TestGenerateRandom_ProducesRequestedSize     test_generate_random_produces_requested_size
-AC-002       TestGenerateRandom_AcceptsMaxSide30          test_generate_random_accepts_max_side_30
-AC-003       TestGenerateRandom_RejectsSideAbove30        test_generate_random_rejects_size_above_30
-AC-004       TestGenerateRandom_RejectsSizeBelow10        test_generate_random_rejects_size_below_10
-AC-010       TestGenerateRandom_RespectsDensityParameter  test_generate_random_respects_density_parameter
-AC-011       TestGenerateRandom_RejectsInvalidDensity     test_generate_random_rejects_invalid_density
-===========  ===========================================  ==================================================
+===========  ==============================================  ==================================================
+AC           architecture test name                          test below
+===========  ==============================================  ==================================================
+AC-066       TestGenerateRandom_ProducesRequestedDimensions  test_generate_random_produces_requested_dimensions
+AC-067       TestGenerateRandom_ProducesRectangularGrid      test_generate_random_produces_rectangular_grid
+AC-068       TestGenerateRandom_AcceptsMaxSide30             test_generate_random_accepts_max_side_30
+AC-069       TestGenerateRandom_RejectsSideAbove30           test_generate_random_rejects_side_above_30
+AC-070       TestGenerateRandom_RejectsSideBelow10           test_generate_random_rejects_side_below_10
+AC-010       TestGenerateRandom_RespectsDensityParameter     test_generate_random_respects_density_parameter
+AC-011       TestGenerateRandom_RejectsInvalidDensity        test_generate_random_rejects_invalid_density
+—            TestValidateExtent_RejectsSideAboveThirty       test_validate_extent_rejects_side_above_thirty
+===========  ==============================================  ==================================================
+
+AC-001..AC-004 (FR-001's square 10..50 range) are superseded and are not cited
+here: FR-019 replaced FR-001, and AC-066..AC-070 replaced the four criteria
+CARD-003 was written against, because a criterion phrased over one edge length
+cannot say anything about a rectangle.
 
 Everything after the AC block guards the seams the ACs do not describe: the
 ADR-0015 reproducibility contract this card owns (guardrail G-4), the ADR-0012
@@ -42,7 +50,13 @@ def _rng(seed: int = SEED) -> random.Random:
 
 
 def _shape(grid: list[list[bool]]) -> tuple[int, set[int]]:
-    """Row count and the set of row lengths — a square grid has one length."""
+    """``(row count, the set of row lengths)``.
+
+    Two numbers rather than one, because a grid is a rectangle: the row count is
+    its height and the (single-element) set of row lengths is its width. Written
+    as a *set* so a ragged grid — rows of differing length — can never be
+    mistaken for a rectangle of the right width.
+    """
     return len(grid), {len(row) for row in grid}
 
 
@@ -51,12 +65,13 @@ def _shape(grid: list[list[bool]]) -> tuple[int, set[int]]:
 # --------------------------------------------------------------------------
 
 
-def test_generate_random_produces_requested_size() -> None:
-    """AC-001 / TestGenerateRandom_ProducesRequestedSize (happy).
+def test_generate_random_produces_requested_dimensions() -> None:
+    """AC-066 / TestGenerateRandom_ProducesRequestedDimensions (happy).
 
-    A request for a 20x20 random grid produces a 20x20 black/white grid.
+    A request for a 20x20 random grid produces a 20-column, 20-row black/white
+    grid.
     """
-    grid = random_grid.generate(20, 30, _rng())
+    grid = random_grid.generate(20, 20, 30, _rng())
 
     assert _shape(grid) == (20, {20})
     # "black/white" is ADR-0012's boundary representation: plain bools, no
@@ -64,10 +79,23 @@ def test_generate_random_produces_requested_size() -> None:
     assert all(cell is True or cell is False for row in grid for cell in row)
 
 
-def test_generate_random_accepts_max_side_30() -> None:
-    """AC-002 / TestGenerateRandom_AcceptsMaxSide30 (boundary, CON-011).
+def test_generate_random_produces_rectangular_grid() -> None:
+    """AC-067 / TestGenerateRandom_ProducesRectangularGrid (happy, FR-018).
 
-    The maximum supported size, 30x30, is generated without error. The number
+    A request for 30x12 produces 12 rows of 30 columns — *not* a square, and
+    not the transpose. The two numbers differ and are both prime to the other's
+    factors of interest, so a signature that swapped them would fail here rather
+    than pass by symmetry.
+    """
+    grid = random_grid.generate(30, 12, 30, _rng())
+
+    assert _shape(grid) == (12, {30})
+
+
+def test_generate_random_accepts_max_side_30() -> None:
+    """AC-068 / TestGenerateRandom_AcceptsMaxSide30 (boundary, CON-011).
+
+    The largest supported grid, 30x30, is generated without error. The number
     is named here as well as read from the constant: a boundary test that only
     reads ``MAX_SIZE`` follows the constant wherever it moves and so proves
     nothing about *where* the boundary is — which is exactly the property
@@ -75,59 +103,110 @@ def test_generate_random_accepts_max_side_30() -> None:
     """
     assert random_grid.MAX_SIZE == 30
 
-    grid = random_grid.generate(random_grid.MAX_SIZE, 30, _rng())
+    grid = random_grid.generate(random_grid.MAX_SIZE, random_grid.MAX_SIZE, 30, _rng())
 
     assert _shape(grid) == (30, {30})
 
 
-def test_generate_random_rejects_size_above_30() -> None:
-    """AC-003 / TestGenerateRandom_RejectsSideAbove30 (negative, CON-011).
+def test_generate_random_rejects_side_above_30() -> None:
+    """AC-069 / TestGenerateRandom_RejectsSideAbove30 (negative, CON-011).
 
-    A 31x31 request — one cell past the narrowed maximum — is rejected with a
-    size-range error and no grid is produced; the domain raises, per ADR-0010,
-    without argv involved. 60x60, the size the criterion was originally written
-    around, is checked alongside it so the far side of the range is covered
-    too.
+    A 31x30 request — one cell past the narrowed maximum on *one* side — is
+    rejected with a size-range error and no grid is produced; the domain raises,
+    per ADR-0010, without argv involved. The offending side is named, so the
+    user is not left to work out which of the two numbers they typed is the
+    problem. 60 is checked alongside 31 so the far side of the range is covered
+    too, and the height variant is checked so the rule is not "the larger side".
     """
-    for size in (31, 60):
+    for width in (31, 60):
         with pytest.raises(errors.SizeOutOfRange) as excinfo:
-            random_grid.generate(size, 30, _rng())
+            random_grid.generate(width, 30, 30, _rng())
 
-        assert str(size) in str(excinfo.value)
+        assert str(width) in str(excinfo.value)
+        assert "width" in str(excinfo.value)
+
+    with pytest.raises(errors.SizeOutOfRange) as excinfo:
+        random_grid.generate(30, 31, 30, _rng())
+
+    assert "height" in str(excinfo.value)
 
 
-def test_generate_random_rejects_size_below_10() -> None:
-    """AC-004 / TestGenerateRandom_RejectsSideBelow10 (negative).
+def test_generate_random_rejects_side_below_10() -> None:
+    """AC-070 / TestGenerateRandom_RejectsSideBelow10 (negative).
 
-    A 9x9 request is rejected with a size-range error and no grid is produced.
+    A 30x9 request — legal width, one cell short on the height — is rejected
+    with a size-range error naming the height, and no grid is produced.
     """
     assert random_grid.MIN_SIZE == 10
 
     with pytest.raises(errors.SizeOutOfRange) as excinfo:
-        random_grid.generate(9, 30, _rng())
+        random_grid.generate(30, 9, 30, _rng())
 
     assert "9" in str(excinfo.value)
+    assert "height" in str(excinfo.value)
+
+
+def test_validate_extent_rejects_side_above_thirty() -> None:
+    """TestValidateExtent_RejectsSideAboveThirty — ADR-0022/R2's own check.
+
+    The rule as a pure function, called directly rather than through a source
+    mode: this is the single definition all three modes delegate to, and
+    ADR-0010's whole point is that it is reachable without argv. Both sides are
+    exercised independently, and the accepted case is asserted too — a validator
+    that refused everything would satisfy the negative half alone.
+    """
+    with pytest.raises(errors.SizeOutOfRange) as excinfo:
+        random_grid.validate_extent(31, 30)
+    assert "width" in str(excinfo.value)
+
+    with pytest.raises(errors.SizeOutOfRange) as excinfo:
+        random_grid.validate_extent(30, 31)
+    assert "height" in str(excinfo.value)
+
+    assert random_grid.validate_extent(30, 12) == (30, 12)
+
+
+def test_validate_extent_reports_the_width_when_both_sides_are_wrong() -> None:
+    """The declared order (failure matrix row 4), pinned so it cannot drift.
+
+    Two equally-true messages are available when both sides are out of range;
+    which one the user gets should be a decision, not a consequence of argument
+    evaluation order.
+    """
+    with pytest.raises(errors.SizeOutOfRange) as excinfo:
+        random_grid.validate_extent(99, 99)
+
+    assert "width" in str(excinfo.value)
+    assert "height" not in str(excinfo.value)
 
 
 def test_generate_random_respects_density_parameter() -> None:
     """AC-010 / TestGenerateRandom_RespectsDensityParameter (happy).
 
     A requested density of 30% yields a filled fraction within ±3 percentage
-    points (ADR-0003). Asserted at the *smallest* supported size first, where
+    points (ADR-0003). Asserted at the *smallest* supported grid first, where
     the band is only ±3 cells and a per-cell Bernoulli sampler would fail
-    roughly a third of the time, then across the size range and several seeds
-    so the guarantee is shown to be structural rather than one lucky draw.
+    roughly a third of the time, then across the range and several seeds so the
+    guarantee is shown to be structural rather than one lucky draw. The extents
+    include rectangles, since the target count is now a product of two numbers
+    and a sampler that squared one of them would keep the band only by accident.
     """
     tolerance = random_grid.DENSITY_TOLERANCE_POINTS
 
     for seed in range(30):
-        grid = random_grid.generate(random_grid.MIN_SIZE, 30, _rng(seed))
+        grid = random_grid.generate(
+            random_grid.MIN_SIZE, random_grid.MIN_SIZE, 30, _rng(seed)
+        )
         assert abs(random_grid.density_of(grid) - 30) <= tolerance
 
-    for size in (10, 11, 17, 20, 23, 29, 30):
+    for width, height in ((10, 10), (11, 29), (17, 17), (20, 13), (30, 10), (30, 30)):
         for seed in range(5):
-            grid = random_grid.generate(size, 30, _rng(seed))
-            assert abs(random_grid.density_of(grid) - 30) <= tolerance, (size, seed)
+            grid = random_grid.generate(width, height, 30, _rng(seed))
+            assert abs(random_grid.density_of(grid) - 30) <= tolerance, (
+                width,
+                height,
+                seed,
+            )
 
 
 def test_generate_random_rejects_invalid_density() -> None:
@@ -137,7 +216,7 @@ def test_generate_random_rejects_invalid_density() -> None:
     with an error and no grid is produced.
     """
     with pytest.raises(errors.InvalidDensity) as excinfo:
-        random_grid.generate(20, 150, _rng())
+        random_grid.generate(20, 20, 150, _rng())
 
     assert "150" in str(excinfo.value)
 
@@ -147,22 +226,33 @@ def test_generate_random_rejects_invalid_density() -> None:
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("size", [10, 11, 25, 29, 30])
-def test_every_size_in_the_supported_range_is_accepted(size: int) -> None:
-    assert _shape(random_grid.generate(size, 40, _rng())) == (size, {size})
+@pytest.mark.parametrize("side", [10, 11, 25, 29, 30])
+def test_every_side_in_the_supported_range_is_accepted(side: int) -> None:
+    """Each supported length works as a width and, independently, as a height.
+
+    Paired against 17 — an in-range constant that is neither bound — so the
+    parameter under test is the only thing moving on each axis.
+    """
+    assert _shape(random_grid.generate(side, 17, 40, _rng())) == (17, {side})
+    assert _shape(random_grid.generate(17, side, 40, _rng())) == (side, {17})
 
 
-@pytest.mark.parametrize("size", [-1, 0, 1, 9, 31, 51, 60, 1000, None])
-def test_sizes_outside_the_supported_range_are_rejected(size: int | None) -> None:
-    """Both ends of the range, and an unspecified size, are domain errors.
+@pytest.mark.parametrize("side", [-1, 0, 1, 9, 31, 51, 60, 1000, None])
+def test_sides_outside_the_supported_range_are_rejected(side: int | None) -> None:
+    """Both ends of the range, and an unspecified side, are domain errors.
+
+    Checked on each axis with the other held at a legal value, so the rule is
+    shown to be per side rather than "one of the two must be legal".
 
     ``None`` reaches here whenever ``--size`` is omitted: resolving a default
-    belongs to the orchestrator (CARD-005), so an unresolved size must surface
+    belongs to the orchestrator (CARD-005), so an unresolved extent must surface
     as the same domain error as an out-of-range one — never as a ``TypeError``
     from a comparison.
     """
     with pytest.raises(errors.SizeOutOfRange):
-        random_grid.generate(size, 30, _rng())
+        random_grid.generate(side, 20, 30, _rng())
+    with pytest.raises(errors.SizeOutOfRange):
+        random_grid.generate(20, side, 30, _rng())
 
 
 @pytest.mark.parametrize("density", [-1, -100, 101, 150, 1000, None])
@@ -170,7 +260,7 @@ def test_densities_outside_the_valid_percentage_range_are_rejected(
     density: int | None,
 ) -> None:
     with pytest.raises(errors.InvalidDensity):
-        random_grid.generate(20, density, _rng())
+        random_grid.generate(20, 20, density, _rng())
 
 
 @pytest.mark.parametrize("density", [0, 1, 30, 50, 99, 100])
@@ -181,7 +271,7 @@ def test_the_percentage_range_is_inclusive_at_both_ends(density: int) -> None:
     on their own terms (uniqueness, difficulty); this module only rules on
     whether the *request* is a valid percentage.
     """
-    grid = random_grid.generate(20, density, _rng())
+    grid = random_grid.generate(20, 20, density, _rng())
 
     assert abs(random_grid.density_of(grid) - density) <= (
         random_grid.DENSITY_TOLERANCE_POINTS
@@ -195,7 +285,7 @@ def test_a_rejected_request_draws_no_randomness() -> None:
     change the grid a subsequent valid request produces from the same RNG.
     """
     rng = _rng()
-    for bad in ((60, 30), (9, 30), (20, 150), (20, -1)):
+    for bad in ((60, 20, 30), (9, 20, 30), (20, 60, 30), (20, 20, 150), (20, 20, -1)):
         with pytest.raises(errors.NonogramError):
             random_grid.generate(*bad, rng)
 
@@ -208,16 +298,22 @@ def test_a_rejected_request_draws_no_randomness() -> None:
 
 
 @pytest.mark.parametrize("density", [0, 5, 25, 30, 50, 75, 95, 100])
-@pytest.mark.parametrize("size", [10, 20, 30])
-def test_density_holds_across_the_size_and_density_space(
-    size: int, density: int
+@pytest.mark.parametrize("extent", [(10, 10), (20, 20), (30, 30), (30, 10), (10, 30)])
+def test_density_holds_across_the_extent_and_density_space(
+    extent: tuple[int, int], density: int
 ) -> None:
-    """The ±3-point band holds at every corner, not only at the AC's 30%."""
+    """The ±3-point band holds at every corner, not only at the AC's 30%.
+
+    The corners are of the *extent* space now, both squares and the two extreme
+    rectangles the range allows, because the filled target is a product of two
+    independent numbers.
+    """
+    width, height = extent
     for seed in range(10):
-        grid = random_grid.generate(size, density, _rng(seed))
+        grid = random_grid.generate(width, height, density, _rng(seed))
         assert abs(random_grid.density_of(grid) - density) <= (
             random_grid.DENSITY_TOLERANCE_POINTS
-        ), (size, density, seed)
+        ), (extent, density, seed)
 
 
 def test_the_filled_count_is_exact_not_merely_within_tolerance() -> None:
@@ -225,14 +321,16 @@ def test_the_filled_count_is_exact_not_merely_within_tolerance() -> None:
 
     This is the mechanism behind AC-010 at 10x10: the count equals the rounded
     target exactly, so the only density error left is that rounding (at most
-    half a cell), rather than a per-cell draw's variance.
+    half a cell), rather than a per-cell draw's variance. The rectangles are
+    what pin ``filled_target`` to ``width * height`` rather than to one side
+    squared — a square-only corpus cannot tell the two apart.
     """
-    for size in (10, 20, 30):
+    for width, height in ((10, 10), (20, 20), (30, 30), (30, 12), (12, 30)):
         for density in (0, 3, 30, 67, 100):
-            grid = random_grid.generate(size, density, _rng())
+            grid = random_grid.generate(width, height, density, _rng())
             filled = sum(cell for row in grid for cell in row)
-            assert filled == random_grid.filled_target(size, density)
-            assert abs(filled - size * size * density / 100) <= 0.5
+            assert filled == random_grid.filled_target(width, height, density)
+            assert abs(filled - width * height * density / 100) <= 0.5
 
 
 def test_the_grid_is_actually_shuffled_not_filled_in_order() -> None:
@@ -242,7 +340,7 @@ def test_the_grid_is_actually_shuffled_not_filled_in_order() -> None:
     packed into the first rows — which would satisfy every density assertion
     above while producing an unusable puzzle.
     """
-    grid = random_grid.generate(20, 50, _rng())
+    grid = random_grid.generate(20, 20, 50, _rng())
     per_row_filled = {sum(row) for row in grid}
 
     assert len(per_row_filled) > 1, "every row has the same filled count"
@@ -257,8 +355,8 @@ def test_the_grid_is_actually_shuffled_not_filled_in_order() -> None:
 def test_the_same_seed_and_parameters_reproduce_the_same_grid() -> None:
     """ADR-0015: what makes CARD-004's property test and CARD-005's loop
     deterministic. Two independently seeded RNGs must agree cell for cell."""
-    first = random_grid.generate(25, 35, _rng(4242))
-    second = random_grid.generate(25, 35, _rng(4242))
+    first = random_grid.generate(25, 18, 35, _rng(4242))
+    second = random_grid.generate(25, 18, 35, _rng(4242))
 
     assert first == second
 
@@ -266,7 +364,7 @@ def test_the_same_seed_and_parameters_reproduce_the_same_grid() -> None:
 def test_different_seeds_produce_different_grids() -> None:
     """Reproducibility must not have been bought by dropping the randomness."""
     grids = {
-        tuple(tuple(row) for row in random_grid.generate(20, 30, _rng(seed)))
+        tuple(tuple(row) for row in random_grid.generate(20, 20, 30, _rng(seed)))
         for seed in range(10)
     }
 
@@ -280,8 +378,8 @@ def test_successive_draws_from_one_rng_differ() -> None:
     re-deriving the same grid from the seed.
     """
     rng = _rng()
-    first = random_grid.generate(20, 30, rng)
-    second = random_grid.generate(20, 30, rng)
+    first = random_grid.generate(20, 20, 30, rng)
+    second = random_grid.generate(20, 20, 30, rng)
 
     assert first != second
 
@@ -290,7 +388,7 @@ def test_the_rng_is_a_required_argument() -> None:
     """No default RNG: a defaulted one would reintroduce unseeded randomness
     at the exact call site ADR-0015 exists to make reproducible."""
     with pytest.raises(TypeError):
-        random_grid.generate(20, 30)  # type: ignore[call-arg]
+        random_grid.generate(20, 20, 30)  # type: ignore[call-arg]
 
 
 # --------------------------------------------------------------------------
@@ -549,10 +647,10 @@ def test_for_mode_returns_the_random_source() -> None:
 def test_for_mode_dispatches_to_a_usable_grid_source() -> None:
     """The dispatch seam end to end: look the mode up, then source a grid."""
     source = sourcing.for_mode("random")
-    grid = source(20, 30, _rng())
+    grid = source(20, 20, 30, _rng())
 
     assert _shape(grid) == (20, {20})
-    assert grid == random_grid.generate(20, 30, _rng())
+    assert grid == random_grid.generate(20, 20, 30, _rng())
 
 
 def test_for_mode_rejects_an_unregistered_mode() -> None:

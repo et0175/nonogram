@@ -82,7 +82,8 @@ def _puzzle(out: Path, *, grid: list[list[bool]] | None = None, **request_fields
     """A puzzle at the point the pipeline would hand it to the export step."""
     fields: dict[str, object] = {
         "mode": "random",
-        "size": 2,
+        "width": 2,
+        "height": 2,
         "density": 50,
         "seed": 7,
         "export_formats": (export.CSV,),
@@ -152,7 +153,7 @@ def test_export_writes_csv(tmp_path: Path) -> None:
     puzzle = generate(
         GenerationRequest(
             mode="random",
-            size=10,
+            width=10, height=10,
             density=50,
             seed=0,
             export_formats=("csv",),
@@ -198,7 +199,9 @@ def test_the_csv_export_records_the_seed_and_parameters(tmp_path: Path) -> None:
     """ADR-0015: the file traces back to the request that produced it — the
     CSV export carries the same provenance the JSON one does, or the two
     formats would not be interchangeable representations of one puzzle."""
-    text = export_puzzle(_puzzle(tmp_path, seed=4242, size=2, density=50))[0].read_text(
+    text = export_puzzle(
+        _puzzle(tmp_path, seed=4242, width=2, height=2, density=50)
+    )[0].read_text(
         encoding="utf-8"
     )
 
