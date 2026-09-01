@@ -335,9 +335,7 @@ def test_an_unrequested_extent_and_density_stay_none(tmp_path: Path) -> None:
     assert csv_export.decode(csv_export.document(payload)) == payload
 
 
-def test_one_half_of_the_extent_pair_can_be_unrequested_on_its_own(
-    tmp_path: Path,
-) -> None:
+def test_one_half_of_the_extent_pair_can_be_unrequested_on_its_own() -> None:
     """The two keys are independent, in the file as in the payload.
 
     A decoder that read one and derived the other — from its partner or from

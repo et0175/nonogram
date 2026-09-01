@@ -8,10 +8,10 @@
         -> test_the_corpus_covers_what_ec_002_asks_for  (the corpus's own gate)
 
     PropertyTest_Export_MetadataCarriesBothDimensionsForAnyPuzzle  (ADR-0023/R1)
-        -> test_metadata_carries_both_dimensions_for_any_puzzle
+        -> test_property_export_metadata_carries_both_dimensions_for_any_puzzle
 
     PropertyTest_Export_RejectsEveryVersionOtherThanItsOwn  (ADR-0023/R2)
-        -> test_rejects_every_version_other_than_its_own
+        -> test_property_export_rejects_every_version_other_than_its_own
 
     AC-033  TestExport_JSONRoundTripsExactly -> test_json_round_trips_exactly
             (EC-002's named instance, on one real pipeline-finalized puzzle;
@@ -63,7 +63,7 @@ Four things the corpus is built to contain, because EC-002 and ADR-0023 name
 them:
 
 * **The whole supported size range, in both dimensions.** Every edge length
-  from 1 to 50 (AC-038's ceiling) appears as a width and as a height —
+  from 1 to 50 appears as a width and as a height —
   asserted, not hoped for. 1x1 is where a one-cell grid and a one-run clue
   coincide; 50x50 is where a row is 50 CSV cells wide.
 * **Rectangles, in the majority.** Since ADR-0023 the extent is two fields
@@ -118,7 +118,13 @@ REQUIRED_NON_SQUARE_CASES = 1500
 #: Measured on the shipped corpus: 40.
 REQUIRED_HEIGHTS_PER_WIDTH = 10
 
-#: The supported grid edge lengths (AC-038 caps the range at 50).
+#: The edge lengths this corpus sweeps. Deliberately 1..50, WIDER than
+#: CON-011's supported 10..30 request range: the export format is a pure
+#: function of the payload it is handed and must round-trip any extent, so
+#: the corpus is not bounded by what a request can ask for. It formerly
+#: cited AC-038's ceiling of 50 as its authority; AC-038 was SUPERSEDED by
+#: AC-084 under CON-011 (MAX_SIZE 30), so that citation was doubly wrong —
+#: a stale id, and the wrong kind of bound for this corpus (cycle-2 F-202).
 SIZES: tuple[int, ...] = tuple(range(1, 51))
 
 #: Fill densities drawn from. Both extremes are in deliberately: 0.0 produces
@@ -186,7 +192,8 @@ def _random_grid(
     """A random ``width`` x ``height`` grid at roughly ``density`` filled.
 
     Drawn here rather than through ``nonogram.sourcing.random_grid.generate``
-    because that module enforces the 10x10..50x50 request range (AC-003/
+    because that module enforces the request range (CON-011: 10..30 per side
+    since 2026-08-31, superseding the 10x10..50x50 this line used to name) (AC-003/
     AC-004), while EC-002's property is about the export boundary and so has
     to reach the 1x1 end of the representable range as well. The draw is still
     seeded and reproducible, which is the only property of it this test needs.
