@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-01 01:50_
+_Updated: 2026-09-01 14:05_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -26,7 +26,7 @@ _Updated: 2026-09-01 01:50_
 | 16 | CARD-023 ✓ done · CARD-025 ✓ done · CARD-024 P1 | ▶ active (CARD-024 in progress) |
 | 17 | CARD-026 P1 | ✓ done |
 | 18 | CARD-027 P1 | ⏳ blocked (→ CARD-024) |
-| 19 | CARD-028 P2 | ⏳ blocked (→ CARD-020, CARD-027) |
+| 19 | CARD-028 P2, CARD-030 P1, CARD-031 P2, CARD-032 P2 | ⏳ blocked (→ CARD-020, CARD-027) · CARD-032 has no deps |
 | — | CARD-018 ✓ done · CARD-029 P3 | ⏸ ready (CARD-023/025 both done) |
 
 _Increment 5 starts at wave 16, not 15: this table renumbered increment 4 when CARD-022
@@ -62,6 +62,9 @@ _(none)_
 - **CARD-027** P1 · Grid extent as a (width, height) pair through the request, `--size NxM`, and all three source modes  _(wave 18, after CARD-023/024/026)_
 - **CARD-028** P2 · Web form's size field accepts the `NxM` extent token  _(wave 19, after CARD-020/027)_
 - **CARD-029** P3 · Retire the last stale 10..50 range claims left by CON-011  _(unblocked — CARD-023/025 done)_
+- **CARD-030** P1 · Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it  _(wave 19, after CARD-027)_
+- **CARD-031** P2 · Image-mode puzzles auto-name from the source file's stem  _(wave 19, after CARD-027)_
+- **CARD-032** P2 · Ship a Unicode TTF as package data so a non-ASCII name prints in the PDF header  _(wave 19, no dependencies — runnable now)_
 
 ## In Progress
 - **CARD-024** Export metadata carries width and height at schema version 2
@@ -91,4 +94,4 @@ _(none)_
 - **CARD-022** Repair the web adapter's false claims and vacuous guards
 - **CARD-023** Narrow the supported grid range to 10..30 project-wide, with a measured 30x30 deadline fixture
 - **CARD-025** Printed cell size becomes min(comfort cap, page fit)
-- **CARD-026** Fit uploaded images to the requested grid shape, refusing a >2x aspect mismatch
+- **CARD-026** Fit uploaded images to the requested grid shape, refusing a >2x aspect mismatch  ⚠ follow-up → CARD-030 (ADR-0022 revised)

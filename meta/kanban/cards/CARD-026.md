@@ -746,3 +746,35 @@ silhouette" is consistent with the 0.574 row above.
     Validators after the edit: **0 errors, 56 warnings** (none naming FR-020,
     FR-021 or CON-012).
 
+## Follow-up required (2026-09-01)
+
+The card is closed and merged (`547d317`), but the architecture changed after merge.
+
+**Reason:** ADR-0022 was revised on 2026-09-01 (resolving DEC-025) with
+`Migration: rewrite`. Its rule R3 now requires the >2x aspect guard to measure the
+source's **ink bounding box**, not the as-decoded file extent this card shipped.
+
+**What's needed:** CARD-030 — already cut, and it carries this migration explicitly.
+No new card is required.
+
+**Why this card's guard is not merely stale but wrong once FR-022 lands:** measured over
+the committed 25-image corpus at 20x20, the as-decoded reading overstates what survives
+the crop on 15 of 25 pictures, worst at `img_2.png`/`img_3.png` which report 100%
+retained while 55% of the actual content survives. Nothing this card did was incorrect
+against the decision as it stood — the decision moved underneath it.
+
+**Also retired by CARD-030, deliberately:** the two-stage pre-decode refusal path this
+card built (the header probe that refuses without decoding). A trim can move a ratio in
+either direction, so no sound refusal follows from the file header alone. That is
+recorded as an accepted Negative consequence in the revised ADR-0022, not as a
+regression against this card.
+
+**Urgency:** CARD-030 depends on CARD-027, so this resolves in the normal queue order.
+Until then the merged guard is conformant with the code as it exists (there is no trim
+yet), so nothing is broken in the meantime — this is scheduled debt, not a live defect.
+
+**Revision pending deliberately left `false`:** the field is a gate that `start` and
+`run` act on, and this card is `done` — it will never be started again. The follow-up is
+tracked as CARD-030, which is where the work actually is; setting a permanent ⚠ on a
+merged card would gate nothing and never clear.
+
