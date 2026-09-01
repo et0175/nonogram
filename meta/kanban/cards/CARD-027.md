@@ -5,7 +5,7 @@
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** architectural
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/027-grid-extent-width-height-pair
@@ -208,3 +208,39 @@ Also required by ADR-0022/R2's own `check:` — the direct unit on the shared va
 ## Worktree notes
 
 —
+
+## Architecture revision (2026-09-01)
+
+**Reason:** the meaning of a bare `--size N` is being changed before this card builds it.
+
+**Was:** `--size 30` means 30x30 (a square), `--size 30x20` means 30 wide by 20 tall.
+This card's "What to implement" specifies exactly that.
+
+**Should be:** `--size 30` means **30 cells on the grid's LONGER side**, with the other
+side derived from the source's own shape — for an image, the TRIMMED (ink bounding box)
+ratio FR-022 computes. `--size 30x20` is unchanged. A source with no shape of its own
+(random) stays square, so the whole rule is: *N is the longer side, the other side
+follows the source's shape, and a shapeless source is square.*
+
+**Delta:**
+- `--size N` parsing is unchanged (still one integer); what changes is what the domain
+  does with it — the derived side is computed inward of the CLI, per ADR-0010.
+- Image mode needs the ink box before it can derive, so this now depends on CARD-030's
+  trim. The two cards' order flips, or they merge.
+- FR-021/CON-012's >2x refusal becomes structurally unreachable on the derived path
+  (the grid matches the source ratio by construction) and survives only for explicit
+  `NxM`. That is a change in the guard's REACH, not in its rule.
+- Rounding leaves 97-100% retained rather than exactly 100%; a source past ~3:1 clamps
+  its short side to MIN_SIZE 10 and reintroduces some crop.
+
+**Evidence (committed 25-image corpus, N=25):** mean retained content 76% square vs 99%
+derived; pictures keeping under 90% fall from 20 of 25 to 0; the eagle silhouette goes
+57% -> 97%. No picture needed a clamp.
+
+**Why this card is gated rather than merely annotated:** it is the card that defines the
+semantics, and it is next in the queue. `Revision pending: true` makes `start` refuse it
+and `run` schedule it as blocked, which is the intended effect — building the old meaning
+and changing it afterwards costs a second rewrite of the CLI, the request type, all three
+source modes and their tests. The gate clears when the architect delta formalizes the
+requirement and this card is re-decomposed.
+
