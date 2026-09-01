@@ -94,7 +94,7 @@ links:
 
 - req: FR-015
   description: "Every puzzle carries a name, set at creation: auto-generated (library
-    key, or mode+timestamp) or overridden via --name"
+    key, image file stem, or mode+timestamp) or overridden via --name"
   capabilities: [CAP-001]
   contexts: [CTX-001]
   components: [COMP-002, COMP-001]
@@ -104,6 +104,7 @@ links:
   - TestPuzzleName_AutoGeneratesFromLibraryKey
   - TestPuzzleName_OverrideViaFlag
   - TestPuzzleName_RejectsEmptyName
+  - TestPuzzleName_AutoGeneratesFromImageFileStem
   notes: >-
     The name is an attribute of AGG-001, so it lands in COMP-002 — the
     component that owns the aggregate and constructs it once per run
@@ -114,7 +115,10 @@ links:
     validation and stays inward of argparse per ADR-0010, mirroring how
     FR-001's size range is handled. ADR-0018 fixes minute precision plus a
     counter suffix on same-minute collision — AC-042's branch that most
-    needs a fixed-clock test.
+    needs a fixed-clock test. AMENDED 2026-09-01 (raw-requirements.md,
+    entry 3 of that day's delta): AC-090 adds the image-mode default,
+    mirroring AC-043's library-key rule — the source file's stem seeds
+    COMP-002's auto-name instead of falling through to mode+timestamp.
   status: partial
 
 - req: FR-017
@@ -708,6 +712,35 @@ links:
     under transposition), so today it is pinned through the _convert mirror;
     CARD-027 makes it load-bearing.
   status: covered
+
+- req: FR-022
+  description: "Trim an uploaded source image to its ink bounding box before
+    FR-020's aspect fit (best-effort, not a guaranteed invariant)"
+  capabilities: [CAP-001]
+  contexts: [CTX-001]
+  components: [COMP-003]
+  adrs: [ADR-0006]
+  tests:
+  - TestTrimToInk_Fixes17Of19CorpusViolations
+  - TestTrimToInk_ReducesWorstCaseBorderToAtMostOneLine
+  - TestTrimToInk_AcceptsResidualBlankLinesOnDear1Jpg
+  - TestTrimToInk_AcceptsResidualBlankLinesOnWolf1Jpeg
+  - TestTrimToInk_MidGreyThresholdOutperformsNearWhiteThreshold
+  notes: >-
+    Written by the 2026-09-01 domain-extraction delta (raw-requirements.md
+    entry 1); not yet implemented — no kanban card cut for it. Runs in
+    COMP-003 immediately ahead of FR-020's fit_crop_box, sharing its Pillow-
+    based decode path (ADR-0006: no new dependency, the ink threshold is a
+    plain pixel-value comparison on the already-decoded array). Deliberately
+    carries no engineering_constraint in requirements.yml — the requirement
+    itself states the property is best-effort, not universal, so there is no
+    "for any input" claim to generalize into a property test; AC-088 pins
+    the one known residual (dear1.jpg) as accepted behaviour instead. DEC-025
+    (decisions/open.yml) is the still-open question of whether FR-021/
+    CON-012's aspect guard should read this trimmed extent or the original
+    one — unresolved, so FR-021/CON-012's own trace rows are unchanged by
+    this entry.
+  status: partial
 
 - req: NFR-005
   description: "Printed cell size is a declining function of max(width, height) per

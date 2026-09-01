@@ -1,6 +1,19 @@
 # generated_by: forge:architect-capability-mapping
 # generated_at: 2026-08-27
 # tier: medium
+# stale: requirements.yml updated 2026-08-30 (rectangular grids, US-016..US-019)
+#   — FR-018..FR-021 / NFR-005 and US-016..US-019 were mapped onto the EXISTING
+#   capabilities below by the domain-extraction delta (no new capability: a
+#   (width, height) request payload, a shape-aware crop and a print-geometry
+#   threshold are refinements of CAP-001/CAP-005, not new business behaviour).
+#   Re-run forge:architect-capability-mapping to confirm.
+# stale: requirements.yml updated 2026-09-01 (FR-022 ink-bounding-box trim,
+#   FR-015 amended for image-mode auto-naming) — FR-022 and US-020 mapped onto
+#   the EXISTING CAP-001 below by the domain-extraction delta (a trim step
+#   ahead of FR-020's fit and a naming-source tweak are refinements of the same
+#   image-sourcing capability, not new business behaviour). FR-015's amendment
+#   needed no requirements-list change (FR-015 was already listed). Re-run
+#   forge:architect-capability-mapping to confirm.
 capabilities:
   - id: CAP-001
     name: Puzzle sourcing
@@ -8,12 +21,17 @@ capabilities:
       Obtaining a black/white solution grid to build a puzzle from — either
       randomly at a configured size and density, from a built-in image
       library, or by converting a user-uploaded image via resize and
-      dithering.
+      dithering. Reachable through either inbound adapter — the CLI or the
+      local web UI (FR-017) — since both invoke the same CMD-001/CMD-002/
+      CMD-003 commands via the adapter-agnostic GenerationRequest; the web
+      UI introduces no new sourcing behavior of its own.
     events: [EVT-001, EVT-002, EVT-003]
     commands: [CMD-001, CMD-002, CMD-003]
     aggregates: [AGG-001]
-    stories: [US-001, US-002, US-003, US-011]
-    requirements: [FR-001, FR-002, FR-003, FR-004, FR-015, NFR-001]
+    stories: [US-001, US-002, US-003, US-011, US-013, US-014, US-015, US-016,
+              US-017, US-018, US-020]
+    requirements: [FR-001, FR-002, FR-003, FR-004, FR-015, FR-017, FR-018,
+                   FR-019, FR-020, FR-021, FR-022, NFR-001, NFR-003]
 
   - id: CAP-002
     name: Clue derivation
@@ -66,5 +84,5 @@ capabilities:
     events: [EVT-013, EVT-014]
     commands: [CMD-012, CMD-013]
     aggregates: [AGG-001]
-    stories: [US-007, US-009, US-010, US-012]
-    requirements: [FR-011, FR-012, FR-014, FR-016]
+    stories: [US-007, US-009, US-010, US-012, US-019]
+    requirements: [FR-011, FR-012, FR-014, FR-016, NFR-005]
