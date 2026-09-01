@@ -189,7 +189,7 @@ support.
   unshaped script (Arabic, Hebrew) sets as unjoined, left-to-right
   letterforms rather than tofu — wrong in a different way, not fixed by this
   card. No claim of full Unicode support anywhere.
-- **[Tests]** Full suite: **1363 passed, 1 xfailed** (baseline 1354 + 1 xfailed;
+- **[Tests]** Full suite: **1366 passed, 1 xfailed** at cycle 2 close (baseline 1354 + 1 xfailed;
   +9 from this card, one existing test renamed rather than added). New:
   `test_the_notdef_comparison_can_actually_tell_tofu_from_a_glyph`,
   `test_a_cyrillic_header_sets_the_letters_and_not_notdef_boxes` (4 params:

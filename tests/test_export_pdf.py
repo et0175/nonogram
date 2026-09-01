@@ -36,7 +36,7 @@ from importlib import resources
 from pathlib import Path
 
 import pytest
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, features
 
 from nonogram import cli, difficulty, export, orchestrator
 from nonogram.clues import compute_clues
@@ -688,6 +688,61 @@ def test_a_missing_bundled_font_raises_instead_of_falling_back(
             pdf._font_bytes()
     finally:
         pdf._font_bytes.cache_clear()
+
+
+def test_the_header_font_propagates_the_failure_rather_than_falling_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The "never fall back" contract pinned at the layer that could actually break it.
+
+    Its sibling above pins ``_font_bytes``. That is not the whole contract:
+    ``load_default`` can only be *returned* from :func:`pdf._header_font`, so a
+    ``try``/``except`` added there — not in ``_font_bytes`` — would reinstate the
+    exact defect this card exists to fix while the sibling test stayed green.
+    Cycle 2's review demonstrated precisely that by mutation: a fallback injected
+    into ``_header_font`` survived the entire suite.
+
+    So this asserts the error propagates all the way out of ``_header_font``, and
+    that what comes back is never Pillow's default face.
+    """
+    pdf._header_font.cache_clear()
+    pdf._font_bytes.cache_clear()
+    monkeypatch.setattr(pdf, "FONT_RESOURCE", "fonts/NotAFont.ttf")
+    try:
+        with pytest.raises(FileNotFoundError):
+            pdf._header_font(20)
+    finally:
+        pdf._font_bytes.cache_clear()
+        pdf._header_font.cache_clear()
+
+
+def test_the_shaping_caveat_matches_the_running_pillow() -> None:
+    """The module docstring's Raqm caveat must not drift from the Pillow running.
+
+    The caveat is written as a conditional — "a Pillow built without Raqm does no
+    shaping or bidi" — plus the observation that this project's environment is such
+    a build. The conditional is always true; the observation is not, and an
+    unpinned observation about an install is exactly the kind of docstring claim
+    review flagged three times on this card.
+
+    So this pins only the part that can go stale. If Pillow ever gains Raqm here,
+    Arabic and Hebrew names would start shaping and joining correctly and the
+    caveat's account of the consequence would be wrong — that must fail loudly
+    rather than sit in the source as a confident falsehood.
+
+    Deliberately NOT asserted here: the rendered letterforms themselves. Comparing
+    a solo glyph's bitmap against the same glyph inside a word is the obvious way
+    to detect joining and it does not work — the two images differ because the
+    second contains an extra glyph, not because anything joined. That check was
+    written, failed for that reason, and was removed rather than tuned until green.
+    """
+    assert "Raqm" in (pdf.__doc__ or ""), "the caveat must exist for this to guard it"
+    assert not features.check("raqm"), (
+        "Pillow now reports Raqm support, so complex-script shaping and bidi are "
+        "available and the module docstring's caveat about this environment is "
+        "stale — update the docstring, and revisit whether Arabic/Hebrew names "
+        "still set as isolated unjoined letterforms"
+    )
 
 
 def test_the_header_font_is_the_bundled_file_and_not_the_hosts(tmp_path: Path) -> None:

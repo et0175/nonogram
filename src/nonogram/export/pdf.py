@@ -55,11 +55,17 @@ buys. A name written in a script it does not cover — Chinese, Japanese, Korean
 Thai, Devanagari — still renders as tofu, by exactly the same mechanism one
 layer down. This shrinks the failing set; it does not empty it.
 
-Coverage is not the only boundary, either: this venv's Pillow reports
-``features.check("raqm") == False``, so there is no complex-script shaping and
-no bidi. DejaVu *does* cover Arabic and Hebrew, but without Raqm a name in
-either sets as isolated, unjoined letterforms in left-to-right order rather
-than as tofu — wrong in a different way, and not fixed by this card.
+Coverage is not the only boundary, either. Complex-script shaping and bidi
+need Pillow to be built against Raqm; a Pillow built without it — which is the
+common case, and the case this project's own environment reports — does
+neither. DejaVu *does* cover Arabic and Hebrew, so a name in either is not
+tofu, but without Raqm it sets as isolated, unjoined letterforms in
+left-to-right order: wrong in a different way, and not fixed by this card.
+Whether the running Pillow has Raqm is a property of the install, not of this
+package, which is why this paragraph states the conditional rather than a
+verdict about one machine — ``test_the_shaping_caveat_matches_the_running_pillow``
+pins the two together so the text cannot drift from the environment it
+describes.
 
 Only the header moved. A page's clue digits still come out of
 ``png._clue_font``'s Pillow default face (:func:`_header_font` is not
@@ -307,10 +313,15 @@ def _draw_header(
 
     The stroke does have one property the glyph would not: its *weight* is
     ``max(1, round(size * _RULE_WEIGHT_RATIO))`` (see the ``draw.line`` call
-    below) — clamped to a minimum of one pixel and rounded to a whole one, so
-    at the small end of the fitting range (:data:`_MIN_HEADER_FONT_RATIO`)
-    the rule's thickness stops scaling linearly with size even though its
-    length still does.
+    below), and the term that stops it scaling is the ``round``, not the
+    ``max``. Rounding to whole pixels makes the weight a staircase across the
+    whole range rather than a small-end effect — measured, it steps 1->2 at
+    size 22, 2->3 at 36, 3->4 at 50 — while the length goes on scaling
+    continuously. The ``max(1, ...)`` clamp never fires here at all: header
+    text is fitted from ``band.font_size`` (5.0 mm at 300 DPI = 59 px) down to
+    :data:`_MIN_HEADER_FONT_RATIO` of it, a floor of 20 px, where the weight
+    is already 1. It is kept as a guard on the formula, not as a behaviour
+    this module reaches.
 
     A non-ASCII *name*, by contrast, is now set rather than boxed — that is the
     whole of what changed here — for names in the scripts DejaVu Sans covers.
