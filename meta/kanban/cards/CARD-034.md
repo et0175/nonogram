@@ -15,7 +15,7 @@
 **Wave:** 20
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, tests/test_export_image.py, tests/test_export_pdf.py, tests/property/test_layout_cell_size.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3, superseded implementation), 8.8 (cycle 2/3) — gate passed; F-001..F-004 closed in 3fe11f1
 **Started:** 2026-09-01T14:56:02Z
 **Closed:** —
 **Actual:** —
@@ -411,3 +411,41 @@ cell size — measured on the property corpus those are 5, 7, 11, 16, 17 and 21,
   independently confirmed, naming exactly the right five (EC-010's property test,
   AC-101, AC-105, AC-106 and AC-082[wide]). The property holds; the orchestrator's
   verification of it did not.
+
+- **[AC/EC check] All criteria/constraints ✓** — verified 2026-09-01 from FRESH
+  evidence against the RE-IMPLEMENTED code, not carried from cycle 1 (whose 9.0
+  scored an implementation this card then replaced). Every figure was re-derived
+  independently rather than read back from the tests that assert it.
+  - **AC-099..AC-103, AC-105 — all six reproduce exactly.** Each grid was laid
+    out under BOTH sheets via `_fit_cell` with the orientation supplied (the way
+    the code forces it), and the chosen orientation, the winning cell and the
+    losing cell all match the criterion: 30x10 landscape 6.43/5.93 · 26x10
+    landscape 6.86/4.74 · 30x20 **portrait** 5.93/5.76 · 10x30 portrait
+    5.76/3.81 · 30x30 portrait 5.76/3.81 · 26x25 **portrait** 6.86/4.57.
+    A first attempt at this gate forced the other sheet by swapping the module's
+    page constants and reported six mismatches — that harness was wrong, not the
+    criteria: the code now chooses orientation itself via `_page_size_mm`, so
+    swapping both sheets changes nothing. Recorded because a gate that reports a
+    false failure is as dangerous as one that reports a false pass.
+  - **AC-106 ✓** — swept independently: 144 cases with a larger side of 15 or
+    less, **0 turned**.
+  - **EC-010 ✓** — swept the full 441 extents x 4 patterns (1764 cases)
+    independently of the property test: **0 violations**, and `geometry.cell`
+    equals the better of the two sheets in every case. 443 ties, all resolving
+    to portrait.
+  - **EC-008 ✓ (G-5)** — the ceiling property and both vacuity floors survive;
+    25 assertions added against 2 real removals (a renamed helper and
+    `MIN_CELL_MM == 2.0`, now pinned as `MIN_CELL_MM == FLOOR_MM`). Extended,
+    not weakened.
+  - **G-1 ✓** A4 only — the two `A3`/`tiling` hits are prose disclaiming both.
+    **G-2 ✓** the `max(_mm_to_px(MIN_CELL_MM), min(cap, page_fit))` clamp is
+    never removed in the diff. **G-3 ✓ (amended)** no square branch: no
+    `columns == rows` test anywhere in `layout.py`. **G-4 ✓** `orchestrator.py`
+    and `sourcing/**` absent from the whole card's diff. **G-5 ✓** as above.
+  - **Declared limitation, stated rather than left implicit:** two of the four
+    `## System contract` rules that name this card's own territory
+    (ADR-0022/R2, ADR-0022/R4) remain `check_ref_missing` — a pre-existing model
+    gap shared with cycle 1 and not caused by this card. And `trace.yml`'s
+    NFR-006 row still links `adrs: [ADR-0006]`, the dependency-baseline ADR;
+    that mis-link is annotated in place rather than repointed, because print
+    geometry has no owning ADR and creating one is architect-station work.
