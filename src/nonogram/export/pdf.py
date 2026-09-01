@@ -29,6 +29,32 @@ geometry: every coordinate below comes from
 :func:`~nonogram.export.layout.compute_layout` and
 :func:`~nonogram.export.layout.header_band`.
 
+Why a font ships inside this package (ADR-0006 revision 2026-09-01, ADR-0006/R1)
+--------------------------------------------------------------------------------
+Pillow bundles no TTF. ``ImageFont.load_default()`` returns an embedded
+ASCII-only face, so every non-ASCII character in a header — ``к``, ``о``, ``т``,
+``é`` — was drawn as the ``.notdef`` box an unassigned codepoint gets, and had
+been since the first PDF this tool wrote. Filenames were never affected
+(ADR-0016's sanitizer is Unicode-aware and passes ``кот`` through verbatim),
+which is why the failure was confined to what a reader sees on the sheet.
+
+The header is therefore set in **DejaVu Sans**, shipped as *package data* under
+``nonogram/export/fonts/`` and loaded by :func:`_header_font`. Data, not a
+dependency: ADR-0006/R1 keeps the installed runtime set at exactly stdlib +
+Pillow + NumPy, and a font executes nothing, imports nothing and cannot break on
+a version bump, so admitting it costs none of what that baseline exists to keep
+out. ``pyproject.toml``'s ``dependencies`` list is unchanged by this; what
+changed there is the package-data configuration that makes the file install out
+of the src-layout. The font's own licence ships beside it as
+``fonts/LICENSE`` — a permissive Bitstream Vera-derived notice that allows
+redistribution and requires the notice travel with the file.
+
+**The font's coverage is now the boundary, and it is not all of Unicode.**
+DejaVu Sans covers Latin, Cyrillic and Greek (among others), which is what this
+buys. A name written in a script it does not cover — Chinese, Japanese, Arabic,
+Hebrew — still renders as tofu, by exactly the same mechanism one layer down.
+This shrinks the failing set; it does not empty it.
+
 What is *not* on the page (guardrail G-6)
 ------------------------------------------
 A static print artifact (CON-002): no interactive layer, no solver state, no
@@ -43,6 +69,9 @@ re-check.
 
 from __future__ import annotations
 
+import io
+from functools import lru_cache
+from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -55,6 +84,8 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
     from nonogram.export import ExportPayload
 
 __all__ = [
+    "FONT_PACKAGE",
+    "FONT_RESOURCE",
     "HEADER_SEPARATOR",
     "header_parts",
     "header_text",
@@ -62,6 +93,17 @@ __all__ = [
     "render_pages",
     "write_pdf",
 ]
+
+#: Where the bundled face lives, as a package plus a resource path rather than
+#: a filesystem path: it is *package data*, so it is addressed the way package
+#: data is addressed and keeps working from a zip import or a wheel that was
+#: never unpacked. See the module docstring for why it is data and not a
+#: dependency (ADR-0006/R1).
+FONT_PACKAGE = "nonogram.export"
+FONT_RESOURCE = "fonts/DejaVuSans.ttf"
+
+#: The notice that must travel with the file, shipped beside it.
+FONT_LICENSE_RESOURCE = "fonts/LICENSE"
 
 #: What sits between the name and the tier in the header. An em dash with
 #: spaces around it, which is AC-046's ``"cat — Medium"`` spelled out — a
@@ -92,10 +134,48 @@ _MIN_HEADER_FONT_RATIO = 1 / 3
 _HEADER_WIDTH_RATIO = 0.9
 
 #: What marks a name the header had to cut short. Three periods rather than
-#: U+2026, for the same reason the separator is a stroked rule: the bundled
-#: face is an ASCII subset and would set the ellipsis character as a
-#: ``.notdef`` box.
+#: U+2026 — DejaVu Sans does carry the ellipsis character, so this is no longer
+#: forced, but it is kept: guardrail G-2 holds the header's composition fixed
+#: while the face beneath it changes, and three periods and one ellipsis glyph
+#: are not the same mark on the page.
 _ELLIPSIS = "..."
+
+
+@lru_cache(maxsize=1)
+def _font_bytes() -> bytes:
+    """The bundled TTF, read once.
+
+    Read as bytes through :mod:`importlib.resources` rather than opened by
+    path: package data is not guaranteed to be a file on disk, and the bytes
+    are the same object every caller wants anyway. Cached because the file is
+    roughly three quarters of a megabyte and :func:`_measure_header` is called
+    up to three times for a single header.
+
+    A missing or unreadable resource raises out of here rather than being
+    papered over with :func:`PIL.ImageFont.load_default`: that fallback is what
+    this module was changed to stop doing, and silently reinstating it would
+    reproduce the tofu it exists to fix while reporting success.
+    """
+    return resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+
+
+@lru_cache(maxsize=8)
+def _header_font(size: int) -> ImageFont.FreeTypeFont:
+    """The bundled DejaVu Sans at ``size`` pixels.
+
+    The bundled face and not a system one, for the reason ``png._clue_font``
+    documents: the output must not depend on which fonts the machine running
+    the generator happens to have installed. What is new is that the bundled
+    face is now a real Unicode TTF rather than Pillow's ASCII-only default, so
+    a Cyrillic or Greek name sets as itself instead of as a row of ``.notdef``
+    boxes. Scripts DejaVu Sans does not cover still do not set — see the module
+    docstring.
+
+    Cached by size: :func:`_draw_header` re-measures at a second size when a
+    name does not fit, and every page of every export asks for the same handful
+    of sizes.
+    """
+    return ImageFont.truetype(io.BytesIO(_font_bytes()), size=size)
 
 
 def header_parts(payload: ExportPayload) -> tuple[str, ...]:
@@ -158,11 +238,11 @@ def _measure_header(
 ) -> tuple[ImageFont.FreeTypeFont, list[float], float, float]:
     """The header's type, its pieces' widths, its separator width and its total.
 
-    Pillow's bundled default at an explicit size, for the reason
-    ``png._clue_font`` documents: the output must not depend on which fonts the
-    machine running the generator happens to have installed.
+    The package's own DejaVu Sans (:func:`_header_font`) at an explicit size.
+    The separator's width is computed from the type size rather than measured,
+    because it is stroked rather than set — see :func:`_draw_header`.
     """
-    font = ImageFont.load_default(size=size)
+    font = _header_font(size)
     widths = [font.getlength(part) for part in parts]
     separator = size * (_RULE_LENGTH_RATIO + 2 * _RULE_GAP_RATIO)
     return font, widths, separator, sum(widths) + separator * (len(parts) - 1)
@@ -189,19 +269,22 @@ def _draw_header(
 
     Why the separator is stroked and not set
     ----------------------------------------
-    The type is Pillow's bundled default at an explicit size, for the reason
-    ``png._clue_font`` documents: the output must not depend on which fonts the
-    machine running the generator happens to have installed. That font is an
-    ASCII subset, and it has no U+2014 — set as a glyph, AC-046's em dash comes
-    out as a ``.notdef`` box on every PDF this tool has ever produced. An em
-    dash *is* a horizontal rule, so it is drawn as one: no glyph, no second
-    font, no dependence on the host's font stack, and the page reads as the
-    criterion says it does.
+    Originally out of necessity: Pillow's bundled default face is an ASCII
+    subset with no U+2014, so AC-046's em dash set as a glyph came out as a
+    ``.notdef`` box. That constraint is gone — the package now ships its own
+    DejaVu Sans (:func:`_header_font`), which does carry the em dash.
 
-    (A non-ASCII *name* still meets the same subset — CARD-011 keeps Unicode
-    names intact and this font cannot set them. That is a limitation of the
-    Pillow-only baseline, not something a separator can fix; see the card's
-    worktree notes.)
+    The rule stays anyway. Guardrail G-2 changes the face the header is drawn
+    with and nothing else about the header, and a stroked rule and a set em
+    dash are visibly different marks: the stroke's length, weight and the air
+    around it are fixed fractions of the type size
+    (:data:`_RULE_LENGTH_RATIO` and friends), so the separator looks the same
+    at every size the fitting below can pick, which a glyph's own advance width
+    does not guarantee. Turning it back into a glyph is a deliberate change to
+    the page, not a simplification.
+
+    A non-ASCII *name*, by contrast, is now set rather than boxed — that is the
+    whole of what changed here — for names in the scripts DejaVu Sans covers.
 
     The pieces are measured and laid out from the centre outward rather than
     drawn with a single centred anchor, so the rule lands between the two words

@@ -38,6 +38,15 @@ nonogram = "nonogram.cli:main"
 # src-layout (ADR-0008).
 where = ["src"]
 
+# ADR-0006/R1: non-executable static assets ship as package DATA, which is not
+# a dependency change — the `dependencies` list above is deliberately untouched
+# by this. DejaVu Sans is the face PDF headers are set in, so a non-ASCII
+# puzzle name prints as itself instead of as `.notdef` tofu; its licence is
+# permissive and requires the notice travel with the file, which is why LICENSE
+# ships in the same directory and is listed here alongside the font.
+[tool.setuptools.package-data]
+"nonogram.export" = ["fonts/*.ttf", "fonts/LICENSE"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]

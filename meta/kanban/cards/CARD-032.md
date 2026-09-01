@@ -1,6 +1,6 @@
 # CARD-032: Ship a Unicode TTF as package data so a non-ASCII name prints in the PDF header
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/032-unicode-pdf-header-font
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-032
 **Source:** meta/architecture/handoff.md#increment-6
 **Idea:** —
 **Wave:** 19
 **Depends on:** —
 **Touches:** src/nonogram/export/pdf.py, src/nonogram/export/fonts/, pyproject.toml, tests/test_export_pdf.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-01T12:26:14Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -112,4 +112,83 @@ support.
 
 ## Worktree notes
 
-—
+- **[Env]** forge 2026.8.17 (project requires >= 2026.8.17 — skew gate passed).
+- **[Drift gate]** ⚠ `pyproject.toml` intersects unprocessed external drift in
+  `meta/drift-pending.yml` (15 events). `drift.gate` defaults to `warn`, so this
+  proceeds — but the packaging config this card edits may have been changed outside
+  forge and not reconciled. Check `git log -- pyproject.toml` before editing it.
+- **[Pre-flight, orchestrator]** The font does not exist anywhere on this machine —
+  verified 2026-09-01: no DejaVu on disk, and Pillow bundles no TTF (`load_default()`
+  returns an embedded ASCII-only face). It must be fetched from the DejaVu project.
+  Network reachability to `raw.githubusercontent.com` was confirmed before this card
+  started. Guardrail G-7 was added at the decompose station for this reason: the macOS
+  font directories on this machine are full of Arial/Helvetica/Times, which are
+  proprietary and must NOT be bundled.
+
+### Implementation (2026-09-01)
+
+- **[G-7 / font provenance]** `DejaVuSans.ttf` was fetched from the DejaVu
+  project's own GitHub release, not from any system font directory:
+  `https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2`
+  (tarball sha256 `fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7`),
+  and `ttf/DejaVuSans.ttf` extracted from it verbatim.
+  - `src/nonogram/export/fonts/DejaVuSans.ttf` — 757,076 bytes, sha256
+    `7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954`
+  - `src/nonogram/export/fonts/LICENSE` — 8,816 bytes, sha256
+    `7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93`,
+    the tarball's own `LICENSE`, byte-identical to
+    `raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/LICENSE`
+    (fetched separately and diffed, as a second source for the same notice).
+  - Nothing was copied out of `/System/Library/Fonts`, `/Library/Fonts` or
+    `~/Library/Fonts`.
+- **[Subsetting — considered, not done]** The card permits subsetting to cut the
+  757 KB footprint. Not done, deliberately: `fontTools` is not installed and is
+  not in the dependency baseline even as a dev extra, so subsetting would mean
+  adding a build-time tool to save ~700 KB in a repository that already carries
+  megabytes of sample images. It would also break the one cheap audit this card
+  has — the shipped file's sha256 matching the upstream release exactly. Ships
+  pristine.
+- **[Packaging]** `pyproject.toml` gained only a `[tool.setuptools.package-data]`
+  table (`"nonogram.export" = ["fonts/*.ttf", "fonts/LICENSE"]`). The
+  `dependencies` list is untouched — the diff hunk does not reach it. Verified
+  end to end rather than by reading the config: `pip wheel . --no-deps` produces
+  a wheel containing `nonogram/export/fonts/DejaVuSans.ttf` (757,076 B) and
+  `nonogram/export/fonts/LICENSE` (8,816 B).
+- **[Loading]** `pdf._font_bytes()` reads the resource through
+  `importlib.resources` (stdlib) and caches it; `pdf._header_font(size)` wraps
+  those bytes in a `BytesIO` for `ImageFont.truetype`, cached per size. Bytes
+  rather than a path so a zip/wheel import works; no host font path is ever
+  consulted (asserted by
+  `test_the_header_font_is_the_bundled_file_and_not_the_hosts`). A missing
+  resource raises rather than falling back to `load_default()` — that fallback
+  is the defect, and reinstating it silently would report success while
+  printing tofu.
+- **[G-2]** The header separator is still a stroked rule, not a set em dash,
+  even though DejaVu Sans carries U+2014: only the face changes. The
+  `_ELLIPSIS` constant likewise stays `"..."`. Both docstrings were rewritten,
+  since their stated reason ("the bundled face is an ASCII subset") is no
+  longer true and this codebase treats a false docstring as a defect.
+- **[G-3]** `_filename_stem` / `_sanitized_component` untouched;
+  `orchestrator.py` (G-5) and `sourcing/image.py` (G-4) untouched.
+- **[Scope]** No `SCOPE+` entries. Everything landed inside the card's Touches:
+  `src/nonogram/export/pdf.py`, new `src/nonogram/export/fonts/`,
+  `pyproject.toml`, `tests/test_export_pdf.py`.
+- **[Honesty about coverage]** The module docstring states plainly that the
+  bundled font's own coverage is the new boundary and that Chinese, Japanese,
+  Arabic and Hebrew names still render as tofu. No claim of full Unicode
+  support anywhere.
+- **[Tests]** Full suite: **1363 passed, 1 xfailed** (baseline 1354 + 1 xfailed;
+  +9 from this card, one existing test renamed rather than added). New:
+  `test_the_notdef_comparison_can_actually_tell_tofu_from_a_glyph`,
+  `test_a_cyrillic_header_sets_the_letters_and_not_notdef_boxes` (4 params:
+  к/о/т/é), `test_the_header_band_of_a_cyrillic_name_is_not_a_row_of_tofu`,
+  `test_a_cyrillic_name_still_reaches_the_filename`,
+  `test_the_font_ships_as_package_data_and_not_as_a_dependency`,
+  `test_the_header_font_is_the_bundled_file_and_not_the_hosts`. Renamed:
+  `test_the_bundled_font_cannot_set_an_em_dash` ->
+  `test_the_separator_is_stroked_by_choice_now_rather_than_by_necessity`, which
+  now asserts both halves (default face still lacks the em dash; bundled face
+  has it) so neither claim in `_draw_header`'s docstring can go stale.
+  `test_the_pdf_renderer_imports_pillow_and_nothing_third_party` gained the
+  three new stdlib roots plus a second, list-independent assertion that every
+  non-Pillow root is in `sys.stdlib_module_names`.
