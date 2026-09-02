@@ -21,12 +21,12 @@ _Updated: 2026-09-02 07:25_
 | 11 | CARD-017 P3 | ✓ done |
 | 12 | CARD-019 P1 | ✓ done |
 | 13 | CARD-022 P1 | ✓ done |
-| 14 | CARD-020 P1 | ⏸ ready |
+| 14 | CARD-020 P1 | ⏸ ready — CARD-019 done, nothing blocking |
 | 15 | CARD-021 P2 | ⏳ blocked (→ CARD-020) |
 | 16 | CARD-023 ✓ done · CARD-025 ✓ done · CARD-024 ✓ done | ✓ done |
 | 17 | CARD-026 P1 | ✓ done |
 | 18 | CARD-027 ✓ done | ✓ done |
-| 19 | CARD-028 P2, CARD-030 P1, CARD-031 P2, CARD-032 ✓ done | ⏸ CARD-030/031 ready (CARD-027 done); CARD-028 → CARD-020 |
+| 19 | CARD-028 P2, CARD-030 P1, CARD-031 P2, CARD-032 ✓ done | ⏸ CARD-030/031 ready; CARD-028 ⏳ (→ CARD-020) |
 | 20 | CARD-033 P1, CARD-034 ✓ done | ⏸ ready — CARD-027 done |
 | — | CARD-018 ✓ done · CARD-029 P3 | ⏸ ready (CARD-023/025 both done) |
 
@@ -57,15 +57,18 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - **Elaborate difficulty measurement** — 12 analyzer intake lines written 2026-08-30, never formalized
 - **40x40 advanced mode — image/library only** — random already times out at 25-30
 - **NFR-005's max(w,h) model breaks on rectangles** — 40x20 vs 20x40 differ 45%; trap in CARD-027's path
+- **Two mechanical checks for the docstring-truth family** — dead test-name arrows, live citation of a retired id (with the exclusions both need)
+- **Random mode can't make a large rectangle at mid density** — 30x20 abandons at every density 10..45; CON-011 promises what the generator can't deliver
+- **CARD-027 deferred:** the ADR-0022/R1 guard is defeated by a type alias or `NewType` (both pinned as declared gaps)
 
 ## Architecture
 _(none)_
 
 ## Ready
-- **CARD-020** P1 · Web UI generation submission — form to pipeline to result page  _(wave 14)_
-- **CARD-021** P2 · Image upload via hand-rolled multipart parsing  _(wave 15, after CARD-020)_
-- **CARD-028** P2 · Web form's size field accepts the `NxM` extent token  _(wave 19, still waiting on CARD-020)_
-- **CARD-029** P3 · Retire the last stale 10..50 range claims left by CON-011  _(unblocked — CARD-023/025 done)_
+- **CARD-020** P1 · Web UI generation submission — form to pipeline to result page  _(wave 13/14 — READY; the last thing gating CARD-021 and CARD-028)_
+- **CARD-021** P2 · Image upload via hand-rolled multipart parsing  _(wave 14/15 — ⏳ blocked on CARD-020)_
+- **CARD-028** P2 · Web form's size field accepts the `NxM` extent token  _(wave 19 — ⏳ blocked on CARD-020; CARD-027 half is done)_
+- **CARD-029** P3 · Retire the last stale 10..50 range claims left by CON-011  _(no wave — READY, CARD-023/025 done)_
 - **CARD-030** P1 · Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it  _(wave 19 — UNBLOCKED, CARD-027 done)_
 - **CARD-031** P2 · Image-mode puzzles auto-name from the source file's stem  _(wave 19 — UNBLOCKED, CARD-027 done)_
 - **CARD-033** P1 · A bare `--size N` derives the shorter side from the source's shape  _(wave 20 — UNBLOCKED, CARD-027 done)_
