@@ -319,7 +319,8 @@ class NameContext:
         return self._auto_name(request)
 
     def _auto_name(self, request: GenerationRequest) -> str:
-        """FR-015's default: the library key, or mode plus timestamp."""
+        """FR-015's default: the library key, the image's file stem, or mode
+        plus timestamp."""
         if request.mode == sourcing.LIBRARY and request.library_key:
             # AC-043: the key verbatim, and *not* disambiguated. A library key
             # is not a timestamp, so two "cat" puzzles are two renderings of
@@ -330,6 +331,22 @@ class NameContext:
             # name — the run then fails in sourcing with UnknownLibraryImage,
             # which is the error that request deserves, not a naming one.
             return request.library_key
+        if request.mode == sourcing.IMAGE and request.image and request.image.stem:
+            # AC-090: mirrors the library arm above rather than inventing a
+            # parallel mechanism — same collision posture and all. Two "cat"
+            # puzzles converted from the same picture are two renderings of
+            # one picture, not a same-minute accident, so this is not
+            # disambiguated either; ADR-0017's export-time suffix resolves an
+            # actual collision, exactly as it does for the library key.
+            #
+            # This reads the path syntactically and touches no filesystem: a
+            # missing or unreadable file still has a stem (``Path.stem`` is
+            # pure string handling), so it is still named from it, and the run
+            # then fails in sourcing with UnreadableImage — the error that
+            # request deserves, not a naming one. Only a path with no usable
+            # stem at all (``request.image`` is ``None``, or its stem is
+            # empty) falls through to the timestamp name below.
+            return request.image.stem
         # AC-042. The format itself comes from ``export.default_stem`` rather
         # than being written out a second time here — see :func:`_filename_stem`
         # for why the two must not drift.

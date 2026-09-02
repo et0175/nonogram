@@ -11,6 +11,8 @@ pytest-idiomatic function names:
                 -> test_puzzle_name_override_via_flag*
     AC-045  TestPuzzleName_RejectsEmptyName
                 -> test_puzzle_name_rejects_empty_name*
+    AC-090  TestPuzzleName_AutoGeneratesFromImageFileStem
+                -> test_puzzle_name_auto_generates_from_image_file_stem*
 
 Three things shape this file.
 
@@ -188,11 +190,23 @@ def test_puzzle_name_auto_generates_mode_timestamp_for_random_mode_per_minute() 
 
 
 def test_the_auto_name_names_the_mode_it_was_generated_in() -> None:
-    """FR-015 gives image mode the same shape as random mode. CARD-015 has not
-    landed a grid source for it, so this is the naming layer alone."""
+    """FR-015 gives image mode the same shape as random mode, when the run
+    carries no source path to name it from instead (AC-090)."""
     assert _at(NOON).name_for(GenerationRequest(mode="image")) == (
         "image-2026-08-27-1430"
     )
+
+
+def test_puzzle_name_auto_generates_mode_timestamp_for_image_mode_with_an_unusable_stem() -> (
+    None
+):
+    """AC-090's stem rule (below) only fires when the source path actually has
+    a name to give: a path with no filename component (``Path(".").stem`` is
+    ``""``) falls through to the same mode+timestamp default as any other
+    unnamed run, exactly as a library run with no key does above."""
+    request = GenerationRequest(mode="image", image=Path("."), width=15, height=15, seed=1)
+
+    assert _at(NOON).name_for(request) == "image-2026-08-27-1430"
 
 
 def test_the_auto_name_and_the_export_stem_are_one_convention() -> None:
@@ -243,6 +257,54 @@ def test_a_library_run_without_a_key_is_still_named_before_it_fails() -> None:
     request = GenerationRequest(mode="library", width=15, height=15, seed=3)
 
     assert _at(NOON).name_for(request) == "library-2026-08-27-1430"
+
+
+# ==========================================================================
+# AC-090 — TestPuzzleName_AutoGeneratesFromImageFileStem
+# ==========================================================================
+
+
+def test_puzzle_name_auto_generates_from_image_file_stem(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An image-mode run with no --name, uploading a file named "cat.png", is
+    named "cat" — not the "image-<date>-<time>" mode+timestamp default."""
+    _install_source(monkeypatch, _ScriptedSource(UNIQUE))
+    image_path = tmp_path / "cat.png"
+    image_path.touch()
+
+    puzzle = generate(
+        GenerationRequest(
+            mode="image", image=image_path, width=FAST_SIZE, height=FAST_SIZE, seed=FAST_SEED
+        ),
+        names=_at(NOON),
+    )
+
+    assert puzzle.name == "cat"
+
+
+def test_puzzle_name_auto_generates_from_image_file_stem_without_a_counter(
+    tmp_path: Path,
+) -> None:
+    """ADR-0018's counter is about same-*minute* timestamps; a file stem is not
+    one. Two "cat" puzzles converted from the same picture are two renderings
+    of it rather than a same-minute accident — the same reasoning AC-043's
+    library key gets above, and for the same reason (ADR-0016/ADR-0017).
+
+    ``name_for`` alone, and the file need not exist: this is naming's own
+    reasoning about a path string, not a converted image (see the "before it
+    fails" test for the library key's counterpart)."""
+    names = _at(NOON)
+    request = GenerationRequest(
+        mode="image",
+        image=tmp_path / "cat.png",
+        width=FAST_SIZE,
+        height=FAST_SIZE,
+        seed=FAST_SEED,
+    )
+
+    assert names.name_for(request) == "cat"
+    assert names.name_for(request) == "cat"
 
 
 # ==========================================================================

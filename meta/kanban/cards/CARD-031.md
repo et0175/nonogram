@@ -1,6 +1,6 @@
 # CARD-031: Image-mode puzzles auto-name from the source file's stem
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/031-image-mode-name-from-file-stem
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-031
 **Source:** meta/architecture/handoff.md#increment-6
 **Idea:** —
 **Wave:** 19
 **Depends on:** CARD-027
 **Touches:** src/nonogram/orchestrator.py, tests/test_naming.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-02T12:20:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -88,4 +88,52 @@ deserves, not a naming error.
 
 ## Worktree notes
 
-—
+- **[Env]** forge 2026.8.17 (project requires >= 2026.8.17 — skew gate passed).
+- **[Dependency gate]** CARD-027 `done` (merge 632fd18) — the only dependency.
+- **[Drift gate]** ⚠ warn, dismissed on inspection for the THIRD consecutive card:
+  `orchestrator.py` appears in seven unprocessed `meta/drift-pending.yml` events, whose
+  heads are 6a73512, a0798a2 and 197e7fa — all this project's own commits, the last one
+  written this morning by the CARD-027 close. The gate is reporting forge's own
+  bookkeeping as unreconciled external change. Filed to the backlog: a gate that fires
+  on every card is one that gets ignored, and it will be ignored on the card where the
+  drift is real.
+- **[Stale guardrail, harmless]** G-5 says `sourcing/image.py` is "owned by CARD-030 this
+  wave". CARD-030 merged (9424603) before this card started, so the exclusion is now
+  historical rather than live. It still stands as scope guidance — this card has no
+  reason to touch that file.
+- **[G-7 is now decidable, but still not this card's]** G-7 holds DEC-026 (the
+  `<name>-<WxH>-<difficulty>.pdf` shape) open "until CARD-027 merges". CARD-027 has
+  merged, so the blocker named in the guardrail is gone. The decision is now takeable at
+  the architect station; it is NOT taken here, and this card must not implement it.
+- **[Implemented]** Added one arm to `NameContext._auto_name`
+  (`src/nonogram/orchestrator.py`), between the library-key arm and the
+  mode+timestamp fallback: `if request.mode == sourcing.IMAGE and request.image and
+  request.image.stem: return request.image.stem`. Mirrors the library arm exactly —
+  same collision posture (no disambiguation; ADR-0017's export-time suffix resolves a
+  collision), same "falls through on a missing/unusable value" shape. Reads the path
+  syntactically only (`Path.stem`, no filesystem access), so an unreadable or
+  nonexistent file is still named from its stem and fails later in `sourcing.image`
+  with `UnreadableImage` — a naming error is never raised. Only a `None` image or a
+  path with no filename component (`Path(".").stem == ""`) falls through to the
+  timestamp default.
+- **[Tests]** `tests/test_naming.py`: added the AC-090 happy-path test
+  (`test_puzzle_name_auto_generates_from_image_file_stem`, full `generate()` call
+  with a scripted source and a `tmp_path / "cat.png"` image path — file need not
+  contain real image data since naming never reads it), a no-counter companion test
+  mirroring AC-043's, and a G-2 regression test for the unusable-stem fallback
+  (`test_puzzle_name_auto_generates_mode_timestamp_for_image_mode_with_an_unusable_stem`,
+  using `Path(".")`). Updated the module's AC/test-id docstring mapping and one
+  pre-existing docstring (`test_the_auto_name_names_the_mode_it_was_generated_in`)
+  that overclaimed "CARD-015 has not landed a grid source" — CARD-030 has, since.
+- **[Mutation proof]** Disabled the new arm (`if False and request.mode ==
+  sourcing.IMAGE and ...`), reran `tests/test_naming.py -k image_file_stem`: both new
+  happy-path tests failed as expected (`'image-2026-08-27-1430' == 'cat'`). Reverted;
+  `git diff src/nonogram/orchestrator.py` matches the intended diff exactly (no leftover
+  mutation).
+- **[Full suite]** 1476 passed, 1 xfailed (baseline 1473 passed, 1 xfailed; net +3
+  tests, no regressions).
+- **[Guardrails]** G-1, G-3, G-4, G-5, G-6 untouched by construction (no edits to the
+  library arm, argparse, `_filename_stem`/sanitization, `sourcing/image.py`, or
+  `export/**`). G-2's random-mode and empty-key paths are unchanged; its image-mode
+  extension (fallback on an unusable stem) is now covered by a new test, above. G-7
+  (DEC-026, the PDF filename shape) not implemented, per instruction.
