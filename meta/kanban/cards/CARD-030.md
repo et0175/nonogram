@@ -1,6 +1,6 @@
 # CARD-030: Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/030-trim-to-ink-bounding-box
-**Worktree:** ../PythonProject4-card-030
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-6
 **Idea:** —
 **Wave:** 19
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/sourcing/image.py, tests/test_sourcing_image.py, tests/property/test_image_fit.py
 **Review score:** 9.0 (cycle 2; cycle 1 7.0)
 **Started:** 2026-09-02T07:40:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-02T12:10:00Z
+**Actual:** 0.6d
+**Merge commit:** 9424603ddc1494b053df7366050037521b422e66
 **Blocked by:** —
 
 ## What to implement

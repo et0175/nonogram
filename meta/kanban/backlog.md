@@ -322,3 +322,31 @@
       collecting `X = int` / `X = NewType(..., int)` would cover them) — and the table
       then fails on those two rows, which is the signal to flip them to `True`.
       Site: tests/property/test_grid_dimensions.py:511-512                   @tech-debt
+- [ ] **CARD-030's carried review findings — one model-and-pins follow-up** (cycle-2
+      F-201/F-203/F-204/F-205, 2026-09-02). Four items the review deliberately did not
+      spend a third cycle on:
+      - **F-201, and it is the interesting one.** Cycle 1's three prose remedies — the
+        corrected 22/1/2 overstatement split in `image.py`, the re-measured README
+        conversion table, and the reachability sweep on the card — are all correct today
+        and *mechanically unguarded*. `grep` over `tests/` for the figures is empty; no
+        test reads `README.md`; nothing recomputes the reachability table. The reviewer's
+        diagnosis names the mechanism the whole docstring-truth family shares: **a card
+        or a doc that hand-maintains a mirror of facts git and pytest already hold
+        authoritatively is a defect generator at a fixed rate.** It proved it on the same
+        card — F-202 was cycle 1's own fix pass invalidating the card's "three files…
+        nothing else" scope list and its suite count. The machinery to fix F-201 is three
+        feet away: `tests/test_sourcing_image.py` already pins five corpus-wide counts as
+        real assertions and has `_ink_extent()`/`_corpus()` helpers.
+      - **F-203:** ADR-0022/R3 and CON-012 were revised to judge the ink box, but their
+        declared `check:` refs are pre-revision tests that cannot discriminate the two
+        readings, and the test that can
+        (`test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied`) is
+        registered nowhere in the model. Noted in trace.yml at close; the fix is a model
+        edit, which is why it was out of CARD-030's `Touches:` and guardrails.
+      - **F-204 / F-205:** AC-087's known-false "300 of 400 cells" (intake already
+        recorded in `inputs/raw-requirements.md`) and EC-007's annotation still narrating
+        the deleted two-check header probe. **Both have now survived two review cycles
+        marked "out of scope", which is the point where a note should become a card.**
+      Related: the two mechanical docstring-truth checks already in this backlog. These
+      are the same problem seen from the model side rather than the test side, and are
+      probably one card.                                                     @tech-debt

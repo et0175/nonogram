@@ -737,6 +737,12 @@ links:
   - TestTrimToInk_AcceptsResidualBlankLinesOnDear1Jpg
   - TestTrimToInk_AcceptsResidualBlankLinesOnWolf1Jpeg
   - TestTrimToInk_MidGreyThresholdOutperformsNearWhiteThreshold
+  - test_trim_to_ink_fixes_17_of_the_19_corpus_violations
+  - test_trim_to_ink_reduces_the_worst_case_border_to_at_most_one_line
+  - test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg
+  - test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg
+  - test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold
+  - test_the_shipped_conversion_applies_the_trim_the_criteria_measure
   notes: >-
     Written by the 2026-09-01 domain-extraction delta (raw-requirements.md
     entry 1); not yet implemented — no kanban card cut for it. Runs in
@@ -747,11 +753,17 @@ links:
     itself states the property is best-effort, not universal, so there is no
     "for any input" claim to generalize into a property test; AC-088 pins
     the one known residual (dear1.jpg) as accepted behaviour instead. DEC-025
-    (decisions/open.yml) is the still-open question of whether FR-021/
-    CON-012's aspect guard should read this trimmed extent or the original
-    one — unresolved, so FR-021/CON-012's own trace rows are unchanged by
-    this entry.
-  status: partial
+    (decisions/open.yml) asked whether FR-021/CON-012's aspect guard should
+    read this trimmed extent or the original one. RESOLVED 2026-09-01 in
+    ADR-0022's revision (Migration: rewrite) in favour of the ink box, and
+    SHIPPED by CARD-030 (merge 9424603) as one change with the trim, because
+    the guard's new subject only exists once the trim does.
+    Implemented note: the trim's headline property is pinned end-to-end by
+    test_the_shipped_conversion_applies_the_trim_the_criteria_measure, which
+    drives image.generate itself. That test exists because cycle 1 found the
+    five AC tests all reassembled the pipeline in the test body, so removing
+    the trim entirely left the whole suite green.
+  status: covered
 
 - req: FR-023
   description: "A bare `--size N` derives the shorter side from the source's
@@ -876,11 +888,19 @@ links:
   adrs: [ADR-0010]
   tests:
   - PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore
+  - test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
   notes: >-
     Gate-enforced restatement of FR-021 so "never silently discard more than
     half the user's picture" is collected into the system contract, not only
     into FR-021's ACs. The check ref went live with CARD-026 (merge 547d317):
     tests/property/test_image_fit.py now defines it.
+    SUBJECT CHANGED 2026-09-02 by CARD-030 (ADR-0022 revision, DEC-025): the
+    ratio judged is the INK BOX's, not the as-decoded file's. The declared
+    check above predates that and CANNOT discriminate the two readings — it is
+    a pure-integer property that never computes an ink box. The test that can
+    is listed beside it and is what actually holds the revised clause. Known
+    gap, carried from CARD-030's cycle-2 review as F-203: the model's declared
+    check should be restated over the new subject rather than left implicit.
   status: covered
 
 - req: CON-013
