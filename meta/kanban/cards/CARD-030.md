@@ -15,7 +15,7 @@
 **Wave:** 19
 **Depends on:** CARD-027
 **Touches:** src/nonogram/sourcing/image.py, tests/test_sourcing_image.py, tests/property/test_image_fit.py
-**Review score:** —
+**Review score:** 9.0 (cycle 2; cycle 1 7.0)
 **Started:** 2026-09-02T07:40:00Z
 **Closed:** —
 **Actual:** —
@@ -429,3 +429,5 @@ hits, both already correctly past-tense (`tests/test_sourcing_image.py:1265,1445
 one unrelated line in `test_export_pdf.py`. One instance, now zero.
 
 **Suite: 1473 passed, 1 xfailed** — unchanged; the edit is prose only.
+
+[AC/EC check] All criteria/constraints ✓ (evidence: AC-086 test_trim_to_ink_fixes_17_of_the_19_corpus_violations, AC-087 test_trim_to_ink_reduces_the_worst_case_border_to_at_most_one_line, AC-088 test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg, AC-091 test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg, AC-089 test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold, plus the shipped-path pin test_the_shipped_conversion_applies_the_trim_the_criteria_measure and the degenerate-box pin test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize; EC-007 test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more; ADR-0022/R3 test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied and test_fit_image_refuses_a_ratio_mismatch_beyond_twice; FR-020's AC-071..AC-074 + EC-006 and FR-021's AC-075..AC-079 re-verified against the CHANGED subject rather than inherited from CARD-026 — see "AC/EC gate (2026-09-02)" above; suite 1473 passed, 1 xfailed) — one docstring corrected by the gate; all seventeen criteria verified against the current implementation on 2026-09-02. Every name above was resolved to exactly one `def` before this line was written: a first draft of it carried six invented snake_case names, which is the same dead-arrow defect this project has been chasing, caught here only because the names were checked rather than trusted.
