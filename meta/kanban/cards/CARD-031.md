@@ -1,6 +1,6 @@
 # CARD-031: Image-mode puzzles auto-name from the source file's stem
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -137,3 +137,13 @@ deserves, not a naming error.
   `export/**`). G-2's random-mode and empty-key paths are unchanged; its image-mode
   extension (fallback on an unusable stem) is now covered by a new test, above. G-7
   (DEC-026, the PDF filename shape) not implemented, per instruction.
+
+- **[Orchestrator probe, pre-review]** The naming arm was exercised directly across path
+  shapes before the review was launched, to see what `Path.stem` actually yields:
+  `cat.png` -> `cat`; `pictures/sub dir/wolf_2.png` -> `wolf_2`; `кот.png` -> `кот`
+  (G-4 holds, verbatim); `cat` -> `cat`; `.` -> falls through to the timestamp; `None` ->
+  falls through. Two edges are worth a reviewer's judgement rather than a silent pass:
+  `cat.tar.gz` -> `cat.tar` (plain `Path.stem` semantics, strips only the last suffix),
+  and `.hidden` -> `.hidden`, which would name an output file with a leading dot and so
+  hide it on Unix. Neither is in AC-090 and neither is obviously wrong; both are recorded
+  so the decision is visible rather than inherited.
