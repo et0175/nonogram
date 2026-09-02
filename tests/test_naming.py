@@ -26,7 +26,11 @@ straddle a minute boundary.
 *The name is checked on the aggregate, not on a helper's return value*, wherever
 the pipeline can produce one: AC-042/043/044 say "when the puzzle is created",
 so the assertions are about ``generate(...).name``. The naming layer is called
-directly only for the ``image`` mode, which has no grid source yet (CARD-015).
+directly only where a full run cannot reach the case being pinned — the
+collision counter, which needs two names from one context without two
+generations, and the fallthrough branches whose input a real request never
+carries (a library request with no key, an image request with an unusable
+stem). Every mode, image included, has a registered grid source.
 
 *The file the name produces is checked too.* The puzzle's name is the only
 source of the export filename stem (``orchestrator._filename_stem``), which is

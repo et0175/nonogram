@@ -49,9 +49,9 @@ deserves, not a naming error.
 
 ## Guardrails
 
-- G-1: AC-043's library-key naming is unchanged (test: `TestPuzzleName_UsesLibraryKeyVerbatim`)
+- G-1: AC-043's library-key naming is unchanged (test: `TestPuzzleName_AutoGeneratesFromLibraryKey`)
 - G-2: AC-042's `<mode>-<date>-<time>` default still applies to random mode, and to image
-  mode when the stem is unusable (test: `TestPuzzleName_AutoGeneratesModeTimestamp`)
+  mode when the stem is unusable (test: `TestPuzzleName_AutoGeneratesModeTimestampForRandomMode`)
 - G-3: AC-044/AC-045 unchanged — an explicit `--name` is still kept verbatim and an empty
   one still rejected inward of argparse. This card changes only the *auto-generated* default.
 - G-4: Filename sanitization is untouched. `_filename_stem` is already Unicode-aware and
@@ -147,3 +147,16 @@ deserves, not a naming error.
   and `.hidden` -> `.hidden`, which would name an output file with a leading dot and so
   hide it on Unix. Neither is in AC-090 and neither is obviously wrong; both are recorded
   so the decision is visible rather than inherited.
+
+- **[Cycle-1 findings, both fixed]** F-001: the module docstring in `tests/test_naming.py`
+  still said image mode "has no grid source yet (CARD-015)" — false since CARD-015, and
+  the implementation pass had corrected the identical sentence one function away at line
+  192 while missing this one. A half-fix inside a file the diff already edited, which is
+  the family's signature. F-002: this card's own G-1 and G-2 cited
+  `TestPuzzleName_UsesLibraryKeyVerbatim` and `TestPuzzleName_AutoGeneratesModeTimestamp`,
+  **neither of which exists anywhere in the repo**; the real ids are
+  `TestPuzzleName_AutoGeneratesFromLibraryKey` and
+  `TestPuzzleName_AutoGeneratesModeTimestampForRandomMode`. A decompose-time defect in
+  unchanged context, not the implementer's — the guardrails themselves hold. Both
+  corrected here rather than carried, because both are false statements rather than
+  missing durability, and correcting prose does not change the tree the review passed.
