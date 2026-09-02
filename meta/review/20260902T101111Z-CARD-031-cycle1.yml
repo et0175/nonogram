@@ -1,0 +1,144 @@
+version: 1
+generated_at: "2026-09-02T10:11:11Z"
+target: "card/031-image-mode-name-from-file-stem @ aae9c17 (git diff main...HEAD) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-031"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/orchestrator.py
+    - tests/test_naming.py
+    - src/nonogram/export/__init__.py
+    - src/nonogram/sourcing/__init__.py
+    - meta/kanban/cards/CARD-031.md
+    - meta/architecture/requirements.yml
+    - meta/architecture/trace.yml
+    - meta/architecture/decisions/adr/0016-pdf-filename-convention.md
+    - meta/architecture/decisions/adr/0017-export-filename-collision-policy.md
+  not_reached:
+    - src/nonogram/sourcing/image.py   # read only its UnreadableImage raise sites, not the conversion body
+    - src/nonogram/web/                # untouched by the diff
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 144, removed: 7 }
+  production_diff: { files: 1, added: 18, removed: 1 }
+  max_fan_in: { symbol: "NameContext.name_for", callers: 9 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]   # 14 commits/12mo, 1 fix-shaped
+  cochange_missing: ["src/nonogram/cli.py", "tests/test_cli.py"]
+  unmeasured:
+    cochange_missing_is_a_gap: "not_applicable — cli.py/test_cli.py co-change with orchestrator.py in 7/14 commits, but --image is already wired (cli.py:226 flag, cli.py:413 -> GenerationRequest.image); this card changes only the auto-name, so no CLI-side change is implied"
+
+system_contract:
+  rules_checked: 13
+  holds: 9
+  unchecked: 4
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — dependency baseline untouched: `git diff main...HEAD --stat` lists 3 files, pyproject.toml not among them, and the production hunk adds no import (Path was already imported)"
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ absent from the diff; the rule's own checker `test_every_import_in_the_package_points_inward` re-run green on this head (1 passed)"
+    - "ADR-0022/R1 ✓ holds — the diff adds no public signature or request field; the arm reads request.image only, and the three new tests pass width=/height= as a pair, never a scalar size"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: nothing in this diff parses or derives --size; the new tests pass both dimensions explicitly"
+    - "CON-005 ✓ holds — no solver or uniqueness code in the diff; PropertyTest_Solver_NeverFalsePositiveUniqueness green in the 1476-passed suite re-run on this head"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no socket, server, or bind code in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no HTTP request-handling code in the diff"
+    - "CON-011 ✓ holds — no extent validation touched; the new requests use 10x10 and 15x15, both inside 10..30"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect guard is not touched. Noted, not a violation: the AC-090 happy-path test monkeypatches sourcing.for_mode (the file's pre-existing device), so the guard is bypassed there rather than weakened"
+    - "INV-001 ✓ holds — no clue-encoding code in the diff; TestComputeClues_MatchesGridExactly green in the full-suite re-run on this head"
+    - "INV-002 ✓ holds — no export-gating code in the diff; TestExport_RejectsUnverifiedPuzzle green in the full-suite re-run on this head"
+    - "INV-003 ✓ holds — no retry/nudge counter code in the diff; the four named bound checks green in the full-suite re-run on this head"
+    - "INV-004 ✓ holds — no extent code in the diff; the three TestGenerateRandom_* side-range checks green in the full-suite re-run on this head"
+
+root_causes:
+  - id: RC-1
+    title: "Prose in tests/test_naming.py describes a pre-image-source world; the diff corrected one instance of the claim and left its twin"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_naming.py
+    line: 29
+    title: "Module docstring still says image mode 'has no grid source yet (CARD-015)' — false on both halves"
+    description: |
+      The module docstring's third framing paragraph reads:
+
+        "The naming layer is called directly only for the ``image`` mode, which
+         has no grid source yet (CARD-015)."
+
+      Both clauses are now untrue:
+
+      1. Image mode HAS a grid source — `src/nonogram/sourcing/__init__.py:48`
+         registers `IMAGE: image.generate` in `_SOURCES`, and an end-to-end run
+         (`--mode image --image pictures/cat.jpg --size 10`) writes a real puzzle.
+      2. The naming layer is no longer "called directly only for image mode":
+         this diff's own AC-090 happy-path test goes through the full
+         `generate(...)` pipeline for image mode (tests/test_naming.py:275), while
+         `test_a_library_run_without_a_key_is_still_named_before_it_fails`
+         (tests/test_naming.py:253) calls `name_for` directly for LIBRARY mode.
+
+      This is the same overclaim the diff correctly fixed one function away, in
+      `test_the_auto_name_names_the_mode_it_was_generated_in`'s docstring
+      (tests/test_naming.py:192-194) — which is what makes leaving the module-level
+      twin a half-fix rather than an untouched pre-existing artifact. The file is in
+      the diff and the identical sentence was edited in it.
+    suggestion: |
+      Reword the paragraph to describe what the file now does, e.g.:
+
+        "*The name is checked on the aggregate, not on a helper's return value*,
+        wherever the pipeline can produce one: AC-042/043/044/090 say 'when the
+        puzzle is created', so those assertions are about ``generate(...).name``.
+        The naming layer is called directly only where the run is expected to fail
+        downstream (a library run with no key, an image run with no usable stem) —
+        naming's own reasoning about a request, before sourcing gets it."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-031.md
+    line: 52
+    title: "G-1 and G-2 cite test ids that exist nowhere in the repo (dead check refs)"
+    description: |
+      Two of the card's seven guardrails name a covering test that does not exist:
+
+      - G-1 (CARD-031.md:52) cites `TestPuzzleName_UsesLibraryKeyVerbatim`.
+        Repo-wide grep: 1 hit, the guardrail line itself. The real AC-043 test id is
+        `TestPuzzleName_AutoGeneratesFromLibraryKey`
+        (meta/architecture/requirements.yml:523).
+      - G-2 (CARD-031.md:54) cites `TestPuzzleName_AutoGeneratesModeTimestamp`.
+        Repo-wide grep: 1 hit, the guardrail line itself. The real AC-042 test id is
+        `TestPuzzleName_AutoGeneratesModeTimestampForRandomMode`
+        (meta/architecture/requirements.yml:517).
+
+      This is a decompose-time card-authoring defect, NOT something the implementation
+      agent introduced — those lines are unchanged context in the diff. Recorded because
+      it is the `check_ref_missing` failure mode: a guardrail whose named check does not
+      exist looks mechanically verified and is not. Both guardrails ARE genuinely
+      satisfied here (verified independently below), so this gates nothing.
+    suggestion: |
+      Correct the two ids on the card to the model's real names, and consider whether
+      `forge:kanban decompose` should validate guardrail `test:` refs against
+      requirements.yml the way `system_rules.py --verify-refs` does for rule checks.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

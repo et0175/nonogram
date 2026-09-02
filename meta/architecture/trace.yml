@@ -105,6 +105,9 @@ links:
   - TestPuzzleName_OverrideViaFlag
   - TestPuzzleName_RejectsEmptyName
   - TestPuzzleName_AutoGeneratesFromImageFileStem
+  - test_puzzle_name_auto_generates_from_image_file_stem
+  - test_puzzle_name_auto_generates_from_image_file_stem_without_a_counter
+  - test_puzzle_name_auto_generates_mode_timestamp_for_image_mode_with_an_unusable_stem
   notes: >-
     The name is an attribute of AGG-001, so it lands in COMP-002 — the
     component that owns the aggregate and constructs it once per run
@@ -119,7 +122,7 @@ links:
     entry 3 of that day's delta): AC-090 adds the image-mode default,
     mirroring AC-043's library-key rule — the source file's stem seeds
     COMP-002's auto-name instead of falling through to mode+timestamp.
-  status: partial
+  status: covered
 
 - req: FR-017
   description: "Local web UI exposing the same generation options as the CLI, driving

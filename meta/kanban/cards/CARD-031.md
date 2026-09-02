@@ -1,6 +1,6 @@
 # CARD-031: Image-mode puzzles auto-name from the source file's stem
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/031-image-mode-name-from-file-stem
-**Worktree:** ../PythonProject4-card-031
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-6
 **Idea:** —
 **Wave:** 19
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/orchestrator.py, tests/test_naming.py
 **Review score:** 9.5 (cycle 1, gate passed first time)
 **Started:** 2026-09-02T12:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-02T13:20:00Z
+**Actual:** 0.1d
+**Merge commit:** e59ea2b64631d2fa9ee229c83d94024b1a3ff819
 **Blocked by:** —
 
 ## What to implement
