@@ -31,12 +31,38 @@ python3.14 -m venv .venv
 A puzzle's grid is a rectangle, and one flag says how big it is:
 
 ```bash
-nonogram generate --size 20        # 20 wide by 20 tall
-nonogram generate --size 30x20     # 30 wide by 20 tall
+nonogram generate --size 30x20     # 30 wide by 20 tall, exactly
+nonogram generate --size 20        # 20 on the LONGER side; the other follows the source
 ```
 
-`--size N` is the square shorthand; `--size WxH` gives the two sides
-separately, width first. The separator is a lower-case `x`, not `*`: in zsh —
+`--size WxH` gives the two sides separately, width first, and the picture is
+fitted to that shape. A bare `--size N` leaves the shape unsaid, so **N is the
+grid's longer side and the other side is taken from the source's own
+proportions** — `round(N * short/long)`:
+
+| source | a bare `--size 25` gives |
+| --- | --- |
+| random (no shape of its own) | 25x25 |
+| library (every built-in template is square today) | 25x25 |
+| a 563x980 portrait silhouette | 14x25 |
+| a 330x462 portrait silhouette | 18x25 |
+
+For an uploaded picture the proportions read are the **drawing's**, not the
+file's: blank margin is trimmed off first, so a portrait cat centred on a square
+sheet gets a portrait grid and keeps its ears. Squaring it instead is a claim
+about your picture that the tool has no basis for, and on this project's own 25
+test pictures it discarded 24% of the average one. Ask for `--size 25x25` when
+you actually want a square.
+
+The derived side is never allowed below 10 cells, and that is the one place the
+grid stops following the picture. Past `N/5 : 1` — 2:1 at `--size 10`, 4:1 at
+`--size 20`, 6:1 at `--size 30` — holding it at 10 would throw away more than
+half the picture, so the request is refused and the message names the smallest
+`--size N` that would take it. Which has a genuinely counter-intuitive
+consequence, so it is worth saying plainly: **asking for a smaller puzzle can
+refuse a picture that a bigger one accepts.**
+
+The separator is a lower-case `x`, not `*`: in zsh —
 where this was reproduced — `--size 30*20` fails with `no matches found` before
 the process starts, and if a file happens to match the glob it silently expands
 to that filename instead. Other shells differ (bash passes an unmatched `30*20`
@@ -65,8 +91,10 @@ writing it out.
 
 - `--mode library --library-key <name>` picks the shape. Valid names: `cat`, `heart`,
   `house`, `moon` (an unknown key lists these back to you in the error).
-- `--size` is the grid extent, as described above: `20` means 20x20, `30x20`
-  means 30 wide by 20 tall, and each side must be 10-30.
+- `--size` is the grid extent, as described above: `30x20` means 30 wide by 20
+  tall, a bare `20` means 20 on the longer side with the other derived from the
+  source's shape (20x20 for every built-in template, which is square), and each
+  side must be 10-30.
 - `--seed` makes the run reproducible — the same seed, key and size always produce
   the same puzzle. Omit it for a random draw each time.
 - `--export pdf` writes a print-ready PDF; repeat the flag (e.g.
@@ -125,18 +153,22 @@ a given picture converts at is not monotonic. Measured on the images in `picture
 
 | image | 10 | 12 | 20 | 30 |
 |---|---|---|---|---|
-| `wolf1.jpeg`, `elephant1.jpg` | ✓ | ✓ | ✓ | ✓ |
-| `eagle-silhouette1.jpg` | ✗ | ✗ | ✓ | ✓ |
-| `dear1.jpg` | ✓ | ✗ | ✓ | ✓ |
-| `frog1.jpeg` | ✓ | ✓ | ✗ | ✗ |
+| `wolf1.jpeg` | ✓ 10x10 | ✓ 10x12 | ✓ 13x20 | ✓ 20x30 |
+| `elephant1.jpg` | ✓ 10x10 | ✓ 11x12 | ✓ 19x20 | ✓ 29x30 |
+| `eagle-silhouette1.jpg` | ✗ | ✓ 10x12 | ✗ | ✓ 17x30 |
+| `dear1.jpg` | ✓ 10x10 | ✓ 10x12 | ✗ | ✓ 20x30 |
+| `frog1.jpeg` | ✓ 10x10 | ✓ 12x10 | ✗ | ✗ |
 
-(Re-measured at `--seed 1` on the current code. `30` is the largest grid the tool
-accepts — an earlier edition of this table listed `35`, which is refused outright.)
+(Re-measured at `--seed 1` on the current code, with a *bare* `--size`, so each
+cell also shows the grid the picture's own shape derived — which is why the
+verdicts differ from the square-grid edition of this table. `30` is the largest
+grid the tool accepts; an earlier edition listed `35`, which is refused outright.)
 
 So if a picture fails at one size, try another before giving up on it — and note that
-smaller is a *usual* fix, not a reliable one: `eagle-silhouette1.jpg` needs a bigger
-grid, and `dear1.jpg` converts at 10 and at 20 but not at 12. High-contrast silhouettes
-convert best; a busy photo with fine detail will fail at any size worth solving.
+smaller is a *usual* fix, not a reliable one: `eagle-silhouette1.jpg` converts at 12
+and at 30 but not at 10 or 20, and `dear1.jpg` fails only at 20. High-contrast
+silhouettes convert best; a busy photo with fine detail will fail at any size worth
+solving.
 
 ## Documentation
 

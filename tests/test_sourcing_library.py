@@ -629,21 +629,26 @@ def test_the_orchestrator_assembles_the_library_argument_list() -> None:
 
     The extent is a *pair* in the argument list, sitting directly after the
     mode's own leading argument (ADR-0022/R1) — a rectangle here, so a call site
-    that passed one number twice would fail rather than pass by symmetry."""
+    that passed one number twice would fail rather than pass by symmetry.
+
+    Since CARD-033 the pair is an *argument* (``_resolved_extent``'s answer) and
+    not a read of the request, because a bare ``--size N`` leaves the request
+    half-stated (FR-023). The request below carries a different pair from the
+    one passed in, so this asserts the argument is what reaches the source."""
     request = orchestrator.GenerationRequest(
-        mode="library", library_key="moon", width=14, height=22, density=99
+        mode="library", library_key="moon", width=99, height=99, density=99
     )
 
-    assert orchestrator._source_arguments(request) == ("moon", 14, 22)
+    assert orchestrator._source_arguments(request, (14, 22)) == ("moon", 14, 22)
 
 
 def test_the_orchestrator_still_assembles_the_random_argument_list() -> None:
     """The library row must not have changed what random mode is called with."""
     request = orchestrator.GenerationRequest(
-        mode="random", width=14, height=22, density=35, library_key="moon"
+        mode="random", width=99, height=99, density=35, library_key="moon"
     )
 
-    assert orchestrator._source_arguments(request) == (14, 22, 35)
+    assert orchestrator._source_arguments(request, (14, 22)) == (14, 22, 35)
 
 
 def test_a_library_run_goes_through_the_existing_pipeline() -> None:
@@ -749,7 +754,12 @@ def test_the_cli_parses_the_library_flags_into_the_request(
     assert exit_code == cli.ExitCode.OK
     assert seen == [
         orchestrator.GenerationRequest(
-            mode="library", width=20, height=20, library_key="cat", seed=None
+            # ``height=None``: a bare ``--size 20`` states one number and the
+            # adapter passes it on unsquared since CARD-033 (FR-023). It still
+            # *renders* 20x20 — every template is 16x16 — but that is the
+            # template's ratio saying so, which
+            # ``TestDeriveShape_LibraryTemplateRatioAppliesSquareToday`` covers.
+            mode="library", width=20, height=None, library_key="cat", seed=None
         )
     ]
 

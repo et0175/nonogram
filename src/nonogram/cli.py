@@ -26,7 +26,11 @@ The distinction is at its sharpest on ``--size``, which is why
 :func:`_extent_token` below is worth reading as the worked example of it:
 splitting ``30x20`` into two numbers is *syntax* and belongs here, while
 whether 30 and 20 are supported grid sides is a rule about puzzles and belongs
-to ``sourcing.random_grid.validate_extent`` (ADR-0022/R2).
+to ``sourcing.random_grid.validate_extent`` (ADR-0022/R2). CARD-033 moved the
+line one step further in the same direction: a bare ``--size 30`` now parses to
+``(30, None)`` rather than ``(30, 30)``, because deciding what an *unstated*
+dimension should be is a domain question too — and one whose answer depends on
+the source, which this adapter cannot see (FR-023, ADR-0022/R4).
 """
 
 from __future__ import annotations
@@ -126,13 +130,27 @@ def exit_code_for(error: NonogramError) -> ExitCode:
     return ExitCode.INTERNAL_ERROR
 
 
-def _extent_token(text: str) -> tuple[int, int]:
+def _extent_token(text: str) -> tuple[int, int | None]:
     """Parse a ``--size`` token into a ``(width, height)`` pair.
 
     The whole of what ADR-0010 lets this adapter do to ``--size``: turn one
-    string into two integers, and refuse a string that is not one of the two
-    documented shapes. ``"30"`` is the square shorthand and yields ``(30, 30)``;
-    ``"30x20"`` yields ``(30, 20)``, 30 wide by 20 tall.
+    string into the numbers it contains, and refuse a string that is not one of
+    the two documented shapes. ``"30x20"`` yields ``(30, 20)``, 30 wide by 20
+    tall; a bare ``"30"`` yields ``(30, None)`` — **one** number, because one
+    number is what the user typed.
+
+    That ``None`` is the point of the shape, not a gap in it (FR-023,
+    ADR-0022/R4). A bare token states a length and says nothing about the
+    grid's shape, and what fills the unstated dimension is a domain question:
+    the answer is the *source's* own proportions, which the CLI cannot see and
+    the domain can (``sourcing.random_grid.derive_extent``, driven from
+    ``orchestrator._resolved_extent``). Returning ``(30, 30)`` here — as this
+    function did until CARD-033 — was not parsing but a default, and one that
+    made a claim about the user's picture that this adapter has no basis for;
+    ADR-0010's line puts it inward, which is where it now is. The distinction
+    survives to the domain: ``(30, None)`` is a bare N, ``(30, 30)`` is an
+    explicit ``30x30`` that means a square and gets one, and ``None`` for the
+    whole flag is ``--size`` omitted.
 
     It applies **no range check**, deliberately (ADR-0022/R2, guardrail G-2).
     ``"40x20"``, ``"0"``, ``"9"``, ``"31"`` and ``"-5"`` are all well-formed and
@@ -154,7 +172,8 @@ def _extent_token(text: str) -> tuple[int, int]:
         text: One ``--size`` token as the user typed it.
 
     Returns:
-        ``(width, height)``, unvalidated.
+        ``(width, height)`` for an ``NxM`` token and ``(N, None)`` for a bare
+        one, both unvalidated.
 
     Raises:
         argparse.ArgumentTypeError: ``text`` is neither ``N`` nor ``NxM``
@@ -173,7 +192,7 @@ def _extent_token(text: str) -> tuple[int, int]:
         raise argparse.ArgumentTypeError(
             f"expected N or N{_EXTENT_SEPARATOR}M with whole numbers, got {text!r}"
         ) from None
-    width, height = sides if len(sides) == 2 else (sides[0], sides[0])
+    width, height = sides if len(sides) == 2 else (sides[0], None)
     return width, height
 
 
@@ -245,9 +264,11 @@ def build_parser() -> argparse.ArgumentParser:
         dest="extent",
         metavar="N|WxH",
         help=(
-            "Grid extent in cells: N for a square, or WxH for W wide by H "
-            "tall (e.g. 30x20). The supported range for each side is a domain "
-            "rule and is checked after parsing, not here."
+            "Grid extent in cells: WxH for W wide by H tall (e.g. 30x20), or a "
+            "bare N for a grid whose LONGER side is N and whose other side "
+            "follows the source's own shape (a square in random mode). The "
+            "supported range for each side, and what a bare N derives to, are "
+            "domain rules and are decided after parsing, not here."
         ),
     )
     generate.add_argument(
@@ -399,7 +420,11 @@ def _run_generate(args: argparse.Namespace) -> int:
     # ``--size`` omitted is ``(None, None)``, not a default extent: which grid
     # a request with no ``--size`` should get is a domain question, and the
     # domain answers it by refusing (``SizeOutOfRange`` -> exit code 3), exactly
-    # as it did when the flag carried one number.
+    # as it did when the flag carried one number. A bare ``--size N`` is the
+    # neighbouring case and travels the same way: ``(N, None)``, one number
+    # stated and the shape left for the domain to derive from the source
+    # (FR-023) — this is a pass-through either way, and neither ``None`` is
+    # filled in here.
     width, height = args.extent if args.extent is not None else (None, None)
     request = orchestrator.GenerationRequest(
         mode=args.mode,

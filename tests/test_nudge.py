@@ -451,9 +451,14 @@ def test_nudge_reports_failure_at_cap_through_the_cli(
 
     ``GenerationAbandoned`` is mapped by COMP-001's one exit-code table, so this
     asserts the wiring rather than a second policy.
+
+    ``22x22`` rather than a bare ``22`` since CARD-033: a bare N follows the
+    source's own shape (FR-023), and ``landscape.png``'s 3:2 box would ask for a
+    22x15 — a different conversion, and so not the pinned five-nudge failure
+    this test is the CLI end of.
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22"]
+        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22x22"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -511,11 +516,19 @@ def test_nudge_failure_message_suggests_retry_reaches_the_user(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """AC-036 says "when the failure is presented to the user", so the advice is
-    checked where the user reads it and not only where it is raised."""
+    checked where the user reads it and not only where it is raised.
+
+    ``10x10`` rather than a bare ``10`` since CARD-033. The *grid* source is
+    scripted here, but the source's own shape is not — a bare N would ask
+    ``sourcing.image.source_shape`` about ``wide.png``, whose 3:1 box is past
+    the 2:1 ceiling a bare ``--size 10`` can reach, and the run would be refused
+    before the scripted source ever ran (FR-023). Stating the extent keeps the
+    subject of this test the nudge message.
+    """
     _install_source(monkeypatch, _CountingSource(_SIX_SWITCHES))
 
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(WIDE), "--size", "10"]
+        ["generate", "--mode", "image", "--image", str(WIDE), "--size", "10x10"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -562,7 +575,10 @@ def test_the_image_module_counts_nothing_itself() -> None:
     pinning it. CARD-030 (FR-022) added ``INK_THRESHOLD`` and
     ``ink_bounding_box`` and removed ``probe_extent`` — the pre-decode aspect
     probe, retired by ADR-0022's 2026-09-01 revision because an ink bounding
-    box cannot be read from a file header.
+    box cannot be read from a file header. CARD-033 (FR-023) added
+    ``source_shape``, which reports the ink box's extent so a bare ``--size N``
+    can be completed from it — and which, like ``nudge``, decides nothing and
+    counts nothing.
     """
     assert image.__all__ == [
         "INK_THRESHOLD",
@@ -574,6 +590,7 @@ def test_the_image_module_counts_nothing_itself() -> None:
         "load_greyscale",
         "nudge",
         "nudge_cells",
+        "source_shape",
         "to_grid",
         "validate_aspect_ratio",
     ]

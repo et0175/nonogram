@@ -1,4 +1,4 @@
-"""Grid extent as a pair: the three standing properties CARD-027 owns.
+"""Grid extent as a pair: three standing properties from CARD-027, two from CARD-033.
 
 This file replaces ``tests/property/test_size_range.py``, whose subject — one
 scalar edge length in 10..30 — stopped existing when FR-018/ADR-0022 made grid
@@ -8,7 +8,7 @@ corpus that only ever moves both sides together cannot tell "each side is
 checked" from "the larger side is checked", which is precisely the confusion the
 pair introduces.
 
-Three properties live here.
+Five properties live here — three CARD-027's, two CARD-033's.
 
 **EC-005 — PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30.**
 For every source mode, and for every ``(width, height)`` with *either* side
@@ -47,6 +47,25 @@ For every well-formed token a user can type, the refusal comes from the domain
 code 2). Its converse is asserted too: a *malformed* token is argparse's, and
 builds no request at all.
 
+**EC-009 — PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused.**
+CARD-033's arithmetic property, over every supported ``N`` and a seeded corpus
+of source ratios rather than over the four ratios its acceptance criteria name.
+Four claims: the long side is always exactly ``N``; the short side is
+``round(N * short/long)`` while that is at least ``MIN_SIZE``; it is held at
+``MIN_SIZE`` below that; and the request is refused exactly when the source is
+more elongated than ``N/5 : 1``, with the refusal naming the smallest ``N`` that
+would take it. The expected short side is computed independently, with
+``Fraction`` and explicit tie-breaking, so an implementation and its test cannot
+agree by sharing an expression.
+
+**ADR-0022/R4 — PropertyTest_BareSize_DerivesShorterSideFromSourceShape.** The
+same rule seen from outside, through all three source modes at once: for every
+mode and every supported ``N``, a bare ``--size N`` resolves to a grid the
+*source's own shape* explains, and the grid the mode then produces has exactly
+those dimensions. Random staying square and library staying square are asserted
+here as consequences of their reported shapes, not as exceptions — which is what
+would catch a derivation that special-cased a mode (guardrail G-2).
+
 The positive half of each property is asserted as well, because a validator that
 rejected everything, or a parser that accepted nothing, would satisfy the
 negative halves completely.
@@ -56,13 +75,19 @@ from __future__ import annotations
 
 import ast
 import random
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
-from nonogram import cli, difficulty, sourcing
-from nonogram.errors import ImageNeedsManualCrop, SizeOutOfRange
-from nonogram.sourcing import random_grid
+from nonogram import cli, difficulty, orchestrator, sourcing
+from nonogram.errors import (
+    ImageNeedsManualCrop,
+    SizeOutOfRange,
+    SizeTooSmallForSource,
+)
+from nonogram.sourcing import image, library, random_grid
 
 #: A real image, so image mode's refusal happens before the file is opened
 #: rather than because there was nothing to open. It is square (32x32), which
@@ -513,6 +538,12 @@ _GUARD_SHAPES: tuple[tuple[str, str, bool], ...] = (
     ("annotated class field",  "class R:\n    size: int = 30\n", True),
     ("BARE class field",       "class R:\n    size = 30\n", True),
     ("int accessor",           "class R:\n    @property\n    def size(self) -> int: ...\n", True),
+    # CARD-033's near miss, pinned because it is the signature FR-023 invites:
+    # "take the bare N and derive the pair". Written with a scalar parameter it
+    # is a scalar-extent boundary whatever it returns, and the guard says so —
+    # which is why ``random_grid.derive_extent`` takes the half-stated PAIR
+    # instead and this row stays a probe rather than a description of the code.
+    ("scalar N derivation",    "def derive_extent(n: int, w: int, h: int) -> tuple[int, int]: ...", True),
     # Deliberately NOT reached — the guard resolves syntax, not name bindings.
     ("type alias (declared gap)",   "Size = int\ndef g(k, size: Size, r): ...", False),
     ("NewType (declared gap)",      "from typing import NewType\nCells = NewType('Cells', int)\ndef g(k, size: Cells, r): ...", False),
@@ -623,7 +654,12 @@ def test_the_cli_enforces_no_part_of_the_range_itself() -> None:
 
     Both token forms are exercised for every pair: the ``WxH`` form always, and
     the bare ``N`` form whenever the pair is square, since that is the shorthand
-    a user would actually type for it.
+    a user would actually type for it. Since CARD-033 a bare token parses to
+    ``(N, None)`` — the one number it contains, with the shape left for
+    ``random_grid.derive_extent`` to complete (FR-023) — so what is asserted of
+    it here is that the *number* still arrives unjudged, which is the whole of
+    this property's subject. Whether ``None`` is then filled in correctly is
+    ``PropertyTest_BareSize_DerivesShorterSideFromSourceShape``'s, below.
     """
     rejected, accepted = _corpus()
     parser = cli.build_parser()
@@ -636,7 +672,7 @@ def test_the_cli_enforces_no_part_of_the_range_itself() -> None:
 
         if width == height and width >= 0:
             bare = parser.parse_args(["generate", "--size", str(width)])
-            assert bare.extent == (width, width)
+            assert bare.extent == (width, None)
 
 
 def test_a_malformed_token_is_argparses_and_an_out_of_range_one_is_not() -> None:
@@ -657,3 +693,400 @@ def test_a_malformed_token_is_argparses_and_an_out_of_range_one_is_not() -> None
         with pytest.raises(SystemExit) as excinfo:
             parser.parse_args(["generate", "--size", token])
         assert excinfo.value.code == cli.ExitCode.USAGE
+
+
+# --------------------------------------------------------------------------
+# EC-009 — PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused
+# ADR-0022/R4 — PropertyTest_BareSize_DerivesShorterSideFromSourceShape
+# --------------------------------------------------------------------------
+
+#: How many source ratios the derivation corpus carries, per side of the
+#: boundary. Asserted inside the tests, so the corpus cannot silently shrink.
+_RATIO_SAMPLES = 240
+
+
+def _ratio_corpus() -> list[tuple[int, int]]:
+    """``(short, long)`` pixel extents for the derivation property to run over.
+
+    Three groups, each answering a different way the rule could be wrong:
+
+    * **hand-placed exact boundaries** — for every supported ``N``, a source of
+      ratio exactly ``N/5 : 1`` (which must be accepted, with the short side
+      landing on ``MIN_SIZE``) and one pixel past it (which must be refused).
+      Sampling alone would step over both;
+    * **hand-placed round ratios** — 1:1, 2:1, 3:2, 16:9 and their transposes,
+      the shapes real pictures actually are;
+    * **a seeded random sweep**, half of it across the whole 1:1..12:1 range
+      and half confined to 1:1..2:1, so the corpus is not a list of the cases
+      somebody thought of *and* still has plenty of accepted cases at
+      ``--size 10``, whose ceiling is 2:1 and which an unweighted sweep would
+      leave almost entirely on the refused side.
+
+    Square sources appear too (``short == long``), because "a source with no
+    shape of its own is a square" has to be the same code path as everything
+    else here (guardrail G-2).
+    """
+    rng = random.Random(SEED)
+    pairs: set[tuple[int, int]] = set()
+
+    for stated in range(MIN_SUPPORTED, MAX_SUPPORTED + 1):
+        # Exactly N/5 : 1, as integers: short = 5k, long = N*k.
+        for scale in (1, 7, 100):
+            pairs.add((5 * scale, stated * scale))
+        # And one pixel past it, at a scale where one pixel is a real step.
+        pairs.add((1000, stated * 200 + 1))
+
+    for short, long in ((1, 1), (2, 1), (3, 2), (9, 16), (4, 5), (10, 11)):
+        pairs.add((short * 37, long * 37))
+        pairs.add((min(short, long) * 37, max(short, long) * 37))
+
+    while len(pairs) < _RATIO_SAMPLES:
+        short = rng.randint(1, 900)
+        widest = short * 12 if len(pairs) % 2 else short * 2
+        pairs.add((short, rng.randint(short, widest)))
+
+    return sorted(pairs)
+
+
+def _rounded_half_to_even(numerator: int, denominator: int) -> int:
+    """``round(numerator / denominator)`` computed exactly, without floats.
+
+    The independent second implementation EC-009's "equals ``round(N * r)``" is
+    checked against. It matters that this is written out rather than delegated
+    to ``round(a / b)``: the two disagree only when the quotient is exactly a
+    half-integer, which is precisely the input a shared expression would hide —
+    and that input is reachable (``round(25 * 16/32)`` is one).
+
+    Python's ``round`` breaks a tie to the nearest *even* integer, so this does
+    too; the point is that the rule is stated somewhere other than in the code
+    under test.
+    """
+    exact = Fraction(numerator, denominator)
+    floored = exact.numerator // exact.denominator
+    remainder = exact - floored
+    if remainder > Fraction(1, 2):
+        return floored + 1
+    if remainder < Fraction(1, 2):
+        return floored
+    return floored if floored % 2 == 0 else floored + 1
+
+
+def _expected_extent(
+    stated: int, source_width: int, source_height: int
+) -> tuple[int, int] | None:
+    """What EC-009 says ``derive_extent`` must answer, or ``None`` for refused.
+
+    Written from the requirement's own words rather than from the
+    implementation: N on the source's longer axis, ``round(N * short/long)`` on
+    the other with ``MIN_SIZE`` as a floor, and refused exactly when the
+    source's ``long:short`` exceeds ``N/5``.
+    """
+    shorter = min(source_width, source_height)
+    longer = max(source_width, source_height)
+    if Fraction(longer, shorter) > Fraction(stated, 5):
+        return None
+    derived = max(MIN_SUPPORTED, _rounded_half_to_even(stated * shorter, longer))
+    if source_width >= source_height:
+        return stated, derived
+    return derived, stated
+
+
+def test_the_derivation_corpus_covers_both_sides_of_the_ceiling() -> None:
+    """The corpus's own precondition, asserted rather than assumed.
+
+    A corpus of only-acceptable ratios would let a derivation that never refuses
+    pass the property below, and a corpus of only-refused ones would let one
+    that always refuses. Both halves have to be there in quantity, at every N,
+    and so does at least one source of each orientation.
+    """
+    corpus = _ratio_corpus()
+
+    assert len(corpus) >= _RATIO_SAMPLES, "the ratio corpus has shrunk"
+
+    for stated in (MIN_SUPPORTED, 20, MAX_SUPPORTED):
+        expected = [_expected_extent(stated, short, long) for short, long in corpus]
+        assert sum(1 for e in expected if e is None) >= 10, stated
+        assert sum(1 for e in expected if e is not None) >= 30, stated
+
+    assert any(short == long for short, long in corpus)
+    assert any(short != long for short, long in corpus)
+
+
+def test_the_derived_short_side_is_the_rounded_ratio_clamped_at_min_or_refused() -> None:
+    """``PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused``.
+
+    EC-009 in full, over every supported ``N`` against the whole ratio corpus —
+    ``21 * 240`` cases rather than the four its acceptance criteria name.
+
+    Both orientations of every ratio are run, so "N is the longer side" is
+    checked as a statement about the *source's* longer axis and not about the
+    width. The refusal half checks the message as well as the exception: naming
+    a size that does not work, or one larger than the smallest that does, is a
+    wrong answer even though the refusal itself was right.
+    """
+    corpus = _ratio_corpus()
+    assert len(corpus) >= _RATIO_SAMPLES
+
+    checked = refused = clamped = 0
+    for stated in range(MIN_SUPPORTED, MAX_SUPPORTED + 1):
+        for short, long in corpus:
+            for width, height in ((short, long), (long, short)):
+                expected = _expected_extent(stated, width, height)
+                checked += 1
+
+                if expected is None:
+                    refused += 1
+                    with pytest.raises(SizeTooSmallForSource) as raised:
+                        random_grid.derive_extent(stated, None, width, height)
+                    _assert_names_the_smallest_working_size(
+                        str(raised.value), stated, width, height
+                    )
+                    continue
+
+                for pair in (
+                    random_grid.derive_extent(stated, None, width, height),
+                    random_grid.derive_extent(None, stated, width, height),
+                ):
+                    assert pair == expected, (stated, width, height)
+                    # No top clamp, ever: the long side is exactly what was
+                    # asked for, and both sides are in range (guardrail G-3).
+                    assert max(pair) == stated
+                    assert MIN_SUPPORTED <= min(pair) <= MAX_SUPPORTED
+                    # FR-021's own guard, unchanged and on its own terms, must
+                    # accept every grid this rule requests (guardrail G-4).
+                    image.validate_aspect_ratio(width, height, *pair)
+
+                if min(expected) == MIN_SUPPORTED:
+                    clamped += 1
+
+    assert checked >= 10_000, "the derivation corpus has shrunk"
+    assert refused >= 500, "nothing was refused — the ceiling is not being tested"
+    assert clamped >= 500, "nothing hit the floor — the clamp is not being tested"
+
+
+def _assert_names_the_smallest_working_size(
+    message: str, stated: int, source_width: int, source_height: int
+) -> None:
+    """A refusal must name the smallest ``--size N`` that would take the source.
+
+    Or say plainly that none would. Both halves are checked against a search run
+    here, over ``_expected_extent`` — the requirement's arithmetic, not the
+    implementation's — so a message naming a size that does not work, or a
+    needlessly large one, fails.
+    """
+    workable = [
+        candidate
+        for candidate in range(MIN_SUPPORTED, MAX_SUPPORTED + 1)
+        if _expected_extent(candidate, source_width, source_height) is not None
+    ]
+
+    assert stated not in workable
+    if workable:
+        assert f"--size {workable[0]} or larger" in message
+        # The counter-intuitive consequence FR-023 asks be carried rather than
+        # deduced, and the remedy that is NOT FR-021's.
+        assert "LARGER puzzle accepts a picture that a smaller one refuses" in message
+        assert "Crop the picture yourself" not in message
+    else:
+        assert "No supported --size can follow it" in message
+        assert "or larger" not in message
+
+
+#: The source shapes the end-to-end property builds real pictures for. Kept
+#: modest because each one is written to disk and decoded twice per case; the
+#: exhaustive sweep over ratios is the arithmetic property above, and this one
+#: is about the wiring reaching all three modes.
+_IMAGE_SHAPES: tuple[tuple[int, int], ...] = (
+    (120, 120),
+    (240, 120),
+    (120, 240),
+    (300, 200),
+    (200, 300),
+    (400, 130),
+    (130, 400),
+    (500, 105),
+)
+
+
+def test_a_bare_size_derives_the_shorter_side_from_the_source_shape(
+    tmp_path: Path,
+) -> None:
+    """``PropertyTest_BareSize_DerivesShorterSideFromSourceShape`` (ADR-0022/R4).
+
+    The rule from outside, through every registered mode, for every supported
+    ``N``:
+
+    1. a bare ``--size N`` resolves to the extent the source's own reported
+       shape explains — the same ``_expected_extent`` oracle the arithmetic
+       property uses, fed with what ``sourcing.shape_for_mode`` says rather than
+       with a shape written here. So random staying ``N x N`` and library
+       staying ``N x N`` are *derived* facts about ``(1, 1)`` and ``(16, 16)``,
+       and a mode-specific branch in the derivation would not produce them;
+    2. the mode then really builds a grid of exactly those dimensions — the
+       assertion a resolution-only test would leave open;
+    3. an explicit ``--size WxH`` is untouched by any of it (AC-096);
+    4. the long side is always ``N``. Never clamped at the top, in any mode, at
+       any ratio (guardrail G-3).
+
+    Images are solid black rectangles, so their ink bounding box is their whole
+    extent and the ratio under test is the ratio written above.
+    """
+    for width, height in _IMAGE_SHAPES:
+        Image.new("L", (width, height), 0).save(tmp_path / f"{width}x{height}.png")
+
+    checked = 0
+    for stated in range(MIN_SUPPORTED, MAX_SUPPORTED + 1):
+        cases: list[tuple[str, dict[str, object], tuple[int, int]]] = [
+            ("random", {"density": 30}, random_grid.source_shape()),
+            (
+                "library",
+                {"library_key": LIBRARY_KEY},
+                library.source_shape(LIBRARY_KEY),
+            ),
+        ]
+        cases += [
+            (
+                "image",
+                {"image": tmp_path / f"{width}x{height}.png"},
+                (width, height),
+            )
+            for width, height in _IMAGE_SHAPES
+        ]
+
+        for mode, extras, shape in cases:
+            expected = _expected_extent(stated, *shape)
+            request = orchestrator.GenerationRequest(
+                mode=mode, width=stated, **extras
+            )
+            if expected is None:
+                with pytest.raises(SizeTooSmallForSource):
+                    orchestrator._resolved_extent(request)
+                continue
+
+            resolved = orchestrator._resolved_extent(request)
+            assert resolved == expected, (mode, stated, shape)
+            assert max(resolved) == stated, (mode, stated, shape)
+
+            grid = sourcing.for_mode(mode)(
+                *orchestrator._source_arguments(request, resolved),
+                random.Random(SEED),
+            )
+            assert len(grid) == resolved[1], (mode, stated, shape)
+            assert {len(row) for row in grid} == {resolved[0]}, (mode, stated, shape)
+
+            # (3) The same request with both sides stated keeps both sides.
+            explicit = orchestrator.GenerationRequest(
+                mode=mode, width=stated, height=MIN_SUPPORTED, **extras
+            )
+            assert orchestrator._resolved_extent(explicit) == (stated, MIN_SUPPORTED)
+            checked += 1
+
+    assert checked >= 180, "the end-to-end derivation corpus has shrunk"
+
+
+def test_a_bare_size_out_of_range_is_refused_before_the_source_is_consulted() -> None:
+    """The stated ``N`` faces the range rule first, and by the shared validator.
+
+    Two claims in one. An out-of-range bare ``N`` is a ``SizeOutOfRange`` with
+    ``random_grid.validate_extent``'s own message, byte for byte — the same
+    guarantee this file makes for a fully-stated extent, so a bare token cannot
+    reach the domain and get a second, differently-worded refusal.
+
+    And the refusal costs the *source* nothing: resolution ends in
+    ``derive_extent``, so ``sourcing.for_mode``'s grid source is never reached
+    and no picture is converted. What it does cost is exactly one **shape**
+    read, which is what the counter below pins. That is not an oversight to be
+    optimized away later: ``_resolved_extent`` cannot tell a bare ``N`` from an
+    explicit pair without splitting on which sides are stated, and once it is
+    on the bare branch the shape is the argument ``derive_extent`` validates
+    ``N`` inside. A fully-stated extent returns from the branch above the
+    lookup and reads no shape at all — AC-096's own test pins that, by making
+    the shape reporter raise.
+    """
+    for stated in (-5, 0, 9, 31, 9999):
+        with pytest.raises(SizeOutOfRange) as shared:
+            random_grid.validate_extent(stated, stated)
+        with pytest.raises(SizeOutOfRange) as raised:
+            random_grid.derive_extent(stated, None, 300, 400)
+
+        assert str(raised.value) == str(shared.value), stated
+
+    consulted = 0
+
+    def counting_shape(*arguments: object) -> tuple[int, int]:
+        nonlocal consulted
+        consulted += 1
+        return (300, 400)
+
+    original = sourcing._SHAPES[sourcing.IMAGE]
+    sourcing._SHAPES[sourcing.IMAGE] = counting_shape
+    try:
+        with pytest.raises(SizeOutOfRange):
+            orchestrator._resolved_extent(
+                orchestrator.GenerationRequest(mode="image", image=BANDS, width=31)
+            )
+        assert consulted == 1, (
+            "a bare N is completed from the source's shape, so resolving one "
+            "reads that shape exactly once — never twice, and never not at all"
+        )
+    finally:
+        sourcing._SHAPES[sourcing.IMAGE] = original
+
+
+def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
+    """The disclosed cost of FR-023 in image mode, measured rather than asserted.
+
+    A bare ``--size N`` reads the picture twice — once in
+    ``image.source_shape`` for the ink box the derivation needs, once in
+    ``image.generate`` for the pixels — because handing a decoded Pillow image
+    back out would put it on a boundary that carries ``list[list[bool]]`` and
+    nothing else (ADR-0012). An explicit ``--size WxH`` never asks for a shape
+    and still decodes once, which is the cost CARD-030 established.
+
+    Two rather than three is the claim worth pinning, and it is the one nothing
+    else asserts: a later card that resolved the extent inside a retry loop, or
+    read the shape a second time to re-check it, would change this number and
+    break no other test. Which is why **both** runs below retry — the helper
+    asserts ``nudge.attempts == 2`` for each: ``bands.png`` at 10x10 converts
+    to an ambiguous grid that two pixel-nudges repair
+    (``tests/test_nudge.py``'s own pin), so both counts are measured across a
+    run with three candidates in it, and the difference between them cannot be
+    an artefact of one run retrying and the other not — the
+    once-outside-both-loops placement of ``orchestrator._resolved_extent``,
+    stated as a count instead of as a comment.
+
+    The two requests differ in one token and nothing else: ``bands.png`` is
+    32x32, so a bare ``--size 10`` derives exactly the ``10x10`` the explicit
+    form states, and both runs convert the same picture into the same grid by
+    the same route. The difference in the count is therefore the shape lookup
+    and cannot be anything else.
+    """
+    decodes = 0
+    original = image.load_greyscale
+
+    def counting_load(source: object) -> object:
+        nonlocal decodes
+        decodes += 1
+        return original(source)  # type: ignore[arg-type]
+
+    def run(**extent: int) -> tuple[int, int]:
+        nonlocal decodes
+        decodes = 0
+        image.load_greyscale = counting_load  # type: ignore[assignment]
+        try:
+            puzzle = orchestrator.generate(
+                orchestrator.GenerationRequest(
+                    mode="image", image=BANDS, seed=1, **extent
+                )
+            )
+        finally:
+            image.load_greyscale = original
+        assert puzzle.extent == (MIN_SUPPORTED, MIN_SUPPORTED), extent
+        assert puzzle.nudge.attempts == 2, extent
+        return decodes, puzzle.nudge.attempts
+
+    bare, _ = run(width=MIN_SUPPORTED)
+    explicit, _ = run(width=MIN_SUPPORTED, height=MIN_SUPPORTED)
+
+    assert bare == 2, "a bare --size N decodes for the ink box and for the pixels"
+    assert explicit == 1, "an explicit --size WxH asks for no shape and pays for none"

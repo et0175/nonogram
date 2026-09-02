@@ -123,6 +123,7 @@ from nonogram import clues as clue_derivation
 from nonogram import difficulty, export, solver, sourcing
 from nonogram.errors import ExportRejected, GenerationAbandoned, InvalidPuzzleName
 from nonogram.sourcing import image as image_source
+from nonogram.sourcing import random_grid
 
 __all__ = [
     "DEFAULT_NAMES",
@@ -213,11 +214,18 @@ class GenerationRequest:
     """
 
     mode: str
-    #: ``--size`` (FR-018, ADR-0022/R1), as the two numbers the grid actually
-    #: has. Never one scalar: a grid is a rectangle, and the ``NxM`` token the
-    #: CLI parses is what fills these two fields. ``--size 30`` sets both to 30
-    #: — FR-023's "a bare N is the *longer* side, the other derived from the
-    #: source's shape" is CARD-033's and is not implemented here.
+    #: ``--size`` (FR-018, ADR-0022/R1), as the two numbers the user stated.
+    #: Never one scalar: a grid is a rectangle, and the ``NxM`` token the CLI
+    #: parses is what fills these two fields.
+    #:
+    #: **A bare ``--size 30`` fills exactly one of them** (FR-023,
+    #: ADR-0022/R4): the token states one number and says nothing about shape,
+    #: so the adapter passes on what was typed rather than inventing a square —
+    #: an unstated dimension is not a user intent, and "assume square" is a
+    #: claim about the picture that the CLI is the component least equipped to
+    #: make. :func:`_resolved_extent` completes it from the source's own shape,
+    #: and :attr:`Puzzle.extent` is where the finished pair lives. Both fields
+    #: ``None`` still means ``--size`` was omitted altogether.
     #:
     #: Unvalidated like the rest: each side's 10..30 range is a domain rule
     #: (CON-011), checked by ``random_grid.validate_extent`` in whichever source
@@ -519,6 +527,25 @@ class Puzzle:
     #: user when ``--seed`` was absent (ADR-0015). Always concrete, so a run
     #: is reproducible after the fact even when nobody asked for a seed.
     seed: int
+    #: The grid's *resolved* ``(width, height)`` — what :func:`_resolved_extent`
+    #: made of the request's extent and the source's own shape (FR-023).
+    #:
+    #: The effective counterpart of the request's own pair, in the same way
+    #: :attr:`seed` is the effective counterpart of ``request.seed``: a bare
+    #: ``--size N`` arrives with one side unstated, and this is where the pair
+    #: the run actually produced — and exports (FR-012) — is recorded. Written
+    #: once by :func:`generate`, before the first candidate, and never again;
+    #: the derivation depends on the request and the source, neither of which a
+    #: retry changes.
+    #:
+    #: A pair and not two fields, for ADR-0022/R1's reason: extent crosses a
+    #: boundary whole, and an aggregate attribute is a boundary.
+    #:
+    #: ``None`` only for an aggregate assembled by hand rather than by
+    #: :func:`generate`, exactly like :attr:`name` — :attr:`width` and
+    #: :attr:`height` then fall back to the request's unvalidated pair, which is
+    #: what such an aggregate was carrying before this field existed.
+    extent: tuple[int, int] | None = None
     #: FR-015's name, as :meth:`NameContext.name_for` resolved it — the library
     #: key, ``"<mode>-<YYYY-MM-DD>-<HHMM>"`` or whatever ``--name`` said.
     #:
@@ -590,17 +617,25 @@ class Puzzle:
 
     @property
     def width(self) -> int | None:
-        """Requested grid width, still unvalidated (AGG-001 attribute)."""
-        return self.request.width
+        """The grid's width — resolved when :attr:`extent` is set (AGG-001).
+
+        Reads :attr:`extent` first and the request only as a fallback, because
+        since FR-023 the request's own pair may be half-stated: a bare
+        ``--size 25`` on a portrait picture is ``width=25, height=None`` in the
+        request and ``(18, 25)`` in :attr:`extent`, and 18 is the width the run
+        produced, exported and printed. Falling back keeps a hand-assembled
+        aggregate reading exactly as it did before this field existed.
+        """
+        return self.extent[0] if self.extent is not None else self.request.width
 
     @property
     def height(self) -> int | None:
-        """Requested grid height, still unvalidated (AGG-001 attribute).
+        """The grid's height — resolved when :attr:`extent` is set (AGG-001).
 
         Two accessors rather than one ``size``: ADR-0022/R1 puts extent across
         every boundary as a pair, and an aggregate attribute is a boundary.
         """
-        return self.request.height
+        return self.extent[1] if self.extent is not None else self.request.height
 
     @property
     def density(self) -> int | None:
@@ -705,7 +740,73 @@ class Puzzle:
             )
 
 
-def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
+def _shape_arguments(request: GenerationRequest) -> tuple[object, ...]:
+    """The mode-specific arguments of ``request``'s *source-shape* reporter.
+
+    The counterpart of :func:`_source_arguments` for ``sourcing.shape_for_mode``
+    (FR-023), and shorter for a reason that is part of the rule rather than an
+    accident of the signatures: a source's own shape depends on the source and
+    on nothing else, so each mode's reporter takes the mode's own leading
+    argument and no extent. The random source, having no shape of its own, takes
+    nothing at all.
+
+    Every registered mode gets a branch and the ``else`` raises, for the same
+    reason :func:`_source_arguments` does: a mode in the dispatch table but not
+    here would otherwise bind the wrong argument several frames from the cause.
+
+    Raises:
+        ValueError: ``request.mode`` has a registered shape reporter but no
+            argument list here — a wiring bug inside the pipeline.
+    """
+    mode = request.mode
+    if mode == sourcing.RANDOM:
+        return ()
+    if mode == sourcing.LIBRARY:
+        return (request.library_key,)
+    if mode == sourcing.IMAGE:
+        return (request.image,)
+    raise ValueError(f"no shape argument list for mode {mode!r}")
+
+
+def _resolved_extent(request: GenerationRequest) -> tuple[int, int]:
+    """The ``(width, height)`` the grid actually gets (FR-018, FR-023).
+
+    The composing layer's part of ADR-0022/R4, and the whole of it: the *rule*
+    is ``random_grid``'s two pure functions, the *shape* is the mode's own, and
+    what happens here is deciding which of the two questions this request asks.
+
+    An extent with **both** sides stated is an explicit ``--size WxH``: it says
+    everything there is to say about the grid, so it is range-checked and used
+    as given, and the source's shape is never even consulted (AC-096). That is
+    also why an explicit request in image mode still decodes its file exactly
+    once — the derived path is the only one that pays for a shape.
+
+    An extent with **one** side stated is a bare ``--size N``, and it is
+    completed from the source's own shape (AC-092, AC-094, AC-095).
+
+    An extent with **neither** side stated is ``--size`` omitted, and falls
+    through to the same shared validator that has always refused it, with the
+    same message (``grid width must be between 10 and 30 inclusive, got None``).
+
+    Raises:
+        SizeOutOfRange: the extent is out of range, absent, or — as
+            ``SizeTooSmallForSource`` — is a bare N too small to follow this
+            source's shape (AC-098).
+        UnknownLibraryImage, UnreadableImage: the shape could not be read
+            because the source itself is unusable. Raised here rather than in
+            sourcing only because the derivation asks first; the message is the
+            source module's own either way.
+    """
+    width, height = request.width, request.height
+    if (width is None) == (height is None):
+        return random_grid.validate_extent(width, height)
+    shape = sourcing.shape_for_mode(request.mode)(*_shape_arguments(request))
+    return random_grid.derive_extent(width, height, *shape)
+
+
+def _source_arguments(
+    request: GenerationRequest, extent: tuple[int, int]
+) -> tuple[object, ...]:
     """The mode-specific leading arguments of ``request``'s grid source.
 
     ``sourcing.for_mode`` hands back a callable without collapsing the modes
@@ -717,6 +818,14 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
     to square). Assembling that list is the composing layer's job, and this is
     the one place it happens (ADR-0007: the orchestrator composes, the
     capability modules do not know about each other).
+
+    ``extent`` is :func:`_resolved_extent`'s answer and **not**
+    ``request.width``/``request.height``. Since FR-023 those two are not the
+    same thing: a bare ``--size N`` reaches the domain with one side unstated,
+    and what the source must be handed is the pair that survived resolution.
+    Taking it as an argument rather than reading it back off the request is what
+    makes that impossible to get wrong — there is no field here to read the
+    half-stated pair out of.
 
     The run's ``random.Random`` is *not* included: every source takes it last
     and :func:`generate` appends it at the call site, so a mode cannot
@@ -739,12 +848,13 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
             gives for its own ``ValueError``.
     """
     mode = request.mode
+    width, height = extent
     if mode == sourcing.RANDOM:
-        return (request.width, request.height, request.density)
+        return (width, height, request.density)
     if mode == sourcing.LIBRARY:
-        return (request.library_key, request.width, request.height)
+        return (request.library_key, width, height)
     if mode == sourcing.IMAGE:
-        return (request.image, request.width, request.height)
+        return (request.image, width, height)
     raise ValueError(f"no source argument list for mode {mode!r}")
 
 
@@ -898,12 +1008,19 @@ def generate(
     request carries no seed one is drawn from the OS entropy pool and recorded
     on the returned puzzle, which is what lets the adapter echo it.
 
-    The puzzle's name (FR-015) and its requested tier (FR-008) are resolved
-    first, before the seed is drawn and before the aggregate exists: an
-    unusable one of either must leave nothing behind (AC-045, AC-021), and a
-    usable one must be fixed for the whole run — every retry below replaces the
-    *candidate*, never the puzzle, so both are written exactly once here and
-    read thereafter (guardrail G-6, AC-020).
+    The puzzle's name (FR-015), its requested tier (FR-008) and its grid extent
+    (FR-018/FR-023) are resolved first, before the seed is drawn and before the
+    aggregate exists: an unusable one of the three must leave nothing behind
+    (AC-045, AC-021, AC-098), and a usable one must be fixed for the whole run —
+    every retry below replaces the *candidate*, never the puzzle, so all three
+    are written exactly once here and read thereafter (guardrail G-6, AC-020).
+
+    Resolving the extent is where a bare ``--size N`` becomes two numbers
+    (:func:`_resolved_extent`): N is the grid's longer side and the other is
+    derived from the source's own shape — the ink bounding box in image mode,
+    the template's extent in library mode, a square for random, which has no
+    shape of its own. An explicit ``--size WxH`` is used exactly as given and
+    never consults the source at all (AC-096).
 
     The two loops (POL-001 inside POL-004)
     --------------------------------------
@@ -975,10 +1092,15 @@ def generate(
             (AC-021). Raised alongside the name check, before anything is
             sourced or constructed.
         SizeOutOfRange, InvalidDensity, UnknownLibraryImage: the request is not
-            valid for its mode. Raised by the sourcing module on the first
-            attempt and *not* retried — an invalid request does not become
-            valid by being asked again, and POL-001 forbids a library retry
-            from switching to a key that would be.
+            valid for its mode. Raised while the extent is resolved, or by the
+            sourcing module on the first attempt, and *not* retried — an invalid
+            request does not become valid by being asked again, and POL-001
+            forbids a library retry from switching to a key that would be.
+        SizeTooSmallForSource: a bare ``--size N`` whose source is more
+            elongated than ``N/5 : 1``, so following its shape would put the
+            grid's short side under 10 cells and discard more than half the
+            picture (AC-098, FR-023). A ``SizeOutOfRange``, and its message
+            names the smallest ``--size N`` that would take this source.
         SolverTimeout: the request ran out of time (ADR-0011). Raised by the
             solver and *not* caught here: a timeout says nothing about the
             candidate, so retrying it would spend the rest of a budget that has
@@ -1004,10 +1126,22 @@ def generate(
         else None
     )
 
+    # FR-023, third and for the same reason: an extent that cannot be resolved
+    # — out of range, or a bare N too small to follow this source's shape
+    # (AC-098) — must abort before a puzzle exists. Resolved *once*, here: the
+    # derivation reads the request and the source's own shape, neither of which
+    # a retry changes, so re-deriving per attempt could only differ by being
+    # wrong (and, in image mode, would decode the file twenty times).
+    extent = _resolved_extent(request)
+
     seed = request.seed if request.seed is not None else secrets.randbits(64)
     rng = random.Random(seed)
     puzzle = Puzzle(
-        request=request, seed=seed, name=name, requested_tier=requested_tier
+        request=request,
+        seed=seed,
+        extent=extent,
+        name=name,
+        requested_tier=requested_tier,
     )
 
     # ADR-0011: one absolute instant for the whole request, fixed here before
@@ -1019,7 +1153,7 @@ def generate(
     # attempts, and an unknown mode must fail immediately rather than after
     # burning the retry budget.
     source = sourcing.for_mode(request.mode)
-    source_arguments = _source_arguments(request)
+    source_arguments = _source_arguments(request, extent)
 
     def judge_candidate(grid: Grid) -> Puzzle | None:
         """Judge one already-sourced grid: clues -> uniqueness -> score.
@@ -1204,11 +1338,12 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
         column_clues=puzzle_clues.columns,
         seed=puzzle.seed,
         mode=puzzle.mode,
-        # ADR-0023's extent pair, fed from the request's own pair (FR-018,
-        # ADR-0022/R1). Nothing here reshapes it: the aggregate carries what
-        # the user asked for, the two export formats write and read the two
-        # numbers independently, and a square puzzle is simply the case where
-        # they are equal.
+        # ADR-0023's extent pair, read off :attr:`Puzzle.extent` through the
+        # aggregate's two accessors — the pair the run actually produced, which
+        # since FR-023 is not the request's own pair whenever a bare
+        # ``--size N`` left one side unstated. Nothing here reshapes it: the
+        # two export formats write and read the two numbers independently, and
+        # a square puzzle is simply the case where they are equal.
         width=puzzle.width,
         height=puzzle.height,
         density=puzzle.density,
