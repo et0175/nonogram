@@ -273,3 +273,41 @@
       direction, so the idiom exists). `forge:retrospective` is the route for promoting a
       review-finding family into a standing rule.                            @tech-debt
 
+
+## Surfaced by CARD-027's AC/EC gate (2026-09-02)
+- [ ] **Random mode cannot produce a large rectangle at mid density — CON-011 promises a
+      range the generator cannot deliver** — found while writing AC-085's missing test,
+      which needed a real 30x20 generation and could not get one at the default density.
+      Measured 2026-09-02 on `card/027`, 3 seeds per density, `generate(mode="random",
+      width=30, height=20)`:
+      | density | uniquely-solvable within the retry bound | avg wall clock |
+      |---|---|---|
+      | 10, 15, 20 | 0/3 | 0.8-1.6s |
+      | 30 | 0/6 (seeds 0-5) | 7-18s |
+      | 35, 40, 45 | 0/3 | 29-30s |
+      | 50 | 2/3 | 0.5s |
+      | 55, 60, 70, 80, 85 | 3/3 | <0.05s |
+      Every failure is `GenerationAbandoned` after 20 attempts — *not* a timeout. The two
+      halves of the range fail differently and only the second is a performance problem:
+      at low density the 20 attempts are cheap and simply never land a unique grid; at
+      30-45 each attempt is also expensive, so the user waits up to 30s for a refusal.
+      **Why it matters:** CON-011 admits every side in 10..30, and the CLI's default
+      density sits squarely in the dead band, so a plausible first invocation
+      (`--size 30x20`) fails for every seed tried. This is the same wall the earlier
+      measurement hit from the square side (25x25 abandons 1/3 seeds, 30x30 2/3) — the
+      rectangle just makes it easier to reach. It is a real product limit, not a test
+      artefact, and it is *not* CARD-027's subject: the card delivers the width/height
+      pair, and the pair is delivered correctly.
+      **Options, in rough order of appeal:** (a) accept it and say so — narrow CON-011,
+      or document the workable density band per size, so the tool refuses fast with an
+      honest message instead of grinding; (b) raise the retry bound, which trades the
+      30-45 band's latency for a maybe — needs measuring before it is believed;
+      (c) improve candidate *construction* so a drawn grid is likelier to be uniquely
+      solvable (bias the RNG, or repair a near-miss rather than redrawing), which is the
+      only option that actually widens the range; (d) enforce the cooperative timeout
+      whose hook points already exist in `propagate.py`/`search.py`, which fixes the wait
+      but not the failure. (a) and (d) are honest; (c) is the real fix.
+      Related: the NFR-005 `max(w,h)` item above, and the 40x40 advanced-mode item —
+      both assume larger grids are reachable, and at random mode's mid densities they are
+      not. Worth measuring the full size x density surface once, rather than three times
+      in three cards.                                                        @tech-debt
