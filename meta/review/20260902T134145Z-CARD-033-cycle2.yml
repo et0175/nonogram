@@ -1,0 +1,452 @@
+version: 1
+generated_at: "2026-09-02T13:41:45Z"
+target: "card/033-bare-size-derives-shorter-side @ ec5cae4 (git diff main...HEAD; worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-033)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+mode: confirmation
+
+coverage:
+  read:
+    - src/nonogram/cli.py
+    - src/nonogram/errors.py
+    - src/nonogram/orchestrator.py
+    - src/nonogram/sourcing/__init__.py
+    - src/nonogram/sourcing/image.py
+    - src/nonogram/sourcing/library.py
+    - src/nonogram/sourcing/random_grid.py
+    - tests/test_derive_shape.py
+    - tests/property/test_grid_dimensions.py
+    - tests/test_export_json.py
+    - tests/test_cli.py
+    - tests/test_sourcing_image.py
+    - README.md
+    - meta/kanban/cards/CARD-033.md
+    - meta/architecture/inputs/raw-requirements.md
+    - meta/architecture/requirements.yml (FR-023, AC-063 regions)
+    - meta/architecture/trace.yml (FR-018, FR-023 rows)
+    - meta/review/20260902T130547Z-CARD-033-cycle1.yml
+  not_reached:
+    - src/nonogram/web/**  (untouched by the diff; CON-009/CON-010 verdicts are scope-based)
+    - src/nonogram/solver/**  (untouched)
+    - tests/test_export_pdf.py, tests/test_export_csv.py (read only for fixture provenance)
+  confidence: high
+
+metrics:
+  diff: { files: 20, added: 2703, removed: 122 }
+  max_fan_in:
+    symbol: "orchestrator._source_arguments"
+    callers: 6
+    note: >-
+      signature changed (now takes the resolved extent); callers counted across
+      src/ and tests/ — 1 production call site in orchestrator.generate, 5 in the
+      test tree (test_resample.py, test_sourcing_library.py,
+      tests/property/test_grid_dimensions.py), all updated in the diff.
+  tests_cover_change: true
+  hotspots:
+    - src/nonogram/orchestrator.py
+    - src/nonogram/sourcing/random_grid.py
+    - tests/property/test_grid_dimensions.py
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the cycle-1 report already named tests/test_export_json.py
+      as the absent co-change peer and the fix commit added it; re-running the
+      12-month co-change window on this two-commit delta surfaces no further peer
+      outside the diff.
+  suite: "1498 collected; full run green (exit 0) on ec5cae4 — 1497 passed, 1 xfailed"
+  mutation_check: "run (3 targeted mutants, all killed; see findings notes)"
+
+system_contract:
+  rules_checked: 15
+  holds: 12
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from `git diff main...HEAD --stat`; no new import outside stdlib+Pillow+NumPy in the diff; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full-suite run on ec5cae4"
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ absent from the diff; test_every_import_in_the_package_points_inward green on ec5cae4"
+    - "ADR-0022/R1 ✓ holds — derive_extent(width, height, source_width, source_height) takes the half-stated PAIR, never a scalar N; Puzzle.extent is a pair; tests/property/test_grid_dimensions.py's _GUARD_SHAPES gained the row `def derive_extent(n: int, ...)` -> flagged; test_no_public_boundary_reduces_a_grid_to_one_scalar green"
+    - "ADR-0022/R2 ✓ holds — derive_extent delegates every range decision to validate_extent (random_grid.py:330, :334) and adds no second message format; cli._extent_token still range-free; TestValidateExtent_RejectsSideAboveThirty green"
+    - "ADR-0022/R3 ✓ holds — image.validate_aspect_ratio is untouched by the diff (image.py gains only source_shape + an __all__ row); TestFitImage_RefusesRatioMismatchBeyondTwice green; the EC-009 property additionally calls the real guard on every accepted derived pair"
+    - "ADR-0022/R4 ✓ holds — check ref PropertyTest_BareSize_DerivesShorterSideFromSourceShape exists (tests/property/test_grid_dimensions.py, test_a_bare_size_derives_the_shorter_side_from_the_source_shape) and is green on ec5cae4; >=180 mode x N cases, all three modes"
+    - "CON-005 ✓ holds — src/nonogram/solver/ absent from the diff; PropertyTest_Solver_NeverFalsePositiveUniqueness green on ec5cae4"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is not touched by this diff (TestWebServer_BindsLoopbackOnlyByDefault is green, but nothing here bears on the rule)"
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest is not present anywhere under tests/ (grep -rl, 0 hits). Pre-existing model gap, NOT introduced by this card; src/nonogram/web/ is untouched by this diff"
+    - "CON-011 ✓ holds — PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green; the EC-009 property additionally asserts MIN_SIZE <= min(pair) <= MAX_SIZE and max(pair) == stated over >10,000 (N, ratio, orientation) cases"
+    - "CON-012 ✓ holds — the guard's subject (ink bounding box) and message are untouched; random_grid._keeps_half is a native predicate that never raises and never crops (ADR-0007-compliant reimplementation, cross-checked from the test tree); PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore green"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: src/nonogram/clues.py is not touched by this diff (TestComputeClues_MatchesGridExactly green)"
+    - "INV-002 ✓ holds — export_puzzle's only change is a comment; the readiness gate is unchanged; TestExport_RejectsUnverifiedPuzzle and TestExport_RejectsUnverifiedPuzzleForPDF green"
+    - "INV-003 ✓ holds — _resolved_extent is called once in generate(), before the seed is drawn and outside both retry loops (orchestrator.py:1135); TestNudge_ReportsFailureAtCap, TestRegenerate_StopsAtMaxRetryBound, TestResample_StopsAtMaxRetryBound, TestRetryLoop_BoundedIterations green; the new decode counter pins the once-outside-both-loops placement mechanically (verified: injecting a second load_greyscale into image.source_shape fails it at 3 == 2)"
+    - "INV-004 ✓ holds — the rule cycle 1 filed F-001 under. Puzzle.width/height now read the resolved extent; RE-DERIVED THIS CYCLE by re-running both mutants myself: m6 (Puzzle.width -> self.request.width) fails at (30, 30) == (20, 30); m6h (Puzzle.height -> self.request.height) fails BOTH parametrized cases at (30, None) == (30, 20). orchestrator.py md5 be86a085ef41709461b0a4b14fd054ee identical before and after each; git diff --stat clean"
+
+root_causes:
+  - id: RC-1
+    title: "The fix medium and the defect medium are the same: a prose defect is discharged by writing more prose, and every new paragraph is unverified surface in the identical class"
+    finding_ids: [F-010, F-011, F-012]
+  - id: RC-2
+    title: "The F-005 rename moved the honest name into the code while the model's pointers, which by project rule cannot be hand-edited, stayed on the old one"
+    finding_ids: [F-013]
+
+findings:
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_export_json.py
+    line: 351
+    title: "F-001's new test docstring claims both fixtures come from test_nudge.py; portrait.png appears nowhere in it"
+    description: |
+      The docstring of `test_a_derived_extent_is_what_the_aggregate_and_the_document_record`
+      closes: "Image mode rather than a scripted aggregate because the derivation is the
+      subject, and these two fixtures convert and solve in milliseconds — the same pictures
+      ``tests/test_nudge.py`` drives the real pipeline with."
+
+      `grep -c "PORTRAIT\|portrait.png" tests/test_nudge.py` returns 0. Only
+      `landscape.png` is used there (tests/test_nudge.py:92). `portrait.png` is used by
+      tests/test_sourcing_image.py and tests/test_export_pdf.py.
+
+      The rest of the sentence is true and was measured: the two cases run in 0.03s and
+      0.02s (`--durations`), so "~10ms per case" on the card is accurate.
+
+      This is a fix-introduced instance of the project's standing prose family: a
+      docstring making a checkable claim about the repository that the repository
+      contradicts.
+    suggestion: |
+      Either drop the `tests/test_nudge.py` attribution, or narrow it to `landscape.png`
+      and say where `portrait.png` comes from (tests/test_sourcing_image.py:80 explains it
+      as "the transpose of landscape.png").
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_grid_dimensions.py
+    line: 1048
+    title: "F-006's new test docstring says the bare run 'is the one that retries'; both runs retry, and its own next paragraph says so"
+    description: |
+      `test_a_bare_size_image_run_decodes_the_picture_exactly_twice` writes at line 1048:
+      "Which is why the bare run below is the one that *retries*: ``bands.png`` at 10x10
+      converts to an ambiguous grid that two pixel-nudges repair".
+
+      Both runs retry. The shared helper asserts it for both, unconditionally:
+      `assert puzzle.nudge.attempts == 2, extent` (line 1083), executed by
+      `bare, _ = run(width=MIN_SUPPORTED)` (1086) and
+      `explicit, _ = run(width=MIN_SUPPORTED, height=MIN_SUPPORTED)` (1087).
+
+      The docstring's very next paragraph states the correct fact and contradicts the
+      sentence above it: "both runs convert the same picture into the same grid by the
+      same route". `tests/test_nudge.py:334` pins the same two nudges through the
+      *explicit* `width=10, height=10` form, which is the direct refutation.
+
+      The same sentence was propagated verbatim into the card
+      (meta/kanban/cards/CARD-033.md:411-413, "The bare run is deliberately the one that
+      *retries*"), so the defect exists in two places.
+
+      What the test asserts is correct and is genuinely load-bearing — verified this cycle:
+      inserting a second `load_greyscale(source)` into `image.source_shape` fails it at
+      `assert 3 == 2`. Only the "which is why" causality is fabricated.
+    suggestion: |
+      Replace "the bare run below is the one that *retries*" with "both runs below
+      *retry*" (or "the runs below are retrying runs"), and mirror the correction on
+      CARD-033.md:411-413.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/inputs/raw-requirements.md
+    line: 135
+    title: "The F-004 intake line cites requirements.yml:922-925 for a quote that starts on line 921"
+    description: |
+      The EC-009/FR-023 intake line quotes: `requirements.yml:922-925` reads "a source whose
+      long:short ratio exceeds N/5 (2:1 at --size 10, ...) cannot be reached by that N
+      **without clamping**; ... would accommodate the source's ratio **unclamped**".
+
+      The quoted text actually spans lines 921-925: line 921 is
+      "Because the bottom clamp exists, a source whose long:short ratio" and 922 begins
+      "exceeds N/5 (2:1 at --size 10, ...". The opening fragment of the quotation
+      ("a source whose long:short ratio") lies outside the cited range.
+
+      Both load-bearing words are inside the range ("without clamping" on 923,
+      "unclamped" on 925), and every substantive claim in the line was verified and is
+      correct (see the verdict notes). This is a one-line citation offset, not a wrong
+      argument — filed because a citation that does not resolve is the same family the
+      card keeps hitting, and the line will be processed by a reader following it.
+    suggestion: "Change `requirements.yml:922-925` to `requirements.yml:921-925`."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-013
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 632
+    title: "F-005's rename leaves requirements.yml and trace.yml pointing at a test that no longer exists"
+    description: |
+      Cycle-1 finding F-005 renamed the AC-063 test
+      `test_cli_square_size_shorthand_sets_both_sides` /
+      `TestCLI_SquareSizeShorthandSetsBothSides` ->
+      `test_cli_bare_size_token_reaches_the_domain_unsquared` /
+      `TestCLI_BareSizeTokenReachesTheDomainUnsquared`. The old symbols now exist nowhere
+      in the source tree. Three model artifacts still name them:
+
+        * meta/architecture/trace.yml:632  (FR-018 tests: TestCLI_SquareSizeShorthandSetsBothSides)
+        * meta/architecture/trace.yml:637  (FR-018 tests: test_cli_square_size_shorthand_sets_both_sides)
+        * meta/architecture/requirements.yml:645 (AC-063 `test:` field)
+
+      Before the fix, FR-018's trace row pointed at a test that existed but was misnamed;
+      after it, the row points at nothing. By this skill's own doctrine a dead ref is the
+      worse of the two states, because a missing check is visible and a dead one is not.
+
+      Held to `medium` rather than `important` on four grounds, all checked:
+        1. FR-018's trace status is `partial`, not `covered`, so the deterministic
+           test-existence gate does not fire on it;
+        2. the AC is genuinely covered — the test exists, in the same file, and its own
+           docstring (tests/test_cli.py:429-436) records the old id and points at the
+           intake line;
+        3. the write-back is queued in the project's designated mechanism, and the intake
+           line's enumeration is exact ("AC-063's `test:` field plus trace.yml's two
+           FR-018 rows" — there are exactly two);
+        4. hand-editing requirements.yml would violate a standing project rule, so the
+           fix agent had no in-cycle remedy.
+
+      CARD-027.md:75/156/458 also name the old id; that is a closed card's historical
+      record and is correctly left alone.
+    suggestion: |
+      This must be discharged by the closing pass, not deferred again: process the AC-063
+      intake line (raw-requirements.md:134) so requirements.yml:645 and trace.yml:632/637
+      carry the new id, and fold it in with F-009's FR-023 write-back (status: partial ->
+      covered, and add PropertyTest_BareSize_DerivesShorterSideFromSourceShape to FR-023's
+      tests: list, where ADR-0022/R4's check ref is currently absent).
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 629
+    title: "Puzzle.width/height reading the RESOLVED extent is unpinned — mutant survives the full suite"
+    description: "Carried from cycle 1. RE-VERIFIED THIS CYCLE, independently: m6 (Puzzle.width -> self.request.width) now fails tests/test_export_json.py at `assert (30, 30) == (20, 30)`; m6h (Puzzle.height -> self.request.height) fails both parametrized cases at `assert (30, None) == (30, 20)`. Both fixture orientations are load-bearing — m6 kills only the portrait case, m6h kills both. orchestrator.py restored byte-identical (md5 be86a085ef41709461b0a4b14fd054ee) after each; git diff --stat clean."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: INV-004
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 1341
+    title: "Export-payload comment still says the extent is 'fed from the request's own pair'"
+    description: "Carried from cycle 1. Verified fixed: the comment now reads 'read off :attr:`Puzzle.extent` through the aggregate's two accessors'. UNGUARDED — reverting it leaves the suite green."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-033.md
+    line: 102
+    title: "G-6 breached (justifiably) but the card's guardrail was never amended"
+    description: "Carried from cycle 1. Verified fixed: G-6 is struck through on `## Guardrails` — where a guardrail verdict is read — marked SUPERSEDED 2026-09-02 with the necessary/sound/anticipated argument and the trace.yml:776 + ADR-0010 citations, and the matching intake line is filed (raw-requirements.md:136). Both citations independently re-derived this cycle: trace.yml:776 is exactly `components: [COMP-001, COMP-008, COMP-002, COMP-003]`. UNGUARDED — text only."
+    suggestion: null
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/architecture/inputs/raw-requirements.md
+    line: 135
+    title: "FR-023's statement carries the same defective clause as EC-009, and only EC-009 was amended"
+    description: "Carried from cycle 1. Verified fixed: the EC-009 intake line was extended with an ALSO AMENDS FR-023 section quoting requirements.yml's own closing sentence. Arithmetic re-derived this cycle and correct: round(N*r) < 10 <=> long:short > N/9.5; the smallest N leaving a 5:1 source unclamped is 48 (round(48*0.2)=10, round(47*0.2)=9); AC-098's --size 25 follows from (N/10)/5 >= 1/2 <=> N >= 25; at ratio exactly N/5 the derived side IS clamped to 10 and retention is exactly 0.5, hence accepted, which is AC-097. requirements.yml NOT hand-edited (`git diff main...HEAD --stat` on it is empty). See F-012 for a line-number offset in the citation."
+    suggestion: null
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_cli.py
+    line: 424
+    title: "AC-063's test name now claims the opposite of what it asserts"
+    description: "Carried from cycle 1. Verified fixed: renamed to test_cli_bare_size_token_reaches_the_domain_unsquared / TestCLI_BareSizeTokenReachesTheDomainUnsquared, and the new name matches the body, which asserts `(request.width, request.height) == (30, None)`. The intake line's own sentence electing to keep the old name was corrected. See F-013 for the dangling model pointers the rename left behind."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_grid_dimensions.py
+    line: 1038
+    title: "The disclosed double decode is neither measured nor pinned"
+    description: "Carried from cycle 1. RE-VERIFIED THIS CYCLE: test_a_bare_size_image_run_decodes_the_picture_exactly_twice asserts 2 decodes for a bare --size 10 and 1 for --size 10x10. Injecting a second `load_greyscale(source)` into image.source_shape (line 548) fails it at `assert 3 == 2`; image.py restored byte-identical (md5 c5af88114de0f01c662f9c84cd496ace). See F-011 for a false sentence in its docstring."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_sourcing_image.py
+    line: 1726
+    title: "Pre-existing docstring 'however a run turns out, the picture is decoded once' falsified by this card"
+    description: "Carried from cycle 1. Verified fixed: the docstring now says 'no run asks the source for a second candidate' and distinguishes conversions from decodes, pointing at the counting test. UNGUARDED — text only."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ec5cae4
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/sourcing/random_grid.py
+    line: 288
+    title: "derive_extent ignores WHICH side was stated; its argument docs read as axis-specific"
+    description: "Carried from cycle 1, left open by instruction as out of scope. Still true and still latent — no caller emits (None, N); orchestrator._resolved_extent only ever passes the request's own pair, and the property test exercises both orderings and asserts they agree."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 797
+    title: "FR-023 still traced as unimplemented, and R4's check ref is absent from its test list"
+    description: "Carried from cycle 1, left open by instruction as out of scope. Confirmed unchanged: FR-023's row still reads `status: partial` with the note 'not yet implemented — no kanban card cut for it', and PropertyTest_BareSize_DerivesShorterSideFromSourceShape (ADR-0022/R4's check ref) is absent from its `tests:` list although the test exists and is green. Fold into the closing pass together with F-013."
+    suggestion: null
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "src/nonogram/orchestrator.py:342 — `request.image` given as a `str` rather than a `Path` raises AttributeError ('str' object has no attribute 'stem') instead of a NonogramError. Pre-existing (CARD-030's FR-015 naming change), not touched by this diff; the CLI always constructs a Path. Reproduced while verifying the README table."
+  - "CON-010's check ref PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest does not exist under tests/. Pre-existing model gap, unrelated to this card; belongs to the web-UI line of work."
+
+family_regression:
+  determination: "the family persists but is decaying, and no cycle-2 finding gates"
+  cycle1: "2 Important (high) + 1 medium + 4 low; score 7.5; gate FAILED"
+  cycle2: "0 critical, 0 high, 1 medium, 3 low; score 9.0; gate PASSED"
+  fix_introduced: [F-010, F-011, F-012, F-013]
+  mechanism_1: >-
+    The fix medium and the defect medium are the same. Every remedy in this family is
+    itself prose — a docstring rationale, an intake-line amendment, a card section — so
+    each fix pass enlarges the surface that can carry a false claim. The fix commit
+    changed no code logic (one comment aside) and added roughly 350 lines of explanatory
+    prose across the card, the intake file and four docstrings; three new false claims
+    (F-010, F-011, F-012) appeared inside that new prose. This is not a code loop
+    regenerating bugs — src/ is unchanged since e41724e apart from a comment — it is a
+    prose-mass loop whose defect rate per added line is roughly constant.
+  mechanism_2: >-
+    Nothing in the suite discriminates prose. Of cycle 1's seven findings, exactly two
+    (F-001, F-006) received mechanical checks; the other five are text and are guarded by
+    nothing — reverting any of them leaves 1497 tests green. This is structurally the
+    CARD-027 trap, with one decisive difference: on CARD-027 the unpinned remedy was for a
+    CODE finding, whereas here all five unpinned remedies are for TEXT findings, where
+    "pinning" would mean asserting on docstring content, i.e. pinning prose with prose.
+    The code half of the fix pass is fully pinned and was re-derived independently this
+    cycle (m6, m6h, the decode mutant — all killed).
+  converging: true
+  verdict: >-
+    A human does NOT need to pick the source. Severity fell (2 Important -> 0), count fell
+    (7 -> 4), and the implementation was independently re-verified this cycle by three
+    routes the fix pass does not control: three targeted mutants, a Fraction-based oracle
+    over >10,000 (N, ratio, orientation) cases, and a cell-for-cell reproduction of the
+    README's 20-cell conversion table. A cycle 3 would most likely produce a fourth
+    generation of low-grade prose findings at diminishing value.

@@ -812,6 +812,7 @@ links:
     requirement's statement claims — it is the very rule the ceiling is built
     from (the derived shape is judged by it), which is why AC-098's refusal
     exists at all.
+  status: covered
 
 - req: NFR-005
   description: "Printed cell size is a declining function of max(width, height) per
@@ -837,7 +838,7 @@ links:
     introduced by this delta, left as found; requirements.yml's AC-080..
     AC-083/AC-104 and EC-008 are the current source of truth for NFR-005's
     tests.
-  status: covered
+  status: partial
 
 - req: NFR-006
   description: "The sheet is turned whichever way prints the LARGER cell; ties

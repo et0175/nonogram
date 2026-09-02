@@ -1,6 +1,6 @@
 # CARD-033: A bare `--size N` derives the shorter side from the source's shape
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/033-bare-size-derives-shorter-side
-**Worktree:** ../PythonProject4-card-033
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-7
 **Idea:** —
 **Wave:** 20
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/sourcing/image.py, src/nonogram/sourcing/library.py, tests/test_orchestrator.py, tests/test_sourcing_image.py, tests/property/test_grid_dimensions.py
 **Review score:** 9.0 (cycle 2; cycle 1 7.5)
 **Started:** 2026-09-02T13:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-02T14:05:00Z
+**Actual:** 0.1d
+**Merge commit:** 0d215d24552392b091d924581a8f7536df29ea2d
 **Blocked by:** —
 
 ## What to implement
