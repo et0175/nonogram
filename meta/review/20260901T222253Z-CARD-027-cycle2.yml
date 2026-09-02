@@ -1,0 +1,350 @@
+version: 1
+generated_at: "2026-09-01T22:22:53Z"
+target: "CARD-027 cycle 2 (CONFIRMATION MODE) — fix delta aa04ab6..85a47eb (4 files, +299/-14; 0 lines under src/); worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-027"
+overall_score: 8.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/property/test_grid_dimensions.py (full, lines 300-580 in depth)"
+    - "meta/kanban/cards/CARD-027.md (full, incl. failure matrix + worktree notes)"
+    - "meta/review/20260901T201105Z-CARD-027-cycle1.yml (full)"
+    - "README.md (--size section)"
+    - "src/nonogram/sourcing/image.py:605-640 (F-004 verification)"
+    - "src/nonogram/web/pages.py:100-115 (F-005 verification)"
+    - "git show 85a47eb (full diff + commit message)"
+    - "ast scan of every src/nonogram/**/*.py for unannotated public params and bare public class Assigns"
+  not_reached:
+    - "src/nonogram/** implementation bodies — carried from cycle 1; the delta touches 0 src lines (verified: `git diff --stat aa04ab6 85a47eb -- src/` is empty)"
+    - "tests/test_export_*.py, tests/property/test_export_roundtrip.py — outside the delta, carried"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 299, removed: 14 }
+  max_fan_in: { symbol: "_annotation_is_int", callers: 3 }
+  tests_cover_change: false
+  hotspots: ["tests/property/test_grid_dimensions.py"]
+  cochange_missing: []
+  unmeasured:
+    bus_factor: "not_applicable — single-author repository (git user et0175 on every commit)"
+    churn: "no_eligible_fact — tests/property/test_grid_dimensions.py was created by this card's own implementation commit (aa04ab6); it has no history to mine"
+
+system_contract:
+  rules_checked: 15
+  holds: 9
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): the delta touches README.md, CARD-027.md, a review yml and one test file; pyproject.toml and src/ have 0 delta lines"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean); src/nonogram/web/** has 0 delta lines"
+    - "ADR-0022/R1 ✓ holds — NOT carried: this rule's review-lens enforcement IS the delta. Re-derived independently — an ast scan of all src/nonogram/**/*.py finds no public scalar-extent boundary (the only unannotated public params in the package are `cls` on solver/propagate.py:387 and :477, and `cls` is not an extent name; the only bare public class Assigns are cli.ExitCode.*, difficulty.Tier.*, web/handler.WebUIRequestHandler.server_version/timeout, none extent-named). The RULE holds. Its mechanical guard's REACH is narrower than the card declares and is itself untested — F-201/F-202/F-203/F-206, filed against the guard, not against the rule"
+    - "ADR-0022/R2 ✓ holds — carried(cycle 1, delta-clean): cli.py and sourcing/ have 0 delta lines; check ref TestValidateExtent_RejectsSideAboveThirty still live and green in the 1461-pass run re-executed at this head"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean); sourcing/image.py has 0 delta lines"
+    - "ADR-0022/R4 ⚠ unchecked — check_ref_missing: PropertyTest_BareSize_DerivesShorterSideFromSourceShape still absent from tests/; documented increment (CARD-033), carried(cycle 1)"
+    - "CON-005 ✓ holds — carried(cycle 1, delta-clean): solver/** and clues.py have 0 delta lines; PropertyTest_Solver_NeverFalsePositiveUniqueness green at this head"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — check_ref_missing: carried(cycle 1); pre-existing, not this card's"
+    - "CON-011 ✓ holds — carried(cycle 1, delta-clean): random_grid.py and difficulty.py have 0 delta lines; PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 lives in the delta file and is green at this head (re-run: 1461 passed, 1 xfailed)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean)"
+    - "INV-001 ✓ holds — carried(cycle 1, delta-clean): clues.py has 0 delta lines; TestComputeClues_MatchesGridExactly green at this head"
+    - "INV-002 ✓ holds — carried(cycle 1, delta-clean): export/** has 0 delta lines"
+    - "INV-003 ✓ holds — carried(cycle 1, delta-clean): orchestrator.py has 0 delta lines"
+    - "INV-004 ✓ holds — carried(cycle 1, delta-clean): the three named checks live in tests/test_sourcing_random.py, untouched by the delta, green at this head"
+
+root_causes:
+  - id: RC-1
+    title: "The rewritten R1 guard's reach was established by an ad-hoc probe rather than encoded as tests, so neither its new coverage nor its remaining holes are pinned by the suite or declared to the four cards that will copy the file"
+    finding_ids: [F-201, F-202, F-206]
+  - id: RC-2
+    title: "Declaration drift — a card note asserts a checkable fact about the code that no longer holds as stated (the family that has now produced gating findings on five consecutive cards)"
+    finding_ids: [F-203, F-204]
+
+findings:
+  - id: F-201
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/property/test_grid_dimensions.py
+    line: 356
+    title: "The entire cycle-1 guard fix is unpinned — reverting `_annotation_is_int` verbatim to the pre-fix implementation leaves the whole suite green"
+    description: |
+      The fix rewrote `_annotation_is_int` from string equality to an ast walk,
+      but added no test asserting any of the newly-covered shapes. The two
+      guard-meta tests were not touched by the delta:
+      `test_the_scalar_extent_guard_would_catch_a_violation` uses a fixture
+      spelled only `size: int`, `size: int | None = None`, `-> int | None` —
+      all four of which the OLD four-string allowlist already matched — and
+      `test_the_scalar_extent_guard_leaves_the_two_declared_exclusions_alone`
+      only asserts non-firing.
+
+      Mutation-verified, both directions, on this head:
+
+        M1  `_scalar_extent_offences` gutted to `return []`
+            -> KILLED (test_the_scalar_extent_guard_would_catch_a_violation
+               fails: `assert 0 == 3`). The teeth test still has teeth.
+        M2  `_annotation_is_int` body replaced verbatim with the pre-fix
+            `return node is not None and ast.unparse(node) in {"int",
+             "int | None", "None | int", "Optional[int]"}`
+            -> SURVIVED. `pytest tests/property/test_grid_dimensions.py` is
+               fully green with the fix undone.
+
+      So the guard's teeth test protects against a *scanner* that matches
+      nothing, but not against the *annotation resolver* regressing to exactly
+      the state cycle 1 rejected. All five cycle-1 evasions reopen silently.
+      The card is `Complexity: architectural` and its own STRUCTURE notes say
+      CARD-028/030/031/033 copy this file's structure — an untested guard is
+      the worst thing to hand four downstream cards, because they will copy the
+      confidence, not the coverage.
+
+      (Working tree restored and verified byte-identical after both mutants:
+      sha1 0b7e52b9a41229a1ff3affc76df820a8e459c905, `git status --porcelain`
+      empty, full suite re-run 1461 passed / 1 xfailed.)
+    suggestion: |
+      Add a table-driven test over the shapes the docstring claims — a hit case
+      per bullet (`typing.Optional[int]`, `Annotated[int, 'cells']`,
+      `builtins.int`, the string `'int'`, an unannotated `size`) and a miss case
+      per exclusion (`float`, `Point`, `print`, a private helper). Written as a
+      `pytest.mark.parametrize` over `(source, expected_offence_count)` feeding
+      `_scalar_extent_offences`, it costs ~20 lines and makes M2 fail.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/property/test_grid_dimensions.py
+    line: 412
+    title: "F-002's second cited evasion still slips: a public class attribute with no annotation is not an offence, because the field branch matches only `ast.AnnAssign`"
+    description: |
+      Cycle-1 F-002 cited and verified TWO shapes:
+
+        def generate(key, size, rng): ...   -> SLIPPED
+        class Request:
+            size = None                      -> SLIPPED (no AnnAssign)
+
+      The fix commit's message enumerates five evasions and claims all five are
+      now caught; the class-attribute one is silently absent from that list.
+      Re-probed on this head against the shipped `_scalar_extent_offences`:
+
+        def generate(key, size, rng): ...          -> CAUGHT
+        class Request:  size = None                -> SLIPPED
+        @dataclass
+        class Request:  size = 30                  -> SLIPPED
+
+      The cause is structural, not in `_annotation_is_int`: the class branch
+      (lines 411-424) is guarded by `isinstance(statement, ast.AnnAssign)`, so
+      a bare `Assign` never reaches the resolver at all. The new docstring's
+      headline rule — "**an absent annotation counts as a hit**" — is therefore
+      true on the parameter path only, and the fix delivered exactly half of
+      the rule it declares.
+
+      This is a live shape in this codebase, not a hypothetical: an ast scan of
+      `src/nonogram/**` finds 11 bare public class Assigns today
+      (`cli.py:78-83` ExitCode members, `difficulty.py:166-168` Tier members,
+      `web/handler.py:131,140` `server_version`/`timeout`). A later card adding
+      `size = 30` beside any of them reintroduces a scalar-extent public field
+      with a green suite — and CARD-028, which owns the web form's extent
+      field, is the very next card and edits `web/`.
+    suggestion: |
+      Extend the class branch to bare `ast.Assign` targets: an unannotated
+      public class attribute whose name is in `_SCALAR_EXTENT_NAMES` is an
+      offence on the same principle the parameter path now uses. Then reflect
+      it in the card's STRUCTURE entry (see F-203).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-203
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-027.md
+    line: 288
+    title: "The STRUCTURE entry describing the R1 guard now contradicts the guard in two checkable ways, and cycle-1's F-002 fix was supposed to update it"
+    description: |
+      The entry (lines 286-297) states the guard "bans a scalar-extent name
+      (`size`, `grid_size`, `edge`, `edge_length`) as an `int`-annotated
+      parameter of a **public** function ... Two deliberate exclusions ...
+      **private** helpers ... and **non-`int`** annotations."
+
+      Two clauses are refutable against the code as it now stands:
+
+      (a) "`int`-annotated parameter" — FALSE after the fix. An *unannotated*
+          public parameter is now an offence (`_annotation_is_int(None)`
+          returns True; probed: `def generate(key, size, rng)` -> CAUGHT). The
+          delta changed the rule and did not change the sentence that states
+          it. Cycle-1's F-002 suggestion said in as many words: "record the
+          change in the STRUCTURE entry so the declared exclusion list matches
+          the code." The delta touches CARD-027.md twice — failure-matrix row 8
+          and the stale-text note — and not this entry.
+
+      (b) The name list is four; `_SCALAR_EXTENT_NAMES` (line 338) is six —
+          it also contains `side` and `n`. This half predates the delta (cycle 1
+          missed it), but it is the same defect and the same fix.
+
+      Weight: this is the sentence CARD-028/030/031/033 read to learn the local
+      convention. A downstream card that annotates nothing because "the guard
+      only bans `int`-annotated parameters" gets a red suite it cannot explain
+      from the card.
+    suggestion: |
+      Restate the entry as three rules — banned names (all six, as the
+      frozenset), banned positions (public parameter, public class field,
+      public accessor return), and what counts as int-bearing (any `int` node
+      reachable in the annotation, a re-parsed string annotation, or NO
+      annotation) — and keep the two exclusions as they are, since both survive
+      unchanged.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-204
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-027.md
+    line: 339
+    title: "F-005's fix discloses web/pages.py but appends it to a sentence whose every surrounding claim is false for it"
+    description: |
+      The fact cycle-1 asked for is now disclosed, so F-005 is resolved in
+      substance. But it was inserted mid-list into a sentence that now says
+      four contradictory things about its new member:
+
+        lead-in: "Stale `50x50` docstrings remain in `src/nonogram/solver/**`
+                  and `src/nonogram/export/**`"
+        item:    "... `src/nonogram/web/pages.py`'s form label, which still says
+                  'square grid edge length'"
+        trailer: "They were left stale by CARD-023's narrowing to 30, not by
+                  this card, and G-1/G-5 put both packages off limits"
+
+      `web/pages.py` is in neither named package; its stale text is not a
+      `50x50` bound but a *squareness* claim (verified at pages.py:109 — "Size
+      — square grid edge length"); it was NOT left stale by CARD-023's
+      narrowing to 30 but by THIS card's move to a rectangle, so "not by this
+      card" is exactly backwards for it; and "both packages" is now three, the
+      third fenced by G-7 rather than G-1/G-5 (the parenthetical does say G-7,
+      which is the one part that is right).
+    suggestion: |
+      Split it into two bullets: the `50x50` bound staleness left by CARD-023 in
+      solver/ and export/ (fenced G-1/G-5), and the *squareness* staleness this
+      card creates in `web/pages.py:109` (fenced G-7, inherited by CARD-028).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-205
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_grid_dimensions.py
+    line: 338
+    title: "\"Absent annotation is a hit\" crossed with `n`/`side` in the name set gives the guard a plausible false-positive surface"
+    description: |
+      The riskier half of the fix was checked, and the tree is genuinely clean
+      rather than accidentally clean: an ast scan of every `src/nonogram/**/*.py`
+      finds exactly two unannotated public parameters — `cls` on
+      `solver/propagate.py:387` and `:477` (`blank`) — and `cls` is not in
+      `_SCALAR_EXTENT_NAMES`. Nothing in the package is one rename away from
+      firing.
+
+      But the rule WILL fire on ordinary future code, because the name set
+      includes `n` and `side`. Probed against the shipped scanner:
+
+        def chunk(items, n): ...      -> CAUGHT ("chunk(n: int) takes a scalar extent")
+        def draw(canvas, side): ...   -> CAUGHT
+        def generate(size=None): ...  -> CAUGHT (default, no annotation)
+
+      `n` in a public helper is a normal thing to write and has nothing to do
+      with a grid. The failure is loud, not silent, and the fix (annotate, or
+      rename) is trivial — but the reason will not be discoverable from the
+      card, which does not mention the rule at all (F-203) or that `n` is a
+      banned name. That is the whole cost of this finding: a future red suite
+      whose explanation lives only in a test docstring.
+    suggestion: |
+      Either narrow the absent-annotation rule to the four unambiguous
+      grid-extent names (`size`, `grid_size`, `edge`, `edge_length`) and keep
+      `n`/`side` annotation-gated, or leave it and say so in the STRUCTURE
+      entry alongside F-203's rewrite, with the one-line remedy.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-206
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_grid_dimensions.py
+    line: 356
+    title: "Remaining routes a later card could use to reintroduce square-only code past the R1 guard"
+    description: |
+      Attacked fresh, not by re-running cycle 1's five. Each probed against the
+      shipped `_scalar_extent_offences` on this head:
+
+        SLIPPED  Size = int                        ; def generate(size: Size)
+        SLIPPED  S = TypeVar('S', bound=int)       ; def generate(size: S)
+        SLIPPED  Cells = NewType('Cells', int)     ; def generate(size: Cells)
+        SLIPPED  def generate(size: Literal[10, 20])
+        SLIPPED  if TYPE_CHECKING: from builtins import int as Cells
+                                                    ; def generate(size: Cells)
+        SLIPPED  Extent = NamedTuple('Extent', [('size', int)])   (functional form)
+        SLIPPED  Extent = TypedDict('Extent', {'size': int})      (functional form)
+        SLIPPED  size: int = 30                    (module-level AnnAssign, outside a class)
+        SLIPPED  def generate(*size: int, **kw: int)  (vararg/kwarg not scanned)
+        CAUGHT   class Extent(NamedTuple): size: int              (class form)
+        CAUGHT   def generate(size: 'int | None')                 (stringized union)
+
+      All the SLIPPED rows share one cause with F-202: the guard resolves the
+      annotation's own syntax tree and never resolves a *name binding*, so any
+      indirection through an alias defeats it. The alias route
+      (`Size = int`) is the realistic one — it is a normal readability move and
+      it would pass review as a green suite. The TypeVar/NewType/Literal/
+      TYPE_CHECKING rows are lower-probability. `*args`/`**kwargs` and
+      module-level annotations are cheap to close (`node.args.vararg`,
+      `node.args.kwarg`, a module-level `AnnAssign` pass).
+
+      Filed Minor rather than Important because none of these is a defect in
+      the shipped source and closing all of them is not proportionate; the
+      point is that the guard should be documented as best-effort so the four
+      cards that copy it do not treat a green run as proof.
+    suggestion: |
+      Close the two cheap ones (vararg/kwarg, module-level AnnAssign) and add a
+      one-paragraph "what this guard cannot see" note to the docstring naming
+      the alias route, so a downstream card knows the guard is a net, not a
+      proof.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

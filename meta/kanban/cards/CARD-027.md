@@ -285,11 +285,27 @@ untouched here.
 
 - **STRUCTURE: ADR-0022/R1 is enforced structurally, by an `ast` walk of
   `src/nonogram/**/*.py`, in the style of `tests/test_cli.py`'s import guard**
-  (`PropertyTest_Extent_NoPublicBoundaryReducesGridToOneScalar`). It bans a
-  scalar-extent name (`size`, `grid_size`, `edge`, `edge_length`) as an
-  `int`-annotated parameter of a **public** function, as a public class field, or
-  as the name of a public `int`-returning accessor. Two deliberate exclusions,
-  each principled rather than an allowlist entry: **private** helpers
+  (`PropertyTest_Extent_NoPublicBoundaryReducesGridToOneScalar`). It bans any of
+  six scalar-extent names — `size`, `grid_size`, `edge`, `edge_length`, `side`,
+  `n` — as a parameter of a **public** function, as a public class field
+  (annotated `size: int` OR bare `size = 30`), or as the name of a public
+  `int`-returning accessor. A parameter counts whether it is annotated `int`,
+  annotated with anything containing an `int` (unions, `Optional`, `Annotated`,
+  `builtins.int`, the quoted `'int'`), or **not annotated at all**.
+  *This paragraph was wrong twice before it was right: cycle 1 asked for it to
+  be updated when the rule changed, the fix commit did not, and cycle 2 found
+  it still saying `int`-annotated and still listing four names of six. Its
+  reach is now pinned by `_GUARD_SHAPES` — 15 source shapes with expected
+  verdicts — so this prose can no longer drift from the code silently.*
+  **Declared gaps, not oversights:** the guard walks annotation *syntax* and
+  never resolves a name binding, so `Size = int` and a `NewType` defeat it.
+  Both are pinned as expected-to-slip, so a later card that closes the gap gets
+  a failing test telling it to update the table.
+  **Known false-positive surface:** an absent annotation counts and `n`/`side`
+  are in the name set, so an unannotated public `def chunk(items, n)` WILL be
+  flagged. Loud and trivially fixed, but it will surprise whoever meets it.
+  **Two deliberate exclusions**, each principled rather than an allowlist entry:
+  **private** helpers
   (`export/pdf._header_font(size: int)` — a type size in pixels, not a boundary),
   and **non-`int`** annotations (`difficulty.SignalWeights.size: float` — a
   normalizer weight; G-4 forbids touching it, and a grid extent is a count of
@@ -336,11 +352,15 @@ untouched here.
   `size=N` becomes `width=N, height=N` — plus retiring two comments that said
   the pair was "fed from one scalar until CARD-027", which this card made false.
   No export behaviour, format, schema or assertion changed.
-- **Stale `50x50` docstrings remain in `src/nonogram/solver/**` and
-  `src/nonogram/export/**`** (`solver/search.py`, `solver/propagate.py`,
-  `export/json_export.py`, `export/svg.py`, and — missed in the first pass and added at cycle-1 F-005 — `src/nonogram/web/pages.py`'s form label, which still says "square grid edge length" (fenced by G-7; CARD-028 owns that field)). They were left stale by CARD-023's
-  narrowing to 30, not by this card, and G-1/G-5 put both packages off limits —
-  flagged here rather than fixed.
+- **Stale extent text left unfixed, in two separate groups.** Cycle 2 (F-204)
+  found the first version of this note folded them into one sentence whose
+  lead-in, attribution and fence were all false of the second group:
+  - **Stale `50x50` docstrings** in `solver/search.py`, `solver/propagate.py`,
+    `export/json_export.py`, `export/svg.py`. Left by CARD-023's narrowing to 30,
+    not by this card; those packages are off limits under G-1 and G-5.
+  - **The web form's label** in `src/nonogram/web/pages.py` — "Size — square grid
+    edge length". Not a `50x50` string, not left by CARD-023, and fenced by a
+    different guardrail: G-7, reserving that field for CARD-028.
 
 ## Architecture revision (2026-09-01) — RESOLVED, gate cleared
 

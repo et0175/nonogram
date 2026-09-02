@@ -409,17 +409,30 @@ def _scalar_extent_offences(path: Path) -> list[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and _is_public(node.name):
             for statement in node.body:
-                if (
-                    isinstance(statement, ast.AnnAssign)
-                    and isinstance(statement.target, ast.Name)
-                    and _is_public(statement.target.id)
-                    and statement.target.id in _SCALAR_EXTENT_NAMES
-                    and _annotation_is_int(statement.annotation)
-                ):
-                    offences.append(
-                        f"{path.name}:{statement.lineno} "
-                        f"{node.name}.{statement.target.id} is a scalar extent field"
-                    )
+                # AnnAssign is the annotated field (`size: int = 30`); Assign is
+                # the BARE one (`size = 30`). Cycle 1 cited both shapes as
+                # evasions and cycle 2 found only the first had been closed —
+                # the bare form matters most, because `web/` (which CARD-028
+                # edits next) is exactly where a bare class attribute would go.
+                if isinstance(statement, ast.AnnAssign):
+                    targets = [statement.target]
+                    annotated = statement.annotation
+                elif isinstance(statement, ast.Assign):
+                    targets = list(statement.targets)
+                    annotated = None  # absent annotation counts as a hit
+                else:
+                    continue
+                for target in targets:
+                    if (
+                        isinstance(target, ast.Name)
+                        and _is_public(target.id)
+                        and target.id in _SCALAR_EXTENT_NAMES
+                        and _annotation_is_int(annotated)
+                    ):
+                        offences.append(
+                            f"{path.name}:{statement.lineno} "
+                            f"{node.name}.{target.id} is a scalar extent field"
+                        )
 
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
@@ -463,6 +476,70 @@ def test_no_public_boundary_reduces_a_grid_to_one_scalar() -> None:
     ]
 
     assert offences == []
+
+
+#: What the ADR-0022/R1 guard reaches, as a TABLE rather than as prose or a
+#: shell probe. Each row is one source shape and whether the guard must flag it.
+#:
+#: This exists because of how cycles 1 and 2 went, and the pattern is worth
+#: naming: cycle 1 found the guard overclaimed in a comment, and the remedy was
+#: a longer comment; cycle 2 found holes by probing, and the remedy was a probe
+#: run in a shell. Neither left anything behind. Cycle 2 then proved the point —
+#: reverting the whole cycle-1 resolver fix left the suite GREEN, because the
+#: teeth test only ever exercised spellings the OLD code already matched. A
+#: guard whose reach is established by ad-hoc probe is a guard whose reach is
+#: unpinned.
+#:
+#: So the rows below include the shapes that are DELIBERATELY NOT REACHED. The
+#: guard walks annotation syntax and never resolves a name binding, so a type
+#: alias defeats it. That is a real limit, and an honest declared limit is worth
+#: more than an undeclared one: if a later card closes it, this table fails and
+#: has to be updated, which is exactly the notification we want.
+_GUARD_SHAPES: tuple[tuple[str, str, bool], ...] = (
+    # (label, source, must_be_flagged)
+    ("plain int param",        "def g(k, size: int, r): ...", True),
+    ("Optional[int] param",    "import typing\ndef g(k, size: typing.Optional[int], r): ...", True),
+    ("Annotated[int] param",   "from typing import Annotated\ndef g(k, size: Annotated[int, 'cells'], r): ...", True),
+    ("dotted builtins.int",    "import builtins\ndef g(k, size: builtins.int, r): ...", True),
+    ("stringized 'int'",       "def g(k, size: 'int', r): ...", True),
+    ("stringized union",       "def g(k, size: 'int | None', r): ...", True),
+    ("unannotated param",      "def g(k, size, r): ...", True),
+    ("annotated class field",  "class R:\n    size: int = 30\n", True),
+    ("BARE class field",       "class R:\n    size = 30\n", True),
+    ("int accessor",           "class R:\n    @property\n    def size(self) -> int: ...\n", True),
+    # Deliberately NOT reached — the guard resolves syntax, not name bindings.
+    ("type alias (declared gap)",   "Size = int\ndef g(k, size: Size, r): ...", False),
+    ("NewType (declared gap)",      "from typing import NewType\nCells = NewType('Cells', int)\ndef g(k, size: Cells, r): ...", False),
+    # Must NOT be flagged — these are correct code.
+    ("float weight",           "def g(k, size: float, r): ...", False),
+    ("non-extent name",        "def g(k, count: int, r): ...", False),
+    ("private helper",         "def _g(k, size: int, r): ...", False),
+)
+
+
+def test_the_guard_reaches_exactly_the_shapes_it_claims_to(tmp_path: Path) -> None:
+    """Every shape in :data:`_GUARD_SHAPES`, checked against the real scanner.
+
+    This is what pins the resolver. Cycle 2 demonstrated that without it the
+    entire cycle-1 fix could be reverted with the suite staying green, because
+    the teeth test below exercises only the scanner and only through spellings
+    the pre-fix resolver already matched.
+
+    The rows asserting ``False`` are as load-bearing as the rows asserting
+    ``True``: two of them are DECLARED GAPS (a type alias and a ``NewType``
+    defeat the guard, because it walks annotation syntax and never resolves a
+    name binding), and pinning them means a later card that closes the gap gets
+    a failing test telling it to update this table, rather than leaving the
+    declaration quietly wrong.
+    """
+    for label, source, must_flag in _GUARD_SHAPES:
+        module = tmp_path / "probe.py"
+        module.write_text(source, encoding="utf-8")
+        flagged = bool(_scalar_extent_offences(module))
+        assert flagged is must_flag, (
+            f"{label}: guard {'missed' if must_flag else 'wrongly flagged'} "
+            f"this shape — if that is a deliberate change, update _GUARD_SHAPES"
+        )
 
 
 def test_the_scalar_extent_guard_would_catch_a_violation(tmp_path: Path) -> None:
