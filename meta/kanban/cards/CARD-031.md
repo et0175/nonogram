@@ -15,7 +15,7 @@
 **Wave:** 19
 **Depends on:** CARD-027
 **Touches:** src/nonogram/orchestrator.py, tests/test_naming.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1, gate passed first time)
 **Started:** 2026-09-02T12:20:00Z
 **Closed:** —
 **Actual:** —
@@ -160,3 +160,19 @@ deserves, not a naming error.
   unchanged context, not the implementer's — the guardrails themselves hold. Both
   corrected here rather than carried, because both are false statements rather than
   missing durability, and correcting prose does not change the tree the review passed.
+
+## AC/EC gate (2026-09-02)
+
+**Verdict: PASS.** One acceptance criterion, no engineering constraints. AC-090's test
+drives the full `generate()` pipeline and asserts `puzzle.name == "cat"` for an
+image-mode request uploading `cat.png` with no `--name` — which settles both halves of
+the criterion at once, since equality with `"cat"` excludes the
+`image-<date>-<time>` default the `then` contrasts it against. Mutation-verified twice
+(by the implementer and again independently): disabling the arm fails this test and its
+no-counter sibling, and `orchestrator.py` restores to md5
+`28169d7c6a7f3e44866ca8c9e69e1754`.
+
+Guardrails were checked as criteria rather than assumed, since G-1 and G-2 name tests:
+both hold, and both of their references were **dead as written** — corrected under F-002.
+
+[AC/EC check] All criteria/constraints ✓ (evidence: AC-090 test_puzzle_name_auto_generates_from_image_file_stem, supported by test_puzzle_name_auto_generates_from_image_file_stem_without_a_counter for the collision posture and test_puzzle_name_auto_generates_mode_timestamp_for_image_mode_with_an_unusable_stem for G-2's image-mode fallback; G-1 test_puzzle_name_auto_generates_from_library_key; G-2 test_puzzle_name_auto_generates_mode_timestamp_for_random_mode; no engineering constraints on FR-015 for this card; suite 1476 passed, 1 xfailed) — all five names resolved to exactly one `def` before this line was written; verified on 2026-09-02.
