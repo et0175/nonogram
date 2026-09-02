@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-02
+- CARD-027 (feature): Puzzles can now be rectangles. `--size 30x20` gives a grid 30 wide and 20 tall; `--size 20` still means a 20x20 square, so nothing you already run changes. The two sides are carried separately all the way through — the request, the random, library and image sources, and the exports — instead of one number standing in for both. Each side must be 10 to 30 cells: 30 is where a printed cell drops under about 6 mm and stops being comfortable to mark with a pencil, and the old upper limit of 50 is gone. A side outside that range is refused by the tool with a message naming which side is wrong, not by the argument parser, so the message tells you what to fix.
+
 ## 2026-09-01
 - CARD-024 (feature): Saved puzzle files (JSON and CSV) now record a puzzle's width and height separately instead of a single size, so a non-square puzzle survives being saved and re-opened. Files are version 2; a version-1 file is refused with a message naming both versions rather than being half-read.
 - CARD-034 (feature): Puzzles now print on whichever way up the sheet gives bigger squares to write in — a wide puzzle turns the page sideways, a tall one stays upright — instead of always printing portrait. Small puzzles are unaffected: they already print at the comfortable size, so there is nothing to gain by turning them. The rule is 'whichever prints bigger', not 'whichever way the puzzle leans', because a wide puzzle with deep clue columns can actually need the upright sheet.

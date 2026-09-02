@@ -1,6 +1,6 @@
 # CARD-027: Grid extent as a (width, height) pair through the request, `--size NxM`, and all three source modes
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/027-grid-extent-width-height-pair
-**Worktree:** ../PythonProject4-card-027
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-5
 **Idea:** —
 **Wave:** 18
 **Depends on:** CARD-023, CARD-024, CARD-026
 **Touches:** src/nonogram/cli.py, src/nonogram/orchestrator.py, src/nonogram/sourcing/random_grid.py, src/nonogram/sourcing/library.py, src/nonogram/sourcing/image.py, src/nonogram/difficulty.py, tests/test_cli.py, tests/test_orchestrator.py, tests/test_sourcing_random.py, tests/test_sourcing_library.py, tests/test_sourcing_image.py, tests/property/test_grid_dimensions.py, README.md
-**Review score:** —
+**Review score:** 8.0 (cycle 2; cycle 1 8.5)
 **Started:** 2026-09-01T18:48:34Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-02T07:25:00Z
+**Actual:** 1.6d
+**Merge commit:** 632fd180b0c3572ac6ae11d6a32ec46aed5c4c02
 **Blocked by:** —
 
 ## What to implement

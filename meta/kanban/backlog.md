@@ -311,3 +311,14 @@
       both assume larger grids are reachable, and at random mode's mid densities they are
       not. Worth measuring the full size x density surface once, rather than three times
       in three cards.                                                        @tech-debt
+
+## Deferred during implementation
+- [ ] CARD-027 deferred: the ADR-0022/R1 guard walks annotation *syntax*, so a name
+      binding defeats it — `Size = int` (type alias) and `NewType('Cells', int)` both let a
+      single-scalar extent parameter through. Both are pinned in `_GUARD_SHAPES` as
+      expected-to-slip, which makes them declared limits rather than unknown holes, but
+      nothing tracks closing them. Closing needs the guard to resolve module-level name
+      bindings (both forms are assignments in the same file, so a single pre-pass
+      collecting `X = int` / `X = NewType(..., int)` would cover them) — and the table
+      then fails on those two rows, which is the signal to flip them to `True`.
+      Site: tests/property/test_grid_dimensions.py:511-512                   @tech-debt

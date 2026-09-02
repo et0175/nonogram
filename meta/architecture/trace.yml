@@ -629,6 +629,11 @@ links:
   - TestCLI_SquareSizeShorthandSetsBothSides
   - TestCLI_RejectsMalformedSizeToken
   - TestCLI_OutOfRangeSideRejectedByDomainNotArgparse
+  - test_cli_parses_rectangular_size_token
+  - test_cli_rectangular_request_produces_width_by_height_grid
+  - test_cli_square_size_shorthand_sets_both_sides
+  - test_cli_rejects_malformed_size_token
+  - test_cli_out_of_range_side_rejected_by_domain_not_argparse
   notes: >-
     ADR-0010's split holds unchanged: splitting the NxM token is parsing
     (COMP-001/COMP-008), while the range check stays a pure domain function
@@ -650,6 +655,12 @@ links:
   - TestGenerateRandom_RejectsSideAbove30
   - TestGenerateRandom_RejectsSideBelow10
   - PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
+  - test_generate_random_produces_requested_dimensions
+  - test_generate_random_produces_rectangular_grid
+  - test_generate_random_accepts_max_side_30
+  - test_generate_random_rejects_side_above_30
+  - test_generate_random_rejects_side_below_10
+  - test_every_source_mode_rejects_every_side_outside_ten_to_thirty
   notes: >-
     Replaces FR-001. random_grid.py's MAX_SIZE = 50 becomes 30 and
     validate_size becomes a two-sided check; INV-004 is the aggregate-level
@@ -842,10 +853,18 @@ links:
   adrs: [ADR-0010]
   tests:
   - PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
+  - test_every_source_mode_rejects_every_side_outside_ten_to_thirty
+  - test_every_source_mode_accepts_every_extent_inside_ten_to_thirty
+  - test_no_public_boundary_reduces_a_grid_to_one_scalar
   notes: >-
-    Supersedes the 10..50 range FR-001 carried. Check ref is PLANNED, not live —
-    the property test does not exist yet, so the validator will report it as a
-    dead ref until the implementation card lands.
+    Supersedes the 10..50 range FR-001 carried. The check is LIVE as of
+    CARD-027 (2026-09-02): tests/property/test_grid_dimensions.py exists and
+    passes over all three source modes. Still `partial`, not `covered`, for one
+    reason only — COMP-008 (the web adapter) is listed above and does not exist
+    yet. The range itself is a pure domain function every mode already reaches,
+    so CARD-028 should inherit it rather than re-implement it; what is missing
+    is a test proving the web adapter refuses an out-of-range side, and that is
+    CARD-028's to write. Flip to `covered` when it does.
   status: partial
 
 - req: CON-012
