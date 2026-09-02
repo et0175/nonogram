@@ -821,10 +821,18 @@ def test_aspect_guard_refuses_a_ratio_difference_above_two_fold(
     """AC-076: 600x600 into 30x14 (r_tgt 2.143) retains 0.467 and is refused,
     and no grid is produced.
 
-    Guardrail G-4's half of EC-007 is asserted with it: the refusal reaches the
-    caller before the picture's pixels are decoded, observed by pointing the
-    guard at a file whose header is fine and whose body is not. A conversion
-    that got as far as decoding would raise ``UnreadableImage`` instead.
+    EC-007's other half is asserted with it: the refusal reaches the caller
+    before any *cropping* runs. It no longer reaches the caller before the
+    decode — CARD-030 retired the header-only refusal path when the guard's
+    subject became the ink box, which cannot be read from a header, and
+    ``test_a_refused_request_now_pays_for_a_decode_and_nothing_more`` pins that
+    cost deliberately. The ordering that survives is proved over the whole
+    corpus by ``PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied``,
+    which counts calls to ``fit_crop_box``, ``binarize``, ``to_grid`` and
+    ``Image.Image.crop`` and requires every one to stay at zero for a refusal.
+
+    (This paragraph described the retired pre-decode mechanism until CARD-030's
+    AC/EC gate; the criterion itself is unchanged and still reproduces.)
     """
     with pytest.raises(ImageNeedsManualCrop):
         image.validate_aspect_ratio(600, 600, 30, 14)

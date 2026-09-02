@@ -380,3 +380,52 @@ Findings F-001..F-010 of `meta/review/20260902T080013Z-CARD-030-cycle1.yml`.
   reachability sweep *reads* the orchestrator, it does not edit it). G-6 holds: DEC-026
   is not implemented. G-1/G-2/G-3 are unaffected — no production behaviour changed in
   this pass; every source edit is prose.
+
+## AC/EC gate (2026-09-02)
+
+**Verdict: PASS, after one correction.** Seventeen criteria checked against the current
+implementation: AC-071..AC-074 + EC-006 (FR-020), AC-075..AC-079 + EC-007 (FR-021),
+AC-086..AC-091 (FR-022), and ADR-0022/R3's EC. Every named test resolves to exactly one
+`def` — no missing test, unlike CARD-027's gate. All 125 tests in the two files pass.
+
+FR-020 and FR-021 were re-verified rather than inherited from CARD-026, because **this
+card changed their subject**: the guard now measures the ink box, so criteria stated over
+the *source image's* ratio are no longer trivially about the thing being measured.
+Checked both ways:
+
+- The five `tests/fixtures/` images used by FR-020's criteria are all ink-tight
+  (file extent == ink box: bands 32x32, landscape 60x40, portrait 40x60, tall 20x60,
+  wide 60x20), so for those the two subjects coincide and the criteria are unaffected.
+- FR-021's criteria run against the built `silhouette` fixture, whose inset is
+  proportional (`width // 4`), so the ink box preserves the ratio: 600x600 -> 301x301
+  (1.000 vs stated 1.000), 563x980 -> 284x491 (0.578 vs stated 0.574), 980x563 ->
+  491x284 (1.729 vs stated 1.741). The stated `r_src` figures are now approximations of
+  what the guard measures, but every accept/refuse verdict holds with a wide margin
+  (AC-079's retained fraction moves 0.870 -> 0.865, against a 0.5 threshold). Recorded
+  rather than corrected: the criteria are true as written.
+
+### The correction
+
+`test_aspect_guard_refuses_a_ratio_difference_above_two_fold` (AC-076) carried a
+docstring claiming the refusal "reaches the caller before the picture's pixels are
+decoded, observed by pointing the guard at a file whose header is fine and whose body is
+not". **Both halves were false.** This card deleted the pre-decode path outright — that
+is the cost the ADR accepts and that
+`test_a_refused_request_now_pays_for_a_decode_and_nothing_more` pins — and the test body
+uses a valid `silhouette(600, 600)`, with no corrupt-bodied file anywhere in it. The
+paragraph also cited "Guardrail G-4", which is card-relative and on this card means
+"do not edit orchestrator.py".
+
+The text is CARD-026's (`2002bff`) and CARD-030 never touched the line, which is exactly
+why **neither review cycle caught it: both reviewed the diff, and prose invalidated
+*elsewhere* by a change is invisible to a diff review.** That is a structural limit of
+diff-scoped review, not a reviewer error, and it is the seventh instance of this
+project's docstring-truth family.
+
+Corrected to state what is now true and to name the property that actually proves the
+surviving ordering claim. Swept for siblings: `before any decode` / `without decoding` /
+`from the header alone` across `src/`, `tests/` and `README.md` returns exactly two other
+hits, both already correctly past-tense (`tests/test_sourcing_image.py:1265,1445`), plus
+one unrelated line in `test_export_pdf.py`. One instance, now zero.
+
+**Suite: 1473 passed, 1 xfailed** — unchanged; the edit is prose only.
