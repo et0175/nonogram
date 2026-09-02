@@ -370,3 +370,32 @@
       file starts empty and any future entry is real; (c) drop `drift.gate` to `off` for
       this project and say so, which is at least honest about what is happening now.
       (a) is the fix; (b) is needed either way.                              @tech-debt
+- [ ] **CARD-030 REGRESSION, found by the owner on a real picture: trimming can make the
+      aspect crop cut the drawing** (2026-09-02, `silhouette/animals/ania/cat1.jpg` at
+      `--size 25` — "it truncs cat's ears… the head became flat"). Reproduced and
+      measured:
+      - The file is **580x580, square**, because the silhouette sits in white margins.
+        Before CARD-030 the aspect crop was computed on that file extent, so
+        `fit_crop_box(580,580,25,25)` returned the whole image — **no crop at all**, and
+        the cat converted complete.
+      - After CARD-030 the picture is first trimmed to its ink box, **330x462 — portrait,
+        ratio 0.714**. The square 25x25 target then forces FR-020's centred crop to
+        330x330, taking **66px off the top and 66px off the bottom: 28.6% of the drawing**.
+        The top strip is where the ears are.
+      So the white margin had been acting as accidental **letterboxing that protected the
+      content**, and removing it exposed the drawing to a crop that previously fell on
+      blank space. Both steps are individually correct — the trim does what FR-022 says,
+      the crop does what FR-020 says, and CON-012 allows it because 28.6% < 50% — and the
+      composition is still wrong for the user.
+      **The fix already exists as a ready card: CARD-033 (FR-023).** A bare `--size N`
+      sets the LONGER side to N and derives the other from the source's shape, so
+      `--size 25` on this cat becomes an 18x25 grid: verified to discard **0.9%** and to
+      keep both ears. Until it lands the workaround is to pass the rectangle explicitly
+      (`--size 18x25`). This raises CARD-033 from "nice shape derivation" to "closes a
+      regression the owner hit on their first real picture".
+      **The wider lesson, and why this was not caught:** CARD-030's review measured
+      *reachability* (which pictures convert vs abandon — 32 flips of 150) and never
+      *fidelity* (what the converted grid looks like). A picture that still converts but
+      converts WORSE is invisible to every check the card had. This is exactly the
+      picture-fidelity metric already in this backlog, and this case is the argument for
+      building it: it would have flagged cat1.jpg automatically.               @tech-debt
