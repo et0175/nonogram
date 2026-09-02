@@ -347,8 +347,10 @@ def test_a_derived_extent_is_what_the_aggregate_and_the_document_record(
     stayed green, and the portrait case above now fails on ``(30, 30)``.
 
     Image mode rather than a scripted aggregate because the derivation is the
-    subject, and these two fixtures convert and solve in milliseconds — the
-    same pictures ``tests/test_nudge.py`` drives the real pipeline with.
+    subject, and these two fixtures convert and solve in milliseconds.
+    ``landscape.png`` is one ``tests/test_nudge.py`` also drives the real
+    pipeline with; ``portrait.png`` is not, and is here because a derivation
+    that only ever ran on landscape sources would hide a transposed accessor.
     """
     puzzle = generate(
         GenerationRequest(

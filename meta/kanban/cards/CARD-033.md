@@ -15,7 +15,7 @@
 **Wave:** 20
 **Depends on:** CARD-027
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/sourcing/image.py, src/nonogram/sourcing/library.py, tests/test_orchestrator.py, tests/test_sourcing_image.py, tests/property/test_grid_dimensions.py
-**Review score:** —
+**Review score:** 9.0 (cycle 2; cycle 1 7.5)
 **Started:** 2026-09-02T13:30:00Z
 **Closed:** —
 **Actual:** —
@@ -406,9 +406,11 @@ one false claim fewer. `src/nonogram/export/**` untouched (G-5).
 **2** for a bare `--size 10`, **1** for an explicit `--size 10x10`. The fixture is
 `bands.png` (32x32), so the two requests differ in one token and produce the same
 10x10 grid by the same route — the difference in the count can only be the shape
-lookup. The bare run is deliberately the one that *retries*: bands at 10x10
-converts to an ambiguous grid that two pixel-nudges repair, so 2 decodes across
-three candidates is `_resolved_extent`'s once-outside-both-loops placement stated
+lookup. BOTH runs retry — the helper asserts `nudge.attempts == 2` for each:
+bands at 10x10 converts to an ambiguous grid that two pixel-nudges repair, so
+both counts are measured across three candidates and the difference cannot be an
+artefact of one run retrying and the other not. 2 decodes across three
+candidates is `_resolved_extent`'s once-outside-both-loops placement stated
 as a count instead of as a comment. Proved to bite: with a second
 `load_greyscale` added to `image.source_shape` it fails at `3 == 2`
 (both files restored, md5 identical).
@@ -437,3 +439,45 @@ Still left to the closing pass, unchanged: `trace.yml`'s FR-023 entry
 its `tests:` list). F-008 (`derive_extent`'s Args block reading as axis-specific,
 latent — no caller emits `(None, N)`) and F-009 (that same trace write-back) are
 left `open` in the review report by instruction.
+
+## AC/EC gate (2026-09-02)
+
+**Verdict: PASS.** Eight criteria — AC-092..AC-098 and EC-009 — plus the six guardrails
+that name tests. Every logical id resolves to exactly one `def`; `TestDeriveShape_
+LibraryTemplateRatioAppliesSquareToday` and `TestDeriveShape_RandomSourceStaysSquare`
+appear in `tests/test_cli.py` as well, but only as cross-references from a docstring, and
+the criteria's own mapping table and section comments sit in `tests/test_derive_shape.py`
+where the definitions are. **Suite: 1497 passed, 1 xfailed.**
+
+The gate did not re-derive the measured figures a third time: the implementation measured
+them, cycle 1's review re-derived them independently with an exact-`Fraction` oracle, and
+cycle 2 re-derived them again over 10,000+ (N, ratio, orientation) cases plus a
+cell-for-cell reproduction of the README table. Three independent agreements is enough;
+a fourth pass would have been ritual.
+
+### Closing pass — the four items cycle 2 required, all done here
+
+- **F-013 (medium), the one cycle 2 said must not defer.** The F-005 rename left
+  `trace.yml`'s two FR-018 rows pointing at `TestCLI_SquareSizeShorthandSetsBothSides`,
+  which no longer exists — a live dead arrow in the model, created while fixing a
+  prose defect. Both rows re-pointed at
+  `TestCLI_BareSizeTokenReachesTheDomainUnsquared` / the pytest name, and both verified
+  to resolve. `requirements.yml:645` still names the old id **deliberately** — that file
+  is not hand-edited here — and is now the only thing the queued intake line has left to
+  change. The intake line said "trace.yml's two rows must move with it"; since they have,
+  the line itself was updated to say so, because leaving it would have been the same
+  defect one level up.
+- **F-009.** FR-023 flipped `partial` -> `covered`, with the eight pytest names appended.
+  Its note said "not yet implemented — no kanban card cut for it" and named DEC-028 as
+  unresolved; both were stale and are replaced. The note now also records the two
+  corrections queued against `requirements.yml`, and corrects a third claim it carried:
+  FR-021/CON-012's >2x refusal is **not** "structurally unreachable on this derived path"
+  — it is the rule the ceiling is built from, which is why AC-098's refusal exists at all.
+- **F-010, F-011, F-012** — three one-line prose corrections: a docstring citing
+  `test_nudge.py` for `portrait.png`, which appears there zero times; a claim that only
+  the bare run retries when the helper asserts `nudge.attempts == 2` for both; and a
+  citation of `requirements.yml:922-925` for a quote starting at 921. F-011's sentence had
+  been copied into this card too, and both copies are fixed.
+
+[AC/EC check] All criteria/constraints ✓ (evidence: AC-092 test_image_bare_size_derives_from_the_ink_bounding_box_ratio, AC-093 test_corpus_mean_retention_rises_to_99_percent, AC-094 test_library_template_ratio_applies_square_today, AC-095 test_random_source_stays_square, AC-096 test_explicit_nxm_bypasses_derivation, AC-097 test_widest_accepted_ratio_is_exactly_n_over_five_to_one, AC-098 test_refuses_beyond_the_ceiling_naming_the_smallest_working_size, EC-009 test_the_derived_short_side_is_the_rounded_ratio_clamped_at_min_or_refused; plus test_the_cats_ears_survive_a_bare_size_25, the regression this card was reprioritised to close; suite 1497 passed, 1 xfailed) — every name resolved to exactly one `def` before this line was written; verified 2026-09-02.
+

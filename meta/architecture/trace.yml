@@ -629,12 +629,12 @@ links:
   tests:
   - TestCLI_ParsesRectangularSizeToken
   - TestCLI_RectangularRequestProducesWidthByHeightGrid
-  - TestCLI_SquareSizeShorthandSetsBothSides
+  - TestCLI_BareSizeTokenReachesTheDomainUnsquared
   - TestCLI_RejectsMalformedSizeToken
   - TestCLI_OutOfRangeSideRejectedByDomainNotArgparse
   - test_cli_parses_rectangular_size_token
   - test_cli_rectangular_request_produces_width_by_height_grid
-  - test_cli_square_size_shorthand_sets_both_sides
+  - test_cli_bare_size_token_reaches_the_domain_unsquared
   - test_cli_rejects_malformed_size_token
   - test_cli_out_of_range_side_rejected_by_domain_not_argparse
   notes: >-
@@ -784,17 +784,34 @@ links:
   - TestDeriveShape_WidestAcceptedRatioIsExactlyNOverFiveToOne
   - TestDeriveShape_RefusesBeyondCeilingNamingSmallestWorkingSize
   - PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused
+  - test_image_bare_size_derives_from_the_ink_bounding_box_ratio
+  - test_corpus_mean_retention_rises_to_99_percent
+  - test_library_template_ratio_applies_square_today
+  - test_random_source_stays_square
+  - test_explicit_nxm_bypasses_derivation
+  - test_widest_accepted_ratio_is_exactly_n_over_five_to_one
+  - test_refuses_beyond_the_ceiling_naming_the_smallest_working_size
+  - test_the_cats_ears_survive_a_bare_size_25
   notes: >-
-    Written by the 2026-09-01 domain-extraction delta (raw-requirements.md,
-    the last seven entries); not yet implemented — no kanban card cut for it.
-    Depends on FR-018/CARD-027 landing the (width, height) pair first (still
-    `ready`, not merged) and on FR-022's ink-bounding-box trim for the image
-    mode reading. Narrowly amends ADR-0022's "grid drives the picture, not the
-    reverse" principle — surfaced as DEC-028 (decisions/open.yml), not yet
-    resolved, so the ADR-0022 reference above points at the pre-revision text.
-    FR-021/CON-012's own >2x refusal becomes structurally unreachable on this
-    derived path by construction, per the requirement's own statement.
-  status: partial
+    SHIPPED by CARD-033 (merge pending at time of writing; see the card).
+    Both prerequisites landed first: FR-018/CARD-027 for the (width, height)
+    pair, FR-022/CARD-030 for the ink-bounding-box trim the image reading uses.
+    DEC-028 was resolved in ADR-0022's 2026-09-01 revision (R4), so the
+    ADR-0022 reference above now points at live text, not pre-revision text.
+    TWO CORRECTIONS THE CARD SURFACED, both queued in raw-requirements.md and
+    NOT yet applied to requirements.yml (which is not hand-edited here):
+    (1) EC-009's "equivalently, whenever long:short exceeds N/5" is false —
+    `round(N*r) < 10` is the N/9.5 boundary — and FR-023's own closing sentence
+    carries the same defect via "unclamped". Only the N/5 reading satisfies
+    AC-097 and AC-098 together, and it is what ADR-0022/R4 already states, so
+    the code is right and the two texts are wrong. (2) AC-063's `test:` field
+    still names TestCLI_SquareSizeShorthandSetsBothSides, renamed by this card
+    to TestCLI_BareSizeTokenReachesTheDomainUnsquared; the two FR-018 rows in
+    THIS file were re-pointed at close, requirements.yml:645 was not.
+    FR-021/CON-012's >2x refusal is not unreachable on the derived path as the
+    requirement's statement claims — it is the very rule the ceiling is built
+    from (the derived shape is judged by it), which is why AC-098's refusal
+    exists at all.
 
 - req: NFR-005
   description: "Printed cell size is a declining function of max(width, height) per
@@ -820,7 +837,7 @@ links:
     introduced by this delta, left as found; requirements.yml's AC-080..
     AC-083/AC-104 and EC-008 are the current source of truth for NFR-005's
     tests.
-  status: partial
+  status: covered
 
 - req: NFR-006
   description: "The sheet is turned whichever way prints the LARGER cell; ties

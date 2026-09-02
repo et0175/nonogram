@@ -1046,10 +1046,12 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
     Two rather than three is the claim worth pinning, and it is the one nothing
     else asserts: a later card that resolved the extent inside a retry loop, or
     read the shape a second time to re-check it, would change this number and
-    break no other test. Which is why the bare run below is the one that
-    *retries*: ``bands.png`` at 10x10 converts to an ambiguous grid that two
-    pixel-nudges repair (``tests/test_nudge.py``'s own pin), so the two decodes
-    here are measured across a run with three candidates in it — the
+    break no other test. Which is why **both** runs below retry — the helper
+    asserts ``nudge.attempts == 2`` for each: ``bands.png`` at 10x10 converts
+    to an ambiguous grid that two pixel-nudges repair
+    (``tests/test_nudge.py``'s own pin), so both counts are measured across a
+    run with three candidates in it, and the difference between them cannot be
+    an artefact of one run retrying and the other not — the
     once-outside-both-loops placement of ``orchestrator._resolved_extent``,
     stated as a count instead of as a comment.
 
