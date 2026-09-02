@@ -23,6 +23,17 @@ Acceptance criteria, by the card's test names:
     AC-079  TestAspectGuard_AcceptsWellMatchedPortraitSource
                                                          -> test_aspect_guard_accepts_a_well_matched_portrait_source
 
+    AC-086  TestTrimToInk_Fixes17Of19CorpusViolations
+                                                         -> test_trim_to_ink_fixes_17_of_the_19_corpus_violations
+    AC-087  TestTrimToInk_ReducesWorstCaseBorderToAtMostOneLine
+                                                         -> test_trim_to_ink_reduces_the_worst_case_border_to_at_most_one_line
+    AC-088  TestTrimToInk_AcceptsResidualBlankLinesOnDear1Jpg
+                                                         -> test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg
+    AC-091  TestTrimToInk_AcceptsResidualBlankLinesOnWolf1Jpeg
+                                                         -> test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg
+    AC-089  TestTrimToInk_MidGreyThresholdOutperformsNearWhiteThreshold
+                                                         -> test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold
+
     ADR-0022/R3  TestFitImage_RefusesRatioMismatchBeyondTwice
                                                          -> test_fit_image_refuses_a_ratio_mismatch_beyond_twice
 
@@ -37,10 +48,27 @@ Fixtures live in ``tests/fixtures/`` and are deliberately tiny (under 200 bytes
 each). Their content is chosen so that the assertions below can *distinguish*
 implementations rather than merely observe one:
 
-``bands.png``    32x32, three horizontal bands — black, mid-grey (128), white.
-                 The mid band is the dithering witness: a plain 50% threshold
-                 renders a flat 128 region as one solid colour, error diffusion
-                 renders it as a mixed, roughly half-filled texture.
+``bands.png``    32x32, three horizontal bands — black (rows 0..10), mid-grey
+                 128 (11..21), white (22..29) — closed by a **2-pixel black rule
+                 along the bottom edge** (rows 30..31). The mid band is the
+                 dithering witness: a plain 50% threshold renders a flat 128
+                 region as one solid colour, error diffusion renders it as a
+                 mixed, roughly half-filled texture.
+
+                 The ground rule is CARD-030's doing and is load-bearing, not
+                 decoration. FR-022 trims an upload to its ink bounding box, and
+                 ink is a value *below* 128 — so the mid band is paper and, with
+                 no rule, this fixture's ink box would be its black third alone:
+                 32x11 against a 20x20 grid keeps 34% of it and FR-021 refuses
+                 the conversion outright. The rule puts the sheet's bottom edge
+                 back inside the picture, the box becomes the whole 32x32, the
+                 trim is a no-op, and the fixture goes on testing the conversion
+                 rather than the trim (which is measured against the real 25
+                 pictures under ``pictures/``, below). Its thickness is 2 rather
+                 than 1 because at 1 the pinned 10x10 conversion in
+                 ``tests/test_nudge.py`` needs four nudges instead of the two it
+                 has always needed; both are honest fixtures and the thinner one
+                 was passed over only to leave that pin alone.
 ``landscape.png``  60x40 (3:2), vertical bands — a black sixth, white with a
                  16x16 black core, a black sixth. Against a square grid the
                  centred crop is the middle 40x40, which is *exactly* the two
@@ -184,6 +212,20 @@ def solid_black(
     return build
 
 
+def _ink_extent(source: Path) -> tuple[int, int]:
+    """``(width, height)`` of ``source``'s ink bounding box, in pixels.
+
+    The extent the aspect guard judges since CARD-030 (FR-021/CON-012 as revised
+    2026-09-01), and therefore the one a test that wants to reason about the
+    guard has to compute. Written as a helper rather than inline because
+    :func:`nonogram.sourcing.image.ink_bounding_box` returns a Pillow crop box
+    and the guard takes two extents.
+    """
+    with image.load_greyscale(source) as greyscale:
+        left, upper, right, lower = image.ink_bounding_box(greyscale)
+    return (right - left, lower - upper)
+
+
 def _convert(source: Path, target_width: int, target_height: int) -> list[list[bool]]:
     """The image pipeline at an arbitrary grid extent.
 
@@ -215,10 +257,10 @@ def test_the_two_crop_fixtures_are_inside_the_accepted_ratio_band() -> None:
     conversion tests actually use.
     """
     for accepted in (LANDSCAPE, PORTRAIT):
-        image.validate_aspect_ratio(*image.probe_extent(accepted), 20, 20)
+        image.validate_aspect_ratio(*_ink_extent(accepted), 20, 20)
     for refused in (WIDE, TALL):
         with pytest.raises(ImageNeedsManualCrop):
-            image.validate_aspect_ratio(*image.probe_extent(refused), 20, 20)
+            image.validate_aspect_ratio(*_ink_extent(refused), 20, 20)
 
 
 def test_the_fixture_images_are_present_and_shaped_as_documented() -> None:
@@ -226,6 +268,13 @@ def test_the_fixture_images_are_present_and_shaped_as_documented() -> None:
     regenerated at another size would weaken the tests without failing them."""
     with Image.open(BANDS) as bands:
         assert bands.size == (32, 32)
+        # The ground rule, asserted rather than trusted: without it the trim
+        # would reduce this fixture to its black third and FR-021 would refuse
+        # every square-grid conversion below (see the module docstring).
+        pixels = bands.convert("L").load()
+        assert pixels is not None
+        assert (pixels[0, 29], pixels[0, 30], pixels[0, 31]) == (255, 0, 0)
+    assert _ink_extent(BANDS) == (32, 32)
     with Image.open(LANDSCAPE) as landscape:
         assert landscape.size == (60, 40)
     with Image.open(PORTRAIT) as portrait:
@@ -256,9 +305,12 @@ def test_convert_image_produces_a_dithered_grid() -> None:
     assert _shape(grid) == (25, {25})
     assert all(cell is True or cell is False for row in grid for cell in row)
     # The black band is ink and the white band is paper: the polarity, on a
-    # grid whose top and bottom are unambiguous whatever the dither does.
+    # grid whose top and bottom are unambiguous whatever the dither does. The
+    # white band now ends two source rows above the sheet's edge — the ground
+    # rule the trim needs (module docstring) occupies the last one and a bit
+    # grid rows — so the paper claim is made about the two rows above it.
     assert all(grid[0]) and all(grid[1])
-    assert not any(grid[-1]) and not any(grid[-2])
+    assert not any(grid[-3]) and not any(grid[-4])
 
 
 def test_convert_image_produces_a_dithered_grid_of_plain_python_bools() -> None:
@@ -322,16 +374,28 @@ def test_transparent_areas_are_paper_and_not_ink(tmp_path: Path) -> None:
     Without the flattening, ``convert("L")`` reads the colour *under* the
     transparent pixels — which for the usual "transparent PNG with black
     underneath" is a solid black rectangle where the user sees nothing.
+
+    The image carries an opaque stripe at the top **and** at the bottom since
+    CARD-030, for the reason ``bands.png`` grew a ground rule: flattened
+    transparency is paper, paper is not ink, and a single top stripe would make
+    the ink box a 40x10 band that FR-021 then refuses at a square grid. Two
+    stripes leave the box the whole sheet, so this test goes on testing the
+    flattening rather than the trim — and the transparent middle is still the
+    only place the "paper, not ink" claim is made.
     """
     path = tmp_path / "hole.png"
     transparent = Image.new("RGBA", (40, 40), (0, 0, 0, 0))
     transparent.paste((0, 0, 0, 255), (0, 0, 40, 10))
+    transparent.paste((0, 0, 0, 255), (0, 30, 40, 40))
     transparent.save(path)
 
     grid = image.generate(path, 20, 20, _rng())
 
     assert all(grid[0])  # the opaque black stripe is ink
-    assert not any(any(row) for row in grid[8:])  # the transparent field is paper
+    assert all(grid[-1])  # and so is the one at the far edge
+    # The transparent field between them is paper, not the black that sits
+    # underneath it in the file.
+    assert not any(any(row) for row in grid[6:14])
 
 
 def test_the_conversion_is_reproducible_for_the_same_file_and_size() -> None:
@@ -836,14 +900,303 @@ def test_fit_image_refuses_a_ratio_mismatch_beyond_twice() -> None:
     assert _shape(_convert(WIDE, 30, 10)) == (10, {30})
 
 
-def test_the_guard_runs_before_the_picture_is_decoded(tmp_path: Path) -> None:
-    """Guardrail G-4, made observable rather than asserted about the source.
+# --------------------------------------------------------------------------
+# AC-086..AC-091 (FR-022) — TestTrimToInk_* : the ink-box trim, measured
+# against the real corpus committed under ``pictures/``
+#
+# These five criteria are the only place in the test tree that reads that
+# corpus, and deliberately so. Every other image test runs against a fixture
+# built to isolate one behaviour; FR-022 is a claim about *photographs and
+# silhouettes people actually uploaded*, and a synthetic margin proves nothing
+# about it — the whole reason the requirement is best-effort rather than an
+# invariant is that real pictures do not cooperate. The numbers below were
+# re-measured on this tree; where one disagrees with the criterion, the test
+# says so in its docstring rather than adopting the measurement silently.
+# --------------------------------------------------------------------------
 
-    A file with a valid PNG header and a truncated body decodes to nothing. Ask
-    for a grid it *fits*, and the run gets as far as the decode and fails with
-    ``UnreadableImage``; ask for a grid it does not fit, and the aspect refusal
-    comes back instead — which can only happen if the guard ran first. Loading,
-    greyscaling, dithering and the solver are all downstream of that decode.
+#: The 25 pictures FR-022's criteria are stated over (CARD-030's corpus check:
+#: exactly 25 committed files, all four named fixtures present).
+PICTURES = Path(__file__).resolve().parent.parent / "pictures"
+
+#: The grid every FR-022 criterion is measured at. Seed 1 is in the criteria
+#: too and is recorded here for completeness only — image mode never draws from
+#: the RNG, so the conversion is the same at every seed (pinned by
+#: ``test_the_conversion_never_draws_from_the_run_rng``).
+TRIM_EXTENT = (20, 20)
+
+#: FR-022's near-white comparator (AC-089): a threshold that counts JPEG
+#: ringing and off-white paper as ink and so trims almost nothing. Written as a
+#: literal rather than derived from ``INK_THRESHOLD``, because the point of the
+#: criterion is *where* the shipped threshold sits relative to another one.
+NEAR_WHITE_THRESHOLD = 245
+
+
+def _corpus() -> list[Path]:
+    """The committed corpus, sorted, with its size asserted by the caller."""
+    return sorted(path for path in PICTURES.iterdir() if path.is_file())
+
+
+def _blank_edges(grid: list[list[bool]]) -> dict[str, int]:
+    """How many all-empty lines each of the four edges carries.
+
+    Written from FR-022's own words ("an all-empty row or column at some edge")
+    rather than by asking anything in ``nonogram`` — the requirement is about
+    the finished grid, and a helper that reused the trim's own arithmetic could
+    only ever agree with it.
+    """
+    height, width = len(grid), len(grid[0])
+    rows = [any(row) for row in grid]
+    columns = [any(row[column] for row in grid) for column in range(width)]
+
+    def leading(flags: list[bool]) -> int:
+        count = 0
+        while count < len(flags) and not flags[count]:
+            count += 1
+        return count
+
+    return {
+        "top": leading(rows),
+        "bottom": leading(rows[::-1]),
+        "left": leading(columns),
+        "right": leading(columns[::-1]),
+    }
+
+
+def _deepest_blank_edge(grid: list[list[bool]]) -> int:
+    return max(_blank_edges(grid).values())
+
+
+def _untrimmed_grid(source: Path) -> list[list[bool]]:
+    """The conversion FR-022 replaced: aspect crop, resize, dither, no trim.
+
+    ``binarize`` is the pipeline from the aspect crop onward and does not trim,
+    so handing it the whole decoded picture reproduces exactly what ``generate``
+    did before CARD-030 — the "before trimming" half of AC-086 and AC-087,
+    without a second copy of the resize and the dither to drift from the real
+    one.
+    """
+    with image.load_greyscale(source) as greyscale:
+        return image.to_grid(image.binarize(greyscale, *TRIM_EXTENT))
+
+
+def _trimmed_grid(source: Path, threshold: int) -> list[list[bool]]:
+    """The same conversion with the ink box of ``threshold`` trimmed off first."""
+    with image.load_greyscale(source) as greyscale:
+        box = image.ink_bounding_box(greyscale, threshold)
+        return image.to_grid(image.binarize(greyscale.crop(box), *TRIM_EXTENT))
+
+
+def test_the_corpus_the_trim_criteria_are_stated_over_is_the_one_on_disk() -> None:
+    """AC-086/AC-089's premise, so neither can pass by the corpus shrinking.
+
+    A "property" test in this repository asserts its own case count (CLAUDE.md);
+    these are acceptance criteria rather than properties, but they quote counts
+    out of 25 and would silently weaken if a picture were deleted, so the same
+    rule is applied to them here, once, rather than in each.
+    """
+    corpus = _corpus()
+
+    assert len(corpus) == 25, [path.name for path in corpus]
+    for named in ("img_2.png", "img_3.png", "dear1.jpg", "wolf1.jpeg"):
+        assert (PICTURES / named).is_file(), named
+
+
+def test_trim_to_ink_fixes_17_of_the_19_corpus_violations() -> None:
+    """AC-086 verbatim, on the criterion's own numbers.
+
+    Given the 25 committed pictures each fitted to a 20x20 grid: 19 carry more
+    than one all-empty row or column at some edge before trimming. Trimming to
+    the ink box (ink < 128) first, 17 of those 19 satisfy the
+    at-most-one-blank-line-per-edge rule and exactly 2 do not, so 23 of 25 hold
+    overall. All four figures re-measured on this tree and reproduced exactly.
+
+    The two survivors are named rather than counted, because AC-088 and AC-091
+    pin them individually: a change that fixed either must amend those criteria,
+    and a change that broke a third one must fail here rather than shift a
+    tolerance. Nothing newly violates the rule *because* of the trim, which is
+    asserted separately — a transform that fixed 17 and broke 3 would satisfy a
+    count of "2 violations" on a differently composed 2.
+    """
+    corpus = _corpus()
+    before = {path.name: _deepest_blank_edge(_untrimmed_grid(path)) for path in corpus}
+    after = {
+        path.name: _deepest_blank_edge(_trimmed_grid(path, image.INK_THRESHOLD))
+        for path in corpus
+    }
+
+    violated_before = {name for name, depth in before.items() if depth > 1}
+    violated_after = {name for name, depth in after.items() if depth > 1}
+
+    assert len(corpus) == 25
+    assert len(violated_before) == 19, sorted(violated_before)
+    assert len(violated_before - violated_after) == 17
+    assert len(violated_before & violated_after) == 2
+    assert violated_after == {"dear1.jpg", "wolf1.jpeg"}
+    assert violated_after - violated_before == set()
+    assert len(corpus) - len(violated_after) == 23
+
+
+def test_trim_to_ink_reduces_the_worst_case_border_to_at_most_one_line() -> None:
+    """AC-087 verbatim, on the criterion's own numbers.
+
+    ``img_2.png`` is the corpus's worst pre-trim case at 6 blank lines deep, and
+    ``img_3.png`` ties it at 6; trimmed to the ink box first, each grid has at
+    most one blank row or column at every edge. Both re-measured and reproduced.
+
+    One figure in the criterion's ``given`` does **not** reproduce and is
+    recorded here rather than quietly dropped: it says "300 of 400 cells spent
+    on border". Measured, ``img_2.png``'s untrimmed edges are top 6, bottom 5,
+    left 2, right 2, so the blank frame is 400 - 9*16 = **256** cells; the grid
+    holds **297** empty cells in total, which is the nearest reading to 300 and
+    is not a border count (it includes the paper inside the subject). Neither
+    number is 300. The claim the criterion *tests* — 6 deep before, at most 1
+    after — is exact; the parenthetical is a description of the ``given``
+    rather than part of the ``then``, so it is reported here and not asserted.
+    """
+    for name in ("img_2.png", "img_3.png"):
+        before = _blank_edges(_untrimmed_grid(PICTURES / name))
+        after = _blank_edges(_trimmed_grid(PICTURES / name, image.INK_THRESHOLD))
+
+        assert max(before.values()) == 6, (name, before)
+        assert max(after.values()) <= 1, (name, after)
+
+    # And it is the *worst* case, not merely a bad one — otherwise "6" is a
+    # number about one picture rather than about the corpus.
+    assert (
+        max(_deepest_blank_edge(_untrimmed_grid(path)) for path in _corpus()) == 6
+    )
+
+
+def test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg() -> None:
+    """AC-088 verbatim: an accepted residual, not a defect.
+
+    ``dear1.jpg`` trimmed at ink < 128 still shows 2 blank lines at one edge —
+    measured on this tree: 2 at the right edge, 0 at the other three, down from
+    4 before the trim. FR-022 is best-effort by explicit decision, and this is
+    one of the two places it falls short.
+
+    Asserted as an equality rather than as ``>= 2``: if a later change fixes
+    this picture, the right move is to amend the criterion, not to let a laxer
+    assertion pass silently over an improvement nobody recorded.
+    """
+    before = _blank_edges(_untrimmed_grid(PICTURES / "dear1.jpg"))
+    after = _blank_edges(_trimmed_grid(PICTURES / "dear1.jpg", image.INK_THRESHOLD))
+
+    assert max(before.values()) == 4, before
+    assert max(after.values()) == 2, after
+    assert sorted(after.values()) == [0, 0, 0, 2], after
+
+
+def test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg() -> None:
+    """AC-091 verbatim: the corpus's worst accepted residual.
+
+    ``wolf1.jpeg`` trimmed at ink < 128 still shows 3 blank lines at one edge —
+    measured: 3 at the left, 1 at the right, 0 top and bottom. It measures 3
+    deep *before* the trim as well, so the trim neither helps nor harms it, and
+    that is precisely why FR-022 is a best-effort transform rather than an
+    invariant: no threshold in the swept range reaches this picture. The blank
+    margin here survives the resize and the dither, not the crop.
+    """
+    before = _blank_edges(_untrimmed_grid(PICTURES / "wolf1.jpeg"))
+    after = _blank_edges(_trimmed_grid(PICTURES / "wolf1.jpeg", image.INK_THRESHOLD))
+
+    assert max(before.values()) == 3, before
+    assert max(after.values()) == 3, after
+    assert before == after, (before, after)
+
+    # The worst *remaining* case in the corpus, so "3" is a bound and not an
+    # anecdote.
+    assert (
+        max(
+            _deepest_blank_edge(_trimmed_grid(path, image.INK_THRESHOLD))
+            for path in _corpus()
+        )
+        == 3
+    )
+
+
+def test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold() -> None:
+    """AC-089 verbatim: why 128 and not "anything not pure white".
+
+    The same 25 pictures at the same 20x20 grid, trimmed at ink < 245: 6 of the
+    25 violate the at-most-one-blank-line-per-edge rule, against 2 at ink < 128.
+    Both counts re-measured on this tree and reproduced exactly. Near-white
+    counts JPEG ringing and off-white backgrounds as ink, so it finds a bounding
+    box that is very nearly the whole file and trims almost nothing.
+
+    This is the evidence the threshold was chosen rather than assumed, so it is
+    stated as a comparison of two measurements and not as "128 is good".
+    """
+    corpus = _corpus()
+    mid_grey = [
+        path
+        for path in corpus
+        if _deepest_blank_edge(_trimmed_grid(path, image.INK_THRESHOLD)) > 1
+    ]
+    near_white = [
+        path
+        for path in corpus
+        if _deepest_blank_edge(_trimmed_grid(path, NEAR_WHITE_THRESHOLD)) > 1
+    ]
+
+    assert len(corpus) == 25
+    assert len(near_white) == 6, [path.name for path in near_white]
+    assert len(mid_grey) == 2, [path.name for path in mid_grey]
+    assert image.INK_THRESHOLD == 128
+
+
+def test_a_picture_with_no_ink_at_all_is_trimmed_by_nothing(tmp_path: Path) -> None:
+    """The degenerate end of the trim, which the criteria do not reach.
+
+    A blank sheet has no ink bounding box. Returning an empty box would make the
+    crop, and then the resize, undefined; returning the whole extent says the
+    honest thing — there is nothing to trim to — and a blank sheet goes on
+    converting to a blank grid. The mid-grey field is the case that matters
+    most, because 128 is *not* ink by FR-022's own definition, so a flat 128
+    picture is one this rule must leave entirely alone.
+    """
+    for value in (128, 200, 255):
+        path = _flat(value, tmp_path, f"blank-{value}.png")
+        with image.load_greyscale(path) as greyscale:
+            assert image.ink_bounding_box(greyscale) == (0, 0, 64, 64), value
+
+    assert not any(
+        any(row) for row in image.generate(_flat(255, tmp_path), 20, 20, _rng())
+    )
+
+
+def test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug() -> None:
+    """The same reasoning ``_checked_extents`` applies to a zero-side grid: a
+    threshold is not user input, so an impossible one is a wiring error rather
+    than a domain outcome, and gets ``ValueError`` rather than a
+    ``NonogramError``."""
+    with image.load_greyscale(BANDS) as greyscale:
+        for bad in (-1, 257, 1000):
+            with pytest.raises(ValueError):
+                image.ink_bounding_box(greyscale, bad)
+
+        # The two ends of the legal range are legal: nothing is ink at 0, and
+        # everything is ink at 256.
+        assert image.ink_bounding_box(greyscale, 0) == (0, 0, 32, 32)
+        assert image.ink_bounding_box(greyscale, 256) == (0, 0, 32, 32)
+
+
+def test_a_refused_request_now_pays_for_a_decode_and_nothing_more(
+    tmp_path: Path,
+) -> None:
+    """The cost ADR-0022's 2026-09-01 revision accepted, pinned as a cost.
+
+    Before CARD-030 the guard read the file header and refused without decoding,
+    so a truncated PNG asked for a grid it did not fit came back with the aspect
+    error rather than the decode error. The ink box is not derivable from a
+    header, so that path is gone: **every** image request now decodes first, and
+    a file that cannot be decoded reports that, whatever grid was asked for.
+
+    This is a behaviour change, not a regression, and it is asserted rather than
+    left to be discovered: the ordering EC-007 actually promises — refused
+    before any *cropping* — is the property, and it is proved separately in
+    ``tests/property/test_image_fit.py`` by instrumenting the three functions
+    that crop.
     """
     whole = tmp_path / "whole.png"
     Image.new("L", (600, 600), 0).save(whole)
@@ -851,60 +1204,48 @@ def test_the_guard_runs_before_the_picture_is_decoded(tmp_path: Path) -> None:
     truncated.write_bytes(whole.read_bytes()[: -len(whole.read_bytes()) // 3])
 
     with pytest.raises(UnreadableImage):
-        _convert(truncated, 30, 15)  # fits (exactly 2x) -> reaches the decode
+        _convert(truncated, 30, 15)  # fits (exactly 2x)
 
-    with pytest.raises(ImageNeedsManualCrop):
-        _convert(truncated, 30, 14)  # does not fit -> never reaches the decode
-
-    # The narrowed half of G-4, pinned so it cannot drift back to the
-    # unqualified claim: on a source where the probe and the decode disagree, a
-    # refusal *does* cost a decode. The probe accepts 15x30 here, so the
-    # refusal below can only have come from the re-check, which runs after
-    # ``load_greyscale``. Cropping, dithering and the solver stay unreachable.
-    disagreeing = _png_with_a_trailing_exif_chunk(
-        tmp_path / "g4-trailing-exif.png", 563, 980, 6
-    )
-    image.validate_aspect_ratio(*image.probe_extent(disagreeing), 15, 30)
-    with pytest.raises(ImageNeedsManualCrop):
-        _convert(disagreeing, 15, 30)
+    # Used to be ``ImageNeedsManualCrop``, refused from the header alone.
+    with pytest.raises(UnreadableImage):
+        _convert(truncated, 30, 14)  # does not fit — and still never says so
 
 
-def test_the_probe_reads_the_repo_fixtures_at_their_stored_extent() -> None:
-    """The five repo fixtures carry no EXIF at all, so this pins exactly one
-    thing: on a file with no orientation metadata the probe reports the stored
-    extent, and reports the same extent the loader ends up with.
+def test_the_repo_fixtures_carry_no_orientation_metadata_at_all() -> None:
+    """The premise every fixture-based assertion in this file rests on.
 
-    Named for what it checks rather than for orientation handling — every
-    fixture here would satisfy it under *any* orientation policy, including
-    none, so the orientation claim is carried by the parametrised test below and
-    not by this one.
+    None of the five repo fixtures has an EXIF block, so nothing below can be an
+    artefact of orientation handling: the extent the loader produces is the
+    stored one. Orientation itself is covered by the parametrised test below and
+    by ``test_exif_orientation_is_applied_before_the_crop``.
     """
     for source in (BANDS, LANDSCAPE, PORTRAIT, WIDE, TALL):
         with Image.open(source) as opened:
             assert "exif" not in opened.info
             stored = opened.size
         with image.load_greyscale(source) as loaded:
-            assert image.probe_extent(source) == stored == loaded.size
+            assert loaded.size == stored
 
 
 @pytest.mark.parametrize("orientation", [1, 2, 3, 4, 5, 6, 7, 8, 9])
-def test_the_probe_honours_exif_orientation(
+def test_the_decode_honours_exif_orientation(
     tmp_path: Path, orientation: int
 ) -> None:
     """Failure-matrix row 13, over every value of the tag rather than one.
 
     One stored 60x40 raster is written eight times with each defined EXIF
-    orientation, and once with a value outside the defined range. The probe must
-    exchange the axes for exactly ``{5, 6, 7, 8}`` — the quarter-turn four — and
-    leave them alone for ``1..4`` (the identity, the two mirrors and the half
-    turn, none of which changes the extent) and for the out-of-range ``9``.
+    orientation, and once with a value outside the defined range. The decode
+    must exchange the axes for exactly ``{5, 6, 7, 8}`` — the quarter-turn four
+    — and leave them alone for ``1..4`` (the identity, the two mirrors and the
+    half turn, none of which changes the extent) and for the out-of-range ``9``.
 
-    The second assertion is the one that matters most: the probe's answer must
-    equal the extent ``load_greyscale`` actually produces. A disagreement
-    between the two is not a cosmetic difference — it is the bug class that made
-    the FR-021 guard judge one shape while the crop used another (row 14), so it
-    is pinned here at every orientation rather than inferred from the four-value
-    set in the module.
+    CARD-030 retired ``probe_extent``, and with it the whole class of bug this
+    test was originally written against: there is now exactly one extent in the
+    pipeline, the decoded one, so the guard cannot be handed a shape the crop
+    will not use. What survives is the claim that still has teeth — a phone
+    photo stored on its side is measured, trimmed and cropped along the axis the
+    user actually sees — and it is asserted on the decode itself rather than on
+    a header parse that no longer happens.
     """
     stored = Image.new("L", (60, 40), 255)
     stored.paste(0, (23, 4, 33, 16))
@@ -914,9 +1255,8 @@ def test_the_probe_honours_exif_orientation(
     stored.save(oriented, format="JPEG", quality=100, exif=exif)
 
     quarter_turn = orientation in {5, 6, 7, 8}
-    assert image.probe_extent(oriented) == ((40, 60) if quarter_turn else (60, 40))
     with image.load_greyscale(oriented) as loaded:
-        assert image.probe_extent(oriented) == loaded.size
+        assert loaded.size == ((40, 60) if quarter_turn else (60, 40))
 
 
 def _jpeg_with_a_raw_exif_block(path: Path, block: bytes) -> Path:
@@ -941,19 +1281,22 @@ def _jpeg_with_a_raw_exif_block(path: Path, block: bytes) -> Path:
 def test_a_corrupt_exif_block_is_not_an_unreadable_picture(
     tmp_path: Path,
 ) -> None:
-    """Regression: the probe must not raise Pillow's own exceptions.
+    """Regression, kept after the parser that caused it was retired.
 
     ``Image.Exif().load`` on a spliced APP1 segment raises ``SyntaxError: not a
     TIFF file`` for a bad magic and ``struct.error: unpack requires a buffer of
     4 bytes`` for a block cut off inside the TIFF header. Neither is an
-    ``OSError``, a ``ValueError`` or a
-    ``NonogramError``, so before this fix both escaped ``probe_extent``,
-    ``generate`` and ``cli.main``'s only handler and reached the user as a stack
-    trace — on a file that ``load_greyscale`` reads perfectly, because
-    ``exif_transpose`` tolerates a corrupt block.
+    ``OSError``, a ``ValueError`` or a ``NonogramError``, so both once escaped
+    ``probe_extent``, ``generate`` and ``cli.main``'s only handler and reached
+    the user as a stack trace — on a file that ``load_greyscale`` reads
+    perfectly, because ``exif_transpose`` tolerates a corrupt block.
 
-    An unreadable orientation tag *is* the "no orientation" case, so the probe
-    reports the stored extent, agrees with the loader, and the picture converts.
+    CARD-030 deleted ``probe_extent`` along with its hand-rolled header parse,
+    so the defect is now structurally impossible rather than handled. The test
+    stays because the *claim* is about the user's file, not about one function:
+    a picture with a corrupt EXIF block converts, and no third-party exception
+    escapes. If a future card reintroduces header parsing anywhere in this
+    pipeline, this is what catches it a second time.
     """
     # Both measured against Pillow 12.3.0 in this venv, on the exact bytes
     # below: a block whose magic is wrong, and one cut off inside the eight-byte
@@ -968,9 +1311,8 @@ def test_a_corrupt_exif_block_is_not_an_unreadable_picture(
             tmp_path / name, b"Exif\x00\x00" + header
         )
 
-        assert image.probe_extent(path) == (60, 40), name
         with image.load_greyscale(path) as loaded:
-            assert image.probe_extent(path) == loaded.size, name
+            assert loaded.size == (60, 40), name
         assert _shape(image.generate(path, 20, 20, _rng())) == (20, {20}), name
 
 
@@ -981,8 +1323,10 @@ def _png_with_a_trailing_exif_chunk(
     does not reach it.
 
     Legal PNG — the chunk may appear either side of ``IDAT`` — and the one
-    construction on which ``probe_extent`` and ``load_greyscale`` disagree:
-    the header parse never sees the orientation, ``exif_transpose`` does.
+    construction on which the retired ``probe_extent`` and ``load_greyscale``
+    used to disagree: the header parse never saw the orientation,
+    ``exif_transpose`` did. Kept as the regression witness for the fail-open
+    hole that disagreement opened.
     """
     buffer = io.BytesIO()
     Image.new("L", (width, height), 0).save(buffer, format="PNG")
@@ -1007,71 +1351,55 @@ def _png_with_a_trailing_exif_chunk(
 def test_the_guard_judges_the_extent_the_crop_will_actually_use(
     tmp_path: Path,
 ) -> None:
-    """CON-012 on the one input where the probe and the decode disagree.
+    """CON-012 on the two inputs that once made the guard fail open.
 
     A 563x980 PNG carrying ``eXIf`` orientation 6 after ``IDAT`` is stored
-    portrait and displayed landscape: ``probe_extent`` reports (563, 980) and
-    ``load_greyscale`` produces (980, 563). Measured on this tree.
+    portrait and displayed landscape: the retired header probe reported
+    (563, 980) while ``load_greyscale`` produces (980, 563). Measured on this
+    tree. Judging the probed extent, a 15x30 grid was **accepted** while the
+    crop retained 0.287 of the displayed picture — the guard failing open on
+    exactly the thing FR-021 exists to prevent. CARD-026 patched that with a
+    second check; CARD-030 removes the disagreement instead, because there is
+    now only one extent in the pipeline and it is the decoded one.
 
-    Judging the probed extent alone, a 15x30 grid was **accepted** while the
-    crop it then took retained 0.287 of the displayed picture — the guard
-    failing open on exactly the thing FR-021 exists to prevent. The conversion
-    now re-checks the decoded extent whenever it contradicts the header, so the
-    request is refused with the manual-crop error instead.
+    The **false refusal** that patch left behind goes with it, and that is the
+    part worth asserting rather than merely noting: a 30x15 grid retains 0.870
+    of the displayed picture and used to be refused anyway, because the cheap
+    probe refused it before the decode that would have corrected the shape. It
+    now converts.
 
-    The other direction is the declared residue: a 30x15 grid retains 0.870 of
-    the displayed picture and is nonetheless refused, because the cheap probe
-    refuses it before the decode that would have corrected the shape. A false
-    refusal carrying an actionable message is the acceptable half of this
-    trade; silently discarding 71% of the user's picture is not (row 14).
+    The second construction reaches the same disagreement by a different
+    mechanism, which is why this tested extents and not formats: an
+    orientation-tagged TIFF carries no ``info["exif"]`` at all, and Pillow's
+    TIFF reader applies the orientation to ``size`` at open before
+    ``exif_transpose`` applies it a second time. Stored 60x40 + orientation 6
+    decodes to 60x40 (measured, Pillow 12.3.0). Flat 128 is *not* ink, so its
+    ink box is the whole sheet — a picture with no ink is trimmed by nothing —
+    and 60x40 against a 10x30 grid retains 0.222 and is refused.
     """
     source = _png_with_a_trailing_exif_chunk(
         tmp_path / "trailing-exif.png", 563, 980, 6
     )
 
-    assert image.probe_extent(source) == (563, 980)
     with image.load_greyscale(source) as loaded:
         assert loaded.size == (980, 563)
 
     with pytest.raises(ImageNeedsManualCrop):
         _convert(source, 15, 30)
-    with pytest.raises(ImageNeedsManualCrop):
-        _convert(source, 30, 15)
 
-    # And a grid that suits the displayed picture converts, so the re-check
-    # refuses the mismatch rather than everything that reaches it.
+    # Was refused by the probe before the decode could correct the shape.
+    assert _shape(_convert(source, 30, 15)) == (15, {30})
     assert _shape(_convert(source, 20, 20)) == (20, {20})
 
-    # The same disagreement, reached by a wholly different mechanism, which is
-    # why the re-check tests the extents and not the format. An
-    # orientation-tagged TIFF carries no ``info["exif"]`` at all, so
-    # ``_header_orientation`` returns None and the probe reports what
-    # ``Image.open`` gives it -- but Pillow's TIFF reader has *already* applied
-    # the orientation to that size, and ``exif_transpose`` then applies it a
-    # second time. Stored 60x40 + orientation 6: probe (40, 60), decode
-    # (60, 40). Measured on Pillow 12.3.0.
     tiff = tmp_path / "orientation.tiff"
     Image.new("L", (60, 40), 128).save(tiff, tiffinfo={0x0112: 6})
 
-    assert image.probe_extent(tiff) == (40, 60)
     with image.load_greyscale(tiff) as rotated:
         assert rotated.size == (60, 40)
+        assert image.ink_bounding_box(rotated) == (0, 0, 60, 40)
 
-    # Fails open without the re-check: the probe accepts this pair, the truth
-    # does not.
-    image.validate_aspect_ratio(*image.probe_extent(tiff), 10, 30)
     with pytest.raises(ImageNeedsManualCrop):
         _convert(tiff, 10, 30)
-
-
-def test_the_probe_reports_an_unreadable_file_as_one() -> None:
-    """A header that cannot be parsed is AC-008's error, raised before the
-    aspect ratio is considered at all — the shape is not known, so there is
-    nothing for the guard to judge."""
-    with pytest.raises(UnreadableImage) as excinfo:
-        image.probe_extent(CORRUPT)
-
-    assert "cannot read image" in str(excinfo.value)
 
 
 # --------------------------------------------------------------------------

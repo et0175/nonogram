@@ -9,9 +9,41 @@ export — is reused unchanged.
 
 The pipeline, in one line
 -------------------------
-``open -> flatten transparency onto white -> greyscale -> crop to the requested
-grid's aspect ratio -> resize to width x height -> Floyd-Steinberg dither ->
-ink is a filled cell``.
+``open -> flatten transparency onto white -> greyscale -> compute the ink
+bounding box -> judge the request against that box -> trim to it -> crop to the
+requested grid's aspect ratio -> resize to width x height -> Floyd-Steinberg
+dither -> ink is a filled cell``.
+
+That order is prescribed by ADR-0022, not chosen here. Computing a bounding box
+reads pixels but writes nothing and discards nothing, so the guard below still
+refuses a badly shaped request **before any cropping runs** — the trim included
+(EC-007). Judging the box after applying it would break that.
+
+Trimming blank margin: the picture, not the file (FR-022)
+---------------------------------------------------------
+An uploaded silhouette is usually a small subject on a large sheet of paper, and
+every millimetre of that paper costs a whole grid line at 20 cells across.
+:func:`ink_bounding_box` finds the smallest rectangle containing every ink pixel
+— ink being a greyscale value below :data:`INK_THRESHOLD`, a mid grey — and the
+conversion trims to it before the aspect fit.
+
+The threshold is 128 rather than "anything not pure white" because it was
+measured, not assumed. Over the 25 pictures committed under ``pictures/`` at a
+20x20 grid: 19 carry more than one all-empty row or column at some edge
+untrimmed; trimming at ink < 128 fixes 17 of those 19, leaving 2 (AC-086). A
+near-white threshold of 245 counts JPEG ringing and off-white paper as ink and
+so trims almost nothing — 6 of the 25 still violate the rule (AC-089).
+
+**Best-effort, not an invariant.** FR-022 says so and the corpus shows why: the
+resize and the dither downstream of the trim can still blank an edge line whose
+source content was faint, so ``dear1.jpg`` keeps 2 blank lines (AC-088) and
+``wolf1.jpeg`` keeps 3 (AC-091) — the latter measuring 3 deep *before* trimming
+too, so no threshold helps it. Nothing here promises the property; the criteria
+pin how far short it falls.
+
+A picture with no ink at all (a wholly white or wholly light-grey field) has no
+bounding box, and the honest answer is to trim nothing: the whole extent is
+returned, and a blank sheet converts to a blank grid the way it always did.
 
 Aspect-ratio policy: **centre-crop to the grid's ratio, then resize**
 ---------------------------------------------------------------------
@@ -60,9 +92,23 @@ whole. So "the crop would discard more than half the user's picture" is exactly
 the picture themselves first (AC-075..AC-079, CON-012, ADR-0022/R3). The
 boundary is **inclusive**: a square source into a 30x15 grid retains exactly
 half and is accepted. The check is a pure predicate on four integers, decided by
-integer cross-multiplication rather than float division, and it runs before the
-file's pixels are ever decoded — a refused request pays for a header read and
-nothing else.
+integer cross-multiplication rather than float division.
+
+**The source extent it judges is the INK BOUNDING BOX, not the as-decoded file**
+(ADR-0022 revision 2026-09-01, DEC-025). CON-012 promises never to silently
+discard more than half *the user's picture*, and blank margin is not the user's
+picture: on 15 of the 25 corpus pictures the as-decoded reading overstates what
+survives the crop, worst at ``img_2.png`` and ``img_3.png``, which report 100%
+retained while 55% of the actual content survives. It errs both ways rather than
+conservatively, so it was not a safe approximation, merely an inaccurate one.
+
+The price, accepted in the ADR rather than worked around here: **the guard can
+no longer refuse before decoding.** A trim moves a ratio in either direction, so
+no sound refusal follows from the file header alone, and the cheap
+``probe_extent`` path CARD-026 built for this guard is retired — every image
+request now pays for one decode. Everything the decode is *for* — the trim, the
+aspect crop, the resize, the dither, clue derivation, the solver — stays
+unreachable for a refused request, which is the guarantee EC-007 actually makes.
 
 Scope: silhouettes, not photographs (CON-013)
 ----------------------------------------------
@@ -121,14 +167,15 @@ from nonogram.errors import ImageNeedsManualCrop, UnreadableImage
 from nonogram.sourcing import random_grid
 
 __all__ = [
+    "INK_THRESHOLD",
     "RESAMPLING",
     "binarize",
     "fit_crop_box",
     "generate",
+    "ink_bounding_box",
     "load_greyscale",
     "nudge",
     "nudge_cells",
-    "probe_extent",
     "to_grid",
     "validate_aspect_ratio",
 ]
@@ -142,6 +189,12 @@ __all__ = [
 #: filter's support with the reduction, so this averages the whole neighbourhood
 #: a cell covers — which is exactly the grey level the dither below needs.
 RESAMPLING = Image.Resampling.LANCZOS
+
+#: What counts as ink when :func:`ink_bounding_box` decides where the picture
+#: stops and the paper starts: a greyscale value **strictly below** this is ink
+#: (FR-022). A mid grey, and measured rather than assumed — see the module
+#: docstring for the corpus figures that put it here rather than at near-white.
+INK_THRESHOLD = 128
 
 #: Pillow's byte value for a black pixel in the bilevel ``"1"`` mode. Black is
 #: *ink*, and ink is a filled cell (ADR-0012's ``True``) — the one place this
@@ -217,104 +270,57 @@ def _flattened(image: Image.Image) -> Image.Image:
     return Image.alpha_composite(paper, image.convert("RGBA")).convert("L")
 
 
-#: EXIF's ``Orientation`` tag, and the four of its eight values that exchange
-#: the two axes (transpose, rotate 90, transverse, rotate 270). ``ImageOps.
-#: exif_transpose`` acts on the same four and ignores anything outside 2..8, so
-#: :func:`probe_extent` and :func:`load_greyscale` agree on what "the picture's
-#: width" means — a phone photo stored on its side is measured, and cropped,
-#: along the axis the user actually sees.
-_ORIENTATION_TAG = 0x0112
-_AXIS_SWAPPING_ORIENTATIONS = frozenset({5, 6, 7, 8})
+def ink_bounding_box(
+    greyscale: Image.Image, threshold: int = INK_THRESHOLD
+) -> tuple[int, int, int, int]:
+    """The smallest box containing every ink pixel of ``greyscale`` (FR-022).
 
+    Where the user's picture actually is, as opposed to where their file
+    happens to end. Ink is a value **strictly below** ``threshold``, so the
+    threshold itself is paper — 128 is a mid grey and the mid grey of a flat
+    128 field is deliberately *not* ink, which is what keeps a dithering
+    fixture a dithering fixture rather than an empty box.
 
-def probe_extent(source: str | PathLike[str]) -> tuple[int, int]:
-    """The source's ``(width, height)`` in pixels, without decoding it.
+    Computed with Pillow and nothing else (guardrail G-3, ADR-0006/R1): a
+    256-entry lookup table turns the greyscale into an ink mask in one C-level
+    pass, and ``getbbox`` walks that mask. Both are operations Pillow already
+    ships, so the ink box costs one extra pass over the pixels and no new
+    dependency. NumPy would do it too and is in the baseline, but it would have
+    to materialise the whole raster as an array first, which is the more
+    expensive of the two ways to get the same four integers.
 
-    Exists for guardrail G-4: :func:`validate_aspect_ratio` needs the source's
-    shape, and nothing else, to decide whether the request is refused — so a
-    refused request must not pay for a decode. ``Image.open`` is lazy and reads
-    the header only, which carries both the extent and the EXIF orientation, so
-    the guard's four integers are available for the price of a header parse.
-
-    The extent returned is the *displayed* one: the axes are exchanged for the
-    four orientations that rotate the picture a quarter turn, which is exactly
-    what :func:`load_greyscale`'s ``exif_transpose`` will do to the pixels a
-    moment later. Measuring the stored raster instead would judge a portrait
-    phone photo as landscape and refuse — or badly crop — the very input this
-    feature is for.
+    **Reads pixels; writes and discards nothing.** That is the property the
+    pipeline order in the module docstring rests on — the box can be handed to
+    :func:`validate_aspect_ratio` and the request refused with no crop of any
+    kind having been applied (EC-007, ADR-0022/R3).
 
     Args:
-        source: Path to the user's image file, as given.
+        greyscale: The source in mode ``"L"``, at its original dimensions —
+            :func:`load_greyscale`'s output, already flattened onto white so a
+            transparent margin reads as the paper it looks like.
+        threshold: What counts as ink, as a greyscale value. Defaults to
+            :data:`INK_THRESHOLD`; a parameter because AC-089 compares this
+            threshold against a near-white one on the same corpus, and a
+            constant nothing can vary is a constant nothing has justified.
 
     Returns:
-        ``(width, height)`` in pixels, as the user sees the picture.
-
-    Raises:
-        UnreadableImage: the same failures :func:`load_greyscale` reports, from
-            the same guard — a file whose header cannot even be parsed is an
-            unreadable image (AC-008) and is reported as one *before* the aspect
-            ratio is considered, since its shape is not known at all.
+        A Pillow crop box ``(left, upper, right, lower)``. For a picture with
+        no ink at all — a blank sheet, or one whose every pixel is lighter than
+        ``threshold`` — the **whole extent** is returned rather than an empty
+        or absent box: there is nothing to trim to, and the honest answer is to
+        trim nothing. A zero-pixel image likewise returns its own zero extent,
+        which :func:`validate_aspect_ratio` then reports as the input error it
+        is.
     """
-    try:
-        with Image.open(source) as opened:
-            width, height = opened.size
-            orientation = _header_orientation(opened)
-    except _UNREADABLE as error:
-        raise UnreadableImage(
-            f"cannot read image {str(source)!r}: {error}"
-        ) from error
-    if orientation in _AXIS_SWAPPING_ORIENTATIONS:
-        return (height, width)
-    return (width, height)
-
-
-def _header_orientation(opened: Image.Image) -> int | None:
-    """``opened``'s EXIF orientation, read from the header alone.
-
-    Pointedly **not** ``opened.getexif()``: for PNG that call decodes the whole
-    file (Pillow looks for an ``eXIf`` chunk and falls back to ``load()`` when
-    there is none), which is the one thing :func:`probe_extent` exists to avoid.
-    ``Image.open`` puts the raw EXIF block in ``info`` for the formats that
-    carry one in their header — JPEG above all, which is what a phone produces
-    and therefore what orientation handling is for — so parsing that block is
-    both cheap and enough.
-
-    **Total by construction: it answers "no orientation" rather than raising.**
-    A corrupt EXIF block is not an unreadable picture — ``exif_transpose``
-    tolerates one and converts the pixels perfectly — so the only honest answer
-    here is the one it independently reaches: no usable orientation tag.
-    ``Image.Exif().load`` reports a bad block with whatever its TIFF parser
-    happens to raise (measured on Pillow 12.3.0: ``SyntaxError: not a TIFF
-    file`` for a bad magic, ``struct.error: unpack requires a buffer of 4
-    bytes`` for a block cut off inside the eight-byte TIFF header), none of
-    which is in :data:`_UNREADABLE` and none of which is a
-    ``NonogramError``; letting one out would put a stack trace in front of a
-    user whose file converts fine. Hence the bare ``except Exception``: the set
-    of things a third-party header parser can raise is not enumerable, and every
-    member of it means the same thing here. The tag lookup sits inside the same
-    guard as the parse: Pillow 12.3.0 parses the IFD eagerly in ``load``, so
-    ``get`` is a plain dictionary read today and 13 crafted blocks (bad magic,
-    truncated header, IFD offset past the end, entry types 0/2/5/7/13/99, lying
-    and oversized entry counts) could not make it raise — but the argument above
-    is about a parser this project does not pin a version of, and it applies to
-    both lines or to neither.
-
-    A file whose EXIF sits somewhere ``open`` does not reach also reports no
-    orientation here, while ``exif_transpose`` *would* still find it. That
-    disagreement is declared rather than avoided (the alternative costs a full
-    decode on every conversion of every PNG); :func:`generate` closes it by
-    re-running the guard on the extent the decode actually produced whenever the
-    two differ — see failure-matrix row 14.
-    """
-    raw = opened.info.get("exif")
-    if not raw:
-        return None
-    exif = Image.Exif()
-    try:
-        exif.load(raw)
-        return exif.get(_ORIENTATION_TAG)
-    except Exception:  # noqa: BLE001 — a corrupt tag is not an unreadable file
-        return None
+    if not 0 <= threshold <= 256:
+        raise ValueError(
+            f"an ink threshold is a greyscale value in 0..256, got {threshold!r}"
+        )
+    whole = (0, 0, greyscale.width, greyscale.height)
+    if greyscale.width == 0 or greyscale.height == 0:
+        return whole
+    ink = greyscale.point([255] * threshold + [0] * (256 - threshold), mode="L")
+    return ink.getbbox() or whole
 
 
 def _checked_extents(
@@ -492,7 +498,12 @@ def binarize(
     and Floyd-Steinberg dither.
 
     Args:
-        greyscale: The source in mode ``"L"``, at its original dimensions.
+        greyscale: The source in mode ``"L"``. Since FR-022 this is the picture
+            :func:`generate` has already trimmed to its ink box, not the file's
+            full extent — but nothing here depends on that: this function fits
+            whatever rectangle it is handed to the grid's ratio, which is what
+            keeps the trim a step *before* the aspect fit rather than a
+            modification of it (guardrail G-1).
         target_width: Requested grid width in cells.
         target_height: Requested grid height in cells.
 
@@ -575,7 +586,7 @@ def generate(
     Returns:
         A row-major ``list[list[bool]]`` of ``height`` rows of ``width`` cells,
         ``True`` for filled (ADR-0012) — exactly the requested dimensions
-        whenever the source's aspect ratio is inside FR-021's accepted band
+        whenever the ink box's aspect ratio is inside FR-021's accepted band
         (AC-059).
 
     Raises:
@@ -583,61 +594,44 @@ def generate(
             decodable image (AC-008). Pillow's own exception never reaches the
             caller.
         SizeOutOfRange: a side is outside the supported range.
-        ImageNeedsManualCrop: the source's aspect ratio differs from the grid's
-            by more than 2x, so fitting it would throw away more than half the
-            picture (AC-076, FR-021).
+        ImageNeedsManualCrop: the ink bounding box's aspect ratio differs from
+            the grid's by more than 2x, so fitting it would throw away more than
+            half the picture (AC-076, FR-021).
 
-    The three checks run in the order the user can act on them, and each runs
-    before the work it would have paid for: the per-side range before the file
-    is touched at all, the aspect ratio after a header read and before the decode,
-    the decode before the conversion. So an invalid request never pays for a
-    decode and a refused one never pays for a dither — the "reject before you
-    work" contract the other two sources keep (guardrail G-4, EC-007).
+    The order below is ADR-0022's, not a local choice
+    -------------------------------------------------
+    ``validate_extent -> load_greyscale -> ink_bounding_box -> aspect guard ->
+    trim -> binarize -> to_grid``. Two things about it are load-bearing:
 
-    The aspect check runs a *second* time, and only when the decoded picture
-    turns out not to be the shape the header advertised — the one case where
-    :func:`probe_extent` and :func:`load_greyscale` can disagree (a PNG whose
-    ``eXIf`` chunk follows ``IDAT``). Judging the probed extent alone would let
-    such a request through the guard while the crop discarded most of it, which
-    is exactly what CON-012 forbids. The re-check costs nothing on the refused
-    path — it is downstream of a decode a refused request never reaches — so
-    G-4 is unaffected: the cheap probe still refuses the common case before any
-    pixel is read, and the rare disagreement is caught after the decode rather
-    than never (failure-matrix row 14).
+    * **The box is computed and judged before it is applied.** Finding a
+      bounding box reads pixels and writes nothing, so a refused request is
+      refused with no crop of any kind having run — not the trim, not the
+      aspect crop, not the resize, not the dither, and nothing downstream of
+      any of them. That is EC-007's guarantee, and guarding after the trim had
+      been applied would break it.
+    * **The extent judged is the ink box, never the file** (CON-012, ADR-0022/R3
+      as revised 2026-09-01). Blank margin is not the user's picture, and
+      measuring it misstated what survives the crop by up to 45 points on this
+      project's own corpus.
 
-    The geometry below — :func:`fit_crop_box`, :func:`validate_aspect_ratio` and
-    :func:`binarize` — was already written against a target *pair* by CARD-026
-    and is unchanged here (guardrail G-6). This function is simply where the
-    pair now arrives from the request (FR-018, ADR-0022/R1) instead of being one
-    number handed over twice, which is what makes the crop-not-stretch policy
-    reachable for a grid that is genuinely not square.
+    The per-side range is still checked before the file is touched at all, so an
+    out-of-range request pays for nothing. A **refused** request, though, now
+    pays for one decode: the ink box is not derivable from a file header, so the
+    cheap ``probe_extent`` path is gone (see the module docstring — this cost is
+    the ADR's decision, not an oversight). With it goes the header-vs-decode
+    disagreement CARD-026 had to re-check for: there is only one extent in play
+    now, the decoded one, so the guard cannot be handed a shape the crop will
+    not use.
     """
     if source is None:
         raise UnreadableImage(
             "image mode needs an --image PATH pointing at the picture to convert"
         )
     width, height = random_grid.validate_extent(width, height)
-    probed = probe_extent(source)
-    validate_aspect_ratio(*probed, width, height)
     greyscale = load_greyscale(source)
-    if greyscale.size != probed:
-        # The header probe and the decode disagreed about the picture's shape.
-        # Two measured classes reach here, so the test is on the extents rather
-        # than on a format: a PNG whose ``eXIf`` chunk follows ``IDAT`` (which
-        # ``Image.open`` does not reach), and an orientation-tagged TIFF (whose
-        # reader applies the orientation to ``size`` and then lets
-        # ``exif_transpose`` apply it a second time). Judge the extent the crop
-        # will actually use, so the guard cannot be talked into accepting a
-        # request that discards most of the picture.
-        #
-        # This is the one path on which a refusal costs a decode: the cheap
-        # probe still refuses the common case for free, but a request the probe
-        # accepted and the truth rejects is refused only after ``load_greyscale``
-        # has run. Cropping, dithering, clue derivation and the solver stay
-        # unreachable for it. See failure-matrix rows 12 and 14 — G-4's
-        # unqualified wording is narrowed there to match this.
-        validate_aspect_ratio(*greyscale.size, width, height)
-    return to_grid(binarize(greyscale, width, height))
+    box = ink_bounding_box(greyscale)
+    validate_aspect_ratio(box[2] - box[0], box[3] - box[1], width, height)
+    return to_grid(binarize(greyscale.crop(box), width, height))
 
 
 #: How far apart two cells flipped by the same nudge must be, as a Chebyshev
