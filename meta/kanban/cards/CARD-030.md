@@ -1,6 +1,6 @@
 # CARD-030: Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
