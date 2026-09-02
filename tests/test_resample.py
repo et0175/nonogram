@@ -45,7 +45,7 @@ import pytest
 
 from nonogram import cli, difficulty, orchestrator
 from nonogram.difficulty import MEDIUM_MAX_SCORE, SCORE_MAX, Tier
-from nonogram.errors import GenerationAbandoned, SizeOutOfRange
+from nonogram.errors import GenerationAbandoned, InvalidDensity
 from nonogram.orchestrator import (
     MAX_REGENERATE_ATTEMPTS,
     MAX_RESAMPLE_ATTEMPTS,
@@ -664,18 +664,27 @@ def test_an_invalid_request_is_not_retried_as_a_resample(
     CARD-005's rule, re-checked through the new outer loop: an exception from
     sourcing must travel out through both loops untouched, spending one attempt
     rather than 20 (or 400).
+
+    The invalid thing is a *density* rather than the extent it used to be. Since
+    CARD-033 an out-of-range extent never reaches the source at all — it is
+    refused while FR-023's derivation resolves it — which would make this test
+    pass on a source that was never called, and "travels out through both loops"
+    is a claim about a source that *was*. A bad density is exactly as invalid
+    and is still the source's to refuse, so it keeps the assertion honest. The
+    extent's own path is covered by
+    ``test_an_invalid_request_is_not_retried`` in ``tests/test_orchestrator.py``.
     """
     calls = 0
 
     def failing_source(*args: object) -> object:
         nonlocal calls
         calls += 1
-        raise SizeOutOfRange("size 3 is outside the supported range")
+        raise InvalidDensity("density 150 is outside the supported range")
 
     _install_source(monkeypatch, failing_source)
 
-    with pytest.raises(SizeOutOfRange):
-        generate(_request(width=3, height=3, difficulty="hard"))
+    with pytest.raises(InvalidDensity):
+        generate(_request(width=13, height=13, density=150, difficulty="hard"))
 
     assert calls == 1
 

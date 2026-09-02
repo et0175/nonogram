@@ -178,6 +178,7 @@ __all__ = [
     "load_greyscale",
     "nudge",
     "nudge_cells",
+    "source_shape",
     "to_grid",
     "validate_aspect_ratio",
 ]
@@ -497,6 +498,61 @@ def validate_aspect_ratio(
         "yourself to roughly the grid's proportions first, or ask for a grid "
         "shaped more like the picture."
     )
+
+
+def source_shape(source: str | PathLike[str] | None) -> tuple[int, int]:
+    """The picture's own extent: its **ink bounding box** (FR-022, FR-023).
+
+    What a bare ``--size N`` is completed from in image mode
+    (``random_grid.derive_extent``). The box and not the file, for exactly the
+    reason ADR-0022's 2026-09-01 revision moved FR-021's guard onto it: blank
+    margin is not the user's picture, and a shape derived from the sheet rather
+    than from the drawing would reproduce the very defect this card exists to
+    remove. This project's own ``pictures/cat.jpg`` is the case in point — a
+    580x580 *file* whose ink box is 330x462, so the file says "square" and the
+    picture says "portrait", and only one of them keeps the cat's ears.
+
+    Reads pixels; writes and discards nothing, the same property
+    :func:`ink_bounding_box` has and for the same reason: this runs *before*
+    :func:`generate`, so a request refused on the strength of the shape it
+    reports is refused before any crop of any kind (EC-007).
+
+    It does mean a bare-``--size`` image run decodes the file twice — once here
+    for the shape, once in :func:`generate` for the pixels. That is a real cost,
+    accepted rather than worked around: passing a decoded ``Image`` back out
+    would put a Pillow object on a module boundary that carries
+    ``list[list[bool]]`` and nothing else (ADR-0012), and an explicit
+    ``--size WxH`` never comes here at all, so the second decode is paid only by
+    the requests the derivation is actually for.
+
+    Args:
+        source: Path to the user's image file (``--image``), as given. ``None``
+            is rejected exactly as :func:`generate` rejects it — the derivation
+            runs first, and a forgotten flag must come back as the forgotten
+            flag rather than as a shape error.
+
+    Returns:
+        ``(width, height)`` of the ink bounding box, in pixels — the same
+        ``(width, height)`` ordering the other two modes' ``source_shape``
+        functions use. Only the ratio is read.
+
+    Raises:
+        UnreadableImage: ``source`` is ``None``, missing, unreadable, not a
+            decodable image (AC-008), or decodes to an image with no pixels on
+            one of its axes.
+    """
+    if source is None:
+        raise UnreadableImage(
+            "image mode needs an --image PATH pointing at the picture to convert"
+        )
+    greyscale = load_greyscale(source)
+    box = ink_bounding_box(greyscale)
+    width, height = box[2] - box[0], box[3] - box[1]
+    if width <= 0 or height <= 0:
+        raise UnreadableImage(
+            f"image has no pixels to convert (its size is {width}x{height})"
+        )
+    return width, height
 
 
 def binarize(

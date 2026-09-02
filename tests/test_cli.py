@@ -68,7 +68,9 @@ def test_generate_parses_the_full_flag_surface() -> None:
     )
     assert args.command == "generate"
     assert args.mode == "random"
-    assert args.extent == (15, 15)
+    # A bare token states one number, so one number is what it parses to
+    # (FR-023, CARD-033); ``--size 15x15`` is how a user asks for a square.
+    assert args.extent == (15, None)
     assert args.density == 45
     assert args.seed == 1234
     assert args.export_formats == ["json"]
@@ -297,14 +299,16 @@ def test_generate_is_unchanged_by_the_second_subcommand() -> None:
 @pytest.mark.parametrize(
     ("flag", "value", "dest", "expected"),
     [
-        # The four square-token rows CARD-023 left here, kept verbatim in what
+        # The four bare-token rows CARD-023 left here, kept verbatim in what
         # they assert: a bare N is still one number the parser must not judge.
-        # Only the *shape* of what it parses to has moved, from ``N`` to
-        # ``(N, N)`` (CARD-027, guardrail G-2 — extend, do not delete).
-        ("--size", "0", "extent", (0, 0)),
-        ("--size", "9", "extent", (9, 9)),
-        ("--size", "31", "extent", (31, 31)),
-        ("--size", "-5", "extent", (-5, -5)),
+        # Only the *shape* of what it parses to has moved — first from ``N`` to
+        # ``(N, N)`` (CARD-027), and now to ``(N, None)`` (CARD-033), because
+        # the second number was never in the token and inventing it was a domain
+        # default rather than parsing (FR-023, ADR-0010).
+        ("--size", "0", "extent", (0, None)),
+        ("--size", "9", "extent", (9, None)),
+        ("--size", "31", "extent", (31, None)),
+        ("--size", "-5", "extent", (-5, None)),
         # ...and the rectangular tokens the same rule now has to cover. Each
         # side is judged separately inward, so a token legal on one axis and
         # not the other must still reach the domain intact — which is exactly
@@ -382,7 +386,13 @@ def test_main_hands_the_orchestrator_the_parsed_request(
         orchestrator.GenerationRequest(
             mode="random",
             width=20,
-            height=20,
+            # ``None``, not 20: the bare ``--size 20`` token stated one number,
+            # and since CARD-033 the adapter passes on what was typed instead of
+            # squaring it (FR-023). What the run actually produces is 20x20 all
+            # the same — the random source has no shape of its own — but that is
+            # the *domain's* answer, reached in ``orchestrator._resolved_extent``
+            # and recorded on ``Puzzle.extent``, not the adapter's.
+            height=None,
             density=50,
             seed=7,
             export_formats=("json",),
@@ -417,17 +427,37 @@ def test_cli_square_size_shorthand_sets_both_sides(
 ) -> None:
     """AC-063 / TestCLI_SquareSizeShorthandSetsBothSides (boundary).
 
-    ``--size 30`` still means 30x30, so no existing invocation, script or
-    documented example breaks (ADR-0022: one flag, and the square case
-    unchanged). FR-023's reading of a bare N — the grid's *longer* side, with
-    the other derived from the source's own shape — is CARD-033's and is
-    deliberately not implemented here; until it lands a bare N is a square, and
-    this test is what will have to change when it does.
+    **Changed by CARD-033, as its predecessor's docstring said it would be.**
+    CARD-027 wrote here that a bare N "is a square, and this test is what will
+    have to change when [FR-023] lands". FR-023 has landed, so this is that
+    change, and it is a change of *reading*, not of coverage: the criterion is
+    still "what does the one-number token put on the request?", and the answer
+    is now the one number that was typed.
+
+    ``--size 30`` reaches the domain as ``width=30, height=None`` — a stated
+    length and an unstated shape. Filling the second field in here would be the
+    adapter claiming the user's source is square, which is a domain question and
+    (for a picture) usually the wrong answer; ``orchestrator._resolved_extent``
+    answers it from the source's own shape instead (FR-023, ADR-0022/R4,
+    ADR-0010).
+
+    Nothing a user types breaks: in the random mode this test runs, and in
+    library mode while every template is 16x16, the derivation still yields
+    30x30 — which ``TestDeriveShape_RandomSourceStaysSquare`` and
+    ``TestDeriveShape_LibraryTemplateRatioAppliesSquareToday`` in
+    ``tests/test_derive_shape.py`` assert end to end. What this test pins is the
+    narrower thing it has always pinned: that the *adapter* judges nothing and
+    invents nothing.
+
+    AC-063's own wording ("carries width 30 and height 30") is superseded by
+    this reading; the amendment is queued in
+    ``meta/architecture/inputs/raw-requirements.md`` rather than hand-edited
+    into ``requirements.yml``.
     """
     assert cli.main(["generate", "--size", "30"]) == cli.ExitCode.OK
 
     request = captured_requests[0]
-    assert (request.width, request.height) == (30, 30)
+    assert (request.width, request.height) == (30, None)
 
 
 @pytest.mark.parametrize(
@@ -545,6 +575,14 @@ ERROR_EXIT_CODES = [
     # row of its own rather than a subclass of ``UnreadableImage``, since the
     # file is not what is wrong.
     (errors.ImageNeedsManualCrop, cli.ExitCode.INVALID_INPUT),
+    # CARD-033 (AC-098): a bare ``--size N`` too small to follow the source's
+    # own shape. The interesting row of this table, because it has **no entry
+    # in ``cli._EXIT_CODES``** — it subclasses ``SizeOutOfRange``, so
+    # ``exit_code_for``'s MRO walk finds the group through the base class. That
+    # walk was written for exactly this, and this row is what pins it working:
+    # break the subclassing and the parametrized test below reports
+    # INTERNAL_ERROR while every other row stays green.
+    (errors.SizeTooSmallForSource, cli.ExitCode.INVALID_INPUT),
     (errors.InvalidPuzzleName, cli.ExitCode.INVALID_INPUT),
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),

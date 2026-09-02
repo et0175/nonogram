@@ -1,6 +1,6 @@
 # CARD-033: A bare `--size N` derives the shorter side from the source's shape
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/033-bare-size-derives-shorter-side
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-033
 **Source:** meta/architecture/handoff.md#increment-7
 **Idea:** —
 **Wave:** 20
 **Depends on:** CARD-027
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/sourcing/image.py, src/nonogram/sourcing/library.py, tests/test_orchestrator.py, tests/test_sourcing_image.py, tests/property/test_grid_dimensions.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-02T13:30:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -132,3 +132,184 @@ belongs in the message, not hidden.
 ## Worktree notes
 
 —
+
+## Worktree notes
+
+- **[Env]** forge 2026.8.17 (project requires >= 2026.8.17 — skew gate passed).
+- **[Dependency gate]** CARD-027 `done` (merge 632fd18).
+- **[Drift gate]** ⚠ warn, dismissed for the FOURTH consecutive card — the flagged events
+  name this project's own commits. Filed to the backlog already; not repeated here.
+- **[AC figures verified BEFORE the agent started]** Both measurable ACs were re-derived
+  against today's tree, because CARD-030 changed what "the source's ratio" means and the
+  card predates its merge:
+  - AC-092: `eagle-silhouette1.jpg` is 563x980 **and its ink box is also 563x980** — the
+    picture is ink-tight, so the file reading and the ink-box reading coincide and the
+    stated 0.574 / 14x25 is unambiguous. Confirmed `round(25 * 563/980) = 14` both ways.
+  - AC-093: mean retention 76% -> 99% and "20 of 25 under 90% -> 0" reproduce **exactly**,
+    but only against the INK-BOX ratio. Against the raw file ratio the same corpus gives
+    91% and 7 of 25. So the card's figures already assume CARD-030's trim, which is the
+    correct baseline; a reader who re-derived them from file extents would wrongly
+    conclude the card was stale.
+- **[Why this card matters more than its estimate suggests]** It closes a real regression
+  the owner hit on 2026-09-02: `silhouette/animals/ania/cat1.jpg` at `--size 25` loses the
+  cat's ears, because CARD-030's trim turned a square file into a portrait drawing and the
+  square grid then centre-cropped 28.6% off top and bottom. The corpus measurement above
+  is that same defect at scale — 20 of 25 pictures currently retain under 90%. Verified
+  that an explicit `--size 18x25` on that cat discards 0.9% and keeps the ears, which is
+  the shape this card's rule derives automatically.
+
+### Implementation (2026-09-02, agent)
+
+**Where the derivation lives.** Two pure domain functions in
+`sourcing/random_grid.py` next to `validate_extent` — the module that is already
+"the single normative statement" of the extent rules, with `library` and `image`
+delegating rather than restating (ADR-0022/R2's precedent):
+
+* `derive_extent(width, height, source_width, source_height)` — the rule. Takes
+  the **half-stated pair**, never a scalar `N`, so no public signature reduces
+  extent to one number (ADR-0022/R1). Delegates the range rule to
+  `validate_extent`; adds no second message format.
+* `source_shape()` per mode — `random_grid.source_shape() -> (1, 1)`,
+  `library.source_shape(key) -> template extent`, `image.source_shape(path) ->
+  ink-box extent` — dispatched by a **second per-mode table**,
+  `sourcing.shape_for_mode`, mirroring `sourcing.for_mode`. Random's square is a
+  row in that table, not a branch in the derivation (**G-2**), and a rectangular
+  template added later works with no further change (asserted:
+  `derive_extent(25, None, 32, 16) == (25, 12)`).
+
+`orchestrator._resolved_extent` composes them and is the only caller; the
+resolved pair is carried on `Puzzle.extent` (new field) so exports record the
+grid that was produced, and `_source_arguments` now **takes** the extent instead
+of reading the request's — a half-stated request has no pair to read.
+
+**THE RULE THE ACs ACTUALLY DESCRIBE — and one requirement wording that is
+wrong.** EC-009 says the refusal fires "whenever `round(N * r)` would fall below
+MIN_SIZE — *equivalently*, whenever long:short exceeds N/5". Those are not the
+same boundary: `round(N*r) < 10` is `N/9.5`, not `N/5`. Only the `N/5` reading
+satisfies AC-097 *and* AC-098 (its "--size 25" for a 5:1 source is `5*long/short`
+exactly; the smallest N leaving that side *unclamped* is 48, past MAX_SIZE and
+unofferable). So the implemented rule — the one both criteria and ADR-0022/R4's
+own wording describe — is:
+
+> derive `round(N * short/long)`, **apply** the MIN_SIZE floor, and refuse when
+> the resulting grid would discard more than half the source.
+
+That last clause is FR-021/CON-012's own criterion applied to the shape the
+derivation *requests*, which is exactly where the ADR's "combined with the >2x
+rule this yields an exact ceiling" comes from, and it lands the ceiling on
+`N/5 : 1` — 2:1 / 4:1 / 6:1 — to the pixel. **G-4 holds in the strongest form:
+the guard's meaning, subject and message are untouched; the derivation just
+declines to request a shape the guard would refuse, and says something more
+useful when it does.** Intake line filed in `inputs/raw-requirements.md`
+(requirements.yml is not hand-edited).
+
+**Measured, all reproduced exactly** (worktree, `pictures/`):
+
+| claim | card says | measured |
+| --- | --- | --- |
+| eagle file / ink box | 563x980, ink-tight | 563x980 / 563x980 |
+| eagle derived at N=25 | 14x25 | 14x25 |
+| eagle retained, derived vs square | ~97% / ~57% | 97.3% / 57.5% |
+| corpus mean retained, square -> derived | 76% -> 99% | 76.13% -> 98.57% |
+| corpus pictures under 90% | 20 of 25 -> 0 | 20 -> 0 |
+| ceiling at N = 10 / 20 / 30 | 2:1 / 4:1 / 6:1 | exact, both orientations |
+| 5:1 source, smallest workable N | 25 | 25 (24 refused) |
+
+Retention is measured by **pixel area of `fit_crop_box`'s rectangle**, not by
+the ratio formula the guard uses — an independent second implementation, per
+CLAUDE.md's test policy. Both agree to within the crop box's integer flooring.
+
+**The cat.** `pictures/cat.jpg` is byte-identical (md5 `21d2fab9…`) to the
+owner's `silhouette/animals/ania/cat1.jpg`: 580x580 file, 330x462 ink box.
+Rendered to ASCII, top row only:
+
+```
+square 25x25 (before)   .......################..     one slab — ears cropped off
+derived 18x25 (after)   ....##.........##.            two peaks — the ears
+```
+
+Pinned as `test_the_cats_ears_survive_a_bare_size_25` by run-length encoding the
+top row: 2 runs derived, 1 run square. Retention 99% vs 71%.
+
+**Tests.** `tests/test_derive_shape.py` (new, AC-092..AC-098 + the cat + the
+"no supported size" refusal arm), two property tests appended to
+`tests/property/test_grid_dimensions.py`
+(`PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused` over
+21 N x 480 ratios x 2 orientations with a `Fraction` oracle;
+`PropertyTest_BareSize_DerivesShorterSideFromSourceShape` end to end through all
+three modes). One `_GUARD_SHAPES` row added: `derive_extent(n: int, ...)` must be
+flagged — the signature FR-023 invites and this card deliberately did not write.
+
+**AC-063's test changed, as CARD-027's own docstring predicted.** A bare
+`--size 30` now reaches the domain as `width=30, height=None`. It has to: the
+CLI cannot tell `(30, 30)` from an explicit `--size 30x30`, which AC-096
+requires be left alone, so FR-023 is unimplementable without the distinction
+surviving the adapter. Amendment filed as an intake line, not hand-edited.
+
+**G-6 IS BROKEN, deliberately, and this is the disclosure.** `cli.py` is edited:
+`_extent_token("30")` returns `(30, None)` instead of `(30, 30)` (plus the
+`--help` text and three docstrings). No *parsing* changed — the grammar, the
+separator, the `int()` conversion and the range-free posture are untouched.
+What was removed is a **domain default wearing parsing's clothes**: choosing the
+unstated dimension is a rule about puzzles whose answer depends on the source,
+which is precisely what ADR-0010 puts inward and what G-6's own sentence ("work
+inward of the CLI, per ADR-0010") asks for. trace.yml lists COMP-001 among
+FR-023's components, so the architecture already expected the adapter to
+participate. There is no alternative: with `(30, 30)` the domain cannot
+distinguish a bare N, and deriving on `width == height` would silently reshape an
+explicit `--size 25x25`, which FR-023 forbids in as many words.
+
+**Other footprint beyond the card's prediction, all disclosed:**
+
+| file | why |
+| --- | --- |
+| `src/nonogram/cli.py` | above (G-6) |
+| `src/nonogram/errors.py` | `SizeTooSmallForSource(SizeOutOfRange)`. Subclassing means **no `cli._EXIT_CODES` row is needed** — `exit_code_for`'s MRO walk finds INVALID_INPUT — and it is honest: the requested *size* is what is wrong, and a larger one works. Not a subclass of `ImageNeedsManualCrop`, whose name asserts the remedy this message denies. |
+| `src/nonogram/sourcing/random_grid.py` | the rule + random's shape (G-2 forbids special-casing random, so it needs a shape reporter) |
+| `src/nonogram/sourcing/__init__.py` | the `shape_for_mode` dispatch table |
+| `tests/test_derive_shape.py` | new; all seven `TestDeriveShape_*` names in one file |
+| `tests/test_nudge.py` | `image.__all__` pin; two pinned image runs re-stated as `--size 22x22` / `10x10` (a bare N would now derive a different grid and stop being the pinned conversion) |
+| `tests/test_resample.py`, `tests/test_sourcing_library.py` | `_source_arguments` signature; a bare-token request expectation |
+| `README.md` | the `--size` section documented the old meaning; the image-conversion table was measured on square grids and was re-measured |
+| `meta/architecture/inputs/raw-requirements.md` | the two amendments above |
+
+`src/nonogram/export/**` untouched (**G-5**). `--size NxM` untouched (**G-1**):
+AC-062/AC-063/AC-064/AC-065 and every FR-018 criterion green, and AC-096 pins
+that an explicit extent never even consults the source (asserted by making the
+shape reporter raise).
+
+**One behaviour change worth naming:** an out-of-range extent is now refused
+while the extent is resolved, so the source is called **zero** times instead of
+once. Same error, same shared validator, same message; strictly cheaper, and it
+is what keeps "an out-of-range request pays for nothing" true now that a bare
+size otherwise decodes the file. Two tests that asserted `calls == 1` were
+re-pointed at an invalid *density*, which is still the source's to refuse, so
+they keep asserting what they were written to assert.
+
+**Known cost, accepted rather than hidden:** a bare-`--size` image run decodes
+the file **twice** — once for the ink box, once for the pixels. An explicit
+`--size WxH` still decodes once, because it never asks for a shape. Handing a
+decoded `Image` back out would put a Pillow object on a boundary that carries
+`list[list[bool]]` and nothing else (ADR-0012).
+
+**Mutation testing** (each mutation applied to `random_grid.py` alone, full
+suite run, then reverted; md5 `5403445c86d13d3d04df41343ffdf1f3` before and
+after, `git diff --stat` unchanged):
+
+| mutation | result |
+| --- | --- |
+| (a) `derived = stated` — ignore the source's shape | **9 tests fail** (both property tests, 7 in `test_derive_shape.py` incl. the cat) |
+| (b) return the clamped extent instead of refusing | **7 tests fail** (both property tests, all three AC-097 cases, both refusal tests) |
+| (c) add a top clamp (`stated = min(stated, MAX_SIZE - 5)`) | **3 tests fail** (both property tests, AC-097 at N=30) |
+
+Note on (c): the *natural* top clamp — `min(MAX_SIZE, derived)` — is a literal
+no-op, since `derived <= stated <= MAX_SIZE` by construction. That is G-3's point
+made mechanical: a top clamp is unreachable, so its presence could only ever
+mask a defect. The mutation used is the reachable variant.
+
+**Suite: 1494 passed, 1 xfailed** (baseline 1476 + 1 xfailed; +18 = 11 in
+`test_derive_shape.py`, +4 property/precondition tests, +2 shape-dispatch guards
+in `test_sourcing_image.py`, +1 `ERROR_EXIT_CODES` row).
+
+Not done, and left to the closing pass: `trace.yml`'s FR-023 entry still reads
+`status: partial` with the note "no kanban card cut for it".

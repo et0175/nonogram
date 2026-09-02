@@ -1517,12 +1517,18 @@ def test_the_orchestrator_assembles_the_image_argument_list() -> None:
 
     The extent is a *pair*, directly after the mode's own leading argument
     (ADR-0022/R1). A rectangle, so a call site that passed one number twice
-    would fail here rather than pass by symmetry."""
+    would fail here rather than pass by symmetry.
+
+    Since CARD-033 the pair is an *argument* rather than a read of the request:
+    a bare ``--size N`` leaves the request half-stated, so what the source must
+    be handed is the extent ``_resolved_extent`` produced (FR-023). The request
+    below deliberately carries a different pair from the one passed in, which is
+    what makes this assert the argument is used and not the field."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=WIDE, width=14, height=22, density=99, library_key="moon"
+        mode="image", image=WIDE, width=99, height=99, density=99, library_key="moon"
     )
 
-    assert orchestrator._source_arguments(request) == (WIDE, 14, 22)
+    assert orchestrator._source_arguments(request, (14, 22)) == (WIDE, 14, 22)
 
 
 def test_the_orchestrator_still_assembles_the_other_argument_lists() -> None:
@@ -1537,10 +1543,10 @@ def test_the_orchestrator_still_assembles_the_other_argument_lists() -> None:
     }
 
     assert orchestrator._source_arguments(
-        orchestrator.GenerationRequest(mode="random", **common)
+        orchestrator.GenerationRequest(mode="random", **common), (14, 22)
     ) == (14, 22, 35)
     assert orchestrator._source_arguments(
-        orchestrator.GenerationRequest(mode="library", **common)
+        orchestrator.GenerationRequest(mode="library", **common), (14, 22)
     ) == ("moon", 14, 22)
 
 
@@ -1557,11 +1563,55 @@ def test_a_mode_with_no_argument_list_is_a_loud_wiring_error() -> None:
     """
     with pytest.raises(ValueError) as excinfo:
         orchestrator._source_arguments(
-            orchestrator.GenerationRequest(mode="webcam", width=20, height=20, density=30)
+            orchestrator.GenerationRequest(mode="webcam", width=20, height=20, density=30),
+            (20, 20),
         )
 
     assert "no source argument list" in str(excinfo.value)
     assert "webcam" in str(excinfo.value)
+
+
+def test_a_mode_with_no_shape_argument_list_is_a_loud_wiring_error() -> None:
+    """The same guard on CARD-033's second per-mode table (FR-023).
+
+    ``sourcing.shape_for_mode`` is dispatched over its own argument assembler,
+    so it inherits the same failure mode the test above exists for: a mode
+    registered in ``_SHAPES`` but not branched here would bind the wrong value
+    into a shape reporter. The ``else`` raises for the same reason and by name.
+    """
+    with pytest.raises(ValueError) as excinfo:
+        orchestrator._shape_arguments(
+            orchestrator.GenerationRequest(mode="webcam", width=20, height=20)
+        )
+
+    assert "no shape argument list" in str(excinfo.value)
+    assert "webcam" in str(excinfo.value)
+
+
+def test_every_registered_mode_has_a_shape_argument_list() -> None:
+    """...and no mode can be in ``_SHAPES`` without one either.
+
+    The argument lists are *shorter* than the grid sources' by exactly the
+    extent, which is the rule rather than a coincidence: a source's own shape
+    is a property of the source and cannot depend on the grid being asked for
+    (FR-023). Random's is empty, because it has no source to ask.
+    """
+    expected = {"random": 0, "library": 1, "image": 1}
+
+    for mode in sourcing.MODES:
+        arguments = orchestrator._shape_arguments(
+            orchestrator.GenerationRequest(
+                mode=mode, width=20, height=25, density=30, library_key="cat", image=WIDE
+            )
+        )
+
+        assert len(arguments) == expected[mode], mode
+        assert None not in arguments
+        # And the reporter really takes that list: this is the pairing the
+        # length check alone would miss.
+        assert sourcing.shape_for_mode(mode)(*arguments) == (
+            (1, 1) if mode == "random" else (16, 16) if mode == "library" else (60, 20)
+        )
 
 
 def test_every_registered_mode_has_an_argument_list() -> None:
@@ -1576,7 +1626,8 @@ def test_every_registered_mode_has_an_argument_list() -> None:
                 density=30,
                 library_key="cat",
                 image=WIDE,
-            )
+            ),
+            (20, 25),
         )
         # Three arguments in every mode now: the mode's own leading value plus
         # the (width, height) pair — random's density takes the third slot, the
@@ -1750,9 +1801,14 @@ def test_a_real_image_that_converts_ambiguously_reports_it(
     ``tests/test_nudge.py``'s real-image recovery case. It was ``wide.png`` at
     22x22 until CARD-026 made a 3:1 source into a square grid an FR-021
     refusal; the re-run sweep put ``landscape.png`` at the same size.)
+
+    The token is ``22x22`` and not a bare ``22`` since CARD-033: a bare N
+    follows the source's own shape now, and ``landscape.png``'s ink box is 3:2,
+    so it would ask for a 22x15 and stop being the conversion this test pins.
+    The pin is on an extent, so the extent is stated (FR-023, AC-096).
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22"]
+        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22x22"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -1918,7 +1974,12 @@ def test_the_cli_parses_the_image_flags_into_the_request(
     assert exit_code == cli.ExitCode.OK
     assert seen[0].mode == "image"
     assert seen[0].image == WIDE
-    assert (seen[0].width, seen[0].height) == (25, 25)
+    # ``None`` on the second side: since CARD-033 a bare ``--size 25`` states
+    # one number and the adapter passes on what was typed (FR-023). What the
+    # picture's own shape makes of it is the domain's — for this 3:1 fixture a
+    # 25x10, the derived 8 held at the 10-cell floor — and this test is about
+    # the *flags*, so the pipeline below it is a recorder.
+    assert (seen[0].width, seen[0].height) == (25, None)
 
 
 def test_an_unreadable_image_is_reported_as_an_input_error(

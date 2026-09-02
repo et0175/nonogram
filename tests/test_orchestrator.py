@@ -41,6 +41,7 @@ from nonogram.clues import compute_clues
 from nonogram.errors import (
     ExportRejected,
     GenerationAbandoned,
+    InvalidDensity,
     NonogramError,
     SizeOutOfRange,
     SolverTimeout,
@@ -474,14 +475,39 @@ def test_a_run_writes_no_files(
 
 
 def test_an_invalid_request_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An invalid request does not become valid by being asked 20 times."""
-    source = _RaisingSource(SizeOutOfRange("grid size must be between 10 and 30"))
-    _install_source(monkeypatch, source)
+    """An invalid request does not become valid by being asked 20 times.
+
+    Two shapes of invalid, because since CARD-033 they are caught in two
+    different places and only one of them reaches the source at all.
+
+    An out-of-range *extent* is refused while the extent is resolved: FR-023's
+    derivation has to know the requested extent is usable before it decides
+    anything from it (and, in image mode, before it decodes a file), so it asks
+    the same shared validator the sources ask and refuses first. The source is
+    therefore called **zero** times — strictly better than once, and asserted as
+    zero rather than loosened to "fewer than 20", because "not retried" is a
+    weaker claim than "not reached".
+
+    An invalid *density* is not the extent's business and still travels out of
+    the source itself, on its first and only call. That half is what keeps this
+    test about the retry rule rather than about validation placement: an
+    exception from sourcing ends the run, whichever exception it is.
+    """
+    extent_source = _RaisingSource(SizeOutOfRange("grid width must be 10..30"))
+    _install_source(monkeypatch, extent_source)
 
     with pytest.raises(SizeOutOfRange):
         generate(_request(width=60, height=60))
 
-    assert source.calls == 1
+    assert extent_source.calls == 0
+
+    density_source = _RaisingSource(InvalidDensity("density must be 0..100"))
+    _install_source(monkeypatch, density_source)
+
+    with pytest.raises(InvalidDensity):
+        generate(_request(width=20, height=20, density=150))
+
+    assert density_source.calls == 1
 
 
 def test_an_invalid_size_reaches_the_domain_check_unmocked() -> None:

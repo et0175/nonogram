@@ -37,6 +37,27 @@ class SizeOutOfRange(NonogramError):
     """
 
 
+class SizeTooSmallForSource(SizeOutOfRange):
+    """A bare ``--size N`` is too small to follow this source's shape (FR-023).
+
+    Raised by ``nonogram.sourcing.random_grid.derive_extent`` when completing a
+    bare ``--size N`` from the source's own aspect ratio would put the derived
+    side under ``MIN_SIZE``, hold it there, and thereby discard more than half
+    the source — FR-021's own criterion, applied to the shape the derivation
+    would have requested (ADR-0022/R4).
+
+    A subclass of :class:`SizeOutOfRange` rather than of
+    :class:`ImageNeedsManualCrop`, for two reasons. It *is* the requested size
+    that is wrong — a larger ``--size N`` accepts the very picture a smaller one
+    refuses, which is the counter-intuitive consequence FR-023 asks be carried
+    in the message rather than deduced — and the remedy is emphatically **not**
+    the manual crop ``ImageNeedsManualCrop`` is named for. Inheriting from
+    ``SizeOutOfRange`` also means the CLI's exit-code table needs no new row:
+    ``exit_code_for``'s MRO walk finds ``INVALID_INPUT`` through the base class,
+    which is exactly the extension path that table was built for.
+    """
+
+
 class InvalidDensity(NonogramError):
     """Requested fill density is not a valid percentage (FR-004)."""
 

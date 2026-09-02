@@ -28,10 +28,13 @@ silhouette rather than cropping it. That is deliberate and is *not* ADR-0022/R3:
 R3's crop-never-stretch rule is about a picture the user uploaded, whose
 proportions are theirs to keep. A built-in template has no such claim on its
 proportions, and cropping one would throw away part of a shape the tool drew
-itself. (FR-023 will let a bare ``--size N`` follow the template's own ratio so
-the stretch is not something a user meets by accident; that derivation is
-CARD-033's, and until it lands a bare N is a square.) The rescale is
-exact-area coverage rather
+itself. FR-023 (CARD-033) keeps the stretch from being something a user meets by
+accident: a bare ``--size N`` follows the template's own ratio, which
+:func:`source_shape` reports and ``random_grid.derive_extent`` completes the
+extent from, so only an explicit ``--size WxH`` asks for a shape the template
+does not have. All four registered templates being square today, that means a
+bare N is still ``N x N`` — because the *data* is square, not because the rule
+says so. The rescale is exact-area coverage rather
 than nearest-neighbour: each target cell is mapped back onto the rectangle of
 template cells it covers and :func:`coverage` computes what *fraction* of that
 rectangle is filled, as an exact integer ratio (no floating point until the very
@@ -118,6 +121,7 @@ __all__ = [
     "generate",
     "parse_art",
     "render",
+    "source_shape",
     "template_for",
 ]
 
@@ -236,6 +240,37 @@ def template_for(key: str | None) -> Template:
             f"no built-in library image named {key!r}; "
             f"available keys: {', '.join(KEYS)}"
         ) from None
+
+
+def source_shape(key: str | None) -> tuple[int, int]:
+    """The template's own extent, in template cells (FR-023).
+
+    What a bare ``--size N`` is completed from in library mode
+    (``random_grid.derive_extent``): the shape the tool drew, read off the
+    parsed art rather than assumed. Today every registered template is
+    :data:`TEMPLATE_EDGE` square, so this returns ``(16, 16)`` for all four keys
+    and a bare N stays ``N x N`` — but that is the *data* saying so, not this
+    function. Add a rectangular template under ``templates/`` and one row to
+    :data:`_TEMPLATES`, and a bare N follows its proportions with nothing here
+    or in the derivation changing (CARD-033 guardrail G-2).
+
+    Args:
+        key: A ``--library-key`` value, as given. Resolved through
+            :func:`template_for`, so an unknown or missing key is refused here
+            with the same message it would get from :func:`generate` — the
+            derivation runs before the source does, and a bad key must not come
+            back as a shape error.
+
+    Returns:
+        ``(width, height)`` in template cells — the same ``(width, height)``
+        ordering ``random_grid.source_shape`` and ``image.source_shape`` use.
+        Only the ratio is read.
+
+    Raises:
+        UnknownLibraryImage: ``key`` names no built-in image (AC-006).
+    """
+    template = template_for(key)
+    return len(template[0]), len(template)
 
 
 def _axis_overlaps(source_len: int, target_len: int) -> list[list[tuple[int, int]]]:

@@ -23,6 +23,15 @@ two sides are validated independently — a request may be legal on one and not
 the other, and the error says which — so nothing here can silently treat the
 larger side as "the size".
 
+*A half-stated extent is completed by the source, not by an assumption*
+(FR-023, ADR-0022/R4, CARD-033): a bare ``--size N`` states one number and
+leaves the shape open, so :func:`derive_extent` reads N as the grid's **longer**
+side and derives the other as ``round(N * short/long)`` of whatever ratio the
+mode's :func:`source_shape` reports. It lives here for the same reason
+:func:`validate_extent` does — it is one rule about extents, stated once, with
+``library`` and ``image`` delegating rather than restating — even though the
+*shapes* it is fed come from those modules.
+
 *Injected randomness* (ADR-0015, guardrail G-4): every draw goes through a
 ``random.Random`` the caller passes in. This module never touches the
 module-level ``random`` functions, so the same seed plus the same extent and
@@ -44,7 +53,7 @@ from __future__ import annotations
 
 import random
 
-from nonogram.errors import InvalidDensity, SizeOutOfRange
+from nonogram.errors import InvalidDensity, SizeOutOfRange, SizeTooSmallForSource
 
 __all__ = [
     "DENSITY_TOLERANCE_POINTS",
@@ -53,8 +62,10 @@ __all__ = [
     "MIN_DENSITY",
     "MIN_SIZE",
     "density_of",
+    "derive_extent",
     "filled_target",
     "generate",
+    "source_shape",
     "validate_density",
     "validate_extent",
 ]
@@ -115,6 +126,240 @@ def validate_extent(width: int | None, height: int | None) -> tuple[int, int]:
     equally-true messages would otherwise vary with an implementation detail.
     """
     return _validate_side(width, "width"), _validate_side(height, "height")
+
+
+def source_shape() -> tuple[int, int]:
+    """The random source's own shape — it has none, so a square (FR-023).
+
+    Every mode answers this question so that a bare ``--size N`` can be
+    completed from *the source's* proportions rather than from an assumption
+    (ADR-0022/R4). The random source is the mode with nothing to answer with: a
+    draw at a requested density has no subject, no framing and no orientation,
+    so the only honest ratio it can report is 1:1.
+
+    ``(1, 1)`` and not ``(MIN_SIZE, MIN_SIZE)`` or ``(MAX_SIZE, MAX_SIZE)``:
+    only the *ratio* of the pair is read (:func:`derive_extent` divides the
+    shorter by the longer), so the unit square is the smallest truthful way to
+    say "square". Returning a square here is what makes "random stays N x N"
+    fall out of the same rule the other two modes follow, rather than being a
+    branch in the derivation (CARD-033 guardrail G-2).
+
+    Returns:
+        ``(1, 1)`` — a square, in the same ``(width, height)`` pixel-extent
+        shape ``library.source_shape`` and ``image.source_shape`` return.
+    """
+    return (1, 1)
+
+
+def _keeps_half(
+    source_width: int, source_height: int, width: int, height: int
+) -> bool:
+    """Would fitting a ``source_width`` x ``source_height`` source to this grid
+    keep at least half of it?
+
+    FR-021/CON-012's criterion, in exact integers: a centred crop to the grid's
+    ratio retains ``min(r_src, r_tgt) / max(r_src, r_tgt)`` with ``r =
+    width / height``, so "keeps at least half" is ``2 * kept >= whole`` after
+    cross-multiplication, with the boundary inclusive.
+
+    Deliberately a **native reimplementation** of the arithmetic
+    ``sourcing.image._retained`` performs, not an import of it: ``image``
+    already imports this module for the shared range rule, so importing back
+    would be a cycle, and ADR-0007 forbids two capability modules leaning on
+    each other laterally in any case. The precedent is ``solver/propagate.py``'s
+    ``mask_runs``, which reimplements one clue-encoding check rather than
+    importing ``clues``. The two copies are cross-checked against each other
+    from the test tree, where the import is legal.
+
+    This is a *predicate*; it never raises and never crops. FR-021's refusal —
+    its message, its error type and its ink-box subject — stays entirely in
+    ``sourcing.image`` (CARD-033 guardrail G-4). What this card uses the
+    criterion for is choosing which grid shape to *request*, one step earlier.
+    """
+    source_over_target = source_width * height
+    target_over_source = source_height * width
+    return 2 * min(source_over_target, target_over_source) >= max(
+        source_over_target, target_over_source
+    )
+
+
+def _derived_extent(
+    stated: int, source_width: int, source_height: int
+) -> tuple[int, int]:
+    """FR-023's arithmetic: ``stated`` on the source's longer axis, the other
+    side ``round(stated * short / long)`` with :data:`MIN_SIZE` as a floor.
+
+    Split out of :func:`derive_extent` so the shape rule can be read without the
+    refusal, the validation and the messages around it — and so the ceiling
+    search in :func:`_smallest_workable_size` runs the *same* arithmetic the
+    real derivation does rather than a second copy of it.
+
+    Two properties of the returned pair are structural rather than checked:
+
+    * the longer side is exactly ``stated``, because ``short <= long`` makes
+      ``round(stated * short / long) <= stated``. **There is no clamp at the
+      top and there must never be one** — ``stated`` is already inside
+      ``MIN_SIZE..MAX_SIZE`` when this is called, so an upper clamp could only
+      ever fire by masking a defect in this line (ADR-0022/R4, guardrail G-3);
+    * ``stated`` lands on the axis the *source* is longer on, so a portrait
+      picture gets a portrait grid and a landscape one a landscape grid. A
+      square source (``source_width == source_height``) takes the first branch
+      and comes back square, which is the same answer either branch would give.
+
+    The float division is exact where it matters. ``stated`` is at most 30 and
+    the products involved are far inside a double's 53-bit integer range, so the
+    only inputs whose quotient is not exactly representable round to the same
+    integer either way; a quotient that is *exactly* a half-integer is
+    representable exactly, and Python's ``round`` breaks that tie to even. The
+    tie is pinned by the property test rather than left to be discovered.
+    """
+    shorter_edge = min(source_width, source_height)
+    longer_edge = max(source_width, source_height)
+    derived = max(MIN_SIZE, round(stated * shorter_edge / longer_edge))
+    if source_width >= source_height:
+        return stated, derived
+    return derived, stated
+
+
+def _smallest_workable_size(source_width: int, source_height: int) -> int | None:
+    """The smallest bare ``--size N`` this source can be fitted at, if any.
+
+    Searched over ``MIN_SIZE..MAX_SIZE`` with the same two helpers the real
+    derivation uses, rather than solved algebraically: the closed form
+    (``ceil(MIN_SIZE * long / (2 * short))``) is one rearrangement away from
+    being subtly wrong at the boundary, and the search is obviously right.
+
+    Returns:
+        The smallest supported ``N``, or ``None`` when even :data:`MAX_SIZE`
+        cannot follow this source — which happens exactly when the source is
+        more elongated than ``MAX_SIZE / 5 : 1``, i.e. 6:1.
+    """
+    for candidate in range(MIN_SIZE, MAX_SIZE + 1):
+        if _keeps_half(
+            source_width,
+            source_height,
+            *_derived_extent(candidate, source_width, source_height),
+        ):
+            return candidate
+    return None
+
+
+def derive_extent(
+    width: int | None,
+    height: int | None,
+    source_width: int,
+    source_height: int,
+) -> tuple[int, int]:
+    """Complete a half-stated extent from the source's own shape (FR-023).
+
+    The domain rule behind ADR-0022/R4, and the counterpart of
+    :func:`validate_extent`: that function judges an extent the user gave in
+    full, this one *finishes* one they gave half of. A bare ``--size N`` reaches
+    the domain as a pair with exactly one side filled in, and this turns it into
+    the two numbers the grid actually has.
+
+    The rule, in one sentence: **N is the grid's longer side, and the shorter
+    one is ``round(N * short/long)`` of the source's own ratio, floored at
+    :data:`MIN_SIZE` and never capped at the top.**
+
+    Why the longer side is the load-bearing half of that (ADR-0022's own
+    argument, restated because this is the code it constrains): with ``N`` as
+    the longer side the derived side is ``<= N <= MAX_SIZE`` *by construction*,
+    so nothing ever needs clamping at the top — and a top clamp would crop
+    content, which is the harm this whole line of work exists to prevent.
+
+    The bottom clamp is the one place the source cannot be followed, and it is
+    where the refusal lives. Holding the short side at :data:`MIN_SIZE` while
+    the source goes on getting narrower means the grid stops tracking the
+    source, so past some elongation the fit would discard more than half the
+    picture — CON-012's line. That point is exactly ``N/5 : 1`` (2:1 at
+    ``--size 10``, 4:1 at ``--size 20``, 6:1 at ``--size 30``), and it is exact
+    arithmetic rather than a sampled figure: at the clamp the grid's ratio is
+    ``MIN_SIZE : N``, and half-retention against a source of ratio
+    ``short : long`` is ``2 * N * short >= MIN_SIZE * long``.
+
+    Beyond it the request is **refused rather than silently clamped**, and the
+    message names the smallest ``--size N`` that would take this source. It does
+    *not* reuse FR-021's "crop the picture yourself" advice, because cropping is
+    not what fixes this: a larger ``N`` is (see
+    :class:`~nonogram.errors.SizeTooSmallForSource`).
+
+    Args:
+        width: The requested grid width, or ``None`` when the ``--size`` token
+            stated only one number.
+        height: The requested grid height, same.
+        source_width: The source's own width, in pixels — the ink bounding box
+            for image mode (FR-022), the template's own extent for library
+            mode, the unit square for random mode. Whatever the caller's
+            :func:`source_shape` reported.
+        source_height: The source's own height, same.
+
+    Returns:
+        The ``(width, height)`` pair the grid actually has, both sides inside
+        ``MIN_SIZE..MAX_SIZE``.
+
+    Raises:
+        SizeOutOfRange: neither side was stated, both were, or the stated one is
+            outside ``MIN_SIZE..MAX_SIZE``. The first two are caller bugs
+            expressed as the domain error the caller would have got anyway —
+            :func:`validate_extent` is the only public statement of the range
+            and the only message format for it (ADR-0022/R2).
+        SizeTooSmallForSource: the source is more elongated than ``N/5 : 1``, so
+            the derived grid would keep less than half of it. A subclass of
+            ``SizeOutOfRange``; its message names the smallest ``N`` that works.
+        ValueError: the reported source shape has a non-positive axis. A wiring
+            bug in the caller — every :func:`source_shape` is contracted to
+            return a real extent — and so deliberately not a domain error.
+    """
+    if (width is None) == (height is None):
+        # Both stated is an explicit ``NxM``, which needs no completing, and
+        # neither stated is ``--size`` omitted. Either way the caller should not
+        # have come here; both are answered by the shared validator, so this
+        # cannot invent a second message for a range the domain states once.
+        return validate_extent(width, height)
+    if source_width <= 0 or source_height <= 0:
+        raise ValueError(
+            "a source's own shape has a positive extent on both axes, got "
+            f"{source_width}x{source_height}"
+        )
+
+    stated = width if width is not None else height
+    # The stated number is a grid side and faces the same range rule as any
+    # other; validating it as a square is the same test, because the derived
+    # side is between MIN_SIZE and ``stated`` by construction.
+    validate_extent(stated, stated)
+
+    extent = _derived_extent(stated, source_width, source_height)
+    if _keeps_half(source_width, source_height, *extent):
+        return validate_extent(*extent)
+
+    smallest = _smallest_workable_size(source_width, source_height)
+    unclamped = round(
+        stated * min(source_width, source_height)
+        / max(source_width, source_height)
+    )
+    if smallest is not None:
+        remedy = (
+            f"Ask for --size {smallest} or larger — counter-intuitively, a "
+            "LARGER puzzle accepts a picture that a smaller one refuses, "
+            "because its shorter side has further to fall before it reaches "
+            f"the {MIN_SIZE}-cell floor. Cropping the picture is not what "
+            "fixes this; a different --size is, or stating both sides yourself "
+            "as --size WxH."
+        )
+    else:
+        remedy = (
+            f"No supported --size can follow it: even --size {MAX_SIZE}, the "
+            f"largest, reaches only {MAX_SIZE // 5}:1. Crop the picture to "
+            "something less elongated first, or state both sides yourself as "
+            "--size WxH."
+        )
+    raise SizeTooSmallForSource(
+        f"a {source_width}x{source_height} source is too elongated to follow at "
+        f"--size {stated}: the grid's shorter side would have to be "
+        f"{unclamped} cells, under the {MIN_SIZE}-cell minimum, and holding it "
+        f"at {MIN_SIZE} would discard more than half the picture. {remedy}"
+    )
 
 
 def validate_density(density: int | None) -> int:
