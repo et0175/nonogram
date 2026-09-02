@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-02 07:25_
+_Updated: 2026-09-02 12:10_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -26,7 +26,7 @@ _Updated: 2026-09-02 07:25_
 | 16 | CARD-023 ✓ done · CARD-025 ✓ done · CARD-024 ✓ done | ✓ done |
 | 17 | CARD-026 P1 | ✓ done |
 | 18 | CARD-027 ✓ done | ✓ done |
-| 19 | CARD-028 P2, CARD-030 P1, CARD-031 P2, CARD-032 ✓ done | ⏸ CARD-030/031 ready; CARD-028 ⏳ (→ CARD-020) |
+| 19 | CARD-028 P2, CARD-030 ✓ done, CARD-031 P2, CARD-032 ✓ done | ⏸ CARD-031 ready; CARD-028 ⏳ (→ CARD-020) |
 | 20 | CARD-033 P1, CARD-034 ✓ done | ⏸ ready — CARD-027 done |
 | — | CARD-018 ✓ done · CARD-029 P3 | ⏸ ready (CARD-023/025 both done) |
 
@@ -69,11 +69,11 @@ _(none)_
 - **CARD-021** P2 · Image upload via hand-rolled multipart parsing  _(wave 14/15 — ⏳ blocked on CARD-020)_
 - **CARD-028** P2 · Web form's size field accepts the `NxM` extent token  _(wave 19 — ⏳ blocked on CARD-020; CARD-027 half is done)_
 - **CARD-029** P3 · Retire the last stale 10..50 range claims left by CON-011  _(no wave — READY, CARD-023/025 done)_
-- **CARD-030** P1 · Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it  _(wave 19 — UNBLOCKED, CARD-027 done)_
 - **CARD-031** P2 · Image-mode puzzles auto-name from the source file's stem  _(wave 19 — UNBLOCKED, CARD-027 done)_
 - **CARD-033** P1 · A bare `--size N` derives the shorter side from the source's shape  _(wave 20 — UNBLOCKED, CARD-027 done)_
 
 ## Done
+- **CARD-030** Trim an uploaded picture to its ink bounding box, and move the aspect guard onto it
 - **CARD-027** Grid extent as a (width, height) pair through the request, `--size NxM`, and all three source modes
 - **CARD-001** Package scaffolding and CLI entry point
 - **CARD-002** Clue derivation via run-length encoding
