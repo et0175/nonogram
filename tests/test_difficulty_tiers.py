@@ -199,7 +199,7 @@ def test_rejects_unknown_tier_before_anything_is_generated(
 
     with pytest.raises(UnsupportedDifficulty):
         orchestrator.generate(
-            GenerationRequest(mode="random", size=10, density=50, seed=0,
+            GenerationRequest(mode="random", width=10, height=10, density=50, seed=0,
                               difficulty="Extreme")
         )
 
@@ -258,7 +258,9 @@ def test_accepts_valid_tier_and_tags_the_aggregate_pending_confirmation() -> Non
     carries no score at all — nothing has been generated, so nothing has been
     confirmed.
     """
-    request = GenerationRequest(mode="random", size=10, density=50, difficulty="Medium")
+    request = GenerationRequest(
+        mode="random", width=10, height=10, density=50, difficulty="Medium"
+    )
 
     puzzle = Puzzle(
         request=request, seed=0, requested_tier=parse_tier(request.difficulty or "")
@@ -283,7 +285,9 @@ def test_a_generated_puzzle_carries_the_tier_it_was_asked_for() -> None:
     the request named, not one derived from the score.
     """
     puzzle = orchestrator.generate(
-        GenerationRequest(mode="random", size=10, density=50, seed=0, difficulty="easy")
+        GenerationRequest(
+            mode="random", width=10, height=10, density=50, seed=0, difficulty="easy"
+        )
     )
 
     assert puzzle.requested_tier is Tier.EASY
@@ -300,7 +304,7 @@ def test_no_difficulty_flag_leaves_the_tier_unset_rather_than_easy() -> None:
     every candidate that scored above 33.
     """
     puzzle = orchestrator.generate(
-        GenerationRequest(mode="random", size=10, density=50, seed=0)
+        GenerationRequest(mode="random", width=10, height=10, density=50, seed=0)
     )
 
     assert puzzle.request.difficulty is None

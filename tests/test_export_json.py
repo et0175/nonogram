@@ -75,7 +75,8 @@ def _puzzle(
     """
     fields: dict[str, object] = {
         "mode": "random",
-        "size": 2,
+        "width": 2,
+        "height": 2,
         "density": 50,
         "seed": 7,
         "export_formats": formats,
@@ -197,7 +198,7 @@ def test_export_writes_json(tmp_path: Path) -> None:
     puzzle = generate(
         GenerationRequest(
             mode="random",
-            size=10,
+            width=10, height=10,
             density=50,
             seed=0,
             export_formats=("json",),
@@ -253,7 +254,7 @@ def test_the_export_records_an_auto_drawn_seed_too(tmp_path: Path) -> None:
 
 
 def test_the_export_records_the_generation_parameters(tmp_path: Path) -> None:
-    puzzle = _puzzle(tmp_path, size=2, density=50)
+    puzzle = _puzzle(tmp_path, width=2, height=2, density=50)
 
     assert _load(export_puzzle(puzzle)[0])["request"] == {
         "mode": "random",
@@ -280,7 +281,7 @@ def test_the_request_block_records_an_extent_pair_and_never_a_scalar_size(
     caught by nothing — which is precisely the two-sources-of-truth outcome
     the ADR rejected the "keep both" alternative to avoid.
     """
-    document = _load(export_puzzle(_puzzle(tmp_path, size=2))[0])
+    document = _load(export_puzzle(_puzzle(tmp_path, width=2, height=2))[0])
 
     assert set(document["request"]) == {"mode", "width", "height", "density"}
     assert _keys_anywhere(document) & {"size"} == set()

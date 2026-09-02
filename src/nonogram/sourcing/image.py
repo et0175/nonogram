@@ -105,7 +105,7 @@ nothing here decides whether a nudged grid is good — the orchestrator re-runs
 the real solver on every one of them (CON-005, guardrail G-4).
 
 Layering (ADR-0007): a capability module. It imports its own package's
-``random_grid`` for the shared size rule and ``nonogram.errors``; never the
+``random_grid`` for the shared extent rule and ``nonogram.errors``; never the
 adapter, the orchestrator or a sibling capability.
 """
 
@@ -328,7 +328,7 @@ def _checked_extents(
     rather than as an arithmetic accident downstream.
 
     A zero-or-negative *target* axis is a different animal: grid extents come
-    from :func:`~nonogram.sourcing.random_grid.validate_size` and are 10..30 by
+    from :func:`~nonogram.sourcing.random_grid.validate_extent` and are 10..30 by
     the time anything here sees them (CON-011), so a target of ``0`` is a wiring
     bug in the caller, not a domain outcome. It gets ``ValueError``, the same
     way :func:`nudge` treats a zeroth nudge attempt.
@@ -501,8 +501,8 @@ def binarize(
         mode — note Pillow's ``(width, height)`` order, which is the transpose
         of the row-major grid :func:`to_grid` builds from it.
 
-    The extents are assumed already validated, exactly as ``size`` was before
-    them: :func:`generate` checks the range and the aspect ratio before calling.
+    The extents are assumed already validated: :func:`generate` checks both
+    sides against the range and then checks the aspect ratio before calling.
 
     The crop and the resize are one call: ``resize`` takes the source rectangle
     as its ``box`` argument, so the intermediate cropped image is never
@@ -539,10 +539,11 @@ def to_grid(bilevel: Image.Image) -> list[list[bool]]:
 
 def generate(
     source: str | PathLike[str] | None,
-    size: int | None,
+    width: int | None,
+    height: int | None,
     rng: random.Random,
 ) -> list[list[bool]]:
-    """Convert the user's image into one ``size`` x ``size`` solution grid.
+    """Convert the user's image into one ``width`` x ``height`` solution grid.
 
     The mode table's entry point for ``image`` (FR-003, AC-007/AC-008/AC-009).
     The argument order is the mode's own — the path first, because it is what
@@ -554,20 +555,25 @@ def generate(
             flag omitted in image mode — is rejected the way library mode
             rejects a missing ``--library-key``: with a message that names the
             forgotten flag, rather than by defaulting to some file.
-        size: Square grid edge length; the same supported range as every other
-            mode, since it is a rule about the puzzle and not about the source
-            (``random_grid.validate_size``, shared rather than restated).
+        width: Grid width in cells.
+        height: Grid height in cells. Both sides carry the same supported range
+            as every other mode, since it is a rule about the puzzle and not
+            about the source (``random_grid.validate_extent``, shared rather
+            than restated). The pair is what the picture is fitted *to*: it
+            selects the crop box's aspect ratio, so a non-square request is
+            served by cropping the source to that shape, never by stretching it
+            (ADR-0022/R3).
         rng: The run's random source (ADR-0015). Accepted for the mode table's
             uniform calling convention and deliberately **not drawn from**: the
-            conversion of a given file at a given size is fully determined, and
-            jittering it would make the picture the user handed over come back
-            as a different picture per seed. Library mode's threshold draw
+            conversion of a given file at a given extent is fully determined,
+            and jittering it would make the picture the user handed over come
+            back as a different picture per seed. Library mode's threshold draw
             exists to give POL-001 a second chance at unique solvability; image
             mode has no regenerate loop to give one to (see the module
             docstring, guardrail G-4).
 
     Returns:
-        A row-major ``list[list[bool]]`` of ``size`` rows of ``size`` cells,
+        A row-major ``list[list[bool]]`` of ``height`` rows of ``width`` cells,
         ``True`` for filled (ADR-0012) — exactly the requested dimensions
         whenever the source's aspect ratio is inside FR-021's accepted band
         (AC-059).
@@ -576,14 +582,14 @@ def generate(
         UnreadableImage: ``source`` is ``None``, missing, unreadable or not a
             decodable image (AC-008). Pillow's own exception never reaches the
             caller.
-        SizeOutOfRange: ``size`` is outside the supported range.
+        SizeOutOfRange: a side is outside the supported range.
         ImageNeedsManualCrop: the source's aspect ratio differs from the grid's
             by more than 2x, so fitting it would throw away more than half the
             picture (AC-076, FR-021).
 
     The three checks run in the order the user can act on them, and each runs
-    before the work it would have paid for: the size range before the file is
-    touched at all, the aspect ratio after a header read and before the decode,
+    before the work it would have paid for: the per-side range before the file
+    is touched at all, the aspect ratio after a header read and before the decode,
     the decode before the conversion. So an invalid request never pays for a
     decode and a refused one never pays for a dither — the "reject before you
     work" contract the other two sources keep (guardrail G-4, EC-007).
@@ -599,18 +605,20 @@ def generate(
     pixel is read, and the rare disagreement is caught after the decode rather
     than never (failure-matrix row 14).
 
-    This card deliberately still takes a scalar ``size`` and passes ``(size,
-    size)`` to both new functions, which are already general. CARD-027 replaces
-    these two call sites with the request's ``(width, height)`` pair (FR-018,
-    ADR-0022/R1) and changes nothing else here.
+    The geometry below — :func:`fit_crop_box`, :func:`validate_aspect_ratio` and
+    :func:`binarize` — was already written against a target *pair* by CARD-026
+    and is unchanged here (guardrail G-6). This function is simply where the
+    pair now arrives from the request (FR-018, ADR-0022/R1) instead of being one
+    number handed over twice, which is what makes the crop-not-stretch policy
+    reachable for a grid that is genuinely not square.
     """
     if source is None:
         raise UnreadableImage(
             "image mode needs an --image PATH pointing at the picture to convert"
         )
-    size = random_grid.validate_size(size)
+    width, height = random_grid.validate_extent(width, height)
     probed = probe_extent(source)
-    validate_aspect_ratio(*probed, size, size)
+    validate_aspect_ratio(*probed, width, height)
     greyscale = load_greyscale(source)
     if greyscale.size != probed:
         # The header probe and the decode disagreed about the picture's shape.
@@ -628,8 +636,8 @@ def generate(
         # has run. Cropping, dithering, clue derivation and the solver stay
         # unreachable for it. See failure-matrix rows 12 and 14 — G-4's
         # unqualified wording is narrowed there to match this.
-        validate_aspect_ratio(*greyscale.size, size, size)
-    return to_grid(binarize(greyscale, size, size))
+        validate_aspect_ratio(*greyscale.size, width, height)
+    return to_grid(binarize(greyscale, width, height))
 
 
 #: How far apart two cells flipped by the same nudge must be, as a Chebyshev

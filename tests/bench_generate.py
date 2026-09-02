@@ -93,7 +93,9 @@ def _time_one_request(density: int, seed: int) -> tuple[float, str]:
         deadline). All three are completions as far as AC-037 is concerned;
         only a hang would not be, and ADR-0011 is what rules that out.
     """
-    request = GenerationRequest(mode="random", size=SIZE, density=density, seed=seed)
+    request = GenerationRequest(
+        mode="random", width=SIZE, height=SIZE, density=density, seed=seed
+    )
     started = time.perf_counter()
     try:
         orchestrator.generate(request)
@@ -263,10 +265,10 @@ def test_the_same_corpus_entry_replays_the_same_run(
     density, seed = 60, SEEDS[0]
 
     first = orchestrator.generate(
-        GenerationRequest(mode="random", size=SIZE, density=density, seed=seed)
+        GenerationRequest(mode="random", width=SIZE, height=SIZE, density=density, seed=seed)
     )
     second = orchestrator.generate(
-        GenerationRequest(mode="random", size=SIZE, density=density, seed=seed)
+        GenerationRequest(mode="random", width=SIZE, height=SIZE, density=density, seed=seed)
     )
 
     assert first.grid == second.grid

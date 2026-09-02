@@ -185,26 +185,18 @@ def solid_black(
 
 
 def _convert(source: Path, target_width: int, target_height: int) -> list[list[bool]]:
-    """The image pipeline at an arbitrary grid extent — guard, then convert.
+    """The image pipeline at an arbitrary grid extent.
 
-    Deliberately *not* ``image.generate``: guardrail G-2 keeps ``generate``'s
-    scalar ``size`` signature in this card, so a rectangular request has no
-    caller yet. This is exactly the body CARD-027 will wire the request's
-    ``(width, height)`` pair into (FR-018), which is what makes the criteria
-    below testable at a rectangular target today — including the re-check of a
-    decoded extent the header lied about, so the mirror stays a mirror and a
-    rectangular request gets the same CON-012 guarantee a square one does.
+    CARD-026 wrote this as a hand-assembled copy of ``generate``'s body, because
+    ``generate`` still took a scalar ``size`` and a rectangular request had no
+    caller. CARD-027 gave it the request's ``(width, height)`` pair (FR-018), so
+    the copy is now the real thing and the helper is a one-line alias kept only
+    to spell the two extents out at the call sites below. A second
+    implementation of the pipeline would drift from the shipped one on the first
+    change to either — which is precisely the class of defect the aspect guard
+    has already produced once.
     """
-    probed = image.probe_extent(source)
-    image.validate_aspect_ratio(*probed, target_width, target_height)
-    greyscale = image.load_greyscale(source)
-    if greyscale.size != probed:
-        image.validate_aspect_ratio(
-            *greyscale.size, target_width, target_height
-        )
-    return image.to_grid(
-        image.binarize(greyscale, target_width, target_height)
-    )
+    return image.generate(source, target_width, target_height, _rng())
 
 
 # --------------------------------------------------------------------------
@@ -259,7 +251,7 @@ def test_the_fixture_images_stay_tiny() -> None:
 def test_convert_image_produces_a_dithered_grid() -> None:
     """AC-007 verbatim: a valid PNG and a target of 25x25 give a 25x25
     black/white grid, produced by resizing and dithering."""
-    grid = image.generate(BANDS, 25, _rng())
+    grid = image.generate(BANDS, 25, 25, _rng())
 
     assert _shape(grid) == (25, {25})
     assert all(cell is True or cell is False for row in grid for cell in row)
@@ -272,7 +264,7 @@ def test_convert_image_produces_a_dithered_grid() -> None:
 def test_convert_image_produces_a_dithered_grid_of_plain_python_bools() -> None:
     """ADR-0012's boundary type, not a NumPy array wearing its clothes: the
     conversion runs through NumPy internally and must not leak it."""
-    grid = image.generate(BANDS, 25, _rng())
+    grid = image.generate(BANDS, 25, 25, _rng())
 
     assert isinstance(grid, list)
     assert all(isinstance(row, list) for row in grid)
@@ -288,7 +280,7 @@ def test_the_mid_tone_band_comes_out_dithered_rather_than_thresholded() -> None:
     the assertion is that the band contains both kinds of cell and sits near
     half filled — which no thresholding implementation can satisfy.
     """
-    grid = image.generate(BANDS, 24, _rng())
+    grid = image.generate(BANDS, 24, 24, _rng())
     cells = [cell for row in grid[9:15] for cell in row]
 
     assert any(cells) and not all(cells)
@@ -302,7 +294,7 @@ def test_a_flat_mid_grey_field_dithers_to_about_its_own_level(
     """The same property stated as the thing error diffusion is *for*: filled
     density tracks the source's grey level, on an image with no edges at all
     for a resize artefact to hide behind."""
-    grid = image.generate(_flat(value, tmp_path), 30, _rng())
+    grid = image.generate(_flat(value, tmp_path), 30, 30, _rng())
 
     expected = 1.0 - value / 255.0
     assert abs(_filled_fraction(grid) - expected) < 0.1
@@ -315,11 +307,12 @@ def test_black_and_white_fields_convert_without_a_dither_artefact(
     image is a wholly filled grid, a wholly white one a wholly empty grid.
     Error diffusion must not sprinkle either with the other."""
     assert all(
-        all(row) for row in image.generate(_flat(0, tmp_path, "black.png"), 20, _rng())
+        all(row)
+        for row in image.generate(_flat(0, tmp_path, "black.png"), 20, 20, _rng())
     )
     assert not any(
         any(row)
-        for row in image.generate(_flat(255, tmp_path, "white.png"), 20, _rng())
+        for row in image.generate(_flat(255, tmp_path, "white.png"), 20, 20, _rng())
     )
 
 
@@ -335,16 +328,16 @@ def test_transparent_areas_are_paper_and_not_ink(tmp_path: Path) -> None:
     transparent.paste((0, 0, 0, 255), (0, 0, 40, 10))
     transparent.save(path)
 
-    grid = image.generate(path, 20, _rng())
+    grid = image.generate(path, 20, 20, _rng())
 
     assert all(grid[0])  # the opaque black stripe is ink
     assert not any(any(row) for row in grid[8:])  # the transparent field is paper
 
 
 def test_the_conversion_is_reproducible_for_the_same_file_and_size() -> None:
-    grid = image.generate(LANDSCAPE, 20, _rng())
+    grid = image.generate(LANDSCAPE, 20, 20, _rng())
 
-    assert image.generate(LANDSCAPE, 20, _rng()) == grid
+    assert image.generate(LANDSCAPE, 20, 20, _rng()) == grid
 
 
 def test_the_conversion_never_draws_from_the_run_rng() -> None:
@@ -358,8 +351,8 @@ def test_the_conversion_never_draws_from_the_run_rng() -> None:
     unused = random.Random(1)
     state = unused.getstate()
 
-    assert image.generate(BANDS, 22, unused) == image.generate(
-        BANDS, 22, random.Random(999)
+    assert image.generate(BANDS, 22, 22, unused) == image.generate(
+        BANDS, 22, 22, random.Random(999)
     )
     assert unused.getstate() == state
 
@@ -376,7 +369,7 @@ def test_convert_image_rejects_an_unreadable_file_that_is_missing(
     missing = tmp_path / "no-such-picture.png"
 
     with pytest.raises(UnreadableImage) as excinfo:
-        image.generate(missing, 20, _rng())
+        image.generate(missing, 20, 20, _rng())
 
     assert "cannot read image" in str(excinfo.value)
     assert str(missing) in str(excinfo.value)
@@ -385,7 +378,7 @@ def test_convert_image_rejects_an_unreadable_file_that_is_missing(
 def test_convert_image_rejects_an_unreadable_file_that_is_corrupt() -> None:
     """AC-008's second half: a file that claims to be a PNG and is not."""
     with pytest.raises(UnreadableImage) as excinfo:
-        image.generate(CORRUPT, 20, _rng())
+        image.generate(CORRUPT, 20, 20, _rng())
 
     assert "cannot read image" in str(excinfo.value)
 
@@ -396,7 +389,7 @@ def test_convert_image_rejects_a_path_that_is_a_directory(tmp_path: Path) -> Non
     underneath, which is the point: the guard is on the outcome, not on a list
     of errno values."""
     with pytest.raises(UnreadableImage):
-        image.generate(tmp_path, 20, _rng())
+        image.generate(tmp_path, 20, 20, _rng())
 
 
 def test_convert_image_rejects_a_missing_image_argument() -> None:
@@ -404,7 +397,7 @@ def test_convert_image_rejects_a_missing_image_argument() -> None:
     message that names the forgotten flag rather than a path. The shape
     ``library.template_for`` uses for a missing ``--library-key``."""
     with pytest.raises(UnreadableImage) as excinfo:
-        image.generate(None, 20, _rng())
+        image.generate(None, 20, 20, _rng())
 
     assert "--image" in str(excinfo.value)
 
@@ -417,7 +410,7 @@ def test_pillows_own_exception_never_reaches_the_caller(unreadable: Path) -> Non
     is *not* an ``OSError`` of any kind, with Pillow's exception demoted to a
     chained ``__cause__`` for the traceback."""
     with pytest.raises(UnreadableImage) as excinfo:
-        image.generate(unreadable, 20, _rng())
+        image.generate(unreadable, 20, 20, _rng())
 
     error = excinfo.value
     assert isinstance(error, NonogramError)
@@ -430,7 +423,12 @@ def test_an_unreadable_image_produces_no_grid_and_no_puzzle(tmp_path: Path) -> N
     """AC-008's "and no grid is produced", at the pipeline level: the run ends
     at sourcing, so no aggregate comes back and nothing is written."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=tmp_path / "absent.png", size=20, seed=1, out=tmp_path
+        mode="image",
+        image=tmp_path / "absent.png",
+        width=20,
+        height=20,
+        seed=1,
+        out=tmp_path,
     )
 
     with pytest.raises(UnreadableImage):
@@ -441,21 +439,27 @@ def test_an_unreadable_image_produces_no_grid_and_no_puzzle(tmp_path: Path) -> N
 
 def test_the_size_rule_is_checked_before_the_file_is_opened() -> None:
     """The contract the other two sources keep: reject an invalid request
-    before doing its work. An out-of-range size is reported as such even when
+    before doing its work. An out-of-range side is reported as such even when
     the path is also unusable, so the user fixes the first thing that is
-    wrong rather than the second."""
+    wrong rather than the second. Checked with only the *height* out of range
+    too, so the guard is not passing on the first argument alone."""
     with pytest.raises(SizeOutOfRange):
-        image.generate(FIXTURES / "absent.png", 60, _rng())
+        image.generate(FIXTURES / "absent.png", 60, 60, _rng())
+    with pytest.raises(SizeOutOfRange):
+        image.generate(FIXTURES / "absent.png", 20, 60, _rng())
 
 
-@pytest.mark.parametrize("size", [9, 31, 51, None])
-def test_the_supported_size_range_is_the_same_as_every_other_mode(
-    size: int | None,
+@pytest.mark.parametrize("side", [9, 31, 51, None])
+def test_the_supported_extent_range_is_the_same_as_every_other_mode(
+    side: int | None,
 ) -> None:
     """Shared from ``random_grid`` rather than restated (the rule is about the
-    puzzle, not about the source), so this pins that it really is shared."""
+    puzzle, not about the source), so this pins that it really is shared — on
+    each axis independently, with the other held legal."""
     with pytest.raises(SizeOutOfRange):
-        image.generate(BANDS, size, _rng())
+        image.generate(BANDS, side, 20, _rng())
+    with pytest.raises(SizeOutOfRange):
+        image.generate(BANDS, 20, side, _rng())
 
     assert random_grid.MIN_SIZE == 10 and random_grid.MAX_SIZE == 30
 
@@ -492,7 +496,7 @@ def test_convert_image_produces_exact_square_dimensions_for_every_accepted_sourc
     be asked for in this card: whatever an accepted source's aspect ratio, the
     grid has exactly the requested dimensions, at both ends of the supported
     size range."""
-    assert _shape(image.generate(source, size, _rng())) == (size, {size})
+    assert _shape(image.generate(source, size, size, _rng())) == (size, {size})
 
 
 def test_the_aspect_ratio_policy_is_centre_crop_and_not_stretch() -> None:
@@ -505,7 +509,7 @@ def test_the_aspect_ratio_policy_is_centre_crop_and_not_stretch() -> None:
     outer black bands onto the grid's outer columns instead — so this one test
     tells the implemented policy from the rejected one.
     """
-    grid = image.generate(LANDSCAPE, 20, _rng())
+    grid = image.generate(LANDSCAPE, 20, 20, _rng())
 
     outer_columns = [row[0] for row in grid] + [row[-1] for row in grid]
     assert not any(outer_columns)
@@ -515,7 +519,7 @@ def test_the_aspect_ratio_policy_is_centre_crop_and_not_stretch() -> None:
 def test_the_aspect_ratio_policy_holds_on_the_other_axis() -> None:
     """The same claim for a portrait source: the crop is not an accident of
     which axis the landscape fixture happened to be long on."""
-    grid = image.generate(PORTRAIT, 20, _rng())
+    grid = image.generate(PORTRAIT, 20, 20, _rng())
 
     assert not any(grid[0]) and not any(grid[-1])
     assert any(grid[10][6:14])
@@ -563,8 +567,8 @@ def test_exif_orientation_is_applied_before_the_crop(tmp_path: Path) -> None:
     reference_source = tmp_path / "displayed.png"
     displayed.save(reference_source)
 
-    reference = image.generate(reference_source, 20, _rng())
-    honoured = image.generate(oriented, 20, _rng())
+    reference = image.generate(reference_source, 20, 20, _rng())
+    honoured = image.generate(oriented, 20, 20, _rng())
 
     assert honoured == reference
     assert _ink(honoured)  # the marker did land somewhere, not just "matched by both being blank"
@@ -583,7 +587,7 @@ def test_the_outer_bands_of_the_source_do_not_reach_the_grid_at_all(
     only ink in the grid comes from the black core at the centre: every filled
     cell is inside the central block, and there are some.
     """
-    grid = image.generate(source, 20, _rng())
+    grid = image.generate(source, 20, 20, _rng())
     ink = {
         (row, column)
         for row, cells in enumerate(grid)
@@ -967,7 +971,7 @@ def test_a_corrupt_exif_block_is_not_an_unreadable_picture(
         assert image.probe_extent(path) == (60, 40), name
         with image.load_greyscale(path) as loaded:
             assert image.probe_extent(path) == loaded.size, name
-        assert _shape(image.generate(path, 20, _rng())) == (20, {20}), name
+        assert _shape(image.generate(path, 20, 20, _rng())) == (20, {20}), name
 
 
 def _png_with_a_trailing_exif_chunk(
@@ -1088,33 +1092,43 @@ def test_for_mode_dispatches_to_a_usable_image_source() -> None:
     """The dispatch seam end to end: look the mode up, then source a grid with
     the mode's own argument list."""
     source = sourcing.for_mode("image")
-    grid = source(LANDSCAPE, 20, _rng())
+    grid = source(LANDSCAPE, 20, 20, _rng())
 
     assert _shape(grid) == (20, {20})
-    assert grid == image.generate(LANDSCAPE, 20, _rng())
+    assert grid == image.generate(LANDSCAPE, 20, 20, _rng())
 
 
 def test_the_orchestrator_assembles_the_image_argument_list() -> None:
-    """The path and size go to the source in the mode's order, and the RNG is
-    appended by the call site for every mode alike."""
+    """The path and extent go to the source in the mode's order, and the RNG is
+    appended by the call site for every mode alike.
+
+    The extent is a *pair*, directly after the mode's own leading argument
+    (ADR-0022/R1). A rectangle, so a call site that passed one number twice
+    would fail here rather than pass by symmetry."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=WIDE, size=14, density=99, library_key="moon"
+        mode="image", image=WIDE, width=14, height=22, density=99, library_key="moon"
     )
 
-    assert orchestrator._source_arguments(request) == (WIDE, 14)
+    assert orchestrator._source_arguments(request) == (WIDE, 14, 22)
 
 
 def test_the_orchestrator_still_assembles_the_other_argument_lists() -> None:
     """The image row must not have changed what the first two modes are called
     with — the branch that used to be an implicit fallback is now explicit."""
-    common = {"size": 14, "density": 35, "library_key": "moon", "image": WIDE}
+    common = {
+        "width": 14,
+        "height": 22,
+        "density": 35,
+        "library_key": "moon",
+        "image": WIDE,
+    }
 
     assert orchestrator._source_arguments(
         orchestrator.GenerationRequest(mode="random", **common)
-    ) == (14, 35)
+    ) == (14, 22, 35)
     assert orchestrator._source_arguments(
         orchestrator.GenerationRequest(mode="library", **common)
-    ) == ("moon", 14)
+    ) == ("moon", 14, 22)
 
 
 def test_a_mode_with_no_argument_list_is_a_loud_wiring_error() -> None:
@@ -1123,13 +1137,14 @@ def test_a_mode_with_no_argument_list_is_a_loud_wiring_error() -> None:
     The fallback used to be "anything that is not library is random", on the
     reasoning that ``sourcing.for_mode`` has already rejected an unknown mode —
     true only of a mode that is not *registered*. Registering ``image`` without
-    a branch here would have called ``image.generate(size, density, rng)`` and
+    a branch here would have called ``image.generate(width, height, density, rng)``
+    and
     bound a file path to an integer. The ``else`` now raises instead, so the
     next mode added to the dispatch table fails here, immediately and by name.
     """
     with pytest.raises(ValueError) as excinfo:
         orchestrator._source_arguments(
-            orchestrator.GenerationRequest(mode="webcam", size=20, density=30)
+            orchestrator.GenerationRequest(mode="webcam", width=20, height=20, density=30)
         )
 
     assert "no source argument list" in str(excinfo.value)
@@ -1142,18 +1157,28 @@ def test_every_registered_mode_has_an_argument_list() -> None:
     for mode in sourcing.MODES:
         arguments = orchestrator._source_arguments(
             orchestrator.GenerationRequest(
-                mode=mode, size=20, density=30, library_key="cat", image=WIDE
+                mode=mode,
+                width=20,
+                height=25,
+                density=30,
+                library_key="cat",
+                image=WIDE,
             )
         )
-        assert len(arguments) == 2
+        # Three arguments in every mode now: the mode's own leading value plus
+        # the (width, height) pair — random's density takes the third slot, the
+        # other two modes' extent fills the last two (ADR-0022/R1).
+        assert len(arguments) == 3
         assert None not in arguments
+        extent = arguments[:2] if mode == sourcing.RANDOM else arguments[-2:]
+        assert tuple(extent) == (20, 25)
 
 
 def test_an_image_run_goes_through_the_existing_pipeline() -> None:
     """FR-003 end to end: source -> clues -> uniqueness -> scored -> ready, on
     a real file, with nothing about the downstream pipeline changed."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=LANDSCAPE, size=20, seed=1
+        mode="image", image=LANDSCAPE, width=20, height=20, seed=1
     )
     puzzle = orchestrator.generate(request)
 
@@ -1167,7 +1192,7 @@ def test_an_image_run_goes_through_the_existing_pipeline() -> None:
 
 def test_an_image_run_is_reproducible() -> None:
     request = orchestrator.GenerationRequest(
-        mode="image", image=BANDS, size=24, seed=5
+        mode="image", image=BANDS, width=24, height=24, seed=5
     )
 
     assert orchestrator.generate(request).grid == orchestrator.generate(request).grid
@@ -1181,7 +1206,7 @@ def test_an_image_run_ignores_the_seed_entirely() -> None:
     grids = [
         orchestrator.generate(
             orchestrator.GenerationRequest(
-                mode="image", image=BANDS, size=24, seed=seed
+                mode="image", image=BANDS, width=24, height=24, seed=seed
             )
         ).grid
         for seed in (1, 2, 12345)
@@ -1240,7 +1265,7 @@ def test_a_non_unique_conversion_is_never_re_sourced(
     source = _CountingSource(_AMBIGUOUS)
     _install_source(monkeypatch, source)
     request = orchestrator.GenerationRequest(
-        mode="image", image=WIDE, size=10, seed=1
+        mode="image", image=WIDE, width=10, height=10, seed=1
     )
 
     puzzle = orchestrator.generate(request)
@@ -1274,7 +1299,9 @@ def test_a_non_unique_conversion_leaves_both_retry_counters_at_zero(
     monkeypatch.setattr(orchestrator, "Puzzle", capturing)
 
     orchestrator.generate(
-        orchestrator.GenerationRequest(mode="image", image=WIDE, size=10, seed=1)
+        orchestrator.GenerationRequest(
+            mode="image", image=WIDE, width=10, height=10, seed=1
+        )
     )
 
     assert len(built) == 1
@@ -1287,7 +1314,7 @@ def test_a_successful_image_run_also_spends_no_retry_attempt() -> None:
     either loop, so a run that works reports zero attempts rather than one."""
     puzzle = orchestrator.generate(
         orchestrator.GenerationRequest(
-            mode="image", image=LANDSCAPE, size=20, seed=1
+            mode="image", image=LANDSCAPE, width=20, height=20, seed=1
         )
     )
 
@@ -1323,7 +1350,7 @@ def test_a_missed_difficulty_tier_also_fails_without_resampling() -> None:
     """POL-004 cannot help a fixed source either — resampling would convert the
     same picture again — so the tier miss ends the run with its own message."""
     request = orchestrator.GenerationRequest(
-        mode="image", image=LANDSCAPE, size=20, seed=1, difficulty="hard"
+        mode="image", image=LANDSCAPE, width=20, height=20, seed=1, difficulty="hard"
     )
 
     with pytest.raises(GenerationAbandoned) as excinfo:
@@ -1359,7 +1386,7 @@ def test_the_regenerate_loop_still_fires_for_the_modes_it_owns(
 
     puzzle = orchestrator.generate(
         orchestrator.GenerationRequest(
-            mode="random", size=10, density=30, seed=1
+            mode="random", width=10, height=10, density=30, seed=1
         )
     )
 
@@ -1389,9 +1416,11 @@ def test_the_image_module_exposes_no_retry_machinery() -> None:
 def test_the_other_two_sources_are_untouched() -> None:
     """G-1, as a behaviour rather than as a diff: the additive third mode must
     leave random and library mode producing exactly what they did."""
-    assert _shape(random_grid.generate(20, 30, random.Random(4))) == (20, {20})
-    assert random_grid.density_of(random_grid.generate(20, 30, random.Random(4))) == 30.0
-    assert _shape(library.generate("cat", 15, random.Random(4))) == (15, {15})
+    assert _shape(random_grid.generate(20, 20, 30, random.Random(4))) == (20, {20})
+    assert random_grid.density_of(
+        random_grid.generate(20, 20, 30, random.Random(4))
+    ) == 30.0
+    assert _shape(library.generate("cat", 15, 15, random.Random(4))) == (15, {15})
 
 
 # --------------------------------------------------------------------------
@@ -1476,7 +1505,7 @@ def test_the_cli_parses_the_image_flags_into_the_request(
     assert exit_code == cli.ExitCode.OK
     assert seen[0].mode == "image"
     assert seen[0].image == WIDE
-    assert seen[0].size == 25
+    assert (seen[0].width, seen[0].height) == (25, 25)
 
 
 def test_an_unreadable_image_is_reported_as_an_input_error(

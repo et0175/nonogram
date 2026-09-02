@@ -89,12 +89,16 @@ class _ScriptedSource:
     def __init__(self, *grids: list[list[bool]], repeat_last: bool = False) -> None:
         self._grids = list(grids)
         self._repeat_last = repeat_last
-        self.calls: list[tuple[int | None, int | None, random.Random]] = []
+        self.calls: list[tuple[int | None, int | None, int | None, random.Random]] = []
 
     def __call__(
-        self, size: int | None, density: int | None, rng: random.Random
+        self,
+        width: int | None,
+        height: int | None,
+        density: int | None,
+        rng: random.Random,
     ) -> list[list[bool]]:
-        self.calls.append((size, density, rng))
+        self.calls.append((width, height, density, rng))
         if not self._repeat_last and len(self.calls) > len(self._grids):
             raise AssertionError(
                 f"the loop asked for candidate {len(self.calls)} but the script "
@@ -155,8 +159,14 @@ def _install_scorer(
 
 
 def _request(**overrides: object) -> GenerationRequest:
-    """A minimal valid request; the scripted source ignores size/density."""
-    fields: dict[str, object] = {"mode": "random", "size": 10, "density": 50, "seed": 0}
+    """A minimal valid request; the scripted source ignores extent/density."""
+    fields: dict[str, object] = {
+        "mode": "random",
+        "width": 10,
+        "height": 10,
+        "density": 50,
+        "seed": 0,
+    }
     fields.update(overrides)
     return GenerationRequest(**fields)  # type: ignore[arg-type]
 
@@ -332,7 +342,7 @@ def test_the_resample_does_not_steer_the_grid_source(
     """CON-004 / guardrail G-3: a tier is a filter, never a construction target.
 
     The source is called with the *same* arguments on every round — the
-    request's size and density and the run's RNG — so nothing about the
+    request's extent and density and the run's RNG — so nothing about the
     requested tier reaches the sourcing of a grid. POL-004 discards and
     re-draws; it does not ask for a harder picture.
     """
@@ -343,13 +353,13 @@ def test_the_resample_does_not_steer_the_grid_source(
     _install_source(monkeypatch, source)
     _install_scorer(monkeypatch, scorer)
 
-    generate(_request(size=10, density=50, difficulty="hard"))
+    generate(_request(width=10, height=13, density=50, difficulty="hard"))
 
     assert len(source.calls) == 3
-    sizes_and_densities = {(size, density) for size, density, _ in source.calls}
-    assert sizes_and_densities == {(10, 50)}
+    extents_and_densities = {call[:3] for call in source.calls}
+    assert extents_and_densities == {(10, 13, 50)}
     # One RNG for the whole run (ADR-0015), resamples included.
-    assert len({id(rng) for _, _, rng in source.calls}) == 1
+    assert len({id(call[-1]) for call in source.calls}) == 1
 
 
 # --------------------------------------------------------------------------
@@ -665,7 +675,7 @@ def test_an_invalid_request_is_not_retried_as_a_resample(
     _install_source(monkeypatch, failing_source)
 
     with pytest.raises(SizeOutOfRange):
-        generate(_request(size=3, difficulty="hard"))
+        generate(_request(width=3, height=3, difficulty="hard"))
 
     assert calls == 1
 
@@ -688,7 +698,7 @@ def test_a_puzzle_generated_for_a_tier_really_scores_in_that_tier(seed: int) -> 
     """
     puzzle = generate(
         GenerationRequest(
-            mode="random", size=10, density=50, seed=seed, difficulty="easy"
+            mode="random", width=10, height=10, density=50, seed=seed, difficulty="easy"
         )
     )
 
@@ -718,7 +728,7 @@ def test_the_same_seed_replays_the_same_resample_run() -> None:
     """
     requests: Iterable[GenerationRequest] = (
         GenerationRequest(
-            mode="random", size=10, density=50, seed=99, difficulty="easy"
+            mode="random", width=10, height=10, density=50, seed=99, difficulty="easy"
         )
         for _ in range(2)
     )

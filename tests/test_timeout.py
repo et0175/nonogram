@@ -121,7 +121,7 @@ def _hard_request() -> GenerationRequest:
     """AC-084's request: 30x30, at the density measured to outrun the budget."""
     return GenerationRequest(
         mode="random",
-        size=MAX_SUPPORTED_SIZE,
+        width=MAX_SUPPORTED_SIZE, height=MAX_SUPPORTED_SIZE,
         density=HARD_DENSITY,
         seed=HARD_SEED,
     )
@@ -221,7 +221,11 @@ class TestGenerate_30x30_RespectsTimeoutBound:
         started = time.monotonic()
         puzzle = generate(
             GenerationRequest(
-                mode="random", size=MAX_SUPPORTED_SIZE, density=EASY_DENSITY, seed=1
+                mode="random",
+                width=MAX_SUPPORTED_SIZE,
+                height=MAX_SUPPORTED_SIZE,
+                density=EASY_DENSITY,
+                seed=1,
             )
         )
         elapsed = time.monotonic() - started
@@ -286,7 +290,7 @@ class TestGenerate_30x30_RespectsTimeoutBound:
         """
         request = _hard_request()
         grid = random_grid.generate(
-            request.size, request.density, random.Random(request.seed)
+            request.width, request.height, request.density, random.Random(request.seed)
         )
         rows, columns = compute_clues(grid)
 
@@ -348,7 +352,9 @@ class TestGenerate_30x30_RespectsTimeoutBound:
         the state built here — a candidate with clues and no verdict — and the
         export gate must refuse it.
         """
-        puzzle = Puzzle(request=GenerationRequest(mode="random", size=10), seed=0)
+        puzzle = Puzzle(
+            request=GenerationRequest(mode="random", width=10, height=10), seed=0
+        )
         puzzle.record_candidate([[True, False], [False, True]])
 
         assert puzzle.ready_for_export is False
@@ -511,7 +517,9 @@ def test_every_attempt_in_one_request_shares_one_deadline(
     # A 10x10 at 50% that takes four candidates to find a unique one — real
     # rejections from the real solver, not injected verdicts, so the retries
     # being counted are the retries POL-001 actually performs.
-    puzzle = generate(GenerationRequest(mode="random", size=10, density=50, seed=2))
+    puzzle = generate(
+        GenerationRequest(mode="random", width=10, height=10, density=50, seed=2)
+    )
 
     assert puzzle.regenerate.attempts > 1, "the retry loop ran only one attempt"
     assert len(seen) == puzzle.regenerate.attempts
@@ -541,7 +549,7 @@ def test_the_deadline_is_the_budget_measured_from_the_start_of_the_request(
     monkeypatch.setattr(orchestrator.solver, "solve", recording_solve)
 
     before = time.monotonic()
-    generate(GenerationRequest(mode="random", size=10, density=50, seed=0))
+    generate(GenerationRequest(mode="random", width=10, height=10, density=50, seed=0))
     after = time.monotonic()
 
     assert len(seen) == 1

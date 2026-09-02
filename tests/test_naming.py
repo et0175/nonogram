@@ -88,7 +88,8 @@ def _request(**overrides: object) -> GenerationRequest:
     """A minimal random-mode request; overrides name the field under test."""
     fields: dict[str, object] = {
         "mode": "random",
-        "size": FAST_SIZE,
+        "width": FAST_SIZE,
+        "height": FAST_SIZE,
         "density": 50,
         "seed": FAST_SEED,
     }
@@ -211,7 +212,7 @@ def test_puzzle_name_auto_generates_from_library_key() -> None:
     """A library-mode run with no --name is named after the key, verbatim —
     no mode prefix and no timestamp."""
     puzzle = generate(
-        GenerationRequest(mode="library", library_key="cat", size=15, seed=3),
+        GenerationRequest(mode="library", library_key="cat", width=15, height=15, seed=3),
         names=_at(NOON),
     )
 
@@ -227,7 +228,9 @@ def test_puzzle_name_auto_generates_from_library_key_without_a_counter() -> None
     would also break AC-043 for the second run of the day.
     """
     names = _at(NOON)
-    request = GenerationRequest(mode="library", library_key="cat", size=15, seed=3)
+    request = GenerationRequest(
+        mode="library", library_key="cat", width=15, height=15, seed=3
+    )
 
     assert names.name_for(request) == "cat"
     assert names.name_for(request) == "cat"
@@ -237,7 +240,7 @@ def test_a_library_run_without_a_key_is_still_named_before_it_fails() -> None:
     """Naming runs first, so it must not be the thing that reports a missing
     key: the request falls back to the timestamp name and then fails in
     sourcing with the error it deserves (AC-006)."""
-    request = GenerationRequest(mode="library", size=15, seed=3)
+    request = GenerationRequest(mode="library", width=15, height=15, seed=3)
 
     assert _at(NOON).name_for(request) == "library-2026-08-27-1430"
 
@@ -257,7 +260,7 @@ def test_puzzle_name_override_via_flag() -> None:
 def test_puzzle_name_override_via_flag_beats_the_library_key() -> None:
     puzzle = generate(
         GenerationRequest(
-            mode="library", library_key="cat", size=15, seed=3, name="my-cat-puzzle"
+            mode="library", library_key="cat", width=15, height=15, seed=3, name="my-cat-puzzle"
         ),
         names=_at(NOON),
     )
@@ -445,7 +448,7 @@ def test_a_library_export_is_named_after_the_key(tmp_path: Path) -> None:
         GenerationRequest(
             mode="library",
             library_key="cat",
-            size=15,
+            width=15, height=15,
             seed=3,
             export_formats=(export.JSON,),
             out=tmp_path,

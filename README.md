@@ -26,6 +26,26 @@ python3.14 -m venv .venv
 ./.venv/bin/nonogram --help          # inspect the CLI surface
 ```
 
+### Grid extent — `--size`
+
+A puzzle's grid is a rectangle, and one flag says how big it is:
+
+```bash
+nonogram generate --size 20        # 20 wide by 20 tall
+nonogram generate --size 30x20     # 30 wide by 20 tall
+```
+
+`--size N` is the square shorthand; `--size WxH` gives the two sides
+separately, width first. The separator is a lower-case `x`, not `*`: in zsh —
+where this was reproduced — `--size 30*20` fails with `no matches found` before
+the process starts, and if a file happens to match the glob it silently expands
+to that filename instead. Other shells differ (bash passes an unmatched `30*20`
+through literally), which is why the rule is "use `x`" rather than a claim about
+what every shell does. **Each side must be 10 to 30 cells inclusive** —
+30 is where a printed cell drops under about 6 mm and stops being comfortable to
+mark with a pencil. A side outside that range is rejected by the tool with a
+message naming which side is at fault, not by the argument parser.
+
 ### Generate a puzzle from a short description, and export it as a PDF
 
 "A short description" here means one of the built-in library shapes rather than
@@ -45,7 +65,8 @@ writing it out.
 
 - `--mode library --library-key <name>` picks the shape. Valid names: `cat`, `heart`,
   `house`, `moon` (an unknown key lists these back to you in the error).
-- `--size` is the square grid edge length (10–50 inclusive).
+- `--size` is the grid extent, as described above: `20` means 20x20, `30x20`
+  means 30 wide by 20 tall, and each side must be 10-30.
 - `--seed` makes the run reproducible — the same seed, key and size always produce
   the same puzzle. Omit it for a random draw each time.
 - `--export pdf` writes a print-ready PDF; repeat the flag (e.g.

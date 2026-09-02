@@ -20,14 +20,24 @@ keys stays readable from the source.
 A template is a shape, not a bitmap
 -----------------------------------
 Every template is drawn once at :data:`TEMPLATE_EDGE` cells square and rescaled
-to whatever ``--size`` asks for, so ``--size 20 --library-key cat`` yields a
-20x20 cat and ``--size 47`` a 47x47 one. The rescale is exact-area coverage
-rather than nearest-neighbour: each target cell is mapped back onto the
-rectangle of template cells it covers and :func:`coverage` computes what
-*fraction* of that rectangle is filled, as an exact integer ratio (no floating
-point until the very last comparison, so a cell that is wholly inside or wholly
-outside the shape is recognised as such at every size, including the awkward
-ones where the ratio is not a whole number).
+to whatever extent ``--size`` asks for, so ``--size 20 --library-key cat``
+yields a 20x20 cat and ``--size 30x12`` a 30-wide, 12-tall one. The two axes are
+rescaled independently — a template is a shape, not a bitmap, and nothing here
+requires the target to be square — so a rectangular grid stretches the
+silhouette rather than cropping it. That is deliberate and is *not* ADR-0022/R3:
+R3's crop-never-stretch rule is about a picture the user uploaded, whose
+proportions are theirs to keep. A built-in template has no such claim on its
+proportions, and cropping one would throw away part of a shape the tool drew
+itself. (FR-023 will let a bare ``--size N`` follow the template's own ratio so
+the stretch is not something a user meets by accident; that derivation is
+CARD-033's, and until it lands a bare N is a square.) The rescale is
+exact-area coverage rather
+than nearest-neighbour: each target cell is mapped back onto the rectangle of
+template cells it covers and :func:`coverage` computes what *fraction* of that
+rectangle is filled, as an exact integer ratio (no floating point until the very
+last comparison, so a cell that is wholly inside or wholly outside the shape is
+recognised as such at every extent, including the awkward ones where the ratio
+is not a whole number).
 
 Nearest-neighbour was the alternative. It is one line shorter and strictly
 worse here: at a non-integer ratio it drops whole template rows and columns, so
@@ -59,27 +69,30 @@ second chance at unique solvability rather than a repeat.
 Two consequences, stated rather than hidden:
 
 * Library mode is reproducible on the same terms as random mode and no other:
-  the same seed and the same ``(key, size)`` reproduce the same grid, because
-  the threshold is the only stochastic input and it comes from the run's RNG.
-  It is *not* seed-independent — there is no single canonical "cat at 20x20".
-  :data:`CANONICAL_THRESHOLD` is the midpoint of the band and exists so callers
-  and tests can render the unjittered shape deliberately.
-* When ``size`` is an exact whole-number *magnification* of
-  :data:`TEMPLATE_EDGE` — 16 alone for a 16-cell template inside the supported
-  range, which CON-011 caps at 30 — every target cell lands wholly inside one
-  template cell, every coverage fraction is 0 or 1, no cell is on the boundary,
-  and the threshold has nothing to act on. At that one size a retry really is a
-  no-op and the loop will spend its budget confirming the same verdict. That is
-  a property of a deterministic source, not a bug in the loop, and fixing it
-  inside the loop would mean teaching the orchestrator that some sources are
-  deterministic — new structure this card is forbidden to add (guardrail G-4)
-  and that FR-002 does not ask for. At the other 20 supported sizes, including
-  the one where the ratio merely *looks* round (20: 16/20 is 0.8, not a whole
-  number of template cells per grid cell), the boundary is genuinely jittered
-  and consecutive attempts differ.
+  the same seed and the same ``(key, width, height)`` reproduce the same grid,
+  because the threshold is the only stochastic input and it comes from the run's
+  RNG. It is *not* seed-independent — there is no single canonical "cat at
+  20x20". :data:`CANONICAL_THRESHOLD` is the midpoint of the band and exists so
+  callers and tests can render the unjittered shape deliberately.
+* The threshold has nothing to act on when **both** target sides are exact
+  whole-number *magnifications* of :data:`TEMPLATE_EDGE`. The condition is now
+  per axis, because the axes rescale independently: an axis whose target length
+  is a multiple of 16 contributes only whole template cells to every target
+  cell, and it takes both axes to make every coverage fraction 0 or 1, leave no
+  cell on the boundary, and render the same grid whatever the draw. Inside
+  10..30 (CON-011) the only such length is 16, so the one extent this happens at
+  is **16x16** — where a retry really is a no-op and the loop will spend its
+  budget confirming the same verdict. That is a property of a deterministic
+  source, not a bug in the loop, and fixing it inside the loop would mean
+  teaching the orchestrator that some sources are deterministic — new structure
+  this module is forbidden to add and that FR-002 does not ask for. At every
+  other supported extent — including one *half* magnified, such as 16x20, and
+  the ones where the ratio merely *looks* round (20: 16/20 is 0.8, not a whole
+  number of template cells per grid cell) — some cell sits on the boundary, so
+  the boundary is genuinely jittered and consecutive attempts differ.
 
 Layering (ADR-0007): a capability module. It imports its own package's
-``random_grid`` for the shared size rule and ``templates`` for the data, and
+``random_grid`` for the shared extent rule and ``templates`` for the data, and
 ``nonogram.errors``; never the adapter, the orchestrator or a sibling
 capability.
 """
@@ -250,28 +263,36 @@ def _axis_overlaps(source_len: int, target_len: int) -> list[list[tuple[int, int
     return overlaps
 
 
-def coverage(template: Template, size: int) -> tuple[list[list[int]], int]:
+def coverage(
+    template: Template, width: int, height: int
+) -> tuple[list[list[int]], int]:
     """How much of each target cell the shape covers, exactly.
 
     The rescale's arithmetic core, kept separate from :func:`render` so the
     geometry can be reasoned about (and tested) without a threshold in the way.
 
+    The two axes are independent: :func:`_axis_overlaps` was always written per
+    axis, and this function simply gives it the target's own two lengths rather
+    than one number twice (ADR-0022/R1).
+
     Args:
         template: The shape, at its own resolution.
-        size: The target square edge length. Assumed validated.
+        width: The target grid width in cells. Assumed validated.
+        height: The target grid height in cells. Assumed validated.
 
     Returns:
         ``(numerators, denominator)``: ``numerators[row][column]`` over the
         shared ``denominator`` is the filled fraction of the template area that
         target cell maps onto — ``0`` for a cell wholly outside the shape,
         ``denominator`` for one wholly inside, and something between for a cell
-        the shape's boundary runs through. Integers throughout: whether a cell
+        the shape's boundary runs through. ``numerators`` is row-major:
+        ``height`` rows of ``width`` entries. Integers throughout: whether a cell
         is *exactly* full or empty is the one judgement no rounding may blur.
     """
-    height = len(template)
-    width = len(template[0])
-    row_overlaps = _axis_overlaps(height, size)
-    column_overlaps = _axis_overlaps(width, size)
+    template_height = len(template)
+    template_width = len(template[0])
+    row_overlaps = _axis_overlaps(template_height, height)
+    column_overlaps = _axis_overlaps(template_width, width)
 
     numerators = [
         [
@@ -281,20 +302,23 @@ def coverage(template: Template, size: int) -> tuple[list[list[int]], int]:
                 for source_column, column_width in column_overlaps[column]
                 if template[source_row][source_column]
             )
-            for column in range(size)
+            for column in range(width)
         ]
-        for row in range(size)
+        for row in range(height)
     ]
-    return numerators, height * width
+    return numerators, template_height * template_width
 
 
-def render(template: Template, size: int, threshold: float) -> list[list[bool]]:
-    """Rescale ``template`` to ``size``x``size``, filling at ``threshold``.
+def render(
+    template: Template, width: int, height: int, threshold: float
+) -> list[list[bool]]:
+    """Rescale ``template`` to ``width``x``height``, filling at ``threshold``.
 
     Args:
         template: The shape to draw.
-        size: The target square edge length. Assumed validated —
+        width: The target grid width in cells. Assumed validated —
             :func:`generate` validates before calling.
+        height: The target grid height in cells. Same.
         threshold: The coverage fraction at which a target cell counts as part
             of the shape. Within ``(0, 1)`` a cell the shape wholly covers is
             always filled and one it does not touch is always empty; only the
@@ -302,43 +326,47 @@ def render(template: Template, size: int, threshold: float) -> list[list[bool]]:
             more, so :func:`generate` never goes there.
 
     Returns:
-        A row-major ``list[list[bool]]``, ``True`` for filled (ADR-0012).
+        A row-major ``list[list[bool]]`` of ``height`` rows of ``width`` cells,
+        ``True`` for filled (ADR-0012).
     """
-    numerators, denominator = coverage(template, size)
+    numerators, denominator = coverage(template, width, height)
     cut = threshold * denominator
     return [[numerator >= cut for numerator in row] for row in numerators]
 
 
 def generate(
     key: str | None,
-    size: int | None,
+    width: int | None,
+    height: int | None,
     rng: random.Random,
 ) -> list[list[bool]]:
-    """Source one ``size``x``size`` solution grid from the built-in library.
+    """Source one ``width``x``height`` solution grid from the built-in library.
 
     The mode table's entry point for ``library`` (FR-002, AC-005/AC-006). The
     argument order is the mode's own — key first, because it is what the mode is
-    *about*, the way ``density`` leads for the random source — and the RNG comes
-    last, as it does for every source.
+    *about*, the way the path leads for the image source — then the grid's
+    extent, then the RNG last, as it does for every source.
 
     Args:
         key: Which built-in image to draw, e.g. ``"cat"``.
-        size: Square grid edge length; the same supported range as every other
-            mode, since it is a rule about the puzzle and not about the source
-            (``random_grid.validate_size``, shared rather than restated).
+        width: Grid width in cells.
+        height: Grid height in cells. Both sides carry the same supported range
+            as every other mode, since it is a rule about the puzzle and not
+            about the source (``random_grid.validate_extent``, shared rather
+            than restated).
         rng: The run's random source (ADR-0015). Required, not defaulted, for
             the same reason as in ``random_grid``. Consumed for exactly one
             draw: the boundary threshold this attempt renders at — POL-001's
             "different tie-break, same template" (see the module docstring).
 
     Returns:
-        A row-major ``list[list[bool]]`` of ``size`` rows of ``size`` cells,
+        A row-major ``list[list[bool]]`` of ``height`` rows of ``width`` cells,
         ``True`` for filled (ADR-0012), whose fully-covered cells are the
-        template's shape at that size regardless of the draw.
+        template's shape at that extent regardless of the draw.
 
     Raises:
         UnknownLibraryImage: ``key`` names no built-in image (AC-006).
-        SizeOutOfRange: ``size`` is outside the supported range.
+        SizeOutOfRange: a side is outside the supported range.
 
     Both validations run before the draw, so a rejected request consumes no
     randomness — the same contract ``random_grid.generate`` keeps, and the
@@ -346,5 +374,7 @@ def generate(
     grids a later valid one produces.
     """
     template = template_for(key)
-    size = random_grid.validate_size(size)
-    return render(template, size, rng.uniform(MIN_EDGE_THRESHOLD, MAX_EDGE_THRESHOLD))
+    width, height = random_grid.validate_extent(width, height)
+    return render(
+        template, width, height, rng.uniform(MIN_EDGE_THRESHOLD, MAX_EDGE_THRESHOLD)
+    )

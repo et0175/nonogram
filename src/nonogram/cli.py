@@ -15,12 +15,18 @@ imports back. All this adapter does is translate — argv into a
 code on the way out.
 
 *Parsing only* (ADR-0010, guardrail G-3): argparse expresses syntax — is this
-an integer, is this one of the known subcommands, is this a path — and nothing
-else. Size range (AC-003/AC-004), density range (AC-011), name validity
-(AC-045) and which difficulty tiers exist (AC-021) are domain rules enforced
-inward of this component, so they are deliberately absent from the
-``type=``/``choices=`` configuration below. A 50000-cell request parses fine
-here and is rejected inward.
+an integer, is this ``NxM``, is this one of the known subcommands, is this a
+path — and nothing else. The per-side grid range (AC-069/AC-070), density range
+(AC-011), name validity (AC-045) and which difficulty tiers exist (AC-021) are
+domain rules enforced inward of this component, so they are deliberately absent
+from the ``type=``/``choices=`` configuration below. A ``--size 40x20`` request
+parses fine here and is rejected inward.
+
+The distinction is at its sharpest on ``--size``, which is why
+:func:`_extent_token` below is worth reading as the worked example of it:
+splitting ``30x20`` into two numbers is *syntax* and belongs here, while
+whether 30 and 20 are supported grid sides is a rule about puzzles and belongs
+to ``sourcing.random_grid.validate_extent`` (ADR-0022/R2).
 """
 
 from __future__ import annotations
@@ -50,6 +56,14 @@ __all__ = ["ExitCode", "build_parser", "exit_code_for", "main"]
 
 PROG = "nonogram"
 
+#: The separator in a ``--size WxH`` token. ``x`` and not ``*`` (ADR-0022,
+#: tested rather than assumed): in zsh — the project owner's shell — an
+#: unquoted ``--size 30*20`` fails with "no matches found" before the process
+#: starts, or silently expands to a filename if the glob happens to match.
+#: ``x`` is also the conventional separator for extents (screen resolutions,
+#: ImageMagick). Lower case only: ``30X20`` is a usage error, not a synonym.
+_EXTENT_SEPARATOR = "x"
+
 
 class ExitCode(IntEnum):
     """Process exit codes.
@@ -76,7 +90,8 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     SizeOutOfRange: ExitCode.INVALID_INPUT,
     InvalidDensity: ExitCode.INVALID_INPUT,
     UnknownLibraryImage: ExitCode.INVALID_INPUT,
-    # The user's own file, unreadable: an *input* error like a bad size or an
+    # The user's own file, unreadable: an *input* error like an out-of-range
+    # grid side or an
     # unknown library key, and pointedly not EXPORT_REJECTED — reading
     # ``--image`` and writing ``--out`` are opposite ends of the run, and the
     # difference is exactly what the user has to go and fix (AC-008).
@@ -109,6 +124,57 @@ def exit_code_for(error: NonogramError) -> ExitCode:
         if code is not None:
             return code
     return ExitCode.INTERNAL_ERROR
+
+
+def _extent_token(text: str) -> tuple[int, int]:
+    """Parse a ``--size`` token into a ``(width, height)`` pair.
+
+    The whole of what ADR-0010 lets this adapter do to ``--size``: turn one
+    string into two integers, and refuse a string that is not one of the two
+    documented shapes. ``"30"`` is the square shorthand and yields ``(30, 30)``;
+    ``"30x20"`` yields ``(30, 20)``, 30 wide by 20 tall.
+
+    It applies **no range check**, deliberately (ADR-0022/R2, guardrail G-2).
+    ``"40x20"``, ``"0"``, ``"9"``, ``"31"`` and ``"-5"`` are all well-formed and
+    all parse; each is refused inward by
+    ``sourcing.random_grid.validate_extent``, with the tool's own message and
+    exit code 3, rather than by argparse with a usage error and exit code 2.
+    Encoding the bound here as a ``type=``/``choices=`` check would move that
+    decision out of the domain and out of reach of the tests that exercise it as
+    a pure function.
+
+    Each half is converted with ``int``, which is what makes ``-5`` reach the
+    domain (argparse hands a lone negative number through as a value) and which
+    also accepts a leading sign, surrounding whitespace and Python's ``_`` digit
+    separators. Those are ``int``'s documented semantics rather than a grammar
+    of this tool's own, and every value they admit still faces the range rule
+    inward, so no bound leaks out of the domain by tolerating them.
+
+    Args:
+        text: One ``--size`` token as the user typed it.
+
+    Returns:
+        ``(width, height)``, unvalidated.
+
+    Raises:
+        argparse.ArgumentTypeError: ``text`` is neither ``N`` nor ``NxM``
+            (``"30x"``, ``"x20"``, ``"3x4x5"``, ``"big"``, ``"30X20"``).
+            argparse turns this into its own usage error naming ``--size`` and
+            exits ``ExitCode.USAGE`` before any request is built (AC-064).
+    """
+    parts = text.split(_EXTENT_SEPARATOR)
+    if len(parts) > 2:
+        raise argparse.ArgumentTypeError(
+            f"expected N or N{_EXTENT_SEPARATOR}M, got {text!r}"
+        )
+    try:
+        sides = [int(part) for part in parts]
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"expected N or N{_EXTENT_SEPARATOR}M with whole numbers, got {text!r}"
+        ) from None
+    width, height = sides if len(sides) == 2 else (sides[0], sides[0])
+    return width, height
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -166,13 +232,22 @@ def build_parser() -> argparse.ArgumentParser:
             "here."
         ),
     )
+    # One flag for both dimensions, not two (ADR-0022, guardrail G-3): the user
+    # is choosing an extent, and naming it twice would make the common square
+    # case two flags while leaving ``--size`` as a third way to say the same
+    # thing. ``dest`` is ``extent`` rather than ``size`` because the value is a
+    # pair — the *flag* keeps its name so no existing invocation or documented
+    # example breaks, but nothing in the code should read a pair out of
+    # something called a size (ADR-0022/R1).
     generate.add_argument(
         "--size",
-        type=int,
-        metavar="N",
+        type=_extent_token,
+        dest="extent",
+        metavar="N|WxH",
         help=(
-            "Square grid edge length. The supported range is a domain rule and "
-            "is checked after parsing, not here."
+            "Grid extent in cells: N for a square, or WxH for W wide by H "
+            "tall (e.g. 30x20). The supported range for each side is a domain "
+            "rule and is checked after parsing, not here."
         ),
     )
     generate.add_argument(
@@ -321,9 +396,15 @@ def _run_generate(args: argparse.Namespace) -> int:
     the wide clause safe is gone either way, and a clause is better scoped to
     what it can actually explain than left to catch whatever a later card adds.
     """
+    # ``--size`` omitted is ``(None, None)``, not a default extent: which grid
+    # a request with no ``--size`` should get is a domain question, and the
+    # domain answers it by refusing (``SizeOutOfRange`` -> exit code 3), exactly
+    # as it did when the flag carried one number.
+    width, height = args.extent if args.extent is not None else (None, None)
     request = orchestrator.GenerationRequest(
         mode=args.mode,
-        size=args.size,
+        width=width,
+        height=height,
         density=args.density,
         library_key=args.library_key,
         # A Path, not an opened file: readability is the domain's question

@@ -13,9 +13,9 @@ marker the raiser fills with a human-readable message.
 Placement note (ADR-0010, guardrail G-3): the *checks* that raise
 ``SizeOutOfRange``, ``InvalidDensity``, ``UnknownLibraryImage``,
 ``InvalidPuzzleName`` and ``UnsupportedDifficulty`` belong to the domain layer,
-not to argparse. The CLI parses syntax only; AC-003/AC-004 (size range),
-AC-011 (density range), AC-006 (library key), AC-045 (name validity) and
-AC-021 (difficulty tier) are tested as domain rules against pure functions,
+not to argparse. The CLI parses syntax only; AC-069/AC-070 (each grid side's
+range), AC-011 (density range), AC-006 (library key), AC-045 (name validity)
+and AC-021 (difficulty tier) are tested as domain rules against pure functions,
 without going through argv.
 """
 
@@ -29,7 +29,12 @@ class NonogramError(Exception):
 
 
 class SizeOutOfRange(NonogramError):
-    """Requested grid size falls outside the supported range (FR-001)."""
+    """A requested grid *side* falls outside the supported range (FR-019).
+
+    The name predates ADR-0022 and is kept: renaming it would change the CLI's
+    published exit-code table for no gain. What it reports is now one side, and
+    the message says which — width or height (CON-011, ADR-0022/R2).
+    """
 
 
 class InvalidDensity(NonogramError):

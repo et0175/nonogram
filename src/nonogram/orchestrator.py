@@ -54,7 +54,7 @@ A source that cannot be re-drawn (image mode, POL-002)
 POL-001's whole premise is that a rejected candidate can be replaced by a
 *different* one. That holds for the random source (a fresh draw) and for the
 library source (the same template at a different boundary tie-break); it does
-not hold for an uploaded image, whose conversion at a given size is fully
+not hold for an uploaded image, whose conversion at a given extent is fully
 determined. Asking ``sourcing.image`` for another grid returns the grid it just
 returned, so running image mode through the regenerate loop would spend a
 twentieth of the time budget re-confirming one verdict and then report an
@@ -174,7 +174,10 @@ MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
 MAX_NUDGE_ATTEMPTS = 5
 
 #: ADR-0001's hard time bound for one generation *request*, in seconds: 30s up
-#: to the 50x50 maximum size. Enforced as ADR-0011's cooperative deadline —
+#: to the largest grid CON-011 supports, 30x30 (ADR-0022 narrowed that ceiling
+#: from the 50x50 this constant was originally written against, and CARD-023
+#: moved the constant it was stated in without owning this file). Enforced as
+#: ADR-0011's cooperative deadline —
 #: :func:`generate` turns it into an absolute monotonic instant once per
 #: request and hands that same instant to every solver call the request makes,
 #: retries included. Deliberately not a per-solve budget: 20 retries times a
@@ -199,18 +202,29 @@ class GenerationRequest:
 
     This is the CLI/domain boundary type: the adapter fills it straight from
     the parsed argv and hands it inward. Its fields are therefore *syntactically*
-    typed and widely optional on purpose — ``size`` and ``density`` are plain
-    integers in whatever range the user typed, and ``mode`` is a plain string.
-    Nothing here has been checked against a domain rule yet; resolving defaults
-    and rejecting out-of-range values is the domain's job, inward of COMP-001
-    (ADR-0010, guardrail G-3).
+    typed and widely optional on purpose — ``width``, ``height`` and ``density``
+    are plain integers in whatever range the user typed, and ``mode`` is a plain
+    string. Nothing here has been checked against a domain rule yet; resolving
+    defaults and rejecting out-of-range values is the domain's job, inward of
+    COMP-001 (ADR-0010, guardrail G-3).
 
     Later cards extend this record alongside the parser it mirrors
     (``difficulty``, ``name``, ``image``, further export formats).
     """
 
     mode: str
-    size: int | None = None
+    #: ``--size`` (FR-018, ADR-0022/R1), as the two numbers the grid actually
+    #: has. Never one scalar: a grid is a rectangle, and the ``NxM`` token the
+    #: CLI parses is what fills these two fields. ``--size 30`` sets both to 30
+    #: — FR-023's "a bare N is the *longer* side, the other derived from the
+    #: source's shape" is CARD-033's and is not implemented here.
+    #:
+    #: Unvalidated like the rest: each side's 10..30 range is a domain rule
+    #: (CON-011), checked by ``random_grid.validate_extent`` in whichever source
+    #: mode runs — never by an argparse ``type=``/``choices=`` (ADR-0022/R2).
+    #: A request may carry ``width=40`` all the way inward and be refused there.
+    width: int | None = None
+    height: int | None = None
     density: int | None = None
     #: ``--library-key`` (FR-002, CARD-008): which built-in image ``library``
     #: mode draws. Unvalidated like the rest — key membership is a domain rule
@@ -480,7 +494,7 @@ class Puzzle:
     """
 
     #: The request this puzzle is being generated for. Held whole rather than
-    #: copied field by field: the aggregate's mode/size/density *are* the
+    #: copied field by field: the aggregate's mode/extent/density *are* the
     #: request's, and a later export (FR-012, ADR-0015) has to record the
     #: parameters the run was asked for anyway.
     request: GenerationRequest
@@ -558,9 +572,18 @@ class Puzzle:
         return self.request.mode
 
     @property
-    def size(self) -> int | None:
-        """Requested edge length, still unvalidated (AGG-001 attribute)."""
-        return self.request.size
+    def width(self) -> int | None:
+        """Requested grid width, still unvalidated (AGG-001 attribute)."""
+        return self.request.width
+
+    @property
+    def height(self) -> int | None:
+        """Requested grid height, still unvalidated (AGG-001 attribute).
+
+        Two accessors rather than one ``size``: ADR-0022/R1 puts extent across
+        every boundary as a pair, and an aggregate attribute is a boundary.
+        """
+        return self.request.height
 
     @property
     def density(self) -> int | None:
@@ -670,10 +693,13 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
 
     ``sourcing.for_mode`` hands back a callable without collapsing the modes
     behind one signature, because they do not share a parameter list — random
-    takes size and density, library takes a key and a size, image takes a path
-    and a size. Assembling that list is therefore the composing layer's job,
-    and this is the one place it happens (ADR-0007: the orchestrator composes,
-    the capability modules do not know about each other).
+    takes a density, library takes a key, image takes a path. What they *do*
+    share is the grid's ``(width, height)`` extent, which sits in the same
+    place in all three: straight after the mode's own leading argument
+    (ADR-0022/R1 — the pair travels together, and no mode is handed one number
+    to square). Assembling that list is the composing layer's job, and this is
+    the one place it happens (ADR-0007: the orchestrator composes, the
+    capability modules do not know about each other).
 
     The run's ``random.Random`` is *not* included: every source takes it last
     and :func:`generate` appends it at the call site, so a mode cannot
@@ -697,11 +723,11 @@ def _source_arguments(request: GenerationRequest) -> tuple[object, ...]:
     """
     mode = request.mode
     if mode == sourcing.RANDOM:
-        return (request.size, request.density)
+        return (request.width, request.height, request.density)
     if mode == sourcing.LIBRARY:
-        return (request.library_key, request.size)
+        return (request.library_key, request.width, request.height)
     if mode == sourcing.IMAGE:
-        return (request.image, request.size)
+        return (request.image, request.width, request.height)
     raise ValueError(f"no source argument list for mode {mode!r}")
 
 
@@ -1020,7 +1046,8 @@ def generate(
         """
         # The argument list is the mode's, not the dispatcher's (see
         # sourcing.for_mode and _source_arguments): the random mode's
-        # size/density and the library mode's key/size are assembled per mode,
+        # density and the library mode's key are assembled per mode around the
+        # shared (width, height) pair,
         # and CARD-015's image path joins them there. The RNG is appended here
         # for every mode alike — including library's, whose only draw is
         # POL-001's boundary tie-break, which is what makes a library retry a
@@ -1160,14 +1187,13 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
         column_clues=puzzle_clues.columns,
         seed=puzzle.seed,
         mode=puzzle.mode,
-        # ADR-0023's extent pair, still fed from one scalar: the request
-        # carries a single ``--size`` until CARD-027 gives it a width/height
-        # pair of its own (FR-018), and a square request is exactly what
-        # ``width == height`` records. Nothing downstream of here assumes the
-        # two are equal — the two formats write and read them independently —
-        # so that card's change is this construction site and nothing else.
-        width=puzzle.size,
-        height=puzzle.size,
+        # ADR-0023's extent pair, fed from the request's own pair (FR-018,
+        # ADR-0022/R1). Nothing here reshapes it: the aggregate carries what
+        # the user asked for, the two export formats write and read the two
+        # numbers independently, and a square puzzle is simply the case where
+        # they are equal.
+        width=puzzle.width,
+        height=puzzle.height,
         density=puzzle.density,
         # FR-016's header, as values rather than as domain objects: the tier's
         # display spelling is resolved here, through ``Tier.label``, because

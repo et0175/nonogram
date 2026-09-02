@@ -207,7 +207,8 @@ def _image_request(**overrides: object) -> GenerationRequest:
     fields: dict[str, object] = {
         "mode": "image",
         "image": WIDE,
-        "size": 10,
+        "width": 10,
+        "height": 10,
         "seed": 1,
     }
     fields.update(overrides)
@@ -327,9 +328,11 @@ def test_nudge_attempts_bounded_recovery_on_a_real_image() -> None:
     picture the user handed over is still their picture, which is the whole
     premise of nudging rather than re-drawing.
     """
-    converted = image.generate(BANDS, 10, random.Random(1))
+    converted = image.generate(BANDS, 10, 10, random.Random(1))
 
-    puzzle = generate(GenerationRequest(mode="image", image=BANDS, size=10, seed=1))
+    puzzle = generate(
+        GenerationRequest(mode="image", image=BANDS, width=10, height=10, seed=1)
+    )
 
     assert puzzle.nudge.attempts == 2
     assert puzzle.solution_count == 1
@@ -434,7 +437,9 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     ambiguous, which is the run AC-035 describes end to end.
     """
     with pytest.raises(GenerationAbandoned) as excinfo:
-        generate(GenerationRequest(mode="image", image=LANDSCAPE, size=22, seed=1))
+        generate(
+            GenerationRequest(mode="image", image=LANDSCAPE, width=22, height=22, seed=1)
+        )
 
     assert "pixel-nudge" in str(excinfo.value)
 
@@ -585,7 +590,7 @@ def test_a_unique_conversion_is_never_nudged() -> None:
     passes the uniqueness check first time leaves the counter at zero, so
     CARD-017 can report "0 nudges" as a fact rather than as a default."""
     puzzle = generate(
-        GenerationRequest(mode="image", image=LANDSCAPE, size=20, seed=1)
+        GenerationRequest(mode="image", image=LANDSCAPE, width=20, height=20, seed=1)
     )
 
     assert puzzle.nudge.attempts == 0
@@ -605,7 +610,7 @@ def test_a_tier_miss_is_not_nudged(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(
             GenerationRequest(
-                mode="image", image=LANDSCAPE, size=20, seed=1, difficulty="hard"
+                mode="image", image=LANDSCAPE, width=20, height=20, seed=1, difficulty="hard"
             )
         )
 
@@ -617,10 +622,11 @@ def test_a_tier_miss_is_not_nudged(monkeypatch: pytest.MonkeyPatch) -> None:
     "request_",
     [
         pytest.param(
-            GenerationRequest(mode="random", size=10, density=40, seed=7), id="random"
+            GenerationRequest(mode="random", width=10, height=10, density=40, seed=7),
+            id="random",
         ),
         pytest.param(
-            GenerationRequest(mode="library", library_key="cat", size=15, seed=7),
+            GenerationRequest(mode="library", library_key="cat", width=15, height=15, seed=7),
             id="library",
         ),
     ],

@@ -107,7 +107,8 @@ def _puzzle(
     """
     fields: dict[str, object] = {
         "mode": "random",
-        "size": 2,
+        "width": 2,
+        "height": 2,
         "density": 50,
         "seed": 7,
         "export_formats": formats,
@@ -895,7 +896,7 @@ def test_export_writes_png(tmp_path: Path) -> None:
     puzzle = generate(
         GenerationRequest(
             mode="random",
-            size=10,
+            width=10, height=10,
             density=50,
             seed=0,
             export_formats=(export.PNG,),
@@ -1012,7 +1013,7 @@ def test_export_writes_svg(tmp_path: Path) -> None:
     puzzle = generate(
         GenerationRequest(
             mode="random",
-            size=10,
+            width=10, height=10,
             density=50,
             seed=0,
             export_formats=(export.SVG,),

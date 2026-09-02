@@ -8,12 +8,14 @@ which is what the split between "return the callable" and "assemble its
 arguments" was for. The table is closed: the model names no fourth mode.
 
 :func:`for_mode` returns the *sourcing callable* rather than calling it,
-because the three modes do not share a parameter list — random takes size and
-density, library takes a key, image takes a path — and collapsing them behind
-one signature now would either invent parameters the later cards have to
-change or force a ``**kwargs`` surface with no contract at all. The one thing
-every mode does share, the injected ``random.Random`` (ADR-0015), stays an
-explicit argument of each callable.
+because the three modes do not share a parameter list — random takes a density,
+library takes a key, image takes a path — and collapsing them behind one
+signature now would either invent parameters the later cards have to change or
+force a ``**kwargs`` surface with no contract at all. Two things every mode
+*does* share sit in the same place in all three signatures: the grid's
+``(width, height)`` extent (ADR-0022/R1, never one scalar) directly after the
+mode's own leading argument, and the injected ``random.Random`` (ADR-0015)
+last.
 
 Layering (ADR-0007): this is a capability package, so it imports only its own
 submodules and ``nonogram.errors`` — never the adapter, the orchestrator or a
@@ -58,11 +60,12 @@ def for_mode(mode: str) -> GridSource:
 
     Returns:
         The callable that sources a grid for that mode. Call it with the
-        mode's own arguments — ``(size, density, rng)`` for :data:`RANDOM`,
-        ``(key, size, rng)`` for :data:`LIBRARY`, ``(path, size, rng)`` for
-        :data:`IMAGE`. The orchestrator assembles that list per mode at its own
-        call site, where an unregistered *argument list* is refused as loudly
-        as an unregistered mode is here.
+        mode's own arguments — ``(width, height, density, rng)`` for
+        :data:`RANDOM`, ``(key, width, height, rng)`` for :data:`LIBRARY`,
+        ``(path, width, height, rng)`` for :data:`IMAGE`. The orchestrator
+        assembles that list per mode at its own call site, where an
+        unregistered *argument list* is refused as loudly as an unregistered
+        mode is here.
 
     Raises:
         ValueError: ``mode`` is not registered. Deliberately *not* a

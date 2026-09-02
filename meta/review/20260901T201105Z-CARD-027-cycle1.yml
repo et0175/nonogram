@@ -1,0 +1,250 @@
+version: 1
+generated_at: "2026-09-01T20:11:05Z"
+target: "CARD-027 cycle 1 — branch card/027-grid-extent-width-height-pair @ aa04ab6 (git diff main...HEAD, 28 files, +1783/-677); worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-027"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/cli.py"
+    - "src/nonogram/errors.py"
+    - "src/nonogram/orchestrator.py"
+    - "src/nonogram/sourcing/__init__.py"
+    - "src/nonogram/sourcing/random_grid.py"
+    - "src/nonogram/sourcing/library.py"
+    - "src/nonogram/sourcing/image.py"
+    - "tests/property/test_grid_dimensions.py"
+    - "tests/test_cli.py (diff)"
+    - "tests/test_orchestrator.py (diff)"
+    - "tests/test_sourcing_random.py (diff)"
+    - "tests/test_sourcing_library.py (diff)"
+    - "tests/test_sourcing_image.py (diff)"
+    - "tests/test_web_server.py (diff)"
+    - "tests/test_naming.py (diff)"
+    - "README.md (diff)"
+    - "meta/kanban/cards/CARD-027.md"
+    - "meta/architecture/requirements.yml (FR-018/019/023, CON-011/012, EC-005, NFR-005, EC-008)"
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md"
+    - "meta/architecture/decisions/open.yml (DEC-026/027/028)"
+  not_reached:
+    - "tests/test_export_*.py (diff read only as stat + card's own account)"
+    - "tests/property/test_export_roundtrip.py"
+    - "tests/bench_generate.py, tests/test_timeout.py, tests/test_nudge.py, tests/test_resample.py, tests/test_difficulty_tiers.py (mechanical width=/height= substitutions, read as stat only)"
+    - "src/nonogram/export/layout.py, src/nonogram/solver/** (guardrailed, confirmed 0 diff lines, not read in full)"
+  confidence: high
+
+metrics:
+  diff: { files: 28, added: 1783, removed: 677 }
+  max_fan_in: { symbol: "orchestrator.GenerationRequest", callers: 119 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/cli.py"]
+  cochange_missing: []
+  unmeasured:
+    bus_factor: "not_applicable — single-author repository (git user et0175 on every commit); the signal carries no information here"
+
+system_contract:
+  rules_checked: 15
+  holds: 9
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml has 0 diff lines; `git diff main...HEAD -- src/` adds no import statement at all; check TestDependencyBaseline_IsExactlyPillowAndNumpy exists (tests/test_export_pdf.py) and is in the green suite"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** has 0 diff lines (guardrail G-7 verified mechanically); only tests/test_web_server.py's parity assertion changed"
+    - "ADR-0022/R1 ✓ holds — check kind is review-lens, so re-derived: independent ast scan of all src/nonogram/**/*.py finds no public int-annotated scalar-extent parameter, dataclass field or accessor; the only surviving `size` names are difficulty.SignalWeights.size (float) and export/pdf._header_font/_measure_header (private). GenerationRequest.width/height, Puzzle.width/height, and all three source signatures carry the pair. Caveat: the card's own mechanical guard has three undeclared evasions — see F-001/F-002"
+    - "ADR-0022/R2 ✓ holds — check ref TestValidateExtent_RejectsSideAboveThirty is live (tests/test_sourcing_random.py::test_validate_extent_rejects_side_above_thirty); validate_extent is the single public rule and library.generate/image.generate both delegate to it (verified by source read and by the corpus's byte-for-byte message comparison); `--size 40x20` parses to (40,20) and exits 3 from the domain, never argparse's 2 (re-derived by direct probe)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the aspect guard is fenced by G-6 and image.py's diff touches only generate()'s signature and its three call sites. Note (not a verdict): validate_aspect_ratio is fed probe_extent()'s as-decoded file dimensions, while R3's 2026-09-01 revision requires the INK BOUNDING BOX ratio; no bbox logic exists in sourcing/image.py — filed as an out-of-scope observation, not against this card"
+    - "ADR-0022/R4 ⚠ unchecked — check_ref_missing: PropertyTest_BareSize_DerivesShorterSideFromSourceShape does not exist anywhere in tests/. A bare `--size N` still means N x N (probed directly), which R4 forbids and FR-023/CARD-033 deliver; the card's `## Architecture revision (2026-09-01) — RESOLVED` section declares exactly this increment, so it is a known, documented gap and not a finding here"
+    - "CON-005 ✓ holds — src/nonogram/solver/** and src/nonogram/clues.py have 0 diff lines (guardrail G-1 verified mechanically); PropertyTest_Solver_NeverFalsePositiveUniqueness is live (tests/property/test_solver_uniqueness.py) and green in the 1461-pass run"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web adapter untouched (0 diff lines)"
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest is not found in tests/ (pre-existing, not this card's); web adapter untouched either way"
+    - "CON-011 ✓ holds — MIN_SIZE=10 / MAX_SIZE=30 unchanged at random_grid.py:68-69 and MIN/MAX_SUPPORTED_CELLS unchanged at difficulty.py:261-262 (guardrail G-8); the per-side bound is enforced for all three modes over a corpus of >=500 rejected pairs and the full 21x21 accepted product, and re-derived by direct probe of validate_extent"
+    - "CON-012 ⚠ unchecked — same as ADR-0022/R3: no_eligible_fact for this diff; the ink-bounding-box clause is unimplemented upstream"
+    - "INV-001 ✓ holds — clues.py untouched; TestComputeClues_MatchesGridExactly is live (tests/test_clues.py) and green"
+    - "INV-002 ✓ holds — src/nonogram/export/** has 0 diff lines (guardrail G-5); TestExport_RejectsUnverifiedPuzzle is live (tests/test_export_json.py) and the export gate in orchestrator.export_puzzle is unchanged apart from width=/height= being read off the request's own pair"
+    - "INV-003 ✓ holds — MAX_RETRY_ATTEMPTS=20 and MAX_NUDGE_ATTEMPTS=5 unchanged (orchestrator.py:159,174); all four named checks live and green"
+    - "INV-004 ✓ holds — the three named checks (TestGenerateRandom_AcceptsMaxSide30 / _RejectsSideAbove30 / _RejectsSideBelow10) exist in tests/test_sourcing_random.py and now assert the bound per side, including the height-only variants (30x31, 30x9)"
+
+root_causes:
+  - id: RC-1
+    title: "The ADR-0022/R1 ast guard decides int-ness by exact string match on the unparsed annotation, so anything not spelled one of four ways — including nothing at all — is silently treated as non-int"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/property/test_grid_dimensions.py
+    line: 349
+    title: "`_INT_ANNOTATIONS`'s docstring claims a type-based exclusion; it is a four-spelling allowlist"
+    description: |
+      The comment on `_INT_ANNOTATIONS` states: "The exclusion is a property of
+      the type, not an allowlisted name, so it cannot be stretched to cover a
+      real violation." That is false as implemented. `_annotation_is_int`
+      (line 356-357) does `ast.unparse(node) in _INT_ANNOTATIONS`, a literal
+      string comparison against exactly four spellings — `int`, `int | None`,
+      `None | int`, `Optional[int]`. Verified by feeding synthetic modules
+      through the shipped `_scalar_extent_offences`:
+
+        def generate(size: typing.Optional[int]) -> list: ...   -> SLIPPED
+        def generate(size: Annotated[int, 'cells']) -> list: ...  -> SLIPPED
+        def generate(size: builtins.int) -> list: ...             -> SLIPPED
+        def generate(size: 'int') -> list: ...                    -> SLIPPED
+
+      All four are genuinely int-typed scalar-extent public parameters, i.e.
+      exactly the "real violation" the comment says cannot slip past. Because
+      docstrings are load-bearing truth in this repo and CARD-028/030/031/033
+      are all instructed to copy this file's structure, an overclaim about the
+      guard's own reach is the shape that propagates worst.
+    suggestion: |
+      Either weaken the comment to what the code does ("the four annotation
+      spellings this codebase actually uses"), or make it true by resolving the
+      annotation structurally — e.g. strip `typing.`/`t.` qualifiers and
+      `Annotated[...]` wrappers, and treat any annotation whose unparsed form
+      contains the token `int` (and not `float`/`str`) as int-bearing.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/property/test_grid_dimensions.py
+    line: 356
+    title: "An unannotated scalar-extent parameter is a third, undeclared exclusion from the R1 guard"
+    description: |
+      `_annotation_is_int(None)` returns False, so a public function taking a
+      bare `size` with no annotation is not an offence. Verified:
+
+        def generate(key, size, rng): ...   -> SLIPPED (0 offences)
+        class Request:
+            size = None                      -> SLIPPED (no AnnAssign)
+
+      CARD-027.md's STRUCTURE entry declares exactly two exclusions — private
+      helpers, and non-`int` annotations — each justified on principle ("a grid
+      extent is a count of cells and can never be a float"). An *absent*
+      annotation is neither: it is an unknown type, not a known non-int one, and
+      the justification does not reach it. There is no compensating control:
+      CLAUDE.md states there is no ruff/mypy in `pyproject.toml` or the venv, so
+      nothing else in the pipeline would reject it. `def generate(key, size,
+      rng)` is a plausible thing for a later card to write, and it would
+      reintroduce square-only code with a green suite.
+    suggestion: |
+      Treat an unannotated public parameter whose name is in
+      `_SCALAR_EXTENT_NAMES` as an offence (or as a distinct "unverifiable"
+      offence class), and record the change in the STRUCTURE entry so the
+      declared exclusion list matches the code.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: bug
+    file: README.md
+    line: 0
+    title: "README claims `*` \"never reaches the program\"; in bash it does"
+    description: |
+      The new `--size` section says: "The separator is a lower-case `x` (`*` is
+      a shell glob and never reaches the program)." `src/nonogram/cli.py`'s
+      `_EXTENT_SEPARATOR` comment states the same fact correctly and narrowly —
+      "in zsh — the project owner's shell". The README drops the qualifier and
+      generalizes. Verified: `bash -c 'echo 30*20'` prints `30*20` — bash (and
+      sh, and zsh with `nullglob`/`nomatch` disabled) passes a non-matching glob
+      through literally, so `--size 30*20` does reach the program, where
+      `_extent_token` correctly rejects it as malformed. The user-visible
+      behaviour is fine; the README's stated reason is not.
+    suggestion: |
+      Say "`*` is a shell glob — in zsh it fails before the program starts, and
+      elsewhere it is rejected as a malformed token", or simply drop the
+      parenthetical and keep "the separator is a lower-case `x`".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-027.md
+    line: 0
+    title: "Failure-matrix row 8's ordering claim omits the `source is None` guard that precedes the range check"
+    description: |
+      Row 8 declares "Ordering is still range -> probe -> aspect -> decode
+      (EC-007)". `sourcing/image.py:614-619` actually runs
+      `if source is None: raise UnreadableImage(...)` *before*
+      `random_grid.validate_extent(width, height)`. Verified:
+
+        image.generate(None, 40, 20, rng)
+          -> UnreadableImage("image mode needs an --image PATH ...")
+        image.generate("/nonexistent.png", 40, 20, rng)
+          -> SizeOutOfRange("grid width must be between 10 and 30 ...")
+
+      So for a missing `--image` the mode's own leading argument wins over the
+      out-of-range side — which is the exact mirror of row 6 (unknown library
+      key wins over a bad extent), and row 6 *does* declare its precedence.
+      The behaviour is pre-existing, correct and symmetric across modes; the
+      declaration is what is incomplete. Row 8 is scoped "extent valid", so it
+      is not strictly refuted — but its ordering sentence is unqualified and
+      reads as a claim about all image-mode failures.
+    suggestion: |
+      Add the missing-`--image` precedence as its own row (mirroring row 6), or
+      qualify row 8's ordering sentence as "for a request that names a source:
+      range -> probe -> aspect -> decode".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/pages.py
+    line: 109
+    title: "The card's stale-docstring admission names solver/ and export/ but not the web form's \"square grid edge length\" label"
+    description: |
+      The Worktree-notes entry lists the stale text left behind as
+      `solver/search.py`, `solver/propagate.py`, `export/json_export.py`,
+      `export/svg.py` — and an independent grep of `src/nonogram/**` for
+      `50x50` / `square` / `edge length` confirms those four exactly, so the
+      admission is accurate as far as it goes. It misses one more: the web
+      form's user-visible label still reads "Size — square grid edge length".
+      It is genuinely fenced by G-7 (CARD-028 owns the web extent field) and
+      the field is not wired to a request yet, so this is a completeness note on
+      the card's own disclosure, not an unfenced defect.
+    suggestion: |
+      Add `src/nonogram/web/pages.py:109` to the stale-text list in the
+      Worktree notes so CARD-028 inherits it explicitly.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
