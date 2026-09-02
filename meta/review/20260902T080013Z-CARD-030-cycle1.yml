@@ -1,0 +1,578 @@
+version: 1
+generated_at: "2026-09-02T08:00:13Z"
+target: "CARD-030 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-030, branch card/030-trim-to-ink-bounding-box, git diff main...HEAD (impl commit 2033c0c, card commit 910512c)"
+overall_score: 7.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/sourcing/image.py"
+    - "tests/test_sourcing_image.py"
+    - "tests/property/test_image_fit.py"
+    - "tests/test_nudge.py"
+    - "tests/fixtures/bands.png"
+    - "tests/property/test_grid_dimensions.py"
+    - "meta/kanban/cards/CARD-030.md"
+    - "meta/architecture/requirements.yml (FR-021, FR-022, EC-007, CON-012)"
+    - "README.md"
+    - "src/nonogram/errors.py"
+  not_reached:
+    - "src/nonogram/solver/"
+    - "src/nonogram/export/"
+    - "src/nonogram/web/handler.py, server.py"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 889, removed: 271 }
+  max_fan_in:
+    symbol: "nonogram.sourcing.image.generate"
+    callers: 3   # sourcing/__init__.py mode table, orchestrator, tests
+  removed_symbol_fan_in:
+    symbol: "nonogram.sourcing.image.probe_extent"
+    callers_after_removal: 0   # verified: zero live references outside prose
+  new_symbol_fan_in:
+    symbol: "nonogram.sourcing.image.ink_bounding_box"
+    callers: 5   # generate + 4 test call sites
+  tests_cover_change: true
+  hotspots: ["src/nonogram/sourcing/image.py"]   # 9 commits/12mo, 3 fix-ish
+  cochange_missing: []   # peers present or forbidden: test_sourcing_image.py (9)
+                         # and test_nudge.py (4) and bands.png (2) are IN the diff;
+                         # orchestrator.py (3) is forbidden by G-4; cli.py/errors.py (3)
+                         # bear nothing on this change (verified by grep).
+  mutation_check:
+    mutants: 6
+    killed: 4
+    survived: 2
+    scope: "tests/test_sourcing_image.py tests/property/test_image_fit.py tests/test_nudge.py tests/test_nudge_reporting.py tests/property/test_grid_dimensions.py (174 tests); M1 additionally re-run against the FULL suite"
+    restore_verified: "md5 65c607be3721d1461fcf85fa36237e8c before and after every mutant; git diff --stat and git status --porcelain both empty at the end"
+    detail:
+      - "M1 generate: greyscale.crop(box) -> greyscale (trim computed and judged, never applied) -> SURVIVED, full suite green"
+      - "M2 generate: judge greyscale.size instead of the box extents -> KILLED by test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied"
+      - "M3 ink_bounding_box: drop the `or whole` blank-sheet fallback -> KILLED (6 tests)"
+      - "M4 ink_bounding_box: LUT off-by-one, threshold itself becomes ink -> KILLED by test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug"
+      - "M5 ink_bounding_box: threshold upper bound 256 -> 257 -> SURVIVED (Pillow raises the same ValueError for a 257-entry LUT)"
+      - "M6 generate: apply greyscale.crop(box) BEFORE validate_aspect_ratio -> KILLED by the ordering property"
+  unmeasured:
+    cochange_missing: "no_eligible_fact — every historical co-change peer of image.py is either in the diff, forbidden by guardrail G-4/G-5, or verified irrelevant by grep; the empty list is a real zero"
+
+system_contract:
+  rules_checked: 15
+  holds: 7
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml untouched (git diff --stat: 6 files, none of them pyproject.toml); ink_bounding_box uses Image.point + getbbox, both Pillow; no new import in src/nonogram/sourcing/image.py:160-167. TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full run."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is not touched by this diff and image upload is not implemented there (src/nonogram/web/__init__.py:41). The named checker test_every_import_in_the_package_points_inward ran green on this head."
+    - "ADR-0022/R1 ✓ holds — review-lens: the new public surface takes and returns pairs; ink_bounding_box returns a 4-tuple crop box, validate_aspect_ratio is still called with two extents (image.py:634). No scalar 'size' reintroduced (test_no_public_boundary_reduces_a_grid_to_one_scalar green)."
+    - "ADR-0022/R2 ✓ holds — image.py:631 still calls random_grid.validate_extent(width, height) first, before the file is opened. TestValidateExtent_RejectsSideAboveThirty green."
+    - "ADR-0022/R3 ✓ holds — checker green on this head: TestFitImage_RefusesRatioMismatchBeyondTwice passes, and the revision's two new clauses (judge the ink box; judge before any crop) are independently killed-mutant verified — M2 and M6 both fail the ordering property."
+    - "ADR-0022/R4 ⚠ unchecked — check_ref_missing: PropertyTest_BareSize_DerivesShorterSideFromSourceShape does not exist anywhere under tests/ (FR-023 is not built yet). Manual read of this diff found no bare-size behaviour touched."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: nothing in this diff reaches src/nonogram/solver/. PropertyTest_Solver_NeverFalsePositiveUniqueness green in the full run."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/server.py untouched."
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest does not exist under tests/. Pre-existing model gap; nothing in this diff bears on it."
+    - "CON-011 ✓ holds — PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green on this head, and it exercises image mode through bands.png (tests/property/test_grid_dimensions.py:181), i.e. through the changed pipeline."
+    - "CON-012 ✗ not violated, but its declared check under-covers it — see F-011. The rule itself holds: the guard judges the ink box (image.py:633-634), verified by killed mutant M2 over 208 pairs of which 119 have a file/box verdict disagreement. Recorded as ✓ holds with the caveat filed as an out-of-scope model finding."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue derivation is downstream and untouched. TestComputeClues_MatchesGridExactly green."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export/ untouched (G-5). TestExport_RejectsUnverifiedPuzzle green."
+    - "INV-003 ✓ holds — no counter, cap or loop added to image.py (grep: no attempts/retry state in the new code); the nudge pin in tests/test_nudge.py:337 still asserts attempts == 2 on the regenerated fixture. TestNudge_ReportsFailureAtCap green."
+    - "INV-004 ✓ holds — validate_extent still runs first and unchanged (image.py:631); TestGenerateRandom_AcceptsMaxSide30 / RejectsSideAbove30 / RejectsSideBelow10 green."
+
+root_causes:
+  - id: RC-1
+    title: "FR-022's shipped entry point is unpinned: every AC test rebuilds the pipeline in the test body instead of calling image.generate"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Prose was rewritten where the card looked and left stale where it did not — three claims in the changed files are not literally true"
+    finding_ids: [F-002, F-003, F-004, F-005]
+  - id: RC-3
+    title: "The trim's effect was measured only as blank-edge depth; its effect on whether a picture still converts was never measured or documented"
+    finding_ids: [F-006, F-007]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_sourcing_image.py
+    line: 982
+    title: "Verified surviving mutant: deleting the trim from generate() leaves the entire 1471-test suite green"
+    description: |
+      The card's headline deliverable is that `generate` trims an upload to its ink
+      box. Nothing pins it.
+
+      All five AC tests (AC-086..AC-091) go through `_untrimmed_grid`
+      (tests/test_sourcing_image.py:969) and `_trimmed_grid` (:982), which
+      reassemble the pipeline in the test body —
+      `load_greyscale` + `ink_bounding_box` + `greyscale.crop(box)` + `binarize` +
+      `to_grid` — rather than calling `image.generate`. They therefore verify that
+      *the trim transform* has the claimed effect on the corpus; they never verify
+      that the shipped conversion applies it.
+
+      Every other conversion fixture is, by deliberate design (see the card's scope
+      note on bands.png and the two-stripe edit to `test_transparent_areas_are_paper_
+      and_not_ink`), a trim no-op — its ink box is the whole sheet. So no test
+      anywhere observes `generate` cropping.
+
+      MUTATION CHECK (M1), src/nonogram/sourcing/image.py:635:
+        -   return to_grid(binarize(greyscale.crop(box), width, height))
+        +   return to_grid(binarize(greyscale, width, height))
+      i.e. compute the box, judge the request against it, then throw it away and
+      convert the untrimmed picture — FR-022 entirely undelivered.
+      Result: SURVIVED. Impact-scoped set (174 tests) green; FULL suite re-run with
+      __pycache__ cleared and `-B -p no:cacheprovider` also green, rc=0.
+      File restored and verified byte-identical (md5 65c607be...), tree clean.
+
+      This is the aspirational-green pattern: an FR marked delivered, five green
+      tests named for its criteria, and a shipped entry point that could stop doing
+      the thing without a single failure.
+    suggestion: |
+      Add one test that drives `image.generate` on a source with real margin and
+      asserts the trim is observable end to end. The cheapest sufficient form, in
+      tests/test_sourcing_image.py next to the AC block:
+
+        def test_generate_applies_the_trim_it_judges() -> None:
+            source = PICTURES / "img_2.png"
+            assert image.generate(source, *TRIM_EXTENT, _rng()) == _trimmed_grid(
+                source, image.INK_THRESHOLD
+            )
+            assert image.generate(source, *TRIM_EXTENT, _rng()) != _untrimmed_grid(source)
+            assert _deepest_blank_edge(
+                image.generate(source, *TRIM_EXTENT, _rng())
+            ) <= 1
+
+      The second and third assertions are what kill M1; the first ties the AC
+      helpers to the shipped pipeline so they cannot drift apart again.
+    confidence: high
+    source: static
+    violates: AC-086
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/sourcing/image.py
+    line: 100
+    title: "The module docstring's central justification figure does not reproduce: 15 of 25 measures 22 of 25"
+    description: |
+      image.py:99-105 states, as the evidence for the whole ADR-0022 revision:
+      "on 15 of the 25 corpus pictures the as-decoded reading overstates what
+      survives the crop, worst at img_2.png and img_3.png, which report 100%
+      retained while 55% of the actual content survives."
+
+      Re-measured on this tree at 20x20, comparing
+      min(r,r_tgt)/max(r,r_tgt) for the file extent against the same for the ink
+      box extent, over all 25 pictures:
+        file reading strictly overstates: 22
+        equal: 1  (eagle-silhouette1.jpg — ink box == file)
+        file reading understates: 2  (cat_Mouse.png, cat_dog.png)
+      The img_2/img_3 half is exact (1.000 vs 0.546). The count is not.
+
+      15 is recoverable only under an undocumented materiality threshold: exactly
+      15 pictures overstate by MORE THAN 5 percentage points. The docstring states
+      "overstates" unqualified, which is 22.
+
+      The same sentence is copied verbatim into meta/kanban/cards/CARD-030.md:52-56.
+      The implementation agent re-measured and reported every AC figure and caught
+      AC-087's "300 of 400" discrepancy, but propagated this one into shipped source
+      without re-deriving it.
+    suggestion: |
+      Either state the real number ("on 22 of the 25 corpus pictures ... and on 15
+      of them by more than 5 points") or state the threshold the 15 was measured
+      under. Amend both image.py:100 and CARD-030.md:52.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/sourcing/image.py
+    line: 448
+    title: "validate_aspect_ratio's own docstring still asserts the pre-decode refusal this card retired"
+    description: |
+      image.py:446-450 (unchanged by the diff):
+        "FR-021/CON-012/ADR-0022/R3, as a pure predicate over the same four integers
+         :func:`fit_crop_box` takes — which is what lets it run before the picture's
+         pixels are decoded, let alone dithered or solved (EC-007)."
+
+      After this card the guard cannot run before the pixels are decoded: its
+      subject is the ink bounding box, which only exists after `load_greyscale`.
+      The module docstring (image.py:106-112) and `generate`'s docstring
+      (image.py:617-624) both correct this explicitly and at length; the function
+      that actually holds the guard was not updated, so the single most likely place
+      a future reader looks for the guard's contract still states the retired one.
+
+      The card even pins the opposite behaviour as a cost
+      (`test_a_refused_request_now_pays_for_a_decode_and_nothing_more`,
+      tests/test_sourcing_image.py:1185), so the claim is contradicted by a test in
+      the same commit.
+    suggestion: |
+      Rewrite the clause to what is still true — the predicate is pure over four
+      integers, which is what lets it run before any *cropping*, and (since
+      CARD-030) its source extent is the ink box, not the file. Keep the EC-007
+      citation attached to the cropping claim, not to the decoding one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/sourcing/image.py
+    line: 622
+    title: "\"only one extent in the pipeline, the decoded one\" — the extent actually judged is the ink box, not the decoded one"
+    description: |
+      image.py:622-624 and tests/test_sourcing_image.py:1243-1245 both justify the
+      retirement with "there is now exactly one extent in the pipeline, the decoded
+      one, so the guard cannot be handed a shape the crop will not use."
+
+      Two extents are in play: the decoded extent (greyscale.size) and the ink box
+      extent, and it is the *box* that is handed to `validate_aspect_ratio`
+      (image.py:634). The conclusion is nevertheless true and I verified it — the box
+      is both what is judged and what `binarize`'s crop then operates on, so guard
+      and crop cannot disagree — but the stated reason is not the operative one,
+      which matters because it is the sentence a future card will reason from when
+      deciding whether a second extent may be reintroduced.
+    suggestion: |
+      "the guard and the crop are handed the same extent — the ink box — so they
+      cannot disagree" says the true thing in the same space.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_grid_dimensions.py
+    line: 155
+    title: "A predicate in an untouched file now depends on the bands.png edit, and its stated ground no longer supports it"
+    description: |
+      `_fits_the_aspect_band` (tests/property/test_grid_dimensions.py:152-163) filters
+      the image-mode half of PropertyTest_GridDimensions_EverySourceModeRejectsSide
+      Outside10To30, and justifies itself with: "``bands.png`` is square, so FR-021's
+      '>2x refusal' ... accepts exactly the grids whose own ratio is within 2x of 1."
+
+      Since this card the guard judges the ink box, not the file, so "bands.png is
+      square" no longer implies what the sentence uses it for. The predicate survives
+      only because CARD-030 added the 2px ground rule to the fixture, making the ink
+      box 32x32 as well — a dependency that is invisible from this file and is
+      documented only in tests/test_sourcing_image.py's module docstring.
+
+      Verified: with the pre-CARD-030 fixture the ink box is (0,0,32,11) and
+      `generate(BANDS, 10, 10, ...)` raises ImageNeedsManualCrop ("keep only 34%"),
+      which would have taken this property test down with it.
+    suggestion: |
+      One clause: "bands.png's *ink box* is square (asserted by
+      test_the_fixture_images_are_present_and_shaped_as_documented), so ...". That
+      also makes the fixture's ground rule load-bearing in a checkable way from here.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: README.md
+    line: 123
+    title: "The README's measured conversion table is wrong in two cells this card caused, and its pipeline sentence omits the trim"
+    description: |
+      README.md:123-131 publishes a measured ✓/✗ table of which pictures convert at
+      which --size. This card changes it. Re-measured on both trees at seed 1
+      (main via `git archive main src`, card via the worktree):
+
+        dear1.jpg at --size 12 : converts on main  ->  GenerationAbandoned here (README says ✓)
+        dear1.jpg at --size 20 : GenerationAbandoned on main -> converts here (README says ✗)
+
+      Both cells are now wrong and both were made wrong by this commit.
+      (The eagle-silhouette1.jpg row is wrong on main too — pre-existing, not this
+      card's, noted out of scope.)
+
+      Separately, README.md:91 still describes the pipeline as "resized to the grid,
+      dithered (Floyd–Steinberg), and binarised" with no mention of the trim, which
+      is now the first thing that happens to the user's picture and is the visible
+      difference in their output.
+    suggestion: |
+      Re-run the table on this tree and update the two dear1.jpg cells; add the trim
+      to the one-line pipeline description in README.md:91 ("cropped to its ink
+      bounding box, fitted to the grid's shape, resized, dithered"). While there, the
+      table's `35` column is above MAX_SIZE 30 — pre-existing, worth folding in.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-030.md
+    line: 156
+    title: "Undisclosed blast radius: 32 of 150 (picture, size) conversion outcomes flip, 9 of them from success to abandonment"
+    description: |
+      The card's Implementation record measures the trim exclusively as blank-edge
+      depth (19/17/2/23/6/6/2 etc., all reproduced exactly). It never measures the
+      thing a user actually experiences: whether their picture still converts.
+
+      Swept all 25 pictures x {10,12,15,20,25,30} at seed 1 through
+      `orchestrator.generate`, main vs this branch:
+        150 cases, 32 changed (21%)
+        23 changed abandoned -> converts
+         9 changed converts -> abandoned:
+           butterfly1.png@10, dear.png@12, dear.png@15, dear1.jpg@12,
+           duck2.png@15, duck2.png@20, img_6.png@30, konek.png@20, wolf_2.png@30
+        net converting cases 94 -> 108
+
+      The net is clearly positive and none of this is a correctness defect —
+      GenerationAbandoned is a documented, exit-code-4 outcome. But nine pictures
+      that used to convert at a given size no longer do, and the card records
+      neither the number nor the direction, so a user regression report on
+      `dear.png --size 12` would arrive with no trace of having been anticipated.
+    suggestion: |
+      Add the sweep (or at least the 9 regressions and the net figure) to the card's
+      Implementation record under a "[Reachability]" note, the way the blank-edge
+      figures are recorded. No code change implied.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-030.md
+    line: 116
+    title: "Architectural card with no `## Failure matrix`, while retiring three rows of its predecessor's"
+    description: |
+      CARD-030 carries `Complexity: architectural` (line 10) and has no
+      `## Failure matrix` section — headings are What to implement, Acceptance
+      criteria, Engineering constraints, Guardrails, System contract, Architecture
+      context, Worktree notes. Both predecessors on this exact file declare one:
+      CARD-026.md:289 and CARD-027.md:209.
+
+      The omission is material rather than procedural here. The card *retires* the
+      failure semantics CARD-026's matrix rows 12/13/14 declared (header-vs-decode
+      disagreement, corrupt EXIF block, orientation-tagged TIFF) and the shipped
+      code and tests still cite those row numbers as if they were live
+      (image.py's deleted text referenced row 14; the card's Retirement note refers
+      to the seam without saying what replaces it). New failure-bearing boundaries
+      introduced by this card and undeclared anywhere:
+        - a source whose ink box is degenerate or near-degenerate (see F-010)
+        - a source with no ink at all (handled, tested, but undeclared)
+        - a decode that succeeds while the ink box computation raises
+        - the newly universal cost: every request, refused or not, decodes
+      Three of the four are handled correctly; the point is that nothing declares
+      what the intended behaviour is, so the next card cannot check it.
+    suggestion: |
+      Add a `## Failure matrix` before `## Worktree notes` with a row per boundary
+      above and an explicit "retires CARD-026 rows 12/13/14, replaced by: one
+      decoded extent, no header parse" line. A short matrix is a legal declaration.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_sourcing_image.py
+    line: 1168
+    title: "Surviving mutant: the ink-threshold upper bound is not actually pinned — Pillow raises the same ValueError"
+    description: |
+      MUTATION CHECK (M5), src/nonogram/sourcing/image.py:314:
+        -   if not 0 <= threshold <= 256:
+        +   if not 0 <= threshold <= 257:
+      Result: SURVIVED (174-test impact set green).
+
+      `test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug` asserts
+      `pytest.raises(ValueError)` for (-1, 257, 1000). With the bound loosened, 257
+      falls through to `greyscale.point([255]*257 + [0]*(-1))`, which Pillow rejects
+      with its own ValueError — so the test passes while the module's own guard is
+      broken. The test therefore pins the exception *type* only, not that the module
+      is the one enforcing the range, which is exactly what its docstring claims
+      ("a threshold is not user input, so an impossible one is a wiring error").
+      The lower bound (-1) is genuinely pinned; only the upper half is hollow.
+    suggestion: |
+      Match on the module's own message, e.g.
+      `pytest.raises(ValueError, match="greyscale value in 0..256")`, which fails on
+      Pillow's "wrong number of lut entries".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/sourcing/image.py
+    line: 320
+    title: "No floor on the ink box: a few stray dark pixels now drive both the guard and the resize, and nothing tests a near-degenerate box"
+    description: |
+      `ink_bounding_box` handles the two ends the tests cover — a full-extent box and
+      the no-ink fallback — but has no minimum. A picture whose only sub-128 pixels
+      form a thin streak (a scan line, a signature rule, a dark 1px border on one
+      edge only) now yields e.g. a 400x1 box, which `validate_aspect_ratio` refuses
+      for every grid in 10..30, or a 3x3 box, which the resize then upsamples to the
+      whole grid. Before this card such a file converted.
+
+      The bands.png fixture is a live instance of the class, at a mild ratio: its
+      untrimmed ink box is 32x11 and `generate(BANDS, 10, 10)` raises
+      ImageNeedsManualCrop, "keep only 34%" (measured). That is correct per FR-021
+      as revised, and the class IS covered in aggregate by the ordering property's
+      56 file-accepts/box-refuses pairs — but no test exercises a box small enough to
+      make the *resize* degenerate, and no criterion states whether that outcome is
+      intended.
+    suggestion: |
+      Either declare it a non-issue on the card (a row in the failure matrix from
+      F-008 is the natural home), or add one test at the small end — a 400x400 sheet
+      whose only ink is a 2x2 speck — pinning whichever of "refuse" / "convert the
+      speck" is intended.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 805
+    title: "Out of scope (model) — EC-007's comment still describes the deleted two-check probe, and CON-012's declared check cannot see an ink box"
+    description: |
+      Not this diff (meta/architecture/ is untouched and is not on the card's
+      Touches), but caused by it and worth recording:
+
+      1. requirements.yml:805-818, EC-007's inline WORDING NARROWED comment, still
+         describes the architecture this card deleted: "The guard runs twice — a
+         cheap header probe refuses the common case with no decode at all, but where
+         a source's header extent disagrees with its decoded extent ... the second
+         check necessarily runs AFTER load_greyscale". There is now one check and no
+         probe. EC-007's statement also still says "source image dimensions" while
+         the card's own Engineering-constraints section says "`r_src` is now the INK
+         BOX ratio".
+      2. Both CON-012 (requirements.yml:1607-1609) and EC-007 (:828) name
+         `PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore`
+         as their only check. That property is a pure sweep over four integers and
+         never computes an ink box, so the revised CON-012's distinguishing clause
+         ("INK BOUNDING BOX ratio ... not its as-decoded file ratio") has no declared
+         mechanical check. The clause IS covered — by
+         `PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied`, which killed
+         mutants M2 and M6 — but that test is named only on the card, not in the
+         model, so the system-contract assembler cannot see it.
+    suggestion: |
+      Amend EC-007's comment and statement, and add the new property to CON-012's and
+      EC-007's `check`/`test` refs.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/architecture/requirements.yml
+    line: 858
+    title: "Out of scope (model) — AC-087's \"300 of 400 cells\" is confirmed non-reproducing; amend the criterion"
+    description: |
+      Independently confirmed. img_2.png untrimmed at 20x20: edges top 6, bottom 5,
+      left 2, right 2; blank frame = 400 - 9*16 = 256; total empty cells = 297.
+      Neither is 300. The agent's handling is correct and is the right precedent —
+      the figure is parenthetical scene-setting in the `given`, the test asserts the
+      `then` (6 before, <=1 after, both exact) and records both measured numbers in
+      its docstring (tests/test_sourcing_image.py:296-305) rather than adopting one
+      silently. No code or test change wanted; the criterion should be amended to
+      "256 of 400 cells on border (297 empty in all)".
+    suggestion: "Amend AC-087's `given` in requirements.yml:856-861 and CARD-030.md:69."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-013
+    severity: info
+    category: tech-debt
+    type: risk
+    file: tests/test_sourcing_image.py
+    line: 313
+    title: "Out of scope — the bands.png ground rule moved the paper-polarity claim off the grid's last row"
+    description: |
+      `test_convert_image_produces_a_dithered_grid` changed from
+      `not any(grid[-1]) and not any(grid[-2])` to `not any(grid[-3]) and not
+      any(grid[-4])`. Correct and honestly explained (the rule now occupies the last
+      ~1.6 grid rows at 25x25), but the consequence is that no test now asserts the
+      polarity of the grid's actual bottom edge on this fixture. The added
+      `assert all(grid[-1])` in `test_transparent_areas_are_paper_and_not_ink`
+      (:299) partly compensates, on a different fixture.
+    suggestion: "Consider adding `assert all(grid[-1])` here too — the bottom rule is ink, so the claim is available and free."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
