@@ -350,3 +350,23 @@
       Related: the two mechanical docstring-truth checks already in this backlog. These
       are the same problem seen from the model side rather than the test side, and are
       probably one card.                                                     @tech-debt
+- [ ] **The drift gate reports forge's own commits as external drift, and has now been
+      dismissed on three consecutive cards** (2026-09-02). `meta/drift-pending.yml`
+      accumulates events whose `head:` is this project's own merge/bookkeeping commits —
+      CARD-027's start dismissed 5e9f2de/547d317 (the CARD-023 and CARD-026 merges),
+      CARD-030's dismissed the same two, and CARD-031's dismissed 6a73512, a0798a2 and
+      **197e7fa, which is the backlog commit written by CARD-027's own close a few hours
+      earlier**. The gate is meant to catch code changed *outside* forge that nobody
+      reconciled; instead it fires on every card, so the honest response each time is a
+      paragraph on the card explaining why it does not apply.
+      **Why it matters:** this is the cry-wolf failure already reasoned about in the
+      docstring-checks item above — a check that fires on every card gets skimmed, and it
+      will be skimmed on the card where the drift is real. Three dismissals in one day is
+      the point at which the gate is costing more than it returns.
+      **Options:** (a) have whatever writes `drift-pending.yml` skip commits already
+      reachable from the tracked branch, or authored by the forge flow itself — the
+      events all name heads that are ancestors of `main`, so this is mechanically
+      decidable, not a heuristic; (b) process/clear the backlog of stale events so the
+      file starts empty and any future entry is real; (c) drop `drift.gate` to `off` for
+      this project and say so, which is at least honest about what is happening now.
+      (a) is the fix; (b) is needed either way.                              @tech-debt
