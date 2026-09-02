@@ -990,10 +990,18 @@ def test_a_bare_size_out_of_range_is_refused_before_the_source_is_consulted() ->
     Two claims in one. An out-of-range bare ``N`` is a ``SizeOutOfRange`` with
     ``random_grid.validate_extent``'s own message, byte for byte — the same
     guarantee this file makes for a fully-stated extent, so a bare token cannot
-    reach the domain and get a second, differently-worded refusal. And it is
-    refused *before* the source's shape is read, which for image mode is what
-    keeps "an out-of-range request pays for nothing" true across a change that
-    otherwise makes every bare-size image run decode its file.
+    reach the domain and get a second, differently-worded refusal.
+
+    And the refusal costs the *source* nothing: resolution ends in
+    ``derive_extent``, so ``sourcing.for_mode``'s grid source is never reached
+    and no picture is converted. What it does cost is exactly one **shape**
+    read, which is what the counter below pins. That is not an oversight to be
+    optimized away later: ``_resolved_extent`` cannot tell a bare ``N`` from an
+    explicit pair without splitting on which sides are stated, and once it is
+    on the bare branch the shape is the argument ``derive_extent`` validates
+    ``N`` inside. A fully-stated extent returns from the branch above the
+    lookup and reads no shape at all — AC-096's own test pins that, by making
+    the shape reporter raise.
     """
     for stated in (-5, 0, 9, 31, 9999):
         with pytest.raises(SizeOutOfRange) as shared:
@@ -1018,8 +1026,65 @@ def test_a_bare_size_out_of_range_is_refused_before_the_source_is_consulted() ->
                 orchestrator.GenerationRequest(mode="image", image=BANDS, width=31)
             )
         assert consulted == 1, (
-            "the shape is read before the stated side is validated — an "
-            "out-of-range request must not pay for a decode"
+            "a bare N is completed from the source's shape, so resolving one "
+            "reads that shape exactly once — never twice, and never not at all"
         )
     finally:
         sourcing._SHAPES[sourcing.IMAGE] = original
+
+
+def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
+    """The disclosed cost of FR-023 in image mode, measured rather than asserted.
+
+    A bare ``--size N`` reads the picture twice — once in
+    ``image.source_shape`` for the ink box the derivation needs, once in
+    ``image.generate`` for the pixels — because handing a decoded Pillow image
+    back out would put it on a boundary that carries ``list[list[bool]]`` and
+    nothing else (ADR-0012). An explicit ``--size WxH`` never asks for a shape
+    and still decodes once, which is the cost CARD-030 established.
+
+    Two rather than three is the claim worth pinning, and it is the one nothing
+    else asserts: a later card that resolved the extent inside a retry loop, or
+    read the shape a second time to re-check it, would change this number and
+    break no other test. Which is why the bare run below is the one that
+    *retries*: ``bands.png`` at 10x10 converts to an ambiguous grid that two
+    pixel-nudges repair (``tests/test_nudge.py``'s own pin), so the two decodes
+    here are measured across a run with three candidates in it — the
+    once-outside-both-loops placement of ``orchestrator._resolved_extent``,
+    stated as a count instead of as a comment.
+
+    The two requests differ in one token and nothing else: ``bands.png`` is
+    32x32, so a bare ``--size 10`` derives exactly the ``10x10`` the explicit
+    form states, and both runs convert the same picture into the same grid by
+    the same route. The difference in the count is therefore the shape lookup
+    and cannot be anything else.
+    """
+    decodes = 0
+    original = image.load_greyscale
+
+    def counting_load(source: object) -> object:
+        nonlocal decodes
+        decodes += 1
+        return original(source)  # type: ignore[arg-type]
+
+    def run(**extent: int) -> tuple[int, int]:
+        nonlocal decodes
+        decodes = 0
+        image.load_greyscale = counting_load  # type: ignore[assignment]
+        try:
+            puzzle = orchestrator.generate(
+                orchestrator.GenerationRequest(
+                    mode="image", image=BANDS, seed=1, **extent
+                )
+            )
+        finally:
+            image.load_greyscale = original
+        assert puzzle.extent == (MIN_SUPPORTED, MIN_SUPPORTED), extent
+        assert puzzle.nudge.attempts == 2, extent
+        return decodes, puzzle.nudge.attempts
+
+    bare, _ = run(width=MIN_SUPPORTED)
+    explicit, _ = run(width=MIN_SUPPORTED, height=MIN_SUPPORTED)
+
+    assert bare == 2, "a bare --size N decodes for the ink box and for the pixels"
+    assert explicit == 1, "an explicit --size WxH asks for no shape and pays for none"

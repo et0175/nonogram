@@ -1338,11 +1338,12 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
         column_clues=puzzle_clues.columns,
         seed=puzzle.seed,
         mode=puzzle.mode,
-        # ADR-0023's extent pair, fed from the request's own pair (FR-018,
-        # ADR-0022/R1). Nothing here reshapes it: the aggregate carries what
-        # the user asked for, the two export formats write and read the two
-        # numbers independently, and a square puzzle is simply the case where
-        # they are equal.
+        # ADR-0023's extent pair, read off :attr:`Puzzle.extent` through the
+        # aggregate's two accessors — the pair the run actually produced, which
+        # since FR-023 is not the request's own pair whenever a bare
+        # ``--size N`` left one side unstated. Nothing here reshapes it: the
+        # two export formats write and read the two numbers independently, and
+        # a square puzzle is simply the case where they are equal.
         width=puzzle.width,
         height=puzzle.height,
         density=puzzle.density,

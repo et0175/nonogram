@@ -99,8 +99,31 @@ belongs in the message, not hidden.
   is requested, never how the guard judges one.
 - G-5: Do not edit `src/nonogram/export/**` — page orientation and the cell-size
   rule are CARD-034's this wave.
-- G-6: Do not edit `src/nonogram/cli.py` — `--size` PARSING is CARD-027's and is
-  already done; this card works inward of the CLI, per ADR-0010.
+- ~~G-6: Do not edit `src/nonogram/cli.py` — `--size` PARSING is CARD-027's and is
+  already done; this card works inward of the CLI, per ADR-0010.~~
+  **SUPERSEDED 2026-09-02 (cycle-1 review, finding F-003) — not breached by
+  oversight.** `cli._extent_token("30")` returns `(30, None)` instead of
+  `(30, 30)`; the `--help` text and three docstrings follow it. Three reasons,
+  each checked rather than asserted:
+  - **Necessary.** With `(30, 30)` a bare N is indistinguishable from an explicit
+    `--size 30x30`, so the only discriminator left inward of the adapter is
+    `width == height` — which would silently reshape `--size 25x25` on a portrait
+    picture into 18x25. FR-023 forbids exactly that ("an explicit `--size NxM`
+    ... is unaffected by this derivation"), and AC-096 is its criterion.
+  - **Sound on G-6's own authority.** ADR-0010 puts *domain defaults* inward of
+    the CLI, and squaring an unstated dimension WAS a domain default — a shape
+    claim about the user's picture. Removing it moves the line in the direction
+    G-6 invokes. Parsing itself is untouched: the grammar, the `x` separator, the
+    `int()` conversion and the range-free posture all stand.
+  - **Anticipated by the model.** `meta/architecture/trace.yml:776` lists FR-023's
+    components as `[COMP-001, COMP-008, COMP-002, COMP-003]`, and COMP-001 is the
+    CLI adapter — so G-6 contradicted the trace row of the requirement it was cut
+    for. The guardrail template, not this card, is what was wrong.
+
+  Filed as an intake line in `meta/architecture/inputs/raw-requirements.md`
+  (last entry, 2026-09-02) so the decompose station stops emitting a G-6 of this
+  shape for the next FR whose trace lists COMP-001. The full argument and the
+  measured footprint are in `## Worktree notes` below.
 
 ## System contract
 
@@ -313,3 +336,104 @@ in `test_sourcing_image.py`, +1 `ERROR_EXIT_CODES` row).
 
 Not done, and left to the closing pass: `trace.yml`'s FR-023 entry still reads
 `status: partial` with the note "no kanban card cut for it".
+
+### Cycle-1 review fixes (2026-09-02, forge:fix)
+
+Score 7.5, gate failed on two Important findings. The reviewer's verdict was that
+the **implementation is correct** — it re-derived the arithmetic and found the
+requirement, not the code, was wrong — so no code logic changed. One test was
+added, one comment and three docstrings corrected, and the bookkeeping the code
+had outgrown was filed.
+
+**F-001 (Important, INV-004) — the resolved extent reaching the aggregate is now
+pinned.** `Puzzle.width`/`Puzzle.height` read `extent` and fall back to the
+request; mutant m6 (`Puzzle.width` returning `self.request.width`
+unconditionally) survived the whole suite, because `puzzle.extent` was asserted
+exactly once and only in random mode, where the requested and resolved pairs
+coincide. Nothing read the *properties*, or an exported document, for a
+half-stated request on a non-square source — the only shape where they disagree.
+New: `test_a_derived_extent_is_what_the_aggregate_and_the_document_record` in
+`tests/test_export_json.py` (the co-change peer the reviewer named), parametrized
+over `tests/fixtures/portrait.png` (40x60 -> 20x30) and `landscape.png`
+(60x40 -> 30x20), so both accessors are exercised. It asserts the request really
+is `(30, None)`, then `(puzzle.width, puzzle.height)`, then the exported
+document's `request` block, then that the document's own `grid` has exactly those
+row and column counts — agreement between the file's two statements of one fact,
+which is what FR-012 promises. Real pipeline, ~10ms per case.
+
+Mutation proof (each applied, run, reverted; `orchestrator.py` md5 identical
+before and after, `git diff --stat` unchanged):
+
+| mutation | before | after |
+| --- | --- | --- |
+| m6 `Puzzle.width` -> `self.request.width` | full suite green | **fails**, `(30, 30) == (20, 30)` |
+| m6h `Puzzle.height` -> `self.request.height` | full suite green | **fails**, `None != 20` |
+
+**F-003 (Important) — G-6 marked SUPERSEDED on the card** (`## Guardrails`), with
+the necessary/sound/anticipated argument and the `trace.yml:776` + ADR-0010
+citations, and the matching intake line filed in
+`inputs/raw-requirements.md` alongside AC-063's and EC-009's. The breach was
+already disclosed in these notes; what was missing is that a guardrail verdict is
+read off `## Guardrails`, and an unamended "do not edit cli.py" beside a diff that
+edits it cannot be told from an oversight.
+
+**F-004 (minor) — FR-023's own statement amended by intake line.** The EC-009
+amendment covered EC-009 only; `requirements.yml:922-925` carries the identical
+defect ("cannot be reached by that N *without clamping*" / "would accommodate the
+source's ratio *unclamped*" — both the N/9.5 reading, both contradicting AC-097
+and AC-098). FR-023 is what `trace.yml` points at, so the EC-009 intake line was
+extended rather than a second one filed. `requirements.yml` not hand-edited.
+
+**F-005 (minor) — the AC-063 test renamed to match its body.**
+`test_cli_square_size_shorthand_sets_both_sides` asserts `(30, None)`, i.e. that
+the token sets exactly ONE side. Now
+`test_cli_bare_size_token_reaches_the_domain_unsquared` /
+`TestCLI_BareSizeTokenReachesTheDomainUnsquared`; the docstring records the old
+id and points at the intake line, which was corrected — it had elected to keep
+the old name, and that election was the defect. `requirements.yml` and
+`trace.yml` still name the old id until the intake line is processed, deliberately
+and disclosed.
+
+**F-002 (minor) — the export-payload comment corrected.** It claimed the pair is
+"fed from the request's own pair" and that "the aggregate carries what the user
+asked for"; both are false for a bare `--size N`. It now says the pair is read off
+`Puzzle.extent` through the accessors. Not a longer comment — one line more, and
+one false claim fewer. `src/nonogram/export/**` untouched (G-5).
+
+**F-006 (minor) — the double decode measured.** New
+`test_a_bare_size_image_run_decodes_the_picture_exactly_twice` in
+`tests/property/test_grid_dimensions.py` counts `image.load_greyscale` calls:
+**2** for a bare `--size 10`, **1** for an explicit `--size 10x10`. The fixture is
+`bands.png` (32x32), so the two requests differ in one token and produce the same
+10x10 grid by the same route — the difference in the count can only be the shape
+lookup. The bare run is deliberately the one that *retries*: bands at 10x10
+converts to an ambiguous grid that two pixel-nudges repair, so 2 decodes across
+three candidates is `_resolved_extent`'s once-outside-both-loops placement stated
+as a count instead of as a comment. Proved to bite: with a second
+`load_greyscale` added to `image.source_shape` it fails at `3 == 2`
+(both files restored, md5 identical).
+
+**F-007 (minor) — the falsified docstring narrowed.**
+`test_a_non_unique_conversion_is_never_re_sourced` claimed "however a run turns
+out, the picture is decoded once". It is a count of *conversions*, not decodes,
+and the two now differ; the docstring says so and points at the counting test.
+
+**One correction beyond the findings, same class and in the same blast radius:**
+`test_a_bare_size_out_of_range_is_refused_before_the_source_is_consulted` asserted
+`consulted == 1` under a failure message reading "the shape is read before the
+stated side is validated — an out-of-range request must not pay for a decode",
+and a docstring claiming the refusal comes "*before* the source's shape is read".
+Both are inverted: `_resolved_extent` cannot reach `derive_extent` without the
+shape, so a bare out-of-range N does read it, exactly once — the *source* is what
+it never reaches. The assertion is right and unchanged; its prose now says what it
+pins, which matters because the new decode-count test sits beside it asserting the
+same fact the other way round.
+
+**Suite: 1497 passed, 1 xfailed** (from 1494 + 1 xfailed; +3 = two parametrized
+export cases and the decode counter). No test removed, none re-pointed.
+
+Still left to the closing pass, unchanged: `trace.yml`'s FR-023 entry
+(`status: partial`, "no kanban card cut for it", and R4's check ref missing from
+its `tests:` list). F-008 (`derive_extent`'s Args block reading as axis-specific,
+latent — no caller emits `(None, N)`) and F-009 (that same trace write-back) are
+left `open` in the review report by instruction.

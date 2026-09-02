@@ -422,10 +422,19 @@ def test_cli_parses_rectangular_size_token(
     assert (request.width, request.height) == (30, 20)
 
 
-def test_cli_square_size_shorthand_sets_both_sides(
+def test_cli_bare_size_token_reaches_the_domain_unsquared(
     captured_requests: list[orchestrator.GenerationRequest],
 ) -> None:
-    """AC-063 / TestCLI_SquareSizeShorthandSetsBothSides (boundary).
+    """AC-063 / TestCLI_BareSizeTokenReachesTheDomainUnsquared (boundary).
+
+    **Renamed by CARD-033's cycle-1 review.** Until then this was
+    ``TestCLI_SquareSizeShorthandSetsBothSides`` /
+    ``test_cli_square_size_shorthand_sets_both_sides``, which after the change
+    below asserted the opposite of what it was called: the token now sets
+    exactly *one* side. The rename is queued alongside AC-063's own amendment
+    in ``meta/architecture/inputs/raw-requirements.md``, so the criterion's
+    ``test:`` field and ``trace.yml``'s two rows move with it; both still name
+    the old id until that intake line is processed.
 
     **Changed by CARD-033, as its predecessor's docstring said it would be.**
     CARD-027 wrote here that a bare N "is a square, and this test is what will

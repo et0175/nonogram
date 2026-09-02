@@ -10,6 +10,9 @@ pytest-idiomatic function names:
                    (the JSON instance; the CSV one is in tests/test_export_csv.py,
                     and the property over every other version value is in
                     tests/property/test_export_roundtrip.py)
+    FR-012 + FR-023 (no criterion of its own — the recording path a derived
+                extent takes, added by CARD-033's cycle-1 review)
+                -> test_a_derived_extent_is_what_the_aggregate_and_the_document_record
 
 INV-002's gate is delivered by this card even though its acceptance criteria
 are named against the other formats (AC-030 for PNG/SVG, AC-048 for PDF): the
@@ -296,6 +299,80 @@ def _keys_anywhere(value: object) -> set[str]:
     if isinstance(value, list):
         return {key for item in value for key in _keys_anywhere(item)}
     return set()
+
+
+# --------------------------------------------------------------------------
+# FR-012 + FR-023 — what a *derived* extent writes into the document
+# --------------------------------------------------------------------------
+
+#: Two ink-tight fixtures, one per orientation: 40x60 and 60x40. Ink-tight so
+#: the shape the derivation reads (the ink bounding box, FR-022) is the extent
+#: written here, and both orientations because a bare ``--size 30`` derives the
+#: *width* from one and the *height* from the other — a single orientation
+#: would leave one of the two accessors below unexercised.
+FIXTURES = Path(__file__).parent / "fixtures"
+PORTRAIT = FIXTURES / "portrait.png"
+LANDSCAPE = FIXTURES / "landscape.png"
+
+
+@pytest.mark.parametrize(
+    ("picture", "extent"),
+    [
+        pytest.param(PORTRAIT, (20, 30), id="portrait-derives-the-width"),
+        pytest.param(LANDSCAPE, (30, 20), id="landscape-derives-the-height"),
+    ],
+)
+def test_a_derived_extent_is_what_the_aggregate_and_the_document_record(
+    tmp_path: Path, picture: Path, extent: tuple[int, int]
+) -> None:
+    """A bare ``--size 30`` exports the grid it produced, not the pair it asked for.
+
+    The one case where ``Puzzle.width``/``Puzzle.height`` and
+    ``request.width``/``request.height`` can disagree, and therefore the only
+    case that says which of the two the export reads. Since FR-023 a bare
+    ``--size N`` reaches the domain half-stated — ``(30, None)`` — and
+    ``orchestrator._resolved_extent`` completes it from the source's own shape;
+    everything downstream must record the completed pair, or a JSON file claims
+    a shape its own ``grid`` contradicts (FR-012's exact reconstruction) and
+    carries a ``height`` of ``null`` in range 10..30 (INV-004).
+
+    Both halves are asserted because they fail independently: the accessors are
+    what ``export_puzzle`` reads, and the document is what FR-012 promises. The
+    grid's own row and column counts are compared against the recorded pair as
+    well, so the assertion is about agreement between the file's two statements
+    of one fact rather than about two numbers copied from here.
+
+    This is the assertion CARD-033's cycle-1 review found missing: with
+    ``Puzzle.width`` mutated to ``return self.request.width`` the whole suite
+    stayed green, and the portrait case above now fails on ``(30, 30)``.
+
+    Image mode rather than a scripted aggregate because the derivation is the
+    subject, and these two fixtures convert and solve in milliseconds — the
+    same pictures ``tests/test_nudge.py`` drives the real pipeline with.
+    """
+    puzzle = generate(
+        GenerationRequest(
+            mode="image",
+            image=picture,
+            width=30,
+            seed=1,
+            export_formats=("json",),
+            out=tmp_path,
+        )
+    )
+
+    # The request really is half-stated — otherwise the two readings coincide
+    # and the assertions below would hold under any of them.
+    assert (puzzle.request.width, puzzle.request.height) == (30, None)
+    assert (puzzle.width, puzzle.height) == extent
+
+    document = _load(export_puzzle(puzzle)[0])
+    recorded = document["request"]
+    assert isinstance(recorded, dict)
+
+    assert (recorded["width"], recorded["height"]) == extent
+    assert len(document["grid"]) == extent[1]  # type: ignore[arg-type]
+    assert {len(row) for row in document["grid"]} == {extent[0]}  # type: ignore[union-attr]
 
 
 # --------------------------------------------------------------------------

@@ -1723,8 +1723,16 @@ def test_a_non_unique_conversion_is_never_re_sourced(
     CARD-016 changed what happens *after* that one candidate is rejected — the
     run no longer ends there, it nudges the converted grid (POL-002, see
     ``tests/test_nudge.py``) — but not this: a nudge edits the grid already in
-    hand, so however a run turns out, the picture is decoded once. The
-    regenerate counter left at zero is the same fact read off the aggregate.
+    hand, so no run asks the source for a second candidate. The regenerate
+    counter left at zero is the same fact read off the aggregate.
+
+    "One candidate" is a count of *conversions*, not of decodes, and since
+    FR-023 the two differ: the explicit ``--size 10x10`` below decodes the
+    picture once, while a bare ``--size 10`` reads the ink box first and
+    decodes twice (``image.source_shape``, pinned as a count by
+    ``test_a_bare_size_image_run_decodes_the_picture_exactly_twice`` in
+    ``tests/property/test_grid_dimensions.py``). Neither figure moves with the
+    number of nudges, which is what this test is about.
     """
     source = _CountingSource(_AMBIGUOUS)
     _install_source(monkeypatch, source)
