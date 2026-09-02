@@ -392,3 +392,65 @@ claim printed cell size is a function of `max(width, height)` — it is not, and
 property was ill-posed for rectangles. If a test here asserts anything about cell
 size across shapes, take the corrected ceiling-bound wording, not the old one.
 CARD-034 owns that correction.
+
+## AC/EC gate (2026-09-02)
+
+**Verdict: PASS, after one repair.** Eleven criteria: AC-062..AC-065 (FR-018),
+AC-066..AC-070 + EC-005 (FR-019), CON-011 via EC-005. Ten had a test that
+existed, ran green, and asserted what the criterion says. One did not.
+
+**AC-085 had no test at all.** The gate is what found it — neither review cycle
+did, because both reviewed the card, and **AC-085 is not in this card's
+`## Acceptance criteria` section**. It was added to `requirements.yml` by
+`eb7df1c` (the FR-022 / DEC-025..027 architecture delta), which landed after
+this card was decomposed. `trace.yml` does list
+`TestCLI_RectangularRequestProducesWidthByHeightGrid` under FR-018, so the
+delivery contract carried it and the card silently did not — the same
+card-vs-model skew shape as CARD-024's F-001, arriving by a different route.
+
+Nothing else covered the criterion either, and the reason is worth recording.
+The behaviour "a rectangular request produces height rows of width columns" is
+asserted in two places, neither of which is AC-085's seam:
+`tests/property/test_grid_dimensions.py` asserts it for 300+ rectangles but
+calls the **sourcing** functions directly; `test_orchestrator.py` has two
+rectangular tests, one asserting the *aggregate's attributes* (15x22) and one
+asserting the *arguments into a scripted source* (12x25). So the extent was
+pinned going in and pinned as stored, but no test ran a real generation from a
+rectangular request and looked at what came out. A transposition downstream of
+`_source_arguments` — in the aggregate, the clue derivation, or the solver
+round trip — passed the whole suite.
+
+Repair: `test_cli_rectangular_request_produces_width_by_height_grid` in
+`tests/test_orchestrator.py`, pinned-seed style per that module's own docstring.
+It lives there rather than in `tests/test_cli.py`, despite the `TestCLI_` prefix
+requirements.yml gives it, because the criterion's *given* is a
+`GenerationRequest` and its *when* is "generation runs to completion" — COMP-002's
+seam. `test_cli.py`'s `captured_requests` fixture stubs the pipeline out by
+design (its docstring says so), which makes the criterion unassertable there.
+The prefix is a naming slip in the model, not a placement instruction; flagged
+rather than edited, since `requirements.yml` is not hand-edited.
+
+Mutation-verified, source restored byte-identical:
+- M1 — clues derived from the transpose, grid untouched → **KILLED** (clue assertion)
+- M2 — grid stored transposed on the aggregate → **KILLED** (grid assertion)
+
+Two mutants, killed by two different assertions, which is why the clue lengths
+are asserted alongside the grid shape rather than as decoration.
+
+**Suite: 1463 passed, 1 xfailed** (was 1462 + 1).
+
+### Not a defect of this card, but found by its gate
+
+Writing AC-085's test needed a real 30x20 generation and could not get one at
+the default density. Measured across the density range, 3 seeds each: **0/3
+uniquely solvable at every density from 10 to 45**, recovering at 50 (2/3) and
+solid from 55 up. At 30 it is 0/6 over seeds 0-5, 7-18s each; at 35-45 it is
+~30s each. Every failure is `GenerationAbandoned` after 20 attempts, not a
+timeout. So `--size 30x20` at the default density fails for every seed tried,
+inside the range CON-011 admits.
+
+This is a real product limit and it is **not** CARD-027's subject — the card
+delivers the width/height pair, and the pair is delivered correctly. Filed to
+the backlog with the full table and four options. The test pins density 70 to
+stay clear of the band, and says why in its docstring so the choice does not
+read as arbitrary.

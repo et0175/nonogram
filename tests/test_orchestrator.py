@@ -405,6 +405,43 @@ def test_the_requested_size_and_density_reach_the_grid_source(
     assert [call[:3] for call in source.calls] == [(12, 25, 35)]
 
 
+def test_cli_rectangular_request_produces_width_by_height_grid() -> None:
+    """AC-085 / TestCLI_RectangularRequestProducesWidthByHeightGrid (happy).
+
+    A pinned-seed test, in this module rather than ``tests/test_cli.py``,
+    despite the ``TestCLI_`` prefix requirements.yml gives it: the criterion's
+    *given* is "a GenerationRequest carrying width 30 and height 20" and its
+    *when* is "generation runs to completion", which is COMP-002's seam, not
+    argv's. ``captured_requests`` in the CLI module deliberately stubs the
+    pipeline out (see its docstring), so the criterion is unassertable there.
+
+    The sibling test above pins the extent going *in* to the source, through a
+    scripted one; this pins the shape coming *out* of a real, unmocked run. A
+    transposition anywhere downstream of ``_source_arguments`` — in the
+    aggregate, the clue derivation, or the solver round trip — survives that
+    test and fails this one. The clue lengths are asserted for the same reason:
+    a swap that left the grid alone but derived clues against the transpose
+    would otherwise pass on the grid assertions alone.
+
+    Density 70, not the default: at 30x20 the mid-range densities cannot
+    produce a uniquely-solvable grid within the retry bound at all — every seed
+    tried abandoned after 20 attempts, taking 7-30s each (measured 2026-09-02;
+    0/3 seeds at densities 10, 15, 20, 30 and 35, 3/3 at 60 and above). That is
+    a real product limit, filed as its own backlog item; it is not this test's
+    subject, so the density here is chosen to stay clear of it.
+    """
+    puzzle = generate(
+        GenerationRequest(mode="random", width=30, height=20, density=70, seed=0)
+    )
+
+    assert puzzle.grid is not None
+    assert len(puzzle.grid) == 20
+    assert {len(row) for row in puzzle.grid} == {30}
+
+    assert len(puzzle.clues.rows) == 20
+    assert len(puzzle.clues.columns) == 30
+
+
 def test_an_unknown_mode_fails_before_any_candidate_is_sourced() -> None:
     """A wiring bug must not be reported as 20 infeasible candidates.
 
