@@ -97,8 +97,10 @@ integer cross-multiplication rather than float division.
 **The source extent it judges is the INK BOUNDING BOX, not the as-decoded file**
 (ADR-0022 revision 2026-09-01, DEC-025). CON-012 promises never to silently
 discard more than half *the user's picture*, and blank margin is not the user's
-picture: on 15 of the 25 corpus pictures the as-decoded reading overstates what
-survives the crop, worst at ``img_2.png`` and ``img_3.png``, which report 100%
+picture: measured over the 25 corpus pictures at 20x20, the as-decoded reading
+overstates what survives the crop on **22** of them — by more than 5 percentage
+points on 15 of those — reads exactly right on 1, and *understates* on the
+remaining 2. The worst are ``img_2.png`` and ``img_3.png``, which report 100%
 retained while 55% of the actual content survives. It errs both ways rather than
 conservatively, so it was not a safe approximation, merely an inaccurate one.
 
@@ -445,11 +447,17 @@ def validate_aspect_ratio(
     """Refuse a request whose crop would discard more than half the source.
 
     FR-021/CON-012/ADR-0022/R3, as a pure predicate over the same four integers
-    :func:`fit_crop_box` takes — which is what lets it run before the picture's
-    pixels are decoded, let alone dithered or solved (EC-007). The centred crop
+    :func:`fit_crop_box` takes — which is what lets it run before any *cropping*
+    of the picture, let alone dithering or solver work (EC-007). The centred crop
     keeps exactly ``min(r_src, r_tgt) / max(r_src, r_tgt)`` of the source, so
     "would discard more than half" is precisely "the ratios differ by more than
     2x".
+
+    Since CARD-030 the source extent it is handed is the **ink bounding box**,
+    not the as-decoded file (ADR-0022 revision 2026-09-01, DEC-025), so it
+    necessarily runs *after* the decode — :func:`ink_bounding_box` reads pixels.
+    That is the cost the ADR accepted; what EC-007 promises, and what the caller
+    order in :func:`generate` still delivers, is refusal before any crop.
 
     The boundary is **inclusive**: retaining exactly half — a square source into
     a 30x15 grid, say — is accepted (AC-075). The comparison is therefore
@@ -619,9 +627,9 @@ def generate(
     pays for one decode: the ink box is not derivable from a file header, so the
     cheap ``probe_extent`` path is gone (see the module docstring — this cost is
     the ADR's decision, not an oversight). With it goes the header-vs-decode
-    disagreement CARD-026 had to re-check for: there is only one extent in play
-    now, the decoded one, so the guard cannot be handed a shape the crop will
-    not use.
+    disagreement CARD-026 had to re-check for: no extent is now read from a
+    header at all, and the guard and the crop below are handed the *same* extent
+    — the ink box, ``box`` — so they cannot disagree about the shape being fitted.
     """
     if source is None:
         raise UnreadableImage(

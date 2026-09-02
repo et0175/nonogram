@@ -1145,6 +1145,74 @@ def test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold() -
     assert image.INK_THRESHOLD == 128
 
 
+def test_the_shipped_conversion_applies_the_trim_the_criteria_measure() -> None:
+    """FR-022 on ``image.generate`` itself — the one thing the criteria miss.
+
+    AC-086..AC-091 above are stated over the trim *transform* and are measured
+    through ``_untrimmed_grid``/``_trimmed_grid``, which reassemble the pipeline
+    in the test body; and every conversion fixture in this file is a deliberate
+    trim no-op (``bands.png``'s ink box is its whole sheet). So nothing else here
+    observes the shipped entry point cropping, and an implementation that
+    computed the ink box, judged the request against it, and then converted the
+    *untrimmed* picture would satisfy every criterion on the card. That mutation
+    was run and it left the whole suite green; these assertions are what now fail
+    on it.
+
+    ``img_2.png`` is the corpus's worst case (AC-087), so the trimmed and
+    untrimmed conversions are far apart — 6 blank lines deep at one edge without
+    the trim, at most 1 with it. The equality against ``_trimmed_grid`` is the
+    other half: it ties the AC helpers to the shipped pipeline, so the two
+    cannot drift apart again without a failure here.
+    """
+    source = PICTURES / "img_2.png"
+    shipped = _convert(source, *TRIM_EXTENT)
+    untrimmed = _untrimmed_grid(source)
+
+    assert shipped == _trimmed_grid(source, image.INK_THRESHOLD)
+    assert shipped != untrimmed
+    assert _deepest_blank_edge(shipped) <= 1
+    assert _deepest_blank_edge(untrimmed) == 6
+
+
+def test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize(
+    tmp_path: Path,
+) -> None:
+    """The small end of the ink box, which no corpus picture reaches.
+
+    The trim has no floor: a sheet whose only ink is a speck is trimmed to that
+    speck, and the speck is then what both FR-021's guard and the resize see.
+    Two outcomes follow, and both are intended rather than accidents nobody
+    looked at — CARD-030's failure matrix declares them:
+
+    * A **2x2 speck on a 400x400 sheet** trims to a square box, which fits every
+      square grid, so the resize upsamples 4 ink pixels to a wholly filled grid.
+      The picture the user handed over really is 4 black pixels on white; a
+      filled grid is the honest rendering of it at 20x20, not a defect.
+    * A **1px rule across a 400x400 sheet** trims to a 400x1 box, which FR-021
+      refuses for every grid in 10..30 — retaining 0% is exactly what its rule is
+      for. Before CARD-030 this file converted, because the *sheet* was square;
+      that change of outcome is the guard doing what the ADR revision asked.
+    """
+    speck = tmp_path / "speck.png"
+    sheet = Image.new("L", (400, 400), 255)
+    sheet.paste(0, (100, 100, 102, 102))
+    sheet.save(speck)
+
+    with image.load_greyscale(speck) as greyscale:
+        assert image.ink_bounding_box(greyscale) == (100, 100, 102, 102)
+    assert all(all(row) for row in _convert(speck, 20, 20))
+
+    rule = tmp_path / "rule.png"
+    sheet = Image.new("L", (400, 400), 255)
+    sheet.paste(0, (0, 200, 400, 201))
+    sheet.save(rule)
+
+    with image.load_greyscale(rule) as greyscale:
+        assert image.ink_bounding_box(greyscale) == (0, 200, 400, 201)
+    with pytest.raises(ImageNeedsManualCrop, match="400x1"):
+        _convert(rule, 20, 20)
+
+
 def test_a_picture_with_no_ink_at_all_is_trimmed_by_nothing(tmp_path: Path) -> None:
     """The degenerate end of the trim, which the criteria do not reach.
 
@@ -1169,10 +1237,18 @@ def test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug() -> None:
     """The same reasoning ``_checked_extents`` applies to a zero-side grid: a
     threshold is not user input, so an impossible one is a wiring error rather
     than a domain outcome, and gets ``ValueError`` rather than a
-    ``NonogramError``."""
+    ``NonogramError``.
+
+    Matched on **this module's own message**, not merely on ``ValueError``: with
+    the upper bound loosened to 257 the argument falls through to Pillow, whose
+    "wrong number of lut entries" is also a ``ValueError``, so a bare
+    ``pytest.raises(ValueError)`` passes while the guard here is broken (verified
+    — that mutant survived). The match is what makes the module the enforcer the
+    docstring above says it is.
+    """
     with image.load_greyscale(BANDS) as greyscale:
         for bad in (-1, 257, 1000):
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match=r"greyscale value in 0\.\.256"):
                 image.ink_bounding_box(greyscale, bad)
 
         # The two ends of the legal range are legal: nothing is ink at 0, and
@@ -1240,9 +1316,10 @@ def test_the_decode_honours_exif_orientation(
     half turn, none of which changes the extent) and for the out-of-range ``9``.
 
     CARD-030 retired ``probe_extent``, and with it the whole class of bug this
-    test was originally written against: there is now exactly one extent in the
-    pipeline, the decoded one, so the guard cannot be handed a shape the crop
-    will not use. What survives is the claim that still has teeth — a phone
+    test was originally written against: no extent is read from a header any
+    more, and the guard and the crop are handed the same one — the ink box
+    derived from the decoded raster — so they cannot disagree about the shape
+    being fitted. What survives is the claim that still has teeth — a phone
     photo stored on its side is measured, trimmed and cropped along the axis the
     user actually sees — and it is asserted on the decode itself rather than on
     a header parse that no longer happens.

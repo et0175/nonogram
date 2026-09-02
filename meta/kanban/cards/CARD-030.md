@@ -44,10 +44,18 @@ would break it.
 **Why the guard has to move at all.** The merged CARD-026 guard measures the as-decoded
 file extent, and ADR-0022 was revised on 2026-09-01 with `Migration: rewrite` precisely
 because that reading becomes wrong here. Measured over the committed 25-image corpus at
-20x20: on 15 of 25 pictures the as-decoded reading overstates what survives the crop,
-worst at `img_2.png` and `img_3.png`, which report 100% retained while 55% of the actual
-content survives. CON-012 promises never to silently discard more than half *the user's
-picture*; blank margin is not the user's picture.
+20x20: the as-decoded reading overstates what survives the crop on **22** of the 25
+pictures — by more than 5 percentage points on 15 of those — reads exactly right on 1
+(`eagle-silhouette1.jpg`, whose ink box *is* its file) and *understates* on 2
+(`cat_Mouse.png`, `cat_dog.png`). Worst at `img_2.png` and `img_3.png`, which report
+100% retained while 55% of the actual content survives. CON-012 promises never to
+silently discard more than half *the user's picture*; blank margin is not the user's
+picture.
+
+> **Cycle-1 correction (F-002).** As first written this paragraph said "15 of 25
+> ... overstates", which is the count only under an unstated >5-point materiality
+> threshold. Re-derived on this tree: 22 overstate / 1 equal / 2 understate; 15 is the
+> >5-point subset. Both numbers are now stated, with the threshold named.
 
 **Known cost, already accepted in the ADR — do not try to preserve it.** The pre-decode
 refusal path CARD-026 built is retired. A trim can move a ratio in either direction, so
@@ -139,6 +147,34 @@ pass it.
 - **ADR:** ADR-0022 (revised 2026-09-01, `Migration: rewrite` — this card is that migration), ADR-0006
 - **Components:** COMP-003
 - **Trace:** meta/architecture/trace.yml
+
+## Failure matrix
+
+Declared behaviour per operation x failure mode, in CARD-026's format. Every row names
+the test that exercises it; "bound" says how far the declared behaviour reaches.
+
+**Retires CARD-026 rows 12, 13 and 14.** Those three rows exist only because CARD-026's
+guard read the *file header* and the decode could disagree with it: row 12 ("aspect
+refusal costs no decode"), row 13 (`probe_extent` honouring EXIF orientation) and row 14
+(the header-vs-decode disagreement class — the post-`IDAT` PNG `eXIf` chunk and the
+orientation-tagged TIFF — and the re-check that patched it). `probe_extent` and
+`_header_orientation` are deleted, so no extent is read from a header at all and the
+disagreement class has no members. Row 13's surviving claim — the decode honours EXIF
+orientation, so a sideways phone photo is measured and cropped along the axis the user
+sees — is re-asserted on `load_greyscale` by `test_the_decode_honours_exif_orientation`
+(nine values of the tag). Row 12 is replaced by row 5 below: refusal now costs exactly
+one decode and still nothing else.
+
+| # | Operation / boundary | Failure mode | DECLARED behaviour | Bound | Test |
+|---|---|---|---|---|---|
+| 1 | `ink_bounding_box` | the picture has **no ink at all** (blank sheet, or every pixel lighter than the threshold) | Returns the **whole extent**, not an empty box: there is nothing to trim to and trimming nothing is the honest answer. A flat mid-grey field is the case that matters — 128 is *not* ink by FR-022's own definition — and it converts exactly as it did before this card | Any picture whose `getbbox` on the ink mask is `None`; also a zero-pixel image, which returns its own zero extent for `validate_aspect_ratio` to report as the input error it is | `test_a_picture_with_no_ink_at_all_is_trimmed_by_nothing` (values 128 / 200 / 255, plus a full `generate` to a blank grid) |
+| 2 | `ink_bounding_box` | the box is **near-degenerate** — a speck, a scan line, a 1px rule on one edge | **No floor, by decision.** The box is whatever the ink is, and both FR-021's guard and the resize then see it. Two outcomes, both intended: a square speck (2x2 on a 400x400 sheet) fits every square grid and the resize **upsamples it to a wholly filled grid** — the picture really is 4 black pixels, and a filled grid is the honest rendering of it; a 400x1 rule is **refused** by FR-021 for every grid in 10..30 (retains 0%), where before this card the square *sheet* would have been accepted. A floor is not added because any floor would have to guess which of the two the user meant | Every ink box down to 1x1. The refusal half is the same rule as row 4, reached by a different cause | `test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize` (both ends, asserted on `generate`) |
+| 3 | `ink_bounding_box` | `threshold` outside 0..256 | `ValueError` (`an ink threshold is a greyscale value in 0..256, got 257`) — **not** a `NonogramError`, so the CLI never maps it to an exit code. A threshold is not user input; an impossible one is a wiring bug, exactly as a zero-extent grid is | Any int outside 0..256. Both ends of the legal range are legal: nothing is ink at 0, everything at 256 | `test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug` — matched on **this module's message**, because Pillow raises the same exception type for a 257-entry LUT and a bare `raises(ValueError)` let a loosened bound survive (cycle-1 F-009) |
+| 4 | `validate_aspect_ratio` | the **ink box's** ratio differs from the grid's by more than 2x | `ImageNeedsManualCrop`, unchanged in wording and in the inclusive boundary. What changed is only the extent it judges — the box, never the file (CON-012 as revised) — so a file this guard used to accept can now be refused and vice versa. It errs both ways rather than conservatively; that is the ADR's choice, not a safe approximation | Every image request. Reachability cost measured and recorded under **[Reachability]** below | `test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied` (208 pairs, ≥10 wrong-accepts and ≥10 wrong-refusals required of the corpus), `PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore` |
+| 5 | `generate` | aspect refusal (replaces CARD-026 row 12) | **One decode, and nothing more.** The trim, the aspect crop, the resize, the dither, clue derivation and the solver are all unreachable for a refused request — that is EC-007 as narrowed on 2026-08-31 ("before any cropping, dithering or solver work"). The decode itself is the price the ADR accepted for judging the ink box | Every refused request, with no exceptions — unlike CARD-026 row 12, which had to except row 14's disagreement class | `test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied` (instruments `fit_crop_box`, `binarize`, `to_grid` **and** `Image.Image.crop`), `test_a_refused_request_now_pays_for_a_decode_and_nothing_more` |
+| 6 | `generate` | the file cannot be decoded, whatever grid was asked for | `UnreadableImage` — **always**, including for a request the old header probe would have refused with `ImageNeedsManualCrop`. Declared as a behaviour change rather than discovered: a truncated PNG asked for a grid it does not fit used to name the aspect problem and now names the decode | Every `OSError` / `ValueError` / `UnidentifiedImageError` / `DecompressionBombError` Pillow raises at open or load | `test_a_refused_request_now_pays_for_a_decode_and_nothing_more` (both branches on one file), `test_convert_image_rejects_an_unreadable_file_that_is_corrupt` |
+| 7 | `generate` | the decode succeeds but `ink_bounding_box` raises | Cannot occur for any decoded picture. `load_greyscale` returns mode `"L"`, `Image.point` with a 256-entry LUT is total over it, and `getbbox` returns a box or `None` (row 1). The only raise in the function is row 3's caller-bug guard on `threshold`, which `generate` never passes | Every mode-`"L"` image Pillow can produce | covered by rows 1 and 3; no separate test, and none is possible without monkeypatching Pillow |
+| 8 | the trim itself | blank margin **survives** the trim | **Best-effort, not an invariant** — declared, not a defect. `dear1.jpg` keeps 2 blank lines and `wolf1.jpeg` keeps 3, and `wolf1.jpeg` measures 3 deep before the trim too, so no threshold in the swept range reaches it: the margin there survives the resize and the dither, not the crop. A change that later fixes either must amend the criterion, not pass a laxer assertion | 23 of the 25 corpus pictures satisfy the at-most-one-blank-line rule at 20x20; the 2 that do not are named individually | `test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg` (AC-088), `..._on_wolf1_jpeg` (AC-091), `test_trim_to_ink_fixes_17_of_the_19_corpus_violations` (AC-086) |
 
 ## Worktree notes
 
@@ -256,3 +292,91 @@ rather than conservatively", asserted.
   (`test_the_probe_reports_an_unreadable_file_as_one`, whose subject no longer
   exists; the corrupt-file claim it made is still covered by
   `test_convert_image_rejects_an_unreadable_file_that_is_corrupt`).
+
+### Cycle-1 review fixes (2026-09-02) — score 7.0, gate failed
+
+Findings F-001..F-010 of `meta/review/20260902T080013Z-CARD-030-cycle1.yml`.
+
+- **[F-001 — the blocker] The shipped trim is now pinned.** The reviewer verified a
+  surviving mutant: deleting `greyscale.crop(box)` from `generate` (compute the box,
+  judge it, then throw it away — FR-022 entirely undelivered) left all 1471 tests
+  green, because every AC test measures the trim *transform* through the
+  `_untrimmed_grid`/`_trimmed_grid` helpers and every conversion fixture is a
+  deliberate trim no-op. Added
+  `test_the_shipped_conversion_applies_the_trim_the_criteria_measure`, which drives
+  `image.generate` on `img_2.png` and asserts the result **equals** the trimmed grid,
+  **differs from** the untrimmed one, and is at most 1 blank line deep at each edge
+  while the untrimmed one is 6. Re-applied the mutation to confirm it now fails, then
+  restored and re-verified `src/nonogram/sourcing/image.py` byte-identical (see the
+  mutation proof in the fix report).
+- **[F-002] The 15-of-25 figure was re-derived and corrected**, in both the module
+  docstring (`image.py`) and "Why the guard has to move at all" above: the real counts
+  at 20x20 are **22 overstate / 1 equal / 2 understate**, with 15 being the subset
+  overstating by more than 5 percentage points. The `img_2`/`img_3` "100% vs 55%" half
+  reproduces exactly (1.000 vs 0.546).
+- **[F-003] `validate_aspect_ratio`'s docstring** no longer claims the predicate "runs
+  before the picture's pixels are decoded" — this card retired exactly that, and
+  `test_a_refused_request_now_pays_for_a_decode_and_nothing_more` in the same commit
+  contradicted it. It now says what is true: the predicate's purity is what lets it run
+  before any *cropping*, its source extent is the ink box, and it therefore necessarily
+  runs after the decode.
+- **[F-004] "exactly one extent in the pipeline, the decoded one"** was the wrong
+  reason for a true conclusion — the judged extent is the ink box, a derived
+  sub-extent. Reworded in `generate`'s docstring and in
+  `test_the_decode_honours_exif_orientation` to the operative fact: no extent is read
+  from a header any more, and the guard and the crop are handed the same one.
+- **[F-005] `_fits_the_aspect_band`** (`tests/property/test_grid_dimensions.py`) now
+  justifies itself with `bands.png`'s **ink box** being square, naming
+  `test_the_fixture_images_are_present_and_shaped_as_documented` (which asserts
+  `_ink_extent(BANDS) == (32, 32)`) as where that is checked. "bands.png is square" as
+  a file fact stopped being the operative one when the guard moved onto the box.
+- **[F-006] README re-measured.** The published ✓/✗ table had two cells this card made
+  wrong — `dear1.jpg@12` ✓→ now abandoned, `dear1.jpg@20` ✗→ now converts — both
+  reproduced. The table is rewritten per-picture rather than per-group (the old groups
+  no longer share a row), the `35` column is replaced by `30` (35 is above MAX_SIZE and
+  is refused outright — pre-existing error, folded in), and
+  `eagle-silhouette1.jpg`'s 10/12 cells are corrected (wrong on `main` too —
+  pre-existing). The pipeline sentence at README.md:90 now names the trim, which is the
+  first thing that happens to the user's picture. **Disclosure: `README.md` is outside
+  this card's `Touches:`** and was edited anyway, because this card changed the
+  behaviour that file documents.
+- **[F-007 — Reachability, the blast radius the card did not measure]** The
+  implementation record measures the trim only as blank-edge depth. Re-ran the
+  reviewer's sweep — 25 pictures x `{10,12,15,20,25,30}` square grids at seed 1 through
+  `orchestrator.generate`, `main` vs this branch — and reproduce it exactly:
+
+  | | |
+  |---|---|
+  | cases | 150 |
+  | outcomes that change | **32** (21%) |
+  | abandoned → converts | 23 |
+  | converts → `GenerationAbandoned` | **9** |
+  | net converting | 94 → **108** |
+
+  The nine regressions: `butterfly1.png@10`, `dear.png@12`, `dear.png@15`,
+  `dear1.jpg@12`, `duck2.png@15`, `duck2.png@20`, `img_6.png@30`, `konek.png@20`,
+  `wolf_2.png@30`. Not a defect — `GenerationAbandoned` is a documented exit-code-4
+  outcome and the net is strongly positive — but a known consequence, recorded here so
+  a user report on `dear.png --size 12` arrives with a trace of having been
+  anticipated. (One `SolverTimeout` case is unchanged on both trees.)
+- **[F-008] `## Failure matrix` added** above, in CARD-026's format, with an explicit
+  statement of which of its rows (12, 13, 14) this card retires and what replaces them.
+  F-010's near-degenerate ink box is row 2.
+- **[F-009] The ink-threshold upper bound is now genuinely pinned.** `<=256` → `<=257`
+  survived because Pillow rejects a 257-entry LUT with its own `ValueError`, so the
+  test pinned the exception type rather than this module's guard. It now matches on the
+  module's own message.
+- **[F-010] The near-degenerate ink box is declared and tested.** No floor is added —
+  any floor would have to guess the user's intent. Failure-matrix row 2 declares both
+  ends and `test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize` pins them
+  on `generate`: a 2x2 speck on a 400x400 sheet upsamples to a wholly filled 20x20
+  grid, a 400x1 rule is refused by FR-021 at every grid in 10..30.
+- **Not fixed, deliberately.** F-011, F-012 and F-013 are the reviewer's own
+  out-of-scope findings. F-012 in particular (AC-087's "300 of 400", confirmed
+  non-reproducing) needs a requirements amendment, not a code change; the implementation
+  agent's handling of it stands and the code is untouched.
+- **[Guardrails, re-checked]** G-4/G-5 hold: `src/nonogram/orchestrator.py`,
+  `src/nonogram/export/**` and `pyproject.toml` are untouched by this fix pass (the
+  reachability sweep *reads* the orchestrator, it does not edit it). G-6 holds: DEC-026
+  is not implemented. G-1/G-2/G-3 are unaffected — no production behaviour changed in
+  this pass; every source edit is prose.

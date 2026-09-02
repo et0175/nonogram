@@ -88,8 +88,9 @@ cells):
 ### Generate a puzzle from your own image
 
 Point `--mode image` at a picture. JPEG and PNG both work (anything Pillow can open).
-The image is resized to the grid, dithered (Floyd–Steinberg), and binarised — then put
-through the same uniqueness check as every other source.
+The image is cropped to its ink bounding box (blank margin is trimmed off first), then
+fitted to the grid's shape by a centred crop, resized, dithered (Floyd–Steinberg) and
+binarised — then put through the same uniqueness check as every other source.
 
 ```bash
 ./.venv/bin/nonogram generate \
@@ -119,15 +120,22 @@ image is not a uniquely-solvable puzzle ...
 ```
 
 That is a normal outcome (exit code 4), not a crash. **The lever that works is
-`--size`, and smaller is usually the fix** — fewer cells means simpler, less ambiguous
-clues. Measured on the images in `pictures/`:
+`--size`** — fewer cells usually means simpler, less ambiguous clues, though which sizes
+a given picture converts at is not monotonic. Measured on the images in `pictures/`:
 
-| image | 10 | 12 | 20 | 35 |
+| image | 10 | 12 | 20 | 30 |
 |---|---|---|---|---|
-| `wolf1.jpeg`, `elephant1.jpg`, `eagle-silhouette1.jpg` | ✓ | ✓ | ✓ | ✓ |
-| `frog1.jpeg`, `dear1.jpg` | ✓ | ✓ | ✗ | ✗ |
+| `wolf1.jpeg`, `elephant1.jpg` | ✓ | ✓ | ✓ | ✓ |
+| `eagle-silhouette1.jpg` | ✗ | ✗ | ✓ | ✓ |
+| `dear1.jpg` | ✓ | ✗ | ✓ | ✓ |
+| `frog1.jpeg` | ✓ | ✓ | ✗ | ✗ |
 
-So if a picture fails at 20, try 12 before giving up on it. High-contrast silhouettes
+(Re-measured at `--seed 1` on the current code. `30` is the largest grid the tool
+accepts — an earlier edition of this table listed `35`, which is refused outright.)
+
+So if a picture fails at one size, try another before giving up on it — and note that
+smaller is a *usual* fix, not a reliable one: `eagle-silhouette1.jpg` needs a bigger
+grid, and `dear1.jpg` converts at 10 and at 20 but not at 12. High-contrast silhouettes
 convert best; a busy photo with fine detail will fail at any size worth solving.
 
 ## Documentation
