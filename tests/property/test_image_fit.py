@@ -4,10 +4,15 @@
     EC-007  PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore
     ADR-0022/R3
             PropertyTest_FitImage_NeverStretchesAndNeverPads
+    ADR-0022/R3 (2026-09-01 revision, CARD-030)
+            PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied
 
-Three standing properties of two pure functions of four integers
-(``source_width, source_height, target_width, target_height``), which is why
-they can be swept over a large corpus for the price of arithmetic.
+Three of the four are standing properties of two pure functions of four
+integers (``source_width, source_height, target_width, target_height``), which
+is why they can be swept over a large corpus for the price of arithmetic. The
+fourth is about *order* rather than arithmetic and so has to run real
+conversions; it is swept over shapes instead of over integers, and instruments
+the pipeline rather than inspecting its output.
 
 What the corpus is, and why it is not ``hypothesis``
 ----------------------------------------------------
@@ -613,13 +618,18 @@ def test_property_a_solid_source_converts_to_a_solid_grid_at_every_shape(
         if not path.exists():
             Image.new("L", (source_width, source_height), 0).save(path)
 
+        greyscale = image.load_greyscale(path)
+        # A wholly black source is entirely ink, so its bounding box is the
+        # whole sheet and the trim is a no-op — which is what makes it still
+        # the letterbox witness after FR-022 rather than a picture of itself.
+        assert image.ink_bounding_box(greyscale) == (
+            0, 0, source_width, source_height
+        )
         image.validate_aspect_ratio(
-            *image.probe_extent(path), target_width, target_height
+            source_width, source_height, target_width, target_height
         )
         grid = image.to_grid(
-            image.binarize(
-                image.load_greyscale(path), target_width, target_height
-            )
+            image.binarize(greyscale, target_width, target_height)
         )
 
         assert len(grid) == target_height
@@ -629,3 +639,169 @@ def test_property_a_solid_source_converts_to_a_solid_grid_at_every_shape(
         )
 
     assert len(CONVERSION_SHAPES) >= 8
+
+
+# --------------------------------------------------------------------------
+# EC(ADR-0022/R3, 2026-09-01) —
+# PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied
+# --------------------------------------------------------------------------
+
+
+def _picture_on_a_sheet(
+    tmp_path: Path,
+    ink_width: int,
+    ink_height: int,
+    margin_x: int,
+    margin_y: int,
+) -> tuple[Path, tuple[int, int], tuple[int, int]]:
+    """A black ``ink_width`` x ``ink_height`` rectangle centred on white paper.
+
+    Returns ``(path, sheet extent, ink extent)``. The margins are given per
+    axis and are deliberately unequal in most of the corpus below: an equal
+    margin only ever pulls the sheet's ratio *towards* 1:1, so it can make the
+    retired whole-file reading wrongly accept but hardly ever wrongly refuse,
+    and a corpus of one-sided disagreements cannot show that the file reading
+    "errs both ways rather than conservatively" (ADR-0022).
+    """
+    sheet = (ink_width + 2 * margin_x, ink_height + 2 * margin_y)
+    path = tmp_path / f"sheet-{ink_width}x{ink_height}-{margin_x}x{margin_y}.png"
+    if not path.exists():
+        picture = Image.new("L", sheet, 255)
+        picture.paste(
+            0, (margin_x, margin_y, margin_x + ink_width, margin_y + ink_height)
+        )
+        picture.save(path)
+    return path, sheet, (ink_width, ink_height)
+
+
+#: ``(ink width, ink height, margin x, margin y)``, chosen so that against the
+#: grid shapes swept below the ink-box verdict and the whole-file verdict
+#: disagree in *both* directions: pairs the file reading would wrongly accept
+#: (a wide subject on a nearly square sheet) and pairs it would wrongly refuse
+#: (a square subject on a wide sheet). A corpus where the two always agree
+#: cannot distinguish them at all.
+INK_EXTENTS = [
+    (600, 120, 40, 200),
+    (120, 600, 200, 40),
+    (400, 400, 400, 0),
+    (400, 400, 0, 400),
+    (400, 200, 200, 200),
+    (200, 400, 200, 200),
+    (500, 260, 300, 20),
+    (260, 500, 20, 300),
+]
+
+
+class _CropWatch:
+    """Counters for every function in this module that crops or converts.
+
+    ``binarize`` calls ``fit_crop_box`` through the module's own globals, so
+    patching the attribute catches the internal call as well as ``generate``'s.
+    ``Image.Image.crop`` is patched too, because FR-022's trim is a Pillow
+    method rather than one of this module's functions — an implementation that
+    trimmed first and judged afterwards would leave the three named counters at
+    zero and still have cropped the user's picture.
+    """
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.calls: dict[str, int] = {
+            "fit_crop_box": 0,
+            "binarize": 0,
+            "to_grid": 0,
+            "Image.crop": 0,
+        }
+        for name in ("fit_crop_box", "binarize", "to_grid"):
+            monkeypatch.setattr(image, name, self._counted(name, getattr(image, name)))
+        monkeypatch.setattr(
+            Image.Image, "crop", self._counted("Image.crop", Image.Image.crop)
+        )
+
+    def _counted(self, name, function):  # type: ignore[no-untyped-def]
+        def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+            self.calls[name] += 1
+            return function(*args, **kwargs)
+
+        return wrapper
+
+    @property
+    def total(self) -> int:
+        return sum(self.calls.values())
+
+
+def test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-0022/R3 as revised 2026-09-01, both halves, instrumented.
+
+    *Judges the ink box*: the verdict must follow the ratio of the ink bounding
+    box, never the ratio of the file it sits on. Each source below is a black
+    rectangle centred on a much larger white sheet, so the two ratios differ;
+    the expected verdict is computed from the ink extent in exact rational
+    arithmetic by :func:`_retained_fraction`, the same oracle EC-007 uses, and
+    the corpus is required to contain pairs where the file reading would have
+    disagreed — in both directions, since a reading that is merely conservative
+    would be defensible and this one is not (ADR-0022: it errs both ways).
+
+    *Before any crop is applied*: every function in ``sourcing.image`` that
+    crops, resizes or converts is counted, and ``Image.Image.crop`` with them so
+    that FR-022's own trim cannot slip through as "not one of ours". For a
+    refused request all four counters must be **zero** — the guard's refusal
+    arrives with the user's picture untouched, which is the whole of what
+    EC-007 promises now that a decode necessarily precedes it. For an accepted
+    request they must be non-zero, or the property would be satisfied by a
+    pipeline that never converts anything.
+    """
+    watch = _CropWatch(monkeypatch)
+    accepted = refused = 0
+    file_reading_would_have_accepted = 0
+    file_reading_would_have_refused = 0
+
+    for ink_width, ink_height, margin_x, margin_y in INK_EXTENTS:
+        path, sheet, ink = _picture_on_a_sheet(
+            tmp_path, ink_width, ink_height, margin_x, margin_y
+        )
+        for target_width, target_height in _target_extents()[::17]:
+            expected = (
+                _retained_fraction(*ink, target_width, target_height)
+                >= MIN_RETAINED
+            )
+            by_the_file = (
+                _retained_fraction(*sheet, target_width, target_height)
+                >= MIN_RETAINED
+            )
+            if by_the_file and not expected:
+                file_reading_would_have_accepted += 1
+            if expected and not by_the_file:
+                file_reading_would_have_refused += 1
+
+            before = dict(watch.calls)
+            try:
+                grid = image.generate(
+                    path, target_width, target_height, random.Random(SEED)
+                )
+            except ImageNeedsManualCrop:
+                assert not expected, (ink, sheet, target_width, target_height)
+                assert watch.calls == before, (
+                    "a refused request cropped something",
+                    {
+                        name: watch.calls[name] - before[name]
+                        for name in watch.calls
+                        if watch.calls[name] != before[name]
+                    },
+                )
+                refused += 1
+            else:
+                assert expected, (ink, sheet, target_width, target_height)
+                assert len(grid) == target_height
+                assert {len(row) for row in grid} == {target_width}
+                assert watch.total > sum(before.values())
+                accepted += 1
+
+    assert accepted + refused >= 200, (accepted, refused)
+    assert accepted >= 40, accepted
+    assert refused >= 40, refused
+    # The discriminating half: on this corpus the retired whole-file reading
+    # would have got the verdict wrong in *both* directions, so the assertions
+    # above cannot be satisfied by an implementation that still judges the file.
+    assert file_reading_would_have_accepted >= 10, file_reading_would_have_accepted
+    assert file_reading_would_have_refused >= 10, file_reading_would_have_refused

@@ -15,7 +15,7 @@
 **Wave:** 19
 **Depends on:** CARD-027
 **Touches:** src/nonogram/sourcing/image.py, tests/test_sourcing_image.py, tests/property/test_image_fit.py
-**Review score:** —
+**Review score:** 9.0 (cycle 2; cycle 1 7.0)
 **Started:** 2026-09-02T07:40:00Z
 **Closed:** —
 **Actual:** —
@@ -380,3 +380,54 @@ Findings F-001..F-010 of `meta/review/20260902T080013Z-CARD-030-cycle1.yml`.
   reachability sweep *reads* the orchestrator, it does not edit it). G-6 holds: DEC-026
   is not implemented. G-1/G-2/G-3 are unaffected — no production behaviour changed in
   this pass; every source edit is prose.
+
+## AC/EC gate (2026-09-02)
+
+**Verdict: PASS, after one correction.** Seventeen criteria checked against the current
+implementation: AC-071..AC-074 + EC-006 (FR-020), AC-075..AC-079 + EC-007 (FR-021),
+AC-086..AC-091 (FR-022), and ADR-0022/R3's EC. Every named test resolves to exactly one
+`def` — no missing test, unlike CARD-027's gate. All 125 tests in the two files pass.
+
+FR-020 and FR-021 were re-verified rather than inherited from CARD-026, because **this
+card changed their subject**: the guard now measures the ink box, so criteria stated over
+the *source image's* ratio are no longer trivially about the thing being measured.
+Checked both ways:
+
+- The five `tests/fixtures/` images used by FR-020's criteria are all ink-tight
+  (file extent == ink box: bands 32x32, landscape 60x40, portrait 40x60, tall 20x60,
+  wide 60x20), so for those the two subjects coincide and the criteria are unaffected.
+- FR-021's criteria run against the built `silhouette` fixture, whose inset is
+  proportional (`width // 4`), so the ink box preserves the ratio: 600x600 -> 301x301
+  (1.000 vs stated 1.000), 563x980 -> 284x491 (0.578 vs stated 0.574), 980x563 ->
+  491x284 (1.729 vs stated 1.741). The stated `r_src` figures are now approximations of
+  what the guard measures, but every accept/refuse verdict holds with a wide margin
+  (AC-079's retained fraction moves 0.870 -> 0.865, against a 0.5 threshold). Recorded
+  rather than corrected: the criteria are true as written.
+
+### The correction
+
+`test_aspect_guard_refuses_a_ratio_difference_above_two_fold` (AC-076) carried a
+docstring claiming the refusal "reaches the caller before the picture's pixels are
+decoded, observed by pointing the guard at a file whose header is fine and whose body is
+not". **Both halves were false.** This card deleted the pre-decode path outright — that
+is the cost the ADR accepts and that
+`test_a_refused_request_now_pays_for_a_decode_and_nothing_more` pins — and the test body
+uses a valid `silhouette(600, 600)`, with no corrupt-bodied file anywhere in it. The
+paragraph also cited "Guardrail G-4", which is card-relative and on this card means
+"do not edit orchestrator.py".
+
+The text is CARD-026's (`2002bff`) and CARD-030 never touched the line, which is exactly
+why **neither review cycle caught it: both reviewed the diff, and prose invalidated
+*elsewhere* by a change is invisible to a diff review.** That is a structural limit of
+diff-scoped review, not a reviewer error, and it is the seventh instance of this
+project's docstring-truth family.
+
+Corrected to state what is now true and to name the property that actually proves the
+surviving ordering claim. Swept for siblings: `before any decode` / `without decoding` /
+`from the header alone` across `src/`, `tests/` and `README.md` returns exactly two other
+hits, both already correctly past-tense (`tests/test_sourcing_image.py:1265,1445`), plus
+one unrelated line in `test_export_pdf.py`. One instance, now zero.
+
+**Suite: 1473 passed, 1 xfailed** — unchanged; the edit is prose only.
+
+[AC/EC check] All criteria/constraints ✓ (evidence: AC-086 test_trim_to_ink_fixes_17_of_the_19_corpus_violations, AC-087 test_trim_to_ink_reduces_the_worst_case_border_to_at_most_one_line, AC-088 test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg, AC-091 test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg, AC-089 test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold, plus the shipped-path pin test_the_shipped_conversion_applies_the_trim_the_criteria_measure and the degenerate-box pin test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize; EC-007 test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more; ADR-0022/R3 test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied and test_fit_image_refuses_a_ratio_mismatch_beyond_twice; FR-020's AC-071..AC-074 + EC-006 and FR-021's AC-075..AC-079 re-verified against the CHANGED subject rather than inherited from CARD-026 — see "AC/EC gate (2026-09-02)" above; suite 1473 passed, 1 xfailed) — one docstring corrected by the gate; all seventeen criteria verified against the current implementation on 2026-09-02. Every name above was resolved to exactly one `def` before this line was written: a first draft of it carried six invented snake_case names, which is the same dead-arrow defect this project has been chasing, caught here only because the names were checked rather than trusted.

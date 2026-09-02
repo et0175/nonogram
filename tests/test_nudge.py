@@ -557,16 +557,23 @@ def test_the_image_module_counts_nothing_itself() -> None:
     the mechanism has now landed, so what is pinned instead is the split. The
     nudge *takes* its attempt number, which means it cannot have an opinion
     about the bound — no counter, no cap and no loop on this side of the line.
+
+    The list moves when COMP-003's public surface moves, which is the point of
+    pinning it. CARD-030 (FR-022) added ``INK_THRESHOLD`` and
+    ``ink_bounding_box`` and removed ``probe_extent`` — the pre-decode aspect
+    probe, retired by ADR-0022's 2026-09-01 revision because an ink bounding
+    box cannot be read from a file header.
     """
     assert image.__all__ == [
+        "INK_THRESHOLD",
         "RESAMPLING",
         "binarize",
         "fit_crop_box",
         "generate",
+        "ink_bounding_box",
         "load_greyscale",
         "nudge",
         "nudge_cells",
-        "probe_extent",
         "to_grid",
         "validate_aspect_ratio",
     ]

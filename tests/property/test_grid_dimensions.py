@@ -152,9 +152,15 @@ def _offending_side(width: int, height: int) -> str:
 def _fits_the_aspect_band(width: int, height: int) -> bool:
     """Whether image mode will convert :data:`BANDS` into this grid at all.
 
-    ``bands.png`` is square, so FR-021's ">2x refusal" (ADR-0022/R3, shipped by
-    CARD-026 and untouched by this card) accepts exactly the grids whose own
-    ratio is within 2x of 1. That guard is a *different* rule from the range one
+    ``bands.png``'s **ink bounding box** is square — the fixture carries a rule
+    along its bottom edge precisely so that the box is its whole 32x32 sheet,
+    asserted by ``test_the_fixture_images_are_present_and_shaped_as_documented``
+    in ``tests/test_sourcing_image.py``. Since CARD-030 the box, not the file, is
+    what FR-021's ">2x refusal" judges (ADR-0022/R3 as revised 2026-09-01), so
+    the guard accepts exactly the grids whose own ratio is within 2x of 1. The
+    fixture being square in *file* terms no longer implies that on its own.
+
+    That guard is a *different* rule from the range one
     this file is about, and it runs after it — so the acceptance half filters
     the pairs it would refuse rather than asserting anything about them. What
     the guard does with the pairs outside the band is
