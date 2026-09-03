@@ -170,6 +170,28 @@ and at 30 but not at 10 or 20, and `dear1.jpg` fails only at 20. High-contrast
 silhouettes convert best; a busy photo with fine detail will fail at any size worth
 solving.
 
+## Web UI
+
+A browser-based interface to the nonogram generator is available. Start the web server:
+
+```bash
+./.venv/bin/nonogram serve
+```
+
+The server listens on `http://127.0.0.1:5000` by default. Open that URL in your browser
+to access the web UI.
+
+### Features
+
+- **Generate from library shapes** — select from built-in silhouettes (cat, heart, house, moon)
+- **Generate from a random grid** — specify size and density
+- **Upload your own image** — convert a picture to a nonogram puzzle
+- **Preview and download** — view the generated puzzle and export as PDF, PNG, SVG, JSON, or CSV
+
+The web UI runs the same generation pipeline as the CLI, including the uniqueness check
+and automatic retry on ambiguous grids. All three source modes (random, library, image)
+are supported.
+
 ## Documentation
 
 - **[Architecture decisions](meta/architecture/decisions/adr/)** — the ADR log
