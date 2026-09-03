@@ -1,6 +1,6 @@
 # CARD-028: Web form's size field accepts the `NxM` extent token
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
