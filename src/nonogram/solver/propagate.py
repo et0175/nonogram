@@ -98,7 +98,7 @@ _MISSING: object = object()
 #: How many line deductions one solve's memo may hold before it is emptied and
 #: refilled. A hard 20x20 solve misses on roughly 25,000 distinct line states,
 #: so this leaves comfortable headroom there while bounding the memo's memory
-#: at a few tens of megabytes on a 50x50 run that would otherwise accumulate
+#: at a few tens of megabytes on a 30x30 run that would otherwise accumulate
 #: entries for its whole 30-second budget (ADR-0001). Clearing wholesale rather
 #: than evicting one entry at a time keeps the hot path a plain dict lookup
 #: with no bookkeeping: the memo is an optimisation, and a rebuilt memo costs
@@ -584,8 +584,8 @@ def propagate(
 
     Why the check sits on the outer loop and not deeper (CARD-006)
     --------------------------------------------------------------
-    One sweep is at most ``height + width`` line DPs — 100 of them at the
-    50x50 upper bound, each O(length x runs) — so the overshoot this
+    One sweep is at most ``height + width`` line DPs — 60 of them at the
+    30x30 upper bound, each O(length x runs) — so the overshoot this
     granularity admits is bounded by a few tens of milliseconds against a
     30-second budget (ADR-0001), which is the "small overshoot" ADR-0011 trades
     for portability. Pushing the check one level down, into the per-line loops,

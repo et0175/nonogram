@@ -63,9 +63,9 @@ Four things the corpus is built to contain, because EC-002 and ADR-0023 name
 them:
 
 * **The whole supported size range, in both dimensions.** Every edge length
-  from 1 to 50 appears as a width and as a height —
+  from 1 to 30 appears as a width and as a height —
   asserted, not hoped for. 1x1 is where a one-cell grid and a one-run clue
-  coincide; 50x50 is where a row is 50 CSV cells wide.
+  coincide; 30x30 is where a row is 30 CSV cells wide.
 * **Rectangles, in the majority.** Since ADR-0023 the extent is two fields
   rather than one, and the failure this property now exists to catch is a
   decoder that reconstructs one dimension from the other — from its partner,
@@ -193,7 +193,7 @@ def _random_grid(
 
     Drawn here rather than through ``nonogram.sourcing.random_grid.generate``
     because that module enforces the request range (CON-011: 10..30 per side
-    since 2026-08-31, superseding the 10x10..50x50 this line used to name) (AC-003/
+    since 2026-08-31, superseding the 10x10..30x30 this line used to name) (AC-003/
     AC-004), while EC-002's property is about the export boundary and so has
     to reach the 1x1 end of the representable range as well. The draw is still
     seeded and reproducible, which is the only property of it this test needs.

@@ -139,8 +139,8 @@ def document(payload: ExportPayload) -> str:
     never touched, which is what keeps the printed page a puzzle.
 
     Newline-separated rather than minified: an export is a durable artifact a
-    person may open, diff or restyle, and at the maximum supported 50x50
-    (AC-038) the whole document is still a few tens of kilobytes.
+    person may open, diff or restyle, and at the maximum supported 30x30
+    (AC-084) the whole document is still a few tens of kilobytes.
     """
     layout = compute_layout(payload.row_clues, payload.column_clues)
     parts = [

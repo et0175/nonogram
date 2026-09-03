@@ -44,7 +44,7 @@ single spec and calls out gaps that need a decision before implementation.
 ### 4.1 Grid generation
 
 - FR-1: Generate a random black/white grid at a configurable size, supporting
-  **10×10 up to 50×50**.
+  **10×10 up to 30×30**.
 - FR-2: Generate a grid from a built-in image library (e.g., cat, house,
   heart, moon).
 - FR-3: Generate a grid from a user-uploaded image, converted to black/white
@@ -147,7 +147,7 @@ All open questions from the initial review have been resolved:
 | 3 | Image conversion method | Resize + error-diffusion dithering (FR-15) |
 | 4 | Regenerate-on-failure for image mode | Auto-adjust (bounded pixel nudges) first, then report failure (FR-16) |
 | 5 | Target interface | CLI tool (Section 2, replaces `main.py` boilerplate) |
-| 6 | Grid size limits | 10×10 to 50×50 (FR-1) |
+| 6 | Grid size limits | 10×10 to 30×30 (FR-1) |
 
 ## 8. Notes from Review
 

@@ -46,7 +46,7 @@ than only the smallest ones is affordable here, so that is what happens — the
 weaker "internal consistency only" fallback EC-001 allows for larger grids is
 not needed at these sizes.
 
-ADR-0014 also asks for the free-direction check to be scaled to 50x50. That is
+ADR-0014 also asks for the free-direction check to be scaled to 30x30. That is
 deliberately *not* done here: without ADR-0011's cooperative deadline (CARD-006,
 out of scope for this card per guardrail G-5) a single pathological large grid
 would hang the suite instead of failing it. ``tests/test_solver.py`` carries a
@@ -102,7 +102,7 @@ def _random_grid(rng: random.Random, size: int, density: float) -> list[list[boo
     """A random square grid at roughly ``density`` filled.
 
     Drawn here rather than through ``nonogram.sourcing.random_grid.generate``
-    because that module enforces the 10x10..50x50 *product* range (AC-003/
+    because that module enforces the 10x10..30x30 *product* range (AC-003/
     AC-004), and this property needs the small grids the oracle can actually
     enumerate. The draw is still seeded and reproducible, which is the only
     property of it EC-001 depends on.
