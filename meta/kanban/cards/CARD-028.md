@@ -45,8 +45,9 @@ the CLI does.
    error the CLI raises, writing nothing — must keep passing unchanged; at `MAX_SIZE = 30`
    60 is still out of range, so the criterion is intact and is this card's regression anchor.
 
-**Requirement gap, surfaced not invented:** FR-018 and CON-011 both state that the rule
-applies to the web adapter, but no acceptance criterion in `requirements.yml` covers the web
+**Requirement gap, surfaced not invented:** CON-011 states verbatim that the rule applies
+to "both inbound adapters (CLI and web UI)"; FR-018's own statement names only the CLI
+(corrected here after cycle 1 — the card originally claimed both did), but no acceptance criterion in `requirements.yml` covers the web
 surface of the extent pair (AC-062..AC-065 are CLI-phrased). This card therefore carries an
 engineering constraint and a regression anchor rather than a new AC. Reported as an
 architect-station gap in the decompose run report; do not invent an AC here.
@@ -194,3 +195,33 @@ architect-station gap in the decompose run report; do not invent an AC here.
   0.25d card is a lot. Wall-clock is unaffected (~43s, unchanged), and the corpus is the
   honest shape for "for EVERY value a browser can submit" — but whether 369 tokens is the
   right size, or whether a tenth of it would pin the same property, is a fair question.
+
+### Cycle-1 review — findings and the corpus change
+
+- **F-001 (important) fixed.** `tests/test_web_server.py`'s
+  `test_the_form_offers_the_same_option_surface_as_the_cli` carried a docstring naming this
+  card and predicting its effect: "its `size` box takes one number", "what the form cannot
+  yet say is `WxH`", "CARD-028 adds it and both halves of this assertion drop back to their
+  pre-CARD-027 shape". All three were falsified by this card. The assertion itself is
+  unchanged and still correct — because the surviving divergence is a **naming** one (argv
+  `extent` vs form `size`), not the capability gap the paragraph blamed. Rewritten to say
+  that; no assertion touched.
+- **Corpus (minor) — changed, with the measurement that justifies it.** Cycle 1 measured
+  kill counts per corpus source and found the 200-draw fuzz arm kills no mutant the
+  structured groups do not already kill (33 of its draws are the empty string; 122 fall in
+  one saturated bucket). Its one novel contribution across 200 draws was `" 0x-4"`, the
+  only token combining an `int()` tolerance with the separator.
+  I did **not** cut the fuzz arm — trimming it saves 0.78s and risks nothing but also
+  gains nothing. I added the missing cell instead: six deliberate tolerance-x-separator
+  tokens (`" 20x30 "`, `"20x 30"`, `"+20x-30"`, `"2_0x3_0"`, `"20x+30"`, `"-0x-0"`).
+  **Measured, because the review's framing was one step off:** sign x separator was
+  ALREADY covered — the `NxM` product uses `-5` as a side, so a mutant rejecting a signed
+  half dies on `9x-5`, `10x-5` and five more. The real gap was **whitespace/underscore x
+  separator**. A mutant that rejects those inside an `NxM` half while still accepting signs
+  (and leaving the bare case untouched, so every bare tolerance probe still passes) is
+  killed by `2_0x3_0`, `" 20x30 "`, `"20x 30"` — and, without those, by `" 0x-4"` **alone**.
+  The corpus was one lucky random draw away from not covering the cell where a hand-written
+  mirror of `cli._extent_token` is likeliest to diverge. That is now deliberate.
+- **Corpus guard strengthened**, per the same finding: `_MINIMUM_EXTENT_CORPUS` now counts
+  **distinct** tokens. At 369 raw / 310 distinct, a raw `len` would have let an edit
+  collapsing the fuzz draws to 200 copies of one value pass unnoticed.

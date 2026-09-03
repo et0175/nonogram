@@ -1961,12 +1961,16 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
       destination (FR-018, ADR-0022/R1), and its guardrail G-7 reserves the web
       form's extent field for CARD-028. So for exactly the interval between
       those two cards the *same option* is spelled differently on the two
-      adapters. This is the ordering consequence G-7 predicts: the web adapter
-      is feature-incomplete, not broken — its ``size`` box takes one number and
-      CARD-020 wires that number to ``width``, leaving ``height`` unstated,
-      which is precisely what the CLI's own bare ``--size N`` does (FR-023).
-      What the form cannot yet say is ``WxH``. CARD-028 adds it and both halves
-      of this assertion drop back to their pre-CARD-027 shape.
+      adapters. CARD-028 has since taught the form ``WxH``, so the CAPABILITY
+      gap G-7 predicted is closed: both adapters now accept ``N`` and ``NxM``
+      and agree on every token (``PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter``
+      checks the web parser against ``cli._extent_token`` as its oracle).
+      What survives is only a NAMING difference — argv carries the pair under
+      the ``extent`` destination while the form field is still called ``size``
+      — which is why this assertion is unchanged by CARD-028 rather than
+      dropping back to a pre-CARD-027 shape as this paragraph used to predict.
+      Renaming either one is nobody's card yet; until it is, the two names
+      below are the whole of the divergence.
     """
     argv_options = set(vars(cli.build_parser().parse_args(["generate"]))) - {
         "command",

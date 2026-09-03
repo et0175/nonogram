@@ -1494,9 +1494,15 @@ def _extent_token_corpus() -> tuple[str, ...]:
     * An explicit product of ``NxM`` tokens over a spread of sides that is
       itself below/at/inside/above the range on each axis independently, so
       the corpus includes tokens legal on one axis and not the other.
+    * 6 tokens combining an ``int`` tolerance with the ``x`` separator — the
+      interaction the fuzz draws below reach only by accident, and the cell a
+      native reimplementation is likeliest to get wrong.
     * 200 random fuzz strings of length 0..6 from :data:`_EXTENT_FUZZ_ALPHABET`,
       drawn with a fixed-seed ``random.Random`` so the corpus is reproducible
-      across runs.
+      across runs. Measured at cycle 1: this arm kills no mutant that the
+      structured groups above do not already kill, and 33 of its draws are the
+      empty string. It is kept as the corpus's only unstructured source, not
+      relied on for discrimination.
     """
     rng = random.Random(20260903)
     tokens: list[str] = list(_NAMED_MALFORMED_TOKENS)
@@ -1504,6 +1510,16 @@ def _extent_token_corpus() -> tuple[str, ...]:
     for n in range(-40, 121, 3):
         tokens.append(str(n))
     tokens += ["  20  ", "+15", "1_0", "0_9", "-0", " "]
+
+    # The interaction cell: an ``int()`` tolerance ON EACH SIDE of the
+    # separator. Cycle 1's review measured that the 200 fuzz draws reach this
+    # combination exactly once, by accident (``" 0x-4"``), while every
+    # deliberate tolerance probe above is bare and every product token below is
+    # plain digits. It is also the cell where a hand-written mirror of
+    # ``cli._extent_token`` would most plausibly diverge — a reimplementation
+    # that stripped or validated a half before converting it would agree with
+    # the CLI on every other token in this corpus.
+    tokens += [" 20x30 ", "20x 30", "+20x-30", "2_0x3_0", "20x+30", "-0x-0"]
 
     sides = (-5, 0, 1, 9, 10, 15, 30, 31, 45, 200)
     tokens += [f"{w}x{h}" for w in sides for h in sides]
@@ -1528,17 +1544,19 @@ _EXTENT_TOKEN_CORPUS = _extent_token_corpus()
 #: case inside the property's second arm.
 _EXTENT_TOKEN_CORPUS_AS_A_FIELD = tuple(t for t in _EXTENT_TOKEN_CORPUS if t != "")
 
-#: Below the corpus's actual size (369, as built above: 9 named shapes, 54
-#: bare sweep values, 6 tolerance probes, a 100-pair ``NxM`` product, 200 fuzz
-#: draws) with headroom, asserted explicitly so no future edit to any of the
-#: four sources can silently shrink the corpus toward nothing without this
-#: failing first.
+#: Below the corpus's actual size with headroom, asserted explicitly so no
+#: future edit to any of the five sources can silently shrink the corpus
+#: toward nothing without this failing first. Counted over DISTINCT tokens
+#: rather than the raw list, per cycle 1's finding: the fuzz draws repeat
+#: heavily (33 of 200 are the empty string), so a raw ``len`` would let an
+#: edit that collapsed them to 200 copies of one value still pass.
 _MINIMUM_EXTENT_CORPUS = 250
 
 
 def test_the_extent_token_corpus_is_not_trivially_small() -> None:
     """What makes the parametrised property below non-vacuous."""
-    assert len(_EXTENT_TOKEN_CORPUS) >= _MINIMUM_EXTENT_CORPUS, len(_EXTENT_TOKEN_CORPUS)
+    distinct = set(_EXTENT_TOKEN_CORPUS)
+    assert len(distinct) >= _MINIMUM_EXTENT_CORPUS, len(distinct)
     for named in _NAMED_MALFORMED_TOKENS:
         assert named in _EXTENT_TOKEN_CORPUS
 
