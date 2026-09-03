@@ -9,7 +9,7 @@ request carrying 60, which the domain refuses inward with the same error a
 ``--size 60`` argv earns (AC-050) — that is what makes the two adapters tell
 one story by construction instead of by parallel maintenance.
 
-Five things happen here, and each of them is the *same* thing ``cli.py`` does
+Six things happen here, and each of them is the *same* thing ``cli.py`` does
 in its own idiom. Nothing else does.
 
 **Blank means absent.** ``urllib.parse.parse_qs`` (ADR-0020) drops a field
@@ -24,9 +24,9 @@ is still refused there: posting ``name=%20`` builds a request carrying
 FR-015's rule and not this module's (AC-045).
 
 **One number is one number** (:data:`_NUMERIC_FIELDS`). ``int`` is applied to
-``size``, ``density`` and ``seed`` and nothing else is: that conversion is the
-web spelling of argparse's ``type=int``, which is syntax, and the range each
-value has to be in is a domain rule that this module must not know (CON-011,
+``density`` and ``seed`` and nothing else is: that conversion is the web
+spelling of argparse's ``type=int``, which is syntax, and the range each value
+has to be in is a domain rule that this module must not know (CON-011,
 ADR-0022/R2). A value ``int`` cannot read at all — ``twenty`` — is refused
 here rather than inward, for the same reason argparse refuses it rather than
 passing a string through a field typed ``int | None``: it is not a number, so
@@ -34,6 +34,20 @@ there is no number to send anywhere. ``int``'s own tolerances (a leading sign,
 surrounding whitespace, ``_`` separators) come along unmodified, exactly as
 they do in ``cli._extent_token``, and every value they admit still meets the
 range rule inward.
+
+**A size token is ``N`` or ``NxM``, and nothing else is** (:func:`_extent_token`,
+CARD-028). The one field with a two-shape grammar rather than a single ``int``
+conversion, because ``GenerationRequest`` carries two sides and the form has
+one box for both — exactly the shape ``cli._extent_token`` already parses for
+``--size``, reimplemented natively here rather than imported (see
+:data:`_EXTENT_SEPARATOR`'s docstring on why an import is not available to this
+module). A bare ``20`` yields ``(20, None)``; an explicit ``20x30`` yields
+``(20, 30)``; anything that is neither shape (``30x``, ``x20``, ``3x4x5``,
+``30X20``, ``30.5``) is refused here, the same wall ``argparse`` puts up for
+the CLI (AC-064's web mirror). No range check is applied to either side: a
+well-shaped but out-of-range token (``60``, ``60x60``) parses cleanly and
+travels inward, where the domain refuses it with the same error a matching
+``--size`` argv earns (AC-050, AC-065's web mirror).
 
 **A mode has to be a mode this form offers** (:data:`nonogram.web.pages.MODES`),
 **and an export format has to be a format this build registers**
@@ -88,9 +102,71 @@ __all__ = ["DEFAULT_MODE", "Submission", "read"]
 #: hand-written body only.
 DEFAULT_MODE = "random"
 
-#: The fields ``int`` is applied to, and the whole of that list. Everything
-#: else is carried as the string it was posted as.
-_NUMERIC_FIELDS = ("size", "density", "seed")
+#: The fields ``int`` is applied to directly, and the whole of that list.
+#: ``size`` is deliberately not one of them (CARD-028): it has its own two-
+#: shape grammar, read by :func:`_extent_token` below, rather than a single
+#: ``int`` conversion. Everything else is carried as the string it was posted
+#: as.
+_NUMERIC_FIELDS = ("density", "seed")
+
+#: The separator in a ``size`` field's ``WxH`` form (CARD-028). A byte-for-byte
+#: duplicate of ``cli._EXTENT_SEPARATOR`` rather than an import of it: the
+#: structural import guard in ``tests/test_cli.py`` forbids anything inward of
+#: the CLI adapter — and ``web/`` is an adapter peer of ``cli``, not something
+#: inward of it — from importing ``cli``, so the value is reimplemented here
+#: and cross-checked against ``cli._EXTENT_SEPARATOR`` from the test tree,
+#: exactly as :func:`_extent_token` below is cross-checked against
+#: ``cli._extent_token`` (CLAUDE.md's stated precedent, ``solver/propagate.py``'s
+#: ``mask_runs``).
+_EXTENT_SEPARATOR = "x"
+
+
+def _extent_token(text: str) -> tuple[int, int | None] | None:
+    """Parse a ``size`` field into ``(width, height)``, mirroring ``cli._extent_token``.
+
+    A native reimplementation of ``cli._extent_token``'s parsing rule, not an
+    import of it (see :data:`_EXTENT_SEPARATOR`'s docstring and CARD-028's
+    worktree notes on the card). ``"30x20"`` yields ``(30, 20)``; a bare
+    ``"30"`` yields ``(30, None)`` — one number, because one number is what
+    was posted, and the domain derives the other side from the source's own
+    shape (FR-023, ADR-0022/R4). ``"30X20"`` (capital X) is not split — the
+    separator is the lowercase literal in :data:`_EXTENT_SEPARATOR`, exactly
+    as it is in ``cli.py`` — so it falls through to the single-token branch
+    and is refused there for not being a whole number.
+
+    Applies **no range check**, deliberately (ADR-0022/R2, guardrail G-2):
+    ``"40x20"``, ``"0"``, ``"9"``, ``"31"`` and ``"-5"`` are all well-formed
+    and all parse; each is refused inward by
+    ``sourcing.random_grid.validate_extent``, exactly as it is for the CLI
+    (AC-065's web mirror). ``int`` is applied to each half, which is what
+    admits a leading sign, surrounding whitespace and ``_`` digit separators —
+    ``int``'s own documented tolerances rather than a grammar of this
+    module's own, exactly as in ``cli._extent_token``.
+
+    Args:
+        text: The ``size`` field's value, as posted.
+
+    Returns:
+        ``(width, height)`` for a well-formed ``N``/``NxM`` token, both
+        unvalidated, or ``None`` when ``text`` is neither shape (``"30x"``,
+        ``"x20"``, ``"3x4x5"``, ``"big"``, ``"30X20"``, ``""``, ``"x"``) —
+        the same set ``cli._extent_token`` raises
+        ``argparse.ArgumentTypeError`` for. Where the CLI's refusal becomes a
+        usage error before any request exists (AC-064), this module's ``None``
+        is reported by :func:`read` as an unreadable field, exactly as an
+        unparseable ``density`` or ``seed`` already is — a malformed token
+        never reaches the orchestrator, but an in-range-shaped, out-of-value
+        one (``"60x60"``) parses cleanly here and travels inward for the
+        domain to refuse, same as the CLI (AC-065's web mirror).
+    """
+    parts = text.split(_EXTENT_SEPARATOR)
+    if len(parts) > 2:
+        return None
+    try:
+        sides = [int(part) for part in parts]
+    except ValueError:
+        return None
+    return (sides[0], sides[1]) if len(sides) == 2 else (sides[0], None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +225,19 @@ def read(body: str) -> Submission:
                 unreadable.append(f"{field}: a value may not contain a NUL character")
                 break
 
+    width: int | None = None
+    height: int | None = None
+    raw_size = _one(fields, "size")
+    if raw_size is not None:
+        parsed_size = _extent_token(raw_size)
+        if parsed_size is None:
+            unreadable.append(
+                f"size: expected N or N{_EXTENT_SEPARATOR}M with whole numbers, "
+                f"got {raw_size!r}"
+            )
+        else:
+            width, height = parsed_size
+
     numbers: dict[str, int | None] = {}
     for field in _NUMERIC_FIELDS:
         raw = _one(fields, field)
@@ -182,18 +271,18 @@ def read(body: str) -> Submission:
     return Submission(
         orchestrator.GenerationRequest(
             mode=mode,
-            # The one decision this card had to take that its own text does not
-            # make (see CARD-020's worktree notes). The form has a single size
-            # box, and since FR-023 a single number is not a synonym for a
-            # square: ``(N, None)`` states one side and leaves the other to be
-            # derived from the source's own shape, while ``(N, N)`` forces a
-            # square. This is the bare reading — byte-for-byte what
-            # ``cli._extent_token`` makes of a bare ``--size N`` — because
-            # FR-017 puts the *same* options on both adapters, and a web box
-            # that meant "square" would be the one option whose meaning changed
-            # on the way through the browser.
-            width=numbers["size"],
-            height=None,
+            # CARD-020's decision for the bare reading, extended to the explicit
+            # form by CARD-028. The form's single size box now accepts both
+            # shapes ``_extent_token`` does: a bare ``20`` states one side and
+            # leaves the other for the domain to derive from the source's own
+            # shape (``width=20, height=None`` — FR-023, ADR-0022/R4), and an
+            # explicit ``20x30`` states both (``width=20, height=30``) exactly
+            # as ``cli._extent_token`` reads the same two tokens. Neither reading
+            # is ``(N, N)``, which forces a square and is a different request. An
+            # unposted ``size`` field carries both as ``None``, the same "flag
+            # omitted" the CLI's own ``--size`` absence leaves.
+            width=width,
+            height=height,
             density=numbers["density"],
             library_key=_one(fields, "library_key"),
             # ``image`` is never filled: see the module docstring (CARD-021).
