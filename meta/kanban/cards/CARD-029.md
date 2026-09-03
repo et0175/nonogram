@@ -1,6 +1,7 @@
 # CARD-029: Retire the last stale 10..50 range claims left by CON-011
 
-**Status:** ready
+**Status:** done
+**Started:** 2026-09-03T19:50:00Z
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,11 +16,10 @@
 **Wave:** —
 **Depends on:** CARD-023, CARD-025
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/solver/propagate.py, src/nonogram/solver/search.py, src/nonogram/export/json_export.py, src/nonogram/export/svg.py, tests/test_solver.py, tests/test_export_image.py, tests/property/test_solver_uniqueness.py, tests/property/test_export_roundtrip.py, docs/requirements.md
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5
+**Closed:** 2026-09-03T19:55:00Z
+**Actual:** 0.1d
+**Merge commit:** 434c3049e821423f87434e8e59b531effb7dcb3b
 **Blocked by:** —
 
 ## What to implement

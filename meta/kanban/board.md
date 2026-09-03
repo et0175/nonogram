@@ -1,10 +1,10 @@
 # Kanban Board
 
-_Updated: 2026-09-03 16:15_
+_Updated: 2026-09-03 19:56_
 
 ## Status Summary
-- **Done:** 33 cards
-- **Ready:** 1 cards
+- **Done:** 34 cards
+- **Ready:** 0 cards
 
 ## Recent Merge
-- **CARD-021** ✓ Image upload via hand-rolled multipart parsing (8.5/10, no gating findings)
+- **CARD-029** ✓ Retire stale 10..50 range documentation (9.5/10, no gating findings)
