@@ -527,6 +527,66 @@ class TestWebUI_SubmitRunsSamePipelineAndReportsFiles:
         assert reported is not None, response.body
         assert int(reported.group(1)) >= 0
 
+    def test_the_page_displays_success_inline_with_form_ac_122(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path
+    ) -> None:
+        """AC-122: success displays inline with form re-populated (happy path)."""
+        response = _submit(
+            running_server.server_port,
+            {
+                "mode": "library",
+                "library_key": _KEY,
+                "size": str(_SIZE),
+                "name": "test_puzzle",
+                "out": str(tmp_path),
+            },
+        )
+        
+        # Verify success outcome is present
+        assert _outcome(response.body) == "success"
+        
+        # Verify form is still present on the page (AC-122: "form remains visible")
+        assert b'<form method="post"' in response.body
+        assert b'name="size"' in response.body
+        
+        # Verify form field values are re-populated (AC-122: "form remains... editable")
+        assert b'value="20"' in response.body  # size field re-populated
+        assert b'value="test_puzzle"' in response.body  # name field re-populated
+        
+        # Verify success section is present with result details
+        assert b'<details open>' in response.body or b'<details' in response.body
+        assert b'Generated' in response.body  # success heading
+        
+    def test_the_page_displays_error_inline_with_form_ac_123(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path
+    ) -> None:
+        """AC-123: error displays inline with form re-populated for retry."""
+        response = _submit(
+            running_server.server_port,
+            {
+                "mode": "library",
+                "library_key": _KEY,
+                "size": "999",  # out-of-range to trigger failure
+                "name": "retry_puzzle",
+                "out": str(tmp_path),
+            },
+        )
+        
+        # Verify error outcome is present
+        assert _outcome(response.body) == "failure"
+        
+        # Verify form is still present (AC-123: "form retains inputs")
+        assert b'<form method="post"' in response.body
+        assert b'name="size"' in response.body
+        
+        # Verify form field values are re-populated
+        assert b'value="999"' in response.body  # invalid size re-populated
+        assert b'value="retry_puzzle"' in response.body  # name re-populated
+        
+        # Verify error section is present
+        assert b'<details' in response.body
+        assert b'Error' in response.body or b'error' in response.body.lower()
+
 
 # --------------------------------------------------------------------------
 # AC-050 — the out-of-range size

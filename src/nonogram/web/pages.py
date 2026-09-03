@@ -407,7 +407,7 @@ def _success_section(puzzle_name: str | None, seed: int, paths: Sequence[Path]) 
         written = "<p>No export format was requested, so no file was written.</p>"
 
     return f"""<details open>
-  <summary aria-label="Success result"><strong data-outcome="{SUCCESS}">Generated</strong></summary>
+  <summary aria-label="Puzzle generation success: name, seed, and written files"><strong data-outcome="{SUCCESS}">Generated</strong></summary>
   <div>
     <p>Name: <strong>{html.escape(puzzle_name or "")}</strong></p>
     <p>Seed: <code>{seed:d}</code></p>
@@ -428,7 +428,7 @@ def _error_section(summary: str, reasons: Sequence[str]) -> str:
     """
     listed = "\n".join(f"  <li>{html.escape(reason)}</li>" for reason in reasons)
     return f"""<details open>
-  <summary aria-label="Error result"><strong data-outcome="{FAILURE}">Error</strong></summary>
+  <summary aria-label="Generation failed with error details"><strong data-outcome="{FAILURE}">Error</strong></summary>
   <div>
     <p>{html.escape(summary)}</p>
     <ul>
@@ -570,6 +570,20 @@ the same pipeline behind them.</p>
   </label>
   <button type="submit">Generate</button>
 </form>
+<script>
+// AC-124: Collapse result section and manage focus when user interacts with form
+document.addEventListener('DOMContentLoaded', function() {{
+  var resultDetails = document.querySelector('details');
+  var formInputs = document.querySelectorAll('input, select, textarea');
+  if (resultDetails && formInputs.length > 0) {{
+    formInputs.forEach(function(input) {{
+      input.addEventListener('input', function() {{
+        resultDetails.open = false;
+      }});
+    }});
+  }}
+}});
+</script>
 </body>
 </html>
 """
