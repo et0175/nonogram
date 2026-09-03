@@ -1,6 +1,6 @@
 # CARD-021: Image upload via hand-rolled multipart parsing
 
-**Status:** review
+**Status:** ready
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/021-web-image-upload
-**Worktree:** ../PythonProject4-CARD-021
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-4
 **Idea:** —
 **Wave:** 14
 **Depends on:** CARD-020
 **Touches:** src/nonogram/web/**.py, tests/test_web_upload.py
-**Review score:** 8.5 (cycle 1/3)
-**Started:** 2026-09-03T19:22:00Z
+**Review score:** —
+**Started:** —
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -118,29 +118,59 @@ Implemented the multipart upload branch as designed:
   parsing via `email.parser.BytesParser` over a reconstructed
   headers-plus-body (ADR-0020, G-2: no new dependency). Every part — the
   uploaded file and every ordinary field — is read with
-  `Message.get_payload(decode=True)`, which was verified empirically to be the
-  one accessor that survives a payload containing every byte value 0-255 and
-  the boundary sequence itself.
+  `Message.get_payload(decode=True)`, which was verified empirically (not
+  assumed from the docs) to be the one accessor that survives a payload
+  containing every byte value 0-255 and the boundary sequence itself;
+  `get_payload()` without `decode=True` is lossy for binary content on this
+  interpreter (bytes ≥0x80 come back as `U+FFFD`). The uploaded part lands in
+  a fresh `tempfile.mkstemp` file; every other part is folded into the same
+  `{name: [values]}` shape `urllib.parse.parse_qs` already produces.
 - `src/nonogram/web/submission.py` — split `read()`'s field-to-request body
   out into a new `from_fields(fields, *, image=None)`, reused by both the
-  urlencoded path (unchanged behaviour — G-3) and the new multipart path.
+  urlencoded path (`read()`, unchanged behaviour — G-3) and the new multipart
+  path. `image` is now an accepted parameter, filled by the caller rather than
+  hardcoded to `None`.
 - `src/nonogram/web/handler.py` — `_generate` branches on the `Content-Type`
-  media type before deciding whether to UTF-8-decode the body; a multipart body
-  is kept as raw bytes throughout. The temp file's path is tracked and removed
-  in a `finally` around the rest of the method, so cleanup happens on every
-  path out — success, a domain error, an `OSError`, or an uncaught exception.
-  No adapter-side image validation (G-4).
-- `tests/test_web_upload.py` (new) — all three ACs covered (happy path,
-  negative with corrupt.png, boundary collision unit test + full HTTP round trip
-  with a real PNG containing the boundary string). Temp file cleanup verified
-  before/after by globbing system temp dir.
+  media type (multipart vs. everything else, urlencoded included) before
+  deciding whether to UTF-8-decode the body; a multipart body is kept as raw
+  bytes throughout, since decoding an uploaded image's bytes as text would
+  have been exactly the corruption AC-boundary/multipart guards against. The
+  temp file's path is tracked and removed in a `finally` around the rest of
+  the method, so cleanup happens on every path out — success, a domain error,
+  an `OSError`, or an exception this method does not catch at all (card step
+  5). No adapter-side image validation was added (G-4): an undecodable upload
+  still reaches `UnreadableImage` only through the sourcing module, unchanged.
+- `tests/test_web_upload.py` (new) — AC-049/upload
+  (`TestWebUpload_ConvertsUploadedImageThroughSamePipeline`), AC-050/upload
+  (`TestWebUpload_RejectsUndecodableUploadLikeCLI`, using the existing
+  `tests/fixtures/corrupt.png`) and AC-boundary/multipart
+  (`TestWebUpload_ParsesBoundaryCollidingBodyExactly`, both a direct
+  adversarial unit test against `multipart.read` and a full-socket round trip
+  with a real, decodable PNG that also contains the boundary string in a PNG
+  text chunk). AC-050/upload compares the web page's failure message against
+  the CLI's own `UnreadableImage` message *structurally* (same
+  `cannot read image '<path>': cannot identify image file '<path>'` template,
+  same path repeated within each message) rather than for literal string
+  equality, since the two paths are necessarily different temp/fixture paths.
+  Both AC-049 and AC-050 tests also assert the upload's temp file is gone
+  afterwards (glob `nonogram-upload-*` in the system temp dir before/after),
+  which is what exercises card step 5's "including on the failure path".
 
-SCOPE+ `tests/test_web_server.py` — two pre-existing tests needed updating:
-`test_the_form_offers_the_same_option_surface_as_the_cli` (image now on web
-form, anticipated by its own docstring); `test_the_web_package_raises_nothing`
-(removed try/except/re-raise from multipart.py to keep OSError uncaught).
+SCOPE+ `tests/test_web_server.py` — two pre-existing tests encoded the
+pre-CARD-021 world and needed updating once this card landed, exactly as their
+own docstrings anticipated:
+`test_the_form_offers_the_same_option_surface_as_the_cli` expected `image` to
+be argv-only (its docstring literally named CARD-021 as the card that would
+close that gap); updated to drop `image` from the expected divergence set.
+`test_the_web_package_raises_nothing` walks `src/nonogram/web/**.py` for any
+`raise` statement; `multipart.py`'s original `_write_temp_file` used a
+try/except/re-raise for cleanup-on-error, which tripped this guard — removed
+the try/except entirely (a temp-file write failure is now a standard-library
+`OSError` propagating uncaught, the same "genuinely unexpected" bucket
+`handler._generate`'s own docstring already carves out, rather than a `raise`
+this package originates).
 
 All three ACs pass; full suite green (2315 passed, 1 pre-existing unrelated
-xfail). Committed as 5ba0584.
-
-[AC/EC check] All criteria/constraints ✓ — AC-049/upload (happy path, PNG upload → same pipeline), AC-050/upload (negative, UnreadableImage error), AC-boundary/multipart (boundary collision, byte-for-byte fidelity); no EC stated. Guardrails G-1 through G-6 all held (no edits to orchestrator/sourcing, stdlib only, urlencoded unchanged, no adapter validation, no preview, test_cli.py import guard untouched).
+xfail). `MAX_BODY_BYTES` (64 KiB) was deliberately left unchanged — no AC
+requires a larger upload, and the test fixtures follow this codebase's
+existing convention of tiny (<1 KiB) test images.
