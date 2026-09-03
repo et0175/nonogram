@@ -577,8 +577,20 @@ links:
     a malicious page submitting to 127.0.0.1 arrives with an allowlisted Host and
     was served 200. Impact on the merged surface is nil (one static read-only GET);
     it becomes real with CARD-020s file-writing POST, which is why this requirement
-    gates that card. Test is planned, not yet written.'
-  status: partial
+    gates that card. SHIPPED by CARD-020: the check is
+    WebUIRequestHandler._cross_origin_refusal, run from _dispatch before any route,
+    and the property is tests/test_web_server.py''s EC-004 section — three arms
+    over two hand-built corpora (294 refused rows against a floor of 200, 58 served
+    rows against a floor of 40, both floors asserted inside
+    test_the_corpora_are_large_and_cover_every_declared_signal). The POST rows
+    submit a real generation into a tmp_path, so "never routed to a handler" is
+    checked by the directory staying empty and not only by the status. One bound
+    on the literal "400": a method with no do_* (PUT, DELETE, HEAD) is answered
+    501 by BaseHTTPRequestHandler before _dispatch is reached — refused and routed
+    nowhere either way, so EC-004 holds for it by a different mechanism, and
+    NFR-004''s 400 is a statement about the two routed methods. AC-054..AC-058 are
+    all GET/POST-stated, so no criterion turns on it.'
+  status: covered
 - req: CON-009
   description: Bind-scope rule discharging BCON-0001 — the web server binds 
     loopback only
@@ -613,9 +625,15 @@ links:
   notes: 'The half of BCON-0001 that loopback binding does NOT deliver. Deliberately
     stated as a property over ALL cross-origin/foreign-authority shapes rather than
     the three header forms named in the ACs — the post-hoc review found that hardcoded
-    shape lists miss cases (# and ? split under urlsplit exactly as @ and / do). Test
-    is planned; CARD-020 must satisfy it. Follow-up: ADR-0020 ## Rules block.'
-  status: partial
+    shape lists miss cases (# and ? split under urlsplit exactly as @ and / do).
+    SATISFIED by CARD-020: the declared check ref now resolves —
+    PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest is the
+    EC-004 section of tests/test_web_server.py, green, and pinned by eight mutants
+    recorded in CARD-020''s Worktree notes (the whole refusal disabled -> 9 tests
+    fail; same-site allowlisted -> 2; the # / ? authority characters dropped -> 3;
+    the port-shape check removed -> 3; only the first Origin header read -> 1).
+    Follow-up: ADR-0020 ## Rules block.'
+  status: covered
   # ------------------------------ rectangular grids (US-016..US-019, 2026-08-30)
   # Hand-written by forge:architect-domain-extraction; see the STALE note in the
   # header. Component assignments are inherited from the requirements they refine.

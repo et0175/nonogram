@@ -14,12 +14,34 @@ a request helper drift, and a drifted copy is how a test starts asserting
 something about a request the server never received.
 
 The one thing they cannot show is that the values on the page came from *this*
-submission rather than from a default, so each class also pins the mapping
-itself — ``submission.read`` is a pure function over a body string, and what it
-builds is compared against what ``cli.build_parser`` builds from the argv that
-means the same thing. That comparison is the whole of FR-017's "the same
-options as the CLI": not two lists that happen to agree today, but the same
-value reached two ways.
+submission rather than from a default. Two of the three classes therefore also
+pin the mapping directly — ``submission.read`` is a pure function over a body
+string, so what it builds is asserted field by field, in
+``TestWebUI_SubmitRunsSamePipelineAndReportsFiles`` and in
+``TestWebUI_RejectsOutOfRangeSizeLikeCLI``.
+``TestWebUI_ReportsAbandonedGenerationGracefully`` does not call it at all: its
+criterion is about what a run that abandons puts on the page, and a request
+built by hand would weaken rather than strengthen that.
+
+FR-017's "the same options as the CLI" is not carried by that field-by-field
+assertion, which compares against literals. It is carried by two comparisons
+that reach the CLI itself:
+
+* ``test_the_files_are_the_ones_the_cli_writes_for_the_same_options`` runs both
+  adapters on the same seed and compares the *written bytes*, so a web adapter
+  that had grown its own rendering call has nowhere to hide;
+* ``test_the_one_size_box_travels_as_a_bare_side_exactly_as_argv_does`` asserts
+  the one genuinely ambiguous field against ``cli._extent_token`` — the CLI's
+  own reading of one number — rather than against a literal pair.
+
+``cli.build_parser`` is read in exactly one place here, ``_argv_choices``, and
+what its two callers compare are ``choices`` *lists*
+(``test_a_mode_the_form_does_not_offer_is_refused_the_way_argv_is`` and
+``test_an_export_format_the_registry_does_not_hold_is_refused_the_way_argv_is``).
+That is two lists
+that agree today rather than one value reached twice — worth having, since a
+vocabulary is exactly the kind of thing that drifts between adapters, but it is
+a weaker claim than the two above and is not the argument for FR-017.
 
 Where this module deviates from the criteria as written
 ------------------------------------------------------
@@ -786,10 +808,10 @@ _REAL_FAILURES: dict[str, dict[str, str]] = {
 #
 # The corpus is asserted non-trivial in
 # ``test_the_walked_corpus_is_the_whole_hierarchy``, which also pins it against
-# ``cli._EXIT_CODES``: every class the CLI has an exit code for is a class this
-# page must be able to show, which is the concrete form of "keep the two error
-# taxonomies telling the same story" (ADR-0019). Neither adapter grows a class
-# the other has never heard of.
+# ``cli._EXIT_CODES`` — see that test for what the pin is and, more to the
+# point, what it is not. "Keep the two error taxonomies telling the same story"
+# (ADR-0019) is carried by the walk itself on this side: every class in the
+# hierarchy has to render here, whether or not the CLI has ever heard of it.
 # --------------------------------------------------------------------------
 
 def test_the_walked_corpus_is_the_whole_hierarchy() -> None:
@@ -800,9 +822,31 @@ def test_the_walked_corpus_is_the_whole_hierarchy() -> None:
     # Transitive, not one level: this class is a grandchild of the base.
     assert errors.SizeTooSmallForSource in _ERROR_CLASSES
     assert errors.NonogramError in _ERROR_CLASSES
-    # The CLI's table and this corpus are views of one hierarchy.
-    assert set(cli._EXIT_CODES) <= set(_ERROR_CLASSES)
     assert all(issubclass(cls, errors.NonogramError) for cls in _ERROR_CLASSES)
+
+    # The CLI's table and this corpus are views of one hierarchy, and the
+    # direction that can actually drift is the CLI's. ``set(cli._EXIT_CODES) <=
+    # set(_ERROR_CLASSES)`` — what this line used to say — cannot fail: every
+    # key of that table is a ``NonogramError`` subclass by declaration, and
+    # ``_error_hierarchy`` walks every loaded ``NonogramError`` subclass, so the
+    # left side is a subset of the right by construction. Deleting a row from
+    # ``_EXIT_CODES`` only made the left side smaller and the test still passed.
+    #
+    # What is worth asserting is that ``cli.exit_code_for`` answers every class
+    # in this corpus *deliberately*. Its MRO walk means a class needs no row of
+    # its own when an ancestor has one — ``SizeTooSmallForSource`` correctly has
+    # none — so the check is not "every class has a row" but "no class falls
+    # through to the catch-all". ``INTERNAL_ERROR`` is that catch-all, and
+    # ``exit_code_for``'s own docstring calls reaching it "a mapping gap ... a
+    # bug, not a user error". The base is the one deliberate exception: it is
+    # what "unmapped" is defined against, and nothing raises it directly.
+    unclassified = sorted(
+        cls.__name__
+        for cls in _ERROR_CLASSES
+        if cls is not errors.NonogramError
+        and cli.exit_code_for(cls("drift probe")) is cli.ExitCode.INTERNAL_ERROR
+    )
+    assert not unclassified, unclassified
 
 @pytest.mark.parametrize(
     "call", ["generate", "export_puzzle"], ids=["from-generate", "from-export"]
@@ -1058,9 +1102,10 @@ def test_a_cross_site_submission_never_reaches_the_pipeline_and_writes_nothing(
     An auto-submitting ``<form method=post>`` on any page the user has open,
     aimed at this server. The ``Host`` it carries is allowlisted — a browser
     sets that from the *target* — so the F-12 check passes it, and before the
-    refusal the pipeline ran and wrote four files into a directory the
-    attacking page named. No reply is needed for that to work, which is why the
-    same-origin policy and CORS are beside the point.
+    refusal the pipeline ran and wrote two files — one per ``export_formats``
+    value the body below carries — into a directory the attacking page named.
+    No reply is needed for that to work, which is why the same-origin policy
+    and CORS are beside the point.
     """
 
     def never(*_args: object, **_kwargs: object) -> object:

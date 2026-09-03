@@ -12,7 +12,10 @@ ordered pair, not a mutual exemption).
 laterally. It imports the orchestrator, to hand it a request and get a puzzle
 back; ``errors``, to catch the one hierarchy that pipeline raises; and the
 difficulty and export registries, which ``pages.py`` reads to render the form's
-choices. Nothing inward of this package ever imports back. The structural guard
+choices — and which, in ``export``'s case, ``submission.py`` also reads to
+refuse a format no renderer is registered under, the newer and more
+consequential of the two uses. Nothing inward of this package ever imports
+back. The structural guard
 in ``tests/test_cli.py`` knows exactly two adapter names — ``cli`` and ``web``
 — at one rank, so a capability module still cannot import either of them, nor
 another capability laterally.

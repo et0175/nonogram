@@ -278,13 +278,40 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         disagree has no single answer, and taking the first is how an
         allowlisted value smuggles a foreign one past.
 
-        Neither header can be set or suppressed by page script — both are
-        forbidden header names to ``fetch``/XHR — so a request carrying neither
-        is not the attacker's shape and is served (AC-058). That is what keeps
-        ``curl``, a typed URL and this module's own HTTP/1.0 probes working.
+        Neither header can be *set* by page script — both are forbidden header
+        names to ``fetch``/XHR — so a request carrying neither is not the
+        attacker's shape and is served (AC-058). That is what keeps ``curl``, a
+        typed URL and this module's own HTTP/1.0 probes working.
+
+        "Cannot be *suppressed*" would be too strong for ``Origin``, and the
+        distinction is worth stating because it is what makes "absent means
+        served" safe rather than lucky. A cross-origin GET may legitimately
+        carry no ``Origin`` at all — a ``no-cors`` fetch, an ``<img>``, a
+        top-level navigation — so absence is not proof of anything on its own.
+        It does not have to be: the Fetch standard requires an ``Origin`` on
+        every cross-origin request whose method is not ``GET``/``HEAD``, plain
+        ``<form method=post>`` included, and the only route here that writes
+        files is ``POST /generate``. A cross-origin GET carrying neither header
+        reaches ``GET /`` and a constant string. On any browser implementing
+        fetch metadata (Chrome 76+, Firefox 90+, Safari 16.4+),
+        ``Sec-Fetch-Site: cross-site`` catches that GET case as well.
+
         ``Referer`` is deliberately not consulted: it is suppressible by a
         referrer policy the attacking page controls, so a rule resting on it
         would be one the attacker can switch off.
+
+        A method with no ``do_*`` never reaches this check at all.
+        ``BaseHTTPRequestHandler`` answers ``PUT``, ``DELETE``, ``PATCH``,
+        ``OPTIONS`` and ``HEAD`` with ``501`` before :meth:`_dispatch` runs —
+        measured on the wire, with a cross-site ``Origin`` and
+        ``Sec-Fetch-Site`` attached and nothing written. EC-004's operative
+        clause ("refuses the request and never routes it to a handler") holds
+        for each of them by that different mechanism, so NFR-004's literal
+        ``400`` is a statement about the two routed methods. Moving the check
+        ahead of the standard library's method dispatch would mean overriding
+        ``handle_one_request``, which buys no security and costs stdlib
+        coupling; AC-054..AC-058 are all ``GET``/``POST``-stated, and the
+        property corpus covers those two methods for the same reason.
 
         Returns:
             The refusal, phrased for the response body, or ``None`` when the
@@ -391,11 +418,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         ``BaseHTTPRequestHandler.send_error`` before that override (400, 414,
         431, 501, 505); 400 is on both lists, since it is both the router's
         answer to a foreign host or origin and the standard library's to an
-        unparseable request line. Of the stdlib's five, three arrived as
-        ``text/html`` with no ``nosniff``, and the other two — 400 and 505,
-        where ``parse_request`` had not yet accepted a version — as no status
-        line and no headers whatsoever. The sentence above was false for all
-        five.
+        unparseable request line. The sentence above was false for all five on
+        the stock library, in two different ways: 414, 431 and 501 arrived as
+        ``text/html`` with no ``nosniff``, while 505 and *three of the four
+        request-line shapes that earn a* 400 arrived with no status line and no
+        headers whatsoever. :meth:`send_error` says which shapes those are, and
+        why the fourth is not one of them.
         """
         payload = body.encode("utf-8")
         self.send_response(status)
@@ -443,16 +471,32 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         That is the price of not echoing the request, and reason phrases are
         advisory per RFC 9112 §4.
 
-        The ``request_version`` reset is what makes that possible for two of the
-        five. ``parse_request`` assigns the *parsed* version only after it has
-        accepted it, so on the 400 and 505 paths it is still the ``HTTP/0.9``
-        default when the error is written — and ``send_response_only`` and
-        ``end_headers`` both no-op for ``HTTP/0.9``. As shipped, those two
-        statuses therefore reached the client as a bare body with **no status
-        line and no headers at all**: not merely no ``nosniff`` but no
-        ``Content-Type`` and no status either. Answering a request whose version
-        could not be read with this server's own version is what RFC 9112 §2.3
-        expects, and it is the only way "on every response" can be true.
+        The ``request_version`` reset is what makes that possible on the paths
+        where the version was never accepted. ``parse_request`` assigns the
+        *parsed* version (``self.request_version = version``) only after it has
+        accepted it, and ``send_response_only`` and ``end_headers`` both no-op
+        for ``HTTP/0.9`` — so an error written before that assignment reached
+        the client as a bare body with **no status line and no headers at all**:
+        not merely no ``nosniff`` but no ``Content-Type`` and no status either.
+
+        Which errors those are, measured against this interpreter's own
+        ``parse_request`` rather than reasoned from the shape of the code:
+
+        * ``Bad request version`` (400) and ``Invalid HTTP version`` (505) both
+          leave from inside the version-parsing branch, before the assignment —
+          bare;
+        * ``Bad HTTP/0.9 request type`` (400), a two-word request line, never
+          enters that branch — bare;
+        * ``Bad request syntax`` (400) is reached from **both** sides of the
+          assignment, because its guard is a word count: a one-word request line
+          skips the branch and is bare, while a line of four or more words has
+          already parsed and assigned a real version, so it goes out with a
+          status line and headers even on the stock library.
+
+        The reset is therefore a no-op on that last shape and load-bearing on
+        the other four. Answering a request whose version could not be read with
+        this server's own version is what RFC 9112 §2.3 expects, and it is the
+        only way "on every response" can be true.
 
         A ``HEAD`` has no ``do_HEAD``, so it arrives here as a 501; RFC 9110
         §9.3.2 forbids a body on the response to one, and the standard library

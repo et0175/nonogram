@@ -330,9 +330,15 @@ literal `403` or `HTTPStatus.FORBIDDEN` anywhere under `web/`. So 400 also keeps
 review's shorthand and not from the model (neither NFR-004, CON-010 nor EC-004
 mentions it): a referrer policy the attacking page controls can suppress it, so a
 rule resting on it is one the attacker can switch off. `Sec-Fetch-Site` and
-`Origin` are forbidden header names to `fetch`/XHR and cannot be forged or
-suppressed by page script, which is what makes the "absent means served" rule
-below safe.
+`Origin` are forbidden header names to `fetch`/XHR and cannot be **set** by page
+script. (Corrected in cycle 3: "cannot be suppressed" was too strong for
+`Origin` — a cross-origin GET simply does not carry one. What makes "absent
+means served" safe is not suppression-resistance but that the Fetch standard
+*requires* an `Origin` on every cross-origin request whose method is not
+GET/HEAD, plain `<form method=post>` included; the only route here that writes
+files is `POST /generate`. A cross-origin GET carrying neither header reaches
+`GET /` and a constant string. `_cross_origin_refusal`'s docstring now carries
+that argument in full.)
 
 **A request carrying none of the three signals is still served**, on every
 protocol version — `curl`, a typed URL, a bookmark, and this module's own AC-052
@@ -394,10 +400,11 @@ from this form carries no picture, so it renders the failure page instead. The
 module docstring's copy of the same claim is gone.
 
 **F-005 (high) — the escaping rule is now one rule with one exception.**
-`failure_page`'s `summary` is escaped (one call), so the only unescaped
-interpolation left in `pages.py` is `_shell`'s `title`; the module docstring says
-exactly that and `_shell`'s docstring says it is the only one, instead of the two
-disagreeing about whether the rule has exceptions.
+`failure_page`'s `summary` is escaped (one call), so the module docstring and
+`_shell`'s docstring agree instead of disagreeing about whether the rule has
+exceptions. **Superseded in cycle 3:** the sentence they agreed on ("the only
+unescaped interpolation is `_shell`'s `title`") was itself false — an AST walk
+finds 23 interpolations, 12 unescaped. See cycle 3's F-002 below.
 
 **F-006 (medium) — eight statuses, not seven.** `_respond`'s enumeration now
 reads 200, 400, 404, 413, 414, 431, 501, 505, and says which four this module
@@ -466,10 +473,15 @@ F-002, which is fixed.
     Request**, body `cross-site request: cross-site`, **nothing written** (the
     directory tree does not exist);
   - same-origin form POST (`Origin: http://127.0.0.1:<port>`,
-    `Sec-Fetch-Site: same-origin`) → **200**, `data-outcome="success"`, four
-    files written;
+    `Sec-Fetch-Site: same-origin`) → **200**, `data-outcome="success"`, **two**
+    files written — one per requested `export_formats` value (`png`, `json`);
   - plain POST with **neither header** (`curl`'s shape) → **200**,
-    `data-outcome="success"`, four files written.
+    `data-outcome="success"`, **two** more files. (Corrected in cycle 3: the
+    original "four files" for each POST was a miscount of the *cumulative*
+    directory, which holds four after both runs because the second collides and
+    lands as `<name>-1.png` / `<name>-1.json`. Re-measured directly on
+    `_ATTACK_FIELDS`: run 1 → `pwned.png`, `pwned.json`; run 2 → `pwned-1.png`,
+    `pwned-1.json`.)
   Also on the wire: `GET http://evil.example.com/ HTTP/1.0` with no `Host` →
   400 (AC-056); `Origin: https://evil.example.com` on a GET → 400 (AC-055);
   `Sec-Fetch-Site: cross-site` on a GET → 400 (AC-054); `same-origin` → 200
@@ -482,8 +494,183 @@ F-002, which is fixed.
   (`PropertyTest_WebServer_...`) follows the existing convention and is declared
   in the module header and a section banner, as its EC-003 sibling is.
 
+## Worktree notes — cycle 3 (terminal)
+
+Cycle 2 scored 7.5 (gate failed: 1 high + 6 medium). The reviewer named the
+mechanism behind the medium cluster precisely: *an absolute quantifier asserted
+over a whole module from the author's mental model and never counted against the
+artifact*. Two of the six were sentences a previous cycle's remedy had itself
+reworded from memory. So the rule for this cycle was: **count it mechanically
+first, and where the count is worth keeping, put it in a test rather than in
+prose.** Every derivation below was run; two claims became assertions.
+
+**F-001 (high) — the tautological drift guard, replaced with a real invariant.**
+The reviewer was right and the reasoning is worth recording: `_ERROR_CLASSES` is
+a transitive walk of `NonogramError.__subclasses__()`, and every key of
+`cli._EXIT_CODES` is declared to be such a subclass, so
+`set(cli._EXIT_CODES) <= set(_ERROR_CLASSES)` was a subset relation between a set
+and its own construction-guaranteed superset. Deleting a row only shrank the left
+side.
+
+Took option (a) — a non-tautological invariant does exist here, but it is not the
+one the review's suggestion proposed. `set(_ERROR_CLASSES) - set(cli._EXIT_CODES)`
+would be **wrong**: `exit_code_for` walks the MRO, so a subclass legitimately
+inherits its parent's code, and `SizeTooSmallForSource` correctly has no row of
+its own. Measured across the shipped hierarchy — 12 classes, 10 with their own
+row, `SizeTooSmallForSource` inheriting `SizeOutOfRange`'s code 3 through the MRO,
+and only the base `NonogramError` reaching `INTERNAL_ERROR`. The real invariant is
+therefore **"no class falls through to the catch-all"**:
+
+```python
+unclassified = sorted(
+    cls.__name__ for cls in _ERROR_CLASSES
+    if cls is not errors.NonogramError
+    and cli.exit_code_for(cls("drift probe")) is cli.ExitCode.INTERNAL_ERROR
+)
+assert not unclassified, unclassified
+```
+
+`INTERNAL_ERROR` is what `exit_code_for`'s own docstring calls "a mapping gap ... a
+bug, not a user error", and the base is the one deliberate exception because it is
+what "unmapped" is defined against. **Proven by re-running the reviewer's own
+mutation**: deleting `GenerationAbandoned: ExitCode.GENERATION_FAILED` from
+`cli._EXIT_CODES` now **fails** the test with `AssertionError:
+['GenerationAbandoned']`, where it passed before. The other drift direction was
+mutated too — appending a fresh `DriftProbeError(NonogramError)` to `errors.py`
+fails with `['DriftProbeError']`. And the control passes: `SizeTooSmallForSource`,
+which has no row and should not need one, does not trip it. `cli.py` restored
+byte-identical (`md5 b81ef08e04b13a978bae652ea1564a8f`, the reviewer's own hash);
+`errors.py` restored with an empty `git diff`. The banner's "neither adapter grows
+a class the other has never heard of" is gone, replaced by what the walk actually
+carries. EC-003 untouched.
+
+**F-002 (medium) — the escaping rule, counted and then asserted.** AST walk over
+`pages.py`: **23 f-string interpolations, 11 calling `html.escape` at the point of
+interpolation, 12 not** — matching the reviewer's count exactly. The 12 are four
+kinds: 4 module constants (`_STYLE` ×2, `SUCCESS`, `FAILURE`), 5 fragments built
+here by a function that escaped as it built them (`_options` ×2, `_checkboxes`,
+`written`, `listed`), `_shell`'s two parameters (`title`, a literal by contract;
+`body`, pre-escaped by the caller), and **one value off the wire** —
+`result_page`'s `{seed:d}`, safe not because it is escaped but because the `:d`
+format spec admits an int and nothing else. The module docstring now states the
+rule over caller-supplied *strings* and enumerates all twelve; `_shell`'s docstring
+no longer claims to hold the only one.
+
+Rather than leave a third spelling of a sentence that has now been wrong twice,
+the claim is a test: `TestWebPages_EscapingRuleIsTheOneTheDocstringStates`
+(`tests/test_web_server.py`) walks the AST, pins the 23/11/12 split, requires every
+unescaped expression to appear in a named classification table (both directions,
+so a stale entry fails too), pins `{seed:d}`'s format spec and demonstrates it is
+what does the work, and — the anti-rot device — **reads the counts back out of the
+docstring prose and compares them with the walk**, so a docstring reworded from
+memory fails here instead of at the next review. Mutation-checked: replacing
+`html.escape(reason)` with `reason` in `failure_page` fails 3 of the 4 (restored,
+empty diff).
+
+**F-003 (medium) — "four files" is two, at five sites.** Measured directly:
+`_ATTACK_FIELDS` requests `export_formats=png` and `export_formats=json`, and
+`generate` + `export_puzzle` on it writes `['pwned.png', 'pwned.json']` — **2**. A
+second run into the same `out` writes `['pwned-1.png', 'pwned-1.json']`, which is
+where "four" came from: a cumulative directory reported as a per-POST count. All
+four code sites now say two, phrased against the constant ("one file per
+`export_formats` value") rather than as a bare literal, and the fifth site — this
+card's own Evidence lines — is corrected above with the measurement.
+
+**F-004 (medium) — the module banner, rewritten to the AST's answer.** Measured:
+of the three AC classes, `submission.read` is called in **two**
+(`TestWebUI_SubmitRunsSamePipelineAndReportsFiles`,
+`TestWebUI_RejectsOutOfRangeSizeLikeCLI`) and in **none** of
+`TestWebUI_ReportsAbandonedGenerationGracefully`; `cli.build_parser` is referenced
+at **exactly one** site, inside `_argv_choices`, whose two consumers compare
+`choices` lists. So "each class" and "compared against what `cli.build_parser`
+builds" were both false, and the banner disclaimed ("not two lists that happen to
+agree today") precisely what the module does. It now says the shipped truth and
+names the two comparisons that *do* carry FR-017 —
+`test_the_files_are_the_ones_the_cli_writes_for_the_same_options` (both adapters,
+one seed, written bytes compared) and
+`test_the_one_size_box_travels_as_a_bare_side_exactly_as_argv_does` (asserted
+against `cli._extent_token`, not a literal). The two choices-list tests are named
+by their real names, which were themselves looked up rather than recalled — the
+first two names written here were wrong and an AST check caught them.
+
+**F-005 (medium) — trace.yml flipped.** NFR-004 and CON-010 both go
+`partial → covered`. The "Test is planned" sentences are replaced by the shipped
+state: the check's location, the three arms, the measured corpora (294 refused
+against a floor of 200, 58 served against a floor of 40 — both floors asserted
+inside `test_the_corpora_are_large_and_cover_every_declared_signal`), the eight
+mutants, and the F-009 bound on NFR-004's literal "400". `requirements.yml` was
+**not** hand-edited. The file still parses as YAML and both rows read `covered`.
+
+**F-006 (medium) — the comment now protects the `.strip()` instead of inviting its
+removal.** Measured on this interpreter: `http.client`'s header parsing strips the
+whitespace *after the colon* but leaves trailing whitespace alone —
+`parsestr("X-A: none \r\n")` yields `['none ']`, space intact. So `handler.py`'s
+`site.strip()` is the **only** strip in the chain and is load-bearing. The comment
+says that, and adds a precision the finding did not: the two padded rows are **not
+symmetric** — `" same-origin"` arrives already unpadded and duplicates the row
+above it, while `"none "` is the one that actually reaches the handler padded.
+Verified by mutation: replacing `site.strip()` with `site` fails exactly one test,
+`test_every_same_origin_or_metadata_free_request_is_served` — the over-refusal
+direction, as predicted. That count is in the comment.
+
+**F-007 (medium) — three of four, and the fourth is subtler than filed.** Read off
+this interpreter's own `parse_request` and confirmed on the wire against an
+untouched `BaseHTTPRequestHandler`. The `Bad request syntax` exit guards on a
+**word count**, so it is reached from *both* sides of the version assignment: a
+**one-word** request line skips the version branch entirely and is bare (which the
+finding missed), while four or more words have already parsed and assigned, and go
+out with a status line even unpatched. So of the four request-line shapes that earn
+a stdlib 400, **three are bare and one is not**; 505 is always bare. Both
+docstrings now say that, and — since this sentence has been reworded twice and
+over-generalised both times — the measurement is a test:
+`test_which_stock_error_paths_never_reached_the_version_assignment` drives a stock
+`BaseHTTPRequestHandler` and asserts bare/not-bare per shape, so a Python upgrade
+that changes the stdlib makes the docstring fail rather than silently rot. Its
+bound, `test_the_shipped_handler_answers_all_five_of_those_shapes_with_a_status_line`,
+shows the reset erases the difference.
+
+**Low findings, also fixed.** F-008: `result_page(name: str)` widened to
+`str | None` to match `orchestrator.Puzzle.name`, escaping `name or ""` — the call
+sits *after* `export_puzzle` has written files and *outside* the EC-003 `try`, so a
+`None` would have meant a dropped socket after a successful export. No orchestrator
+edit (G-1). F-009: `_cross_origin_refusal`'s docstring records that a method with no
+`do_*` is answered 501 by the stdlib before `_dispatch` — probed live for PUT,
+DELETE, PATCH, OPTIONS and HEAD, all 501 with nothing written — so EC-004 holds for
+them by a different mechanism and NFR-004's "400" is a statement about the two
+routed methods. F-010: the `Origin` "suppressed" overclaim replaced by the argument
+that actually holds (see the corrected paragraph above). F-011: the unqualified
+`G-5` is now `CARD-019's guardrail G-5`, with a note on why the bare number does not
+resolve; `web/__init__.py` now records that `submission.py` reads `export.FORMATS`
+too, as a validity check. F-012/F-013 (info) need no action and none was taken.
+
+**Evidence (cycle 3).**
+
+* Full suite: **1590 passed, 1 xfailed** (cycle-2 baseline 1580 + 1 xfailed; 10
+  new tests — 4 escaping-rule, 5 stock-error-path rows, 1 shipped-handler bound).
+  `tests/test_cli.py`'s ast import guard green.
+* **F-001 mutation, the reviewer's own**: `GenerationAbandoned` row deleted from
+  `cli._EXIT_CODES` → `test_the_walked_corpus_is_the_whole_hierarchy` **FAILS**
+  (`['GenerationAbandoned']`), where it passed against the old assertion. Second
+  direction: a new `DriftProbeError` in `errors.py` → **FAILS**
+  (`['DriftProbeError']`). Both restored, `md5`/`git diff` clean.
+* **All eight cycle-1 mutants re-run, every count unchanged**: M1 whole refusal
+  disabled → **9**; M2 `same-site` allowlisted → **2**; M3 `#`/`?` dropped → **3**;
+  M4 port-shape check removed → **3**; M5 only the first `Origin` read → **1**;
+  M6 `export_formats` registry check removed → **3**; M7 NUL check removed →
+  **1**; M10 `except OSError` deleted → **2**. Each restored and verified
+  byte-identical by `md5`.
+* **Two new mutants** for the two claims converted into tests: `html.escape(reason)`
+  → `reason` fails 3 of the escaping-rule class's 4; `site.strip()` → `site` fails
+  exactly 1.
+* **Every test name cited in prose added by this cycle** re-checked mechanically
+  against an AST index of `tests/`: **19 identifiers, all resolving to exactly one
+  `def`/`class`** (the one `PropertyTest_` logical id resolving to its declared
+  section banner, per the existing convention). Two names were wrong when first
+  written and were corrected from the index.
+
 **Requirements now satisfied:** NFR-004, CON-010, AC-054, AC-055, AC-056,
-AC-057, AC-058, EC-004 — each with a test of its own and CON-010's declared
-`check:` ref now resolving. AC-049 remains satisfied with the substitution the
-implementation notes above record, and the model-side correction for it is filed
-as an intake line rather than applied to `requirements.yml`.
+AC-057, AC-058, EC-004 — each with a test of its own, CON-010's declared
+`check:` ref resolving, and both trace.yml rows flipped to `covered` (cycle 3).
+AC-049 remains satisfied with the substitution the implementation notes above
+record, and the model-side correction for it is filed as an intake line rather
+than applied to `requirements.yml`.

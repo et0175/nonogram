@@ -7,17 +7,35 @@ closed anyway. :data:`FORM_PAGE` is built once, at import, and is a plain
 ``str`` from then on; the two pages a submission produces are f-strings
 assembled per response, because their content is the run's.
 
-Everything that came off the wire goes through :func:`html.escape` at the point
-it is interpolated, and that is not belt-and-braces here: a result page carries
-a puzzle name and file paths the user chose, and a failure page carries a
-domain error's message, which quotes them back (an unknown library key, an
+Every **string** that came off the wire goes through :func:`html.escape` at the
+point it is interpolated, and that is not belt-and-braces here: a result page
+carries a puzzle name and file paths the user chose, and a failure page carries
+a domain error's message, which quotes them back (an unknown library key, an
 unusable name). The responses also travel with ``nosniff`` and a ``text/html``
 content type from ``handler._respond``, so the escaping is the guard that
-actually does the work rather than the second one. Exactly one interpolation is
-*not* escaped — :func:`_shell`'s ``title``, which its own docstring binds to be
-a literal — and everything else is, including values that are literals today
-(``failure_page``'s ``summary``), so no later caller has to notice which is
-which.
+actually does the work rather than the second one. Values that are literals
+today are escaped anyway (``failure_page``'s ``summary``), so no later caller
+has to notice which is which.
+
+The rule is stated over caller-supplied *strings* because most interpolations
+here are not that, and the split is asserted rather than remembered:
+``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
+``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
+interpolation whose expression is not one of the ones named below. As shipped
+there are 23 f-string interpolations, of which 11 call :func:`html.escape` at
+the point of interpolation. The other 12 are each one of four kinds:
+
+* **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
+* **5 fragments built here**, by a function that escaped as it built them —
+  :func:`_options` (twice), :func:`_checkboxes`, :func:`result_page`'s
+  ``written``, :func:`failure_page`'s ``listed``;
+* **:func:`_shell`'s two parameters** — ``title``, which its own docstring
+  binds to be a literal, and ``body``, which the caller has already escaped;
+* **one value off the wire**: :func:`result_page`'s ``{seed:d}``. It is the
+  single exception to the sentence above, and it is safe not because it is
+  escaped but because it is not a string — the ``:d`` format spec admits an int
+  and nothing else, so a later caller passing markup there raises instead of
+  emitting it.
 
 Neither page renders the puzzle (CON-008, guardrail G-4). What a successful run
 reports is the puzzle's name, the seed and the files written; :func:`result_page`
@@ -195,13 +213,16 @@ def _shell(title: str, body: str) -> str:
     """Wrap ``body`` in the same document the form page is (ADR-0020).
 
     One shell for all three pages, so a submission's answer is visibly the same
-    application as the form that produced it. ``title`` is interpolated
-    unescaped and is therefore never caller data: both call sites below pass a
-    literal, and that is the whole of the rule — everything that came off the
-    wire is escaped by the caller before it reaches ``body``. It is the only
-    unescaped interpolation in this module, which the module docstring states
-    so that the rule is not stated in one place as an absolute and here as a
-    condition.
+    application as the form that produced it.
+
+    Both of this function's parameters are interpolated unescaped, and each has
+    its own reason. ``title`` is therefore never caller data: both call sites
+    below pass a literal, and that is the whole of the rule for it. ``body`` is
+    markup by construction — a caller that escaped it would ship the tags to
+    the browser as text — so it is contractually pre-escaped: every string that
+    came off the wire is escaped by the caller before it reaches here. Neither
+    is the *only* unescaped interpolation in this module; the module docstring
+    enumerates all twelve and says which kind each is.
     """
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -218,7 +239,7 @@ def _shell(title: str, body: str) -> str:
 """
 
 
-def result_page(name: str, seed: int, paths: Sequence[Path]) -> str:
+def result_page(name: str | None, seed: int, paths: Sequence[Path]) -> str:
     """The page a completed run produces (AC-049).
 
     Reports three things: the puzzle's name, the seed, and every file
@@ -251,8 +272,18 @@ def result_page(name: str, seed: int, paths: Sequence[Path]) -> str:
     printing no ``wrote`` lines at all.
 
     Args:
-        name: The puzzle's FR-015 name, as the aggregate carries it.
-        seed: The run's seed, drawn or supplied.
+        name: The puzzle's FR-015 name, as the aggregate carries it — which is
+            to say ``str | None``, matching ``orchestrator.Puzzle.name``'s own
+            declaration rather than narrowing it here. ``None`` is not reachable
+            from this adapter today (``orchestrator.generate`` resolves the name
+            before it constructs the ``Puzzle``), but this function is called
+            *after* ``export_puzzle`` has already written the files, and outside
+            the ``try`` EC-003 rests on, so the day the aggregate exercises its
+            declared option a ``str``-only signature would answer with a dropped
+            connection and a traceback. Rendered as no name instead.
+        seed: The run's seed, drawn or supplied. Interpolated with a ``:d``
+            format spec, which is what makes it the one value off the wire that
+            reaches the markup without ``html.escape``.
         paths: The files written, from ``export_puzzle``'s return value.
 
     Returns:
@@ -267,7 +298,7 @@ def result_page(name: str, seed: int, paths: Sequence[Path]) -> str:
     return _shell(
         "nonogram — generated",
         f"""<h1>Generated</h1>
-<p data-outcome="{SUCCESS}">Generated <strong>{html.escape(name)}</strong>.</p>
+<p data-outcome="{SUCCESS}">Generated <strong>{html.escape(name or "")}</strong>.</p>
 <p>seed: <code>{seed:d}</code></p>
 {written}""",
     )

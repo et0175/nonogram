@@ -55,14 +55,17 @@ from __future__ import annotations
 
 import ast
 import http.client
+import http.server
 import inspect
 import re
 import socket
+import socketserver
 import threading
 import time
 import urllib.parse
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import closing, contextmanager
+from http import HTTPStatus
 from pathlib import Path
 from typing import NamedTuple
 
@@ -1313,7 +1316,8 @@ def test_the_allowlist_is_the_three_loopback_names() -> None:
 # ``https://evil.example.com`` posting to ``http://127.0.0.1:<port>/generate``
 # arrives with an allowlisted ``Host`` over a loopback socket. Reproduced on
 # the wire against the code this section was written for: ``200``, the pipeline
-# ran, and four files landed in a directory the attacking page named.
+# ran, and it wrote into a directory the attacking page named — one file per
+# ``export_formats`` value the body carried, two for the body below.
 #
 # What the refusal reads are the signals such a request carries and page script
 # can neither forge nor suppress: ``Sec-Fetch-Site``, ``Origin``, and the
@@ -1412,10 +1416,26 @@ _REFUSED_FETCH_SITES: tuple[str, ...] = (
     "none; cross-site",
 )
 
-#: ``Sec-Fetch-Site`` values that must be served (AC-057). The padded spellings
-#: are here because ``http.client``'s own header parsing strips surrounding
-#: whitespace and the handler strips it again — a value is compared on its
-#: token, not on its layout.
+#: ``Sec-Fetch-Site`` values that must be served (AC-057).
+#:
+#: The two padded spellings are here for ``handler``'s own ``site.strip()``,
+#: which is the ONLY strip in the chain and is load-bearing. Measured on this
+#: interpreter rather than assumed: ``http.client``'s header parsing strips the
+#: whitespace *after the colon* but leaves trailing whitespace alone — parsing
+#: ``"X-A: none \r\n"`` yields ``['none ']``, the space intact. So the two rows
+#: are not symmetric. ``" same-origin"`` arrives at the handler already
+#: unpadded and is a duplicate of the row above it, kept because the *layout*
+#: of the header is what it is a case of; ``"none "`` is the row that actually
+#: reaches ``_cross_origin_refusal`` padded, and only ``.strip()`` turns it back
+#: into a token.
+#:
+#: Removing that ``.strip()`` is safe in the refusing direction — a padded
+#: ``cross-site`` misses the allowlist and is refused, which is the right answer
+#: for the wrong reason — and a live defect in the serving one: a legitimate
+#: ``same-origin `` would miss it too and be refused. Measured: replacing
+#: ``site.strip()`` with ``site`` fails
+#: ``test_every_same_origin_or_metadata_free_request_is_served``, and nothing
+#: else in this module or in ``tests/test_web_submission.py``.
 _ALLOWED_FETCH_SITES: tuple[str, ...] = (
     "same-origin",
     "none",
@@ -1424,7 +1444,9 @@ _ALLOWED_FETCH_SITES: tuple[str, ...] = (
 )
 
 #: The body a POST row in the corpus carries: a real submission that would
-#: generate and write four files if it were ever routed.
+#: generate and write one file per ``export_formats`` value below — two, as
+#: spelled — if it were ever routed. Measured, not assumed: this body through
+#: ``generate`` + ``export_puzzle`` writes ``pwned.png`` and ``pwned.json``.
 _ATTACK_FIELDS: tuple[tuple[str, str], ...] = (
     ("mode", "library"),
     ("library_key", "cat"),
@@ -1798,9 +1820,18 @@ class TestWebServer_AllowsRequestsWithNoOriginMetadata:
 #   A refusal that answered 400 to everything satisfies the first sweep
 #   completely and fails this one on its first row.
 #
+# A fourth ``def`` follows the three below and is deliberately not an arm:
+# ``test_the_accepted_fetch_metadata_is_the_two_spec_values`` pins a constant,
+# as ``ALLOWED_HOSTS``'s sibling does, and would still be wanted if the property
+# went away.
+#
 # No ``hypothesis``: it is not in ADR-0006's dependency baseline. The corpora
 # are built by hand and their size is asserted inside the tests that use them,
-# which is this project's standing answer to the same need.
+# which is this project's standing answer to the same need. As shipped the
+# refused corpus is 294 rows against a floor of 200 and the served corpus is 58
+# against a floor of 40 — both measured, and both floors asserted in
+# ``test_the_corpora_are_large_and_cover_every_declared_signal``, which is what
+# makes those numbers a guard rather than a note.
 # --------------------------------------------------------------------------
 
 
@@ -1831,8 +1862,10 @@ def test_every_cross_origin_or_foreign_authority_request_is_refused(
 
     The POST rows carry a real library submission whose ``out`` is ``tmp_path``,
     so a refusal that stopped working does not merely return the wrong status —
-    it leaves four files behind, which the final assertion catches even if the
-    status assertions were somehow satisfied.
+    it leaves files behind, which the final assertion catches even if the status
+    assertions were somehow satisfied. Two per routed row, one for each of
+    ``_ATTACK_FIELDS``' two ``export_formats`` values; the assertion below is
+    stated over the directory being *empty*, so the count is not load-bearing.
     """
     corpus = _refused_corpus(tmp_path)
     assert len(corpus) >= _MINIMUM_REFUSED_CASES, len(corpus)
@@ -1920,7 +1953,9 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     exact sets rather than filtered away, so neither gap can grow quietly:
 
     * ``image`` — argv only. A file upload is a multipart form control, which
-      is CARD-021's work (guardrail G-5).
+      CARD-019's guardrail G-5 defers to CARD-021. Card-qualified because the
+      number alone does not resolve: CARD-020's own G-5 is the unchanged CLI
+      error mapping, and CARD-021's is the no-preview rule.
     * ``extent`` on argv against ``size`` on the form — CARD-027 turned
       ``--size`` into a ``(width, height)`` pair carried under the ``extent``
       destination (FR-018, ADR-0022/R1), and its guardrail G-7 reserves the web
@@ -2215,6 +2250,151 @@ class TestWebDocstrings_MatchTheShippedPackage:
         assert {method for method, _ in handler.ROUTES} == {"GET", "POST"}
 
 
+class _Interpolation(NamedTuple):
+    """One ``{...}`` inside an f-string in ``pages.py``."""
+
+    line: int
+    #: ``ast.unparse`` of the interpolated expression, e.g. ``"html.escape(name)"``.
+    expression: str
+    #: ``ast.unparse`` of the format spec, or ``None`` when there is none.
+    format_spec: str | None
+    #: True when the expression is itself a call to ``html.escape`` — i.e. the
+    #: value is escaped *at the point it is interpolated*, which is the rule
+    #: ``pages.py``'s docstring states.
+    escaped: bool
+
+
+def _page_interpolations() -> list[_Interpolation]:
+    """Every f-string interpolation in ``pages.py``, read off its AST.
+
+    Read from the source rather than from the rendered pages because the claim
+    under test is about the *code*: a page can be free of injected markup today
+    and still be built by a rule nobody can apply tomorrow.
+    """
+    source = Path(pages.__file__).read_text(encoding="utf-8")
+    found: list[_Interpolation] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.JoinedStr):
+            continue
+        for value in node.values:
+            if not isinstance(value, ast.FormattedValue):
+                continue
+            expression = ast.unparse(value.value)
+            found.append(
+                _Interpolation(
+                    line=value.lineno,
+                    expression=expression,
+                    format_spec=(
+                        ast.unparse(value.format_spec) if value.format_spec else None
+                    ),
+                    escaped=(
+                        isinstance(value.value, ast.Call)
+                        and ast.unparse(value.value.func) == "html.escape"
+                    ),
+                )
+            )
+    return sorted(found)
+
+
+#: Every interpolation in ``pages.py`` that does **not** call ``html.escape`` at
+#: the point of interpolation, mapped to the kind ``pages.py``'s docstring says
+#: it is. Spelled out rather than counted so that a *new* unescaped
+#: interpolation fails here by name and has to be classified deliberately —
+#: which is the check the docstring's own sentence cannot perform.
+_UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
+    "_STYLE": "module constant",
+    "SUCCESS": "module constant",
+    "FAILURE": "module constant",
+    "_options(MODES)": "fragment escaped by the function that built it",
+    "_options(list(difficulty.Tier), blank='(any)')": (
+        "fragment escaped by the function that built it"
+    ),
+    "_checkboxes('export_formats', export.FORMATS)": (
+        "fragment escaped by the function that built it"
+    ),
+    "written": "fragment escaped by the function that built it",
+    "listed": "fragment escaped by the function that built it",
+    "title": "_shell parameter, bound by its own docstring to be a literal",
+    "body": "_shell parameter, contractually pre-escaped by the caller",
+    "seed": "off the wire, and guarded by its ``:d`` format spec rather than by escaping",
+}
+
+
+class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
+    """``pages.py``'s escaping rule, checked against ``pages.py``.
+
+    The rule shipped twice as an absolute — "exactly one interpolation is not
+    escaped" — and was wrong both times, in a module whose whole defence
+    against injected markup is that rule. Two review cycles found it by
+    counting; this class does the counting, so the third spelling of the
+    sentence is pinned to the artifact rather than to anyone's memory.
+
+    Deliberately not a test that the pages come out safe: that is what
+    ``test_a_refused_host_is_not_echoed_as_markup`` and the EC-003 arms in
+    ``tests/test_web_submission.py`` do. This is a test that the rule a future
+    author will *apply* is true of the code they will apply it to.
+    """
+
+    def test_the_split_is_the_one_the_docstring_states(self) -> None:
+        """23 interpolations, 11 escaped at the point of interpolation, 12 not."""
+        found = _page_interpolations()
+
+        assert len(found) == 23, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 11
+        assert sum(1 for i in found if not i.escaped) == 12
+
+    def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
+        """A thirteenth fails here, by name, rather than passing unnoticed.
+
+        The set comparison is two-directional on purpose: an unescaped
+        interpolation this table does not name is an unclassified one, and a
+        name this table carries that the module no longer interpolates is a
+        stale entry that would otherwise keep vouching for nothing.
+        """
+        unescaped = {i.expression for i in _page_interpolations() if not i.escaped}
+
+        assert unescaped, "no interpolations found — the AST walk stopped working"
+        assert unescaped == set(_UNESCAPED_PAGE_INTERPOLATIONS)
+
+    def test_the_one_wire_value_that_is_not_escaped_is_bound_by_its_format_spec(
+        self,
+    ) -> None:
+        """``{seed:d}`` is safe because of the ``d``, and nothing else.
+
+        Both halves are asserted: that the spec is still there in the source,
+        and that it is what does the work — a ``str`` of markup handed to the
+        same format raises rather than reaching the page.
+        """
+        seeds = [i for i in _page_interpolations() if i.expression == "seed"]
+
+        assert len(seeds) == 1, seeds
+        assert seeds[0].format_spec == "f'd'", seeds[0]
+        with pytest.raises(ValueError):
+            "{0:d}".format("<script>")  # noqa: UP030 — the mechanism, not a style
+
+    def test_the_docstring_states_the_numbers_the_ast_measures(self) -> None:
+        """The prose and the artifact, pinned to each other.
+
+        The defect this class exists for was never a wrong *rule* — it was a
+        correct rule carrying a quantifier nobody had counted. So the sentence
+        itself is read back and compared with the walk, and a docstring reworded
+        from memory fails here rather than at the next review.
+        """
+        text = " ".join((pages.__doc__ or "").split())
+        found = _page_interpolations()
+
+        split = re.search(
+            r"there are (\d+) f-string interpolations, of which (\d+) call", text
+        )
+        others = re.search(r"The other (\d+) are each one of four kinds", text)
+
+        assert split, "the docstring no longer states the interpolation split"
+        assert others, "the docstring no longer states the unescaped count"
+        assert int(split.group(1)) == len(found)
+        assert int(split.group(2)) == sum(1 for i in found if i.escaped)
+        assert int(others.group(1)) == sum(1 for i in found if not i.escaped)
+
+
 #: One request shape per status the standard library answers before ``do_GET``
 #: is reached. Kept as raw bytes because ``http.client`` cannot express a
 #: malformed request line, and keyed by the status each must provoke.
@@ -2267,13 +2447,17 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
         head, _, body = received.partition(b"\r\n\r\n")
         lowered = head.lower()
 
-        # A status line at all is part of the claim, and for 400 and 505 it is
-        # new: ``parse_request`` assigns the parsed version only after accepting
-        # it, so on those two paths ``request_version`` was still the HTTP/0.9
-        # default and both ``send_response_only`` and ``end_headers`` no-op'd.
-        # As CARD-019 shipped, the client got a bare HTML body with no status
-        # line and no headers whatsoever — no Content-Type either, so "no
-        # nosniff" understated it.
+        # A status line at all is part of the claim, and for 505 and for this
+        # 400 probe it is new: ``parse_request`` assigns the parsed version only
+        # after accepting it, so where the error is written before that
+        # assignment ``request_version`` was still the HTTP/0.9 default and both
+        # ``send_response_only`` and ``end_headers`` no-op'd. As CARD-019
+        # shipped, the client got a bare HTML body with no status line and no
+        # headers whatsoever — no Content-Type either, so "no nosniff"
+        # understated it. Not every 400 was bare, though: which request-line
+        # shapes were is measured in
+        # ``test_which_stock_error_paths_never_reached_the_version_assignment``
+        # rather than generalised from these five probes.
         # The reason phrase is written out here rather than read back from
         # ``handler.WebUIRequestHandler.responses``, which is the table the
         # handler itself formats from: re-deriving it there would assert only
@@ -2305,6 +2489,84 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
         received = _raw_exchange(running_server.server_port, request_bytes)
 
         assert echo not in received, received[:200]
+
+    @pytest.mark.parametrize(
+        ("request_line", "bare_on_the_stock_library"),
+        [
+            # Left of ``parse_request``'s ``self.request_version = version``:
+            # the version was never accepted, so HTTP/0.9 suppressed everything.
+            pytest.param(b"GET / HTTP/x.y", True, id="400-bad-request-version"),
+            pytest.param(b"GET / HTTP/2.0", True, id="505-invalid-http-version"),
+            pytest.param(b"POST /", True, id="400-bad-http-0.9-request-type"),
+            pytest.param(b"GET", True, id="400-bad-request-syntax-one-word"),
+            # Right of it. ``Bad request syntax`` guards on a *word count*, so
+            # four or more words reach it having already parsed and assigned a
+            # real version — and went out with a status line even unpatched.
+            pytest.param(b"GET / x HTTP/1.0", False, id="400-bad-request-syntax-four-words"),
+        ],
+    )
+    def test_which_stock_error_paths_never_reached_the_version_assignment(
+        self, request_line: bytes, bare_on_the_stock_library: bool
+    ) -> None:
+        """The measurement ``send_error``'s docstring rests on, made repeatable.
+
+        ``send_error``'s justification for resetting ``request_version`` names
+        which of ``parse_request``'s exits wrote a bare body on the stock
+        library, and the claim has now been wrong twice by being generalised
+        from three probes to all of them. It is a claim about *the standard
+        library*, so it is measured against an untouched
+        ``BaseHTTPRequestHandler`` here rather than against this package: a
+        Python upgrade that changes which exits are bare makes that docstring
+        stale, and this is what says so.
+
+        A bare response has no status line at all, which is the whole point —
+        so the discriminator is whether the first bytes back are ``HTTP/``.
+        """
+
+        class _Stock(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.0"
+
+            def do_GET(self) -> None:  # pragma: no cover - never reached
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args: object) -> None:
+                """Silence: every request here is meant to be an error."""
+
+        with socketserver.TCPServer((server.LOOPBACK_HOST, 0), _Stock) as stock:
+            thread = threading.Thread(
+                target=stock.serve_forever, kwargs={"poll_interval": _POLL_INTERVAL_S},
+                daemon=True,
+            )
+            thread.start()
+            try:
+                received = _raw_exchange(stock.server_address[1], request_line + b"\r\n\r\n")
+            finally:
+                stock.shutdown()
+                thread.join(timeout=5)
+
+        assert received, request_line
+        assert (not received.startswith(b"HTTP/")) is bare_on_the_stock_library, received[:120]
+
+    def test_the_shipped_handler_answers_all_five_of_those_shapes_with_a_status_line(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """And the reset makes the difference vanish — which is the point of it.
+
+        The bound on the test above: the stock library treats those five shapes
+        two different ways, and this adapter treats them one way. Stated over
+        all five rather than over the four the reset actually rescues, because
+        "on every response" is what ``_respond`` claims.
+        """
+        for request_line in (b"GET / HTTP/x.y", b"GET / HTTP/2.0", b"POST /",
+                             b"GET", b"GET / x HTTP/1.0"):
+            received = _raw_exchange(
+                running_server.server_port, request_line + b"\r\n\r\n"
+            )
+
+            assert received.startswith(b"HTTP/1.0 "), (request_line, received[:120])
+            assert b"x-content-type-options: nosniff" in received.lower(), request_line
 
     def test_a_head_request_gets_no_body(
         self, running_server: server.LoopbackHTTPServer
