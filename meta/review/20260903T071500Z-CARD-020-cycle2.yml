@@ -1,0 +1,995 @@
+version: 1
+generated_at: "2026-09-03T07:15:00Z"
+target: "CARD-020 cycle 2 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-020, branch card/020-web-submission-handler, commits 177ba57 (implementation) + a017d74 (cycle-1 fixes), diff main...HEAD"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+cycle: 2
+previous_cycle:
+  report: meta/review/20260903T060056Z-CARD-020-cycle1.yml
+  score: 4.5
+  gate: failed
+score_delta: 3.0          # 4.5 -> 7.5; min_improvement 0.5 cleared comfortably
+gate: failed              # 7.5 < min_score 8, and 1 high + 6 medium remain open
+cycles_remaining: 1       # max_cycles 3 — cycle 3 is TERMINAL
+
+coverage:
+  read:
+    - src/nonogram/web/handler.py          # in full
+    - src/nonogram/web/submission.py       # in full
+    - src/nonogram/web/pages.py            # in full
+    - src/nonogram/web/server.py           # in full
+    - src/nonogram/web/__init__.py         # in full
+    - tests/test_web_server.py             # corpus builders, AC-054..058, EC-004 arms, AC-053 guard, docstring-conformance tests
+    - tests/test_web_submission.py         # AC-049/050/051 classes, EC-003 arms, helpers, fixtures
+    - tests/test_cli.py                    # import guard + rank logic (not modified by the diff)
+    - meta/kanban/cards/CARD-020.md        # in full
+    - meta/kanban/cards/CARD-019.md        # the annotated failure-matrix rows F-8/F-12
+    - meta/architecture/requirements.yml   # NFR-004/AC-054..058/EC-004, CON-009, CON-010
+    - meta/architecture/trace.yml          # NFR-004, CON-009, CON-010, FR-017 rows
+    - meta/architecture/inputs/raw-requirements.md  # the AMENDS AC-049 intake line
+    - meta/architecture/decisions/adr/0019, 0021, 0022  # ## Rules blocks
+    - src/nonogram/orchestrator.py         # read for Puzzle.name/seed, nudge counter, library sourcing (NOT modified)
+    - src/nonogram/cli.py                  # read for _EXIT_CODES, seed printing, _extent_token (NOT modified)
+  not_reached:
+    - tests/test_web_server.py lines 1..1150 were skimmed rather than read line-by-line (the CARD-019-era half)
+    - src/nonogram/solver/**, src/nonogram/export/**, src/nonogram/sourcing/image.py — untouched by the diff, read only where a claim pointed at them
+  visual: >-
+    review.visual degrades to STATIC — meta/design/ does not exist, so there is no
+    design brief, no baselines, no screenshots, no runtime log and no a11y scan.
+    NOBODY HAS LOOKED AT THE RENDERED PAGES. The form page, the result page and the
+    failure page have been verified only as byte strings and as parsed markup; their
+    appearance, layout, contrast, focus styles and behaviour in a real browser are
+    UNVERIFIED for this card as they were for CARD-019.
+  confidence: high
+
+metrics:
+  diff: { files: 11, added: 3831, removed: 249 }
+  diff_code_only: { added: 2873, removed: 243 }   # src/ + tests/ only
+  max_fan_in:
+    symbol: "nonogram.web.handler._host_is_local"
+    callers: 3
+    note: >-
+      _dispatch (Host header), _origin_is_local (Origin), _cross_origin_refusal
+      (absolute-form request-target authority). This is the diff's highest-risk
+      symbol by design — one rule judges all three authorities so they cannot drift
+      into three notions of "local" — and it is the symbol M3 and M4 mutate.
+  tests_cover_change: true
+  hotspots:
+    - src/nonogram/web/handler.py      # 7 commits/12mo, 5 of them fix/bug commits across web/
+    - src/nonogram/web/__init__.py     # 7 commits/12mo
+  cochange_missing:
+    - tests/test_cli.py                # 4 co-changes; DELIBERATELY absent — guardrail G-6 forbids it
+    - src/nonogram/cli.py              # 2 co-changes; DELIBERATELY absent — guardrail G-5 forbids it
+    - src/nonogram/__init__.py         # 1 co-change; not needed, its map is per-package not per-module
+  unmeasured:
+    max_fan_in_exported: >-
+      tooling_failure — grep name-matching cannot separate a call site from a prose
+      mention for module-private names in this codebase (docstrings cite the symbols
+      heavily). The count above was derived by reading the call sites, not by grep.
+
+system_contract:
+  rules_checked: 13
+  holds: 13
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no dependency added: `git diff main...HEAD` touches no pyproject.toml/lockfile; declared check TestDependencyBaseline_IsExactlyPillowAndNumpy (logical id, tests/test_export_pdf.py) green in the full run (1580 passed, 1 xfailed)."
+    - "ADR-0019/R1 ✓ holds — declared check test_every_import_in_the_package_points_inward green on this head (ran it: tests/test_cli.py, 14 selected, all pass). web/ imports orchestrator, errors, export, difficulty — all strictly deeper rank; nothing inward imports web or cli. New module submission.py imports export.FORMATS the same way cli.build_parser does (`choices=list(FORMATS)`), which is R1's own 'mirroring cli.py'."
+    - "ADR-0021/R1 ✓ holds — read handler._generate (handler.py:571-592): straight-line read-body → submission.read → orchestrator.generate → orchestrator.export_puzzle → one _respond. No threading/queue/asyncio import anywhere in web/ except server.py's ThreadingHTTPServer (pre-existing, per-connection, not a generation worker). No polling route: ROUTES has exactly two rows. One write to the response stream per request."
+    - "ADR-0022/R1 ✓ holds — submission.read maps the form's one `size` box to `width=N, height=None` (submission.py:195-196), a pair; it never constructs a scalar extent. The HTML control is named `size` rather than `extent`, which is CARD-027 G-7's reserved interim state, disclosed and pinned by test_the_form_offers_the_same_option_surface_as_the_cli (asserts the difference as exact sets). Pinned against cli._extent_token, not against a literal, by test_the_one_size_box_travels_as_a_bare_side_exactly_as_argv_does."
+    - "CON-005 ✓ holds — no solver code in the diff (git diff main...HEAD --stat lists no src/nonogram/solver/**); declared check PropertyTest_Solver_NeverFalsePositiveUniqueness green in the full run."
+    - "CON-009 ✓ holds — src/nonogram/web/server.py's only change is one docstring citation (G-2/G-4 → ADR-0019/R1); the bind line `LoopbackHTTPServer((LOOPBACK_HOST, port), ...)` is byte-identical to main. Declared check TestWebServer_BindsLoopbackOnlyByDefault green."
+    - "CON-010 ✓ holds — its declared check PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest was check_ref_missing at cycle 1 and now EXISTS (tests/test_web_server.py:1769-1870, three arms). Re-derived independently: 294 refused / 58 served cases, minimums (200/40) asserted inside the consuming tests, ids asserted distinct. Five mutants against the refusal all killed (M1 9 tests, M2 2, M3 3, M4 3, M5 1) plus three of my own (X1 1, X2 1, X3 2). 36 live-server probes: 0 bypasses, 0 over-refusals."
+    - "CON-011 ✓ holds — no range logic added in the adapter (submission.py applies int() and nothing else to size/density/seed); AC-050's tests show a posted 60 reaching the domain and returning `grid width must be between 10 and 30 inclusive`. Declared check PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green."
+    - "CON-012 ✓ holds — no image path in this card (submission.read never fills GenerationRequest.image, submission.py:199); declared check PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore green."
+    - "INV-001 ✓ holds — clues.py untouched; declared check TestComputeClues_MatchesGridExactly green."
+    - "INV-002 ✓ holds — the adapter calls orchestrator.export_puzzle unchanged (handler.py:583) and adds no export path of its own; declared checks TestExport_RejectsUnverifiedPuzzle / ...ForPDF green."
+    - "INV-003 ✓ holds — orchestrator.py untouched (G-1); declared checks TestNudge_ReportsFailureAtCap, TestRegenerate_StopsAtMaxRetryBound, TestResample_StopsAtMaxRetryBound, TestRetryLoop_BoundedIterations green."
+    - "INV-004 ✓ holds — sourcing untouched; declared checks TestGenerateRandom_AcceptsMaxSide30 / RejectsSideAbove30 / RejectsSideBelow10 green."
+  check_ref_note: >-
+    All 16 check refs named by the 13 rules resolve. Ten of them are this project's
+    logical-id convention (a CamelCase id declared in a module header mapped to
+    snake_case defs, e.g. tests/test_clues.py:8 `AC-014 TestComputeClues_MatchesGridExactly
+    -> test_matches_grid_exactly*`); each was traced to its header mapping. Zero dead refs.
+    CON-010's ref was dead at cycle 1 and is live now.
+
+guardrails:
+  - "G-1 ✓ holds — git diff main...HEAD --stat lists no src/nonogram/orchestrator.py and no capability module (sourcing/**, clues.py, solver/**, difficulty.py, export/**)."
+  - "G-2 ✓ holds (with the two disclosed adapter refusals adjudicated at cycle 1 as F-011 and re-checked here) — no range, tier vocabulary or library-key judgement in web/. int() on size/density/seed is argparse's type=int; the `mode` and `export_formats` vocabulary checks discharge a contract sourcing.for_mode and export.for_format explicitly delegate to the adapter (each raises a bare ValueError, not a NonogramError); the NUL check removes an asymmetry the web adapter introduced (a NUL cannot appear in argv). Verified behaviourally: test_the_adapter_passed_the_sixty_inward_rather_than_judging_it."
+  - "G-3 ✓ holds — no job store, polling endpoint, worker thread or streamed/chunked response. ROUTES has two rows; _generate is straight-line; one _respond per request."
+  - "G-4 ✓ holds — pages.result_page reports name, seed and paths only (pages.py:261-273); no grid, no cell, no image is rendered. failure_page reports a summary and reasons."
+  - "G-5 ✓ holds — src/nonogram/cli.py absent from the diff; cli.exit_code_for and _EXIT_CODES unchanged. The new test_the_walked_corpus_is_the_whole_hierarchy asserts set(cli._EXIT_CODES) <= set(hierarchy) rather than restructuring either."
+  - "G-6 ✓ holds — tests/test_cli.py absent from the diff (git diff main...HEAD --stat)."
+
+root_causes:
+  - id: RC-1
+    title: "A test whose docstring claims a verification its assertion cannot perform"
+    finding_ids: [F-001]
+    origin: "implementation commit 177ba57 — MISSED by cycle 1, not introduced by its fixes"
+  - id: RC-2
+    title: "Prose in the changed files asserts more than the shipped code does"
+    finding_ids: [F-002, F-003, F-004, F-006, F-007]
+    origin: >-
+      THIS IS CYCLE-1'S OWN RC-3, RECURRING. Four of the five symptoms are in prose
+      the cycle-1 FIX COMMIT (a017d74) wrote or rewrote: F-002 is the very sentence
+      F-005's remedy rewrote, F-003 is six new sites written by the fix pass, F-007
+      is a sentence F-006's remedy reworded. See `family_regression` below.
+  - id: RC-3
+    title: "Model artifacts still describe the pre-fix state of a requirement the code now satisfies"
+    finding_ids: [F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_web_submission.py
+    line: 810
+    title: "The CLI/web error-taxonomy drift guard is tautological — it cannot fail in the direction its docstring claims"
+    description: |
+      `test_the_walked_corpus_is_the_whole_hierarchy` asserts, at line 810:
+
+          assert set(cli._EXIT_CODES) <= set(_ERROR_CLASSES)
+
+      and its banner (tests/test_web_submission.py:787-792) says this "pins it
+      against `cli._EXIT_CODES`: every class the CLI has an exit code for is a class
+      this page must be able to show, which is the concrete form of 'keep the two
+      error taxonomies telling the same story' (ADR-0019). Neither adapter grows a
+      class the other has never heard of."
+
+      The assertion cannot fail. `_ERROR_CLASSES` is built by `_error_hierarchy()`
+      (tests/test_web_submission.py:705-726), a transitive walk of
+      `errors.NonogramError.__subclasses__()`, so it is BY CONSTRUCTION every loaded
+      NonogramError subclass. `cli._EXIT_CODES` is declared
+      `dict[type[NonogramError], ExitCode]` (cli.py:93) and every key is such a
+      subclass, imported by `cli.py` and therefore loaded. A subset relation between
+      a set and its own construction-guaranteed superset is not a check.
+
+      PROVEN BY MUTATION, not by argument. I deleted the exact drift the sentence
+      claims to catch — `GenerationAbandoned: ExitCode.GENERATION_FAILED` removed
+      from `cli._EXIT_CODES` (cli.py:113), i.e. the CLI silently losing a mapping the
+      web page still renders — and re-ran the test:
+
+          pytest tests/test_web_submission.py::test_the_walked_corpus_is_the_whole_hierarchy
+          -> 1 passed
+
+      (cli.py restored immediately; md5 b81ef08e04b13a978bae652ea1564a8f before and
+      after, `git diff --stat` empty.)
+
+      This is not a cosmetic nit. The card was told in as many words to "keep the two
+      taxonomies telling the same story" (CARD-020 "What to implement" item 5, citing
+      the drift risk ADR-0019 names as the accepted cost of two adapters), the
+      Worktree notes claim a mechanical guard for it
+      ("`test_the_walked_corpus_is_the_whole_hierarchy` pins
+      `set(cli._EXIT_CODES) <= set(hierarchy)` so neither adapter can grow a class
+      the other has never heard of"), and there is no such guard. An unmapped class
+      falls through `exit_code_for`'s MRO walk to `INTERNAL_ERROR` (cli.py:127-130)
+      and nothing anywhere reports it.
+
+      EC-003 itself is NOT at risk: the property's real arms (30 monkeypatched cases
+      over the walked hierarchy, 7 real submissions) are strong and are killed by my
+      X5 mutant at 40 failures. What is missing is only the drift guard this one
+      assertion claims to be.
+    suggestion: |
+      Either make the assertion real or withdraw the claim. Real version — pin the
+      direction that can actually drift, the CLI's table being INCOMPLETE relative to
+      the hierarchy the page renders:
+
+          unmapped = set(_ERROR_CLASSES) - set(cli._EXIT_CODES) - {errors.NonogramError}
+          assert not unmapped, sorted(c.__name__ for c in unmapped)
+
+      That fails the moment `errors.py` grows a class `cli.py` has no row for — which
+      is the drift ADR-0019 names — and my mutation above would have killed it. If
+      the project would rather let `INTERNAL_ERROR` be the deliberate catch-all, then
+      delete line 810 and strike the "neither adapter grows a class the other has
+      never heard of" sentence from the banner AND from CARD-020's Worktree notes,
+      because as written both assert a guarantee that does not exist.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/pages.py
+    line: 16
+    title: "The rewritten escaping rule is still false — 12 of 23 interpolations are unescaped, one of them wire-derived"
+    description: |
+      Cycle-1's F-005 replaced two contradicting statements with two agreeing ones.
+      Both are still wrong:
+
+        * pages.py:16-18 — "Exactly one interpolation is *not* escaped —
+          :func:`_shell`'s ``title``".
+        * pages.py:202-203 (`_shell`) — "It is the only unescaped interpolation in
+          this module".
+
+      Counted from the AST rather than by eye: **23 f-string interpolations, 11
+      escaped, 12 NOT escaped** —
+        pages.py:139 `_STYLE`, :148 `_options(MODES)`,
+        :163 `_options(list(difficulty.Tier), ...)`, :174 `_checkboxes(...)`,
+        :210 `title`, :211 `_STYLE`, :214 `body`, :270 `SUCCESS`, :271 `seed`,
+        :272 `written`, :305 `FAILURE`, :307 `listed`.
+
+      `_shell`'s own f-string alone holds three of them (`title`, `_STYLE`, `body`),
+      so "the only unescaped interpolation in this module" is refuted two lines below
+      where it is written.
+
+      One of the twelve is genuinely data off the wire: `result_page`'s `{seed:d}`
+      (pages.py:271). The form's `seed` box -> `submission.read`'s `int()`
+      (submission.py:159) -> `GenerationRequest.seed` -> `Puzzle.seed` -> the page.
+      It is safe, but NOT by the stated rule ("Everything that came off the wire goes
+      through :func:`html.escape` at the point it is interpolated") — it is safe
+      because the `:d` format spec admits only an int. The prose names neither the
+      exception nor the mechanism.
+
+      No caller-supplied *text* reaches the markup unescaped, so this is not a
+      security defect — that half of F-005 is genuinely fixed. It is a rule a future
+      author cannot apply: open `result_page`, see `{seed:d}` bare, compare to
+      "exactly one interpolation is not escaped", and conclude the docstring is
+      unreliable.
+    suggestion: |
+      State the rule over what it is about — caller-supplied *strings* — and name
+      both guards:
+
+        module docstring: "Every string that came off the wire is escaped at the
+        point it is interpolated. Two interpolations of non-literal data are not, and
+        each has its own guard: `_shell`'s `title` (bound by its own docstring to be
+        a literal) and `result_page`'s `{seed:d}` (a format spec that admits only an
+        int). Every other interpolation is a module literal or a fragment already
+        escaped by the function that built it."
+
+        `_shell`: "`title` is the only *caller-supplied string* interpolated without
+        escaping; `body` is unescaped too and is contractually pre-escaped by the
+        caller."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 1435
+    title: "\"four files\" is wrong at four new sites — the attack body writes two"
+    description: |
+      Four sites written by the cycle-1 fix commit describe the blast radius of the
+      cross-origin hole as four files. Measured: it is two.
+
+        * tests/test_web_server.py:1434-1435 — `_ATTACK_FIELDS`: "a real submission
+          that would generate and write four files if it were ever routed."
+        * tests/test_web_server.py:~1834 — "it leaves four files behind, which the
+          final assertion catches"
+        * tests/test_web_submission.py:~208 — "ran, and four files landed in a
+          directory the attacking page named."
+        * tests/test_web_submission.py:~2032 — "the pipeline ran and wrote four
+          files into a directory the [attacking page named]"
+
+      `_ATTACK_FIELDS` (tests/test_web_server.py:1428-1435) requests
+      `export_formats=png` and `export_formats=json` — two formats. Measured
+      directly:
+
+          orchestrator.export_puzzle(generate(... export_formats=('png','json') ...))
+          -> 2 files: ['cat.png', 'cat.json']
+
+      The AC-049 test in the same tree asserts exactly two
+      (tests/test_web_submission.py:284: `listed == [tmp_path/"cat.png",
+      tmp_path/"cat.json"]`), so the codebase already contradicts itself on the
+      number. CARD-020's own Worktree notes carry it too ("four files written" for
+      each of the two successful real-server POSTs) — that one is a miscount of a
+      CUMULATIVE directory, since a second run into the same `out` writes `cat-1.*`;
+      I reproduced exactly that pattern in my own probe (`cat.json` then
+      `cat-1.json`).
+
+      The security conclusion is unaffected. The defect is that a load-bearing,
+      trivially-checkable number describing the impact of a critical finding is
+      wrong at four new sites and disagrees with an assertion in the same suite.
+    suggestion: |
+      Replace "four files" with "two files (`cat.png` and `cat.json`)" at all four
+      sites, and correct the two "four files written" lines in CARD-020's Worktree
+      notes Evidence section to say two per POST (four across the two POSTs into one
+      directory, the second named `cat-1.*`). Better still, phrase it against the
+      constant rather than a literal: "one file per requested `export_formats` value
+      — two, as `_ATTACK_FIELDS` posts them."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_web_submission.py
+    line: 17
+    title: "The module banner claims each AC class pins the mapping against cli.build_parser; neither half is true"
+    description: |
+      tests/test_web_submission.py:16-22: "The one thing they cannot show is that the
+      values on the page came from *this* submission rather than from a default, so
+      **each class** also pins the mapping itself — ``submission.read`` is a pure
+      function over a body string, and what it builds is compared against what
+      ``cli.build_parser`` builds from the argv that means the same thing. That
+      comparison is the whole of FR-017's 'the same options as the CLI': not two
+      lists that happen to agree today, but the same value reached two ways."
+
+      Both halves are refuted by the AST:
+
+      * "each class" — of the three AC classes, only two call `submission.read`
+        (`TestWebUI_SubmitRunsSamePipelineAndReportsFiles` at :350,
+        `TestWebUI_RejectsOutOfRangeSizeLikeCLI` at :536).
+        `TestWebUI_ReportsAbandonedGenerationGracefully` calls it **nowhere**.
+      * "compared against what `cli.build_parser` builds" — `cli.build_parser` is
+        referenced at exactly **one** place in the module, line 180, inside
+        `_argv_choices`, whose consumers (:937, :991) compare **choices lists**.
+        That is precisely "two lists that happen to agree today", the thing the
+        sentence disclaims. No test in this module compares a `GenerationRequest`
+        built by `submission.read` against one built by `build_parser`.
+
+      What the module DOES do is stronger in one place and absent in another, and the
+      banner describes neither accurately: `test_the_one_size_box_travels_as_a_bare_side_exactly_as_argv_does`
+      (:2547-2557) compares against `cli._extent_token`, not `build_parser`, and
+      `test_the_files_are_the_ones_the_cli_writes_for_the_same_options` compares
+      written BYTES for the same seed — a better argument than the one the banner
+      makes for it.
+    suggestion: |
+      Rewrite the banner to the shipped truth: "Two of the three AC classes also pin
+      the mapping directly — `submission.read` is a pure function over a body string,
+      so what it builds is asserted field by field (`:350`, `:536`). FR-017's 'the
+      same options as the CLI' is carried by two other comparisons rather than by one:
+      `test_the_files_are_the_ones_the_cli_writes_for_the_same_options` runs both
+      adapters on the same seed and compares the written bytes, and
+      `test_the_one_size_box_travels_as_a_bare_side_exactly_as_argv_does` asserts the
+      one ambiguous field against `cli._extent_token` itself rather than against a
+      literal."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 581
+    title: "trace.yml still says NFR-004 and CON-010 are `partial` with 'Test is planned, not yet written'"
+    description: |
+      The card's Worktree notes close with "**Requirements now satisfied:** NFR-004,
+      CON-010, AC-054..AC-058, EC-004 — each with a test of its own and CON-010's
+      declared `check:` ref now resolving." That claim about the code is TRUE and I
+      verified it independently. The model still describes the pre-fix state:
+
+        * trace.yml:580 (NFR-004) — `notes: ... Test is planned, not yet written.`
+          then `status: partial`.
+        * trace.yml:615 (CON-010) — `notes: ... Test is planned; CARD-020 must
+          satisfy it.` then `status: partial`.
+
+      PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest now
+      exists (tests/test_web_server.py:1769-1870), is green, and is pinned by eight
+      mutants. Both rows are stale in the direction this project's contract cares
+      about: an artifact asserting LESS than the code delivers, where a reader of the
+      model concludes the requirement is still open and a later card may re-open it.
+
+      Medium rather than high because trace write-back is a sanctioned step of the
+      kanban `done` procedure (CARD-033 set that precedent in raw-requirements.md)
+      and the card is still `in_progress`. But the review is the last gate that sees
+      these rows and the card's closing notes do not list the flip as an outstanding
+      step, which is how it gets missed.
+    suggestion: |
+      At `done`, flip both rows to `status: covered` and replace the "Test is
+      planned" sentences with the shipped state (the property's location, its corpora
+      sizes, and that its check ref resolves). Add the flip to the card's Worktree
+      notes as an explicit close-out item. `requirements.yml` needs no edit — NFR-004
+      and CON-010 already name the property that now exists.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 1415
+    title: "\"http.client strips it and the handler strips it again\" — it does not; the handler's strip is the only one"
+    description: |
+      tests/test_web_server.py:1415-1418, the comment introducing
+      `_ALLOWED_FETCH_SITES`'s padded spellings: "The padded spellings are here
+      because ``http.client``'s own header parsing strips surrounding whitespace and
+      the handler strips it **again** — a value is compared on its token, not on its
+      layout."
+
+      Verified against the stdlib on this interpreter:
+
+          raw = "Sec-Fetch-Site: same-origin\\r\\nX-A: none \\r\\n\\r\\n"
+          email.parser.Parser(_class=http.client.HTTPMessage).parsestr(raw)
+          .get_all("Sec-Fetch-Site") -> ['same-origin']
+          .get_all("X-A")            -> ['none ']       # trailing space SURVIVES
+
+      Header parsing strips only the space after the colon, not trailing whitespace.
+      So `handler.py:297`'s `site.strip()` is the ONLY strip in the chain and is
+      **load-bearing**, not a redundant second one — and the corpus row `"none "`
+      (test_web_server.py:1495) is exercising exactly the handler's strip, which is
+      the opposite of what the comment says it is there for.
+
+      This one matters more than a wording nit because it points the wrong way for a
+      security guard: a maintainer reading it would conclude the `.strip()` calls at
+      handler.py:297 and :301 are belt-and-braces over something the stdlib already
+      did, and could remove them. Removing the one at :297 makes
+      `Sec-Fetch-Site: cross-site ` (trailing space) miss `ALLOWED_FETCH_SITES` — and
+      it would be refused, so that direction is safe; but `same-origin ` would ALSO
+      miss and be refused, which is a live over-refusal of a legitimate value.
+    suggestion: |
+      Correct it to the measured behaviour: "``http.client``'s header parsing strips
+      the space after the colon but NOT trailing whitespace (`'none '` survives
+      verbatim), so ``handler``'s own ``.strip()`` is the only one in the chain and
+      these rows exercise it directly. Removing it would make a legitimately padded
+      ``same-origin`` fall outside the allowlist and be refused."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/handler.py
+    line: 392
+    title: "\"the other two — 400 and 505 — as no status line and no headers whatsoever\" is true for three of the four stdlib paths, not all"
+    description: |
+      `_respond`'s docstring (handler.py:392-398, reworded by the cycle-1 F-006 fix)
+      and `send_error`'s (handler.py:446-455) both assert that on the 400 and 505
+      paths `parse_request` "had not yet accepted a version", so as shipped those
+      statuses "reached the client as a bare body with **no status line and no
+      headers whatsoever**".
+
+      `parse_request` on this interpreter (CPython 3.14.3) has FOUR 400/505 exits:
+
+        * :363 400 "Bad request version"      — before :374, version IS HTTP/0.9  ✓
+        * :370 505 "Invalid HTTP version"     — before :374, version IS HTTP/0.9  ✓
+        * :385 400 "Bad HTTP/0.9 request type"— len(words)==2, :374 not run       ✓
+        * :377 400 "Bad request syntax"       — reached when `not 2 <= len(words) <= 3`.
+          For len(words) > 3 the `if len(words) >= 3` branch at :342 HAS run and
+          :374 `self.request_version = version` HAS executed, so the version is the
+          real one.
+
+      So a request line of four or more words ending in a valid version — e.g.
+      `GET / x HTTP/1.0` — already produced a 400 WITH a status line and headers on
+      the stock library. The blanket "those two statuses reached the client as a bare
+      body with no status line and no headers at all" over-generalizes from three
+      paths to four.
+
+      The shipped code is CORRECT and unaffected: the reset
+      (`if self.request_version == "HTTP/0.9": self.request_version =
+      self.protocol_version`, handler.py:465-466) is a no-op on the fourth path and
+      necessary on the other three. Only the justification over-claims. Filed because
+      this sentence was REWORDED by cycle 1's F-006 remedy and the over-generalization
+      survived the rewrite.
+    suggestion: |
+      Qualify it: "on three of `parse_request`'s four 400/505 exits the version is
+      still the ``HTTP/0.9`` default when the error is written (`Bad request
+      version`, `Invalid HTTP version`, `Bad HTTP/0.9 request type`), and
+      ``send_response_only``/``end_headers`` both no-op for ``HTTP/0.9`` — so those
+      three reached the client as a bare body with no status line and no headers at
+      all. The fourth (`Bad request syntax` on a request line of four or more words)
+      had already assigned the parsed version and did carry headers. The reset is a
+      no-op there and necessary on the other three."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/web/handler.py
+    line: 591
+    title: "result_page(name: str) is handed Puzzle.name, declared `str | None`"
+    description: |
+      handler.py:591 passes `puzzle.name` into `pages.result_page(name: str, ...)`
+      (pages.py:221), which calls `html.escape(name)` (pages.py:270).
+      `orchestrator.Puzzle.name` is declared `str | None = None`
+      (orchestrator.py:561). If it were None there, `html.escape` raises
+      AttributeError — AFTER the export has written files and INSIDE the `try` EC-003
+      rests on but outside its `except` arms — so the browser gets a dropped
+      connection and a server-side traceback, exactly what EC-003 forbids.
+
+      Not reachable today: `orchestrator.generate` resolves the name before
+      constructing the Puzzle (orchestrator.py:1139-1145); I confirmed empirically
+      that random and library mode both return a concrete name
+      (`'random-2026-09-03-1009'`, `'cat'`). No type-checker is configured
+      (CLAUDE.md: "no lint/format/type-check tooling"), so nothing mechanical would
+      catch the day it stops being true. G-1 forbids editing orchestrator.py.
+    suggestion: |
+      Widen the parameter and handle it at the one place that knows what to say —
+      `def result_page(name: str | None, ...)` with `html.escape(name or "")` — or
+      assert the invariant at handler.py:591 so the failure is loud rather than a
+      dropped socket. Alternatively file a card to tighten `Puzzle.name` to `str` in
+      the aggregate, where the invariant lives.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: compliance
+    type: gap
+    file: src/nonogram/web/handler.py
+    line: 357
+    title: "NFR-004's literal '400' does not hold for methods with no do_* — they get the stdlib's 501 before the check"
+    description: |
+      NFR-004's threshold says a cross-origin request "is refused with HTTP 400 and
+      never routed to a handler". `_cross_origin_refusal` runs inside `_dispatch`,
+      reached only from `do_GET` and `do_POST` (handler.py:237, 248). A method with
+      no `do_*` is answered 501 by `BaseHTTPRequestHandler` before any of it.
+      Verified live:
+
+        PUT http://evil.example.com/ + Origin: https://evil.example.com -> 501
+        DELETE / + Host: 127.0.0.1 + Origin: https://evil.example.com   -> 501
+        HEAD /   + Host: 127.0.0.1 + Origin: https://evil.example.com   -> 501
+
+      The SECURITY property is intact and stronger: nothing routed, nothing written
+      (my probe's out-dir stayed empty), and EC-004's operative clause — "refuses the
+      request and never routes it to a handler" — holds for every one. AC-054..AC-058
+      are all GET-stated, so no criterion fails. The property corpus deliberately
+      covers GET and POST only (tests/test_web_server.py:1455).
+    suggestion: |
+      Record it rather than change the code — moving the check ahead of the stdlib's
+      method dispatch means overriding `handle_one_request`, which buys nothing and
+      costs stdlib coupling. One sentence in `_cross_origin_refusal`'s docstring: "A
+      method with no `do_*` never reaches this check — the standard library answers
+      it 501 before dispatch, which refuses it and routes it nowhere, so EC-004 holds
+      by a different mechanism and NFR-004's '400' is a statement about the two
+      routed methods."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/handler.py
+    line: 281
+    title: "'Neither header can be set or suppressed by page script' is stronger than the spec for Origin"
+    description: |
+      `_cross_origin_refusal`'s docstring (handler.py:281-284): "Neither header can be
+      set or suppressed by page script — both are forbidden header names to
+      ``fetch``/XHR — so a request carrying neither is not the attacker's shape and is
+      served (AC-058)."
+
+      "Set" is correct for both. "Suppressed" is not correct for `Origin`: a
+      cross-origin GET (a `no-cors` fetch, an `<img>`, a top-level navigation) simply
+      does not carry one — suppression by construction, not by script.
+
+      The CONCLUSION is sound and worth stating explicitly since this is a security
+      guard: the dangerous route is `POST /generate`, and every cross-origin POST
+      carries `Origin` — the Fetch standard requires it for any method other than
+      GET/HEAD, `no-cors` fetches and plain `<form method=post>` included. A
+      cross-origin GET with neither header reaches only `GET /`, a constant string.
+      And on any browser implementing fetch metadata (Chrome 76+, Firefox 90+,
+      Safari 16.4+) `Sec-Fetch-Site: cross-site` catches the GET case too.
+    suggestion: |
+      "Neither header can be *set* by page script — both are forbidden header names
+      to ``fetch``/XHR. `Origin` is additionally *mandatory* on every cross-origin
+      request whose method is not GET/HEAD, which is what makes 'absent means served'
+      safe for the one route that writes files: a cross-origin `POST /generate`
+      always carries one. A cross-origin GET may legitimately carry neither, and
+      reaches only the constant form page."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 1923
+    title: "Unqualified 'guardrail G-5' resolves to the wrong card's G-5"
+    description: |
+      tests/test_web_server.py:1923, on the image-upload deferral: "A file upload is a
+      multipart form control, which is CARD-021's work (guardrail G-5)." CARD-020's
+      G-5 is "Existing CLI behavior and its `exit_code_for` error mapping unchanged".
+      The G-5 meant is CARD-019's. The citation three lines down IS card-qualified
+      ("its guardrail G-7", CARD-027's), so the convention exists and this one site
+      departs from it.
+
+      This is the same defect class as cycle-1's F-008 (guardrail numbering
+      resolving to the wrong rule), one site further out. `web/__init__.py:13-15` has
+      a sibling imprecision: "the difficulty and export registries, which
+      ``pages.py`` reads to render the form's choices" — `export` is also read by
+      `submission.py:171` as a validity check, which is the newer and more
+      consequential of the two uses.
+    suggestion: |
+      Qualify it: "(CARD-019 guardrail G-5)". And extend `web/__init__.py`'s sentence:
+      "...which `pages.py` reads to render the form's choices and `submission.py`
+      reads to refuse a format no renderer is registered under."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: info
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 2065
+    title: "Pre-existing prose imprecisions in CARD-019-era regions, listed for completeness"
+    description: |
+      Found while auditing the changed files; none introduced by this card, none
+      gating. Recorded so a later pass does not rediscover them as new:
+
+        * :2065 "The fourth guard" — the parametrize at :2032-2051 already
+          enumerates four and its own docstring at :2056 says "All four"; this is the
+          fifth.
+        * :728-729 "All six are `BaseHTTPRequestHandler.parse_request`'s answers" —
+          the 414 row comes from `handle_one_request` (http/server.py:465-469),
+          BEFORE `parse_request` is called at :474.
+        * :422-424 "covers a literal `0.0.0.0` ... appearing anywhere in `src/`" —
+          `_WEB_SOURCES` (:95) is `web/` only, as the same docstring's own test name
+          says.
+        * :674 "exactly zero bytes of request body are read" — the body only asserts
+          one 200 came back; with `protocol_version` at HTTP/1.0 a handler that DID
+          drain the body would be byte-identical.
+        * :12-14 "Both classes ... the two criteria" — the table above it now lists
+          seven `Test*` classes, five of which also drive a real socket. Stale since
+          this card added five, though the sentence itself was not edited.
+        * handler.py:435-437 "``explain`` is a static canned string from
+          ``responses``" — both 431 call sites pass `str(err)`
+          (http/server.py:408-418). The conclusion (it is dropped) still holds.
+        * pages.py:128-133 "Nothing here constrains a value ... the same mistake as
+          putting `choices=` on `--difficulty`" — the markup at :161-165 renders
+          `<select name="difficulty">`, the HTML analogue of exactly that. The
+          intent (no `min`/`max`/`required` on the free-text numeric boxes) is right
+          and `test_the_form_constrains_no_value_in_the_browser` pins it; the
+          analogy chosen is the one case where the form DOES constrain.
+        * README.md — still no mention of the web UI or `nonogram serve` at all.
+          Pre-existing since CARD-019; run /forge:readme at the root after merge.
+    suggestion: "No action this cycle. Fold into a later prose pass or a tech-debt card."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    dismissed_reason: "info-only; the review itself states 'No action this cycle'. Recorded for a later prose pass."
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-013
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/web/submission.py
+    line: 162
+    title: "An unreadable numeric field echoes the whole posted value into the failure page"
+    description: |
+      `submission.read` builds `f"{field}: expected a whole number, got {raw!r}"`
+      (submission.py:162) with no length bound. A `size` of 5000 digits is refused
+      (Python's own 4300-digit str->int limit raises ValueError, which is caught) and
+      all 5000 digits appear in `unreadable` and then on the page.
+
+      Not a defect: escaped by `failure_page`, bounded by MAX_BODY_BYTES (64 KiB), and
+      BCON-0001 puts one local user behind the socket. Noted because it is the one
+      place where response size is a function of request size, and a later card
+      removing the body cap would make it unbounded.
+    suggestion: "No action. If ever worth bounding, truncate the echoed value (`{raw[:40]!r}` + ellipsis), not MAX_BODY_BYTES."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    dismissed_reason: "info-only; the review itself states 'No action this cycle'. Recorded for a later prose pass."
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+# ---------------------------------------------------------------------------
+# Cycle-1 finding re-derivation. Each verdict is MY OWN measurement, not the fix
+# agent's claim. Mutants were applied, run, and reverted in the same step; every
+# restore verified byte-identical by md5 and `git diff --stat` (clean).
+# ---------------------------------------------------------------------------
+previous_findings_reverified:
+  baseline_md5:
+    src/nonogram/web/handler.py: f5b0c6d4b11f29d181eec5860cb63c2f
+    src/nonogram/web/submission.py: 095c15ce2ccaf082fe3a2d4709dd3454
+  final_state: "git status --porcelain empty; git diff --stat empty; both md5s identical to baseline"
+  suite: "1580 passed, 1 xfailed in 44.91s (independently re-run; cycle-1 baseline 1553 + 1 xfailed)"
+  mutants:
+    # claimed-by-fix-agent vs. reproduced-by-me
+    - id: M1
+      mutation: "handler._cross_origin_refusal — `return None` as the first statement (whole refusal disabled)"
+      claimed_failures: 9
+      observed_failures: 9
+      verdict: reproduces
+      killed_by: >-
+        TestWebServer_RejectsCrossSiteSecFetchSite (x2),
+        TestWebServer_RejectsForeignOrigin (x2),
+        TestWebServer_RejectsAbsoluteFormTargetWithForeignAuthority::test_the_criterions_own_request_line_is_refused,
+        test_every_cross_origin_or_foreign_authority_request_is_refused,
+        test_a_cross_site_submission_never_reaches_the_pipeline_and_writes_nothing (x3 params)
+    - id: M2
+      mutation: "handler.ALLOWED_FETCH_SITES += 'same-site'"
+      claimed_failures: 2
+      observed_failures: 2
+      verdict: reproduces
+      killed_by: "test_the_accepted_fetch_metadata_is_the_two_spec_values, test_every_cross_origin_or_foreign_authority_request_is_refused"
+    - id: M3
+      mutation: "handler._host_is_local — refused characters '@/#?' narrowed to '@/'"
+      claimed_failures: 3
+      observed_failures: 3
+      verdict: reproduces
+      killed_by: "test_a_foreign_host_header_is_refused_before_routing[fragment], [query], test_every_cross_origin_or_foreign_authority_request_is_refused"
+    - id: M4
+      mutation: "handler._host_is_local — the _port_is_well_formed guard deleted"
+      claimed_failures: 3
+      observed_failures: 3
+      verdict: reproduces
+      killed_by: "test_a_foreign_host_header_is_refused_before_routing[empty-port], [non-numeric-port], test_every_cross_origin_or_foreign_authority_request_is_refused"
+    - id: M5
+      mutation: "handler._cross_origin_refusal — only the FIRST Origin header read (`get_all(...)[:1]`)"
+      claimed_failures: 1
+      observed_failures: 1
+      verdict: reproduces
+      killed_by: "test_every_cross_origin_or_foreign_authority_request_is_refused (the property; corpus group 4 carries both header orders)"
+    - id: M6
+      mutation: "submission.read — the export_formats membership check deleted"
+      claimed_failures: 3
+      observed_failures: 3
+      verdict: reproduces
+      killed_by: "test_an_export_format_the_registry_does_not_hold_is_refused_the_way_argv_is[only-an-unregistered-format], [one-real-then-an-unregistered-one], [an-unregistered-one-then-a-real-one]"
+    - id: M7
+      mutation: "submission.read — the NUL check deleted"
+      claimed_failures: 1
+      observed_failures: 1
+      verdict: reproduces
+      killed_by: "test_a_field_carrying_a_nul_is_refused_before_the_pipeline"
+    - id: M10
+      mutation: "handler._generate — the whole `except OSError` block deleted (THE cycle-1 SURVIVOR)"
+      claimed_failures: 2
+      observed_failures: 2
+      verdict: reproduces — the regression-of-a-fix check PASSES
+      killed_by: "test_an_out_naming_an_existing_file_is_reported_as_a_failure_page, test_an_out_under_an_unwritable_directory_is_reported_as_a_failure_page"
+      note: "This mutant SURVIVED at cycle 1 (F-003). It is now killed by two hermetic tests reachable from the form with nothing monkeypatched."
+  additional_mutants_of_my_own:
+    - id: X1
+      mutation: "only the FIRST Sec-Fetch-Site header read"
+      observed_failures: 1
+      killed_by: "test_every_cross_origin_or_foreign_authority_request_is_refused"
+    - id: X2
+      mutation: "_origin_is_local — the RFC-6454 shape check (scheme/path/query/fragment) deleted"
+      observed_failures: 1
+      killed_by: "test_every_cross_origin_or_foreign_authority_request_is_refused"
+    - id: X3
+      mutation: "_cross_origin_refusal — the absolute-form request-target authority check deleted"
+      observed_failures: 2
+      killed_by: "TestWebServer_RejectsAbsoluteFormTargetWithForeignAuthority::test_the_criterions_own_request_line_is_refused, the property"
+    - id: X4
+      mutation: "submission.read — the `mode not in pages.MODES` check deleted"
+      observed_failures: 1
+      killed_by: "test_a_mode_the_form_does_not_offer_is_refused_the_way_argv_is"
+    - id: X5
+      mutation: "handler._generate — the whole `except NonogramError` block deleted (EC-003's mechanism)"
+      observed_failures: 40
+      killed_by: "the whole of AC-050 and AC-051, both EC-003 arms (30 parametrised cases), and test_post_is_routed_and_an_unhandled_method_still_is_not"
+  summary: "13 mutants, 13 killed, 0 survived. Every claim in the fix agent's table reproduces exactly."
+
+live_server_probe:
+  method: "LoopbackHTTPServer on a kernel-chosen port; 36 raw-socket exchanges + 16 more edge shapes; a real library/cat/20/Easy/json submission body with out=<tmpdir> on the POST rows"
+  over_refusal_cases_served_200: >-
+    neither header (curl); no headers at all; Sec-Fetch-Site: none (typed URL);
+    Sec-Fetch-Site: same-origin; Origin http://localhost:8765; Origin http://[::1]:8765;
+    Origin http://127.0.0.1 (no port); Origin https://localhost; all-lowercase header
+    names; Origin with trailing whitespace; absolute-form target naming this server;
+    GET /?x=1; HTTP/1.1 with no Host; POST same-origin form submit (files written);
+    POST with no metadata at all (files written); Host LOCALHOST (case); Host
+    127.0.0.1:99999; Origin HTTP:// (uppercase scheme); Origin http://LOCALHOST; [::1] Host
+  bypass_attempts_refused_400: >-
+    UPPERCASE header names + cross-site; MiXeD-case Origin foreign; duplicate Origin
+    good-then-bad AND bad-then-good; duplicate Sec-Fetch-Site good-then-bad;
+    Origin: null; Origin: (empty); Origin http://127.0.0.1@evil.example.com;
+    Origin http://127.0.0.1.evil.example.com; Origin http://127.0.0.1:8765/path;
+    Sec-Fetch-Site: same-site; Sec-Fetch-Site: SAME-ORIGIN (case); absolute-form
+    foreign with and without a local Host; POST absolute-form foreign; POST
+    cross-site + Origin evil; POST Origin evil WITH Sec-Fetch-Site same-origin (the
+    signals are ANDed, not ORed); Host 127.0.0.1#evil.example.com; Host
+    127.0.0.1:notaport; Host localhost. (trailing dot); bare ::1 Host;
+    Sec-Fetch-Site tab-padded cross-site; Sec-Fetch-Site empty; obs-fold Origin
+    continuation; POST evil origin with chunked TE and no Content-Length
+  result: "0 mismatches out of 52. Only the two legitimate POSTs wrote files; every refused POST left the out-dir empty."
+  head_note: "HEAD / -> 501 (no do_HEAD). Pre-existing from CARD-019, unchanged by this card; browser navigation is GET. See F-004."
+
+ac_ec_verdicts:
+  - "AC-049 ✓ satisfied — TestWebUI_SubmitRunsSamePipelineAndReportsFiles, three arms. The happy path uses difficulty **Easy**, a documented substitution: the criterion's 'Medium' cannot succeed and I re-measured it myself — orchestrator.generate(mode='library', width=20, library_key='cat', difficulty='Medium') raises GenerationAbandoned('abandoned after 20 resample attempts (bound: 20) — no candidate scored inside the Medium band (33-66)...') in 0.018s. The intake line at meta/architecture/inputs/raw-requirements.md:137 is ACCURATE (message verbatim, timing same order, both structural reasons check out) and requirements.yml was NOT hand-edited (`git diff main...HEAD -- meta/architecture/requirements.yml` is empty). The premise is pinned by test_every_built_in_template_scores_easy_at_this_size, which asserts all four templates. Strongest arm: test_the_files_are_the_ones_the_cli_writes_for_the_same_options compares web-written and argv-written files BYTE FOR BYTE under the same seed."
+  - "AC-050 ✓ satisfied — TestWebUI_RejectsOutOfRangeSizeLikeCLI, three arms. A posted size=60 returns 200 + data-outcome=failure + 'between 10 and 30' + an empty out-dir; the message is compared verbatim against cli.main's own stderr for the equivalent argv (minus the 'nonogram: error: ' prefix); and test_the_adapter_passed_the_sixty_inward_rather_than_judging_it observes G-2 directly. All three die under X5."
+  - "AC-051 ✓ satisfied — TestWebUI_ReportsAbandonedGenerationGracefully, four arms: the abandonment and its reason; the reason held verbatim to the CLI's; 'without hanging' as answer-arrives + elapsed < GENERATION_BUDGET_SECONDS+10 + server still serving afterwards; and no traceback vocabulary on the wire. Uses the Medium request the AC-049 substitution freed up, which makes it deterministic (0.018s) rather than seed-hunted."
+  - "EC-003 ✓ satisfied — PropertyTest_WebUI_SurfacesAnyPipelineErrorAsStructuredFailure is a genuine property: it walks the NonogramError hierarchy transitively (15 classes, corpus non-triviality asserted by test_the_walked_corpus_is_the_whole_hierarchy, which also pins set(cli._EXIT_CODES) <= set(hierarchy)) and raises each class from EACH of the adapter's two orchestrator calls — 30 parametrised cases — asserting 200, the failure page, the error's own message, and the absence of 'Traceback', 'most recent call last', 'nonogram.errors' and the class name. A second arm submits seven bodies that provoke seven REAL errors with nothing monkeypatched, which is what the property arm structurally cannot show (a monkeypatched generate never looks at its request). X5 kills all 40."
+  - "AC-054 ✓ satisfied — TestWebServer_RejectsCrossSiteSecFetchSite; re-verified on the wire (Sec-Fetch-Site: cross-site + allowlisted Host -> 400, no form)."
+  - "AC-055 ✓ satisfied — TestWebServer_RejectsForeignOrigin; re-verified on the wire, and the refused origin is escaped in the body."
+  - "AC-056 ✓ satisfied — TestWebServer_RejectsAbsoluteFormTargetWithForeignAuthority; re-verified byte-for-byte (`GET http://evil.example.com/ HTTP/1.0` with no Host -> 400) AND its control (the same shape naming this server -> 200 + the form), so the refusal is about the authority and not about absolute-form targets wholesale."
+  - "AC-057 ✓ satisfied — TestWebServer_ServesSameOriginRequestNormally; body compared to pages.FORM_PAGE exactly."
+  - "AC-058 ✓ satisfied — TestWebServer_AllowsRequestsWithNoOriginMetadata, two arms (no metadata; no headers at all). This is the criterion that decides whether the refusal is shippable, and my own 20 over-refusal probes all returned 200."
+  - "EC-004 ✓ satisfied — the property named in CON-010's check: 294 refused / 58 served cases, both minimums asserted inside the consuming tests, ids asserted distinct, and each of EC-004's named shapes (#, ?, non-numeric port, empty port, Origin: null) asserted present in the corpus. The refused sweep asserts 400, no form, no data-outcome, AND an empty tmp_path afterwards — so 'never routed to a handler' is checked by its consequence on disk, not only by a status code. The served sweep is the bound: a blanket 400 satisfies the first sweep completely and fails this one on row one."
+  - "NFR-004 ✓ satisfied for the two routed methods; see F-004 for the 501 path."
+  - "CON-010 ✓ satisfied; its declared check ref, dead at cycle 1, now resolves."
+
+scope_gate:
+  verdict: pass
+  note: >-
+    The diff delivers six requirements beyond the card's slice (NFR-004, CON-010,
+    AC-054..AC-058, EC-004). The owner approved this explicitly, and as a reviewer I
+    concur on three independent grounds: (1) it stays inside ONE component — every
+    line is in src/nonogram/web/, which is COMP-008, and trace.yml already routes
+    NFR-004 and CON-010 to COMP-008 alone ("nothing inward of it can observe or
+    affect the request headers"); (2) it is genuinely transport-level — the added code
+    reads header names and an authority and answers with a status code, knows nothing
+    about a puzzle, and ADR-0019/R1's declared check is green; (3) the card is what
+    turned the pre-existing violation from "a cross-origin page can read a static
+    string" into "a cross-origin page can run the pipeline and write files at a path
+    it chooses", so merging without it would ship the escalation. Two tests were
+    removed and both were replaced by their positive counterpart, not deleted:
+    test_post_is_not_implemented_in_this_card -> test_post_is_routed_and_an_unhandled_method_still_is_not,
+    and test_the_package_really_does_no_request_mapping_yet ->
+    test_the_package_serves_exactly_the_two_routes_it_describes. No test weakened.
+
+family_regression:
+  verdict: ARMED — not yet firing, but this is the first of the two cycles it needs
+  detector: "review.family_regression: on — escalates on TWO CONSECUTIVE cycles whose new GATING findings are attributed to the previous fix AND fall in one file/function family"
+  family: >-
+    "Prose in the touched files asserts more than the shipped code does" — cycle-1's
+    own RC-3, verbatim. It is RC-2 in this report.
+  attribution:
+    fix_introduced:
+      - "F-003 — the six 'four files' sites were WRITTEN BY the fix commit a017d74 (`git diff 177ba57..a017d74 | grep -c '^+.*four files'` = 6). Brand-new, and wrong: the attack body posts png+json and writes two."
+      - "F-002 — this is the SAME SENTENCE cycle-1's F-005 remedy rewrote ('Exactly one interpolation is not escaped' is a +line in a017d74). The remedy replaced a false statement with a different false statement: 12 of 23 interpolations are unescaped, and one of them, `{seed:d}`, is wire-derived."
+      - "F-007 — the 400/505 'no status line and no headers whatsoever' sentence was REWORDED by cycle-1's F-006 remedy (it appears as a -line in a017d74) and the over-generalization survived the rewrite: it is true of three of parse_request's four 400/505 exits, not four."
+      - "F-006 — the `_ALLOWED_FETCH_SITES` padded-spelling comment came in with the cross-origin work of a017d74 and is refuted by the stdlib on this interpreter."
+    not_fix_introduced:
+      - "F-001 (the only HIGH) — `_EXIT_CODES` appears twice in the IMPLEMENTATION commit 177ba57, so the tautological assertion and its banner predate the fix pass. Cycle 1 MISSED it; cycle 1 did not create it. This is a coverage gap in the previous review, not a regenerated defect."
+      - "F-004 — the module banner is likewise from 177ba57."
+      - "F-005 — a model artifact, untouched by either commit."
+  determination: >-
+    The family REPRODUCES and four of its five symptoms are attributable to cycle-1's
+    own fixes, which is the detector's exact shape. It does NOT fire yet, and I want
+    to be precise about why rather than lenient: the rule requires TWO CONSECUTIVE
+    cycles of fix-attributed gating findings in one family, and cycle 1 was the first
+    review of the card — its findings were attributed to the implementation, not to a
+    previous fix. Cycle 2 is therefore the FIRST such cycle. The detector is ARMED.
+    IF cycle 3's new gating findings are again prose-overclaim in
+    web/pages.py / web/handler.py / tests/test_web_*.py, the detector fires and the
+    card should ESCALATE to a human rather than take a fourth pass — which it cannot
+    anyway, since max_cycles is 3 and cycle 3 is terminal.
+  mechanism_named: >-
+    An ABSOLUTE quantifier ("exactly one", "the only", "all six", "each class", "four
+    files", "every ... is stripped twice") asserted over a whole module or a whole
+    stdlib code path, written from the author's mental model rather than counted from
+    the artifact. Every instance in RC-2 is falsified by a mechanical count that takes
+    seconds: an AST walk of the interpolations, a `grep -c` of the call sites, one
+    `export_puzzle` run, one `parsestr` call, reading four lines of `parse_request`.
+    The defect is not carelessness about facts — the surrounding reasoning is
+    consistently excellent and, where I checked it, correct — it is that the
+    quantifier is never checked against the thing it quantifies.
+  counter_evidence_the_fix_pass_earned: >-
+    The card's other large body of new prose HELD UP under independent checking, and
+    the score should reflect that this is a narrow recurrence rather than pervasive
+    unreliability. I verified, and they are all correct: parse_request really does
+    collapse a leading '//' (CPython gh-87389, in the installed 3.14.3 source); only
+    the mode=='image' branch of orchestrator.generate advances the nudge counter
+    (orchestrator.py:1223); cli.py:454 prints the seed only when request.seed is None;
+    library sourcing reads nothing from disk, so `generate` cannot raise OSError today;
+    the form has exactly nine distinct field names; 65536 over a realistic body is ~2
+    orders of magnitude; every Host header really is read; the eight-status
+    enumeration's membership and its 4/5 split are exactly right; the corpus floors
+    294/58 against 200/40; _MINIMUM_ERROR_CLASSES = 12; "seven bodies, seven domain
+    errors"; the for_mode/for_format quotations are verbatim; the OSError-arm-is-wider
+    claim; result_page's three CLI-parity differences. And ZERO dead test-name arrows.
+
+review_method_note: >-
+  The exhaustive prose audit of the seven changed files was delegated to a subagent
+  and its findings were then RE-DERIVED BY ME before being filed — I did not accept
+  any of them on report. F-001 by mutation (a row deleted from cli._EXIT_CODES, test
+  still green, cli.py restored and md5-verified); F-002 by an AST walk of every
+  interpolation in pages.py; F-003 by running export_puzzle on the attack body and
+  counting the files; F-004 by an AST walk for submission.read / cli.build_parser
+  call sites inside the three AC classes; F-006 by calling the stdlib's own header
+  parser; F-007 by reading parse_request's four 400/505 exits against line 374.
+  Attribution to the implementation vs the fix commit was established with
+  `git show 177ba57:` and `git diff 177ba57..a017d74` per claim.
+
+engineering_standards:
+  - "Contract-first APIs — N/A. No OpenAPI spec exists and none is mandated: this is a stdlib http.server adapter serving one HTML form to one local user (ADR-0020, CON-008), not a public API. No client generation applies."
+  - "Property tests for ECs — ✓. EC-003 and EC-004 each have a genuine multi-case property test present in the diff, not merely named."
+  - "E2E coverage — the project ships a web UI, and the AC tests DO drive a real socket end to end (a bound LoopbackHTTPServer, real HTTP over the wire, real files on disk). That is stronger than a mocked component test. What is NOT covered is the browser layer: no browser test, and — see coverage.visual — no human has looked at a rendered page."
+  - "Test-suite cost — ✓. tests/test_web_server.py + tests/test_web_submission.py run in 9.2s for 279 tests. The one time.sleep in the touched files (test_web_server.py:1027) is inside an Eventually-style polling helper with a deadline, which is the correct pattern, and the diff adds zero sleeps. The AC-051 budget assertion uses GENERATION_BUDGET_SECONDS+10 (40s), generous enough not to flake."
+  - "Observability — N/A at this scale. BaseHTTPRequestHandler's access log is the only logging and no credential, body or secret reaches it."
+  - "Minimalism (§9) — ✓. Three new module-level helpers (_port_is_well_formed, _origin_is_local, _host_is_local's widening) each have >1 call site; submission.py is a new module with one caller but it is the ADR-0019/R1 mapping boundary, which R1 names explicitly."
+  - "Documentation freshness — see F-007 (the repo README, pre-existing gap). No per-directory READMEs exist in this project."
+
+security:
+  verdict: "the cycle-1 critical is genuinely closed"
+  notes:
+    - "The refusal is decided BEFORE routing (handler.py:357, inside _dispatch, ahead of the ROUTES lookup at :362), so a route added by a later card inherits it rather than having to remember it. Pinned by test_the_host_check_runs_before_the_router."
+    - "The three authorities (Host header, Origin header, absolute-form request target) are judged by ONE function, _host_is_local — which is why M3 and M4 each kill three tests across two different signals. This is the right shape: three notions of 'local' is how one of them drifts."
+    - "400 rather than 403 is the model's choice, not the fix agent's, and the fix agent was right to follow it: NFR-004's threshold and AC-054/055/056 all say 400 in as many words, and AC-053's shipped guard (test_the_package_contains_no_authentication_vocabulary) fails the suite on a 403 CODE literal under web/. I confirmed that guard reads the AST and excludes docstrings by node identity, which is why handler.py:319's prose mention of '403' does not trip it."
+    - "Referer is deliberately not consulted. Correct: a referrer policy the attacking page controls can suppress it, so a rule resting on it is one the attacker can switch off. Neither NFR-004, CON-010 nor EC-004 mentions it."
+    - "No injection surface: nothing user-controlled reaches SQL, a shell, a template engine or an eval. The one filesystem path a poster controls (`out`) is by design — the CLI grants exactly the same power (CON-007 parity) — and it is now unreachable cross-origin, which was the whole of F-001."
+    - "No secrets, credentials or auth headers in the diff, in logs, or in any response body."
+    - "Every body that echoes something off the wire is html-escaped AND carries nosniff AND is text/plain or a page whose interpolations are escaped: the 400 host/refusal bodies, the 404 path, the failure page's reasons. Pinned by test_a_refused_host_is_not_echoed_as_markup and test_the_refused_origin_is_not_echoed_as_markup."
+
+performance:
+  verdict: "no new hot path"
+  notes:
+    - "One generation per request, synchronously, bounded by ADR-0011's existing deadline against ADR-0001's 30s (ADR-0021, guardrail G-3). No new loop, query, lock or cache."
+    - "MAX_BODY_BYTES (64 KiB) is a new and correct bound: http.server bounds request lines and header counts and nothing else, so without it a Content-Length: 4000000000 would be read into memory in full. The read is min(declared, cap) and the 413 is written after at most the cap's worth is drained, which is what lets the refusal actually be delivered rather than resetting the client."
+    - "Python's own 4300-digit str->int limit means a huge `size` value raises ValueError and is caught rather than burning CPU. Verified with a 5000-digit field."
+    - "The refused-corpus property test opens 294 short-lived connections against one server in ~2s. Acceptable; it is the only test in the suite of that shape."

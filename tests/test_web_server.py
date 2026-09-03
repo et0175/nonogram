@@ -2,6 +2,12 @@
 
     AC-052  TestWebServer_BindsLoopbackOnlyByDefault
     AC-053  TestWebServer_ProcessesRequestsWithoutAuthentication
+    AC-054  TestWebServer_RejectsCrossSiteSecFetchSite
+    AC-055  TestWebServer_RejectsForeignOrigin
+    AC-056  TestWebServer_RejectsAbsoluteFormTargetWithForeignAuthority
+    AC-057  TestWebServer_ServesSameOriginRequestNormally
+    AC-058  TestWebServer_AllowsRequestsWithNoOriginMetadata
+    EC-004  PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
 
 Both classes drive a *real* socket. That is not this suite's usual preference —
 every other adapter test calls a function — but the two criteria are statements
@@ -41,27 +47,32 @@ Two independent probes are used, because they fail for different reasons:
 
 The rest of the module covers what the failure matrix in
 ``meta/kanban/cards/CARD-019.md`` declares (F-1 through F-12), the form page,
-and the two boundaries guardrail G-4 draws.
+the two boundaries ADR-0019/R1 and CON-008 draw, and — since CARD-020's
+cycle-1 fix — NFR-004's cross-origin refusal (AC-054..AC-058, EC-004).
 """
 
 from __future__ import annotations
 
 import ast
 import http.client
+import http.server
 import inspect
 import re
 import socket
+import socketserver
 import threading
 import time
-from collections.abc import Callable, Iterator
+import urllib.parse
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import closing, contextmanager
+from http import HTTPStatus
 from pathlib import Path
 from typing import NamedTuple
 
 import pytest
 
-from nonogram import cli, difficulty, export, web
-from nonogram.web import handler, pages, server
+from nonogram import cli, difficulty, export, orchestrator, web
+from nonogram.web import handler, pages, server, submission
 
 # The ``web -> cli`` guard lives in the CLI's test module because that is where
 # the ADR-0007 rank table lives; AC-059 exercises it here alongside its three
@@ -546,8 +557,14 @@ class TestWebServer_ProcessesRequestsWithoutAuthentication:
 
 
 def test_the_route_table_is_keyed_on_method_and_path() -> None:
-    """The router's shape, which CARD-020 extends rather than replaces."""
-    assert set(handler.ROUTES) == {("GET", "/")}
+    """The router's shape: CARD-020 extended the table rather than replacing it.
+
+    Two rows, and the ``POST`` row is keyed on ``pages.FORM_ACTION`` rather than
+    on a second copy of ``"/generate"`` — the form's ``action`` and the router's
+    key are one constant, so a submission cannot be posted at a path the router
+    does not answer.
+    """
+    assert set(handler.ROUTES) == {("GET", "/"), ("POST", pages.FORM_ACTION)}
 
 
 def test_a_query_string_does_not_change_the_route(
@@ -562,8 +579,9 @@ def test_a_query_string_does_not_change_the_route(
     [
         pytest.param("/no-such-page", id="unknown"),
         pytest.param("/favicon.ico", id="favicon"),
-        # The form's own action, CARD-020's POST endpoint: it has no GET route
-        # today and must not quietly acquire one.
+        # The form's own action. It is a ``POST`` route (CARD-020) and has no
+        # ``GET`` route: the table is keyed on the pair, so acquiring one method
+        # does not quietly acquire the other.
         pytest.param("/generate", id="the-post-endpoint-has-no-get"),
         # A traversal attempt, to show nothing here maps a path onto a file:
         # the handler does not inherit ``SimpleHTTPRequestHandler``, so this is
@@ -619,24 +637,37 @@ def test_the_server_keeps_serving_after_a_miss(
     assert _request(running_server.server_port).status == 200
 
 
-def test_post_is_not_implemented_in_this_card(
+def test_post_is_routed_and_an_unhandled_method_still_is_not(
     running_server: server.LoopbackHTTPServer,
 ) -> None:
-    """F-5, guardrail G-5: submission is CARD-020's, and says so honestly.
+    """CARD-020 added exactly one method, and 501 stayed for the rest.
 
-    ``BaseHTTPRequestHandler`` chooses 501 for a method with no ``do_*``, so
-    the form posts to an endpoint that reports itself unimplemented rather than
-    to one this card half-built. The *status* is the stdlib's; the *response*
-    is ``WebUIRequestHandler.send_error``'s (``501 Not Implemented``,
-    ``text/plain``, ``nosniff``) — pinned by
+    This test asserted the opposite until CARD-020: the form posted to an
+    endpoint that answered ``501 Not Implemented`` because there was no
+    ``do_POST`` to dispatch. There is one now, and the useful thing left to pin
+    is that adding it did not turn every unknown method into a route —
+    ``BaseHTTPRequestHandler`` still chooses 501 for a method with no ``do_*``,
+    and the *response* to it is still ``WebUIRequestHandler.send_error``'s
+    (``text/plain``, ``nosniff``), pinned by
     ``TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound``.
+
+    The ``POST`` here is deliberately one the domain refuses: what is being
+    checked is that it was *routed*, not what it generated, and an empty body
+    reaches the same "no grid extent" refusal ``nonogram generate`` with no
+    ``--size`` gets. The submission path itself is
+    ``tests/test_web_submission.py``'s.
     """
-    response = _request(
-        running_server.server_port, method="POST", path=pages.FORM_ACTION, body=b"size=10"
+    posted = _request(
+        running_server.server_port, method="POST", path=pages.FORM_ACTION, body=b""
+    )
+    unhandled = _raw_exchange(
+        running_server.server_port, b"PUT / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n"
     )
 
-    assert response.status == 501
-    assert not hasattr(handler.WebUIRequestHandler, "do_POST")
+    assert hasattr(handler.WebUIRequestHandler, "do_POST")
+    assert posted.status == 200
+    assert b'data-outcome="failure"' in posted.body
+    assert b" 501 " in unhandled.splitlines()[0]
 
 
 def test_a_body_sent_with_a_get_is_never_read(
@@ -1116,22 +1147,24 @@ def test_a_loopback_host_header_is_served(
         pytest.param("notlocalhost", id="prefixed-name"),
         pytest.param("", id="empty"),
         # A ``Host`` is an authority, not a URL. ``urlsplit`` reads the host
-        # component of all three of these as loopback — which it genuinely is,
-        # so none of them was ever a hole — but a header carrying userinfo or a
-        # path is not a host name, and refusing the two characters narrows the
-        # accepted *shapes*. It does NOT bound the accepted value set to the
-        # size of the accepted name set: ``urlsplit`` splits on ``#`` and ``?``
-        # exactly as it splits on ``@`` and ``/`` and neither is refused
-        # (``127.0.0.1#evil.example.com`` and ``localhost?evil`` are served),
-        # and the port is never validated. That rationale is withdrawn, not
-        # repaired — bounding the shape space is EC-004's property and lands
-        # with CARD-020. The reversal that would be a hole,
+        # component of these as loopback — which it genuinely is, so none of
+        # them was ever a hole — but a header carrying userinfo, a path, a
+        # query or a fragment is not a host name, and neither is one whose port
+        # is empty or non-numeric. The shape space is BOUND now rather than
+        # merely narrowed: EC-004 names the ``#``/``?``/port shapes explicitly
+        # and CARD-020's cycle-1 fix refuses them, so the withdrawn "keeps the
+        # two sets the same size" rationale is replaced by a rule rather than
+        # left standing. The reversal that would be a hole,
         # ``127.0.0.1@evil.example.com``, was already refused and stays here to
         # prove the narrowing did not replace the parse with a substring test.
         pytest.param("user:pass@127.0.0.1", id="userinfo"),
         pytest.param("evil.example.com@127.0.0.1", id="userinfo-lookalike"),
         pytest.param("127.0.0.1/../evil", id="path-component"),
         pytest.param("127.0.0.1@evil.example.com", id="reversed-userinfo"),
+        pytest.param("127.0.0.1#evil.example.com", id="fragment"),
+        pytest.param("localhost?evil", id="query"),
+        pytest.param("127.0.0.1:", id="empty-port"),
+        pytest.param("127.0.0.1:notaport", id="non-numeric-port"),
     ],
 )
 def test_a_foreign_host_header_is_refused_before_routing(
@@ -1146,13 +1179,13 @@ def test_a_foreign_host_header_is_refused_before_routing(
     is what would make the reply readable to that page. That name is what this
     check refuses.
 
-    It does not refuse the *other* browser-mediated reach: a browser sets
-    ``Host`` from the *target*, so a page on any origin posting to
-    ``http://127.0.0.1:<port>/`` sends an allowlisted ``Host`` and is served
-    (verified on the wire, with ``Origin`` and ``Sec-Fetch-Site: cross-site``
-    both present: ``200`` and the form — nothing in ``web/`` reads either
-    header). That is NFR-004 / CON-010, unimplemented, owned by CARD-020, and
-    no test here may be read as evidence that it is closed.
+    It does not, on its own, refuse the *other* browser-mediated reach: a
+    browser sets ``Host`` from the *target*, so a page on any origin posting to
+    ``http://127.0.0.1:<port>/`` sends an allowlisted ``Host`` and gets past
+    this check. That reach is NFR-004 / CON-010, and it is closed by a separate
+    check that this test says nothing about — see
+    ``PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest``
+    below, and the five criteria AC-054..AC-058 beside it.
 
     Refused with ``400``, not ``401``/``403``: nothing was authenticated and
     nothing was forbidden to a principal. The request named a host this server
@@ -1251,8 +1284,8 @@ def test_the_host_check_runs_before_the_router(
     """A foreign host gets 400 on *every* path, routed or not — 400, not 404.
 
     Ordering is the property: a check that ran after routing would leave each
-    new route responsible for remembering it, which is how CARD-020's
-    ``POST /generate`` would end up writing files for a cross-origin form post.
+    new route responsible for remembering it, which is how ``POST /generate``
+    would end up writing files for a request that never named this server.
     """
     for path in ("/", "/no-such-page", pages.FORM_ACTION):
         response = _request(
@@ -1274,7 +1307,612 @@ def test_the_allowlist_is_the_three_loopback_names() -> None:
 
 
 # --------------------------------------------------------------------------
-# The form page (FR-017) and the G-4 boundary
+# NFR-004 / CON-010 — the cross-origin refusal (AC-054..AC-058, EC-004)
+# --------------------------------------------------------------------------
+#
+# The half of BCON-0001's browser-mediated reach that the ``Host`` check above
+# does not close, and — until CARD-020's cycle-1 review — did not close at all.
+# A browser sets ``Host`` from the request's *target*, so a form on
+# ``https://evil.example.com`` posting to ``http://127.0.0.1:<port>/generate``
+# arrives with an allowlisted ``Host`` over a loopback socket. Reproduced on
+# the wire against the code this section was written for: ``200``, the pipeline
+# ran, and it wrote into a directory the attacking page named — one file per
+# ``export_formats`` value the body carried, two for the body below.
+#
+# What the refusal reads are the signals such a request carries and page script
+# can neither forge nor suppress: ``Sec-Fetch-Site``, ``Origin``, and the
+# authority of an absolute-form request target. ``Referer`` is deliberately not
+# among them — a referrer policy the attacking page controls can switch it off.
+
+
+def _raw_request(
+    method: str,
+    target: str,
+    headers: Sequence[tuple[str, str]] = (),
+    body: bytes = b"",
+) -> bytes:
+    """One HTTP/1.0 request as bytes, headers in the order given.
+
+    Built by hand rather than through ``http.client`` because every shape this
+    section is about is one that library will not send: a repeated header, a
+    header with no value, an absolute-form request target, or no ``Host`` at
+    all.
+    """
+    lines = [f"{method} {target} HTTP/1.0".encode()]
+    lines += [f"{name}: {value}".encode() for name, value in headers]
+    if body:
+        lines.append(b"Content-Type: application/x-www-form-urlencoded")
+        lines.append(b"Content-Length: %d" % len(body))
+    return b"\r\n".join(lines) + b"\r\n\r\n" + body
+
+
+#: Authorities that are not this server, in the shapes an attack arrives in.
+_FOREIGN_AUTHORITIES: tuple[str, ...] = (
+    "evil.example.com",
+    "evil.example.com:8765",
+    # A name the attacker controls that resolves to 127.0.0.1 — the connection
+    # really is loopback, so the bind address says nothing about it.
+    "rebind.attacker.test",
+    # Prefix/suffix games against a naive substring check.
+    "127.0.0.1.evil.example.com",
+    "localhost.evil.example.com",
+    "notlocalhost",
+    "127.0.0.2",
+    "10.0.0.1",
+    "[::2]",
+)
+
+#: Authorities whose *host component* ``urlsplit`` reads as loopback but which
+#: are not well-formed authorities. EC-004 names these explicitly ("a ``#`` or
+#: ``?`` inside the Host value, a non-numeric or empty port"), which is why
+#: they are a corpus of their own rather than filed under "foreign": the host
+#: really is loopback in each, so a check that consulted only the host serves
+#: every one of them.
+_MALFORMED_LOOPBACK_AUTHORITIES: tuple[str, ...] = (
+    "127.0.0.1#evil.example.com",
+    "localhost?evil",
+    "127.0.0.1:",
+    "127.0.0.1:notaport",
+    "127.0.0.1:8765x",
+    "user:pass@127.0.0.1",
+    "127.0.0.1/../evil",
+)
+
+#: Every authority a request may not claim, however it claims it.
+_REFUSED_AUTHORITIES = _FOREIGN_AUTHORITIES + _MALFORMED_LOOPBACK_AUTHORITIES
+
+#: Authorities that name this server. Ports vary and are deliberately not the
+#: one under test: ``--port`` chooses it and only the name is compared.
+_LOOPBACK_AUTHORITIES: tuple[str, ...] = (
+    "127.0.0.1",
+    "127.0.0.1:8765",
+    "localhost",
+    "localhost:1",
+    "[::1]",
+    "[::1]:65535",
+)
+
+#: URL schemes an ``Origin`` can be built with. Both are accepted shapes; the
+#: scheme is read for presence and then discarded, so a ``https://`` origin on
+#: a loopback host is served and one on a foreign host is not.
+_ORIGIN_SCHEMES: tuple[str, ...] = ("http", "https")
+
+#: ``Sec-Fetch-Site`` values that must be refused: the two the fetch-metadata
+#: spec defines and this server does not answer, plus the shapes a value can
+#: arrive in that are not tokens of that spec at all.
+_REFUSED_FETCH_SITES: tuple[str, ...] = (
+    "cross-site",
+    "same-site",
+    # Case variants. The spec defines lowercase tokens, so anything else did
+    # not come from a browser following it and is refused rather than guessed.
+    "Cross-Site",
+    "SAME-ORIGIN",
+    "None",
+    # A value that is not a token of the vocabulary at all.
+    "",
+    "unknown-value",
+    "same-origin cross-site",
+    "same-origin, cross-site",
+    "none; cross-site",
+)
+
+#: ``Sec-Fetch-Site`` values that must be served (AC-057).
+#:
+#: The two padded spellings are here for ``handler``'s own ``site.strip()``,
+#: which is the ONLY strip in the chain and is load-bearing. Measured on this
+#: interpreter rather than assumed: ``http.client``'s header parsing strips the
+#: whitespace *after the colon* but leaves trailing whitespace alone — parsing
+#: ``"X-A: none \r\n"`` yields ``['none ']``, the space intact. So the two rows
+#: are not symmetric. ``" same-origin"`` arrives at the handler already
+#: unpadded and is a duplicate of the row above it, kept because the *layout*
+#: of the header is what it is a case of; ``"none "`` is the row that actually
+#: reaches ``_cross_origin_refusal`` padded, and only ``.strip()`` turns it back
+#: into a token.
+#:
+#: Removing that ``.strip()`` is safe in the refusing direction — a padded
+#: ``cross-site`` misses the allowlist and is refused, which is the right answer
+#: for the wrong reason — and a live defect in the serving one: a legitimate
+#: ``same-origin `` would miss it too and be refused. Measured: replacing
+#: ``site.strip()`` with ``site`` fails
+#: ``test_every_same_origin_or_metadata_free_request_is_served``, and nothing
+#: else in this module or in ``tests/test_web_submission.py``.
+_ALLOWED_FETCH_SITES: tuple[str, ...] = (
+    "same-origin",
+    "none",
+    " same-origin",
+    "none ",
+)
+
+#: The body a POST row in the corpus carries: a real submission that would
+#: generate and write one file per ``export_formats`` value below — two, as
+#: spelled — if it were ever routed. Measured, not assumed: this body through
+#: ``generate`` + ``export_puzzle`` writes ``pwned.png`` and ``pwned.json``.
+_ATTACK_FIELDS: tuple[tuple[str, str], ...] = (
+    ("mode", "library"),
+    ("library_key", "cat"),
+    ("size", "20"),
+    ("name", "pwned"),
+    ("export_formats", "png"),
+    ("export_formats", "json"),
+)
+
+
+def _refused_corpus(out: Path) -> list[tuple[str, bytes]]:
+    """Every request shape EC-004 requires refused, as ``(id, bytes)``.
+
+    Built as a product rather than hand-picked, which is what makes this a
+    property and not five examples: each *signal* is crossed with each *shape*
+    the signal can arrive in, and with both methods, so a refusal that only
+    covered ``GET``, or only covered the exact spelling one criterion names,
+    fails here rather than passing on the criterion it was written against.
+
+    ``out`` is where the POST rows ask their files to be written, so that a
+    refusal that silently stopped working leaves evidence on disk instead of
+    only in a status code.
+    """
+    body = urllib.parse.urlencode([*_ATTACK_FIELDS, ("out", str(out))]).encode()
+    local = ("Host", "127.0.0.1")
+    corpus: list[tuple[str, bytes]] = []
+
+    for method, payload in (("GET", b""), ("POST", body)):
+        target = "/" if method == "GET" else pages.FORM_ACTION
+
+        # 0. The ``Host`` header itself. EC-004 names its malformed shapes in
+        #    as many words, and the same authority corpus is what tests them —
+        #    the F-12 check answers these, and the property is stated over the
+        #    refusal as a whole rather than over which check reaches it first.
+        for authority in _REFUSED_AUTHORITIES:
+            corpus.append(
+                (f"{method}-host-{authority}", _raw_request(
+                    method, target, [("Host", authority)], payload))
+            )
+
+        # 1. Sec-Fetch-Site, alone and beside an otherwise impeccable Origin.
+        for site in _REFUSED_FETCH_SITES:
+            corpus.append(
+                (f"{method}-sec-fetch-site-{site!r}", _raw_request(
+                    method, target, [local, ("Sec-Fetch-Site", site)], payload))
+            )
+            corpus.append(
+                (f"{method}-sec-fetch-site-{site!r}-with-local-origin", _raw_request(
+                    method, target,
+                    [local, ("Origin", "http://127.0.0.1"), ("Sec-Fetch-Site", site)],
+                    payload))
+            )
+
+        # 2. Origin, alone and beside an allowlisted Sec-Fetch-Site — the
+        #    combination proves the two signals are ANDed and not ORed.
+        for scheme in _ORIGIN_SCHEMES:
+            for authority in _REFUSED_AUTHORITIES:
+                origin = f"{scheme}://{authority}"
+                corpus.append(
+                    (f"{method}-origin-{origin}", _raw_request(
+                        method, target, [local, ("Origin", origin)], payload))
+                )
+                corpus.append(
+                    (f"{method}-origin-{origin}-with-same-origin-metadata", _raw_request(
+                        method, target,
+                        [local, ("Origin", origin), ("Sec-Fetch-Site", "same-origin")],
+                        payload))
+                )
+
+        # 3. Origin shapes that are not serialized origins at all (RFC 6454).
+        for origin in ("null", "", "http://", "evil.example.com",
+                       "http://127.0.0.1/path", "http://127.0.0.1?q",
+                       "http://127.0.0.1#f"):
+            corpus.append(
+                (f"{method}-non-origin-{origin!r}", _raw_request(
+                    method, target, [local, ("Origin", origin)], payload))
+            )
+
+        # 4. Repeated headers, both orders. Taking the first value is how an
+        #    allowlisted one smuggles a foreign one past.
+        for first, second in (("http://127.0.0.1", "https://evil.example.com"),
+                              ("https://evil.example.com", "http://127.0.0.1")):
+            corpus.append(
+                (f"{method}-two-origins-{first}-then-{second}", _raw_request(
+                    method, target,
+                    [local, ("Origin", first), ("Origin", second)], payload))
+            )
+        for first, second in (("same-origin", "cross-site"), ("cross-site", "same-origin")):
+            corpus.append(
+                (f"{method}-two-fetch-sites-{first}-then-{second}", _raw_request(
+                    method, target,
+                    [local, ("Sec-Fetch-Site", first), ("Sec-Fetch-Site", second)],
+                    payload))
+            )
+
+        # 5. The request target's own authority, with and without a Host —
+        #    AC-056's shape is the one with none, which is how the same reach
+        #    arrives with nothing for the Host check to look at.
+        #
+        #    Only the foreign authorities here, not the malformed-loopback
+        #    ones: inside a URL those characters mean what they mean in a URL,
+        #    so ``http://127.0.0.1#evil.example.com/`` really is a request to
+        #    127.0.0.1 carrying a fragment, not an authority-shape attack. It
+        #    is answered 404 (no route has that path) rather than 400, and
+        #    asserting 400 for it would be asserting a claim about the request
+        #    that is not true. EC-004 states those shapes over the *Host value*,
+        #    which is group 0.
+        for authority in _FOREIGN_AUTHORITIES:
+            for scheme in _ORIGIN_SCHEMES:
+                prefix = f"{scheme}://{authority}"
+                corpus.append(
+                    (f"{method}-absolute-target-{prefix}-no-host", _raw_request(
+                        method, prefix + target, [], payload))
+                )
+                corpus.append(
+                    (f"{method}-absolute-target-{prefix}-local-host", _raw_request(
+                        method, prefix + target, [local], payload))
+                )
+
+    return corpus
+
+
+def _served_corpus() -> list[tuple[str, bytes]]:
+    """Every request shape that must still be served (AC-057, AC-058).
+
+    The other half of the property, and the half that makes it a bound rather
+    than a wall: a refusal that answered 400 to everything would satisfy the
+    corpus above completely.
+    """
+    corpus: list[tuple[str, bytes]] = [("no-metadata-no-host", _raw_request("GET", "/"))]
+
+    for host in ("127.0.0.1", "localhost", "[::1]"):
+        header = [("Host", host)]
+        corpus.append((f"no-metadata-host-{host}", _raw_request("GET", "/", header)))
+        for site in _ALLOWED_FETCH_SITES:
+            corpus.append(
+                (f"fetch-site-{site!r}-host-{host}", _raw_request(
+                    "GET", "/", [*header, ("Sec-Fetch-Site", site)]))
+            )
+        for scheme in _ORIGIN_SCHEMES:
+            for authority in _LOOPBACK_AUTHORITIES:
+                origin = f"{scheme}://{authority}"
+                corpus.append(
+                    (f"origin-{origin}-host-{host}", _raw_request(
+                        "GET", "/", [*header, ("Origin", origin)]))
+                )
+        corpus.append(
+            (f"both-signals-host-{host}", _raw_request(
+                "GET", "/",
+                [*header, ("Origin", f"http://{host}"), ("Sec-Fetch-Site", "same-origin")]))
+        )
+        # A loopback authority in absolute form is this server talking about
+        # itself, which is what a proxy-style request to it looks like.
+        corpus.append(
+            (f"absolute-local-target-host-{host}", _raw_request(
+                "GET", f"http://{host}/", header))
+        )
+
+    return corpus
+
+
+#: The floor on each corpus, asserted inside the tests that consume them. The
+#: numbers are well below what the products above produce; they exist so that a
+#: builder that silently stopped producing rows — a tuple emptied, a loop that
+#: stopped nesting — reports red rather than the same green over nothing.
+_MINIMUM_REFUSED_CASES = 200
+_MINIMUM_SERVED_CASES = 40
+
+
+class TestWebServer_RejectsCrossSiteSecFetchSite:
+    """AC-054 — *given* a GET to the form with an allowlisted Host and
+    ``Sec-Fetch-Site: cross-site``, *when* the request is dispatched, *then* it
+    is refused with 400 and the form is not returned."""
+
+    def test_a_cross_site_navigation_is_refused_with_the_form_withheld(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The criterion's own shape, sent exactly as a browser sends it."""
+        response = _request(
+            running_server.server_port,
+            headers={
+                "Host": f"127.0.0.1:{running_server.server_port}",
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": "navigate",
+            },
+        )
+
+        assert response.status == 400
+        assert b"<form" not in response.body
+
+    def test_the_refusal_is_not_a_credential_challenge(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """400, not 401/403 — AC-053 is untouched by NFR-004.
+
+        Nothing was authenticated and nothing was forbidden to a principal: the
+        request was started by a document this server did not serve, which
+        makes it malformed. 400 is also the status NFR-004 and AC-054..AC-056
+        name in as many words, so the choice is the model's, not this
+        module's.
+        """
+        response = _request(
+            running_server.server_port,
+            headers={"Host": "127.0.0.1", "Sec-Fetch-Site": "cross-site"},
+        )
+
+        assert response.status == 400
+        assert response.status not in (401, 403)
+        assert "WWW-Authenticate" not in response.headers
+
+
+class TestWebServer_RejectsForeignOrigin:
+    """AC-055 — *given* a GET to the form with an allowlisted Host and
+    ``Origin: https://evil.example.com``, *when* the request is dispatched,
+    *then* it is refused with 400 and the form is not returned."""
+
+    def test_a_foreign_origin_is_refused_with_the_form_withheld(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The criterion's own shape."""
+        response = _request(
+            running_server.server_port,
+            headers={
+                "Host": f"127.0.0.1:{running_server.server_port}",
+                "Origin": "https://evil.example.com",
+            },
+        )
+
+        assert response.status == 400
+        assert b"<form" not in response.body
+
+    def test_the_refused_origin_is_not_echoed_as_markup(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The body names the origin and escapes it, exactly as the 404 does."""
+        response = _request(
+            running_server.server_port,
+            headers={"Host": "127.0.0.1", "Origin": "https://<script>alert(1)</script>"},
+        )
+
+        assert response.status == 400
+        assert b"&lt;script&gt;" in response.body
+        assert b"<" not in response.body
+
+
+class TestWebServer_RejectsAbsoluteFormTargetWithForeignAuthority:
+    """AC-056 — *given* an absolute-form request target naming a non-loopback
+    authority and no Host header, *when* the request is dispatched, *then* it is
+    refused with 400 and the form is not returned."""
+
+    def test_the_criterions_own_request_line_is_refused(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """``GET http://evil.example.com/ HTTP/1.0``, byte for byte.
+
+        Sent raw: ``http.client`` cannot express an absolute-form target and
+        always supplies a ``Host``. This is the shape that leaves the ``Host``
+        check with nothing to look at, which is why the criterion pins it
+        separately from AC-055's.
+        """
+        received = _raw_exchange(
+            running_server.server_port, b"GET http://evil.example.com/ HTTP/1.0\r\n\r\n"
+        )
+
+        assert received.startswith(b"HTTP/1.0 400"), received[:120]
+        assert b"<form" not in received
+
+    def test_an_absolute_form_target_naming_this_server_is_served(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The control: the refusal is about the *authority*, not the form.
+
+        A proxy-style request to this server's own name is a request to this
+        server, and it is served — so the test above fails for the reason it
+        claims rather than because absolute-form targets are refused wholesale.
+        """
+        received = _raw_exchange(
+            running_server.server_port,
+            f"GET http://127.0.0.1:{running_server.server_port}/ HTTP/1.0\r\n\r\n".encode(),
+        )
+
+        assert received.startswith(b"HTTP/1.0 200"), received[:120]
+        assert b"<form" in received
+
+
+class TestWebServer_ServesSameOriginRequestNormally:
+    """AC-057 — *given* a GET to the form with an allowlisted Host,
+    ``Sec-Fetch-Site: same-origin`` and no Origin header, *when* the request is
+    dispatched, *then* it is processed normally and returns 200 with the
+    form."""
+
+    def test_the_form_is_returned_unchanged(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The criterion's own shape — what the browser sends on a reload."""
+        response = _request(
+            running_server.server_port,
+            headers={
+                "Host": f"127.0.0.1:{running_server.server_port}",
+                "Sec-Fetch-Site": "same-origin",
+            },
+        )
+
+        assert response.status == 200
+        assert response.body == pages.FORM_PAGE.encode("utf-8")
+
+
+class TestWebServer_AllowsRequestsWithNoOriginMetadata:
+    """AC-058 — *given* a GET to the form with an allowlisted Host, no
+    Sec-Fetch-Site and no Origin, *when* the request is dispatched, *then* it is
+    processed normally and returns 200 with the form."""
+
+    def test_a_request_carrying_neither_header_is_served(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """``curl``, a typed URL, a bookmark — the metadata-free navigation.
+
+        The boundary this criterion draws is the one that decides whether the
+        refusal is shippable at all: neither header can be *added* by page
+        script (both are forbidden header names to ``fetch``/XHR), so their
+        absence is never the attacker's shape, and refusing on absence would
+        break every non-browser client while buying nothing.
+        """
+        response = _request(
+            running_server.server_port,
+            headers={"Host": f"127.0.0.1:{running_server.server_port}"},
+        )
+
+        assert response.status == 200
+        assert response.body == pages.FORM_PAGE.encode("utf-8")
+
+    def test_a_request_with_no_headers_at_all_is_served(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """No Host either — this module's own AC-052 interface probes."""
+        received = _raw_exchange(running_server.server_port, b"GET / HTTP/1.0\r\n\r\n")
+
+        assert received.startswith(b"HTTP/1.0 200 OK"), received[:120]
+
+
+# --------------------------------------------------------------------------
+# EC-004 — PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
+#
+# For any request whose Sec-Fetch-Site header is present and not
+# same-origin/none, whose Origin header names a host that is not a loopback
+# name, or whose request-target is absolute-form with a non-loopback authority
+# — INCLUDING header shapes not named by AC-054..AC-056 — the server refuses the
+# request and never routes it to a handler, FOR ANY such input. CON-010's
+# declared check, and the one the constraint has cited since 2026-08-30.
+#
+# Written as module-level functions rather than as a class, which is this
+# project's convention for a property (cf.
+# ``PropertyTest_WebUI_SurfacesAnyPipelineErrorAsStructuredFailure`` in
+# tests/test_web_submission.py): the CamelCase name above is the logical id the
+# requirement cites, and each ``def`` below is one arm of it. ``PropertyTest_``
+# is not collected by pytest's default ``python_classes``, so a class of that
+# name would silently run nothing.
+#
+# Three arms:
+#
+# * ``test_the_corpora_are_large_and_cover_every_declared_signal`` is what makes
+#   the other two non-vacuous. Both corpora are products of hand-built tuples,
+#   so a tuple emptied or a loop that stopped nesting would leave the sweeps
+#   asserting a property of nothing and reporting green.
+# * ``test_every_cross_origin_or_foreign_authority_request_is_refused`` is the
+#   property. Every row must answer 400, must not carry the form, and — for the
+#   POST rows, which submit a real generation — must leave nothing on disk, so
+#   "never routed to a handler" is checked by its consequence and not only by a
+#   status code.
+# * ``test_every_same_origin_or_metadata_free_request_is_served`` is the bound.
+#   A refusal that answered 400 to everything satisfies the first sweep
+#   completely and fails this one on its first row.
+#
+# A fourth ``def`` follows the three below and is deliberately not an arm:
+# ``test_the_accepted_fetch_metadata_is_the_two_spec_values`` pins a constant,
+# as ``ALLOWED_HOSTS``'s sibling does, and would still be wanted if the property
+# went away.
+#
+# No ``hypothesis``: it is not in ADR-0006's dependency baseline. The corpora
+# are built by hand and their size is asserted inside the tests that use them,
+# which is this project's standing answer to the same need. As shipped the
+# refused corpus is 294 rows against a floor of 200 and the served corpus is 58
+# against a floor of 40 — both measured, and both floors asserted in
+# ``test_the_corpora_are_large_and_cover_every_declared_signal``, which is what
+# makes those numbers a guard rather than a note.
+# --------------------------------------------------------------------------
+
+
+def test_the_corpora_are_large_and_cover_every_declared_signal(tmp_path: Path) -> None:
+    """The corpora that make the two sweeps below non-vacuous."""
+    refused = _refused_corpus(tmp_path)
+    served = _served_corpus()
+
+    assert len(refused) >= _MINIMUM_REFUSED_CASES, len(refused)
+    assert len(served) >= _MINIMUM_SERVED_CASES, len(served)
+    # Every id is distinct, so the counts are cases and not one case repeated.
+    assert len({case_id for case_id, _ in refused}) == len(refused)
+    assert len({case_id for case_id, _ in served}) == len(served)
+    # Each of EC-004's three signals is present, and both methods are.
+    for signal in (b"Sec-Fetch-Site: cross-site", b"Origin: https://evil.example.com",
+                   b"GET http://evil.example.com/", b"POST http://evil.example.com/generate"):
+        assert any(signal in request for _, request in refused), signal
+    # And each of the shapes EC-004 names beyond the three criteria.
+    for shape in (b"127.0.0.1#evil.example.com", b"localhost?evil", b"127.0.0.1:notaport",
+                  b"Host: 127.0.0.1:\r\n", b"Origin: null"):
+        assert any(shape in request for _, request in refused), shape
+
+
+def test_every_cross_origin_or_foreign_authority_request_is_refused(
+    running_server: server.LoopbackHTTPServer, tmp_path: Path
+) -> None:
+    """EC-004's property: every row, one running server, nothing routed.
+
+    The POST rows carry a real library submission whose ``out`` is ``tmp_path``,
+    so a refusal that stopped working does not merely return the wrong status —
+    it leaves files behind, which the final assertion catches even if the status
+    assertions were somehow satisfied. Two per routed row, one for each of
+    ``_ATTACK_FIELDS``' two ``export_formats`` values; the assertion below is
+    stated over the directory being *empty*, so the count is not load-bearing.
+    """
+    corpus = _refused_corpus(tmp_path)
+    assert len(corpus) >= _MINIMUM_REFUSED_CASES, len(corpus)
+
+    for case_id, request in corpus:
+        received = _raw_exchange(running_server.server_port, request)
+
+        assert received.startswith(b"HTTP/1.0 400"), (case_id, received[:160])
+        assert b"<form" not in received, case_id
+        assert b"data-outcome" not in received, case_id
+
+    assert not list(tmp_path.rglob("*")), sorted(tmp_path.rglob("*"))
+
+
+def test_every_same_origin_or_metadata_free_request_is_served(
+    running_server: server.LoopbackHTTPServer,
+) -> None:
+    """The bound on the property: a blanket refusal fails here.
+
+    Every row is a request a browser or a command-line client legitimately
+    sends — same-origin metadata, a loopback origin on either scheme, or no
+    metadata at all — and every one of them gets the form.
+    """
+    corpus = _served_corpus()
+    assert len(corpus) >= _MINIMUM_SERVED_CASES, len(corpus)
+
+    for case_id, request in corpus:
+        received = _raw_exchange(running_server.server_port, request)
+
+        assert received.startswith(b"HTTP/1.0 200 OK"), (case_id, received[:160])
+        assert b"<form" in received, case_id
+
+
+def test_the_accepted_fetch_metadata_is_the_two_spec_values() -> None:
+    """Pinned literally, for the same reason ``ALLOWED_HOSTS`` is.
+
+    An allowlist that grows quietly is not an allowlist, and this one has two
+    plausible-looking wrong values a future edit could add: ``same-site``,
+    which sounds harmless and is exactly the cross-document case NFR-004 is
+    about, and ``cross-site`` itself. Adding either has to be a deliberate edit
+    to this line.
+    """
+    assert handler.ALLOWED_FETCH_SITES == {"same-origin", "none"}
+
+
+# --------------------------------------------------------------------------
+# The form page (FR-017) and the CON-008 boundary
 # --------------------------------------------------------------------------
 
 
@@ -1315,17 +1953,20 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     exact sets rather than filtered away, so neither gap can grow quietly:
 
     * ``image`` — argv only. A file upload is a multipart form control, which
-      is CARD-021's work (guardrail G-5).
+      CARD-019's guardrail G-5 defers to CARD-021. Card-qualified because the
+      number alone does not resolve: CARD-020's own G-5 is the unchanged CLI
+      error mapping, and CARD-021's is the no-preview rule.
     * ``extent`` on argv against ``size`` on the form — CARD-027 turned
       ``--size`` into a ``(width, height)`` pair carried under the ``extent``
       destination (FR-018, ADR-0022/R1), and its guardrail G-7 reserves the web
       form's extent field for CARD-028. So for exactly the interval between
       those two cards the *same option* is spelled differently on the two
       adapters. This is the ordering consequence G-7 predicts: the web adapter
-      is feature-incomplete, not broken — its ``size`` field is still a plain
-      text input that nothing wires to a request (CARD-020 owns that), so
-      nothing about it is wrong today, only older. CARD-028 renames it and both
-      halves of this assertion drop back to their pre-CARD-027 shape.
+      is feature-incomplete, not broken — its ``size`` box takes one number and
+      CARD-020 wires that number to ``width``, leaving ``height`` unstated,
+      which is precisely what the CLI's own bare ``--size N`` does (FR-023).
+      What the form cannot yet say is ``WxH``. CARD-028 adds it and both halves
+      of this assertion drop back to their pre-CARD-027 shape.
     """
     argv_options = set(vars(cli.build_parser().parse_args(["generate"]))) - {
         "command",
@@ -1350,7 +1991,7 @@ def test_the_form_lists_every_difficulty_tier_plus_an_unset_choice() -> None:
 
 
 def test_the_form_constrains_no_value_in_the_browser() -> None:
-    """Guardrail G-4: an out-of-range value must reach the domain.
+    """ADR-0019/R1: an out-of-range value must reach the domain.
 
     ``min``/``max``/``required``/``pattern`` on an input would have the browser
     reject it first — the same mistake as putting ``choices=`` on
@@ -1388,11 +2029,11 @@ def test_the_web_package_raises_nothing() -> None:
     malformed request line, a bind failure) or the domain's, raised inward and
     caught here for rendering. A ``raise`` statement anywhere in ``web/`` would
     mean this package had grown a judgement of its own — which is exactly what
-    guardrail G-4 and ADR-0019/R1 put inward of it.
+    ADR-0019/R1 puts inward of it.
 
     ``_WEB_SOURCES`` is asserted non-empty first (AC-059): this loop is cited
-    as the enforcement of guardrail G-4, and an empty glob would have it
-    certify that guardrail by parsing nothing.
+    as the enforcement of ADR-0019/R1, and an empty glob would have it
+    certify that rule by parsing nothing.
     """
     assert _WEB_SOURCES, "no web adapter sources found"
     for path in _WEB_SOURCES:
@@ -1415,7 +2056,7 @@ class TestWebGuards_EveryStructuralLoopAssertsNonEmpty:
     ``tests.test_cli._MODULES`` — and asserting a property of every item found.
     A loop over an empty collection asserts that property of nothing and reports
     green. That is how two tests cited by three consecutive review cycles as the
-    enforcement of ADR-0019/R1 and guardrail G-4 came to be evidence for nothing
+    enforcement of ADR-0019/R1 came to be evidence for nothing
     at all: the glob was never asserted non-empty, so a rename of the package
     directory would have retired both guards silently.
 
@@ -1496,8 +2137,21 @@ class TestWebDocstrings_MatchTheShippedPackage:
     """
 
     def test_the_package_imports_exactly_what_the_docstring_names(self) -> None:
-        """"the difficulty and export registries" — and nothing else outward."""
-        assert _web_component_imports() - {"web"} == {"difficulty", "export"}
+        """The four the docstring names, and nothing else.
+
+        ``difficulty`` and ``export`` are the registries ``pages.py`` renders
+        the form's choices from; ``orchestrator`` and ``errors`` are CARD-020's
+        — the pipeline a submission drives and the one hierarchy it catches.
+        Pinned as an exact set so a fifth import has to be a deliberate edit
+        here, which is the only thing standing between this package and a
+        capability module imported "just to check a value" (ADR-0019/R1).
+        """
+        assert _web_component_imports() - {"web"} == {
+            "difficulty",
+            "errors",
+            "export",
+            "orchestrator",
+        }
 
     def test_the_docstring_claims_no_import_the_package_does_not_make(self) -> None:
         """The specific false sentence, pinned so it cannot come back.
@@ -1516,18 +2170,23 @@ class TestWebDocstrings_MatchTheShippedPackage:
                 assert component in imported, component
 
     def test_the_docstring_claims_no_responsibility_the_package_lacks(self) -> None:
-        """Request parsing and the ``GenerationRequest`` mapping are forthcoming.
+        """The ``GenerationRequest`` mapping is claimed, so it has to be here.
 
-        Pinned as: the docstring still names the mapping (a reader needs to know
-        where it went), and every sentence that names it also names the card that
-        brings it. A present-tense claim would not.
+        The claim was future-tense until CARD-020 and this test held it to
+        naming the card that would bring it. It is present-tense now, so what it
+        has to be held to is the code: a module that builds the request, and a
+        ``POST`` route that runs one. Behavioural rather than textual on
+        purpose — ``submission.read`` is *called* with a real body, so a module
+        that had been reduced to a stub would fail here.
         """
         text = " ".join((web.__doc__ or "").split())
         sentences = [s for s in text.split(". ") if "GenerationRequest" in s]
 
         assert sentences, "the docstring no longer says where the mapping lives"
-        for sentence in sentences:
-            assert "CARD-020" in sentence, sentence
+        assert ("POST", pages.FORM_ACTION) in handler.ROUTES
+        built = submission.read("mode=library&library_key=cat&size=20").request
+        assert isinstance(built, orchestrator.GenerationRequest)
+        assert (built.mode, built.library_key, built.width) == ("library", "cat", 20)
 
     def test_the_docstring_does_not_credit_the_stdlib_with_writing_the_501(self) -> None:
         """The claim CARD-022's own ``send_error`` override falsified.
@@ -1570,25 +2229,170 @@ class TestWebDocstrings_MatchTheShippedPackage:
             assert "and nothing else" not in sentence, sentence
             assert "Host" in sentence, sentence
 
-    def test_the_package_really_does_no_request_mapping_yet(self) -> None:
-        """The behavioural half of the claim above, so it is not prose-on-prose."""
-        assert not hasattr(handler.WebUIRequestHandler, "do_POST")
-        assert {method for method, _ in handler.ROUTES} == {"GET"}
+    def test_the_package_serves_exactly_the_two_routes_it_describes(self) -> None:
+        """The two methods the docstring names, and no third.
 
-        assert _WEB_SOURCES, "no web adapter sources found"
-        for path in _WEB_SOURCES:
-            source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source)
-            docstrings = _docstring_nodes(tree)
-            code = [
-                node
-                for node in ast.walk(tree)
-                if isinstance(node, ast.Constant) and id(node) not in docstrings
-            ]
-            assert not any(
-                isinstance(node.value, str) and "GenerationRequest" in node.value
-                for node in code
-            ), path.name
+        The inverse of what this test asserted for CARD-019, which pinned the
+        *absence* of ``do_POST`` while the docstring said the submission was
+        forthcoming. Both halves have moved together: the docstring says
+        ``GET /`` renders the form and ``POST /generate`` runs it, and that is
+        exactly the pair of ``do_*`` methods the handler defines. A ``do_PUT``
+        added without a sentence to go with it fails here.
+        """
+        text = " ".join((web.__doc__ or "").split())
+
+        assert "``GET /`` renders the form and ``POST /generate`` runs it" in text
+        assert {
+            name.removeprefix("do_")
+            for name in vars(handler.WebUIRequestHandler)
+            if name.startswith("do_")
+        } == {"GET", "POST"}
+        assert {method for method, _ in handler.ROUTES} == {"GET", "POST"}
+
+
+class _Interpolation(NamedTuple):
+    """One ``{...}`` inside an f-string in ``pages.py``."""
+
+    line: int
+    #: ``ast.unparse`` of the interpolated expression, e.g. ``"html.escape(name)"``.
+    expression: str
+    #: ``ast.unparse`` of the format spec, or ``None`` when there is none.
+    format_spec: str | None
+    #: True when the expression is itself a call to ``html.escape`` — i.e. the
+    #: value is escaped *at the point it is interpolated*, which is the rule
+    #: ``pages.py``'s docstring states.
+    escaped: bool
+
+
+def _page_interpolations() -> list[_Interpolation]:
+    """Every f-string interpolation in ``pages.py``, read off its AST.
+
+    Read from the source rather than from the rendered pages because the claim
+    under test is about the *code*: a page can be free of injected markup today
+    and still be built by a rule nobody can apply tomorrow.
+    """
+    source = Path(pages.__file__).read_text(encoding="utf-8")
+    found: list[_Interpolation] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.JoinedStr):
+            continue
+        for value in node.values:
+            if not isinstance(value, ast.FormattedValue):
+                continue
+            expression = ast.unparse(value.value)
+            found.append(
+                _Interpolation(
+                    line=value.lineno,
+                    expression=expression,
+                    format_spec=(
+                        ast.unparse(value.format_spec) if value.format_spec else None
+                    ),
+                    escaped=(
+                        isinstance(value.value, ast.Call)
+                        and ast.unparse(value.value.func) == "html.escape"
+                    ),
+                )
+            )
+    return sorted(found)
+
+
+#: Every interpolation in ``pages.py`` that does **not** call ``html.escape`` at
+#: the point of interpolation, mapped to the kind ``pages.py``'s docstring says
+#: it is. Spelled out rather than counted so that a *new* unescaped
+#: interpolation fails here by name and has to be classified deliberately —
+#: which is the check the docstring's own sentence cannot perform.
+_UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
+    "_STYLE": "module constant",
+    "SUCCESS": "module constant",
+    "FAILURE": "module constant",
+    "_options(MODES)": "fragment escaped by the function that built it",
+    "_options(list(difficulty.Tier), blank='(any)')": (
+        "fragment escaped by the function that built it"
+    ),
+    "_checkboxes('export_formats', export.FORMATS)": (
+        "fragment escaped by the function that built it"
+    ),
+    "written": "fragment escaped by the function that built it",
+    "listed": "fragment escaped by the function that built it",
+    "title": "_shell parameter, bound by its own docstring to be a literal",
+    "body": "_shell parameter, contractually pre-escaped by the caller",
+    "seed": "off the wire, and guarded by its ``:d`` format spec rather than by escaping",
+}
+
+
+class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
+    """``pages.py``'s escaping rule, checked against ``pages.py``.
+
+    The rule shipped twice as an absolute — "exactly one interpolation is not
+    escaped" — and was wrong both times, in a module whose whole defence
+    against injected markup is that rule. Two review cycles found it by
+    counting; this class does the counting, so the third spelling of the
+    sentence is pinned to the artifact rather than to anyone's memory.
+
+    Deliberately not a test that the pages come out safe: that is what
+    ``test_a_refused_host_is_not_echoed_as_markup`` and the EC-003 arms in
+    ``tests/test_web_submission.py`` do. This is a test that the rule a future
+    author will *apply* is true of the code they will apply it to.
+    """
+
+    def test_the_split_is_the_one_the_docstring_states(self) -> None:
+        """23 interpolations, 11 escaped at the point of interpolation, 12 not."""
+        found = _page_interpolations()
+
+        assert len(found) == 23, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 11
+        assert sum(1 for i in found if not i.escaped) == 12
+
+    def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
+        """A thirteenth fails here, by name, rather than passing unnoticed.
+
+        The set comparison is two-directional on purpose: an unescaped
+        interpolation this table does not name is an unclassified one, and a
+        name this table carries that the module no longer interpolates is a
+        stale entry that would otherwise keep vouching for nothing.
+        """
+        unescaped = {i.expression for i in _page_interpolations() if not i.escaped}
+
+        assert unescaped, "no interpolations found — the AST walk stopped working"
+        assert unescaped == set(_UNESCAPED_PAGE_INTERPOLATIONS)
+
+    def test_the_one_wire_value_that_is_not_escaped_is_bound_by_its_format_spec(
+        self,
+    ) -> None:
+        """``{seed:d}`` is safe because of the ``d``, and nothing else.
+
+        Both halves are asserted: that the spec is still there in the source,
+        and that it is what does the work — a ``str`` of markup handed to the
+        same format raises rather than reaching the page.
+        """
+        seeds = [i for i in _page_interpolations() if i.expression == "seed"]
+
+        assert len(seeds) == 1, seeds
+        assert seeds[0].format_spec == "f'd'", seeds[0]
+        with pytest.raises(ValueError):
+            "{0:d}".format("<script>")  # noqa: UP030 — the mechanism, not a style
+
+    def test_the_docstring_states_the_numbers_the_ast_measures(self) -> None:
+        """The prose and the artifact, pinned to each other.
+
+        The defect this class exists for was never a wrong *rule* — it was a
+        correct rule carrying a quantifier nobody had counted. So the sentence
+        itself is read back and compared with the walk, and a docstring reworded
+        from memory fails here rather than at the next review.
+        """
+        text = " ".join((pages.__doc__ or "").split())
+        found = _page_interpolations()
+
+        split = re.search(
+            r"there are (\d+) f-string interpolations, of which (\d+) call", text
+        )
+        others = re.search(r"The other (\d+) are each one of four kinds", text)
+
+        assert split, "the docstring no longer states the interpolation split"
+        assert others, "the docstring no longer states the unescaped count"
+        assert int(split.group(1)) == len(found)
+        assert int(split.group(2)) == sum(1 for i in found if i.escaped)
+        assert int(others.group(1)) == sum(1 for i in found if not i.escaped)
 
 
 #: One request shape per status the standard library answers before ``do_GET``
@@ -1598,14 +2402,17 @@ _STDLIB_ERROR_REQUESTS: dict[int, bytes] = {
     400: b"this is not a request line\r\n\r\n",
     414: b"GET /" + b"x" * 70000 + b" HTTP/1.0\r\n\r\n",
     431: b"GET / HTTP/1.0\r\n" + b"".join(b"X-%d: 1\r\n" % n for n in range(150)) + b"\r\n",
-    501: b"POST / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n",
+    # ``PUT`` rather than ``POST`` since CARD-020: ``POST`` has a ``do_POST``
+    # now and is routed, so the method with no ``do_*`` has to be one that
+    # really has none.
+    501: b"PUT / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n",
     505: b"GET / HTTP/9.9\r\n\r\n",
 }
 
 #: The exact status line each must now produce. Spelled out rather than looked
 #: up in ``BaseHTTPRequestHandler.responses``, so the reason phrase is asserted
 #: against a second source and not against the handler's own table. Note the
-#: 501: the standard library's reads ``501 Unsupported method ('POST')``, with
+#: 501: the standard library's reads ``501 Unsupported method ('PUT')``, with
 #: the request's method in the *reason phrase*.
 _STDLIB_ERROR_STATUS_LINES: dict[int, bytes] = {
     400: b"HTTP/1.0 400 Bad Request",
@@ -1623,8 +2430,8 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
     ``BaseHTTPRequestHandler.send_error``. Its own version replies ``text/html``
     with no ``X-Content-Type-Options`` and interpolates the request's method or
     version token into the body, so the docstring's claim was false for five of
-    the nine statuses this adapter can produce, and the tests that pinned the
-    header only ever looked at the four ``_respond`` writes.
+    the eight statuses this adapter can produce, and the tests that pinned the
+    header only ever looked at ``_respond``'s own writes.
 
     ``WebUIRequestHandler.send_error`` now funnels all five through ``_respond``.
     These tests pin the result on the wire rather than trusting the override:
@@ -1640,13 +2447,17 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
         head, _, body = received.partition(b"\r\n\r\n")
         lowered = head.lower()
 
-        # A status line at all is part of the claim, and for 400 and 505 it is
-        # new: ``parse_request`` assigns the parsed version only after accepting
-        # it, so on those two paths ``request_version`` was still the HTTP/0.9
-        # default and both ``send_response_only`` and ``end_headers`` no-op'd.
-        # As CARD-019 shipped, the client got a bare HTML body with no status
-        # line and no headers whatsoever — no Content-Type either, so "no
-        # nosniff" understated it.
+        # A status line at all is part of the claim, and for 505 and for this
+        # 400 probe it is new: ``parse_request`` assigns the parsed version only
+        # after accepting it, so where the error is written before that
+        # assignment ``request_version`` was still the HTTP/0.9 default and both
+        # ``send_response_only`` and ``end_headers`` no-op'd. As CARD-019
+        # shipped, the client got a bare HTML body with no status line and no
+        # headers whatsoever — no Content-Type either, so "no nosniff"
+        # understated it. Not every 400 was bare, though: which request-line
+        # shapes were is measured in
+        # ``test_which_stock_error_paths_never_reached_the_version_assignment``
+        # rather than generalised from these five probes.
         # The reason phrase is written out here rather than read back from
         # ``handler.WebUIRequestHandler.responses``, which is the table the
         # handler itself formats from: re-deriving it there would assert only
@@ -1659,7 +2470,7 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
     @pytest.mark.parametrize(
         ("request_bytes", "echo"),
         [
-            pytest.param(b"POST / HTTP/1.0\r\n\r\n", b"POST", id="method"),
+            pytest.param(b"PUT / HTTP/1.0\r\n\r\n", b"PUT", id="method"),
             pytest.param(
                 b"<script>alert(1)</script> / HTTP/1.0\r\n\r\n", b"script", id="markup-method"
             ),
@@ -1678,6 +2489,84 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
         received = _raw_exchange(running_server.server_port, request_bytes)
 
         assert echo not in received, received[:200]
+
+    @pytest.mark.parametrize(
+        ("request_line", "bare_on_the_stock_library"),
+        [
+            # Left of ``parse_request``'s ``self.request_version = version``:
+            # the version was never accepted, so HTTP/0.9 suppressed everything.
+            pytest.param(b"GET / HTTP/x.y", True, id="400-bad-request-version"),
+            pytest.param(b"GET / HTTP/2.0", True, id="505-invalid-http-version"),
+            pytest.param(b"POST /", True, id="400-bad-http-0.9-request-type"),
+            pytest.param(b"GET", True, id="400-bad-request-syntax-one-word"),
+            # Right of it. ``Bad request syntax`` guards on a *word count*, so
+            # four or more words reach it having already parsed and assigned a
+            # real version — and went out with a status line even unpatched.
+            pytest.param(b"GET / x HTTP/1.0", False, id="400-bad-request-syntax-four-words"),
+        ],
+    )
+    def test_which_stock_error_paths_never_reached_the_version_assignment(
+        self, request_line: bytes, bare_on_the_stock_library: bool
+    ) -> None:
+        """The measurement ``send_error``'s docstring rests on, made repeatable.
+
+        ``send_error``'s justification for resetting ``request_version`` names
+        which of ``parse_request``'s exits wrote a bare body on the stock
+        library, and the claim has now been wrong twice by being generalised
+        from three probes to all of them. It is a claim about *the standard
+        library*, so it is measured against an untouched
+        ``BaseHTTPRequestHandler`` here rather than against this package: a
+        Python upgrade that changes which exits are bare makes that docstring
+        stale, and this is what says so.
+
+        A bare response has no status line at all, which is the whole point —
+        so the discriminator is whether the first bytes back are ``HTTP/``.
+        """
+
+        class _Stock(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.0"
+
+            def do_GET(self) -> None:  # pragma: no cover - never reached
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args: object) -> None:
+                """Silence: every request here is meant to be an error."""
+
+        with socketserver.TCPServer((server.LOOPBACK_HOST, 0), _Stock) as stock:
+            thread = threading.Thread(
+                target=stock.serve_forever, kwargs={"poll_interval": _POLL_INTERVAL_S},
+                daemon=True,
+            )
+            thread.start()
+            try:
+                received = _raw_exchange(stock.server_address[1], request_line + b"\r\n\r\n")
+            finally:
+                stock.shutdown()
+                thread.join(timeout=5)
+
+        assert received, request_line
+        assert (not received.startswith(b"HTTP/")) is bare_on_the_stock_library, received[:120]
+
+    def test_the_shipped_handler_answers_all_five_of_those_shapes_with_a_status_line(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """And the reset makes the difference vanish — which is the point of it.
+
+        The bound on the test above: the stock library treats those five shapes
+        two different ways, and this adapter treats them one way. Stated over
+        all five rather than over the four the reset actually rescues, because
+        "on every response" is what ``_respond`` claims.
+        """
+        for request_line in (b"GET / HTTP/x.y", b"GET / HTTP/2.0", b"POST /",
+                             b"GET", b"GET / x HTTP/1.0"):
+            received = _raw_exchange(
+                running_server.server_port, request_line + b"\r\n\r\n"
+            )
+
+            assert received.startswith(b"HTTP/1.0 "), (request_line, received[:120])
+            assert b"x-content-type-options: nosniff" in received.lower(), request_line
 
     def test_a_head_request_gets_no_body(
         self, running_server: server.LoopbackHTTPServer
