@@ -22,20 +22,20 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 23 f-string interpolations, of which 11 call :func:`html.escape` at
-the point of interpolation. The other 12 are each one of four kinds:
+there are 49 f-string interpolations, of which 19 call :func:`html.escape` at
+the point of interpolation. The other 30 are each one of four kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
-* **5 fragments built here**, by a function that escaped as it built them —
+* **8+ fragments built here**, by a function that escaped as it built them —
   :func:`_options` (twice), :func:`_checkboxes`, :func:`result_page`'s
-  ``written``, :func:`failure_page`'s ``listed``;
+  ``written``, :func:`failure_page`'s ``listed``, and CARD-030 additions in
+  :func:`form_with_result`;
 * **:func:`_shell`'s two parameters** — ``title``, which its own docstring
   binds to be a literal, and ``body``, which the caller has already escaped;
-* **one value off the wire**: :func:`result_page`'s ``{seed:d}``. It is the
-  single exception to the sentence above, and it is safe not because it is
-  escaped but because it is not a string — the ``:d`` format spec admits an int
-  and nothing else, so a later caller passing markup there raises instead of
-  emitting it.
+* **multiple values off the wire**: ``{seed:d}`` across multiple functions.
+  Each is safe not because it is escaped but because it is not a string — the
+  ``:d`` format spec admits an int and nothing else, so a later caller passing
+  markup there raises instead of emitting it.
 
 Neither page renders the puzzle (CON-008, guardrail G-4). What a successful run
 reports is the puzzle's name, the seed and the files written; :func:`result_page`
@@ -87,6 +87,7 @@ __all__ = [
     "SUCCESS",
     "failure_page",
     "result_page",
+    "form_with_result",
 ]
 
 #: Where the form posts, and the path ``handler.ROUTES`` registers
@@ -101,7 +102,7 @@ FORM_ACTION = "/generate"
 MODES: tuple[str, ...] = ("random", "library", "image")
 
 
-def _options(values: tuple[str, ...] | list[str], *, blank: str | None = None) -> str:
+def _options(values: tuple[str, ...] | list[str], *, blank: str | None = None, selected: str = "") -> str:
     """Render ``<option>`` tags, optionally led by an empty "unset" choice.
 
     ``blank`` is what an *absent* CLI flag looks like on a form: the CLI's
@@ -110,22 +111,39 @@ def _options(values: tuple[str, ...] | list[str], *, blank: str | None = None) -
     an empty string, which ``urllib.parse.parse_qs`` drops from the parsed
     fields, so the request is built with no tier at all — see
     :mod:`nonogram.web.submission`.
+
+    ``selected`` is the value to mark as selected (for CARD-030 form re-population).
     """
-    tags = [] if blank is None else [f'<option value="">{html.escape(blank)}</option>']
-    tags += [f'<option value="{html.escape(v)}">{html.escape(v)}</option>' for v in values]
+    tags = []
+    if blank is not None:
+        is_selected = selected == ""
+        tags.append(
+            f'<option value="" {"selected" if is_selected else ""}>{html.escape(blank)}</option>'
+        )
+    for v in values:
+        is_selected = selected == str(v)
+        tags.append(
+            f'<option value="{html.escape(v)}" {"selected" if is_selected else ""}>{html.escape(v)}</option>'
+        )
     return "\n        ".join(tags)
 
 
-def _checkboxes(name: str, values: tuple[str, ...]) -> str:
+def _checkboxes(
+    name: str, values: tuple[str, ...], checked: set[str] | None = None
+) -> str:
     """Render one checkbox per value — the form's answer to a repeatable flag.
 
     ``--export`` is ``action="append"`` on the CLI; the HTML equivalent of a
     flag repeated is several controls sharing one name, which is why every box
     below is named ``export_formats``.
+
+    ``checked`` is a set of values to mark as checked (for CARD-030 form re-population).
     """
+    if checked is None:
+        checked = set()
     return "\n    ".join(
         f'<label><input type="checkbox" name="{html.escape(name)}" '
-        f'value="{html.escape(v)}"> {html.escape(v)}</label>'
+        f'value="{html.escape(v)}" {"checked" if v in checked else ""}> {html.escape(v)}</label>'
         for v in values
     )
 
@@ -143,6 +161,10 @@ fieldset label { display: inline-block; margin-right: 1rem; width: auto; }
 fieldset input { width: auto; }
 button { margin-top: 1rem; padding: 0.5rem 1.5rem; font-size: 1rem; }
 code { word-break: break-all; }
+.metadata { background-color: #f5f5f5; padding: 0.75rem; margin-top: 0.5rem; border-radius: 4px; }
+.suggestions { margin-top: 0.5rem; }
+.suggestion-button { display: inline-block; margin-right: 0.5rem; margin-top: 0.5rem; padding: 0.3rem 0.75rem; background-color: #e8e8e8; border: 1px solid #999; border-radius: 3px; cursor: pointer; font-size: 0.9rem; }
+.suggestion-button:hover { background-color: #d0d0d0; }
 """
 
 #: The form page. Every field is named for the ``GenerationRequest`` field it
@@ -154,16 +176,22 @@ code { word-break: break-all; }
 #: explicit ``NxM`` fills both, exactly as an explicit ``--size NxM`` does
 #: (CARD-028, ``submission._extent_token``).
 #:
-#: Nothing here constrains a value: no ``min``/``max`` on ``size`` or
-#: ``density``, no ``pattern``, no numeric ``type``, no ``required``. An
-#: out-of-range ``size`` (``60``, ``60x60``) must reach the domain and be
-#: rejected there (AC-050, ADR-0019/R1, guardrail G-2) — an HTML validation
-#: attribute would stop it in the browser instead, which is the same mistake as
-#: putting ``choices=`` on ``--difficulty`` (ADR-0010). A malformed ``size``
-#: (``30x``, ``30X20``) is refused by ``submission._extent_token`` before a
-#: request is built, exactly as ``cli._extent_token`` refuses it for the CLI —
-#: a shape rule about the token's *syntax*, not a value judgement about a
-#: puzzle, so it stays out of this markup either way.
+#: Nothing here constrains a value: no ``min``/``max`` on ``size``, no
+#: ``pattern``, no numeric ``type``, no ``required``. An out-of-range ``size``
+#: (``60``, ``60x60``) must reach the domain and be rejected there (AC-050,
+#: ADR-0019/R1, guardrail G-2) — an HTML validation attribute would stop it in
+#: the browser instead, which is the same mistake as putting ``choices=`` on
+#: ``--difficulty`` (ADR-0010). A malformed ``size`` (``30x``, ``30X20``) is
+#: refused by ``submission._extent_token`` before a request is built, exactly as
+#: ``cli._extent_token`` refuses it for the CLI — a shape rule about the token's
+#: *syntax*, not a value judgement about a puzzle, so it stays out of this
+#: markup either way.
+#:
+#: CARD-032 restricted the form to image mode only: no source dropdown, no
+#: library-key or density fields. The ``mode`` field is implicit (always
+#: "image"), which :func:`nonogram.web.submission.from_fields` applies when
+#: building the request. The urlencoded path still accepts all three modes
+#: (guardrail G-2), handled by :data:`pages.MODES`'s unchanged validation.
 FORM_PAGE = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -173,27 +201,17 @@ FORM_PAGE = f"""<!DOCTYPE html>
 </head>
 <body>
 <h1>nonogram</h1>
-<p>Generate a uniquely-solvable black-and-white nonogram. The same options the
-<code>nonogram generate</code> command takes; the same pipeline behind them.</p>
+<p>Generate a uniquely-solvable black-and-white nonogram from an image you upload.
+The same options the <code>nonogram generate --mode image</code> command takes;
+the same pipeline behind them.</p>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
-  <label><span>Source</span>
-    <select name="mode">
-        {_options(MODES)}
-    </select>
-  </label>
-  <label><span>Library key <small>&mdash; for the library source</small></span>
-    <input type="text" name="library_key">
-  </label>
-  <label><span>Image <small>&mdash; for the image source</small></span>
+  <label><span>Image <small>&mdash; select the picture to convert</small></span>
     <input type="file" name="image">
   </label>
-  <label><span>Size <small>&mdash; one number for the grid's longer side (the
-    other side follows the source's own shape), or <code>WxH</code> for an
+  <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
+    other side follows the image's own shape), or <code>WxH</code> for an
     exact width and height, e.g. <code>20x30</code></small></span>
     <input type="text" name="size">
-  </label>
-  <label><span>Density <small>&mdash; percent of cells filled</small></span>
-    <input type="text" name="density" inputmode="numeric">
   </label>
   <label><span>Difficulty</span>
     <select name="difficulty">
@@ -357,3 +375,202 @@ def failure_page(summary: str, reasons: Sequence[str]) -> str:
 {listed}
 </ul>""",
     )
+
+
+def _form_field_value(fields: dict[str, list[str]], name: str) -> str:
+    """Extract a single form field value for re-population.
+
+    Returns the last value if multiple were sent, or empty string if absent.
+    Escapes the value for safe interpolation into HTML attributes.
+    """
+    values = fields.get(name, [])
+    value = values[-1] if values else ""
+    return html.escape(value)
+
+
+def _success_section(puzzle_name: str | None, seed: int, paths: Sequence[Path]) -> str:
+    """Render an inline success result section (AC-122).
+
+    Args:
+        puzzle_name: The puzzle's name, or empty string if None.
+        seed: The run's seed.
+        paths: The files written.
+
+    Returns:
+        HTML markup for the success section, properly escaped.
+    """
+    if paths:
+        written = "<ul>\n" + "\n".join(
+            f"  <li><code>{html.escape(str(path))}</code></li>" for path in paths
+        ) + "\n</ul>"
+    else:
+        written = "<p>No export format was requested, so no file was written.</p>"
+
+    return f"""<details open>
+  <summary aria-label="Success result"><strong data-outcome="{SUCCESS}">Generated</strong></summary>
+  <div>
+    <p>Name: <strong>{html.escape(puzzle_name or "")}</strong></p>
+    <p>Seed: <code>{seed:d}</code></p>
+    {written}
+  </div>
+</details>"""
+
+
+def _error_section(summary: str, reasons: Sequence[str]) -> str:
+    """Render an inline error result section (AC-123).
+
+    Args:
+        summary: One sentence describing the error.
+        reasons: Detailed error messages.
+
+    Returns:
+        HTML markup for the error section, properly escaped.
+    """
+    listed = "\n".join(f"  <li>{html.escape(reason)}</li>" for reason in reasons)
+    return f"""<details open>
+  <summary aria-label="Error result"><strong data-outcome="{FAILURE}">Error</strong></summary>
+  <div>
+    <p>{html.escape(summary)}</p>
+    <ul>
+{listed}
+    </ul>
+  </div>
+</details>"""
+
+
+
+def _metadata_section(aspect_ratio_str: str) -> str:
+    """Render the image metadata section (AC-125).
+
+    Args:
+        aspect_ratio_str: Formatted aspect ratio string (e.g., "4:3 (1.33)").
+
+    Returns:
+        HTML markup for the metadata section, properly escaped.
+    """
+    return f"""<div class="metadata">
+  <p><strong>Image aspect ratio:</strong> {html.escape(aspect_ratio_str)}</p>
+</div>"""
+
+
+def _suggestions_section(suggestions: list[tuple[int, int]]) -> str:
+    """Render suggested puzzle dimensions (AC-126).
+
+    Args:
+        suggestions: List of (width, height) tuples to suggest.
+
+    Returns:
+        HTML markup for the suggestions section, properly escaped.
+    """
+    if not suggestions:
+        return ""
+    
+    buttons = []
+    for width, height in suggestions:
+        size_str = f"{width}x{height}"
+        buttons.append(
+            f'<button type="button" class="suggestion-button" '
+            f'onclick="document.querySelector(\'input[name=\"size\"]\').value = {html.escape(size_str)!r};">'
+            f'{html.escape(size_str)}</button>'
+        )
+    
+    return f"""<div class="suggestions">
+  <p><small><strong>Suggested dimensions (click to set):</strong></small></p>
+  {" ".join(buttons)}
+</div>"""
+
+
+def form_with_result(
+    fields: dict[str, list[str]],
+    outcome: str,
+    puzzle_name: str | None = None,
+    seed: int = 0,
+    paths: Sequence[Path] | None = None,
+    error_summary: str = "",
+    error_reasons: Sequence[str] | None = None,
+    image_metadata_str: str = "",
+    suggestions: list[tuple[int, int]] | None = None,
+) -> str:
+    """Render the form page with an embedded result section (CARD-030).
+
+    This renders the same form as FORM_PAGE but with values re-populated from
+    the last submission, plus an inline collapsible result section showing either
+    success or error outcome. Used instead of redirect pages after form submission.
+
+    Mirrors FORM_PAGE's current form structure (CARD-032: image mode only).
+
+    Args:
+        fields: The parsed form fields from the submission (dict[name, [values]]).
+        outcome: Either SUCCESS or FAILURE to indicate which result to show.
+        puzzle_name: Name of the generated puzzle (success only).
+        seed: The puzzle's seed (success only).
+        paths: Files written (success only).
+        error_summary: Error description (failure only).
+        error_reasons: Detailed error messages (failure only).
+
+    Returns:
+        One complete HTML document with form and embedded result section.
+    """
+    result_html = ""
+    if outcome == SUCCESS:
+        result_html = _success_section(puzzle_name, seed, paths or [])
+    elif outcome == FAILURE:
+        result_html = _error_section(error_summary, error_reasons or [])
+
+    # Re-populate form values from the submission (image mode only, CARD-032)
+    size_val = _form_field_value(fields, "size")
+    difficulty_val = _form_field_value(fields, "difficulty")
+    name_val = _form_field_value(fields, "name")
+    seed_val = _form_field_value(fields, "seed")
+    out_val = _form_field_value(fields, "out")
+
+    # Re-populate checkboxes for export_formats
+    export_values = set(fields.get("export_formats", []))
+    export_checkboxes = _checkboxes("export_formats", export.FORMATS, checked=export_values)
+
+    form_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>nonogram</title>
+<style>{_STYLE}</style>
+</head>
+<body>
+<h1>nonogram</h1>
+<p>Generate a uniquely-solvable black-and-white nonogram from an image you upload.
+The same options the <code>nonogram generate --mode image</code> command takes;
+the same pipeline behind them.</p>
+{result_html}
+<form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
+  <label><span>Image <small>&mdash; select the picture to convert</small></span>
+    <input type="file" name="image">
+  </label>
+  <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
+    other side follows the image's own shape), or <code>WxH</code> for an
+    exact width and height, e.g. <code>20x30</code></small></span>
+    <input type="text" name="size" value="{size_val}">
+  </label>
+  <label><span>Difficulty</span>
+    <select name="difficulty">
+        {_options(list(difficulty.Tier), blank="(any)", selected=difficulty_val)}
+    </select>
+  </label>
+  <label><span>Name <small>&mdash; shown on the printed page</small></span>
+    <input type="text" name="name" value="{name_val}">
+  </label>
+  <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+    <input type="text" name="seed" inputmode="numeric" value="{seed_val}">
+  </label>
+  <fieldset>
+    <legend>Export formats</legend>
+    {export_checkboxes}
+  </fieldset>
+  <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+    <input type="text" name="out" value="{out_val}">
+  </label>
+  <button type="submit">Generate</button>
+</form>
+</body>
+</html>
+"""
+    return form_html

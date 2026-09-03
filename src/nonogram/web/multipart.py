@@ -68,10 +68,13 @@ class MultipartSubmission:
             can be what made the body unreadable, and the file that was
             already written to disk before that was discovered still needs
             removing (the card's step 5).
+        fields: The parsed form fields as dict[name, [values]], for use in
+            re-populating the form on inline result display (CARD-030).
     """
 
     submission: Submission
     image_path: Path | None = None
+    fields: dict[str, list[str]] | None = None
 
 
 def _decoded_param(value: str | tuple[str | None, str | None, bytes] | None) -> str | None:
@@ -153,7 +156,7 @@ def read(content_type: str, body: bytes) -> MultipartSubmission:
     message = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(header + body)
     if not message.is_multipart():
         return MultipartSubmission(
-            Submission(None, ("could not parse the multipart request body",)), None
+            Submission(None, ("could not parse the multipart request body",)), None, {}
         )
 
     fields: dict[str, list[str]] = {}
@@ -188,4 +191,6 @@ def read(content_type: str, body: bytes) -> MultipartSubmission:
         if text:
             fields.setdefault(name, []).append(text)
 
-    return MultipartSubmission(from_fields(fields, image=image_path), image_path)
+    return MultipartSubmission(
+        from_fields(fields, image=image_path), image_path, fields
+    )

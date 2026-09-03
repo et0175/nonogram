@@ -51,6 +51,9 @@ from nonogram import orchestrator
 from nonogram.errors import NonogramError
 from nonogram.web import multipart, pages, submission
 
+# For re-populating form fields after submission (CARD-030)
+_TYPE_CHECKED = dict[str, list[str]]
+
 __all__ = [
     "ALLOWED_FETCH_SITES",
     "ALLOWED_HOSTS",
@@ -635,6 +638,10 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         refusing the two shapes measured to reach it — an unregistered export
         format and a ``%00`` in a field — both in :mod:`nonogram.web.submission`
         and both reported through ``unreadable``, which is the first arm above.
+
+        CARD-030: Instead of redirecting to success/failure pages, results are
+        displayed inline on the form page. The form is re-rendered with submitted
+        values preserved and a collapsible result section showing the outcome.
         """
         raw = self._read_body()
         if raw is None:
@@ -645,29 +652,74 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         content_type = self.headers.get("Content-Type", "")
         media_type = content_type.split(";", 1)[0].strip().lower()
         image_path: Path | None = None
+        fields: _TYPE_CHECKED = {}
+        # Extract image metadata for form display (CARD-031)
+        image_metadata_str = ""
+        suggestions: list[tuple[int, int]] = []
+        if image_path is not None and posted.request is not None and posted.request.mode == "image":
+            try:
+                img_metadata = web_metadata.extract_metadata(image_path)
+                image_metadata_str = web_metadata.format_aspect_ratio(img_metadata.aspect_ratio)
+                suggestions = web_metadata.suggest_dimensions(img_metadata)
+            except Exception:
+                # If metadata extraction fails, continue without suggestions
+                pass
+
+
         if media_type == "multipart/form-data":
             parsed = multipart.read(content_type, raw)
             posted = parsed.submission
             image_path = parsed.image_path
+            fields = parsed.fields  # Extract fields for form re-population
         else:
             posted = submission.read(raw.decode("utf-8", "replace"))
+            # For urlencoded, re-parse to extract fields for form re-population
+            fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
+
         try:
             if posted.request is None:
-                self._fail("The form could not be read.", posted.unreadable)
+                self._fail_inline(
+                    fields,
+                    "The form could not be read.",
+                    posted.unreadable,
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                )
                 return
             try:
                 puzzle = orchestrator.generate(posted.request)
                 written = orchestrator.export_puzzle(puzzle)
             except NonogramError as error:
-                self._fail("nonogram refused this request.", [str(error)])
-                return
-            except OSError as error:
-                self._fail(
-                    "A file for this request could not be read or written.", [str(error)]
+                self._fail_inline(
+                    fields,
+                    "nonogram refused this request.",
+                    [str(error)],
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
                 )
                 return
+            except OSError as error:
+                self._fail_inline(
+                    fields,
+                    "A file for this request could not be read or written.",
+                    [str(error)],
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                )
+                return
+            # CARD-030: Render form with success result inline instead of redirect
             self._respond(
-                HTTPStatus.OK, _HTML, pages.result_page(puzzle.name, puzzle.seed, written)
+                HTTPStatus.OK,
+                _HTML,
+                pages.form_with_result(
+                    fields,
+                    pages.SUCCESS,
+                    puzzle_name=puzzle.name,
+                    seed=puzzle.seed,
+                    paths=written,
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                ),
             )
         finally:
             if image_path is not None:
@@ -690,6 +742,35 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         """
         self._respond(HTTPStatus.OK, _HTML, pages.failure_page(summary, reasons))
 
+    def _fail_inline(
+        self,
+        fields: _TYPE_CHECKED,
+        summary: str,
+        reasons: Sequence[str],
+        image_metadata_str: str = "",
+        suggestions: list[tuple[int, int]] | None = None,
+    ) -> None:
+        """Render one failure with inline form (CARD-030).
+
+        Like :meth:`_fail`, but returns the form page with the error result
+        embedded inline instead of a standalone failure page. The form is
+        re-populated with the submitted values so the user can correct and retry.
+
+        The status is ``200``: the response *is* the report, and delivering it
+        succeeded.
+        """
+        self._respond(
+            HTTPStatus.OK,
+            _HTML,
+            pages.form_with_result(
+                fields,
+                pages.FAILURE,
+                error_summary=summary,
+                error_reasons=reasons,
+                image_metadata_str=image_metadata_str,
+                suggestions=suggestions or [],
+            ),
+        )
 
 #: The route table: the form, and the submission it posts. Declared after the
 #: class because its values are unbound methods of it, and keyed on the same

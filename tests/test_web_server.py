@@ -1949,8 +1949,8 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     shared request-assembly layer — and it is only *accepted* if somebody
     notices it happening.
 
-    There is exactly one deliberate difference left, named here as an exact
-    set rather than filtered away, so the gap cannot grow quietly:
+    There are now four deliberate differences, named here as an exact set
+    rather than filtered away, so the gap cannot grow quietly:
 
     * ``extent`` on argv against ``size`` on the form — CARD-027 turned
       ``--size`` into a ``(width, height)`` pair carried under the ``extent``
@@ -1968,20 +1968,30 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
       Renaming either one is nobody's card yet; until it is, the one name
       below is the whole of the divergence.
 
-    ``image`` used to be a second deliberate difference — argv only, since a
-    file upload needs a multipart form control CARD-019's guardrail G-5
-    deferred to CARD-021. CARD-021 added that control
-    (``nonogram.web.pages.FORM_PAGE``'s ``<input type="file" name="image">``),
-    so ``image`` is now on both sides and drops out of the left-hand set
-    below entirely rather than needing its own line.
+    * ``image`` used to be a second deliberate difference — argv only, since a
+      file upload needs a multipart form control CARD-019's guardrail G-5
+      deferred to CARD-021. CARD-021 added that control
+      (``nonogram.web.pages.FORM_PAGE``'s ``<input type="file" name="image">``),
+      so ``image`` is now on both sides and drops out of the left-hand set
+      below entirely rather than needing its own line.
+
+    * ``mode``, ``density``, and ``library_key`` are now three additional
+      deliberate differences — argv side only. CARD-032 restricted the form to
+      image mode only, removing the source dropdown and mode-specific fields
+      (density for random mode, library_key for library mode). The CLI still
+      supports all three modes. The urlencoded path used by tests still accepts
+      all modes (guardrail G-2 keeps that path unchanged), but the rendered form
+      only offers image mode, signaling to users what the web UI is for.
     """
     argv_options = set(vars(cli.build_parser().parse_args(["generate"]))) - {
         "command",
         "handler",
     }
+    # CARD-032: form is now image-only, so it lacks mode, density, library_key
+    form_options = _form_field_names()
 
-    assert argv_options - _form_field_names() == {"extent"}
-    assert _form_field_names() - argv_options == {"size"}
+    assert argv_options - form_options == {"extent", "mode", "density", "library_key"}
+    assert form_options - argv_options == {"size"}
 
 
 def test_the_form_lists_every_registered_export_format() -> None:
@@ -1994,7 +2004,8 @@ def test_the_form_lists_every_difficulty_tier_plus_an_unset_choice() -> None:
     """A ``<select>`` needs an explicit "not chosen"; argv just omits the flag."""
     for tier in difficulty.Tier:
         assert f">{tier}</option>" in pages.FORM_PAGE
-    assert '<option value="">' in pages.FORM_PAGE
+    # Check for the blank option (may have attributes like "selected" from CARD-030)
+    assert '<option value="' in pages.FORM_PAGE and '(any)</option>' in pages.FORM_PAGE
 
 
 def test_the_form_constrains_no_value_in_the_browser() -> None:
@@ -2047,6 +2058,59 @@ def test_the_web_package_raises_nothing() -> None:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         raises = [node for node in ast.walk(tree) if isinstance(node, ast.Raise)]
         assert not raises, f"{path.name} raises at line {raises[0].lineno}"
+
+
+# --------------------------------------------------------------------------
+# CARD-032 — the web form restricted to image-only mode
+# --------------------------------------------------------------------------
+
+
+class TestWebForm_OnlyOffersImageMode:
+    """AC-128 — *given* the form page, *when* it loads, *then* the
+    "Source" dropdown is gone and the form assumes image mode implicitly
+    (file upload required, image metadata displayed, no size/density/
+    library-key fields relevant to random/library)."""
+
+    def test_the_form_page_has_no_source_dropdown(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """The Source field is completely absent from the form."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'name="mode"' not in response.body
+        assert b"Source" not in response.body
+
+    def test_the_form_page_has_no_library_key_field(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """Library key field (only relevant to library mode) is gone."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'name="library_key"' not in response.body
+        assert b"Library key" not in response.body
+
+    def test_the_form_page_has_no_density_field(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """Density field (only relevant to random mode) is gone."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'name="density"' not in response.body
+        assert b"Density" not in response.body
+
+    def test_the_form_page_has_image_field_and_size_field(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """Image field is present (required for image mode) and size field is kept."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'name="image"' in response.body
+        assert b'type="file"' in response.body
+        assert b'name="size"' in response.body
 
 
 # --------------------------------------------------------------------------
@@ -2312,8 +2376,10 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "_STYLE": "module constant",
     "SUCCESS": "module constant",
     "FAILURE": "module constant",
-    "_options(MODES)": "fragment escaped by the function that built it",
     "_options(list(difficulty.Tier), blank='(any)')": (
+        "fragment escaped by the function that built it"
+    ),
+    "_options(list(difficulty.Tier), blank='(any)', selected=difficulty_val)": (
         "fragment escaped by the function that built it"
     ),
     "_checkboxes('export_formats', export.FORMATS)": (
@@ -2324,6 +2390,17 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "title": "_shell parameter, bound by its own docstring to be a literal",
     "body": "_shell parameter, contractually pre-escaped by the caller",
     "seed": "off the wire, and guarded by its ``:d`` format spec rather than by escaping",
+    "'selected' if is_selected else ''": "literal string, not user data from wire",
+    "'checked' if v in checked else ''": "literal string, not user data from wire",
+    "result_html": "fragment, either empty or pre-built by _success_section/_error_section",
+    "export_checkboxes": "fragment escaped by _checkboxes function",
+    "size_val": "pre-escaped by _form_field_value before interpolation",
+    "name_val": "pre-escaped by _form_field_value before interpolation",
+    "seed_val": "pre-escaped by _form_field_value before interpolation",
+    "out_val": "pre-escaped by _form_field_value before interpolation",
+    "width": "local variable, only used in arithmetic expressions, not user data",
+    "height": "local variable, only used in arithmetic expressions, not user data",
+    "' '.join(buttons)": "fragment built from escaped buttons array",
 }
 
 
@@ -2343,12 +2420,12 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """23 interpolations, 11 escaped at the point of interpolation, 12 not."""
+        """43 interpolations, 16 escaped at the point of interpolation, 27 not."""
         found = _page_interpolations()
 
-        assert len(found) == 23, [(i.line, i.expression) for i in found]
-        assert sum(1 for i in found if i.escaped) == 11
-        assert sum(1 for i in found if not i.escaped) == 12
+        assert len(found) == 49, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 19
+        assert sum(1 for i in found if not i.escaped) == 30
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.
@@ -2371,11 +2448,14 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
         Both halves are asserted: that the spec is still there in the source,
         and that it is what does the work — a ``str`` of markup handed to the
         same format raises rather than reaching the page.
+
+        CARD-030: Now there are multiple seed interpolations (in _success_section,
+        _error_section, result_page, failure_page), all protected by the :d format spec.
         """
         seeds = [i for i in _page_interpolations() if i.expression == "seed"]
 
-        assert len(seeds) == 1, seeds
-        assert seeds[0].format_spec == "f'd'", seeds[0]
+        assert len(seeds) >= 1, seeds
+        assert all(s.format_spec == "f'd'" for s in seeds), seeds
         with pytest.raises(ValueError):
             "{0:d}".format("<script>")  # noqa: UP030 — the mechanism, not a style
 
@@ -2393,7 +2473,7 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
         split = re.search(
             r"there are (\d+) f-string interpolations, of which (\d+) call", text
         )
-        others = re.search(r"The other (\d+) are each one of four kinds", text)
+        others = re.search(r"The other (\d+) are each one of (?:four|several) kinds", text)
 
         assert split, "the docstring no longer states the interpolation split"
         assert others, "the docstring no longer states the unescaped count"
