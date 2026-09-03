@@ -76,13 +76,26 @@ has never had a way to reach that call. Refusing it in every field rather than
 in ``out`` alone keeps this module free of a per-field rule, and costs nothing
 a form can express: no keyboard produces one and no browser sends one.
 
-What is deliberately *not* here: any range, any tier vocabulary, any judgement
-about a library key, and any reading of an ``image`` field. The first three are
-the domain's (AC-050, AC-021, AC-006). The fourth is CARD-021's: an upload is a
-``multipart/form-data`` control, the form renders no such field, and this
-module never fills ``GenerationRequest.image`` — a request from the web is an
-``image``-mode request only if it says so, and then fails inward with the
-``--image``-is-missing error that request deserves (AC-008).
+What is deliberately *not* here: any range, any tier vocabulary, and any
+judgement about a library key. Those are the domain's (AC-050, AC-021,
+AC-006).
+
+**``image`` is filled by a sibling, not by this module** (CARD-021). This
+module's own :func:`read` — the ``application/x-www-form-urlencoded`` body a
+non-upload submission posts — never carries a picture and always calls
+:func:`from_fields` with ``image=None``, exactly as before CARD-021: a
+urlencoded body from the CLI-mirrored fields alone has nowhere a picture could
+come from. What CARD-021 adds is :func:`from_fields` itself, split out of
+``read`` so :mod:`nonogram.web.multipart` — the module that reads a
+``multipart/form-data`` body, lands its uploaded part in a temp file and
+extracts every other field into the same ``{name: [values]}`` shape
+``urllib.parse.parse_qs`` produces — can hand that shape and the temp file's
+path to the *same* field-to-request mapping this module already had, rather
+than re-deriving the extent-token grammar, the mode/export vocabulary checks
+and the NUL guard a second time. A request built with no ``image`` (urlencoded,
+or a multipart body with no uploaded file) is an ``image``-mode request only if
+its ``mode`` field says so, and then fails inward with the ``--image``-is-
+missing error that request deserves (AC-008) — unchanged by this split.
 """
 
 from __future__ import annotations
@@ -94,7 +107,7 @@ from pathlib import Path
 from nonogram import export, orchestrator
 from nonogram.web import pages
 
-__all__ = ["DEFAULT_MODE", "Submission", "read"]
+__all__ = ["DEFAULT_MODE", "Submission", "from_fields", "read"]
 
 #: The ``mode`` a submission that names none is read as, mirroring
 #: ``cli.build_parser``'s ``--mode`` default rather than inventing a second
@@ -217,6 +230,34 @@ def read(body: str) -> Submission:
         same answer ``nonogram generate`` with no ``--size`` gives.
     """
     fields = urllib.parse.parse_qs(body)
+    return from_fields(fields, image=None)
+
+
+def from_fields(fields: dict[str, list[str]], *, image: Path | None = None) -> Submission:
+    """Map ``{field name: posted values}`` onto a generation request.
+
+    The part of :func:`read` that does not care where the fields came from,
+    split out for CARD-021 so :mod:`nonogram.web.multipart` can reuse it
+    verbatim for a ``multipart/form-data`` body's text parts rather than
+    re-deriving the same grammar (see the module docstring). ``fields`` is the
+    exact shape :func:`urllib.parse.parse_qs` produces — every value that was
+    posted, in order, with a blank value already dropped by the caller
+    (:func:`read`'s ``parse_qs`` call for a urlencoded body;
+    ``nonogram.web.multipart.read`` reproduces that same "blank means absent"
+    drop for a multipart body's text parts, so the rule holds either way).
+
+    Args:
+        fields: Every posted field, keyed by name.
+        image: The path CARD-021's upload landed in a temp file, or ``None``
+            when the body carried no uploaded picture (every urlencoded body,
+            and a multipart body whose ``image`` part was empty or absent).
+            Unvalidated, like the rest of this function's output — whether the
+            path exists and decodes is the sourcing module's question
+            (AC-008, guardrail G-4).
+
+    Returns:
+        The same :class:`Submission` contract :func:`read` documents.
+    """
     unreadable: list[str] = []
 
     for field, values in sorted(fields.items()):
@@ -285,7 +326,9 @@ def read(body: str) -> Submission:
             height=height,
             density=numbers["density"],
             library_key=_one(fields, "library_key"),
-            # ``image`` is never filled: see the module docstring (CARD-021).
+            # The temp-file path CARD-021's upload landed, or ``None`` — the
+            # caller's concern, not this function's (see the docstring above).
+            image=image,
             name=_one(fields, "name"),
             difficulty=_one(fields, "difficulty"),
             seed=numbers["seed"],

@@ -42,6 +42,15 @@ reports is the puzzle's name, the seed and the files written; :func:`result_page
 states how that differs from what ``cli._run_generate`` prints for the same run,
 and why.
 
+The form's ``enctype`` is ``multipart/form-data`` (CARD-021), which is what
+makes an ``<input type="file">``'s *content* — not just its file name — travel
+in the POST body at all; ``nonogram.web.multipart`` is the module that then
+has to read that shape back apart. A browser sends every field this way once
+it is set, mode-agnostic submissions included, which is why
+``nonogram.web.submission.read`` — the urlencoded reader — is still exercised
+in this codebase only by a request built by hand (a test, or ``curl``): G-3
+keeps that path *working*, not necessarily reachable from this rendered form.
+
 Two of the form's option lists are read from the domain rather than spelled out
 here — the export formats from ``export.FORMATS`` and the difficulty tiers from
 ``difficulty.Tier`` — which is the same move ``cli.py`` already makes for
@@ -166,7 +175,7 @@ FORM_PAGE = f"""<!DOCTYPE html>
 <h1>nonogram</h1>
 <p>Generate a uniquely-solvable black-and-white nonogram. The same options the
 <code>nonogram generate</code> command takes; the same pipeline behind them.</p>
-<form method="post" action="{html.escape(FORM_ACTION)}">
+<form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <label><span>Source</span>
     <select name="mode">
         {_options(MODES)}
@@ -174,6 +183,9 @@ FORM_PAGE = f"""<!DOCTYPE html>
   </label>
   <label><span>Library key <small>&mdash; for the library source</small></span>
     <input type="text" name="library_key">
+  </label>
+  <label><span>Image <small>&mdash; for the image source</small></span>
+    <input type="file" name="image">
   </label>
   <label><span>Size <small>&mdash; one number for the grid's longer side (the
     other side follows the source's own shape), or <code>WxH</code> for an
@@ -267,12 +279,12 @@ def result_page(name: str | None, seed: int, paths: Sequence[Path]) -> str:
       it up in later, so showing it always discharges that at no cost; the
       alternative is a page whose contents depend on a field the reader cannot
       see from it.
-    * FR-014's **nudge count** is not reproduced, and cannot yet be non-zero
-      on any run that reaches this page: the counter is advanced only by the
-      ``mode == "image"`` branch of ``orchestrator.generate``, and an
-      image-mode submission from this form carries no picture (CARD-021), so it
-      fails inward and renders :func:`failure_page` instead. The line becomes
-      owed the moment the upload control lands.
+    * FR-014's **nudge count** is not reproduced. It can be non-zero now that
+      an image-mode submission from this form carries a real picture
+      (CARD-021's upload control), but reporting it is not this function's
+      change to make — it stays owed to whichever later card first has a
+      reason to show it, exactly as ``cli._run_generate``'s own nudge-count
+      line was a separate addition to a result that already existed.
 
     A run that asked for no export format wrote no files, and the page says so
     rather than showing an empty list — the same distinction the CLI draws by

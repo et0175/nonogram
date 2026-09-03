@@ -1949,13 +1949,9 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     shared request-assembly layer — and it is only *accepted* if somebody
     notices it happening.
 
-    There are exactly two deliberate differences, and both are named here as
-    exact sets rather than filtered away, so neither gap can grow quietly:
+    There is exactly one deliberate difference left, named here as an exact
+    set rather than filtered away, so the gap cannot grow quietly:
 
-    * ``image`` — argv only. A file upload is a multipart form control, which
-      CARD-019's guardrail G-5 defers to CARD-021. Card-qualified because the
-      number alone does not resolve: CARD-020's own G-5 is the unchanged CLI
-      error mapping, and CARD-021's is the no-preview rule.
     * ``extent`` on argv against ``size`` on the form — CARD-027 turned
       ``--size`` into a ``(width, height)`` pair carried under the ``extent``
       destination (FR-018, ADR-0022/R1), and its guardrail G-7 reserves the web
@@ -1969,15 +1965,22 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
       the ``extent`` destination while the form field is still called ``size``
       — which is why this assertion is unchanged by CARD-028 rather than
       dropping back to a pre-CARD-027 shape as this paragraph used to predict.
-      Renaming either one is nobody's card yet; until it is, the two names
-      below are the whole of the divergence.
+      Renaming either one is nobody's card yet; until it is, the one name
+      below is the whole of the divergence.
+
+    ``image`` used to be a second deliberate difference — argv only, since a
+    file upload needs a multipart form control CARD-019's guardrail G-5
+    deferred to CARD-021. CARD-021 added that control
+    (``nonogram.web.pages.FORM_PAGE``'s ``<input type="file" name="image">``),
+    so ``image`` is now on both sides and drops out of the left-hand set
+    below entirely rather than needing its own line.
     """
     argv_options = set(vars(cli.build_parser().parse_args(["generate"]))) - {
         "command",
         "handler",
     }
 
-    assert argv_options - _form_field_names() == {"image", "extent"}
+    assert argv_options - _form_field_names() == {"extent"}
     assert _form_field_names() - argv_options == {"size"}
 
 

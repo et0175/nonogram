@@ -22,8 +22,10 @@ the authority and fetch-metadata a request claims (NFR-004, CON-010), the
 connection's idle timeout, how many bytes of body it is willing to read — and
 each is answered with a status code or a closed socket by code that does not
 know what a puzzle is. What :meth:`WebUIRequestHandler._generate` does with
-the body it read is one call to :mod:`nonogram.web.submission` and two to the
-orchestrator, and the whole of its own judgement is which of two pages to
+the body it read is one call to :mod:`nonogram.web.submission` or
+:mod:`nonogram.web.multipart` (CARD-021's branch on ``Content-Type``, still a
+transport fact and not a domain one) and two to the orchestrator, and the
+whole of its own judgement is which of two pages to
 render.
 
 The orchestrator runs **on this request's own thread**, start to finish
@@ -43,10 +45,11 @@ import urllib.parse
 from collections.abc import Callable, Sequence
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
+from pathlib import Path
 
 from nonogram import orchestrator
 from nonogram.errors import NonogramError
-from nonogram.web import pages, submission
+from nonogram.web import multipart, pages, submission
 
 __all__ = [
     "ALLOWED_FETCH_SITES",
@@ -565,6 +568,26 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         60 goes inward as 60 and comes back as the same domain error a
         ``--size 60`` argv earns (AC-050, guardrail G-2).
 
+        "Read the body" is now two branches rather than one call (CARD-021):
+        a ``Content-Type: multipart/form-data`` request — the shape a browser
+        sends once the form carries a file control — is read by
+        :func:`nonogram.web.multipart.read`, which lands the uploaded part in
+        a temp file and hands back its path alongside the mapped submission;
+        every other ``Content-Type`` — including none at all — is read as
+        urlencoded text exactly as before CARD-021 (guardrail G-3). A
+        multipart body is *not* decoded as UTF-8 before parsing, where a
+        urlencoded one always is: an uploaded picture's bytes are binary, and
+        text-decoding them first is exactly the kind of corruption
+        AC-boundary/multipart's byte-for-byte check would catch.
+
+        Whatever temp file that branch produced is this method's to remove
+        once the run is over — the ``finally`` below covers every way "over"
+        can happen: a page rendered, a domain error, an ``OSError``, or an
+        exception this method does not catch at all. That last case is why
+        cleanup is a ``finally`` and not one more line at the end of the
+        happy path: a bug three lines from here must not leak the file the
+        same way it must not corrupt the response.
+
         The two orchestrator calls are the two ``cli._run_generate`` makes, in
         that order and with nothing between them: generation is pure and only
         the export touches the filesystem (CON-003). They share one ``try``,
@@ -598,10 +621,11 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         failure and a success are the same single write to the response stream
         — so the message must be true of an ``OSError`` from *either* call, and
         it says a file could not be read or written rather than naming the
-        export. Today only the export can raise one (nothing here fills
-        ``GenerationRequest.image``, and ``sourcing/image.py`` converts read
-        failures into ``UnreadableImage``, a ``NonogramError``); the wording
-        does not depend on that staying true.
+        export. Only the export raises one in practice: ``sourcing/image.py``
+        converts every way reading the uploaded temp file can fail into
+        ``UnreadableImage``, a ``NonogramError``, so the image CARD-021 now
+        fills ``GenerationRequest.image`` with does not change which arm this
+        is; the wording does not depend on that staying true either way.
 
         Anything else really is unexpected. It is not caught, and the
         standard library's own machinery reports it: a stack trace on the
@@ -618,22 +642,36 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.CONTENT_TOO_LARGE, _TEXT, "form submission too large\n"
             )
             return
-        posted = submission.read(raw.decode("utf-8", "replace"))
-        if posted.request is None:
-            self._fail("The form could not be read.", posted.unreadable)
-            return
+        content_type = self.headers.get("Content-Type", "")
+        media_type = content_type.split(";", 1)[0].strip().lower()
+        image_path: Path | None = None
+        if media_type == "multipart/form-data":
+            parsed = multipart.read(content_type, raw)
+            posted = parsed.submission
+            image_path = parsed.image_path
+        else:
+            posted = submission.read(raw.decode("utf-8", "replace"))
         try:
-            puzzle = orchestrator.generate(posted.request)
-            written = orchestrator.export_puzzle(puzzle)
-        except NonogramError as error:
-            self._fail("nonogram refused this request.", [str(error)])
-            return
-        except OSError as error:
-            self._fail("A file for this request could not be read or written.", [str(error)])
-            return
-        self._respond(
-            HTTPStatus.OK, _HTML, pages.result_page(puzzle.name, puzzle.seed, written)
-        )
+            if posted.request is None:
+                self._fail("The form could not be read.", posted.unreadable)
+                return
+            try:
+                puzzle = orchestrator.generate(posted.request)
+                written = orchestrator.export_puzzle(puzzle)
+            except NonogramError as error:
+                self._fail("nonogram refused this request.", [str(error)])
+                return
+            except OSError as error:
+                self._fail(
+                    "A file for this request could not be read or written.", [str(error)]
+                )
+                return
+            self._respond(
+                HTTPStatus.OK, _HTML, pages.result_page(puzzle.name, puzzle.seed, written)
+            )
+        finally:
+            if image_path is not None:
+                image_path.unlink(missing_ok=True)
 
     def _fail(self, summary: str, reasons: Sequence[str]) -> None:
         """Render one failure page (EC-003).
