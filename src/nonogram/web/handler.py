@@ -18,9 +18,10 @@ The one thing this module must *not* grow is a decision about a request's
 *content*. Reading a form field is HTTP; judging whether ``size=5000`` is
 allowed is the domain's (ADR-0019/R1, guardrail G-2). Everything this module
 decides for itself is on the transport side of that line — the ``Host`` header,
-the connection's idle timeout, how many bytes of body it is willing to read —
-and each is answered with a status code or a closed socket by code that does
-not know what a puzzle is. What :meth:`WebUIRequestHandler._generate` does with
+the authority and fetch-metadata a request claims (NFR-004, CON-010), the
+connection's idle timeout, how many bytes of body it is willing to read — and
+each is answered with a status code or a closed socket by code that does not
+know what a puzzle is. What :meth:`WebUIRequestHandler._generate` does with
 the body it read is one call to :mod:`nonogram.web.submission` and two to the
 orchestrator, and the whole of its own judgement is which of two pages to
 render.
@@ -48,6 +49,7 @@ from nonogram.errors import NonogramError
 from nonogram.web import pages, submission
 
 __all__ = [
+    "ALLOWED_FETCH_SITES",
     "ALLOWED_HOSTS",
     "IDLE_TIMEOUT_S",
     "MAX_BODY_BYTES",
@@ -67,7 +69,7 @@ IDLE_TIMEOUT_S = 30
 
 #: Most bytes of request body this adapter will read from one submission.
 #: The form's own body is a few hundred bytes at the very outside — nine short
-#: fields — so this is three orders of magnitude of headroom, and what it
+#: fields — so this is two orders of magnitude of headroom, and what it
 #: actually bounds is a body nobody typed: ``Content-Length: 4000000000`` on a
 #: loopback socket would otherwise be read into memory in full, because
 #: ``http.server`` bounds request *lines* and header counts and nothing else.
@@ -84,62 +86,115 @@ MAX_BODY_BYTES = 64 * 1024
 #: rebinding). Checking the ``Host`` header closes **DNS rebinding only**: a
 #: request that reached this server under a name it does not answer to.
 #:
-#: It does **not** close the other browser-mediated reach. A page on any origin
-#: can still aim a request at ``http://127.0.0.1:<port>/`` with an allowlisted
-#: ``Host`` — a browser sets ``Host`` from the *target*, not from the page —
-#: and be served (verified on the wire: ``Host: 127.0.0.1:<port>`` +
-#: ``Origin: https://evil.example.com`` + ``Sec-Fetch-Site: cross-site`` →
-#: ``200`` and the form). Nothing here reads ``Origin``, ``Referer`` or
-#: ``Sec-Fetch-Site``. That is NFR-004 / CON-010, with acceptance criteria of
-#: its own (AC-054..AC-058) and its own property (EC-004), and it is **still
-#: unimplemented**: CARD-020 added ``POST /generate`` without closing it, which
-#: it recorded rather than assumed — see that card's worktree notes. Until it
-#: is closed, a page on any origin can make this server generate and write
-#: files; nothing below should be read as evidence otherwise.
+#: The same three names are what an ``Origin`` header and an absolute-form
+#: request target are compared against too (:func:`_origin_is_local`,
+#: :meth:`WebUIRequestHandler._cross_origin_refusal`): all three answer one
+#: question — which authority does this request claim — and a single allowlist
+#: is what stops them from drifting into three notions of "local".
 #:
 #: This is an HTTP concern, not a domain rule: it is a fact about which *name*
 #: the request used, decided before routing and answered with a status code
-#: (guardrail G-4, ADR-0019/R1).
+#: (ADR-0019/R1, guardrail G-2).
 ALLOWED_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+#: The ``Sec-Fetch-Site`` values this server answers (NFR-004, CON-010,
+#: AC-054, AC-057). ``same-origin`` is the form posting back to the page it was
+#: served from; ``none`` is a user-initiated navigation with no initiator
+#: document at all — a typed URL, a bookmark. The two values the fetch-metadata
+#: spec defines and this set omits, ``same-site`` and ``cross-site``, both say
+#: the request was started by a document this server did not serve, which is
+#: the whole of the attack (NFR-004's rationale).
+#:
+#: Compared exactly, after stripping surrounding whitespace and nothing else.
+#: These are lowercase tokens by specification, so a value spelled any other
+#: way did not come from a browser following it and is refused rather than
+#: guessed at — which is also what makes EC-004's "for any such input" property
+#: checkable: the accepted set is two literals wide.
+ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+
+
+def _port_is_well_formed(authority: str) -> bool:
+    """Whether ``authority``'s port component is absent or a run of digits.
+
+    Named by EC-004 among the shapes a refusal must cover. ``127.0.0.1:`` (an
+    empty port) and ``127.0.0.1:notaport`` (a non-numeric one) are both read by
+    ``urlsplit`` as the *host* ``127.0.0.1``, so a check consulting only the
+    host component serves them. Neither is a well-formed authority — RFC 3986
+    §3.2.3 admits digits and nothing else — so neither is served.
+
+    The split is taken after the last ``]`` so the colons inside a bracketed
+    IPv6 literal are not mistaken for the port separator.
+    """
+    after_brackets = authority.rsplit("]", 1)[-1]
+    _, colon, port = after_brackets.rpartition(":")
+    if not colon:
+        return True
+    return port.isascii() and port.isdigit()
 
 
 def _host_is_local(host_header: str) -> bool:
-    """Whether a ``Host`` header names this loopback server.
+    """Whether an authority names this loopback server.
 
-    The port is ignored — ``--port`` chooses it and a browser echoes whatever
-    it dialled — so only the name is compared. Parsed with ``urlsplit`` rather
+    Used for all three authorities a request can carry: the ``Host`` header,
+    the request target's when it arrives in absolute form, and — through
+    :func:`_origin_is_local` — the ``Origin`` header's.
+
+    The port's *value* is ignored: ``--port`` chooses it and a browser echoes
+    back whatever it dialled, so only the name is compared. Its *shape* is not
+    ignored (:func:`_port_is_well_formed`). Parsed with ``urlsplit`` rather
     than by splitting on ``":"`` so that a bracketed ``[::1]:8765`` is read as
     the host ``::1`` and not as ``[``; anything ``urlsplit`` cannot read as a
     host is not local, which is why a *bare* ``::1`` is refused (``urlsplit``
     returns ``None`` for it, and RFC 7230 §5.4 requires the brackets anyway).
 
-    ``@`` and ``/`` are refused before parsing. A ``Host`` is an authority, not
-    a URL: userinfo and a path have no meaning in it, and RFC 7230 §5.4 admits
-    neither. ``urlsplit`` would read ``user:pass@127.0.0.1`` and
-    ``127.0.0.1/../evil`` as loopback — correctly, since the *host component*
-    of both really is loopback, so neither was ever a hole — and refusing the
-    two characters is a narrowing of the accepted *shapes*, nothing more.
+    ``@``, ``/``, ``#`` and ``?`` are refused before parsing. An authority is
+    not a URL: userinfo, a path, a query and a fragment have no meaning in one
+    and RFC 7230 §5.4 admits none of them, but ``urlsplit`` splits all four off
+    and so reads ``user:pass@127.0.0.1``, ``127.0.0.1/../evil``,
+    ``127.0.0.1#evil.example.com`` and ``localhost?evil`` as loopback. The host
+    component of each of those genuinely is loopback, so none was a hole; they
+    are refused because a value carrying any of the four is not a host name,
+    and EC-004 names the ``#`` and ``?`` shapes explicitly.
 
-    What it is **not** is a bound on the accepted value set. ``urlsplit``
-    splits on ``#`` and ``?`` exactly as it splits on ``@`` and ``/``, and
-    neither is refused here: ``127.0.0.1#evil.example.com`` and
-    ``localhost?evil`` are both read as loopback and served, and the port is
-    never validated (``127.0.0.1:notaport`` is served too). The earlier
-    rationale for this narrowing claimed it "keeps the two sets the same size";
-    it does not, and the claim is withdrawn rather than repaired. What this
-    function actually enforces is one sentence: *the host component, as*
-    ``urlsplit`` *reads it, must be one of three names*. Bounding the shape
-    space is EC-004's property (NFR-004), which is not implemented and was not
-    implemented by CARD-020 either; widening the check here is out of this
-    function's scope on purpose.
+    What this enforces is therefore one sentence: *the value must be a bare
+    authority — no userinfo, path, query or fragment, and a port that is absent
+    or all digits — whose host component is one of three names.*
     """
-    if "@" in host_header or "/" in host_header:
+    if any(char in host_header for char in "@/#?"):
+        return False
+    if not _port_is_well_formed(host_header):
         return False
     try:
         hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
     except ValueError:
         return False
     return hostname in ALLOWED_HOSTS
+
+
+def _origin_is_local(origin: str) -> bool:
+    """Whether an ``Origin`` header names a loopback authority (NFR-004).
+
+    An ``Origin`` is a *serialized origin* — ``scheme "://" host [":" port]``
+    and nothing more (RFC 6454 §6.1) — so a value carrying a path, a query or a
+    fragment is not one, and the opaque origin ``null`` has no host at all.
+    Each of those is refused: the header is compared against the shape it is
+    defined to have rather than mined for a host substring.
+
+    The scheme is read for presence and then discarded, and so is the port,
+    exactly as the ``Host`` check discards it. NFR-004 states the rule over the
+    host — "an ``Origin`` header naming a host that is not a loopback name" —
+    and a page served from another port on loopback is not the reach this
+    closes: BCON-0001 puts one user on one machine, and a second local HTTP
+    server is already inside that boundary.
+    """
+    value = origin.strip()
+    try:
+        split = urllib.parse.urlsplit(value)
+    except ValueError:
+        return False
+    if not split.scheme or split.path or split.query or split.fragment:
+        return False
+    return _host_is_local(split.netloc)
 
 
 class WebUIRequestHandler(BaseHTTPRequestHandler):
@@ -192,8 +247,62 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         """
         self._dispatch("POST")
 
+    def _cross_origin_refusal(self) -> str | None:
+        """Why this request is cross-site or names a foreign authority — or ``None``.
+
+        NFR-004 / CON-010, and the half of BCON-0001's browser-mediated reach
+        that the ``Host`` check does not close. A browser sets ``Host`` from
+        the request's *target*, so a form on ``https://evil.example.com``
+        posting to ``http://127.0.0.1:8765/generate`` arrives with an
+        allowlisted ``Host`` and, on nothing but that check, is served — and
+        since ``POST /generate`` exists, "served" means the pipeline runs and
+        writes files at a path the attacking page chose. The attack needs no
+        reply, so the same-origin policy and CORS never come into it.
+
+        What a browser *does* attach to such a request is what this reads.
+        Three signals, each refused with ``400`` (AC-054, AC-055, AC-056):
+
+        * an **absolute-form request target** whose authority is not loopback,
+          which is how the same reach arrives with no ``Host`` header at all to
+          check (AC-056). ``urlsplit`` would also find an authority in a target
+          beginning ``//``, and this refuses that shape as well — defensively,
+          not because it can arrive: ``http.server``'s own ``parse_request``
+          collapses a leading ``//`` to ``/`` before ``do_GET`` is called, so
+          on this standard library that arm is unreachable and untested on the
+          wire;
+        * a **``Sec-Fetch-Site``** other than :data:`ALLOWED_FETCH_SITES`;
+        * an **``Origin``** whose host is not a loopback name.
+
+        Every value of each header is read, not just the first, for the reason
+        the ``Host`` check reads every one: a request carrying two that
+        disagree has no single answer, and taking the first is how an
+        allowlisted value smuggles a foreign one past.
+
+        Neither header can be set or suppressed by page script — both are
+        forbidden header names to ``fetch``/XHR — so a request carrying neither
+        is not the attacker's shape and is served (AC-058). That is what keeps
+        ``curl``, a typed URL and this module's own HTTP/1.0 probes working.
+        ``Referer`` is deliberately not consulted: it is suppressible by a
+        referrer policy the attacking page controls, so a rule resting on it
+        would be one the attacker can switch off.
+
+        Returns:
+            The refusal, phrased for the response body, or ``None`` when the
+            request claims no foreign authority.
+        """
+        target = urllib.parse.urlsplit(self.path).netloc
+        if target and not _host_is_local(target):
+            return f"unrecognised request-target authority: {target}"
+        for site in self.headers.get_all("Sec-Fetch-Site") or []:
+            if site.strip() not in ALLOWED_FETCH_SITES:
+                return f"cross-site request: {site.strip()}"
+        for origin in self.headers.get_all("Origin") or []:
+            if not _origin_is_local(origin):
+                return f"foreign origin: {origin.strip()}"
+        return None
+
     def _dispatch(self, method: str) -> None:
-        """Check the ``Host``, then look up ``(method, path)`` or answer ``404``.
+        """Check where the request came from, then route it or answer ``404``.
 
         The query string is split off before the lookup so that ``/?x=1`` and
         ``/`` are the same route — the router matches paths, not URLs. Nothing
@@ -202,11 +311,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         rather than kept as an unused attribute a later card might mistake for
         a supported input.
 
-        The ``Host`` check comes first (F-12). A header naming anything but
-        loopback gets ``400`` and no route runs: it is a request that reached
-        this server under a name it does not answer to, which is a malformed
-        request, not a refused credential — there is still no ``401``, no
-        ``403`` and nothing to authenticate (AC-053).
+        The ``Host`` check comes first (F-12), then
+        :meth:`_cross_origin_refusal` (NFR-004, CON-010). Both are decided
+        before any route runs and both answer ``400``: a request naming a host
+        this server does not answer to, or started by a document it did not
+        serve, is malformed — not a refused credential. There is still no
+        ``401``, no ``403`` and nothing to authenticate (AC-053), and ``400``
+        is the status NFR-004 and AC-054..AC-056 name.
 
         *Every* ``Host`` header is read, not just the first. RFC 7230 §5.4
         forbids more than one, and a message carrying two that disagree has no
@@ -214,7 +325,9 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         before either is compared. Repeating one identical value says nothing
         new and is served.
 
-        A request with *no* ``Host`` at all is served, on **every** protocol
+        A request with *no* ``Host`` at all still reaches
+        :meth:`_cross_origin_refusal`, which is where AC-056's absolute-form
+        target is caught, and is otherwise served, on **every** protocol
         version and not only HTTP/1.0. That is deliberate: the rebinding attack
         this check closes is browser-mediated, and a browser cannot suppress
         the header (``Host`` is a forbidden header name to ``fetch``/XHR), so a
@@ -240,6 +353,10 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 _TEXT,
                 f"unrecognised host: {html.escape(host_headers[0])}\n",
             )
+            return
+        refusal = self._cross_origin_refusal()
+        if refusal is not None:
+            self._respond(HTTPStatus.BAD_REQUEST, _TEXT, f"{html.escape(refusal)}\n")
             return
         path = urllib.parse.urlsplit(self.path).path
         route = ROUTES.get((method, path))
@@ -268,13 +385,17 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         "Every response" is literal, and it is only literal because
         :meth:`send_error` funnels the standard library's own error statuses
-        through here too. This adapter can produce seven distinct statuses —
-        200, 400, 404, 414, 431, 501, 505 — and five of them (400, 414, 431,
-        501, 505) were written by ``BaseHTTPRequestHandler.send_error`` before
-        that override: ``text/html`` with no ``nosniff`` for three of them,
-        and — on the 400 and 505 paths, where ``parse_request`` had not yet
-        accepted a version — no status line and no headers whatsoever. The
-        sentence above was false for all five.
+        through here too. This adapter can produce eight distinct statuses —
+        200, 400, 404, 413, 414, 431, 501, 505. Four are written by this
+        module's own calls to this method (200, 400, 404, 413) and five by
+        ``BaseHTTPRequestHandler.send_error`` before that override (400, 414,
+        431, 501, 505); 400 is on both lists, since it is both the router's
+        answer to a foreign host or origin and the standard library's to an
+        unparseable request line. Of the stdlib's five, three arrived as
+        ``text/html`` with no ``nosniff``, and the other two — 400 and 505,
+        where ``parse_request`` had not yet accepted a version — as no status
+        line and no headers whatsoever. The sentence above was false for all
+        five.
         """
         payload = body.encode("utf-8")
         self.send_response(status)
@@ -352,14 +473,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         No credential is read on the way in and none is demanded on the way
         out: an ``Authorization`` header, a cookie, or neither all produce this
-        same page (AC-053). The access control is the bind address plus the
-        ``Host`` check in :meth:`_dispatch`, and nothing else — the first stops
-        a network peer, the second stops DNS rebinding, a request steered here
-        by a browser under a name that is not loopback (NFR-003, BCON-0001,
-        F-8, F-12). Neither reads a credential, and there is nothing to
-        authenticate. Neither closes browser-mediated *cross-origin* reach
-        either: a page on any origin can still aim a request here with an
-        allowlisted ``Host`` and be served (NFR-004 / CON-010, unimplemented).
+        same page (AC-053). The access control is three checks and nothing
+        else, none of which reads a credential because there is nothing to
+        authenticate: the bind address stops a network peer (NFR-003), the
+        ``Host`` check in :meth:`_dispatch` stops DNS rebinding — a request
+        steered here by a browser under a name that is not loopback (F-8,
+        F-12) — and :meth:`_cross_origin_refusal` stops a request some other
+        page started (NFR-004, CON-010, BCON-0001).
         """
         self._respond(HTTPStatus.OK, _HTML, pages.FORM_PAGE)
 
@@ -374,12 +494,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         which is the same answer ``nonogram generate`` with no ``--size``
         gives.
 
-        A declared length over :data:`MAX_BODY_BYTES` is refused before it is
-        read. What *is* read first is the cap's worth of it, and that ordering
-        is the point: a client still mid-send when the socket closes sees a
-        reset instead of the response it was about to be given, so the refusal
-        is drained enough to be delivered. The rest is discarded with the
-        connection (see the class docstring on HTTP/1.0).
+        A declared length over :data:`MAX_BODY_BYTES` is answered with ``413``
+        after at most the cap's worth of it has been read, and none of it is
+        ever acted on. That ordering is the point rather than an accident: a
+        client still mid-send when the socket closes sees a reset instead of
+        the response it was about to be given, so the refusal is drained enough
+        to be delivered. The rest is discarded with the connection (see the
+        class docstring on HTTP/1.0).
         """
         try:
             declared = int(self.headers.get("Content-Length", ""))
@@ -412,23 +533,40 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         produce that are not a bug in this package:
 
         * a body this adapter cannot read as a request at all (a ``size`` box
-          holding ``twenty``) — refused before the orchestrator is called, so
-          an unreadable form never starts a generation;
+          holding ``twenty``, an ``export_formats`` value no renderer is
+          registered under, a ``%00`` in any field) — refused before the
+          orchestrator is called, so an unreadable form never starts a
+          generation;
         * any :class:`~nonogram.errors.NonogramError` (EC-003) — the whole
           hierarchy, caught at its base rather than one class at a time, which
           is the same reason ``cli.main`` catches it there: an error a later
           card adds is reported by this code without being edited into it;
-        * the ``OSError`` an export write can raise, which is not a domain
-          error and is caught here for exactly the reason
-          ``cli._run_generate`` catches it around the same call — ``--out``
-          pointing at something unusable is the user's to fix, and a traceback
-          does not tell them so.
+        * an ``OSError`` from either call, which is not a domain error —
+          ``--out`` naming a file, or a directory the user cannot write, is
+          theirs to fix and a traceback does not tell them so.
+
+        That last arm is **wider than the one ``cli._run_generate`` has**, and
+        the difference is deliberate rather than parallel: the CLI wraps only
+        ``export_puzzle``, because widening it there once reported a missing
+        picture as "export rejected" (cli.py's own note on that fix). Here the
+        two calls share one ``try``, which is EC-003's whole mechanism — the
+        exception becomes a page *before* :meth:`_respond` is called, so a
+        failure and a success are the same single write to the response stream
+        — so the message must be true of an ``OSError`` from *either* call, and
+        it says a file could not be read or written rather than naming the
+        export. Today only the export can raise one (nothing here fills
+        ``GenerationRequest.image``, and ``sourcing/image.py`` converts read
+        failures into ``UnreadableImage``, a ``NonogramError``); the wording
+        does not depend on that staying true.
 
         Anything else really is unexpected. It is not caught, and the
         standard library's own machinery reports it: a stack trace on the
         server's stderr, and a dropped connection for the browser. A blanket
         ``except`` here would turn a bug in this package into a tidy page
-        claiming the run was merely refused.
+        claiming the run was merely refused. What that costs is bounded by
+        refusing the two shapes measured to reach it — an unregistered export
+        format and a ``%00`` in a field — both in :mod:`nonogram.web.submission`
+        and both reported through ``unreadable``, which is the first arm above.
         """
         raw = self._read_body()
         if raw is None:
@@ -447,7 +585,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             self._fail("nonogram refused this request.", [str(error)])
             return
         except OSError as error:
-            self._fail("The puzzle was generated but could not be written.", [str(error)])
+            self._fail("A file for this request could not be read or written.", [str(error)])
             return
         self._respond(
             HTTPStatus.OK, _HTML, pages.result_page(puzzle.name, puzzle.seed, written)

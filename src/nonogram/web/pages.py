@@ -3,32 +3,41 @@
 No templating engine, and none coming: CON-008 scopes the whole UI to one form
 page, one POST endpoint and one result page, which is below the threshold where
 a template language pays for itself — and ADR-0006's dependency baseline is
-closed anyway (guardrail G-6). :data:`FORM_PAGE` is built once, at import, and
-is a plain ``str`` from then on; the two pages a submission produces are
-f-strings assembled per response, because their content is the run's.
+closed anyway. :data:`FORM_PAGE` is built once, at import, and is a plain
+``str`` from then on; the two pages a submission produces are f-strings
+assembled per response, because their content is the run's.
 
-Everything a page interpolates goes through :func:`html.escape` without
-exception, and that is not belt-and-braces here: a result page carries a puzzle
-name and file paths the user chose, and a failure page carries a domain error's
-message, which quotes them back (an unknown library key, an unusable name).
-The responses also travel with ``nosniff`` and a ``text/html`` content type
-from ``handler._respond``, so the escaping is the guard that actually does the
-work rather than the second one.
+Everything that came off the wire goes through :func:`html.escape` at the point
+it is interpolated, and that is not belt-and-braces here: a result page carries
+a puzzle name and file paths the user chose, and a failure page carries a
+domain error's message, which quotes them back (an unknown library key, an
+unusable name). The responses also travel with ``nosniff`` and a ``text/html``
+content type from ``handler._respond``, so the escaping is the guard that
+actually does the work rather than the second one. Exactly one interpolation is
+*not* escaped — :func:`_shell`'s ``title``, which its own docstring binds to be
+a literal — and everything else is, including values that are literals today
+(``failure_page``'s ``summary``), so no later caller has to notice which is
+which.
 
 Neither page renders the puzzle (CON-008, guardrail G-4). What a successful run
-reports is what ``cli._run_generate`` prints for the same run — the paths
-written, and the seed, which ADR-0015 requires be reported when the user did
-not choose one — and nothing more.
+reports is the puzzle's name, the seed and the files written; :func:`result_page`
+states how that differs from what ``cli._run_generate`` prints for the same run,
+and why.
 
-Three of the form's option lists are read from the domain rather than spelled
-out here — the export formats from ``export.FORMATS`` and the difficulty tiers
-from ``difficulty.Tier`` — which is the same move ``cli.py`` already makes for
+Two of the form's option lists are read from the domain rather than spelled out
+here — the export formats from ``export.FORMATS`` and the difficulty tiers from
+``difficulty.Tier`` — which is the same move ``cli.py`` already makes for
 ``--export``'s ``choices`` and ``--difficulty``'s help text. What is read is
-*vocabulary*, not a rule: a value this page did not offer still parses, still
-travels inward, and is still rejected by the domain (guardrail G-4). The
-alternative — a second hand-maintained copy of both lists — is precisely the
-adapter drift ADR-0019 names as an accepted cost of having two adapters, and
-there is no reason to pay it where a registry already exists to read.
+*vocabulary*, not a rule: an unoffered *difficulty* still parses, still travels
+inward, and is still rejected by the domain (ADR-0019/R1, guardrail G-2). An
+unoffered *export format* is the one exception, and it is the domain's own
+instruction rather than this package's judgement — ``export.for_format``
+refuses one with a bare ``ValueError`` and documents the adapter as the place
+that rejects it, exactly as ``sourcing.for_mode`` does for a mode (see
+:mod:`nonogram.web.submission`). The alternative to reading the registries — a
+second hand-maintained copy of both lists — is precisely the adapter drift
+ADR-0019 names as an accepted cost of having two adapters, and there is no
+reason to pay it where a registry already exists to read.
 
 The sourcing modes are the exception, spelled out below exactly as ``cli.py``
 spells them out in its ``--mode`` ``choices``: COMP-003's three modes do not
@@ -119,9 +128,9 @@ code { word-break: break-all; }
 #:
 #: Nothing here constrains a value: no ``min``/``max`` on ``size`` or
 #: ``density``, no ``required`` — an out-of-range number must reach the domain
-#: and be rejected there (AC-050, guardrail G-4), and an HTML validation
-#: attribute would stop it in the browser instead, which is the same mistake as
-#: putting ``choices=`` on ``--difficulty`` (ADR-0010).
+#: and be rejected there (AC-050, ADR-0019/R1, guardrail G-2), and an HTML
+#: validation attribute would stop it in the browser instead, which is the same
+#: mistake as putting ``choices=`` on ``--difficulty`` (ADR-0010).
 FORM_PAGE = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -189,7 +198,10 @@ def _shell(title: str, body: str) -> str:
     application as the form that produced it. ``title`` is interpolated
     unescaped and is therefore never caller data: both call sites below pass a
     literal, and that is the whole of the rule — everything that came off the
-    wire is escaped by the caller before it reaches ``body``.
+    wire is escaped by the caller before it reaches ``body``. It is the only
+    unescaped interpolation in this module, which the module docstring states
+    so that the rule is not stated in one place as an absolute and here as a
+    condition.
     """
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -209,11 +221,30 @@ def _shell(title: str, body: str) -> str:
 def result_page(name: str, seed: int, paths: Sequence[Path]) -> str:
     """The page a completed run produces (AC-049).
 
-    Reports what ``cli._run_generate`` prints for the same run and nothing
-    else: the puzzle's name, the seed (ADR-0015 — a run whose seed was drawn
-    for it has nowhere else to be read from), and every file
+    Reports three things: the puzzle's name, the seed, and every file
     ``orchestrator.export_puzzle`` wrote, in the order it wrote them. The
     puzzle itself is not rendered (CON-008, guardrail G-4).
+
+    That is deliberately **not** the same set of lines ``cli._run_generate``
+    prints for the same run, and the three differences are each a consequence
+    of a page not being a console:
+
+    * the **name** is shown here and is not printed there. A console run was
+      typed by the person reading it and the auto-generated name (FR-015) is
+      recoverable from the ``wrote`` paths; a page can be reloaded, shared or
+      left open, so it says what it made.
+    * the **seed** is shown unconditionally, where the CLI prints it only when
+      it drew one itself (``if request.seed is None``). ADR-0015's requirement
+      is that a drawn seed be reportable, and a page has no scrollback to look
+      it up in later, so showing it always discharges that at no cost; the
+      alternative is a page whose contents depend on a field the reader cannot
+      see from it.
+    * FR-014's **nudge count** is not reproduced, and cannot yet be non-zero
+      on any run that reaches this page: the counter is advanced only by the
+      ``mode == "image"`` branch of ``orchestrator.generate``, and an
+      image-mode submission from this form carries no picture (CARD-021), so it
+      fails inward and renders :func:`failure_page` instead. The line becomes
+      owed the moment the upload control lands.
 
     A run that asked for no export format wrote no files, and the page says so
     rather than showing an empty list — the same distinction the CLI draws by
@@ -256,8 +287,10 @@ def failure_page(summary: str, reasons: Sequence[str]) -> str:
     drift ADR-0019 names. There is nothing here to drift.
 
     Args:
-        summary: One sentence saying what did not happen. A literal from the
-            handler, never caller data.
+        summary: One sentence saying what did not happen. Every call site
+            passes a literal, and it is escaped here anyway — one call, and the
+            module's escaping rule then has exactly one exception rather than
+            three (see :func:`_shell`).
         reasons: One line per reason, escaped here. For a domain failure that
             is the error's own message — the same text ``cli._report`` prints
             after ``nonogram: error:``.
@@ -269,7 +302,7 @@ def failure_page(summary: str, reasons: Sequence[str]) -> str:
     return _shell(
         "nonogram — not generated",
         f"""<h1>Not generated</h1>
-<p data-outcome="{FAILURE}">{summary}</p>
+<p data-outcome="{FAILURE}">{html.escape(summary)}</p>
 <ul>
 {listed}
 </ul>""",

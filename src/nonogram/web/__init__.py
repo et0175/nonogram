@@ -53,15 +53,28 @@ standard library's, but the *response* is this package's:
 nothing off the wire, where the stdlib's own would have replied
 ``501 Unsupported method ('PUT')`` as ``text/html``.
 
-Access control is the bind address plus the ``Host`` check in
-:mod:`nonogram.web.handler`, and no authentication at all: the server listens
-on 127.0.0.1 only, refuses a ``Host`` naming anything else, and reads no
-credential (NFR-003, AC-052, AC-053, BCON-0001). The absence of an auth check
-is the decision, not an oversight. Browser-mediated cross-origin reach is
-closed by neither — a page on any origin can aim a request here with an
-allowlisted ``Host`` and be served (NFR-004 / CON-010, unimplemented, and
-**not** closed by CARD-020, which added the ``POST`` that made it able to write
-files; see that card's worktree notes).
+Access control is three checks in :mod:`nonogram.web.handler` — the bind
+address, the ``Host`` header, and the authority and fetch-metadata a request
+claims — and no authentication at all: the server listens on 127.0.0.1 only,
+refuses a ``Host`` naming anything else, refuses a request some other page
+started, and reads no credential (NFR-003, NFR-004, CON-009, CON-010, AC-052,
+AC-053, AC-054..AC-058, BCON-0001). The absence of an auth check is the
+decision, not an oversight.
+
+The three close three different reaches and none substitutes for another. The
+bind stops a network peer. The ``Host`` check stops DNS rebinding — a request
+steered here under a name an attacker controls that resolves to loopback. The
+cross-origin refusal stops what neither of the first two can see: a browser
+sets ``Host`` from the request's *target*, so a form on any origin posting to
+``http://127.0.0.1:<port>/generate`` arrives with an allowlisted ``Host`` over
+a loopback socket, and until CARD-020's cycle-1 review it was served — which,
+once ``POST /generate`` existed, meant running the pipeline and writing files
+at a path the attacking page chose. What is read instead are the two headers a
+browser attaches to such a request and page script can neither forge nor
+suppress, ``Sec-Fetch-Site`` and ``Origin``, plus the authority of an
+absolute-form request target. A request carrying none of the three — ``curl``,
+a typed URL, an HTTP/1.0 probe — is served, so nothing about the loopback
+command-line flow changes.
 """
 
 from __future__ import annotations

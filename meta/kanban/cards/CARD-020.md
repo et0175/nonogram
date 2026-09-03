@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 13
 **Depends on:** CARD-019
-**Touches:** src/nonogram/web/**.py, tests/test_web_submission.py, tests/test_web_server.py (beyond the predicted footprint — disclosed in Worktree notes)
+**Touches:** src/nonogram/web/**.py, tests/test_web_submission.py, tests/test_web_server.py, meta/architecture/inputs/raw-requirements.md (the last two beyond the predicted footprint — disclosed in Worktree notes)
 **Review score:** —
 **Started:** 2026-09-02T14:20:00Z
 **Closed:** —
@@ -235,6 +235,10 @@ classes at all**: it shows the error's own message, the same text `cli._report` 
 `test_the_walked_corpus_is_the_whole_hierarchy` pins `set(cli._EXIT_CODES) <= set(hierarchy)`
 so neither adapter can grow a class the other has never heard of.
 
+**[SUPERSEDED BY CYCLE 1 — the paragraph below described the state at commit
+177ba57. CON-010 / NFR-004 is now CLOSED on this card; see "Review cycle 1"
+below for the scope expansion, the owner's approval of it, and the evidence.]**
+
 **CON-010 / NFR-004 IS STILL OPEN, AND THIS CARD MADE IT MATTER MORE.** CARD-019's
 docstrings said cross-origin refusal was "owned by CARD-020". It is **not** implemented
 here: it has five acceptance criteria of its own (AC-054..AC-058) plus EC-004, none of them
@@ -278,3 +282,208 @@ it is open. **Recommend a card for NFR-004 next, before the web UI is offered to
   module header and a section banner, with snake_case `def`s as its arms — `PropertyTest_`
   is not collected by pytest's default `python_classes`, so a class of that name would
   have silently run nothing.
+
+### Review cycle 1 — fixes (score 4.5, GATE FAILED: 1 critical + 4 high)
+
+Report: `meta/review/20260903T060056Z-CARD-020-cycle1.yml`.
+
+**F-001 (critical) — the cross-origin hole is closed. THIS IS A DELIBERATE SCOPE
+EXPANSION BEYOND THIS CARD'S ACs, AND THE OWNER APPROVED IT.** NFR-004 / CON-010
+carry five acceptance criteria (AC-054..AC-058) and a property (EC-004) that were
+never on this card, and the implementation notes above recommended a separate
+card. The owner decided otherwise, on the reasoning the review put to them: the
+violation predates this card, but this card is what turned it from "a
+cross-origin page can read a static string" into "a cross-origin page can run the
+pipeline and write files at a path it chooses", and a merge would ship that.
+
+What landed, all of it in `handler.py` and all of it decided **before routing**,
+beside the existing `Host` check:
+
+* `_cross_origin_refusal` reads three signals and refuses on any of them —
+  a `Sec-Fetch-Site` outside `ALLOWED_FETCH_SITES` (`same-origin`, `none`), an
+  `Origin` whose host is not a loopback name, and an absolute-form request
+  target whose authority is not one either (AC-056's shape, which arrives with
+  no `Host` at all). *Every* value of each header is read, not just the first.
+* `_host_is_local` now bounds the authority *shape*, which EC-004 names
+  explicitly and which the function's own docstring had been recording as an
+  open gap: `#` and `?` join `@` and `/` as refused characters, and the port
+  must be absent or all digits. `127.0.0.1#evil.example.com`, `localhost?evil`,
+  `127.0.0.1:` and `127.0.0.1:notaport` were all served before and are refused
+  now. Same function, so the `Host`, `Origin` and request-target authorities are
+  judged by one rule rather than three.
+* `_origin_is_local` compares an `Origin` against the shape RFC 6454 gives it —
+  scheme, host, optional port and nothing else — so `null`, an empty value and
+  `http://127.0.0.1/path` are all refused rather than mined for a host substring.
+
+**Status code: 400, and the choice is the model's rather than this card's.**
+NFR-004's own threshold says "refused with HTTP 400 and never routed to a
+handler", and AC-054/AC-055/AC-056 each say "refused with 400". 403 was the
+obvious alternative and is wrong twice over here: nothing is authenticated and
+nothing is forbidden to a principal — the request named an authority this server
+does not answer to, or was started by a document it did not serve, which makes it
+malformed — and AC-053's shipped guard
+(`test_the_package_contains_no_authentication_vocabulary`) fails the suite on a
+literal `403` or `HTTPStatus.FORBIDDEN` anywhere under `web/`. So 400 also keeps
+"this UI has no authentication and no challenge" literally true.
+
+`Referer` is deliberately **not** consulted, which is a departure from the
+review's shorthand and not from the model (neither NFR-004, CON-010 nor EC-004
+mentions it): a referrer policy the attacking page controls can suppress it, so a
+rule resting on it is one the attacker can switch off. `Sec-Fetch-Site` and
+`Origin` are forbidden header names to `fetch`/XHR and cannot be forged or
+suppressed by page script, which is what makes the "absent means served" rule
+below safe.
+
+**A request carrying none of the three signals is still served**, on every
+protocol version — `curl`, a typed URL, a bookmark, and this module's own AC-052
+interface probes (AC-058). Nothing about the loopback command-line flow changed.
+
+Guardrails held: no `orchestrator` or capability-module edit (G-1), no job store
+or worker (G-3), no puzzle rendering (CON-008), loopback bind untouched (CON-009).
+The refusal reads header names and an authority and answers with a status code —
+ADR-0019/R1's "HTTP concerns only" — and `tests/test_cli.py`'s ast import guard
+is green.
+
+**CON-010's declared check now exists.**
+`PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest` is written
+under that exact logical name in `tests/test_web_server.py`, following this
+project's property convention (a CamelCase id in the module header and a section
+banner, snake_case `def`s as its arms — `PropertyTest_` is not collected by
+pytest's `python_classes`). No `hypothesis`. Three arms: a corpus check, the
+refusal sweep, and the *served* sweep that bounds it. The corpora are products of
+hand-built tuples — refused authorities × schemes × header positions × both
+methods — giving **294 refused** and **58 served** cases, and both minimums
+(`_MINIMUM_REFUSED_CASES = 200`, `_MINIMUM_SERVED_CASES = 40`) are asserted inside
+the tests that consume them. The POST rows carry a real submission whose `out` is
+`tmp_path`, so "never routed to a handler" is checked by its consequence on disk
+and not only by a status code.
+
+**F-002 (high) — `export_formats` and the NUL both refused in the adapter.**
+`export.for_format` delegates the refusal of an unregistered name to the adapter
+by contract, in the same words `sourcing.for_mode` does, and only `mode` had
+discharged it. `submission.read` now checks posted formats against
+`export.FORMATS` and reports them through the existing `unreadable` channel, so
+`export_formats=png&export_formats=bogus` is refused *before* the PNG is written
+rather than after. The drift assertion asked for is in
+`test_an_export_format_the_registry_does_not_hold_is_refused_the_way_argv_is`:
+`set(export.FORMATS) == set(_argv_export_choices())` (read off the built parser)
+**and** `== _form_export_choices()` (read off the rendered markup), so all three
+corners are one vocabulary. For `out=bad%00dir` — `Path.mkdir` raises a bare
+`ValueError`, not an `OSError` — `submission.read` refuses a NUL in any field
+rather than widening `_generate`'s except arm: a NUL cannot appear in argv at
+all, so this removes an asymmetry the web adapter introduced instead of catching
+a wider class of exception and hiding real bugs with it.
+
+**F-003 (high) — the `except OSError` arm is pinned.** Two hermetic cases in
+`tests/test_web_submission.py`, both reachable from the form with nothing
+monkeypatched: `out` naming an existing regular file (`FileExistsError`) and
+`out` under a 0500 directory (`PermissionError`, skipped as root, mode restored
+in a `finally`). Both assert 200, `data-outcome="failure"`, and the errno text on
+the page. Re-running the reviewer's M10 (deleting the whole `except OSError`
+block) now fails both — see Evidence.
+
+**F-004 (high) — `result_page`'s CLI-parity claim replaced by the truth.** The
+docstring now says what the page reports (name, seed, paths) and states each of
+the three differences from `cli._run_generate` and why: the name is shown because
+a page can be reloaded and shared where a console line was typed by its reader;
+the seed is shown unconditionally because a page has no scrollback, which is how
+ADR-0015 is discharged; FR-014's nudge line is not reproduced, and the reason is
+re-derived from the code rather than asserted — the counter is advanced only by
+`orchestrator.generate`'s `mode == "image"` branch, and an image-mode submission
+from this form carries no picture, so it renders the failure page instead. The
+module docstring's copy of the same claim is gone.
+
+**F-005 (high) — the escaping rule is now one rule with one exception.**
+`failure_page`'s `summary` is escaped (one call), so the only unescaped
+interpolation left in `pages.py` is `_shell`'s `title`; the module docstring says
+exactly that and `_shell`'s docstring says it is the only one, instead of the two
+disagreeing about whether the rule has exceptions.
+
+**F-006 (medium) — eight statuses, not seven.** `_respond`'s enumeration now
+reads 200, 400, 404, 413, 414, 431, 501, 505, and says which four this module
+writes itself, which five `send_error` funnels, and that 400 is on both lists.
+`tests/test_web_server.py`'s own "nine statuses" — wrong on `main` too, and not
+in the finding — is corrected to eight in the same pass so the two agree.
+
+**F-007 (medium) — the AC-049 defect is filed.** An `AMENDS AC-049` entry is
+appended to `meta/architecture/inputs/raw-requirements.md`, in the format of the
+AC-063 / AC-087 / EC-009 entries: the tier must read Easy, with the measurement,
+the two structural reasons (all four templates score Easy at 20x20; library mode
+draws no randomness for POL-004 to resample), the pinning test, and the note that
+the Medium request survives as AC-051's exemplar. `requirements.yml` was **not**
+hand-edited.
+
+**F-008 (low) — the guardrail citations resolve again.** `pages.py:6` (G-6 →
+ADR-0006's baseline, cited directly), `pages.py:28` and `pages.py:122` (G-4 →
+ADR-0019/R1 + G-2), `handler.py`'s `ALLOWED_HOSTS` comment (G-4 → ADR-0019/R1 +
+G-2). Where a durable authority says the same thing it is now cited instead of,
+or beside, the card-local number, per the review's suggestion. `G-4` inside
+`pages.py` now denotes only CON-008's no-preview rule.
+
+**F-009 (low) — the OSError parity claim withdrawn and the message made true.**
+`_generate`'s docstring no longer says the catch is there "for exactly the reason
+`cli._run_generate` catches it around the same call"; it states that this arm is
+*wider* than the CLI's (which wraps only `export_puzzle`), why the shared `try`
+is nonetheless right for EC-003, and that the message must therefore hold for an
+`OSError` from either call. The message is now "A file for this request could not
+be read or written." rather than "The puzzle was generated but could not be
+written.", which was false for an OSError out of `generate`.
+
+**F-010 (low) — `_read_body`'s two sentences agree.** "refused before it is read"
+is now "answered with 413 after at most the cap's worth of it has been read, and
+none of it is ever acted on", and `MAX_BODY_BYTES`'s "three orders of magnitude"
+is corrected to two (65536 / a few hundred ≈ 2.3).
+
+**F-011 (info) — no action, and nothing regressed.** Both disclosed adapter
+refusals stand exactly as they were; the asymmetry the verdict pointed at is
+F-002, which is fixed.
+
+**F-012 (info) — `Touches:` updated**, as its suggestion asked, and extended for
+`raw-requirements.md`.
+
+**Evidence (cycle 1).**
+
+* Full suite: **1580 passed, 1 xfailed** (cycle-0 baseline 1553 + 1 xfailed; 27
+  new tests).
+* **M10 re-run** — `_generate`'s whole `except OSError` block deleted: now **2
+  tests fail** (`test_an_out_naming_an_existing_file_is_reported_as_a_failure_page`,
+  `test_an_out_under_an_unwritable_directory_is_reported_as_a_failure_page`),
+  where it survived before. Restored; `md5` identical.
+* **The cross-origin refusal has teeth**, five mutants, each restored and
+  verified byte-identical by `md5` + `git diff --stat`:
+  - whole refusal disabled (`return None` first) → **9 tests fail**;
+  - `same-site` added to `ALLOWED_FETCH_SITES` → 2 fail;
+  - `#`/`?` dropped from the refused authority characters → 3 fail;
+  - the port-shape check removed → 3 fail;
+  - only the *first* `Origin` header read → 1 fail (the property).
+* **`export_formats` / NUL mutants**: the format check removed → 3 fail; the NUL
+  check removed → 1 fail. Restored, `md5` identical.
+* **Real server, the reviewer's own attack.** `LoopbackHTTPServer` on a
+  kernel-chosen port, three POSTs to `/generate` with an allowlisted
+  `Host: 127.0.0.1:<port>` and `out=/tmp/card020-attack/...`:
+  - `Origin: https://evil.example.com` + `Referer: .../attack.html` +
+    `Sec-Fetch-Site: cross-site` + `Sec-Fetch-Mode: navigate` → **400 Bad
+    Request**, body `cross-site request: cross-site`, **nothing written** (the
+    directory tree does not exist);
+  - same-origin form POST (`Origin: http://127.0.0.1:<port>`,
+    `Sec-Fetch-Site: same-origin`) → **200**, `data-outcome="success"`, four
+    files written;
+  - plain POST with **neither header** (`curl`'s shape) → **200**,
+    `data-outcome="success"`, four files written.
+  Also on the wire: `GET http://evil.example.com/ HTTP/1.0` with no `Host` →
+  400 (AC-056); `Origin: https://evil.example.com` on a GET → 400 (AC-055);
+  `Sec-Fetch-Site: cross-site` on a GET → 400 (AC-054); `same-origin` → 200
+  (AC-057); no metadata at all → 200 (AC-058); `export_formats=bogus`,
+  `png&bogus` and `out=bad%00dir` → 200 + the structured failure page, no
+  partial export.
+* Every pytest name cited in prose across the six touched source and test files
+  was re-checked mechanically: **27 citations, all resolving to exactly one
+  `def`/`class`**. The one CamelCase property id
+  (`PropertyTest_WebServer_...`) follows the existing convention and is declared
+  in the module header and a section banner, as its EC-003 sibling is.
+
+**Requirements now satisfied:** NFR-004, CON-010, AC-054, AC-055, AC-056,
+AC-057, AC-058, EC-004 — each with a test of its own and CON-010's declared
+`check:` ref now resolving. AC-049 remains satisfied with the substitution the
+implementation notes above record, and the model-side correction for it is filed
+as an intake line rather than applied to `requirements.yml`.

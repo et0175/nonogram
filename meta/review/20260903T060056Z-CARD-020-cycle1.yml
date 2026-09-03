@@ -1,0 +1,591 @@
+version: 1
+generated_at: "2026-09-03T06:00:56Z"
+target: "CARD-020 cycle 1 — branch card/020-web-submission-handler @ 177ba57, diff main...HEAD (worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-020)"
+overall_score: 4.5
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/web/handler.py"
+    - "src/nonogram/web/submission.py"
+    - "src/nonogram/web/pages.py"
+    - "src/nonogram/web/__init__.py"
+    - "src/nonogram/web/server.py"
+    - "tests/test_web_submission.py"
+    - "tests/test_web_server.py"
+    - "src/nonogram/orchestrator.py (export_puzzle, _filename_stem, _sanitized_component)"
+    - "src/nonogram/export/__init__.py (write, _free_path, for_format, _FORMATS)"
+    - "src/nonogram/cli.py (_run_generate reporting + OSError scope, _extent_token, _EXIT_CODES)"
+    - "tests/test_cli.py (adapter allowlist / ast import guard)"
+    - "meta/kanban/cards/CARD-020.md"
+    - "meta/architecture/inputs/raw-requirements.md (tail, intake practice)"
+  not_reached:
+    - "src/nonogram/solver/** (untouched by the diff)"
+    - "src/nonogram/sourcing/** (read only via for_mode's contract docstring)"
+    - "meta/design/ — DOES NOT EXIST: review.visual degraded to static. Nobody has LOOKED at the rendered result/failure pages; only their HTML source was read."
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 1844, removed: 150 }
+  max_fan_in: { symbol: "orchestrator.generate/export_puzzle", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/web/handler.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — src/nonogram/web/ was created by CARD-019 two days ago; the 12-month co-change window contains a single prior commit for these files, so the signal is empty by construction, not by absence of peers."
+    hotspots: "no_eligible_fact — churn/defect-density over 12 months is 1 commit per touched web file; the ranking is not derivable."
+
+system_contract:
+  rules_checked: 13
+  holds: 7
+  unchecked: 5
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff adds no third-party import; submission.py imports urllib.parse/dataclasses/pathlib + nonogram only, handler.py adds no import beyond html/urllib.parse/http.*. Re-derivable: `grep -rn '^import\\|^from' src/nonogram/web/*.py`; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the 1553-pass suite."
+    - "ADR-0019/R1 ✓ holds — with one disclosed tension, adjudicated in F-011's note. The two adapter-level refusals (int() on size/density/seed; mode ∈ pages.MODES) are request parsing and route-table membership, not domain validation: range, tier vocabulary, library key, name usability and export-format membership all travel inward unjudged. Re-derivable: mutants M1 (drop mode check) and the negative corpus in _REAL_FAILURES; test_every_import_in_the_package_points_inward green."
+    - "ADR-0021/R1 ✓ holds — _generate calls orchestrator.generate then export_puzzle inline on the request thread (handler.py:443-450). No job store, polling endpoint, worker handoff or streamed response anywhere in web/. Re-derivable: `grep -rniE 'threading.Thread|queue\\.|poll|Transfer-Encoding|wfile.flush' src/nonogram/web/*.py` returns only the ADR-0021 docstring at handler.py:29."
+    - "ADR-0022/R1 ✓ holds — GenerationRequest is filled with width= and height= separately (submission.py:151-166); the HTML `size` box is an adapter-level token of the same rank as argv's --size, not a request field. No public signature or export field reduces the extent to a scalar."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is untouched by this diff (git diff main...HEAD -- src/nonogram/solver = empty)."
+    - "CON-009 ✓ holds — LoopbackHTTPServer binds LOOPBACK_HOST; TestWebServer_BindsLoopbackOnlyByDefault (tests/test_web_server.py:337) present and green; the diff does not touch server.py's bind."
+    - "CON-010 ✗ violated — src/nonogram/web/handler.py:227-247 (_dispatch) reads only the Host header; nothing in the package reads Origin, Referer or Sec-Fetch-Site (AST sweep over all string constants in web/: zero matches outside the docstrings that admit the gap). Demonstrated on the wire against a live server: POST /generate with Host: 127.0.0.1:<port>, Origin: https://evil.example.com, Sec-Fetch-Site: cross-site, Sec-Fetch-Mode: navigate -> 200, full pipeline ran, four files written to an attacker-named absolute directory. ALSO ⚠ check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest exists in meta/ only, 0 hits under tests/ (as six prior reviews recorded). The violation PREDATES this card — CON-010 has never been implemented — and this card is not the one that was cut to close it; what this card changed is the consequence, from serving a static string to running the pipeline and writing files. Filed as F-001."
+    - "CON-011 ✓ holds — the adapter passes the extent inward unjudged and the domain refuses it: a size=60 submission returns the failure page carrying 'grid width must be between 10 and 30 inclusive, got 60' (TestWebUI_RejectsOutOfRangeSizeLikeCLI, and _REAL_FAILURES['SizeOutOfRange'] which asserts the page text equals the exception the untouched pipeline raises)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: image mode is unreachable from this card's form — pages.py renders no upload control and submission.py never fills GenerationRequest.image, so no aspect-guard path is exercised."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues.py and the clue derivation are untouched; the adapter neither computes nor renders clues (CON-008)."
+    - "INV-002 ✓ holds — the adapter calls orchestrator.export_puzzle unchanged, whose require_ready_for_export gate is the single enforcement point; orchestrator.py is byte-identical to main (git diff main...HEAD -- src/nonogram/orchestrator.py = empty). ExportRejected is in the EC-003 walked corpus and renders as a failure page."
+    - "INV-003 ⚠ unchecked — no_eligible_fact for the diff itself (the retry loop is untouched), though the card exercises it end-to-end: AC-051's deterministic abandonment reports 'abandoned after 20 resample attempts (bound: 20)', which is the bound holding."
+    - "INV-004 ⚠ unchecked — no_eligible_fact: same territory as CON-011; the lifecycle clamp lives in sourcing/ and orchestrator, both untouched."
+
+root_causes:
+  - id: RC-1
+    title: "The web adapter has no cross-site request refusal, and now runs a filesystem-writing pipeline"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Two domain call sites raise a bare non-NonogramError ValueError by contract; the adapter discharged that contract for `mode` only"
+    finding_ids: [F-002]
+  - id: RC-3
+    title: "Prose in the touched files asserts more than the shipped code does"
+    finding_ids: [F-004, F-005, F-006, F-008, F-009, F-010]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: compliance
+    type: risk
+    file: src/nonogram/web/handler.py
+    line: 227
+    title: "Any web page the user visits can drive POST /generate and write files to a path it chooses"
+    description: |
+      VERIFIED FROM THE CODE, NOT FROM THE CARD'S SUMMARY, AND CONFIRMED ON THE WIRE.
+
+      `_dispatch` (handler.py:227-247) reads exactly one request header, `Host`. An AST sweep over
+      every string constant in `src/nonogram/web/` finds no occurrence of `Origin`, `Referer` or
+      `Sec-Fetch-Site` outside the docstrings that admit they are not read. CON-010's declared check
+      `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest` has 0 hits under
+      `tests/`; AC-054..AC-058 and EC-004 have 0 implementations. The card's summary of this is
+      accurate and, if anything, understated — it is not overstated.
+
+      A browser sets `Host` from the *target*, so a genuine cross-site form POST from
+      `https://evil.example.com` to `http://127.0.0.1:8765/generate` carries `Host: 127.0.0.1:8765`
+      and passes the check. Reproduced against a live `LoopbackHTTPServer`: a POST carrying
+      `Origin: https://evil.example.com`, `Referer: https://evil.example.com/attack.html`,
+      `Sec-Fetch-Site: cross-site`, `Sec-Fetch-Mode: navigate` returned 200, ran the full pipeline,
+      and wrote pwned.png/.json/.csv/.svg into an attacker-named absolute directory. The attack needs
+      no reply, so same-origin policy and CORS are irrelevant — this is textbook CSRF against a local
+      daemon, and the whole exploit is one auto-submitting `<form method=post>`.
+
+      WHAT AN ATTACKER CAN ACTUALLY ACHIEVE — measured, each bound checked rather than assumed:
+
+      * `out` IS genuinely arbitrary. `submission.py:177` does `out=Path(out)` with no confinement,
+        `orchestrator.py:1363` uses it verbatim as `directory`, and `export.write`
+        (export/__init__.py:269) calls `directory.mkdir(parents=True, exist_ok=True)`. Verified:
+        an absolute path is honoured and its whole tree created; a relative `../../traversal-escape`
+        escapes the server's cwd and is created. With no `out` the files land in `Path.cwd()`, i.e.
+        wherever the user launched `nonogram serve`.
+      * An existing file is NOT overwritten. ADR-0017's `_free_path` auto-suffixes; verified — a
+        second identical request produced `pwned-1.json` beside `pwned.json`. There is no
+        data-destruction primitive here.
+      * The filename is constrained. `_sanitized_component` (orchestrator.py:1437) reduces the stem
+        to `[\w.-]+` and strips leading/trailing dots, so no dotfile and no traversal via `name`
+        (verified: `=cmd|'/c calc'!A1` -> `cmd-c-calc-A1`). The extension comes from a fixed set of
+        five: .json .png .svg .csv .pdf.
+      * The content is NOT attacker-chosen text. The bytes are a generated puzzle; the `name` reaches
+        the filename stem but I could not find it in the JSON or SVG payload, so there is no
+        content-injection primitive.
+
+      CONCRETE WORST CASE: while `nonogram serve` is running, any page the user opens in any tab can
+      silently, repeatedly and in parallel create directory trees at any absolute path the user can
+      write, and drop up to five files per request (a ~72 KB PNG among them) into them — burning one
+      solver thread per request up to ADR-0011's deadline, on an unbounded `ThreadingHTTPServer`.
+      The realistic harms are disk exhaustion and filesystem litter at chosen locations, CPU
+      exhaustion, and planting a file where another program will later read it — the last one bounded
+      by the target path not already existing and the extension being one of five. It is a genuine
+      unauthenticated remote filesystem-write primitive; it is not code execution and not data loss.
+
+      MERGE JUDGEMENT. The violation predates this card, CON-010/NFR-004 carries five acceptance
+      criteria and a property of its own, none of them on CARD-020, and the card disclosed the gap
+      and corrected CARD-019's misattributing docstrings rather than hiding it. All of that is to the
+      card's credit and none of it changes the state of the system after the merge. Before this card
+      a cross-origin page could make the server render a string constant; after it, the same request
+      runs the pipeline and writes files at a path the attacking page chooses. That is a change in
+      kind, on a command a non-technical user is invited to run and leave running while browsing.
+      Recommendation: do NOT merge as-is.
+    suggestion: |
+      Preferred, and cheap enough that the already-required cycle 2 absorbs it: add the refusal to
+      `_dispatch` beside the existing `Host` check — same shape, same rank, decided before routing,
+      answered with a status code, no domain knowledge, squarely inside ADR-0019/R1's "HTTP
+      concerns only". Roughly:
+        * refuse when `Sec-Fetch-Site` is present and is not `same-origin` or `none`;
+        * refuse when `Origin` is present and its authority is not in `ALLOWED_HOSTS`.
+      Both headers are sent by every modern browser on a cross-site form POST and neither can be
+      suppressed by page script, so this closes the browser-mediated reach that the `Host` check
+      explicitly does not. Note this is a partial down-payment on NFR-004, not its closure — the
+      NFR-004 card for AC-054..AC-058 + EC-004 and the missing property test is still needed.
+
+      Intake status, checked: a `@security` backlog entry for exactly this WAS filed on `main` at
+      f1bad64 ("docs(backlog): NFR-004/CON-010 unimplemented, and CARD-020 raises its stakes",
+      2026-09-03), and its own wording is "it should gate the web UI being used at all". So the
+      record exists and this finding does not duplicate it; what is still open is the SEQUENCING
+      decision, which is what this finding puts to the human.
+
+      Fallback if the board insists on scope discipline: merge CARD-020 but do not advertise or ship
+      `nonogram serve`, and cut the NFR-004 card as the immediately next one, blocking any release
+      that exposes `serve`. Answering the direct question: `nonogram serve` is NOT safe to hand to a
+      non-technical user today — that user is precisely the one who will start it, leave it running
+      and browse the web in the same session, which is the entire precondition.
+    confidence: high
+    source: static
+    violates: CON-010
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/web/submission.py
+    line: 177
+    title: "An unregistered export format (or a NUL in `out`) escapes as an unhandled ValueError and drops the connection"
+    description: |
+      The card's §5 says in as many words: "No unhandled exception and no raw traceback may ever
+      reach the browser." Two reachable bodies break the first half.
+
+      `export.for_format` (export/__init__.py:186-192) raises a bare `ValueError` — its docstring
+      says "Deliberately *not* a `nonogram.errors` type, for the same reason `sourcing.for_mode`
+      makes the same choice: an unsupported format is rejected by argparse's `choices` at the
+      adapter". That is the IDENTICAL contract the implementer cited to justify the `mode` check in
+      `submission.py:146-149` — but `export_formats` is passed through unchecked at
+      `submission.py:172`. `handler._generate` catches `NonogramError` and `OSError` only, so the
+      `ValueError` propagates out of `do_POST`.
+
+      Verified against a live server:
+        POST export_formats=bogus                -> connection dropped, ValueError traceback on stderr
+        POST export_formats=png&export_formats=bogus -> connection dropped, AND the PNG was already
+                                                        written before the crash — a partial export
+                                                        with no response at all.
+        POST out=bad%00dir                       -> connection dropped; Path.mkdir raises
+                                                    ValueError("embedded null character in path"),
+                                                    which is not an OSError either.
+      Control: export_formats=png -> 200.
+
+      No raw traceback reaches the browser (that half of §5 holds — it goes to server stderr and the
+      socket closes), and strictly EC-003 speaks of "any *domain* error", which a ValueError is not.
+      But the browser gets a dead connection instead of the structured failure page the whole card
+      exists to produce, and the `out=NUL` case is an asymmetry the web adapter *introduced*: a NUL
+      cannot appear in argv, so the CLI cannot reach this path at all.
+    suggestion: |
+      Discharge the same contract for `export_formats` that was discharged for `mode`: check the
+      posted values against `export.FORMATS` in `submission.read` and report unreadable ones through
+      the existing `Submission.unreadable` channel. `pages.py` already imports `export` for the
+      checkbox list, so the offered set and the accepted set become one object exactly as
+      `pages.MODES` did — and this is route-table membership, not domain validation, by the same
+      argument that cleared the `mode` check.
+
+      For `out`, the narrow fix is to add `ValueError` to `_generate`'s existing non-domain except
+      arm (`except (OSError, ValueError)`), or to refuse a NUL byte in the body at the transport
+      layer beside `MAX_BODY_BYTES`. Add a test for each; note that today the export-format path has
+      no test at all, which is why the suite is green on a crash.
+    confidence: high
+    source: static
+    violates: EC-003
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/handler.py
+    line: 448
+    title: "The OSError arm of `_generate` has zero test coverage — mutant survived"
+    description: |
+      MUTATION-CONFIRMED. Deleting the whole `except OSError as error: self._fail(...)` block from
+      `handler.py:448-450` breaks NO test: `pytest tests/test_web_submission.py tests/test_web_server.py`
+      stays fully green (mutant M10 survived; six sibling mutants M1/M2/M3/M5/M6/M8/M9 were all
+      killed, so the corpus is not generally blind). `grep -n OSError tests/test_web_submission.py`
+      returns nothing.
+
+      The branch is genuinely reachable from ordinary input, verified against a live server:
+        POST out=<path to an existing regular file>  -> 200 + "could not be written" failure page
+        POST out=<path under a 0500 directory>       -> 200 + "could not be written" failure page
+      So this is a delivered, user-reachable error path with no test — the card added it and nothing
+      pins it. A later refactor that narrows or drops the catch turns both cases into the dropped
+      connection of F-002 with a green suite.
+    suggestion: |
+      Add two cases to tests/test_web_submission.py, both cheap and hermetic under tmp_path:
+      `out` pointing at an existing regular file, and `out` under a chmod-0500 directory. Assert
+      status 200, `_outcome(body) == pages.FAILURE`, and that the errno message is on the page.
+      Skip the permission case when running as root.
+    confidence: high
+    source: static
+    violates: EC-003
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/web/pages.py
+    line: 212
+    title: "`result_page`'s docstring claims CLI parity it does not have"
+    description: |
+      `result_page`'s docstring (pages.py:212-216) and the module docstring (pages.py:20-23) both
+      say the page "Reports what `cli._run_generate` prints for the same run and nothing else".
+      Checked against cli.py:454-484 — it is wrong in both directions, three times:
+
+        * The page ALWAYS prints the seed (pages.py:225, `<p>seed: <code>{seed:d}</code></p>`).
+          The CLI prints it only under `if request.seed is None:` (cli.py:454-455). A run with a
+          user-supplied seed is echoed by the page and not by the CLI.
+        * The page prints the puzzle NAME (pages.py:224). The CLI never prints the name — its only
+          output lines are `seed: ...`, `wrote {path}`, and the nudge line.
+        * The CLI additionally prints FR-014's nudge count (cli.py:480-483). The page does not.
+
+      This is the exact "overclaiming prose" pattern the last four cards each shipped one of, and it
+      is the load-bearing kind: the claim is what a reader would rely on to conclude the two adapters
+      cannot drift. Precedent for treating this as a real finding rather than a nit is this project's
+      own — CARD-033 cycle-1 F-005 forced a test rename plus a requirements amendment for exactly the
+      same defect class ("a test called 'sets both sides' whose body asserts (30, None) is a false
+      claim in prose, which this project's review contract does not permit").
+    suggestion: |
+      State what the page actually reports and why it differs, rather than claiming parity: the page
+      reports the puzzle's name, the seed unconditionally (a page has no scrollback, so ADR-0015's
+      "report the seed when it was drawn" is discharged by always showing it), and the files written;
+      the CLI's nudge line is not reproduced. If parity IS wanted, the fix is in the code, not the
+      prose.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/web/pages.py
+    line: 10
+    title: "\"Everything a page interpolates goes through html.escape without exception\" is contradicted twice in the same file"
+    description: |
+      pages.py:10-11 states the absolute rule. Two interpolations in the same module do not follow it:
+        * `_shell`'s `title` is interpolated raw into `<title>{title}</title>` (pages.py:199) — and
+          `_shell`'s own docstring (pages.py:186-192) says so explicitly: "``title`` is interpolated
+          unescaped and is therefore never caller data".
+        * `failure_page`'s `summary` is interpolated raw into
+          `<p data-outcome="{FAILURE}">{summary}</p>` (pages.py:271); its Args entry says "A literal
+          from the handler, never caller data".
+      Both are SAFE today — all four call sites pass string literals (handler.py:441/447/450 pass
+      three literals; `result_page`/`failure_page` pass literal titles) — so this is not a live XSS.
+      But the module docstring asserts an invariant the code does not hold, while the two function
+      docstrings assert the real (weaker, conditional) rule. A future card reading the module
+      docstring and passing an error's own text as `summary` would introduce stored-reflected markup
+      into a page whose top-level contract says that is impossible. The escaping rule is precisely
+      the kind of claim that must not overstate.
+    suggestion: |
+      Narrow the module docstring to the rule the code actually holds: everything that came off the
+      wire is escaped at its interpolation point; `_shell`'s `title` and `failure_page`'s `summary`
+      are contract-bound to be literals and are interpolated raw. Consider escaping `summary`
+      anyway — it costs one call and removes the caveat.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/web/handler.py
+    line: 271
+    title: "`_respond`'s status enumeration was falsified by this card and not updated"
+    description: |
+      handler.py:271-272: "This adapter can produce seven distinct statuses — 200, 400, 404, 414,
+      431, 501, 505". This card added an eighth: `HTTPStatus.CONTENT_TOO_LARGE` (413) at
+      handler.py:436, pinned by tests/test_web_submission.py:975 (`assert response.status == 413`).
+      The line is unchanged context in the diff, i.e. the card made a true docstring false and left
+      it. Exhaustive enumerations are the most brittle prose a module can carry and this one is
+      load-bearing for the "every response carries nosniff" argument that follows it.
+    suggestion: "Update to eight statuses and add 413 to the list; note it is one of the three this module writes itself rather than one of the five funnelled from send_error."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/architecture/inputs/raw-requirements.md
+    line: 0
+    title: "AC-049's verified defect was recorded only in the card's worktree notes, not filed as an intake line"
+    description: |
+      AC-049 IS GENUINELY UNSATISFIABLE AS WRITTEN — verified independently of the card:
+      `orchestrator.generate(GenerationRequest(mode="library", width=20, library_key="cat",
+      difficulty="Medium"))` raises `GenerationAbandoned: abandoned after 20 resample attempts
+      (bound: 20) — no candidate scored inside the Medium band (33-66)`, in 0.03s. The premise is
+      pinned by `test_every_built_in_template_scores_easy_at_this_size`, which asserts all four
+      built-in templates score `easy` at this size. The CLI does the same, so this is a defect in
+      AC-049, not in the web adapter. The implementer's handling is sound and honestly reported:
+      AC-049's happy path uses Easy, the class docstring of
+      `TestWebUI_SubmitRunsSamePipelineAndReportsFiles` states the substitution and points at the
+      module docstring, and the Medium request is reused as AC-051's deterministic abandonment.
+
+      What is missing is the model-side half. `git diff main...HEAD --stat -- meta/` touches ONLY
+      `meta/kanban/cards/CARD-020.md`; no line was appended to
+      `meta/architecture/inputs/raw-requirements.md`, and the card's own notes say "AC-049 in
+      requirements.yml should be reworded to Easy — not done here (out of scope)". This project's
+      established practice is the opposite: the tail of raw-requirements.md carries AMENDS entries
+      for AC-063, AC-087 and EC-009, several of them filed *during a review cycle* (AC-063's entry
+      is explicitly annotated "added 2026-09-02, CARD-033 cycle-1 review finding F-005"), precisely
+      because requirements.yml is not hand-edited here. A defect recorded only in a worktree note
+      dies with the worktree.
+    suggestion: |
+      Append an AMENDS entry to meta/architecture/inputs/raw-requirements.md: AC-049's `given` must
+      read difficulty "Easy", not "Medium", because every built-in library template scores Easy at
+      20x20 and library mode has no randomness for POL-004 to resample into another tier, so the
+      criterion as written asks for a success the pipeline cannot produce — measured 2026-09-03,
+      GenerationAbandoned after 20 attempts in 0.03s, identically on the CLI. Note that the Medium
+      request is now AC-051's deterministic exemplar, and that
+      `test_every_built_in_template_scores_easy_at_this_size` pins the premise so a scorer retune
+      fails there rather than silently swapping the two criteria.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/pages.py
+    line: 28
+    title: "Guardrail numbering was renumbered in three files and not the rest — `G-4` now denotes two different rules inside pages.py"
+    description: |
+      CARD-020 renumbers CARD-019's guardrails (CARD-019 G-4 "no domain validation" -> CARD-020 G-2;
+      CARD-020 G-4 is "no in-browser preview"). The diff correctly rewrote G-4 -> G-2 at
+      __init__.py:20, handler.py:19 and added G-2 cites at handler.py:77 and submission.py:7.
+      Three surviving citations still use the old numbering and now name the wrong rule:
+        * pages.py:28  "still rejected by the domain (guardrail G-4)"  -> is G-2 under this card
+        * pages.py:122 "must reach the domain ... (AC-050, guardrail G-4)" -> is G-2
+        * handler.py:102 "an HTTP concern, not a domain rule ... (guardrail G-4, ADR-0019/R1)" -> is G-2
+      Meanwhile pages.py:18 and pages.py:216 cite G-4 for CON-008's no-preview rule, which IS correct
+      under CARD-020. So one token means two rules inside one file with nothing to tell them apart.
+      Separately pages.py:6 cites "guardrail G-6" for ADR-0006's dependency baseline; CARD-020's G-6
+      is "do not edit tests/test_cli.py's import guard".
+      This is not a style nit — it is a citation that resolves to the wrong rule, which is the same
+      defect class as a dead test-name arrow.
+    suggestion: "Finish the renumbering pass over pages.py:6/28/122 and handler.py:102. Better, cite the durable authority (ADR-0019/R1, CON-008, ADR-0006) rather than a card-local guardrail number that is renumbered every card."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/web/handler.py
+    line: 378
+    title: "`_generate`'s OSError parity claim, and an unconditional failure message that can be false"
+    description: |
+      handler.py:378-381 says the OSError catch is there "for exactly the reason `cli._run_generate`
+      catches it around the same call". It is not the same call: cli.py:456-467 wraps ONLY
+      `orchestrator.export_puzzle`, and cli.py:408-418 records that widening that scope was a
+      previously-fixed bug ("wrapping the whole handler would report a missing picture as 'export
+      rejected'"). `_generate`'s single `try` (handler.py:443-450) wraps BOTH `generate` and
+      `export_puzzle`, then reports any OSError with the literal "The puzzle was generated but could
+      not be written." — a false sentence for an OSError originating in `generate`.
+      Blast radius is nil TODAY: the web never fills `GenerationRequest.image`, and sourcing/image.py
+      converts read failures into `UnreadableImage` (a NonogramError). It becomes live the moment
+      CARD-021 adds the upload control. Filed low because the shared `try` is itself correct and
+      deliberate for EC-003 (one write to the response stream); only the parity claim and the
+      unconditional wording are wrong.
+    suggestion: "Either narrow the OSError arm to the export call (keeping the NonogramError arm around both), or reword the message and the docstring to say that an OSError from anywhere in the pipeline is reported as a write failure and why that is acceptable while image mode is unreachable."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/web/handler.py
+    line: 396
+    title: "`_read_body`: \"refused before it is read\" is literally untrue"
+    description: |
+      "A declared length over `MAX_BODY_BYTES` is refused before it is read" (handler.py:396). The
+      code reads `min(declared, MAX_BODY_BYTES)` first and only then returns None
+      (handler.py:404-405). The very next sentence concedes and explains the ordering ("What *is*
+      read first is the cap's worth of it, and that ordering is the point"), so it reads as rhetoric
+      rather than deception, but the first sentence contradicts the second.
+      Also in the same block: "a few hundred bytes ... so this is three orders of magnitude of
+      headroom" — 65536/~300 is 2.3 orders.
+      The cap itself is correct and boundary-tested: mutating `declared > MAX_BODY_BYTES` to `>=`
+      kills `test_a_body_at_the_cap_is_still_read` (mutant M4).
+    suggestion: "Reword to 'refused without being acted on' or 'a declared length over the cap is answered with 413 after draining at most the cap's worth', and fix the orders-of-magnitude figure."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/web/submission.py
+    line: 146
+    title: "G-2 adjudication: both disclosed adapter refusals are legitimate"
+    description: |
+      Recorded as an explicit verdict because the implementer disclosed the tension and asked for it.
+
+      (a) `int()` on size/density/seed (submission.py:132-142) — LEGITIMATE. ADR-0019/R1's own
+      allowlist names "request parsing" as an HTTP concern. `GenerationRequest.width/density/seed`
+      are typed `int | None`; a non-numeric string cannot be placed in them, so this is the web
+      spelling of argparse's `type=int`, which `cli.py` applies at the same rank. G-2 enumerates what
+      must reach the domain — an out-of-range size/density, an unsupported difficulty, an empty name
+      — and none of those is this: verified that 60, 500, "extreme" and " " all travel inward and
+      come back as SizeOutOfRange / InvalidDensity / UnsupportedDifficulty / InvalidPuzzleName
+      (`_REAL_FAILURES`, each cross-checked against the untouched pipeline's own exception).
+
+      (b) `mode not in pages.MODES` (submission.py:146-149) — LEGITIMATE, and it is the adapter
+      refusing a value that is not in its own route table, not domain validation. Decisive: `mode` is
+      a DISPATCH KEY, not a value a domain rule judges — it selects which capability module runs —
+      and `sourcing.for_mode` has explicitly delegated the check to the adapter by contract, its
+      docstring saying "a user typing an unsupported mode is rejected by argparse's `choices` at the
+      adapter" and raising a bare `ValueError` rather than a `NonogramError` if one arrives anyway.
+      `cli.py` discharges the same delegation with `choices=`. Without it `mode=bogus` becomes the
+      dropped connection of F-002. Note also that G-2's own enumeration conspicuously omits `mode`.
+      Drift risk is closed rather than argued: `test_a_mode_the_form_does_not_offer_is_refused_the_way_argv_is`
+      asserts `set(pages.MODES) == set(_argv_mode_choices())`, reading argparse's choices off the
+      built parser, so the two vocabularies cannot diverge silently.
+
+      NOTHING ELSE VALIDATES THAT SHOULD NOT. Confirmed by reading every branch in submission.py and
+      handler.py: `library_key`, `name`, `difficulty`, `density` and `export_formats` are all carried
+      as posted; the remaining refusals (`Host`, `Content-Length`, `MAX_BODY_BYTES`, the 404) are
+      transport-level, measured in bytes or header names and answered with a status code.
+      The inverse defect is what F-002 records: `export_formats` sits under the SAME bare-ValueError
+      contract as `mode` and was NOT given the same treatment.
+    suggestion: "No change required for (a) or (b). The asymmetry with export_formats is F-002."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Not a defect — the review's own adjudication (both disclosed adapter refusals are legitimate). No change made; both refusals stand unchanged. The asymmetry it points at is F-002, fixed."
+    learned_pattern: null
+
+  - id: F-012
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_web_server.py
+    line: 0
+    title: "SCOPE GATE: PASS — no test weakened, none deleted"
+    description: |
+      Predicted `Touches:` was `src/nonogram/web/**.py, tests/test_web_submission.py`.
+      `src/nonogram/web/__init__.py` is INSIDE that glob — and its diff is purely docstring:
+      parsing both revisions with `ast` and stripping the module docstring yields byte-identical
+      `ast.dump` output, `__all__` unchanged. So the only genuinely out-of-footprint file is
+      `tests/test_web_server.py`, which was disclosed.
+
+      68 test/class names in main, 68 at HEAD. Two renames, no net deletion, no net addition:
+      `test_post_is_not_implemented_in_this_card` -> `test_post_is_routed_and_an_unhandled_method_still_is_not`
+      and `test_the_package_really_does_no_request_mapping_yet` -> `test_the_package_serves_exactly_the_two_routes_it_describes`.
+      No `pytest.skip`/`xfail` marker was added anywhere (the skip set is byte-identical to main:
+      the same 6 pre-existing environment-conditional skips); zero markers in the new test file.
+      No body was gutted; no `pytest.raises` removed. The two rewritten tests grew (2->4 and 2->3
+      assertions).
+
+      Per-site verdicts, all UPDATED (asserts the new truth at least as strictly), none WEAKENED:
+        1. route table (:548) — still exact set equality `==`, now keyed on the shared
+           `pages.FORM_ACTION` constant so the form action and the router key cannot drift.
+        2a. do_POST absence (:629) — the 501-for-unhandled-method property is preserved by moving the
+           probe from POST to PUT; the exact status line is still pinned elsewhere for the same probe.
+        2b. do_POST absence (:1612) — the new `do_*` set assertion is STRICTER than the old
+           `not hasattr` (it now also forbids an undocumented do_PUT). One ~14-line AST sweep was
+           removed: it asserted "no string constant under web/ contains 'GenerationRequest'", a
+           property this card makes false by design, and it cannot be rewritten to assert anything.
+           Checked for a stale side effect — the `test_a_source_sweep_fails_when_the_glob_finds_nothing`
+           meta-guard parametrizes over four *named* sweeps and this loop was never among them, so no
+           orphaned or miscounted guard.
+        3. import set (:1519) — exact set equality preserved, `{difficulty, errors, export,
+           orchestrator}`; a fifth outward import still fails. Not relaxed to a subset check.
+        4. docstring mapping claim (:1552) — the only site where the KIND of check changed: a
+           per-sentence textual assertion (now false prose) was replaced by a behavioural one that
+           calls `submission.read` on a real body and pins three fields with `==`. Harder to satisfy
+           vacuously than what it replaced.
+        5. stdlib-501 probe (:1643) — `POST /` -> `PUT /`; required, since POST now dispatches and
+           never reaches send_error. All consuming assertions byte-identical.
+        6. (undisclosed 7th site, :1704) nosniff echo parametrization — the same mechanical
+           POST -> PUT substitution as site 5, param count and assertion unchanged. Loses nothing.
+      Also verified the `GET /generate` -> 404 param survives intact — that is exactly the guard that
+      would catch a POST route quietly acquiring a GET.
+    suggestion: "No action. Update the card's Touches line at close to record tests/test_web_server.py (already disclosed in the notes)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

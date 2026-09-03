@@ -9,7 +9,7 @@ request carrying 60, which the domain refuses inward with the same error a
 ``--size 60`` argv earns (AC-050) — that is what makes the two adapters tell
 one story by construction instead of by parallel maintenance.
 
-Three things happen here, and each of them is the *same* thing ``cli.py`` does
+Five things happen here, and each of them is the *same* thing ``cli.py`` does
 in its own idiom. Nothing else does.
 
 **Blank means absent.** ``urllib.parse.parse_qs`` (ADR-0020) drops a field
@@ -35,16 +35,32 @@ surrounding whitespace, ``_`` separators) come along unmodified, exactly as
 they do in ``cli._extent_token``, and every value they admit still meets the
 range rule inward.
 
-**A mode has to be a mode this form offers** (:data:`nonogram.web.pages.MODES`).
-The one value-shaped check in this module, and it is here because the domain
-put it here: ``sourcing.for_mode`` documents that "a user typing an unsupported
-mode is rejected by argparse's ``choices`` at the adapter", and raises a bare
-``ValueError`` — not a ``NonogramError`` — for a mode that reaches it anyway.
-``cli.py`` discharges that with ``choices=["random", "library", "image"]``; a
-web adapter with no equivalent would turn a hand-written ``mode=bogus`` into an
-unhandled exception rather than a page. It is checked against the very list the
-form renders its ``<select>`` from, so the offered set and the accepted set
-cannot drift apart.
+**A mode has to be a mode this form offers** (:data:`nonogram.web.pages.MODES`),
+**and an export format has to be a format this build registers**
+(``export.FORMATS``). The two value-shaped checks in this module, and both are
+here because the domain put them here. ``sourcing.for_mode`` documents that "a
+user typing an unsupported mode is rejected by argparse's ``choices`` at the
+adapter", and ``export.for_format`` says the same of a format in the same
+words; each raises a bare ``ValueError`` — pointedly *not* a ``NonogramError``
+— for a value that reaches it anyway, which is a contract the adapter is
+obliged to discharge, not an error it may forward. ``cli.py`` discharges both
+with ``choices=`` (``["random", "library", "image"]`` and ``list(FORMATS)``); a
+web adapter with no equivalent turns a hand-written ``mode=bogus`` or
+``export_formats=bogus`` into an unhandled exception rather than a page, which
+is what EC-003 forbids — and for the format, into a *partial* export, since
+``png&bogus`` writes the PNG before the second name is looked up. Each is
+checked against the very list the form renders its own control from, so the
+offered set and the accepted set are one object rather than two that agree
+today.
+
+**A field cannot carry a NUL.** ``%00`` decodes to a character no path can
+hold: ``Path.mkdir`` answers it with a bare ``ValueError`` — again not an
+``OSError`` and not a ``NonogramError`` — so an ``out=bad%00dir`` submission
+would drop the connection. This is an asymmetry the *web* adapter introduces
+rather than one it inherits: a NUL cannot appear in argv at all, so ``cli.py``
+has never had a way to reach that call. Refusing it in every field rather than
+in ``out`` alone keeps this module free of a per-field rule, and costs nothing
+a form can express: no keyboard produces one and no browser sends one.
 
 What is deliberately *not* here: any range, any tier vocabulary, any judgement
 about a library key, and any reading of an ``image`` field. The first three are
@@ -61,7 +77,7 @@ import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
-from nonogram import orchestrator
+from nonogram import export, orchestrator
 from nonogram.web import pages
 
 __all__ = ["DEFAULT_MODE", "Submission", "read"]
@@ -127,6 +143,12 @@ def read(body: str) -> Submission:
     fields = urllib.parse.parse_qs(body)
     unreadable: list[str] = []
 
+    for field, values in sorted(fields.items()):
+        for value in values:
+            if "\x00" in value:
+                unreadable.append(f"{field}: a value may not contain a NUL character")
+                break
+
     numbers: dict[str, int | None] = {}
     for field in _NUMERIC_FIELDS:
         raw = _one(fields, field)
@@ -144,6 +166,14 @@ def read(body: str) -> Submission:
         unreadable.append(
             f"mode: expected one of {', '.join(pages.MODES)}, got {mode!r}"
         )
+
+    formats = tuple(fields.get("export_formats", ()))
+    for name in formats:
+        if name not in export.FORMATS:
+            unreadable.append(
+                f"export_formats: expected one of {', '.join(export.FORMATS)}, "
+                f"got {name!r}"
+            )
 
     if unreadable:
         return Submission(None, tuple(unreadable))
@@ -172,8 +202,10 @@ def read(body: str) -> Submission:
             seed=numbers["seed"],
             # Several checkboxes share one name, which is the HTML spelling of
             # ``--export``'s ``action="append"``; every box ticked is one
-            # format requested, in the order the form lists them.
-            export_formats=tuple(fields.get("export_formats", ())),
+            # format requested, in the order the form lists them. Checked
+            # against ``export.FORMATS`` above for the reason ``mode`` is
+            # checked against ``pages.MODES`` — see the module docstring.
+            export_formats=formats,
             out=Path(out) if out is not None else None,
         )
     )

@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import time
 import urllib.parse
@@ -48,7 +49,7 @@ from pathlib import Path
 
 import pytest
 
-from nonogram import cli, errors, orchestrator, web
+from nonogram import cli, errors, export, orchestrator, web
 from nonogram.web import handler, pages, server, submission
 
 # The running-server helpers and the ``(status, headers, body)`` shape live in
@@ -169,20 +170,53 @@ def _no_files_under(directory: Path) -> bool:
     return not any(path.is_file() for path in directory.rglob("*"))
 
 
-def _argv_mode_choices() -> list[str]:
-    """``--mode``'s ``choices``, read off the built parser rather than retyped.
+def _argv_choices(flag: str) -> list[str]:
+    """One ``generate`` flag's ``choices``, read off the built parser.
 
-    The CLI rejects an unregistered mode with ``choices=`` and the web adapter
-    rejects one against ``pages.MODES``; comparing the two against each other
-    is what stops the second from quietly becoming a different vocabulary.
+    Read rather than retyped, because the whole point of comparing them is that
+    neither list is a copy: a retyped expectation drifts with the thing it is
+    supposed to be pinning.
     """
     parser = cli.build_parser()
     for action in parser._subparsers._group_actions:  # type: ignore[union-attr]
         generate = action.choices["generate"]  # type: ignore[attr-defined]
         for option in generate._actions:
-            if "--mode" in option.option_strings:
+            if flag in option.option_strings:
                 return list(option.choices or ())
-    raise AssertionError("the generate parser no longer declares --mode")
+    raise AssertionError(f"the generate parser no longer declares {flag}")
+
+
+def _argv_mode_choices() -> list[str]:
+    """``--mode``'s ``choices``.
+
+    The CLI rejects an unregistered mode with ``choices=`` and the web adapter
+    rejects one against ``pages.MODES``; comparing the two against each other
+    is what stops the second from quietly becoming a different vocabulary.
+    """
+    return _argv_choices("--mode")
+
+
+def _argv_export_choices() -> list[str]:
+    """``--export``'s ``choices``.
+
+    The same relationship one delegation over: ``export.for_format`` puts the
+    refusal of an unregistered format at the adapter, ``cli.py`` discharges
+    that with ``choices=``, and ``submission.read`` discharges it against
+    ``export.FORMATS``. The three are meant to be one vocabulary, and reading
+    argparse's own list back is what makes that checkable rather than asserted.
+    """
+    return _argv_choices("--export")
+
+
+def _form_export_choices() -> set[str]:
+    """The formats the rendered form actually offers a checkbox for.
+
+    The third corner of the same triangle, and the one a set comparison against
+    ``export.FORMATS`` cannot reach any other way: ``pages`` builds the
+    checkboxes from the registry, but only reading the markup back shows that
+    what it built is what a browser can post.
+    """
+    return set(re.findall(r'name="export_formats" value="([^"]+)"', pages.FORM_PAGE))
 
 
 # --------------------------------------------------------------------------
@@ -903,6 +937,188 @@ def test_a_mode_the_form_does_not_offer_is_refused_the_way_argv_is(
     assert set(pages.MODES) == set(_argv_mode_choices())
 
 
+@pytest.mark.parametrize(
+    "formats",
+    [
+        pytest.param(["bogus"], id="only-an-unregistered-format"),
+        # The damaging order: the first format is written and the second is what
+        # ``export.for_format`` cannot look up, so an adapter that merely let the
+        # exception escape had already produced a partial export.
+        pytest.param(["png", "bogus"], id="one-real-then-an-unregistered-one"),
+        pytest.param(["bogus", "png"], id="an-unregistered-one-then-a-real-one"),
+    ],
+)
+def test_an_export_format_the_registry_does_not_hold_is_refused_the_way_argv_is(
+    running_server: server.LoopbackHTTPServer,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    formats: list[str],
+) -> None:
+    """The other half of the same delegation ``mode`` discharges.
+
+    ``export.for_format`` raises a bare ``ValueError`` — pointedly *not* a
+    ``NonogramError`` — for an unregistered name, and its docstring cites the
+    same reason ``sourcing.for_mode`` does: an unsupported format "is rejected
+    by argparse's ``choices`` at the adapter". ``cli.py`` discharges that with
+    ``choices=list(export.FORMATS)``. Without the equivalent here the value
+    escaped as an unhandled exception and the browser got a dropped connection
+    — and on the ``png,bogus`` row, a written PNG and no response at all.
+
+    Refused before the pipeline runs, asserted by making a call to it fail the
+    test outright; the empty ``tmp_path`` is what shows no partial export.
+    """
+
+    def never(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("the orchestrator was called for an unoffered format")
+
+    monkeypatch.setattr(orchestrator, "generate", never)
+
+    response = _submit(
+        running_server.server_port,
+        {"mode": "library", "library_key": _KEY, "size": str(_SIZE),
+         "export_formats": formats, "out": str(tmp_path)},
+    )
+
+    assert response.status == 200
+    assert _outcome(response.body) == pages.FAILURE
+    assert b"export_formats" in response.body
+    assert b"bogus" in response.body
+    assert _no_files_under(tmp_path)
+    # The drift assertion, the exact counterpart of the ``mode`` one above: the
+    # set this adapter accepts, the set the form offers and the set ``--export``
+    # accepts are one object, so the two adapters cannot grow different
+    # vocabularies without this failing.
+    assert set(export.FORMATS) == set(_argv_export_choices())
+    assert set(export.FORMATS) == _form_export_choices()
+
+
+def test_a_field_carrying_a_nul_is_refused_before_the_pipeline(
+    running_server: server.LoopbackHTTPServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``%00`` is the one byte a form can post that argv cannot carry.
+
+    ``Path.mkdir`` answers an embedded NUL with a bare ``ValueError`` — not an
+    ``OSError``, so ``_generate``'s non-domain arm never saw it — and the
+    browser got a dropped connection. The CLI has no route to that call at all,
+    a NUL being unrepresentable in argv, so this is an asymmetry the web
+    adapter introduced rather than one it inherited.
+    """
+
+    def never(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("the orchestrator was called for a body carrying a NUL")
+
+    monkeypatch.setattr(orchestrator, "generate", never)
+
+    response = _submit(
+        running_server.server_port,
+        {"mode": "library", "library_key": _KEY, "size": str(_SIZE), "out": "bad\x00dir"},
+    )
+
+    assert response.status == 200
+    assert _outcome(response.body) == pages.FAILURE
+    assert b"NUL" in response.body
+
+
+# --------------------------------------------------------------------------
+# NFR-004 / CON-010 on the method that writes files
+#
+# The refusal itself is AC-054..AC-058 and EC-004, all in
+# ``tests/test_web_server.py``. What is pinned here is the consequence that made
+# it urgent: the reach it closes runs a pipeline and writes files, so it is
+# checked on ``POST`` against the two things a status code alone cannot show —
+# that the orchestrator was not called, and that nothing landed on disk.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        pytest.param({"Sec-Fetch-Site": "cross-site"}, id="fetch-metadata-only"),
+        pytest.param({"Origin": "https://evil.example.com"}, id="origin-only"),
+        pytest.param(
+            {
+                "Origin": "https://evil.example.com",
+                "Referer": "https://evil.example.com/attack.html",
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Dest": "document",
+            },
+            id="the-whole-auto-submitting-form",
+        ),
+    ],
+)
+def test_a_cross_site_submission_never_reaches_the_pipeline_and_writes_nothing(
+    running_server: server.LoopbackHTTPServer,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    headers: dict[str, str],
+) -> None:
+    """The attack the refusal exists for, on the route that made it matter.
+
+    An auto-submitting ``<form method=post>`` on any page the user has open,
+    aimed at this server. The ``Host`` it carries is allowlisted — a browser
+    sets that from the *target* — so the F-12 check passes it, and before the
+    refusal the pipeline ran and wrote four files into a directory the
+    attacking page named. No reply is needed for that to work, which is why the
+    same-origin policy and CORS are beside the point.
+    """
+
+    def never(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("the orchestrator ran for a cross-site submission")
+
+    monkeypatch.setattr(orchestrator, "generate", never)
+
+    response = web_tests._request(
+        running_server.server_port,
+        method="POST",
+        path=pages.FORM_ACTION,
+        headers={
+            "Host": f"127.0.0.1:{running_server.server_port}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            **headers,
+        },
+        body=urllib.parse.urlencode(
+            [("mode", "library"), ("library_key", _KEY), ("size", str(_SIZE)),
+             ("name", "pwned"), ("export_formats", "png"), ("export_formats", "json"),
+             ("out", str(tmp_path))]
+        ).encode("utf-8"),
+    )
+
+    assert response.status == 400
+    assert _outcome(response.body) is None
+    assert _no_files_under(tmp_path)
+
+
+def test_a_same_origin_submission_still_runs_the_pipeline(
+    running_server: server.LoopbackHTTPServer, tmp_path: Path
+) -> None:
+    """The bound on that refusal, on the same route: the form still works.
+
+    The headers a browser attaches when the page at ``/`` posts its own form
+    back, which is the only submission path this UI has (CON-008). Without this
+    row the refusal above is satisfied by a server that refuses every ``POST``.
+    """
+    response = web_tests._request(
+        running_server.server_port,
+        method="POST",
+        path=pages.FORM_ACTION,
+        headers={
+            "Host": f"127.0.0.1:{running_server.server_port}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": f"http://127.0.0.1:{running_server.server_port}",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "navigate",
+        },
+        body=urllib.parse.urlencode(
+            [("mode", "library"), ("library_key", _KEY), ("size", str(_SIZE)),
+             ("export_formats", "json"), ("out", str(tmp_path))]
+        ).encode("utf-8"),
+    )
+
+    assert response.status == 200
+    assert _outcome(response.body) == pages.SUCCESS
+    assert [Path(path).name for path in _paths_on(response.body)] == [f"{_KEY}.json"]
+
 
 # --------------------------------------------------------------------------
 # The transport bounds this endpoint adds (ADR-0019/R1: HTTP concerns only)
@@ -994,6 +1210,75 @@ def test_a_body_at_the_cap_is_still_read(
     assert len(body) == handler.MAX_BODY_BYTES
     assert response.status == 200
     assert _outcome(response.body) == pages.SUCCESS
+
+
+# --------------------------------------------------------------------------
+# The non-domain failure the export can raise (``_generate``'s ``OSError`` arm)
+#
+# ``export.write`` documents that an unusable ``--out`` raises the standard
+# library's own ``OSError`` rather than a ``NonogramError``, which is why the
+# handler catches it separately from EC-003's hierarchy. Both rows below are
+# reachable from the form with no monkeypatching at all, and neither was pinned
+# by anything until now: deleting the whole ``except OSError`` block left the
+# suite green.
+# --------------------------------------------------------------------------
+
+
+def test_an_out_naming_an_existing_file_is_reported_as_a_failure_page(
+    running_server: server.LoopbackHTTPServer, tmp_path: Path
+) -> None:
+    """``--out`` pointing at a regular file: ``mkdir`` cannot make it a directory.
+
+    A ``FileExistsError``, which is an ``OSError`` and not a ``NonogramError``,
+    so it reaches the handler's second ``except`` arm. The user's answer is to
+    pass a different path, and a page saying so is the whole difference between
+    this arm existing and not.
+    """
+    occupied = tmp_path / "not-a-directory"
+    occupied.write_text("in the way", encoding="utf-8")
+
+    response = _submit(
+        running_server.server_port,
+        {"mode": "library", "library_key": _KEY, "size": str(_SIZE),
+         "export_formats": ["json"], "out": str(occupied)},
+    )
+
+    assert response.status == 200
+    assert _outcome(response.body) == pages.FAILURE
+    assert b"Errno" in response.body
+    assert _shown(str(occupied)) in response.body
+    assert occupied.read_text(encoding="utf-8") == "in the way"
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="root ignores the directory mode, so the write would succeed",
+)
+def test_an_out_under_an_unwritable_directory_is_reported_as_a_failure_page(
+    running_server: server.LoopbackHTTPServer, tmp_path: Path
+) -> None:
+    """``--out`` under a directory the user cannot write: ``mkdir`` is refused.
+
+    A ``PermissionError``, the other ``OSError`` an ordinary submission can
+    reach. Restored to 0700 in a ``finally`` so ``tmp_path``'s own teardown can
+    remove the tree whatever the assertions do.
+    """
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        response = _submit(
+            running_server.server_port,
+            {"mode": "library", "library_key": _KEY, "size": str(_SIZE),
+             "export_formats": ["json"], "out": str(locked / "below")},
+        )
+
+        assert response.status == 200
+        assert _outcome(response.body) == pages.FAILURE
+        assert b"Errno" in response.body
+        assert not (locked / "below").exists()
+    finally:
+        locked.chmod(0o700)
 
 
 def test_a_repeated_single_valued_field_takes_the_last_value_as_argv_does() -> None:

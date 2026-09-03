@@ -78,7 +78,7 @@ def create_server(port: int = DEFAULT_PORT) -> LoopbackHTTPServer:
     ``OverflowError``, which is what the socket layer raises for the last case
     — notably *not* an ``OSError``), and it propagates unwrapped: a socket that
     will not bind is not a domain failure and does not become a
-    ``NonogramError`` (guardrails G-2, G-4). ``cli.py`` is the single place
+    ``NonogramError`` (ADR-0019/R1). ``cli.py`` is the single place
     that turns it into a message and an exit code (F-1, F-2).
     """
     return LoopbackHTTPServer((LOOPBACK_HOST, port), WebUIRequestHandler)
