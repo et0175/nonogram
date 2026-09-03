@@ -113,7 +113,7 @@ __all__ = ["DEFAULT_MODE", "Submission", "from_fields", "read"]
 #: ``cli.build_parser``'s ``--mode`` default rather than inventing a second
 #: one. The form's ``<select>`` always posts a value, so this covers the
 #: hand-written body only.
-DEFAULT_MODE = "random"
+DEFAULT_MODE = "image"
 
 #: The fields ``int`` is applied to directly, and the whole of that list.
 #: ``size`` is deliberately not one of them (CARD-028): it has its own two-
