@@ -399,3 +399,34 @@
       converts WORSE is invisible to every check the card had. This is exactly the
       picture-fidelity metric already in this backlog, and this case is the argument for
       building it: it would have flagged cat1.jpg automatically.               @tech-debt
+- [ ] **SECURITY, and it should gate the web UI being used at all: NFR-004/CON-010
+      (cross-origin refusal) is not implemented, and CARD-020 raised its stakes**
+      (2026-09-03, surfaced by CARD-020's implementation, independently confirmed).
+      `src/nonogram/web/handler.py` reads **only** the `Host` header. Nothing reads
+      `Origin`, `Referer` or `Sec-Fetch-Site` — verified by grep; the only occurrences of
+      those names in `web/` are comments saying they are not read. The declared check,
+      `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`, **does not
+      exist anywhere in the tree**, and AC-054..AC-058 and EC-004 are unimplemented. The
+      `Host` check does not help here: a genuine cross-site form POST from any page sends
+      `Host: 127.0.0.1:<port>` and passes it.
+      **Why CARD-020 changes the severity rather than just inheriting it.** Before this
+      card, a cross-origin page could make the server render a static form and could not
+      read the reply (CORS). Now the same request runs the full generation pipeline and
+      **writes files to disk**. Worse, the form carries an `out` field
+      (`pages.py:168`) which `submission.py:151,177` maps straight to
+      `GenerationRequest.out`, so the *attacker* chooses the directory, and `--name`
+      contributes the filename stem. So any page visited while `nonogram serve` is running
+      can cause writes to a path of its choosing. The response stays unreadable
+      cross-origin, but the write is the harm, not the read.
+      **Attribution note worth keeping:** CARD-019's docstrings said this was "owned by
+      CARD-020". It is not on CARD-020's acceptance criteria, so CARD-020 correctly did not
+      build it and corrected those docstrings to stop mis-attributing it. That is exactly
+      how a requirement falls between two cards — one card's prose assigns it, the other
+      card's ACs do not carry it, and no gate notices because the check the model declares
+      for it has never existed.
+      **Do before the UI is offered to anyone, including the Windows recipient:** cut a
+      card for NFR-004/CON-010 that refuses any request whose `Sec-Fetch-Site` is not
+      `same-origin`/`none` or whose `Origin` names a non-loopback authority, and write the
+      property test the model already names. Until then `nonogram serve` should be treated
+      as safe only with no browser running, which is not a realistic instruction.
+                                                                              @security
