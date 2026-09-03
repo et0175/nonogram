@@ -60,8 +60,8 @@ from typing import NamedTuple
 
 import pytest
 
-from nonogram import cli, difficulty, export, web
-from nonogram.web import handler, pages, server
+from nonogram import cli, difficulty, export, orchestrator, web
+from nonogram.web import handler, pages, server, submission
 
 # The ``web -> cli`` guard lives in the CLI's test module because that is where
 # the ADR-0007 rank table lives; AC-059 exercises it here alongside its three
@@ -546,8 +546,14 @@ class TestWebServer_ProcessesRequestsWithoutAuthentication:
 
 
 def test_the_route_table_is_keyed_on_method_and_path() -> None:
-    """The router's shape, which CARD-020 extends rather than replaces."""
-    assert set(handler.ROUTES) == {("GET", "/")}
+    """The router's shape: CARD-020 extended the table rather than replacing it.
+
+    Two rows, and the ``POST`` row is keyed on ``pages.FORM_ACTION`` rather than
+    on a second copy of ``"/generate"`` — the form's ``action`` and the router's
+    key are one constant, so a submission cannot be posted at a path the router
+    does not answer.
+    """
+    assert set(handler.ROUTES) == {("GET", "/"), ("POST", pages.FORM_ACTION)}
 
 
 def test_a_query_string_does_not_change_the_route(
@@ -562,8 +568,9 @@ def test_a_query_string_does_not_change_the_route(
     [
         pytest.param("/no-such-page", id="unknown"),
         pytest.param("/favicon.ico", id="favicon"),
-        # The form's own action, CARD-020's POST endpoint: it has no GET route
-        # today and must not quietly acquire one.
+        # The form's own action. It is a ``POST`` route (CARD-020) and has no
+        # ``GET`` route: the table is keyed on the pair, so acquiring one method
+        # does not quietly acquire the other.
         pytest.param("/generate", id="the-post-endpoint-has-no-get"),
         # A traversal attempt, to show nothing here maps a path onto a file:
         # the handler does not inherit ``SimpleHTTPRequestHandler``, so this is
@@ -619,24 +626,37 @@ def test_the_server_keeps_serving_after_a_miss(
     assert _request(running_server.server_port).status == 200
 
 
-def test_post_is_not_implemented_in_this_card(
+def test_post_is_routed_and_an_unhandled_method_still_is_not(
     running_server: server.LoopbackHTTPServer,
 ) -> None:
-    """F-5, guardrail G-5: submission is CARD-020's, and says so honestly.
+    """CARD-020 added exactly one method, and 501 stayed for the rest.
 
-    ``BaseHTTPRequestHandler`` chooses 501 for a method with no ``do_*``, so
-    the form posts to an endpoint that reports itself unimplemented rather than
-    to one this card half-built. The *status* is the stdlib's; the *response*
-    is ``WebUIRequestHandler.send_error``'s (``501 Not Implemented``,
-    ``text/plain``, ``nosniff``) — pinned by
+    This test asserted the opposite until CARD-020: the form posted to an
+    endpoint that answered ``501 Not Implemented`` because there was no
+    ``do_POST`` to dispatch. There is one now, and the useful thing left to pin
+    is that adding it did not turn every unknown method into a route —
+    ``BaseHTTPRequestHandler`` still chooses 501 for a method with no ``do_*``,
+    and the *response* to it is still ``WebUIRequestHandler.send_error``'s
+    (``text/plain``, ``nosniff``), pinned by
     ``TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound``.
+
+    The ``POST`` here is deliberately one the domain refuses: what is being
+    checked is that it was *routed*, not what it generated, and an empty body
+    reaches the same "no grid extent" refusal ``nonogram generate`` with no
+    ``--size`` gets. The submission path itself is
+    ``tests/test_web_submission.py``'s.
     """
-    response = _request(
-        running_server.server_port, method="POST", path=pages.FORM_ACTION, body=b"size=10"
+    posted = _request(
+        running_server.server_port, method="POST", path=pages.FORM_ACTION, body=b""
+    )
+    unhandled = _raw_exchange(
+        running_server.server_port, b"PUT / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n"
     )
 
-    assert response.status == 501
-    assert not hasattr(handler.WebUIRequestHandler, "do_POST")
+    assert hasattr(handler.WebUIRequestHandler, "do_POST")
+    assert posted.status == 200
+    assert b'data-outcome="failure"' in posted.body
+    assert b" 501 " in unhandled.splitlines()[0]
 
 
 def test_a_body_sent_with_a_get_is_never_read(
@@ -1322,10 +1342,11 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
       form's extent field for CARD-028. So for exactly the interval between
       those two cards the *same option* is spelled differently on the two
       adapters. This is the ordering consequence G-7 predicts: the web adapter
-      is feature-incomplete, not broken — its ``size`` field is still a plain
-      text input that nothing wires to a request (CARD-020 owns that), so
-      nothing about it is wrong today, only older. CARD-028 renames it and both
-      halves of this assertion drop back to their pre-CARD-027 shape.
+      is feature-incomplete, not broken — its ``size`` box takes one number and
+      CARD-020 wires that number to ``width``, leaving ``height`` unstated,
+      which is precisely what the CLI's own bare ``--size N`` does (FR-023).
+      What the form cannot yet say is ``WxH``. CARD-028 adds it and both halves
+      of this assertion drop back to their pre-CARD-027 shape.
     """
     argv_options = set(vars(cli.build_parser().parse_args(["generate"]))) - {
         "command",
@@ -1496,8 +1517,21 @@ class TestWebDocstrings_MatchTheShippedPackage:
     """
 
     def test_the_package_imports_exactly_what_the_docstring_names(self) -> None:
-        """"the difficulty and export registries" — and nothing else outward."""
-        assert _web_component_imports() - {"web"} == {"difficulty", "export"}
+        """The four the docstring names, and nothing else.
+
+        ``difficulty`` and ``export`` are the registries ``pages.py`` renders
+        the form's choices from; ``orchestrator`` and ``errors`` are CARD-020's
+        — the pipeline a submission drives and the one hierarchy it catches.
+        Pinned as an exact set so a fifth import has to be a deliberate edit
+        here, which is the only thing standing between this package and a
+        capability module imported "just to check a value" (ADR-0019/R1).
+        """
+        assert _web_component_imports() - {"web"} == {
+            "difficulty",
+            "errors",
+            "export",
+            "orchestrator",
+        }
 
     def test_the_docstring_claims_no_import_the_package_does_not_make(self) -> None:
         """The specific false sentence, pinned so it cannot come back.
@@ -1516,18 +1550,23 @@ class TestWebDocstrings_MatchTheShippedPackage:
                 assert component in imported, component
 
     def test_the_docstring_claims_no_responsibility_the_package_lacks(self) -> None:
-        """Request parsing and the ``GenerationRequest`` mapping are forthcoming.
+        """The ``GenerationRequest`` mapping is claimed, so it has to be here.
 
-        Pinned as: the docstring still names the mapping (a reader needs to know
-        where it went), and every sentence that names it also names the card that
-        brings it. A present-tense claim would not.
+        The claim was future-tense until CARD-020 and this test held it to
+        naming the card that would bring it. It is present-tense now, so what it
+        has to be held to is the code: a module that builds the request, and a
+        ``POST`` route that runs one. Behavioural rather than textual on
+        purpose — ``submission.read`` is *called* with a real body, so a module
+        that had been reduced to a stub would fail here.
         """
         text = " ".join((web.__doc__ or "").split())
         sentences = [s for s in text.split(". ") if "GenerationRequest" in s]
 
         assert sentences, "the docstring no longer says where the mapping lives"
-        for sentence in sentences:
-            assert "CARD-020" in sentence, sentence
+        assert ("POST", pages.FORM_ACTION) in handler.ROUTES
+        built = submission.read("mode=library&library_key=cat&size=20").request
+        assert isinstance(built, orchestrator.GenerationRequest)
+        assert (built.mode, built.library_key, built.width) == ("library", "cat", 20)
 
     def test_the_docstring_does_not_credit_the_stdlib_with_writing_the_501(self) -> None:
         """The claim CARD-022's own ``send_error`` override falsified.
@@ -1570,25 +1609,25 @@ class TestWebDocstrings_MatchTheShippedPackage:
             assert "and nothing else" not in sentence, sentence
             assert "Host" in sentence, sentence
 
-    def test_the_package_really_does_no_request_mapping_yet(self) -> None:
-        """The behavioural half of the claim above, so it is not prose-on-prose."""
-        assert not hasattr(handler.WebUIRequestHandler, "do_POST")
-        assert {method for method, _ in handler.ROUTES} == {"GET"}
+    def test_the_package_serves_exactly_the_two_routes_it_describes(self) -> None:
+        """The two methods the docstring names, and no third.
 
-        assert _WEB_SOURCES, "no web adapter sources found"
-        for path in _WEB_SOURCES:
-            source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source)
-            docstrings = _docstring_nodes(tree)
-            code = [
-                node
-                for node in ast.walk(tree)
-                if isinstance(node, ast.Constant) and id(node) not in docstrings
-            ]
-            assert not any(
-                isinstance(node.value, str) and "GenerationRequest" in node.value
-                for node in code
-            ), path.name
+        The inverse of what this test asserted for CARD-019, which pinned the
+        *absence* of ``do_POST`` while the docstring said the submission was
+        forthcoming. Both halves have moved together: the docstring says
+        ``GET /`` renders the form and ``POST /generate`` runs it, and that is
+        exactly the pair of ``do_*`` methods the handler defines. A ``do_PUT``
+        added without a sentence to go with it fails here.
+        """
+        text = " ".join((web.__doc__ or "").split())
+
+        assert "``GET /`` renders the form and ``POST /generate`` runs it" in text
+        assert {
+            name.removeprefix("do_")
+            for name in vars(handler.WebUIRequestHandler)
+            if name.startswith("do_")
+        } == {"GET", "POST"}
+        assert {method for method, _ in handler.ROUTES} == {"GET", "POST"}
 
 
 #: One request shape per status the standard library answers before ``do_GET``
@@ -1598,14 +1637,17 @@ _STDLIB_ERROR_REQUESTS: dict[int, bytes] = {
     400: b"this is not a request line\r\n\r\n",
     414: b"GET /" + b"x" * 70000 + b" HTTP/1.0\r\n\r\n",
     431: b"GET / HTTP/1.0\r\n" + b"".join(b"X-%d: 1\r\n" % n for n in range(150)) + b"\r\n",
-    501: b"POST / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n",
+    # ``PUT`` rather than ``POST`` since CARD-020: ``POST`` has a ``do_POST``
+    # now and is routed, so the method with no ``do_*`` has to be one that
+    # really has none.
+    501: b"PUT / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n",
     505: b"GET / HTTP/9.9\r\n\r\n",
 }
 
 #: The exact status line each must now produce. Spelled out rather than looked
 #: up in ``BaseHTTPRequestHandler.responses``, so the reason phrase is asserted
 #: against a second source and not against the handler's own table. Note the
-#: 501: the standard library's reads ``501 Unsupported method ('POST')``, with
+#: 501: the standard library's reads ``501 Unsupported method ('PUT')``, with
 #: the request's method in the *reason phrase*.
 _STDLIB_ERROR_STATUS_LINES: dict[int, bytes] = {
     400: b"HTTP/1.0 400 Bad Request",
@@ -1659,7 +1701,7 @@ class TestWebHandler_ErrorResponsesMatchTheDeclaredNosniffBound:
     @pytest.mark.parametrize(
         ("request_bytes", "echo"),
         [
-            pytest.param(b"POST / HTTP/1.0\r\n\r\n", b"POST", id="method"),
+            pytest.param(b"PUT / HTTP/1.0\r\n\r\n", b"PUT", id="method"),
             pytest.param(
                 b"<script>alert(1)</script> / HTTP/1.0\r\n\r\n", b"script", id="markup-method"
             ),

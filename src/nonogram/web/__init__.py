@@ -9,42 +9,49 @@ package to launch it, because ADR-0008 keeps one console entry point and
 ordered pair, not a mutual exemption).
 
 *Direction* (ADR-0007): this package imports inward only, and never outward or
-laterally. What it imports today is the difficulty and export registries
-(``pages.py`` reads them to render the form's choices); the orchestrator is
-inward of it too and it is *permitted* to import it, but as shipped it does
-not — there is nothing yet to hand the orchestrator. Nothing inward of this
-package ever imports back. The structural guard in ``tests/test_cli.py`` knows
-exactly two adapter names — ``cli`` and ``web`` — at one rank, so a capability
-module still cannot import either of them, nor another capability laterally.
+laterally. It imports the orchestrator, to hand it a request and get a puzzle
+back; ``errors``, to catch the one hierarchy that pipeline raises; and the
+difficulty and export registries, which ``pages.py`` reads to render the form's
+choices. Nothing inward of this package ever imports back. The structural guard
+in ``tests/test_cli.py`` knows exactly two adapter names — ``cli`` and ``web``
+— at one rank, so a capability module still cannot import either of them, nor
+another capability laterally.
 
-*HTTP only* (ADR-0010, ADR-0019/R1, guardrail G-4): everything here is HTTP.
-Today that is routing and rendering; request parsing and the mapping of form
-fields onto ``orchestrator.GenerationRequest`` are CARD-020's, excluded from
-this package by CARD-019's guardrail G-5 and not present in it. Not one domain
-rule lives here, and none will: when CARD-020 adds the mapping, a form
-submitted with ``size=5000`` is to build a request carrying 5000 and be
-rejected inward by the same ``SizeOutOfRange`` the CLI surfaces, exactly as a
-``--size 5000`` argv would be — which is how AC-050's "the same domain error
-the CLI would raise" becomes true by construction rather than by parallel
-maintenance. That is a statement about the card that adds the code, not about
-this one.
+*HTTP only* (ADR-0010, ADR-0019/R1, guardrail G-2): everything here is HTTP —
+routing, rendering, request parsing, and the mapping of form fields onto
+``orchestrator.GenerationRequest``. Not one domain rule lives here: a form
+submitted with ``size=5000`` builds a request carrying 5000 and is rejected
+inward by the same ``SizeOutOfRange`` the CLI surfaces, exactly as a
+``--size 5000`` argv is — which is how AC-050's "the same domain error the CLI
+would raise" is true by construction rather than by parallel maintenance. The
+same holds for a density, a difficulty tier that does not exist, and a name
+that is present but unusable.
 
 Module layout, mirroring the concerns ADR-0020 names::
 
-    server.py   the socket: loopback-only bind, the serve loop, shutdown
-                (``create_server`` binds, ``serve_on`` runs — two calls, so
-                ``cli`` can report a bind failure without also owning the loop)
-    handler.py  the router: one ``(method, path)`` table, one handler class
-    pages.py    the HTML: the form page as a string constant (no templating)
+    server.py      the socket: loopback-only bind, the serve loop, shutdown
+                   (``create_server`` binds, ``serve_on`` runs — two calls, so
+                   ``cli`` can report a bind failure without also owning the
+                   loop)
+    handler.py     the router: one ``(method, path)`` table, one handler class
+    submission.py  the mapping: one posted body -> one ``GenerationRequest``
+    pages.py       the HTML: the form, the result page, the failure page
 
-Scope of *this* card (CARD-019): ``GET /`` renders the form. Submitting it is
-CARD-020's (``POST /generate`` plus a result page) and image upload is
-CARD-021's; until then a ``POST`` gets a ``501``. The *status* is the standard
-library's — there is no ``do_POST`` for it to dispatch — but the *response* is
-this package's: :meth:`handler.WebUIRequestHandler.send_error` writes it, so
-it reads ``HTTP/1.0 501 Not Implemented`` as ``text/plain`` with ``nosniff``
-and echoes nothing off the wire, where the stdlib's own would have replied
-``501 Unsupported method ('POST')`` as ``text/html``.
+``GET /`` renders the form and ``POST /generate`` runs it: the request is
+mapped, ``orchestrator.generate`` and ``orchestrator.export_puzzle`` are called
+synchronously on the request thread (ADR-0021), and the answer is either the
+files written or a structured failure page carrying the domain error's own
+message (EC-003). Image upload is still CARD-021's — the form renders no file
+control and the mapping never fills ``GenerationRequest.image`` — so an
+``image``-mode submission fails inward with the missing-``--image`` error, which
+is the right answer to it (AC-008).
+
+A method with no ``do_*`` at all still gets a ``501``. The *status* is the
+standard library's, but the *response* is this package's:
+:meth:`handler.WebUIRequestHandler.send_error` writes it, so it reads
+``HTTP/1.0 501 Not Implemented`` as ``text/plain`` with ``nosniff`` and echoes
+nothing off the wire, where the stdlib's own would have replied
+``501 Unsupported method ('PUT')`` as ``text/html``.
 
 Access control is the bind address plus the ``Host`` check in
 :mod:`nonogram.web.handler`, and no authentication at all: the server listens
@@ -52,8 +59,9 @@ on 127.0.0.1 only, refuses a ``Host`` naming anything else, and reads no
 credential (NFR-003, AC-052, AC-053, BCON-0001). The absence of an auth check
 is the decision, not an oversight. Browser-mediated cross-origin reach is
 closed by neither — a page on any origin can aim a request here with an
-allowlisted ``Host`` and be served (NFR-004 / CON-010, unimplemented, owned by
-CARD-020).
+allowlisted ``Host`` and be served (NFR-004 / CON-010, unimplemented, and
+**not** closed by CARD-020, which added the ``POST`` that made it able to write
+files; see that card's worktree notes).
 """
 
 from __future__ import annotations
