@@ -1,6 +1,6 @@
 # CARD-021: Image upload via hand-rolled multipart parsing
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 14
 **Depends on:** CARD-020
 **Touches:** src/nonogram/web/**.py, tests/test_web_upload.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 8.5 (cycle 1/3)
+**Started:** 2026-09-03T19:22:00Z
+**Closed:** 2026-09-03T19:40:00Z
+**Actual:** 0.3d
+**Merge commit:** ff534ab0f8b00e94d3652c07ea6812ca22327079
 **Blocked by:** —
 
 ## What to implement
