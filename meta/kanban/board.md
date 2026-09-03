@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-03 10:05_
+_Updated: 2026-09-03 11:15_
 
 <!-- forge:wave wave=12 start=2026-08-30 -->
 
@@ -26,7 +26,7 @@ _Updated: 2026-09-03 10:05_
 | 16 | CARD-023 ✓ done · CARD-025 ✓ done · CARD-024 ✓ done | ✓ done |
 | 17 | CARD-026 P1 | ✓ done |
 | 18 | CARD-027 ✓ done | ✓ done |
-| 19 | CARD-028 P2, CARD-030 ✓ done, CARD-031 ✓ done, CARD-032 ✓ done | ⏸ CARD-028 ready — CARD-020 done |
+| 19 | CARD-028 ✓ done, CARD-030 ✓ done, CARD-031 ✓ done, CARD-032 ✓ done | ✓ done |
 | 20 | CARD-033 ✓ done, CARD-034 ✓ done | ✓ done |
 | — | CARD-018 ✓ done · CARD-029 P3 | ⏸ ready (CARD-023/025 both done) |
 
@@ -66,10 +66,10 @@ _(none)_
 
 ## Ready
 - **CARD-021** P2 · Image upload via hand-rolled multipart parsing  _(wave 14/15 — UNBLOCKED, CARD-020 done)_
-- **CARD-028** P2 · Web form's size field accepts the `NxM` extent token  _(wave 19 — UNBLOCKED, both halves' dependencies done)_
 - **CARD-029** P3 · Retire the last stale 10..50 range claims left by CON-011  _(no wave — READY, CARD-023/025 done)_
 
 ## Done
+- **CARD-028** Web form's size field accepts the `NxM` extent token
 - **CARD-020** Web UI generation submission — form to pipeline to result page, plus the cross-origin refusal (NFR-004/CON-010)
 - **CARD-033** A bare `--size N` derives the shorter side from the source's shape
 - **CARD-031** Image-mode puzzles auto-name from the source file's stem

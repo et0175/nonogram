@@ -1,6 +1,6 @@
 # CARD-028: Web form's size field accepts the `NxM` extent token
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/028-web-form-extent-token
-**Worktree:** ../PythonProject4-card-028
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-5
 **Idea:** —
 **Wave:** 19
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, tests/test_web_submission.py
 **Review score:** 9.0 (cycle 1, gate passed first time)
 **Started:** 2026-09-03T10:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-03T11:15:00Z
+**Actual:** 0.1d
+**Merge commit:** b5eba6e588f3af1836b3395b2c995c5913eb8c28
 **Blocked by:** —
 
 ## What to implement

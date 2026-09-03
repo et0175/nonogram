@@ -1,0 +1,327 @@
+version: 1
+generated_at: "2026-09-03T09:06:36Z"
+target: "CARD-028 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-028, branch card/028-web-form-extent-token, diff main...HEAD (impl 1615f47 + 0628e39 + 8e3d7c9)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/web/submission.py"
+    - "src/nonogram/web/pages.py"
+    - "src/nonogram/web/server.py (API surface)"
+    - "src/nonogram/cli.py (_EXTENT_SEPARATOR, _extent_token, module docstring)"
+    - "src/nonogram/sourcing/random_grid.py (validate_extent, source_shape)"
+    - "tests/test_web_submission.py (full diff + corpus)"
+    - "tests/test_web_server.py (G-2 markup test, EC-004 property header, option-surface test)"
+    - "meta/architecture/requirements.yml (FR-018, AC-062..065, CON-011)"
+    - "meta/architecture/inputs/raw-requirements.md (intake precedent)"
+    - "meta/kanban/cards/CARD-028.md, meta/kanban/board.md, meta/kanban/gantt.md"
+    - "CLAUDE.md"
+  not_reached:
+    - "src/nonogram/web/handler.py (unchanged by the diff; read only via its behaviour in live POSTs)"
+    - "meta/architecture/adrs/ (ADR-0019/0021/0022 read only through the card's quoted rule text and requirements.yml)"
+    - "rendered form UI — no meta/design/, no screenshots, no a11y or runtime log; review.visual degraded to static"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 464, removed: 37 }
+  production_diff: { files: 2, added: 152, removed: 37 }
+  max_fan_in:
+    symbol: "nonogram.web.submission.read"
+    callers: 1
+    note: "handler._generate is the sole caller; submission._extent_token is new and private, called once from read()"
+  tests_cover_change: true
+  suite:
+    baseline_50b0dd5: "1590 passed, 1 xfailed in 42.57s (re-derived in a clean worktree of the branch's parent)"
+    branch_8e3d7c9: "2298 passed, 1 xfailed in 43.35s"
+    delta: 708
+    delta_accounted: "369 (arm 1) + 335 (arm 2, corpus minus the empty string) + 1 (corpus-size guard) + 3 (named CARD-028 tests) = 708 — exact"
+    file_collection: "tests/test_web_submission.py collects 66 on main, 774 on branch"
+    wall_clock_cost: "+0.78s (+1.8%)"
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — repository's first commit is 2026-08-27 (7 days old); the 12-month churn window has no history to mine. Raw counts on the touched files: submission.py 3 commits / 1 fix-ish, pages.py 6 / 3, tests/test_web_submission.py 4 / 2 — too few to rank as hotspots."
+    cochange_missing: "no_eligible_fact — same 7-day window. submission.py's only co-change peers are pages.py, handler.py and tests/test_web_submission.py; handler.py is absent from this diff and that absence was verified benign (it calls submission.read and renders whatever comes back — confirmed by live POSTs of 20x30 / 60x60 / 20x60 / 30x / 30X20)."
+
+system_contract:
+  rules_checked: 16
+  holds: 11
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no dependency added: submission.py imports only stdlib (urllib.parse, dataclasses, pathlib) plus nonogram.{export,orchestrator,web.pages}; TestDependencyBaseline_IsExactlyPillowAndNumpy's arms (tests/test_export_pdf.py:1230) green in the 2298-pass run"
+    - "ADR-0019/R1 ✓ holds — checker green on 8e3d7c9: tests/test_cli.py::test_every_import_in_the_package_points_inward and tests/test_web_server.py::test_the_web_package_imports_no_domain_validator both pass; grep confirms web/ names no validate_size/validate_density/validate_extent, and submission._extent_token applies no bound (mutant M3, an adapter-side 10..30 check, fails 347 tests)"
+    - "ADR-0021/R1 ✓ holds — handler.py is not in the diff at all (git diff main...HEAD names 4 files, none of them handler.py); no job store, polling endpoint, worker handoff or chunked response introduced"
+    - "ADR-0022/R1 ✓ holds — the diff removes the last scalar path (numbers[\"size\"]) and builds width/height from a pair; tests/property/test_grid_dimensions.py::test_no_public_boundary_reduces_a_grid_to_one_scalar green"
+    - "ADR-0022/R2 ✓ holds — the card's own EC. Adapter parses only; live POST size=60x60 -> 'grid width must be between 10 and 30 inclusive, got 60', size=20x60 -> 'grid height must be between 10 and 30 inclusive, got 60', nothing written in either case; TestValidateExtent_RejectsSideAboveThirty's arm (tests/test_sourcing_random.py:150) green"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff, and web/submission.py never fills GenerationRequest.image (module docstring, CARD-021)"
+    - "ADR-0022/R4 ✓ holds — the bare reading is unchanged: _extent_token(\"20\") -> (20, None), asserted for all 59 bare tokens in the corpus against cli._extent_token; mutant M2 (drop the second side, collapsing NxM onto the bare reading) fails 210 tests"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver/ is untouched by the diff"
+    - "CON-009 ✓ holds — tests/test_web_server.py::TestWebServer_BindsLoopbackOnlyByDefault green on 8e3d7c9; no server/bind code in the diff"
+    - "CON-010 ✓ holds — PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest (logical id, 3 arms at tests/test_web_server.py:1791ff) green in the 912-test web run; the check ref that was dead when this card was cut now resolves"
+    - "CON-011 ✓ holds — both adapters, both axes: live web POSTs of 60x60 and 20x60 are refused by the domain naming the offending axis, writing nothing; PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard is image-mode only; the web adapter never fills the image field"
+    - "INV-001 ✓ holds — the live 20x30 export carries 30 row clue sets and 20 column clue sets; TestComputeClues_MatchesGridExactly (tests/test_clues.py) green"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export/ and the uniqueness gate are untouched by the diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry/resample/nudge code in the diff"
+    - "INV-004 ✓ holds — every reachable web extent is judged: with NxM now reachable the adapter can for the first time build a non-None height, and the domain refuses an out-of-range one (live 20x60) exactly as it refuses an out-of-range width; TestGenerateRandom_{AcceptsMaxSide30,RejectsSideAbove30,RejectsSideBelow10} green"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 1958
+    title: "CARD-028 falsifies the docstring of test_the_form_offers_the_same_option_surface_as_the_cli, which names this card by number"
+    description: |
+      `test_the_form_offers_the_same_option_surface_as_the_cli` (tests/test_web_server.py:1940-1975)
+      documents the CLI/web option divergence, and its docstring makes three claims that this
+      diff turns false:
+
+        * "its ``size`` box takes one number" (line 1964) — as of this card it takes `N` or `NxM`.
+        * "What the form cannot yet say is ``WxH``" (line 1967) — the form now says it;
+          `pages.py:178-181` advertises `WxH` and `submission._extent_token` parses it.
+        * "CARD-028 adds it and both halves of this assertion drop back to their pre-CARD-027
+          shape" (line 1967-1968) — a prediction that did not come true. The assertion at
+          lines 1975-1976 is unchanged and still correct, because the residual divergence is a
+          *naming* one (argv dest `extent` vs form field `size`), not the capability gap the
+          docstring attributes it to.
+
+      The assertion still passes and still guards what it should, so nothing is broken. What is
+      wrong is the explanation: the docstring is the mechanism by which the next reader learns
+      *why* the two sets differ, and it now tells them the web adapter is "feature-incomplete"
+      in exactly the way this card completed. This is the same overclaiming-prose defect class
+      the project has been closing for ten cards, and the docstring pre-registers this card as
+      the one obliged to reconcile it.
+    suggestion: |
+      Edit the third bullet of that docstring (tests/test_web_server.py:1958-1968): state that
+      CARD-028 closed the capability half of the divergence, and that what remains is the
+      argv-dest-vs-form-field-name spelling (`extent` vs `size`), which is why the assertion
+      keeps its shape rather than dropping back. Two or three sentences; no assertion change.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_web_submission.py
+    line: 1509
+    title: "The 200-string fuzz arm contributes no discriminating power the structured groups do not already have"
+    description: |
+      Measured, not asserted. The corpus is 369 tokens / 310 distinct, from four sources:
+      9 named shapes, 54 bare-sweep values, 6 int-tolerance probes, a 100-pair NxM product,
+      and 200 fuzz draws (`tests/test_web_submission.py:1509-1512`).
+
+      Kill counts per source, computed against six candidate mutants of `_extent_token`
+      (three-part token allowed / second side dropped / adapter-side 10..30 check / uppercase
+      separator / `.strip()` before split / empty half accepted):
+
+                            named  bare  tolerance  NxM-product  fuzz-200
+        3-part allowed          1     0          0            0         0
+        drop-height             0     0          0          100         4
+        adapter range check     0    47          2           70        52
+        uppercase separator     1     0          0          100         6
+        strip() before split    0     0          0            0         0   (equivalent mutant)
+        empty half accepted     2     0          0            0         2
+
+      The fuzz arm kills nothing that a structured group does not already kill, for any mutant.
+      Its composition explains why: 150 of 200 draws are distinct, **33 of them are the empty
+      string**, and 122 of 200 fall into the single already-saturated `non-int, one part`
+      category. Its one genuinely novel contribution across all 200 draws is `" 0x-4"` — the
+      only corpus token that combines an `int()` tolerance (leading space, leading sign) with
+      the `NxM` separator.
+
+      That last point is the useful half of this finding: the interaction cell is the one place
+      a native reimplementation would plausibly diverge from `cli._extent_token`, and the corpus
+      reaches it once, by accident, out of 200 random draws — while all 6 deliberate tolerance
+      probes are bare and all 100 product tokens are plain digits.
+
+      Two related weaknesses in the anti-shrink guard (`_MINIMUM_EXTENT_CORPUS = 250`,
+      tests/test_web_submission.py:1533-1541): it counts tokens, not distinct tokens, so a
+      future edit that collapsed the fuzz draw to 200 empty strings would still pass; and the
+      59 duplicate tokens mean arm 1 runs `""` 34 times.
+    suggestion: |
+      Cut the fuzz draw from 200 to ~30-40, and spend the saved cases on the empty interaction
+      cell: add explicit tolerance-plus-separator tokens such as `" 20x30 "`, `"+20x-30"`,
+      `"2_0x3_0"`, `"20x 30"`, `"20x+30"`. That trades ~330 near-duplicate cases for five that
+      probe the only shape where the two parsers could realistically part company. Also assert
+      `len(set(_EXTENT_TOKEN_CORPUS)) >= _MINIMUM_EXTENT_CORPUS` rather than `len(...)`, so the
+      guard measures diversity rather than length.
+
+      Not a defect in what is there — the named / bare / tolerance / NxM-product groups
+      (169 tokens) are well-structured and each earns its kills, wall-clock cost is +0.78s
+      total, and building a large seeded corpus by hand with a minimum-count assertion is
+      CLAUDE.md's stated convention. This is a proportionality note, not a correctness one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: compliance
+    type: gap
+    file: meta/architecture/inputs/raw-requirements.md
+    line: 138
+    title: "The missing web-surface acceptance criterion has no durable intake record"
+    description: |
+      Verified: AC-062..AC-065 are all CLI-phrased ("the CLI invoked with `--size 30x20`",
+      requirements.yml:628-658), FR-018's own statement names only the CLI ("The CLI expresses
+      the pair through the single existing flag", requirements.yml:617-625), and CON-011 is the
+      one that carries the web adapter ("to both inbound adapters (CLI and web UI)",
+      requirements.yml:1578). So the gap the card describes is real, and the card correctly did
+      **not** invent an AC — `meta/architecture/requirements.yml` is untouched by the diff.
+
+      What is missing is the durable record. The card says the gap was "reported as an
+      architect-station gap in the decompose run report"; a run report is ephemeral and the
+      card file itself is deleted at `done`. This project's queue for exactly this is
+      `meta/architecture/inputs/raw-requirements.md`, and it carries a precedent from three days
+      ago in the same shape — line 138, "AMENDS AC-049's `given` ... Source: CARD-020
+      implementation + cycle-1 review", filed rather than hand-editing `requirements.yml`.
+      Nothing in that file mentions CARD-028 or the web extent surface.
+
+      Judgement on the second half of the question: the EC **is** adequate evidence for the
+      card's behavioural claim — the property is real, it is checked against an independent
+      oracle, and five injected mutants of the parser are all killed. What the EC cannot do is
+      record that `requirements.yml` still owes a web-surface criterion.
+    suggestion: |
+      Append one entry to `meta/architecture/inputs/raw-requirements.md` in the existing style:
+      FR-018/CON-011 apply to both inbound adapters but AC-062..AC-065 are CLI-phrased, so the
+      web surface of the extent pair has no acceptance criterion; source CARD-028 decompose +
+      cycle-1 review, 2026-09-03; the shipped behaviour to formalize is
+      `PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter`. Do not hand-edit requirements.yml.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-028.md
+    line: 47
+    title: "The card overstates FR-018: its statement names only the CLI, not the web adapter"
+    description: |
+      The card's requirement-gap paragraph says "FR-018 and CON-011 both state that the rule
+      applies to the web adapter". CON-011 does, verbatim ("to both inbound adapters (CLI and
+      web UI)", requirements.yml:1578). FR-018 does not: its statement is
+      "Carry grid extent on a generation request as a WIDTH and a HEIGHT rather than as one
+      square size. **The CLI** expresses the pair through the single existing flag..."
+      (requirements.yml:617-625). FR-018 is adapter-agnostic in its subject and CLI-specific in
+      every example it gives; it never mentions the web UI.
+
+      Small, and it does not change the conclusion — CON-011 alone carries the obligation, and
+      the gap is real either way — but the card's prose is the artifact that survives, and this
+      project's standing concern is prose that claims more than the source says.
+    suggestion: |
+      Reword to "CON-011 states the rule applies to both inbound adapters, and FR-018 carries
+      the pair itself while phrasing all of its criteria for the CLI". One sentence on the card.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: risk
+    file: tests/test_web_server.py
+    line: 2002
+    title: "G-2's 'no numeric input type' half is not mechanically pinned (pre-existing)"
+    description: |
+      `test_the_form_constrains_no_value_in_the_browser` asserts the absence of `min=`, `max=`,
+      `required` and `pattern=` from FORM_PAGE, which covers four of the five things guardrail
+      G-2 names. It does not check for a numeric input `type` (`type="number"`), which G-2 and
+      `pages.py`'s own docstring (line 149, "no numeric ``type``") both list.
+
+      Not introduced by this card and not violated by it — grep confirms no `type="number"`
+      anywhere in `src/` or `tests/`, and the only `type=` values in the form are `text`,
+      `checkbox` and `submit`. Noted because the card's G-2 cites this test as the enforcement
+      and the citation is one item short of the guardrail.
+    suggestion: |
+      Add `'type="number"'` to the tuple at tests/test_web_server.py:2002. One token.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/web/pages.py
+    line: 178
+    title: "Nobody has looked at the rendered form — review.visual degraded to static"
+    description: |
+      This card changes user-facing markup: the `size` field's label gained a two-clause
+      explanation with two inline `<code>` spans, and `inputmode="numeric"` was removed. There
+      is no `meta/design/` in this repository, so `review.visual` degrades to the static check
+      only, and no screenshot, runtime log, a11y scan or baseline diff was captured. The static
+      checks that survive the degradation pass: the label is a real `<label>` wrapping the
+      input (so the control is named), no ad-hoc colours or px sizes were introduced (the
+      change is text plus two `<code>` elements styled by the existing `_STYLE`), and no
+      banned default appears.
+
+      What is unverified: how a two-line label with two `<code>` spans actually renders and
+      wraps, on desktop and on a narrow viewport, against the other single-line labels in the
+      same form.
+    suggestion: |
+      Either open http://127.0.0.1:8000/ once and look, or accept that this project has no
+      design baseline and record that the form's visual result is unverified by construction.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  ran: true
+  target: "src/nonogram/web/submission.py"
+  scope: "tests/test_web_submission.py (774 tests, ~3s per run)"
+  pre_md5: "398f8f3397e1f0c2a285fe04b15fa5b9"
+  post_md5: "398f8f3397e1f0c2a285fe04b15fa5b9"
+  restore_verified: "md5 identical after every mutant; `git diff --stat` empty after each and at the end of the review; pages.py md5 d3ced69672610b6762858009e8552550 unchanged"
+  mutants:
+    - { id: M1, mutation: "len(parts) > 2 -> len(parts) > 3 (accept a 3-part token)", result: killed, failures: 2 }
+    - { id: M2, mutation: "return (sides[0], None) always (drop the second side)", result: killed, failures: 210 }
+    - { id: M3, mutation: "adapter-side `if not 10 <= sides[0] <= 30: return None`", result: killed, failures: 347 }
+    - { id: M4, mutation: "_EXTENT_SEPARATOR = 'x' -> 'X'", result: killed, failures: 216 }
+    - { id: M5, mutation: "read(): a malformed token no longer appends an `unreadable` entry", result: killed, failures: 123 }
+  note: "5/5 killed. M1 is killed by exactly 2 tests — both arms over the single named token '3x4x5'; the 200-draw fuzz arm kills it zero times (see F-002)."
+
+visual_check:
+  ran: static_only
+  reason: "no meta/design/ in this repository; review.visual degrades to static. No screenshots, runtime.log, a11y.log or visual-diff.log were provided or captured. The rendered form has not been looked at by anyone — see F-006."

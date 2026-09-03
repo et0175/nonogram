@@ -659,12 +659,25 @@ links:
   - test_cli_bare_size_token_reaches_the_domain_unsquared
   - test_cli_rejects_malformed_size_token
   - test_cli_out_of_range_side_rejected_by_domain_not_argparse
+  - test_the_adapters_size_parsing_matches_cli_extent_token_for_every_token
+  - test_the_built_request_carries_the_same_pair_read_end_to_end
   notes: >-
     ADR-0010's split holds unchanged: splitting the NxM token is parsing
     (COMP-001/COMP-008), while the range check stays a pure domain function
     inward of both adapters — AC-065 is what pins that boundary. The web UI
     adapter is listed because FR-017 exposes the same option.
-  status: partial
+    COVERED 2026-09-03 by CARD-028 (merge b5eba6e), which taught the web form
+    the same `N` / `NxM` grammar and pinned it against `cli._extent_token` as an
+    oracle, so both adapters named above now build the pair. TWO CAVEATS, both
+    queued in raw-requirements.md and NOT applied here because requirements.yml
+    is not hand-edited: (1) FR-018's own statement still says "`--size 30` means
+    30x30", which CARD-033 changed to (30, None) — the existing entry amends
+    AC-063's `then` for exactly this and stops there; (2) FR-018 has NO
+    acceptance criterion for the web surface (AC-062..AC-065 are entirely
+    CLI-phrased), so CARD-028's behaviour is held by an engineering constraint
+    and by nothing in the model. `covered` here means the behaviour is
+    implemented and tested on both adapters, not that the model's text is right.
+  status: covered
 
 - req: FR-019
   description: "Random grid at configurable width x height, each side 10..30
@@ -919,7 +932,15 @@ links:
     yet. The range itself is a pure domain function every mode already reaches,
     so CARD-028 should inherit it rather than re-implement it; what is missing
     is a test proving the web adapter refuses an out-of-range side, and that is
-    CARD-028's to write. Flip to `covered` when it does.
+    CARD-028's to write.
+    BLOCKER DISCHARGED 2026-09-03: CARD-028 wrote it. The web adapter passes an
+    out-of-range side inward unjudged and the domain refuses it — verified live,
+    `60x60` -> "grid width must be between 10 and 30 inclusive, got 60", and
+    `20x60` -> the same on the HEIGHT, which no browser request could reach
+    before that card because the adapter could only ever produce height=None.
+    Still `partial` for a different reason than before: CARD-029 is open and
+    claims CON-011, to retire the stale 10..50 range claims left in the tree.
+    Flip to `covered` when CARD-029 ships.
   status: partial
 
 - req: CON-012

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-03
+- CARD-028 (feature): The browser form's size box now takes a rectangle too. Type `20` for a 20-cell longer side, or `20x30` for exactly 20 wide by 30 tall — the same two forms the command line accepts, spelled the same way. A value it cannot read comes back as "could not be read"; a value it can read but that is out of range comes back with the generator's own message naming which side is wrong.
 - CARD-020 (feature): The browser page can now actually make a puzzle. Fill in the form, press the button, and the same generator the command line uses runs and tells you which files it wrote. Bad input comes back as a readable message on the page — asking for a 60-cell grid says so — instead of a crash or a blank screen.
 - CARD-020 (compliance): The little web server now refuses requests that come from another website. Before this, any page open in another tab could quietly tell the generator to run and write files onto your disk, choosing the folder itself, for as long as `nonogram serve` was running. It now answers those with an error and writes nothing, while everything you do yourself in your own browser keeps working exactly as before.
 
