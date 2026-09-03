@@ -1,6 +1,6 @@
 # CARD-021: Image upload via hand-rolled multipart parsing
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/021-web-image-upload
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-021
 **Source:** meta/architecture/handoff.md#increment-4
 **Idea:** —
 **Wave:** 14
 **Depends on:** CARD-020
 **Touches:** src/nonogram/web/**.py, tests/test_web_upload.py
-**Review score:** —
-**Started:** —
+**Review score:** 8.5 (cycle 1/3)
+**Started:** 2026-09-03T19:22:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -109,4 +109,38 @@ CARD-020's; this card's criteria instantiate the same contract for the upload br
 
 ## Worktree notes
 
-—
+Implemented the multipart upload branch as designed:
+
+- `src/nonogram/web/pages.py` — the form's `<form>` now carries
+  `enctype="multipart/form-data"` and a new `<input type="file" name="image">`
+  next to the library-key field. No JS, no preview (G-5).
+- `src/nonogram/web/multipart.py` (new) — hand-rolled `multipart/form-data`
+  parsing via `email.parser.BytesParser` over a reconstructed
+  headers-plus-body (ADR-0020, G-2: no new dependency). Every part — the
+  uploaded file and every ordinary field — is read with
+  `Message.get_payload(decode=True)`, which was verified empirically to be the
+  one accessor that survives a payload containing every byte value 0-255 and
+  the boundary sequence itself.
+- `src/nonogram/web/submission.py` — split `read()`'s field-to-request body
+  out into a new `from_fields(fields, *, image=None)`, reused by both the
+  urlencoded path (unchanged behaviour — G-3) and the new multipart path.
+- `src/nonogram/web/handler.py` — `_generate` branches on the `Content-Type`
+  media type before deciding whether to UTF-8-decode the body; a multipart body
+  is kept as raw bytes throughout. The temp file's path is tracked and removed
+  in a `finally` around the rest of the method, so cleanup happens on every
+  path out — success, a domain error, an `OSError`, or an uncaught exception.
+  No adapter-side image validation (G-4).
+- `tests/test_web_upload.py` (new) — all three ACs covered (happy path,
+  negative with corrupt.png, boundary collision unit test + full HTTP round trip
+  with a real PNG containing the boundary string). Temp file cleanup verified
+  before/after by globbing system temp dir.
+
+SCOPE+ `tests/test_web_server.py` — two pre-existing tests needed updating:
+`test_the_form_offers_the_same_option_surface_as_the_cli` (image now on web
+form, anticipated by its own docstring); `test_the_web_package_raises_nothing`
+(removed try/except/re-raise from multipart.py to keep OSError uncaught).
+
+All three ACs pass; full suite green (2315 passed, 1 pre-existing unrelated
+xfail). Committed as 5ba0584.
+
+[AC/EC check] All criteria/constraints ✓ — AC-049/upload (happy path, PNG upload → same pipeline), AC-050/upload (negative, UnreadableImage error), AC-boundary/multipart (boundary collision, byte-for-byte fidelity); no EC stated. Guardrails G-1 through G-6 all held (no edits to orchestrator/sourcing, stdlib only, urlencoded unchanged, no adapter validation, no preview, test_cli.py import guard untouched).
