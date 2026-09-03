@@ -60,9 +60,11 @@ bound". Recorded in CARD-020's worktree notes.
 
 from __future__ import annotations
 
+import argparse
 import html
 import json
 import os
+import random
 import re
 import time
 import urllib.parse
@@ -374,6 +376,50 @@ class TestWebUI_SubmitRunsSamePipelineAndReportsFiles:
         assert built is not None
         assert (built.width, built.height) == cli._extent_token(str(_SIZE))
         assert (built.width, built.height) == (_SIZE, None)
+
+    def test_an_explicit_wxh_size_box_states_both_sides_exactly_as_argv_does(
+        self,
+    ) -> None:
+        """CARD-028's addition: ``WxH`` states both sides, unlike a bare ``N``.
+
+        The explicit counterpart of the test above, pinned the same way —
+        against ``cli._extent_token``'s own reading of ``"20x24"`` rather than
+        against the literal pair — so the two adapters cannot be given
+        different readings of one token without this failing.
+        """
+        built = submission.read(f"mode=library&library_key={_KEY}&size=20x24").request
+
+        assert built is not None
+        assert (built.width, built.height) == cli._extent_token("20x24")
+        assert (built.width, built.height) == (20, 24)
+
+    def test_an_explicit_wxh_size_box_builds_that_exact_rectangle(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path
+    ) -> None:
+        """The behavioural other half: a non-square ``WxH`` comes out non-square.
+
+        Library mode rescales its template to whatever rectangle it is asked
+        for (no aspect-ratio guard — that is CON-012's, for image mode only),
+        so this is also the one submission that shows a *stated* rectangle
+        surviving the pipeline unchanged, rather than a square either stated
+        or derived from a bare ``N`` (the test above and
+        ``test_the_derived_grid_is_the_square_the_criterion_names``).
+        """
+        _submit(
+            running_server.server_port,
+            {
+                "mode": "library",
+                "library_key": _KEY,
+                "size": "20x24",
+                "export_formats": ["json"],
+                "out": str(tmp_path),
+            },
+        )
+        exported = json.loads((tmp_path / f"{_KEY}.json").read_text(encoding="utf-8"))
+
+        assert (exported["request"]["width"], exported["request"]["height"]) == (20, 24)
+        assert len(exported["clues"]["rows"]) == 24
+        assert len(exported["clues"]["columns"]) == 20
 
     def test_the_derived_grid_is_the_square_the_criterion_names(
         self, running_server: server.LoopbackHTTPServer, tmp_path: Path
@@ -933,11 +979,14 @@ def test_a_body_the_adapter_cannot_read_never_starts_a_generation(
 ) -> None:
     """The one failure that is the adapter's own, and it is not a domain one.
 
-    ``size=twenty`` is not a number, so there is no number to send inward —
-    the same wall ``argparse``'s ``type=int`` puts up for the CLI, and
-    deliberately *not* a range check (the range is the domain's, AC-050).
-    The submission is refused before the pipeline is called at all, which is
-    asserted by making a call to it fail the test outright.
+    ``size=twenty`` is neither an ``N`` nor an ``NxM`` token — it carries no
+    ``x`` at all, so it falls to ``submission._extent_token``'s single-token
+    branch, where ``int("twenty")`` fails — so there is no number to send
+    inward. The same wall ``cli._extent_token`` puts up for the CLI's own
+    ``--size twenty`` (AC-064's web mirror), and deliberately *not* a range
+    check (the range is the domain's, AC-050). The submission is refused
+    before the pipeline is called at all, which is asserted by making a call
+    to it fail the test outright.
     """
 
     def never(*_args: object, **_kwargs: object) -> object:
@@ -951,8 +1000,36 @@ def test_a_body_the_adapter_cannot_read_never_starts_a_generation(
 
     assert response.status == 200
     assert _outcome(response.body) == pages.FAILURE
-    assert b"expected a whole number" in response.body
+    assert b"expected N" in response.body
+    assert b"whole numbers" in response.body
     assert b"twenty" in response.body
+
+
+def test_a_malformed_wxh_size_box_is_also_refused_before_the_pipeline_runs(
+    running_server: server.LoopbackHTTPServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CARD-028's malformed-token decision: refused at the adapter (AC-064's
+    web mirror), not passed inward the way an out-of-range value is (AC-050,
+    AC-065's web mirror).
+
+    ``30x`` states a separator with no second number after it — one of the
+    shapes ``cli._extent_token`` itself raises ``argparse.ArgumentTypeError``
+    for — so ``submission._extent_token`` refuses it the same way, and the
+    orchestrator is never reached, exactly as for ``size=twenty`` above.
+    """
+
+    def never(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("the orchestrator was called for an unreadable body")
+
+    monkeypatch.setattr(orchestrator, "generate", never)
+
+    response = _submit(running_server.server_port, {"mode": "library", "size": "30x"})
+
+    assert response.status == 200
+    assert _outcome(response.body) == pages.FAILURE
+    assert b"expected N" in response.body
+    assert b"30x" in response.body
+
 
 def test_a_mode_the_form_does_not_offer_is_refused_the_way_argv_is(
     running_server: server.LoopbackHTTPServer, monkeypatch: pytest.MonkeyPatch
@@ -1347,3 +1424,174 @@ def test_every_page_this_endpoint_can_return_escapes_what_it_echoes() -> None:
     for page in (result, failure):
         assert "<script>alert" not in page
         assert "&lt;script&gt;" in page or "&lt;img" in page
+
+
+# --------------------------------------------------------------------------
+# EC(ADR-0022/R2) — PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter
+#
+# For every value a browser can submit in the ``size`` box — well-formed,
+# malformed, out of range, empty — the (width, height) this module builds, and
+# whether it refuses the token outright, matches ``cli._extent_token``'s own
+# reading of the same text exactly. That equivalence is what proves
+# ``submission._extent_token`` applies no range, shape, or ratio judgement of
+# its own: a range check smuggled in here would make the adapter refuse an
+# in-range-*shaped* but out-of-range token ``cli._extent_token`` accepts
+# unvalidated (e.g. ``"60"``, ``"60x60"``), and a broken ``NxM`` split would
+# make the pair built for a well-formed token diverge from ``cli``'s (e.g.
+# always discarding the second side). Both mutations are caught by the
+# parametrised corpus below without either arm ever calling a domain
+# validator directly — which is the point: this module has none to call, and
+# the property is that its parsing decisions are exactly ``cli``'s, letting
+# ``sourcing.random_grid.validate_extent`` be the one place either adapter's
+# well-formed pair is ever judged for range (AC-050 and this module's other
+# tests exercise that judgement through the real pipeline).
+#
+# Two arms, over one corpus:
+#
+# * ``test_the_adapters_size_parsing_matches_cli_extent_token_for_every_token``
+#   calls ``submission._extent_token`` directly — the unit the property is
+#   actually about.
+# * ``test_the_built_request_carries_the_same_pair_read_end_to_end`` drives
+#   the same tokens through ``submission.read``'s full body-to-request path,
+#   so the property also covers the wiring between that function and the one
+#   above, not only the parsing function in isolation.
+#
+# Written as module-level functions rather than as a class, this project's
+# convention for a property (see ``PropertyTest_WebUI_SurfacesAnyPipelineErrorAsStructuredFailure``
+# above): the CamelCase name in this comment is the logical id the card's
+# engineering constraint cites, and each parametrised ``def`` below is one arm
+# of it.
+# --------------------------------------------------------------------------
+
+#: The nine refusals CARD-028 names explicitly, folded into the corpus rather
+#: than left as separate one-off assertions, so they are checked by the same
+#: property the generated cases are.
+_NAMED_MALFORMED_TOKENS = (
+    "30x", "x20", "3x4x5", "30X20", "30*20", "30,20", "30.5", "", "x",
+)
+
+#: Alphabet the random fuzz half of the corpus draws from: digits and the
+#: separator (so some fuzz strings land on a well-formed token by chance —
+#: the assertion below handles both outcomes uniformly), plus characters that
+#: never form a valid ``int`` and so bias the rest toward malformed.
+_EXTENT_FUZZ_ALPHABET = "0123456789x X*,._-"
+
+
+def _extent_token_corpus() -> tuple[str, ...]:
+    """Build the corpus by hand, deterministically, with no ``hypothesis``.
+
+    Four explicit sources, none of which is itself pre-classified as
+    well-formed or malformed — the tests below ask ``cli._extent_token``
+    that question for every token, so a corpus entry does not have to be
+    sorted into the right bucket by construction to be useful.
+
+    * :data:`_NAMED_MALFORMED_TOKENS`, the shapes CARD-028 names.
+    * Bare tokens spanning below, inside and above the domain's 10..30 range,
+      plus a handful that exercise ``int``'s own tolerances (leading sign,
+      surrounding whitespace, ``_`` digit separators) — the same tolerances
+      ``cli._extent_token`` inherits from ``int`` and this module documents
+      inheriting too.
+    * An explicit product of ``NxM`` tokens over a spread of sides that is
+      itself below/at/inside/above the range on each axis independently, so
+      the corpus includes tokens legal on one axis and not the other.
+    * 200 random fuzz strings of length 0..6 from :data:`_EXTENT_FUZZ_ALPHABET`,
+      drawn with a fixed-seed ``random.Random`` so the corpus is reproducible
+      across runs.
+    """
+    rng = random.Random(20260903)
+    tokens: list[str] = list(_NAMED_MALFORMED_TOKENS)
+
+    for n in range(-40, 121, 3):
+        tokens.append(str(n))
+    tokens += ["  20  ", "+15", "1_0", "0_9", "-0", " "]
+
+    sides = (-5, 0, 1, 9, 10, 15, 30, 31, 45, 200)
+    tokens += [f"{w}x{h}" for w in sides for h in sides]
+
+    tokens += [
+        "".join(rng.choice(_EXTENT_FUZZ_ALPHABET) for _ in range(rng.randint(0, 6)))
+        for _ in range(200)
+    ]
+
+    return tuple(tokens)
+
+
+_EXTENT_TOKEN_CORPUS = _extent_token_corpus()
+
+#: Read end-to-end through a form body rather than called directly, ``""``
+#: (and any fuzz draw that happens to also be ``""``) is indistinguishable
+#: from the field being left blank — ``urllib.parse.parse_qs`` drops an empty
+#: value, which is the "Blank means absent" rule the module docstring states
+#: (a *different*, already-tested case: an absent ``size`` box builds
+#: ``width=None, height=None`` rather than being refused). Excluded here so
+#: that already-documented asymmetry does not need restating as a special
+#: case inside the property's second arm.
+_EXTENT_TOKEN_CORPUS_AS_A_FIELD = tuple(t for t in _EXTENT_TOKEN_CORPUS if t != "")
+
+#: Below the corpus's actual size (369, as built above: 9 named shapes, 54
+#: bare sweep values, 6 tolerance probes, a 100-pair ``NxM`` product, 200 fuzz
+#: draws) with headroom, asserted explicitly so no future edit to any of the
+#: four sources can silently shrink the corpus toward nothing without this
+#: failing first.
+_MINIMUM_EXTENT_CORPUS = 250
+
+
+def test_the_extent_token_corpus_is_not_trivially_small() -> None:
+    """What makes the parametrised property below non-vacuous."""
+    assert len(_EXTENT_TOKEN_CORPUS) >= _MINIMUM_EXTENT_CORPUS, len(_EXTENT_TOKEN_CORPUS)
+    for named in _NAMED_MALFORMED_TOKENS:
+        assert named in _EXTENT_TOKEN_CORPUS
+
+
+def _cli_extent_or_none(raw: str) -> tuple[int, int | None] | None:
+    """``cli._extent_token(raw)``, with its refusal read as ``None``.
+
+    The corpus's oracle: what the CLI's own parser makes of ``raw``, with
+    ``argparse.ArgumentTypeError`` — the CLI's refusal — translated to the
+    same ``None`` :func:`nonogram.web.submission._extent_token` returns for
+    its refusal, so the two can be compared directly.
+    """
+    try:
+        return cli._extent_token(raw)
+    except argparse.ArgumentTypeError:
+        return None
+
+
+@pytest.mark.parametrize("raw", _EXTENT_TOKEN_CORPUS)
+def test_the_adapters_size_parsing_matches_cli_extent_token_for_every_token(
+    raw: str,
+) -> None:
+    """PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter, first arm.
+
+    ``submission._extent_token`` accepts exactly the tokens
+    ``cli._extent_token`` accepts, and builds exactly the same pair for each
+    one — including every well-formed token outside the domain's supported
+    range, which is what shows this module applies no range check of its own.
+    """
+    assert submission._extent_token(raw) == _cli_extent_or_none(raw), raw
+
+
+@pytest.mark.parametrize("raw", _EXTENT_TOKEN_CORPUS_AS_A_FIELD)
+def test_the_built_request_carries_the_same_pair_read_end_to_end(raw: str) -> None:
+    """PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter, second arm.
+
+    The same equivalence, reached through :func:`submission.read`'s full
+    body-to-request path rather than by calling ``_extent_token`` directly —
+    covering the wiring between the two, and confirming a refusal is reported
+    as an unreadable ``size`` field rather than as an unhandled exception
+    (EC-003) for every malformed token in the corpus, not only the ones the
+    rest of this module happens to submit by hand.
+    """
+    body = f"mode=random&density=30&size={urllib.parse.quote(raw, safe='')}"
+    submitted = submission.read(body)
+    expected = _cli_extent_or_none(raw)
+
+    if expected is None:
+        assert submitted.request is None, raw
+        assert any(reason.startswith("size:") for reason in submitted.unreadable), (
+            raw,
+            submitted.unreadable,
+        )
+    else:
+        assert submitted.request is not None, raw
+        assert (submitted.request.width, submitted.request.height) == expected, raw

@@ -141,14 +141,20 @@ code { word-break: break-all; }
 #: translation table — with one exception the field's own label states: ``size``
 #: is one box and ``GenerationRequest`` carries two sides, so a bare N fills
 #: ``width`` and leaves ``height`` for the domain to derive from the source's
-#: shape, exactly as a bare ``--size N`` does (FR-023, ADR-0022/R4). The
-#: ``WxH`` field is CARD-028's.
+#: shape, exactly as a bare ``--size N`` does (FR-023, ADR-0022/R4), and an
+#: explicit ``NxM`` fills both, exactly as an explicit ``--size NxM`` does
+#: (CARD-028, ``submission._extent_token``).
 #:
 #: Nothing here constrains a value: no ``min``/``max`` on ``size`` or
-#: ``density``, no ``required`` — an out-of-range number must reach the domain
-#: and be rejected there (AC-050, ADR-0019/R1, guardrail G-2), and an HTML
-#: validation attribute would stop it in the browser instead, which is the same
-#: mistake as putting ``choices=`` on ``--difficulty`` (ADR-0010).
+#: ``density``, no ``pattern``, no numeric ``type``, no ``required``. An
+#: out-of-range ``size`` (``60``, ``60x60``) must reach the domain and be
+#: rejected there (AC-050, ADR-0019/R1, guardrail G-2) — an HTML validation
+#: attribute would stop it in the browser instead, which is the same mistake as
+#: putting ``choices=`` on ``--difficulty`` (ADR-0010). A malformed ``size``
+#: (``30x``, ``30X20``) is refused by ``submission._extent_token`` before a
+#: request is built, exactly as ``cli._extent_token`` refuses it for the CLI —
+#: a shape rule about the token's *syntax*, not a value judgement about a
+#: puzzle, so it stays out of this markup either way.
 FORM_PAGE = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -169,9 +175,10 @@ FORM_PAGE = f"""<!DOCTYPE html>
   <label><span>Library key <small>&mdash; for the library source</small></span>
     <input type="text" name="library_key">
   </label>
-  <label><span>Size <small>&mdash; the grid's longer side in cells; the other
-    side follows the source's own shape (a square in random mode)</small></span>
-    <input type="text" name="size" inputmode="numeric">
+  <label><span>Size <small>&mdash; one number for the grid's longer side (the
+    other side follows the source's own shape), or <code>WxH</code> for an
+    exact width and height, e.g. <code>20x30</code></small></span>
+    <input type="text" name="size">
   </label>
   <label><span>Density <small>&mdash; percent of cells filled</small></span>
     <input type="text" name="density" inputmode="numeric">

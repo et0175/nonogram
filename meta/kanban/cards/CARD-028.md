@@ -1,6 +1,6 @@
 # CARD-028: Web form's size field accepts the `NxM` extent token
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/028-web-form-extent-token
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-028
 **Source:** meta/architecture/handoff.md#increment-5
 **Idea:** —
 **Wave:** 19
 **Depends on:** CARD-020, CARD-027
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, tests/test_web_submission.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-03T10:30:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -111,3 +111,76 @@ architect-station gap in the decompose run report; do not invent an AC here.
 ## Worktree notes
 
 —
+
+## Worktree notes
+
+- **[Env]** forge 2026.8.17 (skew gate passed). **[Dependency gate]** CARD-020 and
+  CARD-027 both `done`.
+- **[Card age — verified before the agent started]** This card was cut at wave 19 and
+  CARD-020 landed since, which moves what it maps onto:
+  - The card says the `NxM` split goes in `handler.py`. It does not: CARD-020 introduced
+    **`src/nonogram/web/submission.py`**, which is where the body is turned into a
+    `GenerationRequest` (`submission.py:195` currently sets `width=numbers["size"]`,
+    `height=None`). That module is the real site and is inside the card's
+    `src/nonogram/web/**` scope, but the `Touches:` line naming `handler.py` predates it.
+  - CARD-020 already settled the **bare** reading: one number means `(N, None)` — the
+    longer side, other derived — matching `cli._extent_token`. This card adds the
+    explicit `NxM` form on top; it must not disturb the bare case.
+  - The form's label was already updated by CARD-020 to describe the bare reading
+    (`pages.py:172`). It now needs to describe both forms.
+  - **G-4's cited check now exists.** `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`
+    was a dead ref in this card's guardrails when it was written; CARD-020 created it, so
+    the guardrail is mechanically checkable for the first time.
+- **[The design constraint that decides the implementation]** `tests/test_cli.py`'s
+  structural guard states the rule as "nothing inward of the adapter imports `cli`", and
+  `web/` is an adapter peer — so the token parsing may **not** be shared by importing
+  `cli._extent_token`. It must be reimplemented natively in the web adapter and
+  cross-checked against `cli._extent_token` **from the test tree**, where the import is
+  legal. That is CLAUDE.md's stated precedent (`solver/propagate.py`'s `mask_runs`), and
+  `tests/test_web_submission.py` already cross-checks the bare case that way today.
+
+## Worktree notes — implementation (2026-09-03)
+
+- **Landed in `submission.py`, not `handler.py`, confirming the note above.** The `NxM`
+  split lives in a new `nonogram.web.submission._extent_token`, a native reimplementation
+  of `cli._extent_token`'s grammar (split on a duplicated `_EXTENT_SEPARATOR = "x"`
+  constant, `int()` each half, `None` on any shape other than `N`/`NxM`). `submission.read`
+  calls it for the `size` field only (`density`/`seed` stay on the plain-`int` path via
+  `_NUMERIC_FIELDS`, which no longer includes `size`) and wires the result into
+  `GenerationRequest(width=..., height=...)`. `handler.py` is untouched — it already just
+  calls `submission.read` and renders whatever it returns. Additional footprint beyond
+  `Touches:`: `src/nonogram/web/pages.py`'s `_STYLE`-adjacent form-page docstring/comment
+  and the `size` field's label were also updated (in scope, but not itself a code path
+  named in `Touches:`).
+- **Malformed-token decision: refused at the adapter, not passed inward.** Mirrors the
+  CLI's own split exactly — `cli._extent_token` raises `argparse.ArgumentTypeError` for a
+  malformed token before any request exists (AC-064), and passes a well-formed but
+  out-of-range token inward for the domain to refuse (AC-065). `submission._extent_token`
+  returns `None` for the same set of malformed shapes (`"30x"`, `"x20"`, `"3x4x5"`,
+  `"30X20"`, `"30*20"`, `"30,20"`, `"30.5"`, `""`, `"x"` — all checked, all malformed per
+  `cli._extent_token`), and `submission.read` turns that `None` into an `unreadable` entry,
+  which `handler._generate` renders as the structured failure page (EC-003) without ever
+  calling the orchestrator — the same wall `argparse` puts up for the CLI, one adapter
+  later. A well-formed but out-of-range token (`"60"`, `"60x60"`) parses cleanly and
+  travels inward unmodified; the domain (`sourcing.random_grid.validate_extent`) is the one
+  place either adapter's out-of-range pair is ever judged. Verified live: `POST /generate`
+  with `size=20x30` succeeds (200, `data-outcome="success"`, exported grid 20 wide x 30
+  tall); `size=60x60` fails with `nonogram refused this request. — grid width must be
+  between 10 and 30 inclusive, got 60`, writing no file.
+- **`pages.py`**: no `min`/`max`/`pattern`/numeric `type` added (G-2); the `size` field's
+  `inputmode="numeric"` hint was removed since the field now also accepts `x`, which is not
+  a validation constraint but a virtual-keyboard hint that would have been actively wrong
+  for the `NxM` form.
+- **EC(ADR-0022/R2) test**: `tests/test_web_submission.py` adds a 369-token, fixed-seed
+  (`random.Random(20260903)`) corpus — 9 named CARD-028 refusals, a 54-value bare-N sweep,
+  6 `int`-tolerance probes, a 100-pair `NxM` product, 200 fuzz strings — checked in two
+  parametrised arms (`test_the_adapters_size_parsing_matches_cli_extent_token_for_every_token`,
+  `test_the_built_request_carries_the_same_pair_read_end_to_end`) against `cli._extent_token`
+  as the oracle. Mutation-tested by hand: (a) making the `NxM` split always return
+  `(N, None)` and (b) adding an adapter-side `width > 30` rejection both fail dozens of
+  cases in the property arms; both mutations were reverted and the source file's md5
+  (`398f8f3397e1f0c2a285fe04b15fa5b9` for `submission.py`) confirmed byte-identical to
+  pre-mutation.
+- **Full suite**: `2298 passed, 1 xfailed, 3 warnings in ~43s` (this worktree's actual
+  baseline — larger than the `1590 passed, 1 xfailed` figure in the task brief, which was
+  stale relative to this branch's parent).
