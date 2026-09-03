@@ -181,6 +181,16 @@ architect-station gap in the decompose run report; do not invent an AC here.
   cases in the property arms; both mutations were reverted and the source file's md5
   (`398f8f3397e1f0c2a285fe04b15fa5b9` for `submission.py`) confirmed byte-identical to
   pre-mutation.
-- **Full suite**: `2298 passed, 1 xfailed, 3 warnings in ~43s` (this worktree's actual
-  baseline — larger than the `1590 passed, 1 xfailed` figure in the task brief, which was
-  stale relative to this branch's parent).
+- **Full suite**: `2298 passed, 1 xfailed` — **from a baseline of 1590 passed, 1 xfailed,
+  which was correct.** An earlier version of this note claimed 2298 was the worktree's
+  pre-change baseline and that the 1590 figure was stale. That was wrong, and the
+  correction is recorded rather than silently edited because an unverified measurement
+  claim is the exact defect class this project has been closing for ten cards.
+  Counted mechanically: `tests/test_web_submission.py` collects **66** tests on `main`
+  (50b0dd5, this branch's parent) and **774** on this branch. The +708 is entirely this
+  card's own `PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter`, whose 369-token corpus
+  runs in two parametrised arms. Nothing pre-existing appeared or disappeared.
+- **Proportionality, worth a reviewer's judgement:** 708 new test cases on a `trivial`
+  0.25d card is a lot. Wall-clock is unaffected (~43s, unchanged), and the corpus is the
+  honest shape for "for EVERY value a browser can submit" — but whether 369 tokens is the
+  right size, or whether a tenth of it would pin the same property, is a fair question.
