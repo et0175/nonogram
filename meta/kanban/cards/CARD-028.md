@@ -15,7 +15,7 @@
 **Wave:** 19
 **Depends on:** CARD-020, CARD-027
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, tests/test_web_submission.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1, gate passed first time)
 **Started:** 2026-09-03T10:30:00Z
 **Closed:** —
 **Actual:** —
@@ -225,3 +225,39 @@ architect-station gap in the decompose run report; do not invent an AC here.
 - **Corpus guard strengthened**, per the same finding: `_MINIMUM_EXTENT_CORPUS` now counts
   **distinct** tokens. At 369 raw / 310 distinct, a raw `len` would have let an edit
   collapsing the fuzz draws to 200 copies of one value pass unnoticed.
+
+## AC/EC gate (2026-09-03)
+
+**Verdict: PASS.** This card carries **no acceptance criterion** — deliberately, and that
+absence is itself the finding it surfaced. `CON-011` states verbatim that the range binds
+"both inbound adapters (CLI and web UI)", but AC-062..AC-065 are entirely CLI-phrased
+(argv tokens, argparse usage errors, exit codes), and FR-018's own statement names only
+the CLI. So the web surface of the extent pair is held by an engineering constraint and by
+nothing in `requirements.yml`. The card was right not to invent an AC; the gap is now filed
+as intake so it outlives the card.
+
+What the gate checked instead:
+
+- **EC(ADR-0022/R2)** — `PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter`, two
+  parametrised arms over a 369-token corpus (310 distinct), using `cli._extent_token` as an
+  independent oracle imported from the test tree, which is where that import is legal.
+  Zero divergences across every shape, including the nine the CLI refuses and the `int()`
+  tolerances it inherits rather than chooses.
+- **The malformed / out-of-range split**, which is the card's real behavioural claim, both
+  halves confirmed live: a malformed token is refused at the adapter and never reaches the
+  orchestrator; a well-formed out-of-range one parses and is refused by the domain, with
+  the CLI's own message. `20x60` is new ground — before this card the web adapter could
+  only ever produce `height=None`.
+- **G-4's cited check**, `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`,
+  was a **dead reference when this card was written** and now resolves, because CARD-020
+  wrote it yesterday. This is the first time that guardrail has been mechanically
+  checkable, and it is green.
+- **G-5's regression anchor**, AC-050 (a 60x60 submission refused with the CLI's own
+  size-range error, writing nothing), untouched and passing.
+
+**Suite: 2310 passed, 1 xfailed** — from 1590 on `main`. The +720 is this card's own
+property corpus; that was mis-stated once during implementation as a pre-existing baseline
+and is corrected above.
+
+[AC/EC check] All criteria/constraints ✓ (evidence: EC(ADR-0022/R2) PropertyTest_WebForm_ExtentJudgedByDomainNotAdapter, whose arms are test_the_adapters_size_parsing_matches_cli_extent_token_for_every_token and test_the_built_request_carries_the_same_pair_read_end_to_end, with test_the_extent_token_corpus_is_not_trivially_small guarding the corpus against silent shrinkage; G-4 PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest, dead when this card was cut and live now; G-5's anchor test_the_page_reports_a_rejected_request_and_writes_no_file; no acceptance criterion exists for this card's surface and the gap is filed as intake rather than papered over; suite 2310 passed, 1 xfailed) — every name resolved to exactly one def/class before this line was written; verified 2026-09-03.
+
