@@ -1,6 +1,6 @@
 # CARD-020: Web UI generation submission — form to pipeline to result page
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,7 +15,7 @@
 **Wave:** 13
 **Depends on:** CARD-019
 **Touches:** src/nonogram/web/**.py, tests/test_web_submission.py, tests/test_web_server.py, meta/architecture/inputs/raw-requirements.md (the last two beyond the predicted footprint — disclosed in Worktree notes)
-**Review score:** —
+**Review score:** 7.5 (cycle 2; cycle 1 4.5; cycle 3 fixes applied, terminal)
 **Started:** 2026-09-02T14:20:00Z
 **Closed:** —
 **Actual:** —
@@ -674,3 +674,53 @@ AC-057, AC-058, EC-004 — each with a test of its own, CON-010's declared
 AC-049 remains satisfied with the substitution the implementation notes above
 record, and the model-side correction for it is filed as an intake line rather
 than applied to `requirements.yml`.
+
+## AC/EC gate (2026-09-03)
+
+**Verdict: PASS, with one criterion satisfied by a documented and filed deviation.**
+Four criteria — AC-049, AC-050, AC-051, EC-003 — plus the six requirements the approved
+scope expansion added (NFR-004, CON-010, AC-054..AC-058, EC-004). Every named test
+resolves to exactly one `def`/`class`. **Suite: 1590 passed, 1 xfailed.**
+
+**AC-049 is NOT literally satisfied and must not be recorded as if it were.** The
+criterion names difficulty "Medium"; the shipped test uses "Easy". This is not a shortcut:
+every built-in template scores Easy at 20x20 and library mode has no randomness to
+resample, so `cat` + Medium raises `GenerationAbandoned` in *both* adapters — the CLI does
+the same. Independently reproduced twice (implementation and cycle-1 review) and again at
+this gate. The criterion asks for a success the pipeline cannot produce. The deviation is
+stated in the test's own class docstring, the amendment is filed as intake in
+`meta/architecture/inputs/raw-requirements.md` ("AMENDS AC-049's `given`: the difficulty
+must read **Easy**, not Medium"), and `requirements.yml` was not hand-edited. The Medium
+request did not vanish — it became AC-051's deterministic abandonment case, which is a
+better test than a contrived timeout would have been.
+
+The AC-049 test also asserts more than the criterion asks: the same options submitted
+through the form and through argv produce **byte-identical files under the same names**.
+That turns "the same pipeline" from a resemblance into an identity, and it is what would
+catch the web adapter growing a private default, a different naming rule, or a second
+export call.
+
+### Verified at this gate, not inherited from the reviews
+
+- The cross-origin refusal, against a live server I ran myself: the attack
+  (`Origin: https://evil.example.com` + `Sec-Fetch-Site: cross-site`) returns **400 and
+  writes nothing**; a same-origin POST and a header-less `curl`-shaped POST both still
+  succeed and write. The last of those was the one genuinely at risk — an over-eager
+  refusal would have broken the loopback path the guard exists to protect.
+- F-001's repaired drift guard: deleting the `GenerationAbandoned` row from
+  `cli._EXIT_CODES` now fails `test_the_walked_corpus_is_the_whole_hierarchy` with
+  `AssertionError: ['GenerationAbandoned']`. At cycle 2 that same mutation passed. `cli.py`
+  restored byte-identical (md5 `b81ef08e04b13a978bae652ea1564a8f`).
+- The 400-vs-403 choice is the model's, not a preference: NFR-004's threshold reads
+  "refused with HTTP 400 and never routed to a handler", and AC-053's shipped guard fails
+  the suite on a `403` literal anywhere under `web/`. My own suggestion of 403 was wrong.
+
+### Known gap this card does not close
+
+`meta/design/` does not exist, so `review.visual` degraded to static across all three
+cycles. **Nobody has looked at the rendered result or failure pages** — only their HTML
+source. Appearance, contrast, focus styles and real-browser behaviour are unverified, and
+that is the one claim no gate here can make.
+
+[AC/EC check] All criteria/constraints ✓ (evidence: AC-049 TestWebUI_SubmitRunsSamePipelineAndReportsFiles — satisfied with difficulty Easy, deviation filed as intake, see above; AC-050 TestWebUI_RejectsOutOfRangeSizeLikeCLI; AC-051 TestWebUI_ReportsAbandonedGenerationGracefully; EC-003 PropertyTest_WebUI_SurfacesAnyPipelineErrorAsStructuredFailure; and for the approved scope expansion NFR-004/CON-010/AC-054..AC-058/EC-004 PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest, whose declared check ref resolves for the first time; suite 1590 passed, 1 xfailed) — every name resolved to exactly one def/class before this line was written; verified 2026-09-03.
+
