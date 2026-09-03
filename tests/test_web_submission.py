@@ -522,7 +522,7 @@ class TestWebUI_SubmitRunsSamePipelineAndReportsFiles:
                 "out": str(tmp_path),
             },
         )
-        reported = re.search(rb"seed: <code>(\d+)</code>", response.body)
+        reported = re.search(rb"[Ss]eed: <code>(\d+)</code>", response.body)
 
         assert reported is not None, response.body
         assert int(reported.group(1)) >= 0

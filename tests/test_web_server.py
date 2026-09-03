@@ -2380,7 +2380,7 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
         "fragment escaped by the function that built it"
     ),
     "_options(list(difficulty.Tier), blank='(any)', selected=difficulty_val)": (
-        "fragment escaped by the function that built it"
+        "CARD-030: fragment escaped by the function that built it"
     ),
     "_checkboxes('export_formats', export.FORMATS)": (
         "fragment escaped by the function that built it"
@@ -2389,18 +2389,18 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "listed": "fragment escaped by the function that built it",
     "title": "_shell parameter, bound by its own docstring to be a literal",
     "body": "_shell parameter, contractually pre-escaped by the caller",
-    "seed": "off the wire, and guarded by its ``:d`` format spec rather than by escaping",
-    "'selected' if is_selected else ''": "literal string, not user data from wire",
-    "'checked' if v in checked else ''": "literal string, not user data from wire",
-    "result_html": "fragment, either empty or pre-built by _success_section/_error_section",
-    "export_checkboxes": "fragment escaped by _checkboxes function",
-    "size_val": "pre-escaped by _form_field_value before interpolation",
-    "name_val": "pre-escaped by _form_field_value before interpolation",
-    "seed_val": "pre-escaped by _form_field_value before interpolation",
-    "out_val": "pre-escaped by _form_field_value before interpolation",
-    "width": "local variable, only used in arithmetic expressions, not user data",
-    "height": "local variable, only used in arithmetic expressions, not user data",
-    "' '.join(buttons)": "fragment built from escaped buttons array",
+    "seed": "off the wire in result_page and _success_section, guarded by its ``:d`` format spec",
+    "'selected' if is_selected else ''": "CARD-030: HTML attribute literal or empty in _options",
+    "'checked' if v in checked else ''": "CARD-030: HTML attribute literal or empty in _checkboxes",
+    "result_html": "CARD-030: result section (escaped by _success_section/_error_section)",
+    "name_val": "CARD-030: form field value (escaped by _form_field_value)",
+    "size_val": "CARD-030: form field value (escaped by _form_field_value)",
+    "seed_val": "CARD-030: form field value (escaped by _form_field_value)",
+    "out_val": "CARD-030: form field value (escaped by _form_field_value)",
+    "export_checkboxes": "CARD-030: checkbox HTML (escaped by _checkboxes)",
+    "' '.join(buttons)": "CARD-030: constructed fragment from _suggestions_section",
+    "width": "CARD-031: grid dimension (int), part of constructed size_str",
+    "height": "CARD-031: grid dimension (int), part of constructed size_str",
 }
 
 
@@ -2473,7 +2473,7 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
         split = re.search(
             r"there are (\d+) f-string interpolations, of which (\d+) call", text
         )
-        others = re.search(r"The other (\d+) are each one of (?:four|several) kinds", text)
+        others = re.search(r"The other (\d+) are each one of (?:four|five|several) kinds", text)
 
         assert split, "the docstring no longer states the interpolation split"
         assert others, "the docstring no longer states the unescaped count"
