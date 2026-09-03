@@ -653,19 +653,8 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         media_type = content_type.split(";", 1)[0].strip().lower()
         image_path: Path | None = None
         fields: _TYPE_CHECKED = {}
-        # Extract image metadata for form display (CARD-031)
-        image_metadata_str = ""
-        suggestions: list[tuple[int, int]] = []
-        if image_path is not None and posted.request is not None and posted.request.mode == "image":
-            try:
-                img_metadata = web_metadata.extract_metadata(image_path)
-                image_metadata_str = web_metadata.format_aspect_ratio(img_metadata.aspect_ratio)
-                suggestions = web_metadata.suggest_dimensions(img_metadata)
-            except Exception:
-                # If metadata extraction fails, continue without suggestions
-                pass
 
-
+        # Parse the body to extract submission and fields
         if media_type == "multipart/form-data":
             parsed = multipart.read(content_type, raw)
             posted = parsed.submission
@@ -675,6 +664,19 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             posted = submission.read(raw.decode("utf-8", "replace"))
             # For urlencoded, re-parse to extract fields for form re-population
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
+
+        # Extract image metadata for form display (CARD-031)
+        image_metadata_str = ""
+        suggestions: list[tuple[int, int]] = []
+        if image_path is not None and posted.request is not None and posted.request.mode == "image":
+            try:
+                from nonogram.web import metadata as web_metadata
+                img_metadata = web_metadata.extract_metadata(image_path)
+                image_metadata_str = web_metadata.format_aspect_ratio(img_metadata.aspect_ratio)
+                suggestions = web_metadata.suggest_dimensions(img_metadata)
+            except (ImportError, Exception):
+                # If metadata extraction fails or module unavailable, continue without suggestions
+                pass
 
         try:
             if posted.request is None:

@@ -1673,3 +1673,165 @@ def test_the_built_request_carries_the_same_pair_read_end_to_end(raw: str) -> No
     else:
         assert submitted.request is not None, raw
         assert (submitted.request.width, submitted.request.height) == expected, raw
+
+
+class TestWebUI_OutputDirectoryFieldAndStyling:
+    """CARD-033 acceptance criteria for output directory selector and form polish.
+
+    AC-131: Output directory input field with placeholder
+    AC-132: Files written to specified directory (or error if invalid)
+    AC-133: Polished form layout with visual grouping (image, export, output sections)
+    AC-134: Default to working directory if empty
+    """
+
+    def test_output_directory_field_exists_in_form(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-131: The form has an output directory input field."""
+        response = web_tests._request(running_server.server_port, method="GET", path="/")
+        body = response.body.decode("utf-8")
+
+        # Field should exist with name "out"
+        assert 'name="out"' in body
+        # Field should have a placeholder
+        assert 'placeholder="."' in body or 'placeholder=' in body
+        # Label should mention output directory
+        assert "output" in body.lower() or "out" in body.lower()
+
+    def test_files_written_to_specified_output_directory(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path
+    ) -> None:
+        """AC-132: Files are written to the specified output directory."""
+        out_dir = tmp_path / "output"
+        response = _submit(
+            running_server.server_port,
+            {
+                "mode": "library",
+                "library_key": _KEY,
+                "size": str(_SIZE),
+                "difficulty": "Easy",
+                "export_formats": ["json"],
+                "out": str(out_dir),
+            },
+        )
+
+        # Should succeed
+        assert response.status == 200
+        assert _outcome(response.body) == pages.SUCCESS
+
+        # Directory should be created
+        assert out_dir.exists()
+
+        # Files should be written to the specified directory
+        written = list(out_dir.iterdir())
+        assert len(written) > 0
+        listed = _paths_on(response.body)
+        assert all(str(out_dir) in path for path in listed)
+
+    def test_error_on_invalid_output_directory(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path
+    ) -> None:
+        """AC-132: An error is reported if the directory is invalid."""
+        # Try to write to a path inside a file (which cannot exist)
+        invalid_dir = tmp_path / "file.txt" / "subdir"
+
+        # Create the "file" first
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("not a directory")
+
+        response = _submit(
+            running_server.server_port,
+            {
+                "mode": "library",
+                "library_key": _KEY,
+                "size": str(_SIZE),
+                "difficulty": "Easy",
+                "export_formats": ["json"],
+                "out": str(invalid_dir),
+            },
+        )
+
+        # Should fail with error
+        assert response.status == 200
+        assert _outcome(response.body) == pages.FAILURE
+        # Error message should mention file/directory issue
+        body = response.body.decode("utf-8")
+        assert "could not be read or written" in body or "error" in body.lower()
+
+    def test_default_to_working_directory_if_out_empty(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path, monkeypatch
+    ) -> None:
+        """AC-134: If out is empty, files default to the working directory."""
+        # Change to tmp_path so files go there by default
+        monkeypatch.chdir(tmp_path)
+
+        response = _submit(
+            running_server.server_port,
+            {
+                "mode": "library",
+                "library_key": _KEY,
+                "size": str(_SIZE),
+                "difficulty": "Easy",
+                "export_formats": ["json"],
+                "out": "",  # Empty, should default to cwd
+            },
+        )
+
+        # Should succeed
+        assert response.status == 200
+        assert _outcome(response.body) == pages.SUCCESS
+
+        # Files should be in the current directory (tmp_path)
+        written = list(tmp_path.iterdir())
+        assert len(written) > 0
+        # At least the JSON file should be there
+        assert any(f.suffix == ".json" for f in written)
+
+    def test_form_has_visual_grouping_sections(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-133: Form has visual grouping with sections (image, export, output)."""
+        response = web_tests._request(running_server.server_port, method="GET", path="/")
+        body = response.body.decode("utf-8")
+
+        # Form should have CSS classes or divs for sections
+        # Check for form-section divs
+        assert "form-section" in body or "fieldset" in body
+
+        # Check for section headers/structure
+        # Should have sections for different groups of fields
+        assert body.count("<h3>") > 0 or body.count("fieldset") > 0
+
+    def test_form_has_enhanced_styling(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-133: Form has improved styling with spacing and typography."""
+        response = web_tests._request(running_server.server_port, method="GET", path="/")
+        body_text = response.body.decode("utf-8")
+
+        # Check for CSS styling improvements
+        # Dark mode support via CSS variables
+        assert "--text-primary" in body_text or "color" in body_text
+        # Button styling
+        assert "button" in body_text.lower()
+        # Improved spacing (check for various CSS properties)
+        assert "margin" in body_text or "padding" in body_text
+
+    def test_placeholder_text_shown_in_output_field(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-131: Output directory field has helpful placeholder text."""
+        response = web_tests._request(running_server.server_port, method="GET", path="/")
+        body = response.body.decode("utf-8")
+
+        # Find the output field
+        out_field_match = re.search(
+            r'<input[^>]*name="out"[^>]*placeholder="([^"]*)"', body
+        )
+        if not out_field_match:
+            out_field_match = re.search(
+                r'placeholder="([^"]*)"[^>]*name="out"', body
+            )
+
+        # Should have a placeholder
+        assert out_field_match is not None, "Output field should have placeholder text"

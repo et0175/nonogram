@@ -149,22 +149,211 @@ def _checkboxes(
 
 
 #: The one stylesheet, shared by the form and by the two pages a submission
-#: produces, so all three are visibly one application.
+#: produces, so all three are visibly one application. Includes dark mode support
+#: via prefers-color-scheme (AC-133, CARD-033).
 _STYLE = """
-body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 34rem; }
-label { display: block; margin: 0.75rem 0; }
-span { display: block; font-weight: 600; }
-small { color: #555; font-weight: 400; }
-input, select { width: 100%; padding: 0.3rem; box-sizing: border-box; }
-fieldset { border: 1px solid #ccc; margin: 0.75rem 0; }
-fieldset label { display: inline-block; margin-right: 1rem; width: auto; }
-fieldset input { width: auto; }
-button { margin-top: 1rem; padding: 0.5rem 1.5rem; font-size: 1rem; }
-code { word-break: break-all; }
-.metadata { background-color: #f5f5f5; padding: 0.75rem; margin-top: 0.5rem; border-radius: 4px; }
-.suggestions { margin-top: 0.5rem; }
-.suggestion-button { display: inline-block; margin-right: 0.5rem; margin-top: 0.5rem; padding: 0.3rem 0.75rem; background-color: #e8e8e8; border: 1px solid #999; border-radius: 3px; cursor: pointer; font-size: 0.9rem; }
-.suggestion-button:hover { background-color: #d0d0d0; }
+:root {
+  --text-primary: #000;
+  --text-secondary: #555;
+  --bg-primary: #fff;
+  --bg-secondary: #f5f5f5;
+  --border-color: #ccc;
+  --button-bg: #007bff;
+  --button-hover: #0056b3;
+  --button-alt-bg: #e8e8e8;
+  --button-alt-hover: #d0d0d0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: #e0e0e0;
+    --text-secondary: #999;
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2a2a2a;
+    --border-color: #444;
+    --button-bg: #0d6efd;
+    --button-hover: #0b5ed7;
+    --button-alt-bg: #3a3a3a;
+    --button-alt-hover: #4a4a4a;
+  }
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  margin: 2rem auto;
+  max-width: 34rem;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+h1 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  margin: 1rem 0 0.5rem 0;
+}
+
+span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+small {
+  color: var(--text-secondary);
+  font-weight: 400;
+  display: block;
+  font-size: 0.875rem;
+}
+
+input, select {
+  width: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--button-bg);
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.form-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+}
+
+.form-section h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.form-section > label:first-child {
+  margin-top: 0;
+}
+
+fieldset {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+}
+
+fieldset legend {
+  padding: 0 0.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+fieldset label {
+  display: inline-block;
+  margin-right: 1.5rem;
+  margin-top: 0.5rem;
+  width: auto;
+}
+
+fieldset input {
+  width: auto;
+  margin-right: 0.5rem;
+}
+
+button {
+  margin-top: 1.5rem;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background-color: var(--button-bg);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: var(--button-hover);
+}
+
+button:active {
+  opacity: 0.9;
+}
+
+code {
+  word-break: break-all;
+  background-color: var(--bg-secondary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.metadata {
+  background-color: var(--bg-secondary);
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid var(--button-bg);
+}
+
+.suggestions {
+  margin-top: 1rem;
+}
+
+.suggestion-button {
+  display: inline-block;
+  margin-right: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background-color: var(--button-alt-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  color: var(--text-primary);
+}
+
+.suggestion-button:hover {
+  background-color: var(--button-alt-hover);
+}
+
+details {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+details > div {
+  margin-top: 1rem;
+}
 """
 
 #: The form page. Every field is named for the ``GenerationRequest`` field it
@@ -205,32 +394,41 @@ FORM_PAGE = f"""<!DOCTYPE html>
 The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
-  <label><span>Image <small>&mdash; select the picture to convert</small></span>
-    <input type="file" name="image">
-  </label>
-  <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
-    other side follows the image's own shape), or <code>WxH</code> for an
-    exact width and height, e.g. <code>20x30</code></small></span>
-    <input type="text" name="size">
-  </label>
-  <label><span>Difficulty</span>
-    <select name="difficulty">
-        {_options(list(difficulty.Tier), blank="(any)")}
-    </select>
-  </label>
-  <label><span>Name <small>&mdash; shown on the printed page</small></span>
-    <input type="text" name="name">
-  </label>
-  <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
-    <input type="text" name="seed" inputmode="numeric">
-  </label>
-  <fieldset>
-    <legend>Export formats</legend>
-    {_checkboxes("export_formats", export.FORMATS)}
-  </fieldset>
-  <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
-    <input type="text" name="out">
-  </label>
+  <div class="form-section">
+    <h3>Image</h3>
+    <label><span>Image <small>&mdash; select the picture to convert</small></span>
+      <input type="file" name="image">
+    </label>
+    <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
+      other side follows the image's own shape), or <code>WxH</code> for an
+      exact width and height, e.g. <code>20x30</code></small></span>
+      <input type="text" name="size" placeholder="e.g., 20 or 20x30">
+    </label>
+  </div>
+  <div class="form-section">
+    <h3>Puzzle Settings</h3>
+    <label><span>Difficulty</span>
+      <select name="difficulty">
+          {_options(list(difficulty.Tier), blank="(any)")}
+      </select>
+    </label>
+    <label><span>Name <small>&mdash; shown on the printed page</small></span>
+      <input type="text" name="name" placeholder="(auto-generated if empty)">
+    </label>
+    <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+      <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
+    </label>
+  </div>
+  <div class="form-section">
+    <h3>Export</h3>
+    <fieldset>
+      <legend>Formats</legend>
+      {_checkboxes("export_formats", export.FORMATS)}
+    </fieldset>
+    <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+      <input type="text" name="out" placeholder=".">
+    </label>
+  </div>
   <button type="submit">Generate</button>
 </form>
 </body>
@@ -542,32 +740,41 @@ The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
 {result_html}
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
-  <label><span>Image <small>&mdash; select the picture to convert</small></span>
-    <input type="file" name="image">
-  </label>
-  <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
-    other side follows the image's own shape), or <code>WxH</code> for an
-    exact width and height, e.g. <code>20x30</code></small></span>
-    <input type="text" name="size" value="{size_val}">
-  </label>
-  <label><span>Difficulty</span>
-    <select name="difficulty">
-        {_options(list(difficulty.Tier), blank="(any)", selected=difficulty_val)}
-    </select>
-  </label>
-  <label><span>Name <small>&mdash; shown on the printed page</small></span>
-    <input type="text" name="name" value="{name_val}">
-  </label>
-  <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
-    <input type="text" name="seed" inputmode="numeric" value="{seed_val}">
-  </label>
-  <fieldset>
-    <legend>Export formats</legend>
-    {export_checkboxes}
-  </fieldset>
-  <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
-    <input type="text" name="out" value="{out_val}">
-  </label>
+  <div class="form-section">
+    <h3>Image</h3>
+    <label><span>Image <small>&mdash; select the picture to convert</small></span>
+      <input type="file" name="image">
+    </label>
+    <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
+      other side follows the image's own shape), or <code>WxH</code> for an
+      exact width and height, e.g. <code>20x30</code></small></span>
+      <input type="text" name="size" value="{size_val}" placeholder="e.g., 20 or 20x30">
+    </label>
+  </div>
+  <div class="form-section">
+    <h3>Puzzle Settings</h3>
+    <label><span>Difficulty</span>
+      <select name="difficulty">
+          {_options(list(difficulty.Tier), blank="(any)", selected=difficulty_val)}
+      </select>
+    </label>
+    <label><span>Name <small>&mdash; shown on the printed page</small></span>
+      <input type="text" name="name" value="{name_val}" placeholder="(auto-generated if empty)">
+    </label>
+    <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+      <input type="text" name="seed" inputmode="numeric" value="{seed_val}" placeholder="(random if empty)">
+    </label>
+  </div>
+  <div class="form-section">
+    <h3>Export</h3>
+    <fieldset>
+      <legend>Formats</legend>
+      {export_checkboxes}
+    </fieldset>
+    <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+      <input type="text" name="out" value="{out_val}" placeholder=".">
+    </label>
+  </div>
   <button type="submit">Generate</button>
 </form>
 <script>
