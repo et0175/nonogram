@@ -37,17 +37,24 @@ Module layout, mirroring the concerns ADR-0020 names::
                    ``cli`` can report a bind failure without also owning the
                    loop)
     handler.py     the router: one ``(method, path)`` table, one handler class
-    submission.py  the mapping: one posted body -> one ``GenerationRequest``
+    submission.py  the mapping: one posted urlencoded body -> one
+                   ``GenerationRequest``, and ``from_fields``, the field-to-
+                   request core both this and the next module use
+    multipart.py   the same mapping for a ``multipart/form-data`` body
+                   (CARD-021): lands the uploaded part in a temp file, reads
+                   every other part as a field, and hands both to
+                   ``submission.from_fields``
     pages.py       the HTML: the form, the result page, the failure page
 
 ``GET /`` renders the form and ``POST /generate`` runs it: the request is
 mapped, ``orchestrator.generate`` and ``orchestrator.export_puzzle`` are called
 synchronously on the request thread (ADR-0021), and the answer is either the
 files written or a structured failure page carrying the domain error's own
-message (EC-003). Image upload is still CARD-021's — the form renders no file
-control and the mapping never fills ``GenerationRequest.image`` — so an
-``image``-mode submission fails inward with the missing-``--image`` error, which
-is the right answer to it (AC-008).
+message (EC-003). The form's file control uploads through the
+``multipart.py`` path (CARD-021); an ``image``-mode submission with no file
+chosen still fails inward with the missing-``--image`` error, which is the
+right answer to it (AC-008) — CARD-021 changed how a picture *can* arrive, not
+what happens when one does not.
 
 A method with no ``do_*`` at all still gets a ``501``. The *status* is the
 standard library's, but the *response* is this package's:
