@@ -137,6 +137,10 @@ links:
   - TestWebUI_ReportsAbandonedGenerationGracefully
   - PropertyTest_WebUI_SurfacesAnyPipelineErrorAsStructuredFailure
   - TestWebServer_BindsLoopbackOnlyByDefault
+  - test_the_page_reports_success_and_names_every_file
+  - test_the_files_are_the_ones_the_cli_writes_for_the_same_options
+  - test_the_page_reports_a_rejected_request_and_writes_no_file
+  - test_the_page_reports_the_abandonment_and_its_reason
   notes: >-
     Two components because the requirement is explicitly "the SAME
     orchestrator pipeline the CLI uses": COMP-008 (ADR-0019, src/nonogram/web/)

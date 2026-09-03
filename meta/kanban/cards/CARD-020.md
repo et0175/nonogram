@@ -1,6 +1,6 @@
 # CARD-020: Web UI generation submission — form to pipeline to result page
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/020-web-submission-handler
-**Worktree:** ../PythonProject4-card-020
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-4
 **Idea:** —
 **Wave:** 13
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/**.py, tests/test_web_submission.py, tests/test_web_server.py, meta/architecture/inputs/raw-requirements.md (the last two beyond the predicted footprint — disclosed in Worktree notes)
 **Review score:** 7.5 (cycle 2; cycle 1 4.5; cycle 3 fixes applied, terminal)
 **Started:** 2026-09-02T14:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-03T10:05:00Z
+**Actual:** 2.5d
+**Merge commit:** 078f33b4247494ff725d06f464940c8f072a0246
 **Blocked by:** —
 
 ## What to implement

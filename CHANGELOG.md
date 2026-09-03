@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-09-03
+- CARD-020 (feature): The browser page can now actually make a puzzle. Fill in the form, press the button, and the same generator the command line uses runs and tells you which files it wrote. Bad input comes back as a readable message on the page — asking for a 60-cell grid says so — instead of a crash or a blank screen.
+- CARD-020 (compliance): The little web server now refuses requests that come from another website. Before this, any page open in another tab could quietly tell the generator to run and write files onto your disk, choosing the folder itself, for as long as `nonogram serve` was running. It now answers those with an error and writes nothing, while everything you do yourself in your own browser keeps working exactly as before.
+
 ## 2026-09-02
 - CARD-033 (feature): `--size 25` on a picture now means "25 cells on the longer side", and the other side follows the picture's own shape — so a tall cat becomes an 18x25 puzzle instead of being squeezed into 25x25 and losing its ears. Across the 25 pictures in `pictures/`, the share of each picture that survives rises from 76% to 99% on average, and the number that lose more than a tenth of themselves falls from 20 to none. `--size 30x20` still means exactly 30 by 20. A picture too long and thin for the size you asked for is now refused with the smallest `--size` that would fit it, rather than being silently cropped — note this means a SMALLER puzzle can refuse a picture a larger one accepts.
 - CARD-031 (feature): A puzzle made from your own picture is now named after the picture. `--image cat1.jpg` writes `cat1-easy.pdf` instead of `image-2026-09-02-1259-easy.pdf`, the same way a library puzzle is named after its shape. Two puzzles from the same picture get `cat1` and `cat1-1`, exactly as two library `cat` puzzles already do. An explicit `--name` still wins, and a picture whose filename gives nothing usable still falls back to the date-and-time name.
