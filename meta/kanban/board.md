@@ -1,22 +1,24 @@
 # Kanban Board
 
-_Updated: 2026-09-03 20:15_
+_Updated: 2026-09-03 21:15_
 
 ## Status Summary
-- **Done:** 30 cards
-- **Ready:** 4 cards
+- **Done:** 33 cards
+- **Ready:** 4 cards (wave 1)
 
-## Recent Merge
-- **CARD-029** ✓ Retire stale 10..50 range documentation (9.5/10, no gating findings)
+## Recent Merges
+- **CARD-032** ✓ Restrict web form to image-only mode (9.0/10)
+- **CARD-031** ✓ Show image metadata and suggested puzzle dimensions (9.0/10)
+- **CARD-030** ✓ Display inline success/error messages on form (8.5/10)
 
 ## In Progress
 _None currently running._
 
-## Ready (Next Wave — Web UI Refinement)
-- **CARD-030** — Display inline success/error messages on form page
-- **CARD-031** — Show image metadata and suggested puzzle dimensions after upload
-- **CARD-032** — Restrict web form to image-only mode
+## Ready (Wave 1 — Form Polish & Advanced UX)
 - **CARD-033** — Add output directory selector and improve form styling
+- **CARD-034** — Client-side metadata calculation on image upload (instant feedback)
+- **CARD-035** — Export filenames referencing source image name (traceability)
+- _(TBD)_ — Additional form polish improvements
 
 ## Done
-_34 cards merged. See git log for full history._
+_37 cards merged. Wave 0 complete: inline messages, metadata/suggestions, image-only form._
