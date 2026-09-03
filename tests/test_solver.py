@@ -558,7 +558,7 @@ def test_mask_runs_agrees_with_the_clue_module() -> None:
 def test_finds_the_source_grid_at_production_sizes(size: int) -> None:
     """A grid's own clues are solvable, at sizes the property corpus omits.
 
-    ADR-0014's free-direction check asks for this all the way to 50x50. It is
+    ADR-0014's free-direction check asks for this all the way to 30x30. It is
     bounded here — three seeded grids at 75% density, all solved by line logic
     in milliseconds — because ADR-0011's cooperative deadline is CARD-006's
     work (guardrail G-5), and until it exists an unlucky mid-density grid at

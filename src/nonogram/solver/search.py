@@ -32,7 +32,7 @@ Shape of the search (ADR-0009, CARD-018)
    one heuristic's first guess.
 
 The search is iterative rather than recursive. Depth is bounded by the number
-of guesses, which at the 50x50 upper bound (ADR-0001) can exceed CPython's
+of guesses, which at the 30x30 upper bound (ADR-0001) can exceed CPython's
 default recursion limit on a pathological puzzle; an explicit stack makes the
 worst case a memory question instead of a ``RecursionError``.
 

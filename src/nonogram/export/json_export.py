@@ -111,7 +111,7 @@ def render(payload: ExportPayload, path: Path) -> None:
 
     Indented and newline-terminated: an export is a durable artifact a person
     may open or diff, so the structure is worth the bytes — at the maximum
-    supported 50x50 (AC-038) the file is still tens of kilobytes. UTF-8 with
+    supported 30x30 (AC-084) the file is still tens of kilobytes. UTF-8 with
     ``ensure_ascii=False``, so a future ``name`` field (FR-015) keeps its
     characters rather than being escaped.
     """
