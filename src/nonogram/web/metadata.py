@@ -12,7 +12,7 @@ from math import gcd
 from pathlib import Path
 from typing import NamedTuple
 
-from nonogram.sourcing import image as sourcing_image
+from PIL import Image
 
 __all__ = [
     "AspectRatio",
@@ -77,7 +77,8 @@ def extract_metadata(image_path: Path) -> ImageMetadata:
     Raises:
         UnreadableImage: If the image cannot be read or decoded.
     """
-    width, height = sourcing_image.source_shape(str(image_path))
+    img = Image.open(image_path)
+    width, height = img.size
     simplified_w, simplified_h = _simplify_ratio(width, height)
     aspect_ratio = AspectRatio(
         width=simplified_w,
