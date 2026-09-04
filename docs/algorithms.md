@@ -139,31 +139,38 @@ ALGORITHM:
 ### Input
 - `row_clues`: Clues for each row
 - `column_clues`: Clues for each column
+- `deadline`: (optional) Absolute monotonic deadline for cooperative timeout (ADR-0011)
+
+### Output
+- `solution_count`: 0 (no solutions), 1 (unique), or MANY=2 (≥2 solutions)
+- `solution`: The complete grid if solution_count==1, else None
+- `signals`: FR-009 difficulty metrics from the solve
 
 ### Algorithm
 
 ```
 ALGORITHM:
-  1. LINE PROPAGATION
+  1. LINE PROPAGATION (constraint propagation)
      ├─ For each line: compute ALL valid placements
      ├─ Find cells that are filled in ALL placements
      ├─ Find cells that are empty in ALL placements
      ├─ Propagate deduced cells across perpendicular lines
      └─ Repeat until fixed point (no new deductions)
+     └─ Check timeout at each fixed point (ADR-0011)
 
   2. SOLUTION COUNTING
      ├─ IF line-logic alone produces complete grid
-     │  └─ solution_count = 1, RETURN
+     │  └─ solution_count = 1, RETURN (success)
      ├─ IF contradiction found
-     │  └─ solution_count = 0, RETURN
+     │  └─ solution_count = 0, RETURN (impossible)
      └─ BACKTRACKING SEARCH
-        ├─ Pick most-constrained unknown cell
+        ├─ Find unknown cell with most constraints
         ├─ Try filled: recursive solve
         ├─ If valid solution found: increment count
         ├─ Try empty: recursive solve
         ├─ If valid solution found: increment count
-        ├─ If count > 1: STOP (fail-fast)
-        └─ RETURN count (0, 1, or MANY)
+        ├─ If count ≥ 2: RETURN MANY (fail-fast)
+        └─ Check timeout before each branch (ADR-0011)
 ```
 
 ### Performance Characteristics
