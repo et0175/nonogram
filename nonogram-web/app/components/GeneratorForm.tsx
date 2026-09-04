@@ -14,7 +14,8 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
   const [croppedSize, setCroppedSize] = useState<{ width: number; height: number } | null>(null)
   const [suggestedSizes, setSuggestedSizes] = useState<Array<{ label: string; width: number; height: number }>>([])
-  const [size, setSize] = useState<number>(20)
+  const [width, setWidth] = useState<number>(20)
+  const [height, setHeight] = useState<number>(20)
   const [customName, setCustomName] = useState<string>('')
 
   // Detect ink bounding box (remove white margins)
@@ -89,42 +90,39 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
   }
 
   const computeSuggestedSizes = (boundingBox: { width: number; height: number }) => {
-    const minSize = Math.min(boundingBox.width, boundingBox.height)
+    const minSize = 10
     const maxSize = 30
+    const targetRatio = boundingBox.width / boundingBox.height
+
+    // Generate suggestions matching image aspect ratio (same algorithm as Python metadata module)
     const suggestions: Array<{ label: string; width: number; height: number }> = []
+    const candidates: Array<[number, number, number]> = [] // [error, w, h]
 
-    // Generate exactly 3 suggestions based on content size
-    const size1 = Math.max(10, Math.min(maxSize, Math.round(minSize / 4)))
-    const size2 = Math.max(10, Math.min(maxSize, Math.round(minSize / 2)))
-    const size3 = Math.max(10, Math.min(maxSize, Math.round(minSize / 1.2)))
-
-    // Avoid duplicates
-    const seen = new Set<number>()
-
-    if (!seen.has(size1)) {
-      suggestions.push({ label: `${size1}×${size1}`, width: size1, height: size1 })
-      seen.add(size1)
+    for (let w = minSize; w <= maxSize; w++) {
+      for (let h = minSize; h <= maxSize; h++) {
+        const gridRatio = w / h
+        const ratioError = Math.abs(gridRatio - targetRatio) / targetRatio
+        candidates.push([ratioError, w, h])
+      }
     }
 
-    if (!seen.has(size2)) {
-      suggestions.push({ label: `${size2}×${size2}`, width: size2, height: size2 })
-      seen.add(size2)
-    }
-
-    if (!seen.has(size3)) {
-      suggestions.push({ label: `${size3}×${size3}`, width: size3, height: size3 })
-      seen.add(size3)
+    // Sort by error (best matches first) and take top 3
+    candidates.sort((a, b) => a[0] - b[0])
+    for (let i = 0; i < Math.min(3, candidates.length); i++) {
+      const [, w, h] = candidates[i]
+      suggestions.push({ label: `${w}×${h}`, width: w, height: h })
     }
 
     setSuggestedSizes(suggestions)
     if (suggestions.length > 0) {
-      setSize(suggestions[0].width)
+      setWidth(suggestions[0].width)
+      setHeight(suggestions[0].height)
     }
   }
 
-  const updateCroppedPreview = (img: HTMLImageElement, gridSize: number) => {
+  const updateCroppedPreview = (img: HTMLImageElement, gridW: number, gridH: number) => {
     const boundingBox = detectInkBoundingBox(img)
-    const cropBox = calculateCropBox(boundingBox, gridSize, gridSize)
+    const cropBox = calculateCropBox(boundingBox, gridW, gridH)
     setCroppedSize(cropBox)
     computeSuggestedSizes(boundingBox)
   }
@@ -140,7 +138,7 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
         img.onload = () => {
           setOriginalImage(img)
           setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
-          updateCroppedPreview(img, size)
+          updateCroppedPreview(img, width, height)
         }
         img.src = reader.result as string
       }
@@ -148,17 +146,19 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
     }
   }
 
-  const applySuggestedSize = (s: number) => {
-    setSize(s)
+  const applySuggestedSize = (w: number, h: number) => {
+    setWidth(w)
+    setHeight(h)
     if (originalImage) {
-      updateCroppedPreview(originalImage, s)
+      updateCroppedPreview(originalImage, w, h)
     }
   }
 
-  const handleSizeChange = (newSize: number) => {
-    setSize(newSize)
+  const handleSizeChange = (newW: number, newH: number) => {
+    setWidth(newW)
+    setHeight(newH)
     if (originalImage) {
-      updateCroppedPreview(originalImage, newSize)
+      updateCroppedPreview(originalImage, newW, newH)
     }
   }
 
@@ -173,7 +173,8 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
 
     formData.set('image', selectedFile)
     formData.set('mode', 'image')
-    formData.set('size', size.toString())
+    formData.set('width', width.toString())
+    formData.set('height', height.toString())
 
     onSubmit(formData)
   }
@@ -278,6 +279,13 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
         </div>
       )}
 
+      {/* Hidden size field for form compatibility */}
+      <input
+        type="hidden"
+        name="size"
+        value={Math.min(width, height)}
+      />
+
       {/* Grid Size - appears right after preview */}
       {suggestedSizes.length > 0 && (
         <div>
@@ -294,15 +302,15 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
               <button
                 key={`${s.width}x${s.height}`}
                 type="button"
-                onClick={() => applySuggestedSize(s.width)}
+                onClick={() => applySuggestedSize(s.width, s.height)}
                 style={{
                   padding: '0.5rem',
-                  border: size === s.width ? '2px solid #0070f3' : '1px solid #ccc',
+                  border: width === s.width && height === s.height ? '2px solid #0070f3' : '1px solid #ccc',
                   borderRadius: '4px',
-                  backgroundColor: size === s.width ? '#e3f2fd' : '#fff',
+                  backgroundColor: width === s.width && height === s.height ? '#e3f2fd' : '#fff',
                   cursor: 'pointer',
                   fontSize: '0.9rem',
-                  fontWeight: size === s.width ? '600' : 'normal',
+                  fontWeight: width === s.width && height === s.height ? '600' : 'normal',
                   color: '#000',
                 }}
               >
@@ -311,27 +319,48 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
             ))}
           </div>
 
-          <div>
-            <label htmlFor="size" style={{ ...labelStyle, fontSize: '0.85rem' }}>
-              Size:
-            </label>
-            <input
-              id="size"
-              type="number"
-              name="size"
-              value={size}
-              onChange={(e) => {
-                const newSize = Math.max(5, Math.min(30, parseInt(e.target.value) || 0))
-                handleSizeChange(newSize)
-              }}
-              min="5"
-              max="30"
-              style={inputStyle}
-              placeholder="5-30"
-            />
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="width" style={{ ...labelStyle, fontSize: '0.85rem' }}>
+                Width:
+              </label>
+              <input
+                id="width"
+                type="number"
+                name="width"
+                value={width}
+                onChange={(e) => {
+                  const newW = Math.max(5, Math.min(30, parseInt(e.target.value) || 0))
+                  handleSizeChange(newW, height)
+                }}
+                min="5"
+                max="30"
+                style={inputStyle}
+                placeholder="5-30"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="height" style={{ ...labelStyle, fontSize: '0.85rem' }}>
+                Height:
+              </label>
+              <input
+                id="height"
+                type="number"
+                name="height"
+                value={height}
+                onChange={(e) => {
+                  const newH = Math.max(5, Math.min(30, parseInt(e.target.value) || 0))
+                  handleSizeChange(width, newH)
+                }}
+                min="5"
+                max="30"
+                style={inputStyle}
+                placeholder="5-30"
+              />
+            </div>
           </div>
           <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
-            Grid: {size} × {size} cells
+            Grid: {width} × {height} cells
             {croppedSize && ` (crop: ${croppedSize.width}×${croppedSize.height}px)`}
           </div>
         </div>
