@@ -618,6 +618,115 @@ class TestWebE2E_DifficultySelection:
         page.wait_for_selector('[data-outcome="success"]', timeout=15000)
 
 
+class TestWebE2E_RetryWithPersistedImage:
+    """E2E tests for retrying generation with the same uploaded image (CARD-037)."""
+
+    @pytest.fixture
+    def sample_image_path(self, tmp_path: Path) -> Path:
+        """Create a simple test image."""
+        try:
+            from PIL import Image
+
+            img = Image.new("L", (16, 16), color=255)
+            pixels = img.load()
+            for i in range(4, 12):
+                for j in range(4, 12):
+                    pixels[i, j] = 0
+            image_path = tmp_path / "test.png"
+            img.save(image_path)
+            return image_path
+        except ImportError:
+            pytest.skip("PIL not available")
+
+    def test_retry_with_different_size_persists_image(
+        self, page, running_web_server: str, tmp_path: Path, sample_image_path: Path
+    ) -> None:
+        """Retry with different size reuses uploaded image (CARD-037 retry flow)."""
+        page.goto(running_web_server)
+
+        # First submission: upload image and generate
+        page.locator('input[name="image"]').set_input_files(str(sample_image_path))
+        page.wait_for_selector('#image-preview[src]', timeout=5000)
+
+        page.locator('input[name="size"]').fill("16")
+        output_dir_1 = tmp_path / "run1"
+        page.locator('input[name="out"]').fill(str(output_dir_1))
+        page.locator('input[value="json"]').check()
+
+        page.locator('button[type="submit"]').click()
+
+        # Wait for success
+        page.wait_for_selector('[data-outcome="success"]', timeout=15000)
+
+        # Verify first run succeeded
+        json_files_1 = list(output_dir_1.glob("*.json"))
+        assert len(json_files_1) > 0, "First generation should create JSON file"
+
+        # Second submission: RETRY with different size, same image
+        # Clear the output directory field and set a new one
+        output_dir_2 = tmp_path / "run2"
+        page.locator('input[name="size"]').fill("20")  # Different size
+        page.locator('input[name="out"]').fill(str(output_dir_2))
+
+        # DO NOT upload a new image - should reuse the persisted one
+        page.locator('button[type="submit"]').click()
+
+        # Wait for result (should succeed without file-not-found error)
+        page.wait_for_selector('[data-outcome]', timeout=15000)
+
+        # Should succeed, not fail with "file not found" error
+        content = page.content()
+        assert 'data-outcome="success"' in content, \
+            f"Retry should succeed with persisted image, but got: {content[-500:]}"
+
+        # Verify second run also succeeded
+        json_files_2 = list(output_dir_2.glob("*.json"))
+        assert len(json_files_2) > 0, "Second generation should also create JSON file"
+
+
+    def test_retry_after_error_persists_image(
+        self, page, running_web_server: str, tmp_path: Path, sample_image_path: Path
+    ) -> None:
+        """Image persists even after error, allowing retry (CARD-037)."""
+        page.goto(running_web_server)
+
+        # First submission: upload image with invalid settings
+        page.locator('input[name="image"]').set_input_files(str(sample_image_path))
+        page.wait_for_selector('#image-preview[src]', timeout=5000)
+
+        page.locator('input[name="size"]').fill("999")  # Invalid: out of range
+        output_dir_1 = tmp_path / "error"
+        page.locator('input[name="out"]').fill(str(output_dir_1))
+
+        page.locator('button[type="submit"]').click()
+
+        # Wait for failure
+        page.wait_for_selector('[data-outcome="failure"]', timeout=15000)
+
+        # Verify it's a failure
+        content = page.content()
+        assert 'data-outcome="failure"' in content, "Should show failure"
+
+        # Second submission: FIX the size, retry with SAME image
+        page.locator('input[name="size"]').fill("16")  # Valid size
+        output_dir_2 = tmp_path / "retry"
+        page.locator('input[name="out"]').fill(str(output_dir_2))
+        page.locator('input[value="json"]').check()
+
+        # DO NOT upload a new image
+        page.locator('button[type="submit"]').click()
+
+        # Should now succeed without "file not found" error
+        page.wait_for_selector('[data-outcome="success"]', timeout=15000)
+
+        content = page.content()
+        assert 'data-outcome="success"' in content, "Retry with fixed settings should succeed"
+
+        # Verify file was generated
+        json_files = list(output_dir_2.glob("*.json"))
+        assert len(json_files) > 0, "Successful retry should create files"
+
+
 class TestWebE2E_FileVerification:
     """E2E tests to verify generated files have correct content."""
 

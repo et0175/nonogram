@@ -722,9 +722,11 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         # Parse the body to extract submission and fields
         image_filename: str | None = None
         persisted_image_path: str | None = None
+        newly_uploaded_image_path: Path | None = None  # Track newly uploaded vs persisted
         if media_type == "multipart/form-data":
             parsed = multipart.read(content_type, raw)
             posted = parsed.submission
+            newly_uploaded_image_path = parsed.image_path
             image_path = parsed.image_path
             image_filename = parsed.image_filename
             fields = parsed.fields  # Extract fields for form re-population
@@ -737,6 +739,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
             persisted_image_path_list = fields.get("persisted_image_path", [])
             persisted_image_path = persisted_image_path_list[0] if persisted_image_path_list else None
+            image_path = None
 
         # Use persisted image path if no new image was uploaded (CARD-037 retry flow)
         if image_path is None and persisted_image_path:
@@ -787,6 +790,29 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 pass
 
         try:
+            # Move newly uploaded image to a stable cache location if we'll use it for CARD-037 retry
+            # This allows the image to persist across retry attempts without re-upload.
+            original_temp_path = newly_uploaded_image_path  # Keep original for cleanup
+            if newly_uploaded_image_path is not None and newly_uploaded_image_path.exists():
+                try:
+                    import shutil
+                    import uuid
+                    # Copy temp file to a persistent cache that won't be auto-cleaned
+                    # Use .cache/nonogram in user's home directory with a session ID
+                    cache_dir = Path.home() / ".cache" / "nonogram"
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    # Keep original filename but with a session ID to avoid collisions
+                    session_id = str(uuid.uuid4())[:8]
+                    cached_image_path = cache_dir / f"{session_id}_{newly_uploaded_image_path.name}"
+                    shutil.copy2(newly_uploaded_image_path, cached_image_path)
+                    # Update image_path to point to the cached copy for persisting
+                    if image_path == newly_uploaded_image_path:
+                        image_path = cached_image_path
+                    # Keep newly_uploaded_image_path pointing to the original temp file so it gets deleted
+                except Exception:
+                    # If caching fails, just keep using the temp file
+                    pass
+
             # Fix posted.request to include persisted image path (CARD-037 retry flow)
             if posted.request is not None and posted.request.image is None and image_path is not None:
                 # Build a new request with the persisted image path
@@ -855,21 +881,11 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             pass
         finally:
             # Clean up temporary image file if it was created from multipart upload
-            # but NOT if it's a persisted file from CARD-037 retry flow
-            if image_path is not None and image_path.exists():
+            # but NOT if it's a persisted file from CARD-037 retry flow.
+            # Only delete the newly uploaded file from THIS request, not persisted ones.
+            if newly_uploaded_image_path is not None and newly_uploaded_image_path.exists():
                 try:
-                    # Only delete if this was a temporary file from multipart parsing
-                    # Check if file is in any temp directory (handles /tmp, /var/tmp, /var/folders, etc)
-                    import tempfile
-                    temp_dir = Path(tempfile.gettempdir())
-                    # Check if image_path is inside the temp directory
-                    try:
-                        image_path.relative_to(temp_dir)
-                        # File is in temp directory, safe to delete
-                        image_path.unlink()
-                    except ValueError:
-                        # File is not in temp directory (persisted file from CARD-037)
-                        pass
+                    newly_uploaded_image_path.unlink()
                 except OSError:
                     # Ignore errors during cleanup
                     pass
