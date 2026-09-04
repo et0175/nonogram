@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, readFile, unlink } from 'fs/promises'
+import { writeFile, readFile, unlink, mkdtemp, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 export async function POST(request: NextRequest) {
   let tempImagePath: string | null = null
+  let tempOutputDir: string | null = null
 
   try {
     const formData = await request.formData()
@@ -41,80 +46,107 @@ export async function POST(request: NextRequest) {
     }
 
     const puzzleName = name || image.name.replace(/\.[^.]+$/, '')
+    const sizeArg = `${width}x${height}`
 
     // Save uploaded image to temp file
     const buffer = await image.arrayBuffer()
     tempImagePath = join(tmpdir(), `${Date.now()}-${image.name}`)
     await writeFile(tempImagePath, Buffer.from(buffer))
 
-    // Prepare form data for Python handler
-    const pythonFormData = new FormData()
-    pythonFormData.append('image', new Blob([buffer], { type: image.type }), image.name)
-    pythonFormData.append('width', width)
-    pythonFormData.append('height', height)
-    pythonFormData.append('name', puzzleName)
-    pythonFormData.append('mode', 'image')
-    if (difficulty) pythonFormData.append('difficulty', difficulty)
-    if (seed) pythonFormData.append('seed', seed)
-    exportFormats.forEach(fmt => pythonFormData.append('export_formats', fmt))
+    // Create temp output directory
+    tempOutputDir = await mkdtemp(join(tmpdir(), 'nonogram-'))
 
-    // Call Python handler
-    const pythonUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/api/generate`
-      : 'http://localhost:3000/api/generate'
+    // Build CLI command
+    const args = [
+      'generate',
+      '--mode', 'image',
+      '--image', tempImagePath,
+      '--size', sizeArg,
+      '--out', tempOutputDir,
+    ]
 
-    try {
-      const pythonResponse = await fetch(pythonUrl, {
-        method: 'POST',
-        body: pythonFormData,
-      })
+    // Add optional parameters
+    if (difficulty && difficulty !== 'any') {
+      args.push('--difficulty', difficulty)
+    }
+    if (seed) {
+      args.push('--seed', seed)
+    }
 
-      if (!pythonResponse.ok) {
-        const errorData = await pythonResponse.json()
-        return NextResponse.json(
-          { error: errorData.error || 'Puzzle generation failed' },
-          { status: pythonResponse.status }
-        )
-      }
+    // Add export formats
+    exportFormats.forEach(fmt => {
+      args.push('--export', fmt)
+    })
 
-      // Check if response is JSON (metadata) or binary (file)
-      const contentType = pythonResponse.headers.get('content-type') || ''
+    console.log('Running nonogram CLI:', args.join(' '))
 
-      if (contentType.includes('application/json')) {
-        // Return metadata response from Python
-        const data = await pythonResponse.json()
-        return NextResponse.json(data)
-      } else {
-        // Return file content directly to browser as download
-        const fileBuffer = await pythonResponse.arrayBuffer()
-        const filename = pythonResponse.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${puzzleName}.json`
+    // Call Python CLI via subprocess
+    const { stdout, stderr } = await execFileAsync('nonogram', args, {
+      timeout: 60000, // 60 second timeout
+    })
 
-        return new NextResponse(fileBuffer, {
+    console.log('Nonogram CLI output:', stdout)
+
+    // Read the first generated file and return it
+    // Try each format in order until we find one
+    for (const format of exportFormats) {
+      const filePath = join(tempOutputDir, `${puzzleName}.${format}`)
+      try {
+        const fileContent = await readFile(filePath)
+        let contentType = 'application/octet-stream'
+
+        switch (format) {
+          case 'json':
+            contentType = 'application/json'
+            break
+          case 'csv':
+            contentType = 'text/csv'
+            break
+          case 'png':
+            contentType = 'image/png'
+            break
+          case 'svg':
+            contentType = 'image/svg+xml'
+            break
+          case 'pdf':
+            contentType = 'application/pdf'
+            break
+        }
+
+        return new NextResponse(fileContent, {
           status: 200,
           headers: {
-            'Content-Type': contentType || 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Type': contentType,
+            'Content-Disposition': `attachment; filename="${puzzleName}.${format}"`,
           },
         })
+      } catch (e) {
+        // File not found, try next format
+        continue
       }
-    } catch (fetchError) {
-      console.error('Error calling Python handler:', fetchError)
-      return NextResponse.json(
-        { error: 'Failed to generate puzzle. Python service may be unavailable.' },
-        { status: 503 }
-      )
     }
+
+    // If no file was generated
+    throw new Error('No puzzle files were generated')
   } catch (error) {
     console.error('API error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: errorMessage },
       { status: 500 }
     )
   } finally {
-    // Clean up temp image file
+    // Clean up temp files
     if (tempImagePath) {
       try {
         await unlink(tempImagePath)
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    if (tempOutputDir) {
+      try {
+        await rm(tempOutputDir, { recursive: true })
       } catch (e) {
         // Ignore cleanup errors
       }
