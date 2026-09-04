@@ -4,7 +4,7 @@ _Updated: 2026-09-04 06:15_
 
 ## Status Summary
 - **Done:** 36 cards (100% — Waves 0–2 complete! 🎉)
-- **Ready:** 0 cards
+- **Ready:** 1 card (wave 3 — UX refinements)
 
 ## Waves Complete ✓
 
