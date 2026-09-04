@@ -8,6 +8,7 @@ export default function Home() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [lastImageFile, setLastImageFile] = useState<File | null>(null)
 
   const handleSubmit = async (formData: FormData) => {
     setLoading(true)
@@ -15,6 +16,12 @@ export default function Home() {
     setResult(null)
 
     try {
+      // Store the image file for potential retry (CARD-037)
+      const imageFile = formData.get('image') as File | null
+      if (imageFile) {
+        setLastImageFile(imageFile)
+      }
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         body: formData,
@@ -36,10 +43,21 @@ export default function Home() {
     }
   }
 
+  const handleClearImage = () => {
+    setLastImageFile(null)
+    setResult(null)
+    setError('')
+  }
+
   return (
     <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
       <h1>Nonogram Generator</h1>
-      <GeneratorForm onSubmit={handleSubmit} loading={loading} />
+      <GeneratorForm
+        onSubmit={handleSubmit}
+        loading={loading}
+        lastImageFile={lastImageFile}
+        onClearImage={handleClearImage}
+      />
       {error && (
         <div
           data-outcome="failure"

@@ -1,15 +1,17 @@
-import { FormEvent, useRef, useState } from 'react'
+import { FormEvent, useRef, useState, useEffect } from 'react'
 
 interface GeneratorFormProps {
   onSubmit: (formData: FormData) => void
   loading: boolean
+  lastImageFile?: File | null
+  onClearImage?: () => void
 }
 
-export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps) {
+export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClearImage }: GeneratorFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(lastImageFile || null)
   const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null)
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
   const [croppedSize, setCroppedSize] = useState<{ width: number; height: number } | null>(null)
@@ -17,6 +19,27 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
   const [width, setWidth] = useState<number>(20)
   const [height, setHeight] = useState<number>(20)
   const [customName, setCustomName] = useState<string>('')
+  const [isRetry, setIsRetry] = useState<boolean>(!!lastImageFile)
+
+  // CARD-037: Pre-populate form with cached image on retry
+  useEffect(() => {
+    if (lastImageFile && !selectedFile) {
+      setSelectedFile(lastImageFile)
+      setIsRetry(true)
+      // Load the image to show preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const img = new Image()
+        img.onload = () => {
+          setOriginalImage(img)
+          setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
+          updateCroppedPreview(img, width, height)
+        }
+        img.src = reader.result as string
+      }
+      reader.readAsDataURL(lastImageFile)
+    }
+  }, [lastImageFile])
 
   // Detect ink bounding box (remove white margins)
   const detectInkBoundingBox = (img: HTMLImageElement): { x: number; y: number; width: number; height: number } => {
@@ -235,11 +258,41 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
             />
             {selectedFile && (
               <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-                <div>✓ File: {selectedFile.name}</div>
+                <div>
+                  ✓ File: {selectedFile.name}
+                  {isRetry && (
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#0070f3', fontWeight: 500 }}>
+                      (cached from previous attempt)
+                    </span>
+                  )}
+                </div>
                 {croppedSize && (
                   <div style={{ fontWeight: 500, color: '#0070f3' }}>
                     Effective: {croppedSize.width}×{croppedSize.height} pixels (cropped to {width}×{height} grid)
                   </div>
+                )}
+                {isRetry && onClearImage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null)
+                      setOriginalImage(null)
+                      setIsRetry(false)
+                      onClearImage()
+                    }}
+                    style={{
+                      marginTop: '0.5rem',
+                      padding: '0.3rem 0.6rem',
+                      fontSize: '0.8rem',
+                      backgroundColor: '#f5f5f5',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      color: '#666',
+                    }}
+                  >
+                    Upload new image
+                  </button>
                 )}
               </div>
             )}
