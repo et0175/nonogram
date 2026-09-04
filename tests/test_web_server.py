@@ -1991,8 +1991,8 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     form_options = _form_field_names()
 
     assert argv_options - form_options == {"extent", "mode", "density", "library_key"}
-    # CARD-037, CARD-044: form adds size and persisted_image_path (internal, not a CLI arg)
-    assert form_options - argv_options == {"size", "persisted_image_path"}
+    # CARD-037, CARD-044: form adds size, persisted_image_path, persisted_image_filename (internal, not CLI args)
+    assert form_options - argv_options == {"size", "persisted_image_path", "persisted_image_filename"}
 
 
 def test_the_form_lists_every_registered_export_format() -> None:
@@ -2383,7 +2383,7 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "_options(list(difficulty.Tier), blank='(any)', selected=difficulty_val)": (
         "CARD-030: fragment escaped by the function that built it"
     ),
-    "_checkboxes('export_formats', export.FORMATS)": (
+    "_checkboxes('export_formats', export.FORMATS, checked={'pdf'})": (
         "fragment escaped by the function that built it"
     ),
     "written": "fragment escaped by the function that built it",
@@ -2423,11 +2423,11 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """53 interpolations, 21 escaped at the point of interpolation, 32 not."""
+        """54 interpolations, 22 escaped at the point of interpolation, 32 not."""
         found = _page_interpolations()
 
-        assert len(found) == 53, [(i.line, i.expression) for i in found]
-        assert sum(1 for i in found if i.escaped) == 21
+        assert len(found) == 54, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 22
         assert sum(1 for i in found if not i.escaped) == 32
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:

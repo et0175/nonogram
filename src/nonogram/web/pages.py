@@ -22,7 +22,7 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 53 f-string interpolations, of which 21 call :func:`html.escape` at
+there are 54 f-string interpolations, of which 22 call :func:`html.escape` at
 the point of interpolation. The other 32 are each one of seven kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
