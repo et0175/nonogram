@@ -29,7 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Development-only; not part of the ADR-0006 runtime baseline.
-dev = ["pytest>=8.3"]
+dev = ["pytest>=8.3", "pytest-playwright>=0.4"]
 
 [project.scripts]
 nonogram = "nonogram.cli:main"
