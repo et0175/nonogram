@@ -171,8 +171,8 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
       return
     }
 
-    formData.set('image', selectedFile)
     formData.set('mode', 'image')
+    formData.set('image', selectedFile)
     formData.set('width', width.toString())
     formData.set('height', height.toString())
 
@@ -219,65 +219,67 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
       }}
     >
       {/* Image Upload */}
-      <div>
-        <label htmlFor="image" style={labelStyle}>
-          Upload Image:
-        </label>
-        <input
-          ref={fileInputRef}
-          id="image"
-          type="file"
-          name="image"
-          accept="image/*"
-          onChange={handleFileChange}
-          style={{ ...inputStyle, cursor: 'pointer' }}
-          required
-        />
-        {selectedFile && (
-          <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-            <div>✓ File: {selectedFile.name}</div>
-            {croppedSize && (
-              <div style={{ fontWeight: 500, color: '#0070f3' }}>
-                Effective: {croppedSize.width}×{croppedSize.height} pixels (cropped to {width}×{height} grid)
+      <>
+          <div>
+            <label htmlFor="image" style={labelStyle}>
+              Upload Image:
+            </label>
+            <input
+              ref={fileInputRef}
+              id="image"
+              type="file"
+              name="image"
+              accept="image/*"
+              onChange={handleFileChange}
+              style={{ ...inputStyle, cursor: 'pointer' }}
+            />
+            {selectedFile && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+                <div>✓ File: {selectedFile.name}</div>
+                {croppedSize && (
+                  <div style={{ fontWeight: 500, color: '#0070f3' }}>
+                    Effective: {croppedSize.width}×{croppedSize.height} pixels (cropped to {width}×{height} grid)
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Image Preview */}
-      {originalImage && (
-        <div
-          style={{
-            padding: '1rem',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            backgroundColor: '#f5f5f5',
-          }}
-        >
-          <label style={labelStyle}>Preview (cropped to grid aspect ratio):</label>
-          <canvas
-            ref={canvasRef}
-            style={{
-              maxWidth: '100%',
-              maxHeight: '300px',
-              borderRadius: '4px',
-              display: 'block',
-            }}
-          />
-          <img
-            id="image-preview"
-            src={originalImage.src}
-            alt="Preview"
-            style={{
-              maxWidth: '100%',
-              maxHeight: '150px',
-              borderRadius: '4px',
-              objectFit: 'contain',
-            }}
-          />
-        </div>
-      )}
+          {/* Image Preview */}
+          {originalImage && (
+            <div
+              style={{
+                padding: '1rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                backgroundColor: '#f5f5f5',
+              }}
+            >
+              <label style={labelStyle}>Preview (cropped to grid aspect ratio):</label>
+              <canvas
+                ref={canvasRef}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '300px',
+                  borderRadius: '4px',
+                  display: 'block',
+                }}
+              />
+              <img
+                id="image-preview"
+                src={originalImage.src}
+                alt="Preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '150px',
+                  borderRadius: '4px',
+                  objectFit: 'contain',
+                }}
+              />
+            </div>
+          )}
+        </>
+      }
 
       {/* Hidden size field for form compatibility */}
       <input

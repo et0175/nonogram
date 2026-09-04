@@ -15,19 +15,18 @@ export default function Home() {
     setResult(null)
 
     try {
-      // Check if form has file (image upload) - always use multipart for image mode
-      const hasFile = formData.has('image') && formData.get('image') instanceof File
-
       const response = await fetch('/api/generate', {
         method: 'POST',
-        body: formData, // Always use FormData which handles both file and non-file fields
+        body: formData,
       })
 
       const data = await response.json()
 
-      if (response.ok) {
+      if (response.ok && data.name && data.seed !== undefined) {
+        // Success response contains name, seed, and files
         setResult({ success: true, data })
       } else {
+        // Error response contains error field
         setError(data.error || 'Generation failed')
       }
     } catch (err) {

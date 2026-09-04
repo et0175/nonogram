@@ -1,0 +1,9 @@
+{
+  "buildCommand": "pip install -r api/requirements.txt && npm run build",
+  "outputDirectory": ".next",
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.11"
+    }
+  }
+}

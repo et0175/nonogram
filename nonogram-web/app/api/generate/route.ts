@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, readFile, unlink, mkdtemp, rm } from 'fs/promises'
+import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { execFile } from 'child_process'
@@ -7,37 +7,44 @@ import { promisify } from 'util'
 
 const execFileAsync = promisify(execFile)
 
+/**
+ * Handle puzzle generation via the nonogram CLI
+ *
+ * Process:
+ * 1. Parse multipart form data (with optional image upload)
+ * 2. Extract form fields and image file if present
+ * 3. Write image to temp file if provided
+ * 4. Build CLI arguments based on form fields
+ * 5. Call nonogram CLI as subprocess
+ * 6. Return puzzle metadata as JSON
+ */
 export async function POST(request: NextRequest) {
   let tempImagePath: string | null = null
-  let tempOutputDir: string | null = null
 
   try {
     const formData = await request.formData()
 
-    // Extract form fields
-    const image = formData.get('image') as File
+    // Extract form fields - support both image and other modes for flexibility
+    const mode = (formData.get('mode') as string) || 'image'
     const width = formData.get('width') as string
     const height = formData.get('height') as string
     const name = formData.get('name') as string
     const difficulty = formData.get('difficulty') as string
     const seed = formData.get('seed') as string
+    const density = formData.get('density') as string
+    const libraryKey = formData.get('library_key') as string
+    const imageFile = formData.get('image') as File | null
     const exportFormats = formData.getAll('export_formats') as string[]
 
-    // Validate required fields
-    if (!image) {
-      return NextResponse.json(
-        { error: 'Image file is required' },
-        { status: 400 }
-      )
-    }
-
+    // Validate grid size
     if (!width || !height) {
       return NextResponse.json(
-        { error: 'Width and height are required' },
+        { error: 'Grid size (width×height) is required' },
         { status: 400 }
       )
     }
 
+    // Validate export formats
     if (exportFormats.length === 0) {
       return NextResponse.json(
         { error: 'At least one export format must be selected' },
@@ -45,110 +52,122 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const puzzleName = name || image.name.replace(/\.[^.]+$/, '')
-    const sizeArg = `${width}x${height}`
+    // Build CLI arguments
+    const args = ['generate']
 
-    // Save uploaded image to temp file
-    const buffer = await image.arrayBuffer()
-    tempImagePath = join(tmpdir(), `${Date.now()}-${image.name}`)
-    await writeFile(tempImagePath, Buffer.from(buffer))
+    // Mode and size
+    args.push('--mode', mode)
+    args.push('--size', `${width}x${height}`)
 
-    // Create temp output directory
-    tempOutputDir = await mkdtemp(join(tmpdir(), 'nonogram-'))
-
-    // Build CLI command
-    const args = [
-      'generate',
-      '--mode', 'image',
-      '--image', tempImagePath,
-      '--size', sizeArg,
-      '--out', tempOutputDir,
-    ]
-
-    // Add optional parameters
-    if (difficulty && difficulty !== 'any') {
-      args.push('--difficulty', difficulty)
-    }
-    if (seed) {
-      args.push('--seed', seed)
+    // Mode-specific parameters
+    if (mode === 'image') {
+      if (!imageFile) {
+        return NextResponse.json(
+          { error: 'Image file is required for image mode' },
+          { status: 400 }
+        )
+      }
+      // Save image to temp file
+      const buffer = await imageFile.arrayBuffer()
+      tempImagePath = join(tmpdir(), `nonogram-${Date.now()}-${imageFile.name}`)
+      await writeFile(tempImagePath, Buffer.from(buffer))
+      args.push('--image', tempImagePath)
+    } else if (mode === 'random') {
+      if (density) args.push('--density', density)
+    } else if (mode === 'library') {
+      if (libraryKey) args.push('--library-key', libraryKey)
     }
 
-    // Add export formats
+    // Optional parameters
+    if (name) args.push('--name', name)
+    if (difficulty && difficulty !== 'any') args.push('--difficulty', difficulty)
+    if (seed) args.push('--seed', seed)
+
+    // Export formats
     exportFormats.forEach(fmt => {
       args.push('--export', fmt)
     })
 
-    console.log('Running nonogram CLI:', args.join(' '))
+    console.log('[nonogram-web] Running:', 'nonogram', args.join(' '))
 
-    // Call Python CLI via subprocess
+    // Call the CLI
     const { stdout, stderr } = await execFileAsync('nonogram', args, {
       timeout: 60000, // 60 second timeout
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     })
 
-    console.log('Nonogram CLI output:', stdout)
+    console.log('[nonogram-web] CLI stdout:', stdout)
+    if (stderr) console.log('[nonogram-web] CLI stderr:', stderr)
 
-    // Read the first generated file and return it
-    // Try each format in order until we find one
-    for (const format of exportFormats) {
-      const filePath = join(tempOutputDir, `${puzzleName}.${format}`)
-      try {
-        const fileContent = await readFile(filePath)
-        let contentType = 'application/octet-stream'
+    // Parse CLI output to extract puzzle metadata
+    // Output format:
+    // seed: 12345
+    // wrote /path/to/puzzle.json
+    // wrote /path/to/puzzle.png
+    // nudges: 0 (optional)
+    const outputLines = stdout.trim().split('\n')
+    const files: Record<string, string> = {}
+    let seedValue: number | null = null
+    let puzzleName = name || (imageFile ? imageFile.name.replace(/\.[^.]+$/, '') : 'puzzle')
 
-        switch (format) {
-          case 'json':
-            contentType = 'application/json'
-            break
-          case 'csv':
-            contentType = 'text/csv'
-            break
-          case 'png':
-            contentType = 'image/png'
-            break
-          case 'svg':
-            contentType = 'image/svg+xml'
-            break
-          case 'pdf':
-            contentType = 'application/pdf'
-            break
+    for (const line of outputLines) {
+      const trimmed = line.trim()
+
+      if (trimmed.startsWith('seed: ')) {
+        seedValue = parseInt(trimmed.slice(6))
+      } else if (trimmed.startsWith('wrote ')) {
+        const filePath = trimmed.slice(6)
+        const match = filePath.match(/\.([a-z]+)$/)
+        if (match) {
+          const format = match[1]
+          files[format] = filePath
         }
-
-        return new NextResponse(fileContent, {
-          status: 200,
-          headers: {
-            'Content-Type': contentType,
-            'Content-Disposition': `attachment; filename="${puzzleName}.${format}"`,
-          },
-        })
-      } catch (e) {
-        // File not found, try next format
-        continue
       }
     }
 
-    // If no file was generated
-    throw new Error('No puzzle files were generated')
+    // If seed was specified by user, use it; otherwise use the printed one
+    if (!seedValue) {
+      seedValue = seed ? parseInt(seed) : Math.floor(Math.random() * 2147483647)
+    }
+
+    return NextResponse.json({
+      name: puzzleName,
+      seed: seedValue,
+      files: files
+    }, { status: 200 })
   } catch (error) {
-    console.error('API error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    console.error('[nonogram-web] Error:', error)
+
+    if (error instanceof Error) {
+      if (error.message.includes('ENOENT')) {
+        return NextResponse.json(
+          { error: 'nonogram CLI not found. Install with: pip install -e .' },
+          { status: 503 }
+        )
+      }
+      if (error.message.includes('timeout')) {
+        return NextResponse.json(
+          { error: 'Puzzle generation timed out (exceeded 60 seconds)' },
+          { status: 408 }
+        )
+      }
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
-      { error: errorMessage },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   } finally {
-    // Clean up temp files
+    // Clean up temp image file
     if (tempImagePath) {
       try {
         await unlink(tempImagePath)
       } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
-    if (tempOutputDir) {
-      try {
-        await rm(tempOutputDir, { recursive: true })
-      } catch (e) {
-        // Ignore cleanup errors
+        console.warn('[nonogram-web] Failed to clean up temp image:', e)
       }
     }
   }
