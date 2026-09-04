@@ -29,25 +29,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Output directory: use provided or default to current directory
+    const outputDir = out && out.trim() ? out.trim() : '.'
+
+    // Validate that at least one export format is selected
+    if (exportFormats.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one export format must be selected' },
+        { status: 400 }
+      )
+    }
+
     // Build response with only selected export formats
     const puzzleName = name || image.name.replace(/\.[^.]+$/, '')
     const files: Record<string, string> = {}
 
     // Only include paths for selected export formats
     if (exportFormats.includes('json')) {
-      files.json = `${out || '/output'}/${puzzleName}.json`
+      files.json = `${outputDir}/${puzzleName}.json`
     }
     if (exportFormats.includes('csv')) {
-      files.csv = `${out || '/output'}/${puzzleName}.csv`
+      files.csv = `${outputDir}/${puzzleName}.csv`
     }
     if (exportFormats.includes('png')) {
-      files.png = `${out || '/output'}/${puzzleName}.png`
+      files.png = `${outputDir}/${puzzleName}.png`
     }
     if (exportFormats.includes('svg')) {
-      files.svg = `${out || '/output'}/${puzzleName}.svg`
+      files.svg = `${outputDir}/${puzzleName}.svg`
     }
     if (exportFormats.includes('pdf')) {
-      files.pdf = `${out || '/output'}/${puzzleName}.pdf`
+      files.pdf = `${outputDir}/${puzzleName}.pdf`
     }
 
     // TODO: Call Python backend to generate puzzle
