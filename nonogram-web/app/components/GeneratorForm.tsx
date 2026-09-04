@@ -238,7 +238,7 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
             <div>✓ File: {selectedFile.name}</div>
             {croppedSize && (
               <div style={{ fontWeight: 500, color: '#0070f3' }}>
-                Effective: {croppedSize.width}×{croppedSize.height} pixels (cropped to {size}×{size} grid)
+                Effective: {croppedSize.width}×{croppedSize.height} pixels (cropped to {width}×{height} grid)
               </div>
             )}
           </div>
