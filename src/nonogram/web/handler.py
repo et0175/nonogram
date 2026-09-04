@@ -861,6 +861,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 return
             try:
                 puzzle = orchestrator.generate(posted.request)
+                # Restore original filename for exports (CARD-037 retry compatibility)
+                # When retrying with persisted image, use original filename not cached path
+                # Only override if no custom name was provided
+                if image_filename and not posted.request.name:
+                    from dataclasses import replace
+                    puzzle = replace(puzzle, name=Path(image_filename).stem)
                 written = orchestrator.export_puzzle(puzzle)
             except NonogramError as error:
                 self._fail_inline(
