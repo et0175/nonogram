@@ -1,6 +1,6 @@
 # CARD-035: Include source image filename in export (traceability)
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -12,14 +12,14 @@
 **Worktree:** —
 **Source:** User feedback during wave 0 testing
 **Idea:** —
-**Wave:** —
+**Wave:** 2
 **Depends on:** CARD-031
 **Touches:** src/nonogram/web/handler.py, src/nonogram/orchestrator.py, src/nonogram/export/**, tests/**
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.2
+**Started:** 2026-09-03T00:00:00Z
+**Closed:** 2026-09-04T06:00:00Z
+**Actual:** 1.0d
+**Merge commit:** e3ec635
 **Blocked by:** —
 
 ## What to implement
@@ -68,4 +68,36 @@ Enhance traceability by incorporating the source image filename into the export 
 
 ## Worktree notes
 
-—
+**Review cycle 1 (Score: 9.2/10)** ✓ PASSED
+
+**AC/EC/G Verification:**
+- AC-139 ✓: Filename captured from multipart Content-Disposition header, passed through pipeline to GenerationRequest
+- AC-140 ✓: Export filenames include source image name (e.g., "cat_puzzle.svg") via puzzle.name derived from image_filename
+- AC-141 ✓: Non-image modes (random/library) use current naming scheme, image_filename ignored
+- AC-142 ✓: Filename sanitization via _sanitized_component prevents path traversal and filesystem-unsafe characters
+
+**Guardrail Compliance:**
+- G-1 ✓: No new runtime dependencies — only stdlib + existing Pillow/NumPy
+- G-2 ✓: Non-image mode behavior fully unchanged — random/library naming logic intact
+- G-3 ✓: Sanitization prevents path traversal via regex `[^\w.-]+` → prevents `../`, `//`, `\`, null bytes, special chars
+- G-4 ✓: Puzzle naming logic (FR-015) accepts optional image_filename but operates as before
+
+**Test Results:**
+- 18 new unit tests in test_card_035_image_filename_traceability.py: 18/18 passing
+- Full test suite: 2370/2370 passing ✓
+- Coverage: multipart parsing, filename extraction, naming hints, sanitization edge cases, unicode handling, fallbacks
+
+**Implementation Notes:**
+- multipart.py: Extracts filename from Content-Disposition header via part.get_filename()
+- submission.py: Passes image_filename through from_fields() to GenerationRequest
+- orchestrator.py: NameContext._auto_name() uses image_filename as puzzle name hint for image mode (priority: filename → path stem → timestamp)
+- orchestrator.py: _sanitized_component() applies filesystem safety via _UNSAFE_STEM_CHARACTERS regex
+- handler.py: Correctly manages multipart submission and cleanup of uploaded temp files
+
+**Architecture Alignment:**
+- ADR-0010 ✓: Filename is unvalidated at CLI boundary (GenerationRequest)
+- ADR-0016 ✓: Sanitization applied at export-time filename stage (not on puzzle name itself)
+- ADR-0018 ✓: No collision with naming context — image_filename is not disambiguated (same as library key)
+- ADR-0020 ✓: Multipart parsing via email.parser.BytesParser for RFC 2046 compliance
+
+**Ready to merge:** All criteria met, review score 9.2 (threshold 8.0) ✓
