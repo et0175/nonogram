@@ -740,10 +740,14 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         # Use persisted image path if no new image was uploaded (CARD-037 retry flow)
         if image_path is None and persisted_image_path:
-            image_path = Path(persisted_image_path)
-            # Preserve filename from form field if available
-            if not image_filename and persisted_image_path:
-                image_filename = Path(persisted_image_path).name
+            try:
+                image_path = Path(persisted_image_path)
+                # Preserve filename from form field if available
+                if not image_filename and persisted_image_path:
+                    image_filename = Path(persisted_image_path).name
+            except Exception as e:
+                # If persisted path is invalid, continue without it
+                pass
 
         # Extract image metadata for form display (CARD-031)
         # Extract even on errors to preserve suggestions and preview
@@ -783,6 +787,11 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 pass
 
         try:
+            # Fix posted.request to include persisted image path (CARD-037 retry flow)
+            if posted.request is not None and posted.request.image is None and image_path is not None:
+                # Build a new request with the persisted image path
+                from dataclasses import replace
+                posted = posted._replace(request=replace(posted.request, image=image_path))
             if posted.request is None:
                 self._fail_inline(
                     fields,
