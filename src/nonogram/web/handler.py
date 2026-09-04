@@ -791,7 +791,9 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             if posted.request is not None and posted.request.image is None and image_path is not None:
                 # Build a new request with the persisted image path
                 from dataclasses import replace
-                posted = posted._replace(request=replace(posted.request, image=image_path))
+                # Submission is not a dataclass, so create a new one with the updated request
+                updated_request = replace(posted.request, image=image_path)
+                posted = submission.Submission(request=updated_request, unreadable=posted.unreadable)
             if posted.request is None:
                 self._fail_inline(
                     fields,
