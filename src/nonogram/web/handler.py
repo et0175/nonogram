@@ -84,7 +84,7 @@ IDLE_TIMEOUT_S = 30
 #: A transport bound like :data:`IDLE_TIMEOUT_S`, not a domain rule: it is
 #: measured in bytes off the wire, answered with a status code, and says
 #: nothing about what any field contains (ADR-0019/R1, guardrail G-2).
-MAX_BODY_BYTES = 64 * 1024
+MAX_BODY_BYTES = 50 * 1024 * 1024  # 50 MB for large image uploads
 
 #: Host names a request may name (F-12). Loopback binding stops a *network*
 #: peer, but not the browser the user is already running: any page it loads can
