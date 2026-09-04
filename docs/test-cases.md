@@ -2,6 +2,10 @@
 
 ## Traceability: Acceptance Criteria to Test Cases
 
+**Complete AC definitions:** See `meta/kanban/cards/CARD-*.md` for all 166 acceptance
+criteria. Each kanban card lists the ACs it implements. This table shows a sample of key ACs
+and their test verification status.
+
 | AC | Title | Verified By | Status |
 |---|-------|-------------|--------|
 | AC-001 | Random grid generation | TC-003-001, TC-003-002, TC-003-003 | ✓ |

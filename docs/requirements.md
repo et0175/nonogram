@@ -113,6 +113,27 @@ single spec and calls out gaps that need a decision before implementation.
      user (do not silently keep altering the image beyond that cap) and let
      them retry with a different image or size.
 
+## 4.7 Acceptance Criteria
+
+**Where to find them:** Acceptance criteria (AC-001, AC-002, ..., AC-166) are defined in
+kanban cards under `meta/kanban/cards/CARD-*.md`. Each card lists its AC in the
+**"Acceptance criteria"** section with:
+- **AC-NNN** (test category) — the test scenario (given/when/then)
+- *test:* the corresponding test function name
+
+**How to find ACs for a specific FR:**
+- Look up the FR in this document
+- Find the kanban card implementing that FR (search `meta/kanban/cards/` for the FR number
+  in the "What to implement" section)
+- Read the "Acceptance criteria" section of that card
+
+**Example:** FR-1 (random grid generation) is implemented by CARD-003. Reading
+`meta/kanban/cards/CARD-003.md` reveals AC-001 (happy path), AC-002 (boundary),
+AC-003 (negative), AC-004 (negative), AC-010 (density), AC-011 (density validation).
+
+**Test coverage:** Each AC maps to a test function name that can be found in `tests/`
+and cross-referenced in the traceability table at `docs/test-cases.md`.
+
 ## 5. Non-Functional Requirements
 
 - NFR-1: Puzzle generation (including regenerate-on-failure loops) should
