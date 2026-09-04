@@ -22,8 +22,8 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 49 f-string interpolations, of which 19 call :func:`html.escape` at
-the point of interpolation. The other 30 are each one of four kinds:
+there are 51 f-string interpolations, of which 20 call :func:`html.escape` at
+the point of interpolation. The other 31 are each one of five kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
 * **8+ fragments built here**, by a function that escaped as it built them —
@@ -36,6 +36,8 @@ the point of interpolation. The other 30 are each one of four kinds:
   Each is safe not because it is escaped but because it is not a string — the
   ``:d`` format spec admits an int and nothing else, so a later caller passing
   markup there raises instead of emitting it.
+* **JSON data**: ``metadata_json`` (CARD-037 persisted image metadata) — embedded
+  in a JSON script block where no HTML escaping is needed.
 
 Neither page renders the puzzle (CON-008, guardrail G-4). What a successful run
 reports is the puzzle's name, the seed and the files written; :func:`result_page`
@@ -74,6 +76,7 @@ share a call signature, so there is no single table to read for them.
 from __future__ import annotations
 
 import html
+import json
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -765,6 +768,8 @@ def form_with_result(
     error_reasons: Sequence[str] | None = None,
     image_metadata_str: str = "",
     suggestions: list[tuple[int, int]] | None = None,
+    persisted_image_path: str = "",
+    persisted_image_metadata: dict | None = None,
 ) -> str:
     """Render the form page with an embedded result section (CARD-030).
 
@@ -782,6 +787,8 @@ def form_with_result(
         paths: Files written (success only).
         error_summary: Error description (failure only).
         error_reasons: Detailed error messages (failure only).
+        persisted_image_path: Path to uploaded image file for retry (CARD-037).
+        persisted_image_metadata: Metadata dict with width, height, imageSrc (CARD-037).
 
     Returns:
         One complete HTML document with form and embedded result section.
@@ -837,7 +844,7 @@ the same pipeline behind them.</p>
     <label><span>Image <small>&mdash; select the picture to convert</small></span>
       <input type="file" name="image">
     </label>
-    <input type="hidden" name="persisted_image_path" value="">
+    <input type="hidden" name="persisted_image_path" value="{html.escape(persisted_image_path)}">
     <div id="image-preview-container">
       <img id="image-preview" alt="Preview of uploaded image">
       <div id="image-dimensions"></div>
@@ -888,7 +895,17 @@ document.addEventListener('DOMContentLoaded', function() {{
     }});
   }}
 }});
-</script>
+</script>"""
+
+    # Add persisted image metadata script tag if metadata is provided (CARD-037)
+    if persisted_image_metadata:
+        metadata_json = json.dumps(persisted_image_metadata)
+        form_html += f"""
+<script type="application/json" data-image-metadata>
+{metadata_json}
+</script>"""
+
+    form_html += """
 <script src="/static/metadata.js"></script>
 </body>
 </html>

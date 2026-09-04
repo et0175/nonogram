@@ -743,6 +743,29 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 # If metadata extraction fails or module unavailable, continue without suggestions
                 pass
 
+        # Prepare persisted image metadata for display (CARD-037)
+        persisted_metadata: dict | None = None
+        if image_path is not None:
+            try:
+                from nonogram.web import metadata as web_metadata
+                from PIL import Image
+                import base64
+                import io
+                img_metadata = web_metadata.extract_metadata(image_path)
+                # Create data URL for client-side preview
+                # Detect MIME type from file extension
+                suffix = image_path.suffix.lower()
+                mime_type = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(suffix[1:] if suffix else "jpeg", "jpeg")
+                with open(image_path, "rb") as f:
+                    img_data = base64.b64encode(f.read()).decode("utf-8")
+                    persisted_metadata = {
+                        "width": img_metadata.width,
+                        "height": img_metadata.height,
+                        "imageSrc": f"data:image/{mime_type};base64,{img_data}",
+                    }
+            except Exception:
+                pass
+
         try:
             if posted.request is None:
                 self._fail_inline(
@@ -751,6 +774,8 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     posted.unreadable,
                     image_metadata_str=image_metadata_str,
                     suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
                 )
                 return
             try:
@@ -763,6 +788,8 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     [str(error)],
                     image_metadata_str=image_metadata_str,
                     suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
                 )
                 return
             except OSError as error:
@@ -772,9 +799,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     [str(error)],
                     image_metadata_str=image_metadata_str,
                     suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
                 )
                 return
             # CARD-030: Render form with success result inline instead of redirect
+            # CARD-037: Keep image file for retry attempts
             self._respond(
                 HTTPStatus.OK,
                 _HTML,
@@ -786,11 +816,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     paths=written,
                     image_metadata_str=image_metadata_str,
                     suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
                 ),
             )
-        finally:
-            if image_path is not None:
-                image_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def _fail(self, summary: str, reasons: Sequence[str]) -> None:
         """Render one failure page (EC-003).
@@ -816,6 +847,8 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         reasons: Sequence[str],
         image_metadata_str: str = "",
         suggestions: list[tuple[int, int]] | None = None,
+        persisted_image_path: str = "",
+        persisted_image_metadata: dict | None = None,
     ) -> None:
         """Render one failure with inline form (CARD-030).
 
@@ -825,6 +858,9 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         The status is ``200``: the response *is* the report, and delivering it
         succeeded.
+
+        CARD-037: Passes persisted_image_path and metadata so the uploaded file
+        persists across retry attempts with a visible preview.
         """
         self._respond(
             HTTPStatus.OK,
@@ -836,6 +872,8 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 error_reasons=reasons,
                 image_metadata_str=image_metadata_str,
                 suggestions=suggestions or [],
+                persisted_image_path=persisted_image_path,
+                persisted_image_metadata=persisted_image_metadata,
             ),
         )
 

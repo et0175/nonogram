@@ -2402,6 +2402,7 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "' '.join(buttons)": "CARD-030: constructed fragment from _suggestions_section",
     "width": "CARD-031: grid dimension (int), part of constructed size_str",
     "height": "CARD-031: grid dimension (int), part of constructed size_str",
+    "metadata_json": "CARD-037: JSON data in script block (no HTML escaping needed)",
 }
 
 
@@ -2421,12 +2422,12 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """43 interpolations, 16 escaped at the point of interpolation, 27 not."""
+        """51 interpolations, 20 escaped at the point of interpolation, 31 not."""
         found = _page_interpolations()
 
-        assert len(found) == 49, [(i.line, i.expression) for i in found]
-        assert sum(1 for i in found if i.escaped) == 19
-        assert sum(1 for i in found if not i.escaped) == 30
+        assert len(found) == 51, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 20
+        assert sum(1 for i in found if not i.escaped) == 31
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.

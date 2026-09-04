@@ -1,6 +1,6 @@
 # CARD-037: Persist uploaded image for retry without re-upload
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/037-persist-upload-retry
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-037
 **Source:** User feedback during wave 0–2 testing
 **Idea:** —
-**Wave:** —
+**Wave:** 3
 **Depends on:** CARD-031
 **Touches:** src/nonogram/web/handler.py, src/nonogram/web/submission.py, src/nonogram/web/pages.py, tests/test_web_server.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-04T00:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

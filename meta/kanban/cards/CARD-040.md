@@ -1,6 +1,6 @@
 # CARD-040: Implement suggestion algorithm (metadata.py module)
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/040-suggestion-algorithm
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-040
 **Source:** User testing feedback & CARD-031 gap
 **Idea:** —
-**Wave:** —
+**Wave:** 3
 **Depends on:** CARD-031 (supposed to exist, missing)
 **Touches:** src/nonogram/web/metadata.py (new), tests/test_web_metadata.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-04T00:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
