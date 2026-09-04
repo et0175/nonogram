@@ -264,12 +264,13 @@ ALGORITHM:
   7. Run uniqueness check
 
   8. If NOT unique (0 or >1 solutions):
-     ├─ Bounded pixel nudge:
-     │  ├─ Flip candidate pixels in ambiguous regions
-     │  ├─ Re-check uniqueness (up to 10 attempts)
-     │  └─ If success: use nudged grid
-     ├─ If still not unique:
-     │  └─ Report error to user (retry with different image)
+     ├─ Bounded pixel nudge (POL-002, up to 5 attempts max per ADR-0002):
+     │  ├─ Flip one more pixel of the original conversion
+     │  ├─ Prioritize pixels by: switch participation, boundary position, centre
+     │  ├─ Re-check uniqueness on nudged grid
+     │  └─ If solution_count = 1 → SUCCESS
+     ├─ If still not unique after 5 nudges:
+     │  └─ Report error to user (POL-003: stop altering image)
 ```
 
 ### Output
@@ -277,14 +278,15 @@ Uniquely-solvable nonogram derived from the image
 
 ### Floyd-Steinberg Dithering Details
 
-The dithering algorithm distributes quantization error to neighboring pixels using these weights:
+The dithering algorithm distributes quantization error to neighboring pixels:
 
 ```
-        X    7/16
-  3/16  5/16  1/16
+        X    7/16   (right)
+  3/16  5/16  1/16  (left, down, right-down)
+  (left, down, right-down neighbors)
 ```
 
-Where X is the current pixel. This produces high-quality binary images from grayscale input.
+Pillow's `Image.convert("1")` implements Floyd-Steinberg as its default 1-bit dither (ADR-0006). Error propagation passes quantization error to 4 neighbors using the weights above, producing high-quality binary images from grayscale input without pure thresholding artifacts.
 
 ## Size Discovery & Validation
 
