@@ -260,7 +260,7 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
                 ref={canvasRef}
                 style={{
                   maxWidth: '100%',
-                  maxHeight: '300px',
+                  maxHeight: '150px',
                   borderRadius: '4px',
                   display: 'block',
                 }}
@@ -288,38 +288,40 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
         value={Math.min(width, height)}
       />
 
-      {/* Grid Size - appears right after preview */}
-      {suggestedSizes.length > 0 && (
+      {/* Grid Size - always show if image is uploaded */}
+      {selectedFile && (
         <div>
           <label style={labelStyle}>Output Grid Size:</label>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: suggestedSizes.length === 1 ? '1fr' : 'repeat(3, 1fr)',
-              gap: '0.4rem',
-              marginBottom: '1rem',
-            }}
-          >
-            {suggestedSizes.map((s) => (
-              <button
-                key={`${s.width}x${s.height}`}
-                type="button"
-                onClick={() => applySuggestedSize(s.width, s.height)}
-                style={{
-                  padding: '0.35rem 0.6rem',
-                  border: width === s.width && height === s.height ? '2px solid #0070f3' : '1px solid #ccc',
-                  borderRadius: '4px',
-                  backgroundColor: width === s.width && height === s.height ? '#e3f2fd' : '#fff',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: width === s.width && height === s.height ? '600' : 'normal',
-                  color: '#000',
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          {suggestedSizes.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: suggestedSizes.length === 1 ? '1fr' : 'repeat(3, 1fr)',
+                gap: '0.4rem',
+                marginBottom: '1rem',
+              }}
+            >
+              {suggestedSizes.map((s) => (
+                <button
+                  key={`${s.width}x${s.height}`}
+                  type="button"
+                  onClick={() => applySuggestedSize(s.width, s.height)}
+                  style={{
+                    padding: '0.35rem 0.6rem',
+                    border: width === s.width && height === s.height ? '2px solid #0070f3' : '1px solid #ccc',
+                    borderRadius: '4px',
+                    backgroundColor: width === s.width && height === s.height ? '#e3f2fd' : '#fff',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: width === s.width && height === s.height ? '600' : 'normal',
+                    color: '#000',
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <div style={{ flex: 1 }}>
@@ -448,7 +450,7 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
                 type="checkbox"
                 name="export_formats"
                 value={format}
-                defaultChecked={format !== 'pdf'}
+                defaultChecked={format === 'pdf'}
               />
               <span>{format.toUpperCase()}</span>
             </label>
