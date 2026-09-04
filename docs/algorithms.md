@@ -17,35 +17,53 @@ Technical documentation of the nonogram puzzle generation and solving algorithms
 
 **Component:** COMP-002 (Orchestrator)
 
-The generation follows a retry-bounded loop with multiple decision points:
+The generation follows retry-bounded loops with multiple decision points (POL-001 through POL-005, ADR-0002):
 
 ```
 START
   ↓
-PARSE REQUEST (size, mode, difficulty, etc.)
+PARSE REQUEST & VALIDATE (size, mode, difficulty, image path, etc.)
   ↓
-LOOP (retry_counter < MAX_RETRIES):
-  ├─ SOURCE GRID
-  │   ├─ Random: Generate random grid at requested density
-  │   ├─ Library: Load built-in template image
-  │   └─ Image: Convert uploaded image via dithering
+RESOLVE EXTENT (apply source's shape if bare --size N given)
+  ↓
+RANDOM SEED (draw OS entropy if not provided)
+  ↓
+FOR random/library modes:
+  RESAMPLE LOOP (retry_counter < 20):
+    REGENERATE LOOP (retry_counter < 20, shared budget):
+      ├─ SOURCE GRID (random draw or library re-render)
+      ├─ COMPUTE CLUES (run-length encoding)
+      ├─ UNIQUENESS CHECK (solver.solve: 0, 1, or ≥2 solutions)
+      ├─ If solution_count ≠ 1 → reject, regenerate
+      ├─ DIFFICULTY SCORE (off solver signals, not a second solve)
+      └─ Return scored candidate
+    │
+    ├─ DIFFICULTY TIER CHECK (does candidate match --difficulty?)
+    ├─ If score in tier → SUCCESS, exit loops
+    └─ If ≠ tier → reject candidate, resample (try regenerate loop again)
   │
+  └─ If no success after 20 attempts → POL-005: Abandon, report reason
+
+FOR image mode:
+  ├─ SOURCE GRID (convert image once via Floyd-Steinberg dithering)
   ├─ COMPUTE CLUES
-  │   └─ Run-length encoding: Row & column clues
-  │
   ├─ UNIQUENESS CHECK
-  │   ├─ Solver: Count solutions (0, 1, or ≥2)
-  │   ├─ If 1 solution → Continue
-  │   └─ If ≠1 → Regenerate, retry loop
+  ├─ If solution_count = 1 → Continue to tier check
   │
-  ├─ DIFFICULTY SCORING
-  │   ├─ Heuristic scoring: solver signals
-  │   ├─ Map to tier: Easy/Medium/Hard
-  │   ├─ If matches requested tier → Continue
-  │   └─ If ≠ tier → Resample, retry loop
+  ├─ Else (not unique):
+  │   NUDGE LOOP (retry_counter < 5):
+  │     ├─ Nudge: flip one more pixel of the original conversion
+  │     ├─ COMPUTE CLUES & UNIQUENESS CHECK
+  │     └─ If solution_count = 1 → SUCCESS, exit nudge loop
+  │   │
+  │   └─ If no success after 5 nudges → POL-003: Abandon, stop altering image
   │
-  └─ EXPORT
-      └─ PNG/SVG/JSON/CSV/PDF formats
+  ├─ DIFFICULTY TIER CHECK
+  ├─ If score not in tier → Abandon (no tier recovery for image mode)
+  └─ SUCCESS → EXPORT
+
+EXPORT (all modes):
+  └─ Write in requested format(s): PNG/SVG/JSON/CSV/PDF
 END
 ```
 
@@ -54,28 +72,37 @@ END
 **Component:** COMP-003 (Sourcing)
 
 ### Input
-- `size`: W×H (grid dimensions)
-- `density`: 0-100% (percentage of filled cells)
-- `seed`: Random seed for reproducibility
+- `width`, `height`: Grid dimensions (10-30 cells each, validated independently)
+- `density`: 0-100% (percentage of filled cells, validated before any draw)
+- `rng`: Seeded random.Random instance (ADR-0015, for reproducibility)
 
 ### Algorithm
 
 ```
 ALGORITHM:
-  1. Calculate target_filled = (W×H) × (density/100)
-  2. Create empty grid
-  3. Generate random indices for target_filled cells
-  4. Shuffle indices using seeded RNG
-  5. Mark first target_filled cells as filled
-  6. Verify density is within ±3% tolerance
+  1. Validate extent: each side must be in [10, 30] (AC-069/AC-070)
+  2. Validate density: must be in (0, 100) range (AC-011)
+  3. Calculate target_filled = (width × height) × (density / 100)
+  4. Create flat list: [True] * target_filled + [False] * (total - target_filled)
+  5. Shuffle list in-place using rng (deterministic with same seed)
+  6. Reshape flat list into 2D grid: [width, height] row-major
   7. RETURN grid as list[list[bool]]
 ```
 
+### Density Accuracy (ADR-0003)
+
+The filled fraction is within ±3 percentage points **by construction**:
+- Compute exact target cell count (one value, not stochastic)
+- Shuffle exact positions (no probability per cell)
+- Only error: rounding of fractional cells (max ±0.5 cells, << 3 points)
+- Holds at the smallest grid (10×10): no randomness can break the guarantee
+
 ### Constraints
 
-- **Size:** 10×10 to 50×50 (v1.0) or 10×10 to 30×30 (documented minimum)
-- **Density:** 0-100% (exclusive boundaries)
-- **Seeded:** Same seed + size = same grid (reproducible)
+- **Size:** 10×10 to 30×30 (per side, inclusive)
+- **Density:** 0-100% (exclusive boundaries, validated before drawing)
+- **Seeded:** Same seed + size + density = same grid (reproducible)
+- **Density Accuracy:** Within ±3 percentage points (by construction, not by chance)
 
 ## Clue Computation
 
@@ -147,9 +174,13 @@ ALGORITHM:
 | Mid-density grids | ~100-500ms | Some backtracking |
 | Hard grids at 40×40+ | ~1-10s | Extensive search |
 
-### Critical Property
+### Critical Properties
 
-**Must NEVER false-positive:** The solver must never report a puzzle as uniquely solvable when it actually has 0 or ≥2 solutions. This is verified by the mandatory property test (`tests/property/test_solver_uniqueness.py`).
+**Must NEVER false-positive:** The solver must never report a puzzle as uniquely solvable when it actually has 0 or ≥2 solutions (INV-002). This is verified by the mandatory cross-check property test (`tests/property/test_solver_uniqueness.py`) which runs the solver against an independent brute-force oracle.
+
+**Fail-fast at 2 solutions:** The search stops the instant a second distinct solution is found (AC-017). It never counts further — this is what makes uniqueness checking affordable to call on every candidate in the regenerate loop.
+
+**Cooperative timeout:** Respects ADR-0011's generation deadline (30s per request, shared across all retries). Raises `SolverTimeout` on exhaustion; does not return an answer.
 
 ## Difficulty Scoring
 
@@ -164,35 +195,48 @@ ALGORITHM:
 
 ```
 ALGORITHM:
-  1. Collect solver signals:
-     ├─ cells_solved_by_line_logic (early deductions)
-     ├─ backtracking_depth (search depth needed)
-     ├─ solver_time (milliseconds)
-     └─ grid_size (area in cells)
+  1. Collect solver signals (from the uniqueness check solve):
+     ├─ line_logic_cells: cells settled by line logic alone
+     ├─ total_cells: grid area
+     ├─ branch_nodes: search nodes expanded beyond line logic
+     └─ elapsed_seconds: wall-clock time for entire solve
 
-  2. Compute heuristic score:
-     score = weighted_combination(
-       cells_solved_by_line_logic * 0.3,
-       backtracking_depth * 0.3,
-       solver_time * 0.2,
-       grid_area * 0.2
-     )
+  2. Normalize signals to 0..1 scale:
+     ├─ line_logic_gap = 1 - (line_logic_cells / total_cells)
+     ├─ branch_pressure = min(branch_nodes / total_cells, 1.0)
+     ├─ time_pressure = min(elapsed_seconds / size_budget, 1.0)
+     ├─ size_pressure = (grid_area - 100) / 800 (clamped to 0..1)
+     └─ density_pressure based on clue counts (how full/empty)
 
-  3. Map to tier:
-     ├─ score < T1 → Easy
-     ├─ T1 ≤ score < T2 → Medium
-     └─ score ≥ T2 → Hard
+  3. Compute effort score (ADR-0013 formula):
+     effort = 0.40 * line_logic_gap
+            + 0.45 * branch_pressure
+            + 0.15 * time_pressure
 
-  4. RETRY LOOP:
+  4. Apply relief factor (structural difficulty normalizer):
+     relief = 1.0 - 0.15 * (1 - size_pressure)
+                   - 0.15 * (1 - density_pressure)
+
+  5. Final score (0..100 scale):
+     score = 100 * effort * relief
+
+  6. Map to tier (ADR-0005's equal bands):
+     ├─ score ∈ [0, 33] → Easy
+     ├─ score ∈ (33, 66] → Medium
+     └─ score ∈ (66, 100] → Hard
+
+  7. RETRY LOOP:
      If computed_tier ≠ requested_tier:
-       → Regenerate candidate (retry up to 20 times)
+       → Regenerate candidate (retry up to 20 times, shared budget)
 ```
 
 ### Key Properties
 
-- Uses solver signals, not just puzzle size
-- Heuristic-based (not exhaustive brute-force)
-- Regenerates on difficulty mismatch
+- **No second solve:** Scores off signals from the uniqueness check only (FR-009)
+- **Size and density are normalizers:** Act multiplicatively, never additively
+- **AC-023 guarantee:** A puzzle solved entirely by line logic scores ≤ 15 points (Easy)
+- **Fail-fast heuristic:** Not calibrated machine learning; based on ADR-0013 tuning
+- **Shared retry budget:** Regenerate and resample loops share one 20-attempt budget
 
 ## Image Conversion Pipeline
 
@@ -248,11 +292,12 @@ Where X is the current pixel. This produces high-quality binary images from gray
 
 The system doesn't have a "suggested size" algorithm per se. Instead, it **accepts user-specified sizes within valid ranges**.
 
-### v1.0 Specification
+### v1.0 Specification (CON-011, NFR-001)
 
-- **Supported:** 10×10 to 30×30 (per side)
-- **Validation:** Domain function (not CLI layer)
-- **Out-of-range:** Rejected with `NonogramError`
+- **Supported:** 10 to 30 cells per side (inclusive), both dimensions validated independently
+- **Validation:** Domain function in `random_grid.validate_extent()` (not CLI layer per ADR-0010)
+- **Out-of-range:** Rejected with `SizeOutOfRange` error before any grid is sourced
+- **Rectangle, not square:** Extent is always a (width, height) pair; a bare `--size N` is completed by the source's shape
 
 ### Practical Guidance
 
