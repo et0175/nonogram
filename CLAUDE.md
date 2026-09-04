@@ -44,11 +44,11 @@ This is a CLI tool that generates uniquely-solvable black-and-white nonogram puz
 ```
 cli.py           COMP-001  the only inbound adapter (argparse) — parsing only, no domain validation
 orchestrator.py  COMP-002  owns the Puzzle aggregate; drives the capability modules below
-sourcing/         COMP-003  sources a solution grid (random implemented; library/image are future work)
+sourcing/         COMP-003  sources a solution grid (random, library templates, user-uploaded images)
 clues.py          COMP-004  pure run-length-encoding of a grid into row/column clues
 solver/           COMP-005  hand-rolled constraint-propagation + backtracking uniqueness solver
-difficulty.py     COMP-006  not yet built
-export/           COMP-007  not yet built
+difficulty.py     COMP-006  heuristic difficulty scoring (Easy/Medium/Hard tiers via solver signals)
+export/           COMP-007  exports puzzles as PNG/SVG/JSON/CSV/PDF formats
 web/              COMP-008  web UI adapter (HTTP request handler, form rendering, HTML generation)
 ```
 
