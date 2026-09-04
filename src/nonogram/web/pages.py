@@ -466,7 +466,7 @@ details > div {
   color: var(--text-secondary);
 }
 
-[data-outcome="success"] {
+.outcome-success {
   background-color: #d4edda;
   padding: 0.75rem;
   border-radius: 4px;
@@ -474,7 +474,7 @@ details > div {
   color: #155724;
 }
 
-[data-outcome="failure"] {
+.outcome-failure {
   background-color: #f8d7da;
   padding: 0.75rem;
   border-radius: 4px;
@@ -483,13 +483,13 @@ details > div {
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-outcome="success"] {
+  .outcome-success {
     background-color: #1e4620;
     border-left-color: #51cf66;
     color: #a6e22e;
   }
 
-  [data-outcome="failure"] {
+  .outcome-failure {
     background-color: #4a1c1c;
     border-left-color: #ff6b6b;
     color: #ff8a8a;
@@ -710,7 +710,7 @@ def result_page(name: str | None, seed: int, paths: Sequence[Path]) -> str:
     return _shell(
         "nonogram — generated",
         f"""<h1>Generated</h1>
-<p data-outcome="{SUCCESS}">Generated <strong>{html.escape(name or "")}</strong>.</p>
+<p data-outcome="{SUCCESS}" class="outcome-success">Generated <strong>{html.escape(name or "")}</strong>.</p>
 <p>seed: <code>{seed:d}</code></p>
 {written}""",
     )
@@ -745,7 +745,7 @@ def failure_page(summary: str, reasons: Sequence[str]) -> str:
     return _shell(
         "nonogram — not generated",
         f"""<h1>Not generated</h1>
-<p data-outcome="{FAILURE}">{html.escape(summary)}</p>
+<p data-outcome="{FAILURE}" class="outcome-failure">{html.escape(summary)}</p>
 <ul>
 {listed}
 </ul>""",
@@ -782,7 +782,7 @@ def _success_section(puzzle_name: str | None, seed: int, paths: Sequence[Path]) 
         written = "<p>No export format was requested, so no file was written.</p>"
 
     return f"""<details open>
-  <summary aria-label="Puzzle generation success: name, seed, and written files"><strong data-outcome="{SUCCESS}">Generated</strong></summary>
+  <summary aria-label="Puzzle generation success: name, seed, and written files"><strong data-outcome="{SUCCESS}" class="outcome-success">Generated</strong></summary>
   <div>
     <p>Name: <strong>{html.escape(puzzle_name or "")}</strong></p>
     <p>Seed: <code>{seed:d}</code></p>
@@ -803,7 +803,7 @@ def _error_section(summary: str, reasons: Sequence[str]) -> str:
     """
     listed = "\n".join(f"  <li>{html.escape(reason)}</li>" for reason in reasons)
     return f"""<details open>
-  <summary aria-label="Generation failed with error details"><strong data-outcome="{FAILURE}">Error</strong></summary>
+  <summary aria-label="Generation failed with error details"><strong data-outcome="{FAILURE}" class="outcome-failure">Error</strong></summary>
   <div>
     <p>{html.escape(summary)}</p>
     <ul>

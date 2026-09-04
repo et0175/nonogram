@@ -859,11 +859,17 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             if image_path is not None and image_path.exists():
                 try:
                     # Only delete if this was a temporary file from multipart parsing
-                    # Persisted files are intentionally kept for retry attempts
-                    if str(image_path).startswith("/tmp/") or str(image_path).startswith(
-                        "/var/tmp/"
-                    ):
+                    # Check if file is in any temp directory (handles /tmp, /var/tmp, /var/folders, etc)
+                    import tempfile
+                    temp_dir = Path(tempfile.gettempdir())
+                    # Check if image_path is inside the temp directory
+                    try:
+                        image_path.relative_to(temp_dir)
+                        # File is in temp directory, safe to delete
                         image_path.unlink()
+                    except ValueError:
+                        # File is not in temp directory (persisted file from CARD-037)
+                        pass
                 except OSError:
                     # Ignore errors during cleanup
                     pass

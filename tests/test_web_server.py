@@ -2847,7 +2847,7 @@ class TestWebForm_ResultMessageColors:
         body_str = response.body.decode()
 
         # Check that CSS for success messages is in the style
-        assert "[data-outcome=\"success\"]" in body_str
+        assert ".outcome-success" in body_str
         assert "#d4edda" in body_str or "d4edda" in body_str  # greenish success color
 
     def test_error_message_has_pinkish_background(
@@ -2860,7 +2860,7 @@ class TestWebForm_ResultMessageColors:
         body_str = response.body.decode()
 
         # Check that CSS for error messages is in the style
-        assert "[data-outcome=\"failure\"]" in body_str
+        assert ".outcome-failure" in body_str
         assert "#f8d7da" in body_str or "f8d7da" in body_str  # pinkish error color
 
     def test_message_colors_have_wcag_aa_contrast(
