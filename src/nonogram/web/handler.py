@@ -721,16 +721,29 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
 
         # Parse the body to extract submission and fields
         image_filename: str | None = None
+        persisted_image_path: str | None = None
         if media_type == "multipart/form-data":
             parsed = multipart.read(content_type, raw)
             posted = parsed.submission
             image_path = parsed.image_path
             image_filename = parsed.image_filename
             fields = parsed.fields  # Extract fields for form re-population
+            # Get persisted image path from hidden form field for retry without re-upload (CARD-037)
+            persisted_image_path_list = fields.get("persisted_image_path", [])
+            persisted_image_path = persisted_image_path_list[0] if persisted_image_path_list else None
         else:
             posted = submission.read(raw.decode("utf-8", "replace"))
             # For urlencoded, re-parse to extract fields for form re-population
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
+            persisted_image_path_list = fields.get("persisted_image_path", [])
+            persisted_image_path = persisted_image_path_list[0] if persisted_image_path_list else None
+
+        # Use persisted image path if no new image was uploaded (CARD-037 retry flow)
+        if image_path is None and persisted_image_path:
+            image_path = Path(persisted_image_path)
+            # Preserve filename from form field if available
+            if not image_filename and persisted_image_path:
+                image_filename = Path(persisted_image_path).name
 
         # Extract image metadata for form display (CARD-031)
         # Extract even on errors to preserve suggestions and preview
