@@ -733,9 +733,10 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
 
         # Extract image metadata for form display (CARD-031)
+        # Extract even on errors to preserve suggestions and preview
         image_metadata_str = ""
         suggestions: list[tuple[int, int]] = []
-        if image_path is not None and posted.request is not None and posted.request.mode == "image":
+        if image_path is not None:
             try:
                 from nonogram.web import metadata as web_metadata
                 img_metadata = web_metadata.extract_metadata(image_path)
