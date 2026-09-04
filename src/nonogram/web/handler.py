@@ -722,6 +722,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         # Parse the body to extract submission and fields
         image_filename: str | None = None
         persisted_image_path: str | None = None
+        persisted_image_filename: str | None = None  # Original filename for retry
         newly_uploaded_image_path: Path | None = None  # Track newly uploaded vs persisted
         if media_type == "multipart/form-data":
             parsed = multipart.read(content_type, raw)
@@ -733,20 +734,28 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             # Get persisted image path from hidden form field for retry without re-upload (CARD-037)
             persisted_image_path_list = fields.get("persisted_image_path", [])
             persisted_image_path = persisted_image_path_list[0] if persisted_image_path_list else None
+            # Get original filename for display on retry
+            persisted_image_filename_list = fields.get("persisted_image_filename", [])
+            persisted_image_filename = persisted_image_filename_list[0] if persisted_image_filename_list else None
         else:
             posted = submission.read(raw.decode("utf-8", "replace"))
             # For urlencoded, re-parse to extract fields for form re-population
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
             persisted_image_path_list = fields.get("persisted_image_path", [])
             persisted_image_path = persisted_image_path_list[0] if persisted_image_path_list else None
+            persisted_image_filename_list = fields.get("persisted_image_filename", [])
+            persisted_image_filename = persisted_image_filename_list[0] if persisted_image_filename_list else None
             image_path = None
 
         # Use persisted image path if no new image was uploaded (CARD-037 retry flow)
         if image_path is None and persisted_image_path:
             try:
                 image_path = Path(persisted_image_path)
-                # Preserve filename from form field if available
-                if not image_filename and persisted_image_path:
+                # Use original filename from form field if available
+                if not image_filename and persisted_image_filename:
+                    image_filename = persisted_image_filename
+                elif not image_filename and persisted_image_path:
+                    # Fallback: extract from path if no stored filename
                     image_filename = Path(persisted_image_path).name
             except Exception as e:
                 # If persisted path is invalid, continue without it
@@ -830,6 +839,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
                     image_filename=image_filename or "",
+                    persisted_image_filename=image_filename or "",
                 )
                 return
             try:
@@ -845,6 +855,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
                     image_filename=image_filename or "",
+                    persisted_image_filename=image_filename or "",
                 )
                 return
             except OSError as error:
@@ -857,6 +868,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
                     image_filename=image_filename or "",
+                    persisted_image_filename=image_filename or "",
                 )
                 return
             # CARD-030: Render form with success result inline instead of redirect
@@ -875,6 +887,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
                     image_filename=image_filename or "",
+                    persisted_image_filename=image_filename or "",
                 ),
             )
         except Exception:
@@ -917,6 +930,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         persisted_image_path: str = "",
         persisted_image_metadata: dict | None = None,
         image_filename: str = "",
+        persisted_image_filename: str = "",
     ) -> None:
         """Render one failure with inline form (CARD-030).
 
@@ -943,6 +957,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 persisted_image_path=persisted_image_path,
                 persisted_image_metadata=persisted_image_metadata,
                 image_filename=image_filename,
+                persisted_image_filename=persisted_image_filename,
             ),
         )
 

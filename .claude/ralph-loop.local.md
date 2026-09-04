@@ -1,10 +1,10 @@
 ---
 active: true
-iteration: 9
+iteration: 2
 session_id: ed2f7c1b-75d4-421d-a085-5a39dc908bc7
-max_iterations: 10
+max_iterations: 0
 completion_promise: null
-started_at: "2026-09-04T13:29:52Z"
+started_at: "2026-09-04T19:27:04Z"
 ---
 
-Please read the documentation, make sure it's consistant, fix any gaps, then review the code and retest the algorithm and fix any findings
+Please check that the implementation of the algorithm for image is correct --max-iterations=10

@@ -550,6 +550,7 @@ the same pipeline behind them.</p>
 <div data-result-container="true"></div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <input type="hidden" name="persisted_image_path" value="">
+  <input type="hidden" name="persisted_image_filename" value="">
 
   <div id="image-preview-section">
     <div>
@@ -868,6 +869,7 @@ def form_with_result(
     persisted_image_path: str = "",
     persisted_image_metadata: dict | None = None,
     image_filename: str = "",
+    persisted_image_filename: str = "",
 ) -> str:
     """Render the form page with an embedded result section (CARD-030).
 
@@ -944,6 +946,7 @@ the same pipeline behind them.</p>
 </div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <input type="hidden" name="persisted_image_path" value="{html.escape(persisted_image_path)}">
+  <input type="hidden" name="persisted_image_filename" value="{html.escape(persisted_image_filename)}">
 
   <div id="image-preview-section">
     <div>
