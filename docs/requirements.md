@@ -11,6 +11,11 @@ Source material: `docs/monogram.md` (original idea notes) and
 `docs/monogram_idea` (flow diagram). This document consolidates both into a
 single spec and calls out gaps that need a decision before implementation.
 
+**Scope:** This document specifies **v1.0 features only** (FR-1 through FR-16, NFR-1
+through NFR-4). For roadmap features planned for v1.1, v1.2, and beyond, see
+`docs/user-stories.md`, which includes additional requirements (FR-17 and higher) for
+future releases.
+
 ## 2. Goals
 
 - Produce nonograms that are **always solvable by logic** (no guessing) and

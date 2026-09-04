@@ -1,5 +1,29 @@
 # User Stories — Nonogram Generator
 
+## Overview
+
+This document contains user stories organized by feature area and release (v1.0, future). Each user story describes:
+- **Who**: The user persona (Puzzle Creator, Player, etc.)
+- **What**: The feature or capability they want
+- **Why**: The value or motivation for the feature
+- **Acceptance Criteria**: Concrete conditions that define "done" for the user story
+- **Related Requirements**: Links to functional (FR-xxx) and non-functional (NFR-xxx) requirements
+
+## Relationship to Requirements and Formal Acceptance Criteria
+
+**User Story AC vs Formal AC:** The "Acceptance Criteria" listed here in each user story are user-facing conditions that should be met. They are different from the formal **Acceptance Criteria (AC-001..AC-166)** defined in `meta/kanban/cards/CARD-*.md`, which are implementation-level test specifications tied to specific development cards. User story ACs are *what the user needs*; formal ACs in kanban cards are *how we verify it*.
+
+**Traceability:**
+- Each user story maps to one or more Functional Requirements (FR-xxx)
+- Each FR maps to one or more kanban cards (CARD-xxx)
+- Each kanban card lists formal Acceptance Criteria (AC-xxx)
+- Each formal AC has a corresponding test case (TC-xxx)
+
+To find formal ACs for a user story:
+1. Note the FR numbers in "Related Requirements"
+2. Search `meta/kanban/cards/` for cards implementing those FRs
+3. Read the "Acceptance criteria" section of each card to see AC-xxx
+
 ## v1.0: Core Generation & Export
 
 ### US-001: Random Grid Generation
@@ -17,7 +41,7 @@
 - [ ] Generated grid is used as the solution source for puzzle generation
 - [ ] No errors or crashes for any valid size in 10..30 range
 
-**Related Requirements:** FR-001, FR-004, NFR-001
+**Related Requirements:** FR-1, FR-4, NFR-1
 
 ---
 
@@ -37,7 +61,7 @@
 - [ ] Library-sourced puzzles pass the same uniqueness check as random grids
 - [ ] Error message is clear if an invalid library key is specified
 
-**Related Requirements:** FR-002, FR-008
+**Related Requirements:** FR-2, FR-8
 
 ---
 
@@ -59,7 +83,7 @@
 - [ ] Error message if image file does not exist or is unreadable
 - [ ] Error message if image format is unsupported
 
-**Related Requirements:** FR-003, FR-022
+**Related Requirements:** FR-3, FR-22
 
 ---
 
@@ -79,7 +103,7 @@
 - [ ] Clues work correctly for any grid size and aspect ratio (10×10, 20×30, etc.)
 - [ ] Clues are round-trip accurate: grid → clues → can solve back to original grid
 
-**Related Requirements:** FR-005
+**Related Requirements:** FR-5
 
 ---
 
@@ -99,7 +123,7 @@
 - [ ] Solver never reports false positives across all test cases
 - [ ] Verification completes in reasonable time for puzzles up to 30×30
 
-**Related Requirements:** FR-006, NFR-003
+**Related Requirements:** FR-6, NFR-3
 
 ---
 
@@ -119,7 +143,7 @@
 - [ ] Every exported puzzle is guaranteed to have exactly one solution
 - [ ] User does not see failed candidates or partial results
 
-**Related Requirements:** FR-007, NFR-002
+**Related Requirements:** FR-7, NFR-2
 
 ---
 
@@ -140,7 +164,7 @@
 - [ ] Original image file on disk is never modified
 - [ ] User sees how many nudges were attempted
 
-**Related Requirements:** FR-013
+**Related Requirements:** FR-13
 
 ---
 
@@ -160,7 +184,7 @@
 - [ ] CLI `--help` lists all valid difficulty tiers
 - [ ] Same puzzle always scores the same tier regardless of generation attempt
 
-**Related Requirements:** FR-008, FR-009
+**Related Requirements:** FR-8, FR-9
 
 ---
 
@@ -182,7 +206,7 @@
 - [ ] File naming follows convention: `<name>-<WxH>-<difficulty>.png`
 - [ ] No visible artifacts or rendering errors
 
-**Related Requirements:** FR-011, NFR-005
+**Related Requirements:** FR-11, NFR-5
 
 ---
 
@@ -203,7 +227,7 @@
 - [ ] File naming follows convention: `<name>-<WxH>-<difficulty>.json`
 - [ ] Error handling for write failures
 
-**Related Requirements:** FR-012, NFR-007
+**Related Requirements:** FR-12, NFR-7
 
 ---
 
@@ -227,7 +251,7 @@
 - [ ] Non-ASCII names render correctly in PDFs (no tofu boxes)
 - [ ] Error message if name is empty after override
 
-**Related Requirements:** FR-015
+**Related Requirements:** FR-15
 
 ---
 
@@ -251,7 +275,7 @@
 - [ ] PDF generated using Pillow (no external dependencies)
 - [ ] PDF opens in standard PDF readers
 
-**Related Requirements:** FR-016, NFR-006
+**Related Requirements:** FR-16, NFR-6
 
 ---
 
@@ -278,7 +302,7 @@
 - [ ] Form is responsive and works on mobile and desktop
 - [ ] Page title and header clearly identify the tool
 
-**Related Requirements:** FR-017
+**Related Requirements:** FR-17
 
 ---
 
@@ -299,7 +323,7 @@
 - [ ] Error handling and error messages match between UI and CLI
 - [ ] Architectural tests verify no lateral imports between CLI and Web modules
 
-**Related Requirements:** FR-017
+**Related Requirements:** FR-17
 
 ---
 
@@ -320,7 +344,7 @@
 - [ ] CORS headers prevent external sites from making requests
 - [ ] Documentation notes that binding must not be changed for production use
 
-**Related Requirements:** FR-017, NFR-004, CON-007
+**Related Requirements:** FR-17, NFR-4, CON-007
 
 ---
 
@@ -342,7 +366,7 @@
 - [ ] All downstream components (solver, clues, exports) handle rectangles correctly
 - [ ] Web form accepts both "N" and "NxM" notation in size field
 
-**Related Requirements:** FR-018, CON-011
+**Related Requirements:** FR-18, CON-011
 
 ---
 
@@ -362,7 +386,7 @@
 - [ ] Landscape and square images are also handled correctly
 - [ ] Aspect ratio is computed from the trimmed (ink bounding box) source image
 
-**Related Requirements:** FR-020
+**Related Requirements:** FR-20
 
 ---
 
@@ -381,7 +405,7 @@
 - [ ] Boundary case: exactly 2:1 mismatch is accepted (retains exactly 50%)
 - [ ] Error message is clear and actionable, not cryptic
 
-**Related Requirements:** FR-021, CON-012
+**Related Requirements:** FR-21, CON-012
 
 ---
 
@@ -401,7 +425,7 @@
 - [ ] All export formats (PNG, SVG, PDF) use the same cell sizing logic
 - [ ] Cell size calculation is documented and tunable
 
-**Related Requirements:** NFR-005
+**Related Requirements:** NFR-5
 
 ---
 
@@ -421,7 +445,7 @@
 - [ ] Orientation decision is made automatically; user does not need to specify it
 - [ ] Clue layout adjusts to the page orientation (clues on all four margins)
 
-**Related Requirements:** NFR-006
+**Related Requirements:** NFR-6
 
 ---
 
@@ -443,7 +467,7 @@
 - [ ] Trimming works for images from all sources (user upload, library)
 - [ ] User sees how much of the image was trimmed (optional feedback)
 
-**Related Requirements:** FR-022
+**Related Requirements:** FR-22
 
 ---
 
@@ -465,7 +489,7 @@
 - [ ] Error if derived grid would discard >50% due to aspect ratio ceiling
 - [ ] Error message names the smallest --size N that would work
 
-**Related Requirements:** FR-023
+**Related Requirements:** FR-23
 
 ---
 
@@ -486,7 +510,7 @@
 - [ ] Small grids (largest side ≤15) never rotate (already optimal)
 - [ ] Orientation choice is logged/visible to user
 
-**Related Requirements:** NFR-006
+**Related Requirements:** NFR-6
 
 ---
 
