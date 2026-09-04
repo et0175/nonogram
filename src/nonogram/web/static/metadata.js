@@ -249,6 +249,17 @@
   }
 
   /**
+   * Clear the size field (AC-149: clear size when new image selected).
+   * Prevents stale size from previous image being used with new image.
+   */
+  function clearSizeField() {
+    const sizeInput = document.querySelector('input[name="size"]');
+    if (sizeInput) {
+      sizeInput.value = "";
+    }
+  }
+
+  /**
    * Initialize the file input listener.
    * AC-135: Set up handler for file selection
    * AC-138: Graceful fallback if File API unavailable
@@ -277,6 +288,7 @@
         try {
           if (this.files.length === 0) {
             clearMetadata();
+            clearSizeField(); // AC-149: Clear size field when no image selected
             return;
           }
 
@@ -285,8 +297,12 @@
           // Verify it's an image file
           if (!file.type.startsWith("image/")) {
             clearMetadata();
+            clearSizeField(); // AC-149: Clear size field for invalid image
             return;
           }
+
+          // AC-149: Clear size field when new image selected (prevents stale size)
+          clearSizeField();
 
           // AC-135: Extract metadata asynchronously
           extractImageMetadata(file)
@@ -306,6 +322,7 @@
           // AC-138: Graceful error handling
           console.log("Error processing file change:", err.message);
           clearMetadata();
+          clearSizeField(); // AC-149: Clear size on error
         }
       });
     } catch (err) {

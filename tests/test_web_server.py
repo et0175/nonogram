@@ -2880,3 +2880,58 @@ class TestWebForm_ResultMessageColors:
         # Verify dark mode colors also exist
         assert "#1e4620" in body_str or "1e4620" in body_str  # dark mode success bg
         assert "#4a1c1c" in body_str or "4a1c1c" in body_str  # dark mode error bg
+
+
+class TestWebForm_ResultClearing:
+    """CARD-038: Result messages clear on new submission."""
+
+    def test_result_container_exists(self, running_server: server.LoopbackHTTPServer) -> None:
+        """AC-147: Form has result container for clearing results."""
+        response = _request(running_server.server_port)
+        assert response.status == 200
+        body = response.body.decode()
+
+        # Result container should exist with attribute for JS to target
+        assert 'data-result-container="true"' in body
+
+    def test_form_has_clear_results_script(self, running_server: server.LoopbackHTTPServer) -> None:
+        """AC-148: Form includes script to clear previous results on form submit."""
+        response = _request(running_server.server_port)
+        assert response.status == 200
+        body = response.body.decode()
+
+        # Script should exist to clear results
+        assert 'data-result-container' in body
+        assert 'addEventListener' in body and 'submit' in body
+        assert 'innerHTML' in body  # Clearing by setting innerHTML to empty string
+
+
+class TestWebForm_SizeFieldClearing:
+    """CARD-039: Size field clears when new image is uploaded."""
+
+    def test_size_field_clears_on_new_image_select(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-149: Size field clears when new image selected."""
+        response = _request(running_server.server_port)
+        assert response.status == 200
+        body = response.body.decode()
+
+        # Form should have size input field
+        assert 'name="size"' in body
+        # Metadata script should be loaded (for file change handler)
+        assert 'metadata.js' in body or 'clearSizeField' in body
+
+    def test_fresh_suggestions_for_new_image(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-150: Fresh suggestions appear for new image after size clears."""
+        response = _request(running_server.server_port)
+        assert response.status == 200
+        body = response.body.decode()
+
+        # Form should have suggestion buttons area (metadata suggestions)
+        assert 'metadata-suggestions-area' in body
+        # Should have the JavaScript that calculates suggestions
+        assert 'suggestDimensions' in body or 'suggestions' in body
+

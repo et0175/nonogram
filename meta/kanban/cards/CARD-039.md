@@ -1,6 +1,6 @@
 # CARD-039: Clear size field when new image is uploaded
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** ux-polish
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/039-clear-size-on-upload
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-039
 **Source:** User feedback during wave 0–2 testing
 **Idea:** —
-**Wave:** —
+**Wave:** 3
 **Depends on:** CARD-034
 **Touches:** src/nonogram/web/static/metadata.js
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-04T00:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

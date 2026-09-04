@@ -1,6 +1,6 @@
 # CARD-041: Add colored backgrounds to result messages (success/error visual distinction)
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enhancement
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/041-result-message-colors
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-041
 **Source:** User testing feedback (wave 3)
 **Idea:** —
 **Wave:** 3
 **Depends on:** CARD-030
 **Touches:** src/nonogram/web/pages.py, tests/test_web_server.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-04T00:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

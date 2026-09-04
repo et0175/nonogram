@@ -1,6 +1,6 @@
 # CARD-038: Clear previous result message when submitting new generation
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/038-clear-result-on-resubmit
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-038
 **Source:** User feedback during wave 0–2 testing
 **Idea:** —
-**Wave:** —
+**Wave:** 3
 **Depends on:** CARD-030
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, tests/test_web_server.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-04T00:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

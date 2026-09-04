@@ -443,12 +443,26 @@ FORM_PAGE = f"""<!DOCTYPE html>
 <meta charset="utf-8">
 <title>nonogram</title>
 <style>{_STYLE}</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {{
+  const form = document.querySelector('form');
+  if (form) {{
+    form.addEventListener('submit', function() {{
+      const resultContainer = document.querySelector('[data-result-container]');
+      if (resultContainer) {{
+        resultContainer.innerHTML = '';
+      }}
+    }});
+  }}
+}});
+</script>
 </head>
 <body>
 <h1>nonogram</h1>
 <p>Generate a uniquely-solvable black-and-white nonogram from an image you upload.
 The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
+<div data-result-container="true"></div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <div class="form-section">
     <h3>Image</h3>
@@ -794,13 +808,28 @@ def form_with_result(
 <meta charset="utf-8">
 <title>nonogram</title>
 <style>{_STYLE}</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {{
+  const form = document.querySelector('form');
+  if (form) {{
+    form.addEventListener('submit', function() {{
+      const resultContainer = document.querySelector('[data-result-container]');
+      if (resultContainer) {{
+        resultContainer.innerHTML = '';
+      }}
+    }});
+  }}
+}});
+</script>
 </head>
 <body>
 <h1>nonogram</h1>
 <p>Generate a uniquely-solvable black-and-white nonogram from an image you upload.
 The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
+<div data-result-container="true">
 {result_html}
+</div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <div class="form-section">
     <h3>Image</h3>
