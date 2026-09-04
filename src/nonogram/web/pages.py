@@ -241,7 +241,6 @@ input:focus, select:focus {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto auto;
   gap: 1.5rem;
-  margin-top: 1.5rem;
 }
 
 @media (max-width: 768px) {
@@ -329,6 +328,14 @@ input:focus, select:focus {
   #image-preview-section {
     grid-template-columns: 1fr;
   }
+}
+
+.form-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
 }
 
 fieldset {
@@ -554,45 +561,47 @@ the same pipeline behind them.</p>
     <div id="metadata-suggestions-area"></div>
   </div>
 
-  <div class="form-grid">
-    <div class="form-section-light">
-      <label><span>Image</span>
-        <input type="file" name="image">
-        <small>select the picture to convert</small>
-      </label>
-    </div>
+  <div class="form-container">
+    <div class="form-grid">
+      <div class="form-section-light">
+        <label><span>Image</span>
+          <input type="file" name="image">
+          <small>select the picture to convert</small>
+        </label>
+      </div>
 
-    <div class="form-section-light">
-      <label><span>Size</span>
-        <input type="text" name="size" placeholder="e.g., 20 or 20x30">
-        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
-      </label>
-    </div>
+      <div class="form-section-light">
+        <label><span>Size</span>
+          <input type="text" name="size" placeholder="e.g., 20 or 20x30">
+          <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
+        </label>
+      </div>
 
-    <div class="form-section">
-      <h3>Export</h3>
-      <fieldset>
-        <legend>Formats</legend>
-        {_checkboxes("export_formats", export.FORMATS)}
-      </fieldset>
-      <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
-        <input type="text" name="out" placeholder=".">
-      </label>
-    </div>
+      <div class="form-section">
+        <h3>Export</h3>
+        <fieldset>
+          <legend>Formats</legend>
+          {_checkboxes("export_formats", export.FORMATS)}
+        </fieldset>
+        <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+          <input type="text" name="out" placeholder=".">
+        </label>
+      </div>
 
-    <div class="form-section">
-      <h3>Puzzle Settings</h3>
-      <label><span>Difficulty</span>
-        <select name="difficulty">
-            {_options(list(difficulty.Tier), blank="(any)")}
-        </select>
-      </label>
-      <label><span>Name <small>&mdash; shown on the printed page</small></span>
-        <input type="text" name="name" placeholder="(auto-generated if empty)">
-      </label>
-      <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
-        <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
-      </label>
+      <div class="form-section">
+        <h3>Puzzle Settings</h3>
+        <label><span>Difficulty</span>
+          <select name="difficulty">
+              {_options(list(difficulty.Tier), blank="(any)")}
+          </select>
+        </label>
+        <label><span>Name <small>&mdash; shown on the printed page</small></span>
+          <input type="text" name="name" placeholder="(auto-generated if empty)">
+        </label>
+        <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+          <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
+        </label>
+      </div>
     </div>
   </div>
 
@@ -946,46 +955,48 @@ the same pipeline behind them.</p>
     <div id="metadata-suggestions-area"></div>
   </div>
 
-  <div class="form-grid">
-    <div class="form-section-light">
-      <label><span>Image</span>
-        <input type="file" name="image">
-        <small>select the picture to convert</small>
-      </label>
-      {persisted_status}
-    </div>
+  <div class="form-container">
+    <div class="form-grid">
+      <div class="form-section-light">
+        <label><span>Image</span>
+          <input type="file" name="image">
+          <small>select the picture to convert</small>
+        </label>
+        {persisted_status}
+      </div>
 
-    <div class="form-section-light">
-      <label><span>Size</span>
-        <input type="text" name="size" value="{size_val}" placeholder="e.g., 20 or 20x30">
-        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
-      </label>
-    </div>
+      <div class="form-section-light">
+        <label><span>Size</span>
+          <input type="text" name="size" value="{size_val}" placeholder="e.g., 20 or 20x30">
+          <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
+        </label>
+      </div>
 
-    <div class="form-section">
-      <h3>Export</h3>
-      <fieldset>
-        <legend>Formats</legend>
-        {export_checkboxes}
-      </fieldset>
-      <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
-        <input type="text" name="out" value="{out_val}" placeholder=".">
-      </label>
-    </div>
+      <div class="form-section">
+        <h3>Export</h3>
+        <fieldset>
+          <legend>Formats</legend>
+          {export_checkboxes}
+        </fieldset>
+        <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+          <input type="text" name="out" value="{out_val}" placeholder=".">
+        </label>
+      </div>
 
-    <div class="form-section">
-      <h3>Puzzle Settings</h3>
-      <label><span>Difficulty</span>
-        <select name="difficulty">
-            {_options(list(difficulty.Tier), blank="(any)", selected=difficulty_val)}
-        </select>
-      </label>
-      <label><span>Name <small>&mdash; shown on the printed page</small></span>
-        <input type="text" name="name" value="{name_val}" placeholder="(auto-generated if empty)">
-      </label>
-      <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
-        <input type="text" name="seed" inputmode="numeric" value="{seed_val}" placeholder="(random if empty)">
-      </label>
+      <div class="form-section">
+        <h3>Puzzle Settings</h3>
+        <label><span>Difficulty</span>
+          <select name="difficulty">
+              {_options(list(difficulty.Tier), blank="(any)", selected=difficulty_val)}
+          </select>
+        </label>
+        <label><span>Name <small>&mdash; shown on the printed page</small></span>
+          <input type="text" name="name" value="{name_val}" placeholder="(auto-generated if empty)">
+        </label>
+        <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+          <input type="text" name="seed" inputmode="numeric" value="{seed_val}" placeholder="(random if empty)">
+        </label>
+      </div>
     </div>
   </div>
 
