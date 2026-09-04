@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, readFile, unlink } from 'fs/promises'
+import { join } from 'path'
+import { tmpdir } from 'os'
 
 export async function POST(request: NextRequest) {
+  let tempImagePath: string | null = null
+
   try {
     const formData = await request.formData()
 
@@ -9,7 +14,6 @@ export async function POST(request: NextRequest) {
     const width = formData.get('width') as string
     const height = formData.get('height') as string
     const name = formData.get('name') as string
-    const out = formData.get('out') as string
     const difficulty = formData.get('difficulty') as string
     const seed = formData.get('seed') as string
     const exportFormats = formData.getAll('export_formats') as string[]
@@ -29,11 +33,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Output directory: use provided or default to ./puzzles
-    // Note: In web context, this is server-side path. Eventually should stream file to browser.
-    const outputDir = out && out.trim() ? out.trim() : './puzzles'
-
-    // Validate that at least one export format is selected
     if (exportFormats.length === 0) {
       return NextResponse.json(
         { error: 'At least one export format must be selected' },
@@ -41,30 +40,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Build response with only selected export formats
     const puzzleName = name || image.name.replace(/\.[^.]+$/, '')
+
+    // Save uploaded image to temp file
+    const buffer = await image.arrayBuffer()
+    tempImagePath = join(tmpdir(), `${Date.now()}-${image.name}`)
+    await writeFile(tempImagePath, Buffer.from(buffer))
+
+    // TODO: Call Python API handler at /api/generate.py
+    // For now, return mock response with selected formats only
     const files: Record<string, string> = {}
 
-    // Only include paths for selected export formats
     if (exportFormats.includes('json')) {
-      files.json = `${outputDir}/${puzzleName}.json`
+      files.json = `${puzzleName}.json`
     }
     if (exportFormats.includes('csv')) {
-      files.csv = `${outputDir}/${puzzleName}.csv`
+      files.csv = `${puzzleName}.csv`
     }
     if (exportFormats.includes('png')) {
-      files.png = `${outputDir}/${puzzleName}.png`
+      files.png = `${puzzleName}.png`
     }
     if (exportFormats.includes('svg')) {
-      files.svg = `${outputDir}/${puzzleName}.svg`
+      files.svg = `${puzzleName}.svg`
     }
     if (exportFormats.includes('pdf')) {
-      files.pdf = `${outputDir}/${puzzleName}.pdf`
+      files.pdf = `${puzzleName}.pdf`
     }
 
-    // TODO: Call Python backend to generate puzzle
-    // For now, return a mock success response for testing
     return NextResponse.json({
+      success: true,
       name: puzzleName,
       seed: seed ? parseInt(seed) : Math.floor(Math.random() * 1000000),
       files,
@@ -75,5 +79,14 @@ export async function POST(request: NextRequest) {
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
+  } finally {
+    // Clean up temp image file
+    if (tempImagePath) {
+      try {
+        await unlink(tempImagePath)
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
   }
 }
