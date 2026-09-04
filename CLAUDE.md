@@ -49,6 +49,7 @@ clues.py          COMP-004  pure run-length-encoding of a grid into row/column c
 solver/           COMP-005  hand-rolled constraint-propagation + backtracking uniqueness solver
 difficulty.py     COMP-006  not yet built
 export/           COMP-007  not yet built
+web/              COMP-008  web UI adapter (HTTP request handler, form rendering, HTML generation)
 ```
 
 `cli` imports `orchestrator`; `orchestrator` imports the capability modules; **capability modules never import `cli`, the orchestrator, or each other laterally** — their only shared dependency is `errors.py` (a flat, import-free exception hierarchy). This is not just convention: `tests/test_cli.py` contains a structural guard that walks `src/nonogram/**/*.py` on disk with `ast` and fails the suite on any lateral or inward-pointing import, so it automatically covers new capability modules as they're added. When two capabilities need to share logic, reimplement it natively in each rather than importing across — see `solver/propagate.py`'s `mask_runs` for the precedent (it deliberately reimplements one clue-encoding check rather than importing `clues.py`, and is cross-checked against `clues.encode_line` from the test tree instead, where the import is legal).
