@@ -328,17 +328,29 @@
             showImagePreview(metadata);
 
             // CARD-037: Also show suggestion buttons for persisted image
+            // Build aspectRatio object from persisted metadata (width, height only)
+            const aspectRatio = {
+              width: metadata.width,
+              height: metadata.height,
+              decimal: Math.round((metadata.width / metadata.height) * 100) / 100
+            };
+            const metadataForSuggestions = {
+              width: metadata.width,
+              height: metadata.height,
+              aspectRatio: aspectRatio
+            };
+
             // Calculate suggestions based on the persisted image's aspect ratio
-            const suggestions = suggestDimensions(metadata);
+            const suggestions = suggestDimensions(metadataForSuggestions);
 
             // Display suggestions in the metadata-suggestions-area
             const container = document.getElementById("metadata-suggestions-area");
             if (container && suggestions && suggestions.length > 0) {
               // Format the aspect ratio for display
               const aspectRatioStr = formatAspectRatio(
-                metadata.width,
-                metadata.height,
-                metadata.width / metadata.height
+                aspectRatio.width,
+                aspectRatio.height,
+                aspectRatio.decimal
               );
 
               const metadataHtml = `
