@@ -290,7 +290,7 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
             alt="Preview"
             style={{
               maxWidth: '100%',
-              maxHeight: '300px',
+              maxHeight: '150px',
               borderRadius: '4px',
               objectFit: 'contain',
             }}
@@ -298,43 +298,7 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
         </div>
       )}
 
-      {/* Puzzle Name */}
-      <div>
-        <label htmlFor="name" style={labelStyle}>
-          Puzzle Name (optional):
-        </label>
-        <input
-          id="name"
-          type="text"
-          name="name"
-          value={customName}
-          onChange={(e) => setCustomName(e.target.value)}
-          style={inputStyle}
-          placeholder="e.g., my_puzzle"
-        />
-        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: '#999' }}>
-          Leave empty to use image filename
-        </div>
-      </div>
-
-      {/* Output Directory */}
-      <div>
-        <label htmlFor="out" style={labelStyle}>
-          Output Directory (optional):
-        </label>
-        <input
-          id="out"
-          type="text"
-          name="out"
-          style={inputStyle}
-          placeholder="e.g., ./output or ~/Desktop/puzzles"
-        />
-        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: '#999' }}>
-          Leave empty to use default directory
-        </div>
-      </div>
-
-      {/* Grid Size */}
+      {/* Grid Size - appears right after preview */}
       {suggestedSizes.length > 0 && (
         <div>
           <label style={labelStyle}>Output Grid Size:</label>
@@ -392,6 +356,42 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
           </div>
         </div>
       )}
+
+      {/* Puzzle Name */}
+      <div>
+        <label htmlFor="name" style={labelStyle}>
+          Puzzle Name (optional):
+        </label>
+        <input
+          id="name"
+          type="text"
+          name="name"
+          value={customName}
+          onChange={(e) => setCustomName(e.target.value)}
+          style={inputStyle}
+          placeholder="e.g., my_puzzle"
+        />
+        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: '#999' }}>
+          Leave empty to use image filename
+        </div>
+      </div>
+
+      {/* Output Directory */}
+      <div>
+        <label htmlFor="out" style={labelStyle}>
+          Output Directory (optional):
+        </label>
+        <input
+          id="out"
+          type="text"
+          name="out"
+          style={inputStyle}
+          placeholder="e.g., ./output or ~/Desktop/puzzles"
+        />
+        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: '#999' }}>
+          Leave empty to use default directory
+        </div>
+      </div>
 
       {/* Common Fields */}
       <div>
