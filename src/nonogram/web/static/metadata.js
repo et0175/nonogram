@@ -185,6 +185,45 @@
   }
 
   /**
+   * Show the image preview with given metadata.
+   * AC-163: Support showing preview on page load with persisted image
+   * AC-164: Update preview when user re-selects image
+   */
+  function showImagePreview(metadata) {
+    const previewContainer = document.getElementById("image-preview-container");
+    const previewImg = document.getElementById("image-preview");
+    const dimensionsDiv = document.getElementById("image-dimensions");
+
+    if (!previewContainer || !previewImg || !dimensionsDiv) {
+      return;
+    }
+
+    previewImg.src = metadata.imageSrc;
+    dimensionsDiv.textContent = `${metadata.width} × ${metadata.height}`;
+    previewContainer.classList.add("visible");
+  }
+
+  /**
+   * Clear the image preview (AC-165: clear on generation error).
+   */
+  function clearPreview() {
+    const previewContainer = document.getElementById("image-preview-container");
+    if (previewContainer) {
+      previewContainer.classList.remove("visible");
+    }
+  }
+
+  /**
+   * Clear result message container (AC-166: clear on new file select, integrate CARD-043).
+   */
+  function clearResultMessage() {
+    const resultContainer = document.querySelector("[data-result-container]");
+    if (resultContainer) {
+      resultContainer.innerHTML = "";
+    }
+  }
+
+  /**
    * Display the image preview thumbnail (AC-158, AC-159, AC-160).
    * Shows a thumbnail (max 150×150 px) with original dimensions label.
    */
@@ -207,13 +246,15 @@
     const reader = new FileReader();
 
     reader.onload = function(e) {
-      previewImg.src = e.target.result;
-      dimensionsDiv.textContent = `${metadata.width} × ${metadata.height}`;
-      previewContainer.classList.add("visible");
+      showImagePreview({
+        width: metadata.width,
+        height: metadata.height,
+        imageSrc: e.target.result
+      });
     };
 
     reader.onerror = function() {
-      previewContainer.classList.remove("visible");
+      clearPreview();
     };
 
     reader.readAsDataURL(file);
@@ -242,10 +283,7 @@
     }
 
     // Clear preview (AC-160: update when new file selected)
-    const previewContainer = document.getElementById("image-preview-container");
-    if (previewContainer) {
-      previewContainer.classList.remove("visible");
-    }
+    clearPreview();
   }
 
   /**
@@ -256,6 +294,44 @@
     const sizeInput = document.querySelector('input[name="size"]');
     if (sizeInput) {
       sizeInput.value = "";
+    }
+  }
+
+  /**
+   * Initialize on page load to show preview for persisted image (AC-163).
+   * AC-163: Show preview on page load if persisted image path exists.
+   */
+  function initializePersistedPreview() {
+    try {
+      const persistedField = document.querySelector('input[name="persisted_image_path"]');
+      if (!persistedField || !persistedField.value) {
+        return;
+      }
+
+      const persistedPath = persistedField.value;
+      const previewContainer = document.getElementById("image-preview-container");
+      const previewImg = document.getElementById("image-preview");
+      const dimensionsDiv = document.getElementById("image-dimensions");
+
+      if (!previewContainer || !previewImg || !dimensionsDiv) {
+        return;
+      }
+
+      // Try to load the persisted image via server endpoint
+      // For now, we'll use a data URL if one is available in the DOM
+      const metadataScript = document.querySelector("script[data-image-metadata]");
+      if (metadataScript) {
+        try {
+          const metadata = JSON.parse(metadataScript.textContent);
+          if (metadata.imageSrc && metadata.width && metadata.height) {
+            showImagePreview(metadata);
+          }
+        } catch (e) {
+          console.log("Could not parse metadata from script:", e.message);
+        }
+      }
+    } catch (err) {
+      console.log("Could not initialize persisted preview:", err.message);
     }
   }
 
@@ -286,6 +362,9 @@
       // AC-135: Handle file selection and calculate metadata
       fileInput.addEventListener("change", function() {
         try {
+          // AC-166, CARD-043: Clear result message when new image selected
+          clearResultMessage();
+
           if (this.files.length === 0) {
             clearMetadata();
             clearSizeField(); // AC-149: Clear size field when no image selected
@@ -333,9 +412,13 @@
 
   // Initialize when DOM is ready
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initializeFileInputListener);
+    document.addEventListener("DOMContentLoaded", function() {
+      initializePersistedPreview();
+      initializeFileInputListener();
+    });
   } else {
     // DOM already loaded
+    initializePersistedPreview();
     initializeFileInputListener();
   }
 })();

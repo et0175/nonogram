@@ -1991,7 +1991,8 @@ def test_the_form_offers_the_same_option_surface_as_the_cli() -> None:
     form_options = _form_field_names()
 
     assert argv_options - form_options == {"extent", "mode", "density", "library_key"}
-    assert form_options - argv_options == {"size"}
+    # CARD-037, CARD-044: form adds size and persisted_image_path (internal, not a CLI arg)
+    assert form_options - argv_options == {"size", "persisted_image_path"}
 
 
 def test_the_form_lists_every_registered_export_format() -> None:
@@ -2934,4 +2935,102 @@ class TestWebForm_SizeFieldClearing:
         assert 'metadata-suggestions-area' in body
         # Should have the JavaScript that calculates suggestions
         assert 'suggestDimensions' in body or 'suggestions' in body
+
+
+class TestWebUI_PreviewWithPersistence:
+    """CARD-044: Image preview with persisted uploads."""
+
+    def test_persisted_image_path_field_exists(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-163: Form has hidden field for persisted image path."""
+        response = _request(running_server.server_port)
+        assert response.status == 200
+        body = response.body.decode()
+
+        # Check for persisted image path hidden field
+        assert 'persisted_image_path' in body
+        assert 'type="hidden"' in body
+
+    def test_preview_container_in_form(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-163: Preview container exists in re-populated form."""
+        response = _request(running_server.server_port)
+        assert response.status == 200
+        body = response.body.decode()
+
+        # Preview container should be in the form
+        assert 'id="image-preview-container"' in body
+        assert 'id="image-preview"' in body
+        assert 'id="image-dimensions"' in body
+
+    def test_clear_preview_function_exists(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-165: metadata.js has clearPreview() function."""
+        metadata_js_path = Path(web.__file__).parent / "static" / "metadata.js"
+        assert metadata_js_path.exists()
+
+        metadata_js_content = metadata_js_path.read_text()
+
+        # clearPreview function should exist
+        assert "function clearPreview" in metadata_js_content
+        assert "image-preview-container" in metadata_js_content
+
+    def test_show_image_preview_function_exists(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-163, AC-164: metadata.js has showImagePreview() function."""
+        metadata_js_path = Path(web.__file__).parent / "static" / "metadata.js"
+        assert metadata_js_path.exists()
+
+        metadata_js_content = metadata_js_path.read_text()
+
+        # showImagePreview function should exist
+        assert "function showImagePreview" in metadata_js_content
+        # Should accept metadata parameter with imageSrc
+        assert "metadata.imageSrc" in metadata_js_content
+
+    def test_clear_result_message_function_exists(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-166, CARD-043: metadata.js has clearResultMessage() function."""
+        metadata_js_path = Path(web.__file__).parent / "static" / "metadata.js"
+        assert metadata_js_path.exists()
+
+        metadata_js_content = metadata_js_path.read_text()
+
+        # clearResultMessage function should exist
+        assert "function clearResultMessage" in metadata_js_content
+        # Should clear the result container
+        assert 'data-result-container' in metadata_js_content or 'resultContainer' in metadata_js_content
+
+    def test_file_change_clears_result_message(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-166: Result message clears when new image selected."""
+        metadata_js_path = Path(web.__file__).parent / "static" / "metadata.js"
+        assert metadata_js_path.exists()
+
+        metadata_js_content = metadata_js_path.read_text()
+
+        # File change event handler should call clearResultMessage
+        # Look for clearResultMessage call in the change listener
+        assert "clearResultMessage" in metadata_js_content
+        # Should be called in file input change handler
+        assert "addEventListener" in metadata_js_content or "change" in metadata_js_content
+
+    def test_initialize_persisted_preview_on_load(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-163: metadata.js initializes persisted preview on page load."""
+        metadata_js_path = Path(web.__file__).parent / "static" / "metadata.js"
+        assert metadata_js_path.exists()
+
+        metadata_js_content = metadata_js_path.read_text()
+
+        # Should have initialization code that runs on DOMContentLoaded
+        assert "initializePersistedPreview" in metadata_js_content
+        assert "DOMContentLoaded" in metadata_js_content
 

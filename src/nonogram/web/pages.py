@@ -469,6 +469,7 @@ the same pipeline behind them.</p>
     <label><span>Image <small>&mdash; select the picture to convert</small></span>
       <input type="file" name="image">
     </label>
+    <input type="hidden" name="persisted_image_path" value="">
     <div id="image-preview-container">
       <img id="image-preview" alt="Preview of uploaded image">
       <div id="image-dimensions"></div>
@@ -836,6 +837,11 @@ the same pipeline behind them.</p>
     <label><span>Image <small>&mdash; select the picture to convert</small></span>
       <input type="file" name="image">
     </label>
+    <input type="hidden" name="persisted_image_path" value="">
+    <div id="image-preview-container">
+      <img id="image-preview" alt="Preview of uploaded image">
+      <div id="image-dimensions"></div>
+    </div>
     <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
       other side follows the image's own shape), or <code>WxH</code> for an
       exact width and height, e.g. <code>20x30</code></small></span>
