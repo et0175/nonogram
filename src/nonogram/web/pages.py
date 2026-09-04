@@ -239,6 +239,7 @@ input:focus, select:focus {
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
@@ -248,6 +249,11 @@ input:focus, select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+.form-grid > div:nth-child(1) { grid-column: 1; grid-row: 1; }
+.form-grid > div:nth-child(2) { grid-column: 2; grid-row: 1; }
+.form-grid > div:nth-child(3) { grid-column: 1; grid-row: 2; }
+.form-grid > div:nth-child(4) { grid-column: 2; grid-row: 2; }
 
 .form-section {
   margin: 0;
@@ -512,48 +518,46 @@ the same pipeline behind them.</p>
   </div>
 
   <div class="form-grid">
-    <div>
-      <div class="form-section">
-        <h3>Image</h3>
-        <label><span>Image <small>&mdash; select the picture to convert</small></span>
-          <input type="file" name="image">
-        </label>
-      </div>
-      <div class="form-section">
-        <h3>Export</h3>
-        <fieldset>
-          <legend>Formats</legend>
-          {_checkboxes("export_formats", export.FORMATS)}
-        </fieldset>
-        <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
-          <input type="text" name="out" placeholder=".">
-        </label>
-      </div>
+    <div class="form-section">
+      <h3>Image</h3>
+      <label><span>Image <small>&mdash; select the picture to convert</small></span>
+        <input type="file" name="image">
+      </label>
     </div>
 
-    <div>
-      <div class="form-section">
-        <h3>Size</h3>
-        <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
-          other side follows the image's own shape), or <code>WxH</code> for an
-          exact width and height, e.g. <code>20x30</code></small></span>
-          <input type="text" name="size" placeholder="e.g., 20 or 20x30">
-        </label>
-      </div>
-      <div class="form-section">
-        <h3>Puzzle Settings</h3>
-        <label><span>Difficulty</span>
-          <select name="difficulty">
-              {_options(list(difficulty.Tier), blank="(any)")}
-          </select>
-        </label>
-        <label><span>Name <small>&mdash; shown on the printed page</small></span>
-          <input type="text" name="name" placeholder="(auto-generated if empty)">
-        </label>
-        <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
-          <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
-        </label>
-      </div>
+    <div class="form-section">
+      <h3>Size</h3>
+      <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
+        other side follows the image's own shape), or <code>WxH</code> for an
+        exact width and height, e.g. <code>20x30</code></small></span>
+        <input type="text" name="size" placeholder="e.g., 20 or 20x30">
+      </label>
+    </div>
+
+    <div class="form-section">
+      <h3>Export</h3>
+      <fieldset>
+        <legend>Formats</legend>
+        {_checkboxes("export_formats", export.FORMATS)}
+      </fieldset>
+      <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+        <input type="text" name="out" placeholder=".">
+      </label>
+    </div>
+
+    <div class="form-section">
+      <h3>Puzzle Settings</h3>
+      <label><span>Difficulty</span>
+        <select name="difficulty">
+            {_options(list(difficulty.Tier), blank="(any)")}
+        </select>
+      </label>
+      <label><span>Name <small>&mdash; shown on the printed page</small></span>
+        <input type="text" name="name" placeholder="(auto-generated if empty)">
+      </label>
+      <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+        <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
+      </label>
     </div>
   </div>
 
