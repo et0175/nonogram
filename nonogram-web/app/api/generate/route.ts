@@ -47,32 +47,63 @@ export async function POST(request: NextRequest) {
     tempImagePath = join(tmpdir(), `${Date.now()}-${image.name}`)
     await writeFile(tempImagePath, Buffer.from(buffer))
 
-    // TODO: Call Python API handler at /api/generate.py
-    // For now, return mock response with selected formats only
-    const files: Record<string, string> = {}
+    // Prepare form data for Python handler
+    const pythonFormData = new FormData()
+    pythonFormData.append('image', new Blob([buffer], { type: image.type }), image.name)
+    pythonFormData.append('width', width)
+    pythonFormData.append('height', height)
+    pythonFormData.append('name', puzzleName)
+    pythonFormData.append('mode', 'image')
+    if (difficulty) pythonFormData.append('difficulty', difficulty)
+    if (seed) pythonFormData.append('seed', seed)
+    exportFormats.forEach(fmt => pythonFormData.append('export_formats', fmt))
 
-    if (exportFormats.includes('json')) {
-      files.json = `${puzzleName}.json`
-    }
-    if (exportFormats.includes('csv')) {
-      files.csv = `${puzzleName}.csv`
-    }
-    if (exportFormats.includes('png')) {
-      files.png = `${puzzleName}.png`
-    }
-    if (exportFormats.includes('svg')) {
-      files.svg = `${puzzleName}.svg`
-    }
-    if (exportFormats.includes('pdf')) {
-      files.pdf = `${puzzleName}.pdf`
-    }
+    // Call Python handler
+    const pythonUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}/api/generate`
+      : 'http://localhost:3000/api/generate'
 
-    return NextResponse.json({
-      success: true,
-      name: puzzleName,
-      seed: seed ? parseInt(seed) : Math.floor(Math.random() * 1000000),
-      files,
-    })
+    try {
+      const pythonResponse = await fetch(pythonUrl, {
+        method: 'POST',
+        body: pythonFormData,
+      })
+
+      if (!pythonResponse.ok) {
+        const errorData = await pythonResponse.json()
+        return NextResponse.json(
+          { error: errorData.error || 'Puzzle generation failed' },
+          { status: pythonResponse.status }
+        )
+      }
+
+      // Check if response is JSON (metadata) or binary (file)
+      const contentType = pythonResponse.headers.get('content-type') || ''
+
+      if (contentType.includes('application/json')) {
+        // Return metadata response from Python
+        const data = await pythonResponse.json()
+        return NextResponse.json(data)
+      } else {
+        // Return file content directly to browser as download
+        const fileBuffer = await pythonResponse.arrayBuffer()
+        const filename = pythonResponse.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${puzzleName}.json`
+
+        return new NextResponse(fileBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': contentType || 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+          },
+        })
+      }
+    } catch (fetchError) {
+      console.error('Error calling Python handler:', fetchError)
+      return NextResponse.json(
+        { error: 'Failed to generate puzzle. Python service may be unavailable.' },
+        { status: 503 }
+      )
+    }
   } catch (error) {
     console.error('API error:', error)
     return NextResponse.json(
