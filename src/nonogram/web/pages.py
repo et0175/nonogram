@@ -380,6 +380,36 @@ details > div {
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+
+[data-outcome="success"] {
+  background-color: #d4edda;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #28a745;
+  color: #155724;
+}
+
+[data-outcome="failure"] {
+  background-color: #f8d7da;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #dc3545;
+  color: #721c24;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-outcome="success"] {
+    background-color: #1e4620;
+    border-left-color: #51cf66;
+    color: #a6e22e;
+  }
+
+  [data-outcome="failure"] {
+    background-color: #4a1c1c;
+    border-left-color: #ff6b6b;
+    color: #ff8a8a;
+  }
+}
 """
 
 #: The form page. Every field is named for the ``GenerationRequest`` field it

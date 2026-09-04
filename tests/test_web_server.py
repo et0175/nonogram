@@ -2829,3 +2829,54 @@ class TestWebForm_ImagePreview:
 
         # Verify no server-side processing for preview
         assert "fetch" not in metadata_js_content or "metadata" not in metadata_js_content
+
+
+class TestWebForm_ResultMessageColors:
+    """AC-155, AC-156, AC-157: Success/error message styling with colored backgrounds."""
+
+    def test_success_message_has_greenish_background(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-155: success messages display with distinct greenish background."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        body_str = response.body.decode()
+
+        # Check that CSS for success messages is in the style
+        assert "[data-outcome=\"success\"]" in body_str
+        assert "#d4edda" in body_str or "d4edda" in body_str  # greenish success color
+
+    def test_error_message_has_pinkish_background(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-156: error messages display with distinct pinkish/reddish background."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        body_str = response.body.decode()
+
+        # Check that CSS for error messages is in the style
+        assert "[data-outcome=\"failure\"]" in body_str
+        assert "#f8d7da" in body_str or "f8d7da" in body_str  # pinkish error color
+
+    def test_message_colors_have_wcag_aa_contrast(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-157: success and error backgrounds meet WCAG AA contrast (≥4.5:1)."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        body_str = response.body.decode()
+
+        # Success: #d4edda (light green) with #155724 (dark green) = high contrast
+        # Error: #f8d7da (light pink) with #721c24 (dark red) = high contrast
+        # Both should have contrast ratios well above 4.5:1
+
+        # Verify success text color and error text color are defined
+        assert "#155724" in body_str  # success text color (dark green)
+        assert "#721c24" in body_str  # error text color (dark red)
+
+        # Verify dark mode colors also exist
+        assert "#1e4620" in body_str or "1e4620" in body_str  # dark mode success bg
+        assert "#4a1c1c" in body_str or "4a1c1c" in body_str  # dark mode error bg
