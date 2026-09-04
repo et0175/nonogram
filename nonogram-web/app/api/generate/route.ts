@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Output directory: use provided or default to current directory
-    const outputDir = out && out.trim() ? out.trim() : '.'
+    // Output directory: use provided or default to ./puzzles
+    // Note: In web context, this is server-side path. Eventually should stream file to browser.
+    const outputDir = out && out.trim() ? out.trim() : './puzzles'
 
     // Validate that at least one export format is selected
     if (exportFormats.length === 0) {
