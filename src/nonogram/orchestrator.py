@@ -245,6 +245,11 @@ class GenerationRequest:
     #: ``UnreadableImage``, not by an argparse ``type=`` (AC-008, ADR-0010,
     #: guardrail G-5). Meaningless in the other modes, where it stays ``None``.
     image: Path | None = None
+    #: AC-139: The original filename of the uploaded image, if available. Used
+    #: as a hint for puzzle naming (FR-015). ``None`` when the file was not
+    #: uploaded or the filename is unavailable. Unvalidated like the rest —
+    #: sanitization happens at the export filename stage (ADR-0016).
+    image_filename: str | None = None
     #: ``--name`` (FR-015): the user's name for the puzzle, overriding the
     #: auto-generated one. Unvalidated like the rest — ``--name ""`` parses
     #: fine and is rejected inward, by :meth:`NameContext.name_for`, before any
@@ -339,22 +344,26 @@ class NameContext:
             # name — the run then fails in sourcing with UnknownLibraryImage,
             # which is the error that request deserves, not a naming one.
             return request.library_key
-        if request.mode == sourcing.IMAGE and request.image and request.image.stem:
-            # AC-090: mirrors the library arm above rather than inventing a
-            # parallel mechanism — same collision posture and all. Two "cat"
-            # puzzles converted from the same picture are two renderings of
-            # one picture, not a same-minute accident, so this is not
-            # disambiguated either; ADR-0017's export-time suffix resolves an
-            # actual collision, exactly as it does for the library key.
-            #
-            # This reads the path syntactically and touches no filesystem: a
-            # missing or unreadable file still has a stem (``Path.stem`` is
-            # pure string handling), so it is still named from it, and the run
-            # then fails in sourcing with UnreadableImage — the error that
-            # request deserves, not a naming one. Only a path with no usable
-            # stem at all (``request.image`` is ``None``, or its stem is
-            # empty) falls through to the timestamp name below.
-            return request.image.stem
+        if request.mode == sourcing.IMAGE:
+            # AC-090/AC-139: Use the uploaded image filename as a hint for the
+            # puzzle name. The priority order is: image_filename (uploaded
+            # filename with path components removed), then request.image.stem
+            # (for testing/CLI), then fall through to timestamp.
+            filename_stem = None
+            if request.image_filename:
+                # AC-139: Extract just the filename without path separators
+                # (browsers may send full paths in some edge cases).
+                filename_stem = Path(request.image_filename).stem
+            elif request.image and request.image.stem:
+                filename_stem = request.image.stem
+            if filename_stem:
+                # AC-090: mirrors the library arm above rather than inventing a
+                # parallel mechanism — same collision posture and all. Two "cat"
+                # puzzles converted from the same picture are two renderings of
+                # one picture, not a same-minute accident, so this is not
+                # disambiguated either; ADR-0017's export-time suffix resolves an
+                # actual collision, exactly as it does for the library key.
+                return filename_stem
         # AC-042. The format itself comes from ``export.default_stem`` rather
         # than being written out a second time here — see :func:`_filename_stem`
         # for why the two must not drift.
