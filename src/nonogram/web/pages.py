@@ -276,6 +276,43 @@ input:focus, select:focus {
   margin-top: 0;
 }
 
+.form-section-light {
+  margin: 0;
+  padding: 0.75rem;
+  background-color: transparent;
+  border: none;
+}
+
+.form-section-light label {
+  display: block;
+  margin: 0;
+}
+
+.form-section-light span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.form-section-light small {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  font-weight: 400;
+}
+
+.form-section-light input {
+  width: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
 #image-preview-section {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -518,18 +555,16 @@ the same pipeline behind them.</p>
   </div>
 
   <div class="form-grid">
-    <div class="form-section">
-      <h3>Image</h3>
-      <label><span>Image <small>&mdash; select the picture to convert</small></span>
+    <div class="form-section-light">
+      <label><span>Image</span>
+        <small>select the picture to convert</small>
         <input type="file" name="image">
       </label>
     </div>
 
-    <div class="form-section">
-      <h3>Size</h3>
-      <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
-        other side follows the image's own shape), or <code>WxH</code> for an
-        exact width and height, e.g. <code>20x30</code></small></span>
+    <div class="form-section-light">
+      <label><span>Size</span>
+        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
         <input type="text" name="size" placeholder="e.g., 20 or 20x30">
       </label>
     </div>
@@ -912,19 +947,17 @@ the same pipeline behind them.</p>
   </div>
 
   <div class="form-grid">
-    <div class="form-section">
-      <h3>Image</h3>
-      <label><span>Image <small>&mdash; select the picture to convert</small></span>
+    <div class="form-section-light">
+      <label><span>Image</span>
+        <small>select the picture to convert</small>
         <input type="file" name="image">
       </label>
       {persisted_status}
     </div>
 
-    <div class="form-section">
-      <h3>Size</h3>
-      <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
-        other side follows the image's own shape), or <code>WxH</code> for an
-        exact width and height, e.g. <code>20x30</code></small></span>
+    <div class="form-section-light">
+      <label><span>Size</span>
+        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
         <input type="text" name="size" value="{size_val}" placeholder="e.g., 20 or 20x30">
       </label>
     </div>
