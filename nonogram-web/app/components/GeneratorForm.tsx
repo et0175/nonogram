@@ -293,8 +293,8 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: suggestedSizes.length === 1 ? '1fr' : 'repeat(2, 1fr)',
-              gap: '0.5rem',
+              gridTemplateColumns: suggestedSizes.length === 1 ? '1fr' : 'repeat(3, 1fr)',
+              gap: '0.4rem',
               marginBottom: '1rem',
             }}
           >
@@ -304,12 +304,12 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
                 type="button"
                 onClick={() => applySuggestedSize(s.width, s.height)}
                 style={{
-                  padding: '0.5rem',
+                  padding: '0.35rem 0.6rem',
                   border: width === s.width && height === s.height ? '2px solid #0070f3' : '1px solid #ccc',
                   borderRadius: '4px',
                   backgroundColor: width === s.width && height === s.height ? '#e3f2fd' : '#fff',
                   cursor: 'pointer',
-                  fontSize: '0.9rem',
+                  fontSize: '0.8rem',
                   fontWeight: width === s.width && height === s.height ? '600' : 'normal',
                   color: '#000',
                 }}
