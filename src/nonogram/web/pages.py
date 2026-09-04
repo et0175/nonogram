@@ -910,7 +910,7 @@ def form_with_result(
 
     # Show status message if image is persisted (CARD-037)
     persisted_status = (
-        f'<div style="background-color: var(--bg-primary); color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem; padding: 0.5rem; border-radius: 3px; border-left: 3px solid var(--button-bg);">✓ Using: <strong>{html.escape(image_filename)}</strong> &mdash; modify size or settings and generate again without re-uploading</div>'
+        f'<div style="background-color: var(--bg-primary); color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem; padding: 0.5rem; border-radius: 3px; border-left: 3px solid var(--button-bg);">✓ Using: <strong>{html.escape(image_filename)}</strong> &mdash; modify size or settings and generate again without re-uploading. <small>(or upload a different image below)</small></div>'
         if persisted_image_path and image_filename else ""
     )
 
