@@ -354,6 +354,32 @@ details summary {
 details > div {
   margin-top: 1rem;
 }
+
+#image-preview-container {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+  display: none;
+}
+
+#image-preview-container.visible {
+  display: block;
+}
+
+#image-preview {
+  max-width: 150px;
+  max-height: 150px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  display: block;
+}
+
+#image-dimensions {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
 """
 
 #: The form page. Every field is named for the ``GenerationRequest`` field it
@@ -399,6 +425,10 @@ the same pipeline behind them.</p>
     <label><span>Image <small>&mdash; select the picture to convert</small></span>
       <input type="file" name="image">
     </label>
+    <div id="image-preview-container">
+      <img id="image-preview" alt="Preview of uploaded image">
+      <div id="image-dimensions"></div>
+    </div>
     <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
       other side follows the image's own shape), or <code>WxH</code> for an
       exact width and height, e.g. <code>20x30</code></small></span>

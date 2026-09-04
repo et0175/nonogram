@@ -2759,3 +2759,73 @@ class TestAuthScan_IsCaseInsensitiveOnHeaderNames:
     ) -> None:
         """The control for the probe above: the real server sends none (AC-053)."""
         assert "WWW-Authenticate" not in _request(running_server.server_port).headers
+
+
+# --------------------------------------------------------------------------
+# CARD-042 — image preview on file upload (AC-158..AC-161)
+# --------------------------------------------------------------------------
+
+
+class TestWebForm_ImagePreview:
+    """AC-158..AC-161: Display image preview after file upload."""
+
+    def test_the_form_page_has_preview_container(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-158: preview container exists in the form."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'id="image-preview-container"' in response.body
+
+    def test_the_form_page_has_preview_image_element(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-158: preview image element is in the form."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'id="image-preview"' in response.body
+        assert b'type="image"' not in response.body  # img tag, not input
+
+    def test_the_form_page_has_dimensions_label(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-159: dimensions label element is in the form."""
+        response = _request(running_server.server_port)
+
+        assert response.status == 200
+        assert b'id="image-dimensions"' in response.body
+
+    def test_preview_container_is_hidden_by_default(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-158: preview is hidden until file is selected (CSS class)."""
+        response = _request(running_server.server_port)
+
+        # Check that the container has display:none or no visible class initially
+        assert b'id="image-preview-container"' in response.body
+        # The .visible class is added by JavaScript, not in the initial HTML
+        body_str = response.body.decode()
+        assert 'id="image-preview-container"' in body_str
+        # Ensure no 'visible' class in the initial rendering
+        import re
+        match = re.search(
+            r'id="image-preview-container"[^>]*class="[^"]*visible',
+            body_str
+        )
+        assert match is None, "Preview container should not have 'visible' class initially"
+
+    def test_metadata_js_uses_filereader_api(self) -> None:
+        """AC-161: metadata.js uses FileReader for client-side preview."""
+        metadata_js_path = Path(web.__file__).parent / "static" / "metadata.js"
+        assert metadata_js_path.exists()
+
+        metadata_js_content = metadata_js_path.read_text()
+
+        # Verify FileReader is used (AC-161)
+        assert "FileReader" in metadata_js_content
+        assert "readAsDataURL" in metadata_js_content
+
+        # Verify no server-side processing for preview
+        assert "fetch" not in metadata_js_content or "metadata" not in metadata_js_content

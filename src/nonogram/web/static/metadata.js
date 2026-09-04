@@ -123,6 +123,7 @@
    * Update the form with metadata and suggestions.
    * AC-135: Display metadata and suggestions in real time
    * AC-136: Clicking suggestion buttons populates the size field
+   * AC-158, AC-159: Display image preview with dimensions
    */
   function updateFormWithMetadata(metadata, suggestions) {
     // Format the aspect ratio for display
@@ -131,6 +132,9 @@
       metadata.aspectRatio.height,
       metadata.aspectRatio.decimal
     );
+
+    // Display image preview (AC-158, AC-159, AC-160)
+    displayImagePreview(metadata);
 
     // Create metadata section HTML
     const metadataHtml = `
@@ -181,6 +185,41 @@
   }
 
   /**
+   * Display the image preview thumbnail (AC-158, AC-159, AC-160).
+   * Shows a thumbnail (max 150×150 px) with original dimensions label.
+   */
+  function displayImagePreview(metadata) {
+    const previewContainer = document.getElementById("image-preview-container");
+    const previewImg = document.getElementById("image-preview");
+    const dimensionsDiv = document.getElementById("image-dimensions");
+
+    if (!previewContainer || !previewImg || !dimensionsDiv) {
+      return;
+    }
+
+    // Use FileReader to get the data URL for preview
+    const fileInput = document.querySelector('input[type="file"][name="image"]');
+    if (!fileInput || fileInput.files.length === 0) {
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      previewImg.src = e.target.result;
+      dimensionsDiv.textContent = `${metadata.width} × ${metadata.height}`;
+      previewContainer.classList.add("visible");
+    };
+
+    reader.onerror = function() {
+      previewContainer.classList.remove("visible");
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  /**
    * Simple HTML escape function to prevent XSS.
    * AC-138: Graceful handling - only escape user data
    */
@@ -200,6 +239,12 @@
     const container = document.getElementById("metadata-suggestions-area");
     if (container) {
       container.innerHTML = "";
+    }
+
+    // Clear preview (AC-160: update when new file selected)
+    const previewContainer = document.getElementById("image-preview-container");
+    if (previewContainer) {
+      previewContainer.classList.remove("visible");
     }
   }
 
