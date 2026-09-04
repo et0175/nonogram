@@ -720,10 +720,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         fields: _TYPE_CHECKED = {}
 
         # Parse the body to extract submission and fields
+        image_filename: str | None = None
         if media_type == "multipart/form-data":
             parsed = multipart.read(content_type, raw)
             posted = parsed.submission
             image_path = parsed.image_path
+            image_filename = parsed.image_filename
             fields = parsed.fields  # Extract fields for form re-population
         else:
             posted = submission.read(raw.decode("utf-8", "replace"))
@@ -776,6 +778,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     suggestions=suggestions,
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
                 )
                 return
             try:
@@ -790,6 +793,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     suggestions=suggestions,
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
                 )
                 return
             except OSError as error:
@@ -801,6 +805,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     suggestions=suggestions,
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
                 )
                 return
             # CARD-030: Render form with success result inline instead of redirect
@@ -818,6 +823,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     suggestions=suggestions,
                     persisted_image_path=str(image_path) if image_path else "",
                     persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
                 ),
             )
         except Exception:
@@ -849,6 +855,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         suggestions: list[tuple[int, int]] | None = None,
         persisted_image_path: str = "",
         persisted_image_metadata: dict | None = None,
+        image_filename: str = "",
     ) -> None:
         """Render one failure with inline form (CARD-030).
 
@@ -874,6 +881,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 suggestions=suggestions or [],
                 persisted_image_path=persisted_image_path,
                 persisted_image_metadata=persisted_image_metadata,
+                image_filename=image_filename,
             ),
         )
 

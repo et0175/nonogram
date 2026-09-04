@@ -22,8 +22,8 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 51 f-string interpolations, of which 20 call :func:`html.escape` at
-the point of interpolation. The other 31 are each one of five kinds:
+there are 53 f-string interpolations, of which 21 call :func:`html.escape` at
+the point of interpolation. The other 32 are each one of seven kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
 * **8+ fragments built here**, by a function that escaped as it built them —
@@ -38,6 +38,8 @@ the point of interpolation. The other 31 are each one of five kinds:
   markup there raises instead of emitting it.
 * **JSON data**: ``metadata_json`` (CARD-037 persisted image metadata) — embedded
   in a JSON script block where no HTML escaping is needed.
+* **Status messages with conditional content**: ``persisted_status`` (CARD-037) —
+  pre-built HTML string showing filename, safe because built from empty string or literal HTML.
 
 Neither page renders the puzzle (CON-008, guardrail G-4). What a successful run
 reports is the puzzle's name, the seed and the files written; :func:`result_page`
@@ -770,6 +772,7 @@ def form_with_result(
     suggestions: list[tuple[int, int]] | None = None,
     persisted_image_path: str = "",
     persisted_image_metadata: dict | None = None,
+    image_filename: str = "",
 ) -> str:
     """Render the form page with an embedded result section (CARD-030).
 
@@ -810,6 +813,12 @@ def form_with_result(
     export_values = set(fields.get("export_formats", []))
     export_checkboxes = _checkboxes("export_formats", export.FORMATS, checked=export_values)
 
+    # Show status message if image is persisted (CARD-037)
+    persisted_status = (
+        f'<div style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem; font-style: italic;">📌 Persisted: {html.escape(image_filename)} &mdash; select a new image or generate again</div>'
+        if persisted_image_path and image_filename else ""
+    )
+
     form_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -845,6 +854,7 @@ the same pipeline behind them.</p>
       <input type="file" name="image">
     </label>
     <input type="hidden" name="persisted_image_path" value="{html.escape(persisted_image_path)}">
+    {persisted_status}
     <div id="image-preview-container">
       <img id="image-preview" alt="Preview of uploaded image">
       <div id="image-dimensions"></div>

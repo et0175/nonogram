@@ -2403,6 +2403,7 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "width": "CARD-031: grid dimension (int), part of constructed size_str",
     "height": "CARD-031: grid dimension (int), part of constructed size_str",
     "metadata_json": "CARD-037: JSON data in script block (no HTML escaping needed)",
+    "persisted_status": "CARD-037: Status message with filename (pre-built HTML from condition)",
 }
 
 
@@ -2422,12 +2423,12 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """51 interpolations, 20 escaped at the point of interpolation, 31 not."""
+        """53 interpolations, 21 escaped at the point of interpolation, 32 not."""
         found = _page_interpolations()
 
-        assert len(found) == 51, [(i.line, i.expression) for i in found]
-        assert sum(1 for i in found if i.escaped) == 20
-        assert sum(1 for i in found if not i.escaped) == 31
+        assert len(found) == 53, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 21
+        assert sum(1 for i in found if not i.escaped) == 32
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.
@@ -2475,7 +2476,7 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
         split = re.search(
             r"there are (\d+) f-string interpolations, of which (\d+) call", text
         )
-        others = re.search(r"The other (\d+) are each one of (?:four|five|several) kinds", text)
+        others = re.search(r"The other (\d+) are each one of (?:four|five|six|seven|several) kinds", text)
 
         assert split, "the docstring no longer states the interpolation split"
         assert others, "the docstring no longer states the unescaped count"
