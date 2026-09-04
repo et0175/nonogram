@@ -300,6 +300,7 @@
   /**
    * Initialize on page load to show preview for persisted image (AC-163).
    * AC-163: Show preview on page load if persisted image path exists.
+   * CARD-037: Also show suggestion buttons when persisted metadata is available.
    */
   function initializePersistedPreview() {
     try {
@@ -325,6 +326,59 @@
           const metadata = JSON.parse(metadataScript.textContent);
           if (metadata.imageSrc && metadata.width && metadata.height) {
             showImagePreview(metadata);
+
+            // CARD-037: Also show suggestion buttons for persisted image
+            // Calculate suggestions based on the persisted image's aspect ratio
+            const suggestions = suggestDimensions(metadata);
+
+            // Display suggestions in the metadata-suggestions-area
+            const container = document.getElementById("metadata-suggestions-area");
+            if (container && suggestions && suggestions.length > 0) {
+              // Format the aspect ratio for display
+              const aspectRatioStr = formatAspectRatio(
+                metadata.width,
+                metadata.height,
+                metadata.width / metadata.height
+              );
+
+              const metadataHtml = `
+                <div class="metadata">
+                  <p><strong>Image aspect ratio:</strong> ${escapeHtml(aspectRatioStr)}</p>
+                </div>
+              `;
+
+              const buttons = suggestions
+                .map(([w, h]) => {
+                  const sizeStr = `${w}x${h}`;
+                  return `
+                    <button type="button" class="suggestion-button" data-size="${escapeHtml(sizeStr)}">${escapeHtml(sizeStr)}</button>
+                  `;
+                })
+                .join("");
+
+              const suggestionsHtml = `
+                <div class="suggestions">
+                  <p><small><strong>Suggested dimensions (click to set):</strong></small></p>
+                  ${buttons}
+                </div>
+              `;
+
+              container.innerHTML = metadataHtml + suggestionsHtml;
+
+              // Attach click handlers to suggestion buttons
+              const buttonElements = container.querySelectorAll(".suggestion-button");
+              buttonElements.forEach(function(button) {
+                button.addEventListener("click", function(e) {
+                  e.preventDefault();
+                  const sizeStr = this.getAttribute("data-size");
+                  const sizeInput = document.querySelector('input[name="size"]');
+                  if (sizeInput) {
+                    sizeInput.value = sizeStr;
+                  }
+                  return false;
+                });
+              });
+            }
           }
         } catch (e) {
           console.log("Could not parse metadata from script:", e.message);
