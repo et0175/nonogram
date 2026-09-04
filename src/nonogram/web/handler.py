@@ -41,6 +41,7 @@ is reading any more.
 from __future__ import annotations
 
 import html
+import mimetypes
 import urllib.parse
 from collections.abc import Callable, Sequence
 from http import HTTPStatus
@@ -392,6 +393,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             self._respond(HTTPStatus.BAD_REQUEST, _TEXT, f"{html.escape(refusal)}\n")
             return
         path = urllib.parse.urlsplit(self.path).path
+
+        # Handle /static/ prefix for static assets (CARD-034)
+        if method == "GET" and path.startswith("/static/"):
+            static_file = path[8:]  # Remove "/static/" prefix
+            self._serve_static(static_file)
+            return
+
         route = ROUTES.get((method, path))
         if route is None:
             self._respond(
@@ -532,6 +540,63 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         page started (NFR-004, CON-010, BCON-0001).
         """
         self._respond(HTTPStatus.OK, _HTML, pages.FORM_PAGE)
+
+    def _serve_static(self, path: str) -> None:
+        """``GET /static/<file>`` — serve static assets (CARD-034).
+
+        Serves static files (JavaScript, CSS, etc.) from the nonogram/web/static/
+        directory. Only files within the static directory are served to prevent
+        path traversal attacks. The path parameter should be the relative path
+        within the static directory.
+
+        Returns a 404 if the file is not found or contains invalid path traversal
+        characters.
+        """
+        # Prevent path traversal attacks
+        if ".." in path or path.startswith("/"):
+            self._respond(HTTPStatus.NOT_FOUND, _TEXT, "not found\n")
+            return
+
+        # Construct the file path
+        base_dir = Path(__file__).parent / "static"
+        file_path = (base_dir / path).resolve()
+
+        # Verify the resolved path is within the static directory
+        try:
+            file_path.relative_to(base_dir)
+        except ValueError:
+            # Path is outside the static directory
+            self._respond(HTTPStatus.NOT_FOUND, _TEXT, "not found\n")
+            return
+
+        # Check if the file exists
+        if not file_path.is_file():
+            self._respond(HTTPStatus.NOT_FOUND, _TEXT, "not found\n")
+            return
+
+        # Read and serve the file
+        try:
+            with open(file_path, "rb") as f:
+                content = f.read()
+
+            # Determine the content type
+            content_type, _ = mimetypes.guess_type(str(file_path))
+            if content_type is None:
+                content_type = "application/octet-stream"
+
+            # Add charset for text files
+            if content_type.startswith("text/"):
+                content_type += "; charset=utf-8"
+
+            # Send response with binary content
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", content_type)
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+        except (OSError, IOError):
+            self._respond(HTTPStatus.NOT_FOUND, _TEXT, "not found\n")
 
     def _read_body(self) -> bytes | None:
         """The request body, or ``None`` when it is too large to read.

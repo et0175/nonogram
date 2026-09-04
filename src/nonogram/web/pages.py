@@ -404,6 +404,7 @@ the same pipeline behind them.</p>
       exact width and height, e.g. <code>20x30</code></small></span>
       <input type="text" name="size" placeholder="e.g., 20 or 20x30">
     </label>
+    <div id="metadata-suggestions-area"></div>
   </div>
   <div class="form-section">
     <h3>Puzzle Settings</h3>
@@ -431,6 +432,7 @@ the same pipeline behind them.</p>
   </div>
   <button type="submit">Generate</button>
 </form>
+<script src="/static/metadata.js"></script>
 </body>
 </html>
 """
@@ -750,6 +752,7 @@ the same pipeline behind them.</p>
       exact width and height, e.g. <code>20x30</code></small></span>
       <input type="text" name="size" value="{size_val}" placeholder="e.g., 20 or 20x30">
     </label>
+    <div id="metadata-suggestions-area"></div>
   </div>
   <div class="form-section">
     <h3>Puzzle Settings</h3>
@@ -791,6 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {{
   }}
 }});
 </script>
+<script src="/static/metadata.js"></script>
 </body>
 </html>
 """
