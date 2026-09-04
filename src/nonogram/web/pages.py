@@ -236,8 +236,21 @@ input:focus, select:focus {
   box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-section {
-  margin: 1.5rem 0;
+  margin: 0;
   padding: 1rem;
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -255,6 +268,24 @@ input:focus, select:focus {
 
 .form-section > label:first-child {
   margin-top: 0;
+}
+
+#image-preview-section {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+}
+
+@media (max-width: 768px) {
+  #image-preview-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 fieldset {
@@ -361,7 +392,6 @@ details > div {
 }
 
 #image-preview-container {
-  margin-top: 1rem;
   padding: 0.75rem;
   border-radius: 4px;
   background-color: var(--bg-secondary);
@@ -373,8 +403,8 @@ details > div {
 }
 
 #image-preview {
-  max-width: 150px;
-  max-height: 150px;
+  max-width: 200px;
+  max-height: 200px;
   border-radius: 4px;
   border: 1px solid var(--border-color);
   display: block;
@@ -469,47 +499,64 @@ The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
 <div data-result-container="true"></div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
-  <div class="form-section">
-    <h3>Image</h3>
-    <label><span>Image <small>&mdash; select the picture to convert</small></span>
-      <input type="file" name="image">
-    </label>
-    <input type="hidden" name="persisted_image_path" value="">
-    <div id="image-preview-container">
-      <img id="image-preview" alt="Preview of uploaded image">
-      <div id="image-dimensions"></div>
+  <input type="hidden" name="persisted_image_path" value="">
+
+  <div id="image-preview-section">
+    <div>
+      <div id="image-preview-container">
+        <img id="image-preview" alt="Preview of uploaded image">
+        <div id="image-dimensions"></div>
+      </div>
     </div>
-    <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
-      other side follows the image's own shape), or <code>WxH</code> for an
-      exact width and height, e.g. <code>20x30</code></small></span>
-      <input type="text" name="size" placeholder="e.g., 20 or 20x30">
-    </label>
     <div id="metadata-suggestions-area"></div>
   </div>
-  <div class="form-section">
-    <h3>Puzzle Settings</h3>
-    <label><span>Difficulty</span>
-      <select name="difficulty">
-          {_options(list(difficulty.Tier), blank="(any)")}
-      </select>
-    </label>
-    <label><span>Name <small>&mdash; shown on the printed page</small></span>
-      <input type="text" name="name" placeholder="(auto-generated if empty)">
-    </label>
-    <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
-      <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
-    </label>
+
+  <div class="form-grid">
+    <div>
+      <div class="form-section">
+        <h3>Image</h3>
+        <label><span>Image <small>&mdash; select the picture to convert</small></span>
+          <input type="file" name="image">
+        </label>
+      </div>
+      <div class="form-section">
+        <h3>Export</h3>
+        <fieldset>
+          <legend>Formats</legend>
+          {_checkboxes("export_formats", export.FORMATS)}
+        </fieldset>
+        <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
+          <input type="text" name="out" placeholder=".">
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <div class="form-section">
+        <h3>Size</h3>
+        <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
+          other side follows the image's own shape), or <code>WxH</code> for an
+          exact width and height, e.g. <code>20x30</code></small></span>
+          <input type="text" name="size" placeholder="e.g., 20 or 20x30">
+        </label>
+      </div>
+      <div class="form-section">
+        <h3>Puzzle Settings</h3>
+        <label><span>Difficulty</span>
+          <select name="difficulty">
+              {_options(list(difficulty.Tier), blank="(any)")}
+          </select>
+        </label>
+        <label><span>Name <small>&mdash; shown on the printed page</small></span>
+          <input type="text" name="name" placeholder="(auto-generated if empty)">
+        </label>
+        <label><span>Seed <small>&mdash; for a reproducible puzzle</small></span>
+          <input type="text" name="seed" inputmode="numeric" placeholder="(random if empty)">
+        </label>
+      </div>
+    </div>
   </div>
-  <div class="form-section">
-    <h3>Export</h3>
-    <fieldset>
-      <legend>Formats</legend>
-      {_checkboxes("export_formats", export.FORMATS)}
-    </fieldset>
-    <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
-      <input type="text" name="out" placeholder=".">
-    </label>
-  </div>
+
   <button type="submit">Generate</button>
 </form>
 <script src="/static/metadata.js"></script>
