@@ -853,6 +853,20 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             )
         except Exception:
             pass
+        finally:
+            # Clean up temporary image file if it was created from multipart upload
+            # but NOT if it's a persisted file from CARD-037 retry flow
+            if image_path is not None and image_path.exists():
+                try:
+                    # Only delete if this was a temporary file from multipart parsing
+                    # Persisted files are intentionally kept for retry attempts
+                    if str(image_path).startswith("/tmp/") or str(image_path).startswith(
+                        "/var/tmp/"
+                    ):
+                        image_path.unlink()
+                except OSError:
+                    # Ignore errors during cleanup
+                    pass
 
     def _fail(self, summary: str, reasons: Sequence[str]) -> None:
         """Render one failure page (EC-003).

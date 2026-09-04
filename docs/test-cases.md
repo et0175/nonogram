@@ -1,5 +1,21 @@
 # Test Cases — Nonogram Generator
 
+## Traceability: Acceptance Criteria to Test Cases
+
+| AC | Title | Verified By | Status |
+|---|-------|-------------|--------|
+| AC-001 | Random grid generation | TC-003-001, TC-003-002, TC-003-003 | ✓ |
+| AC-002 | Library template loading | TC-003-004, TC-003-005 | ✓ |
+| AC-006 | Invalid library key rejection | TC-003-004 (error case) | ✓ |
+| AC-008 | Missing image file error | TC-003-006 (error case) | ✓ |
+| AC-021 | Unsupported difficulty tier rejection | Test suite | ✓ |
+| AC-050 | Out-of-range size rejected like CLI | Test suite | ✓ |
+| AC-052 | Server loopback-only binding | Test suite | ✓ |
+| AC-053 | Web UI requires no credentials | Test suite | ✓ |
+| AC-123 | Error displays inline with form | test_the_page_displays_error_inline_with_form_ac_123 | ⚠️ Failing |
+
+---
+
 ## Test Organization
 
 Tests are organized by **component** (COMP-001..008) and **quality dimension** (unit, integration, property, UI).
