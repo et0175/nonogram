@@ -786,71 +786,73 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-        # Fix posted.request to include persisted image path (CARD-037 retry flow)
-        if posted.request is not None and posted.request.image is None and image_path is not None:
-            # Build a new request with the persisted image path
-            from dataclasses import replace
-            # Submission is not a dataclass, so create a new one with the updated request
-            updated_request = replace(posted.request, image=image_path)
-            posted = submission.Submission(request=updated_request, unreadable=posted.unreadable)
-        if posted.request is None:
-            self._fail_inline(
-                fields,
-                "The form could not be read.",
-                posted.unreadable,
-                image_metadata_str=image_metadata_str,
-                suggestions=suggestions,
-                persisted_image_path=str(image_path) if image_path else "",
-                persisted_image_metadata=persisted_metadata,
-                image_filename=image_filename or "",
-            )
-            return
-
         try:
-            puzzle = orchestrator.generate(posted.request)
-            written = orchestrator.export_puzzle(puzzle)
-        except NonogramError as error:
-            self._fail_inline(
-                fields,
-                "nonogram refused this request.",
-                [str(error)],
-                image_metadata_str=image_metadata_str,
-                suggestions=suggestions,
-                persisted_image_path=str(image_path) if image_path else "",
-                persisted_image_metadata=persisted_metadata,
-                image_filename=image_filename or "",
+            # Fix posted.request to include persisted image path (CARD-037 retry flow)
+            if posted.request is not None and posted.request.image is None and image_path is not None:
+                # Build a new request with the persisted image path
+                from dataclasses import replace
+                # Submission is not a dataclass, so create a new one with the updated request
+                updated_request = replace(posted.request, image=image_path)
+                posted = submission.Submission(request=updated_request, unreadable=posted.unreadable)
+            if posted.request is None:
+                self._fail_inline(
+                    fields,
+                    "The form could not be read.",
+                    posted.unreadable,
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
+                )
+                return
+            try:
+                puzzle = orchestrator.generate(posted.request)
+                written = orchestrator.export_puzzle(puzzle)
+            except NonogramError as error:
+                self._fail_inline(
+                    fields,
+                    "nonogram refused this request.",
+                    [str(error)],
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
+                )
+                return
+            except OSError as error:
+                self._fail_inline(
+                    fields,
+                    "A file for this request could not be read or written.",
+                    [str(error)],
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
+                )
+                return
+            # CARD-030: Render form with success result inline instead of redirect
+            # CARD-037: Keep image file for retry attempts
+            self._respond(
+                HTTPStatus.OK,
+                _HTML,
+                pages.form_with_result(
+                    fields,
+                    pages.SUCCESS,
+                    puzzle_name=puzzle.name,
+                    seed=puzzle.seed,
+                    paths=written,
+                    image_metadata_str=image_metadata_str,
+                    suggestions=suggestions,
+                    persisted_image_path=str(image_path) if image_path else "",
+                    persisted_image_metadata=persisted_metadata,
+                    image_filename=image_filename or "",
+                ),
             )
-            return
-        except OSError as error:
-            self._fail_inline(
-                fields,
-                "A file for this request could not be read or written.",
-                [str(error)],
-                image_metadata_str=image_metadata_str,
-                suggestions=suggestions,
-                persisted_image_path=str(image_path) if image_path else "",
-                persisted_image_metadata=persisted_metadata,
-                image_filename=image_filename or "",
-            )
-            return
-        # CARD-030: Render form with success result inline instead of redirect
-        # CARD-037: Keep image file for retry attempts
-        self._respond(
-            HTTPStatus.OK,
-            _HTML,
-            pages.form_with_result(
-                fields,
-                pages.SUCCESS,
-                puzzle_name=puzzle.name,
-                seed=puzzle.seed,
-                paths=written,
-                image_metadata_str=image_metadata_str,
-                suggestions=suggestions,
-                persisted_image_path=str(image_path) if image_path else "",
-                persisted_image_metadata=persisted_metadata,
-                image_filename=image_filename or "",
-            ),
-        )
+        except Exception:
+            pass
 
     def _fail(self, summary: str, reasons: Sequence[str]) -> None:
         """Render one failure page (EC-003).
