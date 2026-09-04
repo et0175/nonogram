@@ -233,7 +233,9 @@ def read(body: str) -> Submission:
     return from_fields(fields, image=None)
 
 
-def from_fields(fields: dict[str, list[str]], *, image: Path | None = None) -> Submission:
+def from_fields(
+    fields: dict[str, list[str]], *, image: Path | None = None, image_filename: str | None = None
+) -> Submission:
     """Map ``{field name: posted values}`` onto a generation request.
 
     The part of :func:`read` that does not care where the fields came from,
@@ -254,6 +256,9 @@ def from_fields(fields: dict[str, list[str]], *, image: Path | None = None) -> S
             Unvalidated, like the rest of this function's output — whether the
             path exists and decodes is the sourcing module's question
             (AC-008, guardrail G-4).
+        image_filename: AC-139: The original uploaded filename, or ``None``
+            when no file was uploaded. Used as a hint for puzzle naming
+            (FR-015). Unvalidated like the rest.
 
     Returns:
         The same :class:`Submission` contract :func:`read` documents.
@@ -329,6 +334,8 @@ def from_fields(fields: dict[str, list[str]], *, image: Path | None = None) -> S
             # The temp-file path CARD-021's upload landed, or ``None`` — the
             # caller's concern, not this function's (see the docstring above).
             image=image,
+            # AC-139: The original uploaded filename for traceability hint.
+            image_filename=image_filename,
             name=_one(fields, "name"),
             difficulty=_one(fields, "difficulty"),
             seed=numbers["seed"],

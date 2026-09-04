@@ -70,11 +70,15 @@ class MultipartSubmission:
             removing (the card's step 5).
         fields: The parsed form fields as dict[name, [values]], for use in
             re-populating the form on inline result display (CARD-030).
+        image_filename: AC-139: The original uploaded image filename, or
+            ``None`` when no file was uploaded. Passed to :func:`from_fields`
+            for puzzle naming hint.
     """
 
     submission: Submission
     image_path: Path | None = None
     fields: dict[str, list[str]] | None = None
+    image_filename: str | None = None
 
 
 def _decoded_param(value: str | tuple[str | None, str | None, bytes] | None) -> str | None:
@@ -156,11 +160,12 @@ def read(content_type: str, body: bytes) -> MultipartSubmission:
     message = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(header + body)
     if not message.is_multipart():
         return MultipartSubmission(
-            Submission(None, ("could not parse the multipart request body",)), None, {}
+            Submission(None, ("could not parse the multipart request body",)), None, {}, None
         )
 
     fields: dict[str, list[str]] = {}
     image_path: Path | None = None
+    image_filename: str | None = None
     for part in message.get_payload():
         if not isinstance(part, email.message.Message):
             continue  # pragma: no cover - BytesParser always yields Message parts
@@ -178,6 +183,8 @@ def read(content_type: str, body: bytes) -> MultipartSubmission:
                 # what the caller knows to remove (the card's step 5).
                 image_path.unlink(missing_ok=True)
             image_path = _write_temp_file(content)
+            # AC-139: Capture the original filename for naming hint
+            image_filename = filename
             continue
         charset = part.get_content_charset() or "utf-8"
         try:
@@ -192,5 +199,8 @@ def read(content_type: str, body: bytes) -> MultipartSubmission:
             fields.setdefault(name, []).append(text)
 
     return MultipartSubmission(
-        from_fields(fields, image=image_path), image_path, fields
+        from_fields(fields, image=image_path, image_filename=image_filename),
+        image_path,
+        fields,
+        image_filename,
     )
