@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nonogram Generator — Requirements & Test Plan</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+    <style>
+        :root {
+            --color-bg: #fafafa;
+            --color-surface: #ffffff;
+            --color-text: #1a1a1a;
+            --color-text-secondary: #666666;
+            --color-text-tertiary: #999999;
+            --color-border: #e5e5e5;
+            --color-accent: #2563eb;
+            --color-accent-light: #dbeafe;
+            --color-success: #16a34a;
+            --color-warning:
+             #ea580c;
+            --color-info: #0891b2;
+            --color-neutral-50: #f9fafb;
+            --color-neutral-100: #f3f4f6;
+            --color-neutral-200: #e5e7eb;
+            --color-neutral-700: #374151;
+            --font-display: 'Inter', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 1rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 3rem;
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --color-bg: #0f0f0f;
+                --color-surface: #1a1a1a;
+                --color-text: #f0f0f0;
+                --color-text-secondary: #b3b3b3;
+                --color-text-tertiary: #808080;
+                --color-border: #333333;
+                --color-accent: #60a5fa;
+                --color-accent-light: #1e3a8a;
+                --color-neutral-50: #1f2937;
+                --color-neutral-100: #111827;
+                --color-neutral-200: #374151;
+                --color-neutral-700: #e5e7eb;
+            }
+        }
+
+        :root[data-theme="dark"] {
+            --color-bg: #0f0f0f;
+            --color-surface: #1a1a1a;
+            --color-text: #f0f0f0;
+            --color-text-secondary: #b3b3b3;
+            --color-text-tertiary: #808080;
+            --color-border: #333333;
+            --color-accent: #60a5fa;
+            --color-accent-light: #1e3a8a;
+            --color-neutral-50: #1f2937;
+            --color-neutral-100: #111827;
+            --color-neutral-200: #374151;
+            --color-neutral-700: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #1d4ed8 100%);
+            color: white;
+            padding: var(--spacing-xl) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            font-size: 1.125rem;
+            opacity: 0.95;
+            max-width: 600px;
+        }
+
+        .header-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .meta-item {
+            font-size: 0.9rem;
+        }
+
+        .meta-label {
+            font-weight: 600;
+            display: block;
+            opacity: 0.9;
+            margin-bottom: 0.25rem;
+        }
+
+        .meta-value {
+            font-family: var(--font-mono);
+            opacity: 0.95;
+        }
+
+        .tabs {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-xl);
+            border-bottom: 2px solid var(--color-border);
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+        }
+
+        .tab-button:hover {
+            color: var(--color-text);
+        }
+
+        .tab-button.active {
+            color: var(--color-accent);
+            border-bottom-color: var(--color-accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: var(--spacing-md);
+            padding-bottom: var(--spacing-sm);
+            border-bottom: 2px solid var(--color-accent);
+        }
+
+        .subsection-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: var(--spacing-lg) 0 var(--spacing-md) 0;
+        }
+
+        .requirement-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .requirement-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--color-accent);
+        }
+
+        .req-header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: var(--spacing-md);
+            align-items: start;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .req-id {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--color-accent);
+            font-size: 0.95rem;
+        }
+
+        .req-id-text {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-functional {
+            background: var(--color-accent-light);
+            color: var(--color-accent);
+        }
+
+        .badge-nfr {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-constraint {
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        .badge-implemented {
+            background: #dcfce7;
+            color: var(--color-success);
+        }
+
+        .badge-in-progress {
+            background: #fed7aa;
+            color: var(--color-warning);
+        }
+
+        .badge-pending {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .req-statement {
+            margin-top: var(--spacing-md);
+            line-height: 1.7;
+            color: var(--color-text);
+        }
+
+        .req-statement strong {
+            font-weight: 600;
+            color: var(--color-accent);
+        }
+
+        .criteria {
+            margin-top: var(--spacing-md);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--color-border);
+        }
+
+        .criteria-title {
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .criteria-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .criteria-list li {
+            padding: 0.5rem 0 0.5rem 1.5rem;
+            position: relative;
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .criteria-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--color-success);
+            font-weight: bold;
+        }
+
+        .user-story-card {
+            background: var(--color-surface);
+            border-left: 4px solid var(--color-accent);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .story-id {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--color-accent);
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .story-text {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--color-text);
+            font-style: italic;
+            margin: var(--spacing-sm) 0;
+        }
+
+        .story-wave {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--color-neutral-100);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-top: var(--spacing-sm);
+        }
+
+        .test-case-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .test-header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: var(--spacing-md);
+            align-items: start;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .test-title {
+            font-weight: 600;
+            color: var(--color-text);
+            font-size: 1rem;
+        }
+
+        .test-level {
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            background: #e0f2fe;
+            color: #0c4a6e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .test-component {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            font-family: var(--font-mono);
+            margin-top: 0.5rem;
+        }
+
+        .test-section {
+            margin-top: var(--spacing-sm);
+            padding-top: var(--spacing-sm);
+            border-top: 1px solid var(--color-border);
+        }
+
+        .test-section-title {
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .test-step {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            font-size: 0.95rem;
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        .test-step:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--color-accent);
+            font-weight: bold;
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--color-surface);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            margin: var(--spacing-md) 0;
+        }
+
+        .matrix-table thead {
+            background: var(--color-neutral-100);
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .matrix-table th {
+            padding: var(--spacing-md);
+            text-align: left;
+            font-weight: 600;
+            color: var(--color-text);
+            font-size: 0.95rem;
+        }
+
+        .matrix-table td {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+            font-size: 0.95rem;
+            color: var(--color-text);
+        }
+
+        .matrix-table tbody tr:hover {
+            background: var(--color-neutral-50);
+        }
+
+        .status-implemented {
+            color: var(--color-success);
+            font-weight: 600;
+        }
+
+        .status-pending {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .status-wip {
+            color: var(--color-warning);
+            font-weight: 600;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .stat-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-accent);
+            font-family: var(--font-mono);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-box {
+            background: var(--color-accent-light);
+            border-left: 4px solid var(--color-accent);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin: var(--spacing-lg) 0;
+        }
+
+        .summary-box p {
+            color: var(--color-text);
+            line-height: 1.7;
+        }
+
+        footer {
+            margin-top: var(--spacing-xl);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid var(--color-border);
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .tabs {
+                gap: var(--spacing-xs);
+            }
+
+            .tab-button {
+                padding: var(--spacing-xs) var(--spacing-sm);
+                font-size: 0.9rem;
+            }
+
+            header h1 {
+                font-size: 1.75rem;
+            }
+
+            .header-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .req-header {
+                grid-template-columns: 1fr;
+            }
+
+            .test-header {
+                grid-template-columns: 1fr;
+            }
+
+            .matrix-table th, .matrix-table td {
+                padding: var(--spacing-sm);
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Nonogram Generator</h1>
+            <p>Requirements, User Stories & Test Planning</p>
+            <div class="header-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Project Status</span>
+                    <span class="meta-value">Active Development</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Architecture</span>
+                    <span class="meta-value">Layered Pipeline (COMP-001..008)</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Scope</span>
+                    <span class="meta-value">v1.0 + Analysis Features</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="overview">Overview</button>
+            <button class="tab-button" data-tab="functional">Functional Requirements</button>
+            <button class="tab-button" data-tab="nfr">Non-Functional & Constraints</button>
+            <button class="tab-button" data-tab="stories">User Stories</button>
+            <button class="tab-button" data-tab="tests">Test Strategy</button>
+            <button class="tab-button" data-tab="acceptance">Acceptance Criteria</button>
+        </div>
+
+        <!-- OVERVIEW TAB -->
+        <div id="overview" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">Project Vision</h2>
+                <div class="summary-box">
+                    <p>A small CLI tool (with optional local web UI) that generates nonogram puzzles—either from random/idea sources or from user-uploaded images—at a chosen difficulty level, and guarantees each puzzle has exactly one logical solution.</p>
+                </div>
+
+                <h3 class="subsection-title">Primary Actor</h3>
+                <p style="margin-bottom: var(--spacing-md); line-height: 1.7;">
+                    <strong>Puzzle Creator</strong> — the developer/user running the CLI or web UI. Generates, tunes, and exports puzzles for personal solving, printing, or sharing the output files with others.
+                </p>
+
+                <h3 class="subsection-title">Key Metrics & Scope</h3>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number">22</div>
+                        <div class="stat-label">User Stories</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">23</div>
+                        <div class="stat-label">Functional Requirements</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">7</div>
+                        <div class="stat-label">Non-Functional Requirements</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">8</div>
+                        <div class="stat-label">Architecture Components</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Non-Goals & Out of Scope</h2>
+                <ul style="margin-left: var(--spacing-md); line-height: 2;">
+                    <li>Multiplayer, user accounts, or persistence beyond local file export</li>
+                    <li>Color or multi-value nonograms (classic black/white only)</li>
+                    <li>Interactive/playable puzzle output in v1 (static exports only: PNG/SVG/JSON/CSV/PDF)</li>
+                    <li>Web deployment or network exposure (localhost-only in web UI, no authentication needed)</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Architecture Overview</h2>
+                <p style="margin-bottom: var(--spacing-md); line-height: 1.7;">
+                    <strong>Layered pipeline, one bounded context (CTX-001), one dependency direction:</strong>
+                </p>
+                <div style="background: var(--color-neutral-50); padding: var(--spacing-md); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.8;">
+                    cli.py           COMP-001  (argparse adapter — parsing only)<br>
+                    orchestrator.py  COMP-002  (drives Puzzle aggregate)<br>
+                    sourcing/        COMP-003  (sources a solution grid)<br>
+                    clues.py         COMP-004  (run-length encoding)<br>
+                    solver/          COMP-005  (constraint-propagation solver)<br>
+                    difficulty.py    COMP-006  (heuristic difficulty scoring)<br>
+                    export/          COMP-007  (PNG/SVG/JSON/CSV/PDF rendering)<br>
+                    web/             COMP-008  (local HTTP server)
+                </div>
+                <p style="margin-top: var(--spacing-md); color: var(--color-text-secondary); font-size: 0.95rem;">
+                    Dependency flows inward only: CLI → Orchestrator → Capabilities → Shared errors. Lateral imports are forbidden by structural tests.
+                </p>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Grid Size & Difficulty Ranges</h2>
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Aspect</th>
+                            <th>Constraint</th>
+                            <th>Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Grid dimensions</strong></td>
+                            <td>10..30 per side (both width and height)</td>
+                            <td>Printed cell size remains legible (≥6.5mm comfort minimum)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Shape support</strong></td>
+                            <td>Square and rectangular (WxH pairs)</td>
+                            <td>Bare <code>--size N</code> derives the other side from source shape</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Difficulty tiers</strong></td>
+                            <td>Easy / Medium / Hard</td>
+                            <td>Heuristic scoring (not hard technique gates)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Generation timeout</strong></td>
+                            <td>Up to ~20 seconds for typical sizes</td>
+                            <td>Includes regenerate-on-failure and resample loops</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Retry bounds</strong></td>
+                            <td>Max 20 attempts per resampling phase</td>
+                            <td>Prevents infinite loops on infeasible requests</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- FUNCTIONAL REQUIREMENTS TAB -->
+        <div id="functional" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">FR-001..023: Functional Requirements Summary</h2>
+                <p style="margin-bottom: var(--spacing-lg); color: var(--color-text-secondary);">
+                    The project implements 23 functional requirements organized across grid generation, clue computation, solver & difficulty control, and export capabilities. Each requirement includes acceptance criteria for validation.
+                </p>
+
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Requirement</th>
+                            <th>Component</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>FR-001</strong></td>
+                            <td>Random grid generation (10..30 per side)</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-002</strong></td>
+                            <td>Built-in image library</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-003</strong></td>
+                            <td>User image upload + dithering</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-004</strong></td>
+                            <td>Grid density configuration</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-005</strong></td>
+                            <td>Clue computation (run-length encoding)</td>
+                            <td>COMP-004</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-006</strong></td>
+                            <td>Constraint-propagation solver</td>
+                            <td>COMP-005</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-007</strong></td>
+                            <td>Auto-regenerate on non-uniqueness</td>
+                            <td>COMP-002</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-008</strong></td>
+                            <td>Difficulty selector (Easy/Medium/Hard)</td>
+                            <td>COMP-006</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-009</strong></td>
+                            <td>Heuristic difficulty scoring</td>
+                            <td>COMP-006</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-010</strong></td>
+                            <td>Resample until tier match</td>
+                            <td>COMP-002</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-011</strong></td>
+                            <td>PNG/SVG export</td>
+                            <td>COMP-007</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-012</strong></td>
+                            <td>JSON/CSV export</td>
+                            <td>COMP-007</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-013</strong></td>
+                            <td>Image nudging on failure</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-015</strong></td>
+                            <td>Puzzle naming</td>
+                            <td>COMP-002</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-016</strong></td>
+                            <td>PDF export (2-page)</td>
+                            <td>COMP-007</td>
+                            <td><span class="status-implemented">Implemented</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-017</strong></td>
+                            <td>Local web UI</td>
+                            <td>COMP-008</td>
+                            <td><span class="status-wip">In Progress</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-018</strong></td>
+                            <td>Rectangular grids (WxH pair)</td>
+                            <td>COMP-001..007</td>
+                            <td><span class="status-wip">In Progress</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-020</strong></td>
+                            <td>Fit to requested shape</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-pending">Pending</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-021</strong></td>
+                            <td>Aspect ratio refusal (>2:1)</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-pending">Pending</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-022</strong></td>
+                            <td>Image trimming (ink bbox)</td>
+                            <td>COMP-003</td>
+                            <td><span class="status-pending">Pending</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FR-023</strong></td>
+                            <td>Derived size (--size N)</td>
+                            <td>COMP-001, COMP-003</td>
+                            <td><span class="status-pending">Pending</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- NON-FUNCTIONAL & CONSTRAINTS TAB -->
+        <div id="nfr" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Non-Functional Requirements & Constraints</h2>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-001: Performance</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Puzzle generation (including regenerate-on-failure loops) should complete within a few seconds for typical sizes up to 20×20 on standard hardware.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-002: Resilience</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Regenerate-on-failure loops must have maximum retry bounds (20 attempts) to avoid infinite loops on infeasible requests.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-003: Correctness (Critical)</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        The uniqueness check must never produce false positives. Verified by independent property tests against a brute-force oracle.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-004: Security (Web UI)</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Web server binds to 127.0.0.1 only and refuses cross-site requests via header validation (Sec-Fetch-Site, Origin).
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-005: Usability (Print)</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Printed cell size is comfortable to mark (≥6.5mm). Page orientation follows grid shape (landscape for wide, portrait for tall/square).
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-006: Usability (Print)</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Page orientation optimizes for grid shape: landscape for wide grids, portrait for tall/square grids.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">NFR-007: Export Round-trip</div>
+                            <span class="badge badge-nfr">Non-Functional</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        JSON and CSV exports preserve 100% of puzzle information for exact reconstruction without data loss.
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Key Constraints</h2>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">CON-006: Dependency Baseline</div>
+                            <span class="badge badge-constraint">Constraint</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        No new third-party runtime dependencies. Stack: Python 3.14+ stdlib + Pillow + NumPy only. PDF export uses Pillow's built-in writer.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">CON-011: Grid Size Range</div>
+                            <span class="badge badge-constraint">Constraint</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Each dimension (width and height) must be 10..30 inclusive. MAX_SIZE = 30 applies to all source modes.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">CON-013: Image Scope</div>
+                            <span class="badge badge-constraint">Constraint</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        Image sourcing targets high-contrast black/white silhouettes only, not photographs.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- USER STORIES TAB -->
+        <div id="stories" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">User Stories by Delivery Wave</h2>
+                <p style="margin-bottom: var(--spacing-lg); color: var(--color-text-secondary);">
+                    22 user stories organized across 5 delivery waves (v1.0 through v1.4), each focused on a distinct feature area. All stories follow the "As a Puzzle Creator, I want X so that Y" pattern.
+                </p>
+
+                <h3 class="subsection-title">v1.0: Core Generation & Export (10 stories)</h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">Random grid generation, library selection, image upload, clue computation, uniqueness verification, automatic regeneration, difficulty selection, and PNG/SVG/JSON/CSV exports.</p>
+
+                <h3 class="subsection-title">v1.1: PDF Export & Naming (2 stories)</h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">Auto-generated puzzle naming and two-page PDF export with answer key.</p>
+
+                <h3 class="subsection-title">v1.2: Web UI (3 stories)</h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">Local web interface with form-based generation, identical pipeline to CLI, localhost-only binding with no authentication.</p>
+
+                <h3 class="subsection-title">v1.3: Rectangular Grids & Print Legibility (4 stories)</h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">Support for non-square grids via NxM syntax, image fitting to requested shape, aspect mismatch refusal, and comfortable print cell sizes.</p>
+
+                <h3 class="subsection-title">v1.4: Image Refinements & Smart Sizing (3 stories)</h3>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--spacing-md);">Image margin trimming, intelligent size derivation from source shape, and page orientation optimization.</p>
+            </div>
+        </div>
+
+        <!-- TEST STRATEGY TAB -->
+        <div id="tests" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Testing Strategy</h2>
+
+                <div class="summary-box">
+                    <p>
+                        <strong>Testing approach:</strong> Unit tests verify individual functions; integration tests verify full pipelines and round-trip exports; property tests verify solver correctness across randomized inputs; UI tests verify web interface and CLI argument parsing.
+                    </p>
+                </div>
+
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Test Class</th>
+                            <th>Scope</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Unit</strong></td>
+                            <td>Individual functions in isolation</td>
+                            <td>clues.encode_line(), solver.count_solutions()</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Integration</strong></td>
+                            <td>Full pipeline or multi-component flow</td>
+                            <td>CLI → orchestrator → file exports</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Property-Based</strong></td>
+                            <td>Invariants hold across randomized inputs</td>
+                            <td>Solver uniqueness on 100+ grids</td>
+                        </tr>
+                        <tr>
+                            <td><strong>UI/Acceptance</strong></td>
+                            <td>Web form, CLI arguments, file output</td>
+                            <td>Form accepts image; exports match CLI</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Critical Test Invariants</h2>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">INV-001</div>
+                            <span class="badge badge-pending">Critical</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        <strong>Solver Correctness:</strong> Every exported puzzle has exactly one solution, verified by property test against brute-force oracle on 100+ random grids per run.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">INV-002</div>
+                            <span class="badge badge-pending">Critical</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        <strong>Round-Trip Integrity:</strong> JSON/CSV exports can reconstruct the original grid and clues bit-for-bit. Tested by: export → parse → re-export → compare.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">INV-003</div>
+                            <span class="badge badge-pending">Critical</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        <strong>Architecture Layering:</strong> CLI and Web UI both call the same orchestrator. Verified by structural test: no lateral imports, no inbound imports into CLI/Web.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">INV-004</div>
+                            <span class="badge badge-pending">Critical</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        <strong>Grid Bounds:</strong> All grids have width and height in [10, 30]. Verified at generation and export boundaries.
+                    </div>
+                </div>
+
+                <div class="requirement-card">
+                    <div class="req-header">
+                        <div>
+                            <div class="req-id-text">INV-005</div>
+                            <span class="badge badge-pending">Critical</span>
+                        </div>
+                    </div>
+                    <div class="req-statement">
+                        <strong>Web UI Isolation:</strong> Server binds to 127.0.0.1 only and rejects cross-origin requests. Verified by attempting non-loopback connections and malicious origins.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCEPTANCE CRITERIA TAB -->
+        <div id="acceptance" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Acceptance Criteria Overview</h2>
+                <p style="margin-bottom: var(--spacing-lg); color: var(--color-text-secondary);">
+                    Each functional requirement has detailed acceptance criteria in <code>meta/architecture/requirements.yml</code>. Below is the high-level summary of what gets tested and validated for each feature area.
+                </p>
+
+                <h3 class="subsection-title">Grid Generation Acceptance Criteria</h3>
+                <ul style="margin-left: var(--spacing-md); line-height: 1.8; margin-bottom: var(--spacing-lg);">
+                    <li>Random grids generate at specified sizes (10..30 per side)</li>
+                    <li>Built-in library has 4+ templates with proper key mapping</li>
+                    <li>User images load, dither, and convert to pure black/white</li>
+                    <li>Density parameter affects filled cell percentage</li>
+                    <li>Rectangular grids are supported (NxM notation)</li>
+                </ul>
+
+                <h3 class="subsection-title">Solver & Uniqueness Acceptance Criteria</h3>
+                <ul style="margin-left: var(--spacing-md); line-height: 1.8; margin-bottom: var(--spacing-lg);">
+                    <li>Solver correctly identifies unique solutions (count = 1)</li>
+                    <li>Impossible puzzles (count = 0) are rejected</li>
+                    <li>Ambiguous puzzles (count ≥ 2) are detected early</li>
+                    <li>No false positives across 100+ test cases</li>
+                    <li>Regeneration loops bound at 20 max attempts</li>
+                </ul>
+
+                <h3 class="subsection-title">Difficulty Scoring Acceptance Criteria</h3>
+                <ul style="margin-left: var(--spacing-md); line-height: 1.8; margin-bottom: var(--spacing-lg);">
+                    <li>Three tiers defined: Easy, Medium, Hard</li>
+                    <li>Scores combine propagation depth, backtracking, solver time, puzzle size</li>
+                    <li>Resample loops respect tier thresholds</li>
+                    <li>Tier is recorded in exports and PDF headers</li>
+                </ul>
+
+                <h3 class="subsection-title">Export Acceptance Criteria</h3>
+                <ul style="margin-left: var(--spacing-md); line-height: 1.8; margin-bottom: var(--spacing-lg);">
+                    <li>PNG and SVG render grid + clues with correct layout</li>
+                    <li>Cell size scales with grid dimension (legible print)</li>
+                    <li>JSON exports include width, height, clues, solution, metadata</li>
+                    <li>CSV is tabular and spreadsheet-readable</li>
+                    <li>PDF contains 2 pages (puzzle + answer key) with name and tier</li>
+                    <li>All formats round-trip without data loss</li>
+                </ul>
+
+                <h3 class="subsection-title">Web UI Acceptance Criteria</h3>
+                <ul style="margin-left: var(--spacing-md); line-height: 1.8; margin-bottom: var(--spacing-lg);">
+                    <li>Form captures source, size, difficulty, name, export formats</li>
+                    <li>Web UI and CLI use identical orchestrator pipeline</li>
+                    <li>Success/failure reported with file paths on success</li>
+                    <li>Server binds to 127.0.0.1 only</li>
+                    <li>Cross-origin requests are refused</li>
+                </ul>
+
+                <h3 class="subsection-title">Image Processing Acceptance Criteria</h3>
+                <ul style="margin-left: var(--spacing-md); line-height: 1.8; margin-bottom: var(--spacing-lg);">
+                    <li>Images trimmed to ink bounding box before fitting</li>
+                    <li>Silhouettes fitted to requested grid shape (not square-cropped)</li>
+                    <li>Requests with >2:1 aspect mismatch are refused with helpful error</li>
+                    <li>Bare <code>--size N</code> derives shorter side from source shape</li>
+                    <li>Explicit <code>--size NxM</code> fixes both dimensions</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">Traceability: Features → Requirements → Components</h2>
+
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>User Stories</th>
+                            <th>Key Requirements</th>
+                            <th>Primary Component</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Random Grid Gen</strong></td>
+                            <td>US-001, US-008</td>
+                            <td>FR-001/FR-019, FR-008</td>
+                            <td>COMP-003</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Library Images</strong></td>
+                            <td>US-002, US-008</td>
+                            <td>FR-002, FR-008</td>
+                            <td>COMP-003</td>
+                        </tr>
+                        <tr>
+                            <td><strong>User Image Upload</strong></td>
+                            <td>US-003, US-007, US-017..022</td>
+                            <td>FR-003, FR-013, FR-020..023</td>
+                            <td>COMP-003, COMP-008</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Puzzle Solving</strong></td>
+                            <td>US-005, US-006</td>
+                            <td>FR-006, FR-007</td>
+                            <td>COMP-005</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Difficulty Tiers</strong></td>
+                            <td>US-008</td>
+                            <td>FR-008, FR-009, FR-010</td>
+                            <td>COMP-006</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Exports</strong></td>
+                            <td>US-009, US-010, US-012</td>
+                            <td>FR-011, FR-012, FR-016</td>
+                            <td>COMP-007</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Web UI</strong></td>
+                            <td>US-013, US-014, US-015</td>
+                            <td>FR-017, NFR-004</td>
+                            <td>COMP-008, COMP-001</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Rectangular Grids</strong></td>
+                            <td>US-016, US-019, US-022</td>
+                            <td>FR-018, FR-020, FR-021, NFR-005/006</td>
+                            <td>All (grid-aware)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                Nonogram Generator — Comprehensive Requirements & Test Planning<br>
+                Synthesized from: meta/architecture/requirements.yml, meta/business/stories.md, docs/requirements.md
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+
+                // Deactivate all tabs and contents
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                // Activate selected tab
+                button.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
