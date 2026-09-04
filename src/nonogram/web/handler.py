@@ -750,13 +750,23 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         # Use persisted image path if no new image was uploaded (CARD-037 retry flow)
         if image_path is None and persisted_image_path:
             try:
+                import json
                 image_path = Path(persisted_image_path)
-                # Use original filename from form field if available
-                if not image_filename and persisted_image_filename:
-                    image_filename = persisted_image_filename
-                elif not image_filename and persisted_image_path:
-                    # Fallback: extract from path if no stored filename
-                    image_filename = Path(persisted_image_path).name
+                # Try to restore original filename from metadata file
+                if not image_filename:
+                    metadata_path = image_path.with_suffix(image_path.suffix + ".metadata")
+                    if metadata_path.exists():
+                        try:
+                            with open(metadata_path) as f:
+                                metadata = json.load(f)
+                                image_filename = metadata.get("original_filename")
+                        except Exception:
+                            pass
+                    # Fallback: use form field or extract from path
+                    if not image_filename and persisted_image_filename:
+                        image_filename = persisted_image_filename
+                    elif not image_filename:
+                        image_filename = Path(persisted_image_path).name
             except Exception as e:
                 # If persisted path is invalid, continue without it
                 pass
@@ -806,6 +816,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 try:
                     import shutil
                     import uuid
+                    import json
                     # Copy temp file to a persistent cache that won't be auto-cleaned
                     # Use .cache/nonogram in user's home directory with a session ID
                     cache_dir = Path.home() / ".cache" / "nonogram"
@@ -814,6 +825,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     session_id = str(uuid.uuid4())[:8]
                     cached_image_path = cache_dir / f"{session_id}_{newly_uploaded_image_path.name}"
                     shutil.copy2(newly_uploaded_image_path, cached_image_path)
+
+                    # Store original filename in metadata file for retry flow
+                    metadata_path = cached_image_path.with_suffix(cached_image_path.suffix + ".metadata")
+                    with open(metadata_path, "w") as f:
+                        json.dump({"original_filename": image_filename or newly_uploaded_image_path.name}, f)
+
                     # Update image_path to point to the cached copy for persisting
                     if image_path == newly_uploaded_image_path:
                         image_path = cached_image_path

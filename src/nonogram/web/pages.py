@@ -582,7 +582,7 @@ the same pipeline behind them.</p>
         <h3>Export</h3>
         <fieldset>
           <legend>Formats</legend>
-          {_checkboxes("export_formats", export.FORMATS)}
+          {_checkboxes("export_formats", export.FORMATS, checked={"pdf"})}
         </fieldset>
         <label><span>Output directory <small>&mdash; defaults to the working directory</small></span>
           <input type="text" name="out" placeholder=".">
