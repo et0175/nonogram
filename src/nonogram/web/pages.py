@@ -278,7 +278,7 @@ input:focus, select:focus {
 
 .form-section-light {
   margin: 0;
-  padding: 0.75rem;
+  padding: 0;
   background-color: transparent;
   border: none;
 }
@@ -294,14 +294,6 @@ input:focus, select:focus {
   margin-bottom: 0.5rem;
 }
 
-.form-section-light small {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-  font-weight: 400;
-}
-
 .form-section-light input {
   width: 100%;
   padding: 0.5rem;
@@ -311,6 +303,14 @@ input:focus, select:focus {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-section-light small {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 400;
 }
 
 #image-preview-section {
@@ -557,15 +557,15 @@ the same pipeline behind them.</p>
   <div class="form-grid">
     <div class="form-section-light">
       <label><span>Image</span>
-        <small>select the picture to convert</small>
         <input type="file" name="image">
+        <small>select the picture to convert</small>
       </label>
     </div>
 
     <div class="form-section-light">
       <label><span>Size</span>
-        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
         <input type="text" name="size" placeholder="e.g., 20 or 20x30">
+        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
       </label>
     </div>
 
@@ -949,16 +949,16 @@ the same pipeline behind them.</p>
   <div class="form-grid">
     <div class="form-section-light">
       <label><span>Image</span>
-        <small>select the picture to convert</small>
         <input type="file" name="image">
+        <small>select the picture to convert</small>
       </label>
       {persisted_status}
     </div>
 
     <div class="form-section-light">
       <label><span>Size</span>
-        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
         <input type="text" name="size" value="{size_val}" placeholder="e.g., 20 or 20x30">
+        <small>optional. One number for the grid's longer side (the other side follows the image's own shape), or WxH for exact width and height, e.g. 20x30</small>
       </label>
     </div>
 
