@@ -90,50 +90,30 @@ export default function GeneratorForm({ onSubmit, loading }: GeneratorFormProps)
 
   const computeSuggestedSizes = (boundingBox: { width: number; height: number }) => {
     const minSize = Math.min(boundingBox.width, boundingBox.height)
-    const maxSize = 30 // Maximum grid size
+    const maxSize = 30
     const suggestions: Array<{ label: string; width: number; height: number }> = []
 
-    // Algorithm-based suggestions: scale to optimal grid size
-    // Aim for 2-4 readable sizes between 10 and 30
+    // Generate exactly 3 suggestions based on content size
+    const size1 = Math.max(10, Math.min(maxSize, Math.round(minSize / 4)))
+    const size2 = Math.max(10, Math.min(maxSize, Math.round(minSize / 2)))
+    const size3 = Math.max(10, Math.min(maxSize, Math.round(minSize / 1.2)))
 
-    if (minSize >= 10) {
-      // Small: ~1/4 of content, min 10
-      const smallSize = Math.max(10, Math.min(maxSize, Math.round(minSize / 4)))
-      suggestions.push({ label: `Small (${smallSize}×${smallSize})`, width: smallSize, height: smallSize })
+    // Avoid duplicates
+    const seen = new Set<number>()
+
+    if (!seen.has(size1)) {
+      suggestions.push({ label: `${size1}×${size1}`, width: size1, height: size1 })
+      seen.add(size1)
     }
 
-    if (minSize >= 15) {
-      // Medium: ~1/2.5 of content
-      const mediumSize = Math.max(10, Math.min(maxSize, Math.round(minSize / 2.5)))
-      if (mediumSize !== suggestions[suggestions.length - 1]?.width) {
-        suggestions.push({ label: `Medium (${mediumSize}×${mediumSize})`, width: mediumSize, height: mediumSize })
-      }
+    if (!seen.has(size2)) {
+      suggestions.push({ label: `${size2}×${size2}`, width: size2, height: size2 })
+      seen.add(size2)
     }
 
-    if (minSize >= 20) {
-      // Large: ~1/1.5 of content
-      const largeSize = Math.max(10, Math.min(maxSize, Math.round(minSize / 1.5)))
-      if (largeSize !== suggestions[suggestions.length - 1]?.width) {
-        suggestions.push({ label: `Large (${largeSize}×${largeSize})`, width: largeSize, height: largeSize })
-      }
-    }
-
-    if (minSize >= 25) {
-      // Extra Large: ~content size, capped at max
-      const xlSize = Math.min(maxSize, Math.round(minSize * 0.8))
-      if (xlSize !== suggestions[suggestions.length - 1]?.width && xlSize >= 10) {
-        suggestions.push({ label: `Extra Large (${xlSize}×${xlSize})`, width: xlSize, height: xlSize })
-      }
-    }
-
-    // Fallback if no suggestions generated
-    if (suggestions.length === 0) {
-      suggestions.push(
-        { label: 'Small (10×10)', width: 10, height: 10 },
-        { label: 'Medium (15×15)', width: 15, height: 15 },
-        { label: 'Large (20×20)', width: 20, height: 20 },
-        { label: 'Extra Large (30×30)', width: 30, height: 30 }
-      )
+    if (!seen.has(size3)) {
+      suggestions.push({ label: `${size3}×${size3}`, width: size3, height: size3 })
+      seen.add(size3)
     }
 
     setSuggestedSizes(suggestions)
