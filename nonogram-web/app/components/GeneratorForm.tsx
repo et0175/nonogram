@@ -272,8 +272,13 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
             name="name"
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
-            placeholder="auto-generated"
+            placeholder={selectedFile ? selectedFile.name.replace(/\.[^.]+$/, '') : 'puzzle'}
           />
+          {!customName && selectedFile && (
+            <small style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+              Will use: <strong>{selectedFile.name.replace(/\.[^.]+$/, '')}</strong>
+            </small>
+          )}
         </div>
 
         <div className={styles.formGroup}>
