@@ -39,7 +39,8 @@ WORKDIR /app
 # Expose port
 EXPOSE 3000
 
-# Set Python path and start app
+# Set Python path and ensure nonogram CLI is in PATH
 # Railway sets PORT env var (default 8080), Next.js respects it
 ENV PYTHONPATH=/app/src
+ENV PATH="/usr/local/bin:$PATH"
 CMD ["sh", "-c", "export PORT=${PORT:-3000} && cd nonogram-web && npm start"]
