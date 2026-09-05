@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const imageFile = formData.get('image') as File | null
     const exportFormats = formData.getAll('export_formats') as string[]
 
-    // Parse size field (can be "20" for square or "20x30" for exact W×H)
+    // Parse size field (optional, can be "20" for square or "20x30" for exact W×H)
     let width: string | null = null
     let height: string | null = null
 
@@ -50,14 +50,7 @@ export async function POST(request: NextRequest) {
         height = sizeInput.trim()
       }
     }
-
-    // Validate grid size
-    if (!width || !height) {
-      return NextResponse.json(
-        { error: 'Grid size (width×height) is required' },
-        { status: 400 }
-      )
-    }
+    // Size is optional - CLI will use defaults if not provided
 
     // Validate export formats
     if (exportFormats.length === 0) {
@@ -70,9 +63,13 @@ export async function POST(request: NextRequest) {
     // Build CLI arguments
     const args = ['generate']
 
-    // Mode and size
+    // Mode
     args.push('--mode', mode)
-    args.push('--size', `${width}x${height}`)
+
+    // Size (optional)
+    if (width && height) {
+      args.push('--size', `${width}x${height}`)
+    }
 
     // Mode-specific parameters
     if (mode === 'image') {
