@@ -7,7 +7,7 @@
     "dev": "cd nonogram-web && npm run dev",
     "build": "cd nonogram-web && npm install && npm run build",
     "start": "cd nonogram-web && npm start",
-    "postinstall": "cd nonogram-web && npm install"
+    "postinstall": "cd nonogram-web && npm install && pip install -e ../ || true"
   }
 }
 
