@@ -98,7 +98,13 @@ export async function POST(request: NextRequest) {
     // Optional parameters
     if (name) args.push('--name', name)
     if (difficulty && difficulty !== 'any') args.push('--difficulty', difficulty)
-    if (seed) args.push('--seed', seed)
+    // Only pass seed if it's a valid integer (not "random" or empty)
+    if (seed && seed.trim() !== '' && seed.trim() !== 'random') {
+      const seedInt = parseInt(seed, 10)
+      if (!isNaN(seedInt)) {
+        args.push('--seed', String(seedInt))
+      }
+    }
 
     // Export formats
     exportFormats.forEach(fmt => {
