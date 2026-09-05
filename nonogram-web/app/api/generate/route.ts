@@ -100,32 +100,18 @@ export async function POST(request: NextRequest) {
       args.push('--export', fmt)
     })
 
-    // Find Python executable using 'which' command
-    console.log('[nonogram-web] Locating Python...')
+    // Try to call the nonogram CLI using 'python3 -m nonogram'
+    console.log('[nonogram-web] Calling nonogram CLI...')
+    console.log('[nonogram-web] Args:', args)
 
-    let pythonPath: string
-    try {
-      const { stdout: whichOut } = await execFileAsync('which', ['python3'], {
-        timeout: 5000,
-      })
-      pythonPath = whichOut.trim()
-      console.log('[nonogram-web] Found Python at:', pythonPath)
-    } catch (whichError) {
-      console.error('[nonogram-web] Could not find python3 with "which":', whichError)
-      pythonPath = '/usr/local/bin/python3'
-      console.log('[nonogram-web] Using fallback path:', pythonPath)
-    }
-
-    // Call the CLI via Python
-    console.log('[nonogram-web] Running:', pythonPath, ['-m', 'nonogram', ...args].join(' '))
-
-    const { stdout, stderr } = await execFileAsync(pythonPath, ['-m', 'nonogram', ...args], {
+    const { stdout, stderr } = await execFileAsync('python3', ['-m', 'nonogram', ...args], {
       timeout: 60000, // 60 second timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       env: {
         ...process.env,
         PYTHONPATH: '/app/src',
-      }
+      },
+      shell: true, // Use shell to resolve 'python3' in PATH
     })
 
     console.log('[nonogram-web] CLI stdout:', stdout)
