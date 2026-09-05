@@ -100,10 +100,10 @@ export async function POST(request: NextRequest) {
       args.push('--export', fmt)
     })
 
-    console.log('[nonogram-web] Running:', '/usr/bin/python3', ['-m', 'nonogram', ...args].join(' '))
+    console.log('[nonogram-web] Running:', '/usr/local/bin/python3', ['-m', 'nonogram', ...args].join(' '))
 
-    // Call the CLI via full path to python3 to ensure it's found
-    const { stdout, stderr } = await execFileAsync('/usr/bin/python3', ['-m', 'nonogram', ...args], {
+    // Call the CLI via full path to python3 (/usr/local/bin is where Python is installed in Docker)
+    const { stdout, stderr } = await execFileAsync('/usr/local/bin/python3', ['-m', 'nonogram', ...args], {
       timeout: 60000, // 60 second timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     })
