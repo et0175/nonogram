@@ -1,11 +1,9 @@
-FROM node:20-slim
+FROM node:20
 
-# Install Python and build tools
+# Install Python (comes with build tools in node:20)
 RUN apt-get update && apt-get install -y \
     python3.11 \
-    python3.11-venv \
     python3-pip \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
