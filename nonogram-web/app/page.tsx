@@ -50,25 +50,7 @@ export default function Home() {
   return (
     <div className={styles.pageContainer}>
       <main className={styles.mainContent}>
-        {/* Header */}
-        <div className={styles.header}>
-          <h1 className={styles.title}>🎨 Nonogram</h1>
-          <p className={styles.subtitle}>
-            Generate uniquely-solvable puzzles from your images
-          </p>
-        </div>
-
-        {/* Main Card */}
-        <div className={styles.card}>
-          <GeneratorForm
-            onSubmit={handleSubmit}
-            loading={loading}
-            lastImageFile={lastImageFile}
-            onClearImage={handleClearImage}
-          />
-        </div>
-
-        {/* Error Message */}
+        {/* Error Message - Top */}
         {error && (
           <div
             className={styles.errorContainer}
@@ -87,8 +69,26 @@ export default function Home() {
           </div>
         )}
 
-        {/* Success Message */}
+        {/* Success Message - Top */}
         {result && <ResultDisplay result={result} />}
+
+        {/* Header */}
+        <div className={styles.header}>
+          <h1 className={styles.title}>🎨 Nonogram</h1>
+          <p className={styles.subtitle}>
+            Generate uniquely-solvable puzzles from your images
+          </p>
+        </div>
+
+        {/* Main Card */}
+        <div className={styles.card}>
+          <GeneratorForm
+            onSubmit={handleSubmit}
+            loading={loading}
+            lastImageFile={lastImageFile}
+            onClearImage={handleClearImage}
+          />
+        </div>
 
         {/* Footer Info */}
         {!result && !error && (
