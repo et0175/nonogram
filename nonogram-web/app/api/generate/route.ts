@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     // Size is optional - CLI will use defaults if not provided
 
     // Validate export formats
+    console.log('[DIAGNOSTIC] exportFormats received:', exportFormats, 'length:', exportFormats.length)
     if (exportFormats.length === 0) {
       return NextResponse.json(
         { error: 'At least one export format must be selected' },
@@ -118,8 +119,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Call nonogram CLI with diagnostics
-    console.log('[DIAGNOSTIC] About to execute python3 -m nonogram')
-    console.log('[DIAGNOSTIC] Args:', args)
+    const fullCommand = ['python3', '-m', 'nonogram', ...args]
+    console.log('[DIAGNOSTIC] About to execute:', fullCommand.join(' '))
+    console.log('[DIAGNOSTIC] Args array:', args)
+    console.log('[DIAGNOSTIC] Full command array:', fullCommand)
 
     const env = {
       ...process.env,
