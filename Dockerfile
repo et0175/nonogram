@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+# Force rebuild - 2026-09-05T18:20:00Z
 # Install Node.js 20 from system repos
 RUN apt-get update && apt-get install -y \
     curl \
