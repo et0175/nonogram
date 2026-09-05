@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message.includes('ENOENT')) {
         return NextResponse.json(
-          { error: 'nonogram CLI not found. Install with: pip install -e .' },
+          { error: `Command not found: ${error.message}. Make sure python3 and nonogram package are installed.` },
           { status: 503 }
         )
       }
