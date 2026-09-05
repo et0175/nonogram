@@ -20,9 +20,11 @@ COPY . .
 # Install Python deps
 RUN pip3 install -e . --no-cache-dir
 
-# Install Node deps
-RUN npm install && npm run build
+# Install Node deps and build Next.js app
+WORKDIR /app/nonogram-web
+RUN npm install --no-cache-dir
+RUN npm run build
 
 EXPOSE 3000
 ENV PYTHONPATH=/app/src
-CMD ["sh", "-c", "cd nonogram-web && npm start"]
+CMD ["npm", "start"]
