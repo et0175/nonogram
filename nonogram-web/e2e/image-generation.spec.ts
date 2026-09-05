@@ -183,6 +183,53 @@ test.describe('Nonogram Image Generation', () => {
       await expect(page.locator('text=Seed:')).toBeVisible();
     });
 
+    test('should show Copy Path and Open buttons for generated files', async ({ page }) => {
+      const fileInput = page.locator('input[type="file"]');
+      await fileInput.setInputFiles(TEST_IMAGE_PATH);
+
+      await page.waitForTimeout(500);
+
+      const sizeField = page.locator('input[placeholder="e.g., 20 or 20x30"]').first();
+      await sizeField.fill('10x10');
+
+      const submitButton = page.locator('button:has-text("Generate Puzzle")');
+      await submitButton.click();
+
+      // Wait for success
+      await page.waitForTimeout(5000);
+
+      // Should show action buttons
+      await expect(page.locator('button:has-text("Copy Path")')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('button:has-text("Open")')).toBeVisible();
+    });
+
+    test('should copy file path to clipboard when Copy Path button clicked', async ({ page }) => {
+      const fileInput = page.locator('input[type="file"]');
+      await fileInput.setInputFiles(TEST_IMAGE_PATH);
+
+      await page.waitForTimeout(500);
+
+      const sizeField = page.locator('input[placeholder="e.g., 20 or 20x30"]').first();
+      await sizeField.fill('10x10');
+
+      const submitButton = page.locator('button:has-text("Generate Puzzle")');
+      await submitButton.click();
+
+      // Wait for success
+      await page.waitForTimeout(5000);
+
+      // Click Copy Path button
+      const copyButton = page.locator('button:has-text("Copy Path")').first();
+      await copyButton.click();
+
+      // Should show "Copied" confirmation
+      await expect(page.locator('button:has-text("✓ Copied")')).toBeVisible({ timeout: 3000 });
+
+      // After 2 seconds, should return to "Copy Path"
+      await page.waitForTimeout(2500);
+      await expect(page.locator('button:has-text("Copy Path")')).toBeVisible();
+    });
+
     test('should show generated file in results', async ({ page }) => {
       const fileInput = page.locator('input[type="file"]');
       await fileInput.setInputFiles(TEST_IMAGE_PATH);

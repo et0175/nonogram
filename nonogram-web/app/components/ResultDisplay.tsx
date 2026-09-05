@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import styles from './ResultDisplay.module.css'
 
 interface ResultDisplayProps {
@@ -12,11 +15,35 @@ interface ResultDisplayProps {
 }
 
 export default function ResultDisplay({ result }: ResultDisplayProps) {
+  const [copiedPath, setCopiedPath] = useState<string | null>(null)
+
   if (!result.success) {
     return null
   }
 
   const { name, seed, files } = result.data!
+
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path)
+    setCopiedPath(path)
+    setTimeout(() => setCopiedPath(null), 2000)
+  }
+
+  const handleOpenFile = async (path: string) => {
+    try {
+      const response = await fetch('/api/open-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      if (!response.ok) {
+        alert('Could not open file. Copy the path and open manually.')
+      }
+    } catch (err) {
+      console.error('Error opening file:', err)
+      alert('Could not open file. Copy the path and open manually.')
+    }
+  }
 
   return (
     <div
@@ -47,8 +74,26 @@ export default function ResultDisplay({ result }: ResultDisplayProps) {
                   key={format}
                   className={styles.fileItem}
                 >
-                  <span className={styles.fileName}>{path}</span>
-                  <span className={styles.fileFormat}>{format.toUpperCase()}</span>
+                  <div className={styles.fileInfo}>
+                    <span className={styles.fileName}>{path}</span>
+                    <span className={styles.fileFormat}>{format.toUpperCase()}</span>
+                  </div>
+                  <div className={styles.fileActions}>
+                    <button
+                      className={styles.fileButton}
+                      onClick={() => handleCopyPath(path)}
+                      title="Copy file path to clipboard"
+                    >
+                      {copiedPath === path ? '✓ Copied' : 'Copy Path'}
+                    </button>
+                    <button
+                      className={styles.fileButton}
+                      onClick={() => handleOpenFile(path)}
+                      title="Open file"
+                    >
+                      Open
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
