@@ -1,9 +1,16 @@
-FROM node:20
+FROM python:3.11-bullseye
 
-# Install Python (comes with build tools in node:20)
+# Install Node.js (using nodesource for latest stable)
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3-pip \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
