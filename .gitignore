@@ -41,3 +41,4 @@ silhouette/**/*.csv
 
 # macOS Finder metadata (four were sitting untracked in silhouette/).
 .DS_Store
+.claude/ghToken
