@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nonogram"
+version = "0.1.0"
+description = "Command-line generator for uniquely-solvable black-and-white nonogram puzzles."
+requires-python = ">=3.9"
+authors = [{ name = "Puzzle Creator" }]
+keywords = ["nonogram", "puzzle", "generator", "cli"]
+classifiers = [
+  "Environment :: Console",
+  "Programming Language :: Python :: 3.9+",
+  "Topic :: Games/Entertainment :: Puzzle Games",
+]
+
+# Dependencies for the nonogram CLI: stdlib + Pillow + NumPy + ReportLab
+dependencies = [
+  "Pillow>=10.0",
+  "numpy>=1.24",
+  "reportlab>=4.0",
+]
+
+[project.optional-dependencies]
+# Development-only dependencies
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+nonogram = "nonogram.cli:main"
+
+[tool.setuptools.packages.find]
+# src-layout package structure
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]

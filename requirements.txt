@@ -1,0 +1,8 @@
+# Install the nonogram package from the current directory
+# The -e flag makes it an editable install, so the CLI command 'nonogram' becomes available
+-e .
+
+# Runtime dependencies (also specified in pyproject.toml, but included here for clarity)
+Pillow>=10.0
+numpy>=1.24
+reportlab>=4.0
