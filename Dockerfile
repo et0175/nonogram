@@ -29,4 +29,5 @@ WORKDIR /app/nonogram-web
 EXPOSE 8080
 ENV PYTHONPATH=/app/src
 ENV PORT=8080
-CMD ["sh", "-c", "node node_modules/next/dist/bin/next start -p 8080"]
+ENV NODE_ENV=production
+CMD ["npm", "start"]
