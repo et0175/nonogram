@@ -141,7 +141,7 @@ it is measuring may be exported.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, TypeAlias
 
 __all__ = [
     "CELL_COMFORT_MM",
@@ -253,12 +253,12 @@ _THIN_RULE_RATIO = 1 / 30
 
 #: A run-length clue for one line, and a full set of them — the same boundary
 #: types ``nonogram.clues`` produces and ``ExportPayload`` carries (ADR-0012).
-type LineClue = tuple[int, ...]
-type ClueSet = tuple[LineClue, ...]
+LineClue: TypeAlias = tuple[int, ...]
+ClueSet: TypeAlias = tuple[LineClue, ...]
 
 #: Which way up the A4 sheet is held (NFR-006). Two values and no third: this
 #: module has one paper size, and turning it is the only freedom it has.
-type Orientation = Literal["portrait", "landscape"]
+Orientation: TypeAlias = Literal["portrait", "landscape"]
 
 
 @dataclass(frozen=True, slots=True)
