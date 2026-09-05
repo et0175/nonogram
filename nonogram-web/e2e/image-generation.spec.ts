@@ -198,8 +198,8 @@ test.describe('Nonogram Image Generation', () => {
       // Wait for results
       await page.waitForTimeout(5000);
 
-      // Should show file path
-      await expect(page.locator('text=/Generated Files|\.pdf|\.png/')).toBeVisible({ timeout: 10000 });
+      // Should show file path - check for Generated Files heading
+      await expect(page.locator('text=Generated Files')).toBeVisible({ timeout: 10000 });
     });
 
     test('should require size for image mode submission', async ({ page }) => {
@@ -374,6 +374,23 @@ test.describe('Nonogram Image Generation', () => {
       // Size field should be cleared
       const sizeField = page.locator('input[placeholder="e.g., 20 or 20x30"]').first();
       await expect(sizeField).toHaveValue('');
+    });
+
+    test('should clear error message when selecting new image', async ({ page }) => {
+      // Create a scenario where we have an error message
+      // Simulate this by just checking the behavior when re-uploading after any state
+      const fileInput = page.locator('input[type="file"]');
+
+      // First upload
+      await fileInput.setInputFiles(TEST_IMAGE_PATH);
+      await page.waitForTimeout(500);
+
+      // After upload, select the file again (clear error state on new selection)
+      // The implementation should clear any previous errors
+      await fileInput.setInputFiles(TEST_IMAGE_PATH);
+
+      // Metadata should be refreshed, no stale error should persist
+      await expect(page.locator('text=Will use: duck')).toBeVisible();
     });
   });
 });

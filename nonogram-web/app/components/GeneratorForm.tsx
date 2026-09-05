@@ -101,6 +101,9 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
       return
     }
 
+    // Clear errors when new valid image selected (AC-166)
+    onClearImage?.()
+
     try {
       // Extract metadata and create preview
       const meta = await extractImageMetadata(file)
