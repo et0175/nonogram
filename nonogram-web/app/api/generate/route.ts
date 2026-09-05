@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     const env = {
       ...process.env,
       PYTHONPATH: '/app/src',
-    }
+    } as NodeJS.ProcessEnv
 
     console.log('[DIAGNOSTIC] Environment:', { PYTHONPATH: env.PYTHONPATH, PATH: env.PATH?.substring(0, 100) })
 
