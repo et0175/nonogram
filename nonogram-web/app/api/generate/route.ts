@@ -100,10 +100,10 @@ export async function POST(request: NextRequest) {
       args.push('--export', fmt)
     })
 
-    console.log('[nonogram-web] Running:', 'python', ['-m', 'nonogram', ...args].join(' '))
+    console.log('[nonogram-web] Running:', 'python3', ['-m', 'nonogram', ...args].join(' '))
 
-    // Call the CLI via python -m to ensure the module is found
-    const { stdout, stderr } = await execFileAsync('python', ['-m', 'nonogram', ...args], {
+    // Call the CLI via python3 -m to ensure the module is found
+    const { stdout, stderr } = await execFileAsync('python3', ['-m', 'nonogram', ...args], {
       timeout: 60000, // 60 second timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     })
