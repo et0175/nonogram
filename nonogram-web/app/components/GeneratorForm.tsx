@@ -255,6 +255,29 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
         <small>Optional. One number for square grid (e.g., 20), or WxH for exact dimensions (e.g., 20x30)</small>
       </div>
 
+      {/* Puzzle Name & Output Directory */}
+      <div className={styles.configGrid}>
+        <div className={styles.formGroup}>
+          <label>Name</label>
+          <input
+            type="text"
+            name="name"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder="auto-generated"
+          />
+        </div>
+
+        <div className={styles.formGroup}>
+          <label>Output Directory</label>
+          <input
+            type="text"
+            name="out"
+            placeholder="."
+          />
+        </div>
+      </div>
+
       {/* Export Formats */}
       <div className={styles.formGroup}>
         <label>Export Formats</label>
@@ -273,9 +296,8 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
         </div>
       </div>
 
-      {/* Configuration Grid */}
+      {/* Configuration Grid - Difficulty & Seed */}
       <div className={styles.configGrid}>
-        {/* Difficulty */}
         <div className={styles.formGroup}>
           <label>Difficulty</label>
           <select name="difficulty" defaultValue="any">
@@ -286,7 +308,6 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
           </select>
         </div>
 
-        {/* Seed */}
         <div className={styles.formGroup}>
           <label>Seed</label>
           <input
@@ -294,28 +315,6 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
             name="seed"
             inputMode="numeric"
             placeholder="random"
-          />
-        </div>
-
-        {/* Puzzle Name */}
-        <div className={styles.formGroup}>
-          <label>Name</label>
-          <input
-            type="text"
-            name="name"
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            placeholder="auto-generated"
-          />
-        </div>
-
-        {/* Output Directory */}
-        <div className={styles.formGroup}>
-          <label>Output Directory</label>
-          <input
-            type="text"
-            name="out"
-            placeholder="."
           />
         </div>
       </div>
