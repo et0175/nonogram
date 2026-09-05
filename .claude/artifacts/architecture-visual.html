@@ -1,0 +1,547 @@
+<title>Nonogram Architecture Overview</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --secondary: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg-light: #f8fafc;
+    --bg-dark: #0f172a;
+    --text-dark: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --primary: #3b82f6;
+      --secondary: #94a3b8;
+      --bg-light: #1e293b;
+      --bg-dark: #0f172a;
+      --text-dark: #f1f5f9;
+      --text-light: #cbd5e1;
+      --border: #334155;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text-dark);
+    background: var(--bg-light);
+    margin: 0;
+    padding: 20px;
+    line-height: 1.6;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  h1, h2, h3 {
+    color: var(--primary);
+  }
+
+  .header {
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--success);
+    color: white;
+    margin-left: 10px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  @media (max-width: 1024px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    background: white;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .box:not([data-theme="light"]) {
+      background: #1e293b;
+    }
+  }
+
+  .box-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .box-content {
+    font-size: 14px;
+    color: var(--text-light);
+  }
+
+  .module {
+    background: var(--bg-light);
+    border-left: 3px solid var(--primary);
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .module:not([data-theme="light"]) {
+      background: #0f172a;
+    }
+  }
+
+  .module-name {
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+
+  .module-id {
+    font-size: 12px;
+    color: var(--text-light);
+  }
+
+  .module-desc {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: 4px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+
+  @media (max-width: 768px) {
+    .stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .stat {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .stat:not([data-theme="light"]) {
+      background: #1e293b;
+    }
+  }
+
+  .stat-number {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 5px;
+  }
+
+  .tech-stack {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+
+  @media (max-width: 768px) {
+    .tech-stack {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .tech-item {
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .tech-item:not([data-theme="light"]) {
+      background: #0f172a;
+    }
+  }
+
+  .tech-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+
+  .tech-list {
+    font-size: 12px;
+    color: var(--text-light);
+  }
+
+  .tech-list li {
+    margin-bottom: 4px;
+  }
+
+  .capabilities-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  @media (max-width: 1024px) {
+    .capabilities-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .capabilities-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .capability-card {
+    background: var(--primary);
+    color: white;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .capability-id {
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .capability-name {
+    font-weight: 600;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .integration-section {
+    background: var(--bg-light);
+    border-left: 4px solid var(--success);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .integration-section:not([data-theme="light"]) {
+      background: #0f172a;
+    }
+  }
+
+  .integration-title {
+    font-weight: 700;
+    color: var(--success);
+    margin-bottom: 12px;
+  }
+
+  .step {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 4px;
+    font-size: 13px;
+    border-left: 2px solid var(--success);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .step:not([data-theme="light"]) {
+      background: #1e293b;
+    }
+  }
+
+  .deployment-status {
+    background: var(--success);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+  }
+
+  .footer {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-light);
+  }
+</style>
+
+<div class="container">
+  <div class="header">
+    <h1>🏗️ Nonogram System Architecture
+      <span class="status-badge">Production Ready</span>
+    </h1>
+    <p>Dual-stack puzzle generation system: Python core + Next.js frontend deployed on Railway</p>
+    <p><strong>Last Updated:</strong> 2026-09-05 | <strong>Status:</strong> 160 tests passing ✅</p>
+  </div>
+
+  <!-- Statistics -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-number">5</div>
+      <div class="stat-label">Capabilities</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">35+</div>
+      <div class="stat-label">Documentation Files</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">2</div>
+      <div class="stat-label">Tech Stacks</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">160</div>
+      <div class="stat-label">Tests Passing</div>
+    </div>
+  </div>
+
+  <!-- System Overview -->
+  <div class="grid">
+    <div class="box">
+      <div class="box-title">🐍 Python Core Architecture</div>
+      <div class="box-content">
+        <div class="module">
+          <div class="module-name">COMP-001: CLI Adapter</div>
+          <div class="module-id">cli.py</div>
+          <div class="module-desc">Argparse interface, argument parsing only</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-002: Orchestrator</div>
+          <div class="module-id">orchestrator.py</div>
+          <div class="module-desc">Puzzle aggregate owner, workflow driver</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-003: Sourcing</div>
+          <div class="module-id">sourcing/</div>
+          <div class="module-desc">Random/library/image grid acquisition</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-004: Clues</div>
+          <div class="module-id">clues.py</div>
+          <div class="module-desc">Grid → row/column clues (RLE)</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-005: Solver</div>
+          <div class="module-id">solver/</div>
+          <div class="module-desc">Constraint propagation + backtracking</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-006: Difficulty</div>
+          <div class="module-id">difficulty.py</div>
+          <div class="module-desc">Easy/Medium/Hard scoring + resampling</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-007: Export</div>
+          <div class="module-id">export/</div>
+          <div class="module-desc">PNG/SVG/JSON/CSV/PDF formats</div>
+        </div>
+        <div class="module">
+          <div class="module-name">COMP-008: Web Adapter</div>
+          <div class="module-id">web/</div>
+          <div class="module-desc">HTTP handler, form parsing, multipart</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="box-title">🎨 Next.js Frontend Stack</div>
+      <div class="box-content">
+        <div class="module">
+          <div class="module-name">React 18 Components</div>
+          <div class="module-id">app/components/</div>
+          <div class="module-desc">GeneratorForm, ResultDisplay</div>
+        </div>
+        <div class="module">
+          <div class="module-name">Next.js App Router</div>
+          <div class="module-id">app/page.tsx</div>
+          <div class="module-desc">Main puzzle generator interface</div>
+        </div>
+        <div class="module">
+          <div class="module-name">API Handler Bridge</div>
+          <div class="module-id">api/generate.py</div>
+          <div class="module-desc">Form parsing → Python orchestrator</div>
+        </div>
+        <div class="module">
+          <div class="module-name">E2E Tests</div>
+          <div class="module-id">e2e/</div>
+          <div class="module-desc">Playwright browser automation</div>
+        </div>
+        <div class="module">
+          <div class="module-name">Custom Server</div>
+          <div class="module-id">server.js</div>
+          <div class="module-desc">Node.js host on 0.0.0.0:8080</div>
+        </div>
+        <div class="module">
+          <div class="module-name">Tailwind CSS</div>
+          <div class="module-id">globals.css</div>
+          <div class="module-desc">Responsive styling</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Capabilities -->
+  <div class="box">
+    <div class="box-title">⚡ Core Capabilities (CAP-001..CAP-005)</div>
+    <div class="box-content">
+      <div class="capabilities-grid">
+        <div class="capability-card">
+          <div class="capability-id">CAP-001</div>
+          <div class="capability-name">Puzzle Sourcing</div>
+        </div>
+        <div class="capability-card">
+          <div class="capability-id">CAP-002</div>
+          <div class="capability-name">Clue Derivation</div>
+        </div>
+        <div class="capability-card">
+          <div class="capability-id">CAP-003</div>
+          <div class="capability-name">Uniqueness Verification</div>
+        </div>
+        <div class="capability-card">
+          <div class="capability-id">CAP-004</div>
+          <div class="capability-name">Difficulty Calibration</div>
+        </div>
+        <div class="capability-card">
+          <div class="capability-id">CAP-005</div>
+          <div class="capability-name">Puzzle Export</div>
+        </div>
+      </div>
+      <p style="margin-top: 15px; color: var(--text-light); font-size: 13px;">
+        All capabilities operate on a single aggregate (Puzzle) within CTX-001 bounded context.
+        One-way dependency flow: no lateral imports between capabilities.
+      </p>
+    </div>
+  </div>
+
+  <!-- Request Flow -->
+  <div class="integration-section">
+    <div class="integration-title">🔄 Request Flow: Browser → Python Core</div>
+    <div class="step"><strong>1. Form Submission</strong> - Browser form with grid parameters, difficulty, export formats</div>
+    <div class="step"><strong>2. API Handler</strong> - api/generate.py receives POST with multipart/urlencoded data</div>
+    <div class="step"><strong>3. Form Parsing</strong> - submission.py extracts fields, validates against GenerationRequest</div>
+    <div class="step"><strong>4. Image Upload</strong> - multipart.py handles file upload, resize, Floyd-Steinberg dithering (if needed)</div>
+    <div class="step"><strong>5. Orchestration</strong> - orchestrator.generate() runs sourcing → clues → solver → difficulty → export pipeline</div>
+    <div class="step"><strong>6. Uniqueness Check</strong> - solver verifies exactly one solution; auto-retry/nudge on failure</div>
+    <div class="step"><strong>7. Export</strong> - Generates PNG/SVG/JSON/CSV/PDF based on requested formats</div>
+    <div class="step"><strong>8. Response</strong> - Returns JSON with file paths; temporary image file cleaned up</div>
+    <div class="step"><strong>9. Download</strong> - Browser receives paths, initiates file downloads</div>
+  </div>
+
+  <!-- Technology Stack -->
+  <div class="box">
+    <div class="box-title">🛠️ Technology Stack</div>
+    <div class="tech-stack">
+      <div class="tech-item">
+        <div class="tech-label">🐍 Python Backend</div>
+        <ul class="tech-list">
+          <li>Python 3.11-slim (container)</li>
+          <li>Pillow 10.0+ (image processing)</li>
+          <li>NumPy 1.24+ (array ops)</li>
+          <li>ReportLab 4.0+ (PDF export)</li>
+        </ul>
+      </div>
+      <div class="tech-item">
+        <div class="tech-label">🎨 Frontend</div>
+        <ul class="tech-list">
+          <li>Next.js 15 (App Router)</li>
+          <li>React 18 (components)</li>
+          <li>TypeScript 5 (types)</li>
+          <li>Tailwind CSS 4 (styling)</li>
+        </ul>
+      </div>
+      <div class="tech-item">
+        <div class="tech-label">⚙️ DevOps</div>
+        <ul class="tech-list">
+          <li>Docker (container)</li>
+          <li>Node.js 20 (runtime)</li>
+          <li>Railway.app (deployment)</li>
+          <li>Playwright (E2E tests)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deployment Status -->
+  <div class="deployment-status">
+    <h2 style="margin: 0 0 10px 0; color: white;">✅ Deployment Status</h2>
+    <p style="margin: 0;">
+      <strong>Production:</strong> Deployed on Railway.app<br>
+      <strong>Container:</strong> Python 3.11 + Node.js 20<br>
+      <strong>Port:</strong> 8080 (0.0.0.0 binding)<br>
+      <strong>Tests:</strong> 160 passing ✅ | E2E tests ✅
+    </p>
+  </div>
+
+  <!-- Architecture Principles -->
+  <div class="grid">
+    <div class="box">
+      <div class="box-title">✨ Design Principles</div>
+      <div class="box-content" style="font-size: 13px;">
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-light);">
+          <li><strong>Single Context:</strong> CTX-001 owns all capabilities</li>
+          <li><strong>One Aggregate:</strong> Puzzle is the only aggregate</li>
+          <li><strong>One-Way Dependencies:</strong> Inbound only, no circular imports</li>
+          <li><strong>Closed Dependencies:</strong> stdlib + Pillow + NumPy + ReportLab</li>
+          <li><strong>Structural Guards:</strong> Tests enforce architecture invariants</li>
+          <li><strong>Ubiquitous Language:</strong> Shared glossary (TERM-001..TERM-008)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="box-title">📊 Recent Work (Last 8 Commits)</div>
+      <div class="box-content" style="font-size: 12px;">
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-light);">
+          <li><strong>✅ Docs Reorganized</strong> - 35+ files into semantic directories</li>
+          <li><strong>✅ Next.js Integrated</strong> - API bridge → Python core</li>
+          <li><strong>✅ E2E Tests Added</strong> - Playwright test suite</li>
+          <li><strong>✅ Deployment Fixed</strong> - Port binding, env variables</li>
+          <li><strong>✅ Python 3.11 Compat</strong> - Generic syntax, TypeAlias</li>
+          <li><strong>ℹ️ Next Step:</strong> Run forge:reverse drift</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Nonogram System Architecture | Generated 2026-09-05</p>
+    <p>See CODEBASE_EXPLORATION.md for detailed analysis | Meta model: meta/architecture/</p>
+  </div>
+</div>
