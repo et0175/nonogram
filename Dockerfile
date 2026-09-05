@@ -28,4 +28,4 @@ RUN npm run build
 EXPOSE 8080
 ENV PYTHONPATH=/app/src
 ENV PORT=8080
-CMD ["npm", "start"]
+CMD ["sh", "-c", "next start -p 8080"]
