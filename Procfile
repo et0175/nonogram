@@ -1,1 +1,1 @@
-web: sh -c 'cd nonogram-web && PORT=$PORT npm start'
+web: cd nonogram-web && PORT=8081 npm start
