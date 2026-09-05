@@ -1,0 +1,116 @@
+.resultContainer {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: 0.5rem;
+  color: var(--success-text);
+}
+
+.resultHeader {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.resultIcon {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+  line-height: 1.5;
+}
+
+.resultContent {
+  flex: 1;
+}
+
+.resultTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--success-text);
+}
+
+.resultMetadata {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.resultMetadata p {
+  font-size: 0.875rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label {
+  font-weight: 600;
+  min-width: 50px;
+}
+
+.resultMetadata code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: inherit;
+  word-break: break-all;
+}
+
+.filesSection {
+  margin-bottom: 0.75rem;
+}
+
+.filesTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--success-text);
+}
+
+.filesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fileName {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  color: inherit;
+  flex: 1;
+  word-break: break-all;
+  margin-right: 0.5rem;
+}
+
+.fileFormat {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: inherit;
+}
+
+.resultFooter {
+  font-size: 0.75rem;
+  margin: 0;
+  color: inherit;
+  opacity: 0.9;
+}

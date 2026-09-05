@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import GeneratorForm from './components/GeneratorForm'
 import ResultDisplay from './components/ResultDisplay'
+import styles from './page.module.css'
 
 export default function Home() {
   const [result, setResult] = useState(null)
@@ -16,7 +17,6 @@ export default function Home() {
     setResult(null)
 
     try {
-      // Store the image file for potential retry (CARD-037)
       const imageFile = formData.get('image') as File | null
       if (imageFile) {
         setLastImageFile(imageFile)
@@ -30,14 +30,12 @@ export default function Home() {
       const data = await response.json()
 
       if (response.ok && data.name && data.seed !== undefined) {
-        // Success response contains name, seed, and files
         setResult({ success: true, data })
       } else {
-        // Error response contains error field
-        setError(data.error || 'Generation failed')
+        setError(data.error || 'Generation failed. Please try again.')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }
@@ -50,45 +48,55 @@ export default function Home() {
   }
 
   return (
-    <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-      <h1>Nonogram Generator</h1>
-      <GeneratorForm
-        onSubmit={handleSubmit}
-        loading={loading}
-        lastImageFile={lastImageFile}
-        onClearImage={handleClearImage}
-      />
-      {error && (
-        <div
-          data-outcome="failure"
-          style={{
-            color: '#d32f2f',
-            backgroundColor: '#ffebee',
-            border: '1px solid #ef5350',
-            padding: '1rem',
-            borderRadius: '4px',
-            marginTop: '1rem',
-          }}
-        >
-          <strong>Error:</strong> {error}
+    <div className={styles.pageContainer}>
+      <main className={styles.mainContent}>
+        {/* Header */}
+        <div className={styles.header}>
+          <h1 className={styles.title}>🎨 Nonogram</h1>
+          <p className={styles.subtitle}>
+            Generate uniquely-solvable puzzles from your images
+          </p>
         </div>
-      )}
-      {result && (
-        <div
-          data-outcome="success"
-          style={{
-            color: '#1976d2',
-            backgroundColor: '#e3f2fd',
-            border: '1px solid #64b5f6',
-            padding: '1rem',
-            borderRadius: '4px',
-            marginTop: '1rem',
-          }}
-        >
-          <strong>Success!</strong> Puzzle generated successfully.
-          <ResultDisplay result={result} />
+
+        {/* Main Card */}
+        <div className={styles.card}>
+          <GeneratorForm
+            onSubmit={handleSubmit}
+            loading={loading}
+            lastImageFile={lastImageFile}
+            onClearImage={handleClearImage}
+          />
         </div>
-      )}
-    </main>
+
+        {/* Error Message */}
+        {error && (
+          <div
+            className={styles.errorContainer}
+            data-outcome="failure"
+          >
+            <div className={styles.errorHeader}>
+              <div className={styles.errorIcon}>✕</div>
+              <div className={styles.errorContent}>
+                <h3 className={styles.errorTitle}>Error</h3>
+                <p className={styles.errorMessage}>{error}</p>
+                <p className={styles.errorHint}>
+                  Try adjusting your settings or upload a different image.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {result && <ResultDisplay result={result} />}
+
+        {/* Footer Info */}
+        {!result && !error && (
+          <div className={styles.footerInfo}>
+            <p>💡 Upload an image to get started</p>
+          </div>
+        )}
+      </main>
+    </div>
   )
 }

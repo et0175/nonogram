@@ -1,0 +1,131 @@
+.pageContainer {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #f3f4f6, #e5e7eb);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pageContainer {
+    background: linear-gradient(to bottom right, #111827, #0f172a);
+  }
+}
+
+.mainContent {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .mainContent {
+    padding: 1rem;
+  }
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 640px) {
+  .header {
+    margin-bottom: 1.5rem;
+  }
+}
+
+.title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: 1.875rem;
+  }
+}
+
+.subtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .subtitle {
+    font-size: 1rem;
+  }
+}
+
+.card {
+  background-color: var(--bg-primary);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .card {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 1rem;
+  }
+}
+
+.errorContainer {
+  padding: 1rem;
+  background-color: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 0.5rem;
+  color: var(--error-text);
+  margin-bottom: 1.5rem;
+}
+
+.errorHeader {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.errorIcon {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+  line-height: 1.5;
+}
+
+.errorContent {
+  flex: 1;
+}
+
+.errorTitle {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--error-text);
+}
+
+.errorMessage {
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+  margin-top: 0;
+}
+
+.errorHint {
+  font-size: 0.75rem;
+  margin: 0;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.footerInfo {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 2rem;
+}
+
+.footerInfo p {
+  margin: 0;
+}

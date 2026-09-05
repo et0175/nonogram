@@ -1,3 +1,5 @@
+import styles from './ResultDisplay.module.css'
+
 interface ResultDisplayProps {
   result: {
     success: boolean
@@ -18,34 +20,45 @@ export default function ResultDisplay({ result }: ResultDisplayProps) {
 
   return (
     <div
-      style={{
-        marginTop: '2rem',
-        padding: '2rem',
-        border: '1px solid #4caf50',
-        borderRadius: '8px',
-        backgroundColor: '#f1f8f4',
-      }}
+      className={styles.resultContainer}
+      data-outcome="success"
     >
-      <h2>✓ Puzzle Generated!</h2>
-      <p>
-        <strong>Name:</strong> {name}
-      </p>
-      <p>
-        <strong>Seed:</strong> {seed}
-      </p>
+      <div className={styles.resultHeader}>
+        <div className={styles.resultIcon}>✓</div>
+        <div className={styles.resultContent}>
+          <h2 className={styles.resultTitle}>Puzzle Generated Successfully</h2>
 
-      <h3>Files:</h3>
-      <ul>
-        {Object.entries(files).map(([format, path]) => (
-          <li key={format}>
-            <strong>{format.toUpperCase()}:</strong> {path}
-          </li>
-        ))}
-      </ul>
+          <div className={styles.resultMetadata}>
+            <p>
+              <span className={styles.label}>Name:</span>
+              <code>{name}</code>
+            </p>
+            <p>
+              <span className={styles.label}>Seed:</span>
+              <code>{seed}</code>
+            </p>
+          </div>
 
-      <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '1rem' }}>
-        Files are available at <code>/api/files/[filename]</code>
-      </p>
+          <div className={styles.filesSection}>
+            <h3 className={styles.filesTitle}>Generated Files</h3>
+            <div className={styles.filesList}>
+              {Object.entries(files).map(([format, path]) => (
+                <div
+                  key={format}
+                  className={styles.fileItem}
+                >
+                  <span className={styles.fileName}>{path}</span>
+                  <span className={styles.fileFormat}>{format.toUpperCase()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className={styles.resultFooter}>
+            Files are saved in your configured output directory. You can generate another puzzle or upload a new image.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
