@@ -152,29 +152,32 @@ export async function POST(request: NextRequest) {
       files: files
     }, { status: 200 })
   } catch (error) {
-    console.error('[nonogram-web] Error:', error)
+    console.error('[nonogram-web] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
 
     if (error instanceof Error) {
-      if (error.message.includes('ENOENT')) {
+      const errorMsg = error.message
+      console.error('[nonogram-web] Error message:', errorMsg)
+
+      if (errorMsg.includes('ENOENT')) {
         return NextResponse.json(
-          { error: `Command not found: ${error.message}. Make sure python3 and nonogram package are installed.` },
+          { error: `ENOENT - Command not found: ${errorMsg}` },
           { status: 503 }
         )
       }
-      if (error.message.includes('timeout')) {
+      if (errorMsg.includes('timeout')) {
         return NextResponse.json(
           { error: 'Puzzle generation timed out (exceeded 60 seconds)' },
           { status: 408 }
         )
       }
       return NextResponse.json(
-        { error: error.message },
+        { error: `API Error: ${errorMsg}` },
         { status: 500 }
       )
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error - unknown error type' },
       { status: 500 }
     )
   } finally {
