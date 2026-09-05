@@ -24,7 +24,9 @@ COPY src ./src
 COPY nonogram-web ./nonogram-web
 
 # Install Python dependencies (nonogram CLI)
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    python3 -m nonogram --help && \
+    echo "✓ nonogram CLI successfully installed"
 
 # Install root npm dependencies (sets PYTHONPATH etc)
 RUN npm install
