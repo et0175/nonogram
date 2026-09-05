@@ -136,6 +136,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[DIAGNOSTIC] Python execution succeeded')
     console.log('[DIAGNOSTIC] stdout length:', stdout.length)
+    console.log('[DIAGNOSTIC] stdout:', stdout)
+    console.log('[DIAGNOSTIC] stderr:', stderr)
 
     console.log('[nonogram-web] CLI stdout:', stdout)
     if (stderr) console.log('[nonogram-web] CLI stderr:', stderr)
@@ -151,8 +153,12 @@ export async function POST(request: NextRequest) {
     let seedValue: number | null = null
     let puzzleName = name || (imageFile ? imageFile.name.replace(/\.[^.]+$/, '') : 'puzzle')
 
+    console.log('[DIAGNOSTIC] Output lines:', outputLines)
+    console.log('[DIAGNOSTIC] Export formats requested:', exportFormats)
+
     for (const line of outputLines) {
       const trimmed = line.trim()
+      console.log('[DIAGNOSTIC] Processing line:', trimmed)
 
       if (trimmed.startsWith('seed: ')) {
         seedValue = parseInt(trimmed.slice(6))
@@ -165,6 +171,8 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    console.log('[DIAGNOSTIC] Parsed files:', files)
 
     // If seed was specified by user, use it; otherwise use the printed one
     if (!seedValue) {
