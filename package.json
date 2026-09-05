@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "cd nonogram-web && npm run dev",
+    "build": "cd nonogram-web && npm run build",
     "start": "cd nonogram-web && npm start"
   }
 }
