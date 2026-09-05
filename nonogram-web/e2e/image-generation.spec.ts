@@ -115,7 +115,12 @@ test.describe('Nonogram Image Generation', () => {
     });
 
     test('should allow entering name and output directory', async ({ page }) => {
-      const nameInput = page.locator('input[placeholder="auto-generated"]');
+      const fileInput = page.locator('input[type="file"]');
+      await fileInput.setInputFiles(TEST_IMAGE_PATH);
+
+      await page.waitForTimeout(500);
+
+      const nameInput = page.locator('input[name="name"]');
       const outDirInput = page.locator('input[placeholder="."]');
 
       await nameInput.fill('my-puzzle');
@@ -123,6 +128,16 @@ test.describe('Nonogram Image Generation', () => {
 
       await expect(nameInput).toHaveValue('my-puzzle');
       await expect(outDirInput).toHaveValue('./output');
+    });
+
+    test('should show auto-generated name preview when name field is empty', async ({ page }) => {
+      const fileInput = page.locator('input[type="file"]');
+      await fileInput.setInputFiles(TEST_IMAGE_PATH);
+
+      await page.waitForTimeout(500);
+
+      // Should show helper text with auto-generated name
+      await expect(page.locator('text=Will use: duck')).toBeVisible();
     });
   });
 
