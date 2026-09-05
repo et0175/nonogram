@@ -30,4 +30,4 @@ EXPOSE 8080
 ENV PYTHONPATH=/app/src
 ENV PORT=8080
 ENV NODE_ENV=production
-CMD ["/bin/bash", "-c", "npm start"]
+CMD ["node", "server.js"]
