@@ -9,7 +9,7 @@ interface ResultDisplayProps {
     data?: {
       name: string
       seed: number
-      files: Record<string, string>
+      files: Record<string, { path: string; data: string; mimeType: string }>
     }
   }
 }
@@ -23,26 +23,32 @@ export default function ResultDisplay({ result }: ResultDisplayProps) {
 
   const { name, seed, files } = result.data!
 
+  const handleDownloadFile = (format: string, data: string, mimeType: string, fileName: string) => {
+    try {
+      const binaryString = atob(data)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      const blob = new Blob([bytes], { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileName}.${format}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error downloading file:', err)
+      alert('Could not download file')
+    }
+  }
+
   const handleCopyPath = (path: string) => {
     navigator.clipboard.writeText(path)
     setCopiedPath(path)
     setTimeout(() => setCopiedPath(null), 2000)
-  }
-
-  const handleOpenFile = async (path: string) => {
-    try {
-      const response = await fetch('/api/open-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path }),
-      })
-      if (!response.ok) {
-        alert('Could not open file. Copy the path and open manually.')
-      }
-    } catch (err) {
-      console.error('Error opening file:', err)
-      alert('Could not open file. Copy the path and open manually.')
-    }
   }
 
   return (
@@ -69,29 +75,22 @@ export default function ResultDisplay({ result }: ResultDisplayProps) {
           <div className={styles.filesSection}>
             <h3 className={styles.filesTitle}>Generated Files</h3>
             <div className={styles.filesList}>
-              {Object.entries(files).map(([format, path]) => (
+              {Object.entries(files).map(([format, fileInfo]) => (
                 <div
                   key={format}
                   className={styles.fileItem}
                 >
                   <div className={styles.fileInfo}>
-                    <span className={styles.fileName}>{path}</span>
+                    <span className={styles.fileName}>{name}.{format}</span>
                     <span className={styles.fileFormat}>{format.toUpperCase()}</span>
                   </div>
                   <div className={styles.fileActions}>
                     <button
                       className={styles.fileButton}
-                      onClick={() => handleCopyPath(path)}
-                      title="Copy file path to clipboard"
+                      onClick={() => handleDownloadFile(format, fileInfo.data, fileInfo.mimeType, name)}
+                      title="Download file"
                     >
-                      {copiedPath === path ? '✓ Copied' : 'Copy Path'}
-                    </button>
-                    <button
-                      className={styles.fileButton}
-                      onClick={() => handleOpenFile(path)}
-                      title="Open file"
-                    >
-                      Open
+                      ⬇ Download
                     </button>
                   </div>
                 </div>
@@ -100,7 +99,7 @@ export default function ResultDisplay({ result }: ResultDisplayProps) {
           </div>
 
           <p className={styles.resultFooter}>
-            Files are saved in your configured output directory. You can generate another puzzle or upload a new image.
+            Click Download to save files to your computer. You can generate another puzzle or upload a new image.
           </p>
         </div>
       </div>

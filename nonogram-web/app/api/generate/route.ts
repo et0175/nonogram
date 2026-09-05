@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, unlink } from 'fs/promises'
+import { writeFile, unlink, readFile } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { execFile } from 'child_process'
@@ -182,10 +182,39 @@ export async function POST(request: NextRequest) {
       seedValue = seed ? parseInt(seed) : Math.floor(Math.random() * 2147483647)
     }
 
+    // Read file contents for download
+    const filesWithContent: Record<string, { path: string; data: string; mimeType: string }> = {}
+    const mimeTypes: Record<string, string> = {
+      json: 'application/json',
+      csv: 'text/csv',
+      png: 'image/png',
+      svg: 'image/svg+xml',
+      pdf: 'application/pdf'
+    }
+
+    for (const [format, filePath] of Object.entries(files)) {
+      try {
+        const fileContent = await readFile(filePath)
+        const base64Data = fileContent.toString('base64')
+        filesWithContent[format] = {
+          path: filePath,
+          data: base64Data,
+          mimeType: mimeTypes[format] || 'application/octet-stream'
+        }
+      } catch (readError) {
+        console.error(`[nonogram-web] Failed to read file ${filePath}:`, readError)
+        filesWithContent[format] = {
+          path: filePath,
+          data: '',
+          mimeType: mimeTypes[format] || 'application/octet-stream'
+        }
+      }
+    }
+
     return NextResponse.json({
       name: puzzleName,
       seed: seedValue,
-      files: files
+      files: filesWithContent
     }, { status: 200 })
   } catch (error) {
     console.error('[nonogram-web] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
