@@ -100,18 +100,18 @@ export async function POST(request: NextRequest) {
       args.push('--export', fmt)
     })
 
-    // Try to call the nonogram CLI using 'python3 -m nonogram'
-    console.log('[nonogram-web] Calling nonogram CLI...')
-    console.log('[nonogram-web] Args:', args)
+    // Call nonogram CLI
+    console.log('[nonogram-web] Executing: python3 -m nonogram', args.join(' '))
+
+    const env = {
+      ...process.env,
+      PYTHONPATH: '/app/src',
+    }
 
     const { stdout, stderr } = await execFileAsync('python3', ['-m', 'nonogram', ...args], {
-      timeout: 60000, // 60 second timeout
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      env: {
-        ...process.env,
-        PYTHONPATH: '/app/src',
-      },
-      shell: true, // Use shell to resolve 'python3' in PATH
+      timeout: 60000,
+      maxBuffer: 10 * 1024 * 1024,
+      env,
     })
 
     console.log('[nonogram-web] CLI stdout:', stdout)
