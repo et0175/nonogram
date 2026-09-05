@@ -198,18 +198,24 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
               <div className={styles.suggestionsBox}>
                 <h4>Suggested sizes (click to set)</h4>
                 <div className={styles.suggestionButtons}>
-                  {suggestions.map(([w, h]) => (
-                    <button
-                      key={`${w}x${h}`}
-                      type="button"
-                      onClick={() => handleSuggestionClick(w, h)}
-                      className={`${styles.suggestionButton} ${
-                        sizeInput === `${w}x${h}` ? styles.suggestionButtonActive : ''
-                      }`}
-                    >
-                      {w}×{h}
-                    </button>
-                  ))}
+                  {suggestions.map(([w, h]) => {
+                    const sizeStr = `${w}x${h}`
+                    return (
+                      <button
+                        key={sizeStr}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setSizeInput(sizeStr)
+                        }}
+                        className={`${styles.suggestionButton} ${
+                          sizeInput === sizeStr ? styles.suggestionButtonActive : ''
+                        }`}
+                      >
+                        {w}×{h}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
