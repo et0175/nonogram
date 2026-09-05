@@ -21,6 +21,11 @@ const execFileAsync = promisify(execFile)
 export async function POST(request: NextRequest) {
   let tempImagePath: string | null = null
 
+  console.log('[DIAGNOSTIC] API /generate called')
+  console.log('[DIAGNOSTIC] NODE_ENV:', process.env.NODE_ENV)
+  console.log('[DIAGNOSTIC] PYTHONPATH:', process.env.PYTHONPATH)
+  console.log('[DIAGNOSTIC] PATH:', process.env.PATH)
+
   try {
     const formData = await request.formData()
 
@@ -100,19 +105,25 @@ export async function POST(request: NextRequest) {
       args.push('--export', fmt)
     })
 
-    // Call nonogram CLI
-    console.log('[nonogram-web] Executing: python3 -m nonogram', args.join(' '))
+    // Call nonogram CLI with diagnostics
+    console.log('[DIAGNOSTIC] About to execute python3 -m nonogram')
+    console.log('[DIAGNOSTIC] Args:', args)
 
     const env = {
       ...process.env,
       PYTHONPATH: '/app/src',
     }
 
+    console.log('[DIAGNOSTIC] Environment:', { PYTHONPATH: env.PYTHONPATH, PATH: env.PATH?.substring(0, 100) })
+
     const { stdout, stderr } = await execFileAsync('python3', ['-m', 'nonogram', ...args], {
       timeout: 60000,
       maxBuffer: 10 * 1024 * 1024,
       env,
     })
+
+    console.log('[DIAGNOSTIC] Python execution succeeded')
+    console.log('[DIAGNOSTIC] stdout length:', stdout.length)
 
     console.log('[nonogram-web] CLI stdout:', stdout)
     if (stderr) console.log('[nonogram-web] CLI stderr:', stderr)
