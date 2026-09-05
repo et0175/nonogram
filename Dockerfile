@@ -42,5 +42,5 @@ EXPOSE 3000
 # Set Python path and ensure both Python and npm are in PATH
 # Railway sets PORT env var (default 8080), Next.js respects it
 ENV PYTHONPATH=/app/src
-ENV PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && cd nonogram-web && npm start"]
+ENV PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH && cd nonogram-web && npm start"]
