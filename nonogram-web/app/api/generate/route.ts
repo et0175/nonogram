@@ -106,6 +106,10 @@ export async function POST(request: NextRequest) {
     const { stdout, stderr } = await execFileAsync('/usr/local/bin/python3', ['-m', 'nonogram', ...args], {
       timeout: 60000, // 60 second timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+      env: {
+        ...process.env,
+        PYTHONPATH: '/app/src',
+      }
     })
 
     console.log('[nonogram-web] CLI stdout:', stdout)
