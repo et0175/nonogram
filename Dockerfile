@@ -25,6 +25,7 @@ WORKDIR /app/nonogram-web
 RUN npm install --no-cache-dir
 RUN npm run build
 
-EXPOSE 3000
+EXPOSE 8181
 ENV PYTHONPATH=/app/src
+ENV PORT=8181
 CMD ["npm", "start"]
