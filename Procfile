@@ -1,1 +1,1 @@
-web: cd nonogram-web && npm start
+web: cd nonogram-web && npm start -- -p $PORT
