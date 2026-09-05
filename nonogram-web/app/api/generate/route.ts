@@ -26,15 +26,30 @@ export async function POST(request: NextRequest) {
 
     // Extract form fields - support both image and other modes for flexibility
     const mode = (formData.get('mode') as string) || 'image'
-    const width = formData.get('width') as string
-    const height = formData.get('height') as string
-    const name = formData.get('name') as string
+    const sizeInput = formData.get('size') as string
+    const name = (formData.get('name') as string) || undefined
     const difficulty = formData.get('difficulty') as string
     const seed = formData.get('seed') as string
     const density = formData.get('density') as string
     const libraryKey = formData.get('library_key') as string
     const imageFile = formData.get('image') as File | null
     const exportFormats = formData.getAll('export_formats') as string[]
+
+    // Parse size field (can be "20" for square or "20x30" for exact W×H)
+    let width: string | null = null
+    let height: string | null = null
+
+    if (sizeInput) {
+      if (sizeInput.includes('x')) {
+        const [w, h] = sizeInput.split('x')
+        width = w.trim()
+        height = h.trim()
+      } else {
+        // Single number means square grid
+        width = sizeInput.trim()
+        height = sizeInput.trim()
+      }
+    }
 
     // Validate grid size
     if (!width || !height) {

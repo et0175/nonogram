@@ -145,6 +145,14 @@ export default function GeneratorForm({ onSubmit, loading, lastImageFile, onClea
     formData.set('image', selectedFile)
     formData.set('mode', 'image')
 
+    // Explicitly set controlled input values to ensure they're captured
+    if (sizeInput) {
+      formData.set('size', sizeInput)
+    }
+    if (customName) {
+      formData.set('name', customName)
+    }
+
     onSubmit(formData)
   }
 
