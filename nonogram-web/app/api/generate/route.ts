@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     const libraryKey = formData.get('library_key') as string
     const imageFile = formData.get('image') as File | null
     const exportFormats = formData.getAll('export_formats') as string[]
+    const outDir = formData.get('out') as string
 
     // Parse size field (optional, can be "20" for square or "20x30" for exact W×H)
     let width: string | null = null
@@ -110,6 +111,11 @@ export async function POST(request: NextRequest) {
     exportFormats.forEach(fmt => {
       args.push('--export', fmt)
     })
+
+    // Output directory (optional)
+    if (outDir && outDir.trim() !== '') {
+      args.push('--out', outDir.trim())
+    }
 
     // Call nonogram CLI with diagnostics
     console.log('[DIAGNOSTIC] About to execute python3 -m nonogram')
