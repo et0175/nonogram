@@ -1,0 +1,16 @@
+node_modules
+nonogram-web/node_modules
+.venv
+.pytest_cache
+.git
+.github
+.idea
+.ruff_cache
+pictures
+silhouette
+tests
+build
+meta
+docs
+*.md
+*.egg-info
