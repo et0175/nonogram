@@ -214,7 +214,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       name: puzzleName,
       seed: seedValue,
-      files: filesWithContent
+      files: filesWithContent,
+      _debug: {
+        cliArgs: fullCommand,
+        exportFormats: exportFormats,
+        filesFound: Object.keys(files),
+        cliStdoutLines: outputLines.slice(0, 20)
+      }
     }, { status: 200 })
   } catch (error) {
     console.error('[nonogram-web] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
