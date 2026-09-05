@@ -940,7 +940,7 @@ functional:
       - id: AC-094
         given: the built-in library key "cat" (a 16x16 square template) and a bare `--size 25` request
         when: the request is parsed
-        then: the derived grid is 25x25, because the template's own ratio is 1:1 today
+        then: "the derived grid is 25x25, because the template's own ratio is 1:1 today"
         kind: boundary
         test: TestDeriveShape_LibraryTemplateRatioAppliesSquareToday
       - id: AC-095
@@ -1633,7 +1633,7 @@ non_functional:
       - id: AC-WUI-025
         given: an image file (e.g., 2000×2000 pixels) is uploaded
         when: the form processes the file
-        then: the aspect ratio is calculated and displayed (e.g., "1:1" for square)
+        then: 'the aspect ratio is calculated and displayed (e.g., "1:1" for square)'
         kind: happy
         test: should calculate aspect ratio correctly
       - id: AC-WUI-026
@@ -1657,7 +1657,7 @@ non_functional:
       - id: AC-WUI-029
         given: image mode is active
         when: the form renders after image upload
-        then: all expected fields are visible: Size, Name, Output Directory, Export Formats, Difficulty, Seed
+        then: "all expected fields are visible: Size, Name, Output Directory, Export Formats, Difficulty, Seed"
         kind: happy
         test: should display all required form fields
       - id: AC-WUI-030
@@ -1681,7 +1681,7 @@ non_functional:
       - id: AC-WUI-033
         given: the Name field is empty
         when: the form renders
-        then: a preview text shows the auto-generated name (e.g., "Will use: duck" for duck.png)
+        then: 'a preview text shows the auto-generated name (e.g., "Will use: duck" for duck.png)'
         kind: happy
         test: should show auto-generated name preview when name field is empty
     engineering_constraints: []
@@ -1716,7 +1716,7 @@ non_functional:
       - id: AC-WUI-036
         given: the success message is displayed
         when: the result renders
-        then: "Copy Path" and "Open" buttons are shown for each generated file
+        then: '"Copy Path" and "Open" buttons are shown for each generated file'
         kind: happy
         test: should show Copy Path and Open buttons for generated files
       - id: AC-WUI-037
