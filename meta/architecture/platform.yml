@@ -1,24 +1,48 @@
 # generated_by: forge:architect-adr-writer
 # generated_at: 2026-08-27
+# updated_at: 2026-09-05 (reconciled with Docker deployment and E2E testing)
 platform:
   stack:
-    value: "Python 3.14 + Pillow + NumPy"
-    label: pillow_plus_numpy
-    decided_by: ADR-0006
+    value: "Python 3.11 + Node.js 20 + Next.js 14 + Pillow + NumPy (Docker)"
+    label: python3_11_nodejs20_nextjs_docker
+    decided_by: ADR-0006, deployment (Dockerfile, server.js)
     status: confirmed
+    notes: >-
+      UPDATED 2026-09-05: As-built platform uses Python 3.11 in Docker container
+      (nonogram-web/Dockerfile line 1), not Python 3.14. Node.js 20 is installed
+      for Next.js build and runtime (line 11-12). The Python 3.11 version in
+      Dockerfile supersedes the 3.14 stated here; CLAUDE.md should be updated to
+      match (currently says Python >=3.14, but Docker uses 3.11). The stack now
+      includes a browser-based web UI (Next.js 14, app-router) alongside the CLI.
   style:
     value: >-
       Layered pipeline package: one module per capability (sourcing/,
       clues.py, solver/, difficulty.py, export/), a thin orchestrator owning
-      the Puzzle aggregate, a cli.py adapter limited to argument parsing.
-      Dependencies point inward only.
-    label: layered_pipeline_package
-    decided_by: ADR-0007
+      the Puzzle aggregate, a cli.py adapter limited to argument parsing, and
+      a web adapter (COMP-008 extended) spanning Python HTTP server (ADR-0020:
+      stdlib http.server) and Next.js frontend (Browser UI + API bridge route
+      /api/generate that invokes Python CLI as subprocess).
+      Dependencies point inward only within Python layer; Next.js layer is
+      stateless HTTP-to-CLI translator (ADR-0019/R1: no domain logic at adapter
+      boundary).
+    label: layered_pipeline_package_plus_web_adapter
+    decided_by: ADR-0007, ADR-0019, ADR-0020, ADR-0021
     status: confirmed
   runtime:
     value: >-
-      Installable src-layout package (pyproject.toml, PEP 621), a
-      [project.scripts] console entry point, single local process.
-    label: installable_package_pyproject
-    decided_by: ADR-0008
+      Two deployment modes:
+      (1) CLI: Installable src-layout package (pyproject.toml, PEP 621), a
+          [project.scripts] console entry point, single local process.
+      (2) Web: Docker container (Dockerfile) runs Node.js HTTP server (server.js)
+          serving Next.js production build, with Python CLI available as subprocess
+          (PYTHONPATH=/app/src). Listens on port 8080. COMP-008 spans both modes.
+    label: cli_plus_docker_web_ui
+    decided_by: ADR-0008, deployment (Dockerfile, server.js, nonogram-web/package.json)
     status: confirmed
+    notes: >-
+      CLI remains the lightweight entry point (py3 -m nonogram generate ...);
+      Web UI is Docker-only, accessed at http://localhost:8080 in development
+      or deployed via Railway/Vercel. The orchestrator runs synchronously on
+      request thread in both modes (ADR-0021), no async job queue added.
+      Max request body size: 50 MB (MAX_BODY_BYTES in handler.py + route.ts)
+      for large image uploads in image mode.

@@ -82,3 +82,104 @@ terms:
       the difficulty tier.
     context: shared
     source: [US-011, US-012]
+
+  - id: TERM-011
+    term: Form submission
+    definition: >-
+      User click on the "Generate Puzzle" button in the web UI, which sends a
+      POST request to /api/generate with FormData containing form field values
+      (size, density, seed, export_formats, mode, optional name and image file).
+      The /api/generate handler translates form fields to CLI arguments and
+      invokes the Python nonogram CLI as a subprocess.
+    context: web_ui
+    source: [FR-024, form.spec.ts]
+
+  - id: TERM-012
+    term: Image upload
+    definition: >-
+      User selection of an image file (via file input, accept="image/*") in the
+      web form's image mode. The browser displays a preview, calculates image
+      dimensions and aspect ratio, and optionally shows suggested grid dimensions
+      (derived from source shape). The image file is sent to /api/generate as a
+      multipart FormData entry, then written to a temporary file and passed to
+      the Python CLI via --image flag.
+    context: web_ui
+    source: [FR-025, image-generation.spec.ts]
+
+  - id: TERM-013
+    term: Export format selection
+    definition: >-
+      User selection of which output formats (JSON, CSV, PNG, SVG, PDF) to generate
+      and export. Presented as a set of checkboxes in the web form; at least one
+      must be selected to allow form submission. Each selected format is passed to
+      the Python CLI via a --export flag; the resulting files are returned in the
+      /api/generate JSON response as base64-encoded data.
+    context: web_ui
+    source: [FR-028, form.spec.ts]
+
+  - id: TERM-014
+    term: Mode selector
+    definition: >-
+      Radio button group in the web form allowing user to choose generation mode:
+      "random" (configurable size and density, no image needed) or "image"
+      (requires file upload, derives grid from source). Random mode is default.
+      Selecting image mode shows additional UI elements (file upload, preview);
+      selecting random mode shows size/density inputs. The mode choice is sent to
+      /api/generate as a form field and converted to --mode CLI argument.
+    context: web_ui
+    source: [FR-024, AC-WUI-008]
+
+  - id: TERM-015
+    term: Loading state
+    definition: >-
+      Transient visual feedback shown to the user during /api/generate POST flight:
+      the submit button text changes to "Generating..." and the button becomes
+      disabled, preventing duplicate submissions. The loading state persists until
+      the API response is received (success or error), at which point the button
+      reverts to "Generate Puzzle" and re-enables.
+    context: web_ui
+    source: [NFR-007, AC-WUI-017]
+
+  - id: TERM-016
+    term: Success result
+    definition: >-
+      The rendered output displayed to the user after successful puzzle generation:
+      includes puzzle name, seed value, a "Generated Files" section listing all
+      output files (one per selected export format), and action buttons (Copy Path,
+      Open) for each file. File content is provided as base64-encoded data in the
+      /api/generate JSON response (NFR-008).
+    context: web_ui
+    source: [FR-026, image-generation.spec.ts]
+
+  - id: TERM-017
+    term: Copy Path button
+    definition: >-
+      UI control in the success result that, when clicked, copies the file's absolute
+      filesystem path to the system clipboard (using the Clipboard API) and temporarily
+      changes its label to "✓ Copied" for 2 seconds, then reverts to "Copy Path".
+      Enables the user to paste the path into a file manager or terminal without
+      retyping it.
+    context: web_ui
+    source: [FR-026, AC-WUI-037]
+
+  - id: TERM-018
+    term: Aspect ratio
+    definition: >-
+      In image-mode context (web UI): the ratio of an uploaded image's width to height
+      (width:height format, e.g., "1:1" for square, "2:1" for landscape). Calculated
+      from the image's decoded dimensions and displayed to the user for reference.
+      Used to derive suggested grid dimensions and validate the request's grid/source
+      aspect ratio difference (CON-012, FR-021).
+    context: web_ui
+    source: [FR-025, AC-WUI-025, image-generation.spec.ts]
+
+  - id: TERM-019
+    term: Dimension suggestion
+    definition: >-
+      Recommendation button shown in image mode suggesting a grid size derived from the
+      uploaded source image's aspect ratio, offered across a range of base sizes
+      (e.g., "10×10", "11×11", "12×12"). Clicking a suggestion populates the Size field
+      with that dimension, allowing the user to quickly generate a puzzle with a shape
+      that fits the source's aspect ratio without manual calculation.
+    context: web_ui
+    source: [FR-025, AC-WUI-026]

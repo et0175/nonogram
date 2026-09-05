@@ -980,6 +980,187 @@ links:
     same shape as CON-002/CON-008.
   status: covered
 
+  # ---------------------------------------------------------------- FR-024..FR-028, NFR-007..NFR-008
+  # NEW 2026-09-05: Web UI requirements reverse-engineered from E2E tests
+  # (nonogram-web/e2e/form.spec.ts, nonogram-web/e2e/image-generation.spec.ts)
+  # and implementation (nonogram-web/app/page.tsx, nonogram-web/app/api/generate/route.ts).
+  # These formalize the browser-facing UX of the web adapter (COMP-008 extended).
+  # No new domain capabilities — all rely on existing CAP-001..CAP-005, orchestrator,
+  # and CLI invocation. Marked partial because E2E tests exist and code is live,
+  # but they are not yet wired into CI/CD or main test suite.
+
+- req: FR-024
+  description: "User can generate puzzles via interactive web form (random or image mode)"
+  capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-008]
+  adrs: [ADR-0019, ADR-0020, ADR-0021]
+  tests:
+  - should display all form fields
+  - should have Grid Size input with default value 20
+  - should have mode radio buttons with random as default
+  - should display loading state when submitting
+  - should submit form with correct data
+  notes: >-
+    Transport-layer feature (FR-024 is HTTP adapter behavior, not domain logic).
+    Form fields (size, density, seed, export_formats) map 1:1 to CLI arguments
+    (--size, --density, --seed, --export). AC-WUI-001..AC-WUI-023 cover form
+    rendering, defaults, interaction, submission, and validation. All domain
+    behavior (grid generation, sourcing, solver, export) happens inward of the
+    Python orchestrator, same as CLI path.
+  status: partial
+
+- req: FR-025
+  description: "User can upload image file and preview with dimension suggestions"
+  capabilities: [CAP-001]
+  contexts: [CTX-001]
+  components: [COMP-003, COMP-008]
+  adrs: [ADR-0019, ADR-0022]
+  tests:
+  - should upload an image file
+  - should calculate aspect ratio correctly
+  - should show dimension suggestions
+  - should populate size field when clicking suggestion button
+  notes: >-
+    Extends image mode sourcing (CAP-001) with browser-side preview UX.
+    The /api/generate handler accepts image file upload (line 40 of route.ts),
+    writes to temp file (line 91-92), passes to Python CLI (--image flag).
+    Python sourcing.image module handles dithering and conversion; web adapter
+    adds client-side preview and suggestion buttons (no new backend logic).
+    AC-WUI-024..AC-WUI-033 cover preview, suggestions, manual size entry.
+  status: partial
+
+- req: FR-026
+  description: "Generated puzzles are downloadable from browser with file listing"
+  capabilities: [CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-008]
+  adrs: [ADR-0020]
+  tests:
+  - should show Copy Path and Open buttons for generated files
+  - should copy file path to clipboard when Copy Path button clicked
+  - should show generated file in results
+  notes: >-
+    The /api/generate route (line 214-224) returns JSON with puzzle metadata
+    (name, seed) and base64-encoded file contents for each selected export format.
+    The Next.js client (ResultDisplay.tsx component) renders these results,
+    offering Copy Path button (clipboard API) and Open button (window.open or
+    file:// URL). Base64 data enables browser-side download without filesystem
+    access. AC-WUI-034..AC-WUI-041 cover success display, file buttons, copy action.
+  status: partial
+
+- req: FR-027
+  description: "Form validation prevents invalid submissions"
+  capabilities: [CAP-001]
+  contexts: [CTX-001]
+  components: [COMP-001, COMP-008]
+  adrs: [ADR-0019]
+  tests:
+  - should validate Grid Size min value
+  - should validate Density range
+  - should disable button when no file is selected in image mode
+  notes: >-
+    Transport-level validation only (ADR-0019/R1 guardrail G-2): HTML5 constraints
+    (required, min, max) enforce client-side; server-side /api/generate handler
+    validates export_formats length (line 63-67), image presence in image mode
+    (line 83-88), and seed format (line 104-109). Domain-level validation (size
+    range, density range, etc.) remains inward of Python orchestrator, never at
+    adapter boundary. Covers AC-WUI-040, AC-WUI-043, AC-WUI-044, AC-WUI-045.
+  status: partial
+
+- req: FR-028
+  description: "Export formats are configurable and multi-selectable"
+  capabilities: [CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-008]
+  adrs: [ADR-0020]
+  tests:
+  - should have all export format checkboxes checked by default
+  - should allow unchecking export formats
+  - should have export formats in row layout
+  notes: >-
+    User selects which export formats (JSON, CSV, PNG, SVG, PDF) to generate.
+    Form checkboxes in row layout, defaults checked for JSON/CSV/PNG/SVG.
+    Selected formats sent to /api/generate as export_formats[] (line 41),
+    converted to --export flags (line 112-114), passed to Python CLI.
+    Each format's file is read and base64-encoded in response (line 195-212).
+    Covers AC-WUI-046, AC-WUI-047. New in web UI; CLI has always supported
+    multi-format via repeated --export, but web form makes it user-facing.
+  status: partial
+
+- req: NFR-007
+  description: "Form submission displays loading state (button disabled, text changes)"
+  capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-008]
+  adrs: [ADR-0020]
+  tests:
+  - should display loading state when submitting
+  notes: >-
+    UX feedback during /api/generate POST flight: button text changes to
+    "Generating..." and button becomes disabled, preventing duplicate submissions.
+    Reverts on response (success or error). Implemented in GeneratorForm.tsx
+    (Next.js client component) by tracking loading state. Covers AC-WUI-017b.
+  status: partial
+
+- req: NFR-008
+  description: "API response includes puzzle metadata and base64-encoded files"
+  capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-008]
+  adrs: [ADR-0020, ADR-0021]
+  evidence: nonogram-web/app/api/generate/route.ts lines 214-224
+  tests:
+  - (verified in implementation)
+  notes: >-
+    POST /api/generate response JSON structure (line 214-224): {name, seed, files,
+    _debug}. files object has format-specific keys (json, csv, png, svg, pdf),
+    each with {path, data (base64), mimeType}. Optional _debug object aids
+    troubleshooting. Covers AC-WUI-050, AC-WUI-051.
+  status: partial
+
+- req: CON-014
+  description: "API rejects form submission with zero export formats selected"
+  capabilities: [CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-008]
+  adrs: [ADR-0019]
+  tests:
+  - (transport-level validation in route.ts lines 63-67)
+  notes: >-
+    HTTP 400 error with message "At least one export format must be selected".
+    Transport-level gate, not domain validation. Covered by implementation
+    (route.ts line 63-67 check); test harness in E2E suite references this constraint.
+  status: partial
+
+- req: CON-015
+  description: "API rejects image mode submission without image file"
+  capabilities: [CAP-001]
+  contexts: [CTX-001]
+  components: [COMP-008]
+  adrs: [ADR-0019]
+  tests:
+  - (transport-level validation in route.ts lines 83-88)
+  notes: >-
+    HTTP 400 error with message "Image file is required for image mode".
+    Transport-level gate, not domain validation. Covered by implementation
+    (route.ts line 83-88 check).
+  status: partial
+
+- req: CON-016
+  description: "API seed parameter accepts integer or empty; non-integers ignored"
+  capabilities: [CAP-001]
+  contexts: [CTX-001]
+  components: [COMP-008]
+  adrs: [ADR-0019]
+  tests:
+  - (transport-level parsing in route.ts lines 104-109)
+  notes: >-
+    Form parsing logic: seed field is optional, accepts integer or empty string.
+    Non-integer values (e.g., "random") are silently ignored (not passed to CLI).
+    Transport-level concern, not domain. Covered by implementation.
+  status: partial
+
 components:
 - id: COMP-001
   name: CLI Adapter
@@ -1010,6 +1191,15 @@ components:
   context: CTX-001
   code: ["src/nonogram/export/**.py"]
 - id: COMP-008
-  name: Web UI Adapter
+  name: Web UI Adapter (Python + Next.js)
   context: CTX-001
-  code: ["src/nonogram/web/**.py"]
+  code: ["src/nonogram/web/**.py", "nonogram-web/app/**/*.tsx", "nonogram-web/app/api/**/*.ts", "nonogram-web/server.js"]
+  notes: >-
+    EXTENDED 2026-09-05: Added Next.js frontend (app/**) and API bridge (app/api/**).
+    Remains single component because the Next.js layer is pure HTTP adapter with no
+    domain logic (ADR-0019/R1 enforced: form parsing is transport layer only, all
+    domain validation deferred inward to Python). The Python ROUTES (handler.py lines
+    992-993) and Next.js route handler (app/api/generate/route.ts) both translate
+    user input to CLI arguments and orchestrator.GenerationRequest. No new business
+    behavior, no new capabilities — CAP-001..CAP-005 remain unchanged, reached via the
+    same domain boundary as the CLI reaches them.

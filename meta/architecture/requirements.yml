@@ -1462,6 +1462,418 @@ non_functional:
         instances: [AC-099, AC-101, AC-103, AC-105, AC-106]
         test: PropertyTest_PageOrientation_LargerCellWinsTiesToPortrait
 
+  - id: FR-024
+    # New 2026-09-05, reverse-engineered from E2E tests (nonogram-web/e2e/form.spec.ts)
+    # and implementation (nonogram-web/app/page.tsx, nonogram-web/app/components/GeneratorForm.tsx).
+    # Forms the entry point to the web UI adapter (COMP-008 extended to include Next.js).
+    # This is a transport-layer feature (ADR-0019/R1): the form marshals user input into
+    # a GenerationRequest that existing domain code (CLI, orchestrator) then processes.
+    # No new domain behavior, no new capabilities — all five CAP-001..CAP-005 are reached
+    # via the same orchestrator.GenerationRequest boundary as the CLI reaches them.
+    statement: >-
+      A user can generate nonogram puzzles via an interactive web form with:
+      a mode selector (random or image), Grid Size input (default 20), Density input
+      (default 30), Difficulty selector (default "any"), optional Seed field, and
+      configurable Export Formats (JSON, CSV, PNG, SVG default-checked). The form
+      submits a POST request to /api/generate, which translates form fields into CLI
+      arguments and invokes the nonogram Python module as a subprocess, returning
+      puzzle metadata and base64-encoded generated files to the browser.
+    source: [US-024 (new, reverse-engineered)]
+    acceptance:
+      - id: AC-WUI-001
+        given: the web form page loads in a browser
+        when: the page is rendered
+        then: a heading reads "Nonogram Generator"
+        kind: happy
+        test: should display the page title
+      - id: AC-WUI-002
+        given: the web form page loads
+        when: the page is rendered
+        then: all form fields are visible (Grid Size, Density, Difficulty, Seed, Export Formats, mode selector)
+        kind: happy
+        test: should display all form fields
+      - id: AC-WUI-003
+        given: the web form loads
+        when: the form renders
+        then: the Grid Size input defaults to 20
+        kind: happy
+        test: should have Grid Size input with default value 20
+      - id: AC-WUI-004
+        given: the web form loads
+        when: the form renders
+        then: the Density input defaults to 30
+        kind: happy
+        test: should have Density input with default value 30
+      - id: AC-WUI-005
+        given: the web form loads
+        when: the form renders
+        then: the Difficulty dropdown defaults to "any"
+        kind: happy
+        test: should have Difficulty select with default "Any"
+      - id: AC-WUI-006
+        given: the web form loads
+        when: the form renders
+        then: the Seed field is empty by default
+        kind: happy
+        test: should have Seed input with empty default
+      - id: AC-WUI-007
+        given: the web form loads
+        when: the form renders
+        then: all Export Format checkboxes (JSON, CSV, PNG, SVG) are checked by default
+        kind: happy
+        test: should have all export format checkboxes checked by default
+      - id: AC-WUI-008
+        given: the web form loads
+        when: the form renders
+        then: mode selector radio buttons for "random" and "image" are present, with "random" checked by default
+        kind: happy
+        test: should have mode radio buttons with random as default
+      - id: AC-WUI-009
+        given: the web form loads
+        when: the form renders
+        then: a "Generate Puzzle" submit button is visible and enabled
+        kind: happy
+        test: should have Generate Puzzle button
+      - id: AC-WUI-010
+        given: the web form with random mode active
+        when: the user fills Grid Size with a different value (e.g., 15)
+        then: the input holds the new value
+        kind: happy
+        test: should allow changing Grid Size
+      - id: AC-WUI-011
+        given: the web form with random mode active
+        when: the user fills Density with a different value (e.g., 50)
+        then: the input holds the new value
+        kind: happy
+        test: should allow changing Density
+      - id: AC-WUI-012
+        given: the web form with random mode active
+        when: the user selects Difficulty "hard"
+        then: the dropdown holds the new value
+        kind: happy
+        test: should allow changing Difficulty
+      - id: AC-WUI-013
+        given: the web form with random mode active
+        when: the user fills Seed with a value (e.g., 42)
+        then: the input holds the new value
+        kind: happy
+        test: should allow entering Seed
+      - id: AC-WUI-014
+        given: the web form with all Export Formats checked
+        when: the user unchecks PNG
+        then: PNG remains unchecked; other formats stay checked
+        kind: happy
+        test: should allow unchecking export formats
+      - id: AC-WUI-015
+        given: the web form with Grid Size validation active
+        when: the user enters a value below the HTML minimum (e.g., 2)
+        then: the browser prevents form submission (HTML5 constraint violation)
+        kind: boundary
+        test: should validate Grid Size min value
+      - id: AC-WUI-016
+        given: the web form with Density validation active
+        when: the user enters a value above 90 (HTML max constraint)
+        then: the browser clamps or prevents submission
+        kind: boundary
+        test: should validate Density range
+      - id: AC-WUI-017
+        given: the user submits a valid form in random mode
+        when: the /api/generate POST is in flight
+        then: the submit button displays "Generating..." and becomes disabled
+        kind: happy
+        test: should display loading state when submitting
+      - id: AC-WUI-018
+        given: the user submits the form with custom values
+        when: the /api/generate POST request is sent
+        then: the request body (FormData) includes size, density, difficulty, mode, and export_formats fields
+        kind: happy
+        test: should submit form with correct data
+      - id: AC-WUI-019
+        given: the /api/generate route receives form data
+        when: the route handler builds CLI arguments
+        then: it converts form fields to CLI flags (--size, --mode, --difficulty, --export, --seed) and executes python3 -m nonogram generate
+        kind: happy
+        test: (verified in implementation nonogram-web/app/api/generate/route.ts lines 71-114)
+    engineering_constraints:
+      - id: EC-011
+        statement: >-
+          For any valid form submission (at least one export format, required fields
+          populated, JavaScript enabled or HTML5 validation passed), the /api/generate
+          POST handler: (1) parses FormData fields into CLI arguments; (2) validates
+          transport-level constraints (CON-014, CON-015, CON-016); (3) executes the
+          Python CLI subprocess; (4) parses CLI stdout to extract seed and file paths;
+          (5) reads each generated file and returns a JSON response with name, seed,
+          and base64-encoded file contents. Every HTTP-level rule is answered with a
+          status code, and no domain-level validation is performed at the adapter
+          boundary (domain validation is deferred inward to Python, per ADR-0019/R1).
+        kind: consistency
+        instances: [AC-WUI-018, AC-WUI-019]
+        test: (verified in implementation nonogram-web/app/api/generate/route.ts)
+
+  - id: FR-025
+    # New 2026-09-05, reverse-engineered from E2E tests (nonogram-web/e2e/image-generation.spec.ts).
+    # Image mode sourcing is existing capability (CAP-001), but the web UI adds client-side
+    # preview and suggestion UI absent from the CLI. This FR captures the browser-facing
+    # user experience of the image-mode workflow, not a new backend capability.
+    statement: >-
+      A user selecting image mode can upload an image file (accept="image/*"),
+      which immediately displays a preview, image dimensions, aspect ratio, and
+      suggested grid dimensions (derived from the source's shape across a range
+      of base sizes). The user can click a suggestion to populate the Size field,
+      or manually enter a size (bare N or NxM format). The Size field is required
+      before submission in image mode.
+    source: [US-025 (new, reverse-engineered)]
+    acceptance:
+      - id: AC-WUI-024
+        given: the web form loads and image mode is selected
+        when: the user uploads an image file
+        then: a preview image and metadata (dimensions, aspect ratio) are displayed
+        kind: happy
+        test: should upload an image file
+      - id: AC-WUI-025
+        given: an image file (e.g., 2000×2000 pixels) is uploaded
+        when: the form processes the file
+        then: the aspect ratio is calculated and displayed (e.g., "1:1" for square)
+        kind: happy
+        test: should calculate aspect ratio correctly
+      - id: AC-WUI-026
+        given: an image is uploaded
+        when: the form renders
+        then: multiple dimension suggestion buttons are shown (e.g., "10×10", "11×11", "12×12")
+        kind: happy
+        test: should show dimension suggestions
+      - id: AC-WUI-027
+        given: suggestion buttons are visible
+        when: the user clicks a suggestion (e.g., "10×10")
+        then: the Size field is populated with "10x10" (NxM format, or bare N for square)
+        kind: happy
+        test: should populate size field when clicking suggestion button
+      - id: AC-WUI-028
+        given: the Size field is available
+        when: the user manually enters a size (e.g., "15x20" or "15")
+        then: the input holds the value
+        kind: happy
+        test: should allow manual size entry
+      - id: AC-WUI-029
+        given: image mode is active
+        when: the form renders after image upload
+        then: all expected fields are visible: Size, Name, Output Directory, Export Formats, Difficulty, Seed
+        kind: happy
+        test: should display all required form fields
+      - id: AC-WUI-030
+        given: image mode is active and the form loads
+        when: the form renders
+        then: PDF export format is checked by default (other formats may vary)
+        kind: happy
+        test: should have PDF selected by default
+      - id: AC-WUI-031
+        given: export format checkboxes are visible
+        when: the user checks/unchecks formats (JSON, PNG, SVG, PDF)
+        then: the selections are reflected in form state
+        kind: happy
+        test: should allow export format selection
+      - id: AC-WUI-032
+        given: the Name and Output Directory fields are visible
+        when: the user enters values (e.g., "my-puzzle" and "./output")
+        then: the inputs hold the values
+        kind: happy
+        test: should allow entering name and output directory
+      - id: AC-WUI-033
+        given: the Name field is empty
+        when: the form renders
+        then: a preview text shows the auto-generated name (e.g., "Will use: duck" for duck.png)
+        kind: happy
+        test: should show auto-generated name preview when name field is empty
+    engineering_constraints: []
+
+  - id: FR-026
+    # New 2026-09-05, reverse-engineered from E2E tests and implementation.
+    # The /api/generate handler returns base64-encoded file contents so the browser
+    # can enable in-browser download of generated files without requiring users to
+    # access the filesystem directly. This is a UX convenience, not domain logic.
+    statement: >-
+      After successful puzzle generation, the user sees a success message displaying
+      the puzzle name, seed, and a "Generated Files" section listing each output
+      file with Copy Path and Open buttons. The Copy Path button copies the file's
+      absolute path to the clipboard (for image mode with local filesystem output);
+      the Open button attempts to open the file in the default application (OS-dependent).
+      Base64-encoded file data is embedded in the success response for browser-based
+      download if needed.
+    source: [US-026 (new, reverse-engineered)]
+    acceptance:
+      - id: AC-WUI-034
+        given: the user submits a valid form with image and size
+        when: the /api/generate response returns successfully
+        then: a success message displays "Puzzle Generated Successfully"
+        kind: happy
+        test: should submit form with image and size
+      - id: AC-WUI-035
+        given: the success response is received
+        when: the result is rendered
+        then: the puzzle name and seed are displayed
+        kind: happy
+        test: should show success with name and seed
+      - id: AC-WUI-036
+        given: the success message is displayed
+        when: the result renders
+        then: "Copy Path" and "Open" buttons are shown for each generated file
+        kind: happy
+        test: should show Copy Path and Open buttons for generated files
+      - id: AC-WUI-037
+        given: the "Copy Path" button is visible
+        when: the user clicks it
+        then: the file path is copied to the system clipboard, and the button displays "✓ Copied"
+        kind: happy
+        test: should copy file path to clipboard when Copy Path button clicked
+      - id: AC-WUI-038
+        given: the button shows "✓ Copied"
+        when: 2 seconds elapse
+        then: the button text reverts to "Copy Path"
+        kind: happy
+        test: (verified by test waiting 2500ms and checking reversion at line 229-230)
+      - id: AC-WUI-039
+        given: the success message is displayed
+        when: the page renders
+        then: a "Generated Files" heading and a list of file paths are shown
+        kind: happy
+        test: should show generated file in results
+      - id: AC-WUI-041
+        given: the form is submitted with multiple export formats selected (JSON, SVG, PDF)
+        when: the /api/generate completes successfully
+        then: the success result lists all generated files (one per format)
+        kind: happy
+        test: should support multiple export formats
+    engineering_constraints: []
+
+  - id: FR-027
+    # New 2026-09-05, reverse-engineered from tests and route.ts implementation.
+    # Transport-level validation only (ADR-0019/R1); domain-level validation remains
+    # in Python. Client-side HTML5 validation (required, min, max) + server-side
+    # parameter parsing and refusal (lines 63-88 of route.ts).
+    statement: >-
+      Form submission validation prevents invalid requests:
+      (1) HTML5 constraints enforce presence and range (Grid Size min, Density max);
+      (2) at least one Export Format must be selected; (3) image mode requires an image
+      file to be uploaded; (4) Size field is required in image mode; (5) Seed, if provided,
+      must be a valid integer or empty. Violations result in an HTTP 400 error or browser
+      validation rejection, with a user-readable error message.
+    source: [US-027 (new, reverse-engineered)]
+    acceptance:
+      - id: AC-WUI-040
+        given: image mode is active but no image file is selected
+        when: the user attempts to submit
+        then: the submit button remains disabled or submission is prevented
+        kind: negative
+        test: should disable button when no file is selected in image mode
+      - id: AC-WUI-043
+        given: the Size field is required in image mode
+        when: the user attempts to submit without filling Size
+        then: an error message indicates size is required or API returns an error
+        kind: negative
+        test: should require size for image mode submission
+      - id: AC-WUI-044
+        given: all Export Format checkboxes are unchecked
+        when: the user submits the form
+        then: the API responds with HTTP 400 and error message "At least one export format must be selected"
+        kind: negative
+        test: (verified in implementation route.ts lines 63-67)
+      - id: AC-WUI-045
+        given: image mode is selected but no image file provided
+        when: the form is submitted
+        then: the API responds with HTTP 400 and error message "Image file is required for image mode"
+        kind: negative
+        test: (verified in implementation route.ts lines 83-88)
+    engineering_constraints: []
+
+  - id: FR-028
+    # New 2026-09-05, reverse-engineered from E2E tests and form implementation.
+    # Export format selection is visible to the user at form submission time.
+    statement: >-
+      Export formats (JSON, CSV, PNG, SVG, PDF) are presented as a set of checkboxes
+      in a row layout, with defaults pre-selected. The user can check or uncheck any
+      combination, and at least one must be selected for submission to proceed. The
+      selected formats are sent to the /api/generate endpoint, which invokes the
+      Python CLI with --export flags for each selected format.
+    source: [US-028 (new, reverse-engineered)]
+    acceptance:
+      - id: AC-WUI-046
+        given: export format checkboxes render
+        when: the page loads
+        then: the checkboxes are arranged in a row (single line, horizontal layout), not a column
+        kind: happy
+        test: should have export formats in row layout
+      - id: AC-WUI-047
+        given: export formats are selected
+        when: the form is submitted
+        then: each selected format appears in the /api/generate POST body as export_formats[] array entries
+        kind: happy
+        test: (verified in implementation route.ts lines 41, 112-114)
+    engineering_constraints: []
+
+
+non_functional:
+  - id: NFR-007
+    # New 2026-09-05, reverse-engineered from form.spec.ts line 162.
+    category: usability
+    metric: loading_state_feedback
+    threshold: >-
+      The submit button must change its text to "Generating..." and become disabled
+      immediately when the POST /api/generate request is sent, preventing duplicate
+      submissions. The button must revert to its original state ("Generate Puzzle")
+      and re-enable only after the response is received (success or error).
+    condition: >-
+      for every form submission in both random and image modes, while the /api/generate
+      API call is in flight
+    rationale: >-
+      Users cannot discern whether their submission was received without visual feedback.
+      A loading state prevents frustration-driven duplicate submissions and reassures
+      the user that the system is working (especially important given that puzzle
+      generation can take 1-30 seconds for mid-density grids). The button's disabled
+      state and text change are the only feedback mechanisms available in the
+      current design (no dedicated progress bar or spinner).
+    acceptance:
+      - id: AC-WUI-017b
+        given: a valid form submission in progress
+        when: the /api/generate request is sent and before the response arrives
+        then: the submit button's text reads "Generating..." and the button is disabled
+        kind: happy
+        test: should display loading state when submitting (line 162 of form.spec.ts)
+    engineering_constraints: []
+
+  - id: NFR-008
+    # New 2026-09-05, reverse-engineered from route.ts lines 214-224.
+    category: functionality
+    metric: api_response_structure
+    threshold: >-
+      The /api/generate endpoint must return a JSON response containing:
+      (1) name: string (puzzle identifier);
+      (2) seed: integer (random seed used for generation);
+      (3) files: object with keys for each generated format (json, csv, png, svg, pdf),
+          each containing {path: string, data: string (base64), mimeType: string};
+      (4) _debug: object (optional, for troubleshooting) with cliArgs, exportFormats, filesFound,
+          and cliStdoutLines for diagnostic visibility.
+    condition: >-
+      for every successful POST to /api/generate (HTTP 200 response)
+    rationale: >-
+      The browser UI must display puzzle metadata (name, seed) and provide access to
+      generated files. Base64-encoded file data enables in-browser download without
+      filesystem access. The _debug object aids troubleshooting when the file list
+      does not match expected format selections.
+    acceptance:
+      - id: AC-WUI-050
+        given: the /api/generate POST succeeds
+        when: the response body is parsed as JSON
+        then: it contains top-level keys "name", "seed", "files", and optionally "_debug"
+        kind: happy
+        test: (verified in implementation route.ts lines 214-224)
+      - id: AC-WUI-051
+        given: two export formats (json, png) were selected
+        when: the /api/generate response is received
+        then: the files object has keys "json" and "png", each with {path, data, mimeType}
+        kind: happy
+        test: (verified in implementation route.ts lines 186-212)
+    engineering_constraints: []
+
 
 constraints:
   - id: CON-001
@@ -1617,3 +2029,43 @@ constraints:
       for silhouettes; photographic input is out of scope rather than
       unsupported-with-a-warning.
     source: user decision, raw-requirements.md line 87, 2026-08-30
+
+  - id: CON-014
+    type: technical
+    statement: >-
+      The /api/generate endpoint (FR-024) must reject any form submission
+      with zero export formats selected, returning HTTP 400 with error message
+      "At least one export format must be selected". This is a transport-level
+      gate, not domain validation (ADR-0019/R1).
+    source: FR-027, AC-WUI-044, reverse-engineered 2026-09-05
+    check:
+      kind: test
+      ref: nonogram-web/e2e/form.spec.ts (form submission validation)
+    severity: mandatory
+
+  - id: CON-015
+    type: technical
+    statement: >-
+      The /api/generate endpoint (FR-024) must reject image mode submissions
+      without an uploaded image file, returning HTTP 400 with error message
+      "Image file is required for image mode". This is a transport-level gate,
+      not domain validation (ADR-0019/R1).
+    source: FR-027, AC-WUI-045, reverse-engineered 2026-09-05
+    check:
+      kind: test
+      ref: nonogram-web/e2e/form.spec.ts (image mode validation)
+    severity: mandatory
+
+  - id: CON-016
+    type: technical
+    statement: >-
+      The /api/generate endpoint (FR-024) accepts a Seed parameter that must be
+      either empty (no seed specified; API generates a random one) or a valid
+      integer. Non-integer values (e.g., "random" string) are ignored; empty
+      strings are treated as no seed. This is form parsing logic, not domain
+      validation (ADR-0019/R1).
+    source: FR-024, reverse-engineered 2026-09-05
+    check:
+      kind: implementation
+      ref: nonogram-web/app/api/generate/route.ts lines 104-109
+    severity: optional
