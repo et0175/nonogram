@@ -110,8 +110,24 @@ This document specifies the web UI for **image-based nonogram puzzle generation*
 - Input: `<input type="text" name="name">`
 - Placeholder: "(auto-generated if empty)"
 - Helper: "shown on the printed page"
-- Default: Empty (server generates from image filename or timestamp)
+- Default: Empty (server auto-generates using algorithm below)
 - Example: "my_puzzle" (no spaces, sanitized)
+
+**Name Generation Algorithm (Server-Side):**
+When the name field is empty, the server generates a name using this priority order:
+1. If name is provided (non-empty), use it as-is
+2. If name is empty AND image file uploaded:
+   - Take the image filename
+   - Remove file extension (e.g., "duck.png" → "duck")
+   - Use as the puzzle name
+3. If name is empty AND no image file:
+   - Use default: "puzzle"
+
+**Examples:**
+- User uploads "duck.png" with empty name → generates "duck"
+- User uploads "my-photo.jpeg" with empty name → generates "my-photo"
+- User provides name "custom_puzzle" → uses "custom_puzzle"
+- Edge case (no image, no name) → uses "puzzle"
 
 **UI-IG-010: Seed (Optional, Numeric)**
 - Label: "Seed"
