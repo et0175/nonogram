@@ -1,44 +1,45 @@
-# Multi-stage build: Python base + Node.js for the full stack app
-
-# Stage 1: Python environment with the nonogram CLI
-FROM python:3.11-slim as python-base
+# Full-stack build: Python 3.11 base + Node.js 20 for frontend
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies needed for Pillow and other packages
+# Install system dependencies for:
+# - Pillow, NumPy (build-essential, libjpeg-dev, zlib1g-dev)
+# - Python packages in general
+# - curl for healthchecks
+# - Node.js installation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libssl-dev \
     libffi-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    curl \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python package files
+# Install Node.js 20 (from NodeSource)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy Python package files and source
 COPY pyproject.toml requirements.txt ./
 COPY src ./src
 
 # Install Python dependencies and the nonogram package
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Stage 2: Full runtime - Node.js 20 with Python baked in
-FROM node:20-slim
-
-WORKDIR /app
-
-# Install Python runtime from the previous stage
-COPY --from=python-base /usr/local/bin/python* /usr/local/bin/
-COPY --from=python-base /usr/local/lib/python3.11 /usr/local/lib/python3.11
-COPY --from=python-base /usr/local/bin/pip* /usr/local/bin/
-COPY --from=python-base /usr/local/bin/nonogram /usr/local/bin/
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -e .
 
 # Verify nonogram CLI is available
 RUN nonogram --help
 
-# Copy application code
+# Copy application code (excluding dirs in .dockerignore)
 COPY . .
 
 # Install Node.js dependencies
 WORKDIR /app/nonogram-web
-RUN npm install
+RUN npm ci --legacy-peer-deps
 
 # Build Next.js application
 RUN npm run build
