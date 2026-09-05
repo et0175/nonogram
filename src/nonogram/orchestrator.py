@@ -118,6 +118,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TypeVar
 
 from nonogram import clues as clue_derivation
 from nonogram import difficulty, export, solver, sourcing
@@ -455,7 +456,9 @@ class RetryCounter:
         return self.attempts
 
 
-def run_bounded[T](
+T = TypeVar("T")
+
+def run_bounded(
     counter: RetryCounter,
     attempt: Callable[[], T | None],
     *,
