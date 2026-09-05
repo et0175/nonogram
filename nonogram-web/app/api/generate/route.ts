@@ -100,30 +100,26 @@ export async function POST(request: NextRequest) {
       args.push('--export', fmt)
     })
 
-    // First, test if Python and nonogram module are available
-    console.log('[nonogram-web] Testing Python environment...')
+    // Find Python executable using 'which' command
+    console.log('[nonogram-web] Locating Python...')
 
-    const testCmd = '/usr/local/bin/python3'
-    const testArgs = ['-c', 'import sys; print(f"Python: {sys.executable}"); import nonogram; print(f"Nonogram: {nonogram.__file__}")']
-
+    let pythonPath: string
     try {
-      const { stdout: testOut } = await execFileAsync(testCmd, testArgs, {
+      const { stdout: whichOut } = await execFileAsync('which', ['python3'], {
         timeout: 5000,
-        env: {
-          ...process.env,
-          PYTHONPATH: '/app/src',
-        }
       })
-      console.log('[nonogram-web] Python test output:', testOut)
-    } catch (testError) {
-      console.error('[nonogram-web] Python environment test failed:', testError)
-      throw new Error(`Python environment check failed: ${testError instanceof Error ? testError.message : String(testError)}`)
+      pythonPath = whichOut.trim()
+      console.log('[nonogram-web] Found Python at:', pythonPath)
+    } catch (whichError) {
+      console.error('[nonogram-web] Could not find python3 with "which":', whichError)
+      pythonPath = '/usr/local/bin/python3'
+      console.log('[nonogram-web] Using fallback path:', pythonPath)
     }
 
-    console.log('[nonogram-web] Running:', '/usr/local/bin/python3', ['-m', 'nonogram', ...args].join(' '))
+    // Call the CLI via Python
+    console.log('[nonogram-web] Running:', pythonPath, ['-m', 'nonogram', ...args].join(' '))
 
-    // Call the CLI via full path to python3 (/usr/local/bin is where Python is installed in Docker)
-    const { stdout, stderr } = await execFileAsync('/usr/local/bin/python3', ['-m', 'nonogram', ...args], {
+    const { stdout, stderr } = await execFileAsync(pythonPath, ['-m', 'nonogram', ...args], {
       timeout: 60000, // 60 second timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       env: {
