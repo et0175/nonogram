@@ -15,6 +15,13 @@ from .puzzle_review import (
     PuzzleListResponse,
     get_puzzle_review_service,
 )
+from .book_manager import (
+    BookManager,
+    BookStatus,
+    BookMetadata,
+    Book,
+    get_book_manager,
+)
 
 __all__ = [
     # Batch generation
@@ -30,4 +37,10 @@ __all__ = [
     "PuzzleFilter",
     "PuzzleListResponse",
     "get_puzzle_review_service",
+    # Book management
+    "BookManager",
+    "BookStatus",
+    "BookMetadata",
+    "Book",
+    "get_book_manager",
 ]
