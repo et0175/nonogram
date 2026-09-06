@@ -1,0 +1,264 @@
+"""Batch puzzle generation service for admin panel.
+
+Generates multiple nonograms with metrics, stores in database,
+and tracks progress for async operations.
+"""
+
+from dataclasses import dataclass, field
+from typing import Optional, List
+from enum import Enum
+import uuid
+from datetime import datetime
+import asyncio
+
+from src.nonogram.analysis import (
+    StrategyCounter,
+    calculate_difficulty_from_strategies,
+    measure_quality,
+)
+
+
+class BatchStatus(Enum):
+    """Status of a batch generation job."""
+
+    PENDING = "pending"
+    GENERATING = "generating"
+    COMPLETE = "complete"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class PuzzleMetrics:
+    """Metrics for a generated puzzle."""
+
+    difficulty_score: int  # 1-100
+    difficulty_tier: str  # Easy/Medium/Hard
+    quality_score: int  # 1-100
+    recognizability: str  # high/medium/low
+    strategies_used: List[str]
+    backtracking_depth: int
+
+
+@dataclass
+class GeneratedPuzzle:
+    """A generated puzzle ready to store."""
+
+    puzzle_id: str
+    grid: list  # List[List[bool]]
+    clues_rows: list  # List[List[int]]
+    clues_cols: list  # List[List[int]]
+    width: int
+    height: int
+    theme: str
+    metrics: PuzzleMetrics
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class BatchJob:
+    """Represents a batch generation job."""
+
+    batch_id: str
+    status: BatchStatus
+    total_count: int
+    completed_count: int = 0
+    puzzles: List[GeneratedPuzzle] = field(default_factory=list)
+    error_message: Optional[str] = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+
+    def get_progress_percent(self) -> int:
+        """Get progress as percentage 0-100."""
+        if self.total_count == 0:
+            return 0
+        return int((self.completed_count / self.total_count) * 100)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for API response."""
+        return {
+            "batch_id": self.batch_id,
+            "status": self.status.value,
+            "total_count": self.total_count,
+            "completed_count": self.completed_count,
+            "progress_percent": self.get_progress_percent(),
+            "error_message": self.error_message,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+
+class BatchGenerator:
+    """Service for generating batches of nonogram puzzles.
+
+    Manages async generation, progress tracking, and storage.
+    """
+
+    def __init__(self):
+        """Initialize batch generator."""
+        # In-memory job tracking (TODO: move to database for production)
+        self.jobs: dict[str, BatchJob] = {}
+
+    def create_batch(
+        self,
+        count: int,
+        sizes: List[int],
+        theme: str = "christmas",
+        source: str = "random",
+        quality_filter: int = 0,
+    ) -> str:
+        """Create and start a batch generation job.
+
+        Args:
+            count: Number of puzzles to generate (50-200)
+            sizes: List of sizes to use (e.g., [10, 20, 30])
+            theme: Puzzle theme (e.g., 'christmas')
+            source: Generation source ('random' or 'images')
+            quality_filter: Minimum quality score (0-100)
+
+        Returns:
+            batch_id for tracking progress
+
+        Raises:
+            ValueError: If parameters invalid
+        """
+        # Validate
+        if not 50 <= count <= 200:
+            raise ValueError(f"Count must be 50-200, got {count}")
+        if not sizes or not all(10 <= s <= 30 for s in sizes):
+            raise ValueError(f"Sizes must be 10-30, got {sizes}")
+        if source not in ("random", "images"):
+            raise ValueError(f"Source must be 'random' or 'images', got {source}")
+        if not 0 <= quality_filter <= 100:
+            raise ValueError(f"Quality filter must be 0-100, got {quality_filter}")
+
+        # Create job
+        batch_id = str(uuid.uuid4())
+        job = BatchJob(
+            batch_id=batch_id,
+            status=BatchStatus.PENDING,
+            total_count=count,
+        )
+        self.jobs[batch_id] = job
+
+        # TODO: Start async generation task
+        # For now, just return the batch_id
+        # In production, this would queue an async task (Celery, asyncio, etc)
+
+        return batch_id
+
+    def get_batch_status(self, batch_id: str) -> Optional[BatchJob]:
+        """Get status of a batch generation job.
+
+        Args:
+            batch_id: ID of the batch job
+
+        Returns:
+            BatchJob with current status, or None if not found
+        """
+        return self.jobs.get(batch_id)
+
+    def get_batch_puzzles(self, batch_id: str, offset: int = 0, limit: int = 25) -> Optional[List[GeneratedPuzzle]]:
+        """Get puzzles from a completed batch.
+
+        Args:
+            batch_id: ID of the batch
+            offset: Pagination offset
+            limit: Pagination limit
+
+        Returns:
+            List of puzzles, or None if batch not found
+        """
+        job = self.jobs.get(batch_id)
+        if not job:
+            return None
+
+        # Pagination
+        start = offset
+        end = start + limit
+        return job.puzzles[start:end]
+
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel a batch generation job.
+
+        Args:
+            batch_id: ID of the batch
+
+        Returns:
+            True if cancelled, False if not found or already complete
+        """
+        job = self.jobs.get(batch_id)
+        if not job:
+            return False
+
+        # Can only cancel if still generating
+        if job.status in (BatchStatus.GENERATING, BatchStatus.PENDING):
+            job.status = BatchStatus.CANCELLED
+            job.updated_at = datetime.utcnow()
+            return True
+
+        return False
+
+    def _generate_puzzle_with_metrics(
+        self, size: int, theme: str
+    ) -> GeneratedPuzzle:
+        """Generate a single puzzle with difficulty and quality metrics.
+
+        Args:
+            size: Puzzle size (width/height)
+            theme: Puzzle theme
+
+        Returns:
+            GeneratedPuzzle with metrics
+
+        Note: This is a placeholder. In production, would call the actual
+        puzzle generation pipeline.
+        """
+        puzzle_id = str(uuid.uuid4())
+
+        # TODO: Call actual puzzle generator
+        # For now, create a dummy puzzle
+        grid = [[False] * size for _ in range(size)]
+
+        # Dummy clues
+        clues = [[size]]  # Simple: all filled
+
+        # Dummy metrics
+        counter = StrategyCounter()
+        counter.add_strategy(__import__("src.nonogram.analysis", fromlist=["Strategy"]).Strategy.LINE_LOGIC, 1)
+        difficulty_score, difficulty_tier = calculate_difficulty_from_strategies(counter)
+
+        # Dummy quality (no original image, so assume medium)
+        quality_metrics = {
+            "quality_score": 75,
+            "recognizability": "medium",
+        }
+
+        metrics = PuzzleMetrics(
+            difficulty_score=difficulty_score,
+            difficulty_tier=difficulty_tier,
+            quality_score=quality_metrics["quality_score"],
+            recognizability=quality_metrics["recognizability"],
+            strategies_used=counter.get_strategy_names(),
+            backtracking_depth=counter.backtracking_depth,
+        )
+
+        return GeneratedPuzzle(
+            puzzle_id=puzzle_id,
+            grid=grid,
+            clues_rows=clues,
+            clues_cols=clues,
+            width=size,
+            height=size,
+            theme=theme,
+            metrics=metrics,
+        )
+
+
+# Global batch generator instance
+_batch_generator = BatchGenerator()
+
+
+def get_batch_generator() -> BatchGenerator:
+    """Get the singleton batch generator."""
+    return _batch_generator
