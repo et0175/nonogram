@@ -1,0 +1,146 @@
+NONOGRAM DOCUMENTATION STRUCTURE
+═════════════════════════════════════════════════════════════════════════════
+
+docs/
+│
+├── INDEX.md                          ← START HERE: Documentation guide & navigation
+├── STRUCTURE.txt                     ← This file: Visual structure overview
+│
+├── architecture/                     🏛️ System design & architectural decisions
+│   ├── README.md                     Component overview & architecture principles
+│   └── [ADR files, C4 diagrams]
+│
+├── api/                              🔌 API reference & integration guides
+│   ├── README.md                     API documentation structure
+│   └── [Endpoint docs, examples]
+│
+├── deployment/                       🚀 Production deployment & infrastructure
+│   ├── README.md                     Deployment checklist & platform guides
+│   ├── DEPLOYMENT_STATUS.md          Current deployment status
+│   ├── DEPLOYMENT_FIX_SUMMARY.md     Fix documentation
+│   │
+│   ├── guides/                       Step-by-step deployment procedures
+│   │   └── DEPLOYMENT_GUIDE.md       Complete deployment walkthrough
+│   │
+│   └── infrastructure/               Cloud & container configuration
+│       ├── RAILWAY_DEPLOYMENT.md     Railway.app setup
+│       └── RAILWAY_AGENT_GUIDE.md    CI/CD agent configuration
+│
+├── development/                      👨‍💻 Setup, contribution, & troubleshooting
+│   ├── README.md                     Quick start & development guidelines
+│   │
+│   ├── setup/                        Environment setup procedures
+│   │   └── E2E_TESTS_README.md       Test setup documentation
+│   │
+│   └── troubleshooting/              Common issues & solutions
+│       └── ISSUE_FIX_RETRY.md        Known issues & fixes
+│
+├── guides/                           📖 User guides & feature documentation
+│   ├── README.md                     Guides directory overview
+│   ├── user-stories.md               Feature requirements & user stories
+│   ├── algorithms.md                 Algorithm documentation
+│   ├── monogram.md                   Nonogram basics
+│   ├── monogram_analyzer.md          Analysis tools
+│   ├── ui-image-generation.md        UI generation reference
+│   │
+│   └── [Feature Implementation Guides]
+│       ├── IMAGE_UPLOAD_FEATURE.md   Image upload implementation
+│       ├── FORM_REDESIGN_COMPLETE.md Form implementation
+│       ├── NEXT_JS_INTEGRATION.md    Frontend integration
+│       ├── FINAL_FORM_IMPLEMENTATION.md Form specifications
+│       ├── FEATURE_FILE_ACTIONS.md   File handling features
+│       └── SPECIFICATION_REVIEW_COMPLETE.md Feature specs
+│
+├── reports/                          📊 Test results & deployment reports
+│   ├── README.md                     Report organization & usage guide
+│   │
+│   ├── test-reports/                 Test execution results
+│   │   ├── E2E_TEST_REPORT.md        Comprehensive test results
+│   │   ├── E2E_TEST_SUMMARY.md       Test summary & statistics
+│   │   ├── NONOGRAM_WEB_TEST_REPORT.md UI test results
+│   │   └── E2E_TESTS_README.md       Test documentation
+│   │
+│   └── deployment-reports/           Deployment status & fixes
+│       └── [Deployment status files]
+│
+├── tests/                            🧪 Requirements, test plans & cases
+│   ├── README.md                     Test documentation structure
+│   ├── requirements.md               System requirements & AC
+│   ├── test-cases.md                 Detailed test cases
+│   └── requirements-and-test-plan.html HTML version
+│
+└── images/                           🖼️ Diagrams & screenshots
+    ├── img.png                       Nonogram examples
+    └── img_1.png                     UI screenshots
+
+
+QUICK NAVIGATION
+═════════════════════════════════════════════════════════════════════════════
+
+By Role:
+  Project Managers     → reports/ → deployment/ → guides/
+  Developers           → development/ → guides/ → architecture/
+  DevOps/Infrastructure → deployment/infrastructure/ → deployment/guides/
+  QA/Testers          → tests/ → reports/test-reports/ → guides/
+
+
+Key Entry Points:
+  🎯 Start here       → docs/INDEX.md
+  🔍 Find anything    → Use INDEX.md navigation map
+  🧪 Running tests    → development/README.md
+  🚀 Deploy to prod   → deployment/guides/DEPLOYMENT_GUIDE.md
+  📖 Learn features   → guides/README.md
+  📊 Check status     → reports/README.md
+
+
+File Statistics:
+  Total markdown files:       31
+  Directories:               10
+  README files:               8 (one per major section)
+  Feature guides:             8
+  Deployment procedures:       5
+  Test documentation:          4
+
+
+Directory Purposes at a Glance:
+├─ architecture/     System design, components, patterns
+├─ api/             REST API endpoints, integration guides
+├─ deployment/      Production setup, infrastructure, cloud config
+├─ development/     Dev environment, contribution guidelines
+├─ guides/          User guides, features, how-tos
+├─ reports/         Test results, deployment status, metrics
+├─ tests/           Requirements, test plans, acceptance criteria
+├─ images/          Diagrams, screenshots, visual examples
+├─ INDEX.md         Main documentation index (start here!)
+└─ STRUCTURE.txt    This file
+
+
+DOCUMENTATION MAINTENANCE
+═════════════════════════════════════════════════════════════════════════════
+
+When adding docs:
+  1. Choose appropriate directory based on content type
+  2. Use clear, descriptive names (lowercase-with-dashes.md)
+  3. Add overview/purpose section
+  4. Link to related documentation
+  5. Update relevant README.md
+  6. Update INDEX.md if needed
+
+For reports:
+  - Date-based naming: YYYY-MM-DD_report_type.md
+  - Archive reports older than 3 months
+  - Keep latest 10 reports of each type
+  - Organize by date and type
+
+Organization Philosophy:
+  - Flat structure when possible (avoid deep nesting)
+  - Clear semantic organization (by type/purpose)
+  - Self-documenting directory names
+  - README in each major directory
+  - Cross-links between related docs
+  - Central INDEX.md for overview
+
+
+═════════════════════════════════════════════════════════════════════════════
+Last updated: 2026-09-05
+See INDEX.md for detailed navigation and usage guidance
