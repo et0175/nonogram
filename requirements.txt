@@ -6,3 +6,12 @@
 Pillow>=10.0
 numpy>=1.24
 reportlab>=4.0
+
+# Admin panel dependencies
+Flask>=3.0
+Werkzeug>=3.0
+
+# Database dependencies (for Railway deployment)
+psycopg2-binary>=2.9
+sqlalchemy>=2.0
+alembic>=1.13

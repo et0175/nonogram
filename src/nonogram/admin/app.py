@@ -3,17 +3,24 @@
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from datetime import datetime
 import json
+import os
 
 from .batch_generator import get_batch_generator, BatchStatus
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter
 from .book_manager import get_book_manager, BookStatus
 
 
-def create_app(debug=False):
+def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
-    app.config["SECRET_KEY"] = "dev-key-change-in-production"
+
+    # Configuration from environment
+    if debug is None:
+        debug = os.getenv("FLASK_ENV") == "development"
+
     app.config["DEBUG"] = debug
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-key-change-in-production")
+    app.config["ENV"] = os.getenv("FLASK_ENV", "production" if not debug else "development")
 
     batch_gen = get_batch_generator()
     puzzle_review = get_puzzle_review_service()
