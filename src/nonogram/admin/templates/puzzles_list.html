@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Puzzles - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Puzzle Review & Curation</h1>
+        <p class="text-muted">Filter and approve puzzles for book inclusion</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Filters</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-2">
+                        <label for="size" class="form-label">Size (px)</label>
+                        <input type="number" class="form-control" id="size" name="size"
+                               min="10" max="30" value="{{ request.args.get('size', '') }}" placeholder="10-30">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="difficulty" class="form-label">Difficulty</label>
+                        <select class="form-select" id="difficulty" name="difficulty">
+                            <option value="">Any</option>
+                            <option value="Easy" {% if request.args.get('difficulty') == 'Easy' %}selected{% endif %}>Easy</option>
+                            <option value="Medium" {% if request.args.get('difficulty') == 'Medium' %}selected{% endif %}>Medium</option>
+                            <option value="Hard" {% if request.args.get('difficulty') == 'Hard' %}selected{% endif %}>Hard</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="quality_min" class="form-label">Min Quality</label>
+                        <input type="number" class="form-control" id="quality_min" name="quality_min"
+                               min="0" max="100" value="{{ request.args.get('quality_min', '') }}" placeholder="0-100">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="limit" class="form-label">Per Page</label>
+                        <input type="number" class="form-control" id="limit" name="limit"
+                               min="1" max="100" value="{{ request.args.get('limit', '25') }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">🔍 Apply Filters</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    Puzzles ({{ total_count }} total)
+                    <small class="text-muted">Showing {{ puzzles|length }} of {{ total_count }}</small>
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if puzzles %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Size</th>
+                                <th>Difficulty</th>
+                                <th>Quality</th>
+                                <th>Recognizability</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for puzzle in puzzles %}
+                            <tr>
+                                <td><code>{{ puzzle.id }}</code></td>
+                                <td>{{ puzzle.width }}×{{ puzzle.height }}</td>
+                                <td>
+                                    <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
+                                        {{ puzzle.difficulty_tier }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>{{ puzzle.quality_score }}</strong>/100
+                                </td>
+                                <td>
+                                    <span class="badge" style="background-color: {% if puzzle.recognizability == 'high' %}#27ae60{% elif puzzle.recognizability == 'medium' %}#3498db{% else %}#95a5a6{% endif %}">
+                                        {{ puzzle.recognizability }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge" style="background-color: {% if puzzle.status == 'draft' %}#95a5a6{% elif puzzle.status == 'approved' %}#27ae60{% elif puzzle.status == 'in_book' %}#3498db{% else %}#e74c3c{% endif %}">
+                                        {{ puzzle.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if puzzle.status == 'draft' %}
+                                    <form action="/puzzle/{{ puzzle.id }}/approve" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Approve">✓</button>
+                                    </form>
+                                    <form action="/puzzle/{{ puzzle.id }}/reject" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Reject">✕</button>
+                                    </form>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <nav aria-label="Pagination">
+                    <ul class="pagination justify-content-center">
+                        {% if offset > 0 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&offset=0">First</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&offset={{ offset - limit }}">Previous</a>
+                        </li>
+                        {% endif %}
+                        <li class="page-item active">
+                            <span class="page-link">Page {{ (offset // limit) + 1 }}</span>
+                        </li>
+                        {% if has_more %}
+                        <li class="page-item">
+                            <a class="page-link" href="?size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&offset={{ offset + limit }}">Next</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+
+                {% else %}
+                <p class="text-muted text-center">No puzzles found matching your filters</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

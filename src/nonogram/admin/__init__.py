@@ -23,6 +23,11 @@ from .book_manager import (
     get_book_manager,
 )
 
+try:
+    from .app import create_app
+except ImportError:
+    create_app = None
+
 __all__ = [
     # Batch generation
     "BatchGenerator",
@@ -43,4 +48,6 @@ __all__ = [
     "BookMetadata",
     "Book",
     "get_book_manager",
+    # Flask app
+    "create_app",
 ]

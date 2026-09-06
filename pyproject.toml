@@ -25,6 +25,8 @@ dependencies = [
 [project.optional-dependencies]
 # Development-only dependencies
 dev = ["pytest>=8.3"]
+# Admin panel dependencies
+admin = ["Flask>=3.0"]
 
 [project.scripts]
 nonogram = "nonogram.cli:main"

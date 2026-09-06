@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Create Batch - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Create Batch Generation Job</h1>
+        <p class="text-muted">Configure parameters for batch puzzle generation</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="count" class="form-label">Number of Puzzles</label>
+                        <input type="number" class="form-control" id="count" name="count"
+                               min="50" max="200" value="100" required>
+                        <small class="form-text text-muted">Generate 50-200 puzzles per batch</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sizes" class="form-label">Puzzle Sizes (comma-separated)</label>
+                        <input type="text" class="form-control" id="sizes" name="sizes"
+                               value="10,15,20,25,30" placeholder="e.g., 10,15,20,25,30" required>
+                        <small class="form-text text-muted">Grid dimensions in pixels (10-30)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="theme" class="form-label">Theme</label>
+                        <select class="form-select" id="theme" name="theme" required>
+                            <option value="christmas">Christmas</option>
+                            <option value="halloween">Halloween</option>
+                            <option value="easter">Easter</option>
+                            <option value="valentine">Valentine</option>
+                            <option value="generic">Generic</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="source" class="form-label">Source</label>
+                        <select class="form-select" id="source" name="source" required>
+                            <option value="random">Random Generation</option>
+                            <option value="images">From Images</option>
+                        </select>
+                        <small class="form-text text-muted">Generate from scratch or convert images</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="quality_filter" class="form-label">Minimum Quality Score</label>
+                        <input type="number" class="form-control" id="quality_filter" name="quality_filter"
+                               min="0" max="100" value="0" required>
+                        <small class="form-text text-muted">0-100: Only include puzzles meeting quality threshold</small>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">🚀 Start Batch Generation</button>
+                        <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Presets</h5>
+            </div>
+            <div class="card-body">
+                <h6>Quick Presets</h6>
+
+                <strong>Small Batch (Fast)</strong><br>
+                <small class="text-muted">50 puzzles, size 10-15</small><br>
+                <code class="bg-light p-1">count=50, sizes=10,15</code>
+                <br><br>
+
+                <strong>Medium Batch (Standard)</strong><br>
+                <small class="text-muted">100 puzzles, size 15-25</small><br>
+                <code class="bg-light p-1">count=100, sizes=15,20,25</code>
+                <br><br>
+
+                <strong>Large Batch (Complete)</strong><br>
+                <small class="text-muted">200 puzzles, size 10-30</small><br>
+                <code class="bg-light p-1">count=200, sizes=10,15,20,25,30</code>
+                <br><br>
+
+                <div class="alert alert-info">
+                    <strong>💡 Tip:</strong> Larger batches take longer but provide more variety.
+                    Start with smaller batches for testing.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
