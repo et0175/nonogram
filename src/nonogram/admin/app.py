@@ -237,7 +237,16 @@ def create_app(debug=None):
         """API endpoint for batch status (JSON)."""
         job = batch_gen.get_batch_status(batch_id)
         if not job:
-            return jsonify({"error": "Batch not found"}), 404
+            return jsonify({"error": "Batch not found", "batch_id": batch_id}), 404
+
+        return jsonify(job.to_dict())
+
+    @app.route("/api/batch/<batch_id>")
+    def api_batch_status_alt(batch_id):
+        """API endpoint for batch status (alternative URL)."""
+        job = batch_gen.get_batch_status(batch_id)
+        if not job:
+            return jsonify({"error": "Batch not found", "batch_id": batch_id}), 404
 
         return jsonify(job.to_dict())
 
