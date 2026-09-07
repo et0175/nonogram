@@ -22,8 +22,9 @@ def create_app(debug=None):
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-key-change-in-production")
     app.config["ENV"] = os.getenv("FLASK_ENV", "production" if not debug else "development")
 
-    batch_gen = get_batch_generator()
     puzzle_review = get_puzzle_review_service()
+    batch_gen = get_batch_generator()
+    batch_gen.puzzle_review_service = puzzle_review
     book_mgr = get_book_manager()
 
     @app.route("/")

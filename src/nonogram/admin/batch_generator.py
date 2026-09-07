@@ -10,12 +10,14 @@ from enum import Enum
 import uuid
 from datetime import datetime
 import asyncio
+import random
 
 from src.nonogram.analysis import (
     StrategyCounter,
     calculate_difficulty_from_strategies,
     measure_quality,
 )
+from src.nonogram.generation import get_generator
 
 
 class BatchStatus(Enum):
@@ -94,10 +96,11 @@ class BatchGenerator:
     Manages async generation, progress tracking, and storage.
     """
 
-    def __init__(self):
+    def __init__(self, puzzle_review_service=None):
         """Initialize batch generator."""
         # In-memory job tracking (TODO: move to database for production)
         self.jobs: dict[str, BatchJob] = {}
+        self.puzzle_review_service = puzzle_review_service
 
     def create_batch(
         self,
@@ -136,16 +139,61 @@ class BatchGenerator:
         batch_id = str(uuid.uuid4())
         job = BatchJob(
             batch_id=batch_id,
-            status=BatchStatus.PENDING,
+            status=BatchStatus.GENERATING,
             total_count=count,
         )
         self.jobs[batch_id] = job
 
-        # TODO: Start async generation task
-        # For now, just return the batch_id
-        # In production, this would queue an async task (Celery, asyncio, etc)
+        # Generate puzzles synchronously (TODO: make async with Celery/asyncio)
+        try:
+            if source == "random":
+                self._generate_random_batch(job, count, sizes, theme, quality_filter)
+            # TODO: else if source == "images": self._generate_from_images(...)
+
+            job.status = BatchStatus.COMPLETE
+            job.updated_at = datetime.utcnow()
+        except Exception as e:
+            job.status = BatchStatus.ERROR
+            job.error_message = str(e)
+            job.updated_at = datetime.utcnow()
+            raise
 
         return batch_id
+
+    def _generate_random_batch(
+        self, job: BatchJob, count: int, sizes: List[int], theme: str, quality_filter: int
+    ) -> None:
+        """Generate random puzzles and store in database.
+
+        Args:
+            job: BatchJob to update progress
+            count: Number of puzzles to generate
+            sizes: List of puzzle sizes
+            theme: Puzzle theme
+            quality_filter: Minimum quality score
+        """
+        generator = get_generator(seed=random.randint(0, 999999))
+        puzzles = generator.generate_batch(count=count, sizes=sizes, theme=theme)
+
+        # Store each puzzle in database
+        for puzzle in puzzles:
+            if puzzle["quality_score"] >= quality_filter and self.puzzle_review_service:
+                self.puzzle_review_service.add_puzzle(
+                    grid=puzzle["grid"],
+                    clues_rows=puzzle["clues_rows"],
+                    clues_cols=puzzle["clues_cols"],
+                    width=puzzle["width"],
+                    height=puzzle["height"],
+                    theme=puzzle["theme"],
+                    difficulty_score=puzzle["difficulty_score"],
+                    difficulty_tier=puzzle["difficulty_tier"],
+                    quality_score=puzzle["quality_score"],
+                    recognizability=puzzle.get("recognizability", "medium"),
+                    strategies_used=puzzle.get("strategies_used", []),
+                )
+
+            job.completed_count += 1
+            job.updated_at = datetime.utcnow()
 
     def get_batch_status(self, batch_id: str) -> Optional[BatchJob]:
         """Get status of a batch generation job.
