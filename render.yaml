@@ -3,13 +3,13 @@ services:
     name: nonogram-admin
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: flask --app src.nonogram.admin.app run --host=0.0.0.0 --port=$PORT
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: python -m flask --app src.nonogram.admin.app run --host=0.0.0.0 --port=$PORT
     autoDeploy: true
     envVars:
       - key: FLASK_ENV
         value: production
       - key: PYTHON_VERSION
-        value: 3.14
+        value: 3.11
       - key: PYTHONUNBUFFERED
         value: "1"
