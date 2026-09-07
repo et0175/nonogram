@@ -1,6 +1,6 @@
 """Flask admin panel application for nonogram puzzle management."""
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, send_file
 from datetime import datetime
 import json
 import os
@@ -8,6 +8,7 @@ import os
 from .batch_generator import get_batch_generator, BatchStatus
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter
 from .book_manager import get_book_manager, BookStatus
+from .pdf_generator import get_pdf_generator
 
 
 def create_app(debug=None):
@@ -231,6 +232,60 @@ def create_app(debug=None):
             flash(f"Error: {str(e)}", "error")
 
         return redirect(url_for("book_detail", book_id=book_id))
+
+    @app.route("/book/<book_id>/generate-pdf", methods=["POST"])
+    def generate_book_pdf(book_id):
+        """Generate PDF for a book."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        if len(book.puzzle_ids) == 0:
+            flash("Cannot generate PDF for book with no puzzles", "error")
+            return redirect(url_for("book_detail", book_id=book_id))
+
+        try:
+            # Get puzzles for the book
+            puzzle_data = []
+            for puzzle_id in book.puzzle_ids:
+                puzzle = puzzle_review.get_puzzle(puzzle_id)
+                if puzzle:
+                    puzzle_data.append(puzzle)
+
+            if not puzzle_data:
+                flash("No valid puzzles found for book", "error")
+                return redirect(url_for("book_detail", book_id=book_id))
+
+            # Generate PDF
+            pdf_gen = get_pdf_generator()
+            pdf_bytes = pdf_gen.generate_book_pdf(
+                {
+                    "title": book.metadata.title,
+                    "description": book.metadata.description,
+                    "theme": book.metadata.theme,
+                    "target_audience": book.metadata.target_audience,
+                    "page_count": len(puzzle_data),
+                },
+                puzzle_data
+            )
+
+            # Store PDF URL (in production, save to S3 or similar)
+            book_mgr.set_pdf_url(book_id, f"PDF generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+
+            flash("PDF generated successfully!", "success")
+
+            # Return PDF for download
+            return send_file(
+                pdf_bytes,
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name=f"{book.metadata.title.replace(' ', '_')}.pdf"
+            )
+
+        except Exception as e:
+            flash(f"Error generating PDF: {str(e)}", "error")
+            return redirect(url_for("book_detail", book_id=book_id))
 
     @app.route("/api/batch/<batch_id>/status")
     def api_batch_status(batch_id):

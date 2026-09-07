@@ -76,8 +76,21 @@
 
                 <hr>
 
+                <h6>PDF Generation</h6>
+                {% if book.puzzle_ids|length > 0 %}
+                <form method="POST" action="/book/{{ book.book_id }}/generate-pdf" style="display:inline;">
+                    <button type="submit" class="btn btn-success btn-sm w-100">📥 Generate & Download PDF</button>
+                </form>
+                {% else %}
+                <button class="btn btn-success btn-sm w-100" disabled>
+                    📥 Generate PDF (add puzzles first)
+                </button>
+                {% endif %}
+
+                <hr>
+
                 {% if book.metadata.pdf_url %}
-                <p>📄 <a href="{{ book.metadata.pdf_url }}" target="_blank">Download PDF</a></p>
+                <p>📄 <strong>Last Generated:</strong> {{ book.metadata.pdf_url }}</p>
                 {% endif %}
 
                 {% if book.metadata.kdp_asin %}
