@@ -1,3 +1,7 @@
+# Install the nonogram package from the current directory
+# The -e flag makes it an editable install, so the CLI command 'nonogram' becomes available
+-e .
+
 # Runtime dependencies
 Pillow>=10.0
 numpy>=1.24
@@ -11,6 +15,3 @@ Werkzeug>=3.0
 psycopg2-binary>=2.9
 sqlalchemy>=2.0
 alembic>=1.13
-
-# Install the nonogram package from the current directory
--e .
