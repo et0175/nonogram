@@ -1,0 +1,10 @@
+[project]
+name = "nonogram-admin"
+environment = "production"
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
