@@ -304,9 +304,14 @@ class BatchGenerator:
 
 
 # Global batch generator instance
-_batch_generator = BatchGenerator()
+_batch_generator = None
 
 
-def get_batch_generator() -> BatchGenerator:
+def get_batch_generator(puzzle_review_service=None) -> BatchGenerator:
     """Get the singleton batch generator."""
+    global _batch_generator
+    if _batch_generator is None:
+        _batch_generator = BatchGenerator(puzzle_review_service)
+    elif puzzle_review_service and not _batch_generator.puzzle_review_service:
+        _batch_generator.puzzle_review_service = puzzle_review_service
     return _batch_generator
