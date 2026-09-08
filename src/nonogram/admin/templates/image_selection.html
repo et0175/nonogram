@@ -46,10 +46,11 @@
                     {% for image in images %}
                     <div class="image-item" data-file-id="{{ image.file_id }}">
                         <div class="image-preview">
-                            <img src="/api/image/{{ image.file_id }}"
-                                 alt="{{ image.original_filename }}"
-                                 class="preview-img"
-                                 onerror="this.parentElement.innerHTML='📷<div class=dimensions>{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>'">
+                            <div class="placeholder" style="display: none;">
+                                📷
+                                <div class="dimensions">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>
+                            </div>
+                            <canvas id="canvas_{{ image.file_id }}" class="preview-img" style="display:block; width:100%; height:100%;"></canvas>
                         </div>
                         <div class="image-info">
                             <div class="filename" title="{{ image.original_filename }}">
