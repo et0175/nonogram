@@ -28,15 +28,33 @@
 
                 <div class="alert alert-info">
                     <h6 class="alert-heading">Puzzle Configuration Summary</h6>
-                    <ul class="mb-0">
-                        {% for image in images %}
-                        <li>
-                            <strong>{{ image.puzzle_name }}</strong>
-                            ({{ image.dimensions[0] }}×{{ image.dimensions[1] }}px)
-                            → {{ image.predict_size() }}×{{ image.predict_size() }} grid ({{ image.size_mode }} mode)
-                        </li>
-                        {% endfor %}
-                    </ul>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Image</th>
+                                    <th>Dimensions</th>
+                                    <th>Mode</th>
+                                    <th>Grid Size</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for image in images %}
+                                {% set dims = image.predict_size() %}
+                                <tr>
+                                    <td><strong>{{ image.puzzle_name }}</strong></td>
+                                    <td>{{ image.dimensions[0] }}×{{ image.dimensions[1] }}px</td>
+                                    <td>{{ image.size_mode|capitalize }}</td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm"
+                                               value="{{ dims[0] }}×{{ dims[1] }}"
+                                               title="Puzzle grid dimensions (Width×Height)">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <form method="POST" id="generateForm">
