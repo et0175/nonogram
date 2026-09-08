@@ -292,16 +292,11 @@ def create_app(debug=None):
         """Display generated puzzles with SVG grids."""
         puzzle_review = get_puzzle_review_service()
 
-        # Get puzzles for this batch
-        puzzles = puzzle_review.filter_puzzles(
-            PuzzleFilter(limit=1000, batch_id=batch_id)
-        ).puzzles if hasattr(puzzle_review.filter_puzzles(PuzzleFilter(limit=1000)), 'puzzles') else []
-
-        # Try alternative approach
         try:
-            all_puzzles = puzzle_review.get_all_puzzles()
+            # Get puzzles for this batch
+            all_puzzles = puzzle_review.get_all_puzzles() if hasattr(puzzle_review, 'get_all_puzzles') else []
             puzzles = [p for p in all_puzzles if getattr(p, 'batch_id', None) == batch_id]
-        except:
+        except Exception:
             puzzles = []
 
         if not puzzles:
