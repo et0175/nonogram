@@ -146,18 +146,30 @@
                 <h5 class="card-title mb-0">Navigation</h5>
             </div>
             <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary" onclick="generateBatch()">
-                        ➡️ Generate Puzzles
-                    </button>
-                    <a href="/batch/select-images" class="btn btn-outline-secondary">
-                        ◄ Back to Images
-                    </a>
-                </div>
+                <form method="POST" action="/batch/preview-images" id="sizeConfigForm">
+                    <input type="hidden" name="save_config" value="1">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            Next: Configure & Generate ➡️
+                        </button>
+                        <a href="/batch/select-images" class="btn btn-outline-secondary">
+                            ◄ Back to Images
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Hidden form to collect configuration data -->
+<form id="configForm" method="POST" style="display:none;">
+    {% for image in images %}
+    <input type="hidden" name="mode_{{ image.file_id }}" id="mode_{{ image.file_id }}_hidden">
+    <input type="hidden" name="value_{{ image.file_id }}" id="value_{{ image.file_id }}_hidden">
+    <input type="hidden" name="name_{{ image.file_id }}" id="name_{{ image.file_id }}_hidden">
+    {% endfor %}
+</form>
 
 <style>
 .image-preview-box {
@@ -210,35 +222,30 @@ function updateSize(fileId) {
     } else {
         fixedSection.style.display = 'none';
     }
-
-    // TODO: CARD-004q - Update preview with API call
-    // For now, just predict locally
-    predictSize(fileId, mode, parseInt(value));
 }
 
 function updateName(fileId) {
     const name = document.getElementById('name_' + fileId).value;
-    // TODO: CARD-004q - Save puzzle name via API
     console.log('Updated name for', fileId, ':', name);
-}
-
-function predictSize(fileId, mode, value) {
-    // TODO: CARD-004q - Get prediction from backend
-    // For now, this is a placeholder
-    console.log('Predicting size for', fileId, 'mode:', mode, 'value:', value);
 }
 
 function applyToAll() {
     const mode = document.getElementById('globalSizeMode').value;
     const value = document.getElementById('globalSizeValue').value;
 
-    // TODO: CARD-004q - Apply size to all images via API
-    alert('TODO: Apply ' + mode + ' size to all images');
-}
+    // Apply to all image selectors
+    document.querySelectorAll('[id^="mode_"]').forEach(el => {
+        if (el.id.endsWith('_hidden')) return;
+        el.value = mode;
+        el.dispatchEvent(new Event('change'));
 
-function generateBatch() {
-    // TODO: CARD-004r - Redirect to generation
-    alert('TODO: Generate puzzles from images');
+        const fileId = el.id.replace('mode_', '');
+        const valueEl = document.getElementById('value_' + fileId);
+        if (valueEl) {
+            valueEl.value = value;
+            valueEl.dispatchEvent(new Event('change'));
+        }
+    });
 }
 
 // Initialize
@@ -246,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateGlobalSize();
 
     // Initialize individual controls
-    document.querySelectorAll('[id^="mode_"]').forEach(el => {
+    document.querySelectorAll('[id^="mode_"]:not([id$="_hidden"])').forEach(el => {
         const fileId = el.id.replace('mode_', '');
         const mode = el.value;
         const fixedSection = document.getElementById('fixedSection_' + fileId);
@@ -254,6 +261,30 @@ document.addEventListener('DOMContentLoaded', function() {
             fixedSection.style.display = 'none';
         }
     });
+
+    // Add form submission handler
+    const form = document.getElementById('sizeConfigForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Collect all configuration data
+            document.querySelectorAll('[id^="mode_"]:not([id$="_hidden"])').forEach(el => {
+                const fileId = el.id.replace('mode_', '');
+                const mode = el.value;
+                const value = document.getElementById('value_' + fileId).value;
+                const name = document.getElementById('name_' + fileId).value;
+
+                // Set hidden form values
+                document.getElementById('mode_' + fileId + '_hidden').value = mode;
+                document.getElementById('value_' + fileId + '_hidden').value = value;
+                document.getElementById('name_' + fileId + '_hidden').value = name;
+            });
+
+            // Submit form
+            form.submit();
+        });
+    }
 });
 </script>
 {% endblock %}

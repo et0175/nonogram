@@ -215,19 +215,116 @@ def create_app(debug=None):
             return redirect(url_for("create_batch"))
 
         if request.method == "POST":
-            # TODO: CARD-004q - Handle size configuration updates
-            # For now, just redirect to next step
-            flash("TODO: Save size configuration and redirect to generation", "info")
-            return render_template(
-                "image_preview.html",
-                images=images,
-                total_size_mb=image_mgr.get_total_size_mb(),
-            )
+            # Handle size configuration updates
+            for image in images:
+                file_id = image.file_id
+                size_mode = request.form.get(f"mode_{file_id}", "fixed")
+                size_value = int(request.form.get(f"value_{file_id}", 20))
+                puzzle_name = request.form.get(f"name_{file_id}", image.puzzle_name)
+
+                image_mgr.update_image_size(file_id, size_mode, size_value)
+                image_mgr.update_image_name(file_id, puzzle_name)
+
+            # Redirect to generation step
+            return redirect(url_for("generate_batch_from_images"))
 
         return render_template(
             "image_preview.html",
             images=images,
             total_size_mb=image_mgr.get_total_size_mb(),
+        )
+
+    @app.route("/batch/generate", methods=["GET", "POST"])
+    def generate_batch_from_images():
+        """Generate puzzles from configured images (CARD-004r)."""
+        image_mgr = get_image_manager()
+        images = image_mgr.get_all_images()
+
+        if not images:
+            flash("No images to generate from. Please start over.", "warning")
+            return redirect(url_for("create_batch"))
+
+        if request.method == "POST":
+            try:
+                import uuid
+                from datetime import datetime
+
+                # Create batch job manually (workaround for image-based generation)
+                batch_id = str(uuid.uuid4())
+                from nonogram.admin.batch_generator import BatchJob, BatchStatus
+
+                job = BatchJob(
+                    batch_id=batch_id,
+                    status=BatchStatus.GENERATING,
+                    total_count=len(images),
+                    theme="christmas",
+                )
+                batch_gen.jobs[batch_id] = job
+
+                # Generate puzzles from images
+                generated_count = 0
+                for image in images:
+                    try:
+                        # For now, generate a single puzzle per image using MockGenerator
+                        # TODO: Implement actual image-to-nonogram conversion
+                        from nonogram.admin.puzzle_review import MockGenerator
+
+                        generator = MockGenerator(seed=hash(image.file_id) % 999999)
+                        size = image.predict_size()
+                        puzzles = generator.generate_batch(
+                            count=1,
+                            sizes=[size],
+                            theme="christmas",
+                        )
+
+                        if puzzles:
+                            puzzle = puzzles[0]
+                            # Add to review service (will link to batch via batch_id param)
+                            puzzle_review.add_puzzle(
+                                grid=puzzle["grid"],
+                                clues_rows=puzzle["clues_rows"],
+                                clues_cols=puzzle["clues_cols"],
+                                width=puzzle["width"],
+                                height=puzzle["height"],
+                                theme=puzzle["theme"],
+                                difficulty_score=puzzle.get("difficulty_score", 50),
+                                difficulty_tier=puzzle.get("difficulty_tier", "medium"),
+                                quality_score=puzzle.get("quality_score", 50),
+                                recognizability=puzzle.get("recognizability", "medium"),
+                                strategies_used=puzzle.get("strategies_used", []),
+                                batch_id=batch_id,
+                                source_image=image.puzzle_name,
+                            )
+                            generated_count += 1
+
+                    except Exception as e:
+                        flash(f"Error generating from {image.puzzle_name}: {str(e)}", "warning")
+                        job.error_message = str(e)
+
+                # Mark batch as complete
+                job.status = BatchStatus.COMPLETE
+                job.completed_count = generated_count
+                job.puzzle_count = generated_count
+                job.updated_at = datetime.utcnow()
+                job.completed_at = datetime.utcnow()
+
+                # Clear image manager for next batch
+                image_mgr.clear_all()
+
+                flash(f"Generated {generated_count} puzzle{generated_count != 1 and 's' or ''} from {len(images)} image{len(images) != 1 and 's' or ''}", "success")
+                return redirect(url_for("batch_status", batch_id=batch_id))
+
+            except Exception as e:
+                flash(f"Error: {str(e)}", "error")
+                return render_template(
+                    "generate_batch.html",
+                    images=images,
+                    error=str(e),
+                )
+
+        return render_template(
+            "generate_batch.html",
+            images=images,
         )
 
     @app.route("/batch/<batch_id>")
