@@ -637,8 +637,8 @@ def create_app(debug=None):
             return "Not found", 404
 
         try:
-            # Get grid from puzzle
-            grid = puzzle.grid if hasattr(puzzle, 'grid') else puzzle.get('grid')
+            # Get grid from puzzle (dict object)
+            grid = puzzle.get('grid')
             if not grid:
                 return "No grid data", 500
 
@@ -659,8 +659,8 @@ def create_app(debug=None):
             return "Not found", 404
 
         try:
-            # Get grid from puzzle
-            grid = puzzle.grid if hasattr(puzzle, 'grid') else puzzle.get('grid')
+            # Get grid from puzzle (dict object)
+            grid = puzzle.get('grid')
             if not grid:
                 return "No grid data", 500
 
