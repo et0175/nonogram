@@ -45,8 +45,12 @@
                 <div class="image-grid">
                     {% for image in images %}
                     <div class="image-item" data-file-id="{{ image.file_id }}">
-                        <div class="image-preview preview-placeholder">
-                            <div class="placeholder-content">
+                        <div class="image-preview">
+                            <img src="/api/image/{{ image.file_id }}"
+                                 alt="{{ image.original_filename }}"
+                                 class="preview-img"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="placeholder-content" style="display:none;">
                                 <div class="preview-icon">🖼️</div>
                                 <div class="preview-dims">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>
                                 <div class="preview-format">{{ image.format }}</div>
@@ -178,13 +182,15 @@
     background: #f8f9fa;
     font-size: 2rem;
     overflow: hidden;
-    border: 2px dashed #ddd;
+    border: 2px solid #ddd;
     border-radius: 4px;
+    position: relative;
 }
 
 .image-preview.preview-placeholder {
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     border-color: #b0bec5;
+    border-style: dashed;
 }
 
 .preview-img {

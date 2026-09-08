@@ -1,6 +1,6 @@
 """Flask admin panel application for nonogram puzzle management."""
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from datetime import datetime
 from pathlib import Path
 import json
@@ -162,7 +162,14 @@ def create_app(debug=None):
 
     @app.route("/api/image/<file_id>")
     def serve_image(file_id):
-        """Serve image file for display."""
+        """Serve image file for display (binary format).
+
+        Args:
+            file_id: Unique identifier for uploaded image
+
+        Returns:
+            Binary image data with appropriate MIME type
+        """
         image_mgr = get_image_manager()
         image = image_mgr.get_image(file_id)
 
@@ -170,16 +177,26 @@ def create_app(debug=None):
             return jsonify({"error": "Image not found"}), 404
 
         try:
-            with open(image.file_path, "rb") as f:
-                import base64
-                data = f.read()
-                b64 = base64.b64encode(data).decode()
-                return jsonify({
-                    "data": b64,
-                    "format": image.format.lower(),
-                    "width": image.dimensions[0],
-                    "height": image.dimensions[1],
-                })
+            # Verify file exists
+            if not os.path.exists(image.file_path):
+                return jsonify({"error": "Image file not found on disk"}), 404
+
+            # Map image format to MIME type
+            mime_types = {
+                'png': 'image/png',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'gif': 'image/gif',
+            }
+            mime_type = mime_types.get(image.format.lower(), 'image/png')
+
+            # Serve file with proper MIME type
+            return send_file(
+                image.file_path,
+                mimetype=mime_type,
+                as_attachment=False,
+                download_name=image.original_filename
+            )
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
