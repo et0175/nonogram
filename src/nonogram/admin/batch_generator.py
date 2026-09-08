@@ -12,31 +12,16 @@ from datetime import datetime
 import asyncio
 import random
 
-# Note: These modules don't exist yet - tests will mock them
-# from nonogram.analysis import (
-#     StrategyCounter,
-#     calculate_difficulty_from_strategies,
-#     measure_quality,
-# )
-# from nonogram.generation import get_generator
-
-# Stub implementations for testing
-class StrategyCounter:
-    """Placeholder for strategy counter."""
-    pass
-
-def calculate_difficulty_from_strategies(strategies):
-    """Placeholder for difficulty calculation."""
-    return 50  # Return middle-range difficulty
+from nonogram.analysis import (
+    StrategyCounter,
+    Strategy,
+    calculate_difficulty_from_strategies,
+)
+from nonogram.generation import get_generator
 
 def measure_quality(grid):
     """Placeholder for quality measurement."""
     return 50  # Return middle-range quality
-
-def get_generator(seed=None):
-    """Placeholder for generator factory."""
-    from nonogram.admin.puzzle_review import MockGenerator
-    return MockGenerator(seed=seed)
 
 
 class BatchStatus(Enum):
@@ -317,7 +302,7 @@ class BatchGenerator:
 
         # Dummy metrics
         counter = StrategyCounter()
-        counter.add_strategy(__import__("src.nonogram.analysis", fromlist=["Strategy"]).Strategy.LINE_LOGIC, 1)
+        counter.add_strategy(Strategy.LINE_LOGIC, 1)
         difficulty_score, difficulty_tier = calculate_difficulty_from_strategies(counter)
 
         # Dummy quality (no original image, so assume medium)

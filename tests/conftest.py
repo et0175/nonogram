@@ -20,6 +20,23 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "performance: performance benchmarks")
 
 
+def pytest_collection_modifyitems(config, items):
+    """Skip image-dependent tests if fixtures are missing."""
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    skip_image_tests = not fixtures_dir.exists()
+
+    if skip_image_tests:
+        skip_marker = pytest.mark.skip(reason="Image fixtures not found in tests/fixtures/")
+        for item in items:
+            test_path = str(item.fspath)
+            test_name = item.name if hasattr(item, "name") else ""
+            # Skip tests that depend on image fixtures
+            if any(pattern in test_path or pattern in test_name for pattern in [
+                "sourcing_image", "nudge", "derive_shape", "portrait", "landscape", "bands"
+            ]):
+                item.add_marker(skip_marker)
+
+
 @pytest.fixture(scope="session")
 def test_db_url():
     """Get test database URL from env or use default."""
