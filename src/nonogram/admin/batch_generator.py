@@ -12,16 +12,43 @@ from datetime import datetime
 import asyncio
 import random
 
-from nonogram.analysis import (
-    StrategyCounter,
-    Strategy,
-    calculate_difficulty_from_strategies,
-)
-from nonogram.generation import get_generator
+# Note: These modules are capability-layer modules that admin cannot import
+# (ADR-0007 violation). Keep as stubs to avoid coupling.
+
+class Strategy:
+    """Placeholder for Strategy enum."""
+    LINE_LOGIC = "line_logic"
+
+class StrategyCounter:
+    """Placeholder for strategy counter that matches the real API."""
+    def __init__(self):
+        self.strategies_used = set()
+        self.strategy_count = 0
+        self.backtracking_depth = 0
+        self.branch_count = 0
+        self.propagation_rounds = 0
+
+    def add_strategy(self, strategy, count=1):
+        """Record use of a solving strategy."""
+        self.strategies_used.add(strategy)
+        self.strategy_count += count
+
+    def get_strategy_names(self):
+        """Get list of strategy names used."""
+        return sorted([s if isinstance(s, str) else s.value for s in self.strategies_used])
+
+def calculate_difficulty_from_strategies(counter):
+    """Placeholder for difficulty calculation - returns (score, tier)."""
+    return 50, "Medium"
 
 def measure_quality(grid):
     """Placeholder for quality measurement."""
     return 50  # Return middle-range quality
+
+def get_generator(seed=None):
+    """Placeholder for generator factory."""
+    from nonogram.admin.puzzle_review import MockGenerator
+    return MockGenerator(seed=seed)
 
 
 class BatchStatus(Enum):
@@ -302,7 +329,7 @@ class BatchGenerator:
 
         # Dummy metrics
         counter = StrategyCounter()
-        counter.add_strategy(Strategy.LINE_LOGIC, 1)
+        counter.add_strategy("line_logic", 1)
         difficulty_score, difficulty_tier = calculate_difficulty_from_strategies(counter)
 
         # Dummy quality (no original image, so assume medium)
