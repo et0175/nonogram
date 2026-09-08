@@ -49,9 +49,27 @@
                         </div>
                     </div>
 
+                    <!-- Puzzle Size Settings -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Step 2: Puzzle Size Settings</h6>
+
+                        <div class="mb-3">
+                            <label for="default_size" class="form-label">Default Puzzle Size</label>
+                            <select class="form-select" id="default_size" name="default_size">
+                                <option value="small">Small (10-15 cells) - Easy</option>
+                                <option value="medium" selected>Medium (15-25 cells) - Balanced</option>
+                                <option value="large">Large (25-30 cells) - Hard</option>
+                                <option value="auto">Auto (based on image)</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                Applied to all images. Can customize per image later.
+                            </small>
+                        </div>
+                    </div>
+
                     <!-- Quality Filter -->
                     <div class="mb-4">
-                        <h6 class="mb-3">Step 2: Quality Settings</h6>
+                        <h6 class="mb-3">Step 3: Quality Filter</h6>
 
                         <div class="mb-3">
                             <label for="quality_filter" class="form-label">Minimum Quality Score</label>

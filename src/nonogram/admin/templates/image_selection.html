@@ -19,7 +19,7 @@
             <div class="card-body">
                 {% if images %}
                 <div class="row mb-3">
-                    <div class="col-md-12">
+                    <div class="col-md-8">
                         <button class="btn btn-sm btn-outline-secondary" onclick="clearAll()">
                             🗑️ Clear All
                         </button>
@@ -27,6 +27,18 @@
                             {{ images|length }} image{{ images|length != 1 and 's' or '' }} selected
                             ({{ total_size_mb|round(2) }} MB)
                         </span>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="btn-group btn-group-sm float-end" role="group">
+                            <input type="radio" class="btn-check" name="defaultSize" id="size-small" value="small" onchange="applyDefaultSize('small')">
+                            <label class="btn btn-outline-secondary" for="size-small">S</label>
+
+                            <input type="radio" class="btn-check" name="defaultSize" id="size-medium" value="medium" onchange="applyDefaultSize('medium')" checked>
+                            <label class="btn btn-outline-secondary" for="size-medium">M</label>
+
+                            <input type="radio" class="btn-check" name="defaultSize" id="size-large" value="large" onchange="applyDefaultSize('large')">
+                            <label class="btn btn-outline-secondary" for="size-large">L</label>
+                        </div>
                     </div>
                 </div>
 
@@ -232,6 +244,19 @@
 </style>
 
 <script>
+function applyDefaultSize(size) {
+    // Map size presets to actual sizes
+    const sizes = {
+        'small': { mode: 'fixed', value: 15 },
+        'medium': { mode: 'fixed', value: 20 },
+        'large': { mode: 'fixed', value: 25 }
+    };
+
+    const config = sizes[size] || sizes['medium'];
+    console.log('Default size preset:', size, '→', config);
+    // This will be applied when user goes to next step
+}
+
 function removeImage(fileId) {
     if (!confirm('Remove this image?')) return;
 
