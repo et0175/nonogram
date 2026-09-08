@@ -598,7 +598,7 @@ def create_app(debug=None):
             arr = np.array(img)
 
             # Find rows and columns with content (not blank/white)
-            content_threshold = 240
+            content_threshold = 200
             has_content = arr < content_threshold
 
             # Find bounding box of content

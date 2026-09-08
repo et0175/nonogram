@@ -36,8 +36,8 @@ def image_to_grid(image_path: str, target_size: Tuple[int, int]) -> Optional[Lis
         arr = np.array(img)
 
         # Find rows and columns with content (not blank/white)
-        # Threshold: pixels darker than 240 are considered content
-        content_threshold = 240
+        # Threshold: pixels darker than 200 are considered content
+        content_threshold = 200
         has_content = arr < content_threshold
 
         # Find bounding box of content
