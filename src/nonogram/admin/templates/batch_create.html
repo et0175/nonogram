@@ -142,31 +142,65 @@
 </div>
 
 <script>
-// Handle form submission
-document.querySelector('form').addEventListener('submit', function(e) {
+// Combine file inputs - directory + individual files
+function getSelectedFiles() {
     const imagesInput = document.getElementById('image_files');
     const directoryInput = document.getElementById('directory');
-    const qualityInput = document.getElementById('quality_filter');
 
-    // Check if at least one file input has files
-    const hasFiles = (imagesInput.files && imagesInput.files.length > 0) ||
-                     (directoryInput.files && directoryInput.files.length > 0);
+    // Create a combined FileList-like array
+    const allFiles = [];
 
-    if (!hasFiles) {
+    if (imagesInput.files) {
+        allFiles.push(...Array.from(imagesInput.files));
+    }
+    if (directoryInput.files) {
+        allFiles.push(...Array.from(directoryInput.files));
+    }
+
+    // Filter to only image files (avoid hidden OS files like .DS_Store)
+    return allFiles.filter(file => {
+        const type = file.type.toLowerCase();
+        const name = file.name.toLowerCase();
+        return type.startsWith('image/') ||
+               /\.(png|jpg|jpeg|gif)$/i.test(name);
+    });
+}
+
+// Handle form submission
+document.querySelector('form').addEventListener('submit', function(e) {
+    const allFiles = getSelectedFiles();
+
+    if (allFiles.length === 0) {
         e.preventDefault();
-        alert('Please select at least one image file or directory');
+        alert('Please select at least one image file (PNG, JPG, GIF).\n\nTip: You can select individual files OR an entire folder.');
         return false;
     }
 
     // Show loading state
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing ' + allFiles.length + ' image(s)...';
 });
 
-// Initialize
+// Update validation when files are selected
 document.addEventListener('DOMContentLoaded', function() {
-    // Both inputs are always visible now
+    const imagesInput = document.getElementById('image_files');
+    const directoryInput = document.getElementById('directory');
+
+    imagesInput.addEventListener('change', function() {
+        const count = getSelectedFiles().length;
+        updateFileCount(count);
+    });
+
+    directoryInput.addEventListener('change', function() {
+        const count = getSelectedFiles().length;
+        updateFileCount(count);
+    });
 });
+
+function updateFileCount(count) {
+    // Optional: show feedback about selected files
+    console.log('Selected files: ' + count);
+}
 </script>
 {% endblock %}
