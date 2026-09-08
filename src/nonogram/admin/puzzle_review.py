@@ -106,6 +106,7 @@ class PuzzleReviewService:
         recognizability: str,
         strategies_used: List[str],
         batch_id: Optional[str] = None,
+        source_image: Optional[str] = None,
     ) -> str:
         """Add a puzzle to the store.
 
@@ -121,6 +122,8 @@ class PuzzleReviewService:
             quality_score: Quality score (1-100)
             recognizability: Recognizability (high/medium/low)
             strategies_used: List of strategy names
+            batch_id: Optional batch ID to link puzzle to batch
+            source_image: Optional source image name (for image-based generation)
 
         Returns:
             puzzle_id
@@ -143,6 +146,7 @@ class PuzzleReviewService:
             "strategies_used": strategies_used,
             "status": PuzzleStatus.DRAFT.value,
             "batch_id": batch_id,  # Link puzzle to batch
+            "source_image": source_image,  # Source image name (if image-based)
             "created_at": datetime.utcnow().isoformat(),
         }
 
