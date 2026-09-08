@@ -45,21 +45,21 @@
                                         <div class="row mb-2">
                                             <div class="col-6">
                                                 <small><strong>Size:</strong></small><br>
-                                                <small>{{ puzzle.width if hasattr(puzzle, 'width') else puzzle.get('width', '?') }}×{{ puzzle.height if hasattr(puzzle, 'height') else puzzle.get('height', '?') }}</small>
+                                                <small>{{ puzzle.get('width', '?') }}×{{ puzzle.get('height', '?') }}</small>
                                             </div>
                                             <div class="col-6">
                                                 <small><strong>Difficulty:</strong></small><br>
-                                                <small>{{ puzzle.difficulty_tier if hasattr(puzzle, 'difficulty_tier') else puzzle.get('difficulty_tier', 'N/A') }}</small>
+                                                <small>{{ puzzle.get('difficulty_tier', 'N/A') }}</small>
                                             </div>
                                         </div>
                                         <div class="row">
                                             <div class="col-6">
                                                 <small><strong>Quality:</strong></small><br>
-                                                <small>{{ (puzzle.quality_score if hasattr(puzzle, 'quality_score') else puzzle.get('quality_score', 0))|int }}/100</small>
+                                                <small>{{ (puzzle.get('quality_score', 0)|int) }}/100</small>
                                             </div>
                                             <div class="col-6">
                                                 <small><strong>Source:</strong></small><br>
-                                                <small>{{ puzzle.source_image if hasattr(puzzle, 'source_image') else puzzle.get('source_image', 'N/A') }}</small>
+                                                <small>{{ puzzle.get('source_image', 'N/A') }}</small>
                                             </div>
                                         </div>
                                     </div>
