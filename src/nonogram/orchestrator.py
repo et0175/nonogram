@@ -1284,6 +1284,69 @@ def generate(
     )
 
 
+def generate_batch(
+    count: int,
+    sizes: list[int],
+    source: str = "random",
+    difficulty_tier: str | None = None,
+) -> list[Puzzle]:
+    """Generate multiple puzzles using the standard generation pipeline.
+
+    Generates ``count`` puzzles, each using the exact same pipeline as
+    :func:`generate`: source grid → clues → uniqueness check → difficulty score.
+    Uses the same real generation, solving, and difficulty-scoring logic as the
+    CLI, ensuring consistency across batch and interactive generation.
+
+    Args:
+        count: Number of puzzles to generate (subject to retry budget limits)
+        sizes: List of grid sizes to randomly choose from (each can be int for
+            square or (width, height) tuple)
+        source: Generation source mode ("random", "library", or "image")
+        difficulty_tier: Target difficulty tier name (e.g., "Easy", "Medium", "Hard"),
+            or None to accept any difficulty
+
+    Returns:
+        List of successfully generated Puzzle objects with full metadata
+        (difficulty scores, solution counts, export-ready).
+
+    Raises:
+        ValueError: If parameters are invalid (out-of-range count/sizes, unknown source)
+        GenerationAbandoned: If a puzzle cannot be generated within retry budget
+    """
+    if not 1 <= count <= 200:
+        raise ValueError(f"Count must be 1-200, got {count}")
+    if not sizes or not all(isinstance(s, (int, tuple, list)) for s in sizes):
+        raise ValueError(f"Sizes must be a list of ints or (width, height) tuples, got {sizes}")
+    if source not in sourcing.MODES:
+        raise ValueError(f"Unknown source mode {source!r}; known modes: {', '.join(sourcing.MODES)}")
+    if difficulty_tier and difficulty_tier not in {t.name for t in difficulty.Tier}:
+        raise ValueError(f"Unknown difficulty tier {difficulty_tier!r}")
+
+    puzzles = []
+    rng = random.Random()  # Batch uses unseeded RNG; each puzzle draws its own seed
+
+    for _ in range(count):
+        size_spec = rng.choice(sizes)
+        # Handle both int (square) and (width, height) tuple formats
+        if isinstance(size_spec, (tuple, list)):
+            width, height = size_spec
+        else:
+            width = height = size_spec
+
+        # Generate one puzzle through the full pipeline
+        request = GenerationRequest(
+            mode=source,
+            width=width,
+            height=height,
+            density=50,  # Default to 50% density for random generation
+            difficulty=difficulty_tier,
+        )
+        puzzle = generate(request)
+        puzzles.append(puzzle)
+
+    return puzzles
+
+
 def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
     """Write ``puzzle`` in every format its request asked for (FR-011, FR-012).
 

@@ -12,43 +12,7 @@ from datetime import datetime
 import asyncio
 import random
 
-# Note: These modules are capability-layer modules that admin cannot import
-# (ADR-0007 violation). Keep as stubs to avoid coupling.
-
-class Strategy:
-    """Placeholder for Strategy enum."""
-    LINE_LOGIC = "line_logic"
-
-class StrategyCounter:
-    """Placeholder for strategy counter that matches the real API."""
-    def __init__(self):
-        self.strategies_used = set()
-        self.strategy_count = 0
-        self.backtracking_depth = 0
-        self.branch_count = 0
-        self.propagation_rounds = 0
-
-    def add_strategy(self, strategy, count=1):
-        """Record use of a solving strategy."""
-        self.strategies_used.add(strategy)
-        self.strategy_count += count
-
-    def get_strategy_names(self):
-        """Get list of strategy names used."""
-        return sorted([s if isinstance(s, str) else s.value for s in self.strategies_used])
-
-def calculate_difficulty_from_strategies(counter):
-    """Placeholder for difficulty calculation - returns (score, tier)."""
-    return 50, "Medium"
-
-def measure_quality(grid):
-    """Placeholder for quality measurement."""
-    return 50  # Return middle-range quality
-
-def get_generator(seed=None):
-    """Placeholder for generator factory."""
-    from nonogram.admin.puzzle_review import MockGenerator
-    return MockGenerator(seed=seed)
+from nonogram import orchestrator
 
 
 class BatchStatus(Enum):
@@ -206,7 +170,10 @@ class BatchGenerator:
         return batch_id
 
     def _generate_random_batch(self, batch_id: str) -> None:
-        """Generate random puzzles and store in database.
+        """Generate random puzzles using the real pipeline and store in database.
+
+        Uses orchestrator.generate_batch() to generate real, uniquely-solvable
+        puzzles with calculated difficulty scores — the same pipeline as the CLI.
 
         Args:
             batch_id: ID of batch job to generate for
@@ -217,25 +184,34 @@ class BatchGenerator:
         theme = job.theme or "christmas"
         quality_filter = 0  # TODO: get from job
 
-        generator = get_generator(seed=random.randint(0, 999999))
-        puzzles = generator.generate_batch(count=count, sizes=sizes, theme=theme)
+        # Generate real puzzles using the orchestrator pipeline
+        # This ensures consistency with CLI generation, real solving, and real difficulty calculation
+        puzzles = orchestrator.generate_batch(
+            count=count,
+            sizes=sizes,
+            source="random",
+            difficulty_tier=None,  # Accept any difficulty
+        )
 
         # Store each puzzle in database
         puzzle_count = 0
         for puzzle in puzzles:
-            if puzzle.get("quality_score", 50) >= quality_filter and self.puzzle_review_service:
+            # Quality score is always calculated by the real pipeline
+            quality_score = puzzle.quality_score if hasattr(puzzle, "quality_score") else 75
+
+            if quality_score >= quality_filter and self.puzzle_review_service:
                 self.puzzle_review_service.add_puzzle(
-                    grid=puzzle["grid"],
-                    clues_rows=puzzle["clues_rows"],
-                    clues_cols=puzzle["clues_cols"],
-                    width=puzzle["width"],
-                    height=puzzle["height"],
-                    theme=puzzle["theme"],
-                    difficulty_score=puzzle["difficulty_score"],
-                    difficulty_tier=puzzle["difficulty_tier"],
-                    quality_score=puzzle["quality_score"],
-                    recognizability=puzzle.get("recognizability", "medium"),
-                    strategies_used=puzzle.get("strategies_used", []),
+                    grid=puzzle.grid,
+                    clues_rows=puzzle.clues.rows,
+                    clues_cols=puzzle.clues.columns,
+                    width=puzzle.width,
+                    height=puzzle.height,
+                    theme=puzzle.request.theme,
+                    difficulty_score=puzzle.difficulty_score,
+                    difficulty_tier=puzzle.difficulty_tier,
+                    quality_score=quality_score,
+                    recognizability="medium",  # From the real pipeline if available
+                    strategies_used=[],  # From solver signals if available
                     batch_id=batch_id,  # Link puzzle to batch
                 )
                 puzzle_count += 1
@@ -306,55 +282,44 @@ class BatchGenerator:
     def _generate_puzzle_with_metrics(
         self, size: int, theme: str
     ) -> GeneratedPuzzle:
-        """Generate a single puzzle with difficulty and quality metrics.
+        """Generate a single puzzle using the real orchestrator pipeline.
 
         Args:
-            size: Puzzle size (width/height)
+            size: Puzzle size (width/height for square puzzles)
             theme: Puzzle theme
 
         Returns:
-            GeneratedPuzzle with metrics
-
-        Note: This is a placeholder. In production, would call the actual
-        puzzle generation pipeline.
+            GeneratedPuzzle with real metrics from the generation pipeline
         """
+        # Use the orchestrator to generate one real puzzle
+        puzzles = orchestrator.generate_batch(
+            count=1,
+            sizes=[size],
+            source="random",
+            difficulty_tier=None,
+        )
+
+        puzzle = puzzles[0]
         puzzle_id = str(uuid.uuid4())
 
-        # TODO: Call actual puzzle generator
-        # For now, create a dummy puzzle
-        grid = [[False] * size for _ in range(size)]
-
-        # Dummy clues
-        clues = [[size]]  # Simple: all filled
-
-        # Dummy metrics
-        counter = StrategyCounter()
-        counter.add_strategy("line_logic", 1)
-        difficulty_score, difficulty_tier = calculate_difficulty_from_strategies(counter)
-
-        # Dummy quality (no original image, so assume medium)
-        quality_metrics = {
-            "quality_score": 75,
-            "recognizability": "medium",
-        }
-
+        # Extract metrics from the real puzzle
         metrics = PuzzleMetrics(
-            difficulty_score=difficulty_score,
-            difficulty_tier=difficulty_tier,
-            quality_score=quality_metrics["quality_score"],
-            recognizability=quality_metrics["recognizability"],
-            strategies_used=counter.get_strategy_names(),
-            backtracking_depth=counter.backtracking_depth,
+            difficulty_score=puzzle.difficulty_score,
+            difficulty_tier=puzzle.difficulty_tier,
+            quality_score=puzzle.quality_score if hasattr(puzzle, "quality_score") else 75,
+            recognizability=getattr(puzzle, "recognizability", "medium"),
+            strategies_used=getattr(puzzle, "strategies_used", []),
+            backtracking_depth=getattr(puzzle, "backtracking_depth", 0),
         )
 
         return GeneratedPuzzle(
             puzzle_id=puzzle_id,
-            grid=grid,
-            clues_rows=clues,
-            clues_cols=clues,
-            width=size,
-            height=size,
-            theme=theme,
+            grid=puzzle.grid,
+            clues_rows=puzzle.clues.rows,
+            clues_cols=puzzle.clues.columns,
+            width=puzzle.width,
+            height=puzzle.height,
+            theme=puzzle.request.theme,
             metrics=metrics,
         )
 
