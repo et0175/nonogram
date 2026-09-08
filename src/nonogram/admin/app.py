@@ -28,6 +28,18 @@ def create_app(debug=None):
     app.config["DEBUG"] = debug
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-key-change-in-production")
     app.config["ENV"] = os.getenv("FLASK_ENV", "production" if not debug else "development")
+    app.config["SESSION_COOKIE_SECURE"] = False  # Allow localhost
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Chrome compatibility
+
+    # Add CORS and security headers for Chrome compatibility
+    @app.after_request
+    def add_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        return response
 
     puzzle_review = get_puzzle_review_service()
     batch_gen = get_batch_generator(puzzle_review_service=puzzle_review)
@@ -98,27 +110,37 @@ def create_app(debug=None):
 
     @app.route("/batch/from-images", methods=["POST"])
     def batch_from_images():
-        """Handle image uploads and store for preview."""
+        """Handle image uploads from both individual files and directories."""
         try:
-            # Get uploaded files
-            uploaded_files = request.files.getlist("image_files") or []
+            # Get uploaded files from both sources
+            individual_files = request.files.getlist("image_files") or []
+            directory_files = request.files.getlist("directory") or []
+            all_files = individual_files + directory_files
             quality_filter = int(request.form.get("quality_filter", 0))
 
             # Clear previous batch
             image_mgr = get_image_manager()
             image_mgr.clear_all()
 
-            if not uploaded_files or not any(f.filename for f in uploaded_files):
+            if not all_files or not any(f.filename for f in all_files):
                 flash("No images selected", "error")
                 return redirect(url_for("batch_select_images"))
 
+            # Valid image extensions
+            valid_extensions = {'.png', '.jpg', '.jpeg', '.gif'}
+
             # Process uploaded files
             processed_count = 0
-            for file in uploaded_files:
+            for file in all_files:
                 if file and file.filename:
+                    # Skip directories and invalid file types
+                    file_ext = Path(file.filename).suffix.lower()
+                    if not file_ext or file_ext not in valid_extensions:
+                        continue
+
                     try:
                         # Save to temp file
-                        temp_fd, temp_path = tempfile.mkstemp(suffix=Path(file.filename).suffix)
+                        temp_fd, temp_path = tempfile.mkstemp(suffix=file_ext)
                         os.close(temp_fd)
                         file.save(temp_path)
 
@@ -139,7 +161,7 @@ def create_app(debug=None):
             # Store quality filter in session
             session["batch_quality_filter"] = quality_filter
 
-            flash(f"Loaded {processed_count} image(s)", "success")
+            flash(f"Loaded {processed_count} image(s) from selected files/folder(s)", "success")
             return redirect(url_for("preview_batch_images"))
 
         except Exception as e:
