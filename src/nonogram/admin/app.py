@@ -290,14 +290,8 @@ def create_app(debug=None):
     @app.route("/batch/<batch_id>/generated-puzzles")
     def generated_puzzles(batch_id):
         """Display generated puzzles with SVG grids."""
-        puzzle_review = get_puzzle_review_service()
-
-        try:
-            # Get puzzles for this batch
-            all_puzzles = puzzle_review.get_all_puzzles() if hasattr(puzzle_review, 'get_all_puzzles') else []
-            puzzles = [p for p in all_puzzles if getattr(p, 'batch_id', None) == batch_id]
-        except Exception:
-            puzzles = []
+        # Get puzzles for this batch using batch_generator
+        puzzles = batch_gen.get_batch_puzzles(batch_id, offset=0, limit=100)
 
         if not puzzles:
             flash("No puzzles generated for this batch", "warning")
