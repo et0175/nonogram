@@ -574,18 +574,26 @@ def create_app(debug=None):
             return "Not found", 404
 
         try:
+            # Verify file exists
+            import os
+            if not os.path.exists(image.file_path):
+                return f"File not found: {image.file_path}", 404
+
             return send_file(
                 image.file_path,
                 mimetype=f"image/{image.format.lower()}",
             )
+        except FileNotFoundError:
+            return f"File missing: {image.file_path}", 404
         except Exception as e:
-            return f"Error: {str(e)}", 500
+            return f"Error loading image: {str(e)}", 500
 
     @app.route("/api/image/<file_id>/cropped")
     def api_get_cropped_image(file_id):
         """Serve cropped preview (what will be used for puzzle generation)."""
         import numpy as np
         from PIL import Image as PILImage
+        import os
         image_mgr = get_image_manager()
         image = image_mgr.get_image(file_id)
 
@@ -593,6 +601,10 @@ def create_app(debug=None):
             return "Not found", 404
 
         try:
+            # Verify file exists
+            if not os.path.exists(image.file_path):
+                return f"File not found: {image.file_path}", 404
+
             # Load and crop blank space around content
             img = PILImage.open(image.file_path).convert('L')
             arr = np.array(img)
@@ -711,14 +723,23 @@ def create_app(debug=None):
             # Get grid from puzzle (dict object)
             grid = puzzle.get('grid')
             if not grid:
-                return "No grid data", 500
+                return "No grid data stored", 500
+
+            # Validate grid format
+            if not isinstance(grid, list) or not grid or not isinstance(grid[0], list):
+                return "Invalid grid format", 500
 
             # Generate SVG
             svg = grid_to_svg(grid, cell_size=20)
+            if not svg:
+                return "Failed to generate SVG", 500
+
             return svg, 200, {"Content-Type": "image/svg+xml"}
 
+        except TypeError as e:
+            return f"Grid format error: {str(e)}", 500
         except Exception as e:
-            return f"Error: {str(e)}", 500
+            return f"Error generating grid: {str(e)}", 500
 
     @app.route("/api/puzzle/<puzzle_id>/grid/download")
     def api_puzzle_grid_download_from_puzzle(puzzle_id):
