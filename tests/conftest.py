@@ -7,7 +7,7 @@ from pathlib import Path
 # Local imports
 from nonogram.admin.app import create_app
 from nonogram.admin.puzzle_review import get_puzzle_review_service, MockGenerator, PuzzleReviewService
-from nonogram.admin.batch_generator import get_batch_generator
+from nonogram.admin.batch_generator import get_batch_generator, BatchGenerator
 
 
 def pytest_configure(config):
@@ -61,8 +61,9 @@ def puzzle_review_service():
 @pytest.fixture
 def batch_generator_service(puzzle_review_service):
     """Get batch generator service with puzzle review injected."""
-    # Create a fresh instance for each test
-    return get_batch_generator(puzzle_review_service=puzzle_review_service)
+    # Create a fresh instance for each test (not singleton)
+    # This avoids test pollution from batch jobs persisting across tests
+    return BatchGenerator(puzzle_review_service=puzzle_review_service)
 
 
 @pytest.fixture
