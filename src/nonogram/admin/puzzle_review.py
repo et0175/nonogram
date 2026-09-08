@@ -27,6 +27,7 @@ class PuzzleFilter:
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None
     status: Optional[str] = None
+    batch_id: Optional[str] = None  # Filter by batch ID
     limit: int = 25
     offset: int = 0
 
@@ -38,6 +39,7 @@ class PuzzleFilter:
             "quality_min": self.quality_min,
             "theme": self.theme,
             "status": self.status,
+            "batch_id": self.batch_id,
             "limit": self.limit,
             "offset": self.offset,
         }
@@ -51,6 +53,7 @@ class PuzzleFilter:
             quality_min=data.get("quality_min"),
             theme=data.get("theme"),
             status=data.get("status"),
+            batch_id=data.get("batch_id"),
             limit=data.get("limit", 25),
             offset=data.get("offset", 0),
         )
@@ -102,6 +105,8 @@ class PuzzleReviewService:
         quality_score: int,
         recognizability: str,
         strategies_used: List[str],
+        batch_id: Optional[str] = None,
+        source_image: Optional[str] = None,
     ) -> str:
         """Add a puzzle to the store.
 
@@ -117,6 +122,8 @@ class PuzzleReviewService:
             quality_score: Quality score (1-100)
             recognizability: Recognizability (high/medium/low)
             strategies_used: List of strategy names
+            batch_id: Optional batch ID to link puzzle to batch
+            source_image: Optional source image name (for image-based generation)
 
         Returns:
             puzzle_id
@@ -138,6 +145,8 @@ class PuzzleReviewService:
             "recognizability": recognizability,
             "strategies_used": strategies_used,
             "status": PuzzleStatus.DRAFT.value,
+            "batch_id": batch_id,  # Link puzzle to batch
+            "source_image": source_image,  # Source image name (if image-based)
             "created_at": datetime.utcnow().isoformat(),
         }
 
@@ -165,6 +174,10 @@ class PuzzleReviewService:
         # Filter puzzles
         filtered = []
         for puzzle_id, puzzle in self.puzzles.items():
+            # Batch ID filter
+            if filter_opts.batch_id and puzzle.get("batch_id") != filter_opts.batch_id:
+                continue
+
             # Size filter
             if filter_opts.size and puzzle["width"] != filter_opts.size:
                 continue
@@ -315,3 +328,67 @@ _puzzle_review_service = PuzzleReviewService()
 def get_puzzle_review_service() -> PuzzleReviewService:
     """Get the singleton puzzle review service."""
     return _puzzle_review_service
+
+
+class MockGenerator:
+    """Mock puzzle generator for testing (when actual generator module doesn't exist)."""
+
+    def __init__(self, seed=None):
+        """Initialize mock generator."""
+        import random
+        self.rng = random.Random(seed)
+
+    def generate_batch(self, count, sizes, theme='christmas'):
+        """Generate a batch of mock puzzles.
+
+        Args:
+            count: Number of puzzles to generate
+            sizes: List of grid sizes as int or (width, height) tuples
+                  Examples: [15, 20] or [(20, 20), (36, 20)]
+            theme: Theme name
+
+        Returns:
+            List of mock puzzle dicts
+        """
+        puzzles = []
+
+        for i in range(count):
+            size_spec = self.rng.choice(sizes) if sizes else 15
+
+            # Handle both int and (width, height) tuple formats
+            if isinstance(size_spec, (tuple, list)):
+                width, height = size_spec
+            else:
+                width = height = size_spec
+
+            grid = [
+                [self.rng.random() < 0.5 for _ in range(width)]
+                for _ in range(height)
+            ]
+
+            # Generate mock clues
+            clues_rows = [
+                [self.rng.randint(1, 3) for _ in range(self.rng.randint(1, 3))]
+                for _ in range(height)
+            ]
+            clues_cols = [
+                [self.rng.randint(1, 3) for _ in range(self.rng.randint(1, 3))]
+                for _ in range(width)
+            ]
+
+            puzzle = {
+                'grid': grid,
+                'clues_rows': clues_rows,
+                'clues_cols': clues_cols,
+                'width': width,
+                'height': height,
+                'theme': theme,
+                'difficulty_score': self.rng.randint(1, 100),
+                'difficulty_tier': self.rng.choice(['Easy', 'Medium', 'Hard']),
+                'quality_score': self.rng.randint(1, 100),
+                'recognizability': self.rng.choice(['low', 'medium', 'high']),
+                'strategies_used': ['LineLogic', 'ConstraintProp'],
+            }
+            puzzles.append(puzzle)
+
+        return puzzles

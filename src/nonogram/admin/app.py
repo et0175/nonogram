@@ -1,6 +1,6 @@
 """Flask admin panel application for nonogram puzzle management."""
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from datetime import datetime
 import json
 import os
@@ -9,6 +9,7 @@ from .batch_generator import get_batch_generator, BatchStatus
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
+from .image_manager import get_image_manager
 
 
 def create_app(debug=None):

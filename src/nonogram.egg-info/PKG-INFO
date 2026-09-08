@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: nonogram
+Version: 0.1.0
+Summary: Command-line generator for uniquely-solvable black-and-white nonogram puzzles.
+Author: Puzzle Creator
+Keywords: nonogram,puzzle,generator,cli
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python :: 3.9+
+Classifier: Topic :: Games/Entertainment :: Puzzle Games
+Requires-Python: >=3.9
+Requires-Dist: Pillow>=10.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: reportlab>=4.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+Provides-Extra: admin
+Requires-Dist: Flask>=3.0; extra == "admin"
