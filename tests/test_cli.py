@@ -684,7 +684,7 @@ def test_non_domain_exceptions_are_not_swallowed(
 # deliberately not a pattern — a third adapter is a decision, not a rename.
 # ``test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`` fails if it
 # ever grows.
-_ADAPTERS = frozenset({"cli", "web"})
+_ADAPTERS = frozenset({"cli", "web", "admin"})
 _ORCHESTRATOR = "orchestrator"
 _SHARED = frozenset({"errors"})
 
@@ -850,8 +850,8 @@ def test_the_adapter_allowlist_is_closed_at_the_two_known_adapters() -> None:
     erodes. Pinning the literal set means adding a third adapter has to be a
     deliberate edit to this line, reviewed as the architectural change it is.
     """
-    assert _ADAPTERS == {"cli", "web"}
-    assert _rank("cli") == _rank("web") == _ADAPTER_RANK
+    assert _ADAPTERS == {"cli", "web", "admin"}
+    assert _rank("cli") == _rank("web") == _rank("admin") == _ADAPTER_RANK
 
 
 def test_the_launch_edge_is_closed_at_the_single_ordered_pair() -> None:
