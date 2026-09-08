@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "prd-v05-technical-stack-selection",
+  "owner": "mattgierhart",
+  "repo": "prd-driven-context-engineering",
+  "path": ".claude/skills/prd-v05-technical-stack-selection",
+  "branch": "main",
+  "sha": "576b57e2d3961ae6febfdc273692863814a5c8df",
+  "source": "manual"
+}

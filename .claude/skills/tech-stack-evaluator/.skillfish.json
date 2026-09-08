@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "tech-stack-evaluator",
+  "owner": "matteocervelli",
+  "repo": "llms",
+  "path": ".archive/claude-v1/skills/tech-stack-evaluator",
+  "branch": "main",
+  "sha": "17b85bae02cd1131df6d378565cc7393bb173895",
+  "source": "manual"
+}
