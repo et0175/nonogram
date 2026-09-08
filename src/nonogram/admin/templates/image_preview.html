@@ -51,10 +51,11 @@
                             <div class="card-body">
                                 <!-- Image Preview -->
                                 <div class="image-preview-box mb-3">
-                                    <img src="/api/image/{{ image.file_id }}"
-                                         alt="{{ image.original_filename }}"
-                                         class="preview-img"
-                                         onerror="this.parentElement.innerHTML='📷<div class=dimensions>{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>'">
+                                    <div class="placeholder-content">
+                                        <div class="preview-icon">🖼️</div>
+                                        <div class="preview-dims">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>
+                                        <div class="preview-format">{{ image.format }}</div>
+                                    </div>
                                 </div>
 
                                 <!-- Image Name -->
@@ -178,8 +179,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border: 2px dashed #b0bec5;
     border-radius: 8px;
     font-size: 2rem;
     overflow: hidden;
@@ -189,6 +190,33 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.placeholder-content {
+    text-align: center;
+    color: #555;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.preview-icon {
+    font-size: 3rem;
+}
+
+.preview-dims {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #333;
+    letter-spacing: 0.5px;
+}
+
+.preview-format {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .placeholder {

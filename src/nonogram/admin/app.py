@@ -107,9 +107,8 @@ def create_app(debug=None):
         try:
             quality_filter = int(request.form.get("quality_filter", 0))
 
-            # Get image manager and clear previous selections
+            # Get image manager
             image_mgr = get_image_manager()
-            image_mgr.clear_all()
 
             # Store quality filter in session
             session["quality_filter"] = quality_filter
@@ -130,6 +129,9 @@ def create_app(debug=None):
             if not all_files or all(not f.filename for f in all_files):
                 flash("Please select at least one image file or directory", "error")
                 return redirect(url_for("create_batch"))
+
+            # Only clear previous selections if new files are being uploaded
+            image_mgr.clear_all()
 
             # Process all files
             import tempfile
