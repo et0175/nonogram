@@ -1,0 +1,95 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+commands:
+  - id: CMD-001
+    name: GenerateRandomGrid
+    actor: ACT-001
+    target_aggregate: AGG-001
+    preconditions: []
+    produces: [EVT-001]
+    source: [US-001, US-008]
+  - id: CMD-002
+    name: GenerateGridFromLibraryImage
+    actor: ACT-001
+    target_aggregate: AGG-001
+    preconditions: []
+    produces: [EVT-002]
+    source: [US-002, US-008]
+  - id: CMD-003
+    name: ConvertUploadedImage
+    actor: ACT-001
+    target_aggregate: AGG-001
+    preconditions: []
+    produces: [EVT-003]
+    source: [US-003, US-008]
+  - id: CMD-004
+    name: ComputeClues
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: []
+    produces: [EVT-004]
+    source: [US-004]
+  - id: CMD-005
+    name: CheckUniqueness
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-001]
+    produces: [EVT-005, EVT-006]
+    source: [US-005]
+  - id: CMD-006
+    name: RegeneratePuzzle
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-003]
+    produces: [EVT-007]
+    source: [US-006]
+  - id: CMD-007
+    name: AdjustImagePixels
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-003]
+    produces: [EVT-008]
+    source: [US-007]
+  - id: CMD-008
+    name: ReportImageConversionFailure
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-003]
+    produces: [EVT-009]
+    source: [US-007]
+  - id: CMD-009
+    name: ScoreDifficulty
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-002]
+    produces: [EVT-010]
+    source: [US-008]
+  - id: CMD-010
+    name: ResamplePuzzleForDifficulty
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-003]
+    produces: [EVT-011]
+    source: [US-008]
+  - id: CMD-011
+    name: AbandonGeneration
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-003]
+    produces: [EVT-012]
+    source: [US-006, US-007, US-008]
+  - id: CMD-012
+    name: ExportPuzzleAsImage
+    actor: ACT-001
+    target_aggregate: AGG-001
+    preconditions: [INV-002]
+    produces: [EVT-013]
+    source: [US-009]
+  - id: CMD-013
+    name: ExportPuzzleAsData
+    actor: ACT-001
+    target_aggregate: AGG-001
+    preconditions: [INV-002]
+    produces: [EVT-014]
+    source: [US-010]

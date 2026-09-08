@@ -1,0 +1,65 @@
+# generated_by: forge:architect-context-mapping
+# generated_at: 2026-08-27
+# tier: medium
+#
+# Single-context outcome (deliberate, not a default): all 5 capabilities
+# (CAP-001..CAP-005) act on the single aggregate AGG-001 (Puzzle), and its
+# invariants are cross-cutting by design —
+#   INV-001 (clues == RLE of current grid) ties sourcing to clue derivation,
+#   INV-002 (export gated on uniqueness confirmation) ties uniqueness to
+#     export,
+#   INV-003 (retry/nudge counter bound) is one counter shared across
+#     regenerate, resample, and pixel-nudge recovery.
+# Per context-mapping rule "one aggregate belongs to exactly one context",
+# and since AGG-001 is the only aggregate and every capability targets it,
+# splitting capabilities across contexts here would require splitting the
+# aggregate itself — which the domain model (aggregates.yml) already
+# rejected by modeling one Puzzle spanning the whole
+# sourcing -> clues -> uniqueness -> difficulty -> export lifecycle.
+#
+# Candidate technical seams considered and rejected as bounded-context
+# boundaries (kept as internal module seams within CTX-001, not surfaced
+# as a DEC since no context boundary was actually found):
+#   - image conversion/dithering (CAP-001, image mode) vs. random/library
+#     sourcing: same capability (CAP-001), same aggregate, same lifecycle
+#     stage; differs only in acquisition technique, not language or
+#     ownership.
+#   - the solver (uniqueness check, CAP-003) vs. difficulty scoring
+#     (CAP-004): both consume the same solver run's signals
+#     (solution_count, line_logic_coverage, backtracking_amount,
+#     solver_time) against the same candidate grid; splitting them would
+#     force two contexts to co-own one solver invocation mid-flight.
+#   - export formats (CAP-005, image vs. data) vs. the rest: gated by
+#     INV-002 on the same aggregate; PNG/SVG/JSON/CSV are four renderings
+#     of one finalized Puzzle, not an independently-evolving domain.
+# No language split either: every glossary term (TERM-001..TERM-008) is
+# marked context: shared with one meaning throughout.
+# No external systems (external_systems.yml: none) and a single human
+# actor (ACT-001) plus one internal-automation actor (ACT-002, same
+# process) — no organizational/team boundary signal exists to draw on.
+#
+# This is the "monolith pattern... valid for small systems" case named in
+# the skill's pitfalls, applied here deliberately rather than by default:
+# tier is medium (this phase was not skipped), and the single-context
+# call was reached by ruling out every boundary signal, not by skipping
+# the analysis.
+
+contexts:
+  - id: CTX-001
+    name: Puzzle Creation
+    description: >-
+      The whole nonogram puzzle-generation pipeline for a single CLI run:
+      obtaining a solution grid (random / built-in library / uploaded
+      image), deriving row/column clues, verifying and recovering
+      uniqueness, calibrating difficulty, and exporting the finalized
+      puzzle as images or structured data. One ubiquitous language, one
+      aggregate (Puzzle), one lifecycle, one owner (the tool itself, run
+      by its single human actor).
+    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
+    aggregates: [AGG-001]
+    ubiquitous_language:
+      [TERM-001, TERM-002, TERM-003, TERM-004, TERM-005, TERM-006, TERM-007, TERM-008]
+
+# No context_map: a single context with no other contexts and no external
+# systems (external_systems.yml: []) has nothing to integrate with.
+context_map: []

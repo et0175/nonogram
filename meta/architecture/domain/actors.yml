@@ -1,0 +1,23 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# tier: medium
+actors:
+  - id: ACT-001
+    name: PuzzleCreator
+    type: human
+    description: >-
+      The developer/user running the CLI. Chooses generation mode (random,
+      built-in library, or uploaded image), grid size, density, and
+      difficulty; triggers export. The single human actor for this tool
+      (see meta/business/vision.md Primary actor).
+  - id: ACT-002
+    name: System
+    type: system
+    description: >-
+      The tool's own internal automation: the solver, the difficulty
+      scorer, and the regenerate/resample/pixel-nudge recovery loop. Issues
+      commands in reaction to policies (POL-001..POL-005) rather than
+      direct human input. Not an external system — this is the same local
+      process, modeled as an actor because it initiates commands the human
+      does not (see extraction-heuristics.md "periodic action" /
+      "compensation" patterns).
