@@ -284,10 +284,10 @@ def create_app(debug=None):
                         from nonogram.admin.puzzle_review import MockGenerator
 
                         generator = MockGenerator(seed=hash(image.file_id) % 999999)
-                        size = image.predict_size()
+                        size = image.predict_size()  # Returns (width, height) tuple
                         puzzles = generator.generate_batch(
                             count=1,
-                            sizes=[size],
+                            sizes=[size],  # Pass tuple to generator
                             theme="christmas",
                         )
 

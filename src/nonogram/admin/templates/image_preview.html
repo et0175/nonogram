@@ -97,8 +97,9 @@
                                 <div class="alert alert-info mb-0">
                                     <strong>Predicted Output:</strong>
                                     <div class="text-center mt-2">
+                                        {% set dims = image.predict_size() %}
                                         <code id="preview_{{ image.file_id }}">
-                                            {{ image.predict_size() }}×{{ image.predict_size() }}
+                                            {{ dims[0] }}×{{ dims[1] }}
                                         </code>
                                         <div class="small mt-1">puzzle grid size</div>
                                     </div>

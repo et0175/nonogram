@@ -343,7 +343,8 @@ class MockGenerator:
 
         Args:
             count: Number of puzzles to generate
-            sizes: List of grid sizes (e.g., [15, 20])
+            sizes: List of grid sizes as int or (width, height) tuples
+                  Examples: [15, 20] or [(20, 20), (36, 20)]
             theme: Theme name
 
         Returns:
@@ -352,28 +353,35 @@ class MockGenerator:
         puzzles = []
 
         for i in range(count):
-            size = self.rng.choice(sizes) if sizes else 15
+            size_spec = self.rng.choice(sizes) if sizes else 15
+
+            # Handle both int and (width, height) tuple formats
+            if isinstance(size_spec, (tuple, list)):
+                width, height = size_spec
+            else:
+                width = height = size_spec
+
             grid = [
-                [self.rng.random() < 0.5 for _ in range(size)]
-                for _ in range(size)
+                [self.rng.random() < 0.5 for _ in range(width)]
+                for _ in range(height)
             ]
 
             # Generate mock clues
             clues_rows = [
                 [self.rng.randint(1, 3) for _ in range(self.rng.randint(1, 3))]
-                for _ in range(size)
+                for _ in range(height)
             ]
             clues_cols = [
                 [self.rng.randint(1, 3) for _ in range(self.rng.randint(1, 3))]
-                for _ in range(size)
+                for _ in range(width)
             ]
 
             puzzle = {
                 'grid': grid,
                 'clues_rows': clues_rows,
                 'clues_cols': clues_cols,
-                'width': size,
-                'height': size,
+                'width': width,
+                'height': height,
                 'theme': theme,
                 'difficulty_score': self.rng.randint(1, 100),
                 'difficulty_tier': self.rng.choice(['Easy', 'Medium', 'Hard']),

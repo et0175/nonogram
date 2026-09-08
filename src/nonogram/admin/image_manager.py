@@ -39,31 +39,62 @@ class ImageFile:
             # Use filename without extension
             self.puzzle_name = Path(self.original_filename).stem
 
-    def predict_size(self) -> int:
-        """Predict puzzle size based on mode and image dimensions."""
-        width, height = self.dimensions
+    def predict_size(self) -> tuple:
+        """Predict puzzle (width, height) respecting image aspect ratio.
 
-        # Min size: smallest readable (constraint: at least 10)
-        min_size = 10
+        Size value applies to the MINIMUM dimension.
+        Other dimension is calculated from aspect ratio.
+        Both dimensions are clamped to 10-30 range.
 
-        # Max size: largest that preserves quality
-        # Rule: at least 2 pixels per cell (pixel_per_cell >= 2)
-        max_pixel_per_cell = 2
-        max_size = min(
-            width // max_pixel_per_cell,
-            height // max_pixel_per_cell,
-            30,  # Absolute max
-        )
+        Returns:
+            (width, height) tuple
+        """
+        img_width, img_height = self.dimensions
+        aspect_ratio = img_width / img_height
 
-        if self.size_mode == "min":
-            return max(min_size, max_size - 5)  # Slightly smaller than max
+        # Calculate minimum dimension size
+        min_grid_size = 10  # Absolute minimum
+        max_grid_size = 30  # Absolute maximum
+
+        # Determine minimum dimension based on mode
+        if self.size_mode == "fixed":
+            min_dimension = self.size_value
         elif self.size_mode == "max":
-            return max_size
-        else:  # fixed
-            return self.size_value
+            # Largest size that preserves quality (2 pixels per cell)
+            max_possible = min(
+                img_width // 2,
+                img_height // 2,
+                max_grid_size,
+            )
+            min_dimension = max_possible
+        else:  # min mode
+            # Smallest readable size
+            max_possible = min(
+                img_width // 2,
+                img_height // 2,
+                max_grid_size,
+            )
+            min_dimension = max(min_grid_size, max_possible - 5)
+
+        # Calculate other dimension from aspect ratio
+        if img_width >= img_height:  # Landscape or square
+            # Width is larger or equal
+            width = int(min_dimension * aspect_ratio)
+            height = min_dimension
+        else:  # Portrait
+            # Height is larger
+            width = min_dimension
+            height = int(min_dimension / aspect_ratio)
+
+        # Clamp both dimensions to valid range
+        width = max(min_grid_size, min(width, max_grid_size))
+        height = max(min_grid_size, min(height, max_grid_size))
+
+        return (width, height)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
+        width, height = self.predict_size()
         return {
             "file_id": self.file_id,
             "filename": self.filename,
@@ -75,7 +106,8 @@ class ImageFile:
             "puzzle_name": self.puzzle_name,
             "size_mode": self.size_mode,
             "size_value": self.size_value,
-            "predicted_size": self.predict_size(),
+            "predicted_width": width,
+            "predicted_height": height,
         }
 
 
