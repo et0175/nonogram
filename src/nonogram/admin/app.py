@@ -211,7 +211,7 @@ def create_app(debug=None):
                 count=len(images),
                 sizes=[20],
                 theme="image",
-                source="image",
+                source="images",  # Use "images" not "image"
                 quality_filter=session.get("batch_quality_filter", 0),
             )
 
