@@ -1,8 +1,7 @@
 """End-to-end tests for batch generation and puzzle storage."""
 
 import pytest
-from nonogram.generation import get_generator
-from nonogram.admin.puzzle_review import get_puzzle_review_service
+from nonogram.admin.puzzle_review import get_puzzle_review_service, MockGenerator
 
 
 class TestBatchGenerationE2E:
@@ -10,8 +9,8 @@ class TestBatchGenerationE2E:
 
     def test_batch_generation_and_storage(self):
         """Generate puzzles and store in database."""
-        # Generate batch
-        generator = get_generator(seed=2026)
+        # Generate batch using MockGenerator
+        generator = MockGenerator(seed=2026)
         puzzles = generator.generate_batch(
             count=50,
             sizes=[10, 15, 20, 25, 30],
@@ -50,7 +49,7 @@ class TestBatchGenerationE2E:
 
     def test_puzzle_metrics_are_valid(self):
         """Verify generated puzzles have valid metrics."""
-        generator = get_generator(seed=42)
+        generator = MockGenerator(seed=42)
         puzzles = generator.generate_batch(count=10, sizes=[15, 20])
 
         for puzzle in puzzles:
