@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Preview Images - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Batch: Preview Images & Select Sizes</h1>
+        <p class="text-muted">Configure puzzle size for each image (Fixed, Min, or Max)</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Images with Size Configuration</h5>
+            </div>
+            <div class="card-body">
+                <!-- Global Size Controls -->
+                <div class="mb-4 p-3 bg-light border rounded">
+                    <h6 class="mb-3">Apply size to all images:</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <select class="form-select" id="globalSizeMode" onchange="updateGlobalSize()">
+                                <option value="fixed">Fixed Size</option>
+                                <option value="min">Minimum Size</option>
+                                <option value="max">Maximum Size</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div id="globalFixedSection">
+                                <input type="number" class="form-control" id="globalSizeValue"
+                                       min="10" max="30" value="20" onchange="updateGlobalSize()">
+                                <small class="form-text text-muted">10-30</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-secondary w-100" onclick="applyToAll()">
+                                Apply to All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Individual Image Controls -->
+                <div class="row">
+                    {% for image in images %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card border">
+                            <div class="card-body">
+                                <!-- Image Preview -->
+                                <div class="image-preview-box mb-3">
+                                    <div class="placeholder">
+                                        📷
+                                        <div class="dimensions">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Image Name -->
+                                <div class="mb-3">
+                                    <label class="form-label">Puzzle Name</label>
+                                    <input type="text" class="form-control"
+                                           id="name_{{ image.file_id }}"
+                                           value="{{ image.puzzle_name }}"
+                                           onchange="updateName('{{ image.file_id }}')">
+                                    <small class="form-text text-muted">(default: {{ image.original_filename|replace('.' + image.original_filename.split('.')[-1], '') }})</small>
+                                </div>
+
+                                <!-- Size Selection -->
+                                <div class="mb-3">
+                                    <label class="form-label">Puzzle Size</label>
+                                    <select class="form-select" id="mode_{{ image.file_id }}"
+                                            onchange="updateSize('{{ image.file_id }}')">
+                                        <option value="fixed">Fixed Size</option>
+                                        <option value="min">Minimum Size (auto)</option>
+                                        <option value="max">Maximum Size (auto)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Fixed Size Input -->
+                                <div class="mb-3" id="fixedSection_{{ image.file_id }}">
+                                    <label class="form-label">Size Value</label>
+                                    <input type="number" class="form-control"
+                                           id="value_{{ image.file_id }}"
+                                           min="10" max="30" value="{{ image.size_value }}"
+                                           onchange="updateSize('{{ image.file_id }}')">
+                                    <small class="form-text text-muted">10-30 pixels</small>
+                                </div>
+
+                                <!-- Size Preview -->
+                                <div class="alert alert-info mb-0">
+                                    <strong>Predicted Output:</strong>
+                                    <div class="text-center mt-2">
+                                        <code id="preview_{{ image.file_id }}">
+                                            {{ image.predict_size() }}×{{ image.predict_size() }}
+                                        </code>
+                                        <div class="small mt-1">puzzle grid size</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Summary</h5>
+            </div>
+            <div class="card-body">
+                <strong>Images:</strong><br>
+                <span class="badge bg-primary">{{ images|length }}</span>
+
+                <hr>
+
+                <strong>Total Data:</strong><br>
+                {{ total_size_mb|round(2) }} MB
+
+                <hr>
+
+                <strong>Size Modes:</strong><br>
+                <small>
+                    <strong>Fixed:</strong> Set exact size<br>
+                    <strong>Min:</strong> Smallest readable<br>
+                    <strong>Max:</strong> Best quality
+                </small>
+
+                <hr>
+
+                <div class="alert alert-light text-center mb-0">
+                    <small class="text-muted">
+                        Next: Generate puzzles from images
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Navigation</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="generateBatch()">
+                        ➡️ Generate Puzzles
+                    </button>
+                    <a href="/batch/select-images" class="btn btn-outline-secondary">
+                        ◄ Back to Images
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.image-preview-box {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 2rem;
+}
+
+.placeholder {
+    text-align: center;
+}
+
+.dimensions {
+    font-size: 0.65rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+#globalFixedSection.hidden {
+    display: none;
+}
+</style>
+
+<script>
+function updateGlobalSize() {
+    const mode = document.getElementById('globalSizeMode').value;
+    const fixedSection = document.getElementById('globalFixedSection');
+
+    if (mode === 'fixed') {
+        fixedSection.classList.remove('hidden');
+    } else {
+        fixedSection.classList.add('hidden');
+    }
+}
+
+function updateSize(fileId) {
+    const mode = document.getElementById('mode_' + fileId).value;
+    const value = document.getElementById('value_' + fileId).value;
+    const fixedSection = document.getElementById('fixedSection_' + fileId);
+
+    // Show/hide fixed size input based on mode
+    if (mode === 'fixed') {
+        fixedSection.style.display = 'block';
+    } else {
+        fixedSection.style.display = 'none';
+    }
+
+    // TODO: CARD-004q - Update preview with API call
+    // For now, just predict locally
+    predictSize(fileId, mode, parseInt(value));
+}
+
+function updateName(fileId) {
+    const name = document.getElementById('name_' + fileId).value;
+    // TODO: CARD-004q - Save puzzle name via API
+    console.log('Updated name for', fileId, ':', name);
+}
+
+function predictSize(fileId, mode, value) {
+    // TODO: CARD-004q - Get prediction from backend
+    // For now, this is a placeholder
+    console.log('Predicting size for', fileId, 'mode:', mode, 'value:', value);
+}
+
+function applyToAll() {
+    const mode = document.getElementById('globalSizeMode').value;
+    const value = document.getElementById('globalSizeValue').value;
+
+    // TODO: CARD-004q - Apply size to all images via API
+    alert('TODO: Apply ' + mode + ' size to all images');
+}
+
+function generateBatch() {
+    // TODO: CARD-004r - Redirect to generation
+    alert('TODO: Generate puzzles from images');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateGlobalSize();
+
+    // Initialize individual controls
+    document.querySelectorAll('[id^="mode_"]').forEach(el => {
+        const fileId = el.id.replace('mode_', '');
+        const mode = el.value;
+        const fixedSection = document.getElementById('fixedSection_' + fileId);
+        if (mode !== 'fixed') {
+            fixedSection.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -204,6 +204,32 @@ def create_app(debug=None):
             image_ids=",".join(img.file_id for img in images),
         )
 
+    @app.route("/batch/preview-images", methods=["GET", "POST"])
+    def preview_images():
+        """Preview and configure image sizes (CARD-004q)."""
+        image_mgr = get_image_manager()
+        images = image_mgr.get_all_images()
+
+        if not images:
+            flash("No images to preview. Please select images first.", "warning")
+            return redirect(url_for("create_batch"))
+
+        if request.method == "POST":
+            # TODO: CARD-004q - Handle size configuration updates
+            # For now, just redirect to next step
+            flash("TODO: Save size configuration and redirect to generation", "info")
+            return render_template(
+                "image_preview.html",
+                images=images,
+                total_size_mb=image_mgr.get_total_size_mb(),
+            )
+
+        return render_template(
+            "image_preview.html",
+            images=images,
+            total_size_mb=image_mgr.get_total_size_mb(),
+        )
+
     @app.route("/batch/<batch_id>")
     def batch_status(batch_id):
         """View batch status and puzzles."""

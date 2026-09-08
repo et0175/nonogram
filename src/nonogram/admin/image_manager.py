@@ -29,6 +29,38 @@ class ImageFile:
     dimensions: tuple  # (width, height)
     format: str  # PNG, JPG, GIF
     uploaded_at: datetime
+    puzzle_name: str = ""  # Name for generated puzzle (default: filename without ext)
+    size_mode: str = "fixed"  # fixed, min, max
+    size_value: int = 20  # For fixed mode
+
+    def __post_init__(self):
+        """Set default puzzle name from filename."""
+        if not self.puzzle_name:
+            # Use filename without extension
+            self.puzzle_name = Path(self.original_filename).stem
+
+    def predict_size(self) -> int:
+        """Predict puzzle size based on mode and image dimensions."""
+        width, height = self.dimensions
+
+        # Min size: smallest readable (constraint: at least 10)
+        min_size = 10
+
+        # Max size: largest that preserves quality
+        # Rule: at least 2 pixels per cell (pixel_per_cell >= 2)
+        max_pixel_per_cell = 2
+        max_size = min(
+            width // max_pixel_per_cell,
+            height // max_pixel_per_cell,
+            30,  # Absolute max
+        )
+
+        if self.size_mode == "min":
+            return max(min_size, max_size - 5)  # Slightly smaller than max
+        elif self.size_mode == "max":
+            return max_size
+        else:  # fixed
+            return self.size_value
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -40,6 +72,10 @@ class ImageFile:
             "dimensions": self.dimensions,
             "format": self.format,
             "uploaded_at": self.uploaded_at.isoformat(),
+            "puzzle_name": self.puzzle_name,
+            "size_mode": self.size_mode,
+            "size_value": self.size_value,
+            "predicted_size": self.predict_size(),
         }
 
 
@@ -222,6 +258,61 @@ class ImageManager:
             "total_size_mb": self.get_total_size_mb(),
             "images": [img.to_dict() for img in self.get_all_images()],
         }
+
+    def update_image_size(self, file_id: str, size_mode: str, size_value: int = 20) -> bool:
+        """Update size configuration for an image.
+
+        Args:
+            file_id: Image ID
+            size_mode: "fixed", "min", or "max"
+            size_value: Size value for "fixed" mode (10-30)
+
+        Returns:
+            True if updated, False if not found
+        """
+        if file_id not in self.images:
+            return False
+
+        image = self.images[file_id]
+        image.size_mode = size_mode
+        if size_mode == "fixed":
+            # Validate size_value
+            if 10 <= size_value <= 30:
+                image.size_value = size_value
+        return True
+
+    def update_image_name(self, file_id: str, puzzle_name: str) -> bool:
+        """Update puzzle name for an image.
+
+        Args:
+            file_id: Image ID
+            puzzle_name: New puzzle name
+
+        Returns:
+            True if updated, False if not found
+        """
+        if file_id not in self.images:
+            return False
+
+        image = self.images[file_id]
+        image.puzzle_name = puzzle_name
+        return True
+
+    def apply_size_to_all(self, size_mode: str, size_value: int = 20) -> int:
+        """Apply same size configuration to all images.
+
+        Args:
+            size_mode: "fixed", "min", or "max"
+            size_value: Size value for "fixed" mode
+
+        Returns:
+            Number of images updated
+        """
+        count = 0
+        for file_id in self.images.keys():
+            if self.update_image_size(file_id, size_mode, size_value):
+                count += 1
+        return count
 
 
 # Global image manager instance for session
