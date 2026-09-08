@@ -190,6 +190,15 @@ def create_app(debug=None):
 
         if request.method == "POST":
             try:
+                # Validate image count before processing
+                if len(images) < 1 or len(images) > 200:
+                    flash(f"❌ Invalid image count: {len(images)}. Must be 1-200 images.", "error")
+                    return render_template(
+                        "image_preview.html",
+                        images=images,
+                        total_size_mb=image_mgr.get_total_size_mb(),
+                    )
+
                 # Update configuration for each image
                 for image in images:
                     file_id = image.file_id
@@ -206,6 +215,11 @@ def create_app(debug=None):
 
             except ValueError as e:
                 flash(f"Configuration error: {str(e)}", "error")
+                return render_template(
+                    "image_preview.html",
+                    images=images,
+                    total_size_mb=image_mgr.get_total_size_mb(),
+                )
 
         # Get stats for display
         total_size_mb = image_mgr.get_total_size_mb()
@@ -310,9 +324,23 @@ def create_app(debug=None):
 
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
+        except ValueError as e:
+            # Handle validation errors with helpful message
+            error_msg = str(e)
+            if "must be" in error_msg.lower():
+                flash(f"❌ {error_msg}", "error")
+            else:
+                flash(f"❌ Generation failed: {error_msg}", "error")
+            return render_template(
+                "generate_batch.html",
+                images=images,
+            )
         except Exception as e:
-            flash(f"Error: {str(e)}", "error")
-            return redirect(url_for("preview_batch_images"))
+            flash(f"❌ Unexpected error: {str(e)}", "error")
+            return render_template(
+                "generate_batch.html",
+                images=images,
+            )
 
     @app.route("/batch/<batch_id>/generated-puzzles")
     def generated_puzzles(batch_id):

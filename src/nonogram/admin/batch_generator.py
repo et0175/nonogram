@@ -118,7 +118,7 @@ class BatchGenerator:
         """Create and start a batch generation job.
 
         Args:
-            count: Number of puzzles to generate (10-200, or 50-200 for production)
+            count: Number of puzzles to generate (1-200 for images, 10-200 for random)
             sizes: List of sizes to use (e.g., [10, 20, 30])
             theme: Puzzle theme (e.g., 'christmas')
             source: Generation source ('random' or 'images')
@@ -130,9 +130,15 @@ class BatchGenerator:
         Raises:
             ValueError: If parameters invalid
         """
-        # Validate (allow 10+ for testing, 50+ for production)
-        if not 10 <= count <= 200:
-            raise ValueError(f"Count must be 10-200, got {count}")
+        # Validate count based on source
+        # Images: allow 1-200 (count = number of images)
+        # Random: require 10-200 (count = number to generate)
+        if source == "images":
+            if not 1 <= count <= 200:
+                raise ValueError(f"Image batch count must be 1-200, got {count}")
+        else:
+            if not 10 <= count <= 200:
+                raise ValueError(f"Random batch count must be 10-200, got {count}")
         if not sizes or not all(10 <= s <= 30 for s in sizes):
             raise ValueError(f"Sizes must be 10-30, got {sizes}")
         if source not in ("random", "images"):
