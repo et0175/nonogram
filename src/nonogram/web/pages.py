@@ -380,6 +380,36 @@ details > div {
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+
+[data-outcome="success"] {
+  background-color: #d4edda;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #28a745;
+  color: #155724;
+}
+
+[data-outcome="failure"] {
+  background-color: #f8d7da;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #dc3545;
+  color: #721c24;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-outcome="success"] {
+    background-color: #1e4620;
+    border-left-color: #51cf66;
+    color: #a6e22e;
+  }
+
+  [data-outcome="failure"] {
+    background-color: #4a1c1c;
+    border-left-color: #ff6b6b;
+    color: #ff8a8a;
+  }
+}
 """
 
 #: The form page. Every field is named for the ``GenerationRequest`` field it
@@ -413,12 +443,26 @@ FORM_PAGE = f"""<!DOCTYPE html>
 <meta charset="utf-8">
 <title>nonogram</title>
 <style>{_STYLE}</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {{
+  const form = document.querySelector('form');
+  if (form) {{
+    form.addEventListener('submit', function() {{
+      const resultContainer = document.querySelector('[data-result-container]');
+      if (resultContainer) {{
+        resultContainer.innerHTML = '';
+      }}
+    }});
+  }}
+}});
+</script>
 </head>
 <body>
 <h1>nonogram</h1>
 <p>Generate a uniquely-solvable black-and-white nonogram from an image you upload.
 The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
+<div data-result-container="true"></div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <div class="form-section">
     <h3>Image</h3>
@@ -764,13 +808,28 @@ def form_with_result(
 <meta charset="utf-8">
 <title>nonogram</title>
 <style>{_STYLE}</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {{
+  const form = document.querySelector('form');
+  if (form) {{
+    form.addEventListener('submit', function() {{
+      const resultContainer = document.querySelector('[data-result-container]');
+      if (resultContainer) {{
+        resultContainer.innerHTML = '';
+      }}
+    }});
+  }}
+}});
+</script>
 </head>
 <body>
 <h1>nonogram</h1>
 <p>Generate a uniquely-solvable black-and-white nonogram from an image you upload.
 The same options the <code>nonogram generate --mode image</code> command takes;
 the same pipeline behind them.</p>
+<div data-result-container="true">
 {result_html}
+</div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
   <div class="form-section">
     <h3>Image</h3>

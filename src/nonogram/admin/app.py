@@ -64,30 +64,75 @@ def create_app(debug=None):
 
     @app.route("/batch/create", methods=["GET", "POST"])
     def create_batch():
-        """Create a new batch generation job."""
+        """Create a new batch generation job from images."""
         if request.method == "POST":
             try:
-                count = int(request.form.get("count", 100))
-                sizes = [int(s) for s in request.form.get("sizes", "20").split(",")]
-                theme = request.form.get("theme", "christmas")
-                source = request.form.get("source", "random")
+                image_source = request.form.get("image_source")
                 quality_filter = int(request.form.get("quality_filter", 0))
 
-                batch_id = batch_gen.create_batch(
-                    count=count,
-                    sizes=sizes,
-                    theme=theme,
-                    source=source,
-                    quality_filter=quality_filter,
-                )
+                if not image_source:
+                    flash("Please select image source (upload or directory)", "error")
+                    return render_template("batch_create.html")
 
-                flash(f"Batch created: {batch_id}", "success")
-                return redirect(url_for("batch_status", batch_id=batch_id))
+                # Handle file uploads or directory selection
+                if image_source == "upload":
+                    if "images" not in request.files or len(request.files.getlist("images")) == 0:
+                        flash("Please select at least one image", "error")
+                        return render_template("batch_create.html")
+                    # Store uploaded files in session for next step
+                    # TODO: Save to temporary location and redirect to image selection page
+                    flash("Image upload - TODO: Implement CARD-004p (image selection page)", "warning")
+
+                elif image_source == "directory":
+                    if "directory" not in request.files or len(request.files.getlist("directory")) == 0:
+                        flash("Please select a directory with images", "error")
+                        return render_template("batch_create.html")
+                    # TODO: Handle directory selection
+                    flash("Directory selection - TODO: Implement CARD-004p (image selection page)", "warning")
+
+                # TODO: After images are processed, redirect to /batch/select-images
+                # For now, show placeholder message
+                return render_template("batch_create.html")
 
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")
 
         return render_template("batch_create.html")
+
+    @app.route("/batch/from-images", methods=["POST"])
+    def create_batch_from_images():
+        """Handle image-based batch creation (from simplified form)."""
+        # This route is called from the new image-based batch creation form
+        # It will redirect to the image selection page (CARD-004p)
+        try:
+            image_source = request.form.get("image_source")
+            quality_filter = int(request.form.get("quality_filter", 0))
+
+            if not image_source:
+                flash("Please select image source", "error")
+                return redirect(url_for("create_batch"))
+
+            if image_source == "upload":
+                if "images" not in request.files or len(request.files.getlist("images")) == 0:
+                    flash("Please select at least one image", "error")
+                    return redirect(url_for("create_batch"))
+
+                # TODO: CARD-004p - Store images and redirect to image selection page
+                flash("TODO: Implement CARD-004p - image selection and upload", "warning")
+                return redirect(url_for("create_batch"))
+
+            elif image_source == "directory":
+                if "directory" not in request.files or len(request.files.getlist("directory")) == 0:
+                    flash("Please select a directory", "error")
+                    return redirect(url_for("create_batch"))
+
+                # TODO: CARD-004p - Process directory and redirect to image selection
+                flash("TODO: Implement CARD-004p - directory selection", "warning")
+                return redirect(url_for("create_batch"))
+
+        except Exception as e:
+            flash(f"Error: {str(e)}", "error")
+            return redirect(url_for("create_batch"))
 
     @app.route("/batch/<batch_id>")
     def batch_status(batch_id):

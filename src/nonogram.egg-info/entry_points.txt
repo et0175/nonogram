@@ -1,0 +1,2 @@
+[console_scripts]
+nonogram = nonogram.cli:main

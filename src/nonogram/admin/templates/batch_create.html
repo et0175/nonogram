@@ -5,8 +5,8 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-12">
-        <h1>Create Batch Generation Job</h1>
-        <p class="text-muted">Configure parameters for batch puzzle generation</p>
+        <h1>Create Batch from Images</h1>
+        <p class="text-muted">Convert images to nonogram puzzles. Upload images or select from directory.</p>
     </div>
 </div>
 
@@ -14,50 +14,64 @@
     <div class="col-md-8">
         <div class="card">
             <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="count" class="form-label">Number of Puzzles</label>
-                        <input type="number" class="form-control" id="count" name="count"
-                               min="50" max="200" value="100" required>
-                        <small class="form-text text-muted">Generate 50-200 puzzles per batch</small>
+                <form method="POST" action="/batch/from-images" enctype="multipart/form-data">
+
+                    <!-- Image Source Selection -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Step 1: Select Images</h6>
+
+                        <div class="mb-3">
+                            <label for="image_source" class="form-label">Image Source</label>
+                            <select class="form-select" id="image_source" name="image_source" required onchange="toggleImageInput()">
+                                <option value="">Choose source...</option>
+                                <option value="upload">Upload Images</option>
+                                <option value="directory">Select Directory</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                Supports: PNG, JPG, GIF (max 2MB each)
+                            </small>
+                        </div>
+
+                        <!-- Upload Multiple Images -->
+                        <div id="upload_section" style="display: none;" class="mb-3">
+                            <label for="images" class="form-label">Choose Image Files</label>
+                            <input type="file" class="form-control" id="images" name="images"
+                                   accept=".png,.jpg,.jpeg,.gif" multiple>
+                            <small class="form-text text-muted">
+                                Select one or more image files (PNG, JPG, GIF)
+                            </small>
+                        </div>
+
+                        <!-- Directory Selection -->
+                        <div id="directory_section" style="display: none;" class="mb-3">
+                            <label for="directory" class="form-label">Choose Directory</label>
+                            <input type="file" class="form-control" id="directory" name="directory"
+                                   webkitdirectory mozdirectory>
+                            <small class="form-text text-muted">
+                                Select a folder containing images (PNG, JPG, GIF)
+                            </small>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="sizes" class="form-label">Puzzle Sizes (comma-separated)</label>
-                        <input type="text" class="form-control" id="sizes" name="sizes"
-                               value="10,15,20,25,30" placeholder="e.g., 10,15,20,25,30" required>
-                        <small class="form-text text-muted">Grid dimensions in pixels (10-30)</small>
+                    <!-- Quality Filter -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Step 2: Quality Settings</h6>
+
+                        <div class="mb-3">
+                            <label for="quality_filter" class="form-label">Minimum Quality Score</label>
+                            <input type="number" class="form-control" id="quality_filter" name="quality_filter"
+                                   min="0" max="100" value="0" required>
+                            <small class="form-text text-muted">
+                                0-100: Skip puzzles below this quality threshold (0 = accept all)
+                            </small>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="theme" class="form-label">Theme</label>
-                        <select class="form-select" id="theme" name="theme" required>
-                            <option value="christmas">Christmas</option>
-                            <option value="halloween">Halloween</option>
-                            <option value="easter">Easter</option>
-                            <option value="valentine">Valentine</option>
-                            <option value="generic">Generic</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="source" class="form-label">Source</label>
-                        <select class="form-select" id="source" name="source" required>
-                            <option value="random">Random Generation</option>
-                            <option value="images">From Images</option>
-                        </select>
-                        <small class="form-text text-muted">Generate from scratch or convert images</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="quality_filter" class="form-label">Minimum Quality Score</label>
-                        <input type="number" class="form-control" id="quality_filter" name="quality_filter"
-                               min="0" max="100" value="0" required>
-                        <small class="form-text text-muted">0-100: Only include puzzles meeting quality threshold</small>
-                    </div>
-
+                    <!-- Action Buttons -->
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">🚀 Start Batch Generation</button>
+                        <button type="submit" class="btn btn-primary">
+                            📸 Next: Preview Images
+                        </button>
                         <a href="/" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>
@@ -68,32 +82,73 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">Presets</h5>
+                <h5 class="card-title mb-0">Workflow</h5>
             </div>
             <div class="card-body">
-                <h6>Quick Presets</h6>
+                <div class="d-flex mb-3">
+                    <div class="badge bg-primary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">1</div>
+                    <div class="ms-3">
+                        <strong>Select Images</strong><br>
+                        <small class="text-muted">Upload or browse directory</small>
+                    </div>
+                </div>
 
-                <strong>Small Batch (Fast)</strong><br>
-                <small class="text-muted">50 puzzles, size 10-15</small><br>
-                <code class="bg-light p-1">count=50, sizes=10,15</code>
-                <br><br>
+                <div class="d-flex mb-3">
+                    <div class="badge bg-secondary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">2</div>
+                    <div class="ms-3">
+                        <strong>Preview & Size</strong><br>
+                        <small class="text-muted">Adjust puzzle sizes (Fixed/Min/Max)</small>
+                    </div>
+                </div>
 
-                <strong>Medium Batch (Standard)</strong><br>
-                <small class="text-muted">100 puzzles, size 15-25</small><br>
-                <code class="bg-light p-1">count=100, sizes=15,20,25</code>
-                <br><br>
+                <div class="d-flex mb-3">
+                    <div class="badge bg-secondary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">3</div>
+                    <div class="ms-3">
+                        <strong>Generate</strong><br>
+                        <small class="text-muted">Convert images to puzzles</small>
+                    </div>
+                </div>
 
-                <strong>Large Batch (Complete)</strong><br>
-                <small class="text-muted">200 puzzles, size 10-30</small><br>
-                <code class="bg-light p-1">count=200, sizes=10,15,20,25,30</code>
-                <br><br>
+                <div class="d-flex">
+                    <div class="badge bg-secondary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">4</div>
+                    <div class="ms-3">
+                        <strong>Review</strong><br>
+                        <small class="text-muted">Verify quality, approve puzzles</small>
+                    </div>
+                </div>
 
-                <div class="alert alert-info">
-                    <strong>💡 Tip:</strong> Larger batches take longer but provide more variety.
-                    Start with smaller batches for testing.
+                <hr class="my-3">
+
+                <div class="alert alert-info mb-0">
+                    <strong>💡 Tip:</strong> Start with 5-10 images to see the workflow. Format: PNG, JPG, or GIF. Max 2MB each.
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function toggleImageInput() {
+    const source = document.getElementById('image_source').value;
+    const uploadSection = document.getElementById('upload_section');
+    const directorySection = document.getElementById('directory_section');
+
+    if (source === 'upload') {
+        uploadSection.style.display = 'block';
+        directorySection.style.display = 'none';
+        document.getElementById('images').required = true;
+        document.getElementById('directory').required = false;
+    } else if (source === 'directory') {
+        uploadSection.style.display = 'none';
+        directorySection.style.display = 'block';
+        document.getElementById('images').required = false;
+        document.getElementById('directory').required = true;
+    } else {
+        uploadSection.style.display = 'none';
+        directorySection.style.display = 'none';
+        document.getElementById('images').required = false;
+        document.getElementById('directory').required = false;
+    }
+}
+</script>
 {% endblock %}

@@ -110,12 +110,12 @@
                 <div class="puzzle-grid">
                     {% for puzzle in puzzles %}
                     <div class="puzzle-item">
-                        <strong>{{ puzzle.puzzle_id }}</strong><br>
+                        <strong>{{ puzzle.id }}</strong><br>
                         <small>{{ puzzle.width }}×{{ puzzle.height }}</small><br>
-                        <span class="badge" style="background-color: {% if puzzle.metrics.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.metrics.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
-                            {{ puzzle.metrics.difficulty_tier }}
+                        <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
+                            {{ puzzle.difficulty_tier }}
                         </span><br>
-                        <small class="text-muted">Quality: {{ puzzle.metrics.quality_score }}</small>
+                        <small class="text-muted">Quality: {{ puzzle.quality_score }}</small>
                     </div>
                     {% endfor %}
                 </div>
