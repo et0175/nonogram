@@ -20,36 +20,32 @@
                     <div class="mb-4">
                         <h6 class="mb-3">Step 1: Select Images</h6>
 
-                        <div class="mb-3">
-                            <label for="image_source" class="form-label">Image Source</label>
-                            <select class="form-select" id="image_source" name="image_source" required onchange="toggleImageInput()">
-                                <option value="">Choose source...</option>
-                                <option value="upload">Upload Images</option>
-                                <option value="directory">Select Directory</option>
-                            </select>
-                            <small class="form-text text-muted">
-                                Supports: PNG, JPG, GIF (max 2MB each)
-                            </small>
-                        </div>
+                        <small class="form-text text-muted d-block mb-3">
+                            Supports: PNG, JPG, GIF (max 2MB each)
+                        </small>
 
                         <!-- Upload Multiple Images -->
-                        <div id="upload_section" style="display: none;" class="mb-3">
-                            <label for="images" class="form-label">Choose Image Files</label>
+                        <div class="mb-3">
+                            <label for="images" class="form-label">📁 Choose Image Files</label>
                             <input type="file" class="form-control" id="images" name="images"
                                    accept=".png,.jpg,.jpeg,.gif" multiple>
                             <small class="form-text text-muted">
-                                Select one or more image files (PNG, JPG, GIF)
+                                Select one or more image files directly
                             </small>
                         </div>
 
                         <!-- Directory Selection -->
-                        <div id="directory_section" style="display: none;" class="mb-3">
-                            <label for="directory" class="form-label">Choose Directory</label>
+                        <div class="mb-3">
+                            <label for="directory" class="form-label">📂 Choose Directory</label>
                             <input type="file" class="form-control" id="directory" name="directory"
                                    webkitdirectory mozdirectory>
                             <small class="form-text text-muted">
-                                Select a folder containing images (PNG, JPG, GIF)
+                                Select a folder containing images
                             </small>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <small>💡 Use either option or both - all selected files will be included</small>
                         </div>
                     </div>
 
@@ -69,7 +65,7 @@
 
                     <!-- Action Buttons -->
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
                             📸 Next: Preview Images
                         </button>
                         <a href="/" class="btn btn-outline-secondary">Cancel</a>
@@ -128,27 +124,31 @@
 </div>
 
 <script>
-function toggleImageInput() {
-    const source = document.getElementById('image_source').value;
-    const uploadSection = document.getElementById('upload_section');
-    const directorySection = document.getElementById('directory_section');
+// Handle form submission
+document.querySelector('form').addEventListener('submit', function(e) {
+    const imagesInput = document.getElementById('images');
+    const directoryInput = document.getElementById('directory');
+    const qualityInput = document.getElementById('quality_filter');
 
-    if (source === 'upload') {
-        uploadSection.style.display = 'block';
-        directorySection.style.display = 'none';
-        document.getElementById('images').required = true;
-        document.getElementById('directory').required = false;
-    } else if (source === 'directory') {
-        uploadSection.style.display = 'none';
-        directorySection.style.display = 'block';
-        document.getElementById('images').required = false;
-        document.getElementById('directory').required = true;
-    } else {
-        uploadSection.style.display = 'none';
-        directorySection.style.display = 'none';
-        document.getElementById('images').required = false;
-        document.getElementById('directory').required = false;
+    // Check if at least one file input has files
+    const hasFiles = (imagesInput.files && imagesInput.files.length > 0) ||
+                     (directoryInput.files && directoryInput.files.length > 0);
+
+    if (!hasFiles) {
+        e.preventDefault();
+        alert('Please select at least one image file or directory');
+        return false;
     }
-}
+
+    // Show loading state
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Both inputs are always visible now
+});
 </script>
 {% endblock %}

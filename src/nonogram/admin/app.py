@@ -104,87 +104,58 @@ def create_app(debug=None):
     @app.route("/batch/from-images", methods=["POST"])
     def create_batch_from_images():
         """Handle image-based batch creation (from simplified form)."""
-        # This route is called from the new image-based batch creation form
-        # It will redirect to the image selection page (CARD-004p)
         try:
-            image_source = request.form.get("image_source")
             quality_filter = int(request.form.get("quality_filter", 0))
 
-            if not image_source:
-                flash("Please select image source", "error")
-                return redirect(url_for("create_batch"))
-
-            # Get image manager
+            # Get image manager and clear previous selections
             image_mgr = get_image_manager()
-            image_mgr.clear_all()  # Clear previous selections
+            image_mgr.clear_all()
 
             # Store quality filter in session
             session["quality_filter"] = quality_filter
 
-            if image_source == "upload":
-                if "images" not in request.files or len(request.files.getlist("images")) == 0:
-                    flash("Please select at least one image", "error")
-                    return redirect(url_for("create_batch"))
+            # Process both individual files and directory files
+            all_files = []
+            uploaded_count = 0
 
-                # Process uploaded images
-                files = request.files.getlist("images")
-                uploaded_count = 0
+            # Collect files from individual file input
+            if "images" in request.files:
+                all_files.extend(request.files.getlist("images"))
 
-                for file in files:
-                    if file.filename:
-                        # Save to temp location
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
-                            file.save(tmp.name)
-                            # Add to manager
-                            if image_mgr.add_image(tmp.name, file.filename):
-                                uploaded_count += 1
-                            # Clean up temp file
-                            try:
-                                os.unlink(tmp.name)
-                            except:
-                                pass
+            # Collect files from directory input
+            if "directory" in request.files:
+                all_files.extend(request.files.getlist("directory"))
 
-                if uploaded_count == 0:
-                    flash("No valid images found", "error")
-                    return redirect(url_for("create_batch"))
+            # Check if we got any files
+            if not all_files or all(not f.filename for f in all_files):
+                flash("Please select at least one image file or directory", "error")
+                return redirect(url_for("create_batch"))
 
-                flash(f"Uploaded {uploaded_count} image{uploaded_count != 1 and 's' or ''}", "success")
-                return redirect(url_for("select_images"))
+            # Process all files
+            import tempfile
+            for file in all_files:
+                if file.filename:
+                    # Save to temp location
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+                        file.save(tmp.name)
+                        # Add to manager
+                        if image_mgr.add_image(tmp.name, file.filename):
+                            uploaded_count += 1
+                        # Clean up temp file
+                        try:
+                            os.unlink(tmp.name)
+                        except:
+                            pass
 
-            elif image_source == "directory":
-                if "directory" not in request.files or len(request.files.getlist("directory")) == 0:
-                    flash("Please select a directory", "error")
-                    return redirect(url_for("create_batch"))
+            if uploaded_count == 0:
+                flash("No valid images found", "error")
+                return redirect(url_for("create_batch"))
 
-                # Process directory files
-                files = request.files.getlist("directory")
-                uploaded_count = 0
-
-                for file in files:
-                    if file.filename:
-                        # Save to temp location
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
-                            file.save(tmp.name)
-                            # Add to manager
-                            if image_mgr.add_image(tmp.name, file.filename):
-                                uploaded_count += 1
-                            # Clean up temp file
-                            try:
-                                os.unlink(tmp.name)
-                            except:
-                                pass
-
-                if uploaded_count == 0:
-                    flash("No valid images found in directory", "error")
-                    return redirect(url_for("create_batch"))
-
-                flash(f"Loaded {uploaded_count} image{uploaded_count != 1 and 's' or ''} from directory", "success")
-                return redirect(url_for("select_images"))
+            flash(f"✓ Loaded {uploaded_count} image{uploaded_count != 1 and 's' or ''}", "success")
+            return redirect(url_for("select_images"))
 
         except Exception as e:
-            flash(f"Error: {str(e)}", "error")
+            flash(f"❌ Error: {str(e)}", "error")
             return redirect(url_for("create_batch"))
 
     @app.route("/batch/select-images")
