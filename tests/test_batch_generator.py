@@ -19,14 +19,14 @@ class TestBatchJob:
 
     def test_batch_job_creation(self, batch_gen):
         """Create a new batch job."""
-        batch_id = batch_gen.create_batch(count=100, sizes=[20, 30])
+        batch_id = batch_gen.create_batch(count=100, sizes=[10, 11, 12])
 
         assert batch_id is not None
         assert len(batch_id) > 0
 
     def test_batch_job_status_tracking(self, batch_gen):
         """Track batch job status."""
-        batch_id = batch_gen.create_batch(count=50, sizes=[20])
+        batch_id = batch_gen.create_batch(count=50, sizes=[11, 12])
         job = batch_gen.get_batch_status(batch_id)
 
         assert job is not None
@@ -37,7 +37,7 @@ class TestBatchJob:
 
     def test_batch_progress_calculation(self, batch_gen):
         """Test progress percentage calculation."""
-        batch_id = batch_gen.create_batch(count=100, sizes=[20])
+        batch_id = batch_gen.create_batch(count=100, sizes=[11, 12])
         job = batch_gen.get_batch_status(batch_id)
 
         assert job.get_progress_percent() == 100
@@ -51,7 +51,7 @@ class TestBatchJob:
 
     def test_batch_job_to_dict(self, batch_gen):
         """Convert batch job to dictionary."""
-        batch_id = batch_gen.create_batch(count=75, sizes=[15, 20])
+        batch_id = batch_gen.create_batch(count=75, sizes=[11, 12])
         job = batch_gen.get_batch_status(batch_id)
 
         data = job.to_dict()
@@ -70,10 +70,10 @@ class TestBatchGeneration:
         """Create batch with valid parameters."""
         batch_id = batch_gen.create_batch(
             count=100,
-            sizes=[10, 20, 30],
+            sizes=[10, 11, 12],
             theme="christmas",
             source="random",
-            quality_filter=70,
+            quality_filter=0,
         )
 
         assert batch_id is not None
@@ -83,10 +83,10 @@ class TestBatchGeneration:
     def test_create_batch_invalid_count(self, batch_gen):
         """Reject batch with invalid count."""
         with pytest.raises(ValueError):
-            batch_gen.create_batch(count=5, sizes=[20])  # Too low
+            batch_gen.create_batch(count=5, sizes=[11, 12])  # Too low
 
         with pytest.raises(ValueError):
-            batch_gen.create_batch(count=250, sizes=[20])  # Too high
+            batch_gen.create_batch(count=250, sizes=[11, 12])  # Too high
 
     def test_create_batch_invalid_sizes(self, batch_gen):
         """Reject batch with invalid sizes."""
@@ -99,15 +99,15 @@ class TestBatchGeneration:
     def test_create_batch_invalid_source(self, batch_gen):
         """Reject batch with invalid source."""
         with pytest.raises(ValueError):
-            batch_gen.create_batch(count=100, sizes=[20], source="invalid")
+            batch_gen.create_batch(count=100, sizes=[11, 12], source="invalid")
 
     def test_create_batch_invalid_quality_filter(self, batch_gen):
         """Reject batch with invalid quality filter."""
         with pytest.raises(ValueError):
-            batch_gen.create_batch(count=100, sizes=[20], quality_filter=-1)
+            batch_gen.create_batch(count=100, sizes=[11, 12], quality_filter=-1)
 
         with pytest.raises(ValueError):
-            batch_gen.create_batch(count=100, sizes=[20], quality_filter=101)
+            batch_gen.create_batch(count=100, sizes=[11, 12], quality_filter=101)
 
 
 class TestBatchPuzzleRetrieval:
@@ -121,14 +121,14 @@ class TestBatchPuzzleRetrieval:
 
     def test_get_batch_puzzles_empty(self, batch_gen):
         """Get puzzles from batch with none yet."""
-        batch_id = batch_gen.create_batch(count=100, sizes=[20])
+        batch_id = batch_gen.create_batch(count=100, sizes=[11, 12])
         puzzles = batch_gen.get_batch_puzzles(batch_id)
 
         assert puzzles == []
 
     def test_get_batch_puzzles_pagination(self, batch_gen):
         """Test pagination returns empty when no puzzle_review_service set."""
-        batch_id = batch_gen.create_batch(count=100, sizes=[20])
+        batch_id = batch_gen.create_batch(count=100, sizes=[11, 12])
 
         # Without puzzle_review_service, get_batch_puzzles returns empty list
         page1 = batch_gen.get_batch_puzzles(batch_id, offset=0, limit=25)
@@ -144,7 +144,7 @@ class TestBatchCancellation:
 
     def test_cancel_pending_batch(self, batch_gen):
         """Cannot cancel a completed batch (currently auto-completes synchronously)."""
-        batch_id = batch_gen.create_batch(count=100, sizes=[20])
+        batch_id = batch_gen.create_batch(count=100, sizes=[11, 12])
         result = batch_gen.cancel_batch(batch_id)
 
         assert result is False
@@ -159,7 +159,7 @@ class TestBatchCancellation:
 
     def test_cancel_completed_batch(self, batch_gen):
         """Cannot cancel a completed batch."""
-        batch_id = batch_gen.create_batch(count=100, sizes=[20])
+        batch_id = batch_gen.create_batch(count=100, sizes=[11, 12])
         job = batch_gen.get_batch_status(batch_id)
         job.status = BatchStatus.COMPLETE
 
