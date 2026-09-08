@@ -206,7 +206,7 @@ class BatchGenerator:
                     clues_cols=puzzle.clues.columns,
                     width=puzzle.width,
                     height=puzzle.height,
-                    theme=puzzle.request.theme,
+                    theme=theme,  # Use theme from batch job, not from request
                     difficulty_score=puzzle.difficulty_score,
                     difficulty_tier=puzzle.difficulty_tier,
                     quality_score=quality_score,
@@ -319,7 +319,7 @@ class BatchGenerator:
             clues_cols=puzzle.clues.columns,
             width=puzzle.width,
             height=puzzle.height,
-            theme=puzzle.request.theme,
+            theme=theme,
             metrics=metrics,
         )
 
