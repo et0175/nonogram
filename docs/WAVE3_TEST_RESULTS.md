@@ -6,23 +6,31 @@
 
 ---
 
-## AC-001: File Upload Form (CARD-004o) - ✅ PASS
+## AC-001: File Upload Form (CARD-004o) - ✅ PASS (UPDATED)
 
-### Findings
+### Initial Finding (Before Fixes)
+- ⚠️ "Puzzle Size Settings" dropdown NOT visible - **NOW FIXED** ✅
+
+### Updated Findings (After Flask Restart & Fixes)
 - ✅ Page `/batch/create` loads with correct title
 - ✅ "Choose Image Files" input visible  
 - ✅ "Choose Directory" input visible
 - ✅ Both inputs showing simultaneously (user can select from either)
 - ✅ Help text clear: "Use either option or both - all selected files will be included"
+- ✅ **⚙️ Puzzle Size Settings** section NOW VISIBLE with:
+  - ✅ Blue border and light background styling
+  - ✅ "Default Puzzle Size" label
+  - ✅ Size dropdown with all four options:
+    - 🟩 Small (10-15 cells) - Easy
+    - 🟩🟩 Medium (15-25 cells) - Balanced [default]
+    - 🟩🟩🟩 Large (25-30 cells) - Hard
+    - 🎯 Auto (based on image)
+  - ✅ Emoji indicators visible in all options
+  - ✅ Tip text: "Applied to all images. You can customize per image later."
 - ✅ Quality filter section visible with input field
 - ✅ Submit button labeled "📸 Next: Preview Images"
-- ⚠️ **Issue Found:** "Puzzle Size Settings" dropdown NOT visible (should be between Select Images and Quality Settings)
-  - **Expected:** Step 2 should show "Default Puzzle Size" dropdown with options (Small/Medium/Large/Auto)
-  - **Actual:** Skips directly to "Step 2: Quality Settings"
-  - **Impact:** Size selection option missing from create page
-  - **Severity:** Medium - users must configure sizes on page 3, or defaults apply
 
-### Verified Elements
+### Verified Elements (Complete)
 ```
 ✓ Page title: "Create Batch from Images"
 ✓ Step 1: Select Images
@@ -30,12 +38,20 @@
   ✓ Directory input for folders
   ✓ Both visible simultaneously
 ✓ Support text: "PNG, JPG, GIF (max 2MB each)"
-✓ Step 2: Quality Settings (appears as Step 2, but should be Step 3)
+✓ Step 2: ⚙️ Puzzle Size Settings (NOW PRESENT)
+  ✓ Blue border styling
+  ✓ Default Puzzle Size dropdown
+  ✓ All 4 size options with emojis
+  ✓ Tip text visible
+✓ Step 3: Quality Filter
   ✓ Quality filter input (0-100)
   ✓ Help text explaining quality threshold
-✓ Buttons: "Next" and "Cancel"
-✗ MISSING: Default Puzzle Size dropdown
+✓ Buttons: "📸 Next: Preview Images" and "Cancel"
+✓ Size options now VISIBLE and properly styled
 ```
+
+### Result
+**✅ PASS** - Issue #1 FIXED. All form elements now visible and properly styled.
 
 ---
 
@@ -314,13 +330,20 @@ Uploaded 1 PNG file (test1_snail.png from silhouette/animals/)
 - ✅ Error handling working
 - ✅ User feedback provided via flash messages
 
-### Issues Found (Non-Blocking)
-1. **Image preview placeholders** - Visual only, doesn't block functionality
-2. **Size options missing on page 1** - Cosmetic, defaults work fine
-3. **Back navigation data preservation** - Works, but could be clearer
+### Issues Found & Fixed
+1. **Image preview placeholders** - ✅ FIXED - Now shows dimensions, format, gradient background
+2. **Size options missing on page 1** - ✅ FIXED - Now prominently visible with emojis and styling
+3. **Back navigation data preservation** - ✅ FIXED - Selections now preserved on back navigation
 
-### Ready for Use? **YES**
-The complete Wave 3 workflow is functional and ready for production use. The identified issues are cosmetic/UX refinements that don't block core functionality.
+### Cosmetic Improvements Applied
+- Size options now have blue border styling with light background
+- Image previews show 🖼️ icon (not 📷), dimensions, and format
+- Gradient backgrounds applied to placeholder previews
+- Dashed borders for placeholder visual distinction
+- All text sizes increased for better readability
+
+### Ready for Use? **YES ✅**
+The complete Wave 3 workflow is fully functional and production-ready. All identified cosmetic/UX issues have been fixed and verified.
 
 ---
 
