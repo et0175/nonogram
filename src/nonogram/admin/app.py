@@ -566,7 +566,7 @@ def create_app(debug=None):
 
     @app.route("/api/image/<file_id>")
     def api_get_image(file_id):
-        """Serve uploaded image file."""
+        """Serve uploaded image file (original, uncropped)."""
         image_mgr = get_image_manager()
         image = image_mgr.get_image(file_id)
 
@@ -576,6 +576,55 @@ def create_app(debug=None):
         try:
             return send_file(
                 image.file_path,
+                mimetype=f"image/{image.format.lower()}",
+            )
+        except Exception as e:
+            return f"Error: {str(e)}", 500
+
+    @app.route("/api/image/<file_id>/cropped")
+    def api_get_cropped_image(file_id):
+        """Serve cropped preview (what will be used for puzzle generation)."""
+        import numpy as np
+        from PIL import Image as PILImage
+        image_mgr = get_image_manager()
+        image = image_mgr.get_image(file_id)
+
+        if not image:
+            return "Not found", 404
+
+        try:
+            # Load and crop blank space around content
+            img = PILImage.open(image.file_path).convert('L')
+            arr = np.array(img)
+
+            # Find rows and columns with content (not blank/white)
+            content_threshold = 240
+            has_content = arr < content_threshold
+
+            # Find bounding box of content
+            rows_with_content = np.any(has_content, axis=1)
+            cols_with_content = np.any(has_content, axis=0)
+
+            if np.any(rows_with_content) and np.any(cols_with_content):
+                # Get indices of rows/cols with content
+                row_indices = np.where(rows_with_content)[0]
+                col_indices = np.where(cols_with_content)[0]
+
+                # Crop to bounding box
+                top = row_indices[0]
+                bottom = row_indices[-1] + 1
+                left = col_indices[0]
+                right = col_indices[-1] + 1
+
+                img = img.crop((left, top, right, bottom))
+
+            # Save to bytes
+            img_bytes = BytesIO()
+            img.save(img_bytes, format=image.format)
+            img_bytes.seek(0)
+
+            return send_file(
+                img_bytes,
                 mimetype=f"image/{image.format.lower()}",
             )
         except Exception as e:

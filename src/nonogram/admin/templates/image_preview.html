@@ -49,12 +49,15 @@
                     <div class="col-md-6 mb-4">
                         <div class="card border">
                             <div class="card-body">
-                                <!-- Original Image Preview -->
+                                <!-- Cropped Image Preview (what will be used for puzzle) -->
                                 <div class="image-preview-box mb-3">
-                                    <img src="/api/image/{{ image.file_id }}"
-                                         alt="Preview of {{ image.original_filename }}"
+                                    <img src="/api/image/{{ image.file_id }}/cropped"
+                                         alt="Cropped preview of {{ image.original_filename }}"
                                          class="preview-img"
                                          onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load image</div></div>'">
+                                    <small class="text-muted d-block mt-2">
+                                        ✂️ Cropped (blank space removed)
+                                    </small>
                                 </div>
 
                                 <!-- Image Name -->

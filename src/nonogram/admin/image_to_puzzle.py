@@ -32,6 +32,31 @@ def image_to_grid(image_path: str, target_size: Tuple[int, int]) -> Optional[Lis
         # Open and convert to grayscale
         img = PILImage.open(image_path).convert('L')
 
+        # Crop blank space around the image (content-aware cropping)
+        arr = np.array(img)
+
+        # Find rows and columns with content (not blank/white)
+        # Threshold: pixels darker than 240 are considered content
+        content_threshold = 240
+        has_content = arr < content_threshold
+
+        # Find bounding box of content
+        rows_with_content = np.any(has_content, axis=1)
+        cols_with_content = np.any(has_content, axis=0)
+
+        if np.any(rows_with_content) and np.any(cols_with_content):
+            # Get indices of rows/cols with content
+            row_indices = np.where(rows_with_content)[0]
+            col_indices = np.where(cols_with_content)[0]
+
+            # Crop to bounding box
+            top = row_indices[0]
+            bottom = row_indices[-1] + 1
+            left = col_indices[0]
+            right = col_indices[-1] + 1
+
+            img = img.crop((left, top, right, bottom))
+
         # Resize to target size
         img = img.resize(target_size, PILImage.Resampling.LANCZOS)
 
