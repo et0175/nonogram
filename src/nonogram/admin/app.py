@@ -1,13 +1,15 @@
 """Flask admin panel application for nonogram puzzle management."""
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
 from datetime import datetime
+from pathlib import Path
 import json
 import os
 
 from .batch_generator import get_batch_generator, BatchStatus
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter
 from .book_manager import get_book_manager, BookStatus
+from .image_manager import get_image_manager
 
 
 def create_app(debug=None):
@@ -112,27 +114,95 @@ def create_app(debug=None):
                 flash("Please select image source", "error")
                 return redirect(url_for("create_batch"))
 
+            # Get image manager
+            image_mgr = get_image_manager()
+            image_mgr.clear_all()  # Clear previous selections
+
+            # Store quality filter in session
+            session["quality_filter"] = quality_filter
+
             if image_source == "upload":
                 if "images" not in request.files or len(request.files.getlist("images")) == 0:
                     flash("Please select at least one image", "error")
                     return redirect(url_for("create_batch"))
 
-                # TODO: CARD-004p - Store images and redirect to image selection page
-                flash("TODO: Implement CARD-004p - image selection and upload", "warning")
-                return redirect(url_for("create_batch"))
+                # Process uploaded images
+                files = request.files.getlist("images")
+                uploaded_count = 0
+
+                for file in files:
+                    if file.filename:
+                        # Save to temp location
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+                            file.save(tmp.name)
+                            # Add to manager
+                            if image_mgr.add_image(tmp.name, file.filename):
+                                uploaded_count += 1
+                            # Clean up temp file
+                            try:
+                                os.unlink(tmp.name)
+                            except:
+                                pass
+
+                if uploaded_count == 0:
+                    flash("No valid images found", "error")
+                    return redirect(url_for("create_batch"))
+
+                flash(f"Uploaded {uploaded_count} image{uploaded_count != 1 and 's' or ''}", "success")
+                return redirect(url_for("select_images"))
 
             elif image_source == "directory":
                 if "directory" not in request.files or len(request.files.getlist("directory")) == 0:
                     flash("Please select a directory", "error")
                     return redirect(url_for("create_batch"))
 
-                # TODO: CARD-004p - Process directory and redirect to image selection
-                flash("TODO: Implement CARD-004p - directory selection", "warning")
-                return redirect(url_for("create_batch"))
+                # Process directory files
+                files = request.files.getlist("directory")
+                uploaded_count = 0
+
+                for file in files:
+                    if file.filename:
+                        # Save to temp location
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+                            file.save(tmp.name)
+                            # Add to manager
+                            if image_mgr.add_image(tmp.name, file.filename):
+                                uploaded_count += 1
+                            # Clean up temp file
+                            try:
+                                os.unlink(tmp.name)
+                            except:
+                                pass
+
+                if uploaded_count == 0:
+                    flash("No valid images found in directory", "error")
+                    return redirect(url_for("create_batch"))
+
+                flash(f"Loaded {uploaded_count} image{uploaded_count != 1 and 's' or ''} from directory", "success")
+                return redirect(url_for("select_images"))
 
         except Exception as e:
             flash(f"Error: {str(e)}", "error")
             return redirect(url_for("create_batch"))
+
+    @app.route("/batch/select-images")
+    def select_images():
+        """Display image selection page (CARD-004p)."""
+        image_mgr = get_image_manager()
+        images = image_mgr.get_all_images()
+
+        if not images:
+            flash("No images selected. Please upload or select from a directory.", "warning")
+            return redirect(url_for("create_batch"))
+
+        return render_template(
+            "image_selection.html",
+            images=images,
+            total_size_mb=image_mgr.get_total_size_mb(),
+            image_ids=",".join(img.file_id for img in images),
+        )
 
     @app.route("/batch/<batch_id>")
     def batch_status(batch_id):
