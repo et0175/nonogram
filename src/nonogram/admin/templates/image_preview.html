@@ -49,21 +49,12 @@
                     <div class="col-md-6 mb-4">
                         <div class="card border">
                             <div class="card-body">
-                                <!-- Puzzle Grid Preview (SVG) -->
+                                <!-- Original Image Preview -->
                                 <div class="image-preview-box mb-3">
-                                    <img src="/api/puzzle-grid/{{ image.file_id }}"
-                                         alt="Puzzle grid for {{ image.original_filename }}"
+                                    <img src="/api/image/{{ image.file_id }}"
+                                         alt="Preview of {{ image.original_filename }}"
                                          class="preview-img"
-                                         onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to generate grid</div></div>'">
-                                </div>
-
-                                <!-- Download SVG Button -->
-                                <div class="mb-3">
-                                    <a href="/api/puzzle-grid/{{ image.file_id }}/download"
-                                       class="btn btn-sm btn-outline-primary w-100"
-                                       download>
-                                        ⬇️ Download SVG
-                                    </a>
+                                         onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load image</div></div>'">
                                 </div>
 
                                 <!-- Image Name -->

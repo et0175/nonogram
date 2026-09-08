@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Generated Puzzles - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>✅ Generated Puzzles</h1>
+        <p class="text-muted">Preview and download your generated nonogram puzzles</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Generated Puzzle Grids ({{ puzzles|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if puzzles %}
+                    <div class="row">
+                        {% for puzzle in puzzles %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <!-- Puzzle SVG Grid -->
+                                    <div class="puzzle-preview-box mb-3">
+                                        <img src="/api/puzzle/{{ puzzle.puzzle_id }}/grid"
+                                             alt="Puzzle {{ puzzle.puzzle_id }}"
+                                             class="puzzle-grid-img"
+                                             onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load grid</div></div>'">
+                                    </div>
+
+                                    <!-- Download Button -->
+                                    <div class="mb-3">
+                                        <a href="/api/puzzle/{{ puzzle.puzzle_id }}/grid/download"
+                                           class="btn btn-sm btn-outline-primary w-100"
+                                           download>
+                                            ⬇️ Download SVG
+                                        </a>
+                                    </div>
+
+                                    <!-- Puzzle Info -->
+                                    <div class="puzzle-info">
+                                        <div class="row mb-2">
+                                            <div class="col-6">
+                                                <small><strong>Size:</strong></small><br>
+                                                <small>{{ puzzle.width if hasattr(puzzle, 'width') else puzzle.get('width', '?') }}×{{ puzzle.height if hasattr(puzzle, 'height') else puzzle.get('height', '?') }}</small>
+                                            </div>
+                                            <div class="col-6">
+                                                <small><strong>Difficulty:</strong></small><br>
+                                                <small>{{ puzzle.difficulty_tier if hasattr(puzzle, 'difficulty_tier') else puzzle.get('difficulty_tier', 'N/A') }}</small>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <small><strong>Quality:</strong></small><br>
+                                                <small>{{ (puzzle.quality_score if hasattr(puzzle, 'quality_score') else puzzle.get('quality_score', 0))|int }}/100</small>
+                                            </div>
+                                            <div class="col-6">
+                                                <small><strong>Source:</strong></small><br>
+                                                <small>{{ puzzle.source_image if hasattr(puzzle, 'source_image') else puzzle.get('source_image', 'N/A') }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No puzzles were generated. This might be due to quality filter or processing errors.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Summary</h5>
+            </div>
+            <div class="card-body">
+                <strong>Generated:</strong><br>
+                <span class="badge bg-success">{{ puzzles|length }} puzzle(s)</span>
+
+                <hr>
+
+                <strong>Batch ID:</strong><br>
+                <code style="font-size: 0.85rem;">{{ batch_id }}</code>
+
+                <hr>
+
+                <div class="alert alert-light text-center mb-0">
+                    <small class="text-muted">
+                        ✅ Generation complete!<br>
+                        Review and download your puzzles.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Navigation</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/batch/create" class="btn btn-primary">
+                        ➕ Create New Batch
+                    </a>
+                    <a href="/" class="btn btn-outline-secondary">
+                        🏠 Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.puzzle-preview-box {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border: 2px solid #b0bec5;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.puzzle-grid-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.placeholder-content {
+    text-align: center;
+    color: #555;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.preview-icon {
+    font-size: 3rem;
+}
+
+.preview-dims {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #333;
+}
+
+.puzzle-info {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}

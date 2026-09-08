@@ -281,11 +281,38 @@ def create_app(debug=None):
             # Clear session
             session.pop("batch_quality_filter", None)
 
-            return redirect(url_for("batch_status", batch_id=batch_id))
+            return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
         except Exception as e:
             flash(f"Error: {str(e)}", "error")
             return redirect(url_for("preview_batch_images"))
+
+    @app.route("/batch/<batch_id>/generated-puzzles")
+    def generated_puzzles(batch_id):
+        """Display generated puzzles with SVG grids."""
+        puzzle_review = get_puzzle_review_service()
+
+        # Get puzzles for this batch
+        puzzles = puzzle_review.filter_puzzles(
+            PuzzleFilter(limit=1000, batch_id=batch_id)
+        ).puzzles if hasattr(puzzle_review.filter_puzzles(PuzzleFilter(limit=1000)), 'puzzles') else []
+
+        # Try alternative approach
+        try:
+            all_puzzles = puzzle_review.get_all_puzzles()
+            puzzles = [p for p in all_puzzles if getattr(p, 'batch_id', None) == batch_id]
+        except:
+            puzzles = []
+
+        if not puzzles:
+            flash("No puzzles generated for this batch", "warning")
+            return redirect(url_for("batch_status", batch_id=batch_id))
+
+        return render_template(
+            "generated_puzzles.html",
+            batch_id=batch_id,
+            puzzles=puzzles,
+        )
 
     @app.route("/batch/<batch_id>")
     def batch_status(batch_id):
@@ -600,6 +627,57 @@ def create_app(debug=None):
             # Generate SVG
             svg_bytes = grid_to_svg(puzzle_data["grid"], cell_size=20).encode("utf-8")
             filename = get_svg_filename(image.original_filename)
+
+            return send_file(
+                BytesIO(svg_bytes),
+                mimetype="image/svg+xml",
+                as_attachment=True,
+                download_name=filename,
+            )
+
+        except Exception as e:
+            return f"Error: {str(e)}", 500
+
+    @app.route("/api/puzzle/<puzzle_id>/grid")
+    def api_puzzle_grid_from_puzzle(puzzle_id):
+        """Get puzzle grid as SVG from stored puzzle."""
+        puzzle_review = get_puzzle_review_service()
+        puzzle = puzzle_review.get_puzzle(puzzle_id)
+
+        if not puzzle:
+            return "Not found", 404
+
+        try:
+            # Get grid from puzzle
+            grid = puzzle.grid if hasattr(puzzle, 'grid') else puzzle.get('grid')
+            if not grid:
+                return "No grid data", 500
+
+            # Generate SVG
+            svg = grid_to_svg(grid, cell_size=20)
+            return svg, 200, {"Content-Type": "image/svg+xml"}
+
+        except Exception as e:
+            return f"Error: {str(e)}", 500
+
+    @app.route("/api/puzzle/<puzzle_id>/grid/download")
+    def api_puzzle_grid_download_from_puzzle(puzzle_id):
+        """Download puzzle grid as SVG file from stored puzzle."""
+        puzzle_review = get_puzzle_review_service()
+        puzzle = puzzle_review.get_puzzle(puzzle_id)
+
+        if not puzzle:
+            return "Not found", 404
+
+        try:
+            # Get grid from puzzle
+            grid = puzzle.grid if hasattr(puzzle, 'grid') else puzzle.get('grid')
+            if not grid:
+                return "No grid data", 500
+
+            # Generate SVG
+            svg_bytes = grid_to_svg(grid, cell_size=20).encode("utf-8")
+            filename = f"puzzle_{puzzle_id}.svg"
 
             return send_file(
                 BytesIO(svg_bytes),
