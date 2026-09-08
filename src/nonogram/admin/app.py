@@ -12,6 +12,7 @@ from .puzzle_review import get_puzzle_review_service, PuzzleFilter
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
 from .image_manager import get_image_manager
+from .image_to_puzzle import create_puzzle_from_image
 
 
 def create_app(debug=None):
@@ -172,7 +173,7 @@ def create_app(debug=None):
                     image_mgr.update_image_name(file_id, name)
 
                 flash("Configuration saved", "success")
-                return redirect(url_for("generate_batch_puzzles"))
+                return redirect(url_for("generate_batch_puzzles"))  # GET to show confirmation
 
             except ValueError as e:
                 flash(f"Configuration error: {str(e)}", "error")
@@ -186,28 +187,94 @@ def create_app(debug=None):
             total_size_mb=total_size_mb,
         )
 
-    @app.route("/batch/generate-puzzles", methods=["POST"])
+    @app.route("/batch/generate-puzzles", methods=["GET", "POST"])
     def generate_batch_puzzles():
-        """Generate puzzles from configured images."""
+        """Generate puzzles from configured images (actual E2E conversion)."""
+        image_mgr = get_image_manager()
+        images = image_mgr.get_all_images()
+
+        if not images:
+            flash("No images to process", "error")
+            return redirect(url_for("batch_select_images"))
+
+        # GET: Show confirmation page
+        if request.method == "GET":
+            return render_template(
+                "generate_batch.html",
+                images=images,
+            )
+
+        # POST: Actually generate puzzles
         try:
-            image_mgr = get_image_manager()
-            images = image_mgr.get_all_images()
-
-            if not images:
-                flash("No images to process", "error")
-                return redirect(url_for("batch_select_images"))
-
-            # TODO: Implement actual puzzle generation from images
-            # For now, create a mock batch showing it's in progress
+            # Create batch job
             batch_id = batch_gen.create_batch(
                 count=len(images),
                 sizes=[20],
-                theme="christmas",
+                theme="image",
                 source="image",
                 quality_filter=session.get("batch_quality_filter", 0),
             )
 
-            flash(f"Batch created: {batch_id}. Processing images...", "success")
+            # Process each image and generate puzzles
+            puzzle_review = get_puzzle_review_service()
+            quality_filter = session.get("batch_quality_filter", 0)
+            generated_count = 0
+            errors = []
+
+            for image in images:
+                try:
+                    # Predict puzzle size based on image
+                    width, height = image.predict_size()
+
+                    # Convert image to puzzle
+                    puzzle_data = create_puzzle_from_image(
+                        image.file_path,
+                        target_width=width,
+                        target_height=height,
+                        theme="image",
+                    )
+
+                    if not puzzle_data:
+                        errors.append(f"Failed to process {image.original_filename}")
+                        continue
+
+                    # Check quality filter
+                    if puzzle_data["quality_score"] < quality_filter:
+                        continue
+
+                    # Store puzzle
+                    puzzle_id = puzzle_review.add_puzzle(
+                        grid=puzzle_data["grid"],
+                        clues_rows=puzzle_data["clues_rows"],
+                        clues_cols=puzzle_data["clues_cols"],
+                        width=puzzle_data["width"],
+                        height=puzzle_data["height"],
+                        theme=puzzle_data["theme"],
+                        difficulty_score=puzzle_data["difficulty_score"],
+                        difficulty_tier=puzzle_data["difficulty_tier"],
+                        quality_score=puzzle_data["quality_score"],
+                        recognizability=puzzle_data["recognizability"],
+                        strategies_used=puzzle_data["strategies_used"],
+                        batch_id=batch_id,
+                        source_image=image.original_filename,
+                    )
+
+                    generated_count += 1
+
+                except Exception as e:
+                    errors.append(f"Error processing {image.original_filename}: {str(e)}")
+
+            # Show results
+            if generated_count > 0:
+                flash(f"✅ Generated {generated_count} puzzle(s) from {len(images)} image(s)", "success")
+            else:
+                flash("No valid puzzles generated", "warning")
+
+            if errors:
+                for error in errors[:3]:  # Show first 3 errors
+                    flash(error, "info")
+                if len(errors) > 3:
+                    flash(f"... and {len(errors) - 3} more errors", "info")
 
             # Clear session
             session.pop("batch_quality_filter", None)
