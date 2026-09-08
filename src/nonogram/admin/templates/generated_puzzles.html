@@ -52,7 +52,7 @@
                                                 <small>{{ puzzle.get('difficulty_tier', 'N/A') }}</small>
                                             </div>
                                         </div>
-                                        <div class="row">
+                                        <div class="row mb-3">
                                             <div class="col-6">
                                                 <small><strong>Quality:</strong></small><br>
                                                 <small>{{ (puzzle.get('quality_score', 0)|int) }}/100</small>
@@ -62,6 +62,24 @@
                                                 <small>{{ puzzle.get('source_image', 'N/A') }}</small>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="btn-group w-100" role="group">
+                                        <a href="/puzzles?puzzle_id={{ puzzle.get('id') }}"
+                                           class="btn btn-sm btn-outline-primary flex-grow-1">
+                                            👁️ View
+                                        </a>
+                                        <a href="/puzzles?puzzle_id={{ puzzle.get('id') }}&action=approve"
+                                           class="btn btn-sm btn-outline-success flex-grow-1"
+                                           onclick="if(!confirm('Approve this puzzle?')) return false;">
+                                            ✓ Approve
+                                        </a>
+                                        <a href="/puzzles?puzzle_id={{ puzzle.get('id') }}&action=reject"
+                                           class="btn btn-sm btn-outline-danger flex-grow-1"
+                                           onclick="if(!confirm('Reject this puzzle?')) return false;">
+                                            ✗ Reject
+                                        </a>
                                     </div>
                                 </div>
                             </div>
