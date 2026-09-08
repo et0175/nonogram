@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 import tempfile
+import uuid
 from pathlib import Path
 from io import BytesIO
 
@@ -139,13 +140,17 @@ def create_app(debug=None):
                         continue
 
                     try:
-                        # Save to temp file
-                        temp_fd, temp_path = tempfile.mkstemp(suffix=file_ext)
-                        os.close(temp_fd)
-                        file.save(temp_path)
+                        # Save to persistent uploads directory (not system temp)
+                        uploads_dir = Path(tempfile.gettempdir()) / "nonogram_uploads"
+                        uploads_dir.mkdir(exist_ok=True)
+
+                        # Use unique filename to avoid collisions
+                        safe_filename = file.filename.replace(" ", "_")
+                        temp_path = uploads_dir / f"{uuid.uuid4().hex}_{safe_filename}"
+                        file.save(str(temp_path))
 
                         # Add to image manager
-                        image = image_mgr.add_image(temp_path, file.filename)
+                        image = image_mgr.add_image(str(temp_path), file.filename)
                         if image:
                             processed_count += 1
                         else:
