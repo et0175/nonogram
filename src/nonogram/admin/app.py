@@ -158,6 +158,29 @@ def create_app(debug=None):
             flash(f"❌ Error: {str(e)}", "error")
             return redirect(url_for("create_batch"))
 
+    @app.route("/api/image/<file_id>")
+    def serve_image(file_id):
+        """Serve image file for display."""
+        image_mgr = get_image_manager()
+        image = image_mgr.get_image(file_id)
+
+        if not image:
+            return jsonify({"error": "Image not found"}), 404
+
+        try:
+            with open(image.file_path, "rb") as f:
+                import base64
+                data = f.read()
+                b64 = base64.b64encode(data).decode()
+                return jsonify({
+                    "data": b64,
+                    "format": image.format.lower(),
+                    "width": image.dimensions[0],
+                    "height": image.dimensions[1],
+                })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.route("/batch/select-images")
     def select_images():
         """Display image selection page (CARD-004p)."""
@@ -196,7 +219,8 @@ def create_app(debug=None):
                 image_mgr.update_image_size(file_id, size_mode, size_value)
                 image_mgr.update_image_name(file_id, puzzle_name)
 
-            # Redirect to generation step
+            # Redirect to generation confirmation step
+            flash("✓ Sizes configured. Ready to generate puzzles!", "success")
             return redirect(url_for("generate_batch_from_images"))
 
         return render_template(

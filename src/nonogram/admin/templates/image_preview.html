@@ -51,10 +51,10 @@
                             <div class="card-body">
                                 <!-- Image Preview -->
                                 <div class="image-preview-box mb-3">
-                                    <div class="placeholder">
-                                        📷
-                                        <div class="dimensions">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>
-                                    </div>
+                                    <img src="/api/image/{{ image.file_id }}"
+                                         alt="{{ image.original_filename }}"
+                                         class="preview-img"
+                                         onerror="this.parentElement.innerHTML='📷<div class=dimensions>{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>'">
                                 </div>
 
                                 <!-- Image Name -->
@@ -149,8 +149,8 @@
                 <form method="POST" action="/batch/preview-images" id="sizeConfigForm">
                     <input type="hidden" name="save_config" value="1">
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            Next: Configure & Generate ➡️
+                        <button type="submit" class="btn btn-primary" name="action" value="save_and_redirect">
+                            Next: Generate Puzzles ➡️
                         </button>
                         <a href="/batch/select-images" class="btn btn-outline-secondary">
                             ◄ Back to Images
@@ -182,6 +182,13 @@
     border: 1px solid #dee2e6;
     border-radius: 8px;
     font-size: 2rem;
+    overflow: hidden;
+}
+
+.preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .placeholder {
