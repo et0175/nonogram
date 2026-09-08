@@ -26,8 +26,8 @@
 
                         <!-- Upload Multiple Images -->
                         <div class="mb-3">
-                            <label for="images" class="form-label">📁 Choose Image Files</label>
-                            <input type="file" class="form-control" id="images" name="images"
+                            <label for="image_files" class="form-label">📁 Choose Image Files</label>
+                            <input type="file" class="form-control" id="image_files" name="image_files"
                                    accept=".png,.jpg,.jpeg,.gif" multiple>
                             <small class="form-text text-muted">
                                 Select one or more image files directly
@@ -144,7 +144,7 @@
 <script>
 // Handle form submission
 document.querySelector('form').addEventListener('submit', function(e) {
-    const imagesInput = document.getElementById('images');
+    const imagesInput = document.getElementById('image_files');
     const directoryInput = document.getElementById('directory');
     const qualityInput = document.getElementById('quality_filter');
 
