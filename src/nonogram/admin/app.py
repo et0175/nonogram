@@ -4,6 +4,8 @@ from flask import Flask, render_template, request, jsonify, flash, redirect, url
 from datetime import datetime
 import json
 import os
+import tempfile
+from pathlib import Path
 
 from .batch_generator import get_batch_generator, BatchStatus
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter
@@ -90,6 +92,131 @@ def create_app(debug=None):
                 flash(f"Error: {str(e)}", "error")
 
         return render_template("batch_create.html")
+
+    @app.route("/batch/from-images", methods=["POST"])
+    def batch_from_images():
+        """Handle image uploads and store for preview."""
+        try:
+            # Get uploaded files
+            uploaded_files = request.files.getlist("image_files") or []
+            quality_filter = int(request.form.get("quality_filter", 0))
+
+            # Clear previous batch
+            image_mgr = get_image_manager()
+            image_mgr.clear_all()
+
+            if not uploaded_files or not any(f.filename for f in uploaded_files):
+                flash("No images selected", "error")
+                return redirect(url_for("batch_select_images"))
+
+            # Process uploaded files
+            processed_count = 0
+            for file in uploaded_files:
+                if file and file.filename:
+                    try:
+                        # Save to temp file
+                        temp_fd, temp_path = tempfile.mkstemp(suffix=Path(file.filename).suffix)
+                        os.close(temp_fd)
+                        file.save(temp_path)
+
+                        # Add to image manager
+                        image = image_mgr.add_image(temp_path, file.filename)
+                        if image:
+                            processed_count += 1
+                        else:
+                            flash(f"Could not process {file.filename}", "warning")
+
+                    except Exception as e:
+                        flash(f"Error processing {file.filename}: {str(e)}", "warning")
+
+            if processed_count == 0:
+                flash("No valid images to process", "error")
+                return redirect(url_for("batch_select_images"))
+
+            # Store quality filter in session
+            session["batch_quality_filter"] = quality_filter
+
+            flash(f"Loaded {processed_count} image(s)", "success")
+            return redirect(url_for("preview_batch_images"))
+
+        except Exception as e:
+            flash(f"Error: {str(e)}", "error")
+            return redirect(url_for("batch_select_images"))
+
+    @app.route("/batch/select-images", methods=["GET", "POST"])
+    def batch_select_images():
+        """Select images for batch generation (Wave 3 workflow)."""
+        return render_template("batch_create.html")
+
+    @app.route("/batch/preview-images", methods=["GET", "POST"])
+    def preview_batch_images():
+        """Preview and configure sizes for selected images."""
+        image_mgr = get_image_manager()
+        images = image_mgr.get_all_images()
+
+        if not images:
+            flash("No images loaded. Please upload images first.", "error")
+            return redirect(url_for("batch_select_images"))
+
+        if request.method == "POST":
+            try:
+                # Update configuration for each image
+                for image in images:
+                    file_id = image.file_id
+                    mode = request.form.get(f"mode_{file_id}", "fixed")
+                    value = int(request.form.get(f"value_{file_id}", 20))
+                    name = request.form.get(f"name_{file_id}", image.puzzle_name)
+
+                    # Update image configuration
+                    image_mgr.update_image_size(file_id, mode, value)
+                    image_mgr.update_image_name(file_id, name)
+
+                flash("Configuration saved", "success")
+                return redirect(url_for("generate_batch_puzzles"))
+
+            except ValueError as e:
+                flash(f"Configuration error: {str(e)}", "error")
+
+        # Get stats for display
+        total_size_mb = image_mgr.get_total_size_mb()
+
+        return render_template(
+            "image_preview.html",
+            images=images,
+            total_size_mb=total_size_mb,
+        )
+
+    @app.route("/batch/generate-puzzles", methods=["POST"])
+    def generate_batch_puzzles():
+        """Generate puzzles from configured images."""
+        try:
+            image_mgr = get_image_manager()
+            images = image_mgr.get_all_images()
+
+            if not images:
+                flash("No images to process", "error")
+                return redirect(url_for("batch_select_images"))
+
+            # TODO: Implement actual puzzle generation from images
+            # For now, create a mock batch showing it's in progress
+            batch_id = batch_gen.create_batch(
+                count=len(images),
+                sizes=[20],
+                theme="christmas",
+                source="image",
+                quality_filter=session.get("batch_quality_filter", 0),
+            )
+
+            flash(f"Batch created: {batch_id}. Processing images...", "success")
+
+            # Clear session
+            session.pop("batch_quality_filter", None)
+
+            return redirect(url_for("batch_status", batch_id=batch_id))
+
+        except Exception as e:
+            flash(f"Error: {str(e)}", "error")
+            return redirect(url_for("preview_batch_images"))
 
     @app.route("/batch/<batch_id>")
     def batch_status(batch_id):
@@ -329,6 +456,23 @@ def create_app(debug=None):
 
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
+
+    @app.route("/api/image/<file_id>")
+    def api_get_image(file_id):
+        """Serve uploaded image file."""
+        image_mgr = get_image_manager()
+        image = image_mgr.get_image(file_id)
+
+        if not image:
+            return "Not found", 404
+
+        try:
+            return send_file(
+                image.file_path,
+                mimetype=f"image/{image.format.lower()}",
+            )
+        except Exception as e:
+            return f"Error: {str(e)}", 500
 
     @app.errorhandler(404)
     def not_found(e):
