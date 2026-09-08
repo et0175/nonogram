@@ -31,9 +31,11 @@ def pytest_collection_modifyitems(config, items):
             test_path = str(item.fspath)
             test_name = item.name if hasattr(item, "name") else ""
             # Skip tests that depend on image fixtures
-            if any(pattern in test_path or pattern in test_name for pattern in [
-                "sourcing_image", "nudge", "derive_shape", "portrait", "landscape", "bands"
-            ]):
+            image_tests = [
+                "sourcing_image", "nudge", "derive_shape", "portrait", "landscape", "bands",
+                "image_fit", "image_run", "bare_size_image", "image_request", "image_bare_size",
+            ]
+            if any(pattern in test_path or pattern in test_name for pattern in image_tests):
                 item.add_marker(skip_marker)
 
 
