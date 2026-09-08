@@ -49,17 +49,21 @@
                     <div class="col-md-6 mb-4">
                         <div class="card border">
                             <div class="card-body">
-                                <!-- Image Preview -->
+                                <!-- Puzzle Grid Preview (SVG) -->
                                 <div class="image-preview-box mb-3">
-                                    <img src="/api/image/{{ image.file_id }}"
-                                         alt="{{ image.original_filename }}"
+                                    <img src="/api/puzzle-grid/{{ image.file_id }}"
+                                         alt="Puzzle grid for {{ image.original_filename }}"
                                          class="preview-img"
-                                         onerror="this.style.display='none'; this.parentElement.appendChild(this.nextElementSibling);">
-                                    <div class="placeholder-content" style="display:none;">
-                                        <div class="preview-icon">🖼️</div>
-                                        <div class="preview-dims">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</div>
-                                        <div class="preview-format">{{ image.format }}</div>
-                                    </div>
+                                         onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to generate grid</div></div>'">
+                                </div>
+
+                                <!-- Download SVG Button -->
+                                <div class="mb-3">
+                                    <a href="/api/puzzle-grid/{{ image.file_id }}/download"
+                                       class="btn btn-sm btn-outline-primary w-100"
+                                       download>
+                                        ⬇️ Download SVG
+                                    </a>
                                 </div>
 
                                 <!-- Image Name -->
