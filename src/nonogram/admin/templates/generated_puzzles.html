@@ -108,6 +108,17 @@
                 <strong>Generated:</strong><br>
                 <span class="badge bg-success">{{ puzzles|length }} puzzle(s)</span>
 
+                {% if total_images > 0 and filtered_count > 0 %}
+                <br><small class="text-muted mt-2 d-block">
+                    from {{ total_images }} image(s)<br>
+                    <strong>{{ filtered_count }} filtered out</strong> by quality threshold
+                </small>
+                {% elif total_images > 0 %}
+                <br><small class="text-muted mt-2 d-block">
+                    from {{ total_images }} image(s)
+                </small>
+                {% endif %}
+
                 <hr>
 
                 <strong>Batch ID:</strong><br>

@@ -355,10 +355,17 @@ def create_app(debug=None):
             flash("No puzzles generated for this batch", "warning")
             return redirect(url_for("batch_status", batch_id=batch_id))
 
+        # Get batch job info for total image count
+        batch_job = batch_gen.get_batch_status(batch_id)
+        total_images = batch_job.total_count if batch_job else len(puzzles)
+        filtered_count = total_images - len(puzzles) if batch_job else 0
+
         return render_template(
             "generated_puzzles.html",
             batch_id=batch_id,
             puzzles=puzzles,
+            total_images=total_images,
+            filtered_count=filtered_count,
         )
 
     @app.route("/batch/<batch_id>")
@@ -883,9 +890,14 @@ def create_app(debug=None):
         puzzle = puzzle_review.get_puzzle(puzzle_id)
 
         if not puzzle:
+            print(f"Puzzle not found: {puzzle_id}")
             return "Not found", 404
 
         try:
+            # Validate puzzle has required fields
+            if not puzzle.get('grid'):
+                return "No grid data", 500
+
             # Create PDF
             pdf_bytes = BytesIO()
             c = canvas.Canvas(pdf_bytes, pagesize=letter)
@@ -912,6 +924,9 @@ def create_app(debug=None):
             )
 
         except Exception as e:
+            import traceback
+            print(f"PDF generation error for {puzzle_id}: {str(e)}")
+            traceback.print_exc()
             return f"Error: {str(e)}", 500
 
     @app.errorhandler(404)
