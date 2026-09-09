@@ -803,44 +803,43 @@ def create_app(debug=None):
 
         return render_template("book_finalize.html", **context)
 
+    def generate_book_pdf_download(book, puzzle_review):
+        """Generate PDF and return as download response."""
+        from io import BytesIO
+        from werkzeug.wsgi import wrap_file
 
-def generate_book_pdf_download(book, puzzle_review):
-    """Generate PDF and return as download response."""
-    from io import BytesIO
-    from werkzeug.wsgi import wrap_file
+        try:
+            # Get puzzles
+            puzzles = []
+            for puzzle_id in book.puzzle_ids:
+                puzzle = puzzle_review.get_puzzle(puzzle_id)
+                if puzzle:
+                    puzzles.append(puzzle)
 
-    try:
-        # Get puzzles
-        puzzles = []
-        for puzzle_id in book.puzzle_ids:
-            puzzle = puzzle_review.get_puzzle(puzzle_id)
-            if puzzle:
-                puzzles.append(puzzle)
+            # Generate PDF
+            pdf_generator = BookPDFGenerator()
+            pdf_bytes = pdf_generator.generate_book_pdf(
+                puzzles=puzzles,
+                book_title=book.metadata.title,
+                trim_width_cm=None,  # Could extract from book.metadata.size
+                trim_height_cm=None,
+            )
 
-        # Generate PDF
-        pdf_generator = BookPDFGenerator()
-        pdf_bytes = pdf_generator.generate_book_pdf(
-            puzzles=puzzles,
-            book_title=book.metadata.title,
-            trim_width_cm=None,  # Could extract from book.metadata.size
-            trim_height_cm=None,
-        )
+            # Create response
+            pdf_bytes.seek(0)
+            timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+            filename = f"book_{timestamp}.pdf"
 
-        # Create response
-        pdf_bytes.seek(0)
-        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
-        filename = f"book_{timestamp}.pdf"
+            return send_file(
+                pdf_bytes,
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name=filename,
+            )
 
-        return send_file(
-            pdf_bytes,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=filename,
-        )
-
-    except Exception as e:
-        flash(f"Failed to generate PDF: {str(e)}", "error")
-        return redirect(request.referrer or url_for("book_detail", book_id=book.id))
+        except Exception as e:
+            flash(f"Failed to generate PDF: {str(e)}", "error")
+            return redirect(request.referrer or url_for("book_detail", book_id=book.id))
 
     @app.route("/book/<book_id>")
     def book_detail(book_id):
