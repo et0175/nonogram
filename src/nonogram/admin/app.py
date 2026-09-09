@@ -668,7 +668,9 @@ def create_app(debug=None):
 
             # Save to bytes
             img_bytes = BytesIO()
-            img.save(img_bytes, format=image.format)
+            # Convert format to PIL-compatible name (JPEG not JPG)
+            save_format = "JPEG" if image.format.upper() in ("JPG", "JPEG") else image.format.upper()
+            img.save(img_bytes, format=save_format)
             img_bytes.seek(0)
 
             return send_file(
