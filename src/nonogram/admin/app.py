@@ -18,6 +18,89 @@ from .image_to_puzzle import create_puzzle_from_image
 from .grid_renderer import grid_to_svg, get_svg_filename
 
 
+def draw_puzzle_page(c, puzzle, page_width, page_height, margin, is_solution=False):
+    """Draw a puzzle page on the PDF canvas.
+
+    Args:
+        c: ReportLab canvas object
+        puzzle: Puzzle dict with grid, width, height, etc.
+        page_width: Page width in points
+        page_height: Page height in points
+        margin: Margin in points
+        is_solution: If True, fill in the solution; if False, show empty grid
+    """
+    from reportlab.lib.units import inch
+
+    if not puzzle or not puzzle.get('grid'):
+        return
+
+    # Title
+    title = f"Puzzle {puzzle.get('id', 'Unknown')}"
+    if is_solution:
+        title += " - Solution"
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(margin, page_height - margin, title)
+
+    # Grid info
+    grid = puzzle.get('grid', [])
+    width = puzzle.get('width', 0)
+    height = puzzle.get('height', 0)
+
+    if not width or not height:
+        if grid and len(grid) > 0:
+            height = len(grid)
+            width = len(grid[0]) if grid else 0
+
+    if width == 0 or height == 0:
+        return
+
+    c.setFont("Helvetica", 10)
+    info_y = page_height - margin - 0.25 * inch
+    c.drawString(margin, info_y, f"Size: {width}×{height} | Difficulty: {puzzle.get('difficulty_tier', 'N/A')}")
+
+    # Calculate grid dimensions
+    available_width = page_width - 2 * margin
+    available_height = page_height - margin * 2 - 0.5 * inch
+
+    cell_size = min(available_width / width, available_height / height) if width > 0 and height > 0 else 10
+    cell_size = max(cell_size, 5)  # Minimum cell size
+    cell_size = min(cell_size, 30)  # Maximum cell size
+
+    grid_width = width * cell_size
+    grid_height = height * cell_size
+
+    # Center the grid on the page
+    grid_x = margin + (available_width - grid_width) / 2
+    grid_y = page_height - margin - 0.5 * inch - grid_height
+
+    # Draw grid lines
+    c.setLineWidth(1)
+    for i in range(height + 1):
+        y = grid_y + i * cell_size
+        c.line(grid_x, y, grid_x + grid_width, y)
+
+    for j in range(width + 1):
+        x = grid_x + j * cell_size
+        c.line(x, grid_y, x, grid_y + grid_height)
+
+    # Fill or mark cells if solution
+    if is_solution and grid:
+        c.setFillColorRGB(0, 0, 0)  # Black
+        try:
+            for i, row in enumerate(grid):
+                if i >= height:
+                    break
+                for j, cell in enumerate(row):
+                    if j >= width:
+                        break
+                    if cell:  # Filled cell
+                        x = grid_x + j * cell_size
+                        y = grid_y + (height - i - 1) * cell_size
+                        c.rect(x, y, cell_size, cell_size, fill=1)
+        except (IndexError, TypeError):
+            pass  # Grid data format issue, skip filling
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -814,70 +897,6 @@ def create_app(debug=None):
 
         except Exception as e:
             return f"Error: {str(e)}", 500
-
-    def draw_puzzle_page(c, puzzle, page_width, page_height, margin, is_solution=False):
-        """Draw a puzzle page on the PDF canvas.
-
-        Args:
-            c: ReportLab canvas object
-            puzzle: Puzzle dict with grid, width, height, etc.
-            page_width: Page width in points
-            page_height: Page height in points
-            margin: Margin in points
-            is_solution: If True, fill in the solution; if False, show empty grid
-        """
-        from reportlab.lib.units import inch
-
-        # Title
-        title = f"Puzzle {puzzle.get('id', 'Unknown')}"
-        if is_solution:
-            title += " - Solution"
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(margin, page_height - margin, title)
-
-        # Grid info
-        grid = puzzle.get('grid', [])
-        width = puzzle.get('width', len(grid[0]) if grid else 0)
-        height = puzzle.get('height', len(grid) if grid else 0)
-
-        c.setFont("Helvetica", 10)
-        info_y = page_height - margin - 0.25 * inch
-        c.drawString(margin, info_y, f"Size: {width}×{height} | Difficulty: {puzzle.get('difficulty_tier', 'N/A')}")
-
-        # Calculate grid dimensions
-        available_width = page_width - 2 * margin
-        available_height = page_height - margin * 2 - 0.5 * inch
-
-        cell_size = min(available_width / width, available_height / height) if width > 0 and height > 0 else 10
-        cell_size = max(cell_size, 5)  # Minimum cell size
-        cell_size = min(cell_size, 30)  # Maximum cell size
-
-        grid_width = width * cell_size
-        grid_height = height * cell_size
-
-        # Center the grid on the page
-        grid_x = margin + (available_width - grid_width) / 2
-        grid_y = page_height - margin - 0.5 * inch - grid_height
-
-        # Draw grid
-        c.setLineWidth(1)
-        for i in range(height + 1):
-            y = grid_y + i * cell_size
-            c.line(grid_x, y, grid_x + grid_width, y)
-
-        for j in range(width + 1):
-            x = grid_x + j * cell_size
-            c.line(x, grid_y, x, grid_y + grid_height)
-
-        # Fill or mark cells if solution
-        if is_solution and grid:
-            c.setFillColor(0, 0, 0)  # Black
-            for i, row in enumerate(grid):
-                for j, cell in enumerate(row):
-                    if cell:  # Filled cell
-                        x = grid_x + j * cell_size
-                        y = grid_y + (height - i - 1) * cell_size
-                        c.rect(x, y, cell_size, cell_size, fill=1)
 
     @app.route("/api/puzzle/<puzzle_id>/grid/download-pdf")
     def api_puzzle_grid_download_pdf(puzzle_id):
