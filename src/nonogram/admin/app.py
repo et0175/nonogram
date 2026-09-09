@@ -919,6 +919,54 @@ def create_app(debug=None):
             traceback.print_exc()
             return f"Error: {str(e)}", 500
 
+    @app.route("/api/puzzle/<puzzle_id>/details")
+    def api_puzzle_details(puzzle_id):
+        """Get full puzzle details as JSON (for detail modal)."""
+        puzzle = puzzle_review.get_puzzle(puzzle_id)
+
+        if not puzzle:
+            return jsonify({"error": "Puzzle not found"}), 404
+
+        # Fetch available books for assignment dropdown
+        books = book_mgr.get_all_books()
+
+        return jsonify({
+            "puzzle": puzzle,
+            "books": [{"id": str(b.id), "title": b.title} for b in books],
+        })
+
+    @app.route("/puzzle/<puzzle_id>/delete", methods=["POST"])
+    def delete_puzzle(puzzle_id):
+        """Delete a rejected puzzle."""
+        puzzle = puzzle_review.get_puzzle(puzzle_id)
+
+        if not puzzle:
+            flash("Puzzle not found", "error")
+            return redirect(url_for("puzzles_list"))
+
+        # Only allow deletion of rejected puzzles
+        if puzzle.get("status") != "rejected":
+            flash("Only rejected puzzles can be deleted", "error")
+            return redirect(url_for("puzzles_list"))
+
+        # Only allow deletion if not in a book
+        if puzzle.get("book_id"):
+            flash("Cannot delete puzzle that is in a book", "error")
+            return redirect(url_for("puzzles_list"))
+
+        # Delete from database
+        try:
+            from nonogram.db.models import Puzzle
+            with session_scope() as db:
+                p = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                if p:
+                    db.delete(p)
+            flash(f"Puzzle deleted", "success")
+        except Exception as e:
+            flash(f"Error deleting puzzle: {str(e)}", "error")
+
+        return redirect(url_for("puzzles_list"))
+
     @app.errorhandler(404)
     def not_found(e):
         """Handle 404 errors."""

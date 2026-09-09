@@ -281,6 +281,228 @@ document.querySelectorAll('.sortable-header').forEach(header => {
         window.location.href = buildSortUrl(column);
     });
 });
+
+// Detail modal functions
+async function openPuzzleDetail(puzzleId) {
+    const modal = document.getElementById('puzzleDetailModal');
+    const content = document.getElementById('puzzleDetailContent');
+
+    // Show loading state
+    content.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    modal.style.display = 'block';
+
+    try {
+        const response = await fetch(`/api/puzzle/${puzzleId}/details`);
+        if (!response.ok) {
+            content.innerHTML = '<div class="alert alert-danger">Failed to load puzzle details</div>';
+            return;
+        }
+
+        const data = await response.json();
+        const puzzle = data.puzzle;
+        const books = data.books;
+
+        // Build modal content
+        let html = `
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h5>Puzzle Grid</h5>
+                    <img src="/api/puzzle/${puzzle.id}/grid" alt="Puzzle grid" style="max-width: 100%; max-height: 300px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="col-md-6">
+                    <h5>Details</h5>
+                    <dl class="row" style="font-size: 0.9rem;">
+                        <dt class="col-sm-4">ID:</dt>
+                        <dd class="col-sm-8"><code>${puzzle.id}</code></dd>
+
+                        <dt class="col-sm-4">Size:</dt>
+                        <dd class="col-sm-8">${puzzle.width}×${puzzle.height}</dd>
+
+                        <dt class="col-sm-4">Difficulty:</dt>
+                        <dd class="col-sm-8">${puzzle.difficulty_tier || 'N/A'}</dd>
+
+                        <dt class="col-sm-4">Quality:</dt>
+                        <dd class="col-sm-8">${puzzle.quality_score || 'N/A'}/100</dd>
+
+                        <dt class="col-sm-4">Recognizability:</dt>
+                        <dd class="col-sm-8">${puzzle.recognizability || 'N/A'}</dd>
+
+                        <dt class="col-sm-4">Status:</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge" style="background-color: ${getStatusColor(puzzle.status)}">
+                                ${puzzle.status}
+                            </span>
+                        </dd>
+
+                        ${puzzle.source_image ? `
+                        <dt class="col-sm-4">Source:</dt>
+                        <dd class="col-sm-8">${puzzle.source_image}</dd>
+                        ` : ''}
+
+                        ${puzzle.batch_id ? `
+                        <dt class="col-sm-4">Batch:</dt>
+                        <dd class="col-sm-8"><code>${puzzle.batch_id}</code></dd>
+                        ` : ''}
+
+                        <dt class="col-sm-4">Created:</dt>
+                        <dd class="col-sm-8">${new Date(puzzle.created_at).toLocaleDateString()}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <h5>Actions</h5>
+                    <div class="btn-group" role="group">
+                        ${puzzle.status === 'draft' ? `
+                        <form method="POST" action="/puzzle/${puzzle.id}/approve" style="display:inline;">
+                            <button type="submit" class="btn btn-success">✓ Approve</button>
+                        </form>
+                        <form method="POST" action="/puzzle/${puzzle.id}/reject" style="display:inline;">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Reject this puzzle?')">✕ Reject</button>
+                        </form>
+                        ` : ''}
+
+                        ${puzzle.status === 'rejected' && !puzzle.book_id ? `
+                        <form method="POST" action="/puzzle/${puzzle.id}/delete" style="display:inline;" onsubmit="return confirm('Delete this puzzle? This cannot be undone.');">
+                            <button type="submit" class="btn btn-outline-danger">🗑️ Delete</button>
+                        </form>
+                        ` : ''}
+
+                        ${!puzzle.book_id ? `
+                        <div class="dropdown" style="display:inline-block;">
+                            <button class="btn btn-primary dropdown-toggle" type="button" id="bookDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                📚 Assign to Book
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="bookDropdown">
+                                ${books.map(book => `
+                                <li><a class="dropdown-item" href="#" onclick="assignPuzzleToBook('${puzzle.id}', '${book.id}'); return false;">${book.title}</a></li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        ` : `<span class="text-muted">Already in book</span>`}
+
+                        <button type="button" class="btn btn-secondary" onclick="closePuzzleDetail()">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        content.innerHTML = html;
+    } catch (error) {
+        content.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    }
+}
+
+function closePuzzleDetail() {
+    const modal = document.getElementById('puzzleDetailModal');
+    modal.style.display = 'none';
+}
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'draft': return '#95a5a6';
+        case 'approved': return '#27ae60';
+        case 'in_book': return '#3498db';
+        case 'rejected': return '#e74c3c';
+        default: return '#999';
+    }
+}
+
+function assignPuzzleToBook(puzzleId, bookId) {
+    // TODO: Implement book assignment
+    alert('Book assignment coming soon!\nPuzzle: ' + puzzleId + '\nBook: ' + bookId);
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('puzzleDetailModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+});
 </script>
+
+<!-- Detail Modal -->
+<div id="puzzleDetailModal" class="puzzle-detail-modal">
+    <div class="puzzle-detail-content">
+        <div class="puzzle-detail-header">
+            <h4>Puzzle Details</h4>
+            <button type="button" class="btn-close" onclick="closePuzzleDetail()"></button>
+        </div>
+        <div class="puzzle-detail-body" id="puzzleDetailContent">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+</div>
+
+<style>
+.puzzle-detail-modal {
+    display: none;
+    position: fixed;
+    z-index: 1050;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.puzzle-detail-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    max-width: 900px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.puzzle-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.puzzle-detail-header h4 {
+    margin: 0;
+}
+
+.puzzle-detail-body {
+    padding: 10px 0;
+}
+
+@media (max-width: 768px) {
+    .puzzle-detail-content {
+        margin: 20% auto;
+        max-width: 95%;
+        max-height: 80vh;
+    }
+}
+</style>
 
 {% endblock %}
