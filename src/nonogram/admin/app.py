@@ -144,8 +144,11 @@ def create_app(debug=None):
                         uploads_dir = Path(tempfile.gettempdir()) / "nonogram_uploads"
                         uploads_dir.mkdir(exist_ok=True)
 
-                        # Use unique filename to avoid collisions
-                        safe_filename = file.filename.replace(" ", "_")
+                        # Extract just the filename (remove any directory path from directory uploads)
+                        # When uploading a directory, file.filename includes the path like "birds/raven1.jpg"
+                        # We want just "raven1.jpg" to avoid creating nested directories
+                        just_filename = Path(file.filename).name
+                        safe_filename = just_filename.replace(" ", "_")
                         temp_path = uploads_dir / f"{uuid.uuid4().hex}_{safe_filename}"
                         file.save(str(temp_path))
 
