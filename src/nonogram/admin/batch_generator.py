@@ -343,7 +343,7 @@ class BatchGenerator:
             self._update_batch_status(batch_id, puzzle_count=puzzle_count)
 
     def get_batch_status(self, batch_id: str) -> Optional[BatchJob]:
-        """Get status of a batch generation job.
+        """Get status of a batch generation job (legacy or DB-backed).
 
         Args:
             batch_id: ID of the batch job
@@ -351,7 +351,32 @@ class BatchGenerator:
         Returns:
             BatchJob with current status, or None if not found
         """
-        return self.jobs.get(batch_id)
+        if self._session_factory is None:
+            # Legacy mode: check in-memory jobs
+            return self.jobs.get(batch_id)
+        else:
+            # DB mode: query database
+            from nonogram.db.models import Batch
+
+            with self._session_factory() as db:
+                batch = db.query(Batch).filter(Batch.id == batch_id).first()
+                if not batch:
+                    return None
+
+                # Convert Batch row to BatchJob for backward compatibility
+                return BatchJob(
+                    batch_id=str(batch.id),
+                    status=BatchStatus(batch.status),
+                    total_count=batch.total_count,
+                    completed_count=batch.completed_count,
+                    puzzle_count=batch.puzzle_count,
+                    error_message=batch.error_message,
+                    created_at=batch.created_at,
+                    updated_at=batch.updated_at,
+                    completed_at=batch.completed_at,
+                    sizes=batch.sizes,
+                    theme=batch.theme,
+                )
 
     def get_batch_puzzles(self, batch_id: str, offset: int = 0, limit: int = 25) -> Optional[List[dict]]:
         """Get puzzles from a completed batch (from puzzle_review_service).

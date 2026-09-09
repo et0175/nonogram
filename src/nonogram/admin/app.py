@@ -320,6 +320,9 @@ def create_app(debug=None):
                 except Exception as e:
                     errors.append(f"Error processing {image.original_filename}: {str(e)}")
 
+            # Update batch with final puzzle count
+            batch_gen._update_batch_status(batch_id, puzzle_count=generated_count)
+
             # Show results
             if generated_count > 0:
                 flash(f"✅ Generated {generated_count} puzzle(s) from {len(images)} image(s)", "success")
