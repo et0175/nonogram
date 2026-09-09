@@ -86,6 +86,12 @@ class Book(Base):
     page_count = Column(Integer, nullable=True)
     status = Column(String, default='draft')  # 'draft', 'ready', 'published'
     kdp_asin = Column(String, nullable=True)  # Amazon book ID
+    # Print specifications (Step 1)
+    trim_width_cm = Column(String, nullable=True, default='15.24')  # stored as string for precision
+    trim_height_cm = Column(String, nullable=True, default='22.86')
+    gutter_margin_cm = Column(String, nullable=True)  # inside margin
+    outside_margin_cm = Column(String, nullable=True)
+    outside_margin_bleed_cm = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

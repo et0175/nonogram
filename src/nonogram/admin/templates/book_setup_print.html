@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Print Setup - {{ book.metadata.title }} - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1>Book Scaffolding: Step 1 - Print Setup</h1>
+                <p class="text-muted">Configure print specifications for: <strong>{{ book.metadata.title }}</strong></p>
+            </div>
+            <div class="badge bg-info">Draft</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Trim Size & Unit Preference</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <!-- Unit Preference -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>Measurement Unit</strong></label>
+                        <div class="btn-group" role="group" style="width: 100%;">
+                            <input type="radio" class="btn-check" name="unit" id="unit_cm" value="cm"
+                                   {% if unit_preference == 'cm' %}checked{% endif %}
+                                   onchange="updateUnits()">
+                            <label class="btn btn-outline-primary" for="unit_cm">Centimeters (cm)</label>
+
+                            <input type="radio" class="btn-check" name="unit" id="unit_inches" value="inches"
+                                   {% if unit_preference == 'inches' %}checked{% endif %}
+                                   onchange="updateUnits()">
+                            <label class="btn btn-outline-primary" for="unit_inches">Inches (in)</label>
+                        </div>
+                        <small class="d-block mt-2 text-muted">Unit preference will be remembered for this session</small>
+                    </div>
+
+                    <!-- Trim Size Input -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="width" class="form-label"><strong>Trim Width</strong></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="width" name="width"
+                                       value="{{ default_width }}" min="10" max="30" step="0.01" required>
+                                <span class="input-group-text" id="width_unit">
+                                    {% if unit_preference == 'cm' %}cm{% else %}in{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="height" class="form-label"><strong>Trim Height</strong></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="height" name="height"
+                                       value="{{ default_height }}" min="10" max="48" step="0.01" required>
+                                <span class="input-group-text" id="height_unit">
+                                    {% if unit_preference == 'cm' %}cm{% else %}in{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Default Size Quick Link -->
+                    <div class="alert alert-info mb-4">
+                        <strong>📋 Default:</strong> A5 size (15.24 × 22.86 cm / 6 × 9 inches) — Amazon KDP standard
+                        <button type="button" class="btn btn-sm btn-info ms-2" onclick="setDefaultSize()">
+                            Use A5 Default
+                        </button>
+                    </div>
+
+                    <!-- Validation Info -->
+                    <div class="alert alert-secondary mb-4">
+                        <strong>📐 Validation Rules:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Minimum size: 10 × 10 cm (3.94 × 3.94 in)</li>
+                            <li>Maximum width: 30 cm (11.81 in) — Amazon KDP limit</li>
+                            <li>Maximum height: 48 cm (18.90 in) — Amazon KDP limit</li>
+                        </ul>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            ✓ Continue to Step 2: Puzzle Selection
+                        </button>
+                        <a href="/books" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Info -->
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">What is Trim Size?</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Trim size</strong> is the final dimensions of your printed book after cutting.</p>
+                <p>For example, A5 (6×9 inches) is ideal for puzzle books — compact, portable, easy to hold.</p>
+                <p class="mb-0"><small class="text-muted">Source: <a href="https://kdp.amazon.com/en_US/help/topic/G202145400" target="_blank">Amazon KDP Printing Specs</a></small></p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Common Sizes</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td><strong>A5</strong></td>
+                            <td>15.24 × 22.86 cm</td>
+                            <td>6 × 9 in</td>
+                        </tr>
+                        <tr>
+                            <td><strong>A4</strong></td>
+                            <td>21 × 29.7 cm</td>
+                            <td>8.3 × 11.7 in</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Letter</strong></td>
+                            <td>21.6 × 27.9 cm</td>
+                            <td>8.5 × 11 in</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Scaffolding Steps</h5>
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    <li class="mb-2"><strong>Print Setup</strong> <span class="badge bg-success">Current</span></li>
+                    <li class="mb-2">Puzzle Selection</li>
+                    <li class="mb-2">Puzzle Arrangement</li>
+                    <li>Finalization & Export</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateUnits() {
+    const unit = document.querySelector('input[name="unit"]:checked').value;
+    const widthUnit = document.getElementById('width_unit');
+    const heightUnit = document.getElementById('height_unit');
+
+    if (unit === 'cm') {
+        widthUnit.textContent = 'cm';
+        heightUnit.textContent = 'cm';
+    } else {
+        widthUnit.textContent = 'in';
+        heightUnit.textContent = 'in';
+    }
+}
+
+function setDefaultSize() {
+    const unit = document.querySelector('input[name="unit"]:checked').value;
+    const widthInput = document.getElementById('width');
+    const heightInput = document.getElementById('height');
+
+    if (unit === 'cm') {
+        widthInput.value = '15.24';
+        heightInput.value = '22.86';
+    } else {
+        widthInput.value = '6.00';
+        heightInput.value = '9.00';
+    }
+}
+</script>
+{% endblock %}

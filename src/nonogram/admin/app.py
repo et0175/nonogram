@@ -16,6 +16,7 @@ from .pdf_generator import get_pdf_generator
 from .image_manager import get_image_manager
 from .image_to_puzzle import create_puzzle_from_image
 from .grid_renderer import grid_to_svg, get_svg_filename
+from .print_specs import PrintSpecValidator
 
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
@@ -501,12 +502,77 @@ def create_app(debug=None):
                 )
 
                 flash(f"Book created: {book_id}", "success")
-                return redirect(url_for("book_detail", book_id=book_id))
+                return redirect(url_for("setup_print", book_id=book_id))
 
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")
 
         return render_template("book_create.html")
+
+    @app.route("/book/<book_id>/setup-print", methods=["GET", "POST"])
+    def setup_print(book_id):
+        """Configure print specifications for a book (Step 1 of scaffolding)."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        if request.method == "POST":
+            try:
+                # Get form data
+                unit = request.form.get("unit", "cm")
+                width_input = request.form.get("width")
+                height_input = request.form.get("height")
+
+                session["unit_preference"] = unit  # Persist unit preference in session
+
+                # Convert to cm if input was in inches
+                if unit == "inches":
+                    width_cm = PrintSpecValidator.inches_to_cm(width_input)
+                    height_cm = PrintSpecValidator.inches_to_cm(height_input)
+                else:
+                    width_cm = width_input
+                    height_cm = height_input
+
+                # Validate and create spec
+                spec, error = PrintSpecValidator.create_spec(
+                    width_cm=width_cm,
+                    height_cm=height_cm,
+                )
+
+                if error:
+                    flash(f"Error: {error}", "error")
+                else:
+                    # Store in book metadata (for now, using the in-memory manager)
+                    # In production, this would update the Book row in the database
+                    book.metadata.size = f"{spec.trim_width_cm}×{spec.trim_height_cm} cm"
+                    book.updated_at = datetime.utcnow()
+
+                    flash(f"Print specs set: {spec.trim_width_cm} × {spec.trim_height_cm} cm", "success")
+                    # Proceed to Step 2: Puzzle Selection
+                    return redirect(url_for("select_puzzles_for_book", book_id=book_id))
+
+            except ValueError as e:
+                flash(f"Error: {str(e)}", "error")
+
+        # Prepare default trim size
+        default_width = "15.24"
+        default_height = "22.86"
+        unit_preference = session.get("unit_preference", "cm")
+
+        # Convert defaults to inches if that's the preference
+        if unit_preference == "inches":
+            default_width = PrintSpecValidator.cm_to_inches(default_width)
+            default_height = PrintSpecValidator.cm_to_inches(default_height)
+
+        context = {
+            "book": book,
+            "default_width": default_width,
+            "default_height": default_height,
+            "unit_preference": unit_preference,
+        }
+
+        return render_template("book_setup_print.html", **context)
 
     @app.route("/book/<book_id>")
     def book_detail(book_id):
