@@ -25,15 +25,15 @@
                                 <div class="card-body">
                                     <!-- Puzzle SVG Grid -->
                                     <div class="puzzle-preview-box mb-3">
-                                        <img src="/api/puzzle/{{ puzzle.puzzle_id }}/grid"
-                                             alt="Puzzle {{ puzzle.puzzle_id }}"
+                                        <img src="/api/puzzle/{{ puzzle.id }}/grid"
+                                             alt="Puzzle {{ puzzle.id }}"
                                              class="puzzle-grid-img"
                                              onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load grid</div></div>'">
                                     </div>
 
                                     <!-- Download Button -->
                                     <div class="mb-3">
-                                        <a href="/api/puzzle/{{ puzzle.puzzle_id }}/grid/download"
+                                        <a href="/api/puzzle/{{ puzzle.id }}/grid/download"
                                            class="btn btn-sm btn-outline-primary w-100"
                                            download>
                                             ⬇️ Download SVG
@@ -66,12 +66,12 @@
 
                                     <!-- Action Buttons -->
                                     <div class="action-buttons">
-                                        <form method="POST" action="/puzzles/{{ puzzle.get('id') }}/approve" style="display: inline;">
+                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/approve" style="display: inline;">
                                             <button type="submit" class="btn btn-sm btn-success" title="Approve this puzzle">
                                                 ✓ Approve
                                             </button>
                                         </form>
-                                        <form method="POST" action="/puzzles/{{ puzzle.get('id') }}/reject" style="display: inline;">
+                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/reject" style="display: inline;">
                                             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Reject this puzzle?')" title="Reject this puzzle">
                                                 ✕ Reject
                                             </button>
