@@ -17,88 +17,10 @@ from .image_manager import get_image_manager
 from .image_to_puzzle import create_puzzle_from_image
 from .grid_renderer import grid_to_svg, get_svg_filename
 
-
-def draw_puzzle_page(c, puzzle, page_width, page_height, margin, is_solution=False):
-    """Draw a puzzle page on the PDF canvas.
-
-    Args:
-        c: ReportLab canvas object
-        puzzle: Puzzle dict with grid, width, height, etc.
-        page_width: Page width in points
-        page_height: Page height in points
-        margin: Margin in points
-        is_solution: If True, fill in the solution; if False, show empty grid
-    """
-    from reportlab.lib.units import inch
-
-    if not puzzle or not puzzle.get('grid'):
-        return
-
-    # Title
-    title = f"Puzzle {puzzle.get('id', 'Unknown')}"
-    if is_solution:
-        title += " - Solution"
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(margin, page_height - margin, title)
-
-    # Grid info
-    grid = puzzle.get('grid', [])
-    width = puzzle.get('width', 0)
-    height = puzzle.get('height', 0)
-
-    if not width or not height:
-        if grid and len(grid) > 0:
-            height = len(grid)
-            width = len(grid[0]) if grid else 0
-
-    if width == 0 or height == 0:
-        return
-
-    c.setFont("Helvetica", 10)
-    info_y = page_height - margin - 0.25 * inch
-    c.drawString(margin, info_y, f"Size: {width}×{height} | Difficulty: {puzzle.get('difficulty_tier', 'N/A')}")
-
-    # Calculate grid dimensions
-    available_width = page_width - 2 * margin
-    available_height = page_height - margin * 2 - 0.5 * inch
-
-    cell_size = min(available_width / width, available_height / height) if width > 0 and height > 0 else 10
-    cell_size = max(cell_size, 5)  # Minimum cell size
-    cell_size = min(cell_size, 30)  # Maximum cell size
-
-    grid_width = width * cell_size
-    grid_height = height * cell_size
-
-    # Center the grid on the page
-    grid_x = margin + (available_width - grid_width) / 2
-    grid_y = page_height - margin - 0.5 * inch - grid_height
-
-    # Draw grid lines
-    c.setLineWidth(1)
-    for i in range(height + 1):
-        y = grid_y + i * cell_size
-        c.line(grid_x, y, grid_x + grid_width, y)
-
-    for j in range(width + 1):
-        x = grid_x + j * cell_size
-        c.line(x, grid_y, x, grid_y + grid_height)
-
-    # Fill or mark cells if solution
-    if is_solution and grid:
-        c.setFillColorRGB(0, 0, 0)  # Black
-        try:
-            for i, row in enumerate(grid):
-                if i >= height:
-                    break
-                for j, cell in enumerate(row):
-                    if j >= width:
-                        break
-                    if cell:  # Filled cell
-                        x = grid_x + j * cell_size
-                        y = grid_y + (height - i - 1) * cell_size
-                        c.rect(x, y, cell_size, cell_size, fill=1)
-        except (IndexError, TypeError):
-            pass  # Grid data format issue, skip filling
+# Import the professional export PDF module
+from nonogram.export.pdf import render_pages
+from nonogram.export import ExportPayload
+from nonogram import clues
 
 
 def create_app(debug=None):
@@ -901,40 +823,54 @@ def create_app(debug=None):
     @app.route("/api/puzzle/<puzzle_id>/grid/download-pdf")
     def api_puzzle_grid_download_pdf(puzzle_id):
         """Download puzzle grid as PDF file with puzzle and solution pages."""
-        from reportlab.lib.pagesizes import letter
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.units import inch
-
         puzzle_review = get_puzzle_review_service()
         puzzle = puzzle_review.get_puzzle(puzzle_id)
 
         if not puzzle:
-            print(f"Puzzle not found: {puzzle_id}")
             return "Not found", 404
 
         try:
             # Validate puzzle has required fields
-            if not puzzle.get('grid'):
+            grid = puzzle.get('grid')
+            if not grid:
                 return "No grid data", 500
 
-            # Create PDF
+            # Convert grid to clues using the standard clues module
+            width = puzzle.get('width', len(grid[0]) if grid else 0)
+            height = puzzle.get('height', len(grid) if grid else 0)
+
+            row_clues = tuple(clues.encode_line(row) for row in grid)
+            col_clues = tuple(clues.encode_line([grid[i][j] for i in range(height)]) for j in range(width))
+
+            # Create ExportPayload for the professional PDF renderer
+            payload = ExportPayload(
+                grid=grid,
+                row_clues=row_clues,
+                column_clues=col_clues,
+                seed=0,  # Not tracked in admin panel
+                mode="image",  # Generated from image
+                width=width,
+                height=height,
+                density=None,
+                name=puzzle.get('puzzle_name', puzzle_id),
+                difficulty=puzzle.get('difficulty_tier', 'Unknown'),
+            )
+
+            # Use the professional PDF renderer to generate pages
+            puzzle_page, answer_page = render_pages(payload)
+
+            # Convert to PDF bytes using Pillow
             pdf_bytes = BytesIO()
-            c = canvas.Canvas(pdf_bytes, pagesize=letter)
-            width, height = letter
-            margin = 0.5 * inch
-
-            # Page 1: Puzzle (empty grid with clues)
-            draw_puzzle_page(c, puzzle, width, height, margin, is_solution=False)
-            c.showPage()
-
-            # Page 2: Solution (filled grid)
-            draw_puzzle_page(c, puzzle, width, height, margin, is_solution=True)
-            c.showPage()
-
-            c.save()
+            puzzle_page.save(
+                pdf_bytes,
+                format="PDF",
+                save_all=True,
+                append_images=[answer_page],
+                resolution=300,  # High quality
+            )
             pdf_bytes.seek(0)
 
-            filename = f"puzzle_{puzzle_id}.pdf"
+            filename = f"{puzzle_id}.pdf"
             return send_file(
                 pdf_bytes,
                 mimetype="application/pdf",
