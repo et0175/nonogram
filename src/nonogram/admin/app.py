@@ -9,8 +9,8 @@ import uuid
 from pathlib import Path
 from io import BytesIO
 
-from .batch_generator import get_batch_generator, BatchStatus
-from .puzzle_review import get_puzzle_review_service, PuzzleFilter
+from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
+from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReviewService
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
 from .image_manager import get_image_manager
@@ -21,6 +21,9 @@ from .grid_renderer import grid_to_svg, get_svg_filename
 from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues
+
+# Import DB session factory for DB-backed services
+from nonogram.db import session_scope
 
 
 def create_app(debug=None):
@@ -47,8 +50,10 @@ def create_app(debug=None):
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         return response
 
-    puzzle_review = get_puzzle_review_service()
-    batch_gen = get_batch_generator(puzzle_review_service=puzzle_review)
+    # Construct DB-backed service instances with session_factory
+    # (persists batches/puzzles to the database via DATABASE_URL env var)
+    puzzle_review = PuzzleReviewService(session_factory=session_scope)
+    batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=session_scope)
     book_mgr = get_book_manager()
 
     @app.route("/")
