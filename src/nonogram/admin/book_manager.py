@@ -41,6 +41,7 @@ class Book:
     book_id: str
     metadata: BookMetadata
     puzzle_ids: List[str] = field(default_factory=list)
+    puzzle_titles: Dict[str, str] = field(default_factory=dict)  # {puzzle_id: "custom title"}
     status: str = BookStatus.DRAFT.value
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
@@ -218,6 +219,115 @@ class BookManager:
         book.updated_at = datetime.utcnow()
 
         return True
+
+    def move_puzzle_up(self, book_id: str, puzzle_id: str) -> bool:
+        """Move a puzzle up one position in the book.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle to move
+
+        Returns:
+            True if moved, False if already at top or not found
+
+        Raises:
+            ValueError: If book not found or puzzle not in book
+        """
+        book = self.books.get(book_id)
+        if not book:
+            raise ValueError("Book not found")
+
+        if puzzle_id not in book.puzzle_ids:
+            raise ValueError("Puzzle not in book")
+
+        current_index = book.puzzle_ids.index(puzzle_id)
+        if current_index == 0:
+            return False  # Already at top
+
+        # Swap with previous puzzle
+        book.puzzle_ids[current_index], book.puzzle_ids[current_index - 1] = (
+            book.puzzle_ids[current_index - 1],
+            book.puzzle_ids[current_index],
+        )
+        book.updated_at = datetime.utcnow()
+        return True
+
+    def move_puzzle_down(self, book_id: str, puzzle_id: str) -> bool:
+        """Move a puzzle down one position in the book.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle to move
+
+        Returns:
+            True if moved, False if already at bottom or not found
+
+        Raises:
+            ValueError: If book not found or puzzle not in book
+        """
+        book = self.books.get(book_id)
+        if not book:
+            raise ValueError("Book not found")
+
+        if puzzle_id not in book.puzzle_ids:
+            raise ValueError("Puzzle not in book")
+
+        current_index = book.puzzle_ids.index(puzzle_id)
+        if current_index == len(book.puzzle_ids) - 1:
+            return False  # Already at bottom
+
+        # Swap with next puzzle
+        book.puzzle_ids[current_index], book.puzzle_ids[current_index + 1] = (
+            book.puzzle_ids[current_index + 1],
+            book.puzzle_ids[current_index],
+        )
+        book.updated_at = datetime.utcnow()
+        return True
+
+    def set_puzzle_title(self, book_id: str, puzzle_id: str, title: str) -> bool:
+        """Set custom title for a puzzle in the book.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle
+            title: Custom title for this puzzle in the book
+
+        Returns:
+            True if updated, False if not found
+
+        Raises:
+            ValueError: If puzzle not in book
+        """
+        book = self.books.get(book_id)
+        if not book:
+            return False
+
+        if puzzle_id not in book.puzzle_ids:
+            raise ValueError("Puzzle not in book")
+
+        if title.strip():
+            book.puzzle_titles[puzzle_id] = title.strip()
+        elif puzzle_id in book.puzzle_titles:
+            del book.puzzle_titles[puzzle_id]  # Remove custom title
+
+        book.updated_at = datetime.utcnow()
+        return True
+
+    def get_puzzle_title(self, book_id: str, puzzle_id: str) -> Optional[str]:
+        """Get custom title for a puzzle in the book.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle
+
+        Returns:
+            Custom title if set, None otherwise
+        """
+        book = self.books.get(book_id)
+        if not book:
+            return None
+
+        return book.puzzle_titles.get(puzzle_id)
 
     def set_book_status(self, book_id: str, status: str) -> bool:
         """Update book status.

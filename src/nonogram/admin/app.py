@@ -667,8 +667,75 @@ def create_app(debug=None):
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
-        # TODO: Implement Step 3 puzzle arrangement
-        flash("Step 3: Puzzle Arrangement (Coming soon)", "info")
+        # Handle puzzle reordering and title updates via AJAX or form submission
+        if request.method == "POST":
+            action = request.form.get("action")
+
+            try:
+                if action == "move_up":
+                    puzzle_id = request.form.get("puzzle_id")
+                    book_mgr.move_puzzle_up(book_id, puzzle_id)
+                    flash(f"Moved puzzle up", "success")
+
+                elif action == "move_down":
+                    puzzle_id = request.form.get("puzzle_id")
+                    book_mgr.move_puzzle_down(book_id, puzzle_id)
+                    flash(f"Moved puzzle down", "success")
+
+                elif action == "set_title":
+                    puzzle_id = request.form.get("puzzle_id")
+                    title = request.form.get("title")
+                    book_mgr.set_puzzle_title(book_id, puzzle_id, title)
+                    flash(f"Updated puzzle title", "success")
+
+                elif action == "delete":
+                    puzzle_id = request.form.get("puzzle_id")
+                    book_mgr.remove_puzzle_from_book(book_id, puzzle_id)
+                    flash(f"Removed puzzle from book", "success")
+
+                elif action == "finish":
+                    # Proceed to Step 4: Finalization
+                    return redirect(url_for("finalize_book", book_id=book_id))
+
+            except ValueError as e:
+                flash(f"Error: {str(e)}", "error")
+
+        # Get puzzles in current order with titles
+        puzzles_in_book = []
+        for order_num, puzzle_id in enumerate(book.puzzle_ids, start=1):
+            # Get puzzle details from puzzle_review service
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+            if puzzle:
+                # Add custom title if set
+                custom_title = book_mgr.get_puzzle_title(book_id, puzzle_id)
+                puzzle["order"] = order_num
+                puzzle["custom_title"] = custom_title
+                puzzles_in_book.append(puzzle)
+
+        # Calculate estimated page count
+        # Rough estimate: assume each puzzle is ~1-2 pages based on height
+        # Later refinement in Step 4 based on actual trim height
+        page_count = max(1, len(puzzles_in_book))  # Minimum 1 page per puzzle
+
+        context = {
+            "book": book,
+            "puzzles": puzzles_in_book,
+            "page_count": page_count,
+            "puzzle_count": len(puzzles_in_book),
+        }
+
+        return render_template("book_arrange_puzzles.html", **context)
+
+    @app.route("/book/<book_id>/finalize", methods=["GET", "POST"])
+    def finalize_book(book_id):
+        """Finalize book with cover, guide, and download (Step 4 of scaffolding)."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        # TODO: Implement Step 4 finalization (cover, guide, preview, PDF download)
+        flash("Step 4: Finalization (Coming soon)", "info")
         return redirect(url_for("book_detail", book_id=book_id))
 
     @app.route("/book/<book_id>")

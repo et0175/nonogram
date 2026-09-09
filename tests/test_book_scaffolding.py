@@ -2,6 +2,7 @@
 
 import pytest
 from nonogram.admin.print_specs import PrintSpecValidator
+from nonogram.admin.book_manager import BookManager
 
 
 class TestPrintSpecValidator:
@@ -183,3 +184,141 @@ class TestBookScaffoldingFlow:
         # Filter by quality
         quality_90_plus = [p for p in puzzles if p["quality"] >= 90]
         assert len(quality_90_plus) == 2
+
+class TestBookPuzzleArrangement:
+    """Test puzzle arrangement functionality for Step 3."""
+
+    def test_puzzle_reordering_move_up(self):
+        """Test moving a puzzle up in order."""
+        mgr = BookManager()
+        
+        # Create book
+        book_id = mgr.create_book(
+            title="Test Book",
+            description="Test",
+            theme="christmas",
+            target_audience="adults"
+        )
+        
+        # Add puzzles
+        puzzle_ids = ["p1", "p2", "p3"]
+        mgr.add_puzzles_to_book(book_id, puzzle_ids)
+        book = mgr.get_book(book_id)
+        
+        assert book.puzzle_ids == ["p1", "p2", "p3"]
+        
+        # Move p2 up (should swap with p1)
+        mgr.move_puzzle_up(book_id, "p2")
+        book = mgr.get_book(book_id)
+        
+        assert book.puzzle_ids == ["p2", "p1", "p3"]
+
+    def test_puzzle_reordering_move_down(self):
+        """Test moving a puzzle down in order."""
+        mgr = BookManager()
+        
+        book_id = mgr.create_book(
+            title="Test Book",
+            description="Test",
+            theme="christmas",
+            target_audience="adults"
+        )
+        
+        puzzle_ids = ["p1", "p2", "p3"]
+        mgr.add_puzzles_to_book(book_id, puzzle_ids)
+        
+        # Move p1 down (should swap with p2)
+        mgr.move_puzzle_down(book_id, "p1")
+        book = mgr.get_book(book_id)
+        
+        assert book.puzzle_ids == ["p2", "p1", "p3"]
+
+    def test_puzzle_cannot_move_beyond_bounds(self):
+        """Test that puzzles cannot move beyond list bounds."""
+        mgr = BookManager()
+        
+        book_id = mgr.create_book(
+            title="Test Book",
+            description="Test",
+            theme="christmas",
+            target_audience="adults"
+        )
+        
+        puzzle_ids = ["p1", "p2", "p3"]
+        mgr.add_puzzles_to_book(book_id, puzzle_ids)
+        
+        # Try to move first puzzle up (should fail)
+        result = mgr.move_puzzle_up(book_id, "p1")
+        assert result is False
+        
+        # Try to move last puzzle down (should fail)
+        result = mgr.move_puzzle_down(book_id, "p3")
+        assert result is False
+        
+        # Order should not change
+        book = mgr.get_book(book_id)
+        assert book.puzzle_ids == ["p1", "p2", "p3"]
+
+    def test_set_puzzle_title(self):
+        """Test setting custom title for a puzzle."""
+        mgr = BookManager()
+        
+        book_id = mgr.create_book(
+            title="Test Book",
+            description="Test",
+            theme="christmas",
+            target_audience="adults"
+        )
+        
+        puzzle_ids = ["p1", "p2"]
+        mgr.add_puzzles_to_book(book_id, puzzle_ids)
+        
+        # Set custom title
+        mgr.set_puzzle_title(book_id, "p1", "The Rain Deer")
+        
+        # Verify title is stored
+        title = mgr.get_puzzle_title(book_id, "p1")
+        assert title == "The Rain Deer"
+        
+        # Verify other puzzle has no title
+        title = mgr.get_puzzle_title(book_id, "p2")
+        assert title is None
+
+    def test_clear_puzzle_title(self):
+        """Test clearing a custom title."""
+        mgr = BookManager()
+        
+        book_id = mgr.create_book(
+            title="Test Book",
+            description="Test",
+            theme="christmas",
+            target_audience="adults"
+        )
+        
+        puzzle_ids = ["p1"]
+        mgr.add_puzzles_to_book(book_id, puzzle_ids)
+        
+        # Set title
+        mgr.set_puzzle_title(book_id, "p1", "My Title")
+        assert mgr.get_puzzle_title(book_id, "p1") == "My Title"
+        
+        # Clear title (empty string)
+        mgr.set_puzzle_title(book_id, "p1", "")
+        assert mgr.get_puzzle_title(book_id, "p1") is None
+
+    def test_puzzle_not_in_book_raises_error(self):
+        """Test that setting title for non-existent puzzle raises error."""
+        mgr = BookManager()
+        
+        book_id = mgr.create_book(
+            title="Test Book",
+            description="Test",
+            theme="christmas",
+            target_audience="adults"
+        )
+        
+        mgr.add_puzzles_to_book(book_id, ["p1"])
+        
+        # Try to set title for puzzle not in book
+        with pytest.raises(ValueError, match="Puzzle not in book"):
+            mgr.set_puzzle_title(book_id, "p999", "Title")
