@@ -322,3 +322,71 @@ class TestBookPuzzleArrangement:
         # Try to set title for puzzle not in book
         with pytest.raises(ValueError, match="Puzzle not in book"):
             mgr.set_puzzle_title(book_id, "p999", "Title")
+
+class TestBookPDFGeneration:
+    """Test PDF generation for Step 4."""
+
+    def test_book_pdf_generator_init(self):
+        """Test PDF generator initialization."""
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+        gen = BookPDFGenerator()
+        assert gen.dpi == 300
+        assert gen.page_width_px > 0
+        assert gen.page_height_px > 0
+
+    def test_create_cover_page_blank(self):
+        """Test creating a blank cover page."""
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+        gen = BookPDFGenerator()
+        cover = gen.create_cover_page("Test Book")
+
+        assert cover is not None
+        assert cover.mode == "RGB"
+        assert cover.size[0] > 0
+        assert cover.size[1] > 0
+
+    def test_create_guide_page(self):
+        """Test creating a guide page."""
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+        gen = BookPDFGenerator()
+        guide = gen.create_guide_page(
+            puzzle_count=10,
+            easy_count=3,
+            medium_count=4,
+            hard_count=3,
+        )
+
+        assert guide is not None
+        assert guide.mode == "RGB"
+        assert guide.size[0] > 0
+        assert guide.size[1] > 0
+
+    def test_generate_book_pdf_empty(self):
+        """Test generating PDF with no puzzles."""
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+        gen = BookPDFGenerator()
+        pdf = gen.generate_book_pdf(puzzles=[], book_title="Empty Book")
+
+        assert pdf is not None
+        assert pdf.getbuffer().nbytes > 0  # PDF has content
+
+    def test_difficulty_breakdown(self):
+        """Test calculating difficulty breakdown for guide."""
+        puzzles = [
+            {"id": "p1", "difficulty_tier": "Easy", "puzzle_name": "P1"},
+            {"id": "p2", "difficulty_tier": "Easy", "puzzle_name": "P2"},
+            {"id": "p3", "difficulty_tier": "Medium", "puzzle_name": "P3"},
+            {"id": "p4", "difficulty_tier": "Hard", "puzzle_name": "P4"},
+        ]
+
+        easy_count = sum(1 for p in puzzles if p.get("difficulty_tier") == "Easy")
+        medium_count = sum(1 for p in puzzles if p.get("difficulty_tier") == "Medium")
+        hard_count = sum(1 for p in puzzles if p.get("difficulty_tier") == "Hard")
+
+        assert easy_count == 2
+        assert medium_count == 1
+        assert hard_count == 1

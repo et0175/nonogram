@@ -17,6 +17,7 @@ from .image_manager import get_image_manager
 from .image_to_puzzle import create_puzzle_from_image
 from .grid_renderer import grid_to_svg, get_svg_filename
 from .print_specs import PrintSpecValidator
+from .book_pdf_generator import BookPDFGenerator
 
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
@@ -734,9 +735,112 @@ def create_app(debug=None):
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
-        # TODO: Implement Step 4 finalization (cover, guide, preview, PDF download)
-        flash("Step 4: Finalization (Coming soon)", "info")
-        return redirect(url_for("book_detail", book_id=book_id))
+        if request.method == "POST":
+            action = request.form.get("action")
+
+            try:
+                if action == "clear_cover":
+                    # Clear cover image (stored in session)
+                    session.pop(f"book_{book_id}_cover_path", None)
+                    flash("Cover image cleared", "success")
+
+                elif action == "save_and_finish":
+                    # Mark book as ready and return to books list
+                    book_mgr.set_book_status(book_id, BookStatus.READY_FOR_PDF.value)
+                    flash(f"Book saved: {book.metadata.title}", "success")
+                    return redirect(url_for("books_list"))
+
+                elif action == "download_pdf":
+                    # Generate and download PDF
+                    return generate_book_pdf_download(book, puzzle_review)
+
+            except Exception as e:
+                flash(f"Error: {str(e)}", "error")
+
+        # Handle cover upload
+        cover_image = None
+        cover_path = session.get(f"book_{book_id}_cover_path")
+
+        if "cover" in request.files:
+            file = request.files["cover"]
+            if file and file.filename:
+                try:
+                    from PIL import Image as PILImage
+                    cover_image = PILImage.open(file.stream)
+                    # Store filename in session (Pillow Image can't be serialized)
+                    session[f"book_{book_id}_cover_path"] = file.filename
+                    session[f"book_{book_id}_cover_data"] = True  # Flag it exists
+                    flash("Cover image uploaded", "success")
+                except Exception as e:
+                    flash(f"Failed to load image: {str(e)}", "error")
+
+        # Get puzzles in order
+        puzzles_in_book = []
+        for puzzle_id in book.puzzle_ids:
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+            if puzzle:
+                custom_title = book_mgr.get_puzzle_title(book_id, puzzle_id)
+                puzzle["custom_title"] = custom_title
+                puzzles_in_book.append(puzzle)
+
+        # Calculate difficulty breakdown
+        easy_count = sum(1 for p in puzzles_in_book if p.get("difficulty_tier") == "Easy")
+        medium_count = sum(1 for p in puzzles_in_book if p.get("difficulty_tier") == "Medium")
+        hard_count = sum(1 for p in puzzles_in_book if p.get("difficulty_tier") == "Hard")
+
+        context = {
+            "book": book,
+            "puzzles": puzzles_in_book,
+            "puzzle_count": len(puzzles_in_book),
+            "easy_count": easy_count,
+            "medium_count": medium_count,
+            "hard_count": hard_count,
+            "page_count": max(1, len(puzzles_in_book) + 2),  # Cover + guide + puzzles
+            "cover_uploaded": bool(session.get(f"book_{book_id}_cover_data")),
+            "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else "15.24",
+            "trim_height_cm": book.metadata.size.split("×")[1] if book.metadata.size and "×" in book.metadata.size else "22.86",
+        }
+
+        return render_template("book_finalize.html", **context)
+
+
+def generate_book_pdf_download(book, puzzle_review):
+    """Generate PDF and return as download response."""
+    from io import BytesIO
+    from werkzeug.wsgi import wrap_file
+
+    try:
+        # Get puzzles
+        puzzles = []
+        for puzzle_id in book.puzzle_ids:
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+            if puzzle:
+                puzzles.append(puzzle)
+
+        # Generate PDF
+        pdf_generator = BookPDFGenerator()
+        pdf_bytes = pdf_generator.generate_book_pdf(
+            puzzles=puzzles,
+            book_title=book.metadata.title,
+            trim_width_cm=None,  # Could extract from book.metadata.size
+            trim_height_cm=None,
+        )
+
+        # Create response
+        pdf_bytes.seek(0)
+        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        filename = f"book_{timestamp}.pdf"
+
+        return send_file(
+            pdf_bytes,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception as e:
+        flash(f"Failed to generate PDF: {str(e)}", "error")
+        return redirect(request.referrer or url_for("book_detail", book_id=book.id))
 
     @app.route("/book/<book_id>")
     def book_detail(book_id):
