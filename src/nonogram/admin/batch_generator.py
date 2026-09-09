@@ -195,7 +195,8 @@ class BatchGenerator:
         if not 0 <= quality_filter <= 100:
             raise ValueError(f"Quality filter must be 0-100, got {quality_filter}")
 
-        batch_id = str(uuid.uuid4())
+        batch_uuid = uuid.uuid4()
+        batch_id = str(batch_uuid)  # Keep string version for legacy mode + return value
 
         if self._session_factory is None:
             # Legacy mode: in-memory BatchJob
@@ -231,7 +232,7 @@ class BatchGenerator:
                 # 1. Insert Batch row with status=generating before generation starts
                 with self._session_factory() as db:
                     batch = Batch(
-                        id=batch_id,
+                        id=batch_uuid,  # Use UUID object, not string
                         status=BatchStatus.GENERATING.value,
                         source=source,
                         total_count=count,
