@@ -261,13 +261,16 @@ class PuzzleReviewService:
         else:
             # DB mode: query database
             from nonogram.db.models import Puzzle
+            import uuid as uuid_module
 
             with self._session_factory() as db:
                 query = db.query(Puzzle)
 
                 # Apply filters
                 if filter_opts.batch_id:
-                    query = query.filter(Puzzle.batch_id == filter_opts.batch_id)
+                    # Convert string batch_id to UUID if needed
+                    batch_uuid = uuid_module.UUID(filter_opts.batch_id) if isinstance(filter_opts.batch_id, str) else filter_opts.batch_id
+                    query = query.filter(Puzzle.batch_id == batch_uuid)
                 if filter_opts.size:
                     query = query.filter(Puzzle.width == filter_opts.size)
                 if filter_opts.difficulty:
