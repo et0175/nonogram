@@ -98,14 +98,61 @@ class BatchJob:
 class BatchGenerator:
     """Service for generating batches of nonogram puzzles.
 
-    Manages async generation, progress tracking, and storage.
+    Supports both in-memory storage (legacy, for backward compatibility) and
+    database-backed storage (when session_factory is provided).
     """
 
-    def __init__(self, puzzle_review_service=None):
-        """Initialize batch generator."""
-        # In-memory job tracking (TODO: move to database for production)
+    def __init__(self, puzzle_review_service=None, session_factory=None):
+        """Initialize batch generator.
+
+        Args:
+            puzzle_review_service: PuzzleReviewService instance for storing puzzles
+            session_factory: Optional callable that yields a DB session.
+                           If None, uses in-memory dict storage (legacy mode).
+                           If provided, uses database backend.
+        """
+        self._session_factory = session_factory
+        # In-memory job tracking (used only in legacy mode when session_factory is None)
         self.jobs: dict[str, BatchJob] = {}
         self.puzzle_review_service = puzzle_review_service
+
+    def _update_batch_status(self, batch_id: str, status: Optional[BatchStatus] = None, **fields) -> None:
+        """Update batch status in legacy or DB mode.
+
+        Args:
+            batch_id: ID of the batch
+            status: New BatchStatus, or None to keep current
+            **fields: Additional fields to update (completed_count, error_message, etc.)
+        """
+        if self._session_factory is None:
+            # Legacy mode: update in-memory job
+            job = self.jobs.get(batch_id)
+            if job:
+                if status:
+                    job.status = status
+                for key, value in fields.items():
+                    if hasattr(job, key):
+                        setattr(job, key, value)
+                job.updated_at = datetime.utcnow()
+        else:
+            # DB mode: update Batch row
+            from nonogram.db.models import Batch
+
+            with self._session_factory() as db:
+                batch = db.query(Batch).filter(Batch.id == batch_id).first()
+                if batch:
+                    if status:
+                        batch.status = status.value if isinstance(status, BatchStatus) else status
+                    for key, value in fields.items():
+                        if key == "completed_count":
+                            batch.completed_count = value
+                        elif key == "error_message":
+                            batch.error_message = value
+                        elif key == "puzzle_count":
+                            batch.puzzle_count = value
+                        elif key == "completed_at":
+                            batch.completed_at = value
+                    batch.updated_at = datetime.utcnow()
 
     def create_batch(
         self,
@@ -115,7 +162,7 @@ class BatchGenerator:
         source: str = "random",
         quality_filter: int = 0,
     ) -> str:
-        """Create and start a batch generation job.
+        """Create and start a batch generation job (legacy in-memory or DB-backed).
 
         Args:
             count: Number of puzzles to generate (1-200 for images, 10-200 for random)
@@ -146,52 +193,108 @@ class BatchGenerator:
         if not 0 <= quality_filter <= 100:
             raise ValueError(f"Quality filter must be 0-100, got {quality_filter}")
 
-        # Create job
         batch_id = str(uuid.uuid4())
-        job = BatchJob(
-            batch_id=batch_id,
-            status=BatchStatus.GENERATING,
-            total_count=count,
-            count=count,
-            sizes=sizes,
-            theme=theme,
-        )
-        self.jobs[batch_id] = job
 
-        # Generate puzzles synchronously (TODO: make async with Celery/asyncio)
-        try:
-            if source == "random":
-                self._generate_random_batch(batch_id)
-            # TODO: else if source == "images": self._generate_from_images(...)
+        if self._session_factory is None:
+            # Legacy mode: in-memory BatchJob
+            job = BatchJob(
+                batch_id=batch_id,
+                status=BatchStatus.GENERATING,
+                total_count=count,
+                count=count,
+                sizes=sizes,
+                theme=theme,
+            )
+            self.jobs[batch_id] = job
 
-            job.status = BatchStatus.COMPLETE
-            job.updated_at = datetime.utcnow()
-            job.completed_at = datetime.utcnow()
-        except Exception as e:
-            job.status = BatchStatus.ERROR
-            job.error_message = str(e)
-            job.updated_at = datetime.utcnow()
-            raise
+            # Generate puzzles synchronously
+            try:
+                if source == "random":
+                    self._generate_random_batch(batch_id)
+                # TODO: else if source == "images": self._generate_from_images(...)
+
+                job.status = BatchStatus.COMPLETE
+                job.updated_at = datetime.utcnow()
+                job.completed_at = datetime.utcnow()
+            except Exception as e:
+                job.status = BatchStatus.ERROR
+                job.error_message = str(e)
+                job.updated_at = datetime.utcnow()
+                raise
+        else:
+            # DB mode: create Batch row with status=generating
+            from nonogram.db.models import Batch
+
+            try:
+                # 1. Insert Batch row with status=generating before generation starts
+                with self._session_factory() as db:
+                    batch = Batch(
+                        id=batch_id,
+                        status=BatchStatus.GENERATING.value,
+                        source=source,
+                        total_count=count,
+                        completed_count=0,
+                        puzzle_count=0,
+                        sizes=sizes,
+                        theme=theme,
+                        quality_filter=quality_filter,
+                    )
+                    db.add(batch)
+                    db.flush()
+
+                # 2. Generate puzzles (each one commits individually)
+                if source == "random":
+                    self._generate_random_batch(batch_id)
+                # TODO: else if source == "images": self._generate_from_images(...)
+
+                # 3. Mark batch complete
+                self._update_batch_status(
+                    batch_id,
+                    BatchStatus.COMPLETE,
+                    completed_at=datetime.utcnow(),
+                )
+            except Exception as e:
+                self._update_batch_status(
+                    batch_id,
+                    BatchStatus.ERROR,
+                    error_message=str(e),
+                )
+                raise
 
         return batch_id
 
     def _generate_random_batch(self, batch_id: str) -> None:
-        """Generate random puzzles using the real pipeline and store in database.
+        """Generate random puzzles using the real pipeline and store.
 
         Uses orchestrator.generate_batch() to generate real, uniquely-solvable
         puzzles with calculated difficulty scores — the same pipeline as the CLI.
 
+        Works in both legacy and DB-backed modes.
+
         Args:
             batch_id: ID of batch job to generate for
         """
-        job = self.jobs[batch_id]
-        count = job.total_count
-        sizes = job.sizes or [15, 20, 25]
-        theme = job.theme or "christmas"
-        quality_filter = 0  # TODO: get from job
+        if self._session_factory is None:
+            # Legacy mode: read from in-memory job
+            job = self.jobs[batch_id]
+            count = job.total_count
+            sizes = job.sizes or [15, 20, 25]
+            theme = job.theme or "christmas"
+            quality_filter = 0  # TODO: get from job
+        else:
+            # DB mode: fetch from database
+            from nonogram.db.models import Batch
+
+            with self._session_factory() as db:
+                batch = db.query(Batch).filter(Batch.id == batch_id).first()
+                if not batch:
+                    raise ValueError(f"Batch {batch_id} not found")
+                count = batch.total_count
+                sizes = batch.sizes or [15, 20, 25]
+                theme = batch.theme or "christmas"
+                quality_filter = batch.quality_filter or 0
 
         # Generate real puzzles using the orchestrator pipeline
-        # This ensures consistency with CLI generation, real solving, and real difficulty calculation
         puzzles = orchestrator.generate_batch(
             count=count,
             sizes=sizes,
@@ -199,9 +302,9 @@ class BatchGenerator:
             difficulty_tier=None,  # Accept any difficulty
         )
 
-        # Store each puzzle in database
+        # Store each puzzle
         puzzle_count = 0
-        for puzzle in puzzles:
+        for i, puzzle in enumerate(puzzles):
             # Quality score is always calculated by the real pipeline
             quality_score = puzzle.quality_score if hasattr(puzzle, "quality_score") else 75
 
@@ -212,21 +315,32 @@ class BatchGenerator:
                     clues_cols=puzzle.clues.columns,
                     width=puzzle.width,
                     height=puzzle.height,
-                    theme=theme,  # Use theme from batch job, not from request
+                    theme=theme,
                     difficulty_score=puzzle.difficulty_score,
                     difficulty_tier=puzzle.difficulty_tier,
                     quality_score=quality_score,
-                    recognizability="medium",  # From the real pipeline if available
-                    strategies_used=[],  # From solver signals if available
-                    batch_id=batch_id,  # Link puzzle to batch
+                    recognizability="medium",
+                    strategies_used=[],
+                    batch_id=batch_id,
                 )
                 puzzle_count += 1
 
-            job.completed_count += 1
-            job.updated_at = datetime.utcnow()
+            # Update progress
+            if self._session_factory is None:
+                # Legacy mode
+                job = self.jobs[batch_id]
+                job.completed_count += 1
+                job.updated_at = datetime.utcnow()
+            else:
+                # DB mode: update completed_count after each puzzle
+                self._update_batch_status(batch_id, completed_count=i + 1)
 
-        # Update puzzle count in job
-        job.puzzle_count = puzzle_count
+        # Final update with puzzle count
+        if self._session_factory is None:
+            job = self.jobs[batch_id]
+            job.puzzle_count = puzzle_count
+        else:
+            self._update_batch_status(batch_id, puzzle_count=puzzle_count)
 
     def get_batch_status(self, batch_id: str) -> Optional[BatchJob]:
         """Get status of a batch generation job.

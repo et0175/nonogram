@@ -83,14 +83,50 @@ class PuzzleListResponse:
 class PuzzleReviewService:
     """Service for reviewing and filtering puzzles.
 
-    In production, this would query a database. For now, uses in-memory storage.
+    Supports both in-memory storage (legacy, for backward compatibility) and
+    database-backed storage (when session_factory is provided).
     """
 
-    def __init__(self):
-        """Initialize puzzle review service."""
-        # In-memory puzzle storage (TODO: move to database)
+    def __init__(self, session_factory=None):
+        """Initialize puzzle review service.
+
+        Args:
+            session_factory: Optional callable that yields a DB session.
+                           If None, uses in-memory dict storage (legacy mode).
+                           If provided, uses database backend.
+        """
+        self._session_factory = session_factory
+        # In-memory puzzle storage (used only in legacy mode when session_factory is None)
         self.puzzles: Dict[str, Dict[str, Any]] = {}
         self._next_id = 1
+
+    def _row_to_dict(self, puzzle_row) -> Dict[str, Any]:
+        """Convert SQLAlchemy Puzzle ORM row to dict (matching legacy format).
+
+        Args:
+            puzzle_row: SQLAlchemy Puzzle ORM instance
+
+        Returns:
+            Dict with same keys as legacy puzzle dicts
+        """
+        return {
+            "id": str(puzzle_row.id),
+            "grid": puzzle_row.grid,
+            "clues_rows": puzzle_row.clues_rows,
+            "clues_cols": puzzle_row.clues_cols,
+            "width": puzzle_row.width,
+            "height": puzzle_row.height,
+            "theme": puzzle_row.theme,
+            "difficulty_score": puzzle_row.difficulty_score,
+            "difficulty_tier": puzzle_row.difficulty_tier,
+            "quality_score": puzzle_row.quality_score,
+            "recognizability": puzzle_row.recognizability,
+            "strategies_used": puzzle_row.strategies_used,
+            "status": puzzle_row.status,
+            "batch_id": str(puzzle_row.batch_id) if puzzle_row.batch_id else None,
+            "source_image": puzzle_row.source_image,
+            "created_at": puzzle_row.created_at.isoformat() if puzzle_row.created_at else None,
+        }
 
     def add_puzzle(
         self,
@@ -108,7 +144,7 @@ class PuzzleReviewService:
         batch_id: Optional[str] = None,
         source_image: Optional[str] = None,
     ) -> str:
-        """Add a puzzle to the store.
+        """Add a puzzle to the store (legacy in-memory or DB-backed).
 
         Args:
             grid: Nonogram grid (List[List[bool]])
@@ -126,34 +162,59 @@ class PuzzleReviewService:
             source_image: Optional source image name (for image-based generation)
 
         Returns:
-            puzzle_id
+            puzzle_id (in-memory: puzzle_NNNNNN, DB: UUID string)
         """
-        puzzle_id = f"puzzle_{self._next_id:06d}"
-        self._next_id += 1
+        if self._session_factory is None:
+            # Legacy mode: in-memory dict
+            puzzle_id = f"puzzle_{self._next_id:06d}"
+            self._next_id += 1
 
-        self.puzzles[puzzle_id] = {
-            "id": puzzle_id,
-            "grid": grid,
-            "clues_rows": clues_rows,
-            "clues_cols": clues_cols,
-            "width": width,
-            "height": height,
-            "theme": theme,
-            "difficulty_score": difficulty_score,
-            "difficulty_tier": difficulty_tier,
-            "quality_score": quality_score,
-            "recognizability": recognizability,
-            "strategies_used": strategies_used,
-            "status": PuzzleStatus.DRAFT.value,
-            "batch_id": batch_id,  # Link puzzle to batch
-            "source_image": source_image,  # Source image name (if image-based)
-            "created_at": datetime.utcnow().isoformat(),
-        }
+            self.puzzles[puzzle_id] = {
+                "id": puzzle_id,
+                "grid": grid,
+                "clues_rows": clues_rows,
+                "clues_cols": clues_cols,
+                "width": width,
+                "height": height,
+                "theme": theme,
+                "difficulty_score": difficulty_score,
+                "difficulty_tier": difficulty_tier,
+                "quality_score": quality_score,
+                "recognizability": recognizability,
+                "strategies_used": strategies_used,
+                "status": PuzzleStatus.DRAFT.value,
+                "batch_id": batch_id,
+                "source_image": source_image,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+            return puzzle_id
+        else:
+            # DB mode: insert Puzzle row
+            from nonogram.db.models import Puzzle
 
-        return puzzle_id
+            with self._session_factory() as db:
+                puzzle = Puzzle(
+                    grid=grid,
+                    clues_rows=clues_rows,
+                    clues_cols=clues_cols,
+                    width=width,
+                    height=height,
+                    theme=theme,
+                    difficulty_score=difficulty_score,
+                    difficulty_tier=difficulty_tier,
+                    quality_score=quality_score,
+                    recognizability=recognizability,
+                    strategies_used=strategies_used,
+                    status=PuzzleStatus.DRAFT.value,
+                    batch_id=batch_id,
+                    source_image=source_image,
+                )
+                db.add(puzzle)
+                db.flush()  # get the auto-generated UUID
+                return str(puzzle.id)
 
     def filter_puzzles(self, filter_opts: PuzzleFilter) -> PuzzleListResponse:
-        """Filter puzzles based on criteria.
+        """Filter puzzles based on criteria (legacy in-memory or DB-backed).
 
         Args:
             filter_opts: PuzzleFilter with criteria
@@ -171,51 +232,72 @@ class PuzzleReviewService:
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
             raise ValueError("Quality min must be 0-100")
 
-        # Filter puzzles
-        filtered = []
-        for puzzle_id, puzzle in self.puzzles.items():
-            # Batch ID filter
-            if filter_opts.batch_id and puzzle.get("batch_id") != filter_opts.batch_id:
-                continue
+        if self._session_factory is None:
+            # Legacy mode: filter in-memory dict
+            filtered = []
+            for puzzle_id, puzzle in self.puzzles.items():
+                # Batch ID filter
+                if filter_opts.batch_id and puzzle.get("batch_id") != filter_opts.batch_id:
+                    continue
+                # Size filter
+                if filter_opts.size and puzzle["width"] != filter_opts.size:
+                    continue
+                # Difficulty filter
+                if filter_opts.difficulty and puzzle["difficulty_tier"] != filter_opts.difficulty:
+                    continue
+                # Quality filter
+                if filter_opts.quality_min and puzzle["quality_score"] < filter_opts.quality_min:
+                    continue
+                # Theme filter
+                if filter_opts.theme and puzzle["theme"] != filter_opts.theme:
+                    continue
+                # Status filter
+                if filter_opts.status and puzzle["status"] != filter_opts.status:
+                    continue
+                filtered.append(puzzle)
 
-            # Size filter
-            if filter_opts.size and puzzle["width"] != filter_opts.size:
-                continue
+            # Sort by quality descending
+            filtered.sort(key=lambda p: p["quality_score"], reverse=True)
+        else:
+            # DB mode: query database
+            from nonogram.db.models import Puzzle
 
-            # Difficulty filter
-            if (
-                filter_opts.difficulty
-                and puzzle["difficulty_tier"] != filter_opts.difficulty
-            ):
-                continue
+            with self._session_factory() as db:
+                query = db.query(Puzzle)
 
-            # Quality filter
-            if (
-                filter_opts.quality_min
-                and puzzle["quality_score"] < filter_opts.quality_min
-            ):
-                continue
+                # Apply filters
+                if filter_opts.batch_id:
+                    query = query.filter(Puzzle.batch_id == filter_opts.batch_id)
+                if filter_opts.size:
+                    query = query.filter(Puzzle.width == filter_opts.size)
+                if filter_opts.difficulty:
+                    query = query.filter(Puzzle.difficulty_tier == filter_opts.difficulty)
+                if filter_opts.quality_min is not None:
+                    query = query.filter(Puzzle.quality_score >= filter_opts.quality_min)
+                if filter_opts.theme:
+                    query = query.filter(Puzzle.theme == filter_opts.theme)
+                if filter_opts.status:
+                    query = query.filter(Puzzle.status == filter_opts.status)
 
-            # Theme filter
-            if filter_opts.theme and puzzle["theme"] != filter_opts.theme:
-                continue
+                # Sort by quality descending, get total count before paginating
+                query = query.order_by(Puzzle.quality_score.desc())
+                total = query.count()
 
-            # Status filter
-            if filter_opts.status and puzzle["status"] != filter_opts.status:
-                continue
+                # Paginate
+                rows = query.offset(filter_opts.offset).limit(filter_opts.limit).all()
+                filtered = [self._row_to_dict(row) for row in rows]
 
-            filtered.append(puzzle)
-
-        # Sort by quality descending (best first)
-        filtered.sort(key=lambda p: p["quality_score"], reverse=True)
-
-        # Paginate
-        total = len(filtered)
-        start = filter_opts.offset
-        end = start + filter_opts.limit
-        paginated = filtered[start:end]
-
-        has_more = end < total
+        # Paginate (for legacy mode only; DB mode already paginated)
+        if self._session_factory is None:
+            total = len(filtered)
+            start = filter_opts.offset
+            end = start + filter_opts.limit
+            paginated = filtered[start:end]
+            has_more = end < total
+        else:
+            paginated = filtered
+            total = total if self._session_factory else len(filtered)
+            has_more = (filter_opts.offset + filter_opts.limit) < total
 
         return PuzzleListResponse(
             puzzles=paginated,
@@ -226,7 +308,7 @@ class PuzzleReviewService:
         )
 
     def get_puzzle(self, puzzle_id: str) -> Optional[Dict[str, Any]]:
-        """Get a single puzzle by ID.
+        """Get a single puzzle by ID (legacy in-memory or DB-backed).
 
         Args:
             puzzle_id: ID of puzzle to retrieve
@@ -234,7 +316,16 @@ class PuzzleReviewService:
         Returns:
             Puzzle dict, or None if not found
         """
-        return self.puzzles.get(puzzle_id)
+        if self._session_factory is None:
+            # Legacy mode
+            return self.puzzles.get(puzzle_id)
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
+
+            with self._session_factory() as db:
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                return self._row_to_dict(puzzle) if puzzle else None
 
     def approve_puzzle(self, puzzle_id: str) -> bool:
         """Mark puzzle as approved for book inclusion.
@@ -245,11 +336,22 @@ class PuzzleReviewService:
         Returns:
             True if approved, False if not found
         """
-        if puzzle_id not in self.puzzles:
-            return False
+        if self._session_factory is None:
+            # Legacy mode
+            if puzzle_id not in self.puzzles:
+                return False
+            self.puzzles[puzzle_id]["status"] = PuzzleStatus.APPROVED.value
+            return True
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
 
-        self.puzzles[puzzle_id]["status"] = PuzzleStatus.APPROVED.value
-        return True
+            with self._session_factory() as db:
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                if not puzzle:
+                    return False
+                puzzle.status = PuzzleStatus.APPROVED.value
+                return True
 
     def reject_puzzle(self, puzzle_id: str) -> bool:
         """Mark puzzle as rejected.
@@ -260,11 +362,22 @@ class PuzzleReviewService:
         Returns:
             True if rejected, False if not found
         """
-        if puzzle_id not in self.puzzles:
-            return False
+        if self._session_factory is None:
+            # Legacy mode
+            if puzzle_id not in self.puzzles:
+                return False
+            self.puzzles[puzzle_id]["status"] = PuzzleStatus.REJECTED.value
+            return True
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
 
-        self.puzzles[puzzle_id]["status"] = PuzzleStatus.REJECTED.value
-        return True
+            with self._session_factory() as db:
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                if not puzzle:
+                    return False
+                puzzle.status = PuzzleStatus.REJECTED.value
+                return True
 
     def mark_in_book(self, puzzle_id: str, book_id: str) -> bool:
         """Mark puzzle as included in a specific book.
@@ -276,12 +389,24 @@ class PuzzleReviewService:
         Returns:
             True if marked, False if not found
         """
-        if puzzle_id not in self.puzzles:
-            return False
+        if self._session_factory is None:
+            # Legacy mode
+            if puzzle_id not in self.puzzles:
+                return False
+            self.puzzles[puzzle_id]["status"] = PuzzleStatus.IN_BOOK.value
+            self.puzzles[puzzle_id]["book_id"] = book_id
+            return True
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
 
-        self.puzzles[puzzle_id]["status"] = PuzzleStatus.IN_BOOK.value
-        self.puzzles[puzzle_id]["book_id"] = book_id
-        return True
+            with self._session_factory() as db:
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                if not puzzle:
+                    return False
+                puzzle.status = PuzzleStatus.IN_BOOK.value
+                puzzle.book_id = book_id
+                return True
 
     def get_approved_puzzles(self, book_id: str) -> List[Dict[str, Any]]:
         """Get all puzzles approved for a specific book.
@@ -292,12 +417,24 @@ class PuzzleReviewService:
         Returns:
             List of puzzles in the book
         """
-        return [
-            p
-            for p in self.puzzles.values()
-            if p.get("status") == PuzzleStatus.IN_BOOK.value
-            and p.get("book_id") == book_id
-        ]
+        if self._session_factory is None:
+            # Legacy mode
+            return [
+                p
+                for p in self.puzzles.values()
+                if p.get("status") == PuzzleStatus.IN_BOOK.value
+                and p.get("book_id") == book_id
+            ]
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
+
+            with self._session_factory() as db:
+                rows = db.query(Puzzle).filter(
+                    Puzzle.status == PuzzleStatus.IN_BOOK.value,
+                    Puzzle.book_id == book_id,
+                ).all()
+                return [self._row_to_dict(row) for row in rows]
 
     def get_stats(self) -> Dict[str, int]:
         """Get statistics about puzzles in storage.
@@ -305,20 +442,38 @@ class PuzzleReviewService:
         Returns:
             Dict with counts by status
         """
-        stats = {
-            "total": len(self.puzzles),
-            "draft": 0,
-            "approved": 0,
-            "rejected": 0,
-            "in_book": 0,
-        }
+        if self._session_factory is None:
+            # Legacy mode
+            stats = {
+                "total": len(self.puzzles),
+                "draft": 0,
+                "approved": 0,
+                "rejected": 0,
+                "in_book": 0,
+            }
+            for puzzle in self.puzzles.values():
+                status = puzzle["status"]
+                if status in stats:
+                    stats[status] += 1
+            return stats
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
 
-        for puzzle in self.puzzles.values():
-            status = puzzle["status"]
-            if status in stats:
-                stats[status] += 1
+            with self._session_factory() as db:
+                total = db.query(Puzzle).count()
+                draft_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.DRAFT.value).count()
+                approved_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.APPROVED.value).count()
+                rejected_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.REJECTED.value).count()
+                in_book_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.IN_BOOK.value).count()
 
-        return stats
+                return {
+                    "total": total,
+                    "draft": draft_count,
+                    "approved": approved_count,
+                    "rejected": rejected_count,
+                    "in_book": in_book_count,
+                }
 
 
 # Global puzzle review service instance
