@@ -967,6 +967,20 @@ def create_app(debug=None):
 
         return redirect(url_for("puzzles_list"))
 
+    @app.route("/puzzle/<puzzle_id>/restore", methods=["POST"])
+    def restore_puzzle(puzzle_id):
+        """Restore rejected or approved puzzle back to draft."""
+        if puzzle_review.restore_puzzle(puzzle_id):
+            flash(f"Puzzle restored to draft", "success")
+        else:
+            flash(f"Puzzle not found", "error")
+
+        # Return to previous page or puzzles list
+        batch_id = request.args.get("batch_id")
+        if batch_id:
+            return redirect(url_for("generated_puzzles", batch_id=batch_id))
+        return redirect(url_for("puzzles_list"))
+
     @app.errorhandler(404)
     def not_found(e):
         """Handle 404 errors."""

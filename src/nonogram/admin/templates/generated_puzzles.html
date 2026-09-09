@@ -72,17 +72,18 @@
                                     </div>
 
                                     <!-- Action Buttons -->
-                                    <div class="action-buttons">
-                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/approve?batch_id={{ batch_id }}" style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-success" title="Approve this puzzle">
+                                    <div class="action-buttons" data-puzzle-id="{{ puzzle.id }}">
+                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/approve?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="approve" style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-success puzzle-action-btn" title="Approve this puzzle">
                                                 ✓ Approve
                                             </button>
                                         </form>
-                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/reject?batch_id={{ batch_id }}" style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Reject this puzzle?')" title="Reject this puzzle">
+                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/reject?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="reject" style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-danger puzzle-action-btn" title="Reject this puzzle">
                                                 ✕ Reject
                                             </button>
                                         </form>
+                                        <span class="puzzle-status-badge ms-2"></span>
                                     </div>
                                 </div>
                             </div>
@@ -217,5 +218,67 @@
 .action-buttons .btn {
     width: 100%;
 }
+
+.puzzle-status-badge {
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle approve/reject with visual feedback
+    document.querySelectorAll('.puzzle-action-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const action = this.dataset.action;
+            const actionBtn = this.querySelector('.puzzle-action-btn');
+            const container = this.closest('[data-puzzle-id]');
+            const statusBadge = container.querySelector('.puzzle-status-badge');
+
+            // Confirm reject action
+            if (action === 'reject' && !confirm('Reject this puzzle?')) {
+                return;
+            }
+
+            // Disable button and show loading state
+            actionBtn.disabled = true;
+            const originalText = actionBtn.textContent;
+            actionBtn.textContent = '⏳...';
+
+            // Submit form
+            fetch(this.action, {
+                method: 'POST'
+            })
+            .then(response => {
+                // Update UI with status badge
+                if (action === 'approve') {
+                    statusBadge.innerHTML = '<span class="badge bg-success ms-2">✓ Approved</span>';
+                } else if (action === 'reject') {
+                    statusBadge.innerHTML = '<span class="badge bg-danger ms-2">✕ Rejected</span>';
+                }
+
+                // Disable both buttons
+                container.querySelectorAll('.puzzle-action-btn').forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.6';
+                });
+
+                // Show success message
+                console.log(`Puzzle ${action}ed successfully`);
+            })
+            .catch(error => {
+                // Restore button
+                actionBtn.disabled = false;
+                actionBtn.textContent = originalText;
+                statusBadge.innerHTML = `<span class="badge bg-danger">Error</span>`;
+                console.error('Error:', error);
+            });
+        });
+    });
+});
+</script>
+
 {% endblock %}

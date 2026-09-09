@@ -519,6 +519,32 @@ class PuzzleReviewService:
                 puzzle.status = PuzzleStatus.REJECTED.value
                 return True
 
+    def restore_puzzle(self, puzzle_id: str) -> bool:
+        """Restore rejected or approved puzzle back to draft.
+
+        Args:
+            puzzle_id: ID of puzzle to restore
+
+        Returns:
+            True if restored, False if not found
+        """
+        if self._session_factory is None:
+            # Legacy mode
+            if puzzle_id not in self.puzzles:
+                return False
+            self.puzzles[puzzle_id]["status"] = PuzzleStatus.DRAFT.value
+            return True
+        else:
+            # DB mode
+            from nonogram.db.models import Puzzle
+
+            with self._session_factory() as db:
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                if not puzzle:
+                    return False
+                puzzle.status = PuzzleStatus.DRAFT.value
+                return True
+
     def mark_in_book(self, puzzle_id: str, book_id: str) -> bool:
         """Mark puzzle as included in a specific book.
 

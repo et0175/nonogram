@@ -355,13 +355,19 @@ async function openPuzzleDetail(puzzleId) {
             <div class="row">
                 <div class="col-md-12">
                     <h5>Actions</h5>
-                    <div class="btn-group" role="group">
+                    <div class="btn-group flex-wrap" role="group">
                         ${puzzle.status === 'draft' ? `
                         <form method="POST" action="/puzzle/${puzzle.id}/approve" style="display:inline;">
                             <button type="submit" class="btn btn-success">✓ Approve</button>
                         </form>
                         <form method="POST" action="/puzzle/${puzzle.id}/reject" style="display:inline;">
                             <button type="submit" class="btn btn-danger" onclick="return confirm('Reject this puzzle?')">✕ Reject</button>
+                        </form>
+                        ` : ''}
+
+                        ${(puzzle.status === 'rejected' || puzzle.status === 'approved') ? `
+                        <form method="POST" action="/puzzle/${puzzle.id}/restore" style="display:inline;">
+                            <button type="submit" class="btn btn-warning">↩️ Restore to Draft</button>
                         </form>
                         ` : ''}
 
