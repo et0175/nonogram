@@ -207,9 +207,11 @@ class PuzzleReviewService:
             return puzzle_id
         else:
             # DB mode: insert Puzzle row
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
+                batch_uuid = uuid_module.UUID(batch_id) if batch_id and isinstance(batch_id, str) else batch_id
                 puzzle = Puzzle(
                     grid=grid,
                     clues_rows=clues_rows,
@@ -223,7 +225,7 @@ class PuzzleReviewService:
                     recognizability=recognizability,
                     strategies_used=strategies_used,
                     status=PuzzleStatus.DRAFT.value,
-                    batch_id=batch_id,
+                    batch_id=batch_uuid,  # Convert string to UUID
                     source_image=source_image,
                 )
                 db.add(puzzle)
