@@ -355,7 +355,7 @@ async function openPuzzleDetail(puzzleId) {
             <div class="row">
                 <div class="col-md-12">
                     <h5>Actions</h5>
-                    <div class="btn-group flex-wrap" role="group">
+                    <div class="btn-group flex-wrap" role="group" style="flex-wrap: wrap; gap: 6px;">
                         ${puzzle.status === 'draft' ? `
                         <form method="POST" action="/puzzle/${puzzle.id}/approve" style="display:inline;">
                             <button type="submit" class="btn btn-success">✓ Approve</button>
@@ -389,8 +389,16 @@ async function openPuzzleDetail(puzzleId) {
                             </ul>
                         </div>
                         ` : `<span class="text-muted">Already in book</span>`}
+                    </div>
 
-                        <button type="button" class="btn btn-secondary" onclick="closePuzzleDetail()">Close</button>
+                    <div class="btn-group flex-wrap mt-2" role="group" style="flex-wrap: wrap; gap: 6px;">
+                        <a href="/api/puzzle/${puzzle.id}/grid/download" class="btn btn-sm btn-outline-primary" download>
+                            ⬇️ SVG
+                        </a>
+                        <a href="/api/puzzle/${puzzle.id}/grid/download-pdf" class="btn btn-sm btn-outline-success" download>
+                            📄 PDF
+                        </a>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="closePuzzleDetail()">Close</button>
                     </div>
                 </div>
             </div>
