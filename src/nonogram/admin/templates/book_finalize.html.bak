@@ -92,8 +92,15 @@
                 <h6>Book Contents:</h6>
                 <ol style="font-size: 13px;">
                     <li>Cover page{% if cover_uploaded %} (your cover image){% else %} (title page){% endif %}</li>
-                    <li>Guide page (instructions and difficulty summary)</li>
-                    <li>{{ puzzle_count }} puzzles</li>
+                    <li>Guide page (instructions &amp; difficulty summary)</li>
+                    {% for puzzle in puzzles %}
+                    {% if loop.index <= 3 %}
+                    <li>Puzzle: {{ puzzle.custom_title or puzzle.puzzle_name or puzzle.id|first_n(8) }} ({{ puzzle.width }}×{{ puzzle.height }}, {{ puzzle.difficulty_tier or 'N/A' }})</li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if puzzles|length > 3 %}
+                    <li><em>…and {{ puzzles|length - 3 }} more puzzle{{ 's' if puzzles|length - 3 != 1 else '' }}</em></li>
+                    {% endif %}
                 </ol>
 
                 <small class="text-muted d-block mt-3">

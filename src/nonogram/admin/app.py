@@ -52,6 +52,9 @@ def create_app(debug=None):
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         return response
 
+    # Custom Jinja2 filter for first N characters (avoids slice filter issues)
+    app.jinja_env.filters['first_n'] = lambda s, n: str(s)[:n] if s else ''
+
     # Construct DB-backed service instances with session_factory
     # (persists batches/puzzles to the database via DATABASE_URL env var)
     puzzle_review = PuzzleReviewService(session_factory=session_scope)

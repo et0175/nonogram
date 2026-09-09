@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Dashboard</h1>
+        <p class="text-muted">Overview of batch generation, puzzles, and books</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ batch_stats.total_batches }}</div>
+            <div class="stat-label">Total Batches</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number" style="color: #3498db;">{{ batch_stats.pending }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number" style="color: #f39c12;">{{ batch_stats.generating }}</div>
+            <div class="stat-label">Generating</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number" style="color: #27ae60;">{{ batch_stats.complete }}</div>
+            <div class="stat-label">Complete</div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Puzzles</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <strong>{{ puzzle_stats.total }}</strong> Total<br>
+                        <small class="text-muted">Puzzles</small>
+                    </div>
+                    <div class="col-6">
+                        <strong>{{ puzzle_stats.draft }}</strong> Draft<br>
+                        <strong>{{ puzzle_stats.approved }}</strong> Approved<br>
+                        <strong>{{ puzzle_stats.rejected }}</strong> Rejected
+                    </div>
+                </div>
+                <a href="/puzzles" class="btn btn-sm btn-outline-primary mt-3 w-100">View Puzzles</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Books</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <strong>{{ book_stats.total_books }}</strong> Total<br>
+                        <small class="text-muted">Books</small>
+                    </div>
+                    <div class="col-6">
+                        <strong>{{ book_stats.draft }}</strong> Draft<br>
+                        <strong>{{ book_stats.ready_for_pdf }}</strong> Ready<br>
+                        <strong>{{ book_stats.published }}</strong> Published
+                    </div>
+                </div>
+                <a href="/books" class="btn btn-sm btn-outline-primary mt-3 w-100">View Books</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="/batch/create" class="btn btn-primary btn-sm w-100 mb-2">➕ Start Batch</a>
+                <a href="/puzzles" class="btn btn-outline-primary btn-sm w-100 mb-2">🔍 Review Puzzles</a>
+                <a href="/book/create" class="btn btn-outline-primary btn-sm w-100">📖 Create Book</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">System Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Backend Services</h6>
+                        <ul>
+                            <li>✅ Batch Generator: Ready</li>
+                            <li>✅ Puzzle Review: Ready</li>
+                            <li>✅ Book Manager: Ready</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Workflow Status</h6>
+                        <ul>
+                            <li>Generate → Review → Curate → Publish</li>
+                            <li>Current: {{ 'Batch Generation' if batch_stats.generating > 0 else 'Idle' }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

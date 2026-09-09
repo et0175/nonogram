@@ -58,7 +58,7 @@
                         </div>
                         <div class="image-info">
                             <div class="filename" title="{{ image.original_filename }}">
-                                {{ image.original_filename|first_n(20) }}...
+                                {{ image.original_filename|truncate(20, true, '') }}...
                             </div>
                             <div class="meta">
                                 {{ image.format }} • {{ (image.file_size / 1024)|round(0)|int }}KB

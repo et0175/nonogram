@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Create Book - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Create New Book</h1>
+        <p class="text-muted">Set up a new puzzle book for publishing</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Book Title</label>
+                        <input type="text" class="form-control" id="title" name="title"
+                               placeholder="e.g., Christmas Nonograms 2026" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                                  placeholder="e.g., A collection of festive holiday puzzle challenges for seniors"
+                                  required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="theme" class="form-label">Theme</label>
+                        <select class="form-select" id="theme" name="theme" required>
+                            <option value="christmas">🎄 Christmas</option>
+                            <option value="halloween">🎃 Halloween</option>
+                            <option value="easter">🥚 Easter</option>
+                            <option value="valentine">💕 Valentine</option>
+                            <option value="generic">❄️ Generic</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="target_audience" class="form-label">Target Audience</label>
+                        <input type="text" class="form-control" id="target_audience" name="target_audience"
+                               placeholder="e.g., seniors, kids, adults" required>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">✓ Create Book</button>
+                        <a href="/books" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Next Steps</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li>Create the book metadata</li>
+                    <li>Add approved puzzles</li>
+                    <li>Set status to "Ready for PDF"</li>
+                    <li>Generate PDF</li>
+                    <li>Upload to KDP</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
