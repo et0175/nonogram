@@ -272,7 +272,7 @@ def create_app(debug=None):
             )
 
             # Process each image and generate puzzles
-            puzzle_review = get_puzzle_review_service()
+            # Use the DB-backed puzzle_review service created in create_app(), not the legacy one
             quality_filter = session.get("batch_quality_filter", 0)
             generated_count = 0
             errors = []
