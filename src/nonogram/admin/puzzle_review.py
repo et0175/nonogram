@@ -4,9 +4,9 @@ Handles filtering puzzles by various criteria and managing approval/rejection.
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, date
 
 
 class PuzzleStatus(Enum):
@@ -28,6 +28,11 @@ class PuzzleFilter:
     theme: Optional[str] = None
     status: Optional[str] = None
     batch_id: Optional[str] = None  # Filter by batch ID
+    date_from: Optional[str] = None  # Filter by created_at >= date (YYYY-MM-DD)
+    date_to: Optional[str] = None    # Filter by created_at <= date (YYYY-MM-DD)
+    book_id: Optional[str] = None    # Filter by book_id (or special values: "unassigned")
+    puzzle_name: Optional[str] = None  # Free-text search on puzzle_name field
+    sort_by: str = "batch_id,-size,quality"  # Default sort: batch DESC, size ASC, quality DESC
     limit: int = 25
     offset: int = 0
 
@@ -40,6 +45,11 @@ class PuzzleFilter:
             "theme": self.theme,
             "status": self.status,
             "batch_id": self.batch_id,
+            "date_from": self.date_from,
+            "date_to": self.date_to,
+            "book_id": self.book_id,
+            "puzzle_name": self.puzzle_name,
+            "sort_by": self.sort_by,
             "limit": self.limit,
             "offset": self.offset,
         }
@@ -54,6 +64,11 @@ class PuzzleFilter:
             theme=data.get("theme"),
             status=data.get("status"),
             batch_id=data.get("batch_id"),
+            date_from=data.get("date_from"),
+            date_to=data.get("date_to"),
+            book_id=data.get("book_id"),
+            puzzle_name=data.get("puzzle_name"),
+            sort_by=data.get("sort_by", "batch_id,-size,quality"),
             limit=data.get("limit", 25),
             offset=data.get("offset", 0),
         )
@@ -125,6 +140,8 @@ class PuzzleReviewService:
             "status": puzzle_row.status,
             "batch_id": str(puzzle_row.batch_id) if puzzle_row.batch_id else None,
             "source_image": puzzle_row.source_image,
+            "puzzle_name": puzzle_row.puzzle_name,
+            "book_id": str(puzzle_row.book_id) if puzzle_row.book_id else None,
             "created_at": puzzle_row.created_at.isoformat() if puzzle_row.created_at else None,
         }
 
@@ -213,6 +230,63 @@ class PuzzleReviewService:
                 db.flush()  # get the auto-generated UUID
                 return str(puzzle.id)
 
+    def _parse_sort_string(self, sort_by: str) -> List[Tuple[str, str]]:
+        """Parse sort_by string into list of (column, direction) tuples.
+
+        Format: "batch_id,-size,quality" → [("batch_id", "asc"), ("size", "desc"), ("quality", "asc")]
+        Prefix with - for descending.
+
+        Args:
+            sort_by: Sort specification string
+
+        Returns:
+            List of (column_name, direction) tuples
+        """
+        sorts = []
+        for part in sort_by.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if part.startswith("-"):
+                sorts.append((part[1:], "desc"))
+            else:
+                sorts.append((part, "asc"))
+        return sorts
+
+    def _apply_sort_to_query(self, query, sort_list: List[Tuple[str, str]]):
+        """Apply multi-column sort to SQLAlchemy query.
+
+        Args:
+            query: SQLAlchemy query object
+            sort_list: List of (column_name, direction) tuples
+
+        Returns:
+            Query with order_by applied
+        """
+        from nonogram.db.models import Puzzle
+        from sqlalchemy import desc
+
+        col_map = {
+            "batch_id": Puzzle.batch_id,
+            "size": Puzzle.width,
+            "width": Puzzle.width,
+            "height": Puzzle.height,
+            "quality": Puzzle.quality_score,
+            "quality_score": Puzzle.quality_score,
+            "difficulty": Puzzle.difficulty_tier,
+            "difficulty_tier": Puzzle.difficulty_tier,
+            "created_at": Puzzle.created_at,
+            "puzzle_name": Puzzle.puzzle_name,
+        }
+
+        for col_name, direction in sort_list:
+            if col_name not in col_map:
+                continue
+            col = col_map[col_name]
+            query = query.order_by(desc(col) if direction == "desc" else col)
+
+        return query
+
     def filter_puzzles(self, filter_opts: PuzzleFilter) -> PuzzleListResponse:
         """Filter puzzles based on criteria (legacy in-memory or DB-backed).
 
@@ -231,6 +305,19 @@ class PuzzleReviewService:
             raise ValueError("Size must be 10-30")
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
             raise ValueError("Quality min must be 0-100")
+
+        # Validate date range
+        if filter_opts.date_from and filter_opts.date_to:
+            try:
+                df = datetime.strptime(filter_opts.date_from, "%Y-%m-%d")
+                dt = datetime.strptime(filter_opts.date_to, "%Y-%m-%d")
+                if df > dt:
+                    raise ValueError("Date from must be <= date to")
+            except ValueError as e:
+                raise ValueError(f"Invalid date format (use YYYY-MM-DD): {str(e)}")
+
+        # Parse sort specification
+        sort_list = self._parse_sort_string(filter_opts.sort_by)
 
         if self._session_factory is None:
             # Legacy mode: filter in-memory dict
@@ -254,10 +341,48 @@ class PuzzleReviewService:
                 # Status filter
                 if filter_opts.status and puzzle["status"] != filter_opts.status:
                     continue
+                # Puzzle name filter (free-text search)
+                if filter_opts.puzzle_name:
+                    pname = puzzle.get("puzzle_name", "").lower()
+                    if filter_opts.puzzle_name.lower() not in pname:
+                        continue
+                # Book ID filter
+                if filter_opts.book_id:
+                    if filter_opts.book_id == "unassigned":
+                        if puzzle.get("book_id") is not None:
+                            continue
+                    else:
+                        if puzzle.get("book_id") != filter_opts.book_id:
+                            continue
                 filtered.append(puzzle)
 
-            # Sort by quality descending
-            filtered.sort(key=lambda p: p["quality_score"], reverse=True)
+            # Apply multi-column sort (legacy: sort in Python)
+            for col_name, direction in reversed(sort_list):
+                col_map_py = {
+                    "batch_id": "batch_id",
+                    "size": "width",
+                    "width": "width",
+                    "height": "height",
+                    "quality": "quality_score",
+                    "quality_score": "quality_score",
+                    "difficulty": "difficulty_tier",
+                    "difficulty_tier": "difficulty_tier",
+                    "created_at": "created_at",
+                    "puzzle_name": "puzzle_name",
+                }
+                if col_name in col_map_py:
+                    py_col = col_map_py[col_name]
+                    filtered.sort(
+                        key=lambda p: p.get(py_col) or 0,
+                        reverse=(direction == "desc")
+                    )
+
+            total = len(filtered)
+            start = filter_opts.offset
+            end = start + filter_opts.limit
+            paginated = filtered[start:end]
+            has_more = end < total
+
         else:
             # DB mode: query database
             from nonogram.db.models import Puzzle
@@ -268,7 +393,6 @@ class PuzzleReviewService:
 
                 # Apply filters
                 if filter_opts.batch_id:
-                    # Convert string batch_id to UUID if needed
                     batch_uuid = uuid_module.UUID(filter_opts.batch_id) if isinstance(filter_opts.batch_id, str) else filter_opts.batch_id
                     query = query.filter(Puzzle.batch_id == batch_uuid)
                 if filter_opts.size:
@@ -282,24 +406,37 @@ class PuzzleReviewService:
                 if filter_opts.status:
                     query = query.filter(Puzzle.status == filter_opts.status)
 
-                # Sort by quality descending, get total count before paginating
-                query = query.order_by(Puzzle.quality_score.desc())
+                # Date range filter
+                if filter_opts.date_from:
+                    df = datetime.strptime(filter_opts.date_from, "%Y-%m-%d")
+                    query = query.filter(Puzzle.created_at >= df)
+                if filter_opts.date_to:
+                    dt = datetime.strptime(filter_opts.date_to, "%Y-%m-%d")
+                    # Add 1 day to make it inclusive of the entire date_to day
+                    query = query.filter(Puzzle.created_at < (dt.replace(hour=0, minute=0, second=0) + __import__('datetime').timedelta(days=1)))
+
+                # Free-text puzzle name search
+                if filter_opts.puzzle_name:
+                    query = query.filter(Puzzle.puzzle_name.ilike(f"%{filter_opts.puzzle_name}%"))
+
+                # Book ID filter
+                if filter_opts.book_id:
+                    if filter_opts.book_id == "unassigned":
+                        query = query.filter(Puzzle.book_id.is_(None))
+                    else:
+                        book_uuid = uuid_module.UUID(filter_opts.book_id) if isinstance(filter_opts.book_id, str) else filter_opts.book_id
+                        query = query.filter(Puzzle.book_id == book_uuid)
+
+                # Apply multi-column sort
+                query = self._apply_sort_to_query(query, sort_list)
+
+                # Get total count before paginating
                 total = query.count()
 
                 # Paginate
                 rows = query.offset(filter_opts.offset).limit(filter_opts.limit).all()
-                filtered = [self._row_to_dict(row) for row in rows]
+                paginated = [self._row_to_dict(row) for row in rows]
 
-        # Paginate (for legacy mode only; DB mode already paginated)
-        if self._session_factory is None:
-            total = len(filtered)
-            start = filter_opts.offset
-            end = start + filter_opts.limit
-            paginated = filtered[start:end]
-            has_more = end < total
-        else:
-            paginated = filtered
-            total = total if self._session_factory else len(filtered)
             has_more = (filter_opts.offset + filter_opts.limit) < total
 
         return PuzzleListResponse(

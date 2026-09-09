@@ -63,6 +63,7 @@ class Puzzle(Base):
     strategies_used = Column(JSON, nullable=True)
     status = Column(String, nullable=False, default='draft')  # 'draft', 'approved', 'rejected', 'in_book'
     source_image = Column(String, nullable=True)
+    puzzle_name = Column(String, nullable=True)  # human-readable name for filtering/sorting
     book_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

@@ -401,17 +401,35 @@ def create_app(debug=None):
     @app.route("/puzzles")
     def puzzles_list():
         """List and filter puzzles."""
+        # Basic filters
         size = request.args.get("size", type=int)
         difficulty = request.args.get("difficulty")
         quality_min = request.args.get("quality_min", type=int)
+
+        # New filters
+        date_from = request.args.get("date_from")
+        date_to = request.args.get("date_to")
+        book_id = request.args.get("book_id")
+        puzzle_name = request.args.get("puzzle_name")
+        sort_by = request.args.get("sort_by", "batch_id,-size,quality")
+
+        # Pagination
         limit = request.args.get("limit", 25, type=int)
         offset = request.args.get("offset", 0, type=int)
+
+        # Get available books for filter dropdown
+        books = book_mgr.get_all_books()
 
         try:
             filter_opts = PuzzleFilter(
                 size=size,
                 difficulty=difficulty,
                 quality_min=quality_min,
+                date_from=date_from,
+                date_to=date_to,
+                book_id=book_id,
+                puzzle_name=puzzle_name,
+                sort_by=sort_by,
                 limit=limit,
                 offset=offset,
             )
@@ -424,11 +442,12 @@ def create_app(debug=None):
                 offset=result.offset,
                 limit=result.limit,
                 has_more=result.has_more,
+                books=books,
             )
 
         except ValueError as e:
             flash(f"Filter error: {str(e)}", "error")
-            return render_template("puzzles_list.html", puzzles=[], error=str(e))
+            return render_template("puzzles_list.html", puzzles=[], error=str(e), books=books)
 
     @app.route("/puzzle/<puzzle_id>/approve", methods=["POST"])
     def approve_puzzle(puzzle_id):
