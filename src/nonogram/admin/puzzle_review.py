@@ -461,10 +461,12 @@ class PuzzleReviewService:
             return self.puzzles.get(puzzle_id)
         else:
             # DB mode
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 return self._row_to_dict(puzzle) if puzzle else None
 
     def approve_puzzle(self, puzzle_id: str) -> bool:
@@ -484,10 +486,12 @@ class PuzzleReviewService:
             return True
         else:
             # DB mode
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 if not puzzle:
                     return False
                 puzzle.status = PuzzleStatus.APPROVED.value
@@ -510,10 +514,12 @@ class PuzzleReviewService:
             return True
         else:
             # DB mode
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 if not puzzle:
                     return False
                 puzzle.status = PuzzleStatus.REJECTED.value
@@ -536,10 +542,12 @@ class PuzzleReviewService:
             return True
         else:
             # DB mode
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 if not puzzle:
                     return False
                 puzzle.status = PuzzleStatus.DRAFT.value
@@ -564,10 +572,12 @@ class PuzzleReviewService:
             return True
         else:
             # DB mode
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 if not puzzle:
                     return False
                 puzzle.status = PuzzleStatus.IN_BOOK.value

@@ -40,60 +40,64 @@ def upgrade() -> None:
     # Note: Postgres FKs bind by OID, so existing FK constraints are preserved
     op.rename_table('nonograms', 'puzzles')
 
-    # Drop columns not used in the admin puzzle shape
-    op.drop_column('puzzles', 'name')
-    op.drop_column('puzzles', 'solution_grid')
-    op.drop_column('puzzles', 'clues_rows')
-    op.drop_column('puzzles', 'clues_cols')
-    op.drop_column('puzzles', 'strategies_used')
+    # SQLite doesn't support all alterations; use batch mode for compatibility
+    with op.batch_alter_table('puzzles') as batch_op:
+        # Drop columns not used in the admin puzzle shape
+        batch_op.drop_column('name')
+        batch_op.drop_column('solution_grid')
+        batch_op.drop_column('clues_rows')
+        batch_op.drop_column('clues_cols')
+        batch_op.drop_column('strategies_used')
 
-    # Rename image_source_url to source_image for consistency
-    op.alter_column('puzzles', 'image_source_url', new_column_name='source_image')
+        # Rename image_source_url to source_image for consistency
+        batch_op.alter_column('image_source_url', new_column_name='source_image')
 
-    # Add new columns
-    op.add_column('puzzles', sa.Column('batch_id', postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column('puzzles', sa.Column('grid', sa.JSON(), nullable=False, server_default='[]'))
-    op.add_column('puzzles', sa.Column('clues_rows', sa.JSON(), nullable=False, server_default='[]'))
-    op.add_column('puzzles', sa.Column('clues_cols', sa.JSON(), nullable=False, server_default='[]'))
-    op.add_column('puzzles', sa.Column('strategies_used', sa.JSON(), nullable=True))
-    op.add_column('puzzles', sa.Column('recognizability', sa.String(), nullable=True))
-    op.add_column('puzzles', sa.Column('book_id', postgresql.UUID(as_uuid=True), nullable=True))
+        # Add new columns
+        batch_op.add_column(sa.Column('batch_id', postgresql.UUID(as_uuid=True), nullable=True))
+        batch_op.add_column(sa.Column('grid', sa.JSON(), nullable=False, server_default='[]'))
+        batch_op.add_column(sa.Column('clues_rows', sa.JSON(), nullable=False, server_default='[]'))
+        batch_op.add_column(sa.Column('clues_cols', sa.JSON(), nullable=False, server_default='[]'))
+        batch_op.add_column(sa.Column('strategies_used', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('recognizability', sa.String(), nullable=True))
+        batch_op.add_column(sa.Column('book_id', postgresql.UUID(as_uuid=True), nullable=True))
 
-    # Create FK constraint from puzzles.batch_id to batches.id
-    op.create_foreign_key('fk_puzzles_batch_id_batches', 'puzzles', 'batches',
-                          ['batch_id'], ['id'])
+        # Create FK constraint from puzzles.batch_id to batches.id
+        batch_op.create_foreign_key('fk_puzzles_batch_id_batches', 'batches',
+                              ['batch_id'], ['id'])
 
-    # Create indexes
-    op.create_index('ix_puzzles_batch_id', 'puzzles', ['batch_id'])
-    op.create_index('ix_puzzles_status', 'puzzles', ['status'])
+        # Create indexes
+        batch_op.create_index('ix_puzzles_batch_id', ['batch_id'])
+        batch_op.create_index('ix_puzzles_status', ['status'])
 
 
 def downgrade() -> None:
-    # Drop indexes
-    op.drop_index('ix_puzzles_status', table_name='puzzles')
-    op.drop_index('ix_puzzles_batch_id', table_name='puzzles')
+    # SQLite doesn't support all alterations; use batch mode for compatibility
+    with op.batch_alter_table('puzzles') as batch_op:
+        # Drop indexes
+        batch_op.drop_index('ix_puzzles_status')
+        batch_op.drop_index('ix_puzzles_batch_id')
 
-    # Drop FK constraint
-    op.drop_constraint('fk_puzzles_batch_id_batches', 'puzzles', type_='foreignkey')
+        # Drop FK constraint
+        batch_op.drop_constraint('fk_puzzles_batch_id_batches', type_='foreignkey')
 
-    # Drop new columns
-    op.drop_column('puzzles', 'book_id')
-    op.drop_column('puzzles', 'recognizability')
-    op.drop_column('puzzles', 'strategies_used')
-    op.drop_column('puzzles', 'clues_cols')
-    op.drop_column('puzzles', 'clues_rows')
-    op.drop_column('puzzles', 'grid')
-    op.drop_column('puzzles', 'batch_id')
+        # Drop new columns
+        batch_op.drop_column('book_id')
+        batch_op.drop_column('recognizability')
+        batch_op.drop_column('strategies_used')
+        batch_op.drop_column('clues_cols')
+        batch_op.drop_column('clues_rows')
+        batch_op.drop_column('grid')
+        batch_op.drop_column('batch_id')
 
-    # Rename source_image back to image_source_url
-    op.alter_column('puzzles', 'source_image', new_column_name='image_source_url')
+        # Rename source_image back to image_source_url
+        batch_op.alter_column('source_image', new_column_name='image_source_url')
 
-    # Restore dropped columns as Text (pre-JSON format)
-    op.add_column('puzzles', sa.Column('strategies_used', sa.Text(), nullable=True))
-    op.add_column('puzzles', sa.Column('clues_cols', sa.Text(), nullable=True))
-    op.add_column('puzzles', sa.Column('clues_rows', sa.Text(), nullable=True))
-    op.add_column('puzzles', sa.Column('solution_grid', sa.Text(), nullable=True))
-    op.add_column('puzzles', sa.Column('name', sa.String(), nullable=True))
+        # Restore dropped columns as Text (pre-JSON format)
+        batch_op.add_column(sa.Column('strategies_used', sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column('clues_cols', sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column('clues_rows', sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column('solution_grid', sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column('name', sa.String(), nullable=True))
 
     # Rename puzzles back to nonograms
     op.rename_table('puzzles', 'nonograms')
