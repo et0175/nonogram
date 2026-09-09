@@ -31,13 +31,20 @@
                                              onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load grid</div></div>'">
                                     </div>
 
-                                    <!-- Download Button -->
+                                    <!-- Download Buttons -->
                                     <div class="mb-3">
-                                        <a href="/api/puzzle/{{ puzzle.id }}/grid/download"
-                                           class="btn btn-sm btn-outline-primary w-100"
-                                           download>
-                                            ⬇️ Download SVG
-                                        </a>
+                                        <div class="btn-group w-100" role="group">
+                                            <a href="/api/puzzle/{{ puzzle.id }}/grid/download"
+                                               class="btn btn-sm btn-outline-primary"
+                                               download>
+                                                ⬇️ SVG
+                                            </a>
+                                            <a href="/api/puzzle/{{ puzzle.id }}/grid/download-pdf"
+                                               class="btn btn-sm btn-outline-success"
+                                               download>
+                                                📄 PDF
+                                            </a>
+                                        </div>
                                     </div>
 
                                     <!-- Puzzle Info -->

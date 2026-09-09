@@ -808,6 +808,112 @@ def create_app(debug=None):
         except Exception as e:
             return f"Error: {str(e)}", 500
 
+    def draw_puzzle_page(c, puzzle, page_width, page_height, margin, is_solution=False):
+        """Draw a puzzle page on the PDF canvas.
+
+        Args:
+            c: ReportLab canvas object
+            puzzle: Puzzle dict with grid, width, height, etc.
+            page_width: Page width in points
+            page_height: Page height in points
+            margin: Margin in points
+            is_solution: If True, fill in the solution; if False, show empty grid
+        """
+        from reportlab.lib.units import inch
+
+        # Title
+        title = f"Puzzle {puzzle.get('id', 'Unknown')}"
+        if is_solution:
+            title += " - Solution"
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(margin, page_height - margin, title)
+
+        # Grid info
+        grid = puzzle.get('grid', [])
+        width = puzzle.get('width', len(grid[0]) if grid else 0)
+        height = puzzle.get('height', len(grid) if grid else 0)
+
+        c.setFont("Helvetica", 10)
+        info_y = page_height - margin - 0.25 * inch
+        c.drawString(margin, info_y, f"Size: {width}×{height} | Difficulty: {puzzle.get('difficulty_tier', 'N/A')}")
+
+        # Calculate grid dimensions
+        available_width = page_width - 2 * margin
+        available_height = page_height - margin * 2 - 0.5 * inch
+
+        cell_size = min(available_width / width, available_height / height) if width > 0 and height > 0 else 10
+        cell_size = max(cell_size, 5)  # Minimum cell size
+        cell_size = min(cell_size, 30)  # Maximum cell size
+
+        grid_width = width * cell_size
+        grid_height = height * cell_size
+
+        # Center the grid on the page
+        grid_x = margin + (available_width - grid_width) / 2
+        grid_y = page_height - margin - 0.5 * inch - grid_height
+
+        # Draw grid
+        c.setLineWidth(1)
+        for i in range(height + 1):
+            y = grid_y + i * cell_size
+            c.line(grid_x, y, grid_x + grid_width, y)
+
+        for j in range(width + 1):
+            x = grid_x + j * cell_size
+            c.line(x, grid_y, x, grid_y + grid_height)
+
+        # Fill or mark cells if solution
+        if is_solution and grid:
+            c.setFillColor(0, 0, 0)  # Black
+            for i, row in enumerate(grid):
+                for j, cell in enumerate(row):
+                    if cell:  # Filled cell
+                        x = grid_x + j * cell_size
+                        y = grid_y + (height - i - 1) * cell_size
+                        c.rect(x, y, cell_size, cell_size, fill=1)
+
+    @app.route("/api/puzzle/<puzzle_id>/grid/download-pdf")
+    def api_puzzle_grid_download_pdf(puzzle_id):
+        """Download puzzle grid as PDF file with puzzle and solution pages."""
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.units import inch
+
+        puzzle_review = get_puzzle_review_service()
+        puzzle = puzzle_review.get_puzzle(puzzle_id)
+
+        if not puzzle:
+            return "Not found", 404
+
+        try:
+            # Create PDF
+            pdf_bytes = BytesIO()
+            c = canvas.Canvas(pdf_bytes, pagesize=letter)
+            width, height = letter
+            margin = 0.5 * inch
+
+            # Page 1: Puzzle (empty grid with clues)
+            draw_puzzle_page(c, puzzle, width, height, margin, is_solution=False)
+            c.showPage()
+
+            # Page 2: Solution (filled grid)
+            draw_puzzle_page(c, puzzle, width, height, margin, is_solution=True)
+            c.showPage()
+
+            c.save()
+            pdf_bytes.seek(0)
+
+            filename = f"puzzle_{puzzle_id}.pdf"
+            return send_file(
+                pdf_bytes,
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name=filename,
+            )
+
+        except Exception as e:
+            return f"Error: {str(e)}", 500
+
     @app.errorhandler(404)
     def not_found(e):
         """Handle 404 errors."""

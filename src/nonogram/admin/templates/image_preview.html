@@ -308,21 +308,38 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Collect all configuration data
+            // Create FormData with all configuration data
+            const formData = new FormData();
+
+            // Add the save_config field
+            formData.append('save_config', '1');
+
+            // Collect all configuration data from visible form fields
             document.querySelectorAll('[id^="mode_"]:not([id$="_hidden"])').forEach(el => {
                 const fileId = el.id.replace('mode_', '');
-                const mode = el.value;
+                const mode = document.getElementById('mode_' + fileId).value;
                 const value = document.getElementById('value_' + fileId).value;
                 const name = document.getElementById('name_' + fileId).value;
 
-                // Set hidden form values
-                document.getElementById('mode_' + fileId + '_hidden').value = mode;
-                document.getElementById('value_' + fileId + '_hidden').value = value;
-                document.getElementById('name_' + fileId + '_hidden').value = name;
+                // Add to FormData
+                formData.append('mode_' + fileId, mode);
+                formData.append('value_' + fileId, value);
+                formData.append('name_' + fileId, name);
             });
 
-            // Submit form
-            form.submit();
+            // Submit via fetch to POST /batch/preview-images
+            fetch('/batch/preview-images', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = '/batch/generate-puzzles';
+                } else {
+                    alert('Error saving configuration');
+                }
+            }).catch(error => {
+                alert('Error: ' + error);
+            });
         });
     }
 });
