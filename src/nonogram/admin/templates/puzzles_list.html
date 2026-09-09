@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{%- macro preserve_filters(offset=None) -%}
+date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('date_to', '') }}&book_id={{ request.args.get('book_id', '') }}&puzzle_name={{ request.args.get('puzzle_name', '') }}&size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&sort_by={{ request.args.get('sort_by', 'batch_id,-size,quality') }}&limit={{ request.args.get('limit', '25') }}&offset={{ offset if offset is not none else request.args.get('offset', '0') }}
+{%- endmacro -%}
+
 {% block title %}Puzzles - Nonogram Admin{% endblock %}
 
 {% block content %}
@@ -278,9 +282,5 @@ document.querySelectorAll('.sortable-header').forEach(header => {
     });
 });
 </script>
-
-{% macro preserve_filters(offset=None) -%}
-date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('date_to', '') }}&book_id={{ request.args.get('book_id', '') }}&puzzle_name={{ request.args.get('puzzle_name', '') }}&size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&sort_by={{ request.args.get('sort_by', 'batch_id,-size,quality') }}&limit={{ request.args.get('limit', '25') }}&offset={{ offset if offset is not none else request.args.get('offset', '0') }}
-{%- endmacro %}
 
 {% endblock %}
