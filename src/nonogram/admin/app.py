@@ -956,9 +956,11 @@ def create_app(debug=None):
 
         # Delete from database
         try:
+            import uuid as uuid_module
             from nonogram.db.models import Puzzle
             with session_scope() as db:
-                p = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+                p = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 if p:
                     db.delete(p)
             flash(f"Puzzle deleted", "success")
