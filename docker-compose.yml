@@ -2,11 +2,12 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: nonogram-postgres-local
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nonogram_dev
       POSTGRES_INITDB_ARGS: "-c max_connections=200"
     ports:
       - "5432:5432"
