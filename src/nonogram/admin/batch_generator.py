@@ -136,10 +136,12 @@ class BatchGenerator:
                 job.updated_at = datetime.utcnow()
         else:
             # DB mode: update Batch row
+            import uuid as uuid_module
             from nonogram.db.models import Batch
 
             with self._session_factory() as db:
-                batch = db.query(Batch).filter(Batch.id == batch_id).first()
+                batch_uuid = uuid_module.UUID(batch_id) if isinstance(batch_id, str) else batch_id
+                batch = db.query(Batch).filter(Batch.id == batch_uuid).first()
                 if batch:
                     if status:
                         batch.status = status.value if isinstance(status, BatchStatus) else status
@@ -283,10 +285,12 @@ class BatchGenerator:
             quality_filter = 0  # TODO: get from job
         else:
             # DB mode: fetch from database
+            import uuid as uuid_module
             from nonogram.db.models import Batch
 
             with self._session_factory() as db:
-                batch = db.query(Batch).filter(Batch.id == batch_id).first()
+                batch_uuid = uuid_module.UUID(batch_id) if isinstance(batch_id, str) else batch_id
+                batch = db.query(Batch).filter(Batch.id == batch_uuid).first()
                 if not batch:
                     raise ValueError(f"Batch {batch_id} not found")
                 count = batch.total_count
@@ -356,10 +360,12 @@ class BatchGenerator:
             return self.jobs.get(batch_id)
         else:
             # DB mode: query database
+            import uuid as uuid_module
             from nonogram.db.models import Batch
 
             with self._session_factory() as db:
-                batch = db.query(Batch).filter(Batch.id == batch_id).first()
+                batch_uuid = uuid_module.UUID(batch_id) if isinstance(batch_id, str) else batch_id
+                batch = db.query(Batch).filter(Batch.id == batch_uuid).first()
                 if not batch:
                     return None
 
