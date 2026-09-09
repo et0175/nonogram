@@ -73,12 +73,12 @@
 
                                     <!-- Action Buttons -->
                                     <div class="action-buttons">
-                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/approve" style="display: inline;">
+                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/approve?batch_id={{ batch_id }}" style="display: inline;">
                                             <button type="submit" class="btn btn-sm btn-success" title="Approve this puzzle">
                                                 ✓ Approve
                                             </button>
                                         </form>
-                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/reject" style="display: inline;">
+                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/reject?batch_id={{ batch_id }}" style="display: inline;">
                                             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Reject this puzzle?')" title="Reject this puzzle">
                                                 ✕ Reject
                                             </button>

@@ -433,21 +433,29 @@ def create_app(debug=None):
     @app.route("/puzzle/<puzzle_id>/approve", methods=["POST"])
     def approve_puzzle(puzzle_id):
         """Approve a puzzle."""
+        batch_id = request.args.get("batch_id")
         if puzzle_review.approve_puzzle(puzzle_id):
             flash(f"Puzzle {puzzle_id} approved", "success")
         else:
             flash(f"Puzzle not found", "error")
 
+        # Return to batch if batch_id provided, else global puzzles list
+        if batch_id:
+            return redirect(url_for("generated_puzzles", batch_id=batch_id))
         return redirect(url_for("puzzles_list"))
 
     @app.route("/puzzle/<puzzle_id>/reject", methods=["POST"])
     def reject_puzzle(puzzle_id):
         """Reject a puzzle."""
+        batch_id = request.args.get("batch_id")
         if puzzle_review.reject_puzzle(puzzle_id):
             flash(f"Puzzle {puzzle_id} rejected", "success")
         else:
             flash(f"Puzzle not found", "error")
 
+        # Return to batch if batch_id provided, else global puzzles list
+        if batch_id:
+            return redirect(url_for("generated_puzzles", batch_id=batch_id))
         return redirect(url_for("puzzles_list"))
 
     @app.route("/books")
@@ -771,7 +779,7 @@ def create_app(debug=None):
     @app.route("/api/puzzle/<puzzle_id>/grid")
     def api_puzzle_grid_from_puzzle(puzzle_id):
         """Get puzzle grid as SVG from stored puzzle."""
-        puzzle_review = get_puzzle_review_service()
+        # Use DB-backed puzzle_review from closure, not legacy service
         puzzle = puzzle_review.get_puzzle(puzzle_id)
 
         if not puzzle:
@@ -802,7 +810,7 @@ def create_app(debug=None):
     @app.route("/api/puzzle/<puzzle_id>/grid/download")
     def api_puzzle_grid_download_from_puzzle(puzzle_id):
         """Download puzzle grid as SVG file from stored puzzle."""
-        puzzle_review = get_puzzle_review_service()
+        # Use DB-backed puzzle_review from closure, not legacy service
         puzzle = puzzle_review.get_puzzle(puzzle_id)
 
         if not puzzle:
@@ -831,7 +839,7 @@ def create_app(debug=None):
     @app.route("/api/puzzle/<puzzle_id>/grid/download-pdf")
     def api_puzzle_grid_download_pdf(puzzle_id):
         """Download puzzle grid as PDF file with puzzle and solution pages."""
-        puzzle_review = get_puzzle_review_service()
+        # Use DB-backed puzzle_review from closure, not legacy service
         puzzle = puzzle_review.get_puzzle(puzzle_id)
 
         if not puzzle:
