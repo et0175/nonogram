@@ -3,6 +3,7 @@
 import pytest
 import os
 from pathlib import Path
+from sqlalchemy import text
 
 # Local imports
 from nonogram.admin.app import create_app
@@ -46,6 +47,67 @@ def test_db_url():
         "TEST_DATABASE_URL",
         "postgresql://postgres:postgres@localhost:5432/nonogram_test"
     )
+
+
+def pytest_runtest_setup(item):
+    """Skip DB tests if Postgres is unreachable."""
+    markers = [m.name for m in item.iter_markers()]
+    if 'db_required' in markers:
+        # Try to import and ping the DB
+        try:
+            from nonogram.db import engine
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as e:
+            pytest.skip(f"Database not reachable: {e}")
+
+
+@pytest.fixture(scope="function")
+def db_session(test_db_url, monkeypatch):
+    """Provide a fresh test database session with schema setup and teardown.
+
+    - Sets DATABASE_URL to the test DB
+    - Ensures schema exists (via alembic or Base.metadata.create_all)
+    - Yields the SessionLocal factory
+    - Truncates tables after test for isolation
+    """
+    # Set test DB URL in environment
+    monkeypatch.setenv("DATABASE_URL", test_db_url)
+
+    try:
+        from nonogram.db import engine, SessionLocal, Base
+        from nonogram.db.models import Batch, Puzzle
+    except ImportError as e:
+        pytest.skip(f"Database dependencies not installed: {e}")
+
+    # Try to create schema
+    try:
+        # First, try to drop/recreate tables to ensure clean state
+        with engine.begin() as conn:
+            # Drop FK constraints first (Postgres requires this order)
+            conn.execute(text("""
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+                AND tablename IN ('puzzles', 'batches')
+            """))
+            # Use CASCADE to drop dependent objects
+            conn.execute(text("DROP TABLE IF EXISTS puzzles CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS batches CASCADE"))
+            # Recreate tables from models
+            Base.metadata.create_all(engine)
+    except Exception as e:
+        # If we can't access the DB, skip DB-dependent tests
+        pytest.skip(f"Could not set up test database: {e}")
+
+    yield SessionLocal
+
+    # Teardown: truncate tables for next test
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE TABLE puzzles CASCADE"))
+            conn.execute(text("TRUNCATE TABLE batches CASCADE"))
+    except Exception:
+        pass  # Ignore teardown errors
 
 
 @pytest.fixture(scope="function")
