@@ -26,7 +26,9 @@ dependencies = [
 # Development-only dependencies
 dev = ["pytest>=8.3"]
 # Admin panel dependencies
-admin = ["Flask>=3.0"]
+admin = ["Flask>=3.0", "Werkzeug>=3.0"]
+# Database dependencies
+db = ["SQLAlchemy>=2.0", "alembic>=1.13", "psycopg2-binary>=2.9"]
 
 [project.scripts]
 nonogram = "nonogram.cli:main"

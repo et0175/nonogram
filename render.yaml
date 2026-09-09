@@ -3,7 +3,7 @@ services:
     name: nonogram-admin
     env: python
     plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && alembic upgrade head
     startCommand: bash start.sh
     autoDeploy: true
     envVars:

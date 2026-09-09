@@ -1,6 +1,6 @@
 """Database ORM models for nonogram platform."""
 
-from sqlalchemy import Column, String, Integer, DateTime, UUID, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, DateTime, UUID, ForeignKey, Text, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import uuid
@@ -21,26 +21,52 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class Nonogram(Base):
-    """Generated nonogram puzzle."""
+class Batch(Base):
+    """A batch generation job."""
 
-    __tablename__ = 'nonograms'
+    __tablename__ = 'batches'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, nullable=True)
-    theme = Column(String, nullable=True)  # 'christmas', 'newyear', etc
+    status = Column(String, nullable=False, default="pending")  # pending/generating/complete/error/cancelled
+    source = Column(String, nullable=False, default="random")   # "random" | "images"
+    total_count = Column(Integer, nullable=False, default=0)
+    completed_count = Column(Integer, nullable=False, default=0)
+    puzzle_count = Column(Integer, nullable=False, default=0)
+    sizes = Column(JSON, nullable=True)
+    theme = Column(String, nullable=True)
+    quality_filter = Column(Integer, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    puzzles = relationship("Puzzle", back_populates="batch")
+
+
+class Puzzle(Base):
+    """Generated nonogram puzzle at any review status."""
+
+    __tablename__ = 'puzzles'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id = Column(UUID(as_uuid=True), ForeignKey('batches.id'), nullable=True)
+    grid = Column(JSON, nullable=False)  # list[list[bool]]
+    clues_rows = Column(JSON, nullable=False)  # list[list[int]] — display only
+    clues_cols = Column(JSON, nullable=False)
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
+    theme = Column(String, nullable=True)
     difficulty_score = Column(Integer, nullable=True)  # 1-100
     difficulty_tier = Column(String, nullable=True)  # 'Easy', 'Medium', 'Hard'
     quality_score = Column(Integer, nullable=True)  # 1-100 (image fidelity)
-    strategies_used = Column(Text, nullable=True)  # JSON array as string
-    solution_grid = Column(Text, nullable=True)  # JSON array as string
-    clues_rows = Column(Text, nullable=True)  # JSON array as string
-    clues_cols = Column(Text, nullable=True)  # JSON array as string
-    image_source_url = Column(String, nullable=True)
+    recognizability = Column(String, nullable=True)
+    strategies_used = Column(JSON, nullable=True)
+    status = Column(String, nullable=False, default='draft')  # 'draft', 'approved', 'rejected', 'in_book'
+    source_image = Column(String, nullable=True)
+    book_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String, default='draft')  # 'draft', 'approved', 'in_book'
+
+    batch = relationship("Batch", back_populates="puzzles")
 
 
 class Book(Base):

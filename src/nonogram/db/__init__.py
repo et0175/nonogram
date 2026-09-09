@@ -1,19 +1,22 @@
 """Database connection and session management."""
 
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+# Re-export from session.py for backwards compatibility
+from .session import (
+    DATABASE_URL,
+    engine,
+    SessionLocal,
+    get_session,
+    get_db,
+    session_scope,
+)
+from .models import Base
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/nonogram_poc')
-
-engine = create_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db():
-    """Dependency for database session."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+__all__ = [
+    'DATABASE_URL',
+    'engine',
+    'SessionLocal',
+    'get_session',
+    'get_db',
+    'session_scope',
+    'Base',
+]
