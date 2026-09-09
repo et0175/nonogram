@@ -6,7 +6,7 @@
 <div class="row mb-4">
     <div class="col-md-12">
         <h1>Puzzle Review & Curation</h1>
-        <p class="text-muted">Filter and approve puzzles for book inclusion</p>
+        <p class="text-muted">Filter, sort, and approve puzzles for book inclusion</p>
     </div>
 </div>
 
@@ -18,6 +18,38 @@
             </div>
             <div class="card-body">
                 <form method="GET" class="row g-3">
+                    <!-- Date Range -->
+                    <div class="col-md-2">
+                        <label for="date_from" class="form-label">From</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from"
+                               value="{{ request.args.get('date_from', '') }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_to" class="form-label">To</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to"
+                               value="{{ request.args.get('date_to', '') }}">
+                    </div>
+
+                    <!-- Book Filter -->
+                    <div class="col-md-2">
+                        <label for="book_id" class="form-label">Book</label>
+                        <select class="form-select" id="book_id" name="book_id">
+                            <option value="">All</option>
+                            <option value="unassigned" {% if request.args.get('book_id') == 'unassigned' %}selected{% endif %}>Unassigned</option>
+                            {% for book in books %}
+                            <option value="{{ book.id }}" {% if request.args.get('book_id') == book.id|string %}selected{% endif %}>{{ book.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Puzzle Name Search -->
+                    <div class="col-md-2">
+                        <label for="puzzle_name" class="form-label">Puzzle Name</label>
+                        <input type="text" class="form-control" id="puzzle_name" name="puzzle_name"
+                               value="{{ request.args.get('puzzle_name', '') }}" placeholder="Search...">
+                    </div>
+
+                    <!-- Existing Filters -->
                     <div class="col-md-2">
                         <label for="size" class="form-label">Size (px)</label>
                         <input type="number" class="form-control" id="size" name="size"
@@ -42,9 +74,9 @@
                         <input type="number" class="form-control" id="limit" name="limit"
                                min="1" max="100" value="{{ request.args.get('limit', '25') }}">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="form-label">&nbsp;</label>
-                        <button type="submit" class="btn btn-primary w-100">🔍 Apply Filters</button>
+                        <button type="submit" class="btn btn-primary w-100">🔍 Apply</button>
                     </div>
                 </form>
             </div>
@@ -64,13 +96,26 @@
             <div class="card-body">
                 {% if puzzles %}
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover table-sm">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Size</th>
-                                <th>Difficulty</th>
-                                <th>Quality</th>
+                                <th style="width: 80px;">Preview</th>
+                                <th class="sortable-header" data-column="puzzle_name">
+                                    Puzzle Name
+                                    {% if request.args.get('sort_by', '').startswith('puzzle_name') %}▲{% elif request.args.get('sort_by', '').startswith('-puzzle_name') %}▼{% endif %}
+                                </th>
+                                <th class="sortable-header" data-column="size">
+                                    Size
+                                    {% if request.args.get('sort_by', '').startswith('size') %}▲{% elif request.args.get('sort_by', '').startswith('-size') %}▼{% endif %}
+                                </th>
+                                <th class="sortable-header" data-column="difficulty">
+                                    Difficulty
+                                    {% if request.args.get('sort_by', '').startswith('difficulty') %}▲{% elif request.args.get('sort_by', '').startswith('-difficulty') %}▼{% endif %}
+                                </th>
+                                <th class="sortable-header" data-column="quality">
+                                    Quality
+                                    {% if request.args.get('sort_by', '').startswith('quality') %}▲{% elif request.args.get('sort_by', '').startswith('-quality') %}▼{% endif %}
+                                </th>
                                 <th>Recognizability</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -79,26 +124,53 @@
                         <tbody>
                             {% for puzzle in puzzles %}
                             <tr>
-                                <td><code>{{ puzzle.id }}</code></td>
+                                <!-- Preview Column -->
+                                <td>
+                                    <img src="/api/puzzle/{{ puzzle.id }}/grid"
+                                         alt="Puzzle preview"
+                                         class="puzzle-preview-thumb"
+                                         style="width: 70px; height: 70px; object-fit: contain; cursor: pointer; border: 1px solid #ddd; border-radius: 4px;"
+                                         onclick="openPuzzleDetail('{{ puzzle.id }}')"
+                                         onerror="this.parentElement.innerHTML='<div style=\'width:70px; height:70px; display:flex; align-items:center; justify-content:center; border:1px solid #ddd; border-radius:4px; font-size:10px; color:#999;\'>No image</div>'">
+                                </td>
+
+                                <!-- Puzzle Name Column (clickable to open detail modal) -->
+                                <td>
+                                    <a href="#" onclick="openPuzzleDetail('{{ puzzle.id }}'); return false;" style="text-decoration: none; color: inherit;">
+                                        <strong>{{ puzzle.puzzle_name or puzzle.source_image or puzzle.id[:8] }}</strong>
+                                    </a>
+                                </td>
+
+                                <!-- Size -->
                                 <td>{{ puzzle.width }}×{{ puzzle.height }}</td>
+
+                                <!-- Difficulty -->
                                 <td>
                                     <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
-                                        {{ puzzle.difficulty_tier }}
+                                        {{ puzzle.difficulty_tier or 'N/A' }}
                                     </span>
                                 </td>
+
+                                <!-- Quality -->
                                 <td>
-                                    <strong>{{ puzzle.quality_score }}</strong>/100
+                                    <strong>{{ puzzle.quality_score or 'N/A' }}</strong>/100
                                 </td>
+
+                                <!-- Recognizability -->
                                 <td>
                                     <span class="badge" style="background-color: {% if puzzle.recognizability == 'high' %}#27ae60{% elif puzzle.recognizability == 'medium' %}#3498db{% else %}#95a5a6{% endif %}">
-                                        {{ puzzle.recognizability }}
+                                        {{ puzzle.recognizability or 'N/A' }}
                                     </span>
                                 </td>
+
+                                <!-- Status -->
                                 <td>
                                     <span class="badge" style="background-color: {% if puzzle.status == 'draft' %}#95a5a6{% elif puzzle.status == 'approved' %}#27ae60{% elif puzzle.status == 'in_book' %}#3498db{% else %}#e74c3c{% endif %}">
                                         {{ puzzle.status }}
                                     </span>
                                 </td>
+
+                                <!-- Actions -->
                                 <td>
                                     {% if puzzle.status == 'draft' %}
                                     <form action="/puzzle/{{ puzzle.id }}/approve" method="POST" style="display:inline;">
@@ -106,6 +178,10 @@
                                     </form>
                                     <form action="/puzzle/{{ puzzle.id }}/reject" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" title="Reject">✕</button>
+                                    </form>
+                                    {% elif puzzle.status == 'rejected' %}
+                                    <form action="/puzzle/{{ puzzle.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this puzzle? This cannot be undone.');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">🗑️</button>
                                     </form>
                                     {% else %}
                                     <span class="text-muted">—</span>
@@ -117,14 +193,15 @@
                     </table>
                 </div>
 
-                <nav aria-label="Pagination">
+                <!-- Pagination -->
+                <nav aria-label="Pagination" class="mt-4">
                     <ul class="pagination justify-content-center">
                         {% if offset > 0 %}
                         <li class="page-item">
-                            <a class="page-link" href="?size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&offset=0">First</a>
+                            <a class="page-link" href="?{{ preserve_filters(offset=0) }}">First</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&offset={{ offset - limit }}">Previous</a>
+                            <a class="page-link" href="?{{ preserve_filters(offset=offset - limit) }}">Previous</a>
                         </li>
                         {% endif %}
                         <li class="page-item active">
@@ -132,17 +209,78 @@
                         </li>
                         {% if has_more %}
                         <li class="page-item">
-                            <a class="page-link" href="?size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&offset={{ offset + limit }}">Next</a>
+                            <a class="page-link" href="?{{ preserve_filters(offset=offset + limit) }}">Next</a>
                         </li>
                         {% endif %}
                     </ul>
                 </nav>
 
                 {% else %}
-                <p class="text-muted text-center">No puzzles found matching your filters</p>
+                <p class="text-muted text-center py-4">No puzzles found matching your filters</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sortable-header:hover {
+    background-color: #f8f9fa;
+    text-decoration: underline;
+}
+
+.puzzle-preview-thumb:hover {
+    box-shadow: 0 0 8px rgba(0,0,0,0.2);
+    transform: scale(1.05);
+    transition: all 0.2s;
+}
+</style>
+
+<script>
+function buildSortUrl(column) {
+    const params = new URLSearchParams(window.location.search);
+    const currentSort = params.get('sort_by') || 'batch_id,-size,quality';
+    const parts = currentSort.split(',');
+
+    // If clicking the same column, toggle direction
+    if (parts[0] === column) {
+        parts[0] = '-' + column;
+    } else if (parts[0] === '-' + column) {
+        parts[0] = column;
+    } else {
+        // New column: add to front, keep others as secondary sorts
+        parts.unshift(column);
+    }
+
+    params.set('sort_by', parts.join(','));
+    params.set('offset', '0');  // Reset to first page when sorting changes
+    return '?' + params.toString();
+}
+
+function openPuzzleDetail(puzzleId) {
+    // Placeholder for Phase 3 - will open detail modal
+    console.log('Opening detail for puzzle:', puzzleId);
+    // TODO: Implement in Phase 3 (CARD-507)
+    alert('Detail modal coming in Phase 3!\nPuzzle ID: ' + puzzleId);
+}
+
+// Attach click handlers to sortable headers
+document.querySelectorAll('.sortable-header').forEach(header => {
+    header.addEventListener('click', function() {
+        const column = this.dataset.column;
+        window.location.href = buildSortUrl(column);
+    });
+});
+</script>
+
+{% macro preserve_filters(offset=None) -%}
+date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('date_to', '') }}&book_id={{ request.args.get('book_id', '') }}&puzzle_name={{ request.args.get('puzzle_name', '') }}&size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&quality_min={{ request.args.get('quality_min', '') }}&sort_by={{ request.args.get('sort_by', 'batch_id,-size,quality') }}&limit={{ request.args.get('limit', '25') }}&offset={{ offset if offset is not none else request.args.get('offset', '0') }}
+{%- endmacro %}
+
 {% endblock %}
