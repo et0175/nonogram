@@ -19,6 +19,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "smoke: quick sanity checks")
     config.addinivalue_line("markers", "slow: tests that take >5 seconds")
     config.addinivalue_line("markers", "performance: performance benchmarks")
+    config.addinivalue_line("markers", "db_required: tests requiring a live Postgres database")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -111,15 +112,14 @@ def db_session(test_db_url, monkeypatch):
 
 
 @pytest.fixture(scope="function")
-def app():
-    """Create Flask test app with test database."""
-    # Set test database URL
-    os.environ["DATABASE_URL"] = os.getenv(
-        "TEST_DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/nonogram_test"
-    )
+def app(db_session):
+    """Create Flask test app with test database.
 
-    # Create app
+    Depends on db_session to ensure DB schema is set up before app instantiation.
+    """
+    # db_session already sets DATABASE_URL via monkeypatch
+
+    # Create app (will use DATABASE_URL env var for DB-backed services)
     test_app = create_app(debug=True)
     test_app.config["TESTING"] = True
 
