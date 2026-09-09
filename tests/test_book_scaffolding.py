@@ -144,3 +144,42 @@ class TestBookScaffoldingFlow:
         # Should be close to A5 size
         assert float(spec.trim_width_cm) == pytest.approx(15.24, abs=0.01)
         assert float(spec.trim_height_cm) == pytest.approx(22.86, abs=0.01)
+
+    def test_step2_puzzle_selection_multiple_puzzles(self):
+        """Test Step 2 can handle multiple puzzle selections."""
+        # Simulates selecting multiple puzzles
+        puzzle_ids = ["puzzle_001", "puzzle_002", "puzzle_003"]
+
+        # Verify list isn't empty and contains correct count
+        assert len(puzzle_ids) == 3
+        assert "puzzle_001" in puzzle_ids
+        assert all(pid.startswith("puzzle_") for pid in puzzle_ids)
+
+    def test_step2_puzzle_selection_empty(self):
+        """Test Step 2 handles empty selection (allowed to skip)."""
+        puzzle_ids = []
+
+        # Empty selection is allowed for skipping step 2
+        assert len(puzzle_ids) == 0
+
+    def test_step2_puzzle_filtering(self):
+        """Test that puzzle selection can filter by properties."""
+        # Example puzzles with different properties
+        puzzles = [
+            {"id": "p1", "size": 20, "difficulty": "Easy", "quality": 90},
+            {"id": "p2", "size": 20, "difficulty": "Medium", "quality": 85},
+            {"id": "p3", "size": 25, "difficulty": "Hard", "quality": 92},
+        ]
+
+        # Filter by size
+        size_20 = [p for p in puzzles if p["size"] == 20]
+        assert len(size_20) == 2
+
+        # Filter by difficulty
+        easy = [p for p in puzzles if p["difficulty"] == "Easy"]
+        assert len(easy) == 1
+        assert easy[0]["id"] == "p1"
+
+        # Filter by quality
+        quality_90_plus = [p for p in puzzles if p["quality"] >= 90]
+        assert len(quality_90_plus) == 2

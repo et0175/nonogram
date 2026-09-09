@@ -574,6 +574,103 @@ def create_app(debug=None):
 
         return render_template("book_setup_print.html", **context)
 
+    @app.route("/book/<book_id>/select-puzzles", methods=["GET", "POST"])
+    def select_puzzles_for_book(book_id):
+        """Select and add puzzles to a book (Step 2 of scaffolding)."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        if request.method == "POST":
+            # Get selected puzzle IDs from form
+            selected_ids = request.form.getlist("puzzle_ids")
+
+            if not selected_ids:
+                flash("No puzzles selected. Please select at least one puzzle.", "info")
+            else:
+                try:
+                    # Add puzzles to the book
+                    if book_mgr.add_puzzles_to_book(book_id, selected_ids):
+                        flash(f"Added {len(selected_ids)} puzzle(s) to book", "success")
+                        # Proceed to Step 3: Puzzle Arrangement
+                        return redirect(url_for("arrange_puzzles_in_book", book_id=book_id))
+                    else:
+                        flash("Book not found", "error")
+                except ValueError as e:
+                    flash(f"Error: {str(e)}", "error")
+
+        # Get filter parameters from query string
+        size = request.args.get("size", type=int)
+        difficulty = request.args.get("difficulty")
+        quality_min = request.args.get("quality_min", type=int)
+        theme = request.args.get("theme")
+        status = request.args.get("status", "approved")  # Default to approved only
+        puzzle_name = request.args.get("puzzle_name")
+        limit = request.args.get("limit", 50, type=int)
+        offset = request.args.get("offset", 0, type=int)
+
+        # Build filter: exclude puzzles already in this book
+        try:
+            filter_opts = PuzzleFilter(
+                size=size,
+                difficulty=difficulty,
+                quality_min=quality_min,
+                theme=theme,
+                status=status,
+                puzzle_name=puzzle_name,
+                book_id="unassigned",  # Only show puzzles NOT in any book
+                limit=limit,
+                offset=offset,
+            )
+            result = puzzle_review.filter_puzzles(filter_opts)
+
+            # Additional filter: exclude puzzles already in this book
+            filtered_puzzles = [
+                p for p in result.puzzles
+                if p.get("book_id") is None
+            ]
+
+            context = {
+                "book": book,
+                "puzzles": filtered_puzzles,
+                "total_count": len(filtered_puzzles),
+                "has_more": result.has_more,
+                "size": size,
+                "difficulty": difficulty,
+                "quality_min": quality_min,
+                "theme": theme,
+                "status": status,
+                "puzzle_name": puzzle_name,
+                "limit": limit,
+                "offset": offset,
+            }
+
+            return render_template("book_select_puzzles.html", **context)
+
+        except ValueError as e:
+            flash(f"Filter error: {str(e)}", "error")
+            return render_template(
+                "book_select_puzzles.html",
+                book=book,
+                puzzles=[],
+                total_count=0,
+                has_more=False,
+                error=str(e),
+            )
+
+    @app.route("/book/<book_id>/arrange-puzzles", methods=["GET", "POST"])
+    def arrange_puzzles_in_book(book_id):
+        """Arrange and name puzzles in a book (Step 3 of scaffolding)."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        # TODO: Implement Step 3 puzzle arrangement
+        flash("Step 3: Puzzle Arrangement (Coming soon)", "info")
+        return redirect(url_for("book_detail", book_id=book_id))
+
     @app.route("/book/<book_id>")
     def book_detail(book_id):
         """View and edit book details."""
