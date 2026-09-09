@@ -379,7 +379,7 @@ class BatchGenerator:
                 )
 
     def get_batch_puzzles(self, batch_id: str, offset: int = 0, limit: int = 25) -> Optional[List[dict]]:
-        """Get puzzles from a completed batch (from puzzle_review_service).
+        """Get puzzles from a completed batch (legacy or DB-backed).
 
         Args:
             batch_id: ID of the batch
@@ -389,8 +389,12 @@ class BatchGenerator:
         Returns:
             List of puzzle dicts, or empty list if batch not found
         """
-        job = self.jobs.get(batch_id)
-        if not job or not self.puzzle_review_service:
+        if not self.puzzle_review_service:
+            return []
+
+        # Check if batch exists (legacy or DB mode)
+        job = self.get_batch_status(batch_id)
+        if not job:
             return []
 
         # Get puzzles from this specific batch
