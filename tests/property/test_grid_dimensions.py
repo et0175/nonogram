@@ -379,10 +379,12 @@ def _annotation_is_int(node: ast.expr | None) -> bool:
     """Does this annotation admit an ``int``, structurally rather than by spelling?
 
     A grid extent is a number of cells, so an extent-named binding that admits
-    an ``int`` is a scalar-extent boundary. What must NOT be caught is
-    ``difficulty.SignalWeights.size``, a ``float`` normalizer weight that has
-    nothing to do with how big a grid is (and which guardrail G-4 forbids
-    touching anyway).
+    an ``int`` is a scalar-extent boundary. What must NOT be caught is:
+    - ``difficulty.SignalWeights.size``, a ``float`` normalizer weight that has
+      nothing to do with how big a grid is (and which guardrail G-4 forbids
+      touching anyway).
+    - ``Tuple[int, int]`` or similar tuple pairs per ADR-0022/R1, which explicitly
+      require extent to be a pair (width, height), not a scalar.
 
     This was first written as exact string equality against four spellings, and
     cycle-1 review broke it in five ways: ``typing.Optional[int]``,
@@ -399,7 +401,8 @@ def _annotation_is_int(node: ast.expr | None) -> bool:
     * **an absent annotation counts as a hit**. An unannotated public parameter
       called ``size`` is a scalar-extent boundary whatever anyone intended, and
       this project has no mypy or ruff to notice it. That is a real rule, and it
-      is declared here rather than left as a silent third exclusion.
+      is declared here rather than left as a silent third exclusion;
+    * **Tuple[...] is excluded** (ADR-0022/R1 requires extent to be a pair, not scalar).
 
     ``float`` is excluded because ``float`` contains no ``int`` NODE — the walk
     is token-level, not substring, so ``Point`` and ``print`` do not match either.
@@ -411,6 +414,31 @@ def _annotation_is_int(node: ast.expr | None) -> bool:
             node = ast.parse(node.value, mode="eval").body
         except SyntaxError:
             return True
+
+    # Check if the top-level annotation is a Tuple (or tuple) — these are OK per
+    # ADR-0022/R1 since they represent (width, height) pairs, not scalars.
+    def is_tuple_like(n: ast.expr) -> bool:
+        """Check if node represents a Tuple type."""
+        if isinstance(n, ast.Name) and n.id == "tuple":
+            return True
+        if isinstance(n, ast.Subscript):
+            if isinstance(n.value, ast.Name):
+                return n.value.id in ("tuple", "Tuple")
+            if isinstance(n.value, ast.Attribute):
+                return n.value.attr in ("tuple", "Tuple")
+        return False
+
+    # If the entire annotation is a Tuple/tuple variant, it's OK (not scalar)
+    if is_tuple_like(node):
+        return False
+
+    # If wrapped in Optional[Tuple[...]], still OK
+    if isinstance(node, ast.Subscript):
+        if isinstance(node.value, ast.Name) and node.value.id == "Optional":
+            if hasattr(node, 'slice') and is_tuple_like(node.slice):
+                return False
+
+    # Otherwise, check if int appears anywhere in the tree
     for sub in ast.walk(node):
         if isinstance(sub, ast.Name) and sub.id == "int":
             return True

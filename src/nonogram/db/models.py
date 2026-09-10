@@ -4,7 +4,7 @@ from sqlalchemy import Column, String, Integer, DateTime, UUID, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 Base = declarative_base()
 
@@ -18,7 +18,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     subscription_tier = Column(String, default='free')  # 'free', 'premium'
     puzzles_generated_month = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Batch(Base):
@@ -36,8 +36,8 @@ class Batch(Base):
     theme = Column(String, nullable=True)
     quality_filter = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
 
     puzzles = relationship("Puzzle", back_populates="batch")
@@ -65,7 +65,7 @@ class Puzzle(Base):
     source_image = Column(String, nullable=True)
     puzzle_name = Column(String, nullable=True)  # human-readable name for filtering/sorting
     book_id = Column(UUID(as_uuid=True), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     batch = relationship("Batch", back_populates="puzzles")
 
@@ -90,8 +90,8 @@ class Book(Base):
     gutter_margin_cm = Column(String, nullable=True)  # inside margin
     outside_margin_cm = Column(String, nullable=True)
     outside_margin_bleed_cm = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class GenerationHistory(Base):
@@ -101,9 +101,9 @@ class GenerationHistory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
-    puzzle_id = Column(UUID(as_uuid=True), ForeignKey('nonograms.id'), nullable=True)
+    puzzle_id = Column(UUID(as_uuid=True), ForeignKey('puzzles.id'), nullable=True)
     image_url = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class UserSelectedBook(Base):
@@ -112,6 +112,6 @@ class UserSelectedBook(Base):
     __tablename__ = 'user_selected_books'
 
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), primary_key=True)
-    puzzle_id = Column(UUID(as_uuid=True), ForeignKey('nonograms.id'), primary_key=True)
+    puzzle_id = Column(UUID(as_uuid=True), ForeignKey('puzzles.id'), primary_key=True)
     book_id = Column(UUID(as_uuid=True), ForeignKey('books.id'), primary_key=True)
-    selected_at = Column(DateTime, default=datetime.utcnow)
+    selected_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

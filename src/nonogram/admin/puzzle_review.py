@@ -6,7 +6,7 @@ Handles filtering puzzles by various criteria and managing approval/rejection.
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 
 class PuzzleStatus(Enum):
@@ -202,7 +202,7 @@ class PuzzleReviewService:
                 "status": PuzzleStatus.DRAFT.value,
                 "batch_id": batch_id,
                 "source_image": source_image,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
             return puzzle_id
         else:

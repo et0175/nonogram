@@ -71,16 +71,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # SQLite doesn't support all alterations; use batch mode for compatibility
+    # Reverse the upgrade migration in correct order
     with op.batch_alter_table('puzzles') as batch_op:
-        # Drop indexes
+        # Drop indexes first
         batch_op.drop_index('ix_puzzles_status')
         batch_op.drop_index('ix_puzzles_batch_id')
 
-        # Drop FK constraint
+        # Drop FK constraint to batches table
         batch_op.drop_constraint('fk_puzzles_batch_id_batches', type_='foreignkey')
 
-        # Drop new columns
+        # Drop new columns added in upgrade, in reverse order
         batch_op.drop_column('book_id')
         batch_op.drop_column('recognizability')
         batch_op.drop_column('strategies_used')
@@ -89,17 +89,17 @@ def downgrade() -> None:
         batch_op.drop_column('grid')
         batch_op.drop_column('batch_id')
 
-        # Rename source_image back to image_source_url
+        # Rename column back to original name
         batch_op.alter_column('source_image', new_column_name='image_source_url')
 
-        # Restore dropped columns as Text (pre-JSON format)
-        batch_op.add_column(sa.Column('strategies_used', sa.Text(), nullable=True))
+        # Restore columns that were dropped in upgrade, matching migration 001's original types
         batch_op.add_column(sa.Column('clues_cols', sa.Text(), nullable=True))
         batch_op.add_column(sa.Column('clues_rows', sa.Text(), nullable=True))
         batch_op.add_column(sa.Column('solution_grid', sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column('strategies_used', sa.Text(), nullable=True))
         batch_op.add_column(sa.Column('name', sa.String(), nullable=True))
 
-    # Rename puzzles back to nonograms
+    # Rename table back to original name (must be outside batch_alter_table)
     op.rename_table('puzzles', 'nonograms')
 
     # Drop batches table
