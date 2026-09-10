@@ -1349,7 +1349,7 @@ def create_app(debug=None):
 
         return jsonify({
             "puzzle": puzzle,
-            "books": [{"id": str(b.id), "title": b.title} for b in books],
+            "books": [{"id": b.book_id, "title": b.metadata.title} for b in books],
         })
 
     @app.route("/puzzle/<puzzle_id>/delete", methods=["POST"])
