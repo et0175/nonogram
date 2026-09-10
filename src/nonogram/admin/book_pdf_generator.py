@@ -159,14 +159,15 @@ class BookPDFGenerator:
                 clues_cols = puzzle.get("clues_cols", [])
 
                 payload = ExportPayload(
-                    name=puzzle.get("puzzle_name", ""),
                     grid=grid,
                     row_clues=tuple(tuple(row) for row in clues_rows) if clues_rows else (),
                     column_clues=tuple(tuple(col) for col in clues_cols) if clues_cols else (),
-                    difficulty_score=puzzle.get("difficulty_score"),
-                    difficulty_tier=puzzle.get("difficulty_tier", ""),
-                    width=puzzle.get("width", 20),
-                    height=puzzle.get("height", 20),
+                    seed=0,  # Seed for reproducibility (not available from book puzzles)
+                    mode="random",  # Mode (not available from book puzzles)
+                    width=puzzle.get("width"),
+                    height=puzzle.get("height"),
+                    name=puzzle.get("puzzle_name"),
+                    difficulty=puzzle.get("difficulty_tier"),  # Display name, not score
                 )
 
                 # Render puzzle pages (blank + answer)
