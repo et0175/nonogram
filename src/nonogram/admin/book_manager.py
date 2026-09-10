@@ -163,7 +163,7 @@ class BookManager:
                     target_audience=target_audience,
                     puzzle_ids=[],
                     puzzle_titles={},
-                    metadata=metadata,
+                    book_metadata=metadata,
                     status=BookStatus.DRAFT.value,
                 )
                 db.add(book)
@@ -179,8 +179,8 @@ class BookManager:
         Returns:
             Book dataclass instance
         """
-        # Parse metadata JSON
-        metadata_dict = book_row.metadata or {}
+        # Parse metadata JSON (stored in book_metadata database column)
+        metadata_dict = book_row.book_metadata or {}
 
         # Build BookMetadata object
         metadata = BookMetadata(
@@ -285,9 +285,9 @@ class BookManager:
                 book_row.puzzle_ids = existing_puzzles + new_puzzles
 
                 # Update page count in metadata
-                if book_row.metadata is None:
-                    book_row.metadata = {}
-                book_row.metadata['page_count'] = max(1, len(book_row.puzzle_ids) // 2)
+                if book_row.book_metadata is None:
+                    book_row.book_metadata = {}
+                book_row.book_metadata['page_count'] = max(1, len(book_row.puzzle_ids) // 2)
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()
@@ -331,9 +331,9 @@ class BookManager:
                 book_row.puzzle_ids = puzzle_ids
 
                 # Update page count in metadata
-                if book_row.metadata is None:
-                    book_row.metadata = {}
-                book_row.metadata['page_count'] = max(1, len(book_row.puzzle_ids) // 2)
+                if book_row.book_metadata is None:
+                    book_row.book_metadata = {}
+                book_row.book_metadata['page_count'] = max(1, len(book_row.puzzle_ids) // 2)
                 book_row.updated_at = datetime.utcnow()
 
                 # Also remove custom title if it exists
@@ -718,7 +718,7 @@ class BookManager:
                     return False
 
                 if book_row.metadata is None:
-                    book_row.metadata = {}
+                    book_row.book_metadata = {}
                 book_row.metadata['cover_image_url'] = cover_url
                 book_row.updated_at = datetime.utcnow()
 
@@ -755,7 +755,7 @@ class BookManager:
                     return False
 
                 if book_row.metadata is None:
-                    book_row.metadata = {}
+                    book_row.book_metadata = {}
                 book_row.metadata['pdf_url'] = pdf_url
                 book_row.updated_at = datetime.utcnow()
 
@@ -792,7 +792,7 @@ class BookManager:
                     return False
 
                 if book_row.metadata is None:
-                    book_row.metadata = {}
+                    book_row.book_metadata = {}
                 book_row.metadata['kdp_asin'] = asin
                 book_row.updated_at = datetime.utcnow()
 

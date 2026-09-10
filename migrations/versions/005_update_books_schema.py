@@ -27,8 +27,8 @@ def upgrade() -> None:
         # Add puzzle_titles column for custom puzzle titles in the book
         batch_op.add_column(sa.Column('puzzle_titles', sa.JSON(), nullable=False, server_default='{}'))
 
-        # Add metadata column for storing: size, cover_image_url, pdf_url, kdp_asin
-        batch_op.add_column(sa.Column('metadata', sa.JSON(), nullable=False, server_default='{}'))
+        # Add book_metadata column for storing: size, cover_image_url, pdf_url, kdp_asin
+        batch_op.add_column(sa.Column('book_metadata', sa.JSON(), nullable=False, server_default='{}'))
 
         # Add updated_at column for tracking changes
         batch_op.add_column(sa.Column('updated_at', sa.DateTime(), nullable=True, onupdate=sa.func.now()))
@@ -68,12 +68,12 @@ def upgrade() -> None:
         # Update the row with new columns
         connection.execute(
             sa.text(
-                """UPDATE books SET puzzle_ids = :puzzle_ids, metadata = :metadata, updated_at = :updated_at
+                """UPDATE books SET puzzle_ids = :puzzle_ids, book_metadata = :book_metadata, updated_at = :updated_at
                    WHERE id = :book_id"""
             ),
             {
                 'puzzle_ids': json.dumps(puzzle_ids),
-                'metadata': json.dumps(metadata),
+                'book_metadata': json.dumps(metadata),
                 'updated_at': datetime.utcnow(),
                 'book_id': str(book_id),
             }
@@ -95,6 +95,6 @@ def downgrade() -> None:
 
         # Drop new columns
         batch_op.drop_column('updated_at')
-        batch_op.drop_column('metadata')
+        batch_op.drop_column('book_metadata')
         batch_op.drop_column('puzzle_titles')
         batch_op.drop_column('puzzle_ids')

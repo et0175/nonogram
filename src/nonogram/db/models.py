@@ -82,7 +82,7 @@ class Book(Base):
     target_audience = Column(String, nullable=True)  # 'seniors', 'general'
     puzzle_ids = Column(JSON, nullable=False, default=[])  # list[str] of puzzle UUIDs
     puzzle_titles = Column(JSON, nullable=False, default={})  # {puzzle_id: "custom title"}
-    metadata = Column(JSON, nullable=False, default={})  # Stores: size, cover_image_url, pdf_url, kdp_asin
+    book_metadata = Column(JSON, nullable=False, default={})  # Stores: size, cover_image_url, pdf_url, kdp_asin
     status = Column(String, default='draft')  # 'draft', 'ready_for_pdf', 'pdf_generated', 'ready_for_kdp', 'published'
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='15.24')  # stored as string for precision
