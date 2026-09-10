@@ -476,7 +476,7 @@ def create_app(debug=None):
 
         try:
             filter_opts = PuzzleFilter(
-                size=size,
+                size=(size, size) if size is not None else None,
                 difficulty=difficulty,
                 quality_min=quality_min,
                 date_from=date_from,
@@ -666,7 +666,7 @@ def create_app(debug=None):
         # Build filter: exclude puzzles already in this book
         try:
             filter_opts = PuzzleFilter(
-                size=size,
+                size=(size, size) if size is not None else None,
                 difficulty=difficulty,
                 quality_min=quality_min,
                 theme=theme,
@@ -1063,7 +1063,7 @@ def create_app(debug=None):
             offset = request.args.get("offset", 0, type=int)
 
             filter_opts = PuzzleFilter(
-                size=size,
+                size=(size, size) if size is not None else None,
                 difficulty=difficulty,
                 quality_min=quality_min,
                 limit=limit,
