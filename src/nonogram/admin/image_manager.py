@@ -39,58 +39,86 @@ class ImageFile:
             # Use filename without extension
             self.puzzle_name = Path(self.original_filename).stem
 
-    def predict_size(self) -> tuple:
-        """Predict puzzle (width, height) respecting image aspect ratio.
+    def _source_shape(self) -> tuple:
+        """The picture's own shape for sizing purposes: its ink bounding box.
 
-        Size value applies to the MINIMUM dimension.
-        Other dimension is calculated from aspect ratio.
-        Both dimensions are clamped to 10-30 range.
+        The same extent :mod:`nonogram.sourcing.image` measures the picture by
+        (FR-022) and then actually crops to — using the raw file's dimensions
+        here, as this used to, can disagree with that box on images with real
+        blank margin, e.g. a full-bleed silhouette with a lot of paper around
+        it. Falls back to the raw file dimensions if the file can't be
+        re-read (e.g. already removed), so this stays a pure computation in
+        that case rather than raising out of what used to be one.
+
+        Cached on the instance: callers (``predict_size`` via ``to_dict`` and
+        the batch-generation routes) call this several times per request.
+        """
+        cached = getattr(self, "_cached_source_shape", None)
+        if cached is not None:
+            return cached
+        try:
+            from nonogram.sourcing.image import source_shape
+
+            shape = source_shape(self.file_path)
+        except Exception:
+            shape = self.dimensions
+        self._cached_source_shape = shape
+        return shape
+
+    def predict_size(self) -> tuple:
+        """Predict puzzle (width, height) the way the CLI/web image pipeline
+        derives one from a bare ``--size N`` (FR-023, ADR-0022/R4): ``N``
+        lands on the picture's own longer axis, the shorter axis follows the
+        picture's ratio and is floored at 10 cells — **never capped at 30**.
+
+        Capping the derived axis at the top (this method's previous
+        behaviour) silently discards real content once the puzzle is
+        actually generated: the aspect-preserving crop then has to fit a
+        squarer box than the picture's own shape, cutting into it on the
+        long axis — legs, a beak, a tail — exactly the harm ADR-0022/R4
+        exists to prevent, and exactly what CLI/web's ``nonogram.sourcing
+        .image`` pipeline (which this admin panel's own conversion now
+        shares, see :func:`nonogram.admin.image_to_puzzle.image_to_grid`)
+        never does.
+
+        The three size modes choose ``N`` differently; all three then share
+        the same aspect-fit so a picture is treated identically regardless of
+        which mode picked the number:
+          * "fixed": ``size_value`` itself.
+          * "max": the largest ``N`` that keeps at least 2 source pixels per
+            cell (quality), capped at 30.
+          * "min": about 5 cells smaller than "max", floored at 10.
 
         Returns:
             (width, height) tuple
         """
-        img_width, img_height = self.dimensions
-        aspect_ratio = img_width / img_height
+        from nonogram.errors import NonogramError, SizeTooSmallForSource
+        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
 
-        # Calculate minimum dimension size
-        min_grid_size = 10  # Absolute minimum
-        max_grid_size = 30  # Absolute maximum
+        src_width, src_height = self._source_shape()
+        long_edge = max(src_width, src_height)
 
-        # Determine minimum dimension based on mode
         if self.size_mode == "fixed":
-            min_dimension = self.size_value
-        elif self.size_mode == "max":
-            # Largest size that preserves quality (2 pixels per cell)
-            max_possible = min(
-                img_width // 2,
-                img_height // 2,
-                max_grid_size,
-            )
-            min_dimension = max_possible
-        else:  # min mode
-            # Smallest readable size
-            max_possible = min(
-                img_width // 2,
-                img_height // 2,
-                max_grid_size,
-            )
-            min_dimension = max(min_grid_size, max_possible - 5)
+            stated = self.size_value
+        else:
+            quality_cap = min(long_edge // 2, MAX_SIZE)
+            stated = quality_cap if self.size_mode == "max" else quality_cap - 5
+        stated = max(MIN_SIZE, min(stated, MAX_SIZE))
 
-        # Calculate other dimension from aspect ratio
-        if img_width >= img_height:  # Landscape or square
-            # Width is larger or equal
-            width = int(min_dimension * aspect_ratio)
-            height = min_dimension
-        else:  # Portrait
-            # Height is larger
-            width = min_dimension
-            height = int(min_dimension / aspect_ratio)
-
-        # Clamp both dimensions to valid range
-        width = max(min_grid_size, min(width, max_grid_size))
-        height = max(min_grid_size, min(height, max_grid_size))
-
-        return (width, height)
+        try:
+            return derive_extent(stated, None, src_width, src_height)
+        except SizeTooSmallForSource:
+            # The picture is too elongated for `stated` to follow without
+            # discarding over half of it (CON-012) - ask for the smallest N
+            # that can, rather than surface a CLI-style refusal in this UI.
+            for candidate in range(stated, MAX_SIZE + 1):
+                try:
+                    return derive_extent(candidate, None, src_width, src_height)
+                except SizeTooSmallForSource:
+                    continue
+            return (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
+        except NonogramError:
+            return (stated, stated)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""

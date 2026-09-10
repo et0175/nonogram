@@ -1102,9 +1102,16 @@ def create_app(debug=None):
 
     @app.route("/api/image/<file_id>/cropped")
     def api_get_cropped_image(file_id):
-        """Serve cropped preview (what will be used for puzzle generation)."""
-        import numpy as np
-        from PIL import Image as PILImage
+        """Serve cropped preview (what will be used for puzzle generation).
+
+        Uses the same ink-bounding-box trim and aspect-preserving centre crop
+        as ``nonogram.sourcing.image.generate`` (the pipeline
+        :func:`nonogram.admin.image_to_puzzle.image_to_grid` now delegates to)
+        so this preview shows the crop that will actually be applied, rather
+        than a differently-thresholded content-only trim that never matched
+        the final puzzle (which also fit-cropped to the target aspect ratio).
+        """
+        from nonogram.sourcing.image import load_greyscale, ink_bounding_box, fit_crop_box
         import os
         image_mgr = get_image_manager()
         image = image_mgr.get_image(file_id)
@@ -1117,30 +1124,12 @@ def create_app(debug=None):
             if not os.path.exists(image.file_path):
                 return f"File not found: {image.file_path}", 404
 
-            # Load and crop blank space around content
-            img = PILImage.open(image.file_path).convert('L')
-            arr = np.array(img)
+            target_width, target_height = image.predict_size()
 
-            # Find rows and columns with content (not blank/white)
-            content_threshold = 200
-            has_content = arr < content_threshold
-
-            # Find bounding box of content
-            rows_with_content = np.any(has_content, axis=1)
-            cols_with_content = np.any(has_content, axis=0)
-
-            if np.any(rows_with_content) and np.any(cols_with_content):
-                # Get indices of rows/cols with content
-                row_indices = np.where(rows_with_content)[0]
-                col_indices = np.where(cols_with_content)[0]
-
-                # Crop to bounding box
-                top = row_indices[0]
-                bottom = row_indices[-1] + 1
-                left = col_indices[0]
-                right = col_indices[-1] + 1
-
-                img = img.crop((left, top, right, bottom))
+            greyscale = load_greyscale(image.file_path)
+            content = greyscale.crop(ink_bounding_box(greyscale))
+            final_box = fit_crop_box(*content.size, target_width, target_height)
+            img = content.crop(final_box)
 
             # Save to bytes
             img_bytes = BytesIO()

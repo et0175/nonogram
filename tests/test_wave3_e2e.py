@@ -78,13 +78,14 @@ class TestWave3ImageGeneration:
         manager = ImageManager()
         img = manager.add_image(str(test_images['landscape']), 'landscape.png')
 
-        # With size=20, landscape 1920×1080 should give (30, 20)
-        # aspect_ratio = 1920/1080 = 1.777...
-        # width = 20 * 1.777... ≈ 35.5 → clamped to 30
-        # height = 20
+        # With size=20, landscape 1920x1080 should give (20, 11): N=20 lands
+        # on the picture's own longer axis (width) per FR-023/ADR-0022/R4 —
+        # never the other way around with the derived side capped at 30,
+        # which would ask the crop to discard part of the picture.
+        # height = round(20 * 1080/1920) = round(11.25) = 11
         width, height = img.predict_size()
-        assert width == 30
-        assert height == 20
+        assert width == 20
+        assert height == 11
         assert width > height  # Landscape
 
     def test_aspect_ratio_aware_sizing_portrait(self, test_images):
@@ -94,13 +95,12 @@ class TestWave3ImageGeneration:
         manager = ImageManager()
         img = manager.add_image(str(test_images['portrait']), 'portrait.png')
 
-        # With size=20, portrait 600×1000 should give (20, 30)
-        # aspect_ratio = 600/1000 = 0.6
-        # width = 20
-        # height = 20 / 0.6 ≈ 33.3 → clamped to 30
+        # With size=20, portrait 600×1000 should give (12, 20): N=20 lands on
+        # the longer axis (height).
+        # width = round(20 * 600/1000) = round(12.0) = 12
         width, height = img.predict_size()
-        assert width == 20
-        assert height == 30
+        assert width == 12
+        assert height == 20
         assert height > width  # Portrait
 
     def test_aspect_ratio_aware_sizing_square(self, test_images):
@@ -190,8 +190,8 @@ class TestWave3ImageGeneration:
         data = img.to_dict()
         assert 'predicted_width' in data
         assert 'predicted_height' in data
-        assert data['predicted_width'] == 30
-        assert data['predicted_height'] == 20
+        assert data['predicted_width'] == 20
+        assert data['predicted_height'] == 11
 
     def test_image_manager_update_size_modes(self, test_images):
         """Test updating image size modes (fixed, min, max)."""
@@ -206,12 +206,10 @@ class TestWave3ImageGeneration:
         assert img.size_mode == 'fixed'
         assert img.size_value == 25
         width, height = img.predict_size()
-        # For landscape 1920×1080 with size 25:
-        # aspect_ratio = 1.777...
-        # width = 25 * 1.777... ≈ 44.4 → clamped to 30 (max)
-        # height = 25
-        assert width == 30  # Clamped to max
-        assert height == 25
+        # For landscape 1920×1080 with size 25: N=25 lands on the longer
+        # axis (width); height = round(25 * 1080/1920) = round(14.06) = 14.
+        assert width == 25
+        assert height == 14
 
         # Test min mode
         manager.update_image_size(img.file_id, 'min')

@@ -60,8 +60,11 @@ class TestImageBatchSizeConfiguration:
             assert img.size_mode == "fixed"
             assert img.size_value == 10
             width, height = img.predict_size()
-            # Min dimension should be 10 (or close due to aspect ratio)
-            assert min(width, height) == 10
+            # size_value lands on the picture's own longer axis (FR-023,
+            # ADR-0022/R4), so the MAX dimension is exactly it — the other,
+            # shorter side follows the picture's own ratio and is never
+            # capped at 30, only floored at 10.
+            assert max(width, height) == 10
 
         # Step 3: Change sizes to 20 (second configuration)
         for img in retrieved_images:
@@ -73,8 +76,8 @@ class TestImageBatchSizeConfiguration:
             assert img.size_mode == "fixed"
             assert img.size_value == 20
             width, height = img.predict_size()
-            # Min dimension should be 20
-            assert min(width, height) == 20
+            # Max dimension should be 20
+            assert max(width, height) == 20
 
         # Step 4: Clear and reload (simulating fresh workflow)
         image_mgr.clear_all()

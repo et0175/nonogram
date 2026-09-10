@@ -3,6 +3,7 @@
 Handles image processing, grid extraction, and puzzle generation.
 """
 
+import random
 from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 
@@ -13,9 +14,21 @@ except ImportError:
     PILImage = None
     np = None
 
+from nonogram.errors import NonogramError
+from nonogram.sourcing import image as sourcing_image
+
 
 def image_to_grid(image_path: str, target_size: Tuple[int, int]) -> Optional[List[List[bool]]]:
     """Convert image to boolean grid (nonogram).
+
+    Delegates to :mod:`nonogram.sourcing.image` — the same ink-bounding-box
+    trim, aspect-preserving centre-crop to the grid's own ratio (ADR-0022/R3),
+    and Floyd-Steinberg dithering that ``nonogram generate --mode image`` and
+    ``nonogram serve`` use. A puzzle generated here from a given file now
+    matches (rather than diverges from, as a previous bounding-box-only crop
+    plus a plain resize used to) one generated from the same file through the
+    CLI/web path — a plain resize squashes a non-square crop into the target
+    square and drops thin detail (e.g. a bird's legs) that dithering keeps.
 
     Args:
         image_path: Path to image file
@@ -28,50 +41,10 @@ def image_to_grid(image_path: str, target_size: Tuple[int, int]) -> Optional[Lis
     if not PILImage or not np:
         return None
 
+    width, height = target_size
     try:
-        # Open and convert to grayscale
-        img = PILImage.open(image_path).convert('L')
-
-        # Crop blank space around the image (content-aware cropping)
-        arr = np.array(img)
-
-        # Find rows and columns with content (not blank/white)
-        # Threshold: pixels darker than 200 are considered content
-        content_threshold = 200
-        has_content = arr < content_threshold
-
-        # Find bounding box of content
-        rows_with_content = np.any(has_content, axis=1)
-        cols_with_content = np.any(has_content, axis=0)
-
-        if np.any(rows_with_content) and np.any(cols_with_content):
-            # Get indices of rows/cols with content
-            row_indices = np.where(rows_with_content)[0]
-            col_indices = np.where(cols_with_content)[0]
-
-            # Crop to bounding box
-            top = row_indices[0]
-            bottom = row_indices[-1] + 1
-            left = col_indices[0]
-            right = col_indices[-1] + 1
-
-            img = img.crop((left, top, right, bottom))
-
-        # Resize to target size
-        img = img.resize(target_size, PILImage.Resampling.LANCZOS)
-
-        # Convert to numpy array
-        arr = np.array(img)
-
-        # Threshold to binary (using Otsu's method - simple fixed threshold)
-        threshold = 128
-        binary = arr < threshold
-
-        # Convert to list of lists
-        grid = binary.tolist()
-        return grid
-
-    except Exception as e:
+        return sourcing_image.generate(image_path, width, height, random.Random())
+    except NonogramError as e:
         print(f"Error converting image: {str(e)}")
         return None
 
