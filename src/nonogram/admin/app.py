@@ -1,9 +1,10 @@
 """Flask admin panel application for nonogram puzzle management."""
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file, Response
 from datetime import datetime
 import json
 import os
+import secrets
 import tempfile
 import uuid
 from pathlib import Path
@@ -39,6 +40,13 @@ def create_app(debug=None):
     app.config["SESSION_COOKIE_SECURE"] = False  # Allow localhost
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Chrome compatibility
 
+    if app.config["SECRET_KEY"] == "dev-key-change-in-production":
+        app.logger.warning(
+            "SECRET_KEY not set — using the public default. Session cookies and "
+            "flashed messages are forgeable. Set SECRET_KEY to a real secret "
+            "before exposing this app beyond localhost."
+        )
+
     # Resolve the DB session factory fresh on every create_app() call rather
     # than once at module-import time. DATABASE_URL can differ per call (the
     # test suite relies on this to toggle DB-backed vs. in-memory mode via
@@ -62,6 +70,42 @@ def create_app(debug=None):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         return response
+
+    # HTTP Basic Auth, opt-in via ADMIN_USERNAME/ADMIN_PASSWORD (same pattern
+    # as DATABASE_URL: absent by default so local dev and the test suite are
+    # unaffected, but every route is protected the moment both are set — e.g.
+    # in the Render dashboard for a deployed instance). Only meaningful over
+    # HTTPS, since Basic Auth credentials are base64, not encrypted.
+    admin_username = os.getenv("ADMIN_USERNAME")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    auth_enabled = bool(admin_username and admin_password)
+
+    if auth_enabled:
+        app.logger.info("HTTP Basic Auth enabled (ADMIN_USERNAME/ADMIN_PASSWORD set)")
+    else:
+        app.logger.warning(
+            "HTTP Basic Auth NOT enabled — every route is reachable with no "
+            "credentials. Set ADMIN_USERNAME and ADMIN_PASSWORD to require "
+            "them."
+        )
+
+    @app.before_request
+    def require_admin_auth():
+        if not auth_enabled:
+            return None
+        auth = request.authorization
+        valid = (
+            auth is not None
+            and secrets.compare_digest(auth.username or "", admin_username)
+            and secrets.compare_digest(auth.password or "", admin_password)
+        )
+        if not valid:
+            return Response(
+                "Authentication required.",
+                401,
+                {"WWW-Authenticate": 'Basic realm="Nonogram Admin"'},
+            )
+        return None
 
     # Custom Jinja2 filter for first N characters (avoids slice filter issues)
     app.jinja_env.filters['first_n'] = lambda s, n: str(s)[:n] if s else ''

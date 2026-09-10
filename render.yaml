@@ -13,3 +13,9 @@ services:
         value: 3.11
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
