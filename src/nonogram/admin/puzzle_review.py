@@ -22,7 +22,7 @@ class PuzzleStatus(Enum):
 class PuzzleFilter:
     """Filters for puzzle queries."""
 
-    size: Optional[int] = None  # e.g., 20 (width/height)
+    size: Optional[Tuple[int, int]] = None  # e.g., (20, 20) as (width, height) extent pair
     difficulty: Optional[str] = None  # 'Easy', 'Medium', 'Hard'
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None
@@ -303,8 +303,10 @@ class PuzzleReviewService:
             raise ValueError("Limit must be 1-100")
         if filter_opts.offset < 0:
             raise ValueError("Offset must be >= 0")
-        if filter_opts.size and not (10 <= filter_opts.size <= 30):
-            raise ValueError("Size must be 10-30")
+        if filter_opts.size:
+            width, height = filter_opts.size
+            if not (10 <= width <= 30 and 10 <= height <= 30):
+                raise ValueError("Size dimensions must be 10-30")
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
             raise ValueError("Quality min must be 0-100")
 
@@ -329,8 +331,10 @@ class PuzzleReviewService:
                 if filter_opts.batch_id and puzzle.get("batch_id") != filter_opts.batch_id:
                     continue
                 # Size filter
-                if filter_opts.size and puzzle["width"] != filter_opts.size:
-                    continue
+                if filter_opts.size:
+                    width, height = filter_opts.size
+                    if puzzle["width"] != width or puzzle["height"] != height:
+                        continue
                 # Difficulty filter
                 if filter_opts.difficulty and puzzle["difficulty_tier"] != filter_opts.difficulty:
                     continue
@@ -398,7 +402,8 @@ class PuzzleReviewService:
                     batch_uuid = uuid_module.UUID(filter_opts.batch_id) if isinstance(filter_opts.batch_id, str) else filter_opts.batch_id
                     query = query.filter(Puzzle.batch_id == batch_uuid)
                 if filter_opts.size:
-                    query = query.filter(Puzzle.width == filter_opts.size)
+                    width, height = filter_opts.size
+                    query = query.filter(Puzzle.width == width, Puzzle.height == height)
                 if filter_opts.difficulty:
                     query = query.filter(Puzzle.difficulty_tier == filter_opts.difficulty)
                 if filter_opts.quality_min is not None:

@@ -93,12 +93,13 @@ class TestPuzzleFiltering:
             strategies_used=["line_logic"],
         )
 
-        # Filter by size 20
-        filter_opts = PuzzleFilter(size=20)
+        # Filter by size 20x20
+        filter_opts = PuzzleFilter(size=(20, 20))
         result = review_service.filter_puzzles(filter_opts)
 
         assert len(result.puzzles) == 1
         assert result.puzzles[0]["width"] == 20
+        assert result.puzzles[0]["height"] == 20
 
     def test_filter_by_difficulty(self, review_service):
         """Filter puzzles by difficulty tier."""
@@ -241,12 +242,13 @@ class TestPuzzleFiltering:
             strategies_used=["line_logic", "backtracking"],
         )
 
-        # Filter: size 20, difficulty Medium, quality >= 80
-        filter_opts = PuzzleFilter(size=20, difficulty="Medium", quality_min=80)
+        # Filter: size 20x20, difficulty Medium, quality >= 80
+        filter_opts = PuzzleFilter(size=(20, 20), difficulty="Medium", quality_min=80)
         result = review_service.filter_puzzles(filter_opts)
 
         assert len(result.puzzles) == 1
         assert result.puzzles[0]["width"] == 20
+        assert result.puzzles[0]["height"] == 20
 
     def test_invalid_filter_parameters(self, review_service):
         """Reject invalid filter parameters."""
@@ -260,7 +262,7 @@ class TestPuzzleFiltering:
             review_service.filter_puzzles(PuzzleFilter(offset=-1))
 
         with pytest.raises(ValueError):
-            review_service.filter_puzzles(PuzzleFilter(size=5))
+            review_service.filter_puzzles(PuzzleFilter(size=(5, 5)))
 
         with pytest.raises(ValueError):
             review_service.filter_puzzles(PuzzleFilter(quality_min=101))
@@ -381,19 +383,19 @@ class TestPuzzleFilter:
 
     def test_filter_to_dict(self):
         """Convert filter to dictionary."""
-        f = PuzzleFilter(size=20, difficulty="Hard", quality_min=80)
+        f = PuzzleFilter(size=(20, 20), difficulty="Hard", quality_min=80)
         d = f.to_dict()
 
-        assert d["size"] == 20
+        assert d["size"] == (20, 20)
         assert d["difficulty"] == "Hard"
         assert d["quality_min"] == 80
 
     def test_filter_from_dict(self):
         """Create filter from dictionary."""
-        data = {"size": 20, "difficulty": "Medium", "limit": 50}
+        data = {"size": (20, 20), "difficulty": "Medium", "limit": 50}
         f = PuzzleFilter.from_dict(data)
 
-        assert f.size == 20
+        assert f.size == (20, 20)
         assert f.difficulty == "Medium"
         assert f.limit == 50
 

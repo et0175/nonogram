@@ -2208,12 +2208,13 @@ class TestWebDocstrings_MatchTheShippedPackage:
     """
 
     def test_the_package_imports_exactly_what_the_docstring_names(self) -> None:
-        """The four the docstring names, and nothing else.
+        """The five capabilities the docstring names, and nothing else.
 
         ``difficulty`` and ``export`` are the registries ``pages.py`` renders
         the form's choices from; ``orchestrator`` and ``errors`` are CARD-020's
-        — the pipeline a submission drives and the one hierarchy it catches.
-        Pinned as an exact set so a fifth import has to be a deliberate edit
+        — the pipeline a submission drives and the one hierarchy it catches;
+        ``sourcing`` provides image/random/library input modes to the form.
+        Pinned as an exact set so a sixth import has to be a deliberate edit
         here, which is the only thing standing between this package and a
         capability module imported "just to check a value" (ADR-0019/R1).
         """
@@ -2222,6 +2223,7 @@ class TestWebDocstrings_MatchTheShippedPackage:
             "errors",
             "export",
             "orchestrator",
+            "sourcing",
         }
 
     def test_the_docstring_claims_no_import_the_package_does_not_make(self) -> None:
