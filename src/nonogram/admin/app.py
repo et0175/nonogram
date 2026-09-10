@@ -863,21 +863,22 @@ def create_app(debug=None):
         try:
             # Get puzzles
             puzzles = []
-            print(f"\n[PDF DEBUG] Book '{book.metadata.title}' has {len(book.puzzle_ids)} puzzle IDs: {book.puzzle_ids}")
+            app.logger.debug(
+                "Book '%s' has %d puzzle IDs: %s",
+                book.metadata.title, len(book.puzzle_ids), book.puzzle_ids,
+            )
 
             for puzzle_id in book.puzzle_ids:
                 puzzle = puzzle_review.get_puzzle(puzzle_id)
                 if puzzle:
-                    print(f"[PDF DEBUG]   ✓ Retrieved puzzle {puzzle_id}")
-                    print(f"[PDF DEBUG]     Keys: {list(puzzle.keys()) if isinstance(puzzle, dict) else 'not a dict'}")
-                    if isinstance(puzzle, dict):
-                        print(f"[PDF DEBUG]     Has grid: {'grid' in puzzle}")
-                        print(f"[PDF DEBUG]     Grid shape: {len(puzzle.get('grid', []))}x{len(puzzle.get('grid', [[]])[0]) if puzzle.get('grid') else 'N/A'}")
+                    app.logger.debug("Retrieved puzzle %s", puzzle_id)
                     puzzles.append(puzzle)
                 else:
-                    print(f"[PDF DEBUG]   ✗ Could not find puzzle {puzzle_id}")
+                    app.logger.warning("Could not find puzzle %s for PDF generation", puzzle_id)
 
-            print(f"[PDF DEBUG] Total puzzles retrieved: {len(puzzles)}/{len(book.puzzle_ids)}")
+            app.logger.debug(
+                "Total puzzles retrieved: %d/%d", len(puzzles), len(book.puzzle_ids)
+            )
 
             # Generate PDF
             pdf_generator = BookPDFGenerator()
@@ -887,7 +888,7 @@ def create_app(debug=None):
                 trim_width_cm=None,  # Could extract from book.metadata.size
                 trim_height_cm=None,
             )
-            print(f"[PDF DEBUG] PDF generated successfully, size: {len(pdf_bytes.getvalue())} bytes")
+            app.logger.debug("PDF generated successfully, size: %d bytes", len(pdf_bytes.getvalue()))
 
             # Create response
             pdf_bytes.seek(0)
@@ -1342,9 +1343,7 @@ def create_app(debug=None):
             )
 
         except Exception as e:
-            import traceback
-            print(f"PDF generation error for {puzzle_id}: {str(e)}")
-            traceback.print_exc()
+            app.logger.exception("PDF generation error for %s", puzzle_id)
             return f"Error: {str(e)}", 500
 
     @app.route("/api/puzzle/<puzzle_id>/details")
