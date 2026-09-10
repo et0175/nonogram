@@ -24,16 +24,6 @@ from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues
 
-# Import DB session factory for DB-backed services (optional)
-session_scope = None
-if os.getenv('DATABASE_URL'):
-    try:
-        from nonogram.db import session_scope as db_session_scope
-        session_scope = db_session_scope
-    except Exception:
-        # Database not configured; will use in-memory mode
-        session_scope = None
-
 
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
@@ -48,6 +38,20 @@ def create_app(debug=None):
     app.config["ENV"] = os.getenv("FLASK_ENV", "production" if not debug else "development")
     app.config["SESSION_COOKIE_SECURE"] = False  # Allow localhost
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Chrome compatibility
+
+    # Resolve the DB session factory fresh on every create_app() call rather
+    # than once at module-import time. DATABASE_URL can differ per call (the
+    # test suite relies on this to toggle DB-backed vs. in-memory mode via
+    # monkeypatch), and a module-level check would freeze whatever value was
+    # in the environment the first time this module happened to be imported.
+    session_scope = None
+    if os.getenv('DATABASE_URL'):
+        try:
+            from nonogram.db import session_scope as db_session_scope
+            session_scope = db_session_scope
+        except Exception:
+            # Database not configured; will use in-memory mode
+            session_scope = None
 
     # Add CORS and security headers for Chrome compatibility
     @app.after_request
@@ -892,7 +896,7 @@ def create_app(debug=None):
 
         except Exception as e:
             flash(f"Failed to generate PDF: {str(e)}", "error")
-            return redirect(request.referrer or url_for("book_detail", book_id=book.id))
+            return redirect(request.referrer or url_for("book_detail", book_id=book.book_id))
 
     @app.route("/book/<book_id>/download-pdf", methods=["POST"])
     def download_book_pdf(book_id):
