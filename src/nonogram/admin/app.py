@@ -281,10 +281,13 @@ def create_app(debug=None):
 
         # POST: Actually generate puzzles
         try:
+            # Extract configured sizes from images (unique values)
+            sizes = list(set(img.size_value if img.size_mode == "fixed" else 20 for img in images))
+
             # Create batch job
             batch_id = batch_gen.create_batch(
                 count=len(images),
-                sizes=[20],
+                sizes=sorted(sizes),
                 theme="image",
                 source="images",  # Use "images" not "image"
                 quality_filter=session.get("batch_quality_filter", 0),
@@ -354,8 +357,9 @@ def create_app(debug=None):
                 if len(errors) > 3:
                     flash(f"... and {len(errors) - 3} more errors", "info")
 
-            # Clear session
+            # Clear session and image manager
             session.pop("batch_quality_filter", None)
+            image_mgr.clear_all()  # Clear images so next workflow starts fresh
 
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
