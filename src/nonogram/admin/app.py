@@ -67,13 +67,13 @@ def create_app(debug=None):
     if session_scope:
         puzzle_review = PuzzleReviewService(session_factory=session_scope)
         batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=session_scope)
+        book_mgr = get_book_manager(session_factory=session_scope)
         app.logger.info("Database persistence enabled (DATABASE_URL set)")
     else:
         puzzle_review = PuzzleReviewService(session_factory=None)
         batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=None)
+        book_mgr = get_book_manager()
         app.logger.info("Running in in-memory mode (DATABASE_URL not set)")
-
-    book_mgr = get_book_manager()
 
     @app.route("/")
     def dashboard():

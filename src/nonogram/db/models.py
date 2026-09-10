@@ -80,12 +80,10 @@ class Book(Base):
     description = Column(Text, nullable=True)
     theme = Column(String, nullable=True)
     target_audience = Column(String, nullable=True)  # 'seniors', 'general'
-    nonogram_ids = Column(Text, nullable=True)  # JSON array as string
-    cover_image_url = Column(String, nullable=True)
-    pdf_url = Column(String, nullable=True)
-    page_count = Column(Integer, nullable=True)
-    status = Column(String, default='draft')  # 'draft', 'ready', 'published'
-    kdp_asin = Column(String, nullable=True)  # Amazon book ID
+    puzzle_ids = Column(JSON, nullable=False, default=[])  # list[str] of puzzle UUIDs
+    puzzle_titles = Column(JSON, nullable=False, default={})  # {puzzle_id: "custom title"}
+    metadata = Column(JSON, nullable=False, default={})  # Stores: size, cover_image_url, pdf_url, kdp_asin
+    status = Column(String, default='draft')  # 'draft', 'ready_for_pdf', 'pdf_generated', 'ready_for_kdp', 'published'
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='15.24')  # stored as string for precision
     trim_height_cm = Column(String, nullable=True, default='22.86')
@@ -93,6 +91,7 @@ class Book(Base):
     outside_margin_cm = Column(String, nullable=True)
     outside_margin_bleed_cm = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class GenerationHistory(Base):
