@@ -5,14 +5,28 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/nonogram_poc')
+DATABASE_URL = os.getenv('DATABASE_URL', None)
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine, class_=Session)
+engine = None
+SessionLocal = None
+
+
+def _init_engine():
+    """Initialize the database engine lazily."""
+    global engine, SessionLocal
+    if engine is None:
+        if not DATABASE_URL:
+            raise RuntimeError(
+                "DATABASE_URL not set. Database persistence disabled. "
+                "Set DATABASE_URL to enable it (e.g. postgresql://user:pass@localhost/dbname)"
+            )
+        engine = create_engine(DATABASE_URL)
+        SessionLocal = sessionmaker(bind=engine, class_=Session)
 
 
 def get_session() -> Session:
     """Create a database session."""
+    _init_engine()
     return SessionLocal()
 
 
@@ -31,6 +45,7 @@ def session_scope():
             db.add(obj)
             db.query(...)
     """
+    _init_engine()
     db = SessionLocal()
     try:
         yield db

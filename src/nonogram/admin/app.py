@@ -24,8 +24,15 @@ from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues
 
-# Import DB session factory for DB-backed services
-from nonogram.db import session_scope
+# Import DB session factory for DB-backed services (optional)
+session_scope = None
+if os.getenv('DATABASE_URL'):
+    try:
+        from nonogram.db import session_scope as db_session_scope
+        session_scope = db_session_scope
+    except Exception:
+        # Database not configured; will use in-memory mode
+        session_scope = None
 
 
 def create_app(debug=None):
@@ -55,10 +62,17 @@ def create_app(debug=None):
     # Custom Jinja2 filter for first N characters (avoids slice filter issues)
     app.jinja_env.filters['first_n'] = lambda s, n: str(s)[:n] if s else ''
 
-    # Construct DB-backed service instances with session_factory
-    # (persists batches/puzzles to the database via DATABASE_URL env var)
-    puzzle_review = PuzzleReviewService(session_factory=session_scope)
-    batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=session_scope)
+    # Construct service instances
+    # If DATABASE_URL is set, use DB-backed persistence; otherwise use in-memory mode
+    if session_scope:
+        puzzle_review = PuzzleReviewService(session_factory=session_scope)
+        batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=session_scope)
+        app.logger.info("Database persistence enabled (DATABASE_URL set)")
+    else:
+        puzzle_review = PuzzleReviewService(session_factory=None)
+        batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=None)
+        app.logger.info("Running in in-memory mode (DATABASE_URL not set)")
+
     book_mgr = get_book_manager()
 
     @app.route("/")
