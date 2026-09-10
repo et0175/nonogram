@@ -148,7 +148,8 @@ class BookPDFGenerator:
         guide = self.create_guide_page(len(puzzles), easy_count, medium_count, hard_count)
         pages.append(guide)
 
-        # Add puzzle pages
+        # Add puzzle pages and collect answer pages
+        answer_pages = []
         for puzzle in puzzles:
             try:
                 # Build ExportPayload for this puzzle
@@ -171,13 +172,32 @@ class BookPDFGenerator:
                 # Render puzzle pages (blank + answer)
                 blank_page, answer_page = render_pages(payload)
                 pages.append(blank_page)
-                # Don't include answer page for now (simplify for draft)
-                # pages.append(answer_page)
+                answer_pages.append(answer_page)
 
             except Exception as e:
                 # Log and skip this puzzle if it fails to render
                 print(f"Failed to render puzzle {puzzle.get('id')}: {str(e)}")
                 continue
+
+        # Add a divider page before solutions
+        if answer_pages:
+            divider = Image.new("RGB", (self.page_width_px, self.page_height_px), "white")
+            draw = ImageDraw.Draw(divider)
+            try:
+                divider_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 60)
+            except OSError:
+                divider_font = ImageFont.load_default()
+
+            divider_text = "SOLUTIONS"
+            bbox = draw.textbbox((0, 0), divider_text, font=divider_font)
+            text_width = bbox[2] - bbox[0]
+            x = (self.page_width_px - text_width) // 2
+            y = (self.page_height_px - (bbox[3] - bbox[1])) // 2
+            draw.text((x, y), divider_text, fill="black", font=divider_font)
+            pages.append(divider)
+
+            # Add all solution pages
+            pages.extend(answer_pages)
 
         # Combine all pages into PDF
         # PIL's save_all only works with images in same format
