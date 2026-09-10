@@ -381,7 +381,7 @@ details > div {
   color: var(--text-secondary);
 }
 
-[data-outcome="success"] {
+.result-success {
   background-color: #d4edda;
   padding: 0.75rem;
   border-radius: 4px;
@@ -389,7 +389,7 @@ details > div {
   color: #155724;
 }
 
-[data-outcome="failure"] {
+.result-failure {
   background-color: #f8d7da;
   padding: 0.75rem;
   border-radius: 4px;
@@ -398,13 +398,13 @@ details > div {
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-outcome="success"] {
+  .result-success {
     background-color: #1e4620;
     border-left-color: #51cf66;
     color: #a6e22e;
   }
 
-  [data-outcome="failure"] {
+  .result-failure {
     background-color: #4a1c1c;
     border-left-color: #ff6b6b;
     color: #ff8a8a;
@@ -680,7 +680,7 @@ def _success_section(puzzle_name: str | None, seed: int, paths: Sequence[Path]) 
     else:
         written = "<p>No export format was requested, so no file was written.</p>"
 
-    return f"""<details open>
+    return f"""<details open class="result-success">
   <summary aria-label="Puzzle generation success: name, seed, and written files"><strong data-outcome="{SUCCESS}">Generated</strong></summary>
   <div>
     <p>Name: <strong>{html.escape(puzzle_name or "")}</strong></p>
@@ -701,7 +701,7 @@ def _error_section(summary: str, reasons: Sequence[str]) -> str:
         HTML markup for the error section, properly escaped.
     """
     listed = "\n".join(f"  <li>{html.escape(reason)}</li>" for reason in reasons)
-    return f"""<details open>
+    return f"""<details open class="result-failure">
   <summary aria-label="Generation failed with error details"><strong data-outcome="{FAILURE}">Error</strong></summary>
   <div>
     <p>{html.escape(summary)}</p>
