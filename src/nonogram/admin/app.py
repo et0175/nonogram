@@ -79,6 +79,13 @@ def create_app(debug=None):
         book_mgr = get_book_manager()
         app.logger.info("Running in in-memory mode (DATABASE_URL not set)")
 
+    # Exposed on the app object (rather than left as route closures only) so
+    # tests and management scripts can introspect which mode was actually
+    # constructed, instead of only being reachable indirectly through a route.
+    app.puzzle_review_service = puzzle_review
+    app.batch_generator = batch_gen
+    app.book_manager = book_mgr
+
     @app.route("/")
     def dashboard():
         """Admin dashboard overview."""

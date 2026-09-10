@@ -11,11 +11,61 @@ from unittest.mock import patch, MagicMock
 
 @pytest.mark.db_required
 def test_app_instantiates_with_db_services(app):
-    """Verify Flask app instantiates with DB-backed services."""
+    """Verify Flask app instantiates with DB-backed services, not in-memory ones.
+
+    Regression test for a bug where DATABASE_URL was read once at
+    admin.app's module-import time: any test process where admin.app
+    happened to be imported before DATABASE_URL was set would silently
+    construct in-memory-mode services on every later create_app() call,
+    with no error — exactly the failure mode a bare
+    ``assert app is not None`` cannot detect.
+    """
     assert app is not None
     assert app.config["TESTING"] is True
-    # App was constructed with DB-backed PuzzleReviewService and BatchGenerator
-    # (verified by successful instantiation)
+
+    # A DB-backed service is constructed with a real session_factory; the
+    # in-memory (legacy) fallback is constructed with session_factory=None.
+    # Asserting this directly is what actually distinguishes the two modes —
+    # unlike "app is not None", which is true either way.
+    assert app.puzzle_review_service._session_factory is not None, (
+        "puzzle_review_service was constructed in in-memory mode "
+        "(session_factory=None) despite DATABASE_URL being set for this test"
+    )
+    assert app.batch_generator._session_factory is not None, (
+        "batch_generator was constructed in in-memory mode "
+        "(session_factory=None) despite DATABASE_URL being set for this test"
+    )
+
+    # Round-trip through the actual DB-backed service, not just its wiring:
+    # write a puzzle via the service the routes use, then read it back
+    # through a fresh, independent session — proving persistence, not just
+    # an in-process object graph.
+    import uuid as uuid_module
+    from nonogram.db import SessionLocal
+    from nonogram.db.models import Puzzle
+
+    puzzle_id = app.puzzle_review_service.add_puzzle(
+        grid=[[True]],
+        clues_rows=[[1]],
+        clues_cols=[[1]],
+        width=1,
+        height=1,
+        theme="test",
+        difficulty_score=1,
+        difficulty_tier="Easy",
+        quality_score=100,
+        recognizability="high",
+        strategies_used=[],
+    )
+    session = SessionLocal()
+    try:
+        row = session.query(Puzzle).filter(Puzzle.id == uuid_module.UUID(puzzle_id)).first()
+        assert row is not None, (
+            "puzzle written via app.puzzle_review_service is not visible "
+            "through a fresh DB session — DB-backed mode did not actually engage"
+        )
+    finally:
+        session.close()
 
 
 @pytest.mark.db_required
