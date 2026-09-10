@@ -832,6 +832,8 @@ def create_app(debug=None):
                 puzzle = puzzle_review.get_puzzle(puzzle_id)
                 if puzzle:
                     puzzles.append(puzzle)
+                else:
+                    print(f"Warning: Could not find puzzle {puzzle_id} in database")
 
             # Generate PDF
             pdf_generator = BookPDFGenerator()
