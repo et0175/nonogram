@@ -828,12 +828,21 @@ def create_app(debug=None):
         try:
             # Get puzzles
             puzzles = []
+            print(f"\n[PDF DEBUG] Book '{book.metadata.title}' has {len(book.puzzle_ids)} puzzle IDs: {book.puzzle_ids}")
+
             for puzzle_id in book.puzzle_ids:
                 puzzle = puzzle_review.get_puzzle(puzzle_id)
                 if puzzle:
+                    print(f"[PDF DEBUG]   ✓ Retrieved puzzle {puzzle_id}")
+                    print(f"[PDF DEBUG]     Keys: {list(puzzle.keys()) if isinstance(puzzle, dict) else 'not a dict'}")
+                    if isinstance(puzzle, dict):
+                        print(f"[PDF DEBUG]     Has grid: {'grid' in puzzle}")
+                        print(f"[PDF DEBUG]     Grid shape: {len(puzzle.get('grid', []))}x{len(puzzle.get('grid', [[]])[0]) if puzzle.get('grid') else 'N/A'}")
                     puzzles.append(puzzle)
                 else:
-                    print(f"Warning: Could not find puzzle {puzzle_id} in database")
+                    print(f"[PDF DEBUG]   ✗ Could not find puzzle {puzzle_id}")
+
+            print(f"[PDF DEBUG] Total puzzles retrieved: {len(puzzles)}/{len(book.puzzle_ids)}")
 
             # Generate PDF
             pdf_generator = BookPDFGenerator()
@@ -843,6 +852,7 @@ def create_app(debug=None):
                 trim_width_cm=None,  # Could extract from book.metadata.size
                 trim_height_cm=None,
             )
+            print(f"[PDF DEBUG] PDF generated successfully, size: {len(pdf_bytes.getvalue())} bytes")
 
             # Create response
             pdf_bytes.seek(0)
