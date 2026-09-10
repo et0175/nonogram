@@ -195,8 +195,27 @@ def create_app(debug=None):
                 flash("No valid images to process", "error")
                 return redirect(url_for("batch_select_images"))
 
-            # Store quality filter in session
+            # Read default size from page 1 selection and apply to all images
+            default_size = request.form.get("default_size", "medium")
+            size_mapping = {
+                "small": (10, "fixed"),      # Small (10-15 cells)
+                "medium": (20, "fixed"),     # Medium (15-25 cells)
+                "large": (25, "fixed"),      # Large (25-30 cells)
+                "auto": (20, "max"),         # Auto (based on image)
+            }
+
+            if default_size in size_mapping:
+                size_value, size_mode = size_mapping[default_size]
+                # Apply to all loaded images
+                for image in image_mgr.get_all_images():
+                    if size_mode == "max":
+                        image_mgr.update_image_size(image.file_id, "max", 0)
+                    else:
+                        image_mgr.update_image_size(image.file_id, "fixed", size_value)
+
+            # Store quality filter and default size in session
             session["batch_quality_filter"] = quality_filter
+            session["batch_default_size"] = default_size
 
             flash(f"Loaded {processed_count} image(s) from selected files/folder(s)", "success")
             return redirect(url_for("preview_batch_images"))
@@ -359,6 +378,7 @@ def create_app(debug=None):
 
             # Clear session and image manager
             session.pop("batch_quality_filter", None)
+            session.pop("batch_default_size", None)
             image_mgr.clear_all()  # Clear images so next workflow starts fresh
 
             return redirect(url_for("generated_puzzles", batch_id=batch_id))

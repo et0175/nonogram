@@ -173,6 +173,112 @@ class TestImageBatchSizeConfiguration:
         image_mgr.clear_all()
 
 
+class TestImageBatchPage1Defaults:
+    """Test that page 1 size selection is applied to loaded images."""
+
+    def test_page1_small_size_applied_to_images(self, tmp_path):
+        """Test that selecting 'Small' on page 1 applies size 10 to all images."""
+        from nonogram.admin import image_manager as img_mgr_module
+        img_mgr_module._image_manager = None
+
+        # Create test images
+        images = []
+        for i in range(2):
+            img = PILImage.new('RGB', (100, 100), color=(73, 109, 137))
+            img_path = tmp_path / f"test_{i}.png"
+            img.save(str(img_path))
+            images.append(str(img_path))
+
+        # Load images via ImageManager
+        mgr = img_mgr_module.get_image_manager(temp_dir=str(tmp_path))
+
+        for img_path in images:
+            mgr.add_image(img_path, Path(img_path).name)
+
+        # Simulate page 1 size selection: "small" -> size 10
+        size_mapping = {
+            "small": (10, "fixed"),
+            "medium": (20, "fixed"),
+            "large": (25, "fixed"),
+            "auto": (20, "max"),
+        }
+
+        default_size = "small"
+        size_value, size_mode = size_mapping[default_size]
+
+        for image in mgr.get_all_images():
+            if size_mode == "max":
+                mgr.update_image_size(image.file_id, "max", 0)
+            else:
+                mgr.update_image_size(image.file_id, "fixed", size_value)
+
+        # Verify all images have size 10
+        for image in mgr.get_all_images():
+            assert image.size_mode == "fixed"
+            assert image.size_value == 10
+            width, height = image.predict_size()
+            assert min(width, height) == 10
+
+        mgr.clear_all()
+
+    def test_page1_large_size_applied_to_images(self, tmp_path):
+        """Test that selecting 'Large' on page 1 applies size 25 to all images."""
+        from nonogram.admin import image_manager as img_mgr_module
+        img_mgr_module._image_manager = None
+
+        images = []
+        for i in range(2):
+            img = PILImage.new('RGB', (200, 200), color=(73, 109, 137))
+            img_path = tmp_path / f"test_{i}.png"
+            img.save(str(img_path))
+            images.append(str(img_path))
+
+        mgr = img_mgr_module.get_image_manager(temp_dir=str(tmp_path))
+
+        for img_path in images:
+            mgr.add_image(img_path, Path(img_path).name)
+
+        # Simulate page 1 size selection: "large" -> size 25
+        default_size = "large"
+        size_value = 25
+
+        for image in mgr.get_all_images():
+            mgr.update_image_size(image.file_id, "fixed", size_value)
+
+        # Verify all images have size 25
+        for image in mgr.get_all_images():
+            assert image.size_mode == "fixed"
+            assert image.size_value == 25
+            width, height = image.predict_size()
+            assert min(width, height) == 25
+
+        mgr.clear_all()
+
+    def test_page1_auto_size_uses_max_mode(self, tmp_path):
+        """Test that selecting 'Auto' on page 1 applies 'max' mode."""
+        from nonogram.admin import image_manager as img_mgr_module
+        img_mgr_module._image_manager = None
+
+        img = PILImage.new('RGB', (200, 200), color=(73, 109, 137))
+        img_path = tmp_path / "test.png"
+        img.save(str(img_path))
+
+        mgr = img_mgr_module.get_image_manager(temp_dir=str(tmp_path))
+        mgr.add_image(str(img_path), Path(img_path).name)
+
+        # Simulate page 1 size selection: "auto" -> "max" mode
+        for image in mgr.get_all_images():
+            mgr.update_image_size(image.file_id, "max", 0)
+
+        # Verify max mode
+        image = mgr.get_all_images()[0]
+        assert image.size_mode == "max"
+        width, height = image.predict_size()
+        assert width <= 30 and height <= 30  # Max mode respects maximum
+
+        mgr.clear_all()
+
+
 class TestImageBatchWorkflowIntegration:
     """Integration tests for the complete image batch workflow."""
 
