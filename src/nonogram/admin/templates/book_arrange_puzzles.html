@@ -110,7 +110,7 @@
                 </div>
                 {% else %}
                 <div class="alert alert-info">
-                    No puzzles selected. <a href="/book/{{ book.id }}/select-puzzles">Go back to Step 2 to add puzzles.</a>
+                    No puzzles selected. <a href="/book/{{ book.book_id }}/select-puzzles">Go back to Step 2 to add puzzles.</a>
                 </div>
                 {% endif %}
             </div>
@@ -166,7 +166,7 @@
 <div class="row mt-4">
     <div class="col-md-12">
         <div class="d-flex gap-2">
-            <a href="/book/{{ book.id }}/select-puzzles" class="btn btn-outline-secondary">
+            <a href="/book/{{ book.book_id }}/select-puzzles" class="btn btn-outline-secondary">
                 ← Back to Step 2: Puzzle Selection
             </a>
             <form method="POST" style="display:inline;">

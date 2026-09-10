@@ -41,7 +41,7 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                             <option value="">All</option>
                             <option value="unassigned" {% if request.args.get('book_id') == 'unassigned' %}selected{% endif %}>Unassigned</option>
                             {% for book in books %}
-                            <option value="{{ book.id }}" {% if request.args.get('book_id') == book.id|string %}selected{% endif %}>{{ book.title }}</option>
+                            <option value="{{ book.book_id }}" {% if request.args.get('book_id') == book.book_id|string %}selected{% endif %}>{{ book.title }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -384,7 +384,7 @@ async function openPuzzleDetail(puzzleId) {
                             </button>
                             <ul class="dropdown-menu" aria-labelledby="bookDropdown">
                                 ${books.map(book => `
-                                <li><a class="dropdown-item" href="#" onclick="assignPuzzleToBook('${puzzle.id}', '${book.id}'); return false;">${book.title}</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="assignPuzzleToBook('${puzzle.id}', '${book.book_id}'); return false;">${book.title}</a></li>
                                 `).join('')}
                             </ul>
                         </div>
