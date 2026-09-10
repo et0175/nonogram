@@ -858,6 +858,37 @@ def create_app(debug=None):
             flash(f"Failed to generate PDF: {str(e)}", "error")
             return redirect(request.referrer or url_for("book_detail", book_id=book.id))
 
+    @app.route("/book/<book_id>/download-pdf", methods=["POST"])
+    def download_book_pdf(book_id):
+        """Download book as PDF (from books list)."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        return generate_book_pdf_download(book, puzzle_review)
+
+    @app.route("/book/<book_id>/delete", methods=["POST"])
+    def delete_book(book_id):
+        """Delete a draft book."""
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        # Only allow deleting draft books
+        if book.status != BookStatus.DRAFT.value:
+            flash(f"Cannot delete {book.status} book. Only draft books can be deleted.", "error")
+            return redirect(url_for("books_list"))
+
+        try:
+            book_mgr.delete_book(book_id)
+            flash(f"Deleted book: {book.metadata.title}", "success")
+        except Exception as e:
+            flash(f"Failed to delete book: {str(e)}", "error")
+
+        return redirect(url_for("books_list"))
+
     @app.route("/book/<book_id>")
     def book_detail(book_id):
         """View and edit book details."""

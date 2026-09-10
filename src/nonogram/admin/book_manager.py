@@ -363,6 +363,28 @@ class BookManager:
 
         return True
 
+    def delete_book(self, book_id: str) -> bool:
+        """Delete a book (only draft books).
+
+        Args:
+            book_id: ID of book to delete
+
+        Returns:
+            True if deleted, False if not found
+
+        Raises:
+            ValueError: If book is not in draft status
+        """
+        book = self.books.get(book_id)
+        if not book:
+            return False
+
+        if book.status != BookStatus.DRAFT.value:
+            raise ValueError(f"Cannot delete {book.status} book. Only draft books can be deleted.")
+
+        del self.books[book_id]
+        return True
+
     def set_cover_image(self, book_id: str, cover_url: str) -> bool:
         """Set cover image URL.
 

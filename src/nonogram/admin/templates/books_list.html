@@ -57,7 +57,17 @@
                                     <small>{{ book.created_at.strftime('%Y-%m-%d') }}</small>
                                 </td>
                                 <td>
-                                    <a href="/book/{{ book.book_id }}" class="btn btn-sm btn-outline-primary">View</a>
+                                    <div class="btn-group" role="group">
+                                        <a href="/book/{{ book.book_id }}" class="btn btn-sm btn-outline-primary">View</a>
+                                        <form method="POST" action="/book/{{ book.book_id }}/download-pdf" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Download PDF">📥 PDF</button>
+                                        </form>
+                                        {% if book.status == 'draft' %}
+                                        <form method="POST" action="/book/{{ book.book_id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this draft book?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete draft">🗑️ Delete</button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
