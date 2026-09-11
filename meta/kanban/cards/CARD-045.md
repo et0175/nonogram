@@ -91,3 +91,94 @@ clause — so this branch can never execute.
   image (a real, positive-dimension picture) — this card only closes the
   degenerate-input gap, it must not touch the ink-bbox / `derive_extent` logic
   that CARD ec18fb4 just fixed.
+
+## Worktree notes
+
+Implemented the fix exactly as scoped, no files outside
+`src/nonogram/admin/image_manager.py` and `tests/test_image_batch_size_fix.py`
+touched.
+
+**`src/nonogram/admin/image_manager.py`** (`predict_size()`, ~line 95-127):
+- Added `except ValueError:` after the existing `except SizeTooSmallForSource:`
+  clause around the `derive_extent(stated, None, src_width, src_height)` call,
+  returning `(MIN_SIZE, MIN_SIZE)` — a safe fallback square, both sides
+  trivially inside `[MIN_SIZE, MAX_SIZE]`. This is the plain `ValueError`
+  `derive_extent` raises (not a `NonogramError` subclass) when
+  `_source_shape()` reports a non-positive axis, e.g. the documented `(0, 0)`
+  fallback from `add_image`'s silent second-decode failure.
+- Removed the dead `except NonogramError: return (stated, stated)` branch
+  (was unreachable per the card's own analysis: `stated` is pre-clamped
+  before `derive_extent` runs, so `validate_extent(stated, stated)` can never
+  raise, and the only other `NonogramError` subclass `derive_extent` can
+  raise, `SizeTooSmallForSource`, is already caught by the preceding clause).
+  Adjusted the `from nonogram.errors import ...` line accordingly (only
+  `SizeTooSmallForSource` is still needed).
+- Nothing else in `predict_size()`, `_source_shape()`, or `derive_extent`
+  changed — the ink-bbox / aspect-fit logic for real, positive-dimension
+  images is untouched (G-1).
+
+**`tests/test_image_batch_size_fix.py`**: added three new test classes
+alongside the existing ones (file was already in scope from an earlier
+card):
+- `TestPredictSizeDegenerateInput` (AC-1) — constructs an `ImageFile` with
+  `dimensions=(0, 0)` and an unreadable `file_path` (so `_source_shape()`
+  also falls back to `(0, 0)`) and asserts `predict_size()` returns a
+  `(width, height)` tuple inside `[MIN_SIZE, MAX_SIZE]` instead of raising.
+  Parametrized across all three `size_mode` values. Also includes
+  `test_predict_size_real_image_unaffected`, a direct G-1 regression check:
+  a real 200x100 picture at `size_value=20` still predicts exactly `(20, 10)`
+  (unchanged from `ec18fb4`).
+- `TestPredictSizeNonogramErrorBranchNotDead` (AC-3) — asserts
+  `"except NonogramError"` no longer appears in `predict_size`'s source via
+  `inspect.getsource`, i.e. the dead branch is gone rather than merely
+  unreached-but-present.
+- `TestBatchPreviewDegenerateImageIntegration` (AC-2) — real Flask test
+  client (`create_app(debug=True)`, in-memory mode, `DATABASE_URL` unset via
+  `monkeypatch.delenv`) against a batch containing a degenerate image
+  (loaded via the real `add_image()` path, then `dimensions`/
+  `_cached_source_shape` reset to `(0, 0)` to reproduce the documented
+  failure state). Asserts `GET /batch/preview-images` and
+  `GET /batch/generate-puzzles` both return 200, including a mixed
+  good+degenerate batch case.
+
+**Regression verification**: manually confirmed both new integration tests
+fail against the pre-fix code (`git stash` the fix, rerun) with the exact
+`ValueError: a source's own shape has a positive extent on both axes, got
+0x0` the card predicts, propagating out of
+`image_preview.html`'s/`generate_batch.html`'s `image.predict_size()` Jinja
+call as an uncaught 500 — then pass after the fix.
+
+**Test results**:
+- `./.venv/bin/python -m pytest tests/test_image_batch_size_fix.py -v` →
+  17 passed.
+- `./.venv/bin/python -m pytest tests/ -k "admin or image" -q` → same 17
+  pre-existing failures before and after this change (all in
+  `tests/test_sourcing_image.py`, `tests/test_derive_shape.py`,
+  `tests/test_nudge.py`, `tests/property/test_grid_dimensions.py`; all
+  `FileNotFoundError`/`UnreadableImage` from a missing `pictures/` corpus in
+  this worktree, unrelated to `image_manager.py` — confirmed identical via
+  `git stash`/`git stash pop` around the same sweep). No regressions
+  introduced.
+
+**AC verification**:
+- AC-1: met — `test_predict_size_zero_dimensions_returns_safe_fallback` and
+  the parametrized `size_mode` variant.
+- AC-2: met — `test_preview_batch_images_get_survives_degenerate_image`,
+  `test_generate_batch_puzzles_get_survives_degenerate_image`,
+  `test_preview_batch_images_mixed_batch_all_render`.
+- AC-3: met — the branch is removed (not merely made reachable);
+  `test_dead_nonogram_error_branch_removed` guards against reintroduction.
+
+**Guardrail verification**:
+- G-1: met — `test_predict_size_real_image_unaffected` pins the exact
+  pre-existing behaviour (200x100 → predicted (20, 10) at `size_value=20`)
+  for a real image; no line inside the ink-bbox/`derive_extent` derivation
+  itself was touched, only the exception handling wrapped around the call.
+
+No `.venv` existed in this worktree; created one per the setup command in
+`CLAUDE.md` and installed `.[dev,admin,db]` (the `admin`/`db` extras are
+needed to import `Flask`/`SQLAlchemy` for `tests/conftest.py` and the
+Flask-test-client AC-2 tests) — `.venv/` is gitignored, not committed. Also
+reverted incidental `src/nonogram.egg-info/*` changes made by that `pip
+install -e` before committing, to keep the commit scoped to the two intended
+files.

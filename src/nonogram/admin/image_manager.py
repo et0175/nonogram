@@ -92,7 +92,7 @@ class ImageFile:
         Returns:
             (width, height) tuple
         """
-        from nonogram.errors import NonogramError, SizeTooSmallForSource
+        from nonogram.errors import SizeTooSmallForSource
         from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
 
         src_width, src_height = self._source_shape()
@@ -117,8 +117,15 @@ class ImageFile:
                 except SizeTooSmallForSource:
                     continue
             return (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
-        except NonogramError:
-            return (stated, stated)
+        except ValueError:
+            # `derive_extent` raises a plain ValueError (not a NonogramError)
+            # when the reported source shape has a non-positive axis - a
+            # degenerate `_source_shape()`/`dimensions` such as (0, 0) from a
+            # failed second decode in `ImageManager.add_image` (CARD-045),
+            # not a domain refusal. There is no picture to follow the ratio
+            # of, so fall back to the smallest supported square rather than
+            # let this propagate into the batch-preview render loops.
+            return (MIN_SIZE, MIN_SIZE)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
