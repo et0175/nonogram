@@ -1,6 +1,6 @@
 # CARD-041: Add colored backgrounds to result messages (success/error visual distinction)
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** enhancement
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/041-result-message-colors
-**Worktree:** ../PythonProject4-CARD-041
+**Worktree:** —
 **Source:** User testing feedback (wave 3)
 **Idea:** —
 **Wave:** 3
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/pages.py, tests/test_web_server.py
 **Review score:** —
 **Started:** 2026-09-04T00:00:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-08T10:59:21+03:00
+**Actual:** n/a — reconciled, see Worktree notes
+**Merge commit:** 96da6ac
 **Blocked by:** —
 
 ## What to implement
@@ -58,4 +58,21 @@ Both should use readable text color (dark gray or black) and maintain padding/sp
 
 ## Worktree notes
 
-—
+**2026-09-10 — reconciled against `main`, not merged normally.** Same
+disconnected-history situation as CARD-038/039. Unlike those two, this card's
+own branch (`card/041-result-message-colors`) DOES carry a genuine, complete
+implementation commit (`fff246f "feat(CARD-041): Add colored backgrounds to
+success/error messages"` — full diff, tests, AC-155/156/157 addressed,
+WCAG AA contrast documented) — it was simply never taken through review/`done`
+before the history split, and the branch it lives on has no path back to
+current `main`.
+
+`main`'s `src/nonogram/web/pages.py:385-393` already carries the exact colors
+this commit introduced (`#d4edda`/`#f8d7da`/`#155724`), via the same `96da6ac`
+bulk restore, later refined by `2d86180 "fix: use CSS classes instead of
+attribute selectors for data-outcome styling"`. Verified present on current
+`main`; closing as done with `96da6ac` as the merge commit (the commit that
+actually landed it there).
+
+The orphaned worktree at `../PythonProject4-CARD-041` still exists on disk and
+should be removed — left untouched pending explicit confirmation.

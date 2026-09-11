@@ -1,6 +1,6 @@
 # CARD-040: Implement suggestion algorithm (metadata.py module)
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/metadata.py (new), tests/test_web_metadata.py
 **Review score:** —
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-08T10:59:21+03:00
+**Actual:** n/a — reconciled, see Worktree notes
+**Merge commit:** 96da6ac
 **Blocked by:** —
 
 ## What to implement
@@ -69,4 +69,19 @@ This card implements the missing module with:
 
 ## Worktree notes
 
-—
+**2026-09-10 — reconciled against `main`, not merged normally.** Same
+disconnected-history situation as CARD-038/039/041. This card's own branch
+(`card/040-suggestion-algorithm`) does carry real implementation commits
+(`35b3bf8 "feat(CARD-040): Implement suggestion algorithm (metadata.py
+module)"`, `1364275 "fix(CARD-040): Replace sourcing import with PIL to fix
+architectural violation"`), but on a history with no path to current `main`.
+
+`src/nonogram/web/metadata.py` already exists on `main` with all three
+functions this card specified — `extract_metadata()`, `suggest_dimensions()`,
+`format_aspect_ratio()` — brought in by the same `96da6ac` bulk restore, whose
+commit message explicitly notes "Restored 153 silhouette images from CARD-040
+backup". Verified present on current `main`; closing as done with `96da6ac` as
+the merge commit.
+
+No orphaned worktree for this card (`Worktree: —` already, per the card's
+pre-existing field) — only the branch is orphaned, no disk cleanup needed.

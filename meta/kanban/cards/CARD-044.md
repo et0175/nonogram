@@ -1,6 +1,6 @@
 # CARD-044: Fix image preview with persisted uploads (bridges CARD-037, 042, 043)
 
-**Status:** completed
+**Status:** ready
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/044-preview-with-persistence
-**Worktree:** ../PythonProject4-CARD-044
+**Worktree:** —
 **Source:** User testing feedback (wave 3 integration issue)
 **Idea:** —
 **Wave:** 3
 **Depends on:** CARD-037, CARD-042
 **Touches:** src/nonogram/web/static/metadata.js, src/nonogram/web/pages.py, tests/test_web_server.py
 **Review score:** —
-**Started:** 2026-09-04T00:00:00Z
-**Closed:** 2026-09-04T10:36:00Z
-**Actual:** 0.5d
-**Merge commit:** 1c6ed74
+**Started:** —
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
 **Blocked by:** —
 
 ## What to implement
@@ -64,6 +64,35 @@ The image preview (CARD-042) doesn't work with persisted uploads (CARD-037). Whe
 - **Trace:** meta/architecture/trace.yml
 
 ## Worktree notes
+
+**2026-09-10 — reverted from a false "done" state; this card is NOT actually
+done on `main`.** The card previously claimed `Status: completed`,
+`Merge commit: 1c6ed74`, `Closed: 2026-09-04T10:36:00Z` — all from a close-out
+that happened on a git history with **no common ancestor with current `main`**
+(`git merge-base main card/044-preview-with-persistence` returns nothing;
+`git cat-file -t 1c6ed74` confirms the commit object exists but
+`git log --oneline main | grep 1c6ed74` finds it on no branch reachable from
+`main`). The implementation summary below is real work that happened — it is
+kept as historical record — but it never reached the codebase that is
+actually being developed on.
+
+Checked directly: `main`'s current `src/nonogram/web/static/metadata.js` and
+`pages.py` have **no** `persisted_image_path` field, no
+`initializePersistedPreview()`, and no `TestWebUI_PreviewWithPersistence` test
+class — none of this card's specific deliverable survived the `96da6ac` bulk
+restore that brought its sibling cards' work back (CARD-038/039/040/041/042
+were reconciled as done against that restore; this one's feature simply wasn't
+in the backup being restored, or predates it).
+
+Reverted to `ready`. Since CARD-037 (this card's other dependency) is also
+confirmed not done on `main` (see its own notes), **this card cannot usefully
+start until CARD-037 is re-implemented against current `main`** — the
+persistence mechanism this card bridges into the preview doesn't exist yet
+either.
+
+A stray worktree exists on disk at `../PythonProject4-CARD-044` (pointing at
+the orphaned `1c6ed74`/`2f40540`) — should be removed; left untouched pending
+explicit confirmation.
 
 ### Implementation summary
 

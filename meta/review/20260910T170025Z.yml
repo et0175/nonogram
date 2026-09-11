@@ -1,0 +1,408 @@
+version: 1
+generated_at: "2026-09-10T17:00:25Z"
+target: "src/nonogram/admin/** vs. src/nonogram/{sourcing,difficulty.py,clues.py,solver,orchestrator.py,export} — how the admin panel calls (or bypasses) the core generation/cropping/metrics pipeline"
+overall_score: 2.5
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/image_to_puzzle.py (full)
+    - src/nonogram/admin/batch_generator.py (full)
+    - src/nonogram/admin/puzzle_review.py (add_puzzle, MockGenerator, PuzzleFilter sections)
+    - src/nonogram/admin/app.py (image/batch routes, clues usage at 1295-1296)
+    - src/nonogram/orchestrator.py (GenerationRequest, generate(), generate_batch(), Puzzle aggregate, image-mode POL-002 nudge loop)
+    - src/nonogram/clues.py (full)
+    - src/nonogram/difficulty.py (module docstring, Tier)
+    - src/nonogram/analysis/quality_metric.py, src/nonogram/analysis/__init__.py
+    - src/nonogram/generation/random_generator.py
+    - meta/architecture/decisions/adr/0022-*.md, 0013-*.md (referenced), inputs/v2-batch-generation.md
+  not_reached:
+    - src/nonogram/admin/book_manager.py, book_pdf_generator.py, grid_renderer.py, print_specs.py — grepped for
+      difficulty/quality/clue/solve/crop keywords (no matches), not read in full
+    - src/nonogram/solver/** internals (propagate.py, search.py) — took the solver's role as given from
+      orchestrator.py's calls into it, did not re-verify solver correctness itself (out of this review's scope)
+    - src/nonogram/analysis/strategy_counter.py — read only via random_generator.py's import and grep; not read in full
+  confidence: high
+
+metrics:
+  diff: { files: 0, added: 0, removed: 0 }
+  max_fan_in: { symbol: "orchestrator.Puzzle (no quality_score/recognizability attribute)", callers: 4 }
+  tests_cover_change: false
+  hotspots: ["src/nonogram/admin/batch_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    diff: "not_applicable — this is a standing-code audit of an existing area, not a review of a diff"
+    cochange_missing: "not_applicable — no diff to compute co-change against"
+
+system_contract:
+  rules_checked: 8
+  holds: 8
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no third-party dependency involved in any finding here"
+    - "ADR-0019/R1 ✓ holds — findings are about admin (not web), which is not this rule's scope"
+    - "ADR-0021/R1 ✓ holds — not touched by this review's scope"
+    - "ADR-0022/R1 ✓ holds — no finding here reduces extent to a scalar"
+    - "ADR-0022/R2 ✓ holds — not touched by this review's scope (admin's own size derivation was reviewed separately, see CARD-045..048)"
+    - "ADR-0022/R3 ✓ holds — not touched; scoped to sourcing/image.py only, unaffected"
+    - "ADR-0022/R4 ✓ holds — not touched; same as R3"
+    - "ADR-0023/R1, ADR-0023/R2 ✓ holds — export module untouched by this review's findings"
+  note: >
+    None of this review's findings are violations of a currently-declared system-contract rule —
+    the gap is that no rule/invariant currently governs puzzle uniqueness, quality_score, or
+    recognizability for the admin's generation paths at all (see F-009). scope_unmapped_model
+    applies project-wide (no trace.yml) but was not the limiting factor here: these findings were
+    derived by direct code reading and grep-verified caller counts, not by the assembler.
+
+root_causes:
+  - id: RC-1
+    title: "Admin's image-mode generation bypasses orchestrator/solver entirely — no uniqueness verification"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "quality_score and recognizability have no real implementation wired into any admin generation path, despite one existing (nonogram.analysis.quality_metric)"
+    finding_ids: [F-002, F-003, F-008]
+  - id: RC-3
+    title: "Clue generation reimplemented ad-hoc in admin, inconsistent with admin's own other call site"
+    finding_ids: [F-004]
+  - id: RC-4
+    title: "Orphaned/dead parallel-implementation code (nonogram.generation, nonogram.analysis wiring, unused admin methods)"
+    finding_ids: [F-005, F-006, F-007]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/image_to_puzzle.py
+    line: 21
+    title: "Admin-generated image-mode puzzles have no verified unique solution — the solver never runs"
+    description: |
+      image_to_grid() (image_to_puzzle.py:21-49, since ec18fb4 delegating to
+      sourcing.image.generate) and create_puzzle_from_image() (lines 117-177) never call
+      nonogram.solver or nonogram.orchestrator. The canonical pipeline for image mode
+      (orchestrator.py:1231-1275, inside generate()) is materially different: it calls
+      judge_candidate() on the converted grid (which runs the grid through clue derivation
+      and the solver's uniqueness check), and if the candidate is NOT uniquely solvable, runs
+      POL-002's bounded pixel-nudge loop (image_source.nudge + re-judge, up to a configured
+      bound) specifically because a dithered image conversion has no guarantee of producing a
+      uniquely-solvable nonogram — see the orchestrator module's own comment at line 1232:
+      "the conversion runs exactly once... recovery is POL-002's bounded nudge instead" and
+      raises GenerationAbandoned if no nudge attempt succeeds.
+      Admin's image_to_puzzle.py has none of this: image_to_grid() returns whatever grid
+      sourcing.image.generate() produces, and create_puzzle_from_image() computes clues and
+      difficulty/quality directly from it with no solver call at any point. A grid produced
+      this way can have zero solutions (self-contradictory — impossible for a human to solve)
+      or multiple solutions (ambiguous — not a "logic puzzle" in the sense the rest of this
+      product promises) and nothing in the admin pipeline would detect or report it. The
+      puzzle is stored via puzzle_review.add_puzzle() (puzzle_review.py:149-229), which is a
+      pure passthrough with no independent verification (grep-confirmed: no solver/clue
+      cross-check anywhere in that function), and reaches the DB and the export flow as if it
+      were as trustworthy as an orchestrator-verified puzzle.
+      difficulty_score/difficulty_tier for these puzzles (image_to_puzzle.py:126-136) is
+      computed purely from grid size ((width+height)/2, bucketed) — a direct symptom of the
+      same bypass: there is no SolverSignals object to feed nonogram.difficulty.score_difficulty
+      (which requires line-logic coverage, backtracking depth, and solve time from an actual
+      solve), so admin substitutes a number that has no relationship to how hard the puzzle
+      actually is, or whether it is solvable via logic at all.
+    suggestion: |
+      Route image-mode admin generation through orchestrator.generate() per image
+      (GenerationRequest(mode="image", image=Path(file_path), image_filename=..., width=w,
+      height=h)) instead of image_to_puzzle.create_puzzle_from_image(). This gives admin the
+      same uniqueness guarantee, nudge recovery, and real difficulty score the CLI/web path
+      already has "for free" — orchestrator.generate_batch() is NOT a drop-in replacement here
+      (it has no per-item image-path parameter; it would need one puzzle per orchestrator.generate()
+      call in a loop, as batch_generator.py already does for random mode via generate_batch()).
+      Handle GenerationAbandoned per-image the same way app.py:372-373 already handles other
+      exceptions in the batch loop.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/batch_generator.py
+    line: 310
+    title: "quality_score is a hardcoded constant (75) for every random-mode puzzle, and drives a real, silently-ineffective user-facing filter"
+    description: |
+      batch_generator.py:310 and :463 both do
+      `quality_score = puzzle.quality_score if hasattr(puzzle, "quality_score") else 75`
+      against a `puzzle` returned by orchestrator.generate_batch()/generate(). Grep-verified:
+      orchestrator.py's Puzzle class (defined at line 505) has NO quality_score attribute
+      anywhere in the file. The hasattr check is therefore always False, and every single
+      random-mode puzzle generated through the admin panel has been stored with
+      quality_score == 75, unconditionally, regardless of the puzzle's actual content.
+      This is not cosmetic: app.py:75-76's batch-creation form exposes "Minimum Quality
+      Score" as a real filter, and app.py:350 does
+      `if puzzle_data["quality_score"] < quality_filter: continue` — silently dropping
+      puzzles from the batch. For random-mode batches this filter is inert by construction:
+      every candidate puzzle scores exactly 75, so the filter either passes the whole batch
+      (threshold <= 75) or rejects the whole batch (threshold > 75) — it can never
+      discriminate between an actually-good and an actually-bad puzzle, though the UI
+      presents it as if it does. quality_score is also rendered directly to users as
+      "Quality: X/100" in batch_status.html:144, book_select_puzzles.html:125,
+      generated_puzzles.html:65, and puzzles_list.html:160/325.
+    suggestion: |
+      Either wire orchestrator's Puzzle to expose a real quality signal (see F-003's
+      suggestion — nonogram.analysis.quality_metric already computes one, just for
+      image-vs-generated comparison; a random-mode equivalent would need a different
+      metric, e.g. derived from solver signals or clue density), or remove the "Minimum
+      Quality Score" filter from the UI until a real measurement exists — a filter that
+      cannot discriminate is worse than no filter, because it implies a guarantee that
+      does not hold.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/image_to_puzzle.py
+    line: 129
+    title: "recognizability is hardcoded to 'medium' everywhere; a real, tested implementation exists and is never called"
+    description: |
+      image_to_puzzle.py:175 hardcodes `"recognizability": "medium"` for every image-mode
+      puzzle (comment: "Images always medium recognizability" — stated as if it were a
+      domain fact, not an implementation gap). batch_generator.py:311 and :464 do
+      `getattr(puzzle, "recognizability", "medium")` against orchestrator.Puzzle, which
+      (grep-verified) has no such attribute either — so random-mode puzzles get the same
+      hardcoded "medium", always.
+      Meanwhile src/nonogram/analysis/quality_metric.py defines a complete, purpose-built
+      Recognizability enum (HIGH/MEDIUM/LOW, matching the DB's string values exactly) and a
+      QualityMetrics dataclass (visual_similarity, silhouette_match, density_match,
+      recognizability, quality_score) with a measure_quality() entry point — precisely the
+      shape needed to compute both F-002 and this finding's fields for real, by comparing
+      the generated grid against the source picture. It has its own passing test suite
+      (tests/test_quality_metric.py) and is imported only by
+      src/nonogram/generation/random_generator.py (itself never imported by any production
+      code — see F-005) — zero production callers anywhere in cli/web/admin.
+      meta/architecture/inputs/v2-batch-generation.md:75 lists "quality_score
+      (auto-calculated)" as a raw requirement — the intent was real computation; the shipped
+      code is a constant. This is model/intent-vs-reality drift, not merely an unimplemented
+      feature quietly deferred: the code presents a specific, plausible-looking value ("medium",
+      75/100) as if it were measured.
+    suggestion: |
+      Wire nonogram.analysis.quality_metric.measure_quality() into image-mode generation
+      (compare the generated grid against the source picture it was derived from) — this
+      closes both F-002 (image mode's half) and this finding for image mode directly. Random
+      mode has no "source picture" to compare against, so its quality/recognizability need a
+      different, explicitly-defined metric — or the fields should be nulled/omitted for
+      random-mode puzzles rather than defaulted to a value indistinguishable from a real one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/image_to_puzzle.py
+    line: 91
+    title: "Clue generation is reimplemented ad-hoc instead of calling nonogram.clues, dropping its ragged-grid guard"
+    description: |
+      image_to_puzzle.py's generate_clues() (lines 79-114) reimplements run-length clue
+      encoding locally (its own encode_line at lines 91-103) instead of calling
+      nonogram.clues.compute_clues()/encode_line() — which admin already imports and uses
+      correctly elsewhere: app.py:1295-1296 calls `clues.encode_line(row)` /
+      `clues.encode_line(...)` directly for a different code path. So admin is internally
+      inconsistent about whether to reuse the canonical encoder or reimplement it.
+      Two concrete divergences from the canonical version (src/nonogram/clues.py:64-83,
+      87-103): (1) it returns `list`s (`clues if clues else [0]`) rather than the ADR-0012
+      boundary `tuple`s nonogram.clues.encode_line/compute_clues return; (2) it has no
+      equivalent of compute_clues's `zip(*grid, strict=True)` ragged-grid check — the
+      canonical module's own docstring explains why that check exists: "A ragged grid is a
+      programming error... and raises ValueError... rather than silently truncating the
+      columns to the shortest row, which would produce clues that quietly disagree with the
+      grid and so violate INV-001 without anything failing." Admin's version has exactly
+      that failure mode available: `for j in range(width): column = [grid[i][j] for i in
+      range(height)]` (lines 109-111) would raise an IndexError on an actually-ragged grid
+      (not silently truncate), which is a different but still uncontrolled failure than the
+      canonical module's explicit, named error.
+    suggestion: |
+      Replace generate_clues()'s body with a call to nonogram.clues.compute_clues(grid),
+      converting the returned Clues namedtuple's rows/columns tuples to lists at the call
+      site if create_puzzle_from_image's callers specifically need list-typed clues (check
+      puzzle_review.add_puzzle's storage layer — DB JSON columns likely don't care either way).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/generation/random_generator.py
+    line: 8
+    title: "nonogram.generation and nonogram.analysis are undocumented, orphaned packages with a broken import style"
+    description: |
+      src/nonogram/generation/ and src/nonogram/analysis/ are not mentioned in
+      src/nonogram/__init__.py's own architecture docstring (the package's own stated
+      "canonical map": cli, web, orchestrator, sourcing, clues, solver, difficulty, export —
+      nothing else). Grep-verified: nothing in src/nonogram/{cli.py,web/**,admin/**,
+      orchestrator.py} imports either package; their only importers are each other
+      (generation/random_generator.py imports analysis) and their own dedicated test files
+      (test_random_generator.py, test_quality_metric.py, test_strategy_counter.py).
+      random_generator.py:8-9 imports via `from src.nonogram.analysis...` — an absolute
+      import rooted at the repo's `src/` directory name, not the installed/importable
+      `nonogram` package every other module in the codebase uses. This only resolves because
+      `python -m pytest` (the way this project's test suite is invoked) prepends the current
+      working directory to sys.path, making the bare `src` directory importable as a
+      namespace package from the repo root. Any other invocation style (the installed
+      `nonogram` console script, `pytest` without `-m`, a different cwd) would raise
+      ModuleNotFoundError on this import. Since nonogram.analysis.quality_metric is also
+      importable directly as `nonogram.analysis.quality_metric` (confirmed — it's how F-003's
+      suggested fix would import it), a caller mixing both import styles for the same module
+      would get two distinct Python module objects for the same file, with incompatible class
+      identities (isinstance failures between them) — not currently exercised anywhere, but a
+      latent footgun if this package is ever wired into production per F-002/F-003's suggestion
+      without first fixing this import.
+    suggestion: |
+      Before wiring nonogram.analysis into any production path (per F-002/F-003), fix
+      random_generator.py:8-9 to `from nonogram.analysis...` (matching every other import in
+      the codebase), and either document generation/ and analysis/ in the package's
+      architecture docstring and meta/architecture model, or confirm they're superseded/dead
+      and remove them — their current undocumented, unwired state is itself the drift.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/batch_generator.py
+    line: 438
+    title: "_generate_puzzle_with_metrics is dead code — zero callers anywhere, including tests"
+    description: |
+      Grep-verified across src/ and tests/: no call site for
+      BatchGenerator._generate_puzzle_with_metrics (defined at batch_generator.py:438-468)
+      exists anywhere in the repository. It duplicates the same hasattr(quality_score, 75) /
+      getattr(recognizability, "medium") pattern as F-002/F-003 in a method nothing invokes.
+    suggestion: "Remove it, or wire it in and it becomes a third site needing F-002/F-003's fix."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 717
+    title: "MockGenerator randomizes quality_score/recognizability and has no production caller today"
+    description: |
+      puzzle_review.py's MockGenerator (around lines 717-728) assigns
+      `quality_score: self.rng.randint(1, 100)` and
+      `recognizability: self.rng.choice(['low', 'medium', 'high'])` — random, not measured.
+      Grep-verified: MockGenerator(...) is not instantiated anywhere in src/nonogram/admin/*.py
+      (test-only, per its name and the class's presence in test_wave3_e2e.py). Not a live bug,
+      but a third distinct "fake metrics" implementation in the codebase (alongside F-002/F-003's
+      hardcoded constants) — worth flagging because it would be easy to accidentally reach for
+      this class when wiring up a new admin code path, given its name reads as a legitimate
+      generator option alongside the real ones.
+    suggestion: "Confine to tests/ explicitly (move the class, or gate it behind a test-only import) so it can't be reached from a production route by accident."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_batch_generator.py
+    line: 1
+    title: "No test checks quality_score/recognizability values for real orchestrator-generated puzzles — the hardcoding in F-002/F-003 has zero coverage"
+    description: |
+      Grep-verified: tests/test_batch_generator.py has no test asserting on quality_score's
+      actual value from _generate_random_batch. tests/test_wave1_e2e.py and
+      test_batch_history.py call _generate_random_batch but only pass a fixture's
+      quality_score through storage round-trips (`quality_score=sample_puzzle['quality_score']`)
+      — never asserting it came from a real measurement. No test calls
+      create_puzzle_from_image and checks its quality_score/difficulty_score output either
+      (tests/integration_tests.py only checks image_to_grid's grid shape). Nothing in the
+      suite would fail if quality_score were hardcoded to any other constant, or if
+      recognizability were always "low" instead of "medium" — the exact gap this review's
+      F-002/F-003 findings describe.
+    suggestion: |
+      Add a test that generates a real puzzle via orchestrator.generate_batch() and asserts
+      quality_score/recognizability are NOT the current hardcoded fallback values (a
+      regression guard against this exact bug recurring even before a real metric is wired
+      in), then strengthen it into a real-value assertion once F-002/F-003 land.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0013-difficulty-scoring-formula.md
+    line: 1
+    title: "No ADR/invariant governs puzzle uniqueness, quality_score, or recognizability for admin's generation paths"
+    description: |
+      system_rules.py --scope 'src/nonogram/**' returns 8 rules, none of which constrain
+      quality_score, recognizability, or uniqueness verification outside the aggregate
+      orchestrator.Puzzle itself defines (INV-002, scope_unmapped_model — no trace.yml).
+      admin's generation paths construct puzzle data as plain dicts, never instantiating
+      orchestrator.Puzzle, so even a resolved INV-002 would not mechanically reach them. This
+      is the structural reason F-001/F-002/F-003 could exist for as long as they evidently
+      have without a system-contract check ever catching them (same pattern as CARD-048 from
+      the previous review, here for a much more consequential area).
+    suggestion: |
+      Once F-001 routes admin through orchestrator.generate(), INV-002 starts applying
+      mechanically. For quality_score/recognizability, consider a new ADR/CON stating the
+      real metric's definition and scope (once F-002/F-003 are fixed) so future drift is
+      mechanically checkable rather than rediscovered by review.
+    confidence: medium
+    source: model
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

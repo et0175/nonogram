@@ -1,0 +1,250 @@
+version: 1
+generated_at: "2026-09-10T16:44:26Z"
+target: "commit ec18fb4 — fix: match admin image-to-puzzle cropping to the CLI/web pipeline"
+overall_score: 5.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py (routes touching image_to_puzzle/predict_size, full render_template call sites)
+    - src/nonogram/admin/image_manager.py (full ImageFile class, ImageManager add_image/update_image_size/get_image)
+    - src/nonogram/admin/image_to_puzzle.py (full file)
+    - src/nonogram/admin/templates/image_preview.html (full)
+    - src/nonogram/admin/templates/image_selection.html (relevant CSS + img usage)
+    - tests/test_wave3_e2e.py, tests/test_image_batch_size_fix.py (full diff + surrounding assertions)
+    - src/nonogram/sourcing/image.py (generate, derive path, ink_bounding_box, fit_crop_box, source_shape)
+    - src/nonogram/sourcing/random_grid.py (derive_extent, _derived_extent, _smallest_workable_size)
+    - meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (full)
+  not_reached:
+    - No live browser re-render of the admin UI performed in this review (relies on the session's own prior
+      manual visual verification, which this review did not re-derive independently)
+    - src/nonogram/admin/templates/generate_batch.html (confirmed predict_size() call site by grep, not
+      read in full)
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 138, removed: 143 }
+  max_fan_in: { symbol: "ImageFile.predict_size", callers: 17 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — every commit touching the 5 changed source/template files in this repo's history touched only files from that same set; no external co-change partner exists to check against. Repo is ~4 days old (first commit 2026-09-06), so this signal is thin."
+
+system_contract:
+  rules_checked: 2
+  holds: 2
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no third-party runtime dependency added (only stdlib `random` and internal nonogram.errors/nonogram.sourcing.image imports); grep of pyproject.toml unchanged"
+    - "ADR-0022/R1 ✓ holds — predict_size() and derive_extent() both continue to pass/return (width, height) pairs; no scalar 'size' reintroduced"
+
+root_causes:
+  - id: RC-1
+    title: "predict_size()'s new exception handling was written without full analysis of derive_extent's raise surface, and without a test that would have caught the gap"
+    finding_ids: [F-001, F-002, F-003]
+  - id: RC-2
+    title: "No test image in the suite has real blank margin (ink bbox != file dimensions), so the diff's actual fix (source_shape vs. self.dimensions) is unverified by any test"
+    finding_ids: [F-004]
+  - id: RC-3
+    title: "predict_size() moved from pure arithmetic to a full image decode + pixel scan, added synchronously inside per-batch page-render loops with no bound/lazy-load"
+    finding_ids: [F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/image_manager.py
+    line: 109
+    title: "derive_extent's ValueError (non-positive source shape) is not caught, crashing whole-batch page renders"
+    description: |
+      predict_size() (image_manager.py:68-121) calls derive_extent(stated, None, src_width, src_height)
+      at line 109 and catches only SizeTooSmallForSource (line 110) and NonogramError (line 120). But
+      derive_extent -> _checked_extents raises a plain ValueError (not a NonogramError subclass) when
+      source_width <= 0 or source_height <= 0 (src/nonogram/sourcing/random_grid.py, via
+      src/nonogram/sourcing/image.py's _checked_extents). src_width/src_height come from _source_shape()
+      (image_manager.py:42-65), which falls back to self.dimensions on any exception from source_shape().
+      self.dimensions can genuinely be (0, 0): add_image() (image_manager.py:240-246) defaults dimensions
+      to (0, 0) and only overwrites it inside a bare `except Exception: pass` around a second, independent
+      PILImage.open() on the copied temp file — a failure here (distinct from the upload-time validation
+      open) leaves a stored, "successfully added" ImageFile with dimensions=(0, 0).
+      When that happens, _source_shape() calls source_shape(self.file_path), which itself fails (the same
+      degenerate file), so its except Exception clause falls back to self.dimensions == (0, 0), and
+      derive_extent(stated, None, 0, 0) raises ValueError, uncaught.
+      This propagates out of predict_size() into two unprotected render_template() calls:
+      app.py:289-292 (`preview_batch_images` GET — the normal page users land on right after upload) and
+      app.py:307-310 (`generate_batch_puzzles` GET confirmation page), both of which loop over ALL images
+      via `{% set dims = image.predict_size() %}` in image_preview.html/generate_batch.html with no
+      try/except around the render. One degenerate image in the batch would 500 the whole preview page for
+      every image in it, not just the broken one.
+      Note: this exact failure mode pre-dates this diff — the old predict_size() did
+      `aspect_ratio = img_width / img_height` on self.dimensions directly, which raised an uncaught
+      ZeroDivisionError for the same (0, 0) input. This diff does not newly introduce the crash, but it
+      does add an `except NonogramError` clause specifically for defensive purposes around this exact
+      function without covering the one case that was already broken — creating false confidence that the
+      function is now safe against bad input.
+    suggestion: |
+      Either catch ValueError alongside NonogramError around the derive_extent call (image_manager.py:109),
+      or validate src_width/src_height > 0 in _source_shape() itself before returning, falling back to a
+      safe minimum extent (e.g. (MIN_SIZE, MIN_SIZE)) rather than propagating.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/image_manager.py
+    line: 68
+    title: "No test exercises the new SizeTooSmallForSource recovery loop or its exception-handling branches"
+    description: |
+      predict_size() (image_manager.py:68-121) adds real new logic beyond an arithmetic change: a
+      try/except around derive_extent, a fallback search over candidate sizes on SizeTooSmallForSource
+      (lines 110-119), a final hardcoded (30,10)/(10,30) fallback when no candidate works, and a separate
+      except NonogramError branch (line 120). None of these branches are exercised by
+      tests/test_wave3_e2e.py or tests/test_image_batch_size_fix.py (the two test files this diff touched),
+      nor by any other test in the repo — grep for SizeTooSmallForSource across tests/ finds no admin-side
+      usage. This is exactly the "adds an error path with no test exercising it" gap the review's own
+      Step 8f static check is meant to catch.
+    suggestion: |
+      Add a test with a very elongated synthetic image (e.g. 3000x10 within MAX_DIMENSIONS, or mock
+      _source_shape) at a small fixed size_value, asserting predict_size() returns a sane fallback instead
+      of raising, and a second test confirming the candidate-search actually finds a larger workable N
+      before falling back to the hardcoded extreme.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/image_manager.py
+    line: 120
+    title: "except NonogramError branch in predict_size() is dead code"
+    description: |
+      stated is always clamped into [MIN_SIZE, MAX_SIZE] at line 106 immediately before the derive_extent
+      call at line 109, so derive_extent's internal validate_extent(stated, stated) can never raise
+      SizeOutOfRange. The only other NonogramError subclass derive_extent can raise is
+      SizeTooSmallForSource, which is already caught by the preceding except clause (line 110). So the
+      `except NonogramError: return (stated, stated)` branch at line 120 can never execute. It reads as a
+      safety net but isn't one — see F-001, which is the actual gap this line appears to (but does not)
+      cover.
+    suggestion: "Remove the branch, or replace it with `except ValueError` to actually close the F-001 gap."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_wave3_e2e.py
+    line: 18
+    title: "No test uses an image with real blank margin — the diff's actual fix (ink bbox vs. file dims) is unverified"
+    description: |
+      The bug this diff fixes (silently cropping a heron's feet/beak, a bird's legs) was caused by
+      predict_size() deriving the target extent from the raw file's dimensions instead of the picture's ink
+      bounding box (src/nonogram/admin/image_manager.py's new _source_shape(), lines 42-65). Every test
+      image in the touched test files (tests/test_wave3_e2e.py:18,23,28 and
+      tests/test_image_batch_size_fix.py:33,190,234,265,298) is a solid PILImage.new(..., color=X)
+      rectangle with zero blank margin — for these, ink_bounding_box always returns the whole extent, so
+      _source_shape() returns exactly self.dimensions and is indistinguishable from the old (reverted)
+      behavior in every test that runs. tests/integration_tests.py does use real
+      silhouette/animals/birds/*.jpg images through image_to_grid, but only asserts grid shape
+      (len(grid) == target_height), never content retention. No test in the repo would fail if
+      _source_shape() were changed back to `return self.dimensions` unconditionally — the exact regression
+      this diff fixes has no regression test.
+    suggestion: |
+      Add a test image with a real solid shape plus blank margin (e.g. draw a filled rectangle covering
+      ~70% of a taller canvas, matching the reported bug's shape) and assert predict_size()'s aspect ratio
+      tracks the drawn content's ratio, not the canvas's.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/image_manager.py
+    line: 42
+    title: "predict_size() now performs a full image decode + pixel scan synchronously in per-batch page-render loops"
+    description: |
+      Before this diff, predict_size() was pure arithmetic on self.dimensions, which is read cheaply at
+      upload time (PILImage.open(...).size, a header read, no full decode). Now, _source_shape()
+      (image_manager.py:42-65) calls nonogram.sourcing.image.source_shape() on first access, which fully
+      decodes the image (load_greyscale) and scans every pixel (ink_bounding_box's Image.point + getbbox)
+      for a lookup table over the whole raster. This is cached per-instance, but the first call per image
+      pays the full cost, and it now happens inside two request-synchronous template loops:
+      image_preview.html (`{% set dims = image.predict_size() %}` in a `{% for image in images %}` loop,
+      rendered from app.py:289-292 with no pagination) and generate_batch.html (same pattern, app.py:307-
+      310). The route's own docstring/validation allows up to 200 images per batch
+      (app.py:256-257, "Must be 1-200 images"), each up to 2000x2000 px (image_manager.py:152,
+      MAX_DIMENSIONS). A full-batch first page load now pays up to 200 synchronous PIL decodes + numpy
+      bbox scans before the response is sent, where it previously paid none.
+    suggestion: |
+      Compute and cache the ink bounding box once at add_image() time (alongside the existing dimensions
+      read), the same way dimensions is already captured up front, rather than lazily inside the
+      render-time predict_size() call — or explicitly document/measure the acceptable batch-size ceiling
+      this adds latency to.
+    confidence: medium
+    source: static
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    line: 323
+    title: "ADR-0022/R3 and R4 scope.code excludes src/nonogram/admin/**, though admin now depends on their exact rule"
+    description: |
+      system_rules.py --scope 'src/nonogram/admin/**' matches only ADR-0006/R1 and ADR-0022/R1; R2's scope
+      is ["src/nonogram/sourcing/**", "src/nonogram/cli.py"], R3's is ["src/nonogram/sourcing/image.py"],
+      and R4's is ["src/nonogram/cli.py", "src/nonogram/orchestrator.py", "src/nonogram/sourcing/**"] —
+      none include admin/. This diff makes admin/image_manager.py a real, direct consumer of R4's "N on
+      the longer axis, never capped at the top" rule (it now calls derive_extent directly) and of R3's
+      crop policy indirectly (via image_to_puzzle.py calling sourcing.image.generate). Functionally this is
+      fine — admin calls the shared functions rather than reimplementing them, so behavior stays in sync
+      automatically — but an automated audit of R3/R4 compliance would not see admin/ as in-scope territory
+      to check, so a future admin-side regression that bypassed derive_extent (reintroducing the bug this
+      diff fixes) would not be caught by any system-contract check.
+    suggestion: "Consider widening ADR-0022/R3 and R4's scope.code globs to include src/nonogram/admin/**."
+    confidence: medium
+    source: model
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

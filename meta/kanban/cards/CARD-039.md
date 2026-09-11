@@ -1,6 +1,6 @@
 # CARD-039: Clear size field when new image is uploaded
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** ux-polish
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/039-clear-size-on-upload
-**Worktree:** ../PythonProject4-CARD-039
+**Worktree:** —
 **Source:** User feedback during wave 0–2 testing
 **Idea:** —
 **Wave:** 3
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/static/metadata.js
 **Review score:** —
 **Started:** 2026-09-04T00:00:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-08T10:59:21+03:00
+**Actual:** n/a — reconciled, see Worktree notes
+**Merge commit:** 96da6ac
 **Blocked by:** —
 
 ## What to implement
@@ -57,4 +57,21 @@ When a user selects a new image file, the size field should be cleared. This pre
 
 ## Worktree notes
 
-—
+**2026-09-10 — reconciled against `main`, not merged normally.** Same
+disconnected-history situation as CARD-038 (`git merge-base main
+card/039-clear-size-on-upload` returns nothing). Notably, this card's actual
+implementation commit (`5c5ae5e "feat(CARD-039): Clear size field when new
+image is uploaded"`) exists in the repository — but it landed on the
+**`card/037-persist-upload-retry`** branch, not on this card's own
+`card/039-clear-size-on-upload` branch (which still points at CARD-041's tip,
+`fff246f`, unchanged) — an apparent worktree/checkout mixup at implementation
+time, on top of the history split.
+
+`main`'s `clearSizeField()` (`src/nonogram/web/static/metadata.js:255-305`,
+explicitly commented `// AC-149: Clear size field...` — this card's own AC id)
+already satisfies this card's intent, introduced by the same `96da6ac` bulk
+restore as CARD-038. Verified present on current `main`; closing as done with
+`96da6ac` as the merge commit.
+
+The orphaned worktree at `../PythonProject4-CARD-039` still exists on disk and
+should be removed — left untouched pending explicit confirmation.

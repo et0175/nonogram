@@ -1,6 +1,6 @@
 # CARD-042: Display image preview after upload
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** enhancement
 **Estimate:** 0.5d
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/pages.py, tests/test_web_server.py
 **Review score:** —
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-08T10:59:21+03:00
+**Actual:** n/a — reconciled, see Worktree notes
+**Merge commit:** 96da6ac
 **Blocked by:** —
 
 ## What to implement
@@ -64,4 +64,22 @@ The preview should:
 
 ## Worktree notes
 
-—
+**2026-09-10 — reconciled against `main`, not merged normally.** Same
+disconnected-history situation as the rest of this wave. This card's own
+branch (`card/042-image-preview`) carries a real implementation commit
+(`5164238 "feat(CARD-042): Add client-side image preview on file upload"`),
+but on a history with no path to current `main`.
+
+`main`'s `src/nonogram/web/static/metadata.js` already has the thumbnail
+preview this card specifies — a 150×150 box, original-dimensions label,
+appearing on file selection (`showImagePreview()`, `image-preview-container`/
+`image-preview` elements) — brought in by the same `96da6ac` bulk restore.
+Verified present on current `main`; closing as done with `96da6ac` as the
+merge commit.
+
+Note for CARD-044: the *selection-time* preview (this card) works on `main`,
+but the *persisted-on-page-reload* preview CARD-044 was specifically about did
+NOT survive into `main` — see that card's own Worktree notes.
+
+No orphaned worktree for this card (`Worktree: —` already) — only the branch
+is orphaned, no disk cleanup needed.

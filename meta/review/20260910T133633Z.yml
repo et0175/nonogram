@@ -1,0 +1,236 @@
+version: 1
+generated_at: "2026-09-10T13:36:33Z"
+target: "src/nonogram package (standing-code audit, no diff — scoped to admin/, db/, web/)"
+overall_score: 3.0
+risk_level: critical
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py"
+    - "src/nonogram/admin/book_manager.py"
+    - "src/nonogram/admin/puzzle_review.py"
+    - "src/nonogram/db/models.py"
+    - "src/nonogram/db/session.py"
+    - "src/nonogram/admin/batch_generator.py (spot-check)"
+    - "src/nonogram/admin/image_manager.py (spot-check)"
+    - "tests/conftest.py"
+    - "tests/test_db_e2e_smoke.py"
+  not_reached:
+    - "src/nonogram/web/**"
+    - "src/nonogram/solver/**"
+    - "src/nonogram/export/**"
+    - "src/nonogram/sourcing/**"
+    - "src/nonogram/analysis/**"
+    - "src/nonogram/generation/**"
+  confidence: medium-high
+
+metrics:
+  diff: { files: 53, added: 0, removed: 0 }
+  max_fan_in: { symbol: "create_app", callers: 4 }
+  tests_cover_change: false
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — this is a standing-code audit, not a diff review, so there is no changeset to compute co-change peers against"
+    diff: "not_applicable — review target is the whole package, not a diff; file/line-added/removed counts are not meaningful here"
+
+system_contract:
+  rules_checked: 1
+  holds: 1
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0007 ✓ holds — pytest tests/test_cli.py -k \"import_rule or adapter\" (12/12 passed on current HEAD); admin/ and db/ introduce no lateral or inward-violating imports"
+
+root_causes:
+  - id: RC-1
+    title: "Environment variable (DATABASE_URL) captured at Python module-import time instead of at point-of-use"
+    finding_ids: [F-002]
+  - id: RC-2
+    title: "Book dataclass exposes book_id/metadata.title, not id/title — recurring attribute-mismatch bug class (3rd occurrence in repo history)"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 895
+    title: "Exception handler crashes with AttributeError, masking the real PDF-generation failure"
+    description: |
+      Inside generate_book_pdf_download's except Exception block, `book.id` is accessed, but
+      `book` is a Book dataclass (from book_mgr.get_book()) which has `book_id`, not `id`.
+      Every failure inside the try block (lines 847-895) currently surfaces as an unrelated
+      AttributeError/500 instead of the intended flash("Failed to generate PDF: ...") + redirect.
+      This is the third occurrence of the same Book.id-vs-.book_id mismatch in this codebase:
+      first fixed in templates (commit da7e81d), second fixed this session in the same file's
+      /api/puzzle/<id>/details endpoint.
+    suggestion: |
+      Change `book.id` to `book.book_id` at line 895. Also grep the codebase for any other
+      `book.id` / `b.id` / `book.title` access on a Book dataclass instance (as opposed to a
+      SQLAlchemy Book ORM row, which does have `.id`) — this bug class has recurred 3 times.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 28
+    title: "DATABASE_URL captured at module-import time, silently breaking create_app()'s per-call DB-mode contract"
+    description: |
+      admin/app.py's top-level `if os.getenv('DATABASE_URL'):` block (lines 28-35) runs exactly
+      once, the first time nonogram.admin.app is imported, and binds the module-level
+      session_scope global then. Every later create_app() call reuses that frozen binding
+      regardless of the environment at call time. db/session.py:8's
+      `DATABASE_URL = os.getenv('DATABASE_URL', None)` has the identical defect one layer down.
+      Reproduced live: importing admin.app with DATABASE_URL unset, then setting it and calling
+      create_app() again, still yields session_scope: None. tests/conftest.py's `app` fixture
+      docstring explicitly assumes "will use DATABASE_URL env var for DB-backed services" per
+      call — this assumption is false whenever nonogram.admin.app was already imported earlier
+      in the same Python process with a different DATABASE_URL state (e.g. during pytest
+      collection, before any monkeypatch.setenv fixture has run).
+    suggestion: |
+      Read os.getenv('DATABASE_URL') inside create_app() itself (not at module scope) and
+      inside _init_engine()/session_scope() on each call, not from a frozen module-level
+      constant. Add a regression test that imports admin.app with DATABASE_URL unset, then
+      sets it and calls create_app(), asserting DB-backed mode actually engages.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: compliance
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 55
+    title: "No authentication on 10 mutating admin routes, combined with wildcard CORS and an un-overridden default SECRET_KEY"
+    description: |
+      Zero auth-related identifiers (login_required, @auth, check_auth, Authorization,
+      HTTPBasicAuth, require_login, api_key/API_KEY) found anywhere in admin/app.py.
+      Access-Control-Allow-Origin: "*" (line 55) applies to every response via
+      @app.after_request, including POST/DELETE routes (approve/reject puzzle, delete puzzle,
+      generate batch, upload image, generate/download PDF). app.config["SECRET_KEY"]
+      (line 47) falls back to the literal "dev-key-change-in-production" if unset; the
+      committed render.yaml does not list SECRET_KEY among its envVars.
+    suggestion: |
+      Verify what, if anything, gates network access to this deployment. Either add an auth
+      layer to admin/app.py's mutating routes, or explicitly confirm and document the existing
+      network-level protection (Render access control, VPN, IP allowlist). Confirm SECRET_KEY
+      is actually set out-of-band in the Render dashboard, and add it to render.yaml's envVars
+      (as a generated secret, not a literal) so a fresh deploy from the IaC file doesn't
+      silently fall back to the public default.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_db_e2e_smoke.py
+    line: 15
+    title: "test_app_instantiates_with_db_services doesn't verify what its name and docstring claim"
+    description: |
+      The test asserts only `app is not None` and `app.config["TESTING"] is True` — neither of
+      which can fail when DB-backed mode silently didn't engage (see F-002). The test's own
+      docstring claims "App was constructed with DB-backed PuzzleReviewService and
+      BatchGenerator (verified by successful instantiation)", but successful instantiation is
+      identical whether or not DB mode actually engaged.
+    suggestion: |
+      Strengthen the assertion to something that only holds under DB mode — e.g. write a
+      puzzle through the app's route/service and confirm it is queryable via a fresh DB session
+      (not just via the in-process object), or assert the concrete type/session_factory wiring
+      on the constructed service.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 855
+    title: "Debug print() statements left in the PDF-generation production code path"
+    description: |
+      7 print(f"[PDF DEBUG] ...") calls in generate_book_pdf_download print puzzle grid
+      dimensions and dict keys to stdout on every PDF download.
+    suggestion: "Convert to app.logger.debug(...) or remove."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/
+    line: null
+    title: "18 dead *.html.bak template files left in the live templates directory"
+    description: |
+      Flask/Jinja only loads .html, so these are inert, but they still contain the old
+      book.id/book.title bug pattern (RC-2) and risk confusing a future editor into modifying
+      the wrong file.
+    suggestion: "Delete the .bak files, or move them outside templates/ if they're kept for reference."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/
+    line: null
+    title: "admin/ and db/ are absent from the forge architecture model (no trace.yml)"
+    description: |
+      CLAUDE.md's documented component table only lists cli/orchestrator/sourcing/clues/
+      solver/difficulty/export. admin/ (4,469 LOC) and db/ (194 LOC) — two of the three
+      largest, highest-churn sub-packages in the repo — have zero ADR/FR/NFR traceability.
+    suggestion: "Consider forge:reverse --scope src/nonogram/admin and --scope src/nonogram/db to reconcile the model with the code."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

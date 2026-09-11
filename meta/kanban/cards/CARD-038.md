@@ -1,6 +1,6 @@
 # CARD-038: Clear previous result message when submitting new generation
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/038-clear-result-on-resubmit
-**Worktree:** ../PythonProject4-CARD-038
+**Worktree:** —
 **Source:** User feedback during wave 0–2 testing
 **Idea:** —
 **Wave:** 3
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, tests/test_web_server.py
 **Review score:** —
 **Started:** 2026-09-04T00:00:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-08T10:59:21+03:00
+**Actual:** n/a — reconciled, see Worktree notes
+**Merge commit:** 96da6ac
 **Blocked by:** —
 
 ## What to implement
@@ -54,4 +54,23 @@ The form should clear the previous result message when a new submission is proce
 
 ## Worktree notes
 
-—
+**2026-09-10 — reconciled against `main`, not merged normally.** The
+`card/038-clear-result-on-resubmit` worktree/branch turned out to be built on a
+git history with **no common ancestor with `main`** (`git merge-base main
+card/038-clear-result-on-resubmit` returns nothing — two disjoint root commits,
+`b7d14ca` vs `fb2ec7f`). Its own branch never received a `feat(CARD-038)`
+implementation commit at all (`git log --all` finds none), so there was nothing
+to merge from it regardless.
+
+However, `main`'s `resultContainer.innerHTML = ''` clear-on-resubmit behavior
+(`src/nonogram/web/pages.py:453,818`) already satisfies this card's intent —
+introduced in bulk by `96da6ac "feat: restore core nonogram modules and
+silhouette images"` (2026-09-08), a file-level restore from a backup that
+predates the history split, not a git merge of this card's branch. Verified
+present and passing on current `main`; closing as done with `96da6ac` recorded
+as the merge commit for traceability, since that is the actual commit that put
+the equivalent behavior on `main`.
+
+The orphaned worktree at `../PythonProject4-CARD-038` still exists on disk and
+should be removed (`git worktree remove`) — left untouched pending explicit
+confirmation, since worktree/branch deletion is a destructive action.
