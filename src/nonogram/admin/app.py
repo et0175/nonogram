@@ -14,8 +14,7 @@ from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReview
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
 from .image_manager import get_image_manager
-from .image_to_puzzle import create_puzzle_from_image
-from .grid_renderer import grid_to_svg, get_svg_filename
+from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
 from .book_pdf_generator import BookPDFGenerator
 
@@ -1176,74 +1175,6 @@ def create_app(debug=None):
                 img_bytes,
                 mimetype=f"image/{image.format.lower()}",
             )
-        except Exception as e:
-            return f"Error: {str(e)}", 500
-
-    @app.route("/api/puzzle-grid/<file_id>")
-    def api_puzzle_grid(file_id):
-        """Get puzzle grid as SVG for preview."""
-        image_mgr = get_image_manager()
-        image = image_mgr.get_image(file_id)
-
-        if not image:
-            return "Not found", 404
-
-        try:
-            # Get predicted size
-            width, height = image.predict_size()
-
-            # Convert image to puzzle grid
-            puzzle_data = create_puzzle_from_image(
-                image.file_path,
-                target_width=width,
-                target_height=height,
-            )
-
-            if not puzzle_data:
-                return "Failed to generate puzzle grid", 500
-
-            # Generate SVG
-            svg = grid_to_svg(puzzle_data["grid"], cell_size=20)
-
-            return svg, 200, {"Content-Type": "image/svg+xml"}
-
-        except Exception as e:
-            return f"Error: {str(e)}", 500
-
-    @app.route("/api/puzzle-grid/<file_id>/download")
-    def api_puzzle_grid_download(file_id):
-        """Download puzzle grid as SVG file."""
-        image_mgr = get_image_manager()
-        image = image_mgr.get_image(file_id)
-
-        if not image:
-            return "Not found", 404
-
-        try:
-            # Get predicted size
-            width, height = image.predict_size()
-
-            # Convert image to puzzle grid
-            puzzle_data = create_puzzle_from_image(
-                image.file_path,
-                target_width=width,
-                target_height=height,
-            )
-
-            if not puzzle_data:
-                return "Failed to generate puzzle grid", 500
-
-            # Generate SVG
-            svg_bytes = grid_to_svg(puzzle_data["grid"], cell_size=20).encode("utf-8")
-            filename = get_svg_filename(image.original_filename)
-
-            return send_file(
-                BytesIO(svg_bytes),
-                mimetype="image/svg+xml",
-                as_attachment=True,
-                download_name=filename,
-            )
-
         except Exception as e:
             return f"Error: {str(e)}", 500
 
