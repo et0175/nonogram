@@ -221,3 +221,8 @@ notes (app.py is a high-churn/defect-density hotspot generally; the two
 SVG-preview routes still skip uniqueness verification, correctly per this
 card's own Step 4 decision). Risk: LOW, lane: FAST. Zero Critical/Important —
 severity gate open, score 9.0 ≥ min_score 8.
+
+[8h spot-check] 1/1 sampled holds reproduced (ADR-0022/R1) — independent
+skeptic confirmed GenerationRequest.width/height are two separate int|None
+fields (orchestrator.py:234-235), never merged into a scalar, and the diff's
+construction/storage-read path passes them as a pair throughout.
