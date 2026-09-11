@@ -1,0 +1,46 @@
+version: 1
+generated_at: "2026-09-11T10:16:00Z"
+target: "card/051-admin-clues-reuse diff vs main (git diff main...HEAD in worktree PythonProject4-CARD-051)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/image_to_puzzle.py (full file)"
+    - "src/nonogram/clues.py (full file)"
+    - "src/nonogram/admin/app.py (both create_puzzle_from_image call sites, clues.encode_line call site)"
+    - "tests/test_card_051_admin_clues_reuse.py (full file, all 8 tests)"
+    - "tests/test_cli.py structural import-guard tests (_ADAPTERS, _MODULES, rank logic)"
+    - "meta/architecture/decisions/adr/0012-grid-data-representation.md"
+    - "meta/architecture/decisions/adr/0007-internal-module-architecture.md"
+    - "meta/architecture/domain/aggregates.yml (INV-001/002/003)"
+    - "meta/kanban/cards/CARD-051.md"
+  not_reached:
+    - "src/nonogram/admin/puzzle_review.py storage layer internals (traced only via the card's own claim + call-site grep, not fully read line-by-line)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 143, removed: 29 }
+  max_fan_in: { symbol: "generate_clues", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/image_to_puzzle.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — co-change peers (app.py, image_preview.html, image_selection.html, image_manager.py) exist historically but this card's own guardrail (G-1) explicitly forbids touching anything beyond generate_clues/encode_line; verified independently that neither live caller in app.py reads clues_rows/clues_cols, so no peer change is actually owed here"
+
+system_contract:
+  rules_checked: 2
+  holds: 2
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no new runtime dependency; only new import is `from nonogram import clues as nonogram_clues`, an intra-package import already in the stdlib+Pillow+NumPy baseline; TestDependencyBaseline_IsExactlyPillowAndNumpy exists at tests/test_export_pdf.py:1230 and is unaffected by this diff"
+    - "ADR-0022/R1 ✓ holds — diff does not touch grid-extent handling at all; generate_clues receives/returns clue tuples only, never a size scalar"
+  note: "INV-001 (clues == RLE of current grid) is the invariant most conceptually relevant to this diff, but meta/architecture has no trace.yml/requirements.yml (system_rules.py reports scope_unmapped_model for INV-001/002/003) — the domain model has not reached synthesis for this codebase, so INV-001 cannot be scoped to code mechanically. Verified by hand instead (see Step 2/8c in the markdown report): compute_clues is a pure RLE of the exact grid argument, and generate_clues now passes the grid through unchanged, so INV-001 holds by construction and is strictly better-enforced than before (previously two independent RLE implementations could drift)."
+
+root_causes: []
+
+findings: []

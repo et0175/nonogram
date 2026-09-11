@@ -1,6 +1,6 @@
 # CARD-051: Stop reimplementing clue encoding in admin — call nonogram.clues
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/image_to_puzzle.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-09-11T11:30:00Z
 **Closed:** —
 **Actual:** —
@@ -121,3 +121,49 @@ corpus not present in this worktree) and `test_batch_history.py`/
 (DB/timing-dependent, previously documented as flaky) — none touching
 `image_to_puzzle.py` or clue encoding, consistent with the pre-existing
 39-42 failure baseline documented on CARD-050.
+
+## System contract
+
+- ADR-0007 — Adapter modules (cli/web/admin) import inward toward capability modules only; capability modules never import laterally or outward. (check: test, ref test_every_import_in_the_package_points_inward)
+- ADR-0012 — Clues cross module boundaries as tuple[tuple[int, ...], ...], never plain lists. (check: review-lens)
+- ADR-0006/R1 — The runtime dependency set is exactly stdlib + Pillow + NumPy + ReportLab. (check: test, ref TestDependencyBaseline_IsExactlyPillowAndNumpy)
+
+[Review 1/3] Score: 9.5 — crit: 0, imp: 0
+[Review sync] 1 report(s) → meta/review/ (20260911T101600Z-CARD-051-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review): admin's generate_clues() now delegates
+directly to nonogram.clues.compute_clues() instead of reimplementing RLE
+locally — removes the divergence risk (list-vs-tuple return type, missing
+ragged-grid guard) entirely rather than patching it. AC-1/AC-2 both
+independently verified via non-tautological tests (an inline oracle
+reproducing the exact pre-fix encode_line logic, plus error-type equality
+against compute_clues's own ValueError). ADR-0007 import-direction question
+(admin→clues) independently confirmed legal — same direction app.py already
+uses — by reading the structural guard test directly, not trusting the
+card's framing. G-1 held: diff touches nothing in create_puzzle_from_image's
+body beyond the generate_clues() call site. Zero Critical/Important, zero
+Minor. Risk: LOW, lane: FAST. Score 9.5 ≥ min_score 8 — severity gate OPEN.
+Cleared on cycle 1 of 3.
+
+[8h spot-check] 1/1 sampled holds reproduced — independently re-verified
+that create_puzzle_from_image's two live callers (app.py's SVG-preview
+routes) read only puzzle_data["grid"], never clues_rows/clues_cols; the
+clues_rows/clues_cols usage elsewhere in app.py (lines 384-385) traced to
+puzzle.clues.rows/columns from the unrelated CARD-049 orchestrator batch
+path, confirming no false positive in the review's claim.
+
+[AC/EC check] All criteria/constraints ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: TestAC1ClueEncodingMatchesCanonicalModule (6 tests, fresh run) — synthetic grid, all-empty grid, 3 real fixture images, and create_puzzle_from_image integration test all match nonogram.clues.compute_clues exactly.
+AC-2 ✓ demonstrated — evidence: TestAC2RaggedGridRaisesNamedError (2 tests, fresh run) — ragged grid raises ValueError, type-equal to compute_clues's own exception for the same input.
+G-1 ✓ demonstrated — evidence: git diff main...HEAD -- src/nonogram/admin/image_to_puzzle.py touches zero lines of create_puzzle_from_image's body; 0 matches for def create_puzzle_from_image in the diff.
+
+All three items independently re-verified against the final one-cycle state.
+Gate passes.
+
+[Docs] No README under src/nonogram/admin/ exists; tests/README.md carries
+no per-file test inventory that would need updating for this diff.
+
+[Commit] Final state is 1 commit on the branch: 53bf1eb (implementation +
+tests). Nothing further needed — cycle 1 cleared cleanly.
+
+CYCLE 1 COMPLETE — SUCCESS. Ready for `/kanban done CARD-051`.
