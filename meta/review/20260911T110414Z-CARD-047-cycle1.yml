@@ -1,0 +1,78 @@
+version: 1
+generated_at: "2026-09-11T11:04:14Z"
+target: "branch card/047-precompute-source-shape-on-upload vs main (git -C PythonProject4-CARD-047 diff main...HEAD), kanban CARD-047 cycle 1"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/image_manager.py (full file)"
+    - "tests/test_card_047_eager_source_shape.py (full file, new)"
+    - "tests/test_image_batch_size_fix.py (TestPredictSizeDegenerateInput + Flask degenerate-batch integration classes)"
+    - "src/nonogram/sourcing/image.py (module docstring, source_shape, load_greyscale, ink_bounding_box signatures)"
+    - "src/nonogram/admin/app.py (upload handler /batch/from-images:160-243, preview_batch_images:249-299)"
+    - "meta/kanban/cards/CARD-047.md"
+    - "meta/review/20260910T164426Z.yml#F-005 (origin finding)"
+  not_reached:
+    - "image_preview.html / generate_batch.html templates (not touched by diff; read about via card description only)"
+    - "full test_wave3_e2e.py body (ran it, did not read every case)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 154, removed: 0 }
+  max_fan_in: { symbol: "ImageManager.add_image", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/image_manager.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — 12-month git history for image_manager.py shows no other file changing alongside it (6 commits, all single-file); no co-change peer exists to compare against"
+
+system_contract:
+  rules_checked: 2
+  holds: 0
+  unchecked: 1
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✗ violated — pyproject.toml:22 lists `reportlab>=4.0` as a runtime dependency alongside Pillow/NumPy; test_export_pdf.py::test_the_dependency_baseline_is_still_closed fails on this head (asserts packages == {pillow, numpy}, gets {numpy, pillow, reportlab}). Confirmed pre-existing: identical on `main` (git show main:pyproject.toml also lists reportlab); this diff does not touch pyproject.toml. Not introduced by CARD-047 — reported as evidence, not as a gating finding against this card."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: rule concerns grid-extent (width,height) pairs never collapsing to a scalar across module boundaries; this diff adds one call to an existing method (`image._source_shape()`) with no signature change anywhere on that boundary."
+  # Additionally, model diagnostics report INV-001/INV-002/INV-003 as scope_unmapped_model
+  # (no trace.yml in this repo yet - pipeline has not reached synthesis). Reported once as a
+  # pipeline-stage note, not as 3 separate rule problems, per protocol.
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_047_eager_source_shape.py
+    line: 5
+    title: "New test file's module docstring mischaracterizes ink_bounding_box as NumPy-backed"
+    description: |
+      The new test file's docstring (and the card's own "What to implement" section) describe
+      the first-access cost as "a full PIL decode plus a NumPy-backed ink-bounding-box scan."
+      Reading src/nonogram/sourcing/image.py's ink_bounding_box docstring directly: "Computed
+      with Pillow and nothing else (guardrail G-3, ADR-0006/R1): a 256-entry lookup table turns
+      the greyscale into an ink mask in one C-level pass, and getbbox walks that mask... NumPy
+      would do it too and is in the baseline, but it would have to materialise the whole raster
+      as an array first, which is the more expensive of the two ways to get the same four
+      integers." The implementation deliberately does NOT use NumPy for the bbox scan - it's
+      pure Pillow (point() + getbbox()). This is a documentation-only inaccuracy inherited from
+      the origin review finding's framing; it doesn't affect correctness of the fix or its tests,
+      but a future reader tracing "why is NumPy imported here" against this test file's docstring
+      would be looking for something that isn't there in that specific function's path.
+    suggestion: |
+      Correct the docstring to say "a full PIL decode plus a Pillow-native ink-bounding-box
+      scan" (or drop the NumPy claim entirely) in tests/test_card_047_eager_source_shape.py's
+      module docstring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

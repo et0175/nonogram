@@ -1,6 +1,6 @@
 # CARD-047: predict_size() adds a synchronous full-image decode to batch page renders
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/image_manager.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T12:45:00Z
 **Closed:** —
 **Actual:** —
@@ -140,3 +140,64 @@ corpus-dependent classes (`test_sourcing_image.py`/`test_derive_shape.py`/
 `property/test_grid_dimensions.py`; `test_batch_history.py`/
 `test_wave1_e2e.py`/`test_wave2_async_generation.py`/`test_web_upload.py`)
 — none touching `image_manager.py` or the new test file.
+
+## System contract
+
+- ADR-0022/R4 — predict_size() follows the picture's own ink bounding box, never the raw file's canvas dimensions (unchanged by this card, verified). (check: test, ref TestWave3ImageGeneration::test_predict_size_follows_ink_bounding_box_not_canvas_dimensions)
+- ADR-0006/R1 — The runtime dependency set is exactly stdlib + Pillow + NumPy. (check: test, ref TestDependencyBaseline_IsExactlyPillowAndNumpy — pre-existing standing violation on `main` due to reportlab, unrelated to this card; see CARD-057)
+
+[Review 1/3] Score: 9.0 — crit: 0, imp: 0
+[Review sync] 1 report(s) → meta/review/ (20260911T110414Z-CARD-047-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review): eager cache-priming inside add_image()
+moves the ink-bbox decode off the render path onto the upload path — an
+8-line additive change, structurally incapable of raising (confirmed by
+reading _source_shape()'s own try/except, not trusting its docstring).
+Reviewer independently reproduced the latency benchmark (~7.6ms/2000px,
+~0.97ms/800px — same order of magnitude as the implementer's ~5.2ms/
+~0.7ms) and confirmed the "decisive" test's call-count-immediately-
+after-add_image() assertion genuinely distinguishes eager from lazy
+priming, not just "called once ever." Confirmed only one production
+caller of add_image() exists (app.py:202, the upload loop this card
+targets) and that both CARD-045 degenerate-image test suites are
+genuinely unaffected. Zero Critical/Important; 1 Minor (test docstring
+said "NumPy-backed" for a scan that's actually pure Pillow — fixed in
+942f099, no re-review needed for a same-cycle doc-only correction to an
+already-reviewed test file's comment). Two out-of-scope observations
+noted (pre-existing ADR-0006/R1 reportlab drift — CARD-057's territory;
+no explicit image-count cap at upload time — pre-existing, not a
+regression). Risk: LOW, lane: FAST. Score 9.0 ≥ min_score 8 — severity
+gate OPEN. Cleared on cycle 1 of 3.
+
+Process note: the reviewer's own independent verification briefly hit a
+`git stash` collision with pre-existing unrelated stash entries in this
+worktree (stash is repo/worktree-shared, not per-branch) while
+re-deriving the red→green claim, resolved cleanly with no source file
+touched (confirmed: post-incident `git diff main...HEAD --stat` and
+`git status` both matched the expected 2-file, +154-line diff exactly,
+independently re-verified here before proceeding). The three pre-existing
+unrelated stash entries (WIP from `main`, unrelated to this card) are
+untouched.
+
+[8h spot-check] 3/3 sampled holds reproduced — independently re-read
+_source_shape()'s try/except (confirmed it cannot raise), confirmed
+predict_size()'s body has zero diff lines vs main, and confirmed
+add_image() has exactly one production caller (app.py:202).
+
+[AC/EC check] All criteria/guardrails ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: test_add_image_primes_the_source_shape_cache_immediately and test_decode_happens_during_add_image_not_on_first_render both pass fresh; latency independently measured and cross-checked by two parties (implementer ~5.2ms/2000px, reviewer ~7.6ms/2000px — same order of magnitude, methodology sound).
+AC-2 ✓ demonstrated — evidence: predict_size()'s body has zero diff lines vs main (git diff main...HEAD -- src/nonogram/admin/image_manager.py shows only add_image()'s +8 lines); both AC-2 regression tests pass fresh.
+G-1 ✓ demonstrated — evidence: same diff-scope check as AC-2; predict_size()'s return value verified identical for both a margin-fixture and a plain borderless image.
+
+All three items independently re-verified against the final state. Gate
+passes.
+
+[Docs] No README under src/nonogram/admin/ or tests/ carries a per-file
+inventory that would need updating for this diff.
+
+[Commit] Final state is 2 commits on the branch: f14ade7 (implementation +
+tests) and 942f099 (same-cycle Minor doc fix, no re-review triggered —
+test-comment-only, zero behavior change). Nothing further needed — cycle
+1 cleared cleanly.
+
+CYCLE 1 COMPLETE — SUCCESS. Ready for `/kanban done CARD-047`.
