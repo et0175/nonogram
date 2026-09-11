@@ -1,0 +1,248 @@
+version: 1
+generated_at: "2026-09-11T09:31:38Z"
+target: "CARD-050 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-050, cycle 2 (confirmation mode) — fix delta 2739a86..2ef1e60 on src/nonogram/admin/templates/batch_status.html, src/nonogram/admin/templates/generated_puzzles.html; full card diff 4f0dbc6..2ef1e60"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/templates/batch_status.html (full, fix delta)
+    - src/nonogram/admin/templates/generated_puzzles.html (full, fix delta)
+    - src/nonogram/admin/templates/puzzles_list.html (grep — sibling pattern)
+    - src/nonogram/admin/templates/book_select_puzzles.html (grep — sibling pattern)
+    - src/nonogram/analysis/quality_metric.py (quality_score range/clamp, lines 1-100 + 240-280)
+    - src/nonogram/generation/random_generator.py (full — confirmatory re-read, unchanged since cycle 1)
+    - src/nonogram/admin/batch_generator.py (grep for quality_score assignment sites, unchanged since cycle 1)
+    - src/nonogram/admin/app.py (grep for quality_score + template render call sites, unchanged since cycle 1)
+    - tests/test_card_050_quality_recognizability.py (full, unchanged since cycle 1)
+    - meta/kanban/cards/CARD-050.md (fix-round notes, new content only)
+    - meta/review/20260911T092008Z-CARD-050-cycle1.yml (prior cycle's YAML, for carry-forward)
+  not_reached:
+    - src/nonogram/admin/image_to_puzzle.py (same as cycle 1 — out of CARD-050 scope)
+    - full admin/ template set beyond the quality_score grep set
+  confidence: high
+
+metrics:
+  diff:
+    fix_delta: { files: 2, added: 2, removed: 2 }
+    full_card: { files: 8, added: 777, removed: 34 }
+  max_fan_in:
+    symbol: "batch_status.html / generated_puzzles.html (as Jinja templates)"
+    callers: 1
+    note: "Each template is render_template()'d from exactly one route in app.py (lines 483 and 465 respectively) — grep-verified. Low blast radius by construction."
+  tests_cover_change: false
+  hotspots:
+    - "src/nonogram/admin/templates/batch_status.html (14 commits/12mo touching this + generated_puzzles.html together, incl. two prior 'fix' commits — 2200bc7, 40b8c98 — on the same template pair)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the fix delta's two files already co-change together in this diff (both touched); no third historical co-change peer stood out in the 14-commit window beyond app.py, which is unchanged by this delta."
+
+system_contract:
+  rules_checked: 3
+  holds: 2
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — stale_check: TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed) re-run on this head still fails independent of this card (packages == {numpy, pillow, reportlab}; reportlab tracked under CARD-057). Confirmed `git diff 2739a86..HEAD -- pyproject.toml` is empty — the fix delta does not touch the dependency baseline, so this is the same pre-existing stale condition, not a new regression."
+    - "ADR-0022/R1 ✓ holds — carried(cycle 1, delta-clean): review-lens. The fix delta touches only two Jinja templates' quality_score display expressions; no grid-extent code (scalar or pair) is anywhere in the delta's file set."
+    - "ADR-0007 (capability lateral-import rule, tests/test_cli.py::test_every_import_in_the_package_points_inward) ✓ holds — re-ran on this head: 1 passed. Fix delta touches zero Python files, so this is a direct re-confirmation, not a carry — same green result as cycle 1."
+
+root_causes:
+  - id: RC-1
+    title: "Fix round addressed the two flagged template display bugs but added no automated regression test for the AC-2 UI-guard clause it was fixing, despite an existing Flask test-client fixture in the same test file that could exercise it cheaply"
+    finding_ids: [F-101]
+
+findings:
+  - id: F-001-VERIFY
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/batch_status.html
+    line: 144
+    title: "Cycle-1 finding 1 (Quality: None) — VERIFIED RESOLVED, fresh evidence"
+    description: |
+      Own render check (not the fix commit's claimed output): with the fix delta applied,
+      `{{ puzzle.quality_score or 'N/A' }}` — for quality_score=None, Jinja's `or` short-circuits
+      on the falsy None and renders the literal string 'N/A'; for any real measurement
+      (1-100, confirmed by quality_metric.py's `max(1, min(100, quality_score))` clamp at
+      line 265 — quality_score can never legitimately be 0, so `or` cannot misfire on a
+      real zero score), the number renders normally. Matches the pre-existing convention
+      already live in puzzles_list.html:160 and book_select_puzzles.html:125
+      (grep-confirmed unchanged). Resolved.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "2ef1e60"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002-VERIFY
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 65
+    title: "Cycle-1 finding 2 (misleading 0/100) — VERIFIED RESOLVED, fresh evidence"
+    description: |
+      Own render check: `{{ puzzle.get('quality_score') or 'N/A' }}/100` — the `.int` filter
+      that previously swallowed `int(None)` into a silent 0 is gone; for None the expression
+      now renders 'N/A' (the literal `/100` suffix outside the guard then reads as 'N/A/100').
+      This is no longer a false measurement claim (unlike the old '0/100'); it exactly matches
+      the sitewide convention in puzzles_list.html:160 (`{{ puzzle.quality_score or 'N/A'
+      }}</strong>/100`) and book_select_puzzles.html:125, both pre-existing and unchanged by
+      this diff — so the fix converges this template onto an established, already-accepted
+      display pattern rather than inventing a new one. Resolved for the finding as stated
+      (misleading numeric score); the 'N/A/100' string shape itself is a pre-existing sitewide
+      cosmetic wart, not something this fix introduced — see Minor note below.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "2ef1e60"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_card_050_quality_recognizability.py
+    line: 1
+    title: "Fix for the AC-2 UI-guard clause ships with no automated regression test"
+    description: |
+      The fix commit (2ef1e60) corrects both cycle-1 template findings but adds zero test
+      coverage for either. `grep -rln "batch_status.html\|generated_puzzles.html"
+      tests/ src/` returns only src/nonogram/admin/app.py (the render call sites) — no test
+      file references either template, before or after this fix. The verification in
+      CARD-050.md's new "Render evidence" section (direct ad-hoc Jinja2 rendering pasted
+      into the card notes) is real but manual and not committed as a test — a future edit to
+      either template (both are high-churn: 14 commits/12mo on this pair, including two prior
+      'fix' commits — 2200bc7, 40b8c98 — touching the same quality-display code) can silently
+      regress to 'Quality: None' or '0/100' with no CI signal. This is not a hypothetical
+      churn risk: it is the exact clause (AC-2 "UI updated to match") that produced both of
+      cycle 1's Important findings, so a regression here reproduces a defect this card was
+      opened to fix. The fix is also not "untestable Jinja glue" — tests/test_card_050_quality_recognizability.py:143
+      already has a `client` fixture (`client.post("/batch/generate-puzzles", ...)`)
+      demonstrating the Flask test-client pattern is available and cheap to extend to a GET
+      on the batch-status/generated-puzzles routes with a None-quality_score fixture puzzle,
+      asserting `"Quality: None"` / `"0/100"` never appear in `response.get_data(as_text=True)`.
+    suggestion: |
+      Add one test (reusing the `client`/`admin_app` fixtures already in this file) that
+      creates or seeds a random-mode (quality_score=None) puzzle, GETs the batch-status and
+      generated-puzzles routes, and asserts the response body contains 'N/A' and does not
+      contain 'Quality: None' or '0/100'. This closes the loop the manual render-evidence
+      note in CARD-050.md cannot: CI would catch a future regression.
+    confidence: high
+    source: static
+    violates: "AC-2"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002-CARRY
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/generation/random_generator.py
+    line: 227
+    title: "generate_puzzle() still fabricates quality_score / hardcodes recognizability — carried from cycle 1 (F-002), unchanged, still dead code"
+    description: |
+      Re-confirmed unchanged since cycle 1: `quality_score = int(60 + 35 * (0.5 - abs(fill_ratio
+      - 0.5)))` (line 227) and `"recognizability": "medium"` (line 239) remain in
+      RandomNonogramGenerator.generate_puzzle(), still disclosed as dead code in the module's
+      own docstring ("this module has zero production callers today"), still out of this
+      card's AC-2 scope (which targets batch_generator.py's production path only). Not part
+      of the fix delta; no new evidence changes cycle 1's disposition.
+    suggestion: "Same as cycle 1: follow-up card to delete or fix this dead path so an exported class doesn't carry a live landmine."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003-CARRY
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-050.md
+    line: 1
+    title: "Test-count inaccuracy (cycle 1 F-003) recurs in the fix-round notes"
+    description: |
+      Cycle 1's F-003 flagged CARD-050.md claiming '9/9' tests in
+      tests/test_card_050_quality_recognizability.py when the file actually has 7
+      (`grep -c '^def test_'` = 7, re-confirmed this cycle). The new fix-round section
+      appended to CARD-050.md by this cycle's fix commit repeats the same '9/9' figure
+      ("Regression check: tests/test_card_050_quality_recognizability.py (9/9)..."),
+      propagating the same inaccuracy rather than correcting it. Functionally harmless
+      (all 7 tests pass; re-run confirmed 21/21 passing across
+      test_card_050_quality_recognizability.py + test_cli.py this cycle) but it is the
+      second instance of a self-reported verification number in this card that doesn't
+      match direct measurement.
+    suggestion: "Correct '9/9' to '7/7' wherever it appears in CARD-050.md."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004-CARRY
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 369
+    title: "PILImage.open() not used as a context manager — carried from cycle 1 (F-004), unchanged"
+    description: |
+      Not part of the fix delta; re-confirmed unchanged since cycle 1. Same low-risk latent
+      resource-handling gap as before.
+    suggestion: "Same as cycle 1: wrap in `with PILImage.open(...) as original_image:`."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 65
+    title: "'N/A/100' reads as a malformed number, though it is not a new defect"
+    description: |
+      The chosen fix renders 'N/A/100' for a None quality_score (the literal `/100` suffix
+      sits outside the `or 'N/A'` guard). This is disclosed and deliberate (CARD-050.md's
+      fix-round notes call it out explicitly as matching finding 1's chosen style), and it
+      exactly matches the pre-existing, already-shipped pattern in puzzles_list.html:160 —
+      so it is not a regression this fix introduces, and it no longer asserts a false
+      measurement (unlike the old '0/100'). Still, 'N/A/100' is visually confusing on a
+      card meant to communicate a percentage-like score; a cleaner fix would suppress the
+      '/100' suffix entirely when the score is None.
+    suggestion: "Optional follow-up: wrap the whole '{{ score }}/100' in the None conditional so the suffix disappears too, e.g. {% if puzzle.get('quality_score') is not none %}{{ puzzle.get('quality_score') }}/100{% else %}N/A{% endif %} — applies equally to the three sibling templates sharing this pattern."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

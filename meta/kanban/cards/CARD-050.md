@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py, src/nonogram/generation/random_generator.py, src/nonogram/analysis/quality_metric.py, src/nonogram/admin/templates/batch_create.html
-**Review score:** 7.5 (cycle 1/3)
+**Review score:** 8.0 (cycle 2/3)
 **Started:** 2026-09-11T10:15:00Z
 **Closed:** —
 **Actual:** —
@@ -315,3 +315,20 @@ fixed templates. Scope: exactly these two files touched, nothing else.
 
 [Build gate] PASSED (scoped — test_card_050_quality_recognizability.py +
 test_batch_generator.py, exit 0)
+
+[Review 2/3] Score: 8.0 — crit: 0, imp: 1
+[Review sync] 1 report(s) → meta/review/ (20260911T093138Z-CARD-050-cycle2.yml)
+Cycle 2 summary (forge:review): both cycle-1 Important findings (F-001
+"Quality: None", F-002 misleading "0/100") independently re-verified
+RESOLVED with fresh evidence (re-ran the template render trace and the full
+test/structural-guard suite — 21/21). One NEW Important finding: the fix
+ships with no automated regression test for the exact clause it fixes —
+manual "render evidence" in Worktree notes isn't a committed test, and both
+templates are a high-churn area (14 commits/12mo, 2 prior fix commits on
+this exact quality-display code) — a real future-regression risk on the
+same code path that just needed fixing twice. 3 Minor (2 carried unchanged
+from cycle 1 — PILImage context manager, dead random_generator.py fake
+metrics; 1 recurring — the card's self-reported test count is still wrong,
+"9/9" vs actual 7, now duplicated instead of corrected). Score 8.0 ≥
+min_score 8 but 1 Important finding — severity gate still closed, one more
+fix round needed.
