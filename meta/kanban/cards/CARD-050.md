@@ -1,6 +1,6 @@
 # CARD-050: quality_score and recognizability are hardcoded fakes, not measurements
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/050-real-quality-recognizability
-**Worktree:** ../PythonProject4-CARD-050
+**Worktree:** —
 **Source:** meta/review/20260910T170025Z.yml#F-002,F-003
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py, src/nonogram/generation/random_generator.py, src/nonogram/analysis/quality_metric.py, src/nonogram/admin/templates/batch_create.html
 **Review score:** 9.0 (cycle 3/3)
 **Started:** 2026-09-11T10:15:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T11:15:00Z
+**Actual:** 0.15d
+**Merge commit:** 62f8c62
 **Blocked by:** —
 
 ## What to implement
