@@ -1,6 +1,6 @@
 # CARD-059: Remove the unreachable, unverified SVG-preview-by-file_id routes
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-09-11T15:20:00Z
 **Closed:** —
 **Actual:** —
@@ -136,3 +136,58 @@ formerly at `1251,1282,1311`) are byte-identical to before this diff
 apart from shifting up by 68 lines; their covering tests
 (`test_wave3_image_generation.py`, `tests/e2e/test_admin_workflow.py`)
 pass unchanged.
+
+## System contract
+
+_(no rule's scope.code covers this diff at a code-check level applicable here — confirmed via review; POL-002, the domain policy the removed routes bypassed, has no mechanical check registered.)_
+
+[Review 1/3] Score: 9.5 — crit: 0, imp: 0
+[Review sync] 1 report(s) → meta/review/ (20260911T123052Z-CARD-059-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review): independently re-derived every claim in
+the Worktree notes rather than trusting them — re-grepped for both
+removed imports' other usages, confirmed create_puzzle_from_image's
+real test caller by reading the test file directly, confirmed
+grid_to_svg's live usage in the kept routes by reading them directly.
+Went beyond the card's own AC-1 evidence by running the FULL suite on
+BOTH main and this branch and diffing the failure sets — identical 40
+failures except one flaky sub-case swap in test_batch_history.py
+(order/data-dependent, unrelated to app.py) — stronger proof of zero
+regressions than a single-branch run. Judged the two disclosed-but-
+untouched dead-code items (get_svg_filename now fully dead repo-wide;
+grid_to_svg_bytes already dead pre-diff) as correct scope discipline
+for a Touches:app.py-only card, not a finding requiring action. Zero
+Critical/Important; 1 Minor (suggest a small follow-up card to clean
+up both now/already-dead grid_renderer.py functions in one pass — not
+created here, flagged for the user). Risk: LOW, lane: FAST. Score 9.5
+≥ min_score 8, zero Critical/Important — severity gate OPEN. Cleared
+on cycle 1 of 3.
+
+[8h spot-check] 2/2 sampled holds reproduced — independently re-ran
+the full suite fresh (41 failures, none touching app.py/grid_renderer.py/
+image_to_puzzle.py) and re-confirmed the diff is exactly 1 file,
+70 deletions + 1 insertion.
+
+[AC/EC check] All criteria/guardrails ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: reviewer's own full-suite diff (main vs branch) shows an identical failure set bar one unrelated flaky swap; this gate's independent re-run: 41 failures, none touching the changed file.
+AC-2 ✓ demonstrated — evidence: fresh grep for api_puzzle_grid\b and the literal route strings across src/ and tests/, zero matches.
+AC-3 ✓ demonstrated — evidence: test_wave3_image_generation.py + tests/e2e/test_admin_workflow.py — 25 passed, 16 skipped, 0 failed, fresh.
+G-1 ✓ demonstrated — evidence: git diff main...HEAD --stat shows exactly src/nonogram/admin/app.py touched; the kept /api/puzzle/<puzzle_id>/grid routes are byte-identical (only shifted).
+G-2 ✓ demonstrated — evidence: same diff-scope check; zero touches to orchestrator.py, sourcing/, or cli.py.
+
+All five items independently re-verified across implementer, reviewer,
+and this gate. Gate passes.
+
+[Docs] No README under src/nonogram/admin/ carries a route-level
+inventory that would need updating for this diff.
+
+[Commit] Final state is 1 commit on the branch: c6a7dbd (dead route +
+unused-import removal). Nothing further needed — cycle 1 cleared
+cleanly.
+
+CYCLE 1 COMPLETE — SUCCESS. Ready for `/kanban done CARD-059`.
+
+Note for follow-up (not created here, per protocol): both reviewer and
+implementer flagged `grid_renderer.py`'s `get_svg_filename` (newly dead
+as a direct result of this card) and `grid_to_svg_bytes` (already dead
+before this card) as worth a small cleanup card in one pass.
