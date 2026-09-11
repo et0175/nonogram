@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-11
+- CARD-046 (tech-debt): Added a regression test for the ink-bbox-vs-file-dimensions sizing fix (`ec18fb4`) — every existing test image was a borderless solid rectangle, so no test could tell `ImageFile.predict_size()`'s ink-bounding-box behavior apart from the raw-file-dimensions bug it replaced.
 - CARD-051 (tech-debt): Admin panel's `generate_clues()` no longer reimplements run-length clue encoding — it now delegates to `nonogram.clues.compute_clues()`, the same canonical encoder `app.py` already calls elsewhere. Fixes a return-type divergence (lists instead of the ADR-0012 boundary tuples) and a ragged-grid crash (uncontrolled `IndexError` instead of a clear `ValueError`).
 - CARD-050 (bugfix): `quality_score`/`recognizability` are now real measurements instead of hardcoded fakes. Image-mode puzzles get them from an actual comparison against the source picture (`nonogram.analysis.quality_metric.measure_quality()`); random-mode puzzles get `None` (there's no source picture to measure fidelity against) instead of an unconditional `75`/`"medium"`. Also fixed a fragile `src.`-prefixed import in `random_generator.py` that was silently hiding a real ADR-0007 lateral-import violation, resolved by natively reimplementing the one function it needed.
 - CARD-049 (bugfix): Admin panel's image-mode puzzle generation now routes through the real solver-verified pipeline — every stored image-derived puzzle is guaranteed uniquely solvable, with real difficulty scoring instead of a grid-size-only estimate.
