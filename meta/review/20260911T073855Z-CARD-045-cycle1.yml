@@ -1,0 +1,43 @@
+version: 1
+generated_at: "2026-09-11T07:38:55Z"
+target: "CARD-045 — /Users/omelnikova/PycharmProjects/PythonProject4-CARD-045, git diff main...HEAD (src/nonogram/admin/image_manager.py, tests/test_image_batch_size_fix.py)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/image_manager.py (full file)
+    - tests/test_image_batch_size_fix.py (full file)
+    - src/nonogram/sourcing/random_grid.py (derive_extent, validate_extent, _derived_extent, source_shape — full)
+    - src/nonogram/errors.py (hierarchy)
+    - src/nonogram/admin/app.py (preview_batch_images, generate_batch_puzzles routes — read, not in file scope, used only to confirm blast radius)
+    - src/nonogram/admin/templates/image_preview.html, generate_batch.html (grep for predict_size call sites)
+    - meta/architecture/decisions/adr/0006-dependency-baseline.md, 0022-grid-extent-and-size-range.md (Rules blocks)
+    - meta/kanban/cards/CARD-045.md
+  not_reached:
+    - tests/test_sourcing_image.py, tests/test_derive_shape.py, tests/test_nudge.py, tests/property/test_grid_dimensions.py (pre-existing-failure files, out of scope per task brief, not opened)
+  confidence: high
+metrics:
+  diff: { files: 3, added: 300, removed: 3 }
+  max_fan_in: { symbol: "ImageFile.predict_size", callers: 7 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — image_manager.py has 5 commits/12mo, 2 fix-tagged, no other file co-changed with it in that window (only blank/merge-commit entries); no hotspot peer exists to name"
+
+system_contract:
+  rules_checked: 2
+  holds: 2
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is untouched by this diff (git diff main...HEAD -- pyproject.toml is empty; last changed in unrelated commit 5d5eda8). TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed) fails in this worktree (extra 'reportlab' package) but that failure is pre-existing and unrelated to pyproject.toml, which this card never edits — confirmed pre-existing per task brief's baseline note."
+    - "ADR-0022/R1 ✓ holds — image_manager.py:68 predict_size() returns a (width, height) tuple in every branch, including the new except ValueError: return (MIN_SIZE, MIN_SIZE) fallback at line 128 — a pair, never a scalar. Verified by direct call: ImageFile(dimensions=(0,0)).predict_size() -> (10, 10)."
+
+root_causes: []
+
+findings: []

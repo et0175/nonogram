@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-10 17:20_
+_Updated: 2026-09-11 00:00_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-045** P1 · predict_size() can crash a whole batch page on a degenerate image  _(wave 1)_
 - **CARD-049** P1 · Route admin image-mode generation through the solver-verified pipeline  _(wave 1)_
 - **CARD-050** P1 · quality_score and recognizability are hardcoded fakes, not measurements  _(wave 1)_
 - **CARD-046** P2 · Regression test for ink-bbox-vs-file-dimensions sizing fix  _(wave 1)_
@@ -40,6 +39,7 @@ _(none)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
+- **CARD-057** P3 · ADR-0006/R1's dependency baseline is stale — reportlab was added without updating it  _(wave 1)_
 - **CARD-030** P2 · Display inline success/error messages on form page  _(wave 4)_
 - **CARD-031** P2 · Show image metadata and suggested puzzle dimensions after upload  _(wave 4)_
 - **CARD-032** P2 · Restrict web form to image-only mode  _(wave 4)_
@@ -51,6 +51,10 @@ _(none)_
 
 ## In Progress
 _(none)_
+
+## Review
+- **CARD-045** predict_size() can crash a whole batch page on a degenerate image · cycle 1/3 · score 9.0 · ✓ AC/EC/G gate passed — ready for `done`
+  `worktree: ../PythonProject4-CARD-045` · `branch: card/045-predict-size-uncaught-value-error`
 
 ## Done
 - **CARD-001** Package scaffolding and CLI entry point
