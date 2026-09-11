@@ -236,6 +236,50 @@ class ImageFile:
             )
             return extent, substitution
 
+    def neighbour_extents(self, extent: tuple) -> List[tuple]:
+        """The extents one cell shorter and one cell longer than ``extent`` on
+        its long side, short side unchanged — what the batch retries when
+        ``extent`` itself was abandoned (CARD-062).
+
+        Ordered by how much of the picture each keeps (closest to the ink
+        bounding box's ratio first; ties go to the smaller extent). A side
+        outside ``MIN_SIZE..MAX_SIZE`` drops its candidate, so a 30-long
+        extent has only its -1 neighbour.
+
+        A square extent has no long side of its own, so it only moves toward
+        the picture's shape: the picture's longer axis grows by one, or its
+        shorter axis shrinks by one (width counts as longer for a square
+        picture). Moving the other way would turn a landscape picture's grid
+        portrait — at 30x30, where only shrinking is possible, that is the
+        difference between 30x29 and 29x30.
+        """
+        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE
+
+        width, height = extent
+        src_width, src_height = self._source_shape()
+        if width != height:
+            long_is_width = width > height
+            moves = [(long_is_width, -1), (long_is_width, 1)]
+        else:
+            picture_wide = src_width >= src_height
+            moves = [(not picture_wide, -1), (picture_wide, 1)]
+
+        candidates = []
+        for move_width, delta in moves:
+            w, h = (width + delta, height) if move_width else (width, height + delta)
+            if MIN_SIZE <= w <= MAX_SIZE and MIN_SIZE <= h <= MAX_SIZE:
+                candidates.append((w, h))
+
+        if min(src_width, src_height) <= 0:
+            return candidates
+        source_ratio = src_width / src_height
+
+        def kept(candidate: tuple) -> float:
+            grid_ratio = candidate[0] / candidate[1]
+            return min(source_ratio, grid_ratio) / max(source_ratio, grid_ratio)
+
+        return sorted(candidates, key=lambda c: (-kept(c), c[0] * c[1]))
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
         width, height = self.predict_size()
