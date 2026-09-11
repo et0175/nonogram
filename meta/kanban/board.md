@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-11 15:50_
+_Updated: 2026-09-11 16:20_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -29,7 +29,6 @@ _(none)_
 
 ## Ready
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
-- **CARD-058** P3 · Surface a note when admin silently substitutes the predicted puzzle size  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
@@ -50,6 +49,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-058** Surface a note when admin silently substitutes the predicted puzzle size · score 8.5 (cycle 1/3) · merged 6f87e3c
 - **CARD-059** Remove the unreachable, unverified SVG-preview-by-file_id routes · score 9.5 (cycle 1/3) · merged 47ca753
 - **CARD-057** ADR-0006/R1's dependency baseline is stale — reportlab was added without updating it · score 9.0 (cycle 1/3) · merged 94c5a8d
 - **CARD-054** Remove dead code — BatchGenerator._generate_puzzle_with_metrics · score 9.5 (cycle 1/3) · merged 77c450f

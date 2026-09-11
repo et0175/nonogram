@@ -1,6 +1,6 @@
 # CARD-058: Surface a note when admin silently substitutes the predicted puzzle size
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/058-predict-size-substitution-note
-**Worktree:** ../PythonProject4-CARD-058
+**Worktree:** —
 **Source:** meta/review/20260911T112249Z-CARD-048-cycle2.yml (out-of-scope observation)
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/image_manager.py, src/nonogram/admin/templates/image_preview.html, src/nonogram/admin/templates/generate_batch.html
 **Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-09-11T15:55:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T16:20:00Z
+**Actual:** 0.03d
+**Merge commit:** 6f87e3c
 **Blocked by:** —
 
 ## What to implement
