@@ -1,6 +1,6 @@
 # CARD-048: Widen ADR-0022/R3 and R4 scope.code to include the admin panel
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/048-adr-0022-scope-admin
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-048
 **Source:** meta/review/20260910T164426Z.yml#F-006
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-11T13:25:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -69,3 +69,41 @@ not be caught by any mechanical or review-lens check tied to these rules.
 
 None — documentation-only change to the architecture model, no production code
 touched.
+
+## Worktree notes
+
+**Implementation:** widened `ADR-0022/R3` and `R4`'s `scope.code` in the
+`## Rules` YAML block to include `"src/nonogram/admin/**"`. Step 2
+(consider widening R2) was resolved as: deliberately **not** widened,
+documented as a known/accepted gap in a new Negative consequence bullet
+— `admin/predict_size()` clamps its own `stated` value independently
+rather than calling `validate_extent` directly, so R2's `check`
+(`TestValidateExtent_RejectsSideAboveThirty`, which exercises
+`validate_extent` alone) would not actually reach admin's clamp; a
+scope claiming coverage a rule's check can't reach is worse than an
+honestly absent one. Added a `## History` entry (2026-09-11, "Scope
+widened, no decision change") for traceability, consistent with the
+ADR's own convention, without bumping `Status`/`Revised` — AC-2
+requires this be a scope declaration, not a decision revision, and no
+existing accepted clause is contradicted.
+
+**AC-1 verified:** `system_rules.py --root meta/architecture --scope
+'src/nonogram/admin/**' --verify-refs` — before the edit, only
+`ADR-0006/R1` and `ADR-0022/R1` appeared; after, `ADR-0022/R3` and `R4`
+both appear, with `check_refs_verified: true` (their check refs,
+`TestFitImage_RefusesRatioMismatchBeyondTwice` and
+`PropertyTest_BareSize_DerivesShorterSideFromSourceShape`, still exist
+and were not touched).
+
+**AC-2 verified:** `architect-validate/scripts/validate.py --root
+meta/architecture --phase all` — 0 errors both before and after the
+edit; the 2 pre-existing warnings (ADR-0006's `Migration:` field format,
+missing `trace.yml`) are identical on `main` and this branch — confirmed
+unrelated to this change, not newly introduced.
+
+**Regression check:** documentation-only change (Engineering
+constraints: none, no production code touched) — no test reads the ADR
+markdown file's content directly (grepped `tests/*.py` for
+`scope.code`/the ADR's filename, zero hits). `tests/test_cli.py`
+(includes the ADR-0007 structural import-boundary guard) — 86/86 pass,
+unaffected as expected.
