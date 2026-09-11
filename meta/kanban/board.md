@@ -28,7 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-061** P2 · MIN_SIZE floor forces small (N=10) puzzles square, discarding picture content  _(wave 1)_ — documented only; owner decides direction (options A–D in the card) before any implementation
+- **CARD-061** P2 · Admin "small" preset — 10 is the short side, the long side follows the picture  _(wave 1)_ — direction decided by the owner 2026-09-11; medium/large unchanged, MIN_SIZE untouched
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_

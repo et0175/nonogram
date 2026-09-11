@@ -1,164 +1,162 @@
-# CARD-061: MIN_SIZE floor forces small (N=10) puzzles square, discarding picture content
+# CARD-061: Admin "small" preset — 10 is the short side, the long side follows the picture
 
 **Status:** ready
 **Priority:** P2
 **Category:** bugfix
-**Estimate:** 0.5d
-**Complexity:** medium
+**Estimate:** 0.25d
+**Complexity:** simple
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/061-min-size-floor-vs-smallest-n
+**Branch:** card/061-small-preset-short-side
 **Worktree:** —
 **Source:** project owner, 2026-09-11, while visually testing CARD-058 on real pictures ("picture preview depends on the selected puzzle size ... small size — it's trimmed and not squeezed"; later: "main difficulty in generation of small (10*10) puzzles — they mostly look bad")
 **Idea:** —
 **Wave:** —
 **Depends on:** —
-**Touches:** src/nonogram/sourcing/random_grid.py, meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md, src/nonogram/admin/app.py (the `size_mapping` preset table), tests pinning `derive_extent`/`_derived_extent`
+**Touches:** src/nonogram/admin/image_manager.py, src/nonogram/admin/app.py (the `size_mapping` preset table), src/nonogram/admin/templates/batch_create.html (preset label only, if it changes), meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (one History note, no rule change)
 **Review score:** —
 **Started:** —
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** — (a design decision, see "Decide first" — not an external blocker)
+**Blocked by:** —
+
+## Decision (owner, 2026-09-11)
+
+- `MIN_SIZE = 10` stays the lower bound for **both** sides, project-wide.
+  Nothing smaller than 10 on either axis, ever. Core `sourcing/` arithmetic
+  and ADR-0022/R4 are **not** revised.
+- Admin's **"small" preset changes meaning**: 10 is the grid's **short** side
+  and the long side follows the picture's ratio (capped at `MAX_SIZE`).
+- "medium" (20) and "large" (30) keep today's meaning: the preset value is the
+  **long** side, the short side is derived (`derive_extent`), floored at 10.
+
+Worked on the owner's `c11.jpg` (ink bbox 229x149, 1.54:1):
+
+| preset | today | after this card |
+|---|---|---|
+| small | 10x10 (forced square, 65% kept) | **15x10** (~98% kept) |
+| medium | 20x13 | 20x13 (unchanged) |
+| large | 30x20 | 30x20 (unchanged) |
+
+Portrait pictures get the transposed grid (10 wide x 15 tall for a 1.54:1
+portrait) — the long side lands on the axis the *picture* is longer on,
+same convention as `_derived_extent`.
+
+Why this is the right shape of fix: ADR-0022/R4 already says a token carrying
+**both** dimensions "specifies the grid exactly and the source is fitted to
+it" — so admin computing the small rectangle itself and handing the core an
+explicit `(width, height)` is squarely inside the ADR. The CLI's `--size 10`
+is untouched. Why only "small": the floor only bites where
+`round(N * short/long) < 10`, i.e. essentially at N=10 (see "Background");
+flipping medium/large to short-side semantics too would make them collapse to
+the same 30xN grid for most real pictures (medium at 20-short already needs a
+30-long side at 1.5:1), so the ladder would stop being a ladder.
 
 ## What to implement
 
-**Documented for now, deliberately not implemented.** The owner asked for this
-to be recorded, not fixed, on 2026-09-11. It touches shared `sourcing/`
-arithmetic the CLI relies on and would revise ADR-0022/R4, so it must not be
-picked up as a side effect of an admin-UI card — it is its own decision.
+1. In `ImageFile._predict_size_detailed()` (`image_manager.py:124`), add the
+   small-preset path. Suggested representation: a new `size_mode` value
+   (e.g. `"short"`) with `size_value` = the short side, so `app.py:217`'s
+   table becomes `"small": (10, "short")` and the existing `"fixed"` path for
+   medium/large is untouched. Arithmetic for `"short"`:
+   - `long = round(size_value * long_edge / short_edge)`;
+   - if `long <= MAX_SIZE`: the extent is `(long, size_value)` for landscape,
+     `(size_value, long)` for portrait — a **full** pair, not a bare N;
+   - if `long > MAX_SIZE` (picture more elongated than 3:1): do **not** clamp
+     (a clamp crops, which is the harm this card removes). Fall back to
+     today's rule at the top of the range — `derive_extent(MAX_SIZE, None,
+     …)`, which yields 30x10 for 3:1..6:1 — and report it through the
+     existing `size_substitution()` channel (CARD-058) so the preview says the
+     picture was too elongated for "small". Beyond 6:1 the existing
+     `SizeTooSmallForSource` handling already covers it.
+2. Confirm the full pair actually reaches generation as an explicit extent:
+   trace `predict_size()`'s `(width, height)` through `to_dict()` and the
+   batch-generation path (CARD-049's solver-verified route) into
+   `GenerationRequest`, and make sure nothing downstream re-derives from a
+   single N. `validate_extent` and the CARD-026 aspect fit (>2x mismatch
+   refusal) apply as usual; a ratio-derived pair is within 2x by
+   construction, so the fit never refuses on this path.
+3. Keep `update_image_size()` (`image_manager.py:385`) and
+   `apply_size_to_all()` accepting the new mode; its "10..30" validation of
+   `size_value` still holds (the short side is 10).
+4. `batch_create.html:59` — the label "Small (10-15 cells)" becomes literally
+   true for pictures up to 1.5:1; reword only if it now misleads (up to 3:1
+   the long side can reach 30).
+5. ADR-0022: add a History entry (no rule change) recording (a) the
+   success-path consequence of the floor — at the minimum N the derived side
+   is forced to `MIN_SIZE` and the grid stops following the source — and
+   (b) that admin's "small" preset uses R4's explicit-pair clause to sidestep
+   it, with the decision above. Do not touch R4's statement.
 
-### The finding
+## Acceptance criteria
 
-ADR-0022/R4 (`meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md:121-151`)
-says a bare `--size N` is the grid's **longer** side and the shorter side is
-`round(N * short/long)` of the source's own ratio, floored at `MIN_SIZE`. The
-arithmetic is `_derived_extent` in `src/nonogram/sourcing/random_grid.py:218`:
+- **AC-1** — given a ~1.5:1 landscape fixture at the "small" preset, when
+  `predict_size()` runs, then it returns `(15, 10)`; the same fixture rotated
+  to portrait returns `(10, 15)`.
+- **AC-2** — given a square fixture at "small", then `(10, 10)`; given a
+  picture more elongated than 3:1 (e.g. 4:1), then the extent equals
+  `derive_extent(30, None, …)`'s answer (30x10) and `size_substitution()`
+  is non-`None`, so the CARD-058 note appears in the preview.
+- **AC-3** — given the "medium" and "large" presets, when `predict_size()`
+  runs on every existing test image, then the returned extents are
+  byte-identical to before this card (pin with the existing expectations,
+  e.g. `(20, 13)` / `(30, 20)` for the 1.54:1 fixture).
+- **AC-4** — no returned extent has a side under 10 or over 30, on a seeded
+  corpus of ratios from 1:1 to 6:1 in both orientations (hand-built
+  stdlib-`random` corpus with an asserted minimum case count, per the
+  project's test style).
+- **AC-5** — the generated puzzle for a "small" image is actually 15x10
+  (end-to-end through the batch route, not just the prediction), i.e. the
+  explicit pair reaches the pipeline.
+- **AC-6** — ADR-0022 carries the History note from step 5; `system_rules.py
+  --verify-refs` and `validate.py --phase all` still pass.
+
+## Guardrails
+
+- G-1: Do not touch `sourcing/`, `cli.py`, `orchestrator.py`, `MIN_SIZE`,
+  `MAX_SIZE`, `validate_size`, or anything under `tests/property/`. The
+  10..30 bound on both sides is owner-confirmed and untouched.
+- G-2: Never clamp the long side to 30 on the "small" path — fall back to
+  `derive_extent(MAX_SIZE, …)` instead. A clamp would reintroduce the exact
+  crop this card exists to remove, one step over.
+- G-3: "medium" and "large" behaviour is unchanged (AC-3 is the check).
+- G-4: ADR-0022/R4's statement is not edited; only a History entry is added.
+- G-5: Keep the two causes separate in the write-up: this fixes the *shape*
+  of small puzzles, not their resolution — a 10x10 of a square picture is
+  still 100 cells. Don't claim more than a side-by-side shows.
+
+## Background (the finding, kept for the record)
+
+ADR-0022/R4 (`0022-grid-extent-and-size-range.md:121-151`): a bare N is the
+grid's **longer** side, the shorter side is `round(N * short/long)` floored at
+`MIN_SIZE` — `_derived_extent`, `random_grid.py:218`:
 
 ```python
 derived = max(MIN_SIZE, round(stated * shorter_edge / longer_edge))
 ```
 
-`MIN_SIZE` is 10 (`random_grid.py:79`) and, since CARD-023 narrowed the range
-project-wide, 10 is **also the smallest allowed `N`**. Those two roles collide
-at the bottom of the range: at `N = 10` the derived side is `max(10, ≤10)`,
-which is 10 for *every* source. So the smallest puzzle is **forced square
-regardless of the picture's shape** — the source-tracking that ADR-0022 exists
-to provide is switched off precisely at N=10, and the grid silently crops the
-picture instead (the "trimmed, not squeezed" the owner saw). Nothing raises:
-this is the *floor* path succeeding, not the `SizeTooSmallForSource` *refusal*
-path, so CARD-058's substitution note does not (and cannot) cover it.
+`MIN_SIZE` is 10 and, since CARD-023, 10 is also the smallest allowed N. At
+`N = 10` the derived side is `max(10, ≤10)` = 10 for *every* source, so the
+smallest puzzle is forced square regardless of the picture's shape and crops
+it — the "trimmed, not squeezed" the owner saw. Nothing raises (this is the
+floor path succeeding, not the `SizeTooSmallForSource` refusal path), so
+CARD-058's note could not cover it. The effect fades as N grows:
 
-The effect fades quickly as N grows, because the floor only bites when
-`round(N * short/long) < 10`:
-
-| N | source ratios that still track exactly | content retained for c11 (1.54:1) |
+| N | source ratios that still track exactly | c11 (1.54:1) retained |
 |---|---|---|
-| 10 | none — every non-square source is forced to 10x10 | 65% (10x10) |
-| 12 | up to 1.2:1 | 78% (12x10) |
-| 15 | up to 1.5:1 | ~98% (15x10) |
-| 20 | up to 2:1 | ~100% (20x13) |
+| 10 | none — every non-square source → 10x10 | 65% |
+| 12 | up to 1.2:1 | 78% |
+| 15 | up to 1.5:1 | ~98% |
+| 20 | up to 2:1 | ~100% |
 
-Verified on a real picture from the owner's corpus:
-`~/MyProjects/books/nonograms/images/christmas/balls/c11.jpg`, ink bounding
-box 229x149 (1.537:1). The "small" preset (`admin/app.py:217`, `"small": (10,
-"fixed")`) gives a forced 10x10 keeping 65% of the picture; "medium" (N=20)
-gives 20x13 and keeps essentially all of it — which is exactly the difference
-the owner observed between the two presets.
+Options considered before the decision above: **A** accept and document;
+**B** retarget the "small" preset (chosen, in the short-side form); **C** a
+CARD-058-style warning when the floor forced a square; **D** decouple the
+floor from the smallest N (allow 10x7) — rejected by the owner: 10 stays the
+lower bound on both axes.
 
-ADR-0022 already states the *refusal* consequence of the floor plainly ("asking
-for a smaller puzzle refuses pictures a larger one would accept", lines
-146-151) but does **not** state this *success-path* consequence — that at the
-minimum N the shape rule degenerates to a square and crops. It should, whatever
-is decided below.
-
-### Two things are tangled in "10x10 puzzles look bad" — keep them apart
-
-1. **The floor collision above** — a real, fixable shape defect: the picture is
-   cropped to a square when it should not be.
-2. **Resolution** — 100 cells is very little for a recognizable picture no
-   matter how it is cropped. A 10x10 of a picture that *is* square will still
-   look coarse. This card is about (1); fixing (1) will not make (2) go away, and
-   the follow-up investigation should measure both separately (e.g. compare the
-   owner's "bad" 10x10s against the same pictures at 15x10 / 20x13 to see how
-   much of the badness is shape vs. cell count).
-
-### Decide first (owner's call, not the implementer's)
-
-Options, cheapest first. They are not mutually exclusive — A + C is a
-plausible combination.
-
-- **A. Accept and document.** Keep `MIN_SIZE = 10` as both floor and smallest
-  N; record the square-at-N=10 consequence in ADR-0022 (a History entry plus
-  one sentence next to the refusal consequence), so it stops being a surprise.
-  Zero code risk. Does nothing for the puzzles themselves.
-- **B. Retarget admin's "small" preset.** `batch_create.html:59` already
-  labels it "Small (10-15 cells)"; changing `"small": (10, "fixed")` to 15
-  (or `min` mode with 15) keeps sources up to 1.5:1 tracking exactly and
-  accepts up to 3:1. Admin-only, no ADR change, no CLI impact — the CLI user
-  who types `--size 10` still gets today's behaviour. Likely the largest
-  practical win for the owner's workflow at the smallest cost.
-- **C. Warn when the floor forced a square.** CARD-058's pattern applied to the
-  success path: when `derived == MIN_SIZE` *and* the unfloored value was below
-  it, surface a note ("shape floored to 10 — N cells or more would keep this
-  picture's proportions"). Admin-UI-only, but needs `sourcing/` to expose the
-  fact (a second return value or a sibling helper alongside `derive_extent`),
-  so `Touches` grows to `random_grid.py` — still no behaviour change.
-- **D. Decouple the floor from the smallest N.** Let the derived short side go
-  below 10 (say floor 5) so a 10x7 is possible. This is the only option that
-  fixes N=10 itself, and it is the expensive one: it revises ADR-0022/R4 *and*
-  CARD-023's project-wide 10..30 range (`validate_size` at `random_grid.py:105`
-  refuses any side under 10; export layouts, the measured 30x30 deadline
-  fixture, the property corpora and the web/admin size validators all assume
-  ≥10 per side), and it changes the N/5 : 1 refusal ceiling that
-  `_smallest_workable_size` (`random_grid.py:224`) derives from the same floor.
-  Needs a forge:architect-adr-writer pass before any code.
-
-Recommendation to start the discussion, not a decision: **A + B now** (cheap,
-targets the owner's actual workflow), **C** if the owner still hits the case
-through explicit sizes, **D** only if 10-wide puzzles with a non-square shape
-are a real product requirement — in which case it becomes a wave-scoped
-decision card, not a fix.
-
-1. Owner picks option(s) above; record the choice in this card and, for
-   anything touching R4's statement, in ADR-0022 via forge:architect-adr-writer.
-2. Only then implement, on a branch from this card, with `Touches` narrowed to
-   the chosen option.
-3. Whatever is chosen, add the missing success-path sentence to ADR-0022 (the
-   floor at N=10 yields a square and crops) — that part is unconditional.
-
-## Acceptance criteria
-
-- **AC-1** — given this card is picked up, when work starts, then the chosen
-  option (A/B/C/D or a combination) is recorded in this card *before* any
-  `sourcing/` or ADR edit lands, and any change to R4's statement goes
-  through an ADR revision, not a code-only edit.
-- **AC-2** — given `c11.jpg` (or an equivalent ~1.5:1 fixture committed under
-  `tests/`) at the admin "small" preset, when the batch preview renders, then
-  the outcome the chosen option promises is observable: either the note (C),
-  a non-square grid (B via N=15, or D), or — for A alone — nothing changes and
-  ADR-0022 now names the consequence.
-- **AC-3** — ADR-0022 states, next to its existing refusal consequence, that at
-  the minimum N the derived side is forced to `MIN_SIZE` and the grid stops
-  following the source's shape (unconditional, all options).
-- **AC-4** — `tests/property/test_solver_uniqueness.py` and the tests pinning
-  `derive_extent` still pass; for option D specifically, the `_derived_extent`
-  tie-to-even property test and the `SizeTooSmallForSource` refusal-message
-  tests are updated deliberately, not weakened, and the new floor is pinned by
-  a test that fails against `MIN_SIZE`-floored code.
-
-## Guardrails
-
-- G-1: No silent top clamp, ever — `_derived_extent`'s "longer side is exactly
-  `stated`" property (ADR-0022/R4, `random_grid.py:199-203`) is untouched by
-  every option.
-- G-2: Do not change the CLI's refuse-with-message behaviour on
-  `SizeTooSmallForSource` as a side effect; if option D moves the ceiling, the
-  message's "smallest workable N" must still be computed by
-  `_smallest_workable_size` from the *same* helpers, not hand-derived.
-- G-3: Options A/B/C must not touch `MIN_SIZE`, `validate_size`, or any test
-  under `tests/property/` — those belong to option D and its ADR revision only.
-- G-4: Keep the two causes separate in any write-up: do not claim the floor fix
-  makes 10x10 puzzles "look good" without a side-by-side against the same
-  pictures at a larger N.
+"10x10 puzzles look bad" has two causes and only one is fixed here: the
+forced-square crop (this card) and plain resolution (100 cells is coarse for
+any picture). Measure them separately when judging the result.
