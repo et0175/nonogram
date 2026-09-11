@@ -2,7 +2,8 @@
 the batch-preview render path to ImageManager.add_image() (upload time).
 
 Before this card, ``_source_shape()``'s first call — a full PIL decode plus
-a NumPy-backed bounding-box scan (``nonogram.sourcing.image.source_shape``)
+a Pillow-native bounding-box scan (``nonogram.sourcing.image.source_shape``,
+which deliberately avoids NumPy for this — see its own docstring)
 — happened lazily, inside ``image_preview.html``/``generate_batch.html``'s
 unpaginated ``{% for image in images %}`` template loops (``app.py``'s
 ``preview_batch_images``/``generate_batch_puzzles`` GET handlers). A batch of
