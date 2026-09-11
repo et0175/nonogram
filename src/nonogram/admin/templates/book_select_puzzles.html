@@ -27,7 +27,7 @@
                     <div class="col-md-2">
                         <label for="size" class="form-label">Size (px)</label>
                         <input type="number" class="form-control" id="size" name="size"
-                               min="10" max="30" value="{{ size or '' }}" placeholder="10-30">
+                               min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size or '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
                     </div>
                     <div class="col-md-2">
                         <label for="difficulty" class="form-label">Difficulty</label>

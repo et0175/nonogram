@@ -23,6 +23,7 @@ from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues, orchestrator
 from nonogram.errors import GenerationAbandoned, NonogramError
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 # CARD-050: real image-mode quality/recognizability, in place of the
 # density-only heuristic and hardcoded "medium" this replaces below.
@@ -110,6 +111,9 @@ def create_app(debug=None):
 
     # Custom Jinja2 filter for first N characters (avoids slice filter issues)
     app.jinja_env.filters['first_n'] = lambda s, n: str(s)[:n] if s else ''
+
+    # The supported grid range, for form bounds and labels (CARD-063).
+    app.jinja_env.globals.update(MIN_SIZE=MIN_SIZE, MAX_SIZE=MAX_SIZE)
 
     # Construct service instances
     # If DATABASE_URL is set, use DB-backed persistence; otherwise use in-memory mode

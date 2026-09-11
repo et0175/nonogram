@@ -13,6 +13,7 @@ import asyncio
 import random
 
 from nonogram import orchestrator
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 
 class BatchStatus(Enum):
@@ -191,8 +192,8 @@ class BatchGenerator:
         else:
             if not 10 <= count <= 200:
                 raise ValueError(f"Random batch count must be 10-200, got {count}")
-        if not sizes or not all(10 <= s <= 30 for s in sizes):
-            raise ValueError(f"Sizes must be 10-30, got {sizes}")
+        if not sizes or not all(MIN_SIZE <= s <= MAX_SIZE for s in sizes):
+            raise ValueError(f"Sizes must be {MIN_SIZE}-{MAX_SIZE}, got {sizes}")
         if source not in ("random", "images"):
             raise ValueError(f"Source must be 'random' or 'images', got {source}")
         if not 0 <= quality_filter <= 100:

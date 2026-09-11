@@ -2208,12 +2208,15 @@ class TestWebDocstrings_MatchTheShippedPackage:
     """
 
     def test_the_package_imports_exactly_what_the_docstring_names(self) -> None:
-        """The five capabilities the docstring names, and nothing else.
+        """The five capabilities and one shared module the docstring names, and
+        nothing else.
 
         ``difficulty`` and ``export`` are the registries ``pages.py`` renders
         the form's choices from; ``orchestrator`` and ``errors`` are CARD-020's
         — the pipeline a submission drives and the one hierarchy it catches;
-        ``sourcing`` provides image/random/library input modes to the form.
+        ``sourcing`` provides image/random/library input modes to the form;
+        ``limits`` (CARD-063) is the shared grid size range the form pages hand
+        to ``metadata.js`` and ``metadata.py`` bounds its suggestions by.
         Pinned as an exact set so a sixth import has to be a deliberate edit
         here, which is the only thing standing between this package and a
         capability module imported "just to check a value" (ADR-0019/R1).
@@ -2222,6 +2225,7 @@ class TestWebDocstrings_MatchTheShippedPackage:
             "difficulty",
             "errors",
             "export",
+            "limits",
             "orchestrator",
             "sourcing",
         }
@@ -2403,6 +2407,8 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "' '.join(buttons)": "CARD-030: constructed fragment from _suggestions_section",
     "width": "CARD-031: grid dimension (int), part of constructed size_str",
     "height": "CARD-031: grid dimension (int), part of constructed size_str",
+    "MIN_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
+    "MAX_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
 }
 
 
@@ -2422,12 +2428,12 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """43 interpolations, 16 escaped at the point of interpolation, 27 not."""
+        """53 interpolations, 19 escaped at the point of interpolation, 34 not."""
         found = _page_interpolations()
 
-        assert len(found) == 49, [(i.line, i.expression) for i in found]
+        assert len(found) == 53, [(i.line, i.expression) for i in found]
         assert sum(1 for i in found if i.escaped) == 19
-        assert sum(1 for i in found if not i.escaped) == 30
+        assert sum(1 for i in found if not i.escaped) == 34
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.

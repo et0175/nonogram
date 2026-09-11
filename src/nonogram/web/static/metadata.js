@@ -14,6 +14,16 @@
 (function() {
   "use strict";
 
+  // The supported grid range, rendered onto this script's own tag by the
+  // server from nonogram.limits (CARD-063) rather than repeated here. Read
+  // while the script loads: document.currentScript is null afterwards.
+  const SIZE_BOUNDS = (function(tag) {
+    return {
+      min: parseInt(tag.dataset.minSize, 10),
+      max: parseInt(tag.dataset.maxSize, 10),
+    };
+  })(document.currentScript);
+
   /**
    * Calculate the greatest common divisor of two numbers.
    * Used to simplify aspect ratios.
@@ -94,7 +104,7 @@
    * Returns a list of [width, height] pairs, ordered by how closely they
    * match the aspect ratio. All dimensions are within [minSize, maxSize].
    */
-  function suggestDimensions(metadata, minSize = 10, maxSize = 30) {
+  function suggestDimensions(metadata, minSize, maxSize) {
     const aspectW = metadata.aspectRatio.width;
     const aspectH = metadata.aspectRatio.height;
     const targetRatio = aspectW / aspectH;
@@ -308,7 +318,9 @@
           extractImageMetadata(file)
             .then(function(metadata) {
               // AC-135: Calculate suggestions
-              const suggestions = suggestDimensions(metadata);
+              const suggestions = suggestDimensions(
+                metadata, SIZE_BOUNDS.min, SIZE_BOUNDS.max
+              );
 
               // AC-135: Update form with results
               updateFormWithMetadata(metadata, suggestions);
