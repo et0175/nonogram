@@ -1,0 +1,125 @@
+version: 1
+generated_at: "2026-09-11T16:54:47Z"
+target: "card/062-abandon-retry-long-side, CONFIRMATION MODE cycle 2 of 3, fix delta 3a559fa..4d68ac2 (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-062)"
+mode: confirmation
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+pure_confirmation: true            # no new Critical/Important finding
+
+coverage:
+  read:
+    - "git diff 3a559fa..4d68ac2 (full)"
+    - "src/nonogram/admin/app.py 1-75 (_generate_image_puzzle), 340-470 (generate_batch_puzzles image loop)"
+    - "src/nonogram/admin/image_manager.py 180-282 (_short_side_extent, neighbour_extents)"
+    - "src/nonogram/orchestrator.py 1225-1254 (only bare raise on the image path)"
+    - "src/nonogram/errors.py class list (SolverTimeout, UnreadableImage, ImageNeedsManualCrop, GenerationAbandoned are NonogramError)"
+    - "tests/test_card_062_abandon_retry.py (full)"
+    - "meta/kanban/cards/CARD-062.md (main repo, incl. [Fix delta after cycle 1])"
+    - "meta/review/20260911T163753Z-CARD-062-cycle1.yml (main repo)"
+  not_reached:
+    - "system_rules.py lens not re-run: the delta does not touch meta/, so the rule set is cycle 1's manual assembly (4 rules)"
+  confidence: high
+  evidence:
+    red_check: "git archive 3a559fa src + tests/{test_card_062_abandon_retry.py,conftest.py,fixtures/} -> 4 failed, 10 passed (without fixtures/ 2 tests skip on conftest's 'Image fixtures not found' - harness detail). Failing: test_square_extent_moves_toward_the_pictures_shape, test_seeded_corpus_stays_in_range_and_keeps_the_short_side, test_adjustment_is_reported_only_for_a_stored_puzzle, test_a_different_error_on_a_neighbour_reports_the_abandonment"
+    green: "tests/test_card_062_abandon_retry.py on 4d68ac2: 14 passed"
+    regression: "regression set + tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed on 4d68ac2: 97 passed, 4 skipped"
+    outcome_enumeration: "_generate_image_puzzle driven with every {ok, abandon, NonogramError, generic} sequence over 1 and 2 neighbours (80 sequences): 0 mismatches vs contract; never raises None/TypeError; <=3 calls, no extent repeated; all-abandoned and abandon->NonogramError both re-raise the predicted extent's own error object (identity)"
+    neighbour_extents_exhaustive: "old (3a559fa) vs new over 3006 source shapes x all 441 extents in 10..30 (1,325,646 extents): non-square diffs 0; squares (63,126): zero-candidate 0, self-candidate 0, new candidate keeping less of the picture than the old same-sign candidate 0, new first choice worse than old first choice 0"
+    in_memory_mutants: "no file edited (exec'd patched copies via a pytest plugin): break->continue killed (1 test), drop predicted-extent guard killed (1), raise last abandonment killed (1), square rule reverted to 3a559fa killed (2), square moves both on short axis killed (2)"
+    real_pictures: "christmas/balls 13 x {small (10,short), large (30,fixed)}: small b3 10x12->10x11, c12 17x10->16x10, c14 10x13->10x12, b4 abandoned after 3 extents; large b3 24x30->24x29; others at prediction; 0.00-0.07 s per picture; no square prediction occurs in this corpus"
+metrics:
+  diff: { files: 3, added: 86, removed: 18 }
+  max_fan_in: { symbol: "nonogram.admin.app._generate_image_puzzle", callers: 1 }   # app.py:390; ImageFile.neighbour_extents: 1 production caller (app.py:53)
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # app.py + image_manager.py: 75 commits since repo start 2026-09-06, 41 fix/bug
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact - repository is 5 days old (first commit 2026-09-06); the only co-change peers of app.py are itself and image_manager.py, both in the delta"
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds (re-verified; delta touches app.py/image_manager.py) - git diff 3a559fa..4d68ac2 adds no import; git diff 5f8d618..4d68ac2 -- pyproject.toml empty; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed passed on 4d68ac2"
+    - "ADR-0022/R1 ✓ holds (re-verified) - neighbour_extents still returns List[(w, h)]; the new `moves` list is internal (axis, delta) pairs that never leave the method; _generate_image_puzzle still builds GenerationRequest(width=, height=)"
+    - "ADR-0022/R3 ✓ holds (re-verified) - git diff 5f8d618..4d68ac2 -- src/nonogram/sourcing empty; every retry extent still goes through orchestrator.generate()"
+    - "ADR-0022/R4 ✓ holds (re-verified) - explicit (w, h) per attempt; the card's image_manager.py diff is a single pure-addition hunk (@@ -238,0 +239,44), so _predict_size_detailed/_short_side_extent are unchanged"
+
+task_contract:
+  - "AC-1 ✓ holds - re-verified: test_ac1_ac2_abandoned_prediction_is_rescued_by_a_neighbour passes; real small b3/c12/c14 stored at 10x11/16x10/10x12, large b3 at 24x29"
+  - "AC-2 ✓ holds - re-verified: the moved append (app.py:432-437) still emits 'wide.png: generated at 16x10 — 15x10 had no unique solution' (test_ac1_ac2 and test_ac2_more_than_three_adjustments_are_summarised pass); new test_adjustment_is_reported_only_for_a_stored_puzzle shows a filtered-out rescue emits no line"
+  - "AC-3 ✓ holds - re-verified: test_ac3 passes; enumeration: all-abandoned re-raises the predicted extent's own error object after exactly 1+len(neighbours) <= 3 calls; real b4 abandoned with today's message"
+  - "AC-4 ✓ holds - re-verified: test_ac4 passes (1 call); enumeration: a NonogramError or generic error on the PREDICTED extent propagates after exactly 1 call; mutant dropping the `if first_abandonment is None: raise` guard killed"
+  - "AC-5 ✓ holds - re-verified: test_ac5 passes; enumeration: success at the prediction returns ((puzzle), predicted extent) after 1 call"
+  - "AC-6 ✓ holds under the recorded square reading - re-verified: non-square candidates identical to 3a559fa over 1,262,520 extents; range 10..30, >=1 candidate, never the predicted extent (exhaustive); for squares the literal 'short side unchanged' cannot hold for ANY -1 move under either the card's rule or the refinement (min side becomes N-1), and the refinement never keeps less of the picture (0/63,126) - see F-001 for the card-text drift"
+  - "G-1 ✓ holds - re-verified: git diff 5f8d618..4d68ac2 -- orchestrator.py sourcing/ solver/ cli.py is empty"
+  - "G-2 ✓ holds - re-verified: image_manager.py card diff is one pure-addition hunk; predict_size()/size_substitution() untouched; src/nonogram/admin/templates diff empty"
+  - "G-3 ✓ holds — carried(cycle 1, delta-clean): delta files (app.py, image_manager.py, test file) intersect none of G-3's scope (pixel-nudge bound, solver, judge_candidate in orchestrator.py/solver/); also confirmed by the empty G-1 diff"
+  - "G-4 ✓ holds - re-verified: enumeration asserts no extent repeated in 80 sequences; exhaustive check 0 self-candidates; corpus test asserts (w, h) not in candidates and no duplicates"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-062.md
+    line: 66
+    title: "Card body still states the pre-refinement square rule; the code now follows a different one"
+    description: |
+      Fix 2 changed image_manager.py:263-265 so a square extent moves toward the picture's
+      shape (grow the picture's longer axis, shrink its shorter one). The card's step 1
+      (lines 66-67: "use the axis the picture is longer on") and AC-6 (lines 102-105: "no
+      retried extent has ... a different short side than predicted") still describe the old
+      rule; only the Worktree notes record the refinement. The refinement itself is sound:
+      exhaustively it never keeps less of the picture than the old rule (0/63,126 square cases),
+      it changes nothing for non-square extents, it never yields zero candidates or the
+      predicted extent, and AC-6 read literally was already unsatisfiable for a square's -1
+      move under the card's own rule. Scenario: after done, someone re-deriving from the card
+      body (a later card, a test author, the owner) expects 30x30 for a slightly landscape
+      picture to retry at 29x30 and reads the code's 30x29 as a deviation.
+    suggestion: |
+      At done, amend step 1's square sentence and AC-6's wording in the main-repo card to the
+      rule the code implements (or have the owner acknowledge it in the done note).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 66
+    title: "Out of scope: a generic (non-NonogramError) exception on a neighbour still replaces the abandonment message"
+    description: |
+      The fix catches only NonogramError on a neighbour; enumeration confirms abandon->ValueError
+      raises the ValueError. No reachable source was found: orchestrator.py:1242, the image
+      path's only bare raise, is `pragma: no cover` and cannot be reached, and the file was already decoded at
+      the predicted extent. Also, after a neighbour's NonogramError the second neighbour is not
+      tried; 3a559fa did the same (the error propagated), so this is not a regression.
+    suggestion: "None required; noted for follow-up."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+previous_findings:
+  - { id: "cycle1/F-001", status: fixed, fixed_in: 4d68ac2, evidence: "append now after generated_count += 1 (app.py:431-437); test_adjustment_is_reported_only_for_a_stored_puzzle fails on 3a559fa, passes on 4d68ac2; add_puzzle/PIL/measure_quality exceptions now also produce no adjustment line" }
+  - { id: "cycle1/F-002", status: fixed, fixed_in: 4d68ac2, evidence: "1010x1000 at 30x30 -> [(30, 29)]; exhaustive old-vs-new shows the refinement is never worse and non-squares unchanged; card-text drift left as cycle2/F-001" }
+  - { id: "cycle1/F-003", status: fixed, fixed_in: 4d68ac2, evidence: "except NonogramError -> break only when first_abandonment is set (app.py:66-69); test_a_different_error_on_a_neighbour_reports_the_abandonment fails on 3a559fa, passes on 4d68ac2; 80-sequence enumeration shows no None raise; generic-exception residual noted as cycle2/F-002" }
+  - { id: "cycle1/F-004", status: open, note: "out-of-scope tie observation, unaffected by the delta" }

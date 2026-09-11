@@ -1,0 +1,154 @@
+version: 1
+generated_at: "2026-09-11T16:37:53Z"
+target: "card/062-abandon-retry-long-side, commit 3a559fa, diff 5f8d618..3a559fa (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-062)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (new _generate_image_puzzle, generate_batch_puzzles loop 333-467)"
+    - "src/nonogram/admin/image_manager.py (_source_shape, predict_size, _predict_size_detailed, _short_side_extent, neighbour_extents)"
+    - "src/nonogram/orchestrator.py (GENERATION_BUDGET_SECONDS, MAX_NUDGE_ATTEMPTS, generate() image path 1126-1284, difficulty_in_requested_tier)"
+    - "src/nonogram/errors.py (class list)"
+    - "tests/test_card_062_abandon_retry.py (full)"
+    - "meta/kanban/cards/CARD-062.md (main repo copy)"
+    - "meta/architecture/decisions/adr/0006, 0022 Rules blocks (main repo)"
+  not_reached:
+    - "templates rendering of flash categories beyond confirming base.html calls get_flashed_messages"
+    - "meta/architecture requirements/trace (absent in both trees; system_rules.py assembled 0 rules, manual assembly used)"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 332, removed: 11 }
+  max_fan_in: { symbol: "ImageFile.neighbour_extents", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # 70 commits since repo start (2026-09-06), 39 fix/bug
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact - repository is 5 days old and app.py co-changes only with itself (69) and image_manager.py (9), both in the diff; the empty list says nothing about long-term coupling"
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 holds - git diff 5f8d618..3a559fa -- pyproject.toml is empty; new imports are nonogram.errors.GenerationAbandoned and nonogram.sourcing.random_grid.MIN_SIZE/MAX_SIZE only; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed passes on 3a559fa"
+    - "ADR-0022/R1 holds - extent crosses app.py<->image_manager.py<->orchestrator only as (width, height) pairs (neighbour_extents returns List[(w,h)], _generate_image_puzzle builds GenerationRequest(width=, height=)); no scalar size introduced"
+    - "ADR-0022/R3 holds - retry extents go through orchestrator.generate(), whose fit/refusal path is untouched (sourcing/ diff empty); ref TestFitImage_RefusesRatioMismatchBeyondTwice exists in tests/test_sourcing_image.py. That file has 13 failures on 3a559fa, identical set on a clean 5f8d618 extract (pre-existing, corpus-dependent), none touched by this diff"
+    - "ADR-0022/R4 holds - admin passes an explicit (w,h) pair per attempt (explicit-extent clause); bare-N derivation in _predict_size_detailed/_short_side_extent unchanged (image_manager diff is a pure addition). Ref PropertyTest_BareSize_DerivesShorterSideFromSourceShape lives in tests/property/test_grid_dimensions.py; its one failure (test_a_bare_size_image_run_decodes_the_picture_exactly_twice) fails identically on clean 5f8d618"
+
+root_causes:
+  - id: RC-1
+    title: "Adjustment is recorded when the neighbour generates, before the puzzle is filtered/measured/stored"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Card's candidate rule only ever moves the long axis, which at a MAX_SIZE square flips orientation"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 384
+    title: "Size-adjustment line is flashed for a rescued picture that was never stored"
+    description: |
+      adjustments.append(...) runs right after _generate_image_puzzle returns (384-389), before
+      the quality filter (407-408 `continue`), measure_quality (401-404) and add_puzzle (414).
+      Scenario: batch_quality_filter=60 (set at app.py:266), c12.jpg is abandoned at 17x10 and
+      rescued at 16x10, scores 50 -> skipped. The results then read "No valid puzzles generated"
+      plus "c12.jpg: generated at 16x10 - 17x10 had no unique solution". Likewise, if
+      PILImage.open/measure_quality/add_puzzle raises after a rescue, the same picture gets both an
+      adjustment line and an "Error processing c12.jpg: ..." line. The sentence is literally true
+      (it was generated) but reads as "stored at 16x10". No test pins either behaviour.
+    suggestion: |
+      Append the adjustment after add_puzzle succeeds (next to generated_count += 1), keeping
+      `used`/(width, height) in locals; add a test with quality_filter above the score.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/image_manager.py
+    line: 254
+    title: "Square extent at 30x30 offers only a neighbour that flips the grid against the picture"
+    description: |
+      For a square extent the long axis is the picture's longer axis (254-257), and +1 is dropped
+      at MAX_SIZE. Reproduced: a 1010x1000 picture at fixed 30 predicts (30, 30) and
+      neighbour_extents returns [(29, 30)] - a portrait grid for a landscape picture
+      (keeps ~0.948 of the ratio), while (30, 29) (~0.986) is never tried. Same at 20x20:
+      [(21, 20), (19, 20)], never (20, 19). Reachable with the Large preset (fixed 30) for
+      pictures within ~1.7% of square. The implementation follows the card's rule literally
+      (AC-6 holds); it is the rule that undercuts its own "keeps the most of the picture" intent
+      at the top of the range.
+    suggestion: |
+      Owner decision: for a square extent, consider "the -1 candidate shrinks the picture's
+      SHORTER axis" (i.e. 30x30 landscape -> (30, 29)), or accept as-is. Not a blocker.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 57
+    title: "A neighbour's non-abandon error replaces the predicted extent's abandonment message"
+    description: |
+      Only GenerationAbandoned is caught (57); anything a neighbour attempt raises propagates.
+      Each generate() call sets its own 30 s deadline (orchestrator.py:1159,
+      GENERATION_BUDGET_SECONDS=30.0), so a neighbour can raise SolverTimeout, or
+      ImageNeedsManualCrop at a ratio boundary, after the predicted extent was abandoned. The
+      batch then shows that error for an extent the user never saw, with no mention of the
+      retry, instead of today's abandonment message. The card is silent on this case (AC-3
+      covers only all-abandoned). Not reproducible on the owner's pictures: every call measured
+      0.00-0.04 s.
+    suggestion: |
+      Either document it as intended or, on a neighbour's non-abandon error, stop and raise
+      first_abandonment. Owner call.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/image_manager.py
+    line: 274
+    title: "Out of scope: ties go to the smaller extent, but a tie can never happen"
+    description: |
+      A tie in kept() between (w-1)/h and (w+1)/h needs source_ratio^2 = (w^2-1)/h^2, i.e.
+      w^2-1 a perfect square: impossible for integer sides >= 10 (same for the portrait axis).
+      So the card's tie rule can never fire with integer source dims, and nothing tests it.
+      Harmless. Cost note: worst case per abandoned picture is 3 generate() calls x (1
+      conversion + 5 nudges) = 18 solves and up to 3 x 30 s inside the synchronous Flask
+      request (was 6 solves / 30 s).
+    suggestion: "None required; noted for follow-up."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
