@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-050** P1 · quality_score and recognizability are hardcoded fakes, not measurements  _(wave 1)_
 - **CARD-046** P2 · Regression test for ink-bbox-vs-file-dimensions sizing fix  _(wave 1)_
 - **CARD-047** P2 · predict_size() adds a synchronous full-image decode to batch page renders  _(wave 1)_
 - **CARD-051** P2 · Stop reimplementing clue encoding in admin — call nonogram.clues  _(wave 1)_
@@ -49,7 +48,9 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-_(none)_
+- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements
+  `worktree: ../PythonProject4-CARD-050` · `branch: card/050-real-quality-recognizability`
+  `elapsed: 0.0d / 1d est`
 
 ## Review
 _(none)_

@@ -1,6 +1,6 @@
 # CARD-050: quality_score and recognizability are hardcoded fakes, not measurements
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/050-real-quality-recognizability
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-050
 **Source:** meta/review/20260910T170025Z.yml#F-002,F-003
 **Idea:** —
 **Wave:** —
 **Depends on:** —
-**Touches:** src/nonogram/admin/image_to_puzzle.py, src/nonogram/admin/batch_generator.py, src/nonogram/generation/random_generator.py, src/nonogram/admin/templates/batch_create.html
+**Touches:** src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py, src/nonogram/generation/random_generator.py, src/nonogram/analysis/quality_metric.py, src/nonogram/admin/templates/batch_create.html
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-11T10:15:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -68,10 +68,27 @@ generation path, not real measurements:
    incompatible class identities — fix this first so it can't bite whatever
    this card wires in.
 2. **Image mode**: call `nonogram.analysis.quality_metric.measure_quality()` (or
-   equivalent) comparing the generated grid against the source picture, in
-   `create_puzzle_from_image` (or wherever CARD-049 ends up placing image-mode
-   generation) — replacing the density-only heuristic and the hardcoded
-   `"medium"`.
+   equivalent) comparing the generated grid against the source picture.
+   **Update since this card was written**: CARD-049 (merged, commit `98cdaaa`)
+   moved real (non-preview) image-mode generation OUT of
+   `image_to_puzzle.create_puzzle_from_image` and into `app.py`'s
+   `generate_batch_puzzles` POST handler, calling `orchestrator.generate(...)`
+   directly and mapping the returned `Puzzle` onto `puzzle_review.add_puzzle()`
+   — see `app.py`'s per-image loop (~line 332-400 post-CARD-049). The density-
+   only heuristic and hardcoded `"medium"` you're replacing now live in
+   `image_to_puzzle.py` only as the code path for the two SVG-**preview**
+   routes (`/api/puzzle-grid/<file_id>[/download]`), which per CARD-049's own
+   documented decision deliberately do NOT store puzzles and are NOT where
+   `quality_score`/`recognizability` need fixing — fixing them there would be
+   wasted effort on values nothing persists. **Do this card's image-mode fix in
+   `app.py`'s per-image loop**, right after `orchestrator.generate()` returns
+   a `Puzzle` and before/alongside the `puzzle_review.add_puzzle(...)` call —
+   you have the source image path (`image.file_path`) and the resulting
+   `puzzle.grid` both in scope there. `image_to_puzzle.py`'s
+   `create_puzzle_from_image`'s own `quality_score`/`recognizability`
+   computation may be left as-is (it's dead weight for the preview routes,
+   which don't read those two fields from its return dict) or cleaned up if
+   trivial — implementer's judgment, not the point of this card.
 3. **Random mode**: there is no "source picture" to compare against for a
    randomly-generated grid, so `quality_metric.measure_quality()` as-is doesn't
    apply. Either (a) define and wire a random-mode-appropriate quality signal
@@ -117,3 +134,15 @@ generation path, not real measurements:
   silently change the DB column's nullability assumptions elsewhere — check
   `nonogram.db.models.Puzzle.quality_score`'s column definition and any
   non-null constraint before choosing this option.
+
+## System contract
+
+- ADR-0006/R1 — The runtime dependency set is exactly stdlib + Pillow + NumPy. (check: test, ref TestDependencyBaseline_IsExactlyPillowAndNumpy)
+- ADR-0022/R1 — Grid extent crosses module boundaries as a (width, height) pair, never a scalar. (check: review-lens)
+
+## Worktree notes
+
+[Env] forge 2026.8.17 (no forge.min_version declared in .skills.yml — no comparison performed)
+[System contract] assembled fresh via system_rules.py --scope 'src/nonogram/admin/**,src/nonogram/generation/**,src/nonogram/analysis/**' (card had no section — added: ADR-0006/R1, ADR-0022/R1)
+[Known pre-existing gap] ADR-0006/R1's named check (TestDependencyBaseline_IsExactlyPillowAndNumpy) currently fails on `main` independent of any card — `reportlab` was added to pyproject.toml without updating the ADR/test (discovered during CARD-045's review). Tracked separately as CARD-057. Do not let this card's review spend a cycle on it; it cannot be fixed within this card's scope (pyproject.toml is out of Touches).
+[Touches updated at start] Original Touches listed `image_to_puzzle.py`; corrected to `app.py` (real image-mode generation moved there by CARD-049, merged before this card started) plus `analysis/quality_metric.py` (the module this card wires in). See the "What to implement" step-2 update above for the full reasoning.
