@@ -1,6 +1,6 @@
 # CARD-054: Remove dead code — BatchGenerator._generate_puzzle_with_metrics
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/054-remove-dead-metrics-method
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-054
 **Source:** meta/review/20260910T170025Z.yml#F-006
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/batch_generator.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-11T14:05:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -53,3 +53,29 @@ and shifted them).
   fixed instead of the method being found dead, re-verify against the current
   file rather than assuming this card's premise still holds — removal is only
   correct if the method is genuinely unreachable.
+
+## Worktree notes
+
+**Implementation:** confirmed fresh (per G-1) that
+`_generate_puzzle_with_metrics` still has zero callers even after
+CARD-050 landed and touched this same file — grep across `src/` and
+`tests/` found only the method's own definition. CARD-050 fixed the
+hardcoded `quality_score`/`recognizability` pattern in
+`_generate_random_batch` (the method that IS actually called);
+`_generate_puzzle_with_metrics` carried the same fix (CARD-050's
+Worktree notes mention this) but remained dead — this card's premise
+held. Removed the method (lines 455-500) entirely. Kept
+`PuzzleMetrics`/`GeneratedPuzzle` (still used as field types on
+`BatchJob.puzzles`/`GeneratedPuzzle.metrics`) and the `uuid`/
+`orchestrator` imports (both still used elsewhere in the file).
+
+**AC-1 verified:** full suite run — 39 failures, all in the previously
+documented flaky/corpus-dependent classes, none touching
+`batch_generator.py` or any test file. Scoped run (`test_batch_generator.py`
++ `test_card_050_quality_recognizability.py` +
+`test_cli.py::test_every_import_in_the_package_points_inward`) — 25/25
+pass.
+
+**AC-2 verified:** fresh grep for `_generate_puzzle_with_metrics` across
+the repository after the edit — zero matches. `python3 -c "import ast;
+ast.parse(...)"` confirms the file still parses cleanly.
