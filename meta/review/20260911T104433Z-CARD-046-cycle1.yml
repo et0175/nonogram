@@ -1,0 +1,69 @@
+version: 1
+generated_at: "2026-09-11T10:44:33Z"
+target: "card/046-source-shape-regression-test vs main (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-046, git diff main...HEAD)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_wave3_e2e.py (full file)
+    - src/nonogram/admin/image_manager.py (ImageFile._source_shape, predict_size)
+    - src/nonogram/sourcing/image.py (source_shape, ink_bounding_box)
+    - src/nonogram/sourcing/random_grid.py (derive_extent, _derived_extent, _keeps_half)
+    - tests/test_image_batch_size_fix.py (grepped for overlap)
+    - tests/test_admin_image_uniqueness.py (grepped for overlap)
+    - meta/kanban/cards/CARD-046.md
+  not_reached:
+    - tests/integration_tests.py (mentioned in card, not independently re-verified)
+  confidence: high
+
+metrics:
+  diff: { files: 1, added: 62, removed: 0 }
+  max_fan_in: { symbol: null, callers: null }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — diff adds test code only, no production symbol changed"
+    hotspots: "no_eligible_fact — touched file has low churn (3 commits/12mo) and no fix-commit besides the bugfix this card regression-tests"
+
+system_contract:
+  rules_checked: 0
+  holds: 0
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "scope_unmapped_model — pipeline-stage note: trace.yml/requirements.yml/threat-model.md absent from meta/architecture; system_rules.py --scope tests/test_wave3_e2e.py returned rules: [] with scope_unmapped_model: [INV-001, INV-002, INV-003]. Not a defect of this card — the project has not reached synthesis yet, so every scoped rule is unmappable for the same reason. Reported once, not as 3 rule problems."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_wave3_e2e.py
+    line: 178
+    title: "Fixture-construction code duplicated between the two new tests"
+    description: |
+      Both test_predict_size_follows_ink_bounding_box_not_canvas_dimensions and
+      test_source_shape_primitive_ignores_blank_canvas_margin independently build
+      an identical 300x100 white canvas with an 81x81 black rectangle via
+      PIL.ImageDraw, saved to two different filenames. Not a correctness issue
+      (each test remains self-contained and independently verifiable), just a
+      DRY nit disproportionate to this card's trivial scope.
+    suggestion: |
+      Optional follow-up: factor the canvas construction into a small helper
+      or fixture if a third such image-with-margin test is ever added. Not
+      worth a fix cycle on its own for a 0.25d card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
