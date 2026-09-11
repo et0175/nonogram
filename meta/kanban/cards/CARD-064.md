@@ -33,14 +33,18 @@ the user. Measured 2026-09-11 on the owner's `christmas/balls` set at Medium
 
 | picture | shape | Medium | kept | Large (30) | kept |
 |---|---|---|---|---|---|
-| c5 | 2.90:1 | 10x20 | **69%** | 10x30 | 96% |
+| c5 | 2.90:1 | 10x20 | **69%** | 10x30 | 97% |
 | c9 | 2.36:1 | 10x20 | 85% | 13x30 | 98% |
 | c4 | 2.26:1 | 10x20 | 89% | 13x30 | 98% |
 
 All three generated at the Large extents in the same day's Large=30
 measurement. The other 10 pictures keep 97–100% at Medium. A 5:1 picture
 (e.g. 50x10) keeps only 60% even at Large (30x10), which is why some
-pictures cannot be done at any supported size.
+pictures cannot be done at any supported size. At the proposed 90% threshold
+the cut-off is about 3.3:1: Large's 30x10 keeps 3 ÷ ratio of the picture, so
+a 4:1 picture (75%) is skipped too, at every preset. That includes Small,
+whose CARD-061 over-the-cap fallback has been generating such pictures at
+30x10 with a note.
 
 Squeezing was considered and not chosen: ADR-0022/R3 forbids stretching,
 and a 2.9→2 squeeze visibly deforms a thin silhouette.
@@ -57,6 +61,13 @@ picture's ink bounding box. It is a named constant, **proposed 90%**
 (`MIN_KEPT_SHARE = 0.9`); the owner may change it. At 90% it flags exactly
 c4, c5 and c9 at Medium on the owner's set.
 
+Dry run of the rule on today's code (2026-09-11): the 13 balls pictures plus
+3.2:1, 4:1, 5:1 and 1:5 synthetic shapes, at small, medium, large and auto —
+68 cases:
+- 52 fit;
+- 4 move to Large: c4, c5, c9 and the 3.2:1 shape, all at Medium;
+- 12 cannot fit: the 4:1, 5:1 and 1:5 shapes at every preset.
+
 ## What to implement
 
 1. **One fit decision** next to `predict_size()` (`image_manager.py`),
@@ -71,10 +82,14 @@ c4, c5 and c9 at Medium on the owner's set.
    against the grid ratio.
    - Applies to every size mode: medium, a custom fixed size from the preview
      page, auto/min/max, and small's short-side mode.
-   - Small's short-side mode never crops up to about 3:1. Beyond that its
-     current over-the-cap fallback (CARD-061, "too elongated" note) is the
-     Large extent anyway, so it lands in `fits`-at-Large, or in
-     `cannot_fit`.
+   - Judge the chosen size by its *own* extent. For small's short-side mode
+     that is the ratio pair when its long side fits under 30. When it
+     doesn't (beyond about 3:1), the chosen size is not possible. The Large
+     extent is judged instead, so the picture is `moved_to_large` or
+     `cannot_fit`. CARD-061's separate "too elongated" note goes away.
+     Example: a custom short side of 15 on a 2.5:1 picture needs 38 cells;
+     Large's 30x12 keeps 100%, so it is `moved_to_large` and the change is
+     visible, not silent.
    - Large itself can only be `fits` or `cannot_fit`.
 2. **This replaces the two earlier "silent substitution" paths** with the
    same decision:
