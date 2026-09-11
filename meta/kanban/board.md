@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-11 00:00_
+_Updated: 2026-09-11 09:00_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -53,10 +53,10 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-045** predict_size() can crash a whole batch page on a degenerate image · cycle 1/3 · score 9.0 · ✓ AC/EC/G gate passed — ready for `done`
-  `worktree: ../PythonProject4-CARD-045` · `branch: card/045-predict-size-uncaught-value-error`
+_(none)_
 
 ## Done
+- **CARD-045** predict_size() can crash a whole batch page on a degenerate image · score 9.0 (cycle 1/3) · merged 2fc8094
 - **CARD-001** Package scaffolding and CLI entry point
 - **CARD-002** Clue derivation via run-length encoding
 - **CARD-003** Random grid sourcing with size and density validation
