@@ -1,0 +1,174 @@
+version: 1
+generated_at: "2026-09-11T18:52:53Z"
+target: "card/064-thin-pictures-bump-or-message fix delta 9906e48..74648ac (base f45d460) — CARD-064 cycle 2, CONFIRMATION MODE"
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+pure_confirmation: true   # no new Critical/Important finding
+
+coverage:
+  read:
+    - "git diff 9906e48..74648ac (5 files, +120/-15), full"
+    - src/nonogram/admin/app.py (_generate_image_puzzle, batch loop 340-509)
+    - src/nonogram/admin/image_manager.py (1-300: MIN_KEPT_SHARE, SizeFit, _kept_share, size_fit, kept_share, keeps_enough, _own_extent, neighbour_extents)
+    - tests/test_card_064_thin_pictures.py (helpers, boundary, AC-4, AC-5, e2e fixtures and tests)
+    - tests/test_card_062_abandon_retry.py (flash assertions)
+    - meta/kanban/cards/CARD-064.md, CARD-061.md (b3 notes), CARD-062.md (b3 table)
+    - meta/review/20260911T184200Z-CARD-064-cycle1.yml
+  not_reached:
+    - full test suite (not run, per instructions; the delta touches only admin fit/batch code and two helpers, and the scoped set covers them; no fresh full-suite run judged necessary)
+    - tests/test_web_server.py (excluded per instructions)
+    - templates (unchanged in the delta)
+  confidence: high
+  evidence_produced:
+    - "scoped suite on 74648ac: 151 passed, 4 skipped"
+    - "red check: 9906e48 src (git archive) + new test file: 3 failed (boundary shape0, AC-1 moved line, retry share), 27 passed; 4:1 pins pass on base"
+    - "differential corpus 362,800 cases (all w,h in 1..160 x 13 settings + 30,000 random 1:1-8:1): 416 status/extent diffs, all on an exact 90% share (206 chosen@90 moved->fits, 28 chosen@90 cannot->fits, 182 large@90 cannot->moved); 0 off-boundary; max share delta where the extent is unchanged 2.2e-16"
+    - "neighbour ordering (float ratios) vs exact kept_share ordering: 0 mismatches over 378,164 neighbours"
+    - "owner's christmas/balls (13 pictures x 4 presets): 0 status/extent diffs base vs head; only c4/c5/c9 at Medium moved"
+    - "b3 source shape 840x1037: Small fits 10x12 (97.2%); 10x11 keeps 89.1% (implementer's rescue claim holds)"
+    - "Flask run, 4 moved pictures at Medium: 3 'moved up to Large' lines + '... and 1 more pictures moved up to Large'"
+    - "mutants in scratch copies (10): 6 killed (M1 chosen >=->>, M3 guard always on, M4 gate inverted, M7 revert to ratio-of-ratios, M8 large >=->>, M10 share dropped), 4 survived (M2 keeps_enough >=->>, M5 moved cap 3->2, M9 summary >3->>4, M6 degenerate 1.0->0.0)"
+    - "ADR validators: --verify-refs dead_check_ref [], check_refs_verified true; validate.py 0 errors, 2 pre-existing warnings"
+metrics:
+  diff: { files: 5, added: 120, removed: 15 }
+  max_fan_in: { symbol: "image_manager._kept_share", callers: 3 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (75 commits/12mo)"
+    - "src/nonogram/admin/image_manager.py (14 commits/12mo)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — confirmation cycle; the cycle-1 co-change peer (ADR-0022) is in this delta"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-verified: git diff f45d460..74648ac -- pyproject.toml empty; delta adds only nonogram.errors (test) and a nonogram-internal name to app.py's import; import-guard test passes"
+    - "ADR-0022/R1 ✓ holds — re-verified: kept_share/keeps_enough take (w,h) extents; SizeFit fields unchanged"
+    - "ADR-0022/R3 ✓ holds — re-verified: no stretching introduced; retry still generates by crop at a neighbour extent; CANNOT_FIT still never reaches generate() (e2e test passes)"
+    - "ADR-0022/R4 ✓ holds — re-verified: sourcing/, cli.py, orchestrator.py untouched (git diff f45d460..74648ac empty); ADR diff removes 0 lines, adds only a History entry"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model (trace.yml absent)"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model (trace.yml absent)"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model (trace.yml absent)"
+
+task_contract:
+  - "AC-1 ✓ re-verified — test_ac1 e2e asserts the stored 10x30 grid and the line 'candle.png: moved up to Large — the chosen size 10x20 would cut it (keeps 69%)'; real c5 at Medium -> moved_to_large 10x30"
+  - "AC-2 ✓ re-verified — skip e2e passes; new (400,100) fixed 20/25 pins -> CANNOT_FIT 30x10; the only CANNOT_FIT changes in 362,800 cases are 182 exact-90% Large cases, now correctly MOVED (inclusive >=)"
+  - "AC-3 ✓ re-verified — 0 off-boundary status/extent diffs over 362,800 cases; the 234 exact-90% chosen cases now FIT at their own extent (more faithful to AC-3 than 9906e48); real set 0 diffs"
+  - "AC-4 ✓ re-verified — the threshold test at 0.85/0.99 passes; keeps_enough reads the module global MIN_KEPT_SHARE at call time; no new 0.9 literal in src"
+  - "AC-5 ✓ re-verified — seeded corpus test passes with >=100 per status; my 362,800-case corpus agrees (see F-003 on oracle independence)"
+  - "AC-6 ✓ re-verified — test_card_061 changes only the _retained helper, no assertion removed; size_substitution/_predict_size_detailed/_short_side_extent: 0 references in src"
+  - "G-1 ✓ re-verified — sourcing/orchestrator/cli/pyproject untouched; ADR-0022 change is one appended History entry, 0 removed lines; validators 0 errors"
+  - "G-2 ✓ re-verified (was ✗ at cycle 1) — moved pictures listed in results (e2e + 4-picture Flask run: 3 lines + summary); a sub-threshold retry now carries its share; CANNOT_FIT never generated"
+  - "G-3 ✓ re-verified — same evidence as AC-3"
+  - "G-4 ✓ re-verified — no 10/30 literal in the delta's added src lines"
+
+prior_findings:
+  - "cycle1 F-001 (Important, G-2 moved line) — FIXED, re-derived: red on 9906e48, green on 74648ac, Flask run shows the lines"
+  - "cycle1 F-002 (float boundary) — FIXED, re-derived: corpus shows only exact-90% changes; M7 (revert) killed"
+  - "cycle1 F-003 (retry under threshold) — RESOLVED by visibility: sound (see verdict note)"
+  - "cycle1 F-004 (ADR-0022 History) — FIXED: dated History line, no rule text changed"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 460
+    title: "Sub-threshold shares in [89.5%, 90%) print as '90%'"
+    description: |
+      The new results lines format a share that is below MIN_KEPT_SHARE with
+      :.0%, so 0.895 to 0.8999 prints "90%". The retry note is appended only
+      when the grid keeps less than 90%, yet it can read "; it keeps 90% of the
+      picture". The moved line can likewise read "would cut it (keeps 90%)"
+      (app.py:446), e.g. a 130x290 picture at Medium (10x20 keeps 89.7%).
+      Corpus: 420 of 69,397 moved cases and 2,842 of 15,049 sub-threshold
+      neighbours. The owner's real set has none (c4 prints 89%). The preview
+      template uses the same rounding (already there at cycle 1), so the pages
+      agree with each other.
+    suggestion: |
+      Floor rather than round shares shown below the threshold (in both the
+      flash lines and the template), or show one decimal.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_card_064_thin_pictures.py
+    line: 259
+    title: "New delta branches untested: moved-line cap/summary, keeps_enough boundary, degenerate kept_share"
+    description: |
+      Mutants that survive all five related test files:
+      - M5: moved[:3] changed to [:2]. A batch with exactly 3 moved pictures
+        then silently drops the third. The owner's own set moves exactly 3
+        pictures at Medium (c4, c5, c9).
+      - M9: the summary check changed from > 3 to > 4. A fourth moved picture
+        then disappears with no summary line.
+      - M2: keeps_enough's >= changed to >.
+      - M6: the degenerate branch of kept_share returns 0.0 instead of 1.0.
+      The code as written is correct: a Flask run with 4 moved pictures showed
+      3 lines plus "... and 1 more pictures moved up to Large". Kept Minor
+      rather than the surviving-mutant default (Important), because the
+      mutation check is opt-in here and the behaviour was shown correct by
+      execution. The block also mirrors CARD-062's adjustments cap, which has
+      a test. The cycle-1 skipped-picture cap is equally untested.
+    suggestion: |
+      Add one e2e with 4 moved pictures asserting 3 lines + the summary line
+      (and the same for skipped); optionally a keeps_enough test at exactly
+      MIN_KEPT_SHARE.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_card_064_thin_pictures.py
+    line: 54
+    title: "Test oracles _kept/_retained now repeat the production formula"
+    description: |
+      Both helpers now use the same integer cross-product as _kept_share. The
+      AC-5 assertion abs(_kept(...) - fit.kept) < 1e-9 therefore compares one
+      formula with itself. CLAUDE.md's test style prefers an independent
+      second implementation. The risk is low: the formula is algebraically
+      trivial, and M7 (reverting to ratio-of-ratios) is still killed by the
+      boundary test.
+    suggestion: |
+      Use fractions.Fraction(src_w, src_h) vs Fraction(grid_w, grid_h) in the
+      oracles — exact at the boundary and independent of the code.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "Retry-share resolution (cycle1 F-003) judged sound: G-2 forbids silent sub-threshold crops, not all of them; the card keeps CARD-062's retry; neighbours are tried best-share first (0 ordering mismatches); refusing would drop b3 at Small (10x11 keeps 89.1%). Owner question remaining: a MOVED picture whose Large grid is abandoned and whose neighbour keeps <90% (e.g. 441x1442 -> 10x29, 89%) is generated with a note, where the owner's 'if Large also cuts it, skip' could be read as skip."
+  - "ADR-0022 History line says every move and skip 'is shown ... in the batch results'; beyond 3 they are summarised by count, and the retry-below-threshold case is not mentioned. Wording only."
+  - "'... and 1 more pictures moved up to Large' — singular/plural, same pattern as the existing summaries."
+  - "Carried from cycle 1, unaffected: create_batch(sizes=...) records the chosen size_value for pictures generated at Large; stale preset table in test_image_batch_size_fix.py."

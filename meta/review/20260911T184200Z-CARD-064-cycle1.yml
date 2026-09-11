@@ -1,0 +1,183 @@
+version: 1
+generated_at: "2026-09-11T18:42:00Z"
+target: "card/064-thin-pictures-bump-or-message 9906e48 (base f45d460) — CARD-064 cycle 1"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/image_manager.py (full ImageFile, SizeFit, presets)
+    - src/nonogram/admin/app.py (_generate_image_puzzle, batch/from-images, preview, generate-puzzles, cropped route)
+    - src/nonogram/admin/templates/image_preview.html (full, incl. JS)
+    - src/nonogram/admin/templates/generate_batch.html (full)
+    - tests/test_card_064_thin_pictures.py (full)
+    - tests/test_card_058_* / test_card_061_* / test_image_batch_size_fix.py (diffs + fixtures)
+    - tests/test_card_062_abandon_retry.py (fixtures, e2e)
+    - meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    - meta/kanban/cards/CARD-064.md (main repo)
+  not_reached:
+    - full test suite (not run by reviewer, per instructions; AC-5 full-suite comparison is the implementer's)
+    - tests/test_web_server.py (excluded per instructions)
+  confidence: high
+  evidence_produced:
+    - "scoped suite: 146 passed, 4 skipped on 9906e48"
+    - "differential corpus 20,000 cases base predict_size vs size_fit: 0 FITS extent mismatches (4,360 FITS), 0 FITS with base substitution, 0 base-unsubstituted>=90% cases not FITS"
+    - "Large derivation: 0/5,000 mismatches vs derive_extent(30) or beyond-6:1 fallback"
+    - "real christmas/balls (13 pictures x 4 presets): exactly c4 (88.5%->13x30), c5 (69.1%->10x30), c9 (84.7%->13x30) at Medium MOVED_TO_LARGE; 49 FITS unchanged vs base"
+    - "Jinja (k*100)|round|int vs Python :.0% over 100,001 values: 0 mismatches"
+    - "mutants in scratch copy (11): 10 killed, 1 survived (M1 chosen_kept >= -> >)"
+    - "15 failures in test_sourcing_image/test_export_pdf/test_grid_dimensions identical on f45d460 and 9906e48 (pre-existing)"
+metrics:
+  diff: { files: 8, added: 555, removed: 280 }
+  max_fan_in: { symbol: "ImageFile.size_fit", callers: 5 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (73 commits/12mo, 46 fix/bug)"
+    - "src/nonogram/admin/image_manager.py (12 commits/12mo, 9 fix/bug)"
+  cochange_missing:
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (co-changed 2/12 with image_manager.py)"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject.toml; new imports are dataclasses/typing/nonogram only; the check file's result is identical on f45d460 and 9906e48"
+    - "ADR-0022/R1 ✓ holds — SizeFit.extent/chosen are (w,h) pairs; to_dict still predicted_width/height; SIZE_PRESETS are preset settings, not grid extents"
+    - "ADR-0022/R3 ✓ holds — no stretching introduced; generation still via orchestrator image mode (centred crop); CANNOT_FIT never reaches generate() (test_ac2 e2e; mutant M4 killed); sourcing/ untouched"
+    - "ADR-0022/R4 ✓ holds — bare-N arithmetic via derive_extent unchanged (0/4,360 FITS mismatches vs base); SizeTooSmallForSource now yields a visible move-to-Large or skip, never a silent clamp; not naming the smallest N is the pre-existing, documented admin divergence (ADR-0022 Negative consequence, CARD-048)"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model"
+
+root_causes:
+  - id: RC-1
+    title: "Moved-to-Large is visible before generation but not in the batch results"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Kept-share threshold compared in raw float with no boundary test"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 389
+    title: "MOVED_TO_LARGE pictures are not listed in the batch results (G-2)"
+    description: |
+      The batch loop flashes skipped pictures (app.py:471-474) and ±1 retry
+      adjustments (app.py:440-445), but a MOVED_TO_LARGE picture generated at
+      fit.extent produces no line at all. Scenario: c5 at Medium is generated
+      at 10x30; the results page shows "Generated 1 puzzle(s) from 1 image(s)"
+      and a 10×30 thumbnail, with nothing saying Medium was not used. G-2 says
+      "every changed or skipped picture is visible in the preview and in the
+      batch results". CARD-058's own rationale treats bare numbers as not
+      visible. test_ac1_a_thin_picture_is_moved_to_large_end_to_end discards
+      the flashed messages, so nothing pins this.
+    suggestion: |
+      For fit.status == MOVED_TO_LARGE, append a results line, e.g. "c5.jpg:
+      the chosen size (10x20) would cut this picture (keeps 69%) — generated
+      at Large 10x30". If ±1 retry then changes the extent, fold that into the
+      same line. Assert it in the AC-1 e2e test's flashed list.
+    confidence: high
+    source: static
+    violates: G-2
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/image_manager.py
+    line: 170
+    title: "Exact-threshold share depends on orientation (float); inclusive boundary untested"
+    description: |
+      _kept_share divides float ratios. A picture that keeps exactly 90%
+      gets a status that depends on its orientation: (100,90) at Fixed 10 ->
+      chosen_kept 0.8999999999999999 -> MOVED_TO_LARGE (30x27), while the
+      transpose (90,100) -> 0.9 -> FITS (10x10). No test sits on the
+      boundary: mutant `chosen_kept >= MIN_KEPT_SHARE` -> `>` survives all
+      five related test files (90 passed). Kept Minor rather than the
+      surviving-mutant default because only exact-ratio inputs are affected
+      and the outcome is a visible move, not a silent crop.
+    suggestion: |
+      Compare with a small tolerance (>= MIN_KEPT_SHARE - 1e-9) or with
+      integer cross-multiplication. Add a boundary test in both orientations
+      (e.g. 100x90 and 90x100 at Fixed 10 -> FITS).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 54
+    title: "±1 retry neighbour can land below MIN_KEPT_SHARE"
+    description: |
+      neighbour_extents ignores MIN_KEPT_SHARE. In a seeded corpus, 356 of
+      6,547 neighbour candidates of FITS/MOVED pictures keep less than 90%.
+      Example: 441x1442 at Small moves to 10x30; if 10x30 is abandoned it is
+      generated at 10x29, keeping 88.7%. Another: 560x254 at Medium fits 20x10
+      (90.7%); its neighbour 19x10 keeps 86%. The results line says only
+      "generated at 10x29 — 10x30 had no unique solution" and gives no share.
+      The card keeps the ±1 retry, so this may be accepted, but it contradicts
+      G-2's "never crop below the threshold silently".
+    suggestion: |
+      Either drop neighbours whose share is below MIN_KEPT_SHARE, or put the
+      share in the adjustment line. Ask the owner which.
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    line: 459
+    title: "ADR-0022 history/consequences describe the removed admin mechanisms"
+    description: |
+      These ADR-0022 passages now describe code that was removed:
+      - The CARD-061 History entry: "falls back to R4's bare-N derivation at
+        MAX_SIZE, and the admin UI says so".
+      - The CARD-048 Negative consequence: admin "silently searches for and
+        substitutes a workable N".
+      ADR-0022 co-changed with image_manager.py in 2 of 12 commits and is
+      absent from this diff.
+    suggestion: |
+      At done, add a dated History line recording CARD-064 (move to Large or
+      skip at MIN_KEPT_SHARE). No rule text changes, so G-1 is intact.
+    confidence: medium
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "app.py:359 create_batch(sizes=...) records the chosen size_value (e.g. 20) even when the picture was generated at Large"
+  - "tests/test_image_batch_size_fix.py:209-214 keeps a stale private preset table (small fixed 10, large 25) that never reads SIZE_PRESETS"
+  - "15 failures in test_sourcing_image.py / test_export_pdf.py / property/test_grid_dimensions.py are identical on f45d460 and 9906e48 (environment/corpus, not CARD-064)"
+  - "Custom Fixed 10: any picture from ~1.12:1 moves to Large (e.g. 30x27): 100 cells become 810. This follows the card ('a custom fixed size from the preview page'), but the card's dry run covered only presets; worth showing the owner"
+  - "CARD-061's two removed (400,100) fixed pins are covered by 5:1 pins plus the AC-5 corpus, not by an exact 4:1 pin; the notes' 'moved to CARD-064 coverage' slightly overstates this"

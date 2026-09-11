@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-064** P2 · Thin pictures — move up to Large instead of cropping, or say it can't be done  _(wave 1)_ — owner decision 2026-09-11; 90% kept threshold proposed
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
@@ -50,6 +49,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-064** Thin pictures — move up to Large instead of cropping, or say it can't be done · score 9.0 (cycle 2/3) · merged be582ea
 - **CARD-063** One source of truth for the grid size range — shared `limits` module · score 9.0 (cycle 2/3) · merged 0a77655
 - **CARD-062** Admin batch — retry an abandoned picture at long side ±1 before giving up · score 9.5 (cycle 2/3) · merged 696871d
 - **CARD-061** Admin "small" preset — 10 is the short side, the long side follows the picture (+ large preset 30) · score 9.0 (cycle 2/3) · merged 3cf8517
