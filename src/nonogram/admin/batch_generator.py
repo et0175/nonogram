@@ -31,8 +31,11 @@ class PuzzleMetrics:
 
     difficulty_score: int  # 1-100
     difficulty_tier: str  # Easy/Medium/Hard
-    quality_score: int  # 1-100
-    recognizability: str  # high/medium/low
+    # None for random-mode puzzles (CARD-050, AC-2, option 3b): there is no
+    # source picture to measure fidelity against, so these are not a real
+    # measurement there. Populated (1-100 / high|medium|low) for image mode.
+    quality_score: Optional[int]
+    recognizability: Optional[str]
     strategies_used: List[str]
     backtracking_depth: int
 
@@ -283,7 +286,6 @@ class BatchGenerator:
             count = job.total_count
             sizes = job.sizes or [15, 20, 25]
             theme = job.theme or "christmas"
-            quality_filter = 0  # TODO: get from job
         else:
             # DB mode: fetch from database
             import uuid as uuid_module
@@ -297,7 +299,11 @@ class BatchGenerator:
                 count = batch.total_count
                 sizes = batch.sizes or [15, 20, 25]
                 theme = batch.theme or "christmas"
-                quality_filter = batch.quality_filter or 0
+                # batch.quality_filter is still accepted/stored on the Batch
+                # row (create_batch validates 0-100), but CARD-050 (AC-2,
+                # option 3b) no longer applies it here — see the comment
+                # below on why random-mode quality_score is None rather
+                # than a fabricated number.
 
         # Generate real puzzles using the orchestrator pipeline
         puzzles = orchestrator.generate_batch(
@@ -310,10 +316,21 @@ class BatchGenerator:
         # Store each puzzle
         puzzle_count = 0
         for i, puzzle in enumerate(puzzles):
-            # Quality score is always calculated by the real pipeline
-            quality_score = puzzle.quality_score if hasattr(puzzle, "quality_score") else 75
-
-            if quality_score >= quality_filter and self.puzzle_review_service:
+            # CARD-050 (AC-2, option 3b): random-mode puzzles have no source
+            # picture to measure fidelity against, so quality_metric.measure_
+            # quality() (an image-comparison metric) does not apply here —
+            # unlike the old `puzzle.quality_score if hasattr(...) else 75`
+            # fallback, which was unconditionally 75 for every puzzle
+            # (orchestrator.Puzzle never had a quality_score attribute) and
+            # indistinguishable from a real measurement. quality_score/
+            # recognizability are explicitly None rather than a fabricated
+            # number; see CARD-050 Worktree notes for the full reasoning.
+            #
+            # quality_filter is therefore meaningless for random-mode
+            # batches and is not applied here — every candidate the
+            # orchestrator returns is stored (the UI never exposes this
+            # filter for random-mode batches either; see batch_create.html).
+            if self.puzzle_review_service:
                 self.puzzle_review_service.add_puzzle(
                     grid=puzzle.grid,
                     clues_rows=puzzle.clues.rows,
@@ -323,8 +340,8 @@ class BatchGenerator:
                     theme=theme,
                     difficulty_score=puzzle.difficulty_score,
                     difficulty_tier=puzzle.difficulty_tier,
-                    quality_score=quality_score,
-                    recognizability="medium",
+                    quality_score=None,
+                    recognizability=None,
                     strategies_used=[],
                     batch_id=batch_id,
                 )
@@ -458,12 +475,15 @@ class BatchGenerator:
         puzzle = puzzles[0]
         puzzle_id = str(uuid.uuid4())
 
-        # Extract metrics from the real puzzle
+        # CARD-050 (AC-2, option 3b): same reasoning as
+        # _generate_random_batch above — no source picture exists for a
+        # random-mode puzzle, so quality_score/recognizability are None
+        # rather than the old unconditional-75/"medium" fallback.
         metrics = PuzzleMetrics(
             difficulty_score=puzzle.difficulty_score,
             difficulty_tier=puzzle.difficulty_tier,
-            quality_score=puzzle.quality_score if hasattr(puzzle, "quality_score") else 75,
-            recognizability=getattr(puzzle, "recognizability", "medium"),
+            quality_score=None,
+            recognizability=None,
             strategies_used=getattr(puzzle, "strategies_used", []),
             backtracking_depth=getattr(puzzle, "backtracking_depth", 0),
         )
