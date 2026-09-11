@@ -2428,7 +2428,7 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """43 interpolations, 16 escaped at the point of interpolation, 27 not."""
+        """53 interpolations, 19 escaped at the point of interpolation, 34 not."""
         found = _page_interpolations()
 
         assert len(found) == 53, [(i.line, i.expression) for i in found]
