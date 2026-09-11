@@ -1,6 +1,6 @@
 # CARD-047: predict_size() adds a synchronous full-image decode to batch page renders
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/047-precompute-source-shape-on-upload
-**Worktree:** ../PythonProject4-CARD-047
+**Worktree:** —
 **Source:** meta/review/20260910T164426Z.yml#F-005
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/image_manager.py
 **Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T12:45:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T13:15:00Z
+**Actual:** 0.06d
+**Merge commit:** 8e5b818
 **Blocked by:** —
 
 ## What to implement
