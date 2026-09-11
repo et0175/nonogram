@@ -263,7 +263,7 @@ untouched, flagged here for visibility only.
   SCOPE+ reimplementation described above (module docstring, new
   `_difficulty_from_strategy_flags` function, `generate_puzzle()` updated to
   use it).
-- `tests/test_card_050_quality_recognizability.py` (new): 9 tests covering
+- `tests/test_card_050_quality_recognizability.py` (new): 8 tests covering
   AC-1/AC-2/AC-3.
 
 **AC verification evidence:**
@@ -299,7 +299,7 @@ untouched, flagged here for visibility only.
 **Full regression check:** `tests/test_quality_metric.py` (17/17, unchanged
 baseline), `tests/test_random_generator.py` (21/21), `tests/test_batch_generator.py`
 (16/16), `tests/test_admin_image_uniqueness.py` (3/3, CARD-049's own suite,
-unaffected), `tests/test_card_050_quality_recognizability.py` (9/9, new).
+unaffected), `tests/test_card_050_quality_recognizability.py` (8/8, new).
 Filtered subset `pytest tests/ -k "admin or image or quality"`: 17 pre-existing
 failures, byte-identical failure list before/after this change (confirmed via
 `git stash` diff) — all in `tests/test_sourcing_image.py`/`test_derive_shape.py`/
@@ -352,7 +352,7 @@ generated_puzzles.html (quality_score=87):   <small>87/100</small>
 ```
 
 **Regression check:** `tests/test_card_050_quality_recognizability.py`
-(9/9), `tests/test_batch_generator.py` (16/16, no failures) both fully green
+(8/8), `tests/test_batch_generator.py` (16/16, no failures) both fully green
 after the fix. `tests/test_wave1_e2e.py` and `tests/test_batch_history.py`
 have several pre-existing failures (`GenerationAbandoned` — the random
 solver abandoning after 20 regenerate attempts at the test's chosen
@@ -363,3 +363,56 @@ rendering, so none are attributable to this fix.
 
 **Scope:** only these two template files were touched, exactly at the two
 flagged lines; no other file in the worktree was modified by this follow-up.
+
+---
+
+**Post-review fix (cycle 2, score 8.0, 1 Important finding) — the cycle-1
+`None`-quality-score template guard fix above shipped with no automated
+regression test; both fixed templates had zero test references anywhere in
+`tests/`, and the exact same quality-badge line had already needed fixing
+once before (commit `40b8c98`), making this a real future-regression risk.**
+
+Added `test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na`
+to `tests/test_card_050_quality_recognizability.py`: drives a real
+random-mode batch through `admin_app.batch_generator.create_batch(...)` (so
+`quality_score`/`recognizability` are genuinely `None`, mirroring
+`test_ac2_random_mode_quality_score_is_none_not_75`), then makes real
+`client.get(...)` requests to both routes that render the fixed templates —
+`GET /batch/<batch_id>` (`batch_status.html`) and
+`GET /batch/<batch_id>/generated-puzzles` (`generated_puzzles.html`) — and
+asserts the response bodies contain neither `"Quality: None"` nor `"0/100"`
+and do contain `"N/A"`.
+
+**Red→green verification** (proving this is a real regression test, not a
+tautology): temporarily reverted `batch_status.html:144` and
+`generated_puzzles.html:65` to their exact pre-fix content (via
+`git show 2739a86:...`), re-ran only the new test —
+
+```
+FAILED tests/test_card_050_quality_recognizability.py::test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na
+E       assert 'Quality: None' not in '<!DOCTYPE h...dy>\n</html>'
+E       'Quality: None' is contained here:
+E         ty-badge">Quality: None</span>
+```
+
+— confirmed **RED** (it fails against the pre-fix templates, reproducing
+exactly the `"Quality: None"` regression cycle 1 found). Restored the fixed
+template content (verified via `git diff --stat` showing zero diff against
+the committed, cycle-1-fixed versions), re-ran the full test file — all 8
+tests pass, confirming **GREEN**.
+
+**Corrected test count:** the two `9/9`/`9 tests` mentions above were
+already wrong before this follow-up (the file has always had 7 tests, not
+9); after adding this one regression test the file now has **8 tests**, and
+all three counts in this document have been corrected to `8/8`/`8 tests`
+accordingly.
+
+**Full regression check:**
+`./.venv/bin/python -m pytest tests/test_card_050_quality_recognizability.py -v`
+→ 8 passed.
+
+**Scope:** only `tests/test_card_050_quality_recognizability.py` (new test
+added) and this card file (test-count correction) were touched; the two
+already-fixed template files were not modified (temporarily reverted only
+for the red→green check above, then restored to their committed state —
+confirmed clean via `git diff`).

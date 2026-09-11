@@ -239,6 +239,53 @@ def test_ac2_quality_filter_no_longer_drops_or_crashes_random_batches(batch_gen)
 
 
 # ---------------------------------------------------------------------------
+# AC-2 regression (cycle-2 review finding): the None-quality_score guard
+# clauses in batch_status.html:144 and generated_puzzles.html:65 (added in
+# commit 2ef1e60, fixing the exact same quality-badge line that had already
+# needed a fix once before, in 40b8c98) previously had zero test coverage —
+# the two tests above only assert against BatchGenerator's data layer, never
+# against rendered HTML. Drives a real random-mode batch through the actual
+# Flask routes and asserts on the rendered response body, so a future edit
+# to either template that reintroduces "Quality: None" or "0/100" fails the
+# suite instead of only surfacing in a manual eyeball of the admin UI.
+# ---------------------------------------------------------------------------
+
+
+def test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na(
+    admin_app, client
+):
+    batch_id = admin_app.batch_generator.create_batch(
+        count=10,
+        sizes=[12],
+        theme="test",
+        source="random",
+        quality_filter=0,
+    )
+
+    puzzles = admin_app.batch_generator.get_batch_puzzles(
+        batch_id, offset=0, limit=100
+    )
+    assert puzzles and all(p["quality_score"] is None for p in puzzles), (
+        "precondition: random-mode puzzles must have quality_score is None "
+        "for this to be a meaningful regression test"
+    )
+
+    batch_status_response = client.get(f"/batch/{batch_id}")
+    assert batch_status_response.status_code == 200
+    batch_status_body = batch_status_response.get_data(as_text=True)
+    assert "Quality: None" not in batch_status_body
+    assert "0/100" not in batch_status_body
+    assert "N/A" in batch_status_body
+
+    generated_puzzles_response = client.get(f"/batch/{batch_id}/generated-puzzles")
+    assert generated_puzzles_response.status_code == 200
+    generated_puzzles_body = generated_puzzles_response.get_data(as_text=True)
+    assert "Quality: None" not in generated_puzzles_body
+    assert "0/100" not in generated_puzzles_body
+    assert "N/A" in generated_puzzles_body
+
+
+# ---------------------------------------------------------------------------
 # AC-3: random_generator.py no longer carries the "from src.nonogram..."
 # import whose accidental resolution AC-3 flags.
 #
