@@ -5,7 +5,7 @@ _Updated: 2026-09-11 16:35_
 ## Wave plan
 | Wave | Cards | Status |
 |------|-------|--------|
-| 1 | CARD-001 P1, CARD-019 P1, CARD-022 P1, CARD-023 P1, CARD-024 P1, CARD-025 P2, CARD-045 P1, CARD-046 P2, CARD-047 P2, CARD-048 P3, CARD-049 P1, CARD-050 P1, CARD-051 P2, CARD-054 P3, CARD-055 P3, CARD-058 P3, CARD-059 P3, CARD-060 P3, CARD-061 P2 | ▶ active |
+| 1 | CARD-001 P1, CARD-019 P1, CARD-022 P1, CARD-023 P1, CARD-024 P1, CARD-025 P2, CARD-045 P1, CARD-046 P2, CARD-047 P2, CARD-048 P3, CARD-049 P1, CARD-050 P1, CARD-051 P2, CARD-054 P3, CARD-055 P3, CARD-058 P3, CARD-059 P3, CARD-060 P3, CARD-061 P2, CARD-062 P2 | ▶ active |
 | 2 | CARD-002 P1, CARD-003 P1, CARD-020 P1, CARD-026 P1, CARD-029 P3, CARD-052 P2, CARD-053 P3, CARD-056 P3 | ⏳ blocked (→ wave 1) |
 | 3 | CARD-004 P1, CARD-021 P2, CARD-027 P1 | ⏳ blocked (→ wave 2) |
 | 4 | CARD-005 P1, CARD-028 P2, CARD-030 P2, CARD-031 P2, CARD-032 P2 | ⏳ blocked (→ wave 3) |
@@ -28,7 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-061** P2 · Admin "small" preset — 10 is the short side, the long side follows the picture  _(wave 1)_ — direction decided by the owner 2026-09-11; medium/large unchanged, MIN_SIZE untouched
+- **CARD-062** P2 · Admin batch — retry an abandoned picture at long side ±1 before giving up  _(wave 1)_ — depends on CARD-061
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
@@ -44,7 +44,7 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-_(none)_
+- **CARD-061** P2 · Admin "small" preset — 10 is the short side, the long side follows the picture · `card/061-small-preset-short-side` · started 2026-09-11T13:59Z
 
 ## Review
 _(none)_
