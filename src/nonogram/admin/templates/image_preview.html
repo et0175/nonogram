@@ -50,12 +50,20 @@
                     <div class="col-md-6 mb-4">
                         <div class="card border">
                             <div class="card-body">
+                                {% set fit = image.size_fit() %}
                                 <!-- Cropped Image Preview (what will be used for puzzle) -->
                                 <div class="image-preview-box mb-3">
+                                    {% if fit.status == 'cannot_fit' %}
+                                    <div class="placeholder-content">
+                                        <div class="preview-icon">⛔</div>
+                                        <div class="preview-dims">Will be skipped</div>
+                                    </div>
+                                    {% else %}
                                     <img src="/api/image/{{ image.file_id }}/cropped"
                                          alt="Cropped preview of {{ image.original_filename }}"
                                          class="preview-img"
                                          onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load image</div></div>'">
+                                    {% endif %}
                                 </div>
 
                                 <!-- Image Name -->
@@ -94,27 +102,29 @@
                                 <div class="alert alert-info mb-0">
                                     <strong>Predicted Output:</strong>
                                     <div class="text-center mt-2">
-                                        {% set dims = image.predict_size() %}
+                                        {% if fit.status == 'cannot_fit' %}
+                                        <code id="preview_{{ image.file_id }}">skipped</code>
+                                        <div class="small mt-1 text-danger">
+                                            ⛔ Too elongated for any supported size (at most
+                                            {{ MAX_SIZE }} cells a side; even Large keeps only
+                                            {{ (fit.kept * 100)|round|int }}% of it) — this
+                                            picture will be skipped.
+                                        </div>
+                                        {% else %}
                                         <code id="preview_{{ image.file_id }}">
-                                            {{ dims[0] }}×{{ dims[1] }}
+                                            {{ fit.extent[0] }}×{{ fit.extent[1] }}
                                         </code>
                                         <div class="small mt-1">puzzle grid size</div>
-                                        {% set substitution = image.size_substitution() %}
-                                        {% if substitution %}
+                                        {% if fit.status == 'moved_to_large' %}
                                         <div class="small mt-1 text-warning">
-                                            {% if substitution.get('reason') == 'too_elongated' %}
-                                            ⚠ Too elongated for this short side: keeping its
-                                            proportions would need a
-                                            {{ substitution.requested }}-cell long side, over
-                                            the {{ substitution.used }} maximum, so the grid
-                                            uses {{ substitution.used }} cells on the long
-                                            side instead.
-                                            {% else %}
-                                            ⚠ Requested {{ substitution.requested }} was too
-                                            small for this picture's shape; using
-                                            {{ substitution.used }} instead.
-                                            {% endif %}
+                                            ⚠ {% if fit.chosen %}The chosen size
+                                            ({{ fit.chosen[0] }}×{{ fit.chosen[1] }}) would cut
+                                            this picture (keeps
+                                            {{ (fit.chosen_kept * 100)|round|int }}%){% else %}The
+                                            chosen size can't keep this picture's shape{% endif %}
+                                            — using Large ({{ fit.extent[0] }}×{{ fit.extent[1] }}).
                                         </div>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>

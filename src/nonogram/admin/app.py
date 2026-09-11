@@ -13,7 +13,7 @@ from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReviewService
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
-from .image_manager import get_image_manager
+from .image_manager import CANNOT_FIT, SIZE_PRESETS, get_image_manager
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
 from .book_pdf_generator import BookPDFGenerator
@@ -257,12 +257,7 @@ def create_app(debug=None):
 
             # Read default size from page 1 selection and apply to all images
             default_size = request.form.get("default_size", "medium")
-            size_mapping = {
-                "small": (10, "short"),      # 10 on the short side; long side follows the picture (CARD-061)
-                "medium": (20, "fixed"),     # Medium (15-25 cells)
-                "large": (30, "fixed"),      # Large: 30 on the long side
-                "auto": (20, "max"),         # Auto (based on image)
-            }
+            size_mapping = SIZE_PRESETS
 
             if default_size in size_mapping:
                 size_value, size_mode = size_mapping[default_size]
@@ -378,11 +373,20 @@ def create_app(debug=None):
             generated_count = 0
             errors = []
             adjustments = []
+            skipped = []
 
             for image in images:
                 try:
-                    # Predict puzzle size based on image
-                    width, height = image.predict_size()
+                    # CARD-064: a picture even Large would cut below
+                    # MIN_KEPT_SHARE is never generated; it is reported.
+                    fit = image.size_fit()
+                    if fit.status == CANNOT_FIT:
+                        skipped.append(
+                            f"{image.original_filename} skipped: too elongated for any "
+                            f"supported size (even Large keeps only {fit.kept:.0%})"
+                        )
+                        continue
+                    width, height = fit.extent
 
                     # Convert image to puzzle through the canonical,
                     # solver-verified pipeline (CARD-049) — the same
@@ -463,6 +467,11 @@ def create_app(debug=None):
                 flash(adjustment, "info")
             if len(adjustments) > 3:
                 flash(f"... and {len(adjustments) - 3} more size adjustments", "info")
+
+            for note in skipped[:3]:
+                flash(note, "info")
+            if len(skipped) > 3:
+                flash(f"... and {len(skipped) - 3} more skipped pictures", "info")
 
             if errors:
                 for error in errors[:3]:  # Show first 3 errors

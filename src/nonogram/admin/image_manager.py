@@ -19,6 +19,44 @@ except ImportError:
     PILImage = None
 
 
+#: A grid must keep at least this share of the picture's ink bounding box;
+#: below it the aspect-preserving crop cuts off the picture's ends, and the
+#: batch moves the picture up to Large or skips it (CARD-064). A product
+#: choice, not a range bound.
+MIN_KEPT_SHARE = 0.9
+
+#: The batch form's size presets, ``name -> (size_value, size_mode)`` — one
+#: table for the batch route and for :meth:`ImageFile.size_fit`'s "Large".
+SIZE_PRESETS = {
+    "small": (10, "short"),  # 10 on the short side; long side follows the picture (CARD-061)
+    "medium": (20, "fixed"),
+    "large": (30, "fixed"),  # 30 on the long side
+    "auto": (20, "max"),
+}
+
+FITS = "fits"
+MOVED_TO_LARGE = "moved_to_large"
+CANNOT_FIT = "cannot_fit"
+
+
+@dataclass(frozen=True)
+class SizeFit:
+    """How a picture fits its chosen size (:meth:`ImageFile.size_fit`)."""
+
+    extent: tuple  # the grid to generate: the chosen size's, or Large's
+    status: str  # FITS, MOVED_TO_LARGE or CANNOT_FIT
+    kept: float  # share of the picture ``extent`` keeps
+    chosen: Optional[tuple]  # the chosen size's own grid; None if it has none
+    chosen_kept: Optional[float]  # share ``chosen`` keeps; None if no grid
+
+
+def _kept_share(source: tuple, extent: tuple) -> float:
+    """Share of the picture an aspect-preserving crop to ``extent`` keeps."""
+    source_ratio = source[0] / source[1]
+    grid_ratio = extent[0] / extent[1]
+    return min(source_ratio, grid_ratio) / max(source_ratio, grid_ratio)
+
+
 @dataclass
 class ImageFile:
     """Represents an uploaded image file."""
@@ -94,149 +132,96 @@ class ImageFile:
         "short" (the batch form's "small" preset, CARD-061) is the exception:
         ``size_value`` is the grid's *short* side and the long side follows
         the picture's ratio, handed on as a full pair — see
-        :meth:`_short_side_extent` for why a bare ``N`` cannot do this at the
-        bottom of the range.
+        :meth:`_own_extent`.
+
+        When the chosen size would cut the picture, the grid is the Large
+        preset's instead (also for a picture that will be skipped) —
+        :meth:`size_fit` says which (CARD-064).
 
         Returns:
             (width, height) tuple
         """
-        return self._predict_size_detailed()[0]
+        return self.size_fit().extent
 
-    def size_substitution(self) -> Optional[Dict[str, Any]]:
-        """Whether `predict_size()` silently substituted a workable size
-        (CARD-058), and if so, what was requested versus what is actually
-        used.
+    def size_fit(self) -> SizeFit:
+        """Whether the chosen size keeps this picture's shape, and what the
+        batch does when it doesn't (CARD-064).
 
-        Admin's `SizeTooSmallForSource` handling (see `predict_size()`'s
-        docstring) deliberately does the opposite of ADR-0022/R4's CLI-side
-        refusal-and-message clause: instead of refusing the request and
-        telling the user the smallest `--size N` that would work, it
-        silently searches upward for one and uses that. That divergence is
-        intentional UX for this interactive, preview-driven workflow (a
-        hard refusal would be a dead end requiring the whole batch form to
-        be resubmitted) - but leaving it invisible means a user has no way
-        to know their puzzle came out at a different size than requested
-        short of comparing numbers by eye. This method exposes exactly that
-        comparison, without changing what `predict_size()` returns (G-2).
+        The chosen size's own grid (:meth:`_own_extent`) is used when it keeps
+        at least :data:`MIN_KEPT_SHARE` of the picture's ink bounding box.
+        Otherwise the picture moves up to the Large preset's grid, if that
+        keeps enough, or is skipped (``CANNOT_FIT``). Squeezing is not an
+        option: ADR-0022/R3 fits a picture by crop, never by stretching.
 
-        Returns:
-            `None` when no substitution happened (the common case, and the
-            degenerate-image `ValueError` fallback - see `predict_size()` -
-            which is not itself a substitution). Otherwise
-            `{"requested": int, "used": int}`, the longer-side values before
-            and after the substitution. The "short" mode's over-the-cap
-            fallback (CARD-061) adds `"reason": "too_elongated"`; its
-            "requested" is the long side the picture's ratio needed.
+        Replaces CARD-058's silent upward search and CARD-061's over-the-cap
+        note: every size change, and every skip, is a status the preview and
+        the batch results show.
         """
-        _, substitution = self._predict_size_detailed()
-        return substitution
+        src_width, src_height = self._source_shape()
+        if min(src_width, src_height) <= 0:
+            # Degenerate shape (CARD-045): no ratio to judge, so the smallest
+            # square, with nothing to report.
+            square = (MIN_SIZE, MIN_SIZE)
+            return SizeFit(square, FITS, 1.0, square, 1.0)
 
-    def _predict_size_detailed(
-        self,
-    ) -> tuple[tuple[int, int], Optional[Dict[str, Any]]]:
-        """Shared implementation behind `predict_size()`/`size_substitution()`
-        - computed once so the two can never silently disagree with each
-        other the way the ADR-0006/R1 dependency baseline and its own check
-        once did (CARD-057).
+        source = (src_width, src_height)
+        chosen = self._own_extent(self.size_mode, self.size_value, source)
+        chosen_kept = _kept_share(source, chosen) if chosen is not None else None
+        if chosen is not None and chosen_kept >= MIN_KEPT_SHARE:
+            return SizeFit(chosen, FITS, chosen_kept, chosen, chosen_kept)
 
-        Returns:
-            `((width, height), substitution_info)` - see `predict_size()`
-            and `size_substitution()` for what each half means.
+        large_value, large_mode = SIZE_PRESETS["large"]
+        large = self._own_extent(large_mode, large_value, source)
+        if large is None:
+            # Beyond N/5:1 even at MAX_SIZE (SizeTooSmallForSource): Large's
+            # grid is the longest supported one, and it will not fit.
+            large = (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
+        large_kept = _kept_share(source, large)
+        status = MOVED_TO_LARGE if large_kept >= MIN_KEPT_SHARE else CANNOT_FIT
+        return SizeFit(large, status, large_kept, chosen, chosen_kept)
+
+    def _own_extent(self, mode: str, value: int, source: tuple) -> Optional[tuple]:
+        """The grid a size setting asks for on this picture, or ``None`` when
+        it has none.
+
+        * "short" (the batch form's "small" preset, CARD-061): ``value`` is
+          the grid's short side and the long side follows the picture's
+          ratio, as a full pair. A bare ``N`` cannot do this at the bottom of
+          the range, because ``derive_extent`` floors the derived side at
+          ``MIN_SIZE``, which is also the smallest ``N``. ``None`` when the
+          long side would pass ``MAX_SIZE``.
+        * "fixed", "max", "min": a bare ``N`` — ``value`` itself; the largest
+          ``N`` keeping two source pixels per cell; about 5 less — derived by
+          ``derive_extent``. ``None`` when the picture is too elongated for
+          that ``N`` (``SizeTooSmallForSource``).
+
+        ``source`` must have positive sides; :meth:`size_fit` handles a
+        degenerate one before calling this.
         """
         from nonogram.errors import SizeTooSmallForSource
-        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
+        from nonogram.sourcing.random_grid import derive_extent
 
-        src_width, src_height = self._source_shape()
-        long_edge = max(src_width, src_height)
+        src_width, src_height = source
+        short_edge, long_edge = min(source), max(source)
+        if mode == "short":
+            short_side = max(MIN_SIZE, min(value, MAX_SIZE))
+            long_side = round(short_side * long_edge / short_edge)
+            if long_side > MAX_SIZE:
+                return None
+            if src_width >= src_height:
+                return (long_side, short_side)
+            return (short_side, long_side)
 
-        if self.size_mode == "short":
-            return self._short_side_extent(src_width, src_height)
-
-        if self.size_mode == "fixed":
-            stated = self.size_value
+        if mode == "fixed":
+            stated = value
         else:
             quality_cap = min(long_edge // 2, MAX_SIZE)
-            stated = quality_cap if self.size_mode == "max" else quality_cap - 5
+            stated = quality_cap if mode == "max" else quality_cap - 5
         stated = max(MIN_SIZE, min(stated, MAX_SIZE))
-
         try:
-            return derive_extent(stated, None, src_width, src_height), None
+            return derive_extent(stated, None, src_width, src_height)
         except SizeTooSmallForSource:
-            # The picture is too elongated for `stated` to follow without
-            # discarding over half of it (CON-012) - ask for the smallest N
-            # that can, rather than surface a CLI-style refusal in this UI.
-            for candidate in range(stated, MAX_SIZE + 1):
-                try:
-                    extent = derive_extent(candidate, None, src_width, src_height)
-                    return extent, {"requested": stated, "used": candidate}
-                except SizeTooSmallForSource:
-                    continue
-            extent = (
-                (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
-            )
-            return extent, {"requested": stated, "used": MAX_SIZE}
-        except ValueError:
-            # `derive_extent` raises a plain ValueError (not a NonogramError)
-            # when the reported source shape has a non-positive axis - a
-            # degenerate `_source_shape()`/`dimensions` such as (0, 0) from a
-            # failed second decode in `ImageManager.add_image` (CARD-045),
-            # not a domain refusal. There is no picture to follow the ratio
-            # of, so fall back to the smallest supported square rather than
-            # let this propagate into the batch-preview render loops. Not a
-            # substitution (there was never a real "requested" N to compare
-            # against a degenerate image) - reported as None, not a false
-            # positive for `size_substitution()`.
-            return (MIN_SIZE, MIN_SIZE), None
-
-    def _short_side_extent(
-        self, src_width: int, src_height: int
-    ) -> tuple[tuple[int, int], Optional[Dict[str, Any]]]:
-        """The "short" size mode (CARD-061): ``size_value`` is the grid's
-        SHORT side, the long side follows the picture's ratio, and the result
-        is a full ``(width, height)`` pair — which ADR-0022/R4's explicit-
-        extent clause fits exactly, with no derivation of its own.
-
-        A bare ``N`` cannot express this at the bottom of the range:
-        ``derive_extent`` floors the derived side at ``MIN_SIZE``, which is
-        also the smallest ``N``, so ``N = 10`` comes back 10x10 for every
-        picture and crops any non-square one.
-
-        Never clamps the long side to ``MAX_SIZE``. A picture too elongated
-        to keep its proportions under the cap falls back to a bare
-        ``N = MAX_SIZE`` derivation — the short side then follows the ratio
-        from the top, floored at ``MIN_SIZE`` — and reports it as a
-        substitution, so the preview can say the long side stopped at the
-        cap.
-        """
-        from nonogram.errors import SizeTooSmallForSource
-        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
-
-        short_edge = min(src_width, src_height)
-        long_edge = max(src_width, src_height)
-        if short_edge <= 0:
-            # Same degenerate-shape fallback as `_predict_size_detailed`'s
-            # ValueError branch (CARD-045): there is no ratio to follow.
-            return (MIN_SIZE, MIN_SIZE), None
-
-        short_side = max(MIN_SIZE, min(self.size_value, MAX_SIZE))
-        long_side = round(short_side * long_edge / short_edge)
-        if long_side <= MAX_SIZE:
-            if src_width >= src_height:
-                return (long_side, short_side), None
-            return (short_side, long_side), None
-
-        substitution = {
-            "requested": long_side,
-            "used": MAX_SIZE,
-            "reason": "too_elongated",
-        }
-        try:
-            return derive_extent(MAX_SIZE, None, src_width, src_height), substitution
-        except SizeTooSmallForSource:
-            extent = (
-                (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
-            )
-            return extent, substitution
+            return None
 
     def neighbour_extents(self, extent: tuple) -> List[tuple]:
         """The extents one cell shorter and one cell longer than ``extent`` on
@@ -284,7 +269,8 @@ class ImageFile:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
-        width, height = self.predict_size()
+        fit = self.size_fit()
+        width, height = fit.extent
         return {
             "file_id": self.file_id,
             "filename": self.filename,
@@ -298,6 +284,7 @@ class ImageFile:
             "size_value": self.size_value,
             "predicted_width": width,
             "predicted_height": height,
+            "size_status": fit.status,
         }
 
 
