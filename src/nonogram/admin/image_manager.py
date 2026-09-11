@@ -236,6 +236,43 @@ class ImageFile:
             )
             return extent, substitution
 
+    def neighbour_extents(self, extent: tuple) -> List[tuple]:
+        """The extents one cell shorter and one cell longer than ``extent`` on
+        its long side, short side unchanged — what the batch retries when
+        ``extent`` itself was abandoned (CARD-062).
+
+        Ordered by how much of the picture each keeps (closest to the ink
+        bounding box's ratio first; ties go to the smaller extent). A side
+        outside ``MIN_SIZE..MAX_SIZE`` drops its candidate, so a 10x10 has
+        only its +1 neighbour and a 30-long extent only its -1. For a square
+        extent the long side is the axis the picture is longer on (width for
+        a square picture).
+        """
+        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE
+
+        width, height = extent
+        src_width, src_height = self._source_shape()
+        if width != height:
+            long_is_width = width > height
+        else:
+            long_is_width = src_width >= src_height
+
+        candidates = []
+        for delta in (-1, 1):
+            w, h = (width + delta, height) if long_is_width else (width, height + delta)
+            if MIN_SIZE <= w <= MAX_SIZE and MIN_SIZE <= h <= MAX_SIZE:
+                candidates.append((w, h))
+
+        if min(src_width, src_height) <= 0:
+            return candidates
+        source_ratio = src_width / src_height
+
+        def kept(candidate: tuple) -> float:
+            grid_ratio = candidate[0] / candidate[1]
+            return min(source_ratio, grid_ratio) / max(source_ratio, grid_ratio)
+
+        return sorted(candidates, key=lambda c: (-kept(c), c[0] * c[1]))
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
         width, height = self.predict_size()

@@ -22,12 +22,45 @@ from .book_pdf_generator import BookPDFGenerator
 from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues, orchestrator
-from nonogram.errors import NonogramError
+from nonogram.errors import GenerationAbandoned, NonogramError
 
 # CARD-050: real image-mode quality/recognizability, in place of the
 # density-only heuristic and hardcoded "medium" this replaces below.
 from PIL import Image as PILImage
 from nonogram.analysis.quality_metric import measure_quality
+
+
+def _generate_image_puzzle(image, width, height):
+    """Generate ``image`` at ``(width, height)``; if that extent is abandoned
+    (not uniquely solvable within the pixel-nudge bound), retry at the
+    long-side ±1 neighbours from ``image.neighbour_extents`` (CARD-062).
+
+    Generation is deterministic per picture and extent, so no extent is tried
+    twice. Any error other than ``GenerationAbandoned`` propagates at once: a
+    different extent cannot fix an unreadable picture or a solver timeout.
+
+    Returns:
+        ``(puzzle, extent_used)``.
+
+    Raises:
+        GenerationAbandoned: the predicted extent's own error, when it and
+            every neighbour were abandoned.
+    """
+    first_abandonment = None
+    for extent in [(width, height), *image.neighbour_extents((width, height))]:
+        request = orchestrator.GenerationRequest(
+            mode="image",
+            image=Path(image.file_path),
+            image_filename=image.original_filename,
+            width=extent[0],
+            height=extent[1],
+        )
+        try:
+            return orchestrator.generate(request), extent
+        except GenerationAbandoned as error:
+            if first_abandonment is None:
+                first_abandonment = error
+    raise first_abandonment
 
 
 def create_app(debug=None):
@@ -333,6 +366,7 @@ def create_app(debug=None):
             quality_filter = session.get("batch_quality_filter", 0)
             generated_count = 0
             errors = []
+            adjustments = []
 
             for image in images:
                 try:
@@ -344,16 +378,15 @@ def create_app(debug=None):
                     # judge_candidate uniqueness check and bounded pixel-nudge
                     # recovery `nonogram generate --mode image` runs, instead
                     # of a grid nothing ever solver-checks. One call per
-                    # image: orchestrator.generate_batch() has no
+                    # extent tried: orchestrator.generate_batch() has no
                     # per-item image-path parameter.
-                    gen_request = orchestrator.GenerationRequest(
-                        mode="image",
-                        image=Path(image.file_path),
-                        image_filename=image.original_filename,
-                        width=width,
-                        height=height,
-                    )
-                    puzzle = orchestrator.generate(gen_request)
+                    puzzle, used = _generate_image_puzzle(image, width, height)
+                    if used != (width, height):
+                        adjustments.append(
+                            f"{image.original_filename}: generated at "
+                            f"{used[0]}x{used[1]} — {width}x{height} had no "
+                            f"unique solution"
+                        )
 
                     # CARD-050 (AC-1): a real measurement against the source
                     # picture this puzzle was converted from, replacing the
@@ -399,7 +432,8 @@ def create_app(debug=None):
                 except NonogramError as e:
                     # E.g. GenerationAbandoned: the conversion (and every
                     # bounded pixel-nudge attempt) never came out uniquely
-                    # solvable. Record it and keep processing the rest of the
+                    # solvable, at the predicted extent or either long-side
+                    # neighbour (CARD-062). Record it and keep processing the rest of the
                     # batch (AC-2) instead of failing the whole request.
                     errors.append(f"Error processing {image.original_filename}: {str(e)}")
                 except Exception as e:
@@ -413,6 +447,11 @@ def create_app(debug=None):
                 flash(f"✅ Generated {generated_count} puzzle(s) from {len(images)} image(s)", "success")
             else:
                 flash("No valid puzzles generated", "warning")
+
+            for adjustment in adjustments[:3]:
+                flash(adjustment, "info")
+            if len(adjustments) > 3:
+                flash(f"... and {len(adjustments) - 3} more size adjustments", "info")
 
             if errors:
                 for error in errors[:3]:  # Show first 3 errors
