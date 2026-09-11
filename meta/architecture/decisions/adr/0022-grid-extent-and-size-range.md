@@ -467,3 +467,15 @@ unprintable output is not a range, it is a trap.
   templates, and the web adapter's dimension suggestions read them instead of
   repeating 10 and 30. The values are unchanged; revisiting the top of the
   range (40x40 is being considered) remains a revision of this ADR.
+
+- 2026-09-11 — Admin fit rule (CARD-064), no decision change. The admin
+  panel no longer substitutes a size of its own. It used to search upward
+  for a workable N on `SizeTooSmallForSource` (CARD-058, the divergence the
+  CARD-048 Negative consequence describes), and CARD-061 gave its "small"
+  preset an over-the-cap fallback. Both are replaced by one rule. A chosen
+  size whose grid keeps less than 90% of the picture's ink bounding box
+  (`MIN_KEPT_SHARE`, a product choice) moves the picture up to the Large
+  preset's grid, if that keeps enough; otherwise the picture is skipped. Every move and skip is
+  shown in the preview and in the batch results. It fits by R3's crop and
+  never by stretching; the CLI's refusal (R4) is unchanged. No rule
+  statement, scope or check changes; `Status`/`Revised` are unchanged.

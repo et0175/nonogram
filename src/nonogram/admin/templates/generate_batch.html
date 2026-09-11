@@ -40,20 +40,24 @@
                             </thead>
                             <tbody>
                                 {% for image in images %}
-                                {% set dims = image.predict_size() %}
-                                {% set substitution = image.size_substitution() %}
+                                {% set fit = image.size_fit() %}
                                 <tr>
                                     <td><strong>{{ image.puzzle_name }}</strong></td>
                                     <td>{{ image.dimensions[0] }}×{{ image.dimensions[1] }}px</td>
                                     <td>{{ image.size_mode|capitalize }}</td>
                                     <td>
                                         <input type="text" class="form-control form-control-sm"
-                                               value="{{ dims[0] }}×{{ dims[1] }}"
+                                               value="{% if fit.status == 'cannot_fit' %}skipped{% else %}{{ fit.extent[0] }}×{{ fit.extent[1] }}{% endif %}"
                                                title="Puzzle grid dimensions (Width×Height)">
-                                        {% if substitution %}
+                                        {% if fit.status == 'moved_to_large' %}
                                         <span class="text-warning small"
-                                              title="{% if substitution.get('reason') == 'too_elongated' %}Too elongated for this short side: keeping its proportions would need a {{ substitution.requested }}-cell long side, over the {{ substitution.used }} maximum, so the grid uses {{ substitution.used }} cells on the long side instead.{% else %}Requested {{ substitution.requested }} was too small for this picture's shape; using {{ substitution.used }} instead.{% endif %}">
-                                            ⚠ size adjusted
+                                              title="The chosen size would cut this picture; using Large instead.">
+                                            ⚠ moved to Large
+                                        </span>
+                                        {% elif fit.status == 'cannot_fit' %}
+                                        <span class="text-danger small"
+                                              title="Too elongated for any supported size; this picture will be skipped.">
+                                            ⛔ will be skipped
                                         </span>
                                         {% endif %}
                                     </td>

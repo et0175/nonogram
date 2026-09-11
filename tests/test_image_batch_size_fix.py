@@ -12,7 +12,7 @@ from PIL import Image as PILImage
 from io import BytesIO
 import tempfile
 
-from nonogram.admin.image_manager import ImageManager, ImageFile
+from nonogram.admin.image_manager import FITS, MOVED_TO_LARGE, ImageFile, ImageManager
 
 
 class TestImageBatchSizeConfiguration:
@@ -56,17 +56,22 @@ class TestImageBatchSizeConfiguration:
         for img in loaded_images:
             image_mgr.update_image_size(img.file_id, "fixed", 10)
 
-        # Verify first configuration
+        # Verify first configuration. size_value lands on the picture's own
+        # longer axis (FR-023, ADR-0022/R4). At 10 that is also the floor, so
+        # the grid would be 10x10 for every picture: the square one fits,
+        # while a 4:3 one would lose a quarter of itself and moves up to
+        # Large instead (CARD-064) — 30 on its longer axis.
         retrieved_images = image_mgr.get_all_images()
         for img in retrieved_images:
             assert img.size_mode == "fixed"
             assert img.size_value == 10
             width, height = img.predict_size()
-            # size_value lands on the picture's own longer axis (FR-023,
-            # ADR-0022/R4), so the MAX dimension is exactly it — the other,
-            # shorter side follows the picture's own ratio and is never
-            # capped at 30, only floored at 10.
-            assert max(width, height) == 10
+            if img.dimensions[0] == img.dimensions[1]:
+                assert (width, height) == (10, 10)
+                assert img.size_fit().status == FITS
+            else:
+                assert max(width, height) == 30
+                assert img.size_fit().status == MOVED_TO_LARGE
 
         # Step 3: Change sizes to 20 (second configuration)
         for img in retrieved_images:

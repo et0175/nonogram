@@ -6,8 +6,8 @@ floor, MIN_SIZE, is also the smallest N).
 AC-1 — a ~1.5:1 picture at "small" predicts 15x10 (landscape) / 10x15
        (portrait).
 AC-2 — a square picture predicts 10x10; a picture too elongated for a
-       10-cell short side under the 30-cell cap falls back to the bare
-       N=30 derivation and reports it as a substitution.
+       10-cell short side under the 30-cell cap is judged at Large instead
+       (CARD-064: moved to Large, or skipped when Large would cut it too).
 AC-3 — "fixed"-mode extents are unchanged; the "large" preset moves from
        25 to 30 (owner decision, 2026-09-11).
 AC-4 — the "short" mode never leaves 10..30, across a seeded corpus of
@@ -25,7 +25,13 @@ from pathlib import Path
 import pytest
 from PIL import Image as PILImage
 
-from nonogram.admin.image_manager import ImageFile
+from nonogram.admin.image_manager import (
+    CANNOT_FIT,
+    FITS,
+    MIN_KEPT_SHARE,
+    MOVED_TO_LARGE,
+    ImageFile,
+)
 from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
 
 
@@ -52,11 +58,12 @@ def _image(width: int, height: int, size_mode: str = "short", size_value: int = 
 
 def _retained(src_w: int, src_h: int, grid_w: int, grid_h: int) -> float:
     """Share of the picture an aspect-preserving centre crop to the grid's
-    shape keeps — computed from the two ratios alone, independently of the
-    code under test."""
-    src = src_w / src_h
-    grid = grid_w / grid_h
-    return min(src, grid) / max(src, grid)
+    shape keeps, computed independently of the code under test. It uses
+    integer cross-products: a ratio of ratios lands on 0.8999999999999999
+    for exact 90% cases such as 200x60 at 30x10, which then straddle
+    MIN_KEPT_SHARE."""
+    a, b = src_w * grid_h, grid_w * src_h
+    return min(a, b) / max(a, b)
 
 
 def _normalized(body: str) -> str:
@@ -67,7 +74,7 @@ class TestAC1SmallFollowsThePicture:
     def test_landscape_one_and_a_half_to_one_is_15x10(self):
         image = _image(300, 200)
         assert image.predict_size() == (15, 10)
-        assert image.size_substitution() is None
+        assert image.size_fit().status == FITS
 
     def test_portrait_is_the_transpose(self):
         assert _image(200, 300).predict_size() == (10, 15)
@@ -86,35 +93,38 @@ class TestAC2SquareAndOverTheCap:
     def test_square_stays_10x10(self):
         image = _image(500, 500)
         assert image.predict_size() == (10, 10)
-        assert image.size_substitution() is None
+        assert image.size_fit().status == FITS
 
-    def test_four_to_one_falls_back_to_a_bare_30(self):
-        image = _image(400, 100)
-        assert image.predict_size() == derive_extent(30, None, 400, 100) == (30, 10)
-        assert image.size_substitution() == {
-            "requested": 40,
-            "used": 30,
-            "reason": "too_elongated",
-        }
+    def test_four_to_one_is_skipped(self):
+        """No 10-cell short side fits under the cap, and Large's 30x10 keeps
+        only 75% of the picture — under MIN_KEPT_SHARE — so since CARD-064
+        it is skipped rather than generated with a note."""
+        fit = _image(400, 100).size_fit()
+        assert fit.extent == derive_extent(30, None, 400, 100) == (30, 10)
+        assert fit.chosen is None
+        assert fit.status == CANNOT_FIT
 
     def test_portrait_four_to_one(self):
-        image = _image(100, 400)
-        assert image.predict_size() == (10, 30)
-        assert image.size_substitution()["reason"] == "too_elongated"
+        fit = _image(100, 400).size_fit()
+        assert fit.extent == (10, 30)
+        assert fit.status == CANNOT_FIT
 
     def test_beyond_six_to_one_still_lands_in_range(self):
-        image = _image(800, 100)
-        assert image.predict_size() == (30, 10)
-        assert image.size_substitution() == {
-            "requested": 80,
-            "used": 30,
-            "reason": "too_elongated",
-        }
+        fit = _image(800, 100).size_fit()
+        assert fit.extent == (30, 10)
+        assert fit.status == CANNOT_FIT
+
+    def test_over_the_cap_but_large_keeps_the_shape(self):
+        """Short side 15 on a 2.5:1 picture would need a 38-cell long side;
+        Large's 30x12 keeps all of it, so the picture moves to Large."""
+        fit = _image(250, 100, size_value=15).size_fit()
+        assert fit.chosen is None
+        assert (fit.extent, fit.status) == ((30, 12), MOVED_TO_LARGE)
 
     def test_degenerate_shape_is_not_a_substitution(self):
         image = _image(0, 0)
         assert image.predict_size() == (10, 10)
-        assert image.size_substitution() is None
+        assert image.size_fit().status == FITS
 
 
 # (source shape, N, extent) — "fixed"-mode answers pinned from before CARD-061.
@@ -127,8 +137,8 @@ FIXED_MODE_EXPECTATIONS = [
     ((229, 149), 30, (30, 20)),
     ((300, 200), 30, (30, 20)),
     ((500, 500), 20, (20, 20)),
-    ((400, 100), 20, (20, 10)),
-    ((400, 100), 25, (25, 10)),
+    # (400, 100) at 20 and 25 cut the 4:1 picture to 50% and 62%; since
+    # CARD-064 it is skipped instead (tests/test_card_064_thin_pictures.py).
 ]
 
 
@@ -136,12 +146,12 @@ FIXED_MODE_EXPECTATIONS = [
 def test_ac3_fixed_mode_is_unchanged(shape, n, extent):
     image = _image(*shape, size_mode="fixed", size_value=n)
     assert image.predict_size() == extent
-    assert image.size_substitution() is None
+    assert image.size_fit().status == FITS
 
 
 def test_ac4_short_mode_stays_in_range_across_a_seeded_corpus():
     rng = random.Random(61)
-    cases = followed = substituted = 0
+    cases = followed = other = 0
     for _ in range(3000):
         ratio = rng.uniform(1.0, 5.9)
         short_edge = rng.randint(40, 600)
@@ -150,23 +160,27 @@ def test_ac4_short_mode_stays_in_range_across_a_seeded_corpus():
         short_value = rng.randint(MIN_SIZE, MAX_SIZE)
 
         image = _image(w, h, size_value=short_value)
-        gw, gh = image.predict_size()
-        context = (w, h, short_value, gw, gh)
+        fit = image.size_fit()
+        gw, gh = fit.extent
+        context = (w, h, short_value, gw, gh, fit.status)
         cases += 1
 
         assert MIN_SIZE <= gw <= MAX_SIZE and MIN_SIZE <= gh <= MAX_SIZE, context
         assert (gw >= gh) if w >= h else (gh >= gw), context
-        if image.size_substitution() is None:
+        if fit.status == FITS:
             followed += 1
             assert min(gw, gh) == short_value, context
             assert _retained(w, h, gw, gh) >= 0.95, context
         else:
-            substituted += 1
+            # The short side had no grid under the cap; Large was judged.
+            other += 1
+            assert fit.chosen is None, context
             assert max(gw, gh) == MAX_SIZE, context
-            assert _retained(w, h, gw, gh) >= 0.5, context
+            kept_enough = _retained(w, h, gw, gh) >= MIN_KEPT_SHARE
+            assert kept_enough == (fit.status == MOVED_TO_LARGE), context
 
     assert cases == 3000
-    assert followed >= 300 and substituted >= 300, (followed, substituted)
+    assert followed >= 300 and other >= 300, (followed, other)
 
 
 # --- AC-5 and the page round trip: the real Flask admin app ----------------
@@ -285,18 +299,17 @@ def test_preview_page_keeps_the_auto_mode_through_its_save_round_trip(
     assert image.predict_size() == (30, 20)
 
 
-def test_over_the_cap_note_on_both_pages(admin_client, tmp_path):
+def test_a_picture_too_elongated_for_any_size_is_marked_on_both_pages(
+    admin_client, tmp_path
+):
+    """4:1 at "small": since CARD-064 skipped with a message, instead of
+    CARD-061's over-the-cap note."""
     _, client, _ = admin_client
     _upload(client, _fully_inked(tmp_path, 400, 100), "small")
 
-    note = (
-        "Too elongated for this short side: keeping its proportions would need "
-        "a 40-cell long side, over the 30 maximum, so the grid uses 30 cells on "
-        "the long side instead."
-    )
     preview = _normalized(client.get("/batch/preview-images").get_data(as_text=True))
-    assert note in preview
-    assert "was too small for this picture" not in preview
+    assert "this picture will be skipped" in preview
+    assert "Too elongated for this short side" not in preview
 
     confirm = _normalized(client.get("/batch/generate-puzzles").get_data(as_text=True))
-    assert note in confirm
+    assert "will be skipped" in confirm

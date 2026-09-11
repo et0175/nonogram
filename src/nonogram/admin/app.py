@@ -13,7 +13,7 @@ from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReviewService
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
-from .image_manager import get_image_manager
+from .image_manager import CANNOT_FIT, MOVED_TO_LARGE, SIZE_PRESETS, get_image_manager
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
 from .book_pdf_generator import BookPDFGenerator
@@ -257,12 +257,7 @@ def create_app(debug=None):
 
             # Read default size from page 1 selection and apply to all images
             default_size = request.form.get("default_size", "medium")
-            size_mapping = {
-                "small": (10, "short"),      # 10 on the short side; long side follows the picture (CARD-061)
-                "medium": (20, "fixed"),     # Medium (15-25 cells)
-                "large": (30, "fixed"),      # Large: 30 on the long side
-                "auto": (20, "max"),         # Auto (based on image)
-            }
+            size_mapping = SIZE_PRESETS
 
             if default_size in size_mapping:
                 size_value, size_mode = size_mapping[default_size]
@@ -378,11 +373,21 @@ def create_app(debug=None):
             generated_count = 0
             errors = []
             adjustments = []
+            skipped = []
+            moved = []
 
             for image in images:
                 try:
-                    # Predict puzzle size based on image
-                    width, height = image.predict_size()
+                    # CARD-064: a picture even Large would cut below
+                    # MIN_KEPT_SHARE is never generated; it is reported.
+                    fit = image.size_fit()
+                    if fit.status == CANNOT_FIT:
+                        skipped.append(
+                            f"{image.original_filename} skipped: too elongated for any "
+                            f"supported size (even Large keeps only {fit.kept:.0%})"
+                        )
+                        continue
+                    width, height = fit.extent
 
                     # Convert image to puzzle through the canonical,
                     # solver-verified pipeline (CARD-049) — the same
@@ -433,12 +438,27 @@ def create_app(debug=None):
                     )
 
                     generated_count += 1
+                    if fit.status == MOVED_TO_LARGE:
+                        # CARD-064 (G-2): the chosen size was not used — say
+                        # so in the results too, not only in the preview.
+                        reason = (
+                            f"the chosen size {fit.chosen[0]}x{fit.chosen[1]} would "
+                            f"cut it (keeps {fit.chosen_kept:.0%})"
+                            if fit.chosen is not None
+                            else "the chosen size can't keep its shape"
+                        )
+                        moved.append(f"{image.original_filename}: moved up to Large — {reason}")
                     if used != (width, height):
-                        adjustments.append(
+                        note = (
                             f"{image.original_filename}: generated at "
                             f"{used[0]}x{used[1]} — {width}x{height} had no "
                             f"unique solution"
                         )
+                        # A ±1 retry (CARD-062) can land under MIN_KEPT_SHARE;
+                        # it is kept, but never silently.
+                        if not image.keeps_enough(used):
+                            note += f"; it keeps {image.kept_share(used):.0%} of the picture"
+                        adjustments.append(note)
 
                 except NonogramError as e:
                     # E.g. GenerationAbandoned: the conversion (and every
@@ -459,10 +479,20 @@ def create_app(debug=None):
             else:
                 flash("No valid puzzles generated", "warning")
 
+            for note in moved[:3]:
+                flash(note, "info")
+            if len(moved) > 3:
+                flash(f"... and {len(moved) - 3} more pictures moved up to Large", "info")
+
             for adjustment in adjustments[:3]:
                 flash(adjustment, "info")
             if len(adjustments) > 3:
                 flash(f"... and {len(adjustments) - 3} more size adjustments", "info")
+
+            for note in skipped[:3]:
+                flash(note, "info")
+            if len(skipped) > 3:
+                flash(f"... and {len(skipped) - 3} more skipped pictures", "info")
 
             if errors:
                 for error in errors[:3]:  # Show first 3 errors
