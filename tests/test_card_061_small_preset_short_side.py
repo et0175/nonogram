@@ -58,11 +58,12 @@ def _image(width: int, height: int, size_mode: str = "short", size_value: int = 
 
 def _retained(src_w: int, src_h: int, grid_w: int, grid_h: int) -> float:
     """Share of the picture an aspect-preserving centre crop to the grid's
-    shape keeps — computed from the two ratios alone, independently of the
-    code under test."""
-    src = src_w / src_h
-    grid = grid_w / grid_h
-    return min(src, grid) / max(src, grid)
+    shape keeps, computed independently of the code under test. It uses
+    integer cross-products: a ratio of ratios lands on 0.8999999999999999
+    for exact 90% cases such as 200x60 at 30x10, which then straddle
+    MIN_KEPT_SHARE."""
+    a, b = src_w * grid_h, grid_w * src_h
+    return min(a, b) / max(a, b)
 
 
 def _normalized(body: str) -> str:

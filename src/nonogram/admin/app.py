@@ -13,7 +13,7 @@ from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReviewService
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
-from .image_manager import CANNOT_FIT, SIZE_PRESETS, get_image_manager
+from .image_manager import CANNOT_FIT, MOVED_TO_LARGE, SIZE_PRESETS, get_image_manager
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
 from .book_pdf_generator import BookPDFGenerator
@@ -374,6 +374,7 @@ def create_app(debug=None):
             errors = []
             adjustments = []
             skipped = []
+            moved = []
 
             for image in images:
                 try:
@@ -437,12 +438,27 @@ def create_app(debug=None):
                     )
 
                     generated_count += 1
+                    if fit.status == MOVED_TO_LARGE:
+                        # CARD-064 (G-2): the chosen size was not used — say
+                        # so in the results too, not only in the preview.
+                        reason = (
+                            f"the chosen size {fit.chosen[0]}x{fit.chosen[1]} would "
+                            f"cut it (keeps {fit.chosen_kept:.0%})"
+                            if fit.chosen is not None
+                            else "the chosen size can't keep its shape"
+                        )
+                        moved.append(f"{image.original_filename}: moved up to Large — {reason}")
                     if used != (width, height):
-                        adjustments.append(
+                        note = (
                             f"{image.original_filename}: generated at "
                             f"{used[0]}x{used[1]} — {width}x{height} had no "
                             f"unique solution"
                         )
+                        # A ±1 retry (CARD-062) can land under MIN_KEPT_SHARE;
+                        # it is kept, but never silently.
+                        if not image.keeps_enough(used):
+                            note += f"; it keeps {image.kept_share(used):.0%} of the picture"
+                        adjustments.append(note)
 
                 except NonogramError as e:
                     # E.g. GenerationAbandoned: the conversion (and every
@@ -462,6 +478,11 @@ def create_app(debug=None):
                 flash(f"✅ Generated {generated_count} puzzle(s) from {len(images)} image(s)", "success")
             else:
                 flash("No valid puzzles generated", "warning")
+
+            for note in moved[:3]:
+                flash(note, "info")
+            if len(moved) > 3:
+                flash(f"... and {len(moved) - 3} more pictures moved up to Large", "info")
 
             for adjustment in adjustments[:3]:
                 flash(adjustment, "info")

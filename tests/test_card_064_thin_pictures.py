@@ -29,6 +29,7 @@ from nonogram.admin.image_manager import (
     MOVED_TO_LARGE,
     ImageFile,
 )
+from nonogram.errors import GenerationAbandoned
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 
@@ -51,9 +52,10 @@ def _image(width: int, height: int, mode: str = "fixed", value: int = 20) -> Ima
 
 
 def _kept(source: tuple, grid: tuple) -> float:
-    """Share of the picture a crop to ``grid``'s shape keeps — from the two
-    ratios alone, independently of the code under test."""
-    a, b = source[0] / source[1], grid[0] / grid[1]
+    """Share of the picture a crop to ``grid``'s shape keeps, independently
+    of the code under test. It uses integer cross-products, so exact
+    boundary cases compare exactly against MIN_KEPT_SHARE."""
+    a, b = source[0] * grid[1], grid[0] * source[1]
     return min(a, b) / max(a, b)
 
 
@@ -92,6 +94,14 @@ class TestAC2CannotFit:
         assert fit.extent == (30, 10)
         assert fit.kept < MIN_KEPT_SHARE
 
+    @pytest.mark.parametrize("value", [20, 25])
+    def test_the_old_4_to_1_fixed_pins_now_cannot_fit(self, value):
+        """CARD-061 pinned (400, 100) at fixed 20 and 25 as 20x10 (50% kept)
+        and 25x10 (62%); since CARD-064 it cannot fit: Large keeps 75%."""
+        fit = _image(400, 100, "fixed", value).size_fit()
+        assert fit.chosen == (value, 10)
+        assert (fit.status, fit.extent) == (CANNOT_FIT, (30, 10))
+
     def test_the_status_is_in_the_api_view(self):
         assert _image(500, 100).to_dict()["size_status"] == CANNOT_FIT
         assert _image(300, 200).to_dict()["size_status"] == FITS
@@ -118,6 +128,15 @@ def test_ac3_a_picture_that_fits_keeps_its_extent(shape, mode, value, extent):
     image = _image(*shape, mode, value)
     fit = image.size_fit()
     assert (fit.status, fit.extent, image.predict_size()) == (FITS, extent, extent)
+
+
+class TestTheBoundaryIsInclusiveAndSymmetric:
+    @pytest.mark.parametrize("shape", [(100, 90), (90, 100)])
+    def test_exactly_the_threshold_fits_in_both_orientations(self, shape):
+        """10x10 keeps exactly 90% of a 10:9 picture, either way round."""
+        fit = _image(*shape, "fixed", 10).size_fit()
+        assert fit.kept == MIN_KEPT_SHARE
+        assert (fit.status, fit.extent) == (FITS, (10, 10))
 
 
 class TestAC4Threshold:
@@ -228,9 +247,42 @@ def test_ac1_a_thin_picture_is_moved_to_large_end_to_end(admin_client, tmp_path)
     confirm = _normalized(client.get("/batch/generate-puzzles").get_data(as_text=True))
     assert "moved to Large" in confirm
 
-    batch_id, _ = _generate(client)
+    batch_id, flashed = _generate(client)
     (puzzle,) = app.batch_generator.get_batch_puzzles(batch_id, offset=0, limit=10)
     assert (len(puzzle["grid"][0]), len(puzzle["grid"])) == (10, 30)
+    # G-2: the batch results say so too, not only the preview.
+    assert (
+        "candle.png: moved up to Large — the chosen size 10x20 would cut it (keeps 69%)"
+    ) in flashed
+
+
+def test_a_retry_below_the_threshold_says_how_much_it_keeps(
+    admin_client, tmp_path, monkeypatch
+):
+    """CARD-062's ±1 retry may land under MIN_KEPT_SHARE. It is kept (it
+    rescues real pictures, e.g. b3 at Small), but the result line says what
+    share of the picture the stored grid keeps."""
+    app, client = admin_client
+    # 441x1442 at Small: no 10-cell short side fits under 30, so it moves to
+    # Large's 10x30 (92%); abandon that, and the only neighbour is 10x29 (89%).
+    _upload(client, [_fully_inked(tmp_path, 441, 1442, "tall.png")], "small")
+    real_generate = orchestrator.generate
+
+    def abandon_large(request, **kwargs):
+        if (request.width, request.height) == (10, 30):
+            raise GenerationAbandoned("abandoned at 10x30 (simulated)")
+        return real_generate(request, **kwargs)
+
+    monkeypatch.setattr(orchestrator, "generate", abandon_large)
+    batch_id, flashed = _generate(client)
+
+    (puzzle,) = app.batch_generator.get_batch_puzzles(batch_id, offset=0, limit=10)
+    assert (len(puzzle["grid"][0]), len(puzzle["grid"])) == (10, 29)
+    assert "tall.png: moved up to Large — the chosen size can't keep its shape" in flashed
+    assert (
+        "tall.png: generated at 10x29 — 10x30 had no unique solution; "
+        "it keeps 89% of the picture"
+    ) in flashed
 
 
 def test_ac2_a_picture_that_cannot_fit_is_skipped_end_to_end(

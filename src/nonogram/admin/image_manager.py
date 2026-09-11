@@ -51,10 +51,16 @@ class SizeFit:
 
 
 def _kept_share(source: tuple, extent: tuple) -> float:
-    """Share of the picture an aspect-preserving crop to ``extent`` keeps."""
-    source_ratio = source[0] / source[1]
-    grid_ratio = extent[0] / extent[1]
-    return min(source_ratio, grid_ratio) / max(source_ratio, grid_ratio)
+    """Share of the picture an aspect-preserving crop to ``extent`` keeps.
+
+    Compared as integer cross-products, so a picture and its transpose get
+    the same share to the last bit. A ratio of ratios does not: 100x90 at
+    10x10 came out 0.8999999999999999 one way and 0.9 the other, flipping
+    the status at exactly MIN_KEPT_SHARE.
+    """
+    a = source[0] * extent[1]
+    b = extent[0] * source[1]
+    return min(a, b) / max(a, b)
 
 
 @dataclass
@@ -179,6 +185,19 @@ class ImageFile:
         large_kept = _kept_share(source, large)
         status = MOVED_TO_LARGE if large_kept >= MIN_KEPT_SHARE else CANNOT_FIT
         return SizeFit(large, status, large_kept, chosen, chosen_kept)
+
+    def kept_share(self, extent: tuple) -> float:
+        """Share of this picture a grid of ``extent`` keeps (1.0 when the
+        shape is degenerate and there is nothing to judge)."""
+        source = self._source_shape()
+        if min(source) <= 0:
+            return 1.0
+        return _kept_share(source, extent)
+
+    def keeps_enough(self, extent: tuple) -> bool:
+        """Whether ``extent`` keeps at least :data:`MIN_KEPT_SHARE` of this
+        picture."""
+        return self.kept_share(extent) >= MIN_KEPT_SHARE
 
     def _own_extent(self, mode: str, value: int, source: tuple) -> Optional[tuple]:
         """The grid a size setting asks for on this picture, or ``None`` when
