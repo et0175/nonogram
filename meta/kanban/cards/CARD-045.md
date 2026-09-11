@@ -1,6 +1,6 @@
 # CARD-045: predict_size() can crash a whole batch page on a degenerate image
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/045-predict-size-uncaught-value-error
-**Worktree:** ../PythonProject4-CARD-045
+**Worktree:** —
 **Source:** meta/review/20260910T164426Z.yml#F-001,F-002,F-003
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/image_manager.py, tests/test_image_batch_size_fix.py
 **Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T00:00:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T09:00:00Z
+**Actual:** 1.1d
+**Merge commit:** 2fc8094
 **Blocked by:** —
 
 ## What to implement
