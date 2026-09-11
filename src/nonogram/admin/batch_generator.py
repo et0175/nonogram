@@ -452,53 +452,6 @@ class BatchGenerator:
 
         return False
 
-    def _generate_puzzle_with_metrics(
-        self, size: int, theme: str
-    ) -> GeneratedPuzzle:
-        """Generate a single puzzle using the real orchestrator pipeline.
-
-        Args:
-            size: Puzzle size (width/height for square puzzles)
-            theme: Puzzle theme
-
-        Returns:
-            GeneratedPuzzle with real metrics from the generation pipeline
-        """
-        # Use the orchestrator to generate one real puzzle
-        puzzles = orchestrator.generate_batch(
-            count=1,
-            sizes=[size],
-            source="random",
-            difficulty_tier=None,
-        )
-
-        puzzle = puzzles[0]
-        puzzle_id = str(uuid.uuid4())
-
-        # CARD-050 (AC-2, option 3b): same reasoning as
-        # _generate_random_batch above — no source picture exists for a
-        # random-mode puzzle, so quality_score/recognizability are None
-        # rather than the old unconditional-75/"medium" fallback.
-        metrics = PuzzleMetrics(
-            difficulty_score=puzzle.difficulty_score,
-            difficulty_tier=puzzle.difficulty_tier,
-            quality_score=None,
-            recognizability=None,
-            strategies_used=getattr(puzzle, "strategies_used", []),
-            backtracking_depth=getattr(puzzle, "backtracking_depth", 0),
-        )
-
-        return GeneratedPuzzle(
-            puzzle_id=puzzle_id,
-            grid=puzzle.grid,
-            clues_rows=puzzle.clues.rows,
-            clues_cols=puzzle.clues.columns,
-            width=puzzle.width,
-            height=puzzle.height,
-            theme=theme,
-            metrics=metrics,
-        )
-
 
 # Global batch generator instance
 _batch_generator = None
