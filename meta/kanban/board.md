@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-11 14:20_
+_Updated: 2026-09-11 15:05_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -33,7 +33,6 @@ _(none)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
-- **CARD-057** P3 · ADR-0006/R1's dependency baseline is stale — reportlab was added without updating it  _(wave 1)_
 - **CARD-030** P2 · Display inline success/error messages on form page  _(wave 4)_
 - **CARD-031** P2 · Show image metadata and suggested puzzle dimensions after upload  _(wave 4)_
 - **CARD-032** P2 · Restrict web form to image-only mode  _(wave 4)_
@@ -50,6 +49,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-057** ADR-0006/R1's dependency baseline is stale — reportlab was added without updating it · score 9.0 (cycle 1/3) · merged 94c5a8d
 - **CARD-054** Remove dead code — BatchGenerator._generate_puzzle_with_metrics · score 9.5 (cycle 1/3) · merged 77c450f
 - **CARD-048** Widen ADR-0022/R3 and R4 scope.code to include the admin panel · score 9.5 (cycle 2/3) · merged b154886
 - **CARD-047** predict_size() adds a synchronous full-image decode to batch page renders · score 9.0 (cycle 1/3) · merged 8e5b818

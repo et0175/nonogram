@@ -1,6 +1,6 @@
 # CARD-057: ADR-0006/R1's dependency baseline is stale — reportlab was added without updating it
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/057-adr-0006-dependency-baseline-drift
-**Worktree:** ../PythonProject4-CARD-057
+**Worktree:** —
 **Source:** CARD-045 cycle 1 review, Step 8h spot-check (re-derivation) — meta/review/20260911T073855Z-CARD-045-cycle1.yml
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** meta/architecture/decisions/adr/0006-*.md, pyproject.toml
 **Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T14:25:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T15:05:00Z
+**Actual:** 0.05d
+**Merge commit:** 94c5a8d
 **Blocked by:** —
 
 ## What to implement

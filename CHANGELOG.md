@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-11
+- CARD-057 (tech-debt): Fixed ADR-0006/R1's dependency baseline check, silently broken on `main` since 2026-09-07 — `reportlab` had been placed in core `dependencies` instead of the `admin` optional-dependencies extra (where Flask/Werkzeug, equally admin-only, already lived). Moved it there instead of widening the ADR's closed baseline; a bare `pip install nonogram` (CLI-only) no longer pulls in ReportLab.
 - CARD-054 (tech-debt): Removed `BatchGenerator._generate_puzzle_with_metrics`, a dead method with zero callers, still carrying the hardcoded quality-value pattern CARD-050 fixed elsewhere.
 - Admin: lowered the default "Minimum Quality Score" batch filter from 80 to 25 — real uploaded pictures rarely score that high against `measure_quality()`.
 - CARD-048 (tech-debt): Widened ADR-0022/R3 and R4's `scope.code` to include the admin panel, closing a blind spot where `ec18fb4` made admin a direct consumer of these rules but the system-contract audit didn't treat it as in-scope territory. Also documents a known, real divergence: admin's `predict_size()` silently substitutes a workable size instead of refusing per R4's refusal-and-message clause (a candidate follow-up card, not created).
