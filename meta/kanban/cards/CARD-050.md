@@ -377,3 +377,9 @@ cosmetic reading, test-count doc note now resolved as a side effect). Risk:
 LOW, lane: FAST. Score 9.0 ≥ min_score 8, zero Critical/Important — severity
 gate OPEN. This was cycle 3 of max_cycles 3 — cleared on the last allowed
 cycle.
+
+[8h spot-check] 1/1 sampled holds reproduced (ADR-0007) — independent
+skeptic re-ran the structural import-boundary guard fresh (14 passed) and
+independently grepped random_generator.py, confirming zero nonogram.analysis
+imports remain (only stdlib random/typing; the 6 "analysis" hits are all in
+the docstring explaining the removed import).
