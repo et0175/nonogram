@@ -1,0 +1,174 @@
+version: 1
+generated_at: "2026-09-11T18:15:58Z"
+target: "card/063-shared-limits-module dc64456 — CARD-063 cycle 2 (CONFIRMATION MODE, delta d2ed15d..dc64456, base f7c5692)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+confirmation_verdict: "pure confirmation — no new Critical/Important finding"
+
+coverage:
+  read:
+    - "fix delta d2ed15d..dc64456 (tests/test_card_063_limits.py +63, tests/test_web_server.py docstring 1 line)"
+    - "tests/test_card_063_limits.py (whole file)"
+    - "admin templates image_preview.html (size inputs + labels), puzzles_list.html, book_select_puzzles.html (size inputs)"
+    - "admin/app.py Jinja globals registration, /batch/from-images upload route"
+    - "image_manager.py singleton + default temp dir"
+    - "cycle-1 report and main-repo card CARD-063.md (task contract, fix-delta notes)"
+  not_reached:
+    - "browser execution of metadata.js (no JS runner; no browser per instructions)"
+  confidence: high
+  evidence_produced:
+    - "targeted suites on worktree (test_card_063_limits, test_web_server, test_cli): 268 passed"
+    - "14 template mutants in a scratch git-archive copy of dc64456 (worktree never edited): 13 killed, M6 survives (see F-005)"
+    - "AC-4 mutant MAX_SIZE=40 in scratch copy: test_the_print_cell_size_table_covers_the_whole_range fails; restored and diffed clean"
+    - "full suite: base f7c5692 clean export 39 failed / 2699 passed / 26 skipped; branch worktree dc64456 41 failed / 2726 passed / 26 skipped"
+    - "branch-only failures (3) attributed to pre-existing flakiness: test_batch_history.py sorts before the card file; the isolated trio fails 1/3 identically on base and branch (2 runs each); wave2 fails 4-6 per run with varying sets, with and without the 3 new rendered tests deselected (test_multiple_batches_run_concurrently fails with them deselected)"
+    - "worktree git status unchanged throughout (only the untracked cycle-1 YAML); PYTHONDONTWRITEBYTECODE=1 for every run after the first"
+
+metrics:
+  diff: { files: 2, added: 64, removed: 1 }
+  max_fan_in: { symbol: "_input_bounds (test helper)", callers: 3 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — repository history begins 2026-09-06; the delta is test-only and its co-change peers are 1-2 commits deep"
+    hotspots: "not_applicable — delta touches test files only"
+
+delta_files: ["tests/test_card_063_limits.py", "tests/test_web_server.py"]
+
+prior_findings:
+  - "F-001 wontfix (accepted) — reasonable as Minor: both pages always render the attributes (cycle-1 render check). The stated reason is partly off: the cycle-1 suggestion was a visible console guard, which needs no 10/30 literals."
+  - "F-002 fixed — rendered-page tests find the <input> by exact id, assert the tag exists (no vacuous pass on a redirect: the tag assertion fails), and compare min/max(/placeholder) to the constants. Mutants on the 2 image-preview inputs, the cells label, and min/max/placeholder on both filter pages are all killed."
+  - "F-003 wontfix (accepted) — acceptable as Minor; the reason covers execution only, and a source-regex check on the call site and dataset keys would need no JS runner."
+  - "F-004 fixed — docstring at tests/test_web_server.py:2431 now reads 53/19/34, matching the asserts at 2434-2436."
+
+system_contract:
+  rules_checked: 10
+  holds: 5
+  unchecked: 5
+  violated: 0
+  note: "cycle-1 YAML counted 6 holds / 4 unchecked, but its own verdict lines are 5 ✓ and 5 ⚠; recounted here"
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): delta imports only re/pytest/PIL in tests; limits.py and pyproject untouched"
+    - "ADR-0019/R1 ✓ holds — carried(cycle 1, delta-clean); import guard test_cli.py also green on dc64456 this cycle (268 passed)"
+    - "ADR-0021/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0022/R1 ✓ holds — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R2 ✓ holds — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0022/R4 ✓ holds — carried(cycle 1, delta-clean)"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model (meta/architecture/trace.yml still absent, re-checked)"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model (re-checked)"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model (re-checked)"
+
+task_contract:
+  - "AC-1 held — carried(cycle 1, delta-clean): scope is src/; delta touches tests/ only"
+  - "AC-2 held — re-verified: rendered admin pages now pinned; 13/14 wrong-constant template mutants killed (image_preview per-image min/max, global min/max, cells label; puzzles_list min/max/placeholder; book_select_puzzles min/max/placeholder); only the global-input hint survives (F-005)"
+  - "AC-3 held — carried(cycle 1, delta-clean): tests/test_cli.py and src untouched; test_cli green on dc64456"
+  - "AC-4 held — re-verified: MAX_SIZE=40 in scratch copy fails test_the_print_cell_size_table_covers_the_whole_range"
+  - "AC-5 held — re-verified: base 39F/2699P, branch 41F/2726P (+27 = card tests, all green); the 3 branch-only failures are pre-existing flakes (see evidence_produced)"
+  - "G-1 held — carried(cycle 1, delta-clean): no src change in delta"
+  - "G-2 held — carried(cycle 1, delta-clean): limits.py untouched"
+  - "G-3 held — carried(cycle 1, delta-clean): generation/, book trim inputs, layout data untouched"
+  - "G-4 held — carried(cycle 1, delta-clean): tests/test_cli.py untouched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/web/static/metadata.js
+    line: 20
+    title: "Bounds read has no fallback (carried from cycle 1)"
+    description: "Unchanged since cycle 1. Accepted by the implementer."
+    suggestion: "Optional: log to the console when the data attributes are missing. No 10/30 literals needed."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "accepted — both pages always render the attributes"
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_063_limits.py
+    line: 143
+    title: "Admin template test cannot catch a bound bound to the wrong constant"
+    description: "Fixed by rendered-page tests; re-derived by mutation (13/14 killed)."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: dc64456
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_063_limits.py
+    line: 209
+    title: "metadata.js wiring is not discriminated by any test (carried from cycle 1)"
+    description: "Unchanged since cycle 1. Accepted: the repo has no JS runner."
+    suggestion: "Optional: a source regex on the suggestDimensions call and the dataset keys needs no runner."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "accepted — no JavaScript test runner in the closed dependency baseline"
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 2431
+    title: "Stale count docstring"
+    description: "Fixed: now reads 53/19/34, matching the asserts."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: dc64456
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_063_limits.py
+    line: 162
+    title: "Image-preview global-input hint is not pinned by the rendered test"
+    description: |
+      The test asserts "10-30 cells", which matches only the per-image label (image_preview.html:90).
+      The global-input hint at image_preview.html:36 renders a bare "{{ MIN_SIZE }}-{{ MAX_SIZE }}".
+      Mutant M6 changes it to "{{ MIN_SIZE }}-{{ MIN_SIZE }}", and the whole card test file passes.
+      The admin page would then show "10-10" next to an input that accepts 10..30.
+    suggestion: "Assert the global hint too, e.g. that the <small> following #globalSizeValue reads f'{LOW}-{HIGH}'."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope_observations:
+  - "O-4 tests/test_card_063_limits.py:143 — the rendered image-preview test leaves one uploaded PNG per run in the system temp dir (nonogram_batch_images, now 3059 files). This is the same fixture pattern CARD-061/062 tests use, so it is pre-existing."
+  - "O-5 tests/test_batch_history.py and tests/test_wave2_async_generation.py — order- and timing-sensitive. They fail 9-11 of 22 even run alone, on base and branch. They make the full-suite baseline noisy for every card."
+  - "O-1..O-3 from cycle 1 still stand (not re-examined: no src change)."

@@ -1,6 +1,6 @@
 # CARD-063: One source of truth for the grid size range — a shared `limits` module instead of hardcoded 10/30
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/limits.py (new), src/nonogram/sourcing/random_grid.py, src/nonogram/difficulty.py, src/nonogram/admin/app.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/batch_generator.py, src/nonogram/admin/image_manager.py, src/nonogram/admin/templates/image_preview.html, src/nonogram/admin/templates/puzzles_list.html, src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/web/metadata.py, src/nonogram/web/static/metadata.js (+ whatever web page renders it), tests/test_cli.py (`_SHARED`), meta/architecture/decisions/adr/0007-internal-module-architecture.md, meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (History notes only)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 2/3)
+**Started:** 2026-09-11T17:35:12Z
+**Closed:** 2026-09-11T18:18:00Z
+**Actual:** 0.03d
+**Merge commit:** 0a77655
 **Blocked by:** —
 
 ## Why
@@ -133,3 +133,150 @@ Today the core has constants, but they are not the only source:
   the print cell-size data values.
 - G-4: Do not weaken the import guard. `limits` enters the shared rank by an
   explicit, pinned edit; the ranking rule is not loosened.
+
+## Worktree notes
+
+[Env] forge 2026.8.17 (no `meta/.skills.yml`, so no min_version comparison).
+
+**Implementation.**
+- **New `src/nonogram/limits.py`**: `MIN_SIZE = 10` and `MAX_SIZE = 30`, the
+  ADR-0022 reasoning in a comment, and no imports. `sourcing/random_grid.py`
+  imports and re-exports both names (its `__all__` is unchanged), and its own
+  definitions are gone. `difficulty.py` computes `MIN_SUPPORTED_CELLS` and
+  `MAX_SUPPORTED_CELLS` as `MIN_SIZE * MIN_SIZE` and `MAX_SIZE * MAX_SIZE`.
+- **Admin**: `puzzle_review.py` (filter size check), `batch_generator.py`
+  (batch sizes; the separate *count* check `10 <= count <= 200` is not a grid
+  size and stays) and `image_manager.py` (`update_image_size`) import the
+  constants. `create_app()` registers both as Jinja globals, so
+  `image_preview.html`, `puzzles_list.html` and `book_select_puzzles.html`
+  use `{{ MIN_SIZE }}`/`{{ MAX_SIZE }}` for `min`/`max`, placeholders and
+  labels. One label also changed wording: "10-30 pixels" is now "… cells",
+  since the value was always cells.
+- **Web**: `metadata.py`'s `suggest_dimensions` defaults come from `limits`.
+  For the browser side, both form pages render
+  `data-min-size="{MIN_SIZE:d}" data-max-size="{MAX_SIZE:d}"` onto the
+  `metadata.js` `<script>` tag, and the script reads its own tag once, while
+  loading (`document.currentScript`). `suggestDimensions` no longer has
+  `10`/`30` defaults.
+  - Why the script tag and not the suggestions `<div>`: a test pins that
+    div's exact opening tag (`test_web_metadata.py:178`).
+  - Why `:d`: it is the same safety argument `pages.py` already makes for
+    `{seed:d}`, an int-only format spec.
+
+**Guard (AC-3)**: `_SHARED = {"errors", "limits"}`, pinned literally by a
+new `test_the_shared_layer_is_closed_at_errors_and_limits`. New
+forbidden-edge cases `limits-reaches-back` (limits → capability) and
+`limits-to-errors` (shared → shared, so `limits` stays import-free). The
+legitimate-edges test gains capability → `limits` and adapter → `limits`.
+`limits` is added to the walk's sanity set.
+
+**SCOPE+**, beyond the predicted Touches, each forced by an existing pin:
+- `pages.py` docstring and `tests/test_web_server.py`'s escaping-rule
+  class: the interpolation counts 49/19/30 → 53/19/34, a fifth kind in the
+  docstring, and `MIN_SIZE`/`MAX_SIZE` in `_UNESCAPED_PAGE_INTERPOLATIONS`.
+- `web/__init__.py` docstring and
+  `test_the_package_imports_exactly_what_the_docstring_names`: the web
+  package now imports `limits`.
+- `CLAUDE.md`: "their only shared dependency is `errors.py`" would have
+  become false.
+
+**Evidence so far.**
+- **AC-1**: the literal grep for range checks and form bounds in `src/`
+  finds only out-of-scope items: the batch *count* check, the book
+  trim-size inputs (cm), and `generation/random_generator.py` (CARD-053).
+- **Red check**: against `main`'s `src/` the new test file cannot even
+  import `nonogram.limits`.
+- **Targeted suites**: 392 passed. That is the new file plus `test_cli`,
+  `test_web_server`, `test_web_metadata`, `test_puzzle_review`,
+  `test_batch_generator`, the CARD-058/061/062 tests and
+  `test_image_batch_size_fix`.
+- **Validators**: `system_rules.py --verify-refs` has no dead refs;
+  `validate.py --phase all` gives 0 errors and the 2 old warnings.
+- **Full-suite comparison (AC-5)**, the branch against a clean export of
+  `main` (`f7c5692`): 40 failed, 2724 passed on the branch; 40 failed, 2698
+  passed on `main`. The +26 passes are exactly this card's new tests. Only
+  two tests differ:
+  - failing only on the branch:
+    `test_the_package_imports_exactly_what_the_docstring_names`. The run
+    started before its fix, and it passes in the later targeted run (392
+    passed);
+  - failing only on `main`: the flaky async
+    `test_wave2_async_generation.py::TestBookManagement::test_create_book_with_approved_puzzles`.
+
+  No new failures.
+
+[Review 1/3] Score: 8.5 — crit: 0, imp: 0, minor: 4
+[Review sync] 1 report(s) → meta/review/ (20260911T175925Z-CARD-063-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review, independent agent): AC-1..AC-5 and G-1..G-4
+all held. The reviewer's own evidence:
+- rendered all three admin pages and both web pages on base and branch:
+  10 and 30 everywhere;
+- removing `limits` from `_SHARED` fails 4 tests;
+- `MAX_SIZE = 40` fails the print-table test;
+- giving `limits.py` an import fails the guard and the AST test;
+- full suite on clean exports: base 40 failed, branch 38, no branch-only
+  failure;
+- `:d` spec and `document.currentScript` placement judged safe.
+Minors:
+- F-001: `metadata.js` has no fallback if the bounds are missing;
+- F-002: the template test read source text only, so a bound wired to the
+  wrong constant would pass;
+- F-003: the `metadata.js` wiring is untested by execution;
+- F-004: a stale "43/16/27" docstring above the escaping-count asserts.
+Out of scope: "Size (px)" labels on the two filter templates; redundant
+function-local `random_grid` imports in `image_manager.py`; difficulty
+bands in `image_to_puzzle.py` that stop at 30. Severity gate OPEN.
+
+[Fix delta after cycle 1]
+- F-002 fixed: rendered-page tests for the image-preview page, the puzzle
+  list filter and the book puzzle filter. Each parses the rendered size
+  `<input>` and asserts its `min`/`max`/placeholder values, so a
+  wrong-constant binding fails. The source check stays alongside: it catches
+  a reintroduced literal that happens to render correctly.
+- F-004 fixed: the docstring now reads 53/19/34.
+- Delta commit `dc64456`; targeted suites 395 passed. Mutation check in a
+  scratch copy: the per-image input in `image_preview.html` set to
+  `max="{{ MIN_SIZE }}"` makes `test_the_image_preview_page_renders_the_range`
+  fail with `('10', '10') == ('10', '30')`; restoring the template makes it
+  pass again.
+
+[Review 2/3] Score: 9.0 — crit: 0, imp: 0, minor: 3 (confirmation mode, delta d2ed15d..dc64456)
+[Review sync] 1 report(s) → meta/review/ (20260911T181558Z-CARD-063-cycle2.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 2 summary: pure confirmation. Re-verified AC-2, AC-4 and AC-5.
+Carried AC-1, AC-3 and G-1..G-4, since the delta touches test files only.
+- Wrong-constant check: the rendered tests catch min, max and placeholder
+  on the puzzle-list and book filters, and both inputs plus the "cells"
+  label on the image preview. 13 of 14 template mutations fail.
+- Full suite: base 39 failed, branch 41. The 3 branch-only failures are
+  pre-existing flaky tests (see the spot-check).
+Minors:
+- F-005 (new): the "apply to all" hint label at `image_preview.html:36`
+  is not asserted.
+- F-001 and F-003: acceptance judged reasonable. The reviewer notes the
+  suggested F-001 fix was a console message, which would need no literals.
+All three recorded, not fixed; a fix would need a cycle 3. Severity gate
+OPEN. Cleared on cycle 2 of 3.
+
+[8h spot-check] 1/1 sampled hold reproduced independently — the
+"branch-only failures are pre-existing flakes" claim. Run alone,
+`tests/test_batch_history.py` fails on both trees with different subsets
+each run: 5 failed on the branch, 6 on `main`.
+
+[AC/EC check] All criteria/guardrails ✓ (evidence):
+AC-1 ✓ demonstrated — grep in `src/`: only out-of-scope hits remain (batch count, trim-size cm, `generation/`, presets, layout table, prose).
+AC-2 ✓ demonstrated — AST single-definition test; validators at MIN/MAX±1; rendered pages assert min/max/placeholder; 13/14 template mutations caught.
+AC-3 ✓ demonstrated — `_SHARED` pinned; removing `limits` fails 4 tests; `limits → capability` and `limits → errors` rejected.
+AC-4 ✓ demonstrated — `MAX_SIZE = 40` fails the print-table test (both reviewers).
+AC-5 ✓ demonstrated — full suite: no branch-only failure attributable to the card, on three independent runs.
+G-1..G-4 ✓ demonstrated — values and messages unchanged; `limits.py` import-free; out-of-scope files untouched; guard rule unchanged, `_SHARED` pinned.
+
+[Commit] 2 commits on the branch: d2ed15d (implementation + tests),
+dc64456 (cycle-1 test fixes).
+- F-001 accepted: both pages always render the attributes, and a fallback
+  would mean writing 10/30 into the JS again, which is what this card
+  removes.
+- F-003 accepted: the project has no JavaScript test runner (the dependency
+  baseline is closed), so executing `metadata.js` in a test is out of scope
+  for this card.

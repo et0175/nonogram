@@ -1,0 +1,173 @@
+version: 1
+generated_at: "2026-09-11T17:59:26Z"
+target: "card/063-shared-limits-module d2ed15d (base f7c5692) — CARD-063 cycle 1"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "full diff f7c5692..d2ed15d (20 files)"
+    - "main-repo card meta/kanban/cards/CARD-063.md (task contract)"
+    - "tests/test_cli.py import guard (_rank, _outward_imports, pins, forbidden/legit edges)"
+    - "src/nonogram/web/static/metadata.js (whole file)"
+    - "src/nonogram/web/pages.py docstring + both script tags; src/nonogram/web/__init__.py"
+    - "src/nonogram/export/layout.py CELL_COMFORT_MM + comfort_cap_mm"
+    - "ADR-0007 (whole), ADR-0022 Rules + History"
+    - "admin/app.py preview_batch_images route"
+  not_reached:
+    - "browser execution of metadata.js (no JS runner in repo; no browser per instructions)"
+    - "tests/e2e/ (browser suite, not run)"
+  confidence: high
+  evidence_produced:
+    - "targeted suites on worktree: 392 passed"
+    - "full suite, clean exports: base f7c5692 40 failed/2698 passed/26 skipped; branch d2ed15d 38 failed/2726 passed/26 skipped; failures only on branch: none; only on base: 2 flaky (test_batch_history detail, test_wave1_e2e workflow)"
+    - "in-process render (no server) of image_preview/puzzles_list/book_select_puzzles on base vs branch: identical min=10 max=30 placeholders/labels, except label '10-30 pixels' -> '10-30 cells'"
+    - "FORM_PAGE and form_with_result (success + failure) render data-min-size=\"10\" data-max-size=\"30\""
+    - "variants on scratch copies: V0 MAX=40 -> AC-4 test fails; V1 MAX=40 + literal batch check -> caught; V6 MAX=40 + literal difficulty cells -> caught; V2 wrong constant on image_preview 2nd input, V3 wrong constant in label, V4 JS call drops bounds, V5 JS reads max from data-min-size -> all survive (V4/V5 also survive test_web_metadata + test_web_server, 177 tests)"
+    - "guard variants: G1 limits removed from _SHARED -> 4 test_cli failures (pin, walk, limits-to-errors, legit edges); G2 limits.py imports errors -> walk + test_limits_imports_nothing fail"
+    - "system_rules.py --verify-refs: dead_check_ref [], check_refs_verified true; validate.py --phase all: 0 errors, 2 pre-existing warnings"
+
+metrics:
+  diff: { files: 20, added: 279, removed: 43 }
+  max_fan_in: { symbol: "nonogram.limits.MIN_SIZE/MAX_SIZE", callers: 12 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py", "src/nonogram/admin/batch_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — repository history begins 2026-09-06 (5 days); co-change peers for the touched core files are 1-2 commits deep, so an empty list is not a clean gate signal"
+
+system_contract:
+  rules_checked: 10
+  holds: 6
+  unchecked: 4
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — limits.py has no imports (test_limits_imports_nothing; G2 variant fails it), pyproject untouched; TestDependencyBaseline_IsExactlyPillowAndNumpy green in branch full suite (d2ed15d export)"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on d2ed15d; web/ uses limits only to render suggestion bounds, range validation stays inward (SizeOutOfRange via random_grid.validate_extent)"
+    - "ADR-0021/R1 ⚠ unchecked — no_eligible_fact: web/ changes are page text, one script tag and metadata.js; no request-handling/threading code touched"
+    - "ADR-0022/R1 ✓ holds — manual read of diff: only per-side scalar bounds added (MIN_SIZE/MAX_SIZE); no function signature, request or export field reduced to a scalar size"
+    - "ADR-0022/R2 ✓ holds — validate_extent reads re-exported limits constants (same objects); TestValidateExtent_RejectsSideAboveThirty green in branch full suite"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no crop/aspect-fit code touched; TestFitImage_RefusesRatioMismatchBeyondTwice green in branch full suite"
+    - "ADR-0022/R4 ✓ holds — derive_extent untouched and clamps with the same MIN_SIZE object; PropertyTest_BareSize_DerivesShorterSideFromSourceShape green in branch full suite"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model (no trace.yml); diff touches no clue derivation"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model (no trace.yml); diff touches no export gate"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model (no trace.yml); diff touches no retry counter"
+
+task_contract:
+  - "AC-1 held — grep of src/nonogram (py/html/js) for literal 10/30 checks and bounds: only limits.py, batch count check 10..200 (not a size), admin presets app.py:261-263 + batch_create.html:59 label, book trim cm (book_setup_print.html:49,60; print_specs.py:36-37), layout.py CELL_COMFORT_MM data, generation/random_generator.py (CARD-053), and prose/unrelated numbers"
+  - "AC-2 held — random_grid/difficulty/admin validators/templates/web read limits; edge tests MIN, MAX, MIN-1, MAX+1 per validator; rendered pages verified by this review; test clause for rendered admin pages met by source-token proxy only (F-002)"
+  - "AC-3 held — guard green; limits-to-errors and legit-edge cases discriminate _SHARED membership (G1 variant: 4 failures)"
+  - "AC-4 held — test_the_print_cell_size_table_covers_the_whole_range fails when MAX_SIZE=40 (V0)"
+  - "AC-5 held — no failure unique to branch in full-suite comparison; rendered admin + web pages show 10..30"
+  - "G-1 held — values 10/30 unchanged, presets unchanged, error strings render identically; one label text 'pixels' -> 'cells' (disclosed, O-1)"
+  - "G-2 held — limits.py has no import statements (AST test + G2 variant)"
+  - "G-3 held — diff touches no generation/, book_setup_print.html, print_specs.py or layout.py"
+  - "G-4 held — _RANK rule unchanged; _SHARED edited explicitly and pinned literally"
+
+root_causes:
+  - id: RC-1
+    title: "Source-text assertions stand in for rendered or executed output"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/web/static/metadata.js
+    line: 20
+    title: "Bounds read has no fallback: missing data attributes silently yield no suggestions; null currentScript aborts the script"
+    description: |
+      SIZE_BOUNDS is read outside the try/catch that implements AC-138's graceful fallback.
+      If a page loads metadata.js without data-min-size/data-max-size, parseInt(undefined) is NaN,
+      suggestDimensions' loops never run and the user gets an empty suggestion list with no
+      console message. If currentScript is null (type="module", or a later refactor moving the read
+      into a callback), tag.dataset throws at load and the file-input listener is never attached.
+      Before this diff the 10/30 defaults made the function self-sufficient. Both current pages
+      render the attributes (verified), so nothing is broken today.
+    suggestion: |
+      Guard the read: if the tag or either attribute is missing/NaN, console.log a message and skip
+      suggestions (or keep the listener and return []), so the failure is visible.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_063_limits.py
+    line: 108
+    title: "Admin template test cannot catch a bound bound to the wrong constant"
+    description: |
+      AC-2 asks that the rendered admin pages' min/max equal the constants; the test checks template
+      source for the tokens and the absence of literals. Variant V2 (image_preview's second input
+      max="{{ MIN_SIZE }}") and V3 (label "{{ MIN_SIZE }}-{{ MIN_SIZE }} cells") pass the whole file
+      and the admin suites. Realistic regressions (reintroduced literal, dropped Jinja global) are caught.
+    suggestion: |
+      Render the three templates via the app (as this review did with test_request_context) and
+      assert every size input's min/max and label equals MIN_SIZE/MAX_SIZE.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_063_limits.py
+    line: 149
+    title: "metadata.js wiring is not discriminated by any test"
+    description: |
+      test_metadata_js_takes_the_range_from_its_script_tag only checks that the text
+      'document.currentScript' appears and that no numeric default remains. V4 (the call reverts to
+      suggestDimensions(metadata)) and V5 (max read from data-min-size) survive this file plus
+      test_web_metadata.py and test_web_server.py (177 tests). Either would silently empty or collapse
+      the browser suggestions.
+    suggestion: |
+      At least assert the call site passes SIZE_BOUNDS.min/max and that minSize/maxSize read the
+      matching dataset keys (regex on the source), since the repo has no JS runner.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_web_server.py
+    line: 2431
+    title: "Docstring of the count test still says 43/16/27 while its asserts say 53/19/34"
+    description: |
+      The diff edited the asserts directly below a docstring stating stale counts (already stale
+      before, at 49/19/30). The test pins the pages.py docstring's counts, so its own docstring
+      contradicting them is misleading at the exact place a reader checks.
+    suggestion: "Update the docstring to 53 / 19 / 34."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope_observations:
+  - "O-1 src/nonogram/admin/templates/image_preview.html:90 — label '10-30 pixels' became '10-30 cells' (disclosed; a correction, but a visible text change under a pure-refactor guardrail); puzzles_list.html:58 and book_select_puzzles.html:28 still label the same grid-size filter 'Size (px)'."
+  - "O-2 src/nonogram/admin/image_manager.py:147,212,258 — function-local 'from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE' now shadow the new module-level limits import (same objects; redundant)."
+  - "O-3 src/nonogram/admin/image_to_puzzle.py:113-121 — difficulty bands saturate at side 30 ((size-25)/5); not a range check, but will not follow a raised MAX_SIZE."
