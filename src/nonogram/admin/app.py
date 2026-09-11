@@ -216,7 +216,7 @@ def create_app(debug=None):
             size_mapping = {
                 "small": (10, "short"),      # 10 on the short side; long side follows the picture (CARD-061)
                 "medium": (20, "fixed"),     # Medium (15-25 cells)
-                "large": (25, "fixed"),      # Large (25-30 cells)
+                "large": (30, "fixed"),      # Large: 30 on the long side
                 "auto": (20, "max"),         # Auto (based on image)
             }
 

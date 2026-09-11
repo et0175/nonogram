@@ -203,8 +203,8 @@ class ImageFile:
         to keep its proportions under the cap falls back to a bare
         ``N = MAX_SIZE`` derivation — the short side then follows the ratio
         from the top, floored at ``MIN_SIZE`` — and reports it as a
-        substitution, so the preview can say part of the picture's length is
-        lost.
+        substitution, so the preview can say the long side stopped at the
+        cap.
         """
         from nonogram.errors import SizeTooSmallForSource
         from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
@@ -486,8 +486,8 @@ class ImageManager:
         """Apply same size configuration to all images.
 
         Args:
-            size_mode: "fixed", "min", or "max"
-            size_value: Size value for "fixed" mode
+            size_mode: "fixed", "short", "min", or "max"
+            size_value: long side for "fixed", short side for "short"
 
         Returns:
             Number of images updated

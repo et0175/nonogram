@@ -8,7 +8,8 @@ AC-1 — a ~1.5:1 picture at "small" predicts 15x10 (landscape) / 10x15
 AC-2 — a square picture predicts 10x10; a picture too elongated for a
        10-cell short side under the 30-cell cap falls back to the bare
        N=30 derivation and reports it as a substitution.
-AC-3 — "medium"/"large" ("fixed" mode) extents are unchanged.
+AC-3 — "fixed"-mode extents are unchanged; the "large" preset moves from
+       25 to 30 (owner decision, 2026-09-11).
 AC-4 — the "short" mode never leaves 10..30, across a seeded corpus of
        ratios in both orientations.
 AC-5 — end to end through the admin batch routes, a "small" 1.5:1 picture
@@ -123,6 +124,8 @@ FIXED_MODE_EXPECTATIONS = [
     ((200, 300), 20, (13, 20)),
     ((229, 149), 20, (20, 13)),
     ((229, 149), 25, (25, 16)),
+    ((229, 149), 30, (30, 20)),
+    ((300, 200), 30, (30, 20)),
     ((500, 500), 20, (20, 20)),
     ((400, 100), 20, (20, 10)),
     ((400, 100), 25, (25, 10)),
@@ -203,7 +206,7 @@ def _upload(client, path: Path, default_size: str) -> None:
 
 @pytest.mark.parametrize(
     "preset, expected",
-    [("small", ("short", 10)), ("medium", ("fixed", 20)), ("large", ("fixed", 25))],
+    [("small", ("short", 10)), ("medium", ("fixed", 20)), ("large", ("fixed", 30))],
 )
 def test_batch_presets_map_to_size_modes(admin_client, tmp_path, preset, expected):
     _, client, module = admin_client
@@ -255,13 +258,45 @@ def test_preview_page_keeps_the_short_mode_through_its_save_round_trip(
     assert image.predict_size() == (18, 12)
 
 
+def test_preview_page_keeps_the_auto_mode_through_its_save_round_trip(
+    admin_client, tmp_path
+):
+    """The same dropdown bug silently turned the "auto" preset (max mode)
+    into fixed-20 on save; it now survives."""
+    _, client, module = admin_client
+    _upload(client, _fully_inked(tmp_path, 300, 200), "auto")
+    (image,) = module.get_image_manager().get_all_images()
+    assert image.size_mode == "max"
+
+    body = _normalized(client.get("/batch/preview-images").get_data(as_text=True))
+    assert '<option value="max" selected>' in body
+
+    response = client.post(
+        "/batch/preview-images",
+        data={
+            "save_config": "1",
+            f"mode_{image.file_id}": "max",
+            f"value_{image.file_id}": str(image.size_value),
+            f"name_{image.file_id}": image.puzzle_name,
+        },
+    )
+    assert response.status_code == 302
+    assert image.size_mode == "max"
+    assert image.predict_size() == (30, 20)
+
+
 def test_over_the_cap_note_on_both_pages(admin_client, tmp_path):
     _, client, _ = admin_client
     _upload(client, _fully_inked(tmp_path, 400, 100), "small")
 
+    note = (
+        "Too elongated for this short side: keeping its proportions would need "
+        "a 40-cell long side, over the 30 maximum, so the grid uses 30 cells on "
+        "the long side instead."
+    )
     preview = _normalized(client.get("/batch/preview-images").get_data(as_text=True))
-    assert "Too elongated to keep its proportions" in preview
+    assert note in preview
     assert "was too small for this picture" not in preview
 
     confirm = _normalized(client.get("/batch/generate-puzzles").get_data(as_text=True))
-    assert "Too elongated to keep its proportions" in confirm
+    assert note in confirm

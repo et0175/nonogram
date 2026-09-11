@@ -103,10 +103,12 @@
                                         {% if substitution %}
                                         <div class="small mt-1 text-warning">
                                             {% if substitution.get('reason') == 'too_elongated' %}
-                                            ⚠ Too elongated to keep its proportions at this
-                                            size (would need {{ substitution.requested }}
-                                            cells, the maximum is {{ substitution.used }}), so
-                                            part of its length is cropped.
+                                            ⚠ Too elongated for this short side: keeping its
+                                            proportions would need a
+                                            {{ substitution.requested }}-cell long side, over
+                                            the {{ substitution.used }} maximum, so the grid
+                                            uses {{ substitution.used }} cells on the long
+                                            side instead.
                                             {% else %}
                                             ⚠ Requested {{ substitution.requested }} was too
                                             small for this picture's shape; using
