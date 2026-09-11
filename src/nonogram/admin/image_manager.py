@@ -264,6 +264,14 @@ class ImageManager:
                 uploaded_at=datetime.utcnow(),
             )
 
+            # Prime the ink-bounding-box cache now, while this upload
+            # request is already paying for one synchronous full decode of
+            # this file (the copy above) - not later, inside a per-batch
+            # template render loop (CARD-047). _source_shape() never
+            # raises (it falls back to `dimensions` on any decode failure),
+            # so this can't turn a successful upload into a failed one.
+            image._source_shape()
+
             # Store in memory
             self.images[file_id] = image
             return image
