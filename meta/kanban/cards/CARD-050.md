@@ -295,3 +295,23 @@ that `.get('quality_score', 0)` does not catch a present-but-None value (only
 a missing key), and that the `int` filter then silently renders "0/100" for
 a None quality_score — confirmed actively misleading, not just theoretically
 possible.
+
+--- Fix agent notes (pulled from worktree, commit 2ef1e60) ---
+
+Fixed both findings by matching this codebase's own existing `or 'N/A'`
+convention (already used correctly in `puzzles_list.html`/
+`book_select_puzzles.html`), rather than inventing a new pattern:
+- `batch_status.html:144`: `Quality: {{ puzzle.quality_score }}` →
+  `Quality: {{ puzzle.quality_score or 'N/A' }}`.
+- `generated_puzzles.html:65`: `{{ (puzzle.get('quality_score', 0)|int) }}/100`
+  → `{{ puzzle.get('quality_score') or 'N/A' }}/100`.
+Render evidence (direct Jinja2 rendering, not eyeballed): None → "Quality: N/A"
+and "N/A/100" respectively; 87 → "Quality: 87" and "87/100" respectively.
+Regression check: `test_card_050_quality_recognizability.py` (9/9) and
+`test_batch_generator.py` (16/16) fully green; unrelated pre-existing
+flakiness in `test_wave1_e2e.py`/`test_batch_history.py` (GenerationAbandoned
+at a fixed seed/size, DB/random-seed-dependent) — none reference the two
+fixed templates. Scope: exactly these two files touched, nothing else.
+
+[Build gate] PASSED (scoped — test_card_050_quality_recognizability.py +
+test_batch_generator.py, exit 0)
