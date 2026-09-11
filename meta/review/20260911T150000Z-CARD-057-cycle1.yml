@@ -1,0 +1,47 @@
+version: 1
+generated_at: "2026-09-11T15:00:00Z"
+target: "branch card/057-adr-0006-dependency-baseline-drift in worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-057, diff main...HEAD (CARD-057, cycle 1)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "meta/architecture/decisions/adr/0006-dependency-baseline.md (full ADR, History + Rules blocks)"
+    - "pyproject.toml (full diff hunk + surrounding dependency groups)"
+    - "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed"
+    - "src/nonogram/admin/pdf_generator.py (reportlab imports)"
+    - "src/nonogram/admin/book_pdf_generator.py (confirmed no reportlab)"
+    - "src/nonogram/admin/app.py (route wiring: POST /book/<book_id>/generate-pdf)"
+    - "src/nonogram/cli.py imports; src/nonogram/web/handler.py imports; src/nonogram/orchestrator.py imports; src/nonogram/export/__init__.py imports"
+    - "render.yaml, Dockerfile, requirements.txt, start.sh"
+    - "ADMIN_PANEL_IMPLEMENTATION.md (admin install instructions)"
+    - "meta/kanban/cards/CARD-057.md (full card incl. Worktree notes)"
+  not_reached:
+    - "src/nonogram.egg-info/* (stale tracked build artifact; unrelated to this diff, not regenerated)"
+    - "full pytest suite (only the AC-1 test + targeted greps run; card's own worktree notes report 97/98 on a scoped run and 41 pre-existing flaky failures full-suite, not independently re-run here)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 26, removed: 4 }
+  max_fan_in: { symbol: "reportlab (import)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — pyproject.toml (4 commits/12mo) and the ADR file (2 commits/12mo) show low churn and no fix/bug-tagged commits; neither qualifies as a hotspot"
+
+system_contract:
+  rules_checked: 12
+  holds: 1
+  unchecked: 11
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — checker ref TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed) run directly by this review: `./.venv/bin/python -m pytest tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed -v` → 1 passed. check_refs_verified: true, dead_check_ref: [] per system_rules.py --verify-refs."
+    - "ADR-0019/R1, ADR-0021/R1, ADR-0022/R1, ADR-0022/R2, ADR-0022/R3, ADR-0022/R4, ADR-0023/R1, ADR-0023/R2 ⚠ unchecked — no_eligible_fact: each rule's scope (src/nonogram/web/**, src/nonogram/cli.py, src/nonogram/admin/**, src/nonogram/sourcing/**, src/nonogram/export/**) is untouched by this diff, which edits only pyproject.toml and the ADR-0006 markdown file."
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: trace.yml is absent project-wide (pre-existing pipeline-stage gap, confirmed identical to pre-card baseline via validate.py --phase all, same 2 warnings before and after this diff), not a defect of this card."
+
+root_causes: []
+
+findings: []

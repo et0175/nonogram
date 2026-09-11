@@ -1,6 +1,6 @@
 # CARD-057: ADR-0006/R1's dependency baseline is stale — reportlab was added without updating it
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** meta/architecture/decisions/adr/0006-*.md, pyproject.toml
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T14:25:00Z
 **Closed:** —
 **Actual:** —
@@ -141,3 +141,54 @@ in the previously documented flaky/corpus-dependent classes (same set
 seen across CARD-046/047/054's baseline runs, within the established
 39-42 range), none touching `pyproject.toml`, `admin/pdf_generator.py`,
 or dependency resolution.
+
+## System contract
+
+- ADR-0006/R1 — The runtime dependency set is exactly stdlib + Pillow + NumPy. (check: test, ref TestDependencyBaseline_IsExactlyPillowAndNumpy — this card RESTORES this check to passing; it was silently broken on main since 2026-09-07)
+
+[Review 1/3] Score: 9.0 — crit: 0, imp: 0
+[Review sync] 1 report(s) → meta/review/ (20260911T150000Z-CARD-057-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review): the reviewer specifically scrutinized
+the implementer's judgment call (moving reportlab to the admin extra
+instead of widening the ADR's closed baseline, per the card's own
+Worktree notes) as the most important thing to verify beyond mechanical
+AC compliance. Independently re-derived: reportlab has exactly one
+importer repo-wide (admin/pdf_generator.py), genuinely live (wired to
+POST /book/<id>/generate-pdf), cli.py's full inward import chain never
+touches admin/reportlab, and — critically — checked render.yaml/
+Dockerfile/requirements.txt directly and confirmed the admin-panel
+deployment installs from requirements.txt (a separate flat manifest
+that already unconditionally lists reportlab, untouched by this diff)
+rather than pyproject.toml's extras mechanism, so the pivot introduces
+zero deployment risk. AC-1/AC-2 both re-run fresh, not trusted from
+Worktree notes. Zero Critical/Important. One out-of-scope observation
+(requirements.txt is a second, unenforced dependency manifest outside
+ADR-0006/R1's mechanical reach — pre-existing, not this card's
+problem, worth a future backlog note). Risk: LOW, lane: FAST. Score
+9.0 ≥ min_score 8, zero Critical/Important — severity gate OPEN.
+Cleared on cycle 1 of 3.
+
+[8h spot-check] 2/2 sampled holds reproduced — independently re-ran
+AC-1's test fresh (1 passed) and re-confirmed the diff touches exactly
+pyproject.toml + the ADR file, zero test-file changes.
+
+[AC/EC check] Both criteria ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: test_the_dependency_baseline_is_still_closed passes fresh, test file completely unmodified.
+AC-2 ✓ demonstrated — evidence: system_rules.py --scope 'src/nonogram/**' --verify-refs shows ADR-0006/R1's original statement, dead_check_ref: [], check_refs_verified: true; validate.py --phase all reports 0 errors, same 2 pre-existing warnings as before this card.
+
+Both items independently re-verified across implementer, reviewer, and
+this gate. Gate passes. No engineering constraints beyond
+documentation/packaging reconciliation (per the card itself); none
+violated.
+
+[Docs] The ADR IS the documentation change (a History entry); no other
+README needs updating.
+
+[Commit] Final state is 1 commit on the branch: a5bf5bf (packaging fix
++ ADR History entry). The card's initial attempt at the "widen the ADR"
+resolution path was fully implemented then cleanly discarded via
+git checkout before this commit — no half-finished trace remains.
+Nothing further needed — cycle 1 cleared cleanly.
+
+CYCLE 1 COMPLETE — SUCCESS. Ready for `/kanban done CARD-057`.
