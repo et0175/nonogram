@@ -1,6 +1,6 @@
 # CARD-058: Surface a note when admin silently substitutes the predicted puzzle size
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/image_manager.py, src/nonogram/admin/templates/image_preview.html, src/nonogram/admin/templates/generate_batch.html
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-09-11T15:55:00Z
 **Closed:** —
 **Actual:** —
@@ -151,3 +151,59 @@ concern — explicitly out of this card's scope (G-1) and CARD-058's own
 only fires on the `SizeTooSmallForSource` *refusal* path, not this
 *floor* behavior, which succeeds without raising anything). Flagged for
 the user to decide direction on separately; not addressed here.
+
+## System contract
+
+- ADR-0022/R4 — "never silently clamped" is contradicted by admin's own scoped behavior (pre-existing, not introduced by this card; flagged by review as an out-of-scope observation — the owner-approved carve-out is recorded only in this card's prose, not in the ADR itself).
+
+[Review 1/3] Score: 8.5 — crit: 0, imp: 0
+[Review sync] 1 report(s) → meta/review/ (20260911T132732Z-CARD-058-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review): independently walked all three
+predict_size() branches (success, substitution-found, loop-exhausted)
+plus the ValueError fallback, confirming byte-identical return values
+pre/post-diff by direct code comparison, not trusting the Worktree
+notes' claim. Judged the degenerate (0,0)-image "not a substitution"
+call as semantically defensible (different exception, different
+reason — no real requested-vs-derived comparison exists for a
+nonexistent picture) while noting it as a narrower, pre-existing
+version of the same visibility gap (out of scope, not a regression).
+Confirmed G-1 held via git diff --name-only AND the structural
+import-boundary test. Ran all 9 new tests plus the full claimed
+regression set (48/48, 4 skips) fresh. Zero Critical/Important; 2
+Minor (test_dead_nonogram_error_branch_removed now inspects a 1-line
+wrapper rather than the moved logic — cheap to redirect, not required
+by this card's Touches; predict_size()/size_substitution() each
+independently call the shared helper rather than caching one result
+per request — harmless at current scale). One significant out-of-scope
+observation: ADR-0022/R4 is now more visibly contradicted by admin's
+own scoped behavior than before this card (since the divergence is no
+longer silent) — the owner's approval of this UX carve-out lives only
+as prose in this kanban card, not in the ADR itself; reviewer
+recommends a future forge:architect-adr-writer pass to record it
+formally. Risk: LOW, lane: FAST. Score 8.5 ≥ min_score 8, zero
+Critical/Important — severity gate OPEN. Cleared on cycle 1 of 3.
+
+[8h spot-check] 2/2 sampled holds reproduced — independently re-ran
+the AC-3 branch-comparison tests fresh (2/2 pass) and re-confirmed the
+diff touches exactly the 3 declared files + the new test file.
+
+[AC/EC check] All criteria/guardrails ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: integration tests confirm the note renders on both pages for a substitution-triggering image, with correct requested/used values.
+AC-2 ✓ demonstrated — evidence: integration tests confirm no note renders on either page for a non-substituting image.
+AC-3 ✓ demonstrated — evidence: unit tests pin predict_size()'s exact return value for both cases; reviewer's independent branch-by-branch code comparison confirms byte-identical pre/post-diff values.
+G-1 ✓ demonstrated — evidence: git diff --name-only shows only the 3 declared files (+ new test file); structural import-boundary guard passes.
+G-2 ✓ demonstrated — evidence: same as AC-3.
+
+All five items independently re-verified across implementer, reviewer,
+and this gate. Gate passes.
+
+[Docs] No README under src/nonogram/admin/ carries a method-level
+inventory needing an update. The ADR-0022/R4 documentation gap
+(out-of-scope observation above) is real but explicitly outside this
+card's Touches (G-1) — flagged for a future card, not fixed here.
+
+[Commit] Final state is 1 commit on the branch: 7e1c400 (implementation
++ tests). Nothing further needed — cycle 1 cleared cleanly.
+
+CYCLE 1 COMPLETE — SUCCESS. Ready for `/kanban done CARD-058`.

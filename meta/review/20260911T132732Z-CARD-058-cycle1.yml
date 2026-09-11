@@ -1,0 +1,110 @@
+version: 1
+generated_at: "2026-09-11T13:27:32Z"
+target: "card/058-predict-size-substitution-note (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-058) vs main, via git diff main...HEAD"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/image_manager.py (full diff + surrounding class body)
+    - src/nonogram/admin/templates/image_preview.html (full diff + surrounding block)
+    - src/nonogram/admin/templates/generate_batch.html (full diff + surrounding block)
+    - tests/test_card_058_predict_size_substitution_note.py (full, new file)
+    - tests/test_image_batch_size_fix.py (TestPredictSizeDegenerateInput, TestPredictSizeNonogramErrorBranchNotDead, TestBatchPreviewDegenerateImageIntegration)
+    - meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (Rules block)
+    - meta/kanban/cards/CARD-058.md (task contract)
+  not_reached:
+    - src/nonogram/admin/app.py (predict_size() call sites at lines 340, 1160 — read only via grep, not opened; unchanged by diff so low risk)
+    - full project test suite (only the worktree-notes-claimed regression subset + new file were executed, per task instructions)
+  confidence: high
+metrics:
+  diff: { files: 4, added: 285, removed: 5 }
+  max_fan_in: { symbol: "ImageFile.predict_size", callers: 34 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/image_manager.py (18 commits/12mo, 6 fix-labeled)", "src/nonogram/admin/templates/image_preview.html (14 commits/12mo)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — co-change scan over the 3 touched files found no third-party file recurring alongside them; the new test file (the one plausible peer) is already in this diff"
+    bus_factor: "not_applicable — single committing identity ('Claude Code') across this repo's whole history; the signal doesn't discriminate here"
+
+system_contract:
+  rules_checked: 1
+  holds: 0
+  unchecked: 0
+  violated: 1
+  verdicts:
+    - "ADR-0022/R4 ✗ violated — pre-existing (not introduced by this diff), scope explicitly includes src/nonogram/admin/**, statement requires refusal-with-message and 'never silently clamped'; admin's SizeTooSmallForSource handling silently substitutes instead. This is the exact divergence CARD-058 exists to surface, already flagged out-of-scope in CARD-048's cycle-2 review, and reportedly confirmed as accepted UX by the project owner on 2026-09-11 — but that decision is recorded only as prose in this card, not as an ADR revision/carve-out. See Out-of-scope observations."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_image_batch_size_fix.py
+    line: 462
+    title: "test_dead_nonogram_error_branch_removed now inspects a 1-line wrapper, not the logic it was pinning"
+    description: |
+      This pre-existing CARD-045 regression test does
+      `inspect.getsource(ImageFile.predict_size)` and asserts
+      `"except NonogramError" not in source`, to pin a dead branch removed
+      by CARD-045. CARD-058's refactor moves predict_size()'s entire body
+      into `_predict_size_detailed()`; predict_size() is now just
+      `return self._predict_size_detailed()[0]`. The test still passes (the
+      branch really is gone from the whole file), but it no longer inspects
+      the function that actually contains the try/except logic — it would
+      not catch a future re-introduction of `except NonogramError` inside
+      `_predict_size_detailed()`. Not a functional bug in this diff (the
+      branch is genuinely absent today), but the test's protective value
+      for this specific regression is now weaker than its docstring claims.
+    suggestion: |
+      Point the test at `ImageFile._predict_size_detailed` instead of
+      `ImageFile.predict_size` (not required by this card's scope — the
+      test file isn't in Touches — but worth a follow-up note or a one-line
+      fix alongside a future admin_image_manager.py change).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/generate_batch.html
+    line: 43
+    title: "predict_size() and size_substitution() each recompute _predict_size_detailed() independently"
+    description: |
+      Both templates call `image.predict_size()` and then
+      `image.size_substitution()` in the same render pass. Each call
+      re-runs `_predict_size_detailed()` (re-clamps `stated`, re-runs
+      `derive_extent`, and for the substitution path re-runs the
+      `range(stated, MAX_SIZE + 1)` search loop) from scratch — the two
+      public methods don't share one cached result. `_source_shape()` is
+      cached on the instance so the expensive part (image re-decode) isn't
+      duplicated, and the remaining arithmetic is cheap, so this is not a
+      performance problem at today's batch sizes. It is a minor missed
+      opportunity given the Worktree notes' own stated rationale for
+      `_predict_size_detailed()` ("computed once so the two can never
+      silently disagree") — the two calls per image do still compute it
+      twice, just consistently.
+    suggestion: |
+      Optional: cache `_predict_size_detailed()`'s result on the instance
+      the same way `_source_shape()` is cached, if batch sizes grow enough
+      for this to matter. Not worth blocking on for a 0.25d card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
