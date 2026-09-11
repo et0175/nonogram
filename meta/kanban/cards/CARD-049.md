@@ -1,6 +1,6 @@
 # CARD-049: Route admin image-mode generation through the solver-verified pipeline
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -102,3 +102,103 @@ by using the real pipeline.
 [Env] forge 2026.8.17 (no forge.min_version declared in .skills.yml — no comparison performed)
 [System contract] assembled fresh via system_rules.py --scope 'src/nonogram/admin/**' (card had no section — added: ADR-0006/R1, ADR-0022/R1)
 [Known pre-existing gap] ADR-0006/R1's named check (TestDependencyBaseline_IsExactlyPillowAndNumpy) currently fails on `main` independent of any card — `reportlab` was added to pyproject.toml without updating the ADR/test (discovered during CARD-045's review). Tracked separately as CARD-057. Do not let this card's review spend a cycle on it; it cannot be fixed within this card's scope (pyproject.toml is out of Touches).
+
+--- Implementation agent notes (pulled from worktree) ---
+
+**Scope**: `src/nonogram/admin/app.py`, `tests/test_admin_image_uniqueness.py`
+(new file). `src/nonogram/admin/image_to_puzzle.py` was **not** touched —
+G-1's `generate_clues()` boundary is CARD-051's, and nothing about the storage
+path required editing that file (see step-4 decision below).
+
+**`src/nonogram/admin/app.py`**:
+- Import block (~line 25): added `orchestrator` to the existing
+  `from nonogram import clues` line and a new
+  `from nonogram.errors import NonogramError`.
+- `generate_batch_puzzles`'s POST handler, per-image loop (~line 332-395):
+  replaced the `create_puzzle_from_image(...)` call with
+  `orchestrator.generate(orchestrator.GenerationRequest(mode="image",
+  image=Path(image.file_path), image_filename=image.original_filename,
+  width=width, height=height))` — one call per image, same loop, predicted
+  size unchanged (G-2). Mapped the returned `Puzzle` onto
+  `puzzle_review.add_puzzle()`'s existing kwargs the way
+  `batch_generator.py`'s `_generate_random_batch` (the established random-mode
+  path) does: `puzzle.grid`, `puzzle.clues.rows`/`.columns`,
+  `puzzle.width`/`.height`, `puzzle.difficulty_score`, `puzzle.difficulty_tier`
+  (the `Tier` StrEnum, stored as-is), `quality_score` via the same
+  `hasattr(puzzle, "quality_score")` fallback-to-75 pattern (unchanged —
+  CARD-050's territory), `recognizability="medium"`, `strategies_used=[]`.
+- Exception handling: added an explicit `except NonogramError as e:` branch
+  ahead of the pre-existing `except Exception as e:`, both appending to
+  `errors` and continuing the loop (AC-2).
+- **Bug found and fixed while implementing**: naming the new local variable
+  `request` shadowed Flask's module-level `request` import for the whole
+  `generate_batch_puzzles` function, causing `UnboundLocalError` at the
+  earlier `if request.method == "GET":` check. Renamed to `gen_request`.
+  Caught by the new tests, not shipped.
+
+**Step 4 decision — `create_puzzle_from_image`/`image_to_grid` stay as the
+lighter-weight preview-only path** (the SVG-preview-only routes
+`/api/puzzle-grid/<file_id>[/download]`, confirmed to not call
+`puzzle_review.add_puzzle`), not routed through `orchestrator.generate`.
+Reasoning: (1) cost — every preview render would pay for a full solve plus up
+to 5 nudge re-solves, for a page re-rendered on every hover/reload; (2)
+determinism mismatch — the nudge loop is unseeded, so two preview renders
+could differ, trading the preview's current simple deterministic contract for
+a different non-matching one; (3) a raw preview is exactly what "preview"
+means — solvability is guaranteed where the puzzle is actually stored (this
+card's fix), which is what AC-1 requires.
+
+**Why a new test file** (`tests/test_admin_image_uniqueness.py`) instead of
+extending `tests/integration_tests.py`: the latter isn't pytest-collected
+today (doesn't match `test_*.py`/`*_test.py` discovery, confirmed via
+`--collect-only`) and hardcodes paths into a sibling checkout. Left untouched,
+still passes (`python tests/integration_tests.py --suite smoke` → 5/5).
+
+**AC verification**:
+- AC-1 (`test_ac1_stored_puzzle_grid_is_solver_verified_uniquely_solvable`):
+  uploads a real fixture through the actual Flask routes, independently
+  re-derives clues from the stored grid via `nonogram.clues.compute_clues`,
+  runs `nonogram.solver.solve` directly, asserts `solution_count == 1`.
+- AC-2 (`test_ac2_abandoned_image_recorded_as_error_and_batch_continues`):
+  monkeypatches `orchestrator.generate` to raise `GenerationAbandoned` for one
+  image in a two-image batch (real pipeline for the other); asserts 302 (not
+  500), surviving image still stored, failure named in flashed messages.
+- AC-3 (`test_ac3_difficulty_comes_from_real_solver_signals_not_grid_size`):
+  asserts the stored `difficulty_tier` is a real lowercase `difficulty.Tier`
+  value and `difficulty.tier_for_score(stored_score).value == stored_tier` —
+  true by construction for the real pipeline, not the old size-only formula.
+
+**Regression check**: via `git stash` on `app.py` only, AC-2 and AC-3 both
+fail against the unmodified code (AC-1 happens to still pass pre-fix for this
+particular fixture — expected, the property is "guaranteed unique", not "this
+image was already broken"). Confirms non-tautological.
+
+**Full-suite check**: ran the suite 4x across stash/no-stash combinations;
+failure counts varied run-to-run even with ZERO changes present (41 then 39
+on two successive stashed-app.py runs) — confirms pre-existing flakiness
+unrelated to this card. `test_admin_image_uniqueness.py` +
+`test_e2e/test_admin_workflow.py` together pass 21/21 on every repeated run;
+`test_image_batch_size_fix.py` (CARD-045's suite) stays green 17/17.
+
+**Note on `predict_size()`/range validation**: passing the predicted
+`(width, height)` through as an explicit `GenerationRequest` means
+`orchestrator._resolved_extent` uses it exactly as given (G-2 preserved). If
+`predict_size()` ever returned a value outside `[10, 30]`,
+`orchestrator.generate` would now raise `SizeOutOfRange` where the old code
+silently produced whatever it produced — caught by the new `except
+NonogramError` branch, recorded as a per-image batch error like any other.
+
+`.venv` created fresh (gitignored). Incidental `src/nonogram.egg-info/*`
+diffs from the editable install were left unstaged, excluded from the commit
+— only `app.py` and the new test file were staged.
+
+[Build gate] PASSED (full — python-pro has no testmon installed; 41
+pre-existing failures, none in fix_scope, within the suite's already-
+documented run-to-run flakiness range (37-41 observed across this and the
+implementation agent's own repeated runs) — confirmed via a fresh same-run
+main baseline showing 37, with the delta entirely in test_batch_history.py/
+test_wave1_e2e.py/test_wave2_async_generation.py, none of which reference
+generate_batch_puzzles/create_puzzle_from_image/orchestrator.generate)
+[Scope] src/nonogram/admin/app.py, tests/test_admin_image_uniqueness.py
+(reverted incidental src/nonogram.egg-info/* changes from the worktree's
+local pip install before this check)

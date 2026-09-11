@@ -49,12 +49,11 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-049** Route admin image-mode generation through the solver-verified pipeline
-  `worktree: ../PythonProject4-CARD-049` · `branch: card/049-admin-image-mode-uniqueness`
-  `elapsed: 0.0d / 1d est`
+_(none)_
 
 ## Review
-_(none)_
+- **CARD-049** Route admin image-mode generation through the solver-verified pipeline · cycle 1 in progress
+  `worktree: ../PythonProject4-CARD-049` · `branch: card/049-admin-image-mode-uniqueness`
 
 ## Done
 - **CARD-045** predict_size() can crash a whole batch page on a degenerate image · score 9.0 (cycle 1/3) · merged 2fc8094
