@@ -1,6 +1,6 @@
 # CARD-050: quality_score and recognizability are hardcoded fakes, not measurements
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -146,3 +146,123 @@ generation path, not real measurements:
 [System contract] assembled fresh via system_rules.py --scope 'src/nonogram/admin/**,src/nonogram/generation/**,src/nonogram/analysis/**' (card had no section — added: ADR-0006/R1, ADR-0022/R1)
 [Known pre-existing gap] ADR-0006/R1's named check (TestDependencyBaseline_IsExactlyPillowAndNumpy) currently fails on `main` independent of any card — `reportlab` was added to pyproject.toml without updating the ADR/test (discovered during CARD-045's review). Tracked separately as CARD-057. Do not let this card's review spend a cycle on it; it cannot be fixed within this card's scope (pyproject.toml is out of Touches).
 [Touches updated at start] Original Touches listed `image_to_puzzle.py`; corrected to `app.py` (real image-mode generation moved there by CARD-049, merged before this card started) plus `analysis/quality_metric.py` (the module this card wires in). See the "What to implement" step-2 update above for the full reasoning.
+
+--- Implementation agent notes (pulled from worktree) ---
+
+**Pre-implementation research confirmed**: CARD-049's move of real image-mode
+generation into `app.py`'s `generate_batch_puzzles` (already known from the
+corrected Touches above) — the old `image_to_puzzle.create_puzzle_from_image`
+density/hardcoded-"medium" code is now reachable only from the two
+SVG-preview-only routes, which never persist `quality_score`/`recognizability`.
+Left `image_to_puzzle.py` untouched; the fix went into `app.py`.
+
+**Random-mode design decision: option 3b chosen — `quality_score`/
+`recognizability` are `None` for random-mode puzzles, not a fabricated number.**
+Reasoning: `orchestrator.Puzzle` exposes exactly one solver-derived signal
+(`difficulty_score`/`difficulty_tier`) — no second, independently-meaningful
+"quality" signal exists to repurpose; relabeling `difficulty_score` as
+`quality_score` would be the same kind of fake this card removes.
+`quality_metric.measure_quality()` is fundamentally an image-comparison
+function and has no meaningful application to a puzzle with no source
+picture (the DB column's own comment agrees: `# 1-100 (image fidelity)`).
+Building a genuinely new random-mode quality signal would require touching
+`orchestrator.py`/`solver/`, outside this card's Touches — real scope creep
+for a 1-day bugfix. `None` is DB-safe (`Puzzle.quality_score`/
+`recognizability` already `nullable=True`, no migration needed — G-2).
+
+**Consequence for the "Minimum Quality Score" filter**: traced its actual
+behavior before touching anything — `None >= quality_filter` would raise
+`TypeError` the moment `quality_score` became `None`, confirmed via testing
+against pre-fix code. Fixed by dropping the quality-filter comparison
+entirely for random mode (every orchestrator-returned candidate is now
+stored). Also traced the UI: `batch_create.html`'s filter posts to
+`/batch/from-images` (the image-mode-only upload wizard) — no template
+anywhere renders a quality filter for random mode, so the UI was already
+scoped correctly; random mode via `POST /batch/create` is reachable only
+programmatically. Added clarifying help text to `batch_create.html` stating
+the filter measures fidelity to the uploaded image and doesn't apply to
+random puzzles, satisfying the card's "clearly relabel" instruction.
+
+**Known, accepted residual gap (out of Touches scope, not fixed) — FLAG FOR
+REVIEW SEVERITY JUDGMENT**: four display templates render
+`puzzle.quality_score`/`recognizability` for listing/detail views.
+`batch_status.html:144` (`{{ puzzle.quality_score }}`, no fallback) renders
+literally `"Quality: None"` for a random-mode puzzle.
+`generated_puzzles.html:65` (`{{ puzzle.get('quality_score', 0)|int }}`)
+Jinja's `int` filter catches the resulting `TypeError` and silently renders
+`"0/100"` — not a crash, but misleading (reads as "worst possible score"
+rather than "not applicable"). `book_select_puzzles.html:125` and
+`puzzles_list.html:160,325` already use `or 'N/A'` guards and render
+correctly as-is. None of these four files are in this card's Touches list;
+the implementer's position is that AC-2's UI requirement is specifically
+about the quality *filter* (addressed above), not every display surface —
+disclosed rather than silently left broken, with a suggested follow-up card
+to fix the two unguarded templates' `None` rendering.
+
+**SCOPE+ — `src/nonogram/generation/random_generator.py` needed more than
+the literal one-line import fix (file itself is within Touches, but the fix
+grew beyond "fix line 8-9")**: correcting the import exactly as stated
+(`from src.nonogram.analysis...` → `from nonogram.analysis...`) makes both of
+this file's analysis imports visible to `tests/test_cli.py`'s ADR-0007
+structural import-boundary guard, and trips it — a **genuine, pre-existing
+lateral capability-import violation** the old `src.`-prefixed form had been
+silently hiding from the checker (it resolved to an unrecognized component
+name), not something this card's fix introduces. Verified via `git stash`:
+the guard passes with the broken import, fails with the literally-correct
+one. Resolved by following this project's own documented precedent
+(`solver/propagate.py`'s `mask_runs`) — natively reimplemented, in
+`random_generator.py` itself, the one function
+(`strategy_counter.calculate_difficulty_from_strategies`) this file actually
+used, verified byte-identical to the original across 6 strategy/backtracking
+scenarios by cross-checking against the real `strategy_counter` module from
+the test tree (where that import is legal). The dead, never-called
+`measure_quality` import was dropped. Result: zero `nonogram.analysis`
+imports remain in the file; AC-3 satisfied in the strongest sense. File still
+has zero production callers (confirmed via repo-wide grep). Its own
+`quality_score`/`recognizability` fake heuristic is the same bug pattern this
+card targets elsewhere but is out of step-3's scope (targets
+`batch_generator.py`'s production path, not this dead module) — left
+untouched, flagged for visibility only.
+
+**Files changed**: `app.py:28-30,359-373,392` (AC-1); `batch_generator.py:32-38,
+286-305,311-347,475-489` (AC-2 — PuzzleMetrics fields now Optional, filter
+dropped for random mode); `templates/batch_create.html:74-82` (help text);
+`generation/random_generator.py` (AC-3 import fix + SCOPE+ reimplementation);
+`tests/test_card_050_quality_recognizability.py` (new, 9 tests).
+
+**AC verification evidence**: AC-1 — two tests (direct `measure_quality()`
+faithful-vs-degraded scoring 20+ points apart with differing recognizability
+tiers; full Flask-integration test whose stored values are asserted equal to
+an independent fresh `measure_quality()` recomputation) both pass, both fail
+pre-fix via `git stash`. AC-2 — two tests (10 real random-mode puzzles, every
+quality_score/recognizability is None not 75; quality_filter=80 no longer
+drops/crashes random batches) both pass, first fails pre-fix. AC-3 — three
+tests (no `from src.nonogram` import remains; no import resolves to the
+`nonogram.analysis` component at all — the exact condition the structural
+guard checks; reimplemented formula matches the original across 6 scenarios)
+all pass, two of three fail pre-fix. Directly re-ran
+`tests/test_cli.py::test_every_import_in_the_package_points_inward` — passes
+post-fix, confirmed via `git stash` to newly fail if the import were
+"literally" fixed without the SCOPE+ reimplementation.
+
+**Full regression check**: `test_quality_metric.py` 17/17 (unchanged
+baseline), `test_random_generator.py` 21/21, `test_batch_generator.py`
+16/16, `test_admin_image_uniqueness.py` 3/3 (CARD-049's suite, unaffected),
+`test_card_050_...` 9/9 new. Filtered `-k "admin or image or quality"`: 17
+pre-existing failures, byte-identical list before/after (all reference a
+missing `pictures/` corpus, per the picture-corpora-are-experiments
+convention). Full suite: 39-41 failures before/after, independently
+reconfirmed flaky (two consecutive runs produced different failure sets,
+both DB/random-seed-dependent, untouched by this card).
+
+[Build gate] PASSED (full — python-pro has no testmon installed; 41
+pre-existing failures, none in fix_scope, within the suite's already-
+documented flaky range — fresh same-run main baseline showed 42, diff
+entirely outside fix_scope)
+[Scope] src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py,
+src/nonogram/admin/templates/batch_create.html,
+src/nonogram/generation/random_generator.py,
+tests/test_card_050_quality_recognizability.py
+(reverted incidental src/nonogram.egg-info/* changes before this check;
+src/nonogram/analysis/quality_metric.py was in predicted Touches but ended
+up unmodified — used as-is, correctly)

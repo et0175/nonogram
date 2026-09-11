@@ -48,12 +48,11 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements
-  `worktree: ../PythonProject4-CARD-050` · `branch: card/050-real-quality-recognizability`
-  `elapsed: 0.0d / 1d est`
+_(none)_
 
 ## Review
-_(none)_
+- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements · cycle 1 in progress
+  `worktree: ../PythonProject4-CARD-050` · `branch: card/050-real-quality-recognizability`
 
 ## Done
 - **CARD-049** Route admin image-mode generation through the solver-verified pipeline · score 9.0 (cycle 1/3) · merged 98cdaaa
