@@ -1,6 +1,6 @@
 # CARD-049: Route admin image-mode generation through the solver-verified pipeline
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/049-admin-image-mode-uniqueness
-**Worktree:** ../PythonProject4-CARD-049
+**Worktree:** —
 **Source:** meta/review/20260910T170025Z.yml#F-001
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/image_to_puzzle.py, src/nonogram/admin/app.py, tests/integration_tests.py
 **Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T09:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T10:00:00Z
+**Actual:** 0.1d
+**Merge commit:** 98cdaaa
 **Blocked by:** —
 
 ## What to implement
