@@ -1,0 +1,115 @@
+version: 1
+generated_at: "2026-09-11T11:17:38Z"
+target: "card/048-adr-0022-scope-admin diff main...HEAD (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-048)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (full, both branches)"
+    - "meta/kanban/cards/CARD-048.md (full)"
+    - "src/nonogram/admin/image_manager.py (full)"
+    - "src/nonogram/admin/image_to_puzzle.py (full)"
+    - "src/nonogram/sourcing/random_grid.py (validate_extent, derive_extent, _derived_extent, _smallest_workable_size)"
+    - "src/nonogram/admin/app.py (predict_size call sites: lines 341, 1161, 1193, 1224)"
+    - "tests/property/test_grid_dimensions.py (PropertyTest_BareSize_DerivesShorterSideFromSourceShape location, not full body)"
+  not_reached:
+    - "tests/property/test_grid_dimensions.py full body (only grepped/located, not read in full)"
+    - "src/nonogram/admin/app.py outside the four predict_size call sites"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 32, removed: 2 }
+  max_fan_in: { symbol: "N/A", callers: 0 }
+  tests_cover_change: false
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — diff touches only a markdown ADR document, no exported code symbol changed"
+    tests_cover_change: "not_applicable — documentation-only change; no test reads the ADR markdown content (grepped tests/*.py for scope.code and the ADR filename per the card's own worktree notes, zero hits, independently spot-checked)"
+    hotspots: "no_eligible_fact — churn on the touched file over 12mo is 2 commits, both this ADR's own history (this commit and the prior FR-023/NFR-006 revision); no elevated churn/defect-density"
+    cochange_missing: "no_eligible_fact — with only 2 commits touching this file in 12mo, git history offers no co-change peer signal"
+
+system_contract:
+  rules_checked: 0
+  holds: 0
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "N/A — system_rules.py --scope 'meta/architecture/**' returns rules: [] (no ADR rule's scope.code covers a doc path; rules only scope code:). The touched file is the ADR document itself, not code inside any rule's scope."
+
+root_causes:
+  - id: RC-1
+    title: "R4's scope widening is justified only for derive_extent's arithmetic guarantee, not for its refusal-and-message guarantee, and the ADR's new text does not draw that line"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    line: 404
+    title: "R4's widened scope overclaims: admin's call to derive_extent transfers the no-top-clamp arithmetic, but admin deliberately suppresses R4's 'refused ... never silently clamped' clause"
+    description: |
+      R4's statement text has two clauses: (a) the longer-side/no-top-clamp
+      derivation arithmetic, and (b) "A source whose ratio exceeds N/5 is
+      refused with a message naming the smallest N that would accommodate
+      it, never silently clamped." The new History entry (line ~404-417)
+      and Negative-consequence bullet (line ~299-313) assert, for both R3
+      and R4, that "their checks genuinely do reach admin's behaviour
+      through those shared functions" — stated as a blanket claim covering
+      the whole rule.
+
+      Verified independently: src/nonogram/admin/image_manager.py's
+      predict_size() (lines 108-119) does call derive_extent directly, so
+      clause (a) genuinely transfers — confirmed by reading
+      random_grid.derive_extent/_derived_extent, which never clamps the
+      longer side. But on SizeTooSmallForSource (derive_extent's own
+      refusal, raised when the source exceeds N/5), predict_size does NOT
+      refuse: it loops candidate N upward until one works and silently
+      returns that instead (image_manager.py:113-119), per its own
+      docstring: "ask for the smallest N that can, rather than surface a
+      CLI-style refusal in this UI." That resolved (width, height) is then
+      fed straight into create_puzzle_from_image at the four call sites in
+      app.py (lines 341, 1161/1196, 1193/1196, 1224/1227) — so the actual
+      generated puzzle uses the silently-substituted N, not the size the
+      user configured, and with no message identifying that a refusal
+      occurred or which N was substituted (only predicted_width/height are
+      surfaced via to_dict(), with no "refused, using N because ..." text).
+      This is exactly the class of gap the ADR's own new R2 rationale
+      warns against ("a scope that lists territory a rule's check cannot
+      reach is a worse audit surface than an honestly absent one") but
+      applied asymmetrically: the card caught it for R2 and excluded R2,
+      and caught the "shared function" half of the argument for R4, but
+      did not check whether R4's own second clause is actually reached by
+      admin's calling code before writing "their checks genuinely do reach
+      admin's behaviour" as a blanket statement covering all of R4.
+
+      This is not a new bug introduced by this diff — image_manager.py is
+      untouched by this change, and this behaviour predates CARD-048. The
+      finding is about the accuracy of the ADR's own claim now that R4's
+      scope.code includes admin: a future system-contract audit reading
+      "ADR-0022/R4 scope includes src/nonogram/admin/**" plus the History
+      entry's "genuinely do reach" language would reasonably conclude
+      admin fully honours R4, when in fact only the arithmetic half does.
+    suggestion: |
+      Narrow the claim rather than the scope: either (a) qualify the
+      History/Consequences language to say R4's *derivation arithmetic*
+      (not its refusal-and-message clause) is what transfers to admin via
+      derive_extent, mirroring the precision already applied to R2's
+      exclusion, or (b) file a small follow-up card to surface an explicit
+      "requested size N unavailable, using N' instead" message in the
+      admin UI so the refusal clause genuinely transfers too. Either is a
+      documentation-only or trivial-scope fix consistent with this card's
+      size; it does not require re-deriving anything else in the ADR.
+    confidence: medium
+    source: model
+    violates: "ADR-0022/R4"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

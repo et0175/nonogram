@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-09-11T13:25:00Z
 **Closed:** —
 **Actual:** —
@@ -107,3 +107,50 @@ markdown file's content directly (grepped `tests/*.py` for
 `scope.code`/the ADR's filename, zero hits). `tests/test_cli.py`
 (includes the ADR-0007 structural import-boundary guard) — 86/86 pass,
 unaffected as expected.
+
+## System contract
+
+_(no rule's scope.code covers meta/architecture/** — this is a documentation-only diff outside any code-scoped rule; confirmed by running system_rules.py --scope 'meta/architecture/**' → rules: [].)_
+
+[Review 1/3] Score: 8.5 — crit: 0, imp: 1
+[Review sync] 1 report(s) → meta/review/ (20260911T111738Z-CARD-048-cycle1.yml)
+[Adversarial] 1 gating finding — verified independently before fix (not
+just trusted from the review): read image_manager.py's predict_size()
+directly and confirmed its SizeTooSmallForSource except-branch silently
+substitutes a workable N via a range() search instead of refusing with
+a named-smallest-N message — the opposite of R4's refusal-and-message
+clause. The reviewer's finding (F-001: the new ADR text overclaimed
+that R4's checks "genuinely reach admin's behaviour" for both of R4's
+clauses, when only the arithmetic clause actually transfers) is
+CONFIRMED, not a false positive.
+Cycle 1 summary (forge:review): AC-1/AC-2 independently re-verified and
+held cleanly (system_rules.py before/after, validate.py on both
+main and this branch — identical diagnostics). R2's exclusion rationale
+verified factually correct by reading predict_size()/validate_extent
+directly. R3's widening verified fully justified (image_to_puzzle.py
+genuinely delegates to sourcing.image.generate, propagating
+NonogramError as expected). The one Important finding was about R4's
+justification text overclaiming, not about AC-1/AC-2 or the scope
+widening decision itself — the reviewer's own read: "everything else
+... independently re-derived and confirmed correct." Zero Critical, 1
+Important, zero Minor. Risk: LOW, lane: FAST. Score 8.5 ≥ min_score 8
+but gate requires zero Critical/Important — cycle 1 does NOT clear.
+
+[Fix round 1] Narrowed the Negative-consequence bullet and History
+entry to state precisely that R4's widening is justified for its
+derivation-arithmetic clause (admin calls derive_extent directly) but
+NOT for its refusal-and-message clause (admin's predict_size() silently
+substitutes a workable N on SizeTooSmallForSource rather than refusing
+with a message, per its own docstring comment). Named a follow-up
+(surface an explicit substitution message in the admin UI) as a
+candidate future card, out of this scope-only card's Touches — not
+created here per protocol (implementer doesn't unilaterally spawn new
+kanban cards; flagged for the user/orchestrator instead). Re-verified
+AC-1 (R3/R4 still appear, check_refs_verified: true) and AC-2 (0
+errors, same 2 pre-existing warnings) fresh after the fix. Commit
+3732d60.
+
+CYCLE 1 — 1 Important finding, fixed same-day. Proceeding to cycle 2
+(confirmation mode: fix delta only, everything else carried forward as
+delta-clean per the review's own "independently re-derived and
+confirmed correct" verdicts on AC-1/AC-2/R2/R3).
