@@ -1,0 +1,105 @@
+version: 1
+generated_at: "2026-09-11T08:27:53Z"
+target: "CARD-049 — main...HEAD, src/nonogram/admin/app.py + tests/test_admin_image_uniqueness.py, worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-049"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (diff + full generate_batch_puzzles handler + preview routes)"
+    - "tests/test_admin_image_uniqueness.py (full, executed)"
+    - "src/nonogram/orchestrator.py (GenerationRequest, Puzzle, generate's docstring/contract, _resolved_extent, derive_extent contract)"
+    - "src/nonogram/errors.py (full)"
+    - "src/nonogram/admin/puzzle_review.py (add_puzzle)"
+    - "src/nonogram/admin/batch_generator.py (_generate_random_batch precedent)"
+    - "src/nonogram/admin/image_manager.py (predict_size)"
+    - "src/nonogram/sourcing/random_grid.py (validate_extent/derive_extent)"
+    - "src/nonogram/clues.py (Clues shape)"
+    - "src/nonogram/difficulty.py (Tier)"
+    - "tests/e2e/test_admin_workflow.py (executed)"
+    - "tests/test_image_batch_size_fix.py (executed)"
+    - "tests/test_cli.py structural import-boundary subset (executed)"
+    - "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (executed)"
+  not_reached:
+    - "src/nonogram/orchestrator.py generate()'s full body / image-mode internal implementation (unchanged by this diff, out of file scope; relied on its documented contract + passing AC-1 test as evidence)"
+    - "src/nonogram/sourcing/image.py (unchanged, out of scope per G-2)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 190, removed: 23 }
+  max_fan_in: { symbol: "orchestrator.generate", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — git log --name-only --since=12.months for app.py produced only self-matches and blank-line artifacts in this repo's history, not usable peer-file co-change data"
+    bus_factor: "tooling_failure — git shortlog -sn -- src/nonogram/admin/app.py returned empty output despite 66 commits in the churn count"
+
+system_contract:
+  rules_checked: 2
+  holds: 1
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — stale_check: TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed) fails on this worktree's HEAD independent of this diff — reportlab is present in pyproject.toml, and `git diff main...HEAD -- pyproject.toml` is empty (0 lines), confirming this diff does not touch the dependency manifest. Pre-existing, tracked as CARD-057."
+    - "ADR-0022/R1 ✓ holds — reviewed every line of the diff touching extent: GenerationRequest(width=width, height=height) passes the pair (never a scalar), and the stored puzzle.width/puzzle.height are the existing pair-derived properties on Puzzle. No new scalar 'size' reduction introduced."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 349
+    title: "quality_score fallback is dead code (Puzzle has no such field)"
+    description: |
+      `quality_score = puzzle.quality_score if hasattr(puzzle, "quality_score") else 75`
+      always evaluates to 75: `orchestrator.Puzzle` is `@dataclass(slots=True)` with no
+      `quality_score` field, so `hasattr` is always False. This is an exact mirror of the
+      identical pattern already in `batch_generator.py`'s `_generate_random_batch` (line 314),
+      not something this diff introduces — and per this card's own scope (Worktree notes,
+      Step 4 decision) and the review brief, fixing quality_score/recognizability handling is
+      CARD-050's territory, correctly left untouched here.
+    suggestion: |
+      No action required for CARD-049. When CARD-050 lands, consider replacing the dead
+      hasattr check with a real quality signal (or removing the conditional) in both call
+      sites (random-mode and image-mode) together, since they're now the same pattern.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_image_uniqueness.py
+    line: 246
+    title: "AC-2's GenerationAbandoned trigger is synthetic (monkeypatch), not a real nudge-bound exhaustion"
+    description: |
+      test_ac2 monkeypatches `orchestrator.generate` to raise `GenerationAbandoned` for one
+      named uploaded file rather than driving a real image through the bounded pixel-nudge
+      loop to exhaustion. This is an explicitly reasoned trade-off (documented in the test's
+      own docstring: avoids "a real picture that happens to defeat the nudge loop (fragile)")
+      and it does exercise the real per-image exception-handling code in app.py — but AC-2's
+      "within the nudge bound" wording is verified by exception type, not by a real bounded
+      loop actually exhausting.
+    suggestion: |
+      Optional follow-up: if/when a curated adversarial fixture image that reliably defeats
+      the nudge loop exists, add it as a slower, explicitly-marked integration test
+      alongside this one. Not blocking.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

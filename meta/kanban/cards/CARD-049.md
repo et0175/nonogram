@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/image_to_puzzle.py, src/nonogram/admin/app.py, tests/integration_tests.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-11T09:30:00Z
 **Closed:** —
 **Actual:** —
@@ -202,3 +202,22 @@ generate_batch_puzzles/create_puzzle_from_image/orchestrator.generate)
 [Scope] src/nonogram/admin/app.py, tests/test_admin_image_uniqueness.py
 (reverted incidental src/nonogram.egg-info/* changes from the worktree's
 local pip install before this check)
+
+[Review 1/3] Score: 9.0 — crit: 0, imp: 0
+[Review sync] 1 report(s) → meta/review/ (20260911T082753Z-CARD-049-cycle1.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 1 summary (forge:review): AC-1/AC-2/AC-3 verified non-aspirationally
+(independent solver re-check for AC-1, real per-image exception path for
+AC-2, differential tier check for AC-3 that would fail against the old
+size-only formula). G-1/G-2 both confirmed held (image_to_puzzle.py diff
+empty; predict_size()/crop logic untouched). ADR-0022/R1 ✓ holds;
+ADR-0006/R1 ⚠ unchecked — stale_check (the pre-existing, unrelated
+reportlab/CARD-057 gap, correctly not filed as a new finding here since
+pyproject.toml diff is empty). 2 Minor notes (quality_score's dead
+hardcoded-75 fallback — CARD-050's territory, correctly left alone; AC-2's
+failure trigger is a monkeypatch of GenerationAbandoned rather than a real
+nudge-exhaustion scenario — a reasoned, documented trade-off). 2 Out-of-scope
+notes (app.py is a high-churn/defect-density hotspot generally; the two
+SVG-preview routes still skip uniqueness verification, correctly per this
+card's own Step 4 decision). Risk: LOW, lane: FAST. Zero Critical/Important —
+severity gate open, score 9.0 ≥ min_score 8.

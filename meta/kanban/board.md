@@ -52,7 +52,7 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-049** Route admin image-mode generation through the solver-verified pipeline · cycle 1 in progress
+- **CARD-049** Route admin image-mode generation through the solver-verified pipeline · cycle 1/3 · score 9.0
   `worktree: ../PythonProject4-CARD-049` · `branch: card/049-admin-image-mode-uniqueness`
 
 ## Done
