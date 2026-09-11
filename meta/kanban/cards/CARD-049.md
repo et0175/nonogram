@@ -226,3 +226,27 @@ severity gate open, score 9.0 ≥ min_score 8.
 skeptic confirmed GenerationRequest.width/height are two separate int|None
 fields (orchestrator.py:234-235), never merged into a scalar, and the diff's
 construction/storage-read path passes them as a pair throughout.
+
+[AC/EC check] All criteria/constraints ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: test_ac1_stored_puzzle_grid_is_solver_verified_uniquely_solvable uploads bird1.jpg through the real Flask routes, independently re-derives clues via nonogram.clues.compute_clues, runs nonogram.solver.solve directly, asserts solution_count == 1 and is_unique. PASSED.
+AC-2 ✓ demonstrated — evidence: test_ac2_abandoned_image_recorded_as_error_and_batch_continues drives a real two-image batch, patches orchestrator.generate to raise GenerationAbandoned for one image only; asserts 302 (not 500), 1 surviving puzzle stored, failure named in flashed "info" messages. PASSED.
+AC-3 ✓ demonstrated — evidence: test_ac3_difficulty_comes_from_real_solver_signals_not_grid_size asserts stored difficulty_tier is a real lowercase Tier value and tier_for_score(stored_score).value == stored_tier. PASSED.
+G-1 ✓ demonstrated — evidence: git diff main...HEAD -- src/nonogram/admin/image_to_puzzle.py is completely empty.
+G-2 ✓ demonstrated — evidence: git diff main...HEAD -- src/nonogram/admin/image_manager.py src/nonogram/sourcing/image.py is completely empty; image.predict_size() called unchanged in app.py, result passed straight through.
+
+All five items independently re-verified by a fresh AC-check agent against
+the code (not trusted from any prior self-report or review claim). Gate
+passes.
+
+[Docs] No README under src/nonogram/admin/ or tests/ needs updating — no new
+directory, no structural/purpose change (a new test file in an existing
+tests/ directory whose README, per CARD-045's earlier check, doesn't attempt
+to enumerate every file).
+
+[Commit] Implementation was already committed as 8b9f28a
+(fix(admin): route image-mode batch generation through solver-verified
+pipeline) during implementation; nothing changed during review/fix/AC-gate
+(zero fix cycles needed — cycle 1 passed clean), so 8b9f28a stands as the
+final commit for this card.
+
+CYCLE 1 COMPLETE — SUCCESS. Ready for `/kanban done CARD-049`.
