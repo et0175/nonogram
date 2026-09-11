@@ -1,6 +1,6 @@
 # CARD-048: Widen ADR-0022/R3 and R4 scope.code to include the admin panel
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/048-adr-0022-scope-admin
-**Worktree:** ../PythonProject4-CARD-048
+**Worktree:** —
 **Source:** meta/review/20260910T164426Z.yml#F-006
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
 **Review score:** 9.5 (cycle 2/3)
 **Started:** 2026-09-11T13:25:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T13:55:00Z
+**Actual:** 0.05d
+**Merge commit:** b154886
 **Blocked by:** —
 
 ## What to implement

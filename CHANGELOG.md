@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-11
+- CARD-048 (tech-debt): Widened ADR-0022/R3 and R4's `scope.code` to include the admin panel, closing a blind spot where `ec18fb4` made admin a direct consumer of these rules but the system-contract audit didn't treat it as in-scope territory. Also documents a known, real divergence: admin's `predict_size()` silently substitutes a workable size instead of refusing per R4's refusal-and-message clause (a candidate follow-up card, not created).
 - CARD-047 (tech-debt): `ImageManager.add_image()` now primes the ink-bounding-box cache at upload time instead of leaving it lazy until the batch-preview page's first render — a batch of up to 200 images previously paid up to ~1s of synchronous decode cost on that render request; it's now absorbed into the upload request instead.
 - CARD-046 (tech-debt): Added a regression test for the ink-bbox-vs-file-dimensions sizing fix (`ec18fb4`) — every existing test image was a borderless solid rectangle, so no test could tell `ImageFile.predict_size()`'s ink-bounding-box behavior apart from the raw-file-dimensions bug it replaced.
 - CARD-051 (tech-debt): Admin panel's `generate_clues()` no longer reimplements run-length clue encoding — it now delegates to `nonogram.clues.compute_clues()`, the same canonical encoder `app.py` already calls elsewhere. Fixes a return-type divergence (lists instead of the ADR-0012 boundary tuples) and a ragged-grid crash (uncontrolled `IndexError` instead of a clear `ValueError`).

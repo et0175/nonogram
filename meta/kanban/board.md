@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-11 13:15_
+_Updated: 2026-09-11 13:55_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-048** P3 · Widen ADR-0022/R3 and R4 scope.code to include the admin panel  _(wave 1)_
 - **CARD-054** P3 · Remove dead code — BatchGenerator._generate_puzzle_with_metrics  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
@@ -51,6 +50,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-048** Widen ADR-0022/R3 and R4 scope.code to include the admin panel · score 9.5 (cycle 2/3) · merged b154886
 - **CARD-047** predict_size() adds a synchronous full-image decode to batch page renders · score 9.0 (cycle 1/3) · merged 8e5b818
 - **CARD-046** Regression test for ink-bbox-vs-file-dimensions sizing fix · score 9.5 (cycle 1/3) · merged 261706a
 - **CARD-051** Stop reimplementing clue encoding in admin — call nonogram.clues · score 9.5 (cycle 1/3) · merged 352670f
