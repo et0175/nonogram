@@ -296,6 +296,38 @@ unprintable output is not a range, it is a trap.
   and is deliberately left to its own decision rather than settled here.
 - Grids from 31 to 50 cells per side are no longer expressible. Nothing in the
   repository's history suggests they were used, but the capability is gone.
+- (2026-09-11, CARD-048) **R2's `scope.code` is deliberately NOT widened to
+  include `src/nonogram/admin/**`, and this is a known, accepted gap, not an
+  oversight.** `admin/image_manager.py`'s `predict_size()` re-derives its own
+  `stated` value and clamps it independently rather than calling
+  `sourcing.random_grid.validate_extent` directly — so widening R2's scope
+  would make the system-contract lens claim admin is covered by
+  `check: {kind: test, ref: TestValidateExtent_RejectsSideAboveThirty}` when
+  that test exercises `validate_extent` alone and would not actually run
+  admin's own clamp at all. A scope that lists territory a rule's `check`
+  cannot reach is a worse audit surface than an honestly absent one — it
+  reports false coverage instead of no coverage. Revisit if `admin` is ever
+  changed to call `validate_extent` directly.
+- (2026-09-11, CARD-048) **R4's widening is only fully justified for its
+  derivation-arithmetic clause, not its refusal-and-message clause — this is
+  a real, currently-existing divergence the widened scope now makes visible
+  to audit, not something this card fixes.** `admin/image_manager.py`'s
+  `predict_size()` calls `derive_extent` directly, so the "N on the longer
+  side, never clamped at the top" arithmetic genuinely is admin's own
+  behaviour. But on `SizeTooSmallForSource` — the exact condition R4's
+  refusal clause governs — `predict_size()` does the opposite of R4's
+  statement: instead of refusing with a message naming the smallest N that
+  would accommodate the source, it silently searches for and substitutes a
+  workable N (`image_manager.py:108-119`, its own comment: "ask for the
+  smallest N that can, rather than surface a CLI-style refusal in this UI"),
+  and that substituted size is what the puzzle is actually generated at,
+  with no "requested N unavailable, used N' instead" message anywhere in the
+  admin UI. Widening R4's scope to include `admin/**` is still correct — the
+  point is exactly to make this kind of divergence auditable rather than
+  invisible — but the ADR should not (and no longer does) claim admin's
+  refusal behaviour matches R4 today. A follow-up card to surface an
+  explicit substitution message in the admin UI would close this gap
+  properly; it is out of this scope-only card's Touches.
 
 ### Neutral
 
@@ -322,12 +354,12 @@ unprintable output is not a range, it is a trap.
   severity: mandatory
 - id: ADR-0022/R4
   statement: A `--size` token carrying both dimensions specifies the grid exactly and the source is fitted to it. A bare `--size N` sets the grid's LONGER side to N and derives the other side from the source's own aspect ratio, clamped to MIN_SIZE at the bottom only and never at the top. A source whose ratio exceeds N/5 is refused with a message naming the smallest N that would accommodate it, never silently clamped.
-  scope: {code: ["src/nonogram/cli.py", "src/nonogram/orchestrator.py", "src/nonogram/sourcing/**"]}
+  scope: {code: ["src/nonogram/cli.py", "src/nonogram/orchestrator.py", "src/nonogram/sourcing/**", "src/nonogram/admin/**"]}
   check: {kind: test, ref: PropertyTest_BareSize_DerivesShorterSideFromSourceShape}
   severity: mandatory
 - id: ADR-0022/R3
   statement: An uploaded image is fitted to the requested grid's aspect ratio by a centred crop, never by stretching and never by padding. A request whose grid aspect ratio differs by more than 2x from the source's INK BOUNDING BOX ratio — not from its as-decoded file ratio — is refused rather than cropped. The bounding box is computed and judged before any crop is applied, so a refused request is still refused before any cropping runs.
-  scope: {code: ["src/nonogram/sourcing/image.py"]}
+  scope: {code: ["src/nonogram/sourcing/image.py", "src/nonogram/admin/**"]}
   check: {kind: test, ref: TestFitImage_RefusesRatioMismatchBeyondTwice}
   severity: mandatory
 ```
@@ -385,3 +417,26 @@ unprintable output is not a range, it is a trap.
   clamp, and a top clamp would crop content. Rejected alternative recorded above.
   New rule R4. Migration stays `rewrite`: CARD-027 (FR-018) is `Revision pending`
   and must be built against this reading, not the previous one.
+
+- 2026-09-11 — Scope widened (CARD-048), no decision change. `ec18fb4` made
+  `src/nonogram/admin/image_manager.py` a direct consumer of R4 (calls
+  `derive_extent`) and, via `admin/image_to_puzzle.py`, of R3 (calls
+  `sourcing.image.generate`) — but `admin/**` was absent from either rule's
+  `scope.code`, so a system-contract audit of R3/R4 compliance did not treat
+  admin as in-scope territory, and a future admin-side change that bypassed
+  those shared functions (reintroducing the exact bug `ec18fb4` fixed) would
+  not have been caught by any mechanical or review-lens check. R3 and R4's
+  `scope.code` now include `src/nonogram/admin/**`. R2 is deliberately NOT
+  widened — see the new Negative consequence above for why (its `check:` ref
+  exercises `validate_extent` alone, which `admin`'s independent clamp never
+  calls, so widening R2's scope would report false coverage rather than
+  none). Review of this card's diff (cycle 1) surfaced that R4's own
+  widening is itself only fully justified for its arithmetic clause, not
+  its refusal-and-message clause — `admin`'s `predict_size()` silently
+  substitutes a workable N on `SizeTooSmallForSource` rather than refusing,
+  the opposite of what R4's statement requires; see the new Negative
+  consequence above. Widening R4's scope to `admin/**` remains correct
+  regardless (that is what now makes this divergence auditable), but the
+  ADR does not claim admin's refusal behaviour matches R4 today. This is a
+  scope declaration, not a decision revision: no accepted clause above
+  changes, `Status`/`Revised` are unchanged.
