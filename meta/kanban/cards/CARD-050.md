@@ -383,3 +383,25 @@ skeptic re-ran the structural import-boundary guard fresh (14 passed) and
 independently grepped random_generator.py, confirming zero nonogram.analysis
 imports remain (only stdlib random/typing; the 6 "analysis" hits are all in
 the docstring explaining the removed import).
+
+[AC/EC check] All criteria/constraints ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: test_ac1a_faithful_and_degraded_conversions_of_same_image_score_differently and test_ac1b_image_mode_batch_stores_real_measure_quality_output both pass; app.py now calls measure_quality() against the real source image and puzzle.grid, replacing the density/hardcoded-medium code.
+AC-2 ✓ demonstrated — evidence: test_ac2_random_mode_quality_score_is_none_not_75 (10 real puzzles, all None, none 75) and test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na (real GETs against both fixed templates, asserting no "Quality: None"/"0/100" and presence of "N/A") both pass — the automated test a prior cycle flagged as missing is present and green.
+AC-3 ✓ demonstrated — evidence: zero nonogram.analysis imports remain in random_generator.py; tests/test_cli.py::test_every_import_in_the_package_points_inward passes; all three AC-3 tests pass.
+G-1 ✓ demonstrated — evidence: git diff main...HEAD -- src/nonogram/admin/puzzle_review.py is completely empty.
+G-2 ✓ demonstrated — evidence: Puzzle.quality_score/recognizability confirmed nullable=True directly in db/models.py; git diff main...HEAD -- src/nonogram/db/ is completely empty.
+
+All five items independently re-verified by a fresh AC-check agent against
+the final three-cycle state (not trusted from any prior self-report or
+review claim). Gate passes.
+
+[Docs] No README under src/nonogram/admin/, src/nonogram/generation/, or
+tests/ needs updating for this diff — no new directory, no structural/
+purpose change beyond what's already covered by module docstrings.
+
+[Commit] Final state is 3 commits on the branch: 2739a86 (implementation),
+2ef1e60 (cycle-1 fix), b2afee9 (cycle-2 fix, adding the regression test).
+Nothing changed during the cycle-3 confirmation review (zero further fix
+cycles needed), so b2afee9 stands as the final commit.
+
+CYCLE 3 COMPLETE — SUCCESS. Ready for `/kanban done CARD-050`.
