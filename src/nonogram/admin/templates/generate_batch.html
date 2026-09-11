@@ -52,7 +52,7 @@
                                                title="Puzzle grid dimensions (Width×Height)">
                                         {% if substitution %}
                                         <span class="text-warning small"
-                                              title="Requested {{ substitution.requested }} was too small for this picture's shape; using {{ substitution.used }} instead.">
+                                              title="{% if substitution.get('reason') == 'too_elongated' %}Too elongated for this short side: keeping its proportions would need a {{ substitution.requested }}-cell long side, over the {{ substitution.used }} maximum, so the grid uses {{ substitution.used }} cells on the long side instead.{% else %}Requested {{ substitution.requested }} was too small for this picture's shape; using {{ substitution.used }} instead.{% endif %}">
                                             ⚠ size adjusted
                                         </span>
                                         {% endif %}

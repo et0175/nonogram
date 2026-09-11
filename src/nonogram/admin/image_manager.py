@@ -30,8 +30,8 @@ class ImageFile:
     format: str  # PNG, JPG, GIF
     uploaded_at: datetime
     puzzle_name: str = ""  # Name for generated puzzle (default: filename without ext)
-    size_mode: str = "fixed"  # fixed, min, max
-    size_value: int = 20  # For fixed mode
+    size_mode: str = "fixed"  # fixed, short, min, max
+    size_value: int = 20  # long side for "fixed", short side for "short"
 
     def __post_init__(self):
         """Set default puzzle name from filename."""
@@ -89,12 +89,18 @@ class ImageFile:
             cell (quality), capped at 30.
           * "min": about 5 cells smaller than "max", floored at 10.
 
+        "short" (the batch form's "small" preset, CARD-061) is the exception:
+        ``size_value`` is the grid's *short* side and the long side follows
+        the picture's ratio, handed on as a full pair — see
+        :meth:`_short_side_extent` for why a bare ``N`` cannot do this at the
+        bottom of the range.
+
         Returns:
             (width, height) tuple
         """
         return self._predict_size_detailed()[0]
 
-    def size_substitution(self) -> Optional[Dict[str, int]]:
+    def size_substitution(self) -> Optional[Dict[str, Any]]:
         """Whether `predict_size()` silently substituted a workable size
         (CARD-058), and if so, what was requested versus what is actually
         used.
@@ -116,14 +122,16 @@ class ImageFile:
             degenerate-image `ValueError` fallback - see `predict_size()` -
             which is not itself a substitution). Otherwise
             `{"requested": int, "used": int}`, the longer-side values before
-            and after the substitution.
+            and after the substitution. The "short" mode's over-the-cap
+            fallback (CARD-061) adds `"reason": "too_elongated"`; its
+            "requested" is the long side the picture's ratio needed.
         """
         _, substitution = self._predict_size_detailed()
         return substitution
 
     def _predict_size_detailed(
         self,
-    ) -> tuple[tuple[int, int], Optional[Dict[str, int]]]:
+    ) -> tuple[tuple[int, int], Optional[Dict[str, Any]]]:
         """Shared implementation behind `predict_size()`/`size_substitution()`
         - computed once so the two can never silently disagree with each
         other the way the ADR-0006/R1 dependency baseline and its own check
@@ -138,6 +146,9 @@ class ImageFile:
 
         src_width, src_height = self._source_shape()
         long_edge = max(src_width, src_height)
+
+        if self.size_mode == "short":
+            return self._short_side_extent(src_width, src_height)
 
         if self.size_mode == "fixed":
             stated = self.size_value
@@ -174,6 +185,56 @@ class ImageFile:
             # against a degenerate image) - reported as None, not a false
             # positive for `size_substitution()`.
             return (MIN_SIZE, MIN_SIZE), None
+
+    def _short_side_extent(
+        self, src_width: int, src_height: int
+    ) -> tuple[tuple[int, int], Optional[Dict[str, Any]]]:
+        """The "short" size mode (CARD-061): ``size_value`` is the grid's
+        SHORT side, the long side follows the picture's ratio, and the result
+        is a full ``(width, height)`` pair — which ADR-0022/R4's explicit-
+        extent clause fits exactly, with no derivation of its own.
+
+        A bare ``N`` cannot express this at the bottom of the range:
+        ``derive_extent`` floors the derived side at ``MIN_SIZE``, which is
+        also the smallest ``N``, so ``N = 10`` comes back 10x10 for every
+        picture and crops any non-square one.
+
+        Never clamps the long side to ``MAX_SIZE``. A picture too elongated
+        to keep its proportions under the cap falls back to a bare
+        ``N = MAX_SIZE`` derivation — the short side then follows the ratio
+        from the top, floored at ``MIN_SIZE`` — and reports it as a
+        substitution, so the preview can say the long side stopped at the
+        cap.
+        """
+        from nonogram.errors import SizeTooSmallForSource
+        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
+
+        short_edge = min(src_width, src_height)
+        long_edge = max(src_width, src_height)
+        if short_edge <= 0:
+            # Same degenerate-shape fallback as `_predict_size_detailed`'s
+            # ValueError branch (CARD-045): there is no ratio to follow.
+            return (MIN_SIZE, MIN_SIZE), None
+
+        short_side = max(MIN_SIZE, min(self.size_value, MAX_SIZE))
+        long_side = round(short_side * long_edge / short_edge)
+        if long_side <= MAX_SIZE:
+            if src_width >= src_height:
+                return (long_side, short_side), None
+            return (short_side, long_side), None
+
+        substitution = {
+            "requested": long_side,
+            "used": MAX_SIZE,
+            "reason": "too_elongated",
+        }
+        try:
+            return derive_extent(MAX_SIZE, None, src_width, src_height), substitution
+        except SizeTooSmallForSource:
+            extent = (
+                (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
+            )
+            return extent, substitution
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -387,8 +448,8 @@ class ImageManager:
 
         Args:
             file_id: Image ID
-            size_mode: "fixed", "min", or "max"
-            size_value: Size value for "fixed" mode (10-30)
+            size_mode: "fixed", "short", "min", or "max"
+            size_value: long side for "fixed", short side for "short" (10-30)
 
         Returns:
             True if updated, False if not found
@@ -398,7 +459,7 @@ class ImageManager:
 
         image = self.images[file_id]
         image.size_mode = size_mode
-        if size_mode == "fixed":
+        if size_mode in ("fixed", "short"):
             # Validate size_value
             if 10 <= size_value <= 30:
                 image.size_value = size_value
@@ -425,8 +486,8 @@ class ImageManager:
         """Apply same size configuration to all images.
 
         Args:
-            size_mode: "fixed", "min", or "max"
-            size_value: Size value for "fixed" mode
+            size_mode: "fixed", "short", "min", or "max"
+            size_value: long side for "fixed", short side for "short"
 
         Returns:
             Number of images updated
