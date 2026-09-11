@@ -686,7 +686,7 @@ def test_non_domain_exceptions_are_not_swallowed(
 # ever grows.
 _ADAPTERS = frozenset({"cli", "web", "admin"})
 _ORCHESTRATOR = "orchestrator"
-_SHARED = frozenset({"errors"})
+_SHARED = frozenset({"errors", "limits"})
 
 # The one import permitted *within* the adapter rank, in this direction only.
 # ADR-0008 keeps a single ``[project.scripts]`` console entry point, and
@@ -837,6 +837,7 @@ def test_the_import_walk_actually_sees_the_package() -> None:
         "nonogram.web",
         "nonogram.orchestrator",
         "nonogram.errors",
+        "nonogram.limits",
     } <= set(_MODULES)
 
 
@@ -852,6 +853,17 @@ def test_the_adapter_allowlist_is_closed_at_the_two_known_adapters() -> None:
     """
     assert _ADAPTERS == {"cli", "web", "admin"}
     assert _rank("cli") == _rank("web") == _rank("admin") == _ADAPTER_RANK
+
+
+def test_the_shared_layer_is_closed_at_errors_and_limits() -> None:
+    """Every layer may import a shared module, so :data:`_SHARED` gets the same
+    literal pin as :data:`_ADAPTERS`: a module slipped into it quietly would be
+    an unguarded channel between capabilities that may not import each other.
+    ``limits`` joined ``errors`` in CARD-063 (ADR-0007 History) because the
+    grid size range is needed by capabilities on both sides of that rule.
+    """
+    assert _SHARED == {"errors", "limits"}
+    assert _rank("errors") == _rank("limits") == _SHARED_RANK
 
 
 def test_the_launch_edge_is_closed_at_the_single_ordered_pair() -> None:
@@ -917,6 +929,11 @@ def test_every_import_in_the_package_points_inward() -> None:
             id="cap-to-orchestrator",
         ),
         pytest.param("nonogram.errors", "solver", "shared -> capability", id="errors-reaches-back"),
+        pytest.param("nonogram.limits", "sourcing", "shared -> capability", id="limits-reaches-back"),
+        # Two shared modules share a rank, so neither may import the other:
+        # ``limits`` stays import-free, and the shared layer cannot become a
+        # chain.
+        pytest.param("nonogram.limits", "errors", "shared -> shared", id="limits-to-errors"),
         pytest.param("nonogram.orchestrator", "cli", "orchestrator -> adapter", id="orch-to-cli"),
         pytest.param(
             "nonogram.orchestrator", "web", "orchestrator -> web adapter", id="orch-to-web"
@@ -950,7 +967,9 @@ def test_the_import_rule_allows_the_legitimate_edges() -> None:
             "nonogram.web.handler": {"orchestrator", "errors", "export", "web"},
             "nonogram.orchestrator": {"sourcing", "clues", "solver", "errors"},
             "nonogram.solver.search": {"solver", "errors"},  # own package
-            "nonogram.sourcing": {"errors"},
+            "nonogram.sourcing": {"errors", "limits"},
+            "nonogram.difficulty": {"errors", "limits"},  # capabilities share limits
+            "nonogram.web.pages": {"limits"},  # adapters may too
         }
     )
 

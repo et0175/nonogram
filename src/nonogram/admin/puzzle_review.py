@@ -8,6 +8,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from datetime import datetime, date, timezone
 
+from nonogram.limits import MAX_SIZE, MIN_SIZE
+
 
 class PuzzleStatus(Enum):
     """Status of a puzzle in the curation workflow."""
@@ -305,8 +307,8 @@ class PuzzleReviewService:
             raise ValueError("Offset must be >= 0")
         if filter_opts.size:
             width, height = filter_opts.size
-            if not (10 <= width <= 30 and 10 <= height <= 30):
-                raise ValueError("Size dimensions must be 10-30")
+            if not (MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE):
+                raise ValueError(f"Size dimensions must be {MIN_SIZE}-{MAX_SIZE}")
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
             raise ValueError("Quality min must be 0-100")
 

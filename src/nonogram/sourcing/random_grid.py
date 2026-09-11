@@ -54,6 +54,7 @@ from __future__ import annotations
 import random
 
 from nonogram.errors import InvalidDensity, SizeOutOfRange, SizeTooSmallForSource
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 __all__ = [
     "DENSITY_TOLERANCE_POINTS",
@@ -70,14 +71,9 @@ __all__ = [
     "validate_extent",
 ]
 
-#: Supported length of **one grid side**, inclusive on both ends (FR-019,
-#: NFR-001). The bound is per side, not per grid: a 30x12 grid is as legal as a
-#: 12x12 one. CON-011 caps this at 30, and the reason is print legibility rather
-#: than solver cost: past about 30 cells a side the printed cell drops under
-#: ~6 mm on a sheet of paper (NFR-005) and stops being comfortable to mark by
-#: hand.
-MIN_SIZE = 10
-MAX_SIZE = 30
+# MIN_SIZE / MAX_SIZE, the supported length of one grid side (FR-019,
+# NFR-001), are defined once in nonogram.limits and re-exported here, where
+# the range is enforced (CARD-063).
 
 #: Valid requested density, in percent, inclusive on both ends (FR-004): 0
 #: yields an all-empty grid and 100 an all-filled one. Both are degenerate

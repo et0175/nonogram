@@ -98,6 +98,7 @@ from types import MappingProxyType
 from typing import Protocol
 
 from nonogram.errors import UnsupportedDifficulty
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 __all__ = [
     "EASY_MAX_SCORE",
@@ -253,13 +254,13 @@ def parse_tier(text: str) -> Tier:
             f"unsupported difficulty tier {text!r}; supported tiers are: {supported}"
         ) from None
 
-#: The supported grid range (CON-011: 10x10..30x30), in cells — the
+#: The supported grid range (CON-011, sides from :mod:`nonogram.limits`), in cells — the
 #: denominators the size normalizer stretches between. A grid
 #: outside the range clamps rather than raising: an out-of-size puzzle is an
 #: input-validation matter for COMP-002, and a scorer is the wrong place to
 #: discover it.
-MIN_SUPPORTED_CELLS = 10 * 10
-MAX_SUPPORTED_CELLS = 30 * 30
+MIN_SUPPORTED_CELLS = MIN_SIZE * MIN_SIZE
+MAX_SUPPORTED_CELLS = MAX_SIZE * MAX_SIZE
 
 #: The density at which a grid is hardest to solve, and so where the density
 #: normalizer peaks. ADR-0013: "both very sparse and very dense grids tend to

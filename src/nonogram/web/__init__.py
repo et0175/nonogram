@@ -11,7 +11,9 @@ ordered pair, not a mutual exemption).
 *Direction* (ADR-0007): this package imports inward only, and never outward or
 laterally. It imports the orchestrator, to hand it a request and get a puzzle
 back; ``errors``, to catch the one hierarchy that pipeline raises; ``sourcing``,
-to provide image/random/library input modes to the form; and the difficulty and
+to provide image/random/library input modes to the form; ``limits``, the
+shared grid size range the form's dimension suggestions stay inside (CARD-063);
+and the difficulty and
 export registries, which ``pages.py`` reads to render the form's choices — and
 which, in ``export``'s case, ``submission.py`` also reads to refuse a format no
 renderer is registered under, the newer and more consequential of the two uses.

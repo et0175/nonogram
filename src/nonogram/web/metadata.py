@@ -1,8 +1,8 @@
 """Image metadata extraction and puzzle dimension suggestions (CARD-031).
 
 This module extracts metadata from uploaded images and generates suggestions
-for puzzle dimensions that fit the image's aspect ratio within the 10..30
-constraint (CON-011).
+for puzzle dimensions that fit the image's aspect ratio within the supported
+grid range (CON-011, :mod:`nonogram.limits`).
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from math import gcd
 from pathlib import Path
 from typing import NamedTuple
 
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.sourcing import image as sourcing_image
 
 __all__ = [
@@ -88,7 +89,7 @@ def extract_metadata(image_path: Path) -> ImageMetadata:
 
 
 def suggest_dimensions(
-    metadata: ImageMetadata, min_size: int = 10, max_size: int = 30
+    metadata: ImageMetadata, min_size: int = MIN_SIZE, max_size: int = MAX_SIZE
 ) -> list[tuple[int, int]]:
     """Generate 2-3 suggested puzzle dimensions based on image aspect ratio.
 
@@ -98,8 +99,8 @@ def suggest_dimensions(
 
     Args:
         metadata: The extracted image metadata.
-        min_size: Minimum grid dimension (default 10, per CON-011).
-        max_size: Maximum grid dimension (default 30, per CON-011).
+        min_size: Minimum grid dimension (default ``limits.MIN_SIZE``, CON-011).
+        max_size: Maximum grid dimension (default ``limits.MAX_SIZE``, CON-011).
 
     Returns:
         A list of (width, height) tuples, 2-3 items long, ordered by ratio

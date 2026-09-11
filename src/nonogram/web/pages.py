@@ -22,8 +22,8 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 49 f-string interpolations, of which 19 call :func:`html.escape` at
-the point of interpolation. The other 30 are each one of four kinds:
+there are 53 f-string interpolations, of which 19 call :func:`html.escape` at
+the point of interpolation. The other 34 are each one of five kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
 * **8+ fragments built here**, by a function that escaped as it built them —
@@ -35,7 +35,10 @@ the point of interpolation. The other 30 are each one of four kinds:
 * **multiple values off the wire**: ``{seed:d}`` across multiple functions.
   Each is safe not because it is escaped but because it is not a string — the
   ``:d`` format spec admits an int and nothing else, so a later caller passing
-  markup there raises instead of emitting it.
+  markup there raises instead of emitting it;
+* **the shared size range**: ``{MIN_SIZE:d}`` and ``{MAX_SIZE:d}`` from
+  :mod:`nonogram.limits`, on the ``metadata.js`` script tag of both form pages
+  (CARD-063). Module constants, and bound by the same ``:d`` spec as ``seed``.
 
 Neither page renders the puzzle (CON-008, guardrail G-4). What a successful run
 reports is the puzzle's name, the seed and the files written; :func:`result_page`
@@ -78,6 +81,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from nonogram import difficulty, export
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 __all__ = [
     "FAILURE",
@@ -506,7 +510,7 @@ the same pipeline behind them.</p>
   </div>
   <button type="submit">Generate</button>
 </form>
-<script src="/static/metadata.js"></script>
+<script src="/static/metadata.js" data-min-size="{MIN_SIZE:d}" data-max-size="{MAX_SIZE:d}"></script>
 </body>
 </html>
 """
@@ -883,7 +887,7 @@ document.addEventListener('DOMContentLoaded', function() {{
   }}
 }});
 </script>
-<script src="/static/metadata.js"></script>
+<script src="/static/metadata.js" data-min-size="{MIN_SIZE:d}" data-max-size="{MAX_SIZE:d}"></script>
 </body>
 </html>
 """

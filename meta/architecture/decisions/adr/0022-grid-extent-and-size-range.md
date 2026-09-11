@@ -460,3 +460,10 @@ unprintable output is not a range, it is a trap.
   at `MAX_SIZE`, and the admin UI says so. The CLI's bare `--size 10` is
   unchanged. No rule statement, scope or check changes; `Status`/`Revised`
   are unchanged.
+
+- 2026-09-11 — Range relocated (CARD-063), no decision change. `MIN_SIZE` and
+  `MAX_SIZE` are now defined once, in `nonogram/limits.py`, and re-exported by
+  `sourcing/random_grid.py`. `difficulty.py`, the admin panel's validators and
+  templates, and the web adapter's dimension suggestions read them instead of
+  repeating 10 and 30. The values are unchanged; revisiting the top of the
+  range (40x40 is being considered) remains a revision of this ADR.

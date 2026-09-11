@@ -11,6 +11,8 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
 
+from nonogram.limits import MAX_SIZE, MIN_SIZE
+
 try:
     from PIL import Image as PILImage
 except ImportError:
@@ -493,7 +495,8 @@ class ImageManager:
         Args:
             file_id: Image ID
             size_mode: "fixed", "short", "min", or "max"
-            size_value: long side for "fixed", short side for "short" (10-30)
+            size_value: long side for "fixed", short side for "short"
+                (MIN_SIZE..MAX_SIZE)
 
         Returns:
             True if updated, False if not found
@@ -505,7 +508,7 @@ class ImageManager:
         image.size_mode = size_mode
         if size_mode in ("fixed", "short"):
             # Validate size_value
-            if 10 <= size_value <= 30:
+            if MIN_SIZE <= size_value <= MAX_SIZE:
                 image.size_value = size_value
         return True
 

@@ -58,3 +58,4 @@ Everything in one flat module, or a handful of files with no declared layering, 
 ## History
 
 - 2026-08-27: Created — adopted the layered pipeline package (one module per capability plus a thin orchestrator and cli.py adapter) over the strategy/plugin-registry and single-module-script alternatives.
+- 2026-09-11: Shared layer widened (CARD-063), no decision change. `nonogram/limits.py` — the supported grid size range, `MIN_SIZE`/`MAX_SIZE` — joins `errors.py` as the innermost shared module: constants only, imports nothing, importable from every layer. It was needed because a capability module may not import another: `difficulty.py` had kept its own copy of the range rather than import `sourcing/random_grid.py`. The import guard's `_SHARED` set (`tests/test_cli.py`) now names both modules and is pinned literally, so the shared layer cannot grow quietly.

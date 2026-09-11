@@ -32,8 +32,8 @@
                         <div class="col-md-4">
                             <div id="globalFixedSection">
                                 <input type="number" class="form-control" id="globalSizeValue"
-                                       min="10" max="30" value="20" onchange="updateGlobalSize()">
-                                <small class="form-text text-muted">10-30</small>
+                                       min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="20" onchange="updateGlobalSize()">
+                                <small class="form-text text-muted">{{ MIN_SIZE }}-{{ MAX_SIZE }}</small>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -85,9 +85,9 @@
                                     <label class="form-label">Size Value</label>
                                     <input type="number" class="form-control"
                                            id="value_{{ image.file_id }}"
-                                           min="10" max="30" value="{{ image.size_value }}"
+                                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ image.size_value }}"
                                            onchange="updateSize('{{ image.file_id }}')">
-                                    <small class="form-text text-muted">10-30 pixels</small>
+                                    <small class="form-text text-muted">{{ MIN_SIZE }}-{{ MAX_SIZE }} cells</small>
                                 </div>
 
                                 <!-- Size Preview -->
