@@ -1,6 +1,6 @@
 # CARD-059: Remove the unreachable, unverified SVG-preview-by-file_id routes
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/059-remove-dead-svg-preview-routes
-**Worktree:** ../PythonProject4-CARD-059
+**Worktree:** —
 **Source:** conversation, 2026-09-11 (verified while answering "does admin's puzzle preview reflect what the CLI/real generation would produce")
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/app.py
 **Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-09-11T15:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T15:45:00Z
+**Actual:** 0.03d
+**Merge commit:** 47ca753
 **Blocked by:** —
 
 ## What to implement

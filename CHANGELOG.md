@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-11
+- CARD-059 (tech-debt): Removed `/api/puzzle-grid/<file_id>` and its `/download` variant — the last admin route that could produce a puzzle grid outside the solver-verified `orchestrator.generate()` pipeline. Confirmed unreferenced by any current template or test before removal.
 - CARD-057 (tech-debt): Fixed ADR-0006/R1's dependency baseline check, silently broken on `main` since 2026-09-07 — `reportlab` had been placed in core `dependencies` instead of the `admin` optional-dependencies extra (where Flask/Werkzeug, equally admin-only, already lived). Moved it there instead of widening the ADR's closed baseline; a bare `pip install nonogram` (CLI-only) no longer pulls in ReportLab.
 - CARD-054 (tech-debt): Removed `BatchGenerator._generate_puzzle_with_metrics`, a dead method with zero callers, still carrying the hardcoded quality-value pattern CARD-050 fixed elsewhere.
 - Admin: lowered the default "Minimum Quality Score" batch filter from 80 to 25 — real uploaded pictures rarely score that high against `measure_quality()`.
