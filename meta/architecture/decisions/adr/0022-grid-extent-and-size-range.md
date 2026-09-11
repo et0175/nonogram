@@ -440,3 +440,23 @@ unprintable output is not a range, it is a trap.
   ADR does not claim admin's refusal behaviour matches R4 today. This is a
   scope declaration, not a decision revision: no accepted clause above
   changes, `Status`/`Revised` are unchanged.
+
+- 2026-09-11 — Consequence recorded (CARD-061), no decision change. The
+  bottom clamp has a success-path consequence the Decision section does not
+  state: because `MIN_SIZE` (10) is both the floor on the derived side and
+  the smallest allowed N, a bare `--size 10` derives
+  `max(10, round(10 * short/long)) = 10` for every source — at the minimum N
+  the grid stops following the picture's shape and comes back square,
+  cropping any non-square picture (measured on a 1.54:1 picture: 65%
+  retained, against ~98% at 15x10). Nothing is refused, so R4's refusal
+  clause does not cover it; it is the clamp working as designed. Kept: the
+  owner confirmed 10 stays the lower bound on both axes (decoupling the
+  floor from the smallest N was considered and rejected on 2026-09-11). The
+  admin panel's "small" batch preset sidesteps it through R4's own
+  explicit-extent clause: it takes 10 as the grid's *short* side, computes
+  the long side from the ink bounding box's ratio, and hands the core a full
+  `W x H` pair, which is fitted exactly. A picture too elongated for that
+  under `MAX_SIZE` (beyond about 3:1) falls back to R4's bare-N derivation
+  at `MAX_SIZE`, and the admin UI says so. The CLI's bare `--size 10` is
+  unchanged. No rule statement, scope or check changes; `Status`/`Revised`
+  are unchanged.

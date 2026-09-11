@@ -214,7 +214,7 @@ def create_app(debug=None):
             # Read default size from page 1 selection and apply to all images
             default_size = request.form.get("default_size", "medium")
             size_mapping = {
-                "small": (10, "fixed"),      # Small (10-15 cells)
+                "small": (10, "short"),      # 10 on the short side; long side follows the picture (CARD-061)
                 "medium": (20, "fixed"),     # Medium (15-25 cells)
                 "large": (25, "fixed"),      # Large (25-30 cells)
                 "auto": (20, "max"),         # Auto (based on image)
@@ -227,7 +227,7 @@ def create_app(debug=None):
                     if size_mode == "max":
                         image_mgr.update_image_size(image.file_id, "max", 0)
                     else:
-                        image_mgr.update_image_size(image.file_id, "fixed", size_value)
+                        image_mgr.update_image_size(image.file_id, size_mode, size_value)
 
             # Store quality filter and default size in session
             session["batch_quality_filter"] = quality_filter
@@ -317,7 +317,7 @@ def create_app(debug=None):
         # POST: Actually generate puzzles
         try:
             # Extract configured sizes from images (unique values)
-            sizes = list(set(img.size_value if img.size_mode == "fixed" else 20 for img in images))
+            sizes = list(set(img.size_value if img.size_mode in ("fixed", "short") else 20 for img in images))
 
             # Create batch job
             batch_id = batch_gen.create_batch(

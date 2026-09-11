@@ -6,7 +6,7 @@
 <div class="row mb-4">
     <div class="col-md-12">
         <h1>Batch: Preview Images & Select Sizes</h1>
-        <p class="text-muted">Configure puzzle size for each image (Fixed, Min, or Max)</p>
+        <p class="text-muted">Configure puzzle size for each image (Fixed, Short Side, Min, or Max)</p>
     </div>
 </div>
 
@@ -24,6 +24,7 @@
                         <div class="col-md-4">
                             <select class="form-select" id="globalSizeMode" onchange="updateGlobalSize()">
                                 <option value="fixed">Fixed Size</option>
+                                <option value="short">Short Side (follows picture)</option>
                                 <option value="min">Minimum Size</option>
                                 <option value="max">Maximum Size</option>
                             </select>
@@ -72,9 +73,10 @@
                                     <label class="form-label">Puzzle Size</label>
                                     <select class="form-select" id="mode_{{ image.file_id }}"
                                             onchange="updateSize('{{ image.file_id }}')">
-                                        <option value="fixed">Fixed Size</option>
-                                        <option value="min">Minimum Size (auto)</option>
-                                        <option value="max">Maximum Size (auto)</option>
+                                        <option value="fixed" {% if image.size_mode == 'fixed' %}selected{% endif %}>Fixed Size</option>
+                                        <option value="short" {% if image.size_mode == 'short' %}selected{% endif %}>Short Side (follows picture)</option>
+                                        <option value="min" {% if image.size_mode == 'min' %}selected{% endif %}>Minimum Size (auto)</option>
+                                        <option value="max" {% if image.size_mode == 'max' %}selected{% endif %}>Maximum Size (auto)</option>
                                     </select>
                                 </div>
 
@@ -100,9 +102,16 @@
                                         {% set substitution = image.size_substitution() %}
                                         {% if substitution %}
                                         <div class="small mt-1 text-warning">
+                                            {% if substitution.get('reason') == 'too_elongated' %}
+                                            ⚠ Too elongated to keep its proportions at this
+                                            size (would need {{ substitution.requested }}
+                                            cells, the maximum is {{ substitution.used }}), so
+                                            part of its length is cropped.
+                                            {% else %}
                                             ⚠ Requested {{ substitution.requested }} was too
                                             small for this picture's shape; using
                                             {{ substitution.used }} instead.
+                                            {% endif %}
                                         </div>
                                         {% endif %}
                                     </div>
@@ -136,6 +145,7 @@
                 <strong>Size Modes:</strong><br>
                 <small>
                     <strong>Fixed:</strong> Set exact size<br>
+                    <strong>Short Side:</strong> Short side fixed, long side follows the picture<br>
                     <strong>Min:</strong> Smallest readable<br>
                     <strong>Max:</strong> Best quality
                 </small>
@@ -254,7 +264,7 @@ function updateGlobalSize() {
     const mode = document.getElementById('globalSizeMode').value;
     const fixedSection = document.getElementById('globalFixedSection');
 
-    if (mode === 'fixed') {
+    if (mode === 'fixed' || mode === 'short') {
         fixedSection.classList.remove('hidden');
     } else {
         fixedSection.classList.add('hidden');
@@ -267,7 +277,7 @@ function updateSize(fileId) {
     const fixedSection = document.getElementById('fixedSection_' + fileId);
 
     // Show/hide fixed size input based on mode
-    if (mode === 'fixed') {
+    if (mode === 'fixed' || mode === 'short') {
         fixedSection.style.display = 'block';
     } else {
         fixedSection.style.display = 'none';
@@ -307,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const fileId = el.id.replace('mode_', '');
         const mode = el.value;
         const fixedSection = document.getElementById('fixedSection_' + fileId);
-        if (mode !== 'fixed') {
+        if (mode !== 'fixed' && mode !== 'short') {
             fixedSection.style.display = 'none';
         }
     });
