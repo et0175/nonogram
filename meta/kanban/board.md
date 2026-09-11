@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-11 10:00_
+_Updated: 2026-09-11 11:15_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -51,10 +51,10 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements · cycle 3/3 · score 9.0 · ✓ AC/EC/G gate passed — ready for `done`
-  `worktree: ../PythonProject4-CARD-050` · `branch: card/050-real-quality-recognizability`
+_(none)_
 
 ## Done
+- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements · score 9.0 (cycle 3/3) · merged 62f8c62
 - **CARD-049** Route admin image-mode generation through the solver-verified pipeline · score 9.0 (cycle 1/3) · merged 98cdaaa
 - **CARD-045** predict_size() can crash a whole batch page on a degenerate image · score 9.0 (cycle 1/3) · merged 2fc8094
 - **CARD-001** Package scaffolding and CLI entry point
