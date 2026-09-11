@@ -340,3 +340,24 @@ data, never rendered HTML; the client/admin_app fixture the finding's
 suggested fix names is real and usable exactly as described; churn is
 exactly 14 commits/12mo with at least one genuine prior fix on this same
 quality-badge display line (commit 40b8c98).
+
+--- Fix agent notes (pulled from worktree, commit b2afee9) ---
+
+Added `test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na`
+to `tests/test_card_050_quality_recognizability.py`: drives a real
+random-mode batch through the app, GETs both `/batch/<id>` and
+`/batch/<id>/generated-puzzles`, asserts neither `"Quality: None"` nor
+`"0/100"` appears and `"N/A"` does.
+
+Red→green verification: temporarily reverted both template lines to their
+exact pre-fix content, re-ran the new test alone — FAILED with
+`assert 'Quality: None' not in ...` (reproducing the exact cycle-1
+regression). Restored the fix (verified zero diff against the committed
+state), re-ran the full file — 8/8 pass.
+
+Corrected the recurring test-count inaccuracy: file had 7 tests before this
+change (not 9, as the card had claimed since cycle 1), now has 8 — all
+mentions in this document corrected to 8/8.
+
+[Build gate] PASSED (scoped — test_card_050_quality_recognizability.py +
+test_batch_generator.py, exit 0)
