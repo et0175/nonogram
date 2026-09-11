@@ -115,6 +115,68 @@ class TestWave3ImageGeneration:
         assert width == 20
         assert height == 20
 
+    def test_predict_size_follows_ink_bounding_box_not_canvas_dimensions(
+        self, test_images
+    ):
+        """Regression test for CARD-045/ec18fb4 (F-004): predict_size() must
+        derive the puzzle's aspect ratio from the picture's own drawn
+        content (its ink bounding box), not from the raw file's canvas
+        dimensions.
+
+        Every other fixture in this test file is a solid, borderless
+        PILImage.new(...) rectangle — for those, the ink bounding box always
+        equals the whole canvas, so they cannot distinguish the fix from the
+        bug it replaced (a heron's feet/beak, a bird's legs silently cropped
+        away in the admin panel while nonogram serve kept them). This
+        fixture draws a black 81x81 square with real blank white margin on
+        a 300x100 landscape canvas: the canvas's own aspect ratio (3:1) is
+        deliberately different from the drawn content's (1:1), so a
+        regression that reverts ImageFile._source_shape() to
+        `return self.dimensions` unconditionally changes this test's
+        result rather than leaving it unable to tell.
+        """
+        from PIL import ImageDraw
+        from nonogram.admin.image_manager import ImageManager
+
+        canvas = PILImage.new("RGB", (300, 100), color="white")
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([(10, 10), (90, 90)], fill="black")  # 81x81 ink box
+        canvas_path = Path(test_images["tmpdir"]) / "margin.png"
+        canvas.save(canvas_path)
+
+        manager = ImageManager()
+        img = manager.add_image(str(canvas_path), "margin.png")
+        assert img.dimensions == (300, 100)  # the raw file is landscape...
+
+        # ...but the drawn content is square, and predict_size() (default
+        # "fixed" mode, size_value=20) must track that, not the canvas: the
+        # buggy `return self.dimensions` behavior would instead derive N=20
+        # on the file's 300-wide long axis and produce (20, 7).
+        width, height = img.predict_size()
+        assert (width, height) == (20, 20)
+
+    def test_source_shape_primitive_ignores_blank_canvas_margin(self, test_images):
+        """Pins the lower-level primitive predict_size() relies on:
+        nonogram.sourcing.image.source_shape() must report the ink
+        bounding box, not Image.open(...).size, on the same constructed
+        image used by the ImageFile-level regression test above.
+        """
+        from PIL import ImageDraw
+        from nonogram.sourcing.image import source_shape
+
+        canvas = PILImage.new("RGB", (300, 100), color="white")
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([(10, 10), (90, 90)], fill="black")
+        canvas_path = Path(test_images["tmpdir"]) / "margin_primitive.png"
+        canvas.save(canvas_path)
+
+        raw_dimensions = PILImage.open(canvas_path).size
+        assert raw_dimensions == (300, 100)
+
+        shape = source_shape(str(canvas_path))
+        assert shape == (81, 81)
+        assert shape != raw_dimensions
+
     def test_mock_generator_handles_tuple_sizes(self):
         """Test that MockGenerator accepts (width, height) tuples."""
         from nonogram.admin.puzzle_review import MockGenerator
