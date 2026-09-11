@@ -4,6 +4,8 @@ This test verifies the fix for the issue where puzzle sizes weren't being
 respected when users adjusted configurations between batch generations.
 """
 
+from datetime import datetime
+
 import pytest
 from pathlib import Path
 from PIL import Image as PILImage
@@ -350,3 +352,200 @@ class TestImageBatchWorkflowIntegration:
         assert sizes_2 == [20]
 
         mgr.clear_all()
+
+
+class TestPredictSizeDegenerateInput:
+    """CARD-045: ``predict_size()`` must not crash on a degenerate image.
+
+    ``ImageManager.add_image`` (image_manager.py:240-246) defaults
+    ``dimensions`` to ``(0, 0)`` and only overwrites it inside a bare
+    ``except Exception: pass`` around a second, independent
+    ``PILImage.open()`` — so ``dimensions=(0, 0)`` is a documented, reachable
+    state for a "successfully added" image whose second decode failed.
+    ``_source_shape()`` falls back to that same ``(0, 0)`` when it can't
+    re-read the file either, and ``derive_extent(stated, None, 0, 0)`` used
+    to raise an uncaught ``ValueError`` (AC-1).
+    """
+
+    def _degenerate_image(self, *, file_path: str = "/nonexistent/does-not-exist.png") -> ImageFile:
+        """An ``ImageFile`` in the exact state ``add_image``'s silent
+        second-decode failure leaves behind: ``dimensions == (0, 0)`` and a
+        ``file_path`` that can't be re-read, so ``_source_shape()`` also
+        falls back to ``(0, 0)`` rather than a real ink bounding box.
+        """
+        return ImageFile(
+            file_id="deadbeef",
+            filename="deadbeef.png",
+            original_filename="broken.png",
+            file_path=file_path,
+            file_size=0,
+            dimensions=(0, 0),
+            format="PNG",
+            uploaded_at=datetime.utcnow(),
+        )
+
+    def test_predict_size_zero_dimensions_returns_safe_fallback(self):
+        """AC-1: predict_size() on a (0, 0)-dimensioned image returns a
+        valid (width, height) tuple inside [MIN_SIZE, MAX_SIZE] on both
+        sides instead of raising ValueError.
+
+        Against the pre-CARD-045 code this raises
+        ``ValueError: a source's own shape has a positive extent on both
+        axes, got 0x0`` out of ``derive_extent`` — uncaught, because the
+        surrounding ``except`` clauses only covered ``SizeTooSmallForSource``
+        and ``NonogramError``, and a plain ``ValueError`` is neither.
+        """
+        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE
+
+        image = self._degenerate_image()
+
+        # Pre-fix: raises ValueError here. Post-fix: returns a safe fallback.
+        width, height = image.predict_size()
+
+        assert MIN_SIZE <= width <= MAX_SIZE
+        assert MIN_SIZE <= height <= MAX_SIZE
+
+    @pytest.mark.parametrize("size_mode", ["fixed", "min", "max"])
+    def test_predict_size_zero_dimensions_safe_for_every_size_mode(self, size_mode):
+        """AC-1 holds across all three size modes, not just the default."""
+        from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE
+
+        image = self._degenerate_image()
+        image.size_mode = size_mode
+
+        width, height = image.predict_size()
+
+        assert MIN_SIZE <= width <= MAX_SIZE
+        assert MIN_SIZE <= height <= MAX_SIZE
+
+    def test_predict_size_real_image_unaffected(self, tmp_path):
+        """G-1 guardrail: a real, positive-dimension picture must keep
+        following its own ratio exactly as before — the fix must only
+        close the degenerate-input gap, not touch the ink-bbox/derive_extent
+        behaviour for a working image.
+        """
+        img_path = tmp_path / "real.png"
+        PILImage.new("RGB", (200, 100), color=(10, 20, 30)).save(img_path)
+
+        image_mgr = ImageManager(temp_dir=str(tmp_path))
+        image = image_mgr.add_image(str(img_path), "real.png")
+        assert image is not None
+        image_mgr.update_image_size(image.file_id, "fixed", 20)
+
+        width, height = image.predict_size()
+
+        # 200x100 is 2:1 landscape; the longer axis (width) lands exactly on
+        # the stated size and the shorter axis follows the picture's ratio -
+        # unchanged from ec18fb4's behaviour for a real picture.
+        assert width == 20
+        assert height == 10
+
+        image_mgr.clear_all()
+
+
+class TestPredictSizeNonogramErrorBranchNotDead:
+    """AC-3: the old ``except NonogramError: return (stated, stated)``
+    branch at image_manager.py:120 was dead code (the card's own analysis:
+    ``stated`` is always pre-clamped before ``derive_extent`` runs, so
+    ``validate_extent(stated, stated)`` can never raise, and the only other
+    ``NonogramError`` subclass ``derive_extent`` can raise -
+    ``SizeTooSmallForSource`` - is already caught by the preceding clause).
+    CARD-045 removes it; this asserts it no longer exists as source text
+    rather than re-deriving "unreachable" by re-running the same analysis.
+    """
+
+    def test_dead_nonogram_error_branch_removed(self):
+        import inspect
+
+        from nonogram.admin.image_manager import ImageFile
+
+        source = inspect.getsource(ImageFile.predict_size)
+
+        assert "except NonogramError" not in source
+
+
+class TestBatchPreviewDegenerateImageIntegration:
+    """AC-2: a degenerate image in a batch must not 500 the whole page.
+
+    Exercises the two unprotected GET render loops the card calls out
+    (app.py's ``preview_batch_images`` and ``generate_batch_puzzles``,
+    which both call ``image.predict_size()`` once per image inside
+    ``render_template`` with no per-image try/except) via the real Flask
+    test client, not just the unit-level ``predict_size()`` call.
+    """
+
+    @pytest.fixture
+    def flask_client(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+
+        from nonogram.admin import image_manager as img_mgr_module
+        from nonogram.admin.app import create_app
+
+        img_mgr_module._image_manager = None
+
+        app = create_app(debug=True)
+        app.config["TESTING"] = True
+        client = app.test_client()
+
+        yield client, img_mgr_module, tmp_path
+
+        img_mgr_module._image_manager = None
+
+    def _add_degenerate_image(self, img_mgr_module, tmp_path):
+        """Load one real, valid image through the normal ``add_image`` path
+        and then put it into the exact degenerate state described in the
+        card: ``dimensions`` reset to ``(0, 0)`` and the cached source
+        shape (what ``_source_shape()`` would have fallen back to had its
+        own re-decode of the file also failed) likewise ``(0, 0)`` -
+        simulating ``add_image``'s silent second-decode failure without
+        needing to actually corrupt a file on disk.
+        """
+        img_path = tmp_path / "batch_broken.png"
+        PILImage.new("RGB", (150, 150), color=(5, 5, 5)).save(img_path)
+
+        mgr = img_mgr_module.get_image_manager(temp_dir=str(tmp_path))
+        image = mgr.add_image(str(img_path), "batch_broken.png")
+        assert image is not None
+
+        image.dimensions = (0, 0)
+        image._cached_source_shape = (0, 0)
+        return mgr, image
+
+    def test_preview_batch_images_get_survives_degenerate_image(self, flask_client):
+        """AC-2: GET /batch/preview-images renders 200 for the whole batch
+        even with a degenerate image in it (pre-fix: 500, ValueError raised
+        from inside the Jinja render at image_preview.html's
+        ``image.predict_size()`` call)."""
+        client, img_mgr_module, tmp_path = flask_client
+        self._add_degenerate_image(img_mgr_module, tmp_path)
+
+        response = client.get("/batch/preview-images")
+
+        assert response.status_code == 200
+
+    def test_generate_batch_puzzles_get_survives_degenerate_image(self, flask_client):
+        """AC-2: GET /batch/generate-puzzles renders 200 for the whole batch
+        even with a degenerate image in it (pre-fix: 500, same ValueError
+        from generate_batch.html's ``image.predict_size()`` call)."""
+        client, img_mgr_module, tmp_path = flask_client
+        self._add_degenerate_image(img_mgr_module, tmp_path)
+
+        response = client.get("/batch/generate-puzzles")
+
+        assert response.status_code == 200
+
+    def test_preview_batch_images_mixed_batch_all_render(self, flask_client):
+        """A batch of one good image plus one degenerate image still
+        renders 200 for the whole batch (AC-2's "not just the broken
+        image" framing) rather than only surviving a single-image batch."""
+        client, img_mgr_module, tmp_path = flask_client
+        mgr, _broken = self._add_degenerate_image(img_mgr_module, tmp_path)
+
+        good_path = tmp_path / "batch_good.png"
+        PILImage.new("RGB", (120, 80), color=(9, 9, 9)).save(good_path)
+        good = mgr.add_image(str(good_path), "batch_good.png")
+        assert good is not None
+
+        response = client.get("/batch/preview-images")
+
+        assert response.status_code == 200
