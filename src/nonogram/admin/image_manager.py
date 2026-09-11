@@ -92,6 +92,47 @@ class ImageFile:
         Returns:
             (width, height) tuple
         """
+        return self._predict_size_detailed()[0]
+
+    def size_substitution(self) -> Optional[Dict[str, int]]:
+        """Whether `predict_size()` silently substituted a workable size
+        (CARD-058), and if so, what was requested versus what is actually
+        used.
+
+        Admin's `SizeTooSmallForSource` handling (see `predict_size()`'s
+        docstring) deliberately does the opposite of ADR-0022/R4's CLI-side
+        refusal-and-message clause: instead of refusing the request and
+        telling the user the smallest `--size N` that would work, it
+        silently searches upward for one and uses that. That divergence is
+        intentional UX for this interactive, preview-driven workflow (a
+        hard refusal would be a dead end requiring the whole batch form to
+        be resubmitted) - but leaving it invisible means a user has no way
+        to know their puzzle came out at a different size than requested
+        short of comparing numbers by eye. This method exposes exactly that
+        comparison, without changing what `predict_size()` returns (G-2).
+
+        Returns:
+            `None` when no substitution happened (the common case, and the
+            degenerate-image `ValueError` fallback - see `predict_size()` -
+            which is not itself a substitution). Otherwise
+            `{"requested": int, "used": int}`, the longer-side values before
+            and after the substitution.
+        """
+        _, substitution = self._predict_size_detailed()
+        return substitution
+
+    def _predict_size_detailed(
+        self,
+    ) -> tuple[tuple[int, int], Optional[Dict[str, int]]]:
+        """Shared implementation behind `predict_size()`/`size_substitution()`
+        - computed once so the two can never silently disagree with each
+        other the way the ADR-0006/R1 dependency baseline and its own check
+        once did (CARD-057).
+
+        Returns:
+            `((width, height), substitution_info)` - see `predict_size()`
+            and `size_substitution()` for what each half means.
+        """
         from nonogram.errors import SizeTooSmallForSource
         from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE, derive_extent
 
@@ -106,17 +147,21 @@ class ImageFile:
         stated = max(MIN_SIZE, min(stated, MAX_SIZE))
 
         try:
-            return derive_extent(stated, None, src_width, src_height)
+            return derive_extent(stated, None, src_width, src_height), None
         except SizeTooSmallForSource:
             # The picture is too elongated for `stated` to follow without
             # discarding over half of it (CON-012) - ask for the smallest N
             # that can, rather than surface a CLI-style refusal in this UI.
             for candidate in range(stated, MAX_SIZE + 1):
                 try:
-                    return derive_extent(candidate, None, src_width, src_height)
+                    extent = derive_extent(candidate, None, src_width, src_height)
+                    return extent, {"requested": stated, "used": candidate}
                 except SizeTooSmallForSource:
                     continue
-            return (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
+            extent = (
+                (MAX_SIZE, MIN_SIZE) if src_width >= src_height else (MIN_SIZE, MAX_SIZE)
+            )
+            return extent, {"requested": stated, "used": MAX_SIZE}
         except ValueError:
             # `derive_extent` raises a plain ValueError (not a NonogramError)
             # when the reported source shape has a non-positive axis - a
@@ -124,8 +169,11 @@ class ImageFile:
             # failed second decode in `ImageManager.add_image` (CARD-045),
             # not a domain refusal. There is no picture to follow the ratio
             # of, so fall back to the smallest supported square rather than
-            # let this propagate into the batch-preview render loops.
-            return (MIN_SIZE, MIN_SIZE)
+            # let this propagate into the batch-preview render loops. Not a
+            # substitution (there was never a real "requested" N to compare
+            # against a degenerate image) - reported as None, not a false
+            # positive for `size_substitution()`.
+            return (MIN_SIZE, MIN_SIZE), None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
