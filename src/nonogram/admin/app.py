@@ -22,7 +22,8 @@ from .book_pdf_generator import BookPDFGenerator
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
-from nonogram import clues
+from nonogram import clues, orchestrator
+from nonogram.errors import NonogramError
 
 
 def create_app(debug=None):
@@ -334,41 +335,61 @@ def create_app(debug=None):
                     # Predict puzzle size based on image
                     width, height = image.predict_size()
 
-                    # Convert image to puzzle
-                    puzzle_data = create_puzzle_from_image(
-                        image.file_path,
-                        target_width=width,
-                        target_height=height,
-                        theme="image",
+                    # Convert image to puzzle through the canonical,
+                    # solver-verified pipeline (CARD-049) — the same
+                    # judge_candidate uniqueness check and bounded pixel-nudge
+                    # recovery `nonogram generate --mode image` runs, instead
+                    # of a grid nothing ever solver-checks. One call per
+                    # image: orchestrator.generate_batch() has no
+                    # per-item image-path parameter.
+                    gen_request = orchestrator.GenerationRequest(
+                        mode="image",
+                        image=Path(image.file_path),
+                        image_filename=image.original_filename,
+                        width=width,
+                        height=height,
+                    )
+                    puzzle = orchestrator.generate(gen_request)
+
+                    # Puzzle carries no quality_score of its own (mirrors the
+                    # same fallback batch_generator._generate_random_batch
+                    # already uses for the orchestrator's random-mode path).
+                    quality_score = (
+                        puzzle.quality_score if hasattr(puzzle, "quality_score") else 75
                     )
 
-                    if not puzzle_data:
-                        errors.append(f"Failed to process {image.original_filename}")
-                        continue
-
                     # Check quality filter
-                    if puzzle_data["quality_score"] < quality_filter:
+                    if quality_score < quality_filter:
                         continue
 
-                    # Store puzzle
+                    # Store puzzle — difficulty_score/difficulty_tier come
+                    # from nonogram.difficulty.score_difficulty via the real
+                    # SolverSignals orchestrator.generate() computed, not from
+                    # grid size alone (AC-3).
                     puzzle_id = puzzle_review.add_puzzle(
-                        grid=puzzle_data["grid"],
-                        clues_rows=puzzle_data["clues_rows"],
-                        clues_cols=puzzle_data["clues_cols"],
-                        width=puzzle_data["width"],
-                        height=puzzle_data["height"],
-                        theme=puzzle_data["theme"],
-                        difficulty_score=puzzle_data["difficulty_score"],
-                        difficulty_tier=puzzle_data["difficulty_tier"],
-                        quality_score=puzzle_data["quality_score"],
-                        recognizability=puzzle_data["recognizability"],
-                        strategies_used=puzzle_data["strategies_used"],
+                        grid=puzzle.grid,
+                        clues_rows=puzzle.clues.rows,
+                        clues_cols=puzzle.clues.columns,
+                        width=puzzle.width,
+                        height=puzzle.height,
+                        theme="image",
+                        difficulty_score=puzzle.difficulty_score,
+                        difficulty_tier=puzzle.difficulty_tier,
+                        quality_score=quality_score,
+                        recognizability="medium",
+                        strategies_used=[],
                         batch_id=batch_id,
                         source_image=image.original_filename,
                     )
 
                     generated_count += 1
 
+                except NonogramError as e:
+                    # E.g. GenerationAbandoned: the conversion (and every
+                    # bounded pixel-nudge attempt) never came out uniquely
+                    # solvable. Record it and keep processing the rest of the
+                    # batch (AC-2) instead of failing the whole request.
+                    errors.append(f"Error processing {image.original_filename}: {str(e)}")
                 except Exception as e:
                     errors.append(f"Error processing {image.original_filename}: {str(e)}")
 
