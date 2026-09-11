@@ -1,6 +1,6 @@
 # CARD-051: Stop reimplementing clue encoding in admin — call nonogram.clues
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/051-admin-clues-reuse
-**Worktree:** ../PythonProject4-CARD-051
+**Worktree:** —
 **Source:** meta/review/20260910T170025Z.yml#F-004
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/image_to_puzzle.py
 **Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-09-11T11:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-11T12:00:00Z
+**Actual:** 0.05d
+**Merge commit:** 352670f
 **Blocked by:** —
 
 ## What to implement
