@@ -14,6 +14,7 @@ except ImportError:
     PILImage = None
     np = None
 
+from nonogram import clues as nonogram_clues
 from nonogram.errors import NonogramError
 from nonogram.sourcing import image as sourcing_image
 
@@ -49,42 +50,26 @@ def image_to_grid(image_path: str, target_size: Tuple[int, int]) -> Optional[Lis
         return None
 
 
-def generate_clues(grid: List[List[bool]]) -> Tuple[List[List[int]], List[List[int]]]:
+def generate_clues(
+    grid: List[List[bool]],
+) -> Tuple[Tuple[Tuple[int, ...], ...], Tuple[Tuple[int, ...], ...]]:
     """Generate nonogram clues from grid.
+
+    Delegates to :func:`nonogram.clues.compute_clues` — the canonical
+    run-length encoder (ADR-0012) admin already calls correctly elsewhere
+    (``app.py``'s ``clues.encode_line`` usage). A ragged ``grid`` raises
+    ``ValueError`` (via that function's ``zip(..., strict=True)`` guard)
+    instead of an uncontrolled ``IndexError``.
 
     Args:
         grid: List[List[bool]] where True = filled cell
 
     Returns:
-        (row_clues, col_clues) where each is List[List[int]]
+        (row_clues, col_clues), each a tuple of per-line clue tuples
+        (ADR-0012 boundary type — ``(0,)`` for an empty line, never ``()``).
     """
-    height = len(grid)
-    width = len(grid[0]) if height > 0 else 0
-
-    def encode_line(line: List[bool]) -> List[int]:
-        """Encode a line into nonogram clues."""
-        clues = []
-        count = 0
-        for cell in line:
-            if cell:
-                count += 1
-            elif count > 0:
-                clues.append(count)
-                count = 0
-        if count > 0:
-            clues.append(count)
-        return clues if clues else [0]
-
-    # Generate row clues
-    row_clues = [encode_line(grid[i]) for i in range(height)]
-
-    # Generate column clues
-    col_clues = []
-    for j in range(width):
-        column = [grid[i][j] for i in range(height)]
-        col_clues.append(encode_line(column))
-
-    return row_clues, col_clues
+    computed = nonogram_clues.compute_clues(grid)
+    return computed.rows, computed.columns
 
 
 def create_puzzle_from_image(
