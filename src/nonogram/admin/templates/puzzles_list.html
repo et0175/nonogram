@@ -197,27 +197,36 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                     </table>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination: First, Previous, up to 5 page numbers, Next, Last -->
+                {% if pagination and pagination.pages > 1 %}
+                {% macro page_link(label, page_offset, disabled, aria) -%}
+                <li class="page-item{% if disabled %} disabled{% endif %}">
+                    {%- if disabled %}
+                    <span class="page-link" aria-disabled="true">{{ label }}</span>
+                    {%- else %}
+                    <a class="page-link" href="?{{ preserve_filters(offset=page_offset) }}" aria-label="{{ aria }}">{{ label }}</a>
+                    {%- endif %}
+                </li>
+                {%- endmacro %}
+                {% set on_first = pagination.current == 1 %}
+                {% set on_last = pagination.current == pagination.pages %}
                 <nav aria-label="Pagination" class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        {% if offset > 0 %}
-                        <li class="page-item">
-                            <a class="page-link" href="?{{ preserve_filters(offset=0) }}">First</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?{{ preserve_filters(offset=offset - limit) }}">Previous</a>
-                        </li>
+                    <ul class="pagination justify-content-center flex-wrap">
+                        {{ page_link("« First", pagination.first_offset, on_first, "First page") }}
+                        {{ page_link("‹ Previous", pagination.prev_offset, on_first, "Previous page") }}
+                        {% for number, page_offset in pagination.numbers %}
+                        {% if number == pagination.current %}
+                        <li class="page-item active" aria-current="page"><span class="page-link">{{ number }}</span></li>
+                        {% else %}
+                        {{ page_link(number, page_offset, false, "Page " ~ number) }}
                         {% endif %}
-                        <li class="page-item active">
-                            <span class="page-link">Page {{ (offset // limit) + 1 }}</span>
-                        </li>
-                        {% if has_more %}
-                        <li class="page-item">
-                            <a class="page-link" href="?{{ preserve_filters(offset=offset + limit) }}">Next</a>
-                        </li>
-                        {% endif %}
+                        {% endfor %}
+                        {{ page_link("Next ›", pagination.next_offset, on_last, "Next page") }}
+                        {{ page_link("Last »", pagination.last_offset, on_last, "Last page") }}
                     </ul>
+                    <p class="text-center text-muted small mb-0">Page {{ pagination.current }} of {{ pagination.pages }}</p>
                 </nav>
+                {% endif %}
 
                 {% else %}
                 <p class="text-muted text-center py-4">No puzzles found matching your filters</p>

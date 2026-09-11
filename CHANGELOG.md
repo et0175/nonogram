@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-12
+- Admin: the puzzle list (`/puzzles`) pagination now shows up to 5 page numbers around the current page, plus First, Previous, Next and Last. The ends are disabled on the first and last page, a "Page X of Y" line sits underneath, and the list's filters are kept on every link. Previously it had only First/Previous, a single "Page N" and Next, with no way to jump to the last page.
+
 ## 2026-09-11
 - CARD-064 (bugfix): Thin pictures are no longer silently cropped in admin batches. When the chosen size's grid would keep less than 90% of the picture (the 10-cell minimum makes it squarer than a thin picture), the picture is generated at the Large size instead; when even Large would crop it, the picture is skipped. Both are shown in the preview, on the confirmation page and in the batch results (e.g. "c5.jpg: moved up to Large — the chosen size 10x20 would cut it (keeps 69%)"). On the owner's christmas/balls set this moves c4, c5 and c9 at Medium to Large; everything else is unchanged. This replaces the size substitutions from CARD-058 and CARD-061. The 90% threshold is one constant (`MIN_KEPT_SHARE`); at 90%, pictures more elongated than about 3.3:1 are skipped at every size. CLI unchanged.
 - CARD-063 (tech-debt): The supported grid size range (10..30 cells per side) is now defined once, in a new import-free `nonogram/limits.py` that every layer may import, like `errors.py`. The core, the admin panel's validators and forms, and the web page's size suggestions all read it instead of repeating 10 and 30. Values are unchanged; changing the range later is one edit plus an ADR-0022 revision, and a test fails until the print cell-size table covers any new maximum.

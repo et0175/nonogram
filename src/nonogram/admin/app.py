@@ -71,6 +71,27 @@ def _generate_image_puzzle(image, width, height):
     raise first_abandonment
 
 
+def _page_window(total_count: int, limit: int, offset: int, width: int = 5) -> dict:
+    """Numbered pagination for a list of ``total_count`` items shown ``limit``
+    at a time: up to ``width`` page numbers centred on the current page where
+    possible and clamped to the real page range, plus the offsets the First,
+    Previous, Next and Last links jump to."""
+    limit = max(limit, 1)
+    pages = max(1, -(-total_count // limit))
+    current = min(offset // limit + 1, pages)
+    start = max(1, min(current - width // 2, pages - width + 1))
+    end = min(pages, start + width - 1)
+    return {
+        "current": current,
+        "pages": pages,
+        "numbers": [(n, (n - 1) * limit) for n in range(start, end + 1)],
+        "first_offset": 0,
+        "prev_offset": max(0, (current - 2) * limit),
+        "next_offset": current * limit,
+        "last_offset": (pages - 1) * limit,
+    }
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -609,6 +630,7 @@ def create_app(debug=None):
                 offset=result.offset,
                 limit=result.limit,
                 has_more=result.has_more,
+                pagination=_page_window(result.total_count, result.limit, result.offset),
                 books=books,
             )
 
