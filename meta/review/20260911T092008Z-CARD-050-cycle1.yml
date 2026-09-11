@@ -1,0 +1,213 @@
+version: 1
+generated_at: "2026-09-11T09:20:08Z"
+target: "CARD-050 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-050, diff main...HEAD -- src/nonogram/admin/app.py src/nonogram/admin/batch_generator.py src/nonogram/admin/templates/batch_create.html src/nonogram/generation/random_generator.py tests/test_card_050_quality_recognizability.py"
+overall_score: 7.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/batch_generator.py
+    - src/nonogram/admin/templates/batch_create.html
+    - src/nonogram/generation/random_generator.py
+    - tests/test_card_050_quality_recognizability.py
+    - src/nonogram/analysis/quality_metric.py
+    - src/nonogram/analysis/strategy_counter.py
+    - src/nonogram/orchestrator.py (Puzzle class definition only)
+    - src/nonogram/db/models.py (Puzzle columns only)
+    - src/nonogram/admin/puzzle_review.py (add_puzzle signature + body only)
+    - src/nonogram/admin/templates/batch_status.html
+    - src/nonogram/admin/templates/generated_puzzles.html
+    - src/nonogram/admin/templates/puzzles_list.html / book_select_puzzles.html (grep only)
+    - meta/kanban/cards/CARD-050.md
+    - meta/architecture/decisions/adr/0007-internal-module-architecture.md
+    - meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    - tests/test_cli.py (structural guard section)
+  not_reached:
+    - src/nonogram/admin/image_to_puzzle.py (out of scope per CARD-049 disposition, verified preview-only via card notes, not independently re-derived line by line)
+    - full admin/ template set beyond the four grepped for quality_score/recognizability
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 529, removed: 32 }
+  max_fan_in:
+    symbol: "nonogram.analysis.quality_metric.measure_quality"
+    callers: 1
+    note: "1 new production call site (app.py:370); pre-existing test callers in tests/test_quality_metric.py and tests/test_card_050_quality_recognizability.py are not counted as production fan-in."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (67 commits/12mo, 39 fix-like = 58% defect density)"
+    - "src/nonogram/admin/batch_generator.py (15 commits/12mo, 11 fix-like = 73% defect density)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — git history for the touched files shows no meaningful co-change peers outside the files already in this diff (repo history is 5 real days / 179 commits, fully covered by the 12-month window)"
+
+system_contract:
+  rules_checked: 3
+  holds: 2
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — stale_check: TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed) fails on main independent of this card (reportlab in pyproject.toml, tracked as CARD-057); confirmed `git diff main...HEAD -- pyproject.toml` is empty, so this diff does not touch the dependency baseline."
+    - "ADR-0022/R1 ✓ holds — review-lens: diff introduces no scalar grid-extent reduction; measure_quality(original_image, puzzle.grid) passes a PIL Image and a List[List[bool]] grid, never a bare int size, across the app.py/analysis boundary."
+    - "ADR-0007 (capability lateral-import rule, checked by tests/test_cli.py::test_every_import_in_the_package_points_inward) ✓ holds — validator green on this head (ran it directly: 1 passed). admin/ is adapter-rank so app.py importing nonogram.analysis.quality_metric is an allowed adapter→capability edge; random_generator.py (capability-rank) now carries zero nonogram.analysis imports (verified both via the new file's own ast-based tests and by reading the file directly)."
+
+root_causes:
+  - id: RC-1
+    title: "AC-2's 'UI updated to match' was interpreted narrowly (the quality-filter form only), leaving two other display templates unaware that quality_score/recognizability can now be None"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/batch_status.html
+    line: 144
+    title: "Random-mode quality_score=None renders as literal 'Quality: None'/'0/100' in two display templates AC-2 didn't reach"
+    description: |
+      AC-2 requires that if quality_score/recognizability are set to None for
+      random-mode puzzles, "the UI [is] updated to match" so it stops implying
+      a guarantee that doesn't hold. The implementer updated the one template
+      that renders the quality *filter* form (batch_create.html) but left two
+      *display* templates unguarded against the new None value this diff
+      introduces for the first time in this field's history:
+        - batch_status.html:144 — `<span class="quality-badge">Quality:
+          {{ puzzle.quality_score }}</span>` renders the literal string
+          "Quality: None" for every random-mode puzzle (verified: puzzles here
+          are dicts from batch_gen.get_batch_puzzles(), and Jinja's `.`
+          accessor falls back to dict getitem, so `puzzle.quality_score` is
+          `None` and renders as Python's str(None)).
+        - generated_puzzles.html:65 — `{{ (puzzle.get('quality_score', 0)|int)
+          }}/100` renders "0/100": `.get('quality_score', 0)` returns the
+          *stored* None (the default only applies when the key is absent, not
+          when its value is None), and Jinja's `int` filter then catches the
+          `int(None)` TypeError and substitutes its own default (0) — so a
+          random-mode puzzle now visibly displays as the worst possible
+          quality score, which is more actively misleading than the old
+          hardcoded-75 behavior it replaces, not neutral.
+      Both facts were independently verified against the code (not merely
+      taken from the implementer's own worktree-notes disclosure, though that
+      disclosure is accurate): grep confirms puzzle_review returns dicts with
+      quality_score literally None for source="random", and both templates
+      were read directly. Two sibling templates (puzzles_list.html:160/325,
+      book_select_puzzles.html:125) already guard with `or 'N/A'`/`|| 'N/A'`
+      and render correctly — showing the fix pattern was already known and
+      applied elsewhere in the same template set, just not to these two.
+      This is a real, diff-caused regression (before this card, quality_score
+      was never None, so these two templates never rendered "None"/"0/100"
+      for it) reachable through ordinary admin usage (viewing any random-mode
+      batch's status or generated-puzzles page), not a pre-existing gap the
+      diff merely failed to clean up.
+    suggestion: |
+      Apply the same guard already used in puzzles_list.html/book_select_puzzles.html:
+      batch_status.html:144 → `Quality: {{ puzzle.quality_score if puzzle.quality_score is not none else 'N/A' }}`
+      generated_puzzles.html:65 → `{{ puzzle.get('quality_score') is not none and (puzzle.get('quality_score')|int) or 'N/A' }}/100`
+      (or equivalent None-safe Jinja). Two-line fix, no scope creep beyond what AC-2 already asks for.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/generation/random_generator.py
+    line: 227
+    title: "generate_puzzle() still fabricates quality_score and hardcodes recognizability='medium' — same anti-pattern this card exists to remove, left in the one file CARD-050 already had open"
+    description: |
+      random_generator.py's own generate_puzzle() (line 227:
+      `quality_score = int(60 + 35 * (0.5 - abs(fill_ratio - 0.5)))`, line
+      239: `"recognizability": "medium"`) is the exact bug pattern (a
+      heuristic dressed up as a measurement, a hardcoded recognizability
+      constant) CARD-050's objectives describe as the problem to fix. It is
+      correctly out of AC-2's literal step-3 scope (that step targets
+      batch_generator.py's production path) and is confirmed dead — zero
+      production callers (grep-verified: RandomNonogramGenerator/
+      get_generator are referenced only from this file's own test file).
+      The implementer disclosed this explicitly in the card's Worktree notes
+      ("Its own quality_score/recognizability fields ... are the same bug
+      pattern this card targets elsewhere, but fixing them is out of this
+      card's step-3 scope ... left untouched, flagged here for visibility
+      only") rather than silently leaving it or silently fixing out-of-scope
+      code — this is a disclosed, defensible scope boundary, not a violation,
+      but the finding is real: the module is exported (`from nonogram.generation
+      import RandomNonogramGenerator`) so a future caller wiring this class up
+      on the strength of the module's own extensively-rewritten CARD-050
+      docstring would silently reproduce the exact bug this card exists to
+      remove.
+    suggestion: |
+      Follow-up card: either delete the now-fully-dead RandomNonogramGenerator.generate_puzzle
+      path, or apply the same None-for-random-mode treatment used in
+      batch_generator.py, so the module doesn't carry a live landmine under
+      an otherwise-fixed-looking docstring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_card_050_quality_recognizability.py
+    line: 1
+    title: "Worktree notes claim '9/9' new tests; the file contains 7"
+    description: |
+      CARD-050.md's Worktree notes state "tests/test_card_050_quality_recognizability.py
+      (new): 9 tests covering AC-1/AC-2/AC-3" and later "tests/test_card_050_quality_recognizability.py
+      (9/9, new)". `grep -c '^def test_' tests/test_card_050_quality_recognizability.py`
+      and a direct pytest collection both return 7. Functionally harmless (all
+      7 pass, coverage of AC-1/AC-2/AC-3 is otherwise substantive and was
+      independently verified), but it is a factual inaccuracy in the card's
+      own self-reported verification evidence, which is exactly the kind of
+      claim this review is supposed to verify rather than trust.
+    suggestion: "Correct the count in CARD-050.md's Worktree notes to 7."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 369
+    title: "PILImage.open(image.file_path) is never explicitly closed"
+    description: |
+      `original_image = PILImage.open(image.file_path)` is not used as a
+      context manager and `original_image.close()` is never called. On
+      CPython, refcounting will typically release the file handle promptly
+      once the local variable is reassigned on the next loop iteration or the
+      function returns, so the practical risk is low, but it is not
+      exception-safe or portable to a non-refcounting interpreter, and a
+      large image batch briefly holds one extra fd per image longer than
+      necessary. app.py is a high-churn/high-defect-density file (67
+      commits/12mo, 39 fix-like), which raises the cost of latent resource
+      bugs there.
+    suggestion: "Use `with PILImage.open(image.file_path) as original_image:` wrapping the measure_quality() call."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -51,7 +51,7 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements · cycle 1 in progress
+- **CARD-050** quality_score and recognizability are hardcoded fakes, not measurements · cycle 1/3 · score 7.5 · 2 important findings — fixing
   `worktree: ../PythonProject4-CARD-050` · `branch: card/050-real-quality-recognizability`
 
 ## Done

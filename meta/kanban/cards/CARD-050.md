@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py, src/nonogram/generation/random_generator.py, src/nonogram/analysis/quality_metric.py, src/nonogram/admin/templates/batch_create.html
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3)
 **Started:** 2026-09-11T10:15:00Z
 **Closed:** —
 **Actual:** —
@@ -266,3 +266,22 @@ tests/test_card_050_quality_recognizability.py
 (reverted incidental src/nonogram.egg-info/* changes before this check;
 src/nonogram/analysis/quality_metric.py was in predicted Touches but ended
 up unmodified — used as-is, correctly)
+
+[Review 1/3] Score: 7.5 — crit: 0, imp: 2
+[Review sync] 1 report(s) → meta/review/ (20260911T092008Z-CARD-050-cycle1.yml)
+Cycle 1 summary (forge:review): resolved the special-attention judgment call
+against the implementer — AC-2's "UI updated to match" is ruled only
+PARTIALLY satisfied: the disclosed residual gap in batch_status.html and
+generated_puzzles.html (unguarded `None` rendering as "Quality: None"/
+misleading "0/100") is filed as 2 Important findings, not accepted as
+out-of-scope, since it's a direct, visible consequence of this card's own
+design choice. Everything else independently re-verified and confirmed
+solid: the ADR-0007 SCOPE+ reimplementation is genuinely equivalent (checked
+by hand, not just test-asserted — the omitted ambiguity term is provably
+always 0 for this module's call sites) and the structural guard test was
+re-run directly (green). 2 Minor (test count claimed 9/9, actually 7/7 —
+harmless but inaccurate self-report; PILImage.open not used as a context
+manager). 2 Out-of-scope (random_generator.py's own dead-code
+quality_score/recognizability bug, disclosed; puzzle_review.add_puzzle's now
+inaccurate int/str type hints). Score 7.5 < min_score 8 AND 2 Important
+findings — severity gate closed, routing to fix.
