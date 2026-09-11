@@ -1,0 +1,189 @@
+version: 1
+generated_at: "2026-09-11T09:47:06Z"
+target: "CARD-050 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-050, cycle 3 (CONFIRMATION MODE, differential re-review) — fix delta 2ef1e60..HEAD (commit b2afee9) on tests/test_card_050_quality_recognizability.py + meta/kanban/cards/CARD-050.md, addressing cycle 2's Important finding F-101"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_card_050_quality_recognizability.py (full, fix delta — new test at lines 254-285)
+    - meta/kanban/cards/CARD-050.md (fix-delta diff only, new "Post-review fix (cycle 2)" section + test-count corrections)
+    - src/nonogram/admin/templates/batch_status.html:140-145 (read, then mutated and restored for own red->green check)
+    - src/nonogram/admin/templates/generated_puzzles.html:55-71 (read, to confirm the .get('quality_score') or 'N/A' guard and route wiring)
+    - src/nonogram/admin/app.py:449-487 (both route handlers, generated_puzzles() and batch_status(), confirmed real render_template calls with real puzzle data)
+    - meta/review/20260911T093138Z-CARD-050-cycle2.yml (full, for carry-forward verdicts)
+    - tests/test_cli.py (import-boundary structural guard, re-run fresh this cycle, not carried)
+  not_reached:
+    - src/nonogram/admin/image_to_puzzle.py (out of CARD-050 scope, unchanged since cycle 1/2)
+    - full admin/ template set beyond the quality_score grep set (unchanged since cycle 2)
+  confidence: high
+
+metrics:
+  diff:
+    fix_delta: { files: 2, added: 103, removed: 3 }
+  max_fan_in:
+    symbol: "tests/test_card_050_quality_recognizability.py::test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — this delta adds a test function; test functions are pytest entry points, not called by other code, so a caller count is not a meaningful risk signal here."
+    hotspots: "no_eligible_fact — the delta's own files (a test file, the card doc) are not part of the churn/defect-density hotspot analysis cycle 2 already ran against the production templates; nothing new to measure on this narrower delta."
+
+system_contract:
+  rules_checked: 3
+  holds: 3
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — stale_check: carried(cycle 2, delta-clean). Delta touches only a test file and a doc, no pyproject.toml/dependency change; the pre-existing CARD-057-owned reportlab condition is unaffected."
+    - "ADR-0022/R1 ✓ holds — carried(cycle 2, delta-clean): review-lens. Delta touches zero grid-extent code (scalar or pair); it is a test file plus a doc."
+    - "ADR-0007 (capability lateral-import rule, tests/test_cli.py::test_every_import_in_the_package_points_inward) ✓ holds — re-ran fresh this cycle (not carried): `pytest tests/test_cli.py -k import` → 14 passed, 0 failed. Delta touches zero Python production files (only a test file, which is legally exempt from the capability-import rule) and zero src/ files (confirmed via `git diff --stat 2ef1e60..HEAD -- src/` → empty)."
+
+root_causes:
+  - id: RC-1
+    title: "Cycle 2's F-101 (missing regression test for AC-2's UI-guard clause) is resolved by this delta's new test, independently verified"
+    finding_ids: [F-101-VERIFY]
+
+findings:
+  - id: F-101-VERIFY
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_card_050_quality_recognizability.py
+    line: 254
+    title: "Cycle-2 finding F-101 (no regression test for AC-2 UI-guard clause) — VERIFIED RESOLVED with fresh, independent evidence"
+    description: |
+      Own verification, not the fix commit's claimed output:
+      (1) Read the new test `test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na`
+      (lines 254-285) in full: it drives a real random-mode batch through
+      `admin_app.batch_generator.create_batch(...)` (not mocked/stubbed — confirmed via a
+      precondition assertion in the test itself that quality_score is None for all 10
+      puzzles), performs real `client.get()` requests against both
+      `/batch/<batch_id>` (batch_status.html) and `/batch/<batch_id>/generated-puzzles`
+      (generated_puzzles.html) — confirmed both routes actually render_template() these
+      exact templates with real puzzle data by reading app.py:449-487 — and asserts on the
+      real response body: "Quality: None" not in body, "0/100" not in body, "N/A" in body,
+      for both routes.
+      (2) Ran the file myself: `./.venv/bin/python -m pytest
+      tests/test_card_050_quality_recognizability.py -v` -> 8 passed (matches the card doc's
+      corrected "8/8" claim; grep -c '^def test_' on the file also independently confirms 8).
+      (3) Independent red->green check: edited
+      src/nonogram/admin/templates/batch_status.html:144 back to
+      `Quality: {{ puzzle.quality_score }}` (removing the `or 'N/A'` guard), re-ran only the
+      new test -> FAILED, with the assertion failure at line 276
+      (`assert 'Quality: None' not in ...`), reproducing the exact regression string the
+      fix addresses. Restored the file via `git checkout --
+      src/nonogram/admin/templates/batch_status.html`, confirmed `git status --porcelain`
+      on that file is clean, then re-ran the full test file -> 8 passed again.
+      (4) Additional check beyond the mandated steps: rendered both routes directly (outside
+      pytest) and grepped every "N/A" occurrence in both response bodies — all 10 occurrences
+      in each body trace specifically to "Quality: N/A" / "N/A/100" (the quality badge), not
+      to an unrelated field (e.g. the Source field, which does not render "N/A" text for
+      these puzzles) — so the test's "N/A" presence assertion is precisely targeted at the
+      fixed clause, not incidentally satisfied by something else on the page.
+      Conclusion: F-101 is genuinely resolved. This is a pure confirmation cycle — no new
+      Critical/Important finding in the delta.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "b2afee9"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002-CARRY
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/generation/random_generator.py
+    line: 227
+    title: "generate_puzzle() still fabricates quality_score / hardcodes recognizability — carried(cycle 2, delta-clean)"
+    description: |
+      Not part of the fix delta (2ef1e60..HEAD touches only the test file and the card doc).
+      Cycle 2 re-confirmed this unchanged since cycle 1; no new evidence this cycle changes
+      the disposition.
+    suggestion: "Same as cycle 1/2: follow-up card to delete or fix this dead path."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003-CARRY
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-050.md
+    line: 1
+    title: "Test-count inaccuracy (cycle 1 F-003 / cycle 2 F-003-CARRY) — appears resolved as a side effect of this delta"
+    description: |
+      Cycle 2 flagged CARD-050.md's self-reported test count ('9/9') as inaccurate against
+      the actual file (7 tests at the time). This cycle's delta adds one test (bringing the
+      real count to 8) and separately corrects all three '9/9'/'9 tests' mentions in
+      CARD-050.md to '8/8'/'8 tests', and the doc's own new section explicitly calls out
+      the correction ("the two 9/9/9 tests mentions above were already wrong... corrected to
+      8/8"). `grep -c '^def test_' tests/test_card_050_quality_recognizability.py` = 8,
+      matching the corrected claim. Not part of the mandated verification scope for this
+      cycle, but noted here since it resolves a standing carried finding. Downgrading to
+      info-level since it is now accurate; leaving status open pending an explicit
+      accept/close decision by the consumer rather than self-closing a prior cycle's finding.
+    suggestion: "Consider marking cycle 2's F-003-CARRY as fixed_in this delta's commit — the '9/9' inaccuracy it flagged no longer exists in the doc."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004-CARRY
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 369
+    title: "PILImage.open() not used as a context manager — carried(cycle 2, delta-clean)"
+    description: |
+      Not part of the fix delta; re-confirmed unchanged since cycle 1/2 (app.py is untouched
+      by 2ef1e60..HEAD).
+    suggestion: "Same as cycle 1/2: wrap in `with PILImage.open(...) as original_image:`."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102-CARRY
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 65
+    title: "'N/A/100' reads as a malformed number, though not a new defect — carried(cycle 2, delta-clean)"
+    description: |
+      Not part of the fix delta; the template itself is unchanged since 2ef1e60. Own render
+      check this cycle (see F-101-VERIFY note 4) confirms 'N/A/100' is exactly what renders
+      for a None quality_score, consistent with cycle 2's description.
+    suggestion: "Same as cycle 2: optional follow-up to suppress the '/100' suffix entirely when the score is None, across all sibling templates."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
