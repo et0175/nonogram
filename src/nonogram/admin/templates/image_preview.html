@@ -97,6 +97,14 @@
                                             {{ dims[0] }}×{{ dims[1] }}
                                         </code>
                                         <div class="small mt-1">puzzle grid size</div>
+                                        {% set substitution = image.size_substitution() %}
+                                        {% if substitution %}
+                                        <div class="small mt-1 text-warning">
+                                            ⚠ Requested {{ substitution.requested }} was too
+                                            small for this picture's shape; using
+                                            {{ substitution.used }} instead.
+                                        </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
