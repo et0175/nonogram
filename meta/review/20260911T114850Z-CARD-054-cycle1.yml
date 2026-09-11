@@ -1,0 +1,76 @@
+version: 1
+generated_at: "2026-09-11T11:48:50Z"
+target: "branch card/054-remove-dead-metrics-method vs main (git -C PythonProject4-CARD-054 diff main...HEAD); worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-054"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/batch_generator.py (full file, 467 lines)
+    - meta/kanban/cards/CARD-054.md
+    - git diff main...HEAD (full, 1 file, 47 deletions, 0 additions)
+    - tests/test_batch_generator.py, tests/test_card_050_quality_recognizability.py (grepped, not read line-by-line)
+  not_reached:
+    - tests/test_batch_history.py, tests/test_wave1_e2e.py, tests/test_wave2_async_generation.py (full bodies) — only failure tracebacks inspected
+  confidence: high
+metrics:
+  diff: { files: 1, added: 0, removed: 47 }
+  max_fan_in: { symbol: "BatchGenerator._generate_puzzle_with_metrics", callers: 0 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/batch_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — git shortlog -sn output was empty/unparsable for this file; co-change file-list scan itself ran clean and showed only batch_generator.py, so no peer-file evidence was lost, but author/bus-factor could not be derived"
+
+system_contract:
+  rules_checked: 7
+  holds: 1
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff removes code only, adds zero import statements; runtime dependency set (stdlib + Pillow + NumPy) unchanged; covering test TestDependencyBaseline_IsExactlyPillowAndNumpy exists in tests/test_export_pdf.py (not re-run; a pre-existing unrelated failure in that same test is noted separately, see Out-of-scope)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: diff touches no grid-extent-crossing signature, only removes a dead method's body"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: diff touches no image-fitting/crop logic; scope glob src/nonogram/admin/** matches the file path but the removed code never called the image-fitting path"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: diff touches no --size/bare-size derivation logic"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model: no trace.yml in this repo; aggregate invariant scope cannot be resolved to code (pipeline has not reached synthesis for this area, not a defect of this rule)"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model: same as INV-001"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model: same as INV-001"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/batch_generator.py
+    line: 219
+    title: "Full test suite has 39 pre-existing failures unrelated to this diff"
+    description: |
+      Full `pytest` run on the branch shows 39 failures (property/image/PDF/batch-history/e2e
+      tests). Independently reproduced the same failure on `main` for
+      tests/test_batch_history.py::TestBatchHistoryStorage::test_batch_stored_with_metadata —
+      traceback shows nonogram.errors.GenerationAbandoned raised from
+      orchestrator.run_bounded via BatchGenerator._generate_random_batch (line 309), i.e. a
+      solver/orchestrator retry-bound issue, nothing to do with the removed
+      _generate_puzzle_with_metrics method or this diff. AC-1 only requires that the change
+      doesn't introduce new failures, which it doesn't — but the card's Worktree notes phrase
+      this as "confirming the zero-callers claim held" which is a slightly generous reading
+      of AC-1's literal "nothing fails" wording.
+    suggestion: |
+      No action needed for this card. Worth a separate tech-debt card to either fix the
+      flaky/corpus-dependent random-generation tests or mark them as a known-flaky class so
+      future cards don't need to re-derive this each time.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+findings_note: "This is the only finding; it is Minor/informational (see markdown report's Minor section) and does not gate."
