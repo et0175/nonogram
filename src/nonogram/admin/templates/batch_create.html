@@ -76,7 +76,11 @@
                             <input type="number" class="form-control" id="quality_filter" name="quality_filter"
                                    min="0" max="100" value="80" required>
                             <small class="form-text text-muted">
-                                0-100: Skip puzzles below this quality threshold (0 = accept all)
+                                0-100: skip puzzles below this quality threshold (0 = accept all).
+                                Quality here measures how closely the generated puzzle matches
+                                <strong>your uploaded image</strong> — this filter applies to
+                                image-mode batches only; randomly-generated puzzles have no
+                                source picture to score against, so it does not apply to them.
                             </small>
                         </div>
                     </div>

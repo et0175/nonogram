@@ -25,6 +25,11 @@ from nonogram.export import ExportPayload
 from nonogram import clues, orchestrator
 from nonogram.errors import NonogramError
 
+# CARD-050: real image-mode quality/recognizability, in place of the
+# density-only heuristic and hardcoded "medium" this replaces below.
+from PIL import Image as PILImage
+from nonogram.analysis.quality_metric import measure_quality
+
 
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
@@ -351,12 +356,20 @@ def create_app(debug=None):
                     )
                     puzzle = orchestrator.generate(gen_request)
 
-                    # Puzzle carries no quality_score of its own (mirrors the
-                    # same fallback batch_generator._generate_random_batch
-                    # already uses for the orchestrator's random-mode path).
-                    quality_score = (
-                        puzzle.quality_score if hasattr(puzzle, "quality_score") else 75
-                    )
+                    # CARD-050 (AC-1): a real measurement against the source
+                    # picture this puzzle was converted from, replacing the
+                    # output-grid-density-only heuristic and the hardcoded
+                    # "medium" recognizability that used to live here (and
+                    # still live in image_to_puzzle.create_puzzle_from_image,
+                    # which is preview-only in this pipeline — see CARD-049).
+                    # Puzzle.grid is already the ADR-0012 boundary type
+                    # (list[list[bool]]) measure_quality expects; the source
+                    # image is re-opened from the same file path the
+                    # GenerationRequest above was given.
+                    original_image = PILImage.open(image.file_path)
+                    quality_metrics = measure_quality(original_image, puzzle.grid)
+                    quality_score = quality_metrics.quality_score
+                    recognizability = quality_metrics.recognizability.value
 
                     # Check quality filter
                     if quality_score < quality_filter:
@@ -376,7 +389,7 @@ def create_app(debug=None):
                         difficulty_score=puzzle.difficulty_score,
                         difficulty_tier=puzzle.difficulty_tier,
                         quality_score=quality_score,
-                        recognizability="medium",
+                        recognizability=recognizability,
                         strategies_used=[],
                         batch_id=batch_id,
                         source_image=image.original_filename,
