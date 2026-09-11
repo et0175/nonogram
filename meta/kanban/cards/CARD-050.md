@@ -285,3 +285,13 @@ manager). 2 Out-of-scope (random_generator.py's own dead-code
 quality_score/recognizability bug, disclosed; puzzle_review.add_puzzle's now
 inaccurate int/str type hints). Score 7.5 < min_score 8 AND 2 Important
 findings — severity gate closed, routing to fix.
+
+[Adversarial] F-001 CONFIRMED — independent skeptic verified against the
+worktree's actual installed Jinja2 3.1.6 that `{{ puzzle.quality_score }}`
+with `quality_score=None` renders literally "Quality: None", and traced the
+real /batch/<batch_id> route to the actual dict a random-mode batch produces.
+[Adversarial] F-002 CONFIRMED — same skeptic verified against real Jinja2
+that `.get('quality_score', 0)` does not catch a present-but-None value (only
+a missing key), and that the `int` filter then silently renders "0/100" for
+a None quality_score — confirmed actively misleading, not just theoretically
+possible.
