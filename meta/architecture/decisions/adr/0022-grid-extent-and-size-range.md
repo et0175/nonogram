@@ -307,10 +307,27 @@ unprintable output is not a range, it is a trap.
   admin's own clamp at all. A scope that lists territory a rule's `check`
   cannot reach is a worse audit surface than an honestly absent one — it
   reports false coverage instead of no coverage. Revisit if `admin` is ever
-  changed to call `validate_extent` directly (see R3/R4, both of which ARE
-  widened here because `admin` already calls `derive_extent`/
-  `sourcing.image.generate` directly, so their `check:`s genuinely do reach
-  admin's behaviour through those shared functions).
+  changed to call `validate_extent` directly.
+- (2026-09-11, CARD-048) **R4's widening is only fully justified for its
+  derivation-arithmetic clause, not its refusal-and-message clause — this is
+  a real, currently-existing divergence the widened scope now makes visible
+  to audit, not something this card fixes.** `admin/image_manager.py`'s
+  `predict_size()` calls `derive_extent` directly, so the "N on the longer
+  side, never clamped at the top" arithmetic genuinely is admin's own
+  behaviour. But on `SizeTooSmallForSource` — the exact condition R4's
+  refusal clause governs — `predict_size()` does the opposite of R4's
+  statement: instead of refusing with a message naming the smallest N that
+  would accommodate the source, it silently searches for and substitutes a
+  workable N (`image_manager.py:108-119`, its own comment: "ask for the
+  smallest N that can, rather than surface a CLI-style refusal in this UI"),
+  and that substituted size is what the puzzle is actually generated at,
+  with no "requested N unavailable, used N' instead" message anywhere in the
+  admin UI. Widening R4's scope to include `admin/**` is still correct — the
+  point is exactly to make this kind of divergence auditable rather than
+  invisible — but the ADR should not (and no longer does) claim admin's
+  refusal behaviour matches R4 today. A follow-up card to surface an
+  explicit substitution message in the admin UI would close this gap
+  properly; it is out of this scope-only card's Touches.
 
 ### Neutral
 
@@ -413,5 +430,13 @@ unprintable output is not a range, it is a trap.
   widened — see the new Negative consequence above for why (its `check:` ref
   exercises `validate_extent` alone, which `admin`'s independent clamp never
   calls, so widening R2's scope would report false coverage rather than
-  none). This is a scope declaration, not a decision revision: no accepted
-  clause above changes, `Status`/`Revised` are unchanged.
+  none). Review of this card's diff (cycle 1) surfaced that R4's own
+  widening is itself only fully justified for its arithmetic clause, not
+  its refusal-and-message clause — `admin`'s `predict_size()` silently
+  substitutes a workable N on `SizeTooSmallForSource` rather than refusing,
+  the opposite of what R4's statement requires; see the new Negative
+  consequence above. Widening R4's scope to `admin/**` remains correct
+  regardless (that is what now makes this divergence auditable), but the
+  ADR does not claim admin's refusal behaviour matches R4 today. This is a
+  scope declaration, not a decision revision: no accepted clause above
+  changes, `Status`/`Revised` are unchanged.
