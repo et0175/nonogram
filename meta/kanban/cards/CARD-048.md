@@ -1,6 +1,6 @@
 # CARD-048: Widen ADR-0022/R3 and R4 scope.code to include the admin panel
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.5 (cycle 2/3)
 **Started:** 2026-09-11T13:25:00Z
 **Closed:** —
 **Actual:** —
@@ -154,3 +154,49 @@ CYCLE 1 — 1 Important finding, fixed same-day. Proceeding to cycle 2
 (confirmation mode: fix delta only, everything else carried forward as
 delta-clean per the review's own "independently re-derived and
 confirmed correct" verdicts on AC-1/AC-2/R2/R3).
+
+[Review 2/3] Score: 9.5 — crit: 0, imp: 0 (CONFIRMATION MODE)
+[Review sync] 1 report(s) → meta/review/ (20260911T112249Z-CARD-048-cycle2.yml)
+[Adversarial] no gating findings to verify (0 critical, 0 important)
+Cycle 2 summary (forge:review, CONFIRMATION MODE): fix-delta (3732d60)
+reviewed at full depth — the overclaim phrase confirmed removed (grep,
+not relocated elsewhere), new R4 text independently re-verified against
+image_manager.py:108-119 line-for-line. F-001 explicitly verdicted
+CLOSED, not just "no longer flagged." R2 exclusion rationale, R3
+widening justification, and the meta/architecture/** system-contract
+N/A all carried forward as delta-clean (fix-delta's touched lines
+mechanically confirmed not to intersect their scope). AC-1/AC-2
+independently re-derived fresh on this cycle too (not reused from
+cycle 1's report) — both hold, byte-identical validator diagnostics
+to main. Zero Critical/Important. Risk: LOW, lane: FAST. Score 9.5 ≥
+min_score 8, zero Critical/Important — severity gate OPEN. This is the
+passing cycle (2 of 3).
+
+[8h spot-check] 3/3 sampled holds reproduced — independently re-ran
+both AC-1 (system_rules.py) and AC-2 (validate.py) fresh, and
+independently re-grepped for the overclaim phrase (zero hits).
+
+[AC/EC check] Both criteria ✓ (evidence):
+AC-1 ✓ demonstrated — evidence: system_rules.py --scope 'src/nonogram/admin/**' --verify-refs shows ADR-0022/R3 and R4 in rules:, check_refs_verified: true; absent on main.
+AC-2 ✓ demonstrated — evidence: validate.py --phase all reports 0 errors on both this branch and main, with byte-identical warning sets (2 pre-existing, unrelated to this ADR).
+
+Both items independently re-verified across two review cycles and one
+final gate pass. Gate passes. No engineering constraints beyond
+documentation-only (per the card itself); none violated.
+
+[Docs] This IS the documentation change (the card's whole Touches is
+one ADR file); no other README/doc needs updating.
+
+[Commit] Final state is 2 commits on the branch: 60406d3
+(implementation) and 3732d60 (fix round 1, addressing cycle 1's sole
+Important finding). Nothing further needed — cycle 2 cleared cleanly.
+
+CYCLE 2 COMPLETE — SUCCESS. Ready for `/kanban done CARD-048`.
+
+Note for follow-up (not created here, per protocol — implementer/review
+agents flagged it twice but did not unilaterally spawn a card): admin's
+`predict_size()` silently substitutes a workable N instead of refusing
+with a message on `SizeTooSmallForSource` — a real, live divergence
+from ADR-0022/R4's refusal-and-message clause, now documented and
+auditable but not yet fixed. A small follow-up card to surface an
+explicit substitution message in the admin UI would close this gap.

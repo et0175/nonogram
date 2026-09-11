@@ -1,0 +1,46 @@
+version: 1
+generated_at: "2026-09-11T11:22:49Z"
+target: "card/048-adr-0022-scope-admin diff main...HEAD (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-048) — CONFIRMATION MODE, cycle 2/3; fix-delta = commit 3732d60"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (full, current HEAD, all sections)"
+    - "meta/review/20260911T111738Z-CARD-048-cycle1.yml (full, cycle 1 report)"
+    - "meta/kanban/cards/CARD-048.md (full, incl. Worktree notes and System contract log)"
+    - "commit 3732d60 (full diff, git show)"
+    - "full branch diff main...HEAD (git diff, confirmed == 60406d3 + 3732d60 combined, matches cycle-1 diff plus the fix)"
+    - "src/nonogram/admin/image_manager.py:90-129 (predict_size, re-read to re-verify the fix's factual claims independently, not just trust the commit message)"
+  not_reached:
+    - "src/nonogram/admin/image_to_puzzle.py (R3 delegation) — not re-read; carried forward from cycle 1 per confirmation-mode rule (fix delta does not touch R3's reasoning or this file)"
+    - "src/nonogram/sourcing/random_grid.py derive_extent internals — not re-read this cycle; cycle 1 already read and cross-checked it against the no-top-clamp claim, and the fix delta doesn't change that claim"
+  confidence: high
+metrics:
+  diff:
+    full_branch: { files: 1, added: 57, removed: 2 }
+    fix_delta_3732d60: { files: 1, added: 31, removed: 6 }
+  max_fan_in: { symbol: "N/A", callers: 0 }
+  tests_cover_change: false
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — diff touches only a markdown ADR document, no exported code symbol changed"
+    tests_cover_change: "not_applicable — documentation-only change; no test reads the ADR markdown content"
+    hotspots: "no_eligible_fact — churn on the touched file over 12mo is 3 commits (this fix, its parent commit, and the prior FR-023/NFR-006 revision), all this card's/ADR's own history; no elevated churn/defect-density"
+    cochange_missing: "no_eligible_fact — with only 3 commits touching this file in 12mo (2 of them this card's own), git history offers no independent co-change peer signal"
+
+system_contract:
+  rules_checked: 0
+  holds: 0
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "N/A — carried(cycle 1, delta-clean). Re-ran system_rules.py --scope 'meta/architecture/**' fresh on current HEAD: rules: [] (identical to cycle 1). The fix commit touches only the same ADR document; no rule's scope.code covers a doc path, and the fix delta doesn't add or remove any code file, so this verdict's grounds are provably unchanged."
+
+root_causes: []
+
+findings: []
