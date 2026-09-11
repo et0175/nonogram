@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-11 09:00_
+_Updated: 2026-09-11 10:00_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -52,10 +52,10 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-049** Route admin image-mode generation through the solver-verified pipeline · cycle 1/3 · score 9.0 · ✓ AC/EC/G gate passed — ready for `done`
-  `worktree: ../PythonProject4-CARD-049` · `branch: card/049-admin-image-mode-uniqueness`
+_(none)_
 
 ## Done
+- **CARD-049** Route admin image-mode generation through the solver-verified pipeline · score 9.0 (cycle 1/3) · merged 98cdaaa
 - **CARD-045** predict_size() can crash a whole batch page on a degenerate image · score 9.0 (cycle 1/3) · merged 2fc8094
 - **CARD-001** Package scaffolding and CLI entry point
 - **CARD-002** Clue derivation via run-length encoding
