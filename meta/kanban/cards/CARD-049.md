@@ -1,6 +1,6 @@
 # CARD-049: Route admin image-mode generation through the solver-verified pipeline
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/049-admin-image-mode-uniqueness
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-049
 **Source:** meta/review/20260910T170025Z.yml#F-001
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/image_to_puzzle.py, src/nonogram/admin/app.py, tests/integration_tests.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-11T09:30:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -91,3 +91,14 @@ by using the real pipeline.
 - G-2: Do not change the crop/sizing behavior `ec18fb4`/CARD-045..048 established
   — this card is about adding solver verification, not revisiting how the
   target grid is derived from the source image.
+
+## System contract
+
+- ADR-0006/R1 — The runtime dependency set is exactly stdlib + Pillow + NumPy. (check: test, ref TestDependencyBaseline_IsExactlyPillowAndNumpy)
+- ADR-0022/R1 — Grid extent crosses module boundaries as a (width, height) pair, never a scalar. (check: review-lens)
+
+## Worktree notes
+
+[Env] forge 2026.8.17 (no forge.min_version declared in .skills.yml — no comparison performed)
+[System contract] assembled fresh via system_rules.py --scope 'src/nonogram/admin/**' (card had no section — added: ADR-0006/R1, ADR-0022/R1)
+[Known pre-existing gap] ADR-0006/R1's named check (TestDependencyBaseline_IsExactlyPillowAndNumpy) currently fails on `main` independent of any card — `reportlab` was added to pyproject.toml without updating the ADR/test (discovered during CARD-045's review). Tracked separately as CARD-057. Do not let this card's review spend a cycle on it; it cannot be fixed within this card's scope (pyproject.toml is out of Touches).
