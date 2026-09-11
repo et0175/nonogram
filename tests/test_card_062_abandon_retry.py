@@ -60,10 +60,16 @@ class TestAC6NeighbourExtents:
         # Source 1:1.3 — 10x14 keeps 92.9%, 10x12 keeps 92.3%.
         assert _image(100, 130).neighbour_extents((10, 13)) == [(10, 14), (10, 12)]
 
-    def test_square_extent_uses_the_pictures_longer_axis(self):
+    def test_square_extent_moves_toward_the_pictures_shape(self):
         assert _image(150, 100).neighbour_extents((10, 10)) == [(11, 10)]
         assert _image(100, 150).neighbour_extents((10, 10)) == [(10, 11)]
         assert _image(100, 100).neighbour_extents((10, 10)) == [(11, 10)]
+        # At the top of the range only shrinking is possible: shrink the
+        # picture's SHORT axis, never turn a landscape picture's grid portrait.
+        assert _image(1010, 1000).neighbour_extents((30, 30)) == [(30, 29)]
+        assert _image(1000, 1010).neighbour_extents((30, 30)) == [(29, 30)]
+        # 1.5:1 at 20x20 — 20x19 (1.053) keeps a little more than 21x20 (1.05).
+        assert _image(150, 100).neighbour_extents((20, 20)) == [(20, 19), (21, 20)]
 
     def test_a_30_long_side_only_has_the_shorter_neighbour(self):
         assert _image(300, 200).neighbour_extents((30, 20)) == [(29, 20)]
@@ -83,11 +89,16 @@ class TestAC6NeighbourExtents:
 
             assert 1 <= len(got) <= 2, context
             assert (w, h) not in got and len(set(got)) == len(got), context
-            long_is_width = w > h if w != h else src[0] >= src[1]
+            picture_wide = src[0] >= src[1]
             for gw, gh in got:
                 assert MIN_SIZE <= gw <= MAX_SIZE and MIN_SIZE <= gh <= MAX_SIZE, context
                 assert abs(gw - w) + abs(gh - h) == 1, context
-                assert (gw != w) == long_is_width, context
+                if w != h:
+                    # The long side moves; the short side is untouched.
+                    assert (gw != w) == (w > h), context
+                else:
+                    # A square only ever moves toward the picture's shape.
+                    assert (gw > w or gh < h) == picture_wide, context
         assert cases == 2000
 
 
@@ -229,6 +240,49 @@ def test_ac5_success_at_the_prediction_is_one_call(admin_client, tmp_path, monke
     (puzzle,) = app.batch_generator.get_batch_puzzles(batch_id, offset=0, limit=10)
     assert _dims(puzzle) == (15, 10)
     assert not any("generated at" in message for message in flashed)
+
+
+def test_adjustment_is_reported_only_for_a_stored_puzzle(
+    admin_client, tmp_path, monkeypatch
+):
+    """A rescued puzzle the quality filter then drops was not generated
+    into the batch, so it must not be announced as "generated at"."""
+    from types import SimpleNamespace
+
+    import nonogram.admin.app as app_module
+
+    app, client = admin_client
+    _upload(client, [_fully_inked(tmp_path, 300, 200, "wide.png")])
+    with client.session_transaction() as sess:
+        sess["batch_quality_filter"] = 50
+    monkeypatch.setattr(
+        app_module,
+        "measure_quality",
+        lambda image, grid: SimpleNamespace(
+            quality_score=10, recognizability=SimpleNamespace(value="low")
+        ),
+    )
+    calls = _patch_generate(monkeypatch, abandon_at={(15, 10)})
+
+    batch_id, flashed = _generate(client)
+
+    assert calls == [("wide.png", (15, 10)), ("wide.png", (16, 10))]
+    assert app.batch_generator.get_batch_puzzles(batch_id, offset=0, limit=10) == []
+    assert not any("generated at" in message for message in flashed)
+
+
+def test_a_different_error_on_a_neighbour_reports_the_abandonment(
+    admin_client, tmp_path, monkeypatch
+):
+    app, client = admin_client
+    _upload(client, [_fully_inked(tmp_path, 300, 200, "wide.png")])
+    calls = _patch_generate(monkeypatch, abandon_at={(15, 10)}, fail_at={(16, 10)})
+
+    batch_id, flashed = _generate(client)
+
+    assert calls == [("wide.png", (15, 10)), ("wide.png", (16, 10))]
+    assert app.batch_generator.get_batch_puzzles(batch_id, offset=0, limit=10) == []
+    assert "Error processing wide.png: abandoned at 15x10 (simulated)" in flashed
 
 
 def test_ac2_more_than_three_adjustments_are_summarised(

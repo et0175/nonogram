@@ -36,8 +36,11 @@ def _generate_image_puzzle(image, width, height):
     long-side ±1 neighbours from ``image.neighbour_extents`` (CARD-062).
 
     Generation is deterministic per picture and extent, so no extent is tried
-    twice. Any error other than ``GenerationAbandoned`` propagates at once: a
-    different extent cannot fix an unreadable picture or a solver timeout.
+    twice. On the predicted extent any other error propagates at once: a
+    different extent cannot fix an unreadable picture. On a neighbour, any
+    other ``NonogramError`` (e.g. a solver timeout) ends the retry and the
+    predicted extent's abandonment is what gets reported — that is the
+    picture's real problem, not the neighbour's side effect.
 
     Returns:
         ``(puzzle, extent_used)``.
@@ -60,6 +63,10 @@ def _generate_image_puzzle(image, width, height):
         except GenerationAbandoned as error:
             if first_abandonment is None:
                 first_abandonment = error
+        except NonogramError:
+            if first_abandonment is None:
+                raise
+            break
     raise first_abandonment
 
 
@@ -381,12 +388,6 @@ def create_app(debug=None):
                     # extent tried: orchestrator.generate_batch() has no
                     # per-item image-path parameter.
                     puzzle, used = _generate_image_puzzle(image, width, height)
-                    if used != (width, height):
-                        adjustments.append(
-                            f"{image.original_filename}: generated at "
-                            f"{used[0]}x{used[1]} — {width}x{height} had no "
-                            f"unique solution"
-                        )
 
                     # CARD-050 (AC-1): a real measurement against the source
                     # picture this puzzle was converted from, replacing the
@@ -428,6 +429,12 @@ def create_app(debug=None):
                     )
 
                     generated_count += 1
+                    if used != (width, height):
+                        adjustments.append(
+                            f"{image.original_filename}: generated at "
+                            f"{used[0]}x{used[1]} — {width}x{height} had no "
+                            f"unique solution"
+                        )
 
                 except NonogramError as e:
                     # E.g. GenerationAbandoned: the conversion (and every

@@ -243,10 +243,15 @@ class ImageFile:
 
         Ordered by how much of the picture each keeps (closest to the ink
         bounding box's ratio first; ties go to the smaller extent). A side
-        outside ``MIN_SIZE..MAX_SIZE`` drops its candidate, so a 10x10 has
-        only its +1 neighbour and a 30-long extent only its -1. For a square
-        extent the long side is the axis the picture is longer on (width for
-        a square picture).
+        outside ``MIN_SIZE..MAX_SIZE`` drops its candidate, so a 30-long
+        extent has only its -1 neighbour.
+
+        A square extent has no long side of its own, so it only moves toward
+        the picture's shape: the picture's longer axis grows by one, or its
+        shorter axis shrinks by one (width counts as longer for a square
+        picture). Moving the other way would turn a landscape picture's grid
+        portrait — at 30x30, where only shrinking is possible, that is the
+        difference between 30x29 and 29x30.
         """
         from nonogram.sourcing.random_grid import MAX_SIZE, MIN_SIZE
 
@@ -254,12 +259,14 @@ class ImageFile:
         src_width, src_height = self._source_shape()
         if width != height:
             long_is_width = width > height
+            moves = [(long_is_width, -1), (long_is_width, 1)]
         else:
-            long_is_width = src_width >= src_height
+            picture_wide = src_width >= src_height
+            moves = [(not picture_wide, -1), (picture_wide, 1)]
 
         candidates = []
-        for delta in (-1, 1):
-            w, h = (width + delta, height) if long_is_width else (width, height + delta)
+        for move_width, delta in moves:
+            w, h = (width + delta, height) if move_width else (width, height + delta)
             if MIN_SIZE <= w <= MAX_SIZE and MIN_SIZE <= h <= MAX_SIZE:
                 candidates.append((w, h))
 
