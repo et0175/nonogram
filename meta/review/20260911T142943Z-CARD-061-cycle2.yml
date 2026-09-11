@@ -1,0 +1,167 @@
+version: 1
+generated_at: "2026-09-11T14:29:43Z"
+target: "card/061-small-preset-short-side fix delta 7adb841..06d68a9 (worktree PythonProject4-CARD-061), CARD-061 cycle 2 — CONFIRMATION MODE"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+pure_confirmation: true   # no new Critical/Important findings
+
+coverage:
+  read:
+    - "git diff 7adb841..06d68a9 (all 5 files)"
+    - "src/nonogram/admin/image_manager.py (40-300, incl. _predict_size_detailed and _short_side_extent)"
+    - "src/nonogram/admin/app.py (200-370: preset table, preview POST, generation path)"
+    - "src/nonogram/admin/templates/image_preview.html (60-128), generate_batch.html (30-74), batch_create.html (56-62)"
+    - "src/nonogram/admin/templates/image_selection.html (preset JS, no route renders it)"
+    - "tests/test_card_061_small_preset_short_side.py (full), tests/test_image_batch_size_fix.py (190-280)"
+    - "main-repo meta/kanban/cards/CARD-061.md (revised Decision, AC-3, G-3, Worktree notes)"
+    - "cycle-1 report meta/review/20260911T141819Z-CARD-061-cycle1.yml"
+  not_reached:
+    - "in-browser JS execution (not run, per review rules)"
+    - "src/nonogram/admin/batch_generator.py consumers of the batch `sizes` record"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 51, removed: 14 }
+  max_fan_in: { symbol: "size_mapping (local dict in create_app upload route)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # 70 commits / 45 fix-tagged in 12 months
+  cochange_missing: []
+  evidence:
+    card_tests: "tests/test_card_061_small_preset_short_side.py on 06d68a9: 26 passed"
+    regression: "7-file regression set + import guard on 06d68a9: 54 passed, 4 skipped, 4 failed (test_derive_shape.py, missing pictures/cat.jpg — pre-existing, confirmed in cycle 1)"
+    discrimination: "new test file on git-archive 753807a: 14 fail incl. the new auto round-trip test; on git-archive 7adb841: exactly 2 fail (preset[large] expecting 30, the new note text) — the delta's tests are red before the delta"
+    owner_pictures: "13 christmas/balls/*.jpg, one deterministic run each via orchestrator.generate with worktree src: large 25 -> 7 not ok (b1,b3,b4,c11,c14,c5,c8, all GenerationAbandoned); large 30 -> 1 not ok (b3); auto -> 1 not ok (b3); auto extents == large-30 extents on all 13; max generation time 0.09s. Claim reproduced exactly."
+    note_truth_sweep: "85 cases, 17 shapes (landscape+portrait, 1.01:1..10:1) x short side 10/15/20/25/30, predicted + generated: whenever a too_elongated substitution is reported, max(extent)==used==30 and requested>30, so every literal clause of the new note is true; beyond 6:1 (610x100 and up, both orientations, all short sides) generation raises ImageNeedsManualCrop (see F-001)"
+    check_ref_tests: "test_the_dependency_baseline_is_still_closed, test_fit_image_refuses_a_ratio_mismatch_beyond_twice, test_a_bare_size_derives_the_shorter_side_from_the_source_shape: 3 passed on 06d68a9"
+  unmeasured:
+    public_fan_in: "not_applicable — delta changes one dict value, two template strings, docstrings and tests; no exported symbol signature or body changed"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-verified: test_the_dependency_baseline_is_still_closed passed on 06d68a9; delta adds no import and does not touch pyproject.toml"
+    - "ADR-0022/R1 ✓ holds — re-verified (review-lens): delta changes only the large preset value (app.py:219); predict_size() pair still consumed as GenerationRequest(width, height) at app.py:340-355, unchanged"
+    - "ADR-0022/R3 ✓ holds — re-verified: test_fit_image_refuses_a_ratio_mismatch_beyond_twice passed on 06d68a9; sweep reproduced ImageNeedsManualCrop for every >6:1 shape at 30x10/10x30"
+    - "ADR-0022/R4 ✓ holds — re-verified: test_a_bare_size_derives_the_shorter_side_from_the_source_shape passed on 06d68a9; fixed/min/max arithmetic untouched (image_manager.py delta is docstring-only)"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model (no trace.yml code map); delta touches no clue encoding (no_eligible_fact)"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model; generation still goes through orchestrator.generate's solver check, orchestrator untouched (no_eligible_fact)"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model; retry/nudge bounds live in sourcing/orchestrator, untouched (no_eligible_fact)"
+
+task_contract:
+  - "AC-1 held — re-verified: image_manager.py delta is docstring-only; 3 TestAC1 tests pass on 06d68a9"
+  - "AC-2 held — re-verified: 5 TestAC2 tests pass; the note test pins the new text on both pages and fails on 7adb841"
+  - "AC-3 held (against revised card) — re-verified: app.py:219 is (30, 'fixed'); (229,149)@25->(25,16) and @30->(30,20) pinned and pass; preset[large] expects ('fixed',30) and fails on 7adb841; real c11 ink bbox 229x149 gives 25x16 at 25 and 30x20 at 30"
+  - "AC-4 held — re-verified: 3000-case corpus passes; _short_side_extent code unchanged"
+  - "AC-5 held — re-verified: test_ac5 passes on 06d68a9; the generation path is unchanged"
+  - "AC-6 held — carried(cycle 1, delta-clean): git diff --numstat 7adb841..06d68a9 -- meta/ is empty"
+  - "G-1 held — re-verified: git diff --name-only 753807a..06d68a9 on sourcing/, cli.py, orchestrator.py, tests/property is empty; import guard passed"
+  - "G-2 held — re-verified: no clamp; above short side 10 the fallback is derive_extent(30), e.g. 250x100@15 -> 30x12 (a clamp would give 30x15)"
+  - "G-3 held (against revised G-3) — re-verified: only the large preset value changed 25->30; the medium line and fixed-mode arithmetic are byte-identical"
+  - "G-4 held — re-verified: whole-card ADR-0022 numstat 20 added / 0 removed; delta none"
+  - "G-5 held — re-verified: the owner-delta notes and the commit message claim only extents and solvability at large; no resolution claim about small"
+
+prior_findings:
+  - "cycle1 F-001 (note says 'cropped') — fixed in 06d68a9; the literal wording is now true in all 85 swept cases; residual omission beyond 6:1 re-filed as F-001 below"
+  - "cycle1 F-002 (auto round trip unpinned) — fixed in 06d68a9: test_preview_page_keeps_the_auto_mode_through_its_save_round_trip; red on 753807a"
+  - "cycle1 F-006 (apply_size_to_all docstring) — fixed in 06d68a9"
+  - "cycle1 F-003/F-004/F-005 — out of scope, unchanged; F-005 now tracked as CARD-062 (b3 is still abandoned at small, large 30 and auto)"
+
+root_causes:
+  - id: RC-1
+    title: "owner's large 25->30 decision applied to app.py's preset table only"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/image_preview.html
+    line: 106
+    title: "Over-the-cap note promises a 30-long grid for pictures beyond 6:1, which generation then refuses"
+    description: |
+      The same text is in generate_batch.html:55. Every literal clause is now true (85-case sweep).
+      But at 610x100 and beyond (both orientations, any short side 10..30) the preview shows 30x10
+      and "the grid uses 30 cells on the long side instead", then POST /batch/generate-puzzles
+      raises ImageNeedsManualCrop for that image, and the batch records an error. This is the
+      refusal half of cycle-1 F-001; the fixed-mode CARD-058 note has the same omission, so this
+      predates the card.
+    suggestion: |
+      Optional: when the picture's ratio exceeds 6:1, add a note that the picture will be refused
+      and needs cropping. Otherwise, fold this into CARD-062.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_image_batch_size_fix.py
+    line: 204
+    title: "Stale 'large = 25' copies outside app.py: a green test and the form label contradict the owner's decision"
+    description: |
+      test_page1_large_size_applied_to_images (lines 229-258) is documented as "Selecting 'Large'
+      on page 1 applies size 25". It hard-codes 25 and replicates the preset mapping (which also
+      still says small=(10,'fixed')) instead of posting to /batch/from-images, so it stays green
+      while describing behaviour the app no longer has. batch_create.html:61 still labels the
+      preset "Large (25-30 cells)", though it now always gives 30 on the long side.
+    suggestion: |
+      Point the test at the real route, or delete it: test_batch_presets_map_to_size_modes already
+      covers the mapping. Reword the label, e.g. "Large (30 on the long side)".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/image_selection.html
+    line: 294
+    title: "Dead preset map (large 25, small 15) in an unrouted template"
+    description: "Out of scope. No route renders image_selection.html and applyDefaultSize only calls console.log. Two further stale copies are docs/TEST_BATCH_GENERATION_UA.md:40 and docs/tmp/*."
+    suggestion: "Follow-up cleanup only."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/image_preview.html
+    line: 106
+    title: "Note is silent that the short side shrank when size_value > 10"
+    description: "Out of scope. For example, 400x100 at short side 30 gives 30x10, and 120x100 at short side 30 gives 30x25. Both are true to the note, and the W×H above it shows the real extent."
+    suggestion: "None required."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verdict_notes:
+  mutation_check: "off (no meta/.skills.yml / kanban config); nothing was deferred from cycle 1. As a discrimination check instead, the new test file was run against git archives of 753807a and 7adb841 (see metrics.evidence); no file was edited"
+  confirmation: "pure confirmation: no new Critical or Important finding, so no full re-review is needed"

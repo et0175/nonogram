@@ -1,0 +1,211 @@
+version: 1
+generated_at: "2026-09-11T14:18:19Z"
+target: "card/061-small-preset-short-side 753807a..7adb841 (worktree PythonProject4-CARD-061), CARD-061 cycle 1"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "git diff 753807a..7adb841 (all 7 files)"
+    - "src/nonogram/admin/image_manager.py (40-290, 446-497)"
+    - "src/nonogram/admin/app.py (190-420)"
+    - "src/nonogram/sourcing/random_grid.py (180-363, derive_extent/_derived_extent)"
+    - "src/nonogram/admin/templates/image_preview.html (full, incl. JS submit)"
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (Rules + History)"
+    - "tests/test_card_061_small_preset_short_side.py (full)"
+    - "main-repo meta/kanban/cards/CARD-061.md (task contract)"
+  not_reached:
+    - "src/nonogram/admin/batch_generator.py consumers of the batch `sizes` record"
+    - "src/nonogram/admin/templates/generate_batch.html beyond the changed hunk"
+    - "in-browser JS execution (not run, per review rules; verified by reading + Flask tests)"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 378, removed: 20 }
+  max_fan_in: { symbol: "ImageFile._short_side_extent", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # 68 commits / 39 fix-tagged in 12 months, single author
+  cochange_missing: []                        # co-change peers of image_manager.py/app.py are each other; both in diff
+  unmeasured:
+    public_fan_in: "budget_truncated — callers of ImageFile.predict_size()/size_substitution() not counted; the changed private helper has exactly 1 caller"
+  evidence:
+    worktree_regression: "8 regression files + import guard: 78 passed, 4 skipped, 4 failed (test_derive_shape.py, missing pictures/cat.jpg)"
+    pre_existing_confirmed: "pictures/ absent in main tree (git ls-tree), on disk in main and worktree; same 4 test_derive_shape failures on a git-archive of 753807a"
+    red_on_base: "new test file against 753807a archive: 12 fail (all AC-1/2/4/5 + page tests), 11 pass (the unchanged-behaviour pins)"
+    in_memory_mutants: "5/5 killed (clamp_long_to_30, clamp_silent, orientation_ignored, ceil_not_round, no_substitution_report) via pytest plugin monkeypatch, no file edited"
+    check_ref_files: "test_sourcing_image.py + test_export_pdf.py + property/test_grid_dimensions.py: identical 15-failure set on base and head (missing pictures/ corpus, package-data KeyError); the three check-ref tests pass"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py:1229) passed on 7adb841; diff adds only nonogram.* imports, pyproject.toml untouched"
+    - "ADR-0022/R1 ✓ holds — review-lens: _short_side_extent returns a (w,h) pair consumed as GenerationRequest(width,height) at app.py:349-355; no new scalar extent field (pre-existing batch `sizes` noted out-of-scope)"
+    - "ADR-0022/R3 ✓ holds — test_fit_image_refuses_a_ratio_mismatch_beyond_twice (tests/test_sourcing_image.py:895) passed on 7adb841; reproduced: 800x100 at 30x10 refused ImageNeedsManualCrop, 400x100 at 30x10 generated"
+    - "ADR-0022/R4 ✓ holds — test_a_bare_size_derives_the_shorter_side_from_the_source_shape (tests/property/test_grid_dimensions.py:939) passed on 7adb841; short path uses R4's explicit-pair clause, fixed/min/max path byte-identical in diff"
+    - "INV-001 ⚠ unchecked — scope_unmapped_model (model has no trace.yml); diff does not touch clue encoding (no_eligible_fact)"
+    - "INV-002 ⚠ unchecked — scope_unmapped_model; generation still goes through orchestrator.generate's solver check, orchestrator untouched (no_eligible_fact)"
+    - "INV-003 ⚠ unchecked — scope_unmapped_model; retry/nudge bounds live in sourcing/orchestrator, untouched (no_eligible_fact)"
+
+task_contract:
+  - "AC-1 held — (300,200)->(15,10), (200,300)->(10,15), c11 229x149->(15,10); tests fail on base"
+  - "AC-2 held — (500,500)->(10,10) None; (400,100)->(30,10)==derive_extent(30,None,400,100) with substitution; note rendered on preview and confirm pages"
+  - "AC-3 held — fixed path unchanged in diff (short early-return inserted above it); 8 pinned fixed extents pass on base and head; medium/large mapping lines unchanged"
+  - "AC-4 held — 3000 seeded cases, >=300 per branch, independent _retained oracle; kills the clamp mutant"
+  - "AC-5 held — /batch/from-images then POST /batch/generate-puzzles, stored grid is 15 wide x 10 tall; fails on base"
+  - "AC-6 held — History-only addition (0 removed lines); --verify-refs check_refs_verified true, dead_check_ref []; validate.py 0 errors, 2 pre-existing warnings; 65.1% vs 97.6% and 3.05/3.06:1 boundary re-derived"
+  - "G-1 held — git diff --name-only on sourcing/, cli.py, orchestrator.py, tests/property: empty; import guard passes"
+  - "G-2 held (letter) — derive_extent(MAX_SIZE) fallback, clamp mutant killed; at size_value 10 outcome equals a clamp (F-003)"
+  - "G-3 held — see AC-3"
+  - "G-4 held — R4 statement (ADR line 356) unchanged, diff is additions in History only"
+  - "G-5 held — History entry claims only the shape/retention effect, no resolution claim"
+
+root_causes:
+  - id: RC-1
+    title: "too_elongated note hard-codes 'cropped' for a branch with three different outcomes"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/templates/image_preview.html
+    line: 105
+    title: "'Too elongated ... part of its length is cropped' note is false in two reachable cases"
+    description: |
+      The same text is in generate_batch.html:55, and the docstring at image_manager.py:202-207
+      makes the same claim. The note says part of the picture's length is cropped, but:
+      (a) size_value > 10 (preview per-image "Short Side" or Apply-to-all): 250x100 at short 15
+      gives 30x12 with 100% retained. Nothing is cropped; the short side dropped from 15 to 12,
+      which the note never mentions. The same holds for 200x100@20 -> 30x15 and 150x100@25 -> 30x20.
+      (b) Beyond 6:1 at the preset itself: 800x100 predicts 30x10, but generation raises
+      ImageNeedsManualCrop (37% retained), so the picture is refused, not cropped. The fixed-mode
+      fallback shares this pre-existing refusal; the new text is what misdescribes it.
+    suggestion: |
+      Branch the message on outcome: retained-ratio fallback ("short side reduced to S to fit 30"),
+      floor-bound crop ("part of its length is cropped"), and beyond-6:1 ("will be refused; crop the
+      picture"). Add one test at size_value > 10.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/image_preview.html
+    line: 79
+    title: "Selected-option fix silently changes the 'auto' preset's generated size from ~20 to 30 on the long side"
+    description: |
+      The claimed bug is confirmed. The JS submit (image_preview.html:338-347) posts each select's
+      .value, and with no `selected` attribute that is the first option, "fixed". The POST handler
+      (app.py:270-277) then calls update_image_size(id, "fixed", size_value), so before this card
+      the real UI flow reduced small to fixed-10 and auto to fixed-20. The fix is necessary for this
+      card, but it also restores "max" mode for auto. On all 13 owner pictures that moves generation
+      from the fixed-20 derivation (b1 17x20, c11 20x13) to max mode (b1 26x30, c11 30x20), with
+      every picture now at 30 on the long side. The behaviour is correct (preview and generation now
+      agree), but it is outside the card's declared scope and its size is not stated in the notes.
+      No test pins "max" through the save round trip, and solver time and abandonment rates at 30
+      were not measured.
+    suggestion: |
+      Tell the owner that auto batches now generate at up to 30 on the long side. Add a round-trip
+      test for "max" beside the "short" one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/image_manager.py
+    line: 202
+    title: "At the preset's own value (10) the 'never clamp' fallback always equals a clamp"
+    description: |
+      Out of scope. Across 1988 scanned elongated shapes at size_value 10, the derive_extent(30)
+      fallback returned exactly (30,10)/(10,30), the clamp's answer, because round(30/r) <= 10
+      whenever r > 3.05. G-2 only changes outcomes for size_value > 10. The ADR History wording
+      ("falls back to R4's bare-N derivation") is accurate. The docstring's "the short side then
+      follows the ratio from the top" is true only for size_value > 10.
+    suggestion: "Optionally note the equivalence at 10 in the docstring; no code change."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 320
+    title: "Batch `sizes` record now mixes short-side and long-side scalars"
+    description: |
+      Out of scope, low confidence (consumer not read). "small" records 10, meaning the short side,
+      while medium and large record 20/25, meaning the long side. The field is a pre-existing scalar.
+    suggestion: "Follow-up only if the batch list displays `sizes`."
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: info
+    category: feature
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 356
+    title: "3 of 13 owner pictures now abandoned at 'small' (b3 10x12, c12 17x10, c14 10x13)"
+    description: |
+      Out of scope, follow-up. Reproduced: all three generate at 10x10 and raise GenerationAbandoned
+      at their true shape; c11 generates at 15x10. The batch records these as errors and flashes
+      only the first 3, so pictures drop out of "small" batches. No AC or guardrail covers this. The
+      candidate remedy (retry long side +/-1) changes the shape, so the owner has to decide it.
+    suggestion: "Owner acknowledgement before merge, plus a backlog card for the retry-on-abandon fallback."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/image_manager.py
+    line: 489
+    title: "apply_size_to_all docstring still lists only fixed/min/max"
+    description: "Nit. It accepts 'short' functionally through update_image_size; there are no callers in src."
+    suggestion: "Update the docstring."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verdict_notes:
+  mutation_check: "off by default config (no meta/.skills.yml / kanban config); in-memory monkeypatch discrimination run instead, 5/5 mutants killed, no file edited"
