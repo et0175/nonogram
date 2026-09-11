@@ -133,6 +133,26 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
   `rewrite` rather than `on-touch` because no FR obliges this work — without an
   audit-proposed card the tofu simply persists.
 
+- 2026-09-11 — Packaging fix (CARD-057), not a decision revision: R1's
+  statement is unchanged and was correct throughout. `pyproject.toml`'s core
+  `dependencies` list had drifted from it instead — `reportlab>=4.0` had been
+  placed there by CARD-008 (commit `838c407`, 2026-09-07), which added
+  `admin/pdf_generator.py`'s `BookPDFGenerator` (the admin panel's book-PDF
+  feature, the only place in the repository that imports `reportlab`), but
+  landed it in core `dependencies` instead of the `admin` extra where
+  Flask/Werkzeug — equally admin-only — already correctly live. This meant a
+  bare `pip install nonogram` (CLI-only, no admin panel) silently pulled in a
+  third heavyweight dependency it had no use for, and R1's own mechanical
+  check (`test_the_dependency_baseline_is_still_closed`) silently failed on
+  `main` from 2026-09-07 onward as a result. Discovered 2026-09-11 during
+  CARD-045's review, as a Step 8h holds-spot-check re-derivation unrelated to
+  that card's own diff. Fixed by moving `reportlab>=4.0` into the `admin`
+  extra alongside Flask/Werkzeug — `nonogram.export.pdf` (the core CLI
+  pipeline's own PDF exporter, CARD-014) was never affected and still
+  deliberately does not use ReportLab. No ADR text needed to change: this
+  restores what R1 already said, rather than updating it to match a drift
+  that turned out to be a misplacement, not a real widening of the baseline.
+
 ## Rules
 ```yaml
 - id: ADR-0006/R1
