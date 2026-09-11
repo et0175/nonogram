@@ -332,3 +332,11 @@ metrics; 1 recurring — the card's self-reported test count is still wrong,
 "9/9" vs actual 7, now duplicated instead of corrected). Score 8.0 ≥
 min_score 8 but 1 Important finding — severity gate still closed, one more
 fix round needed.
+
+[Adversarial] CONFIRMED — independent skeptic verified zero test references
+to either template file or a GET against their routes anywhere in tests/;
+the existing AC-2 test only asserts on BatchGenerator.get_batch_puzzles()
+data, never rendered HTML; the client/admin_app fixture the finding's
+suggested fix names is real and usable exactly as described; churn is
+exactly 14 commits/12mo with at least one genuine prior fix on this same
+quality-badge display line (commit 40b8c98).
