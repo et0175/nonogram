@@ -310,3 +310,56 @@ as flaky in the task brief; independently confirmed flaky here — two
 consecutive full-suite runs produced different failure sets in
 `test_batch_history.py`/`test_wave2_async_generation.py`, both DB/random-seed
 dependent and untouched by this card).
+
+---
+
+**Post-review fix (cycle 1, score 7.5, 2 Important findings) — the "Known,
+accepted residual gap" above is now closed for the two files the review
+flagged (`batch_status.html`, `generated_puzzles.html`); the other two
+templates named in that gap (`book_select_puzzles.html`, `puzzles_list.html`)
+were already correct and were not touched.**
+
+1. `src/nonogram/admin/templates/batch_status.html:144` — random-mode
+   `quality_score=None` was rendering as the literal string `"Quality: None"`
+   (`<span class="quality-badge">Quality: {{ puzzle.quality_score }}</span>`
+   had no `None` guard). Fixed to match this codebase's own existing
+   convention (`puzzles_list.html:160`, `book_select_puzzles.html:125`, both
+   `{{ puzzle.quality_score or 'N/A' }}`):
+   `<span class="quality-badge">Quality: {{ puzzle.quality_score or 'N/A' }}</span>`.
+
+2. `src/nonogram/admin/templates/generated_puzzles.html:65` — random-mode
+   `quality_score=None` was rendering as a misleading `"0/100"`
+   (`{{ (puzzle.get('quality_score', 0)|int) }}/100` — `.get(..., 0)` only
+   catches a *missing* key, not a *present* `None`, and Jinja's `int` filter
+   then silently swallows the resulting `int(None)` `TypeError` and
+   substitutes `0`). Fixed, adapted to this file's own dict-access style
+   (`puzzle.get(...)`, matching e.g. line 59's
+   `puzzle.get('difficulty_tier', 'N/A')`), to the same `or 'N/A'` pattern
+   used by the sibling `.../100`-suffixed templates
+   (`puzzles_list.html:160`, `book_select_puzzles.html:125`):
+   `<small>{{ puzzle.get('quality_score') or 'N/A' }}/100</small>` — renders
+   `"N/A/100"` for `None`, matching finding 1's chosen style for
+   consistency (per the task's "N/A/100" allowance).
+
+**Render evidence** (direct Jinja2 rendering of each fixed snippet, not just
+template-source eyeballing):
+
+```
+batch_status.html (quality_score=None): <span class="quality-badge">Quality: N/A</span>
+batch_status.html (quality_score=87):   <span class="quality-badge">Quality: 87</span>
+generated_puzzles.html (quality_score=None): <small>N/A/100</small>
+generated_puzzles.html (quality_score=87):   <small>87/100</small>
+```
+
+**Regression check:** `tests/test_card_050_quality_recognizability.py`
+(9/9), `tests/test_batch_generator.py` (16/16, no failures) both fully green
+after the fix. `tests/test_wave1_e2e.py` and `tests/test_batch_history.py`
+have several pre-existing failures (`GenerationAbandoned` — the random
+solver abandoning after 20 regenerate attempts at the test's chosen
+size/density/seed, and other DB/random-seed-dependent cases), consistent
+with the flakiness already documented above in this file; none of the
+failures reference `batch_status.html` or `generated_puzzles.html`
+rendering, so none are attributable to this fix.
+
+**Scope:** only these two template files were touched, exactly at the two
+flagged lines; no other file in the worktree was modified by this follow-up.

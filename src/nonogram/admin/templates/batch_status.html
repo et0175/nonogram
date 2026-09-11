@@ -141,7 +141,7 @@
                                 <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
                                     {{ puzzle.difficulty_tier }}
                                 </span>
-                                <span class="quality-badge">Quality: {{ puzzle.quality_score }}</span>
+                                <span class="quality-badge">Quality: {{ puzzle.quality_score or 'N/A' }}</span>
                             </div>
 
                             {% if puzzle.source_image %}

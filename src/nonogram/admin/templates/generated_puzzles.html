@@ -62,7 +62,7 @@
                                         <div class="row mb-3">
                                             <div class="col-6">
                                                 <small><strong>Quality:</strong></small><br>
-                                                <small>{{ (puzzle.get('quality_score', 0)|int) }}/100</small>
+                                                <small>{{ puzzle.get('quality_score') or 'N/A' }}/100</small>
                                             </div>
                                             <div class="col-6">
                                                 <small><strong>Source:</strong></small><br>
