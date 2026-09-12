@@ -31,6 +31,9 @@ commands:
     produces: [EVT-004]
     source: [US-004]
   - id: CMD-005
+    # NOTE 2026-09-12 (FR-024): the verdict this command produces now also
+    # carries the first-fixed-point undecided mask and, on MANY, a second
+    # witness solution — see EVT-006's payload. Count semantics unchanged.
     name: CheckUniqueness
     actor: ACT-002
     target_aggregate: AGG-001
@@ -38,6 +41,9 @@ commands:
     produces: [EVT-005, EVT-006]
     source: [US-005]
   - id: CMD-006
+    # NOTE 2026-09-12 (FR-025, DEC pending): for random mode this command's
+    # redraw is one alternative; CMD-014 (repair) is the other. Library mode
+    # keeps this command under every alternative.
     name: RegeneratePuzzle
     actor: ACT-002
     target_aggregate: AGG-001
@@ -45,6 +51,10 @@ commands:
     produces: [EVT-007]
     source: [US-006]
   - id: CMD-007
+    # NOTE 2026-09-12 (FR-013 amendment, mechanism half): the cells this
+    # command flips are chosen from EVT-006's undecided/disagreement mask,
+    # nearest the ink boundary first — no longer from the 2x2 switching-block
+    # ranking. Cap, cumulative-from-original property and EVT-008 unchanged.
     name: AdjustImagePixels
     actor: ACT-002
     target_aggregate: AGG-001
@@ -93,3 +103,16 @@ commands:
     preconditions: [INV-002]
     produces: [EVT-014]
     source: [US-010]
+  - id: CMD-014
+    # New 2026-09-12 (FR-025 / POL-006, DEC pending): repair a non-unique
+    # random-mode candidate in place — flip one filled/empty pair inside the
+    # undecided/disagreement region EVT-006 carries (FR-024), keeping the
+    # filled-cell count exact — then hand the result back to CMD-005. Counts
+    # against the same INV-003 counter as CMD-006. Whether it is ever issued
+    # is the open decision; it is modeled so either outcome fits.
+    name: RepairCandidateGrid
+    actor: ACT-002
+    target_aggregate: AGG-001
+    preconditions: [INV-003]
+    produces: [EVT-015]
+    source: [US-006]

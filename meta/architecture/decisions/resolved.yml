@@ -49,6 +49,7 @@ resolved:
     resolved_by: ADR-0012
     resolved_at: 2026-08-27
     resolution_label: int_bitmask_per_line
+  # superseded 2026-09-12: DEC-031 / ADR-0029 replaces ADR-0013's formula (ADR-0013 stamped Superseded)
   - id: DEC-013
     resolved_by: ADR-0013
     resolved_at: 2026-08-27
@@ -113,3 +114,35 @@ resolved:
     resolution_label: narrow_grid_drives_picture_to_fully_specified_requests
     date: 2026-09-01
 
+  - id: DEC-029
+    question: "Random-mode recovery of a non-unique candidate: pure redraw, pure repair, or redraw-then-repair?"
+    resolved_by: ADR-0024
+    resolution_label: redraw_then_repair
+    date: 2026-09-12
+  - id: DEC-030
+    question: "Is 'requires guessing' a flag beside the Easy/Medium/Hard tier, or a fourth tier of its own?"
+    resolved_by: ADR-0025
+    resolution_label: guessing_as_separate_tier
+    date: 2026-09-12
+  - id: DEC-032
+    question: "Silhouette binarisation after the LANCZOS resize: 50% ink-coverage threshold or keep Floyd-Steinberg dithering (CON-013 scope)?"
+    resolved_by: ADR-0026
+    resolution_label: ink_coverage_threshold_50pct
+    date: 2026-09-12
+    # GATE: ADR-0026 is Proposed, not Accepted — lands only after the owner's visual check of the
+    # rendered pictures/ corpus converted both ways (FR-027 _meta.gate); AC-127 is the measured half.
+  - id: DEC-034
+    question: "Density 0 and 100: refuse as InvalidDensity (valid range 1..99) or allow degenerate grids?"
+    resolved_by: ADR-0027
+    resolution_label: refuse_degenerate_density
+    date: 2026-09-12
+  - id: DEC-033
+    question: "How is genuinely greyscale input recognised so it keeps the dither path once silhouettes take the threshold?"
+    resolved_by: ADR-0028
+    resolution_label: midtone_share_histogram
+    date: 2026-09-12
+  - id: DEC-031
+    question: "What replaces ADR-0013's score so line-solvable puzzles are graded across the whole scale with no wall-clock term?"
+    resolved_by: ADR-0029
+    resolution_label: strategy_ladder_ordinal
+    date: 2026-09-12

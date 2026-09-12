@@ -1,6 +1,6 @@
 # ADR-0013: Difficulty scoring formula
 
-**Status:** Accepted (revised 2026-08-28)
+**Status:** Superseded by ADR-0029 (2026-09-12) — was: Accepted (revised 2026-08-28)
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
 **Revised:** 2026-08-28

@@ -1,6 +1,10 @@
 # generated_by: forge:architect-context-mapping
 # generated_at: 2026-08-27
 # tier: medium
+# stale: domain model updated 2026-09-12 (POL-006, CMD-014, EVT-015, TERM-011..
+#   TERM-016 — generation algorithm review). Single-context outcome is not
+#   expected to change; re-run context mapping to fold the new terms into
+#   ubiquitous_language and confirm.
 #
 # Single-context outcome (deliberate, not a default): all 5 capabilities
 # (CAP-001..CAP-005) act on the single aggregate AGG-001 (Puzzle), and its

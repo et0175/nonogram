@@ -1,7 +1,9 @@
+<!-- delta 2026-09-12 — Increments 8..12 added (FR-024..FR-029, NFR-007, CON-014, ADR-0024..0029); run /forge:kanban decompose for them -->
 <!-- decomposed: 2026-08-30 — Increment 4 → CARD-019, CARD-020, CARD-021 (waves 12–14) -->
 <!-- decomposed: 2026-08-31 — Increment 5 → CARD-023..CARD-029 (waves 16–19) -->
 <!-- decomposed: 2026-09-01 — Increment 6 → CARD-030, CARD-031, CARD-032 (wave 19) -->
 <!-- decomposed: 2026-09-01 — Increment 7 → CARD-033, CARD-034 (wave 20); CARD-027 gate cleared -->
+<!-- decomposed: 2026-09-12 — Increments 8..12 → CARD-073..CARD-079 (wave 2); CARD-072 re-pointed as Increment 10's FR-029 delivery card (depends on CARD-073, CARD-076) -->
 # Nonogram Generator — Architecture Handoff
 
 ## Summary
@@ -220,6 +222,67 @@ height)` pair — reverting it restores `--size N` to N x N without touching the
 pair. Orientation is independently revertible and touches only export layout. No
 schema or format version changes.
 
+
+### Increment 8: Solver exposes where the ambiguity is (FR-024) and which technique settled each cell
+
+The walking skeleton of the 2026-09-12 delta: everything after it consumes what this one exposes. COMP-005 (`solver/`) adds to `SolveResult`/`SolveSignals`, without changing any verdict: (a) the set of cells line logic left undecided at its first fixed point, (b) on `MANY`, a second witness solution, (c) for a line-solvable solve, the ladder rung that settled each cell — `simple_overlap` / `line_dp` / `cross_line` / `probe_contradiction` (ADR-0029), where overlap-vs-DP is decided by a native re-derivation of the leftmost/rightmost overlap masks (no import of `clues.py`, ADR-0007). All three cross the boundary as grid-shaped `list[list[...]]` structures, never bitmasks (ADR-0012 History). Orchestrator (COMP-002) stores them on the aggregate and nothing else changes yet.
+
+Requirements: FR-024 (AC-107..AC-110, AC-131), EC-011, EC-012; the solver half of FR-029 (rung tags feed the strategies list); ADR-0009 / ADR-0012 History entries named in ADR-0024.
+Tests: `tests/property/test_solver_uniqueness.py` unchanged and green (verdicts identical); new property test that the two witnesses differ only inside the undecided mask (EC-011) over a seeded ≥200-case corpus; a directed test that a fully line-solvable clue set tags every cell and never `probe_contradiction`; `tests/bench_generate.py` within noise.
+
+**Checkpoint:** `solve()` on a known-ambiguous clue set returns two distinct witnesses whose disagreement lies entirely inside the undecided mask, on the oracle corpus with identical counts to today; on a line-solvable set every cell carries a rung. Measured on the corpus: the share of `MANY` verdicts whose disagreement set contains at least one filled AND one empty cell (ADR-0024's repair precondition) — the number Increment 9 needs.
+**Collapses:** FR-024, EC-011, EC-012, ADR-0024's "does a filled/empty pair always exist" assumption (measured, not argued), the blocker on CARD-072 item 1.
+**Rollback:** Purely additive fields on the solver result; revert the branch. No stored data changes.
+
+### Increment 9: Repair before redraw (FR-025, POL-006, ADR-0024)
+
+COMP-002 gains the repair step beside POL-001: on `MANY`, flip one filled and one empty cell of the current candidate chosen deterministically from the disagreement set (fallback: the undecided mask), keep the filled count exact, re-derive clues, re-solve through the one `judge_candidate` path; up to `MAX_CONSECUTIVE_REPAIRS = 3` on one lineage, then redraw from the same rng. One shared 20-attempt counter (INV-003); timeouts and invalid input still propagate. Image mode untouched. The FR-013 amendment lands here too: `sourcing.image.nudge` picks from the undecided mask nearest the ink boundary instead of the 2×2 heuristic (mechanism only; cap and cumulative property unchanged).
+
+Requirements: FR-025 (AC-111..AC-114, AC-132), EC-013; FR-013 amendment (AC-115..AC-117, EC-014); ADR-0002 History (repairs share the bound).
+Tests: `tests/test_orchestrator.py` / `test_resample.py` extended with scripted sources that return an ambiguous grid and assert the repair-then-redraw sequence and the counter arithmetic; a seeded-corpus test at 20×20, density 15..30, asserting the abandonment rate is not worse than pure redraw and that the same seed replays the same lineage (ADR-0015); density-exactness property after repair (ADR-0003); nudge tests re-pinned to the mask-driven choice.
+
+**Checkpoint:** On a seeded corpus of 100 random 20×20 requests at density 20, the abandonment rate and mean solver calls per accepted puzzle are both reported against today's pure-redraw loop on the same seeds — the K=3 calibration ADR-0024 says is owed. `--seed 42` replays the identical repair lineage twice.
+**Collapses:** FR-025, EC-013, FR-013's "which cell to flip is a guess" risk (CARD-016), ADR-0024's unmeasured K, the wasted-budget failure mode at low density that motivated the delta.
+**Rollback:** `MAX_CONSECUTIVE_REPAIRS = 0` restores today's behaviour without a revert; a full revert is one branch. No stored data changes.
+
+### Increment 10: Difficulty by strategy ladder, the Guess tier, and strategies saved with the puzzle (FR-026, FR-029, NFR-007, CON-014, ADR-0025, ADR-0029)
+
+COMP-006 (`difficulty.py`) is rewritten: score = band start of the hardest rung present + 25 × share of cells settled at that rung; `Tier` gains `GUESS` (value `guess`, label "Guess"), assigned whenever `branch_nodes >= 1`; the single classifier takes (score, branch_nodes); no wall-clock term anywhere; size/density no longer enter the score. POL-004 stays a single tier test. The ordered list of rungs present IS the strategies list (FR-029): it is stored in `strategies_used`, exported as `strategies` in JSON (ADR-0023 schema touch), shown and filterable in the admin review — this is CARD-072's scope, which becomes the delivery card for that half. Follow-ups named by the ADRs land here: ADR-0005 revision note, ADR-0015 History entry, AC-020/AC-022/AC-023 re-wording, ADR-0016/DEC-026 filename value, `docs/GENERATION_ALGORITHM.md` §7 rewrite.
+
+**Migration (rewrite, ⚑ risk):** every stored `difficulty_score` and tier in the admin DB is wrong under the new scale. A re-grade batch re-solves each stored puzzle from its clues (deterministic, idempotent) and rewrites score, tier and strategies; run it once after deploy, behind an admin action, with the old columns kept until the owner has reviewed the new tier distribution.
+
+Requirements: FR-026 (AC-118..AC-121), FR-029 (AC-135..AC-143), NFR-007 (AC-122, AC-123), CON-014, EC-015..EC-018; ADR-0013 retired.
+Tests: `tests/test_difficulty.py` rewritten around rungs (monotonicity in rung order, band arithmetic, `guess` ⇔ branching, machine-independence with a patched clock); `tests/property/test_solver_strategies.py` (guess iff `branch_nodes > 0`; determinism per clue set); export round-trip with `strategies`; admin filter and batch-store tests; a 200-puzzle seeded corpus graded and its tier distribution written to the card's worktree notes (the AC-118 calibration input for the owed tier-per-rung recalibration).
+
+**Checkpoint:** `nonogram generate --mode random --size 20 --density 25 --difficulty hard --seed 7` returns a puzzle that never branched, on two different machines with the identical score and tier; the 200-puzzle corpus shows all three line-solvable tiers populated and every branching puzzle in Guess; the re-grade batch over a copy of `nonogram_admin.db` completes and the owner has eyeballed the new distribution in the admin list.
+**Collapses:** FR-026, FR-029, NFR-007, CON-014, EC-015..EC-018, the "Hard means requires guessing" product risk, the ADR-0015 reproducibility caveat, the stored-grades-are-wrong migration risk (⚑ register capture offered).
+**Rollback:** Not additive: the point of no return is running the re-grade batch on the live DB. Everything before it reverts with the branch; the batch itself must be run on a backup first, and the old columns are dropped only in a later card.
+
+### Increment 11: Refuse density 0 and 100 (FR-028, ADR-0027)
+
+`random_grid.validate_density` accepts 1..99; `MIN_DENSITY`/`MAX_DENSITY` become 1/99; the misleading docstring at `random_grid.py:78-84` is replaced; CLI help, the web form's numeric bounds and admin batch presets are audited for 0/100; FR-004 / AC-011 wording updated. Small and independent — can ride with Increment 9 or 10.
+
+Requirements: FR-028 (AC-128..AC-130, AC-133, AC-134), FR-004 amendment; ADR-0003 History note.
+Tests: `tests/test_sourcing_random.py` (0 and 100 refused, 1 and 99 accepted, message names the range), `tests/test_cli.py` exit code, web form bound test.
+
+**Checkpoint:** `nonogram generate --mode random --size 10 --density 0` exits with the same code family as `--density 150` and writes nothing; `--density 1` and `--density 99` generate.
+**Collapses:** FR-028, the degenerate-puzzle product defect (finding 2 of the 2026-09-12 review).
+**Rollback:** Constants and one docstring; revert the branch.
+
+### Increment 12: Silhouette threshold binarisation, gated on the owner's eye (FR-027, ADR-0026 Proposed, ADR-0028)
+
+Built behind a named switch so both paths exist: after the LANCZOS resize, silhouettes take `Image.point` at 128 (ink coverage ≥ 50% fills a cell); input whose mid-grey share (band 64..191, before trim/crop) is at or above `MIDTONE_SHARE_THRESHOLD` (provisional 0.10) is "genuinely greyscale" and keeps Floyd–Steinberg. The chosen path is recorded as `binarisation: threshold|dither` on the puzzle and in the export metadata (ADR-0023 touch) so a misclassification is diagnosable. FR-003 amended; ADR-0006 History touch.
+
+**The gate:** ADR-0026 stays Proposed until the owner has looked at rendered grids of the picture corpus (`pictures/`, the owner's own trial folder, currently not on disk) converted both ways. The card renders the corpus both ways into a review folder and stops; the owner's confirmation flips ADR-0026 to Accepted and the switch's default to threshold. AC-127 (uniqueness-without-nudge rate and nudges-per-conversion, threshold vs dither) is the measured half of the gate and cannot discharge it alone.
+
+Requirements: FR-027 (AC-124..AC-127), FR-003 amendment; DEC-032 gate; ADR-0028's calibration of the mid-tone constant.
+Tests: `tests/test_sourcing_image.py` — exactly-half coverage fills (ADR-0026/R1), classifier determinism, the recorded `binarisation` field; the AC-127 corpus comparison (skips cleanly when `pictures/` is absent, like the existing corpus tests).
+
+**Checkpoint:** A side-by-side render of every corpus picture (threshold vs dither, at the batch's predicted extent) is in front of the owner, with AC-127's two numbers per picture; the owner says which path ships. Until then the default is unchanged (dither).
+**Collapses:** FR-027, the "dither creates the ambiguity the nudge then repairs" hypothesis, ADR-0028's mid-tone constant (calibrated on the corpus rather than guessed), DEC-032's gate.
+**Rollback:** On-touch: the switch default reverts to dither; stored image puzzles are never re-converted.
+
+**Ordering note (2026-09-12 delta).** 8 first (everything reads its output), then 9 and 10 in either order (10 also unblocks CARD-072 item 1 and re-grades the DB, so schedule its point of no return last within it), 11 anywhere, 12 last because it ends at the owner's desk rather than in CI. Cards CARD-070 (quick fixes), CARD-071 (registry landing, docs hygiene) and CARD-072 (strategies persistence) already exist on the board and are not re-cut by this decompose; CARD-072 is the delivery card for Increment 10's persistence/export/admin half.
 
 ## Next steps
 

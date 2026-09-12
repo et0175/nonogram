@@ -33,11 +33,16 @@ events:
     source: [US-005]
     payload_summary: solution_count=1
   - id: EVT-006
+    # AMENDED 2026-09-12 (FR-024): payload gains the first-fixed-point
+    # undecided mask (grid-shaped, list[list[bool]] — ADR-0012, never a
+    # bitmask) and, when solution_count is MANY, a second witness solution.
+    # POL-002 (nudge) and POL-006 (repair) read the ambiguity off this
+    # payload instead of guessing at it. Name, trigger and count unchanged.
     name: PuzzleUniquenessCheckFailed
     triggered_by: CMD-005
     aggregate: AGG-001
     source: [US-005, US-006, US-007]
-    payload_summary: solution_count (0 or >1), mode
+    payload_summary: solution_count (0 or >1), mode, undecided_mask (cells open at the first fixed point), second_witness (only when MANY)
   - id: EVT-007
     name: PuzzleRegenerated
     triggered_by: CMD-006
@@ -57,11 +62,22 @@ events:
     source: [US-007]
     payload_summary: nudge_count_at_cap, reason
   - id: EVT-010
+    # AMENDED 2026-09-12: solver_time LEAVES the scoring signals (NFR-007/
+    # CON-014 — it may still be telemetry, it is never a score input).
+    # FR-026 (DEC pending) adds line-reasoning depth signals (fixed-point
+    # sweeps, first-sweep share, lines needing the full placement DP) and an
+    # explicit requires_guessing attribute — flag or separate tier is the
+    # open decision. Name and trigger unchanged.
+    # AMENDED 2026-09-12 (b) (FR-029): the scored result also carries the
+    # ORDERED strategies list derived from the same verifying solve (no
+    # re-solve) — a pure function of the clues (NFR-007). Enum members are
+    # provisional, fixed by DEC-030/DEC-031. Payload amendment only; no new
+    # event or command.
     name: DifficultyScored
     triggered_by: CMD-009
     aggregate: AGG-001
     source: [US-008]
-    payload_summary: score, signals(line_logic_coverage, backtracking_amount, solver_time, size, clue_density)
+    payload_summary: score, requires_guessing (flag or tier — DEC pending, FR-026), signals(line_logic_coverage, backtracking_amount, size, clue_density, fixed_point_sweeps, first_sweep_share, full_dp_lines), strategies (ordered list from the fixed enum — FR-029); solver_time is telemetry only, never a score input (NFR-007)
   - id: EVT-011
     name: PuzzleResampledForDifficulty
     triggered_by: CMD-010
@@ -81,8 +97,20 @@ events:
     source: [US-009]
     payload_summary: format(png|svg), file_path
   - id: EVT-014
+    # AMENDED 2026-09-12 (b) (FR-029): the JSON payload written here carries
+    # a `strategies` array equal to the puzzle's ordered list (AC-140).
     name: PuzzleExportedAsData
     triggered_by: CMD-013
     aggregate: AGG-001
     source: [US-010]
     payload_summary: format(json|csv), file_path
+  - id: EVT-015
+    # New 2026-09-12 (FR-025 / POL-006 / CMD-014, DEC pending): a non-unique
+    # random-mode candidate was repaired in place — one filled/empty pair
+    # flipped inside the undecided/disagreement region, filled count exact.
+    # Always followed by a fresh CMD-005 on the repaired grid (INV-002).
+    name: CandidateGridRepaired
+    triggered_by: CMD-014
+    aggregate: AGG-001
+    source: [US-006]
+    payload_summary: retry_count, flipped_pair (one filled cell, one empty cell — both inside undecided_mask), repaired_grid

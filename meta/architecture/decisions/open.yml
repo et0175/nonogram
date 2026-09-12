@@ -1,3 +1,4 @@
+# tier: medium
 # generated_by: forge:architect
 # generated_at: 2026-08-27
 # updated_at: 2026-08-30 (delta mode — local web UI capability, FR-017/NFR-003/CON-007/CON-008/EC-003)
@@ -116,6 +117,57 @@
 # * No pattern library present (~/.forge/decision-patterns.yml absent), so no
 #   prior_pattern fields are injected on this run.
 
+# updated_at: 2026-09-12 (delta mode — the 2026-09-12 generation-algorithm
+#   review: FR-024..FR-028, NFR-007, CON-014, EC-011..EC-016, the FR-013
+#   amendment, POL-006 and the POL-001/002/004/005 notes. Six DECs surfaced,
+#   DEC-029..DEC-034; none decided here. Scope notes:
+#     * NONE of them lists synthesis in `blocks`. Checked honestly, not to dodge
+#       the validator: every one of them changes a component's CONTRACT or an
+#       internal rule (solver result shape, orchestrator recovery reaction,
+#       scorer formula, sourcing binarisation, density validation) and none
+#       adds, removes or re-wires a C4 element — COMP-001..COMP-008 and the
+#       inward-only dependency direction (ADR-0007) survive every alternative.
+#       c4/ exists, so a synthesis block would also be an immediate ERROR
+#       (see the DEC-025 precedent above). What they DO gate is card cutting:
+#       each carries `blocks: [decompose]` because which acceptance-criteria
+#       set survives (requirements.yml `criteria_by_alternative`) is exactly
+#       what a card's AC list is cut from.
+#     * FR-024 (undecided mask + second witness on the solver result) needs
+#       NO DEC — no genuine alternative survives the requirement as written:
+#       the mask is a grid-shaped boolean, the witness a second grid, both
+#       list[list[bool]] at the boundary, the fail-fast stop unchanged (the
+#       second solution the search already stops on IS the second witness).
+#       ADR REVISION EXPECTED, no DEC: ADR-0009 (the solver contract gains
+#       the first-fixed-point mask and the second witness; strategy, fail-
+#       fast and oracle cross-check unchanged) and ADR-0012 (boundary rule
+#       extended — the mask and the witness cross the module boundary as
+#       list[list[bool]], never as the internal bitmask pair; EC-012). The
+#       adr-writer should apply both as History entries when it resolves
+#       DEC-029, the first consumer of the mask.
+#     * NFR-007 / CON-014 (no wall-clock time in the score or the tier
+#       decision) needs NO DEC — one option only, and it is already a
+#       mandatory CON. ADR REVISION EXPECTED, no DEC: ADR-0013's rejected
+#       alternative `exclude_wall_clock_time` becomes the rule; folded into
+#       DEC-031 (which supersedes ADR-0013's formula anyway) rather than
+#       revised twice. ADR-0015 CONSEQUENCE AMENDMENT EXPECTED, no DEC: its
+#       "same seed replays the same run" positive consequence today holds
+#       only without --difficulty (docs/GENERATION_ALGORITHM.md §10.2 #3);
+#       after DEC-031 it holds unconditionally — the adr-writer records that
+#       as an ADR-0015 History entry when resolving DEC-031.
+#     * FR-013's amendment (nudge chooses from the FR-024 mask) is a
+#       mechanism change with one option in the intake — no DEC. Its open
+#       gap (attempt n when |mask| < n) is an owner question recorded in
+#       FR-013 _meta.gaps, not a DEC.
+#     * FR-027's ADR-0006 touch is a rationale sentence ("Pillow does the
+#       dithering"), not a rule: the threshold path still uses only Pillow +
+#       NumPy, ADR-0006/R1 is untouched. Recorded inside DEC-032.
+#     * Category 0 verified against platform.yml: stack (ADR-0006), style
+#       (ADR-0007), runtime (ADR-0008) all `confirmed`; nothing in this delta
+#       moves any axis. Not re-surfaced.
+#     * DEC-026 stays HELD (its own note); nothing in resolved.yml is
+#       re-surfaced. No pattern library present (~/.forge/decision-patterns.yml
+#       absent), so no prior_pattern fields on this run.
+
 open:
   - id: DEC-026
     question: >
@@ -168,5 +220,6 @@ open:
     status: open
     blocks: []
     depends_on: []
+
 
 

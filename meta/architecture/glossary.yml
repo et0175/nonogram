@@ -1,0 +1,181 @@
+# generated_by: forge:brainstorm
+# generated_at: 2026-08-27
+terms:
+  - id: TERM-001
+    term: Nonogram
+    definition: A picture logic puzzle solved by filling cells in a grid according to numeric row/column clues, revealing a picture.
+    context: shared
+    aliases: [Picross, Griddler]
+    source: [US-001]
+  - id: TERM-002
+    term: Clue
+    definition: The sequence of numbers for one row or column giving the lengths, in order, of consecutive runs of filled cells in that line.
+    context: shared
+    source: [US-004]
+  - id: TERM-003
+    term: Solution grid
+    definition: The underlying black/white pixel grid a puzzle's clues are derived from; hidden from the player, used to verify solving.
+    context: shared
+    source: [US-001]
+  - id: TERM-004
+    term: Uniqueness check
+    definition: >-
+      Running a nonogram solver against a puzzle's clues to confirm that
+      exactly one grid satisfies them. Sameness of two candidate solution
+      grids is defined as: every (row, column) cell matches exactly,
+      position-for-position, between the two grids — grid equality is
+      computed from a full cell-by-cell comparison, nothing looser (no
+      rotation/reflection/palette normalization). The solver counts a
+      candidate as a distinct ("second") solution the moment it finds any
+      grid that is not equal by this definition to the first one found,
+      and stops searching further once a second distinct grid is found
+      (fail-fast on ambiguity, FR-006).
+    context: shared
+    source: [US-005]
+  - id: TERM-005
+    # AMENDED 2026-09-12: "solver time" is no longer a scoring signal
+    # (NFR-007/CON-014); line-reasoning depth signals and the explicit
+    # requires-guessing attribute (TERM-015) are pending FR-026's DEC.
+    term: Difficulty score
+    definition: >-
+      A heuristic numeric score combining solver signals (line-logic
+      coverage, backtracking amount, clue density, puzzle size) used to
+      bucket a puzzle into Easy, Medium, or Hard. Since 2026-09-12 solver
+      wall-clock time is excluded from the signals (NFR-007), so the same
+      seed scores identically on any machine; FR-026 (DEC pending) adds
+      line-reasoning depth signals so line-solvable puzzles (TERM-014)
+      span the whole scale.
+    context: shared
+    aliases: [Difficulty tier, Difficulty level]
+    source: [US-008]
+  - id: TERM-006
+    term: Puzzle
+    definition: The playable definition handed to the solver of a nonogram — clues plus grid dimensions. Distinct from the solution grid, which stays hidden from the player.
+    context: shared
+    source: [US-004, docs/requirements.md#3]
+  - id: TERM-007
+    term: Density
+    definition: The approximate percentage of filled cells requested when generating a random grid.
+    context: shared
+    source: [FR-004, docs/requirements.md#FR-4]
+  - id: TERM-008
+    term: Pixel nudge
+    definition: A bounded, automatic flip of a small number of cells in an uploaded image's converted grid, attempted when the initial conversion does not yield a unique-solution puzzle.
+    context: shared
+    aliases: [pixel adjustment]
+    source: [US-007, docs/requirements.md#FR-16]
+  - id: TERM-009
+    term: Distinct solution
+    definition: >-
+      The equality relation CON-005, INV-002, and EC-001 all depend on but
+      do not individually restate: two solution grids are the SAME solution
+      if and only if they are identical cell-by-cell across every (row,
+      column) position, compared using the list[list[bool]] boundary
+      representation fixed by ADR-0012 — no rotation, reflection, or
+      palette normalization. "Distinct" means not the same by this
+      definition. A puzzle's clue set inherits the same equality
+      transitively: two clue sets are the same puzzle only if every solution
+      grid consistent with one is also consistent with the other under this
+      definition. This is the exact relation the solver's fail-fast rule
+      (AC-017) and the mandatory correctness property (CON-005) test
+      against.
+    context: shared
+    source: [CON-005, INV-002, EC-001, AC-017, ADR-0012]
+  - id: TERM-010
+    term: Puzzle name
+    definition: >-
+      A human-readable label identifying one puzzle instance, set as an
+      attribute of the Puzzle aggregate at creation time — either
+      auto-generated (the library key for library-sourced puzzles, or a
+      mode+timestamp for random/image-sourced puzzles) or supplied by the
+      user via --name. Shown as a header on exported PDF pages alongside
+      the difficulty tier.
+    context: shared
+    source: [US-011, US-012]
+  # --- 2026-09-12: generation algorithm review (FR-024..FR-028, NFR-007) ---
+  - id: TERM-011
+    term: Undecided cells
+    definition: >-
+      The set of cells that line logic alone left open at the solver's
+      FIRST propagation fixed point — before any search branch. Exposed by
+      the solver as a grid-shaped boolean mask (FR-024). Every cell two
+      solutions can disagree on lies in this set, because propagation only
+      ever writes cells every solution agrees on; the set is empty exactly
+      when the puzzle is line-solvable.
+    context: shared
+    aliases: [undecided mask, first-fixed-point mask, ambiguous region]
+    source: [FR-024, FR-013, FR-025, docs/GENERATION_ALGORITHM.md#6.4]
+  - id: TERM-012
+    term: Witness solution
+    definition: >-
+      A full solution grid the solver returns as evidence for its count:
+      one witness when the count is 1, two distinct (TERM-009) witnesses
+      when it reports MANY (FR-024). The cells on which the two witnesses
+      disagree form the disagreement set, a subset of the undecided cells
+      (TERM-011). No witness exists when the count is 0.
+    context: shared
+    aliases: [second witness, disagreement set]
+    source: [FR-024, FR-006, AC-017]
+  - id: TERM-013
+    term: Candidate repair
+    definition: >-
+      A random-mode recovery step in which a non-unique candidate grid is
+      altered in place rather than redrawn: one filled cell and one empty
+      cell inside the undecided cells (TERM-011) swap values, so the
+      filled-cell count — and therefore the requested density (TERM-007)
+      — stays exact, and the repaired grid is re-verified by the solver
+      (FR-025). Whether repair replaces, follows, or never joins the
+      redraw of FR-007 is an open decision (DEC pending).
+    context: shared
+    aliases: [repair, pair flip]
+    source: [FR-025, POL-006, CMD-014]
+  - id: TERM-014
+    term: Line-solvable puzzle
+    definition: >-
+      A puzzle whose unique solution the solver reaches by line logic
+      alone — propagation to a fixed point with no search branch
+      (branch_nodes 0). FR-026 requires such puzzles to be graded across
+      the whole difficulty scale by how much line reasoning they needed
+      (fixed-point sweeps, first-sweep share, lines needing the full
+      placement DP), not parked at the easy end.
+    context: shared
+    aliases: [logically solvable, solvable without guessing]
+    source: [FR-026, FR-009, docs/GENERATION_ALGORITHM.md#6]
+  - id: TERM-015
+    term: Requires guessing
+    definition: >-
+      An explicit attribute of a scored puzzle stating that the solver had
+      to branch at least once (branch_nodes greater than 0) to reach its
+      unique solution — the negation of line-solvable (TERM-014). FR-026
+      makes it a fact about the solve, exposed either as a flag beside the
+      Easy/Medium/Hard tier or as a tier of its own; which is an open
+      decision (DEC pending).
+    context: shared
+    aliases: [needs search, non-line-solvable]
+    source: [FR-026, FR-010, EC-015]
+  - id: TERM-016
+    term: Ink coverage
+    definition: >-
+      The fraction of a grid cell's area that the source image's ink
+      occupies after the LANCZOS resize to the grid extent — read as the
+      cell's grey level. FR-027 proposes filling a silhouette cell when its
+      ink coverage is at least 50% (plain threshold) as the alternative to
+      Floyd-Steinberg dithering (FR-003); which binarisation applies is an
+      open decision with an owner visual gate.
+    context: shared
+    aliases: [coverage threshold, binarisation threshold]
+    source: [FR-027, FR-003, CON-013]
+  - id: TERM-017
+    term: Solving strategy
+    definition: >-
+      One kind of deduction a solver must be able to make to finish a
+      puzzle, named from a fixed enum (provisionally simple_overlap,
+      line_dp, cross_line, probe_contradiction, guess). A puzzle's
+      strategies are the ordered list of the kinds its one verifying solve
+      required (FR-029) — derived from that solve, never by re-solving —
+      and are saved with the puzzle, exported, and used to filter the admin
+      review. `guess` means the search branched (TERM-015). The enum's
+      members are fixed by DEC-030/DEC-031.
+    context: shared
+    aliases: [strategies_used, technique, required technique]
+    source: [FR-029, FR-026, docs/GENERATION_ALGORITHM.md#6, CARD-072]

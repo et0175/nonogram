@@ -1,8 +1,18 @@
 # generated_by: forge:architect-domain-extraction
 # generated_at: 2026-08-27
+# updated_at: 2026-09-12 (delta mode — generation algorithm review: POL-006
+#   added next to POL-001 as the random-mode REPAIR reaction, DEC pending
+#   (FR-025); POL-002's mechanism note (FR-013 amendment); POL-004's tier
+#   decision note (NFR-007/CON-014, FR-026). No policy removed or renumbered.)
 # tier: medium
 policies:
   - id: POL-001
+    # NOTE 2026-09-12: this policy's MECHANISM for random mode (redraw a
+    # fresh grid) is one of the alternatives FR-025 leaves to a DEC; POL-006
+    # below is the repair alternative. Under a pure-repair outcome POL-001
+    # keeps firing for library mode and stops for random mode; under a
+    # hybrid it fires first and POL-006 follows. Both draw on the SAME
+    # retry counter (INV-003) — there is no second bound.
     name: AutoRegenerateOnUniquenessFailure
     when: "EVT-006 + mode in {random, library} + retry_count < max_retries"
     then: CMD-006
@@ -11,6 +21,11 @@ policies:
       library-sourced puzzle happens to be unique — the tool discards a
       non-unique candidate and tries again automatically.
   - id: POL-002
+    # NOTE 2026-09-12 (FR-013 amendment, mechanism half only): CMD-007 now
+    # chooses the cells it flips from the solver's undecided/disagreement
+    # mask carried on EVT-006 (FR-024), nearest the ink boundary first,
+    # instead of the 2x2 switching-block heuristic. This `when`, the cap of
+    # 5 and POL-003's report-at-cap reaction are unchanged.
     name: AutoNudgePixelsOnImageUniquenessFailure
     when: "EVT-006 + mode == image + nudge_count < max_nudge_cap"
     then: CMD-007
@@ -28,6 +43,15 @@ policies:
       image silently and report failure instead, letting the user retry
       with a different image or size.
   - id: POL-004
+    # NOTE 2026-09-12: the "score outside requested tier's threshold range"
+    # condition is amended twice without changing the reaction. NFR-007/
+    # CON-014 — the score and the band test are pure functions of the
+    # solve's structural signals, never of elapsed time, so the same seed
+    # fires or does not fire this policy identically on every machine.
+    # FR-026 (DEC pending) — the band is read off a scale that grades
+    # line-solvable puzzles across its whole range, and "requires guessing"
+    # is an explicit attribute of EVT-010's payload; whether it is a flag or
+    # a tier decides what "requested tier" can name.
     name: ResampleOnDifficultyOutOfRange
     when: "EVT-010 + score outside requested tier's threshold range + retry_count < max_retries"
     then: CMD-010
@@ -37,6 +61,8 @@ policies:
       automatically until the score lands in range or the retry bound is
       hit.
   - id: POL-005
+    # NOTE 2026-09-12: repair attempts (POL-006) count in the same
+    # retry_count this policy reads — FR-025/EC-013.
     name: AbandonAfterMaxRetries
     when: "(EVT-006 or EVT-010 out-of-range) + retry_count >= max_retries"
     then: CMD-011
@@ -46,3 +72,25 @@ policies:
       difficulty at a given size, or a size/density combination that
       rarely yields a unique puzzle) fails clearly instead of looping
       forever.
+  - id: POL-006
+    # New 2026-09-12 (FR-025, raw-requirements.md 2026-09-12 entry 2 —
+    # marked DECISION). The REPAIR alternative to POL-001 for random mode:
+    # instead of redrawing the whole grid, flip one filled/empty pair inside
+    # the ambiguous region EVT-006 now carries (FR-024) and re-verify. Whether
+    # this policy replaces POL-001 for random mode, follows it (hybrid), or is
+    # never enabled (pure redraw) is the open DEC; it is modeled now so the
+    # model can carry any outcome without renumbering. Never fires for
+    # library or image mode. Shares INV-003's single counter with POL-001.
+    name: RepairCandidateOnUniquenessFailure
+    when: "EVT-006 + mode == random + undecided_mask non-empty + retry_count < max_retries"
+    then: CMD-014
+    rationale: >-
+      FR-025 / docs/GENERATION_ALGORITHM.md §10: a non-unique random
+      candidate is usually ambiguous in a handful of cells the solver can
+      now point at; redrawing the whole grid throws away a grid that was
+      nearly right and re-rolls the same odds, whereas a pair flip inside
+      the ambiguous region keeps the filled count (density) exact and
+      targets the ambiguity directly. Every repaired grid is re-verified by
+      the real solver (CON-005, INV-002) and every repair attempt counts
+      against the same ADR-0002 bound (INV-003) — those two hold under
+      every alternative the DEC can choose.

@@ -22,6 +22,12 @@ aggregates:
         statement: >-
           A puzzle is only marked ready for export after its uniqueness
           check has confirmed exactly one solution (US-005, FR-011).
+      # NOTE 2026-09-12 (FR-025/POL-006, DEC pending): a REPAIR attempt on a
+      # random-mode candidate is a regenerate attempt for the purposes of
+      # this invariant — it draws on the same counter and the same bound
+      # (ADR-0002); there is no second counter for repairs. Statement not
+      # rewritten: "regenerate attempts for random/library mode" already
+      # names the counter repairs share.
       - id: INV-003
         statement: >-
           A puzzle's automatic-retry counter (regenerate attempts for

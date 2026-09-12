@@ -11,8 +11,16 @@
 '                                                       POL-001..POL-005, INV-002, INV-003)
 '   COMP-003  Grid Sourcing           CTX-001  CAP-001  ADR-0006, ADR-0012, ADR-0015
 '   COMP-004  Clue Derivation         CTX-001  CAP-002  ADR-0012 (INV-001)
-'   COMP-005  Solver                  CTX-001  CAP-003  ADR-0009, ADR-0011, ADR-0012, ADR-0014
-'   COMP-006  Difficulty Scoring      CTX-001  CAP-004  ADR-0005, ADR-0013
+'   COMP-005  Solver                  CTX-001  CAP-003  ADR-0009, ADR-0011, ADR-0012, ADR-0014, ADR-0029
+'   COMP-006  Difficulty Scoring      CTX-001  CAP-004  ADR-0005, ADR-0025, ADR-0029 (ADR-0013 superseded)
+'
+' DELTA 2026-09-12 (forge:architect-synthesis --trace-only, drift check): no
+'   component added or removed. Two CONTRACTS changed and only their labels
+'   below were rewritten — COMP-005's result gains the first-fixed-point
+'   undecided mask, a second witness on MANY (FR-024) and per-cell rung tags
+'   (ADR-0029); COMP-006's classifier takes (score, branch_nodes), emits the
+'   four-value tier incl. `guess` (ADR-0025) and the strategies list (FR-029),
+'   with no clock term (NFR-007/CON-014). Everything else is left as found.
 '   COMP-007  Export Renderers        CTX-001  CAP-005  ADR-0006, ADR-0016, ADR-0017
 '
 ' Generated from: CTX-001 capabilities [CAP-001..CAP-005], aggregates
@@ -43,9 +51,9 @@ Container_Boundary(cliTool, "Puzzle Creation CLI (CTX-001)") {
 
   Component(clues, "COMP-004 Clue Derivation", "Python — clues.py", "CAP-002: run-length encodes every row and column of a solution grid into clue tuples (FR-005), including the [0] empty-line marker. Pure function; upholds INV-001 (clues always equal the RLE of the current grid). Boundary types per ADR-0012.")
 
-  Component(solver, "COMP-005 Solver", "Python — solver/", "CAP-003: hand-rolled line solver (ADR-0009) — per-line clue-possibility propagation to a fixed point, then branching on the most-constrained unknown cell; fails fast the moment a second distinct solution appears (FR-006/AC-017). Reports solution_count (0/1/many) plus the difficulty signals (line-logic coverage, backtracking amount, solve time). Int-bitmask-per-line grid representation (ADR-0012). Cooperative deadline check at each fixed point and branch node, raising SolverTimeout (ADR-0011). PURE function of clues — no filesystem, no CLI, no I/O — so EC-001/CON-005 can be property-tested directly against a brute-force reference oracle (ADR-0014).")
+  Component(solver, "COMP-005 Solver", "Python — solver/", "CAP-003: hand-rolled line solver (ADR-0009) — per-line clue-possibility propagation to a fixed point, then branching on the most-constrained unknown cell; fails fast the moment a second distinct solution appears (FR-006/AC-017). Reports solution_count (0/1/many) plus, from the same one solve: the first-fixed-point undecided mask and — on MANY — the second witness solution (FR-024, both list[list[bool]] at the boundary, EC-012), the structural signals (line-logic coverage, branch_nodes; elapsed time is a deadline fact, never a difficulty input — NFR-007/CON-014), and each settled cell's rung tag on the ladder simple_overlap < line_dp < cross_line < probe_contradiction (ADR-0029/R2, overlap masks re-derived natively per ADR-0007). Int-bitmask-per-line grid representation (ADR-0012). Cooperative deadline check at each fixed point and branch node, raising SolverTimeout (ADR-0011). PURE function of clues — no filesystem, no CLI, no I/O — so EC-001/CON-005 can be property-tested directly against a brute-force reference oracle (ADR-0014).")
 
-  Component(difficulty, "COMP-006 Difficulty Scoring", "Python — difficulty.py", "CAP-004: normalizes the five FR-009 solver signals against size-relative denominators and combines them into one 0..100 weighted score (ADR-0013); buckets that score into the Easy/Medium/Hard tier cutoffs (FR-008, FR-010, ADR-0005). Heuristic, not a construction guarantee (CON-004).")
+  Component(difficulty, "COMP-006 Difficulty Scoring", "Python — difficulty.py", "CAP-004: derives the 0..100 score of a line-solvable puzzle from the solver's rung tags — the hardest rung required, then the share of cells settled at it (ADR-0029, replacing ADR-0013's weighted sum; FR-026) — and classifies with ONE function taking (score, branch_nodes): branch_nodes > 0 is Tier.GUESS by that fact alone (EC-015, ADR-0025), the score bands Easy/Medium/Hard apply only to the remainder (FR-008, FR-010, ADR-0005 cutoffs). Emits the ordered strategies list — the rungs present, `guess` appended iff the search branched (FR-029, EC-017). No clock reading and no size/density term enters score, tier or list (NFR-007, CON-014, ADR-0029/R3). Heuristic bands, not a construction guarantee (CON-004).")
 
   Component(export, "COMP-007 Export Renderers", "Python — export/", "CAP-005: renders a finalized, uniqueness-confirmed puzzle as print-ready PNG/SVG (FR-011, Pillow per ADR-0006) or as JSON/CSV carrying the full solution grid, clues and seed (FR-012, ADR-0015), exactly round-trippable per EC-002. Also renders the FR-016 two-page PDF (page 1 blank puzzle + clues, page 2 answer key, both headered with the FR-015 name and difficulty tier) by reusing that same PNG raster path through Pillow's built-in multi-page PDF save — no new dependency (CON-006, ADR-0006). Resolves the export path as <name>-<difficulty>.pdf (ADR-0016), auto-suffixing on collision (ADR-0017). Static output only (CON-002). Invoked only after the orchestrator's INV-002 gate passes.")
 }
@@ -59,8 +67,8 @@ Rel(orchestrator, cli, "Returns run outcome: export paths, nudge count, abandonm
 
 Rel(orchestrator, sourcing, "Generate / regenerate candidate grid (CMD-001..CMD-003, CMD-006); nudge pixels (CMD-007)", "in-process call")
 Rel(orchestrator, clues, "Compute row/column clues (CMD-004)", "in-process call")
-Rel(orchestrator, solver, "Check uniqueness with deadline (CMD-005)", "in-process call")
-Rel(orchestrator, difficulty, "Score candidate from solver signals (CMD-009); resample decision (CMD-010)", "in-process call")
+Rel(orchestrator, solver, "Check uniqueness with deadline (CMD-005) — returns count, solution, undecided mask + second witness on MANY (FR-024), signals and rung tags (ADR-0029)", "in-process call")
+Rel(orchestrator, difficulty, "Classify candidate from (score, branch_nodes) and rung tags (CMD-009) — tier incl. `guess` + strategies list; resample decision (CMD-010)", "in-process call")
 Rel(orchestrator, export, "Export finalized puzzle (CMD-012, CMD-013) — only after the INV-002 gate", "in-process call")
 
 Rel(sourcing, filesystem, "Reads uploaded source image (FR-003)", "Pillow")

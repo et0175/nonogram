@@ -1,0 +1,2378 @@
+# generated_by: forge:architect-domain-extraction
+# generated_at: 2026-08-27
+# updated_at: 2026-08-30 (delta mode — web UI request-origin validation gap
+#   found by an independent post-hoc review of CARD-019: new NFR-004 /
+#   AC-054..058 / EC-004, and CON-009/CON-010 restating NFR-003 and NFR-004
+#   as gate-enforced constraints so BCON-0001 is discharged by a checked
+#   rule, not only by tests — see meta/review/20260830T163436Z-CARD-019-
+#   posthoc.yml)
+# updated_at: 2026-08-30 (delta mode — RECTANGULAR GRIDS AND PRINT-LEGIBLE CELL
+#   SIZES, US-016..US-019, raw-requirements.md lines 83-88. Grid "size" stops
+#   being one scalar and becomes a (width, height) pair, and the accepted side
+#   range narrows from 10..50 to 10..30. Concretely:
+#     * FR-018  the request carries width AND height; `--size N` / `--size NxM`
+#     * FR-019  SUPERSEDES FR-001 (its statement carried the 10x10..50x50 range)
+#     * FR-020  uploaded silhouette fitted to the requested grid SHAPE
+#     * FR-021  refuse a request whose grid/source aspect ratios differ by >2x
+#     * NFR-005 printed cell size as a declining function of max(width, height)
+#     * CON-011 10..30 per side, MAX_SIZE = 30 project-wide, every source mode
+#     * CON-012 the aspect-ratio refusal as a gate-enforced rule
+#     * CON-013 image sourcing is scoped to high-contrast B/W silhouettes
+#     * EC-005..EC-008, AC-059..AC-084, INV-004 (aggregates.yml)
+#   Size-dependent statements elsewhere that this delta TOUCHED: FR-003
+#   (AC-009 superseded by AC-059), FR-012 (JSON/CSV metadata records a single
+#   `size` int today — a FILE FORMAT change; AC-060/AC-061 added), NFR-001
+#   (threshold ceiling 50x50 -> 30x30, AC-038 superseded by AC-084).
+#   Size-dependent statements checked and deliberately left UNCHANGED: FR-002
+#   (library, no range in its text — governed by CON-011), FR-004 (density is a
+#   percentage), FR-005/FR-006 (clue encoder and solver are already
+#   rectangle-native — verified empirically, an 8x14 grid solves uniquely and a
+#   3x5 computes correct clues), FR-011/FR-016 (renderers derive dimensions from
+#   the clue sets, not from a size parameter — src/nonogram/export/layout.py),
+#   FR-015 (auto-generated names carry mode+timestamp or the library key, never
+#   a size), FR-017/AC-050 (60x60 is still out of range, so the AC stays true —
+#   only its status as THE boundary case moved to AC-069).)
+# updated_at: 2026-09-01 (delta mode — raw-requirements.md entries dated
+#   2026-09-01, processed in order:
+#     1. FR-022 (new) — trim an uploaded source image to its ink bounding box
+#        before FR-020's aspect fit. BEST-EFFORT by explicit user decision, NOT
+#        a guaranteed invariant (see FR-022's statement) — no engineering_
+#        constraints block is emitted for it on purpose.
+#     2. NOT formalized here — a genuine open decision (whether FR-021/CON-012's
+#        >2x refusal judges the original or the FR-022-trimmed source extent)
+#        surfaced as DEC-025 in decisions/open.yml. Not decided in this pass.
+#     3. FR-015 amended in place (id/kind/test refs of its existing ACs stable,
+#        per the EC-007 2026-08-31 precedent) — image-mode auto-naming now
+#        defaults to the source file's stem (AC-090), mirroring AC-043's
+#        library-key rule, instead of falling through to mode+timestamp.
+#     4. NOT formalized as a requirement — an ADR-0016 revision, surfaced as
+#        DEC-026 in decisions/open.yml for forge:architect-adr-writer.
+#     5. NOT formalized as a requirement — an ADR-0006 revision, surfaced as
+#        DEC-027 in decisions/open.yml for forge:architect-adr-writer.
+# updated_at: 2026-09-01 (delta mode — the LAST SEVEN raw-requirements.md
+#   entries dated 2026-09-01, about what a bare `--size N` means once
+#   FR-018/CARD-027 lands the (width, height) pair:
+#     1. FR-023 (new) — a bare `--size N` derives the shorter side from the
+#        source's own shape (round(N * short/long), clamped at MIN_SIZE only
+#        at the bottom); `--size NxM` is unaffected. Includes the N/5:1
+#        widest-accepted-ratio consequence and the refuse-naming-smallest-N
+#        decision (AC-097/AC-098, EC-009).
+#     2. NOT formalized as a requirement — a narrow amendment to ADR-0022's
+#        "grid drives the picture" principle, surfaced as DEC-028 in
+#        decisions/open.yml for forge:architect-adr-writer.
+#     3. NOT formalized as a requirement — CARD-027 sequencing context, folded
+#        into DEC-028's question/notes rather than given its own id.
+#     4. Folded into FR-023 above (round(N * short/long), per-source-mode
+#        shape meaning) — same entry, continued.
+#     5. Folded into FR-023 above (the N/5:1 ceiling and the refuse-and-name-
+#        smallest-N decision) — same entry, continued.
+#     6. NFR-006 (new) — page orientation follows the grid's shape (wide ->
+#        landscape, tall/square -> portrait); prerequisite for NFR-005's
+#        page_fit term now that grids can be rectangular.
+#     7. NFR-005 and EC-008 AMENDED IN PLACE (ids/kinds/test refs stable, the
+#        2026-08-31 EC-007 amendment precedent): printed cell size is not a
+#        function of max(width, height) alone — a 40x20 and a 20x40 sharing
+#        max() = 40 measured 3.39mm and 4.91mm on a fixed-orientation page,
+#        and still 5.00mm vs 4.91mm once NFR-006 is applied (AC-104). The
+#        genuinely-held property is restated as a ceiling (never exceeds the
+#        comfort cap), not monotonicity or equality of the final value.
+#   Two new stories: US-021 (FR-023), US-022 (NFR-006).
+#   The ~13 unprocessed raw-requirements.md entries derived from
+#   docs/monogram_analyzer.md (technique levels, branching, information gain,
+#   dependency depth, symmetry, image-complexity metrics, `nonogram analyze`)
+#   are UNTOUCHED by this delta — deliberately deferred, left unprocessed.
+# updated_at: 2026-09-12 (delta mode — ONLY the seven raw-requirements.md
+#   entries under "## 2026-09-12 — generation algorithm review"
+#   (docs/GENERATION_ALGORITHM.md §10). Processed in order:
+#     1. FR-024 (new) — the solver exposes the cells line logic left undecided
+#        at its first fixed point and, on MANY, a second witness solution.
+#        Extends FR-006's contract; FR-006 carries a dated note. EC-011/EC-012.
+#        (Criteria: AC-107..AC-110, AC-131.)
+#     2. FR-025 (new, DEC EXPECTED) — random-mode recovery of a non-unique
+#        candidate: redraw (today) / repair / redraw-then-repair. Formalized
+#        NEUTRALLY; the alternative is NOT chosen here. FR-007 carries a dated
+#        note; POL-006 / CMD-014 / EVT-015 added next to POL-001. EC-013.
+#        (Criteria: AC-111..AC-114, AC-132.)
+#     3. FR-013 AMENDED IN PLACE (mechanism half only — cell choice from the
+#        solver's undecided mask, nearest the ink boundary first; the cap of 5
+#        and the cumulative-from-original property are unchanged). Existing
+#        AC ids/tests stable (EC-007 2026-08-31 precedent); AC-115..AC-117 and
+#        EC-014 are new.
+#     4. FR-026 (new, DEC EXPECTED) — line-solvable puzzles graded across the
+#        whole scale by line-reasoning depth; "requires guessing" as an
+#        explicit attribute (flag vs separate tier NOT chosen here; ADR-0013
+#        formula / ADR-0005 bands revision is adr-writer's job). FR-009 and
+#        FR-010 carry dated notes; AC-023 is contradicted and flagged, not
+#        rewritten. EC-015.
+#     5. NFR-007 (new) + CON-014 (new standing rule) — wall-clock solve time
+#        never enters the difficulty score or the tier decision. FR-009's
+#        signal list carries a dated note; ADR-0013/ADR-0015 revision expected.
+#        EC-016.
+#     6. FR-027 (new, DEC EXPECTED, OWNER VISUAL GATE) — silhouette
+#        binarisation: 50% ink-coverage threshold vs Floyd-Steinberg dither
+#        (today); dither kept for genuinely greyscale input. FR-003 carries a
+#        dated note.
+#     7. FR-028 (new, DEC EXPECTED) — density 0 and 100: refuse as
+#        InvalidDensity (valid 1..99) or state that degenerate grids are
+#        allowed. Both alternatives' criteria are written, tagged, and exactly
+#        one set survives the DEC. FR-004 carries a dated note. (Criteria:
+#        AC-128..AC-130, AC-133, AC-134.)
+#   No new stories: every new entry is sourced from the existing US-001,
+#   US-003, US-005, US-006, US-007 or US-008 it refines. The older unprocessed
+#   entries (the 2026-09-02/03 AMENDS/SUPERSEDES lines and the monogram-
+#   analyzer block) are UNTOUCHED by this delta.
+# updated_at: 2026-09-12 (b) (delta mode — ONLY the single raw-requirements.md
+#   entry under "## 2026-09-12 (b) — solving strategies saved with the
+#   puzzle" (owner request; delivery card CARD-072 already cut):
+#     1. FR-029 (new) — every generated puzzle carries the ordered list of
+#        solving strategies its verifying solve required, derived from that
+#        one solve (no re-solve, ADR-0013), deterministic per clue set and
+#        wall-clock independent (NFR-007/CON-014), persisted with the puzzle
+#        (DB column `strategies_used`), present in the JSON export payload,
+#        shown and filterable in the admin review. Refines FR-009 and FR-026
+#        (neither rewritten; FR-009 carries a dated note (c)). The enum
+#        members are PROVISIONAL — fixed by the open DEC-030/DEC-031 (FR-026's
+#        decisions), recorded as a dependency in FR-029's _meta, not decided
+#        here. (Criteria: AC-135..AC-143, EC-017, EC-018.) TERM-017 added;
+#        EVT-010 / EVT-014 carry payload notes — no new event or command.
+#   No new stories: sourced from US-008 and US-010. Every other unprocessed
+#   raw-requirements.md entry is UNTOUCHED by this delta.
+# tier: medium
+functional:
+  - id: FR-001
+    # SUPERSEDED 2026-08-30 by FR-019 (US-016, raw-requirements.md line 84).
+    # The statement below is preserved VERBATIM and is deliberately not edited:
+    # its "10x10 to 50x50" range is exactly what was superseded, so rewriting it
+    # in place would erase the thing the supersession records. FR-019 restates
+    # the same behaviour over a (width, height) pair with each side in 10..30.
+    # AC-001..AC-004 retire with it: AC-001 -> AC-066, AC-002 (50x50 max) ->
+    # AC-068 (30x30 max), AC-003 (60x60 rejected) -> AC-069 (31x30 rejected —
+    # 60x60 is no longer the boundary at MAX_SIZE=30), AC-004 (9x9 rejected) ->
+    # AC-070 (30x9 rejected). The FR entry, its trace row and its capability
+    # mapping all stay in place so the supersession is reversible.
+    status: superseded
+    superseded_by: FR-019
+    statement: >-
+      Generate a random black/white solution grid at a configurable size
+      from 10x10 to 50x50.
+    source: [US-001]
+    acceptance:
+      - id: AC-001
+        given: a request for a 20x20 random grid
+        when: the grid is generated
+        then: a 20x20 black/white grid is produced
+        kind: happy
+        test: TestGenerateRandom_ProducesRequestedSize
+      - id: AC-002
+        given: a request for the maximum supported size, 50x50
+        when: the grid is generated
+        then: a 50x50 grid is produced without error
+        kind: boundary
+        test: TestGenerateRandom_AcceptsMaxSize50
+      - id: AC-003
+        given: a request for a 60x60 grid (above the supported range)
+        when: generation is requested
+        then: the request is rejected with a size-range error and no grid is produced
+        kind: negative
+        test: TestGenerateRandom_RejectsSizeAbove50
+      - id: AC-004
+        given: a request for a 9x9 grid (below the supported range)
+        when: generation is requested
+        then: the request is rejected with a size-range error and no grid is produced
+        kind: negative
+        test: TestGenerateRandom_RejectsSizeBelow10
+
+  - id: FR-002
+    statement: >-
+      Generate a solution grid from a fixed, named built-in image library
+      (at minimum: cat, house, heart, moon), selectable by key; the library
+      set is extensible without changing this requirement.
+    source: [US-002]
+    acceptance:
+      - id: AC-005
+        given: the built-in library key "cat"
+        when: a grid is requested from the library
+        then: a grid matching the cat template at the target size is produced
+        kind: happy
+        test: TestGenerateLibrary_ProducesCatGrid
+      - id: AC-006
+        given: an unknown library key "dragon" not present in the built-in library
+        when: a grid is requested from the library
+        then: the request is rejected with an unknown-library-image error and no grid is produced
+        kind: negative
+        test: TestGenerateLibrary_RejectsUnknownKey
+
+  - id: FR-003
+    # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
+    # entry 6): the "Floyd-Steinberg error-diffusion dithering" clause of this
+    # statement is under decision for CON-013 silhouette input — FR-027
+    # formalizes the alternative (a 50% ink-coverage threshold after the
+    # LANCZOS resize, dither kept for genuinely greyscale input) NEUTRALLY,
+    # with a DEC expected and an owner visual gate on the picture corpus
+    # before anything lands. Statement, AC ids and tests are deliberately NOT
+    # rewritten here: until that DEC resolves, this FR describes what ships.
+    statement: >-
+      Generate a solution grid from a user-uploaded image, converted via
+      resize to the target grid size followed by Floyd-Steinberg
+      error-diffusion dithering before binarizing each cell.
+    source: [US-003]
+    acceptance:
+      - id: AC-007
+        given: a valid PNG image and a target size of 25x25
+        when: the image is converted
+        then: a 25x25 black/white grid is produced via resize and dithering
+        kind: happy
+        test: TestConvertImage_ProducesDitheredGrid
+      - id: AC-008
+        given: a path to a non-existent or corrupt image file
+        when: conversion is requested
+        then: the request fails with a "cannot read image" error and no grid is produced
+        kind: negative
+        test: TestConvertImage_RejectsUnreadableFile
+      # SUPERSEDED 2026-08-30 by AC-059 (FR-021). AC-009's unqualified "differs
+      # from the target grid" became false the moment FR-021 made a >2x ratio
+      # difference a REFUSAL rather than a crop: the criterion as written now
+      # asserts a converted grid for inputs the tool must reject. Preserved
+      # verbatim rather than rewritten; AC-059 restates it inside the accepted
+      # ratio band and reuses no test name.
+      - id: AC-009
+        status: superseded
+        superseded_by: AC-059
+        given: a source image whose aspect ratio differs from the target grid
+        when: the image is converted
+        then: the output grid has exactly the requested target dimensions
+        kind: boundary
+        test: TestConvertImage_ProducesExactTargetDimensions
+      - id: AC-059
+        given: a 563x980 portrait source image (ratio 0.574) and a 15x30 target grid (ratio 0.500), whose ratios differ by 1.15x — inside FR-021's accepted 2x band
+        when: the image is converted
+        then: the output grid has exactly 15 columns and 30 rows
+        kind: boundary
+        test: TestConvertImage_ProducesExactTargetDimensionsWithinAcceptedRatioBand
+
+  - id: FR-004
+    # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
+    # entry 7): the ends of the density range are under decision. Today 0 and
+    # 100 are accepted and yield an all-empty / all-filled grid that passes
+    # the uniqueness check as an Easy puzzle, while random_grid.py claims a
+    # later stage rejects them and none does. FR-028 formalizes both
+    # alternatives (refuse as InvalidDensity, valid range 1..99 — the review's
+    # recommendation — or state explicitly that degenerate grids are allowed)
+    # NEUTRALLY, DEC expected. AC-011 is unaffected under either alternative:
+    # 150% is outside both 0..100 and 1..99, so its `given` parenthetical
+    # "(outside the valid 0-100% range)" stays true and is NOT rewritten.
+    statement: >-
+      Support configuring grid density (approximate percentage of filled
+      cells) for random generation.
+    source: [US-001]
+    acceptance:
+      - id: AC-010
+        given: a requested density of 30%
+        when: a random grid is generated
+        then: the fraction of filled cells is within ±3 percentage points of 30% (ADR-0003)
+        kind: happy
+        test: TestGenerateRandom_RespectsDensityParameter
+      - id: AC-011
+        given: a requested density of 150% (outside the valid 0-100% range)
+        when: generation is requested
+        then: the request is rejected with an error and no grid is produced
+        kind: negative
+        test: TestGenerateRandom_RejectsInvalidDensity
+
+  - id: FR-005
+    statement: >-
+      Compute row and column clues from any solution grid via run-length
+      encoding of contiguous filled runs.
+    source: [US-004]
+    acceptance:
+      - id: AC-012
+        given: a grid row with pattern "██·███··"
+        when: clues are computed for that row
+        then: the row clue equals [2, 3]
+        kind: happy
+        test: TestComputeClues_EncodesRunLengths
+      - id: AC-013
+        given: a grid row with no filled cells
+        when: clues are computed for that row
+        then: the row clue is the empty-row marker [0]
+        kind: boundary
+        test: TestComputeClues_HandlesEmptyRow
+      - id: AC-014
+        given: any solution grid
+        when: clues are computed for every row and column
+        then: decoding each clue against the grid confirms it exactly matches that line's run-length encoding
+        kind: boundary
+        invariant: INV-001
+        test: TestComputeClues_MatchesGridExactly
+
+  - id: FR-006
+    # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
+    # entry 1): FR-024 EXTENDS this contract — alongside the count the solver
+    # now exposes the set of cells line logic left undecided at its first
+    # fixed point and, when it reports MANY, a second witness solution. The
+    # count semantics (0 / 1 / MANY), the fail-fast rule (AC-017) and EC-001
+    # are unchanged; the new outputs cross the module boundary as grid-shaped
+    # list[list[bool]] structures (ADR-0012), never as the internal bitmasks.
+    statement: >-
+      Implement a nonogram solver (constraint propagation + backtracking)
+      that determines a puzzle's solution count (0, 1, or many) from its
+      clues, failing fast once a second distinct solution is found rather
+      than exhaustively enumerating all solutions.
+    source: [US-005]
+    acceptance:
+      - id: AC-015
+        given: clues with exactly one valid solution
+        when: the puzzle is solved
+        then: the solver reports solution_count = 1 and returns that solution grid
+        kind: happy
+        test: TestSolver_ReportsUniqueSolution
+      - id: AC-016
+        given: clues with zero valid solutions (a contradictory clue set)
+        when: the puzzle is solved
+        then: the solver reports solution_count = 0 and no solution grid is returned
+        kind: negative
+        test: TestSolver_ReportsUnsolvable
+      - id: AC-017
+        given: clues admitting more than one valid solution
+        when: the puzzle is solved
+        then: the solver stops immediately after finding a second distinct solution and reports solution_count >= 2, without enumerating every solution
+        kind: boundary
+        test: TestSolver_FailsFastOnSecondSolution
+    engineering_constraints:
+      - id: EC-001
+        statement: >-
+          The solver never reports solution_count = 1 for a clue set that
+          actually has 0 or more than 1 solutions, for any input clue set
+          (the uniqueness check must never produce a false positive).
+        kind: consistency
+        instances: [AC-015]
+        test: PropertyTest_Solver_NeverFalsePositiveUniqueness
+
+  - id: FR-007
+    # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
+    # entry 2, marked DECISION): the MECHANISM half of this statement —
+    # "discard it and regenerate a new candidate" — is under decision for
+    # random mode. FR-025 formalizes the alternatives (pure redraw as today,
+    # pure repair of the ambiguous region keeping the filled count exact,
+    # redraw-then-repair hybrid) NEUTRALLY, DEC expected; POL-006 sits next to
+    # POL-001 in policies.yml as the repair reaction. The POLICY half —
+    # automatic, no user interaction, bounded by the same retry counter
+    # (INV-003, ADR-0002), every candidate re-verified by the real solver
+    # (CON-005) — is unchanged and holds under every alternative. AC-018 and
+    # AC-019 stand as written; library mode is untouched by the decision.
+    statement: >-
+      When a random/library-generated candidate fails the uniqueness check
+      (0 or >1 solutions), discard it and regenerate a new candidate
+      automatically, bounded by a maximum retry count.
+    source: [US-006]
+    acceptance:
+      - id: AC-018
+        given: a freshly generated random or library grid whose uniqueness check reports solution_count != 1
+        when: the auto-regenerate policy evaluates
+        then: a new candidate grid is generated automatically without user interaction and re-checked
+        kind: happy
+        policy: POL-001
+        test: TestRegenerate_FiresOnUniquenessFailure
+      - id: AC-019
+        given: a candidate that has already been regenerated up to the configured maximum retry bound
+        when: another uniqueness failure occurs
+        then: generation is abandoned and a clear error is reported instead of retrying again
+        kind: boundary
+        invariant: INV-003
+        policy: POL-005
+        test: TestRegenerate_StopsAtMaxRetryBound
+
+  - id: FR-008
+    statement: >-
+      Expose a difficulty selector with tiers Easy, Medium, and Hard.
+    source: [US-008]
+    acceptance:
+      - id: AC-020
+        given: a request specifying difficulty "Medium"
+        when: generation runs
+        then: the resulting puzzle is tagged with requested tier "Medium" pending score confirmation
+        kind: happy
+        test: TestSelectDifficulty_AcceptsValidTier
+      - id: AC-021
+        given: a request specifying difficulty "Extreme" (not a supported tier)
+        when: generation is requested
+        then: the request is rejected with an unsupported-difficulty error
+        kind: negative
+        test: TestSelectDifficulty_RejectsUnknownTier
+
+  - id: FR-009
+    # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
+    # entries 4 and 5). Two amendments, neither a rewrite:
+    #   (a) "solver time" LEAVES the signal list — NFR-007/CON-014: wall-clock
+    #       solve time must not enter the score or the tier decision, so the
+    #       same seed and request classify identically on any machine. This
+    #       is decided (not marked DECISION in the intake) but it amends
+    #       ADR-0013's formula (weight 0.15 on time_pressure) and ADR-0015's
+    #       reproducibility consequence, so the ADR revisions are expected
+    #       from forge:architect-adr-writer. AC-022's `given` still names
+    #       "0.2s solve time" — that figure becomes an ignored input, not a
+    #       wrong one; the criterion is left as written.
+    #   (b) DEC EXPECTED — FR-026: a puzzle solved entirely by line logic must
+    #       be scoreable across the WHOLE scale by how much line reasoning it
+    #       needed, and "requires guessing" becomes an explicit attribute
+    #       (flag or separate tier — not chosen here). AC-023 below is
+    #       CONTRADICTED by FR-026 ("the score falls at the easiest end of the
+    #       scale" is exactly what FR-026 removes); it is NOT marked superseded
+    #       yet because the DEC is open and this criterion describes what
+    #       ships today. When the DEC resolves, AC-023 is superseded by
+    #       FR-026's AC-118/AC-119 and this note is the pointer.
+    #   (c) REFINED 2026-09-12 (b) by FR-029: the solve's structural signals
+    #       this FR scores from also yield the ORDERED LIST OF SOLVING
+    #       STRATEGIES the verifying solve required (fixed enum, provisional
+    #       members fixed by DEC-030/DEC-031), recorded off the same solve
+    #       with no re-solve and persisted with the puzzle. No change to the
+    #       score itself; FR-029 owns the list.
+    statement: >-
+      Score a candidate puzzle's difficulty as a weighted heuristic
+      combining cells solved by line-only logic, backtracking amount,
+      solver time, puzzle size, and clue density into a single numeric
+      score.
+    source: [US-008]
+    acceptance:
+      - id: AC-022
+        given: solver signals for a 15x15 candidate (80% of cells solved by line-logic, low backtracking, 0.2s solve time)
+        when: the candidate is scored
+        then: a single numeric difficulty score is produced reflecting the weighted combination of all signals
+        kind: happy
+        test: TestScoreDifficulty_CombinesSignals
+      # CONTRADICTED 2026-09-12 by FR-026 (DEC pending) — see the FR-009 note.
+      - id: AC-023
+        given: a candidate solved entirely by line-logic with zero backtracking
+        when: the candidate is scored
+        then: the score falls at the easiest end of the scale
+        kind: boundary
+        test: TestScoreDifficulty_ZeroBacktrackingScoresEasiest
+
+  - id: FR-010
+    # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
+    # entries 4 and 5): the tier decision this loop makes is amended twice
+    # without changing the loop. (a) NFR-007/CON-014 — the decision must be
+    # a pure function of the solve's structural signals, never of elapsed
+    # time, so whether a candidate is kept or resampled for a given seed is
+    # identical on every machine (today it is not: a boundary candidate can
+    # flip tiers on a slower host). (b) DEC EXPECTED, FR-026 — once
+    # line-solvable puzzles are graded across the whole scale and "requires
+    # guessing" is an explicit attribute, the requested tier's band is read
+    # off that grading; whether "requires guessing" is a flag inside the
+    # existing tiers or a tier of its own changes what `--difficulty` can
+    # ask for, and is the open decision. AC-024..AC-027 stand as written.
+    statement: >-
+      Regenerate or resample a candidate puzzle until its estimated
+      difficulty score falls within the requested tier's threshold range,
+      bounded by a maximum retry count.
+    source: [US-008]
+    acceptance:
+      - id: AC-024
+        given: a scored candidate whose score falls within the requested "Hard" tier's threshold range
+        when: the score is checked
+        then: the candidate is accepted as final and no further resampling occurs
+        kind: happy
+        test: TestResample_AcceptsCandidateInRange
+      - id: AC-025
+        given: a scored candidate whose score falls outside the requested tier's threshold range
+        when: the score is checked
+        then: the resample policy fires and a new candidate is generated
+        kind: boundary
+        policy: POL-004
+        test: TestResample_FiresWhenScoreOutOfRange
+      - id: AC-026
+        given: a newly resampled candidate produced in response to an out-of-range score
+        when: the resample completes
+        then: the new candidate is re-scored automatically before any further check
+        kind: boundary
+        policy: POL-004
+        test: TestResample_RescoresNewCandidate
+      - id: AC-027
+        given: a candidate that has already been resampled up to the configured maximum retry bound without matching the requested tier
+        when: the score is checked again
+        then: generation is abandoned with a clear error
+        kind: boundary
+        invariant: INV-003
+        policy: POL-005
+        test: TestResample_StopsAtMaxRetryBound
+
+  - id: FR-011
+    statement: >-
+      Export a finalized puzzle (clues + blank grid) as PNG and/or SVG
+      suitable for printing.
+    source: [US-009]
+    acceptance:
+      - id: AC-028
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as PNG
+        then: a PNG file containing the blank grid and clues is written to disk
+        kind: happy
+        test: TestExport_WritesPNG
+      - id: AC-029
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as SVG
+        then: an SVG file containing the blank grid and clues is written to disk
+        kind: happy
+        test: TestExport_WritesSVG
+      - id: AC-030
+        given: a puzzle that has not yet passed the uniqueness check
+        when: export is requested
+        then: export is rejected and nothing is written, because the puzzle is not ready
+        kind: negative
+        invariant: INV-002
+        test: TestExport_RejectsUnverifiedPuzzle
+
+  - id: FR-012
+    statement: >-
+      Export the underlying solution grid and clues as JSON and/or CSV,
+      sufficient to exactly reconstruct the puzzle.
+    source: [US-010]
+    acceptance:
+      - id: AC-031
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as JSON
+        then: the JSON file contains the full solution grid and clues
+        kind: happy
+        test: TestExport_WritesJSON
+      - id: AC-032
+        given: a finalized, uniqueness-confirmed puzzle
+        when: it is exported as CSV
+        then: the CSV file contains the full solution grid and clues
+        kind: happy
+        test: TestExport_WritesCSV
+      - id: AC-033
+        given: a puzzle exported as JSON
+        when: that JSON is decoded back
+        then: the resulting grid and clues are exactly identical to the original puzzle's
+        kind: boundary
+        test: TestExport_JSONRoundTripsExactly
+      # Added 2026-08-30 (FR-018/CON-011 delta). This is a FILE FORMAT change,
+      # not just a wider input range: today's exporters write grid extent as a
+      # single `size` integer (src/nonogram/export/json_export.py's "size" key,
+      # and "size" in csv_export.py's _META_KEYS), which cannot express a
+      # rectangle. FR-012's round-trip fidelity — and EC-002, which generalizes
+      # it — is therefore at stake until the metadata carries both dimensions.
+      # AC-033/AC-031/AC-032 stay true for square puzzles and are NOT rewritten.
+      - id: AC-060
+        given: a finalized 30x12 puzzle exported as JSON
+        when: that JSON is decoded back
+        then: the decoded puzzle has width 30 and height 12, both read from the file's metadata rather than inferred as a square
+        kind: boundary
+        test: TestExport_JSONRoundTripsRectangularDimensions
+      - id: AC-061
+        given: a finalized 30x12 puzzle exported as CSV
+        when: that CSV is decoded back
+        then: the decoded puzzle has width 30 and height 12, both read from the file's metadata rather than inferred as a square
+        kind: boundary
+        test: TestExport_CSVRoundTripsRectangularDimensions
+    engineering_constraints:
+      - id: EC-002
+        statement: >-
+          For any finalized puzzle, decoding its exported JSON or CSV
+          representation reproduces the exact original solution grid and
+          clues.
+        kind: consistency
+        instances: [AC-033]
+        test: PropertyTest_Export_RoundTripsExactlyForAnyPuzzle
+
+  - id: FR-013
+    # AMENDED 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 3 —
+    # NOT marked DECISION). Mechanism half only: which cells a nudge flips.
+    # Today's ranking (sourcing/image.py nudge_cells) is a 2x2 "switching
+    # block" heuristic that guesses where the ambiguity is; the nudge now
+    # chooses from the solver's own undecided/disagreement mask (FR-024) —
+    # the cells line logic left undecided at its first fixed point, or where
+    # the two witness solutions disagree — nearest the ink boundary first.
+    # The POLICY half (POL-002/POL-003: bounded, automatic, report at the cap)
+    # is unchanged; so are the cap of 5 (ADR-0002) and the "attempt n flips
+    # the best n cells of the ORIGINAL conversion" cumulative property. Id,
+    # kind and test refs of AC-034..AC-036 are stable (EC-007 2026-08-31
+    # precedent); AC-115..AC-117 and EC-014 are new. Open gap, recorded not
+    # invented: the intake does not say what attempt n does when the mask
+    # holds fewer than n cells — see _meta.gaps.
+    statement: >-
+      When an uploaded image's converted grid fails the uniqueness check,
+      attempt a bounded number of automatic pixel nudges and re-check; if
+      still not unique after the capped attempts, report failure to the
+      user rather than continuing to alter the image silently. Each nudge
+      chooses the cells it flips from the solver's undecided/disagreement
+      mask for the ORIGINAL conversion (FR-024) — the cells line logic left
+      undecided at its first fixed point, or on which the two witness
+      solutions disagree — ordered nearest the ink boundary first; attempt
+      n flips the n best such cells of the original conversion, so the
+      nudges of one run nest and at most the capped number of the user's
+      pixels are ever altered.
+    source: [US-007]
+    _meta:
+      source: authored
+      amended: 2026-09-12
+      evidence: ["docs/GENERATION_ALGORITHM.md#8.3", "src/nonogram/sourcing/image.py nudge_cells"]
+      gaps:
+        - "Attempt n when the undecided/disagreement mask holds fewer than n cells: flip all of them and stop, or fall back to a secondary ranking? Not stated in the intake — needs an owner answer before the card is cut."
+    acceptance:
+      - id: AC-034
+        given: an uploaded image whose initial conversion fails the uniqueness check, with nudge attempts remaining under the cap
+        when: the auto-nudge policy evaluates
+        then: a bounded pixel nudge is applied automatically and the result is re-checked
+        kind: happy
+        policy: POL-002
+        test: TestNudge_AttemptsBoundedRecovery
+      - id: AC-035
+        given: an uploaded image conversion that has exhausted the configured nudge cap without reaching uniqueness
+        when: the uniqueness check is evaluated again
+        then: the tool reports failure to the user and stops altering the image
+        kind: boundary
+        invariant: INV-003
+        policy: POL-003
+        test: TestNudge_ReportsFailureAtCap
+      - id: AC-036
+        given: a reported nudge-cap failure
+        when: the failure is presented to the user
+        then: the message states that the user should retry with a different image or size
+        kind: negative
+        test: TestNudge_FailureMessageSuggestsRetry
+      - id: AC-115
+        given: an uploaded silhouette whose conversion at 20x20 reports MANY, with an undecided/disagreement mask of 14 cells
+        when: nudge attempt 3 is applied
+        then: all 3 flipped cells are members of that 14-cell mask
+        kind: boundary
+        policy: POL-002
+        test: TestNudge_FlipsOnlyCellsInsideUndecidedMask
+      - id: AC-116
+        given: an undecided mask containing one cell adjacent to the ink boundary (Chebyshev distance 0 from a differently-valued neighbour) and one cell 3 cells away from any ink boundary
+        when: nudge attempt 1 is applied
+        then: the cell adjacent to the ink boundary is the one flipped
+        kind: happy
+        test: TestNudge_PrefersCellsNearestInkBoundary
+      - id: AC-117
+        given: a conversion whose mask-driven nudge attempts 1, 2 and 3 flipped cell sets S1, S2, S3
+        when: the three sets are compared to the ORIGINAL conversion
+        then: S1 is a subset of S2, S2 is a subset of S3, and S3 differs from the original conversion in exactly 3 cells
+        kind: boundary
+        test: TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion
+    engineering_constraints:
+      - id: EC-014
+        statement: >-
+          For any uploaded image whose conversion reports MANY and any
+          attempt number n in 1..5, the set of cells nudge attempt n flips
+          is a subset of the solver's undecided/disagreement mask for the
+          ORIGINAL conversion, has exactly min(n, |mask|) members, and
+          contains every cell attempt n-1 flipped — for every image and
+          every n, not only the measured examples. The cap of 5 and the
+          re-verification of every nudged grid by the real solver
+          (CON-005) are unchanged by the mechanism.
+        kind: consistency
+        instances: [AC-115, AC-117]
+        test: PropertyTest_Nudge_FlippedCellsSubsetOfUndecidedMaskAndNested
+
+  - id: FR-014
+    statement: >-
+      When image-mode generation required one or more automatic pixel
+      nudges (FR-013) to reach a unique solution, report the count of
+      nudged cells to the user as a line in CLI output at export time.
+    source: [US-007]  # requirement introduced by ADR-0004, resolving DEC-004
+    acceptance:
+      - id: AC-040
+        given: an exported puzzle whose image conversion required 2 pixel nudges to reach uniqueness
+        when: the puzzle is exported
+        then: the CLI output includes a line stating that 2 cells were nudged
+        kind: happy
+        test: TestExport_ReportsNudgeCount
+      - id: AC-041
+        given: an exported puzzle whose image conversion reached uniqueness with zero nudges
+        when: the puzzle is exported
+        then: no nudge-count line is printed
+        kind: boundary
+        test: TestExport_OmitsNudgeCountWhenZero
+
+  - id: FR-015
+    # AMENDED 2026-09-01 (raw-requirements.md, entry 3 of the 2026-09-01
+    # delta): image-sourced puzzles now default to the source file's stem,
+    # mirroring AC-043's library-key rule, instead of falling through to the
+    # mode+timestamp default. Id, kind, and existing AC ids/tests are
+    # unchanged (EC-007 2026-08-31 amendment precedent); AC-090 is new.
+    statement: >-
+      Give every puzzle a name, which becomes an attribute of the Puzzle
+      aggregate (AGG-001) set at creation time: auto-generated by default
+      (the library key for library-sourced puzzles, e.g. "cat"; the source
+      file's stem for image-sourced puzzles, e.g. an upload named "cat.png"
+      names the puzzle "cat"; a mode+timestamp for random-sourced puzzles,
+      e.g. "random-2026-08-27-1430"), or overridden via a --name flag.
+    source: [US-011]
+    acceptance:
+      - id: AC-042
+        given: a random-mode generation request with no --name flag, run on 2026-08-27 at 14:30
+        when: the puzzle is created
+        then: the puzzle's name is auto-generated as "random-2026-08-27-1430"
+        kind: happy
+        test: TestPuzzleName_AutoGeneratesModeTimestampForRandomMode
+      - id: AC-043
+        given: a library-mode generation request for library key "cat" with no --name flag
+        when: the puzzle is created
+        then: the puzzle's name is auto-generated as "cat"
+        kind: happy
+        test: TestPuzzleName_AutoGeneratesFromLibraryKey
+      - id: AC-044
+        given: a generation request with --name "my-cat-puzzle" supplied
+        when: the puzzle is created
+        then: the puzzle's name is set to "my-cat-puzzle", overriding the auto-generated default
+        kind: happy
+        test: TestPuzzleName_OverrideViaFlag
+      - id: AC-045
+        given: a generation request with --name "" (an empty string) supplied
+        when: the puzzle is created
+        then: the request is rejected with an invalid-name error and no puzzle is created
+        kind: negative
+        test: TestPuzzleName_RejectsEmptyName
+      - id: AC-090
+        given: an image-mode generation request uploading a file named "cat.png" with no --name flag
+        when: the puzzle is created
+        then: the puzzle's name is auto-generated as "cat", not the "image-2026-09-01-1240"-shaped mode+timestamp default
+        kind: happy
+        test: TestPuzzleName_AutoGeneratesFromImageFileStem
+
+  - id: FR-016
+    statement: >-
+      Export a finalized, uniqueness-confirmed puzzle as a single two-page
+      PDF: page 1 is the blank puzzle with clues (for solving), page 2 is
+      the answer key (solution grid revealed); both pages show the
+      puzzle's name (FR-015) and difficulty tier as a header.
+    source: [US-012]
+    acceptance:
+      - id: AC-046
+        given: a finalized, uniqueness-confirmed puzzle named "cat" with difficulty tier "Medium"
+        when: it is exported as PDF
+        then: a two-page PDF file is written to disk whose page 1 shows the blank grid with clues and a header reading "cat — Medium"
+        kind: happy
+        test: TestExport_WritesPDFPageOneBlankWithHeader
+      - id: AC-047
+        given: the same finalized puzzle exported as PDF
+        when: page 2 is inspected
+        then: page 2 shows the revealed solution grid with the same "cat — Medium" header
+        kind: happy
+        test: TestExport_WritesPDFPageTwoAnswerKeyWithHeader
+      - id: AC-048
+        given: a puzzle that has not yet passed the uniqueness check
+        when: PDF export is requested
+        then: export is rejected and no PDF file is written, because the puzzle is not ready
+        kind: negative
+        invariant: INV-002
+        test: TestExport_RejectsUnverifiedPuzzleForPDF
+
+  - id: FR-017
+    statement: >-
+      Expose a local web UI that presents the same generation options as
+      the CLI (source: built-in library key or an uploaded image; grid
+      size; density/difficulty tier; an optional name override; export
+      format selection) and, on submission, drives the same
+      GenerationRequest-shaped orchestrator pipeline the CLI uses
+      (uniqueness verification and the regenerate/resample/nudge retry
+      loops included), reporting success or failure back to the page
+      together with the paths of any files written — a new inbound
+      adapter over the existing domain, not a new domain concept
+      (orchestrator.py's GenerationRequest is already adapter-agnostic).
+    source: [US-013, US-014]
+    acceptance:
+      - id: AC-049
+        given: a web UI submission choosing library key "cat", size 20x20, difficulty "Medium", no name override, and export formats png+json
+        when: the form is submitted
+        then: the page reports success with the written PNG/JSON file paths, after the same orchestrator pipeline the CLI uses runs to completion
+        kind: happy
+        test: TestWebUI_SubmitRunsSamePipelineAndReportsFiles
+      - id: AC-050
+        given: a web UI submission requesting a grid size of 60x60 (above the supported range)
+        when: the form is submitted
+        then: the same size-range domain error the CLI would raise is surfaced to the page as a rejected request, and no files are written
+        kind: negative
+        test: TestWebUI_RejectsOutOfRangeSizeLikeCLI
+      - id: AC-051
+        given: a web UI submission whose options make every candidate fail the uniqueness/difficulty checks up to the configured retry bound (the same condition that raises GenerationAbandoned for the CLI)
+        when: the form is submitted
+        then: the page reports the generation-abandoned failure and its reason, without hanging or returning an unhandled server error
+        kind: error
+        test: TestWebUI_ReportsAbandonedGenerationGracefully
+    engineering_constraints:
+      - id: EC-003
+        statement: >-
+          Any domain error the orchestrator pipeline raises for a web UI
+          submission (an invalid-request error, GenerationAbandoned,
+          SolverTimeout, or ExportRejected) is caught by the web adapter and
+          surfaced to the page as a structured failure response, never as an
+          unhandled exception or a raw stack trace, for any error type the
+          pipeline can raise.
+        kind: resilience
+        instances: [AC-051]
+        test: PropertyTest_WebUI_SurfacesAnyPipelineErrorAsStructuredFailure
+
+  - id: FR-018
+    statement: >-
+      Carry grid extent on a generation request as a WIDTH and a HEIGHT
+      rather than as one square size. The CLI expresses the pair through
+      the single existing flag: `--size 30` means 30x30 and `--size 30x20`
+      means 30 wide by 20 tall. Splitting the `NxM` token is a parsing
+      concern and stays in argparse (ADR-0010); range and ratio validation
+      stay inward of the adapter as pure domain functions, so a request can
+      carry an out-of-range side all the way to the domain check that
+      rejects it.
+    source: [US-016]
+    acceptance:
+      - id: AC-062
+        given: the CLI invoked with `--size 30x20`
+        when: the arguments are parsed
+        then: the GenerationRequest carries width 30 and height 20
+        kind: happy
+        test: TestCLI_ParsesRectangularSizeToken
+      - id: AC-085
+        given: a GenerationRequest carrying width 30 and height 20
+        when: generation runs to completion
+        then: the produced grid has 20 rows of 30 columns
+        kind: happy
+        test: TestCLI_RectangularRequestProducesWidthByHeightGrid
+      - id: AC-063
+        given: the CLI invoked with `--size 30` (the square shorthand)
+        when: the arguments are parsed
+        then: the GenerationRequest carries width 30 and height 30
+        kind: boundary
+        test: TestCLI_SquareSizeShorthandSetsBothSides
+      - id: AC-064
+        given: the CLI invoked with `--size 30x` (a malformed NxM token)
+        when: the arguments are parsed
+        then: argparse fails with a usage error naming the flag, and no GenerationRequest is constructed
+        kind: negative
+        test: TestCLI_RejectsMalformedSizeToken
+      - id: AC-065
+        given: the CLI invoked with `--size 40x20`, whose width is outside the supported range
+        when: the arguments are parsed
+        then: parsing succeeds and the request reaches the domain, where validation raises a size-range NonogramError naming the offending side — argparse never applies a `choices=`/`type=` range check (ADR-0010)
+        kind: negative
+        test: TestCLI_OutOfRangeSideRejectedByDomainNotArgparse
+
+  - id: FR-019
+    # Replaces FR-001 (status: superseded, superseded_by: FR-019). Same
+    # behaviour, two changes: extent is a (width, height) pair (FR-018) and each
+    # side is bounded 10..30 instead of 10..50 (CON-011, US-016).
+    statement: >-
+      Generate a random black/white solution grid at a configurable width
+      and height, each side 10 to 30 inclusive. Replaces FR-001, whose
+      10x10..50x50 square range this supersedes; 30 is MAX_SIZE
+      project-wide for every source mode (CON-011).
+    source: [US-001, US-016]
+    acceptance:
+      - id: AC-066
+        given: a request for a 20x20 random grid
+        when: the grid is generated
+        then: a 20-column, 20-row black/white grid is produced
+        kind: happy
+        test: TestGenerateRandom_ProducesRequestedDimensions
+      - id: AC-067
+        given: a request for a 30x12 random grid
+        when: the grid is generated
+        then: a grid of 12 rows of 30 columns is produced, not a square
+        kind: happy
+        test: TestGenerateRandom_ProducesRectangularGrid
+      - id: AC-068
+        given: a request for 30x30, the largest supported grid
+        when: the grid is generated
+        then: a 30x30 grid is produced without error
+        kind: boundary
+        invariant: INV-004
+        test: TestGenerateRandom_AcceptsMaxSide30
+      - id: AC-069
+        given: a request for a 31x30 grid, whose width is one past the supported maximum
+        when: generation is requested
+        then: the request is rejected with a size-range error and no grid is produced
+        kind: negative
+        invariant: INV-004
+        test: TestGenerateRandom_RejectsSideAbove30
+      - id: AC-070
+        given: a request for a 30x9 grid, whose height is one below the supported minimum
+        when: generation is requested
+        then: the request is rejected with a size-range error and no grid is produced
+        kind: negative
+        invariant: INV-004
+        test: TestGenerateRandom_RejectsSideBelow10
+    engineering_constraints:
+      - id: EC-005
+        statement: >-
+          For any requested (width, height) pair with either side outside
+          10..30, and in every source mode (random, built-in library,
+          uploaded image), the request is rejected with a size-range error
+          before any grid is produced — the bound is a property of the
+          request, not of one sourcing path.
+        kind: consistency
+        instances: [AC-069, AC-070]
+        test: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
+
+  - id: FR-020
+    statement: >-
+      Fit an uploaded source image to the REQUESTED grid shape rather than
+      to a square: take the largest centred crop of the source having the
+      grid's aspect ratio (width/height), then resize that crop to width x
+      height before dithering. The existing square crop becomes the special
+      case where width equals height, so the crop-not-stretch,
+      crop-not-letterbox policy is generalized rather than replaced.
+    source: [US-017]
+    acceptance:
+      - id: AC-071
+        given: a 563x980 portrait silhouette and a requested 15x30 grid (target ratio 0.500)
+        when: the crop box is computed
+        then: the crop box has aspect ratio 0.500 and is the largest such rectangle fitting inside 563x980 (490x980)
+        kind: happy
+        test: TestFitImage_CropsToRequestedAspectRatio
+      - id: AC-072
+        given: a 563x980 source and a requested 20x20 grid (target ratio 1.000)
+        when: the crop box is computed
+        then: the crop box equals the one today's square_crop_box returns for 563x980, so the square case is unchanged by the generalization
+        kind: boundary
+        test: TestFitImage_SquareGridReproducesSquareCropBox
+      - id: AC-073
+        given: a 563x980 source and a requested 15x30 grid
+        when: the crop box is computed
+        then: the discarded margins on the cropped axis differ by at most 1 pixel, so the crop is centred
+        kind: boundary
+        test: TestFitImage_CropIsCentredOnBothAxes
+      - id: AC-074
+        given: a 563x980 source and a requested 15x30 grid
+        when: the image is converted end to end
+        then: the resulting grid is exactly 15 columns by 30 rows, with no letterbox padding row or column and no anisotropic stretch of the crop
+        kind: boundary
+        test: TestFitImage_ProducesExactDimensionsWithoutLetterbox
+    engineering_constraints:
+      - id: EC-006
+        statement: >-
+          For any source image dimensions and any accepted (width, height)
+          request, the crop box is the largest centred sub-rectangle of the
+          source whose aspect ratio equals width/height: it lies entirely
+          within the source bounds and touches both source edges on at
+          least one axis, for every such input.
+        kind: consistency
+        instances: [AC-071, AC-072, AC-073]
+        test: PropertyTest_FitImage_CropBoxIsLargestCentredRectangleOfTargetAspect
+
+  - id: FR-021
+    statement: >-
+      Refuse a generation request whose grid aspect ratio differs from the
+      uploaded source image's INK BOUNDING BOX ratio (ADR-0022 revision
+      2026-09-01, DEC-025 — not its as-decoded file ratio) by more than 2x, with an explanatory error
+      that tells the user to crop the picture themselves first. The centred
+      crop of FR-020 retains exactly min(r_src, r_tgt) / max(r_src, r_tgt)
+      of the source (r = width/height), so "discards more than half" is
+      precisely "the ratios differ by more than 2x". The boundary is
+      INCLUSIVE: retaining exactly 50% is accepted.
+    source: [US-018]
+    acceptance:
+      - id: AC-075
+        given: a 600x600 square source image (r_src 1.000) and a requested 30x15 grid (r_tgt 2.000), ratios differing by exactly 2.000x so the retained fraction is exactly 0.500
+        when: generation is requested
+        then: the request is accepted and a 30x15 grid is produced
+        kind: boundary
+        test: TestAspectGuard_AcceptsExactlyTwoFoldRatioDifference
+      - id: AC-076
+        given: a 600x600 square source image (r_src 1.000) and a requested 30x14 grid (r_tgt 2.143), ratios differing by 2.143x so the retained fraction is 0.467
+        when: generation is requested
+        then: the request is refused with an aspect-ratio error and no grid is produced
+        kind: negative
+        test: TestAspectGuard_RefusesRatioDifferenceAboveTwoFold
+      - id: AC-077
+        given: the aspect-ratio refusal raised for a 600x600 source into a 30x14 grid
+        when: the error is rendered to the user
+        then: the message states that the user should crop the picture themselves before retrying
+        kind: negative
+        test: TestAspectGuard_RefusalMessageSuggestsManualCrop
+      - id: AC-078
+        given: a 980x563 landscape source (r_src 1.741) and a requested 12x30 portrait grid (r_tgt 0.400), retained fraction 0.230
+        when: generation is requested
+        then: the request is refused with the same aspect-ratio error, so the threshold is symmetric in which of the two is the wider
+        kind: boundary
+        test: TestAspectGuard_ThresholdIsSymmetricInSourceAndTarget
+      - id: AC-079
+        given: a 563x980 portrait silhouette (r_src 0.574) and a requested 15x30 grid (r_tgt 0.500), retained fraction 0.870
+        when: generation is requested
+        then: the request is accepted and a 15x30 grid is produced
+        kind: happy
+        test: TestAspectGuard_AcceptsWellMatchedPortraitSource
+    engineering_constraints:
+      - id: EC-007
+        # WORDING NARROWED 2026-08-31 (raw-requirements.md, CARD-026 review
+        # cycle 2 finding F-102). Not a supersession: same id, same kind, same
+        # instances, same test. The closing clause previously read "refused
+        # before any conversion, dithering or solver work runs"; "conversion"
+        # was too broad and literally false on one implemented path. The guard
+        # runs twice — a cheap header probe refuses the common case with no
+        # decode at all, but where a source's header extent disagrees with its
+        # decoded extent (a PNG whose eXIf chunk follows IDAT; an
+        # orientation-tagged TIFF) the second check necessarily runs AFTER
+        # load_greyscale, because the extent being judged is the one only the
+        # decode knows. Everything downstream of the decode — cropping,
+        # dithering, clue derivation, the solver — is still unreachable for
+        # every refused request, so the guarantee EC-007 exists to express is
+        # intact; only the noun was wrong.
+        statement: >-
+          For any source image dimensions and any (width, height) pair in
+          10..30, the request is accepted if and only if
+          min(r_src, r_tgt) / max(r_src, r_tgt) >= 0.5 with
+          r = width/height — every accepted request therefore retains at
+          least half the source area under FR-020's centred crop, and every
+          request that would retain less is refused before any cropping,
+          dithering or solver work runs.
+        kind: consistency
+        instances: [AC-075, AC-076, AC-078]
+        test: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore
+
+  - id: FR-022
+    statement: >-
+      Trim an uploaded source image to its ink bounding box (ink = a pixel
+      value below 128, a mid-grey threshold) before FR-020's aspect fit, so
+      the finished grid carries at most one all-empty row or column at each
+      edge. This is a BEST-EFFORT transform by explicit user decision, NOT a
+      guaranteed invariant: trimming the source cannot guarantee the
+      property on the finished grid, because the resize+dither step
+      downstream of the crop can still blank an edge row or column whose
+      source content was faint. No engineering constraint generalizes this
+      FR for that reason — see the acceptance criteria for the measured
+      bound on how far short of the property the transform falls.
+    source: [US-020]
+    acceptance:
+      - id: AC-086
+        given: >-
+          the 25-image corpus committed under pictures/, each fitted to a
+          20x20 grid at seed 1: 19 of the 25 carry more than one all-empty
+          row or column at some edge before trimming
+        when: each picture is trimmed to its ink bounding box (ink < 128) before the same 20x20 fit
+        then: >-
+          17 of those 19 satisfy the at-most-one-blank-line-per-edge rule;
+          exactly 2 do not (see AC-088), so 23 of 25 hold overall
+        kind: happy
+        test: TestTrimToInk_Fixes17Of19CorpusViolations
+      - id: AC-087
+        given: >-
+          img_2.png, the corpus's worst pre-trim case at 6 blank lines deep
+          (300 of 400 cells spent on border; img_3.png ties it at 6), fitted
+          to a 20x20 grid at seed 1
+        when: the picture is trimmed to its ink bounding box (ink < 128) before the fit
+        then: the resulting grid has at most one blank row or column at each edge
+        kind: boundary
+        test: TestTrimToInk_ReducesWorstCaseBorderToAtMostOneLine
+      # AC-088 and AC-091 pin the two residual cases separately: the validator
+      # is right that "dear1 shows 2 and wolf1 shows 3" is two outcomes, and
+      # they are not the same finding. wolf1.jpeg is the one that justifies
+      # FR-022 being best-effort rather than an invariant — it measures 3 deep
+      # BEFORE trimming too, so the trim does not improve it at all and no
+      # threshold in the swept range does. Both criteria exist to stop the
+      # shortfall drifting unnoticed; a change that fixes either should amend
+      # the criterion, never silently pass it.
+      - id: AC-088
+        given: dear1.jpg fitted to a 20x20 grid at seed 1 and trimmed to its ink bounding box (ink < 128)
+        when: the resulting grid is inspected
+        then: it still shows 2 blank lines at one edge — an accepted residual, not a defect
+        kind: boundary
+        test: TestTrimToInk_AcceptsResidualBlankLinesOnDear1Jpg
+      - id: AC-091
+        given: wolf1.jpeg fitted to a 20x20 grid at seed 1 and trimmed to its ink bounding box (ink < 128)
+        when: the resulting grid is inspected
+        then: it still shows 3 blank lines at one edge — the corpus's worst accepted residual
+        kind: boundary
+        test: TestTrimToInk_AcceptsResidualBlankLinesOnWolf1Jpeg
+      # The rationale for ink < 128 lives here rather than in AC-089's `then`,
+      # which states one outcome only: near-white counts JPEG ringing and
+      # off-white backgrounds as ink, so it trims almost nothing.
+      - id: AC-089
+        given: the same 25-image corpus fitted to a 20x20 grid at seed 1, trimmed at a near-white threshold (ink < 245)
+        when: the resulting grids are inspected
+        then: 6 of the 25 violate the at-most-one-blank-line-per-edge rule, against 2 at ink < 128
+        kind: boundary
+        test: TestTrimToInk_MidGreyThresholdOutperformsNearWhiteThreshold
+
+  - id: FR-023
+    # New 2026-09-01 (raw-requirements.md, entries dated 2026-09-01: "A bare
+    # --size N means...", "The derived side is round(N * short/long)...",
+    # "The bottom clamp has a consequence..."). Formalizes what a bare
+    # `--size N` (no explicit NxM) means once FR-018/CARD-027 makes extent a
+    # (width, height) pair. Narrowly amends ADR-0022's "grid drives the
+    # picture" principle — surfaced as DEC-028, not written here (writing the
+    # ADR revision is forge:architect-adr-writer's job). Rejected alternatives
+    # to the refusal path (kept here for traceability, not restated in the
+    # ADR): silently auto-bumping N to the smallest value that would fit
+    # (makes --size a request rather than an instruction the tool honours
+    # exactly), and lowering MIN_SIZE for derived sides (reopens CON-011's
+    # floor and produces thin strips no solving experience has evaluated).
+    statement: >-
+      When a generation request's `--size` token is a bare N (no explicit
+      NxM), N is the grid's LONGER side; the other side is derived from the
+      source's own shape as round(N * short/long), where short/long is the
+      source's own aspect ratio — image mode: FR-022's ink-bounding-box
+      ratio; library mode: the template's own ratio (today all four
+      registered templates are 16x16 square, so this is N x N until a
+      rectangular template exists); random mode: no shape of its own, so N
+      x N. The derived side is clamped to MIN_SIZE (10) at the bottom only
+      — never at the top, since N <= MAX_SIZE by construction already keeps
+      both sides in range, which is why "longer side" is the correct
+      reading of a bare N. An explicit `--size NxM` token continues to
+      specify both sides directly and is unaffected by this derivation.
+      Because the bottom clamp exists, a source whose long:short ratio
+      exceeds N/5 (2:1 at --size 10, 4:1 at --size 20, 6:1 at --size 30)
+      cannot be reached by that N without clamping; rather than silently
+      clamp, such a request is REFUSED, and the error names the smallest
+      `--size N` that would accommodate the source's ratio unclamped.
+    source: [US-021]
+    acceptance:
+      - id: AC-092
+        given: eagle-silhouette1.jpg (563x980, ratio 0.574) and a bare `--size 25` request
+        when: the request is parsed and fitted
+        then: the derived grid is 14 wide by 25 tall (round(25 * 563/980) = 14), retaining ~97% of the source under FR-020's crop, versus ~57% for the previous 25x25 square reading
+        kind: happy
+        test: TestDeriveShape_ImageBareSizeDerivesFromInkBoundingBoxRatio
+      - id: AC-093
+        given: the 25-image corpus committed under pictures/, each fitted at a bare `--size 25`
+        when: each picture's derived shape is compared against the previous 25x25 square reading
+        then: mean retained content rises from 76% (square) to 99% (derived), and the count of pictures retaining under 90% falls from 20 of 25 to 0
+        kind: boundary
+        test: TestDeriveShape_CorpusMeanRetentionRisesTo99Percent
+      - id: AC-094
+        given: the built-in library key "cat" (a 16x16 square template) and a bare `--size 25` request
+        when: the request is parsed
+        then: the derived grid is 25x25, because the template's own ratio is 1:1 today
+        kind: boundary
+        test: TestDeriveShape_LibraryTemplateRatioAppliesSquareToday
+      - id: AC-095
+        given: a random-mode request with a bare `--size 20`
+        when: the request is parsed
+        then: the derived grid is 20x20, since a random source has no shape of its own
+        kind: happy
+        test: TestDeriveShape_RandomSourceStaysSquare
+      - id: AC-096
+        given: an explicit `--size 15x30` request
+        when: the request is parsed
+        then: the grid is exactly 15 wide by 30 tall as given, and the derivation rule does not apply
+        kind: boundary
+        test: TestDeriveShape_ExplicitNxMBypassesDerivation
+      - id: AC-097
+        given: three bare-size requests, `--size 10`, `--size 20`, `--size 30`, each paired with a source whose long:short ratio is exactly N/5 (2:1, 4:1, 6:1 respectively)
+        when: each request is parsed and fitted
+        then: each derives a grid whose short side lands exactly on MIN_SIZE (10) — the bottom clamp reached exactly at the boundary, not short of it — and is accepted, not refused
+        kind: boundary
+        test: TestDeriveShape_WidestAcceptedRatioIsExactlyNOverFiveToOne
+      - id: AC-098
+        given: a source image with long:short ratio 5:1 and a bare `--size 15` request (ceiling at N=15 is 15/5 = 3:1)
+        when: the request is parsed
+        then: the request is refused, and the error states the picture needs `--size 25` or larger rather than telling the user to crop it themselves
+        kind: negative
+        test: TestDeriveShape_RefusesBeyondCeilingNamingSmallestWorkingSize
+    engineering_constraints:
+      - id: EC-009
+        statement: >-
+          For any bare `--size N` with N in 10..30 and any source aspect
+          ratio r = short/long (0 < r <= 1), in every source mode: the
+          derived long side always equals N (never clamped above MAX_SIZE);
+          the derived short side equals round(N * r) whenever that value is
+          >= MIN_SIZE (10); and whenever round(N * r) would fall below
+          MIN_SIZE — equivalently, whenever the source's long:short ratio
+          exceeds N/5 — the request is refused rather than silently clamped,
+          with the refusal naming the smallest N for which round(N * r) >=
+          MIN_SIZE. This holds for every N and every source ratio, not only
+          the measured examples.
+        kind: consistency
+        instances: [AC-092, AC-095, AC-097, AC-098]
+        test: PropertyTest_DeriveShape_ShortSideIsRoundedRatioClampedAtMinOrRefused
+
+  - id: FR-024
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 1). Not a
+    # decision: extends FR-006's contract so that callers (FR-025's repair,
+    # FR-013's mask-driven nudge) can LOCATE an ambiguity instead of guessing
+    # at it. The solver already computes both things internally — the first
+    # fixed point is where FR-009's line_logic_cells is counted, and the
+    # second distinct grid is what makes the count MANY (AC-017); this FR
+    # only makes them part of the result. ADR-0009/ADR-0012 boundary rule
+    # holds: the mask and the witnesses cross the boundary as grid-shaped
+    # list[list[bool]] structures, never as the internal bitmask pair.
+    statement: >-
+      The solver's result exposes, alongside the solution count (FR-006):
+      (a) the set of cells that line logic left undecided at its FIRST
+      propagation fixed point, as a grid-shaped boolean mask of the same
+      extent as the puzzle; and (b) when the count is MANY, a SECOND
+      witness solution distinct (TERM-009) from the first, so that the
+      cells on which the two witnesses disagree can be read off by
+      callers. When the count is 0 no witness is returned; when it is 1
+      only the one solution is returned. Both additions cross the module
+      boundary as list[list[bool]] (ADR-0012) and leave the existing
+      result fields — solution_count, solution, signals — unchanged for
+      every existing caller.
+    source: [US-005]
+    _meta:
+      source: authored
+      evidence: ["docs/GENERATION_ALGORITHM.md#6.4", "docs/GENERATION_ALGORITHM.md#10", "src/nonogram/solver/search.py SolveResult"]
+    acceptance:
+      - id: AC-107
+        given: the clues of a 10x10 grid containing exactly one 2x2 switching block (two valid solutions differing in those 4 cells)
+        when: the puzzle is solved
+        then: the result reports MANY and carries two witness grids that differ from each other in exactly those 4 cells
+        kind: happy
+        test: TestSolver_ReportsSecondWitnessWhenMany
+      - id: AC-131
+        given: the two witness grids returned for the 10x10 switching-block clues
+        when: each witness is run-length encoded row by row and column by column
+        then: both encodings equal the given clues exactly
+        kind: boundary
+        test: TestSolver_BothWitnessesReencodeToInputClues
+      - id: AC-108
+        given: the same 10x10 switching-block clues
+        when: the puzzle is solved
+        then: the undecided mask has exactly those 4 cells set and every other cell clear
+        kind: boundary
+        test: TestSolver_UndecidedMaskListsCellsLeftAtFirstFixedPoint
+      - id: AC-109
+        given: clues of a 15x15 grid that line logic alone decides completely (solution_count 1, branch_nodes 0)
+        when: the puzzle is solved
+        then: the undecided mask has no cell set and no second witness is returned
+        kind: boundary
+        test: TestSolver_UndecidedMaskIsEmptyForLineSolvablePuzzle
+      - id: AC-110
+        given: a contradictory clue set with zero solutions
+        when: the puzzle is solved
+        then: solution_count is 0, no witness is returned, and the undecided mask is still reported for the cells left open at the first fixed point
+        kind: negative
+        test: TestSolver_NoWitnessWhenUnsolvable
+    engineering_constraints:
+      - id: EC-011
+        statement: >-
+          For any clue set on which the solver reports MANY, the two
+          witnesses it returns are distinct cell-by-cell (TERM-009), each
+          re-encodes exactly to the input clues, and every cell on which
+          they disagree is a member of the first-fixed-point undecided
+          mask — because propagation only ever writes cells every solution
+          agrees on, two solutions can differ only where propagation left
+          the cell open. Holds for every clue set, not only the measured
+          examples.
+        kind: consistency
+        instances: [AC-107, AC-108, AC-131]
+        test: PropertyTest_Solver_WitnessesDisagreeOnlyInsideUndecidedMask
+      - id: EC-012
+        statement: >-
+          Every existing consumer of the solver's result (the orchestrator's
+          solution_count == 1 gate, the difficulty scorer's signals
+          protocol, the EC-001 oracle cross-check) continues to read
+          solution_count, solution and signals with their pre-existing
+          meaning after the mask and the second witness are added, and
+          neither addition is an int bitmask at the boundary.
+        kind: compatibility
+        test: TestSolver_ResultFieldsUnchangedForExistingCallers
+
+  - id: FR-025
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 2 —
+    # marked DECISION). Formalized NEUTRALLY: the alternative is NOT chosen
+    # here. The intake names three — pure redraw (today, FR-007/POL-001),
+    # pure repair, redraw-then-repair hybrid — and one recommendation
+    # (repair). What holds REGARDLESS of the choice is stated as the
+    # requirement; what depends on it is written as tagged criteria of which
+    # only the chosen alternative's survive. Domain: POL-006 (repair reaction)
+    # next to POL-001, CMD-014, EVT-015 — added so the model can carry either
+    # outcome without renumbering.
+    statement: >-
+      When a random-mode candidate is not uniquely solvable (solution
+      count 0 or MANY), the pipeline recovers by one of: redrawing a
+      fresh grid (FR-007, today); REPAIRING the candidate — flipping one
+      filled/empty pair of cells inside the solver's undecided/disagreement
+      region (FR-024) so the filled-cell count stays exact and the
+      requested density (FR-004) is preserved — and re-verifying; or a
+      redraw-then-repair hybrid. Which of the three is the open decision.
+      Under every alternative: every recovered grid is re-verified by the
+      real solver before it can be accepted (CON-005, INV-002), each
+      recovery attempt — redraw or repair — counts against the ONE
+      existing bounded retry counter (INV-003, ADR-0002, no second bound),
+      and library and image modes are unaffected.
+    source: [US-006]
+    _meta:
+      source: authored
+      dec_expected: true
+      dec_question: "Random-mode recovery of a non-unique candidate: pure redraw (today) / pure repair / redraw-then-repair — which, and does the repair use the undecided mask or the witness-disagreement set?"
+      dec_alternatives: [pure_redraw, pure_repair, redraw_then_repair]
+      evidence: ["docs/GENERATION_ALGORITHM.md#8.1", "docs/GENERATION_ALGORITHM.md#10", "ADR-0002", "src/nonogram/orchestrator.py run_bounded"]
+      criteria_by_alternative:
+        holds_under_every_alternative: [AC-112, AC-113]
+        repair_containing_alternatives_only: [AC-111, AC-132, AC-114]
+    acceptance:
+      # alternative: pure_repair / redraw_then_repair — survives only if the DEC picks one of these
+      - id: AC-111
+        given: a random 20x20 candidate at density 40 whose solve reports MANY with a 6-cell undecided mask
+        when: the repair step runs once
+        then: exactly one filled cell and one empty cell inside that 6-cell mask have swapped values
+        kind: happy
+        policy: POL-006
+        test: TestRecovery_RepairFlipsOnePairInsideUndecidedMask
+      # alternative: pure_repair / redraw_then_repair
+      - id: AC-132
+        given: the same 20x20 candidate and its 6-cell undecided mask
+        when: the repair step runs once
+        then: every cell outside the mask holds the value it held before the repair
+        kind: boundary
+        policy: POL-006
+        test: TestRecovery_RepairLeavesCellsOutsideMaskUntouched
+      # holds under every alternative
+      - id: AC-112
+        given: a recovered candidate — redrawn or repaired — that has not yet been solved
+        when: the pipeline decides whether to accept it
+        then: it is accepted only after a fresh solver run on its clues reports solution_count 1
+        kind: boundary
+        invariant: INV-002
+        test: TestRecovery_RecoveredGridIsReverifiedBySolver
+      # holds under every alternative
+      - id: AC-113
+        given: a random-mode request whose every candidate and every repair of it stays non-unique
+        when: recovery attempts — redraws and repairs together — reach the ADR-0002 bound of 20
+        then: generation is abandoned with the existing GenerationAbandoned error and the bound counts both kinds of attempt in one counter
+        kind: boundary
+        invariant: INV-003
+        policy: POL-005
+        test: TestRecovery_RepairAttemptsCountAgainstRetryBound
+      # alternative: pure_repair / redraw_then_repair
+      - id: AC-114
+        given: a 20x20 candidate at density 40 (160 filled cells) that is repaired 5 times in a row
+        when: the filled cells of each repaired grid are counted
+        then: every repaired grid has exactly 160 filled cells
+        kind: negative
+        test: TestRecovery_RepairKeepsFilledCountExact
+    engineering_constraints:
+      - id: EC-013
+        statement: >-
+          For any random-mode request, under whichever recovery alternative
+          the decision selects: no grid is ever accepted without a solver
+          verdict of exactly 1 obtained on that grid's own clues; the total
+          number of recovery attempts (redraws plus repairs) never exceeds
+          the single ADR-0002 bound; and when a repair is applied, the
+          repaired grid has a filled-cell count equal to that of the grid it
+          repairs and differs from it only inside the undecided/
+          disagreement region. Holds for every seed and extent.
+        kind: consistency
+        invariant: INV-003
+        instances: [AC-112, AC-113, AC-114, AC-132]
+        test: PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound
+
+  - id: FR-026
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 4 —
+    # marked DECISION). Formalized NEUTRALLY. Decided by the owner (streams
+    # A/B/C, 2026-09-12): line-solvable puzzles must be graded across the
+    # WHOLE scale by line-reasoning depth, and "requires guessing" must be an
+    # explicit attribute. Left OPEN, DEC expected: (a) flag on the result vs
+    # a separate tier — which changes what `--difficulty` can ask for; (b) the
+    # replacement for ADR-0013's formula and the fate of ADR-0005's 33/66
+    # bands — adr-writer's job, not decided here. Product reason recorded
+    # from the intake: printed puzzle books need puzzles that are always
+    # logically solvable but graded in depth. Contradicts FR-009/AC-023 —
+    # flagged there, not rewritten.
+    statement: >-
+      A puzzle solved entirely by line logic (no search branch) is scored
+      across the WHOLE difficulty scale by how much line reasoning it
+      needed — at least these signals: the number of propagation
+      fixed-point sweeps to completion, the share of cells decided in the
+      first sweep, and the number of lines that needed the full placement
+      DP rather than simple overlap — so that two line-solvable puzzles of
+      different depth land in different bands. Whether a puzzle REQUIRES
+      GUESSING (the search branched at least once) is an explicit
+      attribute of the scored result, surfaced either as a flag beside the
+      tier or as a tier of its own (open decision), and is no longer the
+      only path to the Medium and Hard bands.
+    source: [US-008]
+    _meta:
+      source: authored
+      dec_expected: true
+      dec_question: "Is 'requires guessing' a flag next to the Easy/Medium/Hard tier, or a fourth tier; and what replaces ADR-0013's effort*relief formula and ADR-0005's 33/66 cutoffs so that line-solvable puzzles span the scale?"
+      dec_alternatives: [guessing_flag_beside_tiers, guessing_as_separate_tier]
+      supersedes_pending: ["ADR-0013 formula", "ADR-0005 bands (touched)", "AC-023"]
+      evidence: ["docs/GENERATION_ALGORITHM.md#7", "docs/GENERATION_ALGORITHM.md#6.2", "src/nonogram/difficulty.py"]
+    acceptance:
+      - id: AC-118
+        given: a seeded corpus of at least 200 line-solvable puzzles (solution_count 1, branch_nodes 0) spanning 10x10 to 30x30
+        when: each is scored
+        then: at least one puzzle of the corpus scores inside each of the Easy, Medium and Hard bands
+        kind: happy
+        test: TestScoreDifficulty_LineSolvableCorpusSpansAllThreeBands
+      - id: AC-119
+        given: two line-solvable 20x20 puzzles A and B, where A completes in 2 sweeps with 90% of cells decided in the first and B needs 12 sweeps with 20% decided in the first
+        when: both are scored
+        then: B's score is strictly greater than A's
+        kind: boundary
+        test: TestScoreDifficulty_DeeperLineReasoningScoresHigher
+      - id: AC-120
+        given: a puzzle whose solve branched (branch_nodes >= 1) before reaching its unique solution
+        when: it is scored
+        then: the result's requires-guessing attribute is set (true, or the guessing tier — per the decision)
+        kind: boundary
+        test: TestScoreDifficulty_RequiresGuessingAttributeSetWhenSearchBranched
+      - id: AC-121
+        given: a puzzle whose solve reached its unique solution with branch_nodes 0
+        when: it is scored
+        then: the result's requires-guessing attribute is NOT set, whatever band its line-reasoning depth places it in
+        kind: negative
+        test: TestScoreDifficulty_RequiresGuessingAttributeClearForLineSolvable
+    engineering_constraints:
+      - id: EC-015
+        statement: >-
+          For any uniquely solvable puzzle, the requires-guessing attribute
+          of its scored result is set if and only if the solver's
+          branch_nodes for that solve is greater than zero — the attribute
+          is a fact about the solve, never a threshold on the score.
+        kind: consistency
+        instances: [AC-120, AC-121]
+        test: PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched
+
+  - id: FR-027
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 6 —
+    # marked DECISION, with a GATE). Formalized NEUTRALLY: the alternative is
+    # NOT chosen here. The intake's hypothesis (a plain threshold yields clean
+    # outlines and long runs, so silhouette conversions are unique more often
+    # and need fewer nudges) is written as a measurable criterion, not as a
+    # fact. GATE recorded in _meta: the owner's eye on the picture corpus
+    # must validate the result before it lands — a green test is not the
+    # gate (memory: image-pipeline changes need a rendered-grid eyeball).
+    # Touches ADR-0006's "Pillow does the dithering" rationale — adr-writer.
+    statement: >-
+      For CON-013 silhouette input, the per-cell binarisation applied after
+      the LANCZOS resize to the grid extent is one of: (a) a plain
+      threshold — a cell is filled when its ink coverage is at least 50%,
+      empty otherwise; or (b) Floyd-Steinberg error-diffusion dithering
+      (FR-003, today). Which is the open decision. Under either, genuinely
+      greyscale input keeps the dithering path. The hypothesis behind (a)
+      — cleaner outlines and longer runs, so conversions are unique on the
+      first solve more often and need fewer nudges — is measured on the
+      committed picture corpus, and the change does not land until the
+      owner has visually validated the converted grids of that corpus.
+    source: [US-003]
+    _meta:
+      source: authored
+      dec_expected: true
+      dec_question: "Silhouette binarisation after the LANCZOS resize: 50% ink-coverage threshold or keep Floyd-Steinberg dithering — and how is 'genuinely greyscale' input told apart so it keeps the dither path?"
+      dec_alternatives: [ink_coverage_threshold_50pct, floyd_steinberg_dither]
+      gate: "Owner visual validation of the converted picture corpus before the change lands — not dischargeable by tests alone."
+      evidence: ["docs/GENERATION_ALGORITHM.md#4.3", "docs/GENERATION_ALGORITHM.md#11", "src/nonogram/sourcing/image.py binarize", "ADR-0006"]
+      gaps:
+        - "The criterion that classifies an upload as 'genuinely greyscale' (keeps dithering) versus silhouette (threshold) is not stated in the intake."
+      criteria_by_alternative:
+        threshold_alternative_only: [AC-124, AC-125, AC-126]
+        holds_under_every_alternative: [AC-127]
+    acceptance:
+      # alternative: ink_coverage_threshold_50pct
+      - id: AC-124
+        given: a resized cell whose ink coverage is 80% (grey value 51 of 255 after the LANCZOS resize)
+        when: the cell is binarised under the threshold path
+        then: the cell is filled
+        kind: happy
+        test: TestBinarize_ThresholdFillsCellAtOrAboveHalfInkCoverage
+      # alternative: ink_coverage_threshold_50pct
+      - id: AC-125
+        given: a resized cell whose ink coverage is 49%
+        when: the cell is binarised under the threshold path
+        then: the cell is empty
+        kind: negative
+        test: TestBinarize_ThresholdLeavesCellEmptyBelowHalfInkCoverage
+      # alternative: ink_coverage_threshold_50pct
+      - id: AC-126
+        given: a resized cell whose ink coverage is exactly 50%
+        when: the cell is binarised under the threshold path
+        then: the cell is filled — the boundary is inclusive ("at least 50%")
+        kind: boundary
+        test: TestBinarize_ExactlyHalfCoverageIsFilled
+      # holds under every alternative — this is the hypothesis, measured
+      - id: AC-127
+        given: the committed picture corpus under pictures/, each converted at a bare --size 25 by both binarisation paths
+        when: the first-solve uniqueness verdicts and the nudge counts of both paths are compared over the corpus
+        then: the threshold path's count of conversions unique on the first solve is greater than or equal to the dither path's, and its total nudges over the corpus are less than or equal to the dither path's
+        kind: boundary
+        test: TestBinarize_ThresholdCorpusNeedsNoMoreNudgesThanDither
+
+  - id: FR-028
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 7 —
+    # marked DECISION). Formalized NEUTRALLY. Fact from the review: density 0
+    # and 100 are accepted today and yield an all-empty / all-filled grid
+    # that passes the uniqueness check (score 0.000 / 0.001, tier Easy);
+    # random_grid.py:78-84 says later stages reject them and none does. The
+    # intake's recommendation (refuse) is recorded, not adopted. Both
+    # alternatives' criteria are written and tagged; exactly one set
+    # survives the DEC. AC-130 holds under both.
+    statement: >-
+      A random-generation request with density 0 or 100 is handled by ONE
+      explicit rule at the density-validation seam (FR-004's
+      validate_density): either it is refused as InvalidDensity, making
+      the valid range 1..99 inclusive; or it is accepted and the resulting
+      all-empty / all-filled grid is a valid, uniquely solvable Easy
+      puzzle. Which is the open decision. Under either, no later pipeline
+      stage (uniqueness, difficulty, export) rejects a request on density
+      grounds, and no module claims that one does.
+    source: [US-001]
+    _meta:
+      source: authored
+      dec_expected: true
+      dec_question: "Density 0 and 100: refuse as InvalidDensity (valid range 1..99, the review's recommendation) or explicitly allow the degenerate all-empty / all-filled grid as a puzzle?"
+      dec_alternatives: [refuse_degenerate_density, allow_degenerate_grids]
+      evidence: ["docs/GENERATION_ALGORITHM.md#10.2 finding 2", "src/nonogram/sourcing/random_grid.py validate_density"]
+      criteria_by_alternative:
+        refuse_alternative_only: [AC-128, AC-133]
+        allow_alternative_only: [AC-129, AC-134]
+        holds_under_every_alternative: [AC-130]
+    acceptance:
+      # alternative: refuse_degenerate_density
+      - id: AC-128
+        given: two random-mode requests at 20x20, one with density 0 and one with density 100
+        when: each is generated
+        then: each is refused with InvalidDensity before any grid is drawn
+        kind: negative
+        test: TestGenerateRandom_RefusesDensityZeroAndHundred
+      # alternative: refuse_degenerate_density
+      - id: AC-133
+        given: two random-mode requests at 20x20, one with density 1 and one with density 99
+        when: each is generated
+        then: each is accepted by validate_density and a grid is drawn
+        kind: boundary
+        test: TestGenerateRandom_AcceptsDensityOneAndNinetyNine
+      # alternative: allow_degenerate_grids
+      - id: AC-129
+        given: a random-mode request at 20x20 with density 100
+        when: it is generated with no difficulty requested
+        then: an all-filled 20x20 grid is returned with solution_count 1
+        kind: boundary
+        test: TestGenerateRandom_AcceptsDegenerateDensityAsUniqueEasyPuzzle
+      # alternative: allow_degenerate_grids
+      - id: AC-134
+        given: the all-filled 20x20 grid accepted for density 100
+        when: it is scored
+        then: its tier is Easy
+        kind: boundary
+        test: TestGenerateRandom_DegenerateGridScoresEasy
+      # holds under every alternative
+      - id: AC-130
+        given: a random-mode request at 20x20 with density 0
+        when: it is generated
+        then: the verdict on that density — refusal or acceptance — is made by validate_density, and neither the uniqueness check nor the difficulty scorer raises on density grounds afterwards
+        kind: boundary
+        test: TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam
+
+  - id: FR-029
+    # New 2026-09-12 (b) (raw-requirements.md, "solving strategies saved
+    # with the puzzle" — owner request, CARD-072 already cut). Refines FR-009
+    # (the solve's structural signals) and FR-026 (line-reasoning depth and
+    # the requires-guessing attribute) — neither is rewritten. Facts from
+    # the intake: the DB column `strategies_used` exists (db/models.py:63,
+    # JSON, nullable) but is written as `[]` for random and image batches
+    # (admin/batch_generator.py:346, admin/app.py:476) and as a hardcoded
+    # sample ['LineLogic', 'ConstraintProp'] at admin/puzzle_review.py:730;
+    # the JSON ExportPayload carries no strategies; the only Strategy enum
+    # in the repo (analysis/strategy_counter.py) is fed by nothing the real
+    # solver does. The enum MEMBERS below are PROVISIONAL: DEC-030 (flag vs
+    # tier for "requires guessing") and DEC-031 (the replacement scoring
+    # formula) are FR-026's open decisions and fix the taxonomy; this FR
+    # states the contract over "the enum" and depends on them — it does not
+    # decide them. NOT marked dec_expected: it surfaces no decision of its
+    # own.
+    statement: >-
+      Every generated puzzle carries the ORDERED list of solving strategies
+      its verifying solve required, drawn from ONE fixed enum
+      (provisionally: simple_overlap, line_dp, cross_line,
+      probe_contradiction, guess — members fixed by DEC-030/DEC-031). The
+      list is derived from the same solve that confirmed uniqueness
+      (EVT-005 / the signals FR-009 and FR-026 score from) and never from a
+      second solve (ADR-0013's no-solver-re-entry rule). It is a pure
+      function of the clue set: the same clues yield the same list on any
+      machine and at any host speed (NFR-007, CON-014), and `guess` is
+      present if and only if the search branched (branch_nodes >= 1,
+      FR-026's requires-guessing fact). The list is persisted with the
+      puzzle in the DB column `strategies_used` (replacing today's `[]` and
+      the hardcoded sample), included in the JSON export payload as a
+      `strategies` array that round-trips (FR-012), and shown on the admin
+      review's puzzle detail and usable as a filter on its puzzle list
+      (the CARD-066 status-filter pattern: filter value pinned to the enum,
+      unknown value refused).
+    source: [US-008, US-010]
+    _meta:
+      source: authored
+      refines: [FR-009, FR-026]
+      depends_on_dec: [DEC-030, DEC-031]
+      enum_provisional: [simple_overlap, line_dp, cross_line, probe_contradiction, guess]
+      enum_note: "Member names are provisional; DEC-030/DEC-031 (FR-026's open decisions) fix the taxonomy. The criteria below are stated over 'the enum' and survive a rename; only `guess` is named because its meaning (the search branched) is already fixed by EC-015."
+      delivery: CARD-072
+      evidence: ["src/nonogram/db/models.py:63", "src/nonogram/admin/batch_generator.py:346", "src/nonogram/admin/app.py:476", "src/nonogram/admin/puzzle_review.py:730", "src/nonogram/export/json_export.py", "docs/GENERATION_ALGORITHM.md#6", "docs/GENERATION_ALGORITHM.md#7"]
+    acceptance:
+      - id: AC-135
+        given: a random-mode request at 20x20, density 40, seed 42, with the solver wrapped by a call counter
+        when: the puzzle is generated
+        then: the Puzzle carries a non-empty ordered strategies list whose every member is in the enum, recorded off the verifying solve's signals, and the solver was entered exactly once for the accepted candidate
+        kind: happy
+        test: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve
+      - id: AC-136
+        given: one fixed 20x20 clue set solved twice, with an injected clock reporting 1x and 50x elapsed time
+        when: both solves complete
+        then: the two strategies lists are identical element for element
+        kind: boundary
+        test: TestSolveStrategies_SameCluesSameListUnderDilatedClock
+      - id: AC-137
+        given: a uniquely solvable puzzle whose solve branched (branch_nodes >= 1)
+        when: its strategies list is read
+        then: the list contains `guess`
+        kind: boundary
+        test: TestSolveStrategies_GuessPresentWhenSearchBranched
+      - id: AC-138
+        given: a uniquely solvable puzzle whose solve reached the solution with branch_nodes 0
+        when: its strategies list is read
+        then: the list does not contain `guess`
+        kind: negative
+        test: TestSolveStrategies_GuessAbsentForLineSolvable
+      - id: AC-139
+        given: an admin random batch of 5 puzzles at 15x15, and an admin image batch of 1 puzzle
+        when: the batches are stored
+        then: every stored row's `strategies_used` column holds that puzzle's real non-empty list — never `[]` and never the sample ['LineLogic', 'ConstraintProp']
+        kind: happy
+        test: TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage
+      - id: AC-140
+        given: a finalized, uniqueness-confirmed puzzle whose strategies list is [simple_overlap, cross_line, guess]
+        when: it is exported as JSON and that JSON is decoded back
+        then: the payload's `strategies` array equals the list in the same order
+        kind: boundary
+        test: TestExport_JSONCarriesStrategiesInOrder
+      - id: AC-141
+        given: an admin review holding 3 puzzles whose lists contain `guess` and 4 whose lists do not
+        when: the puzzle list is filtered by strategy `guess`
+        then: exactly the 3 puzzles are listed
+        kind: happy
+        test: TestPuzzleReview_FiltersListByStrategy
+      - id: AC-142
+        given: an admin review puzzle list
+        when: it is filtered by a strategy value outside the enum
+        then: the request is refused on the CARD-066 error branch and no puzzles are listed
+        kind: negative
+        test: TestPuzzleReview_RejectsUnknownStrategyFilter
+      - id: AC-143
+        given: a stored puzzle whose list is [line_dp, probe_contradiction]
+        when: its admin review detail page is rendered
+        then: the page shows line_dp followed by probe_contradiction, in that order
+        kind: happy
+        test: TestPuzzleReview_DetailShowsStrategiesInOrder
+    engineering_constraints:
+      - id: EC-017
+        statement: >-
+          For any uniquely solvable puzzle, `guess` is in its strategies
+          list if and only if the verifying solve's branch_nodes is greater
+          than zero — the list reports the solve that happened, never a
+          threshold on the score (the same fact EC-015 states for the
+          requires-guessing attribute).
+        kind: consistency
+        instances: [AC-137, AC-138]
+        test: PropertyTest_SolveStrategies_GuessIffSearchBranched
+      - id: EC-018
+        statement: >-
+          For any clue set, the strategies list is a pure function of the
+          clues: repeated solves of the same clues yield the same ordered
+          list, elapsed wall-clock time is never an input to it (NFR-007,
+          CON-014), and the list the aggregate records, the DB row stores
+          and the JSON export carries are the same list — for every
+          extent and every solve, not only the measured examples.
+        kind: consistency
+        instances: [AC-136, AC-140]
+        nfr: NFR-007
+        test: PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
+
+non_functional:
+  - id: NFR-001
+    category: performance
+    metric: generation_completion_time_p95
+    # THRESHOLD CEILING CHANGED 2026-08-30 (CON-011). Previous text, verbatim:
+    #   "5s p95 for <=20x20; 30s hard timeout for >20x20 up to 50x50 (ADR-0001)"
+    # Only the ceiling moved (50x50 -> 30x30) because 50 is no longer a
+    # requestable size; the 5s/20x20 and 30s figures ADR-0001 fixed are
+    # untouched. ADR-0001 itself is not reopened by this — it decided the
+    # numbers, not the size range they cap.
+    threshold: "5s p95 for <=20x20; 30s hard timeout for >20x20 up to 30x30 (ADR-0001, ceiling per CON-011)"
+    condition: >-
+      grid width and height each <= 20, including any regenerate-on-failure
+      retries, on typical developer hardware
+    rationale: >-
+      Puzzle generation, including the regenerate loop, should stay within
+      interactive time for common sizes (docs/requirements.md NFR-1).
+    acceptance:
+      - id: AC-037
+        given: a 20x20 random-grid generation request under typical hardware
+        when: generation runs, including any regenerate retries
+        then: p95 completion time <= 5s
+        kind: boundary
+        test: BenchGenerate_20x20_p95Under5s
+      - id: AC-038
+        # SUPERSEDED 2026-08-30 by AC-084 (CON-011). At MAX_SIZE=30 a 50x50
+        # request is no longer merely large, it is INVALID: it fails with a
+        # size-range error before the solver is ever entered, so this criterion
+        # can no longer exercise the deadline it exists to prove. Preserved
+        # verbatim. KNOWN CONSEQUENCE, to schedule rather than discover:
+        # tests/test_timeout.py uses size=50 in four places as this criterion's
+        # fixture, and tests/test_sourcing_image.py:312 pins MAX_SIZE == 50
+        # directly. A replacement fixture inside 30x30 that genuinely exceeds
+        # the deadline must be MEASURED, not assumed — see AC-084.
+        status: superseded
+        superseded_by: AC-084
+        given: a 50x50 random-grid generation request (the largest supported size)
+        when: generation runs
+        then: it completes within 30s or fails clearly with a SolverTimeout error (cooperative deadline enforced inside the solver — ADR-0011) — it never hangs indefinitely
+        kind: boundary
+        test: TestGenerate_50x50_RespectsTimeoutBound
+      - id: AC-084
+        given: a 30x30 random-grid generation request (the largest supported grid under CON-011) using a seed measured to drive the solver past the deadline
+        when: generation runs
+        then: it completes within 30s or fails clearly with a SolverTimeout error (cooperative deadline enforced inside the solver — ADR-0011) — it never hangs indefinitely
+        kind: boundary
+        test: TestGenerate_30x30_RespectsTimeoutBound
+
+  - id: NFR-002
+    category: maintainability
+    metric: max_retry_iterations
+    threshold: "20 regenerate/resample attempts; 5 pixel-nudge attempts (ADR-0002)"
+    condition: >-
+      the regenerate-on-failure loop (uniqueness check and/or difficulty
+      resampling) and the image pixel-nudge loop, for any single
+      generation request
+    rationale: >-
+      Without a hard bound, an infeasible request (e.g. an unreachable
+      difficulty at a given size) would loop forever (docs/requirements.md
+      NFR-2).
+    acceptance:
+      - id: AC-039
+        given: a generation request whose candidates never pass the uniqueness or difficulty check
+        when: the retry loop runs
+        then: it stops after at most the configured maximum retry count (20 regenerate/resample attempts, 5 pixel-nudge attempts — ADR-0002) and reports a clear failure instead of looping indefinitely
+        kind: boundary
+        invariant: INV-003
+        test: TestRetryLoop_BoundedIterations
+
+  - id: NFR-003
+    category: security
+    metric: web_server_bind_scope
+    threshold: "binds 127.0.0.1 (loopback) only; no authentication enforced (BCON-0001)"
+    bcon_ref: BCON-0001
+    condition: >-
+      whenever the local web UI's HTTP server is started, for every request
+      it receives, in every deployment of the tool
+    rationale: >-
+      The web UI serves exactly one local Puzzle Creator actor
+      (meta/business/vision.md); a server reachable beyond loopback, or
+      gated behind credentials a single-user tool has no clean way to
+      manage, would turn a personal utility into an unauthenticated
+      network-exposed one (BCON-0001, meta/business/constraints.md).
+    acceptance:
+      - id: AC-052
+        given: the web UI server started with its default configuration
+        when: it binds its listening socket
+        then: the socket is bound to 127.0.0.1 and refuses connections arriving on any other interface
+        kind: boundary
+        test: TestWebServer_BindsLoopbackOnlyByDefault
+      - id: AC-053
+        given: a request to any web UI endpoint with no Authorization header or session credentials
+        when: the request is handled
+        then: it is processed normally, since the server enforces no authentication check
+        kind: happy
+        test: TestWebServer_ProcessesRequestsWithoutAuthentication
+
+  - id: NFR-004
+    category: security
+    metric: web_ui_request_origin_validation
+    threshold: >-
+      any request whose Sec-Fetch-Site header is present and not
+      same-origin/none, whose Origin header names a host that is not a
+      loopback name (127.0.0.1, localhost, [::1]), or whose request-target
+      is absolute-form with an authority that is not a loopback name, is
+      refused with HTTP 400 and never routed to a handler
+    bcon_ref: BCON-0001
+    condition: >-
+      for every request the web UI's HTTP server receives, whenever the
+      server is running — independent of, and in addition to, NFR-003's
+      loopback socket bind
+    rationale: >-
+      NFR-003/AC-052 bind the listening socket to 127.0.0.1, which stops
+      reach over the network but not a browser-mediated cross-origin
+      request: a browser sets the Host header from the request's TARGET
+      url, not from the page that submitted it, so a form on a malicious
+      page submitting to 127.0.0.1 arrives with an allowlisted Host and,
+      absent this check, is served. Verified on the wire against merged
+      CARD-019 code, 2026-08-30: cross-site GET with an allowlisted Host ->
+      200; absolute-form target with no Host -> 200; only a foreign Host in
+      origin-form was refused (400) (meta/review/20260830T163436Z-CARD-019-
+      posthoc.yml, findings F-001/F-002). This is a NEW NFR rather than a
+      widened NFR-003: NFR-003's metric (web_server_bind_scope) is a
+      socket-level property enforced once, at server start; this metric is
+      a per-request, application-layer check with its own threshold and its
+      own tests, so the two are kept as separate NFRs rather than stretching
+      NFR-003's existing metric to cover a mechanism it was never about.
+      Both discharge BCON-0001's "never network-exposed" — NFR-003 for
+      socket reach, this NFR for browser-mediated reach.
+    acceptance:
+      - id: AC-054
+        given: a GET request to the web UI form with an allowlisted Host (127.0.0.1:PORT) and Sec-Fetch-Site "cross-site"
+        when: the request is dispatched
+        then: it is refused with 400 and the form is not returned
+        kind: negative
+        test: TestWebServer_RejectsCrossSiteSecFetchSite
+      - id: AC-055
+        given: a GET request to the web UI form with an allowlisted Host (127.0.0.1:PORT) and Origin "https://evil.example.com"
+        when: the request is dispatched
+        then: it is refused with 400 and the form is not returned
+        kind: negative
+        test: TestWebServer_RejectsForeignOrigin
+      - id: AC-056
+        given: an absolute-form request target naming a non-loopback authority and no Host header ("GET http://evil.example.com/ HTTP/1.0")
+        when: the request is dispatched
+        then: it is refused with 400 and the form is not returned
+        kind: boundary
+        test: TestWebServer_RejectsAbsoluteFormTargetWithForeignAuthority
+      - id: AC-057
+        given: a GET request to the web UI form with an allowlisted Host (127.0.0.1:PORT), Sec-Fetch-Site "same-origin", and no Origin header
+        when: the request is dispatched
+        then: it is processed normally and returns 200 with the form
+        kind: happy
+        test: TestWebServer_ServesSameOriginRequestNormally
+      - id: AC-058
+        given: a GET request to the web UI form with an allowlisted Host (127.0.0.1:PORT) and no Sec-Fetch-Site header and no Origin header (e.g. a plain browser-typed-URL navigation or curl)
+        when: the request is dispatched
+        then: it is processed normally and returns 200 with the form
+        kind: boundary
+        test: TestWebServer_AllowsRequestsWithNoOriginMetadata
+    engineering_constraints:
+      - id: EC-004
+        statement: >-
+          For any request whose Sec-Fetch-Site header is present and not
+          same-origin/none, whose Origin header names a host that is not a
+          loopback name, or whose request-target is absolute-form with a
+          non-loopback authority — including header shapes not named by
+          AC-054..AC-056 (e.g. a "#" or "?" inside the Host value, a
+          non-numeric or empty port) — the web UI server refuses the
+          request and never routes it to a handler, for any such input.
+        kind: consistency
+        instances: [AC-054, AC-055, AC-056]
+        test: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
+
+  - id: NFR-005
+    # AMENDED 2026-09-01 (raw-requirements.md, entry dated 2026-09-01: "AMENDS
+    # NFR-005 and EC-008"). Id, kind, metric and existing AC ids/tests stay
+    # stable (EC-007 2026-08-31 amendment precedent) — only the threshold,
+    # condition and rationale are corrected. The comfort-cap half of min() was
+    # always genuinely a function of max(width, height) and is untouched; the
+    # "cell size is non-increasing in max(width, height)" closing sentence
+    # was not — measured on a fixed-orientation page, a 40x20 and a 20x40
+    # share max() = 40 but print at 3.39mm and 4.91mm, a 45% gap for the same
+    # max() value. That sentence is removed and replaced with the honest
+    # bound: the FINAL cell size never exceeds the cap, but is not itself a
+    # function of max(width, height) alone. NFR-006 (page orientation follows
+    # the grid's shape) is the fix that makes page_fit well-defined per grid
+    # at all, by removing the ambiguity of which page axis each side lands
+    # on; it does not, by itself, restore monotonicity in max(width,
+    # height), because page_fit also depends on the clue gutter (already
+    # true before rectangles, per the 2026-08-31 EC-008 rewrite).
+    category: usability
+    metric: printed_cell_size_mm
+    threshold: >-
+      the printed cell edge is min(comfort_cap, page_fit), where
+      comfort_cap is the value docs/cell_size.md's CHOSEN-VALUE list
+      assigns to max(width, height) — 10 -> 9.0 mm, 15 -> 8.0 mm,
+      20 -> 7.5 mm, 25 -> 7.0 mm, 30 -> 6.5 mm, linearly interpolated
+      between those points — and page_fit is the largest cell that keeps
+      the whole drawing (grid PLUS clue gutter PLUS header band) inside
+      the A4 printable area, computed AFTER NFR-006 assigns the grid's
+      longer side to the page's longer printable axis (297 mm) and its
+      shorter side to the page's shorter axis (210 mm). The comfort cap is
+      a CEILING, never a floor: when the two disagree, page_fit wins, and
+      cell size never falls below MIN_CELL_MM. The comfort cap alone is a
+      non-increasing function of max(width, height); the FINAL cell size
+      (after page_fit) is NOT a function of max(width, height) alone — two
+      grids sharing the same larger dimension are not guaranteed the same
+      final cell size, because page_fit also depends on the clue gutter
+      (a property of the puzzle's actual clues, not its dimensions) and,
+      before NFR-006 assigns a consistent page axis per side, on which
+      dimension happened to land on which physical axis.
+    condition: >-
+      for every PNG, SVG and PDF export of any supported grid, with
+      comfort_cap computed from the LARGER of the two grid dimensions and
+      page_fit computed from the drawing's true extent in cells along each
+      page axis (per NFR-006's orientation assignment), which includes the
+      clue gutter and therefore depends on the puzzle's actual clues, not
+      on its dimensions alone
+    rationale: >-
+      A cell has to be big enough to mark with a pencil, and how big it can
+      be is set by the longer side of the grid, not by its area — so a
+      10x10 and a 30x30 must not print the same. Today they effectively do:
+      MAX_CELL_MM = 6.5 in src/nonogram/export/layout.py caps every grid, so
+      the measured cell is an identical 6.52 mm from 10x10 through 25x25 and
+      5.93 mm at 30x30 — only 30x30 is accidentally right, and a 10x10
+      prints about 30% smaller than the table asks for. This NFR replaces
+      the single cap with the declining function of the larger dimension.
+      RESOLVED 2026-08-31 (user decision, two parts):
+      (1) WHICH NUMBERS. docs/cell_size.md carries two readings — a TABLE
+      giving a comfortable band per grid (8.0-8.9 mm at 10 cells) and a
+      CHOSEN-VALUE list naming one number per grid (9.0 mm at 10 cells);
+      an earlier intake line said "about 8.5 mm", a third reading. The
+      CHOSEN VALUES are the spec: the table records the range that was
+      considered, the chosen list records what was decided. Tolerance
+      +/-0.2 mm — about two device pixels at 300 DPI (~0.085 mm each),
+      tight enough to hold the decision, loose enough for DPI rounding.
+      (2) CAP, NOT TARGET. Measured during elicitation: the chosen values
+      are unachievable on A4 for larger grids, because the table measures
+      the GRID ONLY while a printed puzzle also needs its clue gutter. At
+      45% density the gutter runs 4 cells at 10x10, 7 at 20x20, 10 at
+      30x30 — so the drawing is 14, 27 and 40 cells across, and at the
+      chosen sizes that is 126 mm (fits), 202 mm (16 mm over) and 260 mm
+      (74 mm over) against 186 mm of A4 printable width. The comfort
+      values are therefore a CEILING, honoured when the page allows and
+      overridden by page-fit when it does not. This keeps the real win —
+      a 10x10 stops printing at the same cramped 6.52 mm as a 25x25 —
+      without writing a requirement the format cannot satisfy. It also
+      preserves layout.py's existing floor behaviour: below MIN_CELL_MM
+      the drawing is allowed to exceed A4 rather than shrink past the
+      point where a pencil mark is meaningless.
+      AMENDED 2026-09-01 (surfaced while deciding a bare `--size N`,
+      FR-023): this NFR's own "cell size is non-increasing in max(width,
+      height)" claim does not survive rectangles. Measured on a
+      fixed-orientation (unturned) page: a 40x20 and a 20x40 share
+      max(width, height) = 40 but print at 3.39mm and 4.91mm respectively —
+      a 45% gap between two grids with the same max() value, so the FINAL
+      cell size was never a genuine function of that term alone. The
+      comfort-cap half of min() was always correctly stated (it is a table
+      lookup on max(width, height), independent of orientation); only the
+      page_fit half and the overall monotonicity claim over the combined
+      value were wrong. NFR-006 fixes the ambiguity by always mapping the
+      grid's longer side to the page's longer axis, so page_fit becomes
+      well-defined per grid rather than depending on an unstated
+      orientation choice — but even with NFR-006 applied, two grids
+      sharing the same larger dimension are still not guaranteed the same
+      final cell size (5.00mm vs 4.91mm for a 40x20 vs a 20x40, both
+      turned per NFR-006), because the clue gutter still varies with the
+      puzzle's actual clues. The property this NFR guarantees is a
+      CEILING, not monotonicity or equality of the final value — see the
+      corresponding EC-008 amendment.
+    acceptance:
+      # AC-080..AC-083 split deliberately by WHICH TERM OF min() BINDS. Measured
+      # at 45% density: the comfort cap binds only up to about 15 cells per side;
+      # from 20 up the clue gutter makes page-fit the binding term every time
+      # (20x20 -> 6.89 mm, 30x30 -> 4.54 mm). So an AC that pins an exact
+      # comfort value on a large grid would assert something the format cannot
+      # deliver, and an AC that pins one on a small grid is the only place the
+      # cap is observable at all.
+      - id: AC-080
+        given: a finalized 10x10 puzzle, small enough that the comfort cap is the binding term
+        when: it is rendered for print at 300 DPI
+        then: the cell edge measures 9.0 mm +/-0.2 mm, and the whole drawing fits inside the A4 printable area
+        kind: boundary
+        test: TestLayout_SmallGridTakesTheComfortCap
+      - id: AC-081
+        given: a finalized 30x30 puzzle, the largest supported grid, whose clue gutter makes the comfort cap unreachable
+        when: it is rendered for print at 300 DPI
+        then: the cell edge is strictly LESS than the 6.5 mm comfort value for 30 and the whole drawing still fits inside the A4 printable area — page-fit wins, and the cap is never treated as a floor
+        kind: boundary
+        test: TestLayout_LargeGridIsPageFitBoundNotCapBound
+      - id: AC-082
+        given: two finalized puzzles with the same larger dimension but different shapes, 12x10 and 10x12, both small enough that the comfort cap binds
+        when: each is rendered for print at 300 DPI
+        then: both take the cap implied by their larger dimension 12, not by their smaller dimension 10 — so both measure 8.6 mm +/-0.2 mm, and orientation alone does not change the cell size
+        kind: boundary
+        test: TestLayout_CapComesFromLargerDimensionRegardlessOfOrientation
+      - id: AC-083
+        given: a finalized 13x11 puzzle, whose larger dimension 13 falls between the chosen-value points 10 (9.0 mm) and 15 (8.0 mm), and which is small enough that the cap binds
+        when: it is rendered for print at 300 DPI
+        then: the cell edge measures 8.4 mm +/-0.2 mm — linear interpolation, 9.0 - (13-10)/(15-10) * (9.0-8.0)
+        kind: boundary
+        test: TestLayout_InterpolatesBetweenChosenCellSizes
+      # Added 2026-09-01 with the NFR-005 amendment above (FR-023 delta):
+      # proves the corrected claim directly against the measured 40x20/20x40
+      # pair, both after NFR-006's orientation rule is applied.
+      - id: AC-104
+        given: a 40x20 grid (turned landscape per NFR-006) and a 20x40 grid (already portrait per NFR-006), both sharing larger dimension 40
+        when: each is rendered for print at 300 DPI
+        then: the two do not print the same cell size — 40x20 measures 5.00 mm and 20x40 measures 4.91 mm — so max(width, height) alone does not determine the final cell size even after orientation is applied
+        kind: boundary
+        test: TestLayout_SameLargerDimensionDoesNotGuaranteeSameCellSize
+    engineering_constraints:
+      # REWRITTEN 2026-08-31 when NFR-005 became a CAP rather than a target.
+      # The original statement said cell size is non-increasing in the larger
+      # dimension and "depends on nothing else about the grid". Both halves are
+      # false under min(comfort_cap, page_fit), because page_fit depends on the
+      # clue gutter, which is a property of the puzzle's CLUES, not of its
+      # dimensions. Counterexample, constructed and measured on the real layout
+      # code: a 25x25 grid with a single filled cell has a 1-cell gutter and
+      # prints at 7.00 mm (its cap), while a 20x20 checkerboard has a 10-cell
+      # gutter and prints at 6.20 mm (page-fit) — the LARGER grid gets the
+      # LARGER cell. Stating the property over the cap instead keeps it true and
+      # still pins the thing that matters: the cap is a ceiling that is honoured
+      # everywhere and exceeded nowhere.
+      # AMENDED 2026-09-01 (raw-requirements.md, "AMENDS NFR-005 and EC-008").
+      # Id, kind and test ref stay stable (EC-007 2026-08-31 amendment
+      # precedent). The trap this amendment avoids: simply adding "and depends
+      # on width and height both" would not fix it, because max(width, height)
+      # IS a well-defined function of the grid — the thing that was actually
+      # ill-posed is treating the FINAL cell size as a function of max() alone,
+      # since two grids sharing the same max() (40x20 and 20x40) measured
+      # 3.39mm and 4.91mm on a fixed-orientation page, a 45% gap. The
+      # restatement below keeps the property that genuinely holds (a ceiling)
+      # instead of asserting monotonicity or equality that does not.
+      - id: EC-008
+        statement: >-
+          For every supported grid, the printed cell size is less than or
+          equal to the comfort cap that docs/cell_size.md's chosen values
+          assign to that grid's larger dimension; that cap is itself a
+          non-increasing function of the larger dimension across the whole
+          10..30 range and does not depend on orientation. The FINAL cell
+          size is bounded above by that cap but is NOT a function of the
+          larger dimension (max(width, height)) alone, for two independent
+          reasons: page-fit depends on the clue gutter, a property of the
+          puzzle's actual clues rather than its dimensions; and, before
+          NFR-006's orientation rule is applied, max(width, height) alone
+          does not determine which physical page axis (210mm or 297mm)
+          each side lands on — two grids sharing the same larger dimension
+          (a 40x20 and a 20x40, both max() = 40) measured 3.39mm and
+          4.91mm on a fixed-orientation page. Even with NFR-006 applied,
+          matching larger dimensions are still not guaranteed the same
+          final cell size (5.00mm vs 4.91mm for the same pair), because
+          the clue-gutter dependency remains. The property this
+          constraint guarantees is the CEILING — the final cell size never
+          exceeds the comfort cap — not monotonicity or equality of the
+          final value.
+        kind: consistency
+        instances: [AC-080, AC-081, AC-082, AC-083, AC-104]
+        test: PropertyTest_Layout_CellSizeNeverExceedsComfortCap
+
+  - id: NFR-006
+    # New 2026-09-01. AMENDED the same day, before shipping: the first version
+    # turned the sheet on the grid's SHAPE ("landscape iff width > height").
+    # That is the wrong choice in 102 of 882 in-range cases because it states
+    # orientation over the GRID while page fit is governed by the DRAWING, and
+    # a wide grid can draw tall behind a deep column gutter. Three of its five
+    # original criteria (40x20, 45x25, 20x40) also asserted grids CON-011 makes
+    # unrequestable. Prerequisite for the NFR-005/EC-008 amendment above —
+    # NFR-005's page_fit term is computed AFTER this orientation choice.
+    category: usability
+    metric: page_orientation
+    threshold: >-
+      the orientation printed is whichever of portrait and landscape yields
+      the LARGER printed cell for that particular puzzle; a tie resolves to
+      portrait. Not a function of the grid's shape alone.
+    condition: >-
+      for every PNG, SVG and PDF export of any supported grid, chosen
+      before NFR-005's page_fit term is computed, since page_fit depends on
+      which physical page axis each grid dimension lands on
+    rationale: >-
+      Deriving a rectangular shape from a bare `--size N` (FR-023) is not a
+      separable nicety once the page stays fixed: a 30x10 grid prints 5.93mm
+      per cell upright and 6.43mm turned, so deriving the shape without
+      turning the page harms exactly the puzzles the derivation exists to
+      help. But turning on the grid's SHAPE is the wrong rule. Page fit is
+      governed by the drawing, not the grid, and a wide grid can draw tall
+      behind a deep column gutter: a 26x25 alternating-rows puzzle prints
+      4.57mm on the landscape sheet its shape asks for, against 6.86mm
+      upright — a 33% loss. Measured mean printed cell over 441 in-range
+      extents x 2 gutter-heavy patterns: shape rule 6.626mm, drawing-based
+      6.746mm, larger-cell-wins 6.749mm. Larger-cell-wins is optimal by
+      construction; the drawing-based alternative merely approximates it and
+      carries a circularity (a drawing's extent depends on cell size, which
+      depends on page size, which depends on orientation), so it is undefined
+      until an orientation has already been chosen. DERIVED CONSEQUENCE,
+      recorded here rather than legislated as a separate rule: a grid whose
+      larger side is 15 or less never turns, because it is cap-bound in both
+      orientations and the tie resolves to portrait. Swept over 441 extents x
+      4 clue patterns (random, checkerboard, sparse, alternating-rows — the
+      corpus EC-010's property test sweeps): the smallest larger-dimension
+      that ever turns is 16, and 446 of 1764 cases turn overall, concentrated
+      at 27..30. (An earlier draft said 419; that came from a different
+      pattern set and does not reproduce on the corpus the test actually
+      uses. The ordinal facts — smallest turning dimension 16, concentration
+      at the top — hold on both.) A small
+      puzzle therefore cannot be turned gratuitously; it turns only when it
+      is genuinely page-constrained, which is when turning buys something.
+      SQUARES ARE NOT EXEMPT, and this follows from the rule rather than
+      being an oversight: a square grid whose row gutters run deeper than its
+      column gutters draws wider than it is tall and genuinely prints larger
+      turned. Measured on the property corpus, 18x18 and 19x19 at random
+      density both turn, while 20x20 and 30x30 stay upright. Any statement
+      that "squares print portrait" is therefore false in general — true of
+      AC-103's 30x30, not of every square. Removing the square special case
+      is the point of this amendment; a square is simply a grid whose two
+      orientations are usually, but not always, close enough that portrait
+      wins.
+      Source: US-022, brainstorm 2026-09-01, amended during CARD-034 review.
+    acceptance:
+      - id: AC-099
+        given: a 30x10 alternating-rows grid, whose landscape layout prints a larger cell than its portrait one
+        when: it is rendered for print at 300 DPI
+        then: landscape is selected, printing 6.43 mm against the 5.93 mm the upright sheet would give
+        kind: happy
+        test: TestPageOrientation_WideGridTurnsWhenLandscapeCellIsLarger
+      - id: AC-100
+        given: a 26x10 checkerboard grid, the largest measured orientation gain in the supported range
+        when: it is rendered for print at 300 DPI
+        then: landscape is selected, printing 6.86 mm against 4.74 mm upright — a gain of 2.12 mm
+        kind: boundary
+        test: TestPageOrientation_LargestInRangeGainTurnsLandscape
+      - id: AC-101
+        given: a 30x20 alternating-rows grid — WIDER than it is tall, so the superseded shape rule would have turned it
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected, printing 5.93 mm against the 5.76 mm landscape would give — a wide grid stays upright when upright prints larger
+        kind: boundary
+        test: TestPageOrientation_WideGridStaysPortraitWhenPortraitCellIsLarger
+      - id: AC-102
+        given: a 10x30 tall grid
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected, printing 5.76 mm against 3.81 mm if forced landscape
+        kind: boundary
+        test: TestPageOrientation_TallGridStaysPortrait
+      - id: AC-103
+        given: a 30x30 square grid
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected, printing 5.76 mm against 3.81 mm landscape — derived from the cell comparison, not from a square special case
+        kind: boundary
+        test: TestPageOrientation_SquareGridStaysPortraitByCellComparison
+      - id: AC-105
+        given: a 26x25 alternating-rows grid — the witness that separates this rule from the superseded shape rule
+        when: it is rendered for print at 300 DPI
+        then: portrait is selected at 6.86 mm; the shape rule would have turned it landscape and printed 4.57 mm, losing 33%
+        kind: negative
+        test: TestPageOrientation_WideGridWithTallDrawingStaysPortrait
+      - id: AC-106
+        given: every grid in the supported range whose larger side is 15 or less, across four clue patterns
+        when: each is rendered for print at 300 DPI
+        then: none of them turns — all print portrait, because a small grid is cap-bound in both orientations (so the two tie and the tie resolves to portrait) or else portrait wins outright; measured, 132 of 144 small cases tie and the other 12 are outright portrait wins
+        kind: boundary
+        test: TestPageOrientation_SmallGridsNeverTurn
+    engineering_constraints:
+      - id: EC-010
+        statement: >-
+          For any accepted grid (width, height) with each side in 10..30 and
+          any clue set it can produce, the export orientation is the one of
+          portrait and landscape whose layout yields the larger printed cell,
+          and portrait when the two are equal — for every supported grid and
+          clue set, not only the measured examples. It is a function of the
+          whole puzzle, not of (width, height) alone: two grids of identical
+          extent can print on differently turned sheets when their clue
+          gutters differ, and a 26x25 is portrait or landscape according to
+          which prints larger.
+        kind: consistency
+        instances: [AC-099, AC-101, AC-103, AC-105, AC-106]
+        test: PropertyTest_PageOrientation_LargerCellWinsTiesToPortrait
+
+  - id: NFR-007
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 5 — NOT
+    # marked DECISION). Today difficulty.py's time_pressure term (weight
+    # 0.15, budget 5s per 400 cells) puts wall-clock solve time into the
+    # score, so with --difficulty requested the same seed can keep or
+    # resample a boundary candidate differently on a slower machine
+    # (docs/GENERATION_ALGORITHM.md §10.2 finding 3). ADR-0015's "same seed
+    # replays the same run" therefore holds only without a tier. Amends
+    # FR-009's signal list and FR-010's tier decision (dated notes there);
+    # the ADR-0013 formula and ADR-0015 consequence revisions are
+    # forge:architect-adr-writer's job. CON-014 restates this as a standing
+    # system rule with a check.
+    category: maintainability
+    metric: difficulty_classification_machine_dependence
+    threshold: >-
+      0 — for a given seed and generation request, the difficulty score of
+      every candidate and the tier decision made on it are IDENTICAL on
+      every machine and at every host speed; no term of the score and no
+      input of the tier decision is derived from elapsed wall-clock time
+    condition: >-
+      for every scored candidate in every mode, with or without a
+      requested --difficulty tier, including every candidate the resample
+      loop (POL-004) keeps or discards; the cooperative deadline
+      (ADR-0011) still bounds the solve but its clock readings never
+      reach the scorer
+    rationale: >-
+      The same seed and request must classify identically on any machine
+      — reproducibility is what ADR-0015 promises and what a printed-book
+      workflow that regenerates a puzzle from its recorded seed relies on.
+      Solver elapsed time is a fact about the host, not about the puzzle.
+      Source: docs/GENERATION_ALGORITHM.md §10.2 finding 3, 2026-09-12.
+    acceptance:
+      - id: AC-122
+        given: two solver signal records identical in every field except elapsed_seconds — 0.001s and 4.9s (the latter at the size-relative budget)
+        when: both are scored
+        then: the two scores are equal to the last digit
+        kind: boundary
+        test: TestScoreDifficulty_IgnoresElapsedSeconds
+      - id: AC-123
+        given: a random-mode request with seed 42, 20x20, density 40 and --difficulty Medium, run twice with an injected clock that reports 1x and 50x elapsed time
+        when: both runs complete
+        then: both return the same solution grid and the same resample attempt count
+        kind: happy
+        test: TestResample_SameSeedSameTierUnderDilatedClock
+    engineering_constraints:
+      - id: EC-016
+        statement: >-
+          For any two solver signal records that differ only in
+          elapsed_seconds, score_difficulty returns the same score and the
+          tier decision on that score is the same — for every extent, clue
+          set and elapsed value, not only the measured examples.
+        kind: consistency
+        instances: [AC-122]
+        nfr: NFR-007
+        test: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
+
+
+constraints:
+  - id: CON-001
+    type: technical
+    statement: >-
+      Target interface is a CLI tool; no web/GUI in v1.
+    source: docs/requirements.md Section 2, Decisions Log #5
+    status: superseded  # superseded 2026-08-30 by CON-007: the tool now also ships a local web UI alongside the CLI (an addition, not a CLI deprecation)
+    superseded_by: CON-007
+  - id: CON-002
+    type: technical
+    statement: >-
+      No playable/interactive puzzle output in v1 — only the static PNG/SVG,
+      JSON/CSV, and PDF exports (FR-011, FR-012, FR-016). Deferred; see
+      meta/kanban/backlog.md.
+    source: docs/requirements.md FR-14, Decisions Log #1
+  - id: CON-003
+    type: organizational
+    statement: >-
+      No multiplayer, user accounts, or persistence beyond local file
+      export, ever.
+    source: meta/business/vision.md Non-goals
+  - id: CON-004
+    type: technical
+    statement: >-
+      Difficulty classification (Easy/Medium/Hard) is a heuristic
+      score-threshold bucket, not a construction guarantee — an "Easy"
+      puzzle is not strictly guaranteed to be solvable without any
+      backtracking, only scored as likely easy.
+    source: docs/requirements.md FR-8, Decisions Log #2
+  - id: CON-005
+    type: technical
+    statement: >-
+      The uniqueness check must never produce a false positive: a puzzle
+      accepted as unique must never actually have 0 or more than 1
+      solutions. This is the mandatory correctness property the whole
+      tool depends on.
+    source: docs/requirements.md NFR-3
+    check:
+      kind: test
+      ref: PropertyTest_Solver_NeverFalsePositiveUniqueness
+    severity: mandatory
+  - id: CON-006
+    type: technical
+    statement: >-
+      PDF export renders each page as a raster image via the existing PNG
+      rendering path (FR-011) and combines them into a multi-page PDF
+      using Pillow's built-in PDF save capability; no new third-party
+      dependency is introduced, and ADR-0006's dependency baseline (stdlib
+      + Pillow + NumPy) is not reopened.
+    source: US-012, 2026-08-27
+  - id: CON-007
+    type: technical
+    statement: >-
+      CLI is the primary/scriptable interface; a local web UI is also
+      shipped, exposing the same generation options and triggering the
+      same orchestrator pipeline (FR-017); both are first-class interfaces
+      to the same domain — the web UI is an additional inbound adapter,
+      not a replacement for, or a deprecation of, the CLI.
+    source: >-
+      user request + brainstorm delta, 2026-08-30; replaces CON-001
+      (docs/requirements.md Section 2, Decisions Log #5)
+  - id: CON-008
+    type: technical
+    statement: >-
+      The web UI's v1 does not render an in-browser preview of the
+      generated puzzle image — it reports success/failure and the paths of
+      the files written (FR-017). Deferred as a "later" candidate; see
+      meta/kanban/backlog.md.
+    source: US-014, meta/business/vision.md Non-goals, 2026-08-30
+  - id: CON-009
+    type: technical
+    statement: >-
+      The web UI's HTTP server binds its listening socket to 127.0.0.1
+      (loopback) only, and refuses connections arriving on any other
+      interface. Restates NFR-003/AC-052 as a gate-enforced mandatory
+      constraint — a `check:` the system contract actually collects — so
+      BCON-0001's socket-reach half is discharged by more than a threshold
+      visible only in requirements.yml.
+    source: NFR-003, AC-052; BCON-0001 (meta/business/constraints.md)
+    bcon_ref: BCON-0001
+    check:
+      kind: test
+      ref: TestWebServer_BindsLoopbackOnlyByDefault
+    severity: mandatory
+  - id: CON-010
+    type: technical
+    statement: >-
+      The web UI's HTTP server refuses any request the browser itself
+      marks as cross-site (a Sec-Fetch-Site value other than
+      same-origin/none, or an Origin header naming a non-loopback host),
+      and refuses any absolute-form request target whose authority is not
+      a loopback name (NFR-004). Restates NFR-004 as a gate-enforced
+      mandatory constraint — a `check:` the system contract actually
+      collects — so BCON-0001's browser-mediated-reach half is discharged
+      too, not only its socket-reach half (CON-009): binding to 127.0.0.1
+      alone does not stop this, since a browser sets Host from the
+      request's target url, not from the page's origin.
+    source: >-
+      NFR-004, AC-054, AC-055, AC-056; BCON-0001
+      (meta/business/constraints.md); independent post-hoc review of
+      CARD-019 (meta/review/20260830T163436Z-CARD-019-posthoc.yml,
+      findings F-001/F-002), 2026-08-30
+    bcon_ref: BCON-0001
+    check:
+      kind: test
+      ref: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
+    severity: mandatory
+  - id: CON-011
+    type: technical
+    statement: >-
+      Each grid side is 10 to 30 cells inclusive. 30 replaces 50 as
+      MAX_SIZE project-wide and applies to every source mode (random,
+      built-in library, uploaded image) and to both inbound adapters (CLI
+      and web UI). This supersedes the 10..50 range FR-001 carried;
+      FR-001 is marked status: superseded, superseded_by: FR-019, and
+      FR-019 restates the behaviour over the narrowed range.
+    source: >-
+      US-016, raw-requirements.md line 84, 2026-08-30; supersedes the range
+      in FR-001 (docs/requirements.md FR-1)
+    rationale: >-
+      Beyond about 30 cells per side the printed cell drops under ~6 mm
+      (docs/cell_size.md, NFR-005) and stops being comfortable to mark by
+      hand, so the upper bound is a print-legibility limit, not a
+      performance one.
+    check:
+      kind: test
+      ref: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
+    severity: mandatory
+  - id: CON-012
+    type: technical
+    statement: >-
+      A generation request whose grid aspect ratio differs from the
+      uploaded source image's INK BOUNDING BOX ratio (ADR-0022 revision
+      2026-09-01, DEC-025 — not its as-decoded file ratio) by more than 2x
+      is refused with an explanatory error rather than converted (FR-021). The centred crop of
+      FR-020 retains exactly min(r_src, r_tgt) / max(r_src, r_tgt) of the
+      source with r = width/height, so this is exactly the rule "never
+      silently discard more than half the user's picture". Retaining
+      exactly 50% (a ratio difference of exactly 2x) is ACCEPTED — the
+      boundary is inclusive.
+    source: US-018, FR-021, AC-075, AC-076, 2026-08-30
+    check:
+      kind: test
+      ref: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore
+    severity: mandatory
+  - id: CON-013
+    type: technical
+    statement: >-
+      Image sourcing (FR-003, FR-020) targets high-contrast black-and-white
+      silhouettes only for now — not photographs. Conversion quality,
+      dithering tuning and the uniqueness/nudge budget are all calibrated
+      for silhouettes; photographic input is out of scope rather than
+      unsupported-with-a-warning.
+    source: user decision, raw-requirements.md line 87, 2026-08-30
+  - id: CON-014
+    # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 5).
+    # NFR-007 restated as a standing system rule so forge:review's system
+    # contract checks it on every diff that touches the scorer or the
+    # resample loop, not only on the diff that introduces it.
+    type: technical
+    statement: >-
+      Wall-clock solve time — the solver's elapsed_seconds or any other
+      reading of a clock — never enters the difficulty score or the tier
+      decision made on it (NFR-007). The score is a pure function of the
+      solve's structural signals and the puzzle's clues; the cooperative
+      deadline (ADR-0011) bounds the solve but is not a scoring input.
+    source: docs/GENERATION_ALGORITHM.md §10.2 finding 3, raw-requirements.md 2026-09-12 entry 5
+    scope:
+      code: ["src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]
+    check:
+      kind: test
+      ref: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
+    severity: mandatory
