@@ -15,6 +15,7 @@ AC-5 — status and extent agree with the share actually kept, across a
 import random
 import re
 from datetime import datetime
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -53,10 +54,10 @@ def _image(width: int, height: int, mode: str = "fixed", value: int = 20) -> Ima
 
 def _kept(source: tuple, grid: tuple) -> float:
     """Share of the picture a crop to ``grid``'s shape keeps, independently
-    of the code under test. It uses integer cross-products, so exact
-    boundary cases compare exactly against MIN_KEPT_SHARE."""
-    a, b = source[0] * grid[1], grid[0] * source[1]
-    return min(a, b) / max(a, b)
+    of the code under test: exact rational arithmetic on the two ratios,
+    where the module compares integer cross-products (CARD-065)."""
+    a, b = Fraction(*source), Fraction(*grid)
+    return float(min(a, b) / max(a, b))
 
 
 def _normalized(body: str) -> str:
@@ -281,8 +282,21 @@ def test_a_retry_below_the_threshold_says_how_much_it_keeps(
     assert "tall.png: moved up to Large — the chosen size can't keep its shape" in flashed
     assert (
         "tall.png: generated at 10x29 — 10x30 had no unique solution; "
-        "it keeps 89% of the picture"
+        "it keeps 88% of the picture"
     ) in flashed
+
+
+def test_the_moved_lines_are_capped_at_three(admin_client, tmp_path):
+    """Four moved pictures give 3 lines plus a summary — the owner's set
+    moves exactly 3 at Medium, so the cap matters (CARD-065)."""
+    _, client = admin_client
+    _upload(client, [_fully_inked(tmp_path, 162, 469, f"candle{i}.png") for i in range(4)])
+
+    _, flashed = _generate(client)
+
+    moved = [m for m in flashed if "moved up to Large" in m and "more pictures" not in m]
+    assert len(moved) == 3
+    assert "... and 1 more pictures moved up to Large" in flashed
 
 
 def test_ac2_a_picture_that_cannot_fit_is_skipped_end_to_end(

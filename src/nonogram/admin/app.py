@@ -13,7 +13,13 @@ from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
 from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReviewService
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
-from .image_manager import CANNOT_FIT, MOVED_TO_LARGE, SIZE_PRESETS, get_image_manager
+from .image_manager import (
+    CANNOT_FIT,
+    MOVED_TO_LARGE,
+    SIZE_PRESETS,
+    floor_percent,
+    get_image_manager,
+)
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
 from .book_pdf_generator import BookPDFGenerator
@@ -132,6 +138,10 @@ def create_app(debug=None):
 
     # Custom Jinja2 filter for first N characters (avoids slice filter issues)
     app.jinja_env.filters['first_n'] = lambda s, n: str(s)[:n] if s else ''
+
+    # Shares print the same way in the pages and in the batch results
+    # (CARD-065): whole percent, rounded down.
+    app.jinja_env.filters['percent'] = floor_percent
 
     # The supported grid range, for form bounds and labels (CARD-063).
     app.jinja_env.globals.update(MIN_SIZE=MIN_SIZE, MAX_SIZE=MAX_SIZE)
@@ -405,7 +415,7 @@ def create_app(debug=None):
                     if fit.status == CANNOT_FIT:
                         skipped.append(
                             f"{image.original_filename} skipped: too elongated for any "
-                            f"supported size (even Large keeps only {fit.kept:.0%})"
+                            f"supported size (even Large keeps only {floor_percent(fit.kept)})"
                         )
                         continue
                     width, height = fit.extent
@@ -464,7 +474,7 @@ def create_app(debug=None):
                         # so in the results too, not only in the preview.
                         reason = (
                             f"the chosen size {fit.chosen[0]}x{fit.chosen[1]} would "
-                            f"cut it (keeps {fit.chosen_kept:.0%})"
+                            f"cut it (keeps {floor_percent(fit.chosen_kept)})"
                             if fit.chosen is not None
                             else "the chosen size can't keep its shape"
                         )
@@ -478,7 +488,10 @@ def create_app(debug=None):
                         # A ±1 retry (CARD-062) can land under MIN_KEPT_SHARE;
                         # it is kept, but never silently.
                         if not image.keeps_enough(used):
-                            note += f"; it keeps {image.kept_share(used):.0%} of the picture"
+                            note += (
+                                f"; it keeps {floor_percent(image.kept_share(used))} "
+                                f"of the picture"
+                            )
                         adjustments.append(note)
 
                 except NonogramError as e:

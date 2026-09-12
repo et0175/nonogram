@@ -12,7 +12,13 @@ from PIL import Image as PILImage
 from io import BytesIO
 import tempfile
 
-from nonogram.admin.image_manager import FITS, MOVED_TO_LARGE, ImageFile, ImageManager
+from nonogram.admin.image_manager import (
+    FITS,
+    MOVED_TO_LARGE,
+    SIZE_PRESETS,
+    ImageFile,
+    ImageManager,
+)
 
 
 class TestImageBatchSizeConfiguration:
@@ -186,83 +192,83 @@ class TestImageBatchSizeConfiguration:
 class TestImageBatchPage1Defaults:
     """Test that page 1 size selection is applied to loaded images."""
 
-    def test_page1_small_size_applied_to_images(self, tmp_path):
-        """Test that selecting 'Small' on page 1 applies size 10 to all images."""
+    @pytest.fixture
+    def admin_client(self, monkeypatch):
+        """The real admin app in memory (CARD-065): these tests used to
+        re-implement the route's preset loop, with their own copy of the
+        preset table, so they stayed green whatever the app did."""
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.setenv("TESTING", "true")
         from nonogram.admin import image_manager as img_mgr_module
+        from nonogram.admin.app import create_app
+
+        img_mgr_module._image_manager = None
+        app = create_app()
+        app.config["TESTING"] = True
+        with app.app_context():
+            yield app.test_client(), img_mgr_module
         img_mgr_module._image_manager = None
 
-        # Create test images
-        images = []
-        for i in range(2):
-            img = PILImage.new('RGB', (100, 100), color=(73, 109, 137))
-            img_path = tmp_path / f"test_{i}.png"
-            img.save(str(img_path))
-            images.append(str(img_path))
+    def _upload(self, client, tmp_path, default_size, shape=(200, 150), count=2):
+        """Upload ``count`` pictures in one request. More than one on purpose:
+        the preset has to reach *every* loaded image, which is what this
+        class is named for (CARD-065)."""
+        paths = []
+        for i in range(count):
+            path = tmp_path / f"picture_{i}.png"
+            PILImage.new("RGB", shape, color=(73, 109, 137)).save(str(path))
+            paths.append(path)
+        handles = [open(path, "rb") for path in paths]
+        try:
+            response = client.post(
+                "/batch/from-images",
+                data={
+                    "image_files": [(h, p.name) for h, p in zip(handles, paths)],
+                    "default_size": default_size,
+                },
+                content_type="multipart/form-data",
+            )
+        finally:
+            for handle in handles:
+                handle.close()
+        assert response.status_code == 302, response.data
 
-        # Load images via ImageManager
-        mgr = img_mgr_module.get_image_manager(temp_dir=str(tmp_path))
+    @pytest.mark.parametrize("preset", sorted(SIZE_PRESETS))
+    def test_page1_preset_reaches_the_images(self, admin_client, tmp_path, preset):
+        """Each preset, through the real upload route, checked against the one
+        preset table the route itself uses."""
+        client, img_mgr_module = admin_client
+        self._upload(client, tmp_path, preset)
 
-        for img_path in images:
-            mgr.add_image(img_path, Path(img_path).name)
+        value, mode = SIZE_PRESETS[preset]
+        images = img_mgr_module.get_image_manager().get_all_images()
+        assert len(images) == 2
+        for image in images:
+            assert image.size_mode == mode
+            if mode != "max":  # "max" derives its own value from the picture
+                assert image.size_value == value
 
-        # Simulate page 1 size selection: "small" -> size 10
-        size_mapping = {
-            "small": (10, "fixed"),
-            "medium": (20, "fixed"),
-            "large": (25, "fixed"),
-            "auto": (20, "max"),
-        }
+    def test_page1_small_puts_its_value_on_the_short_side(self, admin_client, tmp_path):
+        """Small on a 4:3 picture: 10 on the short side, long side follows."""
+        client, img_mgr_module = admin_client
+        self._upload(client, tmp_path, "small")
 
-        default_size = "small"
-        size_value, size_mode = size_mapping[default_size]
+        images = img_mgr_module.get_image_manager().get_all_images()
+        assert len(images) == 2
+        assert [image.predict_size() for image in images] == [(13, 10), (13, 10)]
 
-        for image in mgr.get_all_images():
-            if size_mode == "max":
-                mgr.update_image_size(image.file_id, "max", 0)
-            else:
-                mgr.update_image_size(image.file_id, "fixed", size_value)
+    def test_page1_large_puts_its_value_on_the_long_side(self, admin_client, tmp_path):
+        """Large on the same picture: 30 on the long side, short side derived.
 
-        # Verify all images have size 10
-        for image in mgr.get_all_images():
-            assert image.size_mode == "fixed"
-            assert image.size_value == 10
-            width, height = image.predict_size()
-            assert min(width, height) == 10
+        30 x 150/200 is 22.5, and Python's round() breaks that tie to even, so
+        the short side is 22 — the tie ADR-0022/R4's own property test pins.
+        """
+        client, img_mgr_module = admin_client
+        self._upload(client, tmp_path, "large")
 
-        mgr.clear_all()
-
-    def test_page1_large_size_applied_to_images(self, tmp_path):
-        """Test that selecting 'Large' on page 1 applies size 25 to all images."""
-        from nonogram.admin import image_manager as img_mgr_module
-        img_mgr_module._image_manager = None
-
-        images = []
-        for i in range(2):
-            img = PILImage.new('RGB', (200, 200), color=(73, 109, 137))
-            img_path = tmp_path / f"test_{i}.png"
-            img.save(str(img_path))
-            images.append(str(img_path))
-
-        mgr = img_mgr_module.get_image_manager(temp_dir=str(tmp_path))
-
-        for img_path in images:
-            mgr.add_image(img_path, Path(img_path).name)
-
-        # Simulate page 1 size selection: "large" -> size 25
-        default_size = "large"
-        size_value = 25
-
-        for image in mgr.get_all_images():
-            mgr.update_image_size(image.file_id, "fixed", size_value)
-
-        # Verify all images have size 25
-        for image in mgr.get_all_images():
-            assert image.size_mode == "fixed"
-            assert image.size_value == 25
-            width, height = image.predict_size()
-            assert min(width, height) == 25
-
-        mgr.clear_all()
+        images = img_mgr_module.get_image_manager().get_all_images()
+        assert len(images) == 2
+        assert [image.predict_size() for image in images] == [(30, 22), (30, 22)]
 
     def test_page1_auto_size_uses_max_mode(self, tmp_path):
         """Test that selecting 'Auto' on page 1 applies 'max' mode."""

@@ -107,7 +107,7 @@
                                         <div class="small mt-1 text-danger">
                                             ⛔ Too elongated for any supported size (at most
                                             {{ MAX_SIZE }} cells a side; even Large keeps only
-                                            {{ (fit.kept * 100)|round|int }}% of it) — this
+                                            {{ fit.kept|percent }} of it) — this
                                             picture will be skipped.
                                         </div>
                                         {% else %}
@@ -120,7 +120,7 @@
                                             ⚠ {% if fit.chosen %}The chosen size
                                             ({{ fit.chosen[0] }}×{{ fit.chosen[1] }}) would cut
                                             this picture (keeps
-                                            {{ (fit.chosen_kept * 100)|round|int }}%){% else %}The
+                                            {{ fit.chosen_kept|percent }}){% else %}The
                                             chosen size can't keep this picture's shape{% endif %}
                                             — using Large ({{ fit.extent[0] }}×{{ fit.extent[1] }}).
                                         </div>

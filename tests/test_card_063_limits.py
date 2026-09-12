@@ -158,6 +158,8 @@ def test_the_image_preview_page_renders_the_range(admin_app, tmp_path):
     body = client.get("/batch/preview-images").get_data(as_text=True)
 
     assert _input_bounds(body, "globalSizeValue")[:2] == (str(LOW), str(HIGH))
+    # The hint under that input, which no bound check would catch (CARD-065).
+    assert f">{LOW}-{HIGH}</small>" in body
     assert _input_bounds(body, f"value_{image.file_id}")[:2] == (str(LOW), str(HIGH))
     assert f"{LOW}-{HIGH} cells" in body
 

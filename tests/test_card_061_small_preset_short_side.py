@@ -20,6 +20,7 @@ AC-5 — end to end through the admin batch routes, a "small" 1.5:1 picture
 import random
 import re
 from datetime import datetime
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -58,12 +59,12 @@ def _image(width: int, height: int, size_mode: str = "short", size_value: int = 
 
 def _retained(src_w: int, src_h: int, grid_w: int, grid_h: int) -> float:
     """Share of the picture an aspect-preserving centre crop to the grid's
-    shape keeps, computed independently of the code under test. It uses
-    integer cross-products: a ratio of ratios lands on 0.8999999999999999
-    for exact 90% cases such as 200x60 at 30x10, which then straddle
-    MIN_KEPT_SHARE."""
-    a, b = src_w * grid_h, grid_w * src_h
-    return min(a, b) / max(a, b)
+    shape keeps, computed independently of the code under test: exact
+    rational arithmetic on the two ratios, where the module compares integer
+    cross-products (CARD-065). A plain ratio of ratios would land on
+    0.8999999999999999 for exact 90% cases such as 200x60 at 30x10."""
+    a, b = Fraction(src_w, src_h), Fraction(grid_w, grid_h)
+    return float(min(a, b) / max(a, b))
 
 
 def _normalized(body: str) -> str:
