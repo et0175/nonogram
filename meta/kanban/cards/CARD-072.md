@@ -53,7 +53,7 @@ export and admin display of the strategies list — see
 CARD-076 and the DB re-grade is CARD-077). The decision that gated item 1
 has landed: ADR-0025 (DEC-030 — "requires guessing" is a fourth tier
 `guess`, keyed on `branch_nodes >= 1`) and ADR-0029 (DEC-031 — the
-strategy ladder `simple_overlap` < `line_dp` < `cross_line` <
+strategy ladder `simple_overlap` < `line_dp` <  <
 `probe_contradiction`) confirm the provisional taxonomy below as the
 decided one (FR-029's `enum_provisional` note is closed by CARD-076).
 Item 1 is therefore **unblocked**, but it now **depends on CARD-073
@@ -83,7 +83,7 @@ ADR-0025/R1 (`guess` present iff branched).
    - `simple_overlap` — a deduction the leftmost/rightmost overlap rule
      alone yields;
    - `line_dp` — a deduction only the full placement intersection yields;
-   - `cross_line` — a deduction that needed cells fed from perpendicular
+   -  — a deduction that needed cells fed from perpendicular
      lines, i.e. any sweep after the first;
    - `probe_contradiction` — a value forced because its opposite
      contradicted;
@@ -117,7 +117,7 @@ ADR-0025/R1 (`guess` present iff branched).
 ## Acceptance criteria
 
 - **AC-1** — A puzzle solved by line logic in one sweep reports exactly
-  the line strategies used and no `cross_line` / `probe_contradiction` /
+  the line strategies used and no  / `probe_contradiction` /
   `guess`; a puzzle whose solve branched reports `guess`. A
   property-style test over a seeded corpus (stdlib `random.Random`,
   minimum case count asserted in the test, no hypothesis) checks:

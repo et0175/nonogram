@@ -5,7 +5,7 @@
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** architectural
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/073-solver-mask-witness-rungs
@@ -231,6 +231,45 @@ always exist" assumption (measured, not argued), the blocker on CARD-072
 item 1.
 **Rollback:** Purely additive fields on the solver result; revert the
 branch. No stored data changes.
+
+## Revision pending — ADR-0029 revised 2026-09-12 (after this card's cycle-1 review)
+
+The cycle-1 review measured what this card's own checkpoint asked for and found
+the rung definitions order-dependent: `line_dp` was unreachable for a line
+examined from a blank board (4000/4000 agreement between the overlap rule and
+the full DP), so every `line_dp` tag was a sweep-0 *column* tag, and 205 of 224
+line-solvable grids (92%) graded differently from their own transpose. ADR-0029
+was revised at the root rather than patched here.
+
+**Unaffected and still good as committed (d81c387):** the undecided mask and the
+second witness — items 1, 2, 4, 5 of "What to implement", AC-107, AC-108,
+AC-109, AC-110, AC-131, EC-011, EC-012, and both measurements in the worktree
+notes. Those are what CARD-074 and CARD-075 consume and they need no rework.
+
+**To rework (item 3, the rung tags):**
+- The ladder is now `simple_overlap < line_dp < probe_contradiction`.
+  `cross_line` is gone — it was iteration, not inference.
+- Each rung is a **fixed point**, not a sweep: propagate the overlap rule alone
+  to exhaustion over rows and columns, then the full placement intersection to
+  exhaustion, then probe refutation. A cell's rung is the level at whose fixed
+  point it was first settled. Monotone propagation is confluent, so a rung
+  becomes a function of the clue set alone.
+- The overlap rule is applied **relative to the line's known cells** (leftmost
+  and rightmost placements consistent with what is known, intersected), not to
+  the bare clue.
+- ADR-0029/R2 still forbids re-solving, and the phases satisfy it: one monotone
+  forward solve, the board never reset, the search never re-entered. Cheapest
+  technique first should not cost more than today's single mixed pass.
+- Verdicts must stay identical (CON-005): the final fixed point under the full
+  technique set is the same set of cells whichever order the techniques ran in.
+- New AC from ADR-0029/R5: a clue set and its transpose yield identical per-rung
+  counts, rung list and score.
+  *test:* `PropertyTest_SolveStrategies_RungsInvariantUnderTransposition`
+- AC-A is re-worded by the above; the existing `probe_contradiction` overlay
+  from refuted siblings survives as the third level's fixed point.
+
+Sequencing unchanged: CARD-074/075 may start on the mask and witnesses now;
+CARD-076 and CARD-072 item 1 wait on the reworked tags.
 
 ## Worktree notes
 

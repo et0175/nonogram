@@ -3,7 +3,7 @@
 **Status:** Accepted (replaces ADR-0013)
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-12 (rung definitions made order-independent)
 **Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
@@ -46,7 +46,8 @@ whatever scale replaces ADR-0013's and must be accounted for.
 A third force arrived with the same intake. FR-029 (owner request, CARD-072)
 requires every generated puzzle to carry the *ordered list of solving
 strategies* its verifying solve required, drawn from one fixed enum
-(provisionally `simple_overlap`, `line_dp`, `cross_line`,
+(provisionally `simple_overlap`, `line_dp`, `cross_line` —
+the last dropped by the 2026-09-12 revision below —
 `probe_contradiction`, `guess`), derived from the same solve that confirmed
 uniqueness and never from a second one (ADR-0013's no-solver-re-entry rule,
 which survives whatever else changes), a pure function of the clues
@@ -73,7 +74,7 @@ We adopt **strategy_ladder_ordinal**: the difficulty of a line-solvable
 puzzle is the **rung of the hardest solving technique its one verifying solve
 required**, on the ordered ladder
 
-    simple_overlap  <  line_dp  <  cross_line  <  probe_contradiction
+    simple_overlap  <  line_dp  <  probe_contradiction
 
 `guess` is *not* a rung on this scale: a solve with `branch_nodes >= 1` is
 `Tier.GUESS` under ADR-0025 and is not graded here. Within a rung, puzzles are
@@ -81,7 +82,7 @@ ordered by a secondary count fixed by this ADR: **the number of cells whose
 settling deduction was at that rung, divided by the puzzle's total cells**.
 
 This satisfies FR-026/AC-118/AC-119 because line-solvable puzzles are now
-spread over four qualitatively different levels of line reasoning instead of
+spread over three qualitatively different levels of line reasoning instead of
 being pinned under 15 points; it satisfies NFR-007/CON-014/EC-016 because a
 technique classification has no clock in it by construction; and it satisfies
 FR-029 because the same classification *is* the strategies list. That last
@@ -90,61 +91,80 @@ once from the one verifying solve, feeds both the tier and CARD-072's
 `strategies_used` — the ordered list of rungs present is the FR-029 list, and
 the highest rung present is the difficulty. There is no second scale to keep
 consistent with the list, no weight table that can drift from it, and the
-grade explains itself to a book editor in the list's own words ("needs
-cross-line reasoning").
+grade explains itself to a book editor in the list's own words ("needs the
+full placement intersection, not just overlap").
 
 Concretely:
 
-- **Classification lives in the solver (COMP-005) as part of the one solve.**
-  Each cell records the rung of the deduction that settled it; nothing is
-  re-solved to classify (ADR-0013's no-re-entry rule is carried forward
-  unchanged as ADR-0029/R2). The four rungs are defined over the solver's
-  own events:
-  - `simple_overlap` — the cell is settled by a line deduction that the
-    leftmost/rightmost overlap rule alone yields. Decided *per line
-    deduction* by natively re-deriving the overlap masks (sum of runs plus
-    gaps against the line length, leftmost and rightmost placements
-    intersected) and comparing them with what the full placement DP
-    settled: a cell the overlap masks already fix is `simple_overlap`.
-    This is a native reimplementation inside `solver/` — no import of
-    `clues.py` (ADR-0007, `tests/test_cli.py`), following the precedent of
-    `propagate.py`'s `mask_runs`.
-  - `line_dp` — the cell is settled by a line deduction only the full
-    placement intersection yields (the DP fixed it and the overlap masks did
-    not).
-  - `cross_line` — the cell is settled in any propagation sweep after the
-    first, i.e. the deduction needed cells fed in from perpendicular lines.
-    This ADR pins the sweep semantics as part of the contract: a sweep is
-    one pass of `propagate`'s outer loop over the dirty rows and then the
-    dirty columns, and "the first sweep" is the pass that starts from the
-    blank board; a solver refactor that changes what a sweep is re-grades
-    puzzles and must say so in a revision of this ADR.
-  - `probe_contradiction` — the cell is forced because assigning it the
-    opposite value contradicted under propagation (a probe refuted one
-    value; no branch was taken, so `branch_nodes` stays 0 only when every
-    node the search expanded resolved this way — otherwise ADR-0025 applies
-    first).
-  The ordered list of distinct rungs present, in ladder order, is FR-029's
-  `strategies` list; `guess` is appended if and only if `branch_nodes > 0`
-  (EC-017), which is the same fact ADR-0025 keys the tier on.
+- **Classification lives in the solver (COMP-005) as part of the one solve,
+  and the ladder is applied as a sequence of fixed points.** The solve runs
+  the cheapest technique to a fixed point first, then the next, each
+  continuing from the board the previous one left — never resetting, never
+  re-entering the solver (ADR-0029/R2). A cell's rung is the level at whose
+  fixed point it was first settled:
+  - `simple_overlap` — the cell is settled by propagating the
+    leftmost/rightmost overlap rule alone to a fixed point over all rows and
+    columns. The rule is applied **relative to what is already known on the
+    line**: the leftmost and the rightmost placement *consistent with the
+    line's known cells* are intersected. Re-derived natively inside
+    `solver/` — no import of `clues.py` (ADR-0007, `tests/test_cli.py`),
+    following the precedent of `propagate.py`'s `mask_runs`.
+  - `line_dp` — from that fixed point, the full placement intersection
+    (every placement, not only the two extremes) is propagated to a fixed
+    point. Cells newly settled here are the ones overlap alone could never
+    reach, at any point in the solve.
+  - `probe_contradiction` — from that fixed point, a tentative assignment
+    whose propagation contradicts forces the opposite value; propagated to a
+    fixed point. A cell newly settled here needed one-step lookahead. (A
+    real branch is not a rung: `branch_nodes >= 1` makes the puzzle
+    `Tier.GUESS` under ADR-0025 and it is not graded on this ladder.)
+
+  **Why each rung is a fixed point, and why that is the whole point of this
+  revision.** Monotone propagation is confluent: the fixed point a technique
+  reaches depends on the technique and the clue set, never on the order the
+  lines were visited. So "the set of cells settled by level L" is a function
+  of the clue set alone — which is what makes a rung a fact about the puzzle,
+  as this ADR claims throughout, rather than a fact about how the solver
+  happened to walk the grid.
+
+- **`cross_line` is removed from the ladder.** It was never a technique. As
+  originally written it meant "settled in a propagation sweep after the
+  first", which is a statement about iteration, not about inference — and
+  because `propagate` sweeps all rows before all columns, it made the rungs
+  depend on grid orientation. Measured on the first implementation
+  (CARD-073): a line examined from a blank board is settled identically by
+  the overlap rule and by the full DP in 4000 of 4000 random cases, so every
+  `line_dp` tag was in fact a sweep-0 *column* tag; and 205 of 224
+  line-solvable grids (92%) graded differently from their own transpose, a
+  7x7 sample moving from `{simple_overlap 30, line_dp 6, cross_line 13}` to
+  `{simple_overlap 30, line_dp 15, cross_line 4}`. A puzzle and its transpose
+  are the same puzzle to a solver. Feeding information between rows and
+  columns until nothing more can be deduced is what propagation *is* at every
+  level of the ladder, so it is part of each rung rather than a rung of its
+  own.
+
 - **The 0..100 score is retained as a derived presentation, not as the
   grade.** `score = rung_base + within_rung_share * rung_width`, with the
-  four rungs mapped onto equal 25-point bands: `simple_overlap` 0..25,
-  `line_dp` 25..50, `cross_line` 50..75, `probe_contradiction` 75..100. The
+  three rungs mapped onto equal bands: `simple_overlap` 0..33.33, `line_dp`
+  33.33..66.67, `probe_contradiction` 66.67..100. The
   within-rung share is the secondary count above (cells settled at the top
   rung / total cells), so two puzzles topping out at the same rung differ by
   how much of the grid needed that technique. The export, the DB column and
   POL-004 keep a numeric score in the same range; the *meaning* of the number
   is now "which rung, and how much of it", and the tier is derived from the
   rung, not the other way round.
-- **ADR-0005's cutoffs stay at 33/66 for now and therefore fall inside
-  rungs** (33 inside `line_dp`, 66 inside `cross_line`). This is provisional
-  by design: a tier-per-rung mapping (e.g. Easy = `simple_overlap`, Medium =
-  `line_dp`, Hard = `cross_line` and `probe_contradiction`, or bands drawn on
-  rung boundaries) is the expected recalibration once a >= 200-puzzle
-  line-solvable corpus (AC-118) has been measured. That recalibration is
-  **owed, not decided** here; ADR-0005 is revised by this ADR only in that
-  its bands now sit over rungs rather than over a weighted sum.
+- **ADR-0005's cutoffs now land exactly on rung boundaries.** With three
+  rungs over 0..100 the existing 33/66 cutoffs are the rung boundaries to
+  within rounding, so the tier-per-rung mapping ADR-0005 was owed falls out
+  of this revision rather than waiting on calibration: Easy = the puzzle
+  never left overlap, Medium = it needed the full placement intersection,
+  Hard = it needed a refuted probe, and Guess = it needed a real branch
+  (ADR-0025). The cutoff *constants* are unchanged, so no stored grade moves
+  on account of this bullet alone. What remains owed to the >= 200-puzzle
+  corpus (AC-118) is only the **within-rung** ordering — whether the share of
+  cells settled at the top rung spreads puzzles usefully inside a band, or
+  wants a different secondary count.
+
 - **Size and density no longer enter the score.** This is an explicit
   departure from ADR-0013, where both acted as normalisers of *effort*
   (branch nodes per cell, time against a size-relative budget). A rung is not
@@ -245,10 +265,11 @@ reproducibility promise would stay broken under `--difficulty`.
   ADR-0029 grades would be mislabelled. A re-grade batch over the admin DB
   is a real operational job — it re-solves every accepted puzzle — and is
   flagged as a risk in this ADR's return.
-- ADR-0005's 33/66 cutoffs now cut through rungs, so until the owed
-  recalibration lands, "Medium" straddles the top of `line_dp` and the bottom
-  of `cross_line`. The tier boundaries are therefore less legible than the
-  rungs themselves for the interim.
+- The ladder is coarse: three rungs decide the band, and everything that
+  distinguishes two puzzles inside one band is the share of cells settled at
+  the top rung. Whether that share spreads puzzles usefully is the open
+  calibration question, and the >= 200-puzzle corpus (AC-118) is what
+  answers it.
 - Per-cell rung tagging adds work to the solver's hot loop; CARD-072's AC-5
   (20x20 benchmark within noise, `tests/bench_generate.py`) is the guard, and
   the tag must be cheap enough that `--difficulty`'s resample loop, which
@@ -269,9 +290,11 @@ reproducibility promise would stay broken under `--difficulty`.
 - FR-009's AC-022 ("weighted combination of all signals") and AC-023 ("zero
   backtracking scores easiest") are superseded by this decision and must be
   re-worded in `requirements.yml` as a follow-up (not done here); FR-029's
-  provisional enum members are confirmed as written — `simple_overlap`,
-  `line_dp`, `cross_line`, `probe_contradiction`, `guess` — and its
-  `enum_provisional` note can be closed.
+  provisional enum members are fixed by this ADR as **`simple_overlap`,
+  `line_dp`, `probe_contradiction`, `guess`** — `cross_line` is NOT a member
+  (see the 2026-09-12 revision) — and its `enum_provisional` note can be
+  closed against that list. Any card or requirement text still naming four
+  rungs predates the revision and is stale.
 - `SolveSignals` gains per-rung cell counts and the ordered rung list;
   `line_logic_cells` remains for NFR-001 reporting but no longer drives the
   score. `difficulty.py`'s `SignalWeights`, `SIGNAL_WEIGHTS`,
@@ -313,6 +336,27 @@ reproducibility promise would stay broken under `--difficulty`.
 
 ## History
 
+- 2026-09-12 (revision, same day): **rung definitions made order-independent.**
+  The ladder as first written graded a puzzle differently from its own
+  transpose, because `cross_line` meant "settled in a sweep after the first"
+  and `propagate` sweeps all rows before all columns — so rows were always
+  deduced from a blank line and columns from a partly-known one. CARD-073's
+  implementation made it measurable: `line_dp` was unreachable for a line
+  examined from a blank board (4000/4000 agreement between the overlap rule
+  and the full DP), so every `line_dp` tag was really a sweep-0 column tag,
+  and 92% of line-solvable grids graded differently from their transpose.
+  Fixed at the root: `cross_line` is removed from the ladder (it was
+  iteration, not inference), each remaining rung is applied as a **fixed
+  point** rather than as a sweep, and the overlap rule is applied relative to
+  the line's known cells. Monotone propagation is confluent, so a level's
+  fixed point — and therefore every rung — is now a function of the clue set
+  alone. Consequences: three rungs rather than four, bands of 33.33 rather
+  than 25, ADR-0005's 33/66 cutoffs now falling on rung boundaries (the
+  tier-per-rung mapping it was owed), and R1/R2/R4 amended plus R5 added.
+  No verdict changes: the final fixed point under the full technique set is
+  the same set of cells whichever order the techniques were applied in, so
+  CON-005 and the uniqueness counts are untouched. Migration stays `rewrite`.
+
 - 2026-09-12: Created — resolves DEC-031 by grading line-solvable puzzles on
   the rung of the hardest technique their one verifying solve required
   (`simple_overlap` < `line_dp` < `cross_line` < `probe_contradiction`, with
@@ -327,12 +371,12 @@ reproducibility promise would stay broken under `--difficulty`.
 
 ```yaml
 - id: ADR-0029/R1
-  statement: The difficulty of a line-solvable puzzle is derived from the rung of the hardest technique its verifying solve required (simple_overlap < line_dp < cross_line < probe_contradiction) and the share of cells settled at that rung; a deeper solve of the same extent scores strictly higher, and the line-solvable corpus populates every score band.
+  statement: The difficulty of a line-solvable puzzle is derived from the rung of the hardest technique its verifying solve required (simple_overlap < line_dp < probe_contradiction) and the share of cells settled at that rung; each rung is the fixed point of its technique, so the rung of a cell is a function of the clue set alone; a deeper solve of the same extent scores strictly higher, and the line-solvable corpus populates every score band.
   scope: {contexts: [CTX-001], code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**"]}
   check: {kind: test, ref: TestScoreDifficulty_DeeperLineReasoningScoresHigher}   # AC-119; AC-118's TestScoreDifficulty_LineSolvableCorpusSpansAllThreeBands covers the band-coverage half
   severity: mandatory
 - id: ADR-0029/R2
-  statement: Technique classification and the strategies list are computed inside the one verifying solve, never by re-solving; the ordered rung list the solver reports IS the puzzle's strategies list, and the tier is derived from that same list — no second derivation, no second solver entry.
+  statement: Technique classification and the strategies list are computed inside the one verifying solve, never by re-solving; the ordered rung list the solver reports IS the puzzle's strategies list, and the tier is derived from that same list — no second derivation, no second solver entry. The ladder's fixed points are phases of that one monotone forward solve — each continues from the board the previous left, the board is never reset and the search is never re-entered — so running a cheaper technique to exhaustion before a dearer one is not re-solving.
   scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve}   # AC-135
   severity: mandatory
@@ -342,8 +386,13 @@ reproducibility promise would stay broken under `--difficulty`.
   check: {kind: test, ref: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime}   # EC-016; EC-018's PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd covers the list
   severity: mandatory
 - id: ADR-0029/R4
-  statement: The overlap masks used to distinguish simple_overlap from line_dp are re-derived natively inside the solver package; the solver never imports clues.py or any other capability module for the purpose (ADR-0007).
+  statement: The overlap masks that define the simple_overlap rung are computed relative to the line's already-known cells (the leftmost and rightmost placements consistent with them, intersected), and are re-derived natively inside the solver package; the solver never imports clues.py or any other capability module for the purpose (ADR-0007).
   scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**"]}
   check: {kind: test, ref: test_every_import_in_the_package_points_inward}   # tests/test_cli.py structural guard (ADR-0007)
+  severity: mandatory
+- id: ADR-0029/R5
+  statement: Rung attribution is invariant under transposition and under line-visit order — a clue set and its transpose yield the same per-rung cell counts, the same rung list and the same score. A change to the solver's iteration order may change how a fixed point is reached but never which cells belong to which rung.
+  scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py"]}
+  check: {kind: test, ref: PropertyTest_SolveStrategies_RungsInvariantUnderTransposition}
   severity: mandatory
 ```
