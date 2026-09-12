@@ -90,6 +90,34 @@ def test_ac1_without_a_status_every_puzzle_is_listed(admin_app):
     assert "Puzzles (3 total)" in body
 
 
+def test_ac1_in_book_puzzles_can_be_listed(admin_app):
+    """The fourth status: reachable only through `mark_in_book`, and easy to
+    leave untested because nothing in this page sets it."""
+    store = admin_app.puzzle_review_service
+    puzzle_id = _add(admin_app, "approved")
+    assert store.mark_in_book(puzzle_id, "book-1")
+    _add(admin_app, "draft")
+
+    body = admin_app.test_client().get("/puzzles?status=in_book").get_data(as_text=True)
+
+    assert _statuses(body) == ["in_book"]
+    assert "Puzzles (1 total)" in body
+
+
+def test_ac2_the_options_come_from_the_status_enum(admin_app, monkeypatch):
+    """Hardcoding today's four statuses in the template passes every other
+    test here. This one fails, because the list is the enum's: a status added
+    to `PuzzleStatus` has to appear without touching the page."""
+    import nonogram.admin.app as app_module
+
+    monkeypatch.setattr(app_module, "_PUZZLE_STATUSES", tuple(STATUSES) + ("archived",))
+
+    select = _status_select(admin_app.test_client().get("/puzzles").get_data(as_text=True))
+
+    assert '<option value="archived"' in select
+    assert select.count("<option") == len(STATUSES) + 2  # Any, the four, archived
+
+
 def test_ac2_the_form_offers_every_status_and_marks_the_current_one(admin_app):
     _add(admin_app, "approved")
     client = admin_app.test_client()
@@ -128,6 +156,22 @@ def test_ac4_an_unknown_status_is_reported_and_ignored(admin_app):
     assert "Unknown status" in body
     assert sorted(_statuses(body)) == ["approved", "draft"]
     assert "selected" not in _status_select(body)
+
+
+def test_ac4_the_filter_error_page_still_offers_every_status(admin_app):
+    """The route's `except ValueError` branch re-renders this page. Without
+    `statuses` there, the select degrades silently to "Any" only — a page
+    that still returns 200 and quietly loses the filter."""
+    _add(admin_app, "approved")
+
+    response = admin_app.test_client().get("/puzzles?size=999")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Filter error" in body
+    select = _status_select(body)
+    for status in STATUSES:
+        assert f'value="{status}"' in select
 
 
 def test_ac5_status_combines_with_the_size_filter(admin_app):
