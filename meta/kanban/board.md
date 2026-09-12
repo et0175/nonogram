@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-12 15:44 UTC_
+_Updated: 2026-09-13 09:20 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,10 +57,10 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-- **CARD-073** P1 · Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · `card/073-solver-mask-witness-rungs` · started 2026-09-12T15:44Z · implemented; cycle-1 review 8.5 — mask and witnesses good, rung tags need rework after the ADR-0029 revision
 _(none)_
 
 ## Done
+- **CARD-073** Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · score 9.0 (cycle 2/2) · merged ab851eb
 - **CARD-066** Filter the puzzle review by status (draft / approved / rejected / in book) · score 9.5 (cycle 3/3) · merged d07f2a2
 - **CARD-065** Small follow-ups from CARD-061..064 — honest percentages, preset labels, stale tests · score 9.5 (cycle 2/3) · merged 18a2287
 - **CARD-064** Thin pictures — move up to Large instead of cropping, or say it can't be done · score 9.0 (cycle 2/3) · merged be582ea

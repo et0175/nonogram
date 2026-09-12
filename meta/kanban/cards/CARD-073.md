@@ -1,6 +1,6 @@
 # CARD-073: Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell
 
-**Status:** in_review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, src/nonogram/solver/__init__.py, src/nonogram/orchestrator.py (Puzzle aggregate: store the three new result fields, nothing else), tests/test_solver.py, tests/property/test_solver_witnesses.py (new), meta/architecture/decisions/adr/0009-*.md and 0012-*.md (History entries only)
-**Review score:** —
+**Review score:** 9.0 (cycle 2/2)
 **Started:** 2026-09-12T15:44Z
-**Closed:** —
+**Closed:** 2026-09-13T09:20Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** ab851eb
 **Blocked by:** —
 
 ## Why
