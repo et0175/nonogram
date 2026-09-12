@@ -1,5 +1,7 @@
 # Nonogram Generation Algorithm Requirements
 
+> **Status (2026-09-12): superseded for algorithm questions by [`docs/GENERATION_ALGORITHM.md`](../GENERATION_ALGORITHM.md).** The pipeline below (Otsu threshold, majority-vote cells, quality score, 70/85 tiers) was never implemented; the shipped algorithm is dither-based and is specified by the ADRs cited there.
+
 **Document Version**: 1.0  
 **Last Updated**: 2026-09-08  
 **Status**: Active  
