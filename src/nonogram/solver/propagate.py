@@ -16,14 +16,16 @@ This module owns the following and nothing else:
     ADR-0011's cooperative deadline check, in one place so the solver's two
     checkpoints (here and at ``search``'s branch node) raise the same error
     with the same wording.
-``overlap_masks`` / ``RungTagger``
-    ADR-0029's strategy ladder, as far as line logic can see it (CARD-073).
-    ``overlap_masks`` re-derives, natively and from the clue alone, what the
-    plain leftmost/rightmost overlap rule settles on a line; ``RungTagger``
-    compares that with what ``line_intersection`` actually settled and records
-    ``simple_overlap``, ``line_dp`` or ``cross_line`` per cell as ``propagate``
-    runs. Observational only — it never changes a deduction, a fixed point or a
-    verdict, and ``propagate`` does exactly the same work with and without it.
+``overlap_deduction`` / ``propagate_overlap`` / ``RungTagger``
+    ADR-0029's strategy ladder, level 1 (CARD-073, reworked after the
+    2026-09-12 ADR revision). ``overlap_deduction`` re-derives natively what
+    the leftmost/rightmost overlap rule settles on a line **relative to what is
+    already known on it** (ADR-0029/R4); ``propagate_overlap`` drives that rule
+    alone to a fixed point over rows and columns, which is the
+    ``simple_overlap`` rung. ``RungTagger`` records, per cell, which level
+    settled it — one fixed rung per phase, written as the phase deduces.
+    Observational only: a tagger never changes a deduction, a fixed point or a
+    verdict.
 ``LineCache``
     A memo of ``line_intersection``'s answers for one solve (CARD-018). The
     probing search in ``search`` asks the same line the same question over and
@@ -84,7 +86,6 @@ from nonogram.errors import SolverTimeout
 __all__ = [
     "Board",
     "LINE_CACHE_LIMIT",
-    "RUNG_CROSS_LINE",
     "RUNG_LINE_DP",
     "RUNG_ORDER",
     "RUNG_PROBE_CONTRADICTION",
@@ -95,8 +96,10 @@ __all__ = [
     "check_deadline",
     "line_intersection",
     "mask_runs",
-    "overlap_masks",
+    "overlap_deduction",
+    "overlap_extremes",
     "propagate",
+    "propagate_overlap",
 ]
 
 LineClue = tuple[int, ...]
@@ -105,7 +108,7 @@ LineClue = tuple[int, ...]
 # ADR-0029's strategy ladder (CARD-073)
 # --------------------------------------------------------------------------
 #
-# The four rungs are plain ``str`` constants rather than an ``enum`` member,
+# The three rungs are plain ``str`` constants rather than an ``enum`` member,
 # deliberately. They cross the module boundary on ``SolveResult.rung_tags`` and
 # in ``SolveSignals.rung_cells``' keys, and ADR-0012's boundary rule wants the
 # things that cross to be the dullest type that carries the meaning: a bare
@@ -115,17 +118,18 @@ LineClue = tuple[int, ...]
 # ``counts["line_dp"]`` on a dict keyed by members would raise — a footgun for
 # exactly the consumers (CARD-072, CARD-076) this data exists for.
 
-#: The cell is settled by a line deduction the leftmost/rightmost overlap rule
-#: alone yields (ADR-0029 Decision; :func:`overlap_masks`).
+#: The cell is settled at the fixed point of the knowledge-relative
+#: leftmost/rightmost overlap rule, propagated alone over rows and columns
+#: (ADR-0029 Decision; :func:`overlap_deduction`, :func:`propagate_overlap`).
 RUNG_SIMPLE_OVERLAP = "simple_overlap"
-#: The cell is settled by a line deduction only the full placement
-#: intersection (:func:`line_intersection`'s DP) yields.
+#: The cell is settled at the fixed point of the full placement intersection
+#: (:func:`line_intersection`'s DP), continuing from the overlap fixed point —
+#: i.e. overlap alone could never have reached it, at any point in the solve.
 RUNG_LINE_DP = "line_dp"
-#: The cell is settled in a propagation sweep *after* the first, i.e. the
-#: deduction needed cells fed in from perpendicular lines.
-RUNG_CROSS_LINE = "cross_line"
-#: The cell is forced because the opposite value contradicted under
-#: propagation — a probe refuted one value and no branch was taken.
+#: The cell is settled at the fixed point of probe refutation, continuing from
+#: the line-DP fixed point: a tentative value whose propagation contradicts
+#: forces the opposite one, which is then propagated. One-step lookahead, and
+#: no branch (a real branch is ``Tier.GUESS`` under ADR-0025, not a rung).
 RUNG_PROBE_CONTRADICTION = "probe_contradiction"
 
 #: ADR-0029's ladder, lowest rung first. The *order* is the contract: the
@@ -133,10 +137,17 @@ RUNG_PROBE_CONTRADICTION = "probe_contradiction"
 #: the last present rung is what ADR-0029/R1 grades the puzzle by. ``guess`` is
 #: **not** a rung here — ADR-0025 keys that on ``branch_nodes``, and CARD-072
 #: appends it downstream.
+#:
+#: ``cross_line`` was a member until the 2026-09-12 ADR-0029 revision and is
+#: gone for good: it meant "settled in a propagation sweep after the first",
+#: which is a statement about iteration rather than inference, and because
+#: :func:`propagate` sweeps all rows before all columns it made a puzzle grade
+#: differently from its own transpose. Feeding information between rows and
+#: columns until nothing more can be deduced is what propagation *is* at every
+#: level of this ladder, so it belongs to each rung rather than being one.
 RUNG_ORDER: tuple[str, ...] = (
     RUNG_SIMPLE_OVERLAP,
     RUNG_LINE_DP,
-    RUNG_CROSS_LINE,
     RUNG_PROBE_CONTRADICTION,
 )
 
@@ -398,170 +409,260 @@ def mask_runs(filled: int, length: int) -> LineClue:
     return tuple(runs)
 
 
-def overlap_masks(runs: LineClue, length: int) -> tuple[int, int]:
-    """What the plain leftmost/rightmost overlap rule alone settles on a line.
+def _reverse_bits(mask: int, length: int) -> int:
+    """``mask`` with cell ``i`` moved to cell ``length - 1 - i``.
 
-    ADR-0029's ``simple_overlap`` rung, re-derived natively inside ``solver/``
-    (ADR-0029/R4, ADR-0007, guardrail G-2): the rule is pushed all the runs to
-    the left, pushed them all to the right, and read off what the two extreme
-    placements force. It is the deduction a solver makes with a pencil and no
-    bookkeeping, and it is *not* :func:`line_intersection` — the DP considers
-    every placement and every already-known cell, where this considers two
-    placements and the clue.
+    The line read right to left, which is how :func:`overlap_extremes` gets its
+    rightmost placement out of the leftmost one without a second, mirror-image
+    copy of the greedy — the half of this rule that is easiest to get subtly
+    wrong is the one that would then exist twice.
+    """
+    out = 0
+    for position in range(length):
+        if (mask >> position) & 1:
+            out |= 1 << (length - 1 - position)
+    return out
 
-    Args:
-        runs: The line's clue in canonical form — ``()`` for an empty line.
-        length: Number of cells in the line.
+
+def _leftmost_starts(
+    runs: LineClue, length: int, known_filled: int, known_empty: int
+) -> list[int] | None:
+    """The earliest start each run can take, consistent with what is known.
+
+    "Consistent" is the whole difficulty, and it is two conditions, not one:
+
+    * no run may overlap a cell already known **empty**; and
+    * no cell already known **filled** may be left uncovered — a placement that
+      strands one is infeasible, however comfortably its runs fit.
+
+    The second is the classic trap. A greedy that only pushes runs rightward
+    past known-empty cells happily returns a placement that leaves a known
+    filled cell in a gap, and every mask derived from it is then wrong in the
+    direction that matters: it claims cells no placement actually agrees on.
+
+    So the greedy is made total by a feasibility table computed first, from the
+    end of the line backwards: ``feasible[idx][pos]`` is "runs ``idx..`` can be
+    laid out in cells ``pos..`` with every known-filled cell among them
+    covered". Skipping a cell is allowed only when it is not known filled,
+    which is what makes coverage a property of the table rather than a fix-up
+    afterwards. The leftmost placement is then read off by taking, at each
+    step, the earliest start that keeps the remainder feasible — and because
+    the table already knows about coverage, "earliest feasible" needs no
+    backtracking.
 
     Returns:
-        ``(filled, empty)``: cells the rule fixes as filled, and cells it fixes
-        as empty. ``(0, 0)`` when the clue does not fit in the line at all (a
-        malformed line the DP reports as a contradiction, never classified).
-
-    Both halves are sound — each is a subset of what every placement agrees on:
-
-    * *filled*: run ``i`` occupies ``[left_i, left_i + len_i)`` when everything
-      is packed left and ``[right_i, right_i + len_i)`` when packed right, and
-      no placement can move it outside that window, so the intersection of the
-      two intervals is filled in every placement.
-    * *empty*: a cell no run's ``[left_i, right_i + len_i)`` window covers
-      cannot be reached by any run, so it is empty in every placement.
-
-    Note what it is *not*: ``~filled`` is not the empty mask, because a cell can
-    be reachable by some placement and forced by none. Taking "empty in both
-    extreme placements" would be unsound — with ``runs=(1,)`` on a length-3
-    line, both extremes leave the middle cell empty and yet it is filled in one
-    valid placement.
-
-    Depends only on ``(runs, length)``, never on what is already known, which
-    is what makes it a constant per line and cheap to memoise for one solve.
+        One start position per run, or ``None`` when the line admits no
+        placement at all (the same condition :func:`line_intersection` reports
+        by returning ``None``).
     """
     run_count = len(runs)
-    if sum(runs) + run_count - 1 > length:
-        return 0, 0
-    full = (1 << length) - 1
     if not run_count:
-        return 0, full
+        # An empty line: the single placement covers nothing, so it is feasible
+        # exactly when nothing is known to be filled.
+        return None if known_filled else []
 
-    filled = 0
+    stride = length + 1
+    # ``feasible[idx * stride + pos]``, as a flat bytearray for the same reason
+    # :func:`line_intersection`'s arrays are flat: this is the hot half of a
+    # phase that runs over every line of the grid.
+    feasible = bytearray((run_count + 1) * stride)
+    feasible[run_count * stride + length] = 1
+    for pos in range(length - 1, -1, -1):
+        pos_is_filled = (known_filled >> pos) & 1
+        for idx in range(run_count, -1, -1):
+            ok = 0
+            # Leave cell ``pos`` empty — only legal if it is not known filled.
+            if not pos_is_filled and feasible[idx * stride + pos + 1]:
+                ok = 1
+            if not ok and idx < run_count:
+                run = runs[idx]
+                end = pos + run
+                if end <= length and not known_empty & (((1 << run) - 1) << pos):
+                    if end == length:
+                        ok = 1 if idx + 1 == run_count else 0
+                    elif not (known_filled >> end) & 1:
+                        ok = feasible[(idx + 1) * stride + end + 1]
+            feasible[idx * stride + pos] = ok
+
+    if not feasible[0]:
+        return None
+
+    starts: list[int] = []
+    pos = 0
+    idx = 0
+    while idx < run_count:
+        run = runs[idx]
+        end = pos + run
+        placeable = (
+            end <= length
+            and not known_empty & (((1 << run) - 1) << pos)
+            and (
+                (end == length and idx + 1 == run_count)
+                or (
+                    end < length
+                    and not (known_filled >> end) & 1
+                    and feasible[(idx + 1) * stride + end + 1]
+                )
+            )
+        )
+        if placeable:
+            starts.append(pos)
+            pos = end + 1
+            idx += 1
+            continue
+        # Not here: cell ``pos`` is left empty and the run tried one cell
+        # further on. Leaving a known-filled cell behind is impossible, and
+        # running off the end is too — ``feasible[0]`` said a placement exists,
+        # so the walk always finds it.
+        pos += 1
+
+    return starts
+
+
+def overlap_extremes(
+    runs: LineClue, length: int, known_filled: int, known_empty: int
+) -> tuple[list[int], list[int]] | None:
+    """The leftmost and the rightmost feasible start of every run.
+
+    ADR-0029's ``simple_overlap`` rule, in the form the rung is defined over
+    (ADR-0029/R4): the extreme placements *consistent with the line's known
+    cells*, re-derived natively inside ``solver/`` with no import of
+    ``clues.py`` — the precedent is :func:`mask_runs`, and
+    ``tests/test_cli.py``'s structural guard enforces it.
+
+    Returns:
+        ``(leftmost, rightmost)`` — one start per run, in clue order — or
+        ``None`` when the line admits no placement at all.
+
+    These really are the componentwise minimum and maximum start of each run
+    over *all* feasible placements, not merely the starts of two particular
+    placements. (Sketch: if some feasible placement ``P`` started run ``i``
+    before the greedy leftmost ``L`` does, the hybrid that takes ``L``'s runs
+    ``0..i-1`` and ``P``'s runs ``i..`` is also feasible — the gap condition
+    holds because ``L`` is never further right, and any known-filled cell
+    ``L`` covers with a run at or past ``i`` lies at or after ``L``'s start for
+    run ``i``, hence after ``P``'s, so ``P``'s own runs cover it — which
+    contradicts the greedy having chosen the earliest feasible start.) That is
+    what makes the masks :func:`overlap_deduction` reads off them sound.
+    """
+    leftmost = _leftmost_starts(runs, length, known_filled, known_empty)
+    if leftmost is None:
+        return None
+    mirrored = _leftmost_starts(
+        tuple(reversed(runs)),
+        length,
+        _reverse_bits(known_filled, length),
+        _reverse_bits(known_empty, length),
+    )
+    if mirrored is None:  # pragma: no cover - feasibility is orientation-free
+        return None
+    run_count = len(runs)
+    rightmost = [
+        length - (mirrored[run_count - 1 - index] + runs[index])
+        for index in range(run_count)
+    ]
+    return leftmost, rightmost
+
+
+def overlap_deduction(
+    runs: LineClue, length: int, known_filled: int, known_empty: int
+) -> tuple[int, int] | None:
+    """What the knowledge-relative overlap rule alone settles on a line.
+
+    ADR-0029's level 1. Not :func:`line_intersection`: the DP weighs *every*
+    placement, where this weighs only the two extremes — so what it settles is
+    a subset of what the DP would, which is exactly what makes "overlap alone
+    reached it" a meaningful thing to say about a cell.
+
+    Returns:
+        ``(filled, empty)`` — supersets of ``known_filled`` and ``known_empty``
+        respectively, in :func:`line_intersection`'s convention — or ``None``
+        when the line admits no placement at all.
+
+    Both halves are sound, because a run's start ranges over
+    ``[leftmost_i, rightmost_i]`` and nothing else (:func:`overlap_extremes`):
+
+    * *filled*: run ``i`` covers ``[start_i, start_i + len_i)`` wherever it
+      sits, so it always covers ``[rightmost_i, leftmost_i + len_i)``.
+    * *empty*: a cell outside every run's ``[leftmost_i, rightmost_i + len_i)``
+      window cannot be reached by any run, so no placement fills it.
+
+    Note what the empty half is *not*: "empty in both extreme placements",
+    which is unsound — with ``runs=(1,)`` on a blank line of 3, both extremes
+    leave the middle cell empty and yet a placement fills it.
+    """
+    extremes = overlap_extremes(runs, length, known_filled, known_empty)
+    if extremes is None:
+        return None
+    leftmost, rightmost = extremes
+
+    filled = known_filled
     covered = 0
-    left = 0
-    slack = length - (sum(runs) + run_count - 1)
-    for run in runs:
-        # Packed left, this run starts at ``left``; packed right, at
-        # ``left + slack`` — the same offset for every run, since the whole
-        # packed block slides right as one.
-        start_right = left + slack
-        end_left = left + run - 1
-        if start_right <= end_left:
-            filled |= ((1 << (end_left - start_right + 1)) - 1) << start_right
-        end_right = start_right + run - 1
-        covered |= ((1 << (end_right - left + 1)) - 1) << left
-        left += run + 1
-    return filled, full & ~covered
+    for index, run in enumerate(runs):
+        left = leftmost[index]
+        right = rightmost[index]
+        if right <= left + run - 1:
+            filled |= ((1 << (left + run - right)) - 1) << right
+        covered |= ((1 << (right + run - left)) - 1) << left
+    empty = known_empty | (((1 << length) - 1) & ~covered)
+    return filled, empty
 
 
 @dataclass(slots=True)
 class RungTagger:
-    """Attributes an ADR-0029 ladder rung to every cell one propagation settles.
+    """Writes one ADR-0029 rung onto every cell a phase settles.
 
-    Handed to :func:`propagate` by :func:`~nonogram.solver.search.solve` for the
-    *one* sweep sequence that starts from the blank board, which is where three
-    of the four rungs are decided (the fourth, ``probe_contradiction``, is a
-    fact about the search and is recorded there). Nothing is re-propagated and
-    nothing is re-solved to classify — ADR-0029/R2 — so this is bookkeeping
-    hung off deductions the solve was making anyway.
+    The ladder is applied as a sequence of *fixed points* (ADR-0029, revised
+    2026-09-12), so which rung a cell gets is decided by **which phase was
+    running**, not by anything about the individual deduction:
+    :func:`propagate_overlap` runs with a ``simple_overlap`` tagger attached,
+    the level-2 :func:`propagate` with a ``line_dp`` one, and the search's
+    level-3 probing phase tags what it forces ``probe_contradiction``.
 
-    The rung of a cell settled here is:
+    That is the whole content of the revision, and it is why this class is a
+    two-field record rather than a classifier. Monotone propagation is
+    confluent: the fixed point a technique reaches depends on the technique and
+    the clue set and never on the order lines were visited, so "the cells level
+    L settled" is a function of the clue set alone (ADR-0029/R5) — where the
+    first cut of CARD-073, which asked *per deduction* whether the overlap rule
+    could have made it and called anything after the first sweep
+    ``cross_line``, graded 92% of line-solvable grids differently from their
+    own transpose.
 
-    ``simple_overlap`` / ``line_dp``
-        In the **first** sweep. Which of the two is decided per line deduction
-        by comparing the cells the deduction newly settled against
-        :func:`overlap_masks` for that line's clue: a cell the overlap rule
-        already fixes is ``simple_overlap``, one only the placement DP fixes is
-        ``line_dp``.
-    ``cross_line``
-        In any sweep after the first. A line is re-examined only because a
-        perpendicular line wrote into it, so a second sweep's deductions are by
-        construction the ones that needed cells fed in across the grid.
-
-    ADR-0029 pins the sweep semantics as contract: a sweep is one pass of
-    :func:`propagate`'s outer loop over the dirty rows and then the dirty
-    columns, and the first sweep is the one that starts from the blank board.
-    A refactor that changes what a sweep is re-grades puzzles and owes an
-    ADR-0029 revision. Note the consequence, which is intended: the *column*
-    half of the first sweep already reads cells the row half wrote, and is
-    still first-sweep — "the first sweep" is a pass of the loop, not "before
-    any cross-line information exists".
-
-    No clock is read here and none can be (ADR-0029/R3, guardrail G-5): the
-    only inputs are the clue, the line length and the masks the deduction
-    produced.
+    Nothing is re-propagated and nothing is re-solved to classify
+    (ADR-0029/R2), and no clock is read (ADR-0029/R3, guardrail G-5): a tagger's
+    only inputs are the masks the deduction it is watching produced.
     """
 
     #: Grid-shaped tags, ``tags[row][column]`` — the boundary type (ADR-0012).
+    #: Shared across the phases of one solve, so the tags accumulate into a
+    #: single map and an earlier phase's claim on a cell is never overwritten
+    #: (a later phase only ever visits cells no earlier one settled).
     tags: list[list[str | None]]
-    #: :func:`overlap_masks` per row clue and per column clue, memoised on
-    #: first use. Constant per line, so at most ``height + width`` derivations
-    #: per solve however many sweeps it takes.
-    row_overlap: list[tuple[int, int] | None]
-    column_overlap: list[tuple[int, int] | None]
-    #: Which sweep of :func:`propagate`'s outer loop is running; ``0`` is the
-    #: first. Written by :func:`propagate`, read here.
-    sweep: int = 0
-
-    @classmethod
-    def blank(cls, height: int, width: int) -> RungTagger:
-        """An untagged grid sized ``height`` x ``width``."""
-        return cls(
-            tags=[[None] * width for _ in range(height)],
-            row_overlap=[None] * height,
-            column_overlap=[None] * width,
-        )
+    #: The rung this phase attributes every cell it settles to.
+    rung: str
 
     def record_row(self, board: Board, row: int, new_filled: int, new_empty: int) -> None:
         """Tag the cells row ``row``'s deduction just settled."""
         tags = self.tags[row]
-        if self.sweep:
-            bits = new_filled | new_empty
-            while bits:
-                column = (bits & -bits).bit_length() - 1
-                bits &= bits - 1
-                tags[column] = RUNG_CROSS_LINE
-            return
-        overlap = self.row_overlap[row]
-        if overlap is None:
-            overlap = overlap_masks(board.row_clues[row], board.width)
-            self.row_overlap[row] = overlap
-        simple = (new_filled & overlap[0]) | (new_empty & overlap[1])
+        rung = self.rung
         bits = new_filled | new_empty
         while bits:
             column = (bits & -bits).bit_length() - 1
             bits &= bits - 1
-            tags[column] = RUNG_SIMPLE_OVERLAP if (simple >> column) & 1 else RUNG_LINE_DP
+            tags[column] = rung
 
     def record_column(
         self, board: Board, column: int, new_filled: int, new_empty: int
     ) -> None:
         """Tag the cells column ``column``'s deduction just settled."""
         tags = self.tags
-        if self.sweep:
-            bits = new_filled | new_empty
-            while bits:
-                row = (bits & -bits).bit_length() - 1
-                bits &= bits - 1
-                tags[row][column] = RUNG_CROSS_LINE
-            return
-        overlap = self.column_overlap[column]
-        if overlap is None:
-            overlap = overlap_masks(board.column_clues[column], board.height)
-            self.column_overlap[column] = overlap
-        simple = (new_filled & overlap[0]) | (new_empty & overlap[1])
+        rung = self.rung
         bits = new_filled | new_empty
         while bits:
             row = (bits & -bits).bit_length() - 1
             bits &= bits - 1
-            tags[row][column] = RUNG_SIMPLE_OVERLAP if (simple >> row) & 1 else RUNG_LINE_DP
+            tags[row][column] = rung
 
 
 @dataclass(slots=True)
@@ -694,13 +795,15 @@ class Board:
     decided: int
     #: CARD-073: a :class:`RungTagger` watching this board's deductions, or
     #: ``None`` — which is what every board has unless
-    #: :func:`~nonogram.solver.search.solve` attached one to the blank board it
-    #: takes to the first fixed point.
+    #: :func:`~nonogram.solver.search.solve` attached one for the phase it is
+    #: currently running (level 1, then level 2).
     #:
-    #: Deliberately *not* carried by :meth:`clone`. Every board the search
-    #: works on is a clone, so dropping it here is what makes "only the first
-    #: sweep sequence is tagged" a property of the data rather than a rule each
-    #: call site has to keep (ADR-0029's sweep semantics).
+    #: Deliberately *not* carried by :meth:`clone`. Every board the level-3
+    #: probing phase and the search work on is a clone, so dropping it here is
+    #: what keeps a line deduction made *below* a tentative assignment from
+    #: being tagged as though line logic had reached it. Level 3 attributes its
+    #: own cells by diffing the phase's end state against its start, which is
+    #: order-independent where tagging a probe's cascade would not be.
     tagger: RungTagger | None = None
 
     @classmethod
@@ -801,13 +904,13 @@ def propagate(
 
     Tagging (CARD-073) rides on ``board.tagger`` rather than on a parameter of
     this function, and deliberately so: the thing being tagged is a *board's*
-    deduction history, :meth:`Board.clone` drops the tagger, and every board the
-    search works on is a clone — so "only the sweep sequence that starts from
-    the blank board is tagged" is structural instead of a rule each call site
-    has to remember. It also leaves ADR-0011's two checkpoints and this
-    signature exactly as they were. The cost when there is no tagger is one
-    ``is not None`` per *productive* line deduction (guardrail G-7), and a
-    tagger never changes a deduction, a fixed point or a verdict.
+    deduction history, :meth:`Board.clone` drops the tagger, and every board
+    level 3 and the search work on is a clone — so "only the level-2 call, on
+    the board level 1 left, is tagged ``line_dp``" is structural instead of a
+    rule each call site has to remember. It also leaves ADR-0011's two
+    checkpoints and this signature exactly as they were. The cost when there is
+    no tagger is one ``is not None`` per *productive* line deduction (guardrail
+    G-7), and a tagger never changes a deduction, a fixed point or a verdict.
 
     Returns:
         ``True`` if the board is still consistent (a fixed point was reached),
@@ -852,15 +955,9 @@ def propagate(
     tagger = board.tagger
 
     pending = True
-    #: ADR-0029's pinned sweep semantics: one pass of this loop over the dirty
-    #: rows and then the dirty columns is one sweep, and sweep 0 is the pass
-    #: this call starts with. Only the tagger reads it.
-    sweep = 0
     while pending:
         check_deadline(deadline)
         pending = False
-        if tagger is not None:
-            tagger.sweep = sweep
 
         for row in range(height):
             if not dirty_rows[row]:
@@ -955,6 +1052,130 @@ def propagate(
                 dirty_rows[row] = True
                 pending = True
 
-        sweep += 1
+    return True
+
+
+def propagate_overlap(
+    board: Board,
+    dirty_rows: list[bool],
+    dirty_columns: list[bool],
+    deadline: float | None = None,
+) -> bool:
+    """ADR-0029 level 1: the overlap rule alone, to a fixed point.
+
+    :func:`propagate`'s loop with :func:`overlap_deduction` in place of
+    :func:`line_intersection` — the cheapest rung of the ladder, run to
+    exhaustion over rows and columns before the dearer one is started
+    (ADR-0029/R2: phases of one monotone forward solve, not a second solve).
+
+    Args:
+        board: Mutated in place with everything the overlap rule settles. Its
+            :attr:`Board.tagger`, if any, records the ``simple_overlap`` rung.
+        dirty_rows, dirty_columns: As :func:`propagate` — consumed.
+        deadline: ADR-0011's cooperative deadline, checked once per sweep at
+            the same place :func:`propagate` checks it.
+
+    Returns:
+        ``True`` at a fixed point, ``False`` the moment a line admits no
+        placement consistent with what is known — the same verdict, and the
+        same condition, :func:`propagate` reports. Level 1 can only reach that
+        condition on a board level 2 would reach it on too, since everything it
+        writes is a cell every placement of some line agrees on.
+
+    A separate function rather than a parameter of :func:`propagate` for two
+    reasons: :func:`propagate` is the solver's hot loop and is called hundreds
+    of thousands of times per solve, where this runs exactly once; and keeping
+    that signature untouched is what leaves ADR-0011's checkpoints and
+    ``tests/test_timeout.py``'s propagation stub exactly where they were.
+
+    No line memo: this phase asks each line about a handful of distinct states
+    and then never runs again, so a memo would cost more than it saved. The
+    :class:`LineCache` the rest of the solve shares is deliberately untouched
+    here — it memoises :func:`line_intersection`, and an overlap answer must
+    never be served in its place.
+    """
+    height = board.height
+    width = board.width
+    row_clues = board.row_clues
+    column_clues = board.column_clues
+    tagger = board.tagger
+
+    pending = True
+    while pending:
+        check_deadline(deadline)
+        pending = False
+
+        for row in range(height):
+            if not dirty_rows[row]:
+                continue
+            dirty_rows[row] = False
+            deduced = overlap_deduction(
+                row_clues[row], width, board.row_filled[row], board.row_empty[row]
+            )
+            if deduced is None:
+                return False
+            filled, empty = deduced
+            new_filled = filled & ~board.row_filled[row]
+            new_empty = empty & ~board.row_empty[row]
+            if not (new_filled or new_empty):
+                continue
+            board.row_filled[row] = filled
+            board.row_empty[row] = empty
+            board.decided += new_filled.bit_count() + new_empty.bit_count()
+            if tagger is not None:
+                tagger.record_row(board, row, new_filled, new_empty)
+            row_bit = 1 << row
+            bits = new_filled
+            while bits:
+                column = (bits & -bits).bit_length() - 1
+                bits &= bits - 1
+                board.column_filled[column] |= row_bit
+                dirty_columns[column] = True
+                pending = True
+            bits = new_empty
+            while bits:
+                column = (bits & -bits).bit_length() - 1
+                bits &= bits - 1
+                board.column_empty[column] |= row_bit
+                dirty_columns[column] = True
+                pending = True
+
+        for column in range(width):
+            if not dirty_columns[column]:
+                continue
+            dirty_columns[column] = False
+            deduced = overlap_deduction(
+                column_clues[column],
+                height,
+                board.column_filled[column],
+                board.column_empty[column],
+            )
+            if deduced is None:
+                return False
+            filled, empty = deduced
+            new_filled = filled & ~board.column_filled[column]
+            new_empty = empty & ~board.column_empty[column]
+            if not (new_filled or new_empty):
+                continue
+            board.column_filled[column] = filled
+            board.column_empty[column] = empty
+            board.decided += new_filled.bit_count() + new_empty.bit_count()
+            if tagger is not None:
+                tagger.record_column(board, column, new_filled, new_empty)
+            column_bit = 1 << column
+            bits = new_filled
+            while bits:
+                row = (bits & -bits).bit_length() - 1
+                bits &= bits - 1
+                board.row_filled[row] |= column_bit
+                dirty_rows[row] = True
+                pending = True
+            bits = new_empty
+            while bits:
+                row = (bits & -bits).bit_length() - 1
+                bits &= bits - 1
+                board.row_empty[row] |= column_bit
+                dirty_rows[row] = True
+                pending = True
 
     return True

@@ -143,6 +143,25 @@ Concretely:
   level of the ladder, so it is part of each rung rather than a rung of its
   own.
 
+- **Rung attribution is scoped to uniquely-solvable clue sets.** Rung tags,
+  the per-rung cell counts and the ordered rung list are reported **only for a
+  clue set with exactly one solution**. A clue set with 0 or >= 2 solutions is
+  not a puzzle: it has no grade, no tier and no strategies list, and it gets no
+  attribution at all — empty or `None` per-cell tags, an all-zero histogram,
+  an empty rung list. This is a scoping rule, not a weakening of the ladder:
+  everything the ladder claims, it claims about puzzles, and "which technique
+  this puzzle needs" is a question that has no answer for a clue set that is
+  not one. The generator already treats the two cases as different kinds of
+  thing — a non-unique candidate is discarded, never graded, exported or
+  stored (INV-002, CON-004) — so no consumer loses a number it was reading.
+
+  The practical consequence is that a solve which has already established that
+  a clue set is ambiguous has nothing left to attribute, and may therefore skip
+  the ladder's dearest rung entirely. That is a permitted optimisation
+  *because* of this rule and only because of it: the rungs of a puzzle are
+  still the fixed points of the three techniques, computed in full, on every
+  clue set that has a grade.
+
 - **The 0..100 score is retained as a derived presentation, not as the
   grade.** `score = rung_base + within_rung_share * rung_width`, with the
   three rungs mapped onto equal bands: `simple_overlap` 0..33.33, `line_dp`
@@ -336,6 +355,53 @@ reproducibility promise would stay broken under `--difficulty`.
 
 ## History
 
+- 2026-09-12 (scoping, same day): **rung attribution applies to
+  uniquely-solvable clue sets only.** Added to the Decision and to R5: rung
+  tags, per-rung counts and the rung list are reported only for a clue set with
+  exactly one solution; a clue set with 0 or >= 2 solutions is not a puzzle,
+  has no grade, and carries no attribution. R5's transposition invariance is
+  scoped to uniquely-solvable clue sets accordingly — and holds trivially for
+  the rest, because both orientations of a non-puzzle report nothing.
+
+  **What this is for.** The revision above made probe refutation (level 3) a
+  *phase* of the solve: every still-unknown cell tried with both values, to a
+  fixed point, with no cap and no ordering heuristic, because any of those
+  would make a rung a fact about the solver. On a puzzle that is cheap and
+  decisive. On the generator's discard path it was neither: a 20x20 candidate
+  at 20% density leaves ~300 cells open at line logic's fixed point, so level 3
+  paid ~600 propagations to force almost nothing — a massively ambiguous board
+  is exactly the board single-cell lookahead cannot refute anything on — and
+  CARD-073's cycle-2 measurement put the discard path at 2.4x its previous
+  cost (0.508s -> 1.204s per 20x20 density-20 request). Every mitigation
+  available *inside* the ladder (a probe budget, a width cap, a "skip when the
+  undecided mask is large" predicate) buys that back by making which cell gets
+  which rung depend on the solver's bookkeeping, which is the defect the
+  revision exists to remove. This scoping buys it back from outside the ladder
+  instead: the candidates that cost the most are precisely the ones whose
+  attribution is never read, because they are discarded rather than graded.
+  A solve may therefore establish ambiguity first — with a bounded round of
+  the ordinary search, whose findings are kept only if they *prove* two
+  solutions and are otherwise discarded whole — and skip level 3 for the clue
+  sets that turn out not to be puzzles. Every uniquely-solvable clue set still
+  runs all three fixed points in full, so its attribution is as complete and as
+  order-independent as before. Measured after the change (CARD-073 cycle 3):
+  600/600 grids transpose-identical, 275 of them uniquely solvable; 20x20
+  generation at density 20 down from 1.196s to 0.553s per request, and at
+  density 25 from 1.660s to 1.074s.
+
+  **Why the Guess tier is not affected.** One-step lookahead solves every
+  uniquely-solvable grid the current sources produce: 0 of 6,620 random and
+  structured grids from 8x8 to 20x20 needed a real branch after level 3
+  (CARD-073, 2026-09-12). So skipping level 3 can never cost a puzzle its
+  grade — a clue set level 3 would have finished is uniquely solvable, and a
+  uniquely-solvable clue set never takes the skip. See ADR-0025's History entry
+  of the same date for what that measurement means for `Tier.GUESS`.
+
+  No verdict changes: two verified distinct solutions are the same `MANY` the
+  full sequence would have reached, from a board every solution extends
+  (CON-005 untouched). No stored data moves; Migration stays `rewrite` from the
+  revision below.
+
 - 2026-09-12 (revision, same day): **rung definitions made order-independent.**
   The ladder as first written graded a puzzle differently from its own
   transpose, because `cross_line` meant "settled in a sweep after the first"
@@ -391,7 +457,7 @@ reproducibility promise would stay broken under `--difficulty`.
   check: {kind: test, ref: test_every_import_in_the_package_points_inward}   # tests/test_cli.py structural guard (ADR-0007)
   severity: mandatory
 - id: ADR-0029/R5
-  statement: Rung attribution is invariant under transposition and under line-visit order — a clue set and its transpose yield the same per-rung cell counts, the same rung list and the same score. A change to the solver's iteration order may change how a fixed point is reached but never which cells belong to which rung.
+  statement: Rung attribution is reported only for a clue set with exactly one solution; a clue set with 0 or >= 2 solutions is not a puzzle, has no grade, and carries no attribution at all (empty or None per-cell tags, an all-zero per-rung histogram, an empty rung list). For uniquely-solvable clue sets, rung attribution is invariant under transposition and under line-visit order — a clue set and its transpose yield the same per-rung cell counts, the same rung list and the same score — and a change to the solver's iteration order may change how a fixed point is reached but never which cells belong to which rung. The invariance holds trivially for the non-unique ones too, since both orientations report nothing.
   scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py"]}
   check: {kind: test, ref: PropertyTest_SolveStrategies_RungsInvariantUnderTransposition}
   severity: mandatory

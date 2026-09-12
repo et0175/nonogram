@@ -39,7 +39,12 @@ from nonogram.difficulty import (
     normalize_signals,
     score_difficulty,
 )
-from nonogram.solver import SolveSignals, solve
+from nonogram.solver import (
+    RUNG_PROBE_CONTRADICTION,
+    RUNG_SIMPLE_OVERLAP,
+    SolveSignals,
+    solve,
+)
 
 # --------------------------------------------------------------------------
 # Fixtures
@@ -313,22 +318,39 @@ def test_zero_backtracking_scores_easiest_on_a_real_solve() -> None:
     assert score < 1.0
 
 
-def test_a_puzzle_that_needs_guessing_scores_above_one_that_does_not() -> None:
-    """The scale's one ordering claim, on two real solves.
+def test_a_puzzle_that_needs_lookahead_scores_above_one_solved_by_overlap() -> None:
+    """The scale's one ordering claim, on two real solves (ADR-0029/R1).
 
-    AC-023 fixes where the easy end *is*; this fixes that it is an end — that
-    a puzzle the solver had to branch on scores strictly above one it did not.
+    AC-023 fixes where the easy end *is*; this fixes that it is an end — that a
+    puzzle needing a dearer rung of ADR-0029's ladder scores strictly above one
+    that never leaves the cheapest. The plus sign is settled by the
+    knowledge-relative overlap rule alone; the 6x6 stalls there and is finished
+    by level 3's refuted lookaheads, which is what a ``probe_contradiction``
+    rung in its list means.
+
+    This used to be stated as "needs guessing scores above one that does not",
+    and that premise is dead for generated puzzles: since ADR-0029's 2026-09-12
+    revision made probe refutation a phase of the solve, every uniquely
+    solvable grid the generator produces is finished without a branch (measured
+    on 6,620 of them), so a fixture that still branched would be an artefact
+    rather than an example. The claim the ladder actually makes is the one
+    above, and it is the one under test.
+
     Both puzzles are solved for real, so this fails if the signals stop
-    distinguishing the two search paths.
+    distinguishing the two depths of reasoning.
     """
     plus_clues = compute_clues(PLUS)
-    line_logic_only = solve(*plus_clues)
-    needs_guessing = solve(BRANCHING_ROWS, BRANCHING_COLUMNS)
+    overlap_only = solve(*plus_clues)
+    needs_lookahead = solve(BRANCHING_ROWS, BRANCHING_COLUMNS)
 
-    assert needs_guessing.signals.branch_nodes > 0
+    assert overlap_only.is_unique and needs_lookahead.is_unique
+    assert overlap_only.signals.rungs == (RUNG_SIMPLE_OVERLAP,)
+    assert RUNG_PROBE_CONTRADICTION in needs_lookahead.signals.rungs
+    # ...and it really is the rung, not a branch, that separates them.
+    assert needs_lookahead.signals.branch_nodes == 0
 
-    easy = score_difficulty(line_logic_only.signals, plus_clues.rows)
-    harder = score_difficulty(needs_guessing.signals, BRANCHING_ROWS)
+    easy = score_difficulty(overlap_only.signals, plus_clues.rows)
+    harder = score_difficulty(needs_lookahead.signals, BRANCHING_ROWS)
 
     assert harder > easy
 

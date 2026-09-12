@@ -1,9 +1,11 @@
-"""EC-011 / EC(ADR-0029/R3) — properties of CARD-073's solver additions.
+"""EC-011 / EC(ADR-0029/R3, R5) — properties of CARD-073's solver additions.
 
     EC-011  PropertyTest_Solver_WitnessesDisagreeOnlyInsideUndecidedMask
             -> test_witnesses_disagree_only_inside_the_undecided_mask
     ADR-0029/R3  PropertyTest_Solver_RungTagsDeterministicPerClueSet
             -> test_rung_tags_are_deterministic_per_clue_set
+    ADR-0029/R5  PropertyTest_SolveStrategies_RungsInvariantUnderTransposition
+            -> test_rungs_are_invariant_under_transposition
 
 EC-011, in full: for any clue set on which the solver reports MANY, the two
 witnesses it returns are distinct cell by cell (TERM-009), each re-encodes
@@ -232,7 +234,7 @@ def test_rung_tags_are_deterministic_per_clue_set(
 
 
 def test_every_tag_is_a_rung_of_the_ladder() -> None:
-    """Nothing but ADR-0029's four names ever appears as a tag.
+    """Nothing but ADR-0029's three names ever appears as a tag.
 
     A cheap totality check over both corpora: the enum is fixed by ADR-0029 and
     a fifth name appearing (``guess``, say, which CARD-072 appends downstream
@@ -249,3 +251,100 @@ def test_every_tag_is_a_rung_of_the_ladder() -> None:
         assert set(result.signals.rung_cells) == set(RUNG_ORDER), case.describe()
     assert seen, "no cell was tagged anywhere in either corpus"
     assert seen <= set(RUNG_ORDER), sorted(seen - set(RUNG_ORDER))
+
+
+# --------------------------------------------------------------------------
+# ADR-0029/R5 — a puzzle and its transpose are the same puzzle
+# --------------------------------------------------------------------------
+
+
+def _transposed(grid: list[list[bool]]) -> list[list[bool]]:
+    return [list(line) for line in zip(*grid, strict=True)]
+
+
+def _adr_0029_score(rung_cells: dict[str, int], total_cells: int) -> float:
+    """ADR-0029's derived 0..100 presentation of a rung tally.
+
+    ``score = rung_base + within_rung_share * rung_width`` over three equal
+    bands, with the within-rung share being "cells settled at the top rung /
+    total cells". Written out here rather than imported from
+    ``nonogram.difficulty`` on purpose: COMP-006 still carries ADR-0013's
+    retired formula until CARD-076 lands, and R5's claim is about the *score
+    the ladder defines*, which is a function of these counts and nothing else.
+    A scorer that later disagrees with this arithmetic is CARD-076's business;
+    that the two transposes feed it identical inputs is this card's.
+    """
+    band = 100.0 / len(RUNG_ORDER)
+    top = -1
+    for index, rung in enumerate(RUNG_ORDER):
+        if rung_cells[rung]:
+            top = index
+    if top < 0:
+        return 0.0
+    share = rung_cells[RUNG_ORDER[top]] / total_cells if total_cells else 0.0
+    return top * band + share * band
+
+
+def test_rungs_are_invariant_under_transposition() -> None:
+    """ADR-0029/R5: the same clue set, read sideways, grades identically.
+
+    This property is the whole reason the ladder was revised on 2026-09-12.
+    Under the first cut — where ``cross_line`` meant "settled in a propagation
+    sweep after the first" and ``propagate`` sweeps all rows before all
+    columns — rows were always deduced from a blank line and columns from a
+    partly-known one, and 205 of 224 line-solvable grids (92%) graded
+    differently from their own transpose. A puzzle and its transpose are the
+    same puzzle to a solver, so that was a fact about the iteration order
+    masquerading as a fact about the puzzle.
+
+    What makes it true now is that each rung is a *fixed point* rather than a
+    sweep: monotone propagation is confluent, so the set of cells level ``L``
+    settles depends on the technique and the clue set and not on the order the
+    lines were visited. Four things are checked, in increasing strength: the
+    per-rung cell counts, the ordered rung list, the score ADR-0029 derives
+    from them, and — strongest — the per-cell tag map itself, which must be the
+    exact transpose, cell for cell.
+
+    Whether the *search* ran is checked too, because it is what ADR-0025 keys
+    ``Tier.GUESS`` on: level 3 is a fixed point like the others, so "probing
+    finished the puzzle" is orientation-free as well, and a puzzle that is
+    gradeable one way round must be gradeable the other.
+    """
+    assert len(MIXED) >= REQUIRED_AMBIGUOUS_CASES, (
+        f"corpus shrank to {len(MIXED)} cases"
+    )
+
+    reached: set[str] = set()
+    for case in MIXED:
+        upright = solve(case.clues.rows, case.clues.columns)
+        # The transpose of a grid has its clue sets swapped — that *is* what
+        # transposing is, in the clue boundary type.
+        sideways = solve(case.clues.columns, case.clues.rows)
+        context = case.describe()
+
+        assert dict(sideways.signals.rung_cells) == dict(upright.signals.rung_cells), (
+            f"{context}: per-rung cell counts differ from the transpose"
+        )
+        assert sideways.signals.rungs == upright.signals.rungs, (
+            f"{context}: rung list differs from the transpose"
+        )
+        assert _adr_0029_score(
+            dict(sideways.signals.rung_cells), sideways.signals.total_cells
+        ) == _adr_0029_score(
+            dict(upright.signals.rung_cells), upright.signals.total_cells
+        ), f"{context}: ADR-0029 score differs from the transpose"
+
+        # The strongest form: tag for tag, the maps are transposes.
+        assert sideways.rung_tags == [
+            list(line) for line in zip(*upright.rung_tags, strict=True)
+        ], f"{context}: the per-cell rung map is not the transpose"
+
+        assert (sideways.signals.branch_nodes == 0) == (
+            upright.signals.branch_nodes == 0
+        ), f"{context}: one orientation needed the search and the other did not"
+
+        reached.update(upright.signals.rungs)
+
+    # A corpus that only ever reached one rung would satisfy everything above
+    # while saying nothing about the ladder.
+    assert reached == set(RUNG_ORDER), f"corpus only reached {sorted(reached)}"

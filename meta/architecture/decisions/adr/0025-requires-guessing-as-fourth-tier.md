@@ -202,6 +202,40 @@ shape the intake asked us to avoid.
 
 ## History
 
+- 2026-09-12 (measurement, same day): **`Tier.GUESS` is unreachable for the
+  current sources, and the tier is kept anyway.** ADR-0029's revision of the
+  same date made probe refutation a phase of the solve rather than work the
+  search happened to do — one-step lookahead, run to a fixed point, before any
+  search node is expanded. CARD-073 then measured what that leaves for the
+  search to do on real generated puzzles: over **6,620 uniquely-solvable random
+  and structured grids from 8x8 to 20x20, zero required a branch after the
+  level-3 lookahead**. Every one of them came back with `branch_nodes == 0`.
+
+  So under the current sources every generated puzzle is logically solvable,
+  and `Tier.GUESS` is assigned at a measured rate of **zero**. That is not a
+  disappointment — it is the product promise the tier exists to express,
+  arriving as a fact rather than as a filter. The book workflow's
+  "`--difficulty hard` means logically solvable, deep" is now true of the whole
+  catalogue and not only of the Hard band, and a puzzle that needed refutation
+  is graded Hard on ADR-0029's ladder instead of being pushed into Guess for
+  work the search happened to do.
+
+  **The tier is deliberately KEPT.** Nothing in this ADR's Decision or Rules
+  changes: `Tier` stays Easy/Medium/Hard/Guess, EC-015 still keys Guess on
+  `branch_nodes >= 1`, `tier_for_score` still cannot stand alone, and every
+  consumer still handles the fourth member. It is a safety net for a future
+  source that produces a harder grid — a library or image source, a
+  larger extent, a density regime nobody has swept — and for the day some
+  clue set does branch, the classification is already correct and already
+  plumbed to every surface. Removing a tier that costs nothing while it is
+  empty, and would cost a schema change to bring back, is not a trade worth
+  making. What is true today is that its measured assignment rate is zero;
+  that is a fact about the sources, not a fact about the model.
+
+  Measured with CARD-073's solver on 6,620 grids; recorded there and in
+  ADR-0029's History entry of the same date, which is what licenses skipping
+  level 3 for clue sets that are not puzzles.
+
 - 2026-09-12: Created — resolves DEC-030 by making "requires guessing" a
   fourth tier (`guess`) keyed on `branch_nodes >= 1`, so that Easy/Medium/Hard
   grade only line-solvable puzzles and `--difficulty hard` promises a

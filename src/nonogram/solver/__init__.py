@@ -16,11 +16,12 @@ Public surface (this is the whole API; everything else is internal)
                                     ADR-0029's per-rung cell counts and the
                                     ordered list of rungs the solve used
 ``MANY``                            the ``solution_count`` meaning ">= 2"
-``RUNG_ORDER`` and the four         ADR-0029's ladder, lowest rung first:
+``RUNG_ORDER`` and the three        ADR-0029's ladder, lowest rung first:
 ``RUNG_*`` names                    ``simple_overlap`` < ``line_dp`` <
-                                    ``cross_line`` < ``probe_contradiction``.
-                                    ``guess`` is not one of them — ADR-0025
-                                    keys that on ``branch_nodes``.
+                                    ``probe_contradiction``, each the fixed
+                                    point of its technique. ``guess`` is not
+                                    one of them — ADR-0025 keys that on
+                                    ``branch_nodes``.
 
 ``deadline`` is ADR-0011's cooperative generation deadline: an absolute
 :func:`time.monotonic` reading, computed once per generation *request* by the
@@ -59,7 +60,6 @@ Usage::
 from __future__ import annotations
 
 from nonogram.solver.propagate import (
-    RUNG_CROSS_LINE,
     RUNG_LINE_DP,
     RUNG_ORDER,
     RUNG_PROBE_CONTRADICTION,
@@ -69,7 +69,6 @@ from nonogram.solver.search import MANY, RungTags, SolveResult, SolveSignals, so
 
 __all__ = [
     "MANY",
-    "RUNG_CROSS_LINE",
     "RUNG_LINE_DP",
     "RUNG_ORDER",
     "RUNG_PROBE_CONTRADICTION",
