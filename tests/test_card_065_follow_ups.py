@@ -33,6 +33,12 @@ def _normalized(body: str) -> str:
         (0.9, "90%"),
         (0.6, "60%"),
         (1.0, "100%"),
+        # Exact shares whose float product sits a hair below the integer:
+        # 0.58 * 100 is 57.99999999999999. Rounding down must not read these
+        # a full point low.
+        (0.58, "58%"),
+        (0.29, "29%"),
+        (0.57, "57%"),
     ],
 )
 def test_ac1_a_share_is_rounded_down(share, shown):
@@ -83,6 +89,42 @@ def test_ac1_the_preview_never_rounds_a_share_up(admin_client, tmp_path):
 
     assert "would cut this picture (keeps 88%)" in body
     assert "keeps 89%" not in body
+
+
+def _flashed(client):
+    with client.session_transaction() as sess:
+        return [message for _, message in sess.get("_flashes", [])]
+
+
+def test_ac1_a_skipped_picture_rounds_its_share_down(admin_client, tmp_path):
+    """100x350 at Medium cannot fit: even Large keeps 85.71% of it, so both
+    the preview and the batch results must read 85%, not 86%."""
+    _upload(admin_client, tmp_path, (100, 350))
+
+    body = _normalized(admin_client.get("/batch/preview-images").get_data(as_text=True))
+    assert "even Large keeps only 85% of it" in body
+    assert "86%" not in body
+
+    admin_client.post("/batch/generate-puzzles", data={})
+    assert any(
+        "skipped: too elongated for any supported size (even Large keeps only 85%)" in m
+        for m in _flashed(admin_client)
+    )
+
+
+def test_ac1_a_moved_picture_rounds_its_share_down(admin_client, tmp_path):
+    """300x700 at Medium moves to Large: the chosen 10x20 keeps 85.71%."""
+    _upload(admin_client, tmp_path, (300, 700))
+
+    body = _normalized(admin_client.get("/batch/preview-images").get_data(as_text=True))
+    assert "would cut this picture (keeps 85%)" in body
+    assert "keeps 86%" not in body
+
+    admin_client.post("/batch/generate-puzzles", data={})
+    assert any(
+        "moved up to Large — the chosen size 10x20 would cut it (keeps 85%)" in m
+        for m in _flashed(admin_client)
+    )
 
 
 def test_ac2_the_preset_labels_match_the_preset_table(admin_client, tmp_path):

@@ -68,8 +68,12 @@ def floor_percent(share: float) -> str:
 
     Rounding to nearest would print "90%" for a grid keeping less than
     MIN_KEPT_SHARE — on a line that only appears *below* it (CARD-065).
+
+    The epsilon absorbs binary floating point, not a real fraction of a
+    percent: ``0.58 * 100`` is 57.99999999999999, which would otherwise
+    print an exact 58% as "57%".
     """
-    return f"{int(share * 100)}%"
+    return f"{int(share * 100 + 1e-9)}%"
 
 
 @dataclass

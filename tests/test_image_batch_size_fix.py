@@ -209,18 +209,28 @@ class TestImageBatchPage1Defaults:
             yield app.test_client(), img_mgr_module
         img_mgr_module._image_manager = None
 
-    def _upload(self, client, tmp_path, default_size, shape=(200, 150)):
-        path = tmp_path / "picture.png"
-        PILImage.new("RGB", shape, color=(73, 109, 137)).save(str(path))
-        with open(path, "rb") as handle:
+    def _upload(self, client, tmp_path, default_size, shape=(200, 150), count=2):
+        """Upload ``count`` pictures in one request. More than one on purpose:
+        the preset has to reach *every* loaded image, which is what this
+        class is named for (CARD-065)."""
+        paths = []
+        for i in range(count):
+            path = tmp_path / f"picture_{i}.png"
+            PILImage.new("RGB", shape, color=(73, 109, 137)).save(str(path))
+            paths.append(path)
+        handles = [open(path, "rb") for path in paths]
+        try:
             response = client.post(
                 "/batch/from-images",
                 data={
-                    "image_files": [(handle, "picture.png")],
+                    "image_files": [(h, p.name) for h, p in zip(handles, paths)],
                     "default_size": default_size,
                 },
                 content_type="multipart/form-data",
             )
+        finally:
+            for handle in handles:
+                handle.close()
         assert response.status_code == 302, response.data
 
     @pytest.mark.parametrize("preset", sorted(SIZE_PRESETS))
@@ -231,18 +241,21 @@ class TestImageBatchPage1Defaults:
         self._upload(client, tmp_path, preset)
 
         value, mode = SIZE_PRESETS[preset]
-        (image,) = img_mgr_module.get_image_manager().get_all_images()
-        assert image.size_mode == mode
-        if mode != "max":  # "max" derives its own value from the picture
-            assert image.size_value == value
+        images = img_mgr_module.get_image_manager().get_all_images()
+        assert len(images) == 2
+        for image in images:
+            assert image.size_mode == mode
+            if mode != "max":  # "max" derives its own value from the picture
+                assert image.size_value == value
 
     def test_page1_small_puts_its_value_on_the_short_side(self, admin_client, tmp_path):
         """Small on a 4:3 picture: 10 on the short side, long side follows."""
         client, img_mgr_module = admin_client
         self._upload(client, tmp_path, "small")
 
-        (image,) = img_mgr_module.get_image_manager().get_all_images()
-        assert image.predict_size() == (13, 10)
+        images = img_mgr_module.get_image_manager().get_all_images()
+        assert len(images) == 2
+        assert [image.predict_size() for image in images] == [(13, 10), (13, 10)]
 
     def test_page1_large_puts_its_value_on_the_long_side(self, admin_client, tmp_path):
         """Large on the same picture: 30 on the long side, short side derived.
@@ -253,8 +266,9 @@ class TestImageBatchPage1Defaults:
         client, img_mgr_module = admin_client
         self._upload(client, tmp_path, "large")
 
-        (image,) = img_mgr_module.get_image_manager().get_all_images()
-        assert image.predict_size() == (30, 22)
+        images = img_mgr_module.get_image_manager().get_all_images()
+        assert len(images) == 2
+        assert [image.predict_size() for image in images] == [(30, 22), (30, 22)]
 
     def test_page1_auto_size_uses_max_mode(self, tmp_path):
         """Test that selecting 'Auto' on page 1 applies 'max' mode."""
