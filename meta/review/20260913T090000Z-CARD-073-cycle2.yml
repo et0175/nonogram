@@ -1,0 +1,153 @@
+version: 1
+generated_at: "2026-09-13T09:00:00Z"
+target: "CARD-073 confirmation cycle — branch card/073-solver-mask-witness-rungs, commit 71b0f8e (delta d81c387..71b0f8e)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "src/nonogram/solver/search.py (solve sequencing, finish, speculative round)"
+    - "src/nonogram/solver/propagate.py (overlap_deduction, RungTagger)"
+    - "tests/test_solver.py, tests/test_difficulty.py (repaired tests)"
+    - "meta/architecture/decisions/adr/0029, 0025 (History + Decision deltas)"
+  not_reached: ["src/nonogram/admin/**", "src/nonogram/web/**"]
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 1300, removed: 444 }
+  max_fan_in: { symbol: "SolveSignals", callers: 15 }
+  tests_cover_change: true
+  unmeasured:
+    hotspots: "no_eligible_fact — repository history younger than the 12-month window"
+    cochange_missing: "no_eligible_fact — same short history"
+
+mutation_check:
+  ran: true
+  note: "deferred(cost) at cycle 1; run here as the stable cycle per the cost ladder"
+  mutants: 5
+  killed: 4
+  anchor_missed: 1
+  survivors: 0
+  detail:
+    - "scrub rungs unless count==1 -> KILLED"
+    - "speculative round accepts only exactly 2 solutions -> KILLED"
+    - "overlap filled-window boundary -> KILLED"
+    - "overlap covered-window boundary (empty-half soundness) -> KILLED"
+    - "level 2 re-dirties every line -> survived the uniqueness test alone (which checks verdicts only, correctly), KILLED by the solver+rung suites; not a finding"
+
+system_contract:
+  rules_checked: 26
+  holds: 10
+  unchecked: 16
+  violated: 0
+  verdicts:
+    - "ADR-0029/R5 ✓ holds — 250/250 uniquely-solvable grids transpose-identical on my own seed; 150 non-unique report no rungs in both orientations"
+    - "ADR-0029/R2 ✓ holds — one monotone forward solve; the R2 replay test passes and the scrub mutant was killed"
+    - "ADR-0029/R3 ✓ holds — determinism test green under a dilated clock"
+    - "ADR-0029/R4 ✓ holds — overlap re-derived natively; import guard green"
+    - "CON-005 ✓ holds — tests/property/test_solver_uniqueness.py unedited, green, identical counts"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green"
+    - "ADR-0006/R1 ✓ holds — no dependency added"
+    - "ADR-0022/R1 ✓ holds — no scalar size introduced"
+    - "INV-001 ✓ holds — carried(cycle 1, delta-clean): orchestrator.py untouched in this delta"
+    - "INV-002 ✓ holds — carried(cycle 1, delta-clean): orchestrator.py untouched in this delta"
+    - "ADR-0025/R1, ADR-0025/R2, ADR-0029/R1, ADR-0024/R1..R5, ADR-0027/R1..R2, CON-014, ADR-0022/R4, CON-009..CON-012, INV-003 ⚠ unchecked — no_eligible_fact: scoring, tier classification, the repair loop and density refusal are not implemented by this card; their check refs remain check_ref_missing until CARD-074/076/078 land"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/solver/propagate.py
+    line: 216
+    title: "Rung tags change when the puzzle is transposed"
+    description: "Carried from cycle 1. Re-derived independently on my own seed: 250/250 uniquely-solvable grids now yield identical per-rung counts and rung lists under transposition, and 150 non-unique clue sets report no rungs in either orientation under the new scoping rule. Fixed at the root by the ADR-0029 revision rather than patched."
+    confidence: high
+    source: static
+    violates: ADR-0029/R1
+    root_cause: null
+    status: fixed
+    fixed_in: "71b0f8e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: docs/GENERATION_ALGORITHM.md
+    line: 266
+    title: "Solver section of the algorithm document is stale"
+    description: "Unchanged from cycle 1 and now further out of date: section 6 still lists the pre-CARD-073 signals, and the solver has since gained three result fields, a three-phase ladder and a speculative MANY round. Lives on main, outside this branch."
+    suggestion: "Update section 6 with the solver half. Section 7 is already assigned to CARD-076."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_difficulty.py
+    line: 326
+    title: "Test named for a score ordering asserts only rung composition"
+    description: |
+      test_a_puzzle_that_needs_lookahead_scores_above_one_solved_by_overlap, and its
+      docstring, claim the ladder's ordering property: a puzzle needing a dearer rung
+      "scores strictly above" one that never leaves the cheapest. The body never calls
+      score_difficulty and never compares two scores; it asserts rung composition and
+      branch_nodes == 0.
+
+      The reason is legitimate — difficulty.py still implements ADR-0013's formula, so
+      the ladder score does not exist yet and CARD-076 owns it. But the name and
+      docstring promise coverage of ADR-0029/R1 that the body does not provide, which
+      is the weaker-body-under-a-stronger-name pattern. No false coverage reaches the
+      model, since R1's declared check ref (TestScoreDifficulty_DeeperLineReasoningScoresHigher)
+      does not exist and is correctly reported as a dead ref.
+    suggestion: "Rename to say what it checks (rung composition distinguishes the two depths) and leave the score-ordering assertion to CARD-076, where R1's declared check ref lives."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/solver/propagate.py
+    line: 0
+    title: "The line_dp rung is rare, so the Medium band will be thinly populated"
+    description: |
+      Measured during this review: the knowledge-relative overlap rule is strictly
+      weaker than the full placement intersection on only about 0.4% to 10% of feasible
+      line states depending on line length, so line_dp is reachable but uncommon. The
+      implementer's own corpus put it as the top rung on roughly 20 of 600 grids, about
+      3%, against 440 of 600 topping out at simple_overlap.
+
+      Not a defect of this card, which only reports the tags. It is direct input to
+      AC-118's requirement that the line-solvable corpus populate every score band, and
+      to the within-rung calibration ADR-0029 already flags as owed.
+    suggestion: "Hand these numbers to CARD-076 before it calibrates; the Medium band may need the band boundaries moved rather than the ladder changed."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
