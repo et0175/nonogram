@@ -63,6 +63,15 @@ def _kept_share(source: tuple, extent: tuple) -> float:
     return min(a, b) / max(a, b)
 
 
+def floor_percent(share: float) -> str:
+    """A share as a whole percentage, rounded DOWN: 0.897 → ``"89%"``.
+
+    Rounding to nearest would print "90%" for a grid keeping less than
+    MIN_KEPT_SHARE — on a line that only appears *below* it (CARD-065).
+    """
+    return f"{int(share * 100)}%"
+
+
 @dataclass
 class ImageFile:
     """Represents an uploaded image file."""
