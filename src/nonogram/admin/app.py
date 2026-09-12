@@ -10,7 +10,12 @@ from pathlib import Path
 from io import BytesIO
 
 from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
-from .puzzle_review import get_puzzle_review_service, PuzzleFilter, PuzzleReviewService
+from .puzzle_review import (
+    get_puzzle_review_service,
+    PuzzleFilter,
+    PuzzleReviewService,
+    PuzzleStatus,
+)
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
 from .image_manager import (
@@ -35,6 +40,11 @@ from nonogram.limits import MAX_SIZE, MIN_SIZE
 # density-only heuristic and hardcoded "medium" this replaces below.
 from PIL import Image as PILImage
 from nonogram.analysis.quality_metric import measure_quality
+
+
+#: The statuses a puzzle can be filtered by, in curation order (CARD-066).
+#: Read from the enum so the page cannot drift from the store.
+_PUZZLE_STATUSES = tuple(status.value for status in PuzzleStatus)
 
 
 def _generate_image_puzzle(image, width, height):
@@ -614,6 +624,14 @@ def create_app(debug=None):
         puzzle_name = request.args.get("puzzle_name")
         sort_by = request.args.get("sort_by", "batch_id,-size,quality")
 
+        # Status (CARD-066). An unknown value is reported and then ignored:
+        # filtering on it would show an empty list that looks like "nothing
+        # matches your other filters".
+        status = request.args.get("status") or None
+        if status and status not in _PUZZLE_STATUSES:
+            flash(f"Unknown status {status!r} — showing every status instead", "info")
+            status = None
+
         # Pagination
         limit = request.args.get("limit", 25, type=int)
         offset = request.args.get("offset", 0, type=int)
@@ -630,6 +648,7 @@ def create_app(debug=None):
                 date_to=date_to,
                 book_id=book_id,
                 puzzle_name=puzzle_name,
+                status=status,
                 sort_by=sort_by,
                 limit=limit,
                 offset=offset,
@@ -645,11 +664,18 @@ def create_app(debug=None):
                 has_more=result.has_more,
                 pagination=_page_window(result.total_count, result.limit, result.offset),
                 books=books,
+                statuses=_PUZZLE_STATUSES,
             )
 
         except ValueError as e:
             flash(f"Filter error: {str(e)}", "error")
-            return render_template("puzzles_list.html", puzzles=[], error=str(e), books=books)
+            return render_template(
+                "puzzles_list.html",
+                puzzles=[],
+                error=str(e),
+                books=books,
+                statuses=_PUZZLE_STATUSES,
+            )
 
     @app.route("/puzzle/<puzzle_id>/approve", methods=["POST"])
     def approve_puzzle(puzzle_id):
