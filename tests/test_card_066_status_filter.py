@@ -118,6 +118,21 @@ def test_ac2_the_options_come_from_the_status_enum(admin_app, monkeypatch):
     assert select.count("<option") == len(STATUSES) + 2  # Any, the four, archived
 
 
+def test_ac2_the_route_takes_its_statuses_from_the_enum():
+    """The test above pins template ← route. This pins route ← enum.
+
+    It compares values, so replacing the derivation with a literal tuple of
+    today's four statuses still passes — but that is behaviour-identical
+    today. The failure this guards is the one that matters: a status added
+    to `PuzzleStatus` while the page keeps the old list makes this fail.
+    """
+    from nonogram.admin.app import _PUZZLE_STATUSES
+    from nonogram.admin.puzzle_review import PuzzleStatus
+
+    assert _PUZZLE_STATUSES == tuple(status.value for status in PuzzleStatus)
+    assert set(STATUSES) == set(_PUZZLE_STATUSES), "this file's own list is stale"
+
+
 def test_ac2_the_form_offers_every_status_and_marks_the_current_one(admin_app):
     _add(admin_app, "approved")
     client = admin_app.test_client()
