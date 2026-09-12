@@ -1,6 +1,6 @@
 # CARD-073: Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell
 
-**Status:** ready
+**Status:** in_review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/073-solver-mask-witness-rungs
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-073
 **Source:** meta/architecture/handoff.md#increment-8
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, src/nonogram/solver/__init__.py, src/nonogram/orchestrator.py (Puzzle aggregate: store the three new result fields, nothing else), tests/test_solver.py, tests/property/test_solver_witnesses.py (new), meta/architecture/decisions/adr/0009-*.md and 0012-*.md (History entries only)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-12T15:44Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

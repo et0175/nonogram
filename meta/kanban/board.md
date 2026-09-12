@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-12 17:05_
+_Updated: 2026-09-12 15:44 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-073** P1 · Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell  _(wave 1)_
 - **CARD-074** P1 · Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 then redraw  _(wave 1)_ — after CARD-073
 - **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier  _(wave 1)_ — after CARD-073
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
@@ -58,6 +57,7 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
+- **CARD-073** P1 · Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · `card/073-solver-mask-witness-rungs` · started 2026-09-12T15:44Z · implemented, awaiting review
 _(none)_
 
 ## Done
