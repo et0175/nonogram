@@ -68,12 +68,44 @@ def _mask(pattern: str) -> int:
 #:     ··█··
 PLUS = _grid("··█··", "··█··", "█████", "··█··", "··█··")
 
-#: A 6x6 that line logic cannot finish — the solver has to guess, backtrack,
-#: and still come back with exactly one solution. Taken from the property
-#: corpus, pinned here because "unique after branching" is a distinct code
-#: path from "unique by propagation".
+#: A 6x6 that the overlap rule cannot finish: propagation stalls with 16 of its
+#: 36 cells decided, and the remaining 20 fall to ADR-0029's level 3, where a
+#: lookahead that refutes one value of a cell forces the other. The verdict is
+#: a single solution and ``branch_nodes`` is 0 — no search node is ever
+#: expanded. Taken from the property corpus, pinned here because "unique past a
+#: stalled fixed point" is a distinct code path from "unique by propagation".
+#:
+#: The name is historical. Before ADR-0029's 2026-09-12 revision made probe
+#: refutation a *phase* of the solve rather than work the search happened to
+#: do, this clue set reached its answer by branching, and three tests across
+#: this file and ``tests/test_difficulty.py`` asserted that it did. It no
+#: longer does, and those assertions were repaired rather than propped up:
+#: weakening level 3 to keep a fixture branching would make a rung a fact about
+#: the solver, which is exactly what ADR-0029/R1 and R5 forbid. The constants
+#: keep their name so the round-trip check below stays comparable across the
+#: change.
 BRANCHING_ROWS = ((1, 1), (0,), (2, 1), (1,), (1, 1), (1, 1))
 BRANCHING_COLUMNS = ((2,), (1, 1, 1), (1, 1), (1, 1), (1,), (0,))
+
+#: A 10x10 with a single 2x2 "switching block": one filled cell in each of rows
+#: 0 and 1 and each of columns 0 and 1, which can sit on either diagonal of the
+#: block. Two solutions, and the only route to that verdict is the search —
+#: line logic settles the other 96 cells and stalls, and a lookahead refutes
+#: nothing, because both values of every one of the four cells extend to a real
+#: solution. This is the fixture the search-effort tests need now that no
+#: line-solvable clue set branches.
+SWITCHING_BLOCK_10 = _grid(
+    "█·········",
+    "·█········",
+    "··········",
+    "··········",
+    "··········",
+    "··········",
+    "··········",
+    "··········",
+    "··········",
+    "··········",
+)
 
 
 # --------------------------------------------------------------------------
@@ -98,17 +130,31 @@ def test_reports_unique_solution() -> None:
     assert result.is_unique
 
 
-def test_reports_unique_solution_that_needs_backtracking() -> None:
-    """AC-015 again, on a puzzle line logic alone cannot finish.
+def test_reports_unique_solution_settled_by_lookahead_without_a_branch() -> None:
+    """AC-015 again, on a puzzle the overlap rule alone cannot finish.
 
-    Propagation stalls here, so the answer comes out of the branch-and-
-    backtrack half of the search. Both halves have to be able to produce a
-    ``solution_count = 1``, and only this one exercises the second.
+    Propagation stalls here with 16 of 36 cells decided, and ADR-0029's level 3
+    finishes it: a lookahead that refutes one value of a cell forces the other,
+    to a fixed point. That is the more valuable fact about this clue set, and
+    the one this test pins — the answer is reached *without the search running
+    at all*, so ``branch_nodes`` is 0 and ADR-0025 grades the puzzle on the
+    ladder (Hard) instead of calling it ``Tier.GUESS`` for work the search
+    happened to do.
+
+    Both halves of "unique" have to work: by propagation alone (the plus sign
+    above) and past a stalled fixed point (here). The verdict and the grid are
+    the same ones this clue set has always produced; only *how* it gets there
+    moved, when probing became a phase rather than search work.
     """
     result = solve(BRANCHING_ROWS, BRANCHING_COLUMNS)
 
     assert result.solution_count == 1
-    assert result.signals.branch_nodes > 0, "expected this puzzle to need a guess"
+    assert result.signals.line_logic_cells < result.signals.total_cells, (
+        "expected propagation to stall on this puzzle"
+    )
+    assert result.signals.branch_nodes == 0, (
+        "expected lookahead to settle this puzzle without expanding a node"
+    )
     assert result.solution is not None
     derived = compute_clues(result.solution)
     assert (derived.rows, derived.columns) == (BRANCHING_ROWS, BRANCHING_COLUMNS)
@@ -332,19 +378,45 @@ def test_signals_report_full_line_logic_coverage_when_no_guess_is_needed() -> No
     assert signals.elapsed_seconds >= 0.0
 
 
-def test_signals_report_partial_line_logic_coverage_when_guessing_is_needed() -> None:
-    """The other side: a stalled fixed point leaves cells for the search.
+def test_signals_report_partial_line_logic_coverage_when_lookahead_is_needed() -> None:
+    """The other side: a stalled fixed point leaves cells for the dearer rungs.
 
-    ``line_logic_cells`` counts what propagation settled *before the first
-    guess*, so it must be strictly less than the grid when the solver had to
-    branch — otherwise CARD-009 would score every puzzle as trivially easy.
+    ``line_logic_cells`` counts what propagation settled at its *first* fixed
+    point — ADR-0029's levels 1 and 2, and nothing past them — so it must be
+    strictly less than the grid on a puzzle that needed lookahead, otherwise
+    CARD-009 would score every puzzle as trivially easy. What settles the rest
+    here is level 3, not the search, so the signals must say both things at
+    once: partial line-logic coverage *and* a zero branch count.
     """
     result = solve(BRANCHING_ROWS, BRANCHING_COLUMNS)
 
     signals = result.signals
     assert signals.total_cells == 36
     assert signals.line_logic_cells < signals.total_cells
-    assert signals.branch_nodes >= 1
+    assert signals.branch_nodes == 0
+    assert signals.backtracks == 0
+
+
+def test_signals_report_the_search_running_on_an_ambiguous_clue_set() -> None:
+    """Genuine search-effort coverage, on the clue sets that still need it.
+
+    No line-solvable clue set branches any more: ADR-0029's level 3 finishes
+    every one of them (measured 2026-09-12 — 0 of 6,620 uniquely-solvable
+    random and structured grids from 8x8 to 20x20 needed a node after the
+    lookahead phase), which is why the two tests above no longer assert a
+    branch. ``branch_nodes`` is still a live signal, though, and the shape that
+    exercises it is an *ambiguous* clue set: a lookahead can refute nothing on
+    the switching block, because both values of all four cells extend to a real
+    solution, so the verdict can only come from the search actually branching.
+    """
+    rows, columns = compute_clues(SWITCHING_BLOCK_10)
+
+    result = solve(rows, columns)
+
+    signals = result.signals
+    assert result.solution_count == MANY
+    assert signals.line_logic_cells < signals.total_cells
+    assert signals.branch_nodes > 0, "the verdict has to have come from the search"
 
 
 def test_signals_are_reported_even_when_there_is_no_solution() -> None:

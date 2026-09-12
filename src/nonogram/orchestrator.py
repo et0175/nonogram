@@ -616,6 +616,32 @@ class Puzzle:
     #: candidate's verdict, so a resampled candidate cannot be checked against
     #: its predecessor's score (AC-026).
     difficulty_score: float | None = None
+    #: The cells line logic left undecided at the current candidate's **first**
+    #: propagation fixed point, grid-shaped (FR-024), or ``None`` while the
+    #: candidate is unjudged. Stored exactly as the solver reported it, the way
+    #: :attr:`solution_count` and :attr:`difficulty_score` are (guardrail G-3):
+    #: this module composes capabilities, it does not second-guess them.
+    #:
+    #: Carried, not consumed (CARD-073 guardrail G-4). POL-002's nudge reads it
+    #: in CARD-075.
+    undecided_mask: list[list[bool]] | None = None
+    #: The solutions the current candidate's solve had in hand: empty for a
+    #: candidate with no solution, one grid for a unique one, and the two
+    #: distinct witnesses for a candidate the solver reported ``solver.MANY``
+    #: for — the pair ADR-0024's repair draws its cells from in CARD-074.
+    #:
+    #: ``None`` while the candidate is unjudged, which is a different statement
+    #: from the empty tuple ("judged, and there was nothing to find").
+    witnesses: tuple[Grid, ...] | None = None
+    #: The ADR-0029 ladder rung that settled each cell of the current candidate
+    #: in the one verifying solve, grid-shaped, with ``None`` per cell for a
+    #: cell no forced deduction settled; ``None`` as a whole while the
+    #: candidate is unjudged.
+    #:
+    #: Also carried and not consumed: CARD-076 grades from these and CARD-072
+    #: persists the rung list beside them. They come off the solve that already
+    #: happened — nothing here re-solves to classify (ADR-0029/R2).
+    rung_tags: list[list[str | None]] | None = None
     #: INV-002's gate. Only :meth:`confirm_uniqueness` writes it.
     ready_for_export: bool = False
 
@@ -668,6 +694,12 @@ class Puzzle:
         self.clues = clue_derivation.compute_clues(grid)
         self.solution_count = None
         self.difficulty_score = None
+        # Everything the previous candidate's solve reported goes with it, for
+        # the same reason its score does: a mask, a witness pair or a rung map
+        # left attached to a replacement grid would describe the wrong puzzle.
+        self.undecided_mask = None
+        self.witnesses = None
+        self.rung_tags = None
         self.ready_for_export = False
         return self.clues
 
@@ -1188,6 +1220,15 @@ def generate(
         verdict = solver.solve(
             candidate_clues.rows, candidate_clues.columns, deadline=deadline
         )
+        # Stored before the uniqueness gate, not after it: the mask and the
+        # witness pair are precisely what a *rejected* candidate carries for
+        # ADR-0024's repair and POL-002's nudge to work from (CARD-074,
+        # CARD-075), and a solve whose verdict was MANY is the only solve that
+        # ever produces two witnesses. Stored as reported, nothing derived
+        # here (guardrail G-3).
+        puzzle.undecided_mask = verdict.undecided_mask
+        puzzle.witnesses = verdict.witnesses
+        puzzle.rung_tags = verdict.rung_tags
         if not puzzle.confirm_uniqueness(verdict.solution_count):
             return None
         # COMP-006, off the signals of the solve that just happened — no second
