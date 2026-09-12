@@ -263,8 +263,52 @@ puzzle outcome.
 **Deadline** is checked at every node pop (`:496`) and every propagation sweep; past it,
 `SolverTimeout` is raised and no verdict exists.
 
-**Signals** (`SolveSignals`, `:197-248`): `line_logic_cells`, `total_cells`, `branch_nodes`
-(nodes expanded by the *deciding* round only), `backtracks` (refuted assignments), `elapsed_seconds`.
+### 6.5 The strategy ladder and what the result now carries (CARD-073, ADR-0029)
+
+Before the search runs, the solve walks three **stratified fixed points** over one board, never
+resetting it and never re-entering the solver. Each level runs its technique to exhaustion and
+then hands the board to the next, so a cell's rung is the level at whose fixed point it was
+first settled:
+
+| level | technique | where |
+|---|---|---|
+| `simple_overlap` | the leftmost/rightmost overlap rule **relative to the line's known cells** | `propagate.py:522, :567, :1058` |
+| `line_dp` | the full placement intersection, i.e. `line_intersection` | `search.py:592` |
+| `probe_contradiction` | one-step lookahead: a value whose propagation contradicts forces its opposite | `search.py:672`, `:1318` |
+
+Monotone propagation is confluent, so the set of cells a level settles is a function of the clue
+set alone. That is what makes a rung a property of the puzzle: a clue set and its transpose
+produce identical rung counts (ADR-0029/R5, measured 250/250). `cross_line` is deliberately not a
+rung — feeding information between rows and columns until nothing more can be deduced is what
+propagation does at every level, and defining a rung by sweep index made grading depend on grid
+orientation, which is the defect the 2026-09-12 ADR revision removed.
+
+Between levels 2 and 3 a **bounded speculative round** (`search.py:642`) runs round 0's plain
+descent purely to detect an ambiguous clue set. Two verified distinct solutions is a verdict on
+its own terms and returns immediately, so lookahead never runs for a candidate the generator is
+about to discard. Anything else discards that round's findings *and* its counters, exactly as an
+abandoned restart round is treated, and the solve continues into level 3 with fresh counters.
+
+**Attribution is scoped to real puzzles.** A clue set with no solution or several is not a puzzle,
+has no grade and reports no rungs; the scrub is applied once, in `solve`'s local `finish`, for
+every exit whose count is not 1. The undecided mask is *not* scrubbed, so AC-110 still holds.
+
+**What `SolveResult` carries** (`search.py:340-420`): `solution_count`, `solution`, and since
+CARD-073 also `undecided_mask` (the cells line logic left open at its first fixed point, reported
+for every verdict), `second_witness` (on an ambiguous verdict, the second solution the fail-fast
+search already stops on), `rung_tags` (per cell, or `None`), and the `witnesses` convenience pair.
+All cross the boundary as grid-shaped lists; the internal bitmask pair never does.
+
+**Signals** (`SolveSignals`, `search.py:261-337`): `line_logic_cells` (the levels 1+2 fixed point,
+unchanged in meaning), `total_cells`, `branch_nodes` (nodes expanded by the *deciding* round only),
+`backtracks`, `elapsed_seconds`, plus `rung_cells` and the ordered `rungs` list — which **is**
+FR-029's strategies list.
+
+**One measured consequence.** Because lookahead is now a phase of the solve rather than search
+work, it settles puzzles that previously needed a guess: across 6,620 uniquely-solvable random and
+structured grids from 10x10 to 20x20, **none** required a real branch. Every puzzle the generator
+produces is logically solvable, which is the product promise; ADR-0025's Guess tier is kept as a
+measured-unreachable safety net rather than deleted.
 
 **Independent verification:** `tests/property/test_solver_uniqueness.py` cross-checks the solver
 against two brute-force counters in `tests/helpers/brute_force_oracle.py`, which imports only
@@ -273,6 +317,14 @@ against two brute-force counters in `tests/helpers/brute_force_oracle.py`, which
 ---
 
 ## 7. Difficulty score (COMP-006) — `difficulty.py`
+
+> **Superseded in decision, not yet in code.** ADR-0013's formula below is what
+> `difficulty.py` still runs. ADR-0029 replaced it on 2026-09-12 with the strategy ladder
+> (§6.5): score = the band of the hardest rung the solve required, plus the share of cells
+> settled at that rung, with no wall-clock, size or density term. CARD-076 implements it and
+> re-grades the stored puzzles. Until then this section describes live behaviour that is
+> already known to be wrong on two counts — it is machine-dependent through `time_pressure`,
+> and it pins every line-solvable puzzle under 15 points.
 
 Pure function of the solve's signals and the clues; never re-solves.
 
@@ -409,6 +461,12 @@ accounted for below (findings 5 and 6).
 
 | # | Severity | Finding | Where |
 |---|---|---|---|
+> **Status, 2026-09-13.** Findings 1, 2 and 4 are cut as CARD-070 and CARD-078 and remain open.
+> Finding 3 (machine-dependent scoring) is resolved in decision by ADR-0029 and lands with
+> CARD-076. Finding 5 turned out to be wider than one fixture: the `pictures/` corpus was simply
+> missing from `main` (finding 6) and restoring it fixed 11 of 17 failures, leaving 6 stale pins
+> now folded into CARD-070. Finding 8 is unchanged.
+
 | 1 | Low — latent bug | `generate_batch` checks `difficulty_tier` against enum **names** (`EASY`, `MEDIUM`, `HARD`), so `"Easy"` and `"easy"` raise `ValueError` even though the docstring says `"Easy"` and `parse_tier` is case-insensitive. Every caller passes `None` today. Fix: validate with `difficulty.parse_tier`. | `orchestrator.py:1322` |
 | 2 | Medium — spec gap | Density 0 and 100 are accepted and yield all-empty / all-filled grids that pass the uniqueness check (score 0.000 / 0.001, tier Easy). `random_grid.py:78-82` says later stages reject them; none does. Decide whether to reject in `validate_density` or document them as allowed. | `random_grid.py:83-84` |
 | 3 | Low — reproducibility caveat | `time_pressure` (weight 0.15) makes the score, hence the tier, machine-dependent. With `--difficulty` requested the same seed can keep or resample a boundary candidate differently on a slower machine. ADR-0015's "same seed replays the same run" holds unconditionally only without a tier. | `difficulty.py:275, 469` |
@@ -431,4 +489,4 @@ accounted for below (findings 5 and 6).
 | Difficulty | tiers at 70/85 on the quality score; `DIFFICULTY_ENGINE.md`'s strategy-count formula | ADR-0013 `100·effort·relief`, tiers at 33/66 (§7). The strategy-count formula exists only in the orphaned `analysis/strategy_counter.py` |
 | Retry | "reject and retry with different settings" | POL-001/002/004 with caps 20/5/20 (§8) |
 | Image limits | 100–2000 px, ≤ 2 MB, format allowlist | only a 2 MB cap, and only in the admin upload path |
-| Determinism | same image and settings → same grid | true for image mode; random and library are seed-driven by design |
+| Determinism | same image and settings → same grid | true for image mode; random and library are seed-driven by design. Since ADR-0029 the *grade* is also machine-independent once CARD-076 lands, which ADR-0013's `time_pressure` term is not |
