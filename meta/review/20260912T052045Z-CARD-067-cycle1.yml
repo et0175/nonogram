@@ -1,0 +1,308 @@
+version: 1
+generated_at: "2026-09-12T05:20:45Z"
+target: "branch card/067-preview-card-redesign, commit 7ea0341 (base e6a5cd5), worktree PythonProject4-CARD-067"
+overall_score: 5.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (create_app filters, preview_batch_images, api_predicted_size, remove_batch_image, generate_batch_puzzles)"
+    - "src/nonogram/admin/image_manager.py (size_text, fit_note, ImageFile._source_shape/ink_ratio/ink_box/size_fit/_own_extent, ImageManager.update_image_size/remove_image/get_*)"
+    - "src/nonogram/admin/templates/image_preview.html (full template incl. the single <script> block)"
+    - "tests/test_card_067_preview_cards.py (full)"
+    - "src/nonogram/limits.py"
+    - "meta/kanban/cards/CARD-067.md (main repo, the task contract)"
+  not_reached:
+    - "tests/test_web_server.py (excluded by the reviewer's instructions: binds local ports, concurrent review running)"
+    - "the remainder of the test suite (full-suite comparison not run, by instruction)"
+    - "no browser rendering: layout verified through the Flask test client's HTML, not a real viewport"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 488, removed: 68 }
+  max_fan_in: { symbol: "ImageFile.size_fit", callers: 6 }   # 6 production call sites (4 py + 2 jinja templates), 26 further references in tests
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the co-change set of the three touched files is exactly those three files (83 commits in 12 months); all three are in this diff, so there is no absent peer to report"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no runtime dependency added: pyproject.toml is absent from the diff (git diff --numstat e6a5cd5..7ea0341 lists 4 files, none of them a manifest); the only new import is stdlib `from dataclasses import replace` (app.py:1243)."
+    - "ADR-0022/R1 ✓ holds — extent still crosses every boundary as a pair: the endpoint answers {width, height} from fit.extent (app.py:1265-1266); ink_ratio()/ink_box() are presentation strings derived from the (w,h) _source_shape() pair and feed no sizing; no scalar \"size\" was introduced on a signature or response field."
+    - "ADR-0022/R3 ✓ holds — the ink bounding box remains the judged shape: ink_ratio() reads _source_shape() (image_manager.py:173), and mutation M3 (switch it to self.dimensions) was killed by tests/test_card_067_preview_cards.py::test_ac2_the_ratio_is_the_ink_box_not_the_file. No crop/stretch/refusal logic is touched."
+    - "ADR-0022/R4 ✓ holds — _own_extent/derive_extent untouched (numstat: image_manager.py 58 insertions, 0 deletions); a 5572-case corpus over (shape x mode x value) comparing HEAD's ImageFile against e6a5cd5's produced 0 differences in size_fit()/predict_size(), with MIN_KEPT_SHARE and SIZE_PRESETS equal."
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: meta/architecture/trace.yml is absent, so no component carries a code map and every scoped invariant is unmappable for the same pipeline-stage reason (reported once, not as three rule defects); system_rules.py diagnostics.scope_unmapped_model lists exactly these three."
+
+root_causes:
+  - id: RC-1
+    title: "Two different acceptance policies for an out-of-range size value: _own_extent clamps it, ImageManager.update_image_size silently ignores it"
+    finding_ids: [F-001, F-006]
+  - id: RC-2
+    title: "The new prediction tests assert against size_fit()/each other rather than against an independent oracle, so they pin the mechanism but not the observable answer"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 1254
+    title: "Prediction endpoint disagrees with a real save for any out-of-range size value (AC-3)"
+    description: |
+      The endpoint accepts `value` as any integer and hands it straight to
+      `size_fit()`, where `_own_extent` CLAMPS it into MIN_SIZE..MAX_SIZE
+      (image_manager.py:297 for "short", :310 for "fixed"). The save path does
+      something different: `ImageManager.update_image_size` (image_manager.py:586-589)
+      *silently ignores* a value outside MIN_SIZE..MAX_SIZE and keeps the previously
+      stored one. The two policies diverge, so the live prediction is not "what the
+      page would render after a save" (AC-3).
+
+      Reproduced against the worktree with the Flask test client (300x200 picture,
+      default "medium" upload, stored size_value=20):
+        mode=short value=5   -> endpoint answers 15x10; after POSTing that form the
+                               stored size_value is still 20 and the puzzle is 30x20.
+        mode=fixed value=5   -> endpoint 30x20  vs saved 20x13.
+        mode=fixed value=45  -> endpoint 30x20  vs saved 20x13.
+        mode=fixed value=500 -> endpoint 30x20  vs saved 20x13.
+      Every in-range value (10, 20, 30) matches on both modes.
+
+      Reachable from the UI: the number input carries min/max attributes, but the
+      page's own submit handler calls `e.preventDefault()` and rebuilds a FormData by
+      hand (image_preview.html:362), so native constraint validation never runs and
+      an out-of-range number is posted as typed. The user is shown one grid and gets
+      another - the exact complaint this card exists to fix, one input class over.
+
+      The card's own AC-3 test escapes this because it computes its expectation by
+      assigning `image.size_mode, image.size_value = mode, value` directly and calling
+      `size_fit()`, bypassing `update_image_size` - i.e. it asserts parity with the
+      mechanism the endpoint already uses, not with a save.
+    suggestion: |
+      Make one function own "is this value acceptable, and what does it mean".
+      Either (a) have the endpoint apply the same acceptance rule as
+      `update_image_size` - out of range means "keep the stored value" - and predict
+      from that, or (b) return 400 for a value outside MIN_SIZE..MAX_SIZE and have
+      the JS surface it, and separately fix `update_image_size` to stop silently
+      discarding input. Extend the AC-3 test to drive an actual POST to
+      /batch/preview-images and compare the endpoint's answer with the stored
+      configuration's size_fit() afterwards, including 5, 45 and 500.
+    confidence: high
+    source: static
+    violates: "AC-3"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/templates/image_preview.html
+    line: 300
+    title: "refreshPrediction has no request sequencing; applyToAll guarantees two racing requests per card"
+    description: |
+      `refreshPrediction` fires a `fetch` and writes whatever comes back into the
+      card - there is no request token, no AbortController, no debounce. The
+      rendered state is therefore last-RESPONSE-wins, not last-REQUEST-wins.
+
+      `applyToAll()` (image_preview.html:325) makes this certain rather than
+      theoretical: for every card it sets the mode select and dispatches `change`
+      (-> fetch with the NEW mode and the OLD value), then sets the number input and
+      dispatches `change` (-> fetch with the new mode and the new value). Two
+      requests per card are always in flight, and on a 20-picture batch that is 40
+      concurrent GETs over a 6-connection browser pool. If the first response lands
+      second, the card displays the prediction for a configuration the form no longer
+      holds, and it stays wrong until the user touches that card again - a stale
+      predicted output, which is complaint #2 in the card's Why.
+
+      The same race is reachable with one card: each spinner click on
+      `<input type=number>` fires `change` immediately in Chrome/Firefox.
+    suggestion: |
+      Keep a per-card sequence number (e.g. `const seq = ++pending[fileId]` before
+      the fetch, and drop the response when `pending[fileId] !== seq`), or store an
+      AbortController per fileId and abort the previous request. Either also fixes
+      the applyToAll double-fire; alternatively have applyToAll set both fields and
+      call refreshPrediction once per card instead of dispatching two change events.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_card_067_preview_cards.py
+    line: 246
+    title: "The AC-5 test cannot tell 'removes the requested picture' from 'removes the first picture'"
+    description: |
+      `test_ac5_removing_one_picture_keeps_the_others` uploads two pictures and
+      removes the FIRST one, so the assertion `[i.file_id for i in remaining] ==
+      [second.file_id]` holds equally for a route that ignores its argument.
+      Verified by mutation in a scratch copy: replacing
+      `image_mgr.remove_image(file_id)` with
+      `image_mgr.remove_image(image_mgr.get_all_images()[0].file_id)` (app.py:1280)
+      leaves the whole CARD-058/061/063/064/065/067 set green - 126 passed. AC-5's
+      "leaves the others untouched" is therefore unverified, and this is its only test.
+    suggestion: |
+      Remove the SECOND picture (or upload three and remove the middle one) so the
+      identity of the removed picture is what the assertion depends on.
+    confidence: high
+    source: static
+    violates: "AC-5"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/image_manager.py
+    line: 79
+    title: "size_text's 'skipped' wording is pinned by no test (G-3 partially unguarded)"
+    description: |
+      Mutation M6 - `size_text` returning "n/a" instead of "skipped" - SURVIVED the
+      CARD-058/061/063/064/065/067 set (126 passed). CARD-067's own parity assertion
+      `assert payload["size_text"] in body` is tautological: both the page filter and
+      the endpoint call the same `size_text`, so any drift moves both sides together.
+      The older cards pin the NOTE sentences ("this picture will be skipped") and the
+      placeholder ("Will be skipped"), but nothing pins the `<code>` element's text,
+      which this card moved out of Jinja into Python.
+    suggestion: |
+      Assert the literal in one place - e.g. `assert ">skipped<" in card` for a
+      cannot-fit picture and `assert payload["size_text"] == "skipped"` - so the
+      wording is anchored to something other than the function that produces it.
+    confidence: high
+    source: static
+    violates: "G-3"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/templates/image_preview.html
+    line: 314
+    title: "The fetch error path leaves the old predicted number on screen"
+    description: |
+      The `.catch()` branch rewrites only the note element; `preview.textContent`
+      (the `<code>` holding the grid) and the "puzzle grid size" label are left as
+      they were. Clearing the number field produces `value=` -> the endpoint returns
+      400 (verified: {"error": "Size value must be a whole number"}), the catch fires,
+      and the card then reads e.g. "20x13  puzzle grid size" above "Could not refresh
+      the predicted size - save to see it." A stale number presented as a current one
+      is the failure mode the card set out to remove.
+    suggestion: |
+      In the catch branch also blank or mark the value, e.g. `preview.textContent = '—'`
+      and `label.textContent = ''`, so the card never shows a number it cannot vouch for.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 1254
+    title: "int() accepts inputs the form can never produce, widening the parity surface"
+    description: |
+      `int(request.args.get("value", image.size_value))` accepts anything Python's
+      int() accepts. Verified against the running endpoint: `value=-5` -> 200
+      (30x20, moved_to_large), `value=99999999999999999999` -> 200 (30x20, fits),
+      full-width `value=１２` -> 200 (30x20), `value=" 20 "` -> 200. Only `20.5` and
+      an empty string are refused. Nothing is mutated (confirmed), so this is not a
+      correctness bug on its own - but each of these answers is a prediction for a
+      configuration no save can ever store (see F-001).
+    suggestion: |
+      Validate the parsed value against MIN_SIZE..MAX_SIZE (nonogram.limits, no new
+      literals) and return 400 outside it, together with the F-001 fix.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/image_manager.py
+    line: 173
+    title: "Out of scope: for a picture whose file has vanished, the card labels the FILE ratio as the ink box"
+    description: |
+      `_source_shape()` falls back to `self.dimensions` when the file cannot be
+      re-read (CARD-047's deliberate fallback, image_manager.py:159-161). The new
+      ink_ratio()/ink_box() inherit it, so a picture whose temp file has gone renders
+      "Aspect ratio 1.33:1" with the title "The ink bounding box the sizing follows:
+      400x300 px" while the real ink box was 200x100 (2.00:1) - verified in probe.
+      Pre-existing behaviour, newly made visible to the user by this card; the sizing
+      itself has always used the same fallback, so the card is at least self-consistent.
+    suggestion: |
+      Consider distinguishing the fallback (e.g. return "—" / "unreadable" when the
+      file is gone) or wording the title so it does not assert an ink box it did not
+      measure. Backlog, not this card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 1277
+    title: "Out of scope: get_image/remove_image on the shared module-global manager is a check-then-act with no lock"
+    description: |
+      `remove_batch_image` reads `get_image(file_id)` then calls `remove_image(file_id)`.
+      `ImageManager` holds a plain dict with no lock and lives in a module-global
+      singleton (image_manager.py:627-635) shared by every request thread, so two
+      concurrent removes of the same id can race: the second finds the image, then
+      `remove_image` returns False and the branch flashes nothing at all (the elif
+      has no else). Harmless in practice for a single-operator admin panel and
+      pre-existing for every other mutating route; noted, not gating.
+    suggestion: |
+      If this is ever multi-user, guard ImageManager's dict with a lock and collapse
+      the route to a single `remove_image` call whose False result flashes "not found".
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
