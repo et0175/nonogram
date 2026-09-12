@@ -1,0 +1,110 @@
+version: 1
+generated_at: "2026-09-12T05:23:42Z"
+target: "branch card/066-review-status-filter, fix delta a7e1060..60fcbbc (base e6a5cd5) — CARD-066 cycle 3, CONFIRMATION MODE"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "tests/test_card_066_status_filter.py (the added test_ac2_the_route_takes_its_statuses_from_the_enum at :121-134)"
+    - "src/nonogram/admin/puzzle_review.py:14-21 (PuzzleStatus), src/nonogram/admin/app.py:45-47 (_PUZZLE_STATUSES)"
+  not_reached:
+    - "DB-backed runtime path (Postgres unreachable) — carried unchanged from cycles 1-2"
+    - "full suite — deliberately not run this cycle (CARD-067 review binds ports concurrently)"
+  confidence: high
+
+metrics:
+  diff: { files: 1, added: 15, removed: 0 }
+  max_fan_in: { symbol: "_PUZZLE_STATUSES", callers: 4 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "not_applicable — the delta touches one test file and no production file."
+    cochange_missing: "no_eligible_fact — the sole delta file was created by this card at 5ee603c; no 12-month co-change history exists."
+    bus_factor: "no_eligible_fact — same reason: single author by construction."
+
+system_contract:
+  rules_checked: 7
+  holds: 1
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 2, delta-clean): the delta adds two intra-package imports (nonogram.admin.app, nonogram.admin.puzzle_review) inside a test function and touches no manifest; git diff --name-only a7e1060..60fcbbc is exactly tests/test_card_066_status_filter.py, which is outside the rule's scope [pyproject.toml, src/nonogram/**]."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the delta adds one equality assertion; no grid extent, no signature change."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting, cropping, or ratio logic in the delta."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token handling in the delta."
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: system_rules.py diagnostics.sources_absent includes trace.yml; the project has no code map. Pipeline-stage note, not three rule defects."
+
+root_causes: []
+
+findings: []
+
+prior_findings_status:
+  - id: "cycle2/F-001"
+    title: "The enum derivation is only half-pinned: route global ← PuzzleStatus untested"
+    status: fixed
+    evidence: |
+      test_ac2_the_route_takes_its_statuses_from_the_enum now asserts
+        _PUZZLE_STATUSES == tuple(status.value for status in PuzzleStatus)
+      plus a staleness guard, set(STATUSES) == set(_PUZZLE_STATUSES), on the file's own constant.
+
+      Not vacuous — it fires on BOTH directions of the drift, each verified in a scratch copy:
+      - Mutant 5 (PuzzleStatus gains ARCHIVED; route left derived): 1 failed, 11 passed. The
+        first assertion holds (the route really is derived), and the staleness guard catches it:
+        "Extra items in the right set: 'archived'".
+      - Mutant 6 (PuzzleStatus gains ARCHIVED AND the route keeps a literal four-value tuple —
+        the exact scenario cycle 2's finding described): 1 failed, 11 passed, failing on the
+        first assertion, ('draft','approved','rejected','in_book') != (...,'archived').
+
+      ACCEPTED RESOLUTION for the surviving cycle-2 mutant (a literal tuple of today's four
+      values in app.py:47). That mutant is behaviour-identical to the derived expression today —
+      same values, same order — so it is not a defect, only a latent one. It becomes a real
+      defect the instant PuzzleStatus changes, and mutant 6 proves that is precisely the moment
+      this test fails. Killing the literal-tuple mutant on its own would require asserting on HOW
+      the value is computed (AST or source inspection of app.py), not on what it is: a test
+      coupled to one line's syntax, brittle against any refactor, buying no additional protection
+      because the value equality already covers every observable difference. The implementer's
+      judgment is correct and I would not ask for more here.
+  - id: "cycle1/F-001"
+    status: fixed
+    evidence: "Closed across cycles 2-3: template ← route pinned at cycle 2 (mutant killed), route ← enum pinned now."
+  - id: "cycle1/F-002"
+    status: fixed
+    evidence: "Confirmed at cycle 2; scope untouched by this delta."
+  - id: "cycle1/F-003"
+    status: fixed
+    evidence: "Confirmed at cycle 2; scope untouched by this delta."
+
+mutation_check:
+  ran: true
+  note: "Scratch copies under the review scratch dir; the worktree was never edited (git status at 60fcbbc shows only the untracked cycle-1/2 review reports)."
+  mutants:
+    - target: "src/nonogram/admin/puzzle_review.py — PuzzleStatus gains ARCHIVED, route left derived"
+      result: killed
+      detail: "1 failed, 11 passed — test_ac2_the_route_takes_its_statuses_from_the_enum (staleness guard)"
+    - target: "PuzzleStatus gains ARCHIVED + app.py:47 hardcoded to the old four values"
+      result: killed
+      detail: "1 failed, 11 passed — same test, first assertion"
+
+test_quality:
+  scope_of_change: "verified — the delta is a single +15-line hunk adding one test function; no existing test, fixture, helper or constant was modified (git diff a7e1060..60fcbbc shows one file, one hunk, zero deletions)."
+  suite_result: "33 passed — tests/test_card_066_status_filter.py + tests/test_puzzle_review.py, matching the implementer's report."
+  no_app_fixture: "the new test takes no admin_app fixture and builds no Flask app — it reads two module globals, so it cannot leak state into or out of neighbouring tests."
+  tautological_assertions: "none — both assertions are falsified by mutants 5 and 6 respectively."
+
+verdicts:
+  acceptance_criteria:
+    - "AC-1 ✓ holds — carried(cycle 2, delta-clean at the behaviour level): no production change; the delta adds an assertion and modifies no existing test."
+    - "AC-2 ✓ re-verified — both links of the enum chain are now pinned: template ← route (cycle 2, mutant killed) and route ← PuzzleStatus (this cycle, mutants 5 and 6 killed)."
+    - "AC-3 ✓ holds — carried(cycle 2): test_ac3 untouched by this delta and still passing in the 33-test run."
+    - "AC-4 ✓ holds — carried(cycle 2): both error paths untouched by this delta and still passing."
+    - "AC-5 ✓ holds — carried(cycle 2): test_ac5 untouched by this delta and still passing."
+  guardrails:
+    - "G-1 ✓ holds — carried(cycle 1, delta-clean): the delta imports PuzzleStatus read-only inside a test; PuzzleFilter and the store's filtering are unchanged."
+    - "G-2 ✓ holds — carried(cycle 1, delta-clean): no src/ file in the delta."
+    - "G-3 ✓ holds — carried(cycle 1, delta-clean): no src/ path at all in the delta."

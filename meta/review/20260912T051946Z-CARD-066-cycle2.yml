@@ -1,0 +1,172 @@
+version: 1
+generated_at: "2026-09-12T05:19:46Z"
+target: "branch card/066-review-status-filter, fix delta 5ee603c..a7e1060 (base e6a5cd5) — CARD-066 cycle 2, CONFIRMATION MODE"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "tests/test_card_066_status_filter.py (full file, all 11 tests; the delta is the 3 added ones)"
+    - "src/nonogram/admin/app.py:612-678 (puzzles_list route, _PUZZLE_STATUSES at :45-47, both render_template sites)"
+    - "src/nonogram/admin/templates/puzzles_list.html (preserve_filters macro, Status select at :72-80)"
+    - "src/nonogram/admin/puzzle_review.py:295-330 (filter_puzzles validation / ValueError sources), :565-581 (mark_in_book legacy path)"
+    - "src/nonogram/limits.py (MIN_SIZE=10, MAX_SIZE=30 — why ?size=999 reaches the except branch)"
+    - "meta/review/20260912T050613Z-CARD-066-cycle1.yml (cycle-1 verdicts and the three Minors)"
+  not_reached:
+    - "DB-backed runtime path (Postgres unreachable; db_required tests skipped) — the DB status filter was read, never executed. Carried unchanged from cycle 1."
+    - "browser rendering (read-only review, no server started); rendering verified via the Flask test client"
+    - "attribution of the +1 failure seen in an accidental full-suite run (see metrics.unmeasured.full_suite_delta) — not re-run, per the no-full-suite instruction"
+  confidence: high
+
+metrics:
+  diff: { files: 1, added: 44, removed: 0 }
+  max_fan_in: { symbol: "_PUZZLE_STATUSES", callers: 3 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "not_applicable — the delta touches one test file and no production file; cycle 1's hotspot (src/nonogram/admin/app.py) is outside this delta."
+    cochange_missing: "no_eligible_fact — the sole delta file, tests/test_card_066_status_filter.py, was created by this card at 5ee603c, so it has no 12-month co-change history to mine."
+    bus_factor: "no_eligible_fact — same reason: a file created by this card has a single author by construction, which says nothing about risk."
+    full_suite_delta: "tooling_failure — an unquoted empty shell variable (zsh does not word-split unquoted expansions) made one pytest invocation collect the whole suite: 2805 passed / 38 failed / 26 skipped vs cycle 1's 2802 / 37. The +3 passed matches the three added tests exactly; the +1 failed was NOT attributed, because the run overlapped the concurrent port-binding review (test_web_upload.py and test_wave2_async_generation.py appear among the failures) and re-running to attribute it was out of bounds."
+
+system_contract:
+  rules_checked: 7
+  holds: 1
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived on this head rather than carried: `git diff --stat e6a5cd5..a7e1060 -- pyproject.toml` is empty (the manifest is untouched by the whole card, not just the delta), the delta adds no import at all, and the rule's check ref is live and green — test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py:1229) → 1 passed on a7e1060."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the delta adds three HTTP-level test functions; it constructs no grid and changes no signature. The pre-existing scalar `size=(size, size)` filter at app.py:644 is untouched by the delta."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting, cropping, or ratio logic in the delta."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token handling in the delta."
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: system_rules.py reports all three under diagnostics.scope_unmapped_model and diagnostics.sources_absent includes trace.yml; the project has no code map, so no aggregate invariant can be scoped to this diff. Reported once as a pipeline-stage note, not as three rule defects."
+
+root_causes:
+  - id: RC-1
+    title: "The enum pin stops one link short: template ← route global is now tested, route global ← PuzzleStatus is not"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_066_status_filter.py
+    line: 113
+    title: "The enum derivation is only half-pinned: hardcoding _PUZZLE_STATUSES itself still leaves the suite green"
+    description: |
+      test_ac2_the_options_come_from_the_status_enum monkeypatches the ROUTE GLOBAL
+      (nonogram.admin.app._PUZZLE_STATUSES) and asserts the template renders whatever that
+      global holds. That genuinely pins the template half of the chain — verified, not assumed:
+      a scratch copy replacing the {% for value in statuses %} loop with four hardcoded <option>
+      lines fails this test on BOTH assertions ('<option value="archived"' missing, and
+      count 5 != 6), so cycle-1 F-001's mutant is dead.
+
+      But the chain has two links, and the test's own docstring claims the second one: "a status
+      added to `PuzzleStatus` has to appear without touching the page." Nothing verifies it.
+      The test file never imports PuzzleStatus (the only occurrence of that name in the file is
+      inside this docstring); STATUSES at line 17 is a hand-written tuple restating today's four
+      values. Because the test monkeypatches the global away, it is insensitive to how the real
+      global is built.
+
+      Grounded with a fourth mutant: replacing app.py:47
+        _PUZZLE_STATUSES = tuple(status.value for status in PuzzleStatus)
+      with
+        _PUZZLE_STATUSES = ("draft", "approved", "rejected", "in_book")
+      leaves 45 passed across test_card_066_status_filter.py, test_puzzles_list_pagination.py
+      and test_puzzle_review.py. So the anti-drift guarantee the worktree notes assert ("the page
+      cannot drift from the store the way the preset tables did, CARD-065") is still one
+      hardcode away from being silently false — the drift just moved from the template to the
+      route. Concrete failure: someone adds PuzzleStatus.ARCHIVED, the store starts filtering on
+      it, and the Status select never offers it, with a green suite.
+
+      Minor, not gating: the code today IS enum-derived, the regression window is narrow (one
+      line in one module), and the delta strictly improved on cycle 1 — this is the residue of
+      F-001, not a new defect the delta introduced.
+    suggestion: |
+      Add one assertion that reaches the real enum, without the monkeypatch, e.g.
+        from nonogram.admin.puzzle_review import PuzzleStatus
+        def test_the_route_offers_exactly_the_enum():
+            assert app_module._PUZZLE_STATUSES == tuple(s.value for s in PuzzleStatus)
+      Kills the mutant above and costs nothing. Optionally derive the test-local STATUSES from
+      PuzzleStatus too, so the other tests widen automatically when a member is added.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+# Cycle-1 findings, re-derived against this delta (evidence, not the fix agent's claim)
+prior_findings_status:
+  - id: "cycle1/F-001"
+    title: "Nothing pins the Status select to the PuzzleStatus enum"
+    status: partially_fixed
+    evidence: |
+      Mutant (template hardcodes the four options) is now KILLED — 1 failed, 10 passed, failing
+      on test_ac2_the_options_come_from_the_status_enum at both assertions. The route-global half
+      remains unpinned; carried forward as F-001 above at the same (low) severity.
+  - id: "cycle1/F-002"
+    title: "The ValueError branch's statuses= is untested"
+    status: fixed
+    evidence: |
+      Mutant (drop statuses=_PUZZLE_STATUSES from the except branch at app.py:677) is KILLED —
+      1 failed, 10 passed, failing test_ac4_the_filter_error_page_still_offers_every_status with
+      the select degraded to exactly the "Any" option, which is the silent degradation cycle 1
+      described. The test provokes the branch it claims: MIN_SIZE=10/MAX_SIZE=30 (src/nonogram/
+      limits.py), so ?size=999 makes PuzzleFilter.size=(999,999) and filter_puzzles raises
+      ValueError("Size dimensions must be 10-30") at puzzle_review.py:311, caught at app.py:670.
+      The asserted "Filter error" string is flashed at app.py:671 and at :879 only — :879 is the
+      book select-puzzles route, unreachable from GET /puzzles — so the assertion cannot be
+      satisfied by any other path.
+  - id: "cycle1/F-003"
+    title: "AC-1's in_book branch has no listing test"
+    status: fixed
+    evidence: |
+      test_ac1_in_book_puzzles_can_be_listed reaches the status via mark_in_book, which in the
+      legacy in-memory mode sets puzzles[id]["status"] = PuzzleStatus.IN_BOOK.value
+      (puzzle_review.py:579) — the same field the other three statuses set, read by the same
+      filter. Proven to exercise the same path, not a parallel one: mutant 3 (route passes
+      status=None) kills this test alongside the other five status tests.
+
+mutation_check:
+  ran: true
+  note: "Confirmation cycle with no gating findings — certification was due. Run in scratch copies under the review scratch dir; the worktree was never edited (git status clean at a7e1060 apart from the untracked cycle-1 report)."
+  mutants:
+    - target: "src/nonogram/admin/templates/puzzles_list.html — {% for value in statuses %} replaced by four hardcoded <option> lines"
+      result: killed
+      detail: "1 failed, 10 passed — test_ac2_the_options_come_from_the_status_enum"
+    - target: "src/nonogram/admin/app.py:677 — statuses=_PUZZLE_STATUSES removed from the except ValueError branch"
+      result: killed
+      detail: "1 failed, 10 passed — test_ac4_the_filter_error_page_still_offers_every_status"
+    - target: "src/nonogram/admin/app.py:651 — status=status replaced by status=None (route ignores the parameter)"
+      result: killed
+      detail: "6 failed, 5 passed — ac1[draft|approved|rejected], ac1_in_book, ac3_pagination, ac5_combines"
+    - target: "src/nonogram/admin/app.py:47 — _PUZZLE_STATUSES hardcoded instead of derived from PuzzleStatus"
+      result: survived
+      detail: "45 passed across the three named files — see F-001"
+
+test_quality:
+  order_independence: "verified — full file forward 11 passed; full file in reverse node-id order 11 passed; each of the 8 non-parametrized tests passes alone."
+  monkeypatch_leak: "none — monkeypatch is function-scoped and auto-undone. Probed directly: enum test FIRST then the two select-reading tests (3 passed), and enum test LAST after them (4 passed). The route reads the module global at call time, so the patch takes effect on an app built before it and cannot outlive the test."
+  tautological_assertions: "none in the delta — each new test's assertion is falsified by its own mutant."
+  suite_cost: "negligible — no sleeps, no sockets, no shared globals beyond the reset image_manager singleton; the 3 added tests run in well under 0.1s each."
+
+verdicts:
+  acceptance_criteria:
+    - "AC-1 ✓ re-verified — delta adds the missing in_book branch; all four statuses now list only their own (mutant 3 kills 6 tests including in_book)."
+    - "AC-2 ✓ re-verified — form marks the current status, unset renders no 'selected'; the option list is now pinned to the route global (mutant 1 killed). Residual F-001 on the route←enum link."
+    - "AC-3 ✓ re-verified (fail-closed: the delta file is the same file AC-3's test lives in) — test_ac3 passes, asserts every pagination href carries status=approved with 'Page 1 of 3' proving the filter applied before paging; mutant 3 kills it."
+    - "AC-4 ✓ re-verified — both halves now pinned: unknown value reported+ignored, and the error-branch re-render still offers every status (mutant 2 killed); ?size=999 confirmed to reach except ValueError via MIN_SIZE/MAX_SIZE."
+    - "AC-5 ✓ re-verified — status+size combine; mutant 3 kills test_ac5."
+  guardrails:
+    - "G-1 ✓ holds — carried(cycle 1, delta-clean): G-1's scope is PuzzleFilter / the store (src/nonogram/admin/puzzle_review.py); the delta's only file is tests/test_card_066_status_filter.py. Mechanically checked: git diff --name-only 5ee603c..a7e1060 returns exactly that one path."
+    - "G-2 ✓ holds — carried(cycle 1, delta-clean): the book page's status='approved' lives at src/nonogram/admin/app.py:835; no src/ file is in the delta."
+    - "G-3 ✓ holds — carried(cycle 1, delta-clean): structural guardrail over sourcing/, orchestrator.py, cli.py; the delta contains no src/ path at all."

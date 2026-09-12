@@ -1,0 +1,131 @@
+version: 1
+generated_at: "2026-09-12T05:06:13Z"
+target: "branch card/066-review-status-filter, commit 5ee603c (base e6a5cd5) — CARD-066 cycle 1"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (puzzles_list route, _page_window, select_puzzles_for_book, jinja env setup)"
+    - "src/nonogram/admin/templates/puzzles_list.html (preserve_filters macro, filter form, pagination nav)"
+    - "src/nonogram/admin/templates/base.html (flash rendering block)"
+    - "src/nonogram/admin/puzzle_review.py (PuzzleStatus, PuzzleFilter, filter_puzzles in-memory + DB paths, mark_in_book)"
+    - "tests/test_card_066_status_filter.py, tests/conftest.py (DB fixtures)"
+  not_reached:
+    - "DB-backed runtime path (Postgres unreachable: every db_required test skipped) — the DB status filter was read, never executed"
+    - "browser rendering (read-only review, no server started); rendering verified via the Flask test client instead"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 180, removed: 3 }
+  max_fan_in: { symbol: "_PUZZLE_STATUSES", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    bus_factor: "tooling_failure — `git shortlog -sn -- src/nonogram/admin/app.py` returned no rows in this worktree, so dominant authorship could not be derived"
+
+system_contract:
+  rules_checked: 7
+  holds: 1
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — dependency baseline unchanged: the diff touches no manifest (pyproject.toml not in the 3-file diff) and adds only an intra-package import (PuzzleStatus from .puzzle_review); the rule's check ref test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py:1229) passes on this head (`pytest -k dependenc` → 1 passed). The co-selected test_the_font_ships_as_package_data_and_not_as_a_dependency fails identically on base e6a5cd5, so it is pre-existing, not this card."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff adds a status query parameter and a select; it constructs no grid and changes no extent-carrying signature (the pre-existing scalar `size=(size, size)` filter is untouched)."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting, cropping, or ratio logic in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token handling in the diff."
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: system_rules.py reports these three under diagnostics.scope_unmapped_model and sources_absent includes trace.yml; the project has no code map at all, so no aggregate invariant can be scoped to this diff. Reported once as a pipeline-stage note, not as three rule defects."
+
+root_causes:
+  - id: RC-1
+    title: "The suite pins the route's runtime behaviour but not the two template-wiring properties the card's notes claim"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/puzzles_list.html
+    line: 75
+    title: "Nothing pins the Status select to the PuzzleStatus enum"
+    description: |
+      The worktree notes claim the option list is "derived from the PuzzleStatus enum, so the
+      page cannot drift from the store the way the preset tables did (CARD-065)". The property
+      is true of the code — a scratch copy with a fifth enum member (ARCHIVED = "archived")
+      renders options ['', 'draft', 'approved', 'rejected', 'in_book', 'archived'] — but it is
+      not pinned: replacing the {% for value in statuses %} loop with four hardcoded <option>
+      lines leaves the whole suite green (21 passed, tests/test_card_066_status_filter.py +
+      tests/test_puzzles_list_pagination.py). test_ac2 asserts each of four literal values is
+      present, which a hardcoded list satisfies by construction, so the anti-drift guarantee is
+      an unverified claim rather than a tested one.
+    suggestion: |
+      Assert the select's option values equal the enum, e.g.
+      `assert re.findall(r'<option value="([^"]*)"', select)[1:] == [s.value for s in PuzzleStatus]`
+      — that fails the moment the template restates the list or the enum gains a member.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 677
+    title: "The ValueError branch's statuses= is untested, and the note overstates what it prevents"
+    description: |
+      No test provokes the `except ValueError` re-render, so removing `statuses=_PUZZLE_STATUSES`
+      from it leaves the suite green (21 passed). The behaviour was verified by hand instead:
+      `/puzzles?size=999` (also size=0, quality_min=500, limit=0) reaches the branch and renders
+      200 with the full select (options ['', 'draft', 'approved', 'rejected', 'in_book']); with
+      the argument removed the same URL still returns 200 but the select silently degrades to
+      the "Any" option only (options ['']). So the addition is correct and load-bearing, but the
+      worktree note's "the select would fail to render on a filter error" is wrong in kind — the
+      failure is a silent empty control, not a raised error, which is exactly the sort of
+      regression a test would have to catch because nothing else signals it.
+    suggestion: |
+      Add a test that hits the error branch and asserts both the "Filter error" flash and that
+      the Status select still offers every status (e.g. GET /puzzles?size=999&status=approved).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_066_status_filter.py
+    line: 95
+    title: "AC-1's in_book branch has no listing test"
+    description: |
+      AC-1 enumerates draft, approved, rejected AND in_book, and the worktree notes claim "each
+      status lists only its own puzzles". The parametrize covers only draft/approved/rejected;
+      in_book appears solely as a string in the select assertion. The gap is avoidable — the
+      in-memory store can reach the state via PuzzleReviewService.mark_in_book
+      (puzzle_review.py:565). Manually, /puzzles?status=in_book returns 200 with an empty list
+      and the option marked selected, so the routing works; it is the AC clause that is unpinned.
+    suggestion: |
+      Extend the parametrize with in_book, creating the fixture puzzle via store.mark_in_book().
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

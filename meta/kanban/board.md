@@ -28,8 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-066** P3 · Filter the puzzle review by status (draft / approved / rejected / in book)  _(wave 1)_
-- **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture  _(wave 1)_
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
@@ -47,12 +45,13 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-_(none)_
+- **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-066** Filter the puzzle review by status (draft / approved / rejected / in book) · score 9.5 (cycle 3/3) · merged d07f2a2
 - **CARD-065** Small follow-ups from CARD-061..064 — honest percentages, preset labels, stale tests · score 9.5 (cycle 2/3) · merged 18a2287
 - **CARD-064** Thin pictures — move up to Large instead of cropping, or say it can't be done · score 9.0 (cycle 2/3) · merged be582ea
 - **CARD-063** One source of truth for the grid size range — shared `limits` module · score 9.0 (cycle 2/3) · merged 0a77655
