@@ -1565,7 +1565,7 @@ functional:
     statement: >-
       Every generated puzzle carries the ORDERED list of solving strategies
       its verifying solve required, drawn from ONE fixed enum
-      (provisionally: simple_overlap, line_dp, cross_line,
+      (fixed by ADR-0029's 2026-09-12 revision: simple_overlap, line_dp,
       probe_contradiction, guess — members fixed by DEC-030/DEC-031). The
       list is derived from the same solve that confirmed uniqueness
       (EVT-005 / the signals FR-009 and FR-026 score from) and never from a
@@ -1585,7 +1585,7 @@ functional:
       source: authored
       refines: [FR-009, FR-026]
       depends_on_dec: [DEC-030, DEC-031]
-      enum_provisional: [simple_overlap, line_dp, cross_line, probe_contradiction, guess]
+      enum: [simple_overlap, line_dp, probe_contradiction, guess]   # fixed by ADR-0029 rev. 2026-09-12; cross_line dropped (it was iteration, not inference)
       enum_note: "Member names are provisional; DEC-030/DEC-031 (FR-026's open decisions) fix the taxonomy. The criteria below are stated over 'the enum' and survive a rename; only `guess` is named because its meaning (the search branched) is already fixed by EC-015."
       delivery: CARD-072
       evidence: ["src/nonogram/db/models.py:63", "src/nonogram/admin/batch_generator.py:346", "src/nonogram/admin/app.py:476", "src/nonogram/admin/puzzle_review.py:730", "src/nonogram/export/json_export.py", "docs/GENERATION_ALGORITHM.md#6", "docs/GENERATION_ALGORITHM.md#7"]
@@ -1621,7 +1621,7 @@ functional:
         kind: happy
         test: TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage
       - id: AC-140
-        given: a finalized, uniqueness-confirmed puzzle whose strategies list is [simple_overlap, cross_line, guess]
+        given: a finalized, uniqueness-confirmed puzzle whose strategies list is [simple_overlap, line_dp, guess]
         when: it is exported as JSON and that JSON is decoded back
         then: the payload's `strategies` array equals the list in the same order
         kind: boundary

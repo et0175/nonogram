@@ -47,7 +47,7 @@ CARD-072, `binarisation` in CARD-079).
 
 1. **`difficulty.py` rewrite (COMP-006).** Score = band start of the
    hardest rung present + 25 x share of cells settled at that rung
-   (ADR-0029: `simple_overlap` 0..25, `line_dp` 25..50, `cross_line`
+   (ADR-0029: `simple_overlap` 0..25, `line_dp` 25..50, 
    50..75, `probe_contradiction` 75..100; share = cells settled at the top
    rung / total cells). Pure function of the rung counts and
    `branch_nodes` — `elapsed_seconds`, size and density never enter

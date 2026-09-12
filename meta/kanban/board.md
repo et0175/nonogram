@@ -57,7 +57,7 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-- **CARD-073** P1 · Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · `card/073-solver-mask-witness-rungs` · started 2026-09-12T15:44Z · implemented, awaiting review
+- **CARD-073** P1 · Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · `card/073-solver-mask-witness-rungs` · started 2026-09-12T15:44Z · implemented; cycle-1 review 8.5 — mask and witnesses good, rung tags need rework after the ADR-0029 revision
 _(none)_
 
 ## Done
