@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-12
+- CARD-065 (tech-debt): Shares now print as whole percent rounded down, through one helper shared by the batch results and the preview, so a grid keeping 89.7% never reads "90%" on a line that only appears below 90%. The Medium and Large presets are labelled "20/30 cells on the long side", and the two puzzle filters are labelled in cells rather than pixels. Two preset tests that carried their own stale table (Small as fixed 10, Large as 25) and re-ran the route's logic themselves now drive the real upload route. New tests pin the three-line cap on moved-to-Large results and the "apply to all" hint; the dead `image_selection.html` (no route, its own copy of the presets) is deleted.
 - Admin: the puzzle list (`/puzzles`) pagination now shows up to 5 page numbers around the current page, plus First, Previous, Next and Last. The ends are disabled on the first and last page, a "Page X of Y" line sits underneath, and the list's filters are kept on every link. Previously it had only First/Previous, a single "Page N" and Next, with no way to jump to the last page.
 
 ## 2026-09-11

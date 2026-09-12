@@ -1,0 +1,227 @@
+version: 1
+generated_at: "2026-09-12T04:37:32Z"
+target: "branch card/065-small-follow-ups, fix delta 9b28da6..e28799f (base 5fe1794), worktree ../PythonProject4-CARD-065"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "src/nonogram/admin/image_manager.py (floor_percent + docstring, _kept_share, size_fit, SIZE_PRESETS, MIN_KEPT_SHARE)"
+    - "tests/test_card_065_follow_ups.py (full), tests/test_image_batch_size_fix.py:186-300"
+    - "src/nonogram/admin/app.py (the 3 percent sites :418/:477/:492, the preset loop :296, the [:3] cap :516)"
+    - "src/nonogram/admin/templates/image_preview.html:100-131 (both percent spots), batch_create.html:59-61"
+    - "tests/test_card_063_limits.py:138-177 (AC-5 hint), tests/test_card_064_thin_pictures.py:299 + :59, tests/test_card_061_small_preset_short_side.py:66"
+  not_reached:
+    - "the full 2800-test suite (ran the declared 16 files + the 3 files matching a percent-string grep; the only production change is floor_percent, whose fan-in is admin-only)"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 74, removed: 14 }
+  max_fan_in: { symbol: "nonogram.admin.image_manager.floor_percent", callers: 6 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — the delta touches 3 files, 1 of them production and only inside a function introduced in the previous commit of this same card; no 12-month churn signal distinguishes them"
+    defect_density: "no_eligible_fact — this repo's commit subjects are card-scoped (feat/refactor/chore per CARD-XXX), not fix/bug/hotfix tagged, so the fix-ratio metric has no eligible input (carried measurement rationale from cycle 1)"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-verified: `git diff --name-only 9b28da6..e28799f` is 3 files, pyproject.toml absent; the delta's only production change adds the literal 1e-9 to an existing f-string and no import; check ref TestDependencyBaseline_IsExactlyPillowAndNumpy exists (tests/test_export_pdf.py), lens reports dead_check_ref: [] with check_refs_verified: true"
+    - "ADR-0022/R1 ✓ holds — re-verified: floor_percent takes a scalar share, never an extent, and returns a display string; a 2,744-row size_fit corpus (14x14 source shapes x 14 mode/value settings) dumped from head and from a clean 5fe1794 export is byte-identical (178,501 bytes, diff empty), so no signature reduced a grid to a scalar"
+    - "ADR-0022/R3 ✓ holds — re-verified: status and kept are identical to base across the same 2,744-row corpus, so no request changed between cropped and refused; check ref TestFitImage_RefusesRatioMismatchBeyondTwice exists (tests/test_sourcing_image.py)"
+    - "ADR-0022/R4 ✓ holds — re-verified: _own_extent/predict_size are untouched by the delta (image_manager.py hunk is floor_percent's docstring + its return line only) and the corpus extents match base exactly; check ref PropertyTest_BareSize_DerivesShorterSideFromSourceShape exists (tests/property/test_grid_dimensions.py)"
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: system_rules.py reports sources_absent including trace.yml, so no aggregate invariant resolves to code; a pipeline-stage note, not three rule defects"
+
+root_causes: []
+
+findings: []
+
+acceptance_criteria:
+  - id: AC-1
+    verdict: met
+    method: re-verified
+    evidence: |
+      image_manager.py is in the delta, so not carriable. Unit table now pins
+      0.58->58%, 0.29->29%, 0.57->57% alongside 0.897->89%, 0.8999->89%,
+      0.8869->88%, 0.9->90%, 1.0->100%. All five print sites are now
+      mutation-pinned: M1 (drop the epsilon) 3 failures, M2 (skip line ->
+      :.0%) 1, M3 (moved line -> :.0%) 1, M4 (preview kept -> |round|int) 1,
+      M5 (preview chosen_kept -> |round|int) 2. Cycle 1's three survivors are
+      among them.
+  - id: AC-2
+    verdict: met
+    method: re-verified
+    evidence: |
+      Its test lives in test_card_065_follow_ups.py, which the delta touches,
+      so fail-closed re-verify. batch_create.html:59-61 reads "10 cells on the
+      short side" / "20 cells on the long side" / "30 cells on the long side";
+      the test builds those strings from SIZE_PRESETS, and mutating the table
+      (M7 large 30->25, M8 small short->fixed) kills 26 and 12 tests.
+  - id: AC-3
+    verdict: met
+    method: re-verified
+    evidence: |
+      Same touched-file reasoning. puzzles_list.html:58 and
+      book_select_puzzles.html:28 both read "Size (cells)"; no "Size (px)"
+      remains in src/nonogram/admin/templates/; the rendered /puzzles test
+      passes.
+  - id: AC-4
+    verdict: met
+    method: re-verified
+    evidence: |
+      test_image_batch_size_fix.py is in the delta. The rebuilt tests upload 2
+      pictures and assert len(images) == 2 plus per-image size_mode/size_value
+      and predict_size. Mutants: M7 large 30->25 killed (26 failures), M8 small
+      short->fixed killed (12), M9 route ignoring default_size killed (18), and
+      the cycle-1 survivor M6 (get_all_images()[:1]) is now killed (7).
+  - id: AC-5
+    verdict: met
+    method: carried(cycle 1, delta-clean) + spot-read
+    evidence: |
+      Scope is app.py:516 and image_preview.html:34 with tests in
+      test_card_064_thin_pictures.py and test_card_063_limits.py — none of the
+      three delta files intersect. Spot-read confirms both assertions are still
+      present and live: the cap assertion at test_card_064_thin_pictures.py:299
+      ("... and 1 more pictures moved up to Large") and the hint assertion at
+      test_card_063_limits.py:162, written as f">{LOW}-{HIGH}</small>" from the
+      MIN_SIZE/MAX_SIZE constants (a literal grep for "10-30</small>" misses it;
+      it is there).
+  - id: AC-6
+    verdict: met
+    method: carried(cycle 1, delta-clean)
+    evidence: |
+      Scope is tests/test_card_064_thin_pictures.py:59 (_kept) and
+      tests/test_card_061_small_preset_short_side.py:66 (_retained); neither is
+      in the delta's 3 files. Both still import fractions.Fraction and build the
+      ratio pair exactly; both files pass in the 16-file run.
+  - id: AC-7
+    verdict: met
+    method: re-verified
+    evidence: |
+      Its test is in the touched test_card_065_follow_ups.py, so fail-closed.
+      src/nonogram/admin/templates/image_selection.html does not exist; the only
+      "image_selection" hits in src/ and tests/ are the AC-7 test itself and
+      test_wave3_image_generation.py's test_image_selection_page_loads, which
+      loads the /batch/select-images route (rendering batch_create.html), a
+      different page that still passes.
+
+guardrails:
+  - id: G-1
+    verdict: held
+    method: re-verified
+    evidence: |
+      image_manager.py is in the delta. A 2,744-row size_fit corpus plus 1,225
+      raw _kept_share values, dumped from head and from a clean git-archive
+      export of 5fe1794, are byte-identical (178,501 bytes each, diff empty),
+      and MIN_KEPT_SHARE/SIZE_PRESETS repr identically. Only how a share is
+      printed changed.
+  - id: G-2
+    verdict: held
+    method: re-verified
+    evidence: |
+      Both touched test files were read hunk by hunk. Every delta change is a
+      strengthening: the single-image unpack `(image,) = ...` becomes
+      `len(images) == 2` plus a per-image loop / a two-element predict_size
+      list, and the unit table gains 3 rows. No assertion is deleted, relaxed or
+      retargeted; the sibling test_page1_auto_size_uses_max_mode builds its own
+      manager and is unaffected by _upload's new count default. Test count moves
+      463 -> 468, exactly the 3 new unit params + 2 new e2e tests.
+  - id: G-3
+    verdict: held
+    method: re-verified
+    evidence: |
+      `git diff --name-only 9b28da6..e28799f` is exactly
+      src/nonogram/admin/image_manager.py, tests/test_card_065_follow_ups.py and
+      tests/test_image_batch_size_fix.py — nothing under sourcing/,
+      orchestrator.py, cli.py or the web adapter.
+
+verification:
+  suite: "468 passed, 20 skipped (the implementer's declared 16 files) — reproduces the claim exactly"
+  regression_check: |
+    Three further files matched a percent-string grep (test_nudge.py,
+    test_resample.py, test_sourcing_image.py); their matches are prose in
+    comments, not admin percent assertions. test_sourcing_image.py fails 16
+    tests, but a clean 5fe1794 export fails the identical 16 (16 failed / 167
+    passed on both), so it is pre-existing corpus noise, not delta-introduced.
+  mutation_check:
+    reproduced: true
+    declared: "6 of 6 killed"
+    observed: "9 of 9 killed (the implementer's 6, plus the 3 AC-4 mutants from cycle 1 re-run because the delta rewrote their covering test file)"
+    detail:
+      - "M1 floor_percent drops the epsilon: KILLED (3 failed)"
+      - "M2 skip line -> {fit.kept:.0%}: KILLED (1 failed)"
+      - "M3 moved line -> {fit.chosen_kept:.0%}: KILLED (1 failed)"
+      - "M4 preview kept -> (fit.kept*100)|round|int: KILLED (1 failed)"
+      - "M5 preview chosen_kept -> (fit.chosen_kept*100)|round|int: KILLED (2 failed)"
+      - "M6 route updates only the first image (get_all_images()[:1]): KILLED (7 failed)"
+      - "M7 SIZE_PRESETS large 30 -> 25: KILLED (26 failed)"
+      - "M8 SIZE_PRESETS small short -> fixed: KILLED (12 failed)"
+      - "M9 route ignores default_size: KILLED (18 failed)"
+    hygiene: "run in a scratch git-archive copy of e28799f; the worktree was never edited. Every mutant restored and the restore asserted byte-for-byte before the next one."
+  epsilon_judgement: |
+    Correct, not merely convenient, with a ~5,800x safety margin in the
+    direction that matters.
+
+    The epsilon is added AFTER the x100, so its tolerance is 1e-9 of a PERCENT
+    (1e-11 of a share) — two orders tighter than the task framing assumed.
+
+    Soundness bound (exact, not sampled): _kept_share returns min(a,b)/max(a,b)
+    for integers a = sw*eh, b = ew*sh, i.e. a rational p/q with
+    q <= 30 * max(source dimension) since extents are capped at MAX_SIZE = 30.
+    A share genuinely below a whole percent k satisfies
+    k - 100p/q = (kq - 100p)/q >= 1/q, because the numerator is a positive
+    integer. For that true shortfall to fall under the 1e-9 epsilon you need
+    q > 1e9, i.e. a source dimension above 33,333,333 px — unreachable for an
+    uploaded picture. The float error the epsilon absorbs is ~1e-14 at this
+    magnitude, so the epsilon sits in a band five orders above the error it
+    fixes and nine orders below the smallest real shortfall it could hide.
+
+    Empirically: over 400,000 random reachable (sw, sh, ew, eh) combinations
+    with source dimensions up to 20,000 px, floor_percent agrees with an exact
+    Fraction floor in every case (0 mismatches); 174,636 constructed
+    exactly-k/100 shares all print k; constructed just-below-k% shares are never
+    rounded up; and the smallest POSITIVE gap to a whole percent observed is
+    5.82e-06 percent, 5,820x the epsilon.
+
+    90% boundary: floor_percent(0.9) == "90%", 0.899999 -> "89%",
+    0.8999999999 -> "89%", and 0 of the 400,000 reachable shares below 0.9 print
+    "90%". The card's purpose survives.
+  new_e2e_tests: |
+    Both pin what they claim, on genuinely disagreeing shares.
+    100x350 at Medium: cannot_fit, Large's grid is 10x30, kept = 3000/3500 =
+    6/7 = 85.714% exactly — floor 85, round 86. 300x700 at Medium:
+    moved_to_large, the chosen 10x20 keeps 6000/7000 = 6/7 = 85.714% — floor 85,
+    round 86. Neither is a number that merely happens to work: 6/7 is a third of
+    a percent clear of both neighbouring integers. That the assertions would
+    fail under round-to-nearest is not argued but demonstrated — M2/M3/M4/M5
+    each revert one site and each is killed.
+
+out_of_scope:
+  - file: src/nonogram/admin/image_manager.py
+    line: 76
+    note: |
+      Theoretical only, recorded so it is not rediscovered: floor_percent
+      (0.89999999999999) returns "90%", because a share within 1e-11 of the
+      threshold is inside the epsilon. No such share is reachable — it needs a
+      denominator above 1e9 (source dimension > 33M px), and a 400,000-case scan
+      of reachable shares found none below 0.9 printing "90%". Not a finding; the
+      alternative (exact Fraction arithmetic threaded from the cross-products)
+      would cost a signature change across the five call sites for a case that
+      cannot occur.
+  - file: tests/test_card_065_follow_ups.py
+    line: 106
+    note: |
+      `assert "86%" not in body` is a whole-page absence check rather than a
+      check on the one line under test. It is correct today and adds real
+      discriminating power, but it would also fail if some unrelated future
+      element on the preview page happened to render 86%. Scoping it to the
+      skip sentence would be marginally more durable. Not worth a cycle.

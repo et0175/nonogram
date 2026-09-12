@@ -5,7 +5,7 @@ _Updated: 2026-09-11 16:35_
 ## Wave plan
 | Wave | Cards | Status |
 |------|-------|--------|
-| 1 | CARD-001 P1, CARD-019 P1, CARD-022 P1, CARD-023 P1, CARD-024 P1, CARD-025 P2, CARD-045 P1, CARD-046 P2, CARD-047 P2, CARD-048 P3, CARD-049 P1, CARD-050 P1, CARD-051 P2, CARD-054 P3, CARD-055 P3, CARD-058 P3, CARD-059 P3, CARD-060 P3, CARD-061 P2, CARD-062 P2, CARD-063 P3, CARD-064 P2, CARD-065 P3 | ▶ active |
+| 1 | CARD-001 P1, CARD-019 P1, CARD-022 P1, CARD-023 P1, CARD-024 P1, CARD-025 P2, CARD-045 P1, CARD-046 P2, CARD-047 P2, CARD-048 P3, CARD-049 P1, CARD-050 P1, CARD-051 P2, CARD-054 P3, CARD-055 P3, CARD-058 P3, CARD-059 P3, CARD-060 P3, CARD-061 P2, CARD-062 P2, CARD-063 P3, CARD-064 P2, CARD-065 P3, CARD-066 P3, CARD-067 P2, CARD-068 P2, CARD-069 P2 | ▶ active |
 | 2 | CARD-002 P1, CARD-003 P1, CARD-020 P1, CARD-026 P1, CARD-029 P3, CARD-052 P2, CARD-053 P3, CARD-056 P3 | ⏳ blocked (→ wave 1) |
 | 3 | CARD-004 P1, CARD-021 P2, CARD-027 P1 | ⏳ blocked (→ wave 2) |
 | 4 | CARD-005 P1, CARD-028 P2, CARD-030 P2, CARD-031 P2, CARD-032 P2 | ⏳ blocked (→ wave 3) |
@@ -28,7 +28,10 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-065** P3 · Small follow-ups from CARD-061..064 — honest percentages, preset labels, stale tests  _(wave 1)_
+- **CARD-066** P3 · Filter the puzzle review by status (draft / approved / rejected / in book)  _(wave 1)_
+- **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture  _(wave 1)_
+- **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
+- **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
@@ -50,6 +53,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-065** Small follow-ups from CARD-061..064 — honest percentages, preset labels, stale tests · score 9.5 (cycle 2/3) · merged 18a2287
 - **CARD-064** Thin pictures — move up to Large instead of cropping, or say it can't be done · score 9.0 (cycle 2/3) · merged be582ea
 - **CARD-063** One source of truth for the grid size range — shared `limits` module · score 9.0 (cycle 2/3) · merged 0a77655
 - **CARD-062** Admin batch — retry an abandoned picture at long side ±1 before giving up · score 9.5 (cycle 2/3) · merged 696871d

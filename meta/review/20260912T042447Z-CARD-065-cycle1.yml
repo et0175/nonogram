@@ -1,0 +1,156 @@
+version: 1
+generated_at: "2026-09-12T04:24:47Z"
+target: "branch card/065-small-follow-ups, commit 9b28da6 (base 5fe1794), worktree ../PythonProject4-CARD-065"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (batch upload + generate routes, filter registration)"
+    - "src/nonogram/admin/image_manager.py (floor_percent, _kept_share, size_fit, predict_size, SIZE_PRESETS)"
+    - "src/nonogram/admin/templates/{image_preview,batch_create,puzzles_list,book_select_puzzles}.html"
+    - "tests/test_card_065_follow_ups.py, tests/test_image_batch_size_fix.py"
+    - "tests/test_card_06{1,3,4}_*.py (diff hunks read line by line for G-2)"
+    - "meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md (via system_rules.py)"
+  not_reached:
+    - "nonogram-web/ (grepped for the changed labels: no hits; not otherwise inspected)"
+    - "docs/tmp/ (stale prose only; see out-of-scope note)"
+  confidence: high
+
+metrics:
+  diff: { files: 12, added: 239, removed: 417 }
+  max_fan_in: { symbol: "nonogram.admin.image_manager.floor_percent", callers: 6 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    defect_density: "no_eligible_fact — git subject lines on the touched files are card-scoped (feat/refactor/chore per CARD-XXX), not fix/bug/hotfix tagged, so the fix-ratio metric has no eligible input in this repo's commit vocabulary"
+
+system_contract:
+  rules_checked: 7
+  holds: 4
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from `git diff --name-only 5fe1794..9b28da6`; the only new runtime code (floor_percent) is a stdlib f-string, no new import added to image_manager.py"
+    - "ADR-0022/R1 ✓ holds — no signature reduces a grid to a scalar: floor_percent takes a float share (not an extent), SizeFit still carries (w,h) pairs; corpus probe over 6750 (mode,value,source) cases shows every returned extent identical to base"
+    - "ADR-0022/R3 ✓ holds — crop/refuse path untouched; size_fit status+kept identical to base over the same 6750-case corpus (0 differences), so no request changed from cropped to refused or back"
+    - "ADR-0022/R4 ✓ holds — _own_extent/predict_size unchanged (image_manager.py diff is +9 lines, a new function only); tests/test_image_batch_size_fix.py::test_page1_large_puts_its_value_on_the_long_side now pins 30 on the long side with the round-half-to-even tie (30,22)"
+    - "INV-001, INV-002, INV-003 ⚠ unchecked — scope_unmapped_model: system_rules.py reports no trace.yml in meta/architecture/, so no aggregate invariant resolves to code; reported once as a pipeline-stage note, not as three rule defects"
+
+root_causes:
+  - id: RC-1
+    title: "Rounding-honesty is pinned on two of the five print sites; the other three assert shares whose value rounds identically either way"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/image_manager.py
+    line: 71
+    title: "floor_percent truncates a float artifact one point low for exact 29%/57%/58% shares"
+    description: |
+      `int(share * 100)` truncates the binary-float product, so a share whose exact
+      value is 29/100, 57/100 or 58/100 prints one whole point BELOW the true value:
+      0.58 * 100 == 57.99999999999999 -> "57%". These shares are reachable from
+      _kept_share's integer cross-products: source 300x174 at grid 5x5 gives
+      min(1500,870)/max(...) == 0.58 exactly, and all three values are below
+      MIN_KEPT_SHARE, i.e. inside the range the three app.py lines and both preview
+      spots actually print.
+
+      Measured, not asserted: a scan of 57,238,272 reachable (source_w, source_h,
+      grid_w, grid_h) combinations found 1,410 shares (~0.0025%) where the printed
+      percent is one point below the exact floor. All are of the form k/100 with
+      k in {29, 57, 58}.
+
+      Blast radius is bounded and the card's own boundary is safe: 0.9 * 100 == 90.0
+      exactly (verified), and no mismatching share lands at 90, so the "89% vs 90%"
+      confusion CARD-065 exists to remove cannot recur. The defect is cosmetic
+      under-reporting of an already-failing picture.
+    suggestion: |
+      Absorb the representation error before truncating, e.g.
+      `return f"{math.floor(share * 100 + 1e-9)}%"`, or compute exactly from the
+      cross-products the share came from. Add the 0.58 case (source 300x174, grid
+      5x5) to tests/test_card_065_follow_ups.py's parametrised table.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 418
+    title: "Three of the five converted print sites survive reverting to the old rounding"
+    description: |
+      AC-1 requires the helper at all five sites; the diff does convert all five, but
+      only two are pinned by a test that can tell the roundings apart. Mutants run
+      against the implementer's full declared set (463 passed, 20 skipped) — all
+      three SURVIVED:
+        - app.py:418  floor_percent(fit.kept)        -> {fit.kept:.0%}         SURVIVED
+        - app.py:477  floor_percent(fit.chosen_kept) -> {fit.chosen_kept:.0%}  SURVIVED
+        - image_preview.html:110  fit.kept|percent   -> (fit.kept*100)|round|int  SURVIVED
+      Killed, for contrast: app.py:491 retry note (M8), image_preview.html:123
+      chosen_kept (M12), and dropping the Jinja filter registration (M13).
+
+      Cause: the covering assertions inherited from CARD-064
+      (test_card_064_thin_pictures.py:319/256/337 -> "60%", "69%") sit on shares
+      whose floor and round agree, so they cover the lines without discriminating
+      the behaviour the card changed. AC-1's literal wording ("end to end on at
+      least the retry note and the preview") is satisfied; the gap is that a future
+      edit could silently reintroduce round-half-up on three of the five sites.
+    suggestion: |
+      Point one existing or new end-to-end assertion at a share whose floor and
+      round differ (e.g. the 88.69% case already used for the retry note) on the
+      skip line and on the preview's CANNOT_FIT branch.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_image_batch_size_fix.py
+    line: 228
+    title: "Rebuilt preset tests upload one image, so the route's apply-to-all loop is unpinned"
+    description: |
+      The rebuilt TestImageBatchPage1Defaults tests are a clear improvement — they
+      drive the real /batch/from-images route and read SIZE_PRESETS instead of a
+      private copy, and they kill every mutation AC-4 names (Large 30->25: 25
+      failures; Small "short"->"fixed": 5; the route ignoring default_size: 11).
+
+      What the single-image rewrite drops is cardinality. The originals looped over
+      two images (albeit over their own re-implemented loop). Mutating app.py:298
+      `for image in image_mgr.get_all_images():` to `...get_all_images()[:1]:`
+      SURVIVED the preset tests plus test_wave3_e2e and test_wave3_image_generation
+      (137 passed, 20 skipped), so "page 1's choice reaches EVERY loaded image" —
+      the property the test class is named for — is no longer verified anywhere.
+    suggestion: |
+      Upload two differently-shaped pictures in test_page1_preset_reaches_the_images
+      and assert the preset landed on both (the shape-specific predict_size
+      assertions can stay single-image).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
