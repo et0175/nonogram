@@ -1,0 +1,140 @@
+version: 1
+generated_at: "2026-09-12T16:00:00Z"
+target: "CARD-073 — branch card/073-solver-mask-witness-rungs, worktree ../PythonProject4-CARD-073, commit d81c387"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/solver/propagate.py"
+    - "src/nonogram/solver/search.py"
+    - "src/nonogram/solver/__init__.py"
+    - "src/nonogram/orchestrator.py"
+    - "tests/test_solver_witnesses_and_rungs.py"
+    - "tests/property/test_solver_witnesses.py"
+    - "meta/architecture/decisions/adr/0009,0012,0024,0025,0029"
+  not_reached:
+    - "src/nonogram/admin/**"
+    - "src/nonogram/web/**"
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 1662, removed: 27 }
+  max_fan_in: { symbol: "SolveSignals", callers: 15 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — 3 commits touch these files in 12 months and none is a fix; main's root commit is 2026-09-06, so there is no churn history to mine"
+    cochange_missing: "no_eligible_fact — same short history; the only co-change peers are the two solver files, both present in this diff"
+
+system_contract:
+  rules_checked: 26
+  holds: 9
+  unchecked: 16
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no import beyond stdlib; solver imports only its own submodules and nonogram.errors"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green (ran it)"
+    - "ADR-0022/R1 ✓ holds — no scalar size introduced; new fields are grid-shaped list[list[...]]"
+    - "ADR-0029/R2 ✓ holds — tags computed inside the one solve; test_solver_witnesses_and_rungs.py wraps propagate/_search with call counters"
+    - "ADR-0029/R3 ✓ holds — no clock read in the tagger; determinism test passes under a x1000 dilated clock"
+    - "ADR-0029/R4 ✓ holds — overlap_masks re-derived natively in propagate.py; no clues.py import"
+    - "CON-005 ✓ holds — tests/property/test_solver_uniqueness.py unedited and green; verdict counts unchanged"
+    - "INV-001 ✓ holds — record_candidate still writes grid and clues together; new fields reset with them"
+    - "INV-002 ✓ holds — ready_for_export still written only by confirm_uniqueness on count == 1"
+    - "ADR-0029/R1 ✗ violated — rung attribution is not a fact about the puzzle: see F-001"
+    - "ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0025/R1, ADR-0025/R2, ADR-0027/R1, ADR-0027/R2, CON-014 ⚠ unchecked — no_eligible_fact: these rules govern the repair loop, tier classification, density refusal and the scoring formula, none of which this card implements (CARD-074, CARD-076, CARD-078). Their check refs are also check_ref_missing, which is expected until those cards land."
+    - "ADR-0022/R4, CON-009, CON-010, CON-011, CON-012, INV-003 ⚠ unchecked — no_eligible_fact: extent derivation, web-server binding, cross-site refusal, grid range, image aspect ratio and retry counters are untouched by this diff"
+
+root_causes:
+  - id: RC-1
+    title: "Rung attribution is decided by the row-then-column sweep order, not by the puzzle"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/solver/propagate.py
+    line: 216
+    title: "Rung tags change when the puzzle is transposed, so they are not a property of the puzzle"
+    description: |
+      RungTagger.record_row/record_column classify a first-sweep deduction by comparing
+      the cells it settled against overlap_masks(runs, length), which is blind to what is
+      already known on the line. In sweep 0 propagate examines all dirty rows first and
+      then all dirty columns, so rows are always deduced from a blank line while columns
+      are deduced with the cells the rows just wrote.
+
+      Two measured consequences:
+
+      1. line_dp is unreachable for a line examined from a blank board. Over 4000 random
+         (runs, length) pairs, line_intersection with no known cells and overlap_masks
+         agree exactly, 0 disagreements. Every line_dp tag in the system is therefore a
+         column tag from sweep 0, not a technique.
+      2. The same puzzle transposed grades differently. Over 224 line-solvable random
+         grids, 205 (92%) produce a different rung histogram for the grid and its
+         transpose. Example, a 7x7: {simple_overlap 30, line_dp 6, cross_line 13} versus
+         {simple_overlap 30, line_dp 15, cross_line 4}.
+
+      The implementation is faithful to the card and to ADR-0029, which pins the sweep
+      definition ("the first sweep is a pass of the loop, not before any cross-line
+      information exists"). The defect is in that definition, and this card is what makes
+      it measurable. It matters now because ADR-0029/R1 derives a line-solvable puzzle's
+      difficulty from the hardest rung its solve required, and CARD-076 is the next card
+      to build on exactly these counts: a puzzle and its transpose are the same puzzle to
+      a solver, and grading them differently makes the score an artifact of grid
+      orientation.
+    suggestion: |
+      Resolve before CARD-076 grades on this data. Two candidate directions, both needing
+      an ADR-0029 revision rather than a silent code change:
+
+      a. Make the distinction knowledge-relative: compare a deduction against the overlap
+         rule applied to the line's current known cells, so "needed more than overlap"
+         means the same thing for a row and a column. Then define cross_line by where the
+         known cells came from (a perpendicular write) rather than by sweep index.
+      b. Keep the sweep definition but make the metric orientation-invariant, e.g. grade
+         on the hardest rung present rather than on per-rung cell counts, and state in the
+         ADR that within-rung counts are not comparable across orientations.
+
+      Whichever is chosen, add a property test asserting that a grid and its transpose
+      grade identically; that test is the missing guard on ADR-0029/R1.
+    confidence: high
+    source: static
+    violates: ADR-0029/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: docs/GENERATION_ALGORITHM.md
+    line: 266
+    title: "Solver section of the algorithm document is stale after this change"
+    description: |
+      docs/GENERATION_ALGORITHM.md section 6 enumerates the solver's reported signals as
+      line_logic_cells, total_cells, branch_nodes, backtracks, elapsed_seconds, and
+      describes SolveResult as a count plus a witness plus signals. SolveResult now also
+      carries undecided_mask, second_witness and rung_tags, and SolveSignals carries
+      rung_cells and rungs. The document was committed hours before this card and is the
+      reference for this component.
+    suggestion: |
+      Update section 6's signal list and the SolveResult description. Section 7 is already
+      assigned to CARD-076 for the scoring rewrite; this is the solver half and belongs
+      with the card that changed the contract.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
