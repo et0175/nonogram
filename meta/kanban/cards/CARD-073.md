@@ -1,6 +1,6 @@
 # CARD-073: Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell
 
-**Status:** ready
+**Status:** in_review
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/073-solver-mask-witness-rungs
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-073
 **Source:** meta/architecture/handoff.md#increment-8
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, src/nonogram/solver/__init__.py, src/nonogram/orchestrator.py (Puzzle aggregate: store the three new result fields, nothing else), tests/test_solver.py, tests/property/test_solver_witnesses.py (new), meta/architecture/decisions/adr/0009-*.md and 0012-*.md (History entries only)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-12T15:44Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -234,4 +234,148 @@ branch. No stored data changes.
 
 ## Worktree notes
 
-—
+### Item 7 — ADR-0024's repair precondition, measured
+
+**On the oracle corpus (`tests/property/test_solver_uniqueness.CASES`, 2400
+cases, `SEED = 20260827`): 96.27% (232 / 241).**
+
+That is the share of `MANY` verdicts *that have a parent grid* whose
+witness-disagreement set contains at least one cell filled in the parent **and**
+at least one cell empty in it — ADR-0024's precondition for drawing a repair
+pair from the region.
+
+    corpus cases                                         2400
+    MANY verdicts                                         262
+      ... of which carry a parent grid                    241   (21 have
+          mutated clues and so no parent grid at all)
+      ... whose disagreement set holds a filled AND
+          an empty cell of the parent grid                232
+    share of MANY-with-a-parent                        96.27%   (232/241)
+    share of all MANY verdicts                         88.55%   (232/262)
+
+**It is not 100%, and the nine exceptions have one shape.** ADR-0024's Context
+argues the precondition "cannot happen" to fail, from the fact that two
+solutions of the same row clues have equal filled counts per row. That argument
+is sound *when the parent grid is one of the two witnesses* — and the corpus
+bears it out exactly:
+
+    parent grid IS one of the two witnesses               159   of 241
+      ... and the filled/empty pair exists there          159   (100.00%)
+
+The argument does not cover the case where the parent is a **third** solution.
+All nine counterexamples are that case, and in every one of them the whole
+disagreement set is empty in the parent (`values == {False}`), so there is no
+filled cell to flip. The smallest is corpus case 260, a 5x5:
+
+    rows ((1,), (1,), (0,), (1,1), (1,))   columns ((1,), (0,), (1,), (2,), (1,))
+
+    parent      witness 1   witness 2
+    ...#.       ..#..       ....#
+    ...#.       ....#       ..#..
+    .....       .....       .....
+    ..#.#       #..#.       #..#.
+    #....       ...#.       ...#.
+
+The witnesses disagree at (0,2), (0,4), (1,2), (1,4); the parent is empty at
+all four, because its own ambiguity lives in column 3. So Increment 9 needs the
+fallback ADR-0024 already specifies ("should the region contain no filled/empty
+pair of the parent grid ... the repair falls back"): it fires on roughly 1 case
+in 27, not never. The code must not assume the pair exists — which is what the
+ADR says, and now with a number behind it.
+
+Reproduced by `measure_repair.py` (scratchpad, not committed): solve every
+corpus case, keep the `MANY` ones with a source grid, diff the two witnesses,
+look up each disagreeing cell in the parent.
+
+### Item 8 — `tests/bench_generate.py` at 20x20, before and after
+
+Within noise. Two runs of `report()` on each side, on the same machine,
+`GENERATION_BUDGET_SECONDS = 30`:
+
+    sample (density, seed)   before #1  before #2  |  after #1   after #2
+    30, 0                      1.281s     1.409s   |   1.385s     1.334s
+    40, 0                     30.002s    30.002s   |  30.001s    30.002s  (timeout)
+    50, 0                      0.049s     0.051s   |   0.051s     0.050s
+    60, 0                      0.004s     0.004s   |   0.005s     0.004s
+    30, 1                      1.250s     1.281s   |   1.336s     1.418s
+    40, 1                     30.001s    30.004s   |  30.002s    30.002s  (timeout)
+    50, 1                      0.046s     0.051s   |   0.048s     0.046s
+    60, 1                      0.005s     0.005s   |   0.005s     0.005s
+    30, 2                      4.386s     4.674s   |   5.030s     4.501s
+    40, 2                     30.002s    30.001s   |  30.001s    30.001s  (timeout)
+    50, 2                      0.138s     0.150s   |   0.132s     0.131s
+    60, 2                      0.002s     0.002s   |   0.002s     0.002s
+    30, 3                      1.808s     1.905s   |   1.889s     1.962s
+    40, 3                     30.001s    30.005s   |  30.000s    30.003s  (timeout)
+    50, 3                      0.021s     0.027s   |   0.022s     0.022s
+    60, 3                      0.002s     0.002s   |   0.002s     0.002s
+    30, 4                      1.722s     1.928s   |   1.747s     1.744s
+    40, 4                     15.039s    14.736s   |  14.765s    14.580s
+    50, 4                      0.006s     0.006s   |   0.007s     0.006s
+    60, 4                      0.005s     0.005s   |   0.006s     0.005s
+
+    p95 (nearest-rank, n=20)  30.002s    30.004s   |  30.001s    30.002s
+
+**p95 is unchanged to the millisecond** — but it is also useless as a
+sensitivity measure here, because four of the twenty samples are censored at
+the 30s budget, so the 19th-ranked sample is the budget itself whatever the
+solver does. The honest number is the **sum of the sixteen uncensored
+samples**:
+
+    before   25.764s , 26.236s      (mean 26.00s, spread 0.47s)
+    after    26.432s , 25.812s      (mean 26.12s, spread 0.62s)
+
+**Difference of means +0.12s = +0.47%, inside a run-to-run spread of ~2.4%.**
+Every individual after-sample lies inside or within ~7% of the two before-
+samples' range, and the sample that moved most (density 30 / seed 2: 4.386 and
+4.674 before, 5.030 and 4.501 after) straddles it in both directions across the
+two runs. AC-037's gate itself is unaffected: it is timed against the same
+saturated p95.
+
+*Why it is this cheap.* The tagging work is off the hot loop by construction,
+not by tuning. `simple_overlap`/`line_dp`/`cross_line` are recorded only during
+the **one** propagation that starts from the blank board — `Board.clone()` drops
+the tagger, and every board the search touches is a clone, so the probing loop
+carries a single `is not None` per productive line deduction and nothing else.
+`probe_contradiction` is not recorded during a probe at all (which value will
+turn out to be forced is not known then); it is a row-mask diff of the forced
+child against its parent, taken only when a value actually is forced —
+`height` int ORs against a whole propagation.
+
+### Design notes worth carrying forward
+
+**Where the rungs are decided.** ADR-0029 defines the first sweep as one pass of
+`propagate`'s outer loop over the dirty rows *and then* the dirty columns,
+starting from the blank board. Taken literally — as it is here — the **column**
+half of the first sweep already reads cells the row half wrote and is still
+graded `simple_overlap`/`line_dp`, not `cross_line`. That is the pinned
+contract, and it is worth knowing before someone reads a `cross_line`-free
+grade as "no cross-line information was used".
+
+**Scope of the tags.** Like `branch_nodes`, the tags are scoped to the deciding
+restart round: forced deductions made in a round that was abandoned at its node
+limit are discarded with the rest of that round's findings. And, also like
+`branch_nodes`, they cover the whole round — including forced deductions made
+below a guess. A puzzle that needed a guess is `Tier.GUESS` by ADR-0025 before
+this scale is consulted, so that does not affect a grade; it does mean
+`probe_contradiction` on a guessy puzzle reads as "the search refuted values",
+not "the puzzle needs refutation and nothing more".
+
+**Cells with no rung.** A cell settled only under a guess carries `None`. That
+is deliberate: `guess` is not a rung of this ladder (ADR-0029, CARD-072 appends
+it downstream iff `branch_nodes > 0`), so there is no honest rung to write.
+
+**`overlap_masks` soundness.** The "empty" half of the overlap rule is *not*
+"empty in both extreme placements" — that is unsound (`runs=(1,)` in a length-3
+line leaves the middle cell empty at both extremes and yet some placement fills
+it). It is "covered by no run's `[leftmost start, rightmost end]` window", which
+is sound, and `tests/test_solver_witnesses_and_rungs.py` pins both halves
+against an independent enumeration of every placement rather than against the
+DP.
+
+**Guardrails.** No file outside `solver/`, `orchestrator.py` (store only),
+`tests/` and the two ADR History entries was touched. `propagate`'s signature is
+unchanged — the tagger rides on `Board.tagger` — which is what keeps
+`tests/test_timeout.py`'s `_blind_propagation` stub (a five-parameter stand-in
+for `propagate`) working unedited, and keeps ADR-0011's two checkpoints exactly
+where they were.

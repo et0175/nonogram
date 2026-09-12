@@ -9,9 +9,18 @@ candidate grid it generates.
 Public surface (this is the whole API; everything else is internal)
 -------------------------------------------------------------------
 ``solve(row_clues, column_clues, *, deadline=None)``  ->  :class:`SolveResult`
-``SolveResult``                     the count, the solution grid, the signals
-``SolveSignals``                    FR-009's raw difficulty inputs
+``SolveResult``                     the count, the witnesses, the first fixed
+                                    point's undecided mask, the per-cell rung
+                                    tags and the signals
+``SolveSignals``                    FR-009's raw difficulty inputs, plus
+                                    ADR-0029's per-rung cell counts and the
+                                    ordered list of rungs the solve used
 ``MANY``                            the ``solution_count`` meaning ">= 2"
+``RUNG_ORDER`` and the four         ADR-0029's ladder, lowest rung first:
+``RUNG_*`` names                    ``simple_overlap`` < ``line_dp`` <
+                                    ``cross_line`` < ``probe_contradiction``.
+                                    ``guess`` is not one of them — ADR-0025
+                                    keys that on ``branch_nodes``.
 
 ``deadline`` is ADR-0011's cooperative generation deadline: an absolute
 :func:`time.monotonic` reading, computed once per generation *request* by the
@@ -49,6 +58,24 @@ Usage::
 
 from __future__ import annotations
 
-from nonogram.solver.search import MANY, SolveResult, SolveSignals, solve
+from nonogram.solver.propagate import (
+    RUNG_CROSS_LINE,
+    RUNG_LINE_DP,
+    RUNG_ORDER,
+    RUNG_PROBE_CONTRADICTION,
+    RUNG_SIMPLE_OVERLAP,
+)
+from nonogram.solver.search import MANY, RungTags, SolveResult, SolveSignals, solve
 
-__all__ = ["MANY", "SolveResult", "SolveSignals", "solve"]
+__all__ = [
+    "MANY",
+    "RUNG_CROSS_LINE",
+    "RUNG_LINE_DP",
+    "RUNG_ORDER",
+    "RUNG_PROBE_CONTRADICTION",
+    "RUNG_SIMPLE_OVERLAP",
+    "RungTags",
+    "SolveResult",
+    "SolveSignals",
+    "solve",
+]

@@ -60,3 +60,4 @@ Model the grid as variables in a generic pure-Python CSP library (e.g. python-co
 ## History
 
 - 2026-08-27: Created — chose the hand-rolled line solver over a CP-SAT encoding and a generic CSP library, because it is the only alternative that natively yields FR-009's difficulty signals; correctness risk is acknowledged and deferred to DEC-014's brute-force oracle.
+- 2026-09-12: Extended (CARD-073) — the solver contract gains, on `SolveResult`, the first-fixed-point undecided mask and, on a `MANY` verdict, a second witness distinct from the first (FR-024). Both are additive: the strategy, the fail-fast stop on the second solution (AC-017) and the ADR-0014 oracle cross-check are unchanged, and no verdict moved. The second witness is not sought — it is the very solution whose discovery stops the search, kept instead of dropped.

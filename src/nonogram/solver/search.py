@@ -93,6 +93,25 @@ ADR-0012) without importing the clue *module*. Independence from the solver's
 own code is what the EC-001 property test provides, and it does cross-check
 against ``clues.compute_clues`` from outside.
 
+What else the answer carries (CARD-073, FR-024 and FR-029's solver half)
+------------------------------------------------------------------------
+Three things the search already knew and used to throw away, now reported —
+none of which changes a verdict, a stopping point or a signal any earlier
+caller reads (EC-012):
+
+* the cells line logic left undecided at its **first** fixed point, which is
+  the same fixed point ``line_logic_cells`` is counted at;
+* on :data:`MANY`, the *second* solution — the very one whose discovery stops
+  the fail-fast search, kept rather than dropped, so the pair is free;
+* the ADR-0029 ladder rung that settled each cell: ``simple_overlap`` and
+  ``line_dp`` and ``cross_line`` recorded by the one tagged propagation (see
+  ``propagate.RungTagger``), ``probe_contradiction`` recorded here, where a
+  probe refutes one value and the other stands. All of it inside the single
+  verifying solve (ADR-0029/R2) and with no clock in it (ADR-0029/R3).
+
+Scoping follows ``branch_nodes``: the rung tags describe the restart round that
+settled the verdict, never a round abandoned at its node limit.
+
 The cooperative deadline (ADR-0011, CARD-006)
 ---------------------------------------------
 :func:`solve` takes an optional absolute ``deadline`` and threads it into the
@@ -113,22 +132,35 @@ Out of scope here (guardrail G-5): no difficulty scoring (CARD-009 consumes
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
 
 from nonogram.solver.propagate import (
+    RUNG_ORDER,
+    RUNG_PROBE_CONTRADICTION,
     Board,
     LineCache,
     LineClue,
+    RungTagger,
     canonical_clue,
     check_deadline,
     mask_runs,
     propagate,
 )
 
-__all__ = ["MANY", "SolveResult", "SolveSignals", "solve"]
+__all__ = ["MANY", "RUNG_ORDER", "SolveResult", "SolveSignals", "solve"]
 
 Grid = list[list[bool]]
 ClueSet = tuple[tuple[int, ...], ...]
+#: One ADR-0029 rung name per cell, ``None`` where the deciding solve never
+#: settled the cell by a forced deduction (see :attr:`SolveResult.rung_tags`).
+RungTags = list[list[str | None]]
+
+#: The rung histogram of a solve that settled nothing — every rung present with
+#: a count of zero, so a consumer can index any rung without a ``get``. Shared
+#: and read-only, which is why it can be a plain dataclass default.
+_NO_RUNG_CELLS: Mapping[str, int] = MappingProxyType(dict.fromkeys(RUNG_ORDER, 0))
 
 #: The reported ``solution_count`` for a clue set with more than one solution.
 #: The search stops here by design (AC-017), so the value means ">= 2" and
@@ -245,12 +277,43 @@ class SolveSignals:
     #: like ``branch_nodes``.
     backtracks: int
     #: Wall-clock seconds for the whole solve, from a monotonic clock.
+    #:
+    #: Telemetry, and only telemetry (ADR-0029/R3, CON-014, guardrail G-5):
+    #: NFR-001 is measured by it, and no rung tag, no rung list and no
+    #: difficulty term may read it. It is the one field here a second run on a
+    #: slower machine changes, which is exactly why nothing graded may depend
+    #: on it.
     elapsed_seconds: float
+    #: How many cells each ADR-0029 rung settled in the deciding solve. Always
+    #: carries all four rung names as keys, so a consumer can index rather than
+    #: ``get``; the values sum to the number of tagged cells in
+    #: :attr:`SolveResult.rung_tags`, which is the whole grid exactly when the
+    #: solve never guessed.
+    #:
+    #: ADR-0029/R1's within-rung order (cells at the top rung / total cells)
+    #: is computed from this by COMP-006; the solver counts and does not grade
+    #: (CARD-073 guardrail G-4 — CARD-076 owns the formula).
+    rung_cells: Mapping[str, int] = _NO_RUNG_CELLS
+    #: The distinct rungs the deciding solve used, in ladder order — FR-029's
+    #: strategies list as the solver sees it. ``guess`` is **not** appended
+    #: here even when the search branched: ADR-0025 keys that on
+    #: :attr:`branch_nodes`, and CARD-072 appends it where the list is
+    #: persisted and exported. Empty for a solve that settled nothing.
+    rungs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class SolveResult:
-    """What :func:`solve` answers: a count, a witness, and the signals."""
+    """What :func:`solve` answers: a count, its witnesses, and the signals.
+
+    Everything past ``signals`` was added by CARD-073 and is purely additive
+    (EC-012): the three pre-existing fields keep their pre-existing meaning for
+    every caller — the orchestrator's ``solution_count == 1`` gate, COMP-006's
+    signals protocol and EC-001's oracle cross-check read exactly what they
+    read before — and no verdict changed. Every addition crosses the boundary
+    as a grid-shaped ``list[list[...]]``; the solver's internal filled/empty int
+    bitmask pair does not appear here in either direction (ADR-0012, G-3).
+    """
 
     #: ``0``, ``1``, or :data:`MANY` (``2``, meaning ">= 2").
     solution_count: int
@@ -260,11 +323,57 @@ class SolveResult:
     #: "the" solution, and callers gated on uniqueness must not use it.
     solution: Grid | None
     signals: SolveSignals
+    #: On :data:`MANY`, a *second* solution, distinct cell by cell from
+    #: :attr:`solution` (TERM-009); ``None`` for every other count (FR-024,
+    #: AC-107). It is not found on purpose — it is the very solution whose
+    #: discovery makes the count ``MANY`` and stops the fail-fast search
+    #: (AC-017), kept instead of dropped. Nothing about when the search stops
+    #: changed to produce it.
+    #:
+    #: The two witnesses are what ADR-0024's repair reads: they agree on every
+    #: cell line logic settled, so the cells they disagree on are exactly the
+    #: ambiguity, and every one of them is inside :attr:`undecided_mask`
+    #: (EC-011).
+    second_witness: Grid | None = None
+    #: The cells line logic left undecided at its **first** propagation fixed
+    #: point, grid-shaped, ``True`` for undecided (FR-024, AC-108). Reported for
+    #: every count — empty for a line-solvable puzzle (AC-109), and still
+    #: reported when the count is ``0`` (AC-110), where it describes the cells
+    #: that were still open when propagation ran into the contradiction.
+    #:
+    #: POL-002's nudge (CARD-075) picks the cells it perturbs from here, which
+    #: is why it is the *first* fixed point and not the deciding round's: it is
+    #: a property of the clue set, independent of how the search that followed
+    #: chose to branch.
+    undecided_mask: Grid = field(default_factory=list)
+    #: The ADR-0029 ladder rung that settled each cell in the deciding solve,
+    #: grid-shaped, ``None`` for a cell no forced deduction settled — every
+    #: cell of a grid the search only completed by guessing past its stalled
+    #: fixed point, for instance, since ``guess`` is not a rung of this ladder.
+    #:
+    #: Computed inside the one verifying solve (ADR-0029/R2): the first
+    #: propagation tags as it deduces, and a probe refutation tags what it
+    #: forces. There is no second :func:`solve` entry and no re-propagation for
+    #: classification, and there is no clock in any tag (ADR-0029/R3).
+    rung_tags: RungTags = field(default_factory=list)
 
     @property
     def is_unique(self) -> bool:
         """Exactly one solution — the INV-002 gate CARD-005's loop retries on."""
         return self.solution_count == 1
+
+    @property
+    def witnesses(self) -> tuple[Grid, ...]:
+        """The solutions this solve actually has in hand: 0, 1 or 2 grids.
+
+        A convenience over :attr:`solution` and :attr:`second_witness` for the
+        consumers that want "whatever was found" rather than the verdict —
+        ADR-0024's repair, which needs the pair, and the EC-011 property test,
+        which checks every one of them re-encodes to the input clues.
+        """
+        return tuple(
+            grid for grid in (self.solution, self.second_witness) if grid is not None
+        )
 
 
 def solve(
@@ -291,7 +400,10 @@ def solve(
     Returns:
         A :class:`SolveResult` whose ``solution_count`` is ``0`` (AC-016),
         ``1`` (AC-015) or :data:`MANY` (AC-017), carrying the solution grid
-        when the count is 1 and the FR-009 signals either way.
+        when the count is 1 and the FR-009 signals either way — plus, since
+        CARD-073 and without any verdict changing: the first fixed point's
+        undecided mask for every count (FR-024), a second witness when the
+        count is :data:`MANY`, and the ADR-0029 rung that settled each cell.
 
     Raises:
         ValueError: the clue set is malformed — a run that is not a positive
@@ -328,17 +440,35 @@ def solve(
         branches: int,
         backtracks: int,
         line_logic_cells: int,
+        undecided_mask: Grid,
+        rung_tags: RungTags,
+        second_witness: Grid | None = None,
     ) -> SolveResult:
-        """Stamp the elapsed time on and return — every exit goes through here."""
+        """Stamp the elapsed time on and return — every exit goes through here.
+
+        The rung histogram and the ordered rung list are counted here, from the
+        tags the solve produced, so there is exactly one place they can come
+        from and they cannot disagree with the per-cell tags (ADR-0029/R2).
+        """
+        rung_cells = dict.fromkeys(RUNG_ORDER, 0)
+        for tag_row in rung_tags:
+            for tag in tag_row:
+                if tag is not None:
+                    rung_cells[tag] += 1
         return SolveResult(
             solution_count=count,
             solution=solution,
+            second_witness=second_witness,
+            undecided_mask=undecided_mask,
+            rung_tags=rung_tags,
             signals=SolveSignals(
                 line_logic_cells=line_logic_cells,
                 total_cells=total_cells,
                 branch_nodes=branches,
                 backtracks=backtracks,
                 elapsed_seconds=time.perf_counter() - started,
+                rung_cells=MappingProxyType(rung_cells),
+                rungs=tuple(rung for rung in RUNG_ORDER if rung_cells[rung]),
             ),
         )
 
@@ -346,7 +476,20 @@ def solve(
     # the column clues, so unequal totals mean there is nothing to search for.
     # Only an early exit — the search below would reach the same verdict.
     if sum(sum(clue) for clue in rows) != sum(sum(clue) for clue in columns):
-        return finish(0, None, 0, 0, 0)
+        # No board was ever built, so nothing was decided and every cell is
+        # open: the mask reports that rather than being withheld, because
+        # AC-110 asks for a mask on *every* zero-solution verdict and "no cell
+        # was settled" is the honest answer for a clue set the solver refused
+        # before line logic ran.
+        return finish(
+            0,
+            None,
+            0,
+            0,
+            0,
+            [[True] * width for _ in range(height)],
+            [[None] * width for _ in range(height)],
+        )
 
     if total_cells == 0:
         # A grid with no cells: the empty grid is its only candidate, and it
@@ -354,7 +497,15 @@ def solve(
         # (the sum check above has already established that). Handled here
         # because a zero-row grid has no cells to re-encode its column clues
         # from, so the verification below would misread it as a defect.
-        return finish(1, [[] for _ in range(height)], 0, 0, 0)
+        return finish(
+            1,
+            [[] for _ in range(height)],
+            0,
+            0,
+            0,
+            [[] for _ in range(height)],
+            [[] for _ in range(height)],
+        )
 
     # One memo per solve, created here and dropped when this call returns, so
     # the solver keeps no state between calls (CARD-018; the memo only ever
@@ -364,16 +515,39 @@ def solve(
     board = Board.blank(rows, columns)
     dirty_rows = [True] * height
     dirty_columns = [True] * width
+    # The one tagged propagation of the solve (ADR-0029/R2): three of the four
+    # rungs are decided by *this* sweep sequence, the one that starts from the
+    # blank board, and it runs exactly once whatever the search does next.
+    tagger = RungTagger.blank(height, width)
+    board.tagger = tagger
     if not propagate(board, dirty_rows, dirty_columns, deadline, cache):
-        return finish(0, None, 0, 0, board.decided)
+        return finish(
+            0, None, 0, 0, board.decided, _undecided_mask(board), tagger.tags
+        )
+    # Detached the moment the first fixed point is reached, so nothing the
+    # search does can reach it even by accident. (It could not anyway —
+    # ``Board.clone`` drops it and the search only ever propagates clones —
+    # but the root board outlives this line, and a live tagger on it would be
+    # a loaded gun for the next card that adds a caller.)
+    board.tagger = None
 
     # Everything settled up to here came from line logic alone (FR-009). It is
     # computed once, outside the restart loop below, because it does not depend
-    # on how the search that follows chooses to branch.
+    # on how the search that follows chooses to branch — and neither does the
+    # undecided mask (FR-024), which is the same fixed point read cell by cell.
     line_logic_cells = board.decided
+    undecided_mask = _undecided_mask(board)
 
     if board.decided == total_cells:
-        return finish(1, _verified_grid(board), 0, 0, line_logic_cells)
+        return finish(
+            1,
+            _verified_grid(board),
+            0,
+            0,
+            line_logic_cells,
+            undecided_mask,
+            tagger.tags,
+        )
 
     # One counter set per round, so the signals returned describe the round
     # that actually produced the verdict (F-001). An abandoned round proved
@@ -382,7 +556,14 @@ def solve(
     while True:
         probe_width, node_limit = _round(round_index)
         counters = _Counters()
-        found = _search(board, cache, probe_width, node_limit, round_index, deadline, counters)
+        # Scoped to the round, exactly like ``counters`` and for the same
+        # reason (F-001): a round abandoned at its node limit proved nothing
+        # about the puzzle, so the deductions it happened to make are not what
+        # the puzzle required.
+        forced = [0] * height
+        found = _search(
+            board, cache, probe_width, node_limit, round_index, deadline, counters, forced
+        )
         if found is not _CUT_OFF:
             solutions = found  # type: ignore[assignment]
             break
@@ -390,8 +571,20 @@ def solve(
 
     count = len(solutions)
     solution = solutions[0] if solutions else None
+    # The second solution the fail-fast search stopped on *is* FR-024's second
+    # witness — kept, not sought. ``len(solutions) <= MANY`` by construction,
+    # and sibling branches are disjoint, so when there are two they differ in
+    # at least the cell their branch fixed (TERM-009).
+    second_witness = solutions[1] if len(solutions) > 1 else None
     return finish(
-        count, solution, counters.branch_nodes, counters.backtracks, line_logic_cells
+        count,
+        solution,
+        counters.branch_nodes,
+        counters.backtracks,
+        line_logic_cells,
+        undecided_mask,
+        _tags_with_forced(tagger.tags, forced),
+        second_witness,
     )
 
 
@@ -451,6 +644,7 @@ def _search(
     round_index: int,
     deadline: float | None,
     counters: _Counters,
+    forced: list[int],
 ) -> list[Grid] | object:
     """One restart round: the whole tree, or :data:`_CUT_OFF` if it ran long.
 
@@ -469,6 +663,10 @@ def _search(
             exactly; later rounds spread their branch choice across the
             candidates the probes found equally live (see :func:`_diversified`).
         counters: Mutated with this round's branch and refutation counts.
+        forced: One row mask per row, OR-ed with every cell this round settles
+            by refuting the opposite value — ADR-0029's ``probe_contradiction``
+            rung. Round-scoped like ``counters``, so an abandoned round's
+            deductions are discarded with the rest of its findings.
 
     Returns:
         The solutions found — at most :data:`MANY`, and every one of them
@@ -516,7 +714,9 @@ def _search(
         # :func:`solve`, and only the round that settles the verdict is
         # reported.
         counters.branch_nodes += 1
-        outcome = _expand(board, cache, probe_width, round_index, nodes, deadline, counters)
+        outcome = _expand(
+            board, cache, probe_width, round_index, nodes, deadline, counters, forced
+        )
         if outcome is None:
             continue
         settled, alternative = outcome
@@ -536,6 +736,7 @@ def _expand(
     node_index: int,
     deadline: float | None,
     counters: _Counters,
+    forced: list[int],
 ) -> tuple[Board, Board | _Pending | None] | None:
     """Probe one node until it is settled, refuted, or ready to branch.
 
@@ -561,7 +762,7 @@ def _expand(
     discards nothing.
     """
     if probe_width == _NO_PROBE:
-        return _descend(board, cache, deadline, counters)
+        return _descend(board, cache, deadline, counters, forced)
 
     height = board.height
     width = board.width
@@ -577,7 +778,7 @@ def _expand(
         pool: list[tuple[Board, Board]] = []
         best: tuple[Board, Board] | None = None
         best_score = -1
-        forced = False
+        forced_a_value = False
 
         for row, column in _probe_candidates(board, probe_width):
             if board.cell_is_known(row, column):
@@ -597,8 +798,13 @@ def _expand(
                 # deduction, and the probe already propagated its consequences.
                 # The *other* value was refuted, which is the one backtrack.
                 counters.backtracks += 1
-                board = empty_child if not filled_ok else filled_child
-                forced = True
+                survivor = empty_child if not filled_ok else filled_child
+                # ADR-0029's ``probe_contradiction``: this value was not
+                # guessed, it was left standing by the refutation of the other,
+                # and its propagation's cascade is forced with it.
+                _record_forced(forced, board, survivor)
+                board = survivor
+                forced_a_value = True
                 if board.decided == total_cells:
                     return board, None
                 continue
@@ -642,7 +848,7 @@ def _expand(
                 best_score = score
                 best = pair
 
-        if forced:
+        if forced_a_value:
             continue
         if best is None:
             # A pass that neither forced a value nor found one to branch on,
@@ -702,6 +908,7 @@ def _descend(
     cache: LineCache,
     deadline: float | None,
     counters: _Counters,
+    forced: list[int],
 ) -> tuple[Board, _Pending | None] | None:
     """Round 0's node: guess at one cell, propagating only what is needed.
 
@@ -745,6 +952,9 @@ def _descend(
         if not survived:
             counters.backtracks += 1
             return None
+        # Same deduction a probing pass would have made, and the same rung:
+        # the value stands because its opposite was refuted (ADR-0029).
+        _record_forced(forced, board, child)
         board = child
 
 
@@ -942,6 +1152,65 @@ def _diversified(round_index: int, node_index: int, count: int) -> int:
     mixed ^= mixed >> 31
     return mixed % count
 
+
+
+def _undecided_mask(board: Board) -> Grid:
+    """FR-024's mask: which cells this board still leaves open, grid-shaped.
+
+    Read off the *first* fixed point's masks, at the one seam ADR-0012 allows
+    the bitmasks to be converted at, and in the same boundary type
+    (``list[list[bool]]``) as a solution grid — the int pair itself never
+    leaves the package in either direction (guardrail G-3).
+    """
+    return [
+        [
+            not ((board.row_filled[row] | board.row_empty[row]) >> column) & 1
+            for column in range(board.width)
+        ]
+        for row in range(board.height)
+    ]
+
+
+def _record_forced(forced: list[int], parent: Board, child: Board) -> None:
+    """Mark every cell ``child`` settled that ``parent`` had not, per row.
+
+    ADR-0029's ``probe_contradiction`` rung, recorded where the search knows
+    it: ``child`` is a board a probe produced for a value whose *sibling*
+    propagation contradicted, so the assignment was forced, not guessed — and
+    everything its propagation then cascaded into is forced with it.
+
+    A row mask OR rather than a per-cell write, so a forced deduction costs
+    ``height`` int operations however many cells it settled: the accumulator
+    stays a fixed ``height`` ints for a whole round, where a list of cells
+    would grow with the tree on the exact instances that already have the
+    biggest trees.
+    """
+    row_filled = child.row_filled
+    row_empty = child.row_empty
+    parent_filled = parent.row_filled
+    parent_empty = parent.row_empty
+    for row in range(parent.height):
+        forced[row] |= (row_filled[row] | row_empty[row]) & ~(
+            parent_filled[row] | parent_empty[row]
+        )
+
+
+def _tags_with_forced(tags: RungTags, forced: list[int]) -> RungTags:
+    """Line logic's tags with the deciding round's forced cells laid over them.
+
+    The two sets are disjoint by construction and not by luck: line logic's
+    tags cover the cells decided at the first fixed point, and every probe in
+    the search descends from that fixed point, so a cell a probe can force is
+    one no tag was written for. The copy is taken because ``tags`` belongs to
+    the solve's one tagger, which the abandoned rounds shared.
+    """
+    tagged = [row.copy() for row in tags]
+    for row, bits in enumerate(forced):
+        while bits:
+            column = (bits & -bits).bit_length() - 1
+            bits &= bits - 1
+            tagged[row][column] = RUNG_PROBE_CONTRADICTION
+    return tagged
 
 
 def _to_grid(board: Board) -> Grid:

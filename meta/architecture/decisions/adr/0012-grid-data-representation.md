@@ -56,3 +56,4 @@ Note on NumPy: ADR-0006 separately added NumPy to the project's dependency basel
 ## History
 
 - 2026-08-27: Created — fixed the int-bitmask-per-line solver representation with a `list[list[bool]]` export boundary, over a plain list-of-lists or a NumPy boolean array, on NFR-001 hot-loop performance grounds.
+- 2026-09-12: Extended (CARD-073) — the boundary rule now also covers the solver's new result fields: the first-fixed-point undecided mask and both witnesses cross the module boundary as grid-shaped `list[list[bool]]`, and the per-cell rung tags as `list[list[str | None]]`, never as the internal filled/empty bitmask pair (EC-012). The representation decision itself is unchanged; what is new is that three more things cross the same seam, at the same one conversion point.
