@@ -211,12 +211,28 @@ cleanly:**
 | database | stamp before | schema | what it needs |
 |---|---|---|---|
 | dev Postgres (`nonogram_dev`) | 005 | genuinely at 005 | `alembic upgrade head` — **done 2026-09-13**, 311 puzzles / 66 batches / 5 books intact |
-| `nonogram_admin.db` (SQLite) | 003 | already past 003 (`puzzle_name`, `book_id` present) | stamp-then-upgrade; a plain `upgrade head` re-runs 004/005 against columns that exist and fails |
-| Render production | 003 | already past 003 | same, **plus** the legacy-column caveat in the cycle-1 review (F-004): its grades were re-graded out of band on 2026-09-13, so 006 + the batch would capture those as "pre-run". Genuine pre-run values: `meta/ops/render-grades-backup-20260913.json` |
+| `nonogram_admin.db` (SQLite) | 003 | ~~already past 003~~ **genuinely at 003** — corrected 2026-09-13, see below | plain `alembic upgrade head` — **done 2026-09-13**, 16 puzzles / 8 batches / 0 books intact, stamp now 006 |
+| Render production | 003 | **unverified** — the claim below was derived by the same faulty reading, so treat it as unknown until somebody inspects the live schema | inspect first, then almost certainly a plain `upgrade head`; **plus** the legacy-column caveat in the cycle-1 review (F-004): its grades were re-graded out of band on 2026-09-13, so 006 + the batch would capture those as "pre-run". Genuine pre-run values: `meta/ops/render-grades-backup-20260913.json` |
 
-The stamp being behind the schema on two of the three is pre-existing and not
-006's doing — it is recorded in the AC-F rehearsal notes below. It matters here
-because it decides whether `alembic upgrade head` is safe to type.
+**Correction (2026-09-13): the "schema past its stamp" diagnosis was wrong, and
+it was wrong in a way worth recording.** It rested on `puzzles` carrying
+`puzzle_name` and `book_id` while the stamp read 003 — but `book_id` is added by
+migration **002** and `puzzle_name` by migration **003** itself. Those columns
+are exactly what a database stamped 003 *should* have. The reasoning read a
+migration's own output as evidence that the database had moved past it.
+
+Measured before running anything: stamp 003, `books` carrying none of 004's
+five print-spec columns, still carrying `nonogram_ids`, and none of 005's four.
+A consistent 003, like the dev Postgres was a consistent 005. So `alembic
+upgrade head` was the correct command and `alembic stamp 005` — what this table
+used to prescribe — would have **skipped 004 and 005 entirely**, leaving `books`
+without columns the ORM reads and the same class of breakage this section exists
+to warn about, one table over.
+
+The lesson is the operational one: **a stamp/schema mismatch is a measurement,
+not an inference.** Read the columns each pending migration adds and check for
+them, one migration at a time, before choosing between `upgrade` and `stamp`.
+The two commands are not interchangeable and the wrong one is silent.
 
 **For the next card that touches `db/models.py`:** say in the card which
 databases exist, what each is stamped at, and who runs the migration. A card
