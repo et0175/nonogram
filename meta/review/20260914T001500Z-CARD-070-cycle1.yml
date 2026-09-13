@@ -1,0 +1,223 @@
+version: 1
+generated_at: "2026-09-14T00:15:00Z"
+target: "CARD-070 cycle 1 — branch card/070-generation-quick-fixes, commit 3a86aeb on main 9345c58"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "the whole diff: orchestrator.generate_batch, random_grid's constant block, and all four touched test files"
+    - "difficulty.parse_tier and orchestrator.generate's own tier parse at :1492 — the other half of the vocabulary claim"
+    - "every reader of request.difficulty in src (one: orchestrator:1492) and the export payload's own difficulty source (:1914)"
+    - "the fixture history: git log --follow on bands.png / landscape.png, and their presence at 96da6ac"
+    - "the nudge sweep, re-derived independently over both synthetic fixtures and all seven photographs"
+  not_reached:
+    - "tests/test_sourcing_image.py's corpus cases (the pictures/ folder is not on disk — excluded by AC-3)"
+    - "the web adapter and pyproject packaging paths that carry two of the remaining suite failures (G-3 puts them off-limits)"
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 341, removed: 59 }
+  max_fan_in: { symbol: "orchestrator.generate_batch", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — the repository's history is younger than the 12-month churn window; every touched file's full history fits inside it, so no file stands out as high-churn relative to the rest"
+    cochange_missing: "not_applicable — the diff's own co-change peers (the three nudge test files) are all in it; that was the point of the card"
+
+system_contract:
+  rules_checked: 23
+  holds: 17
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — `git diff 9345c58..HEAD -- src/ | grep '^+import|^+from'` returns nothing and pyproject.toml is not in the diff; the anchor's file (tests/test_export_pdf.py) carries one known-failing packaging test unrelated to dependencies (see out-of-scope)"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on 3a86aeb; the diff adds no import to src at all"
+    - "ADR-0029/R4 ✓ holds — same test, same run (the two rules share a checker)"
+    - "ADR-0022/R1 ✓ holds — the diff adds no extent-carrying signature; generate_batch's pre-existing `sizes` parameter is annotated list[int] but its body handles (width, height) tuples at :1803, so extent is not reduced to a scalar (the annotation is stale — out-of-scope note)"
+    - "ADR-0022/R2 ✓ holds — tests/test_sourcing_random.py green on 3a86aeb; random_grid.py's change is comment-only, verified by `git diff | grep -vE '^[-+]#'` returning no code lines"
+    - "ADR-0022/R4 ✓ holds — tests/property/test_grid_dimensions.py green on 3a86aeb, including the re-pinned bare-size test whose new fixture reaches 10 through MIN_SIZE's floor rather than by arithmetic; the derivation rule itself is unchanged"
+    - "ADR-0024/R1, ADR-0024/R2, ADR-0024/R3 ✓ holds — tests/test_orchestrator.py green on 3a86aeb; the diff changes no repair logic and mutant M4 (MAX_NUDGE_ATTEMPTS 5 -> 10) was KILLED, so the bound is still load-bearing for the re-pinned cap tests"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: the diff touches no repair pair-choice code"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: the diff touches no mode-dispatch for the repair policy"
+    - "ADR-0025/R1 ⚠ unchecked — no_eligible_fact: the diff performs no classification; it parses a tier *name*, which is a different operation from deriving one"
+    - "ADR-0025/R2 ✓ holds — the new code calls difficulty.parse_tier (a string -> Tier lookup) and never reads a score or branch_nodes; classification stays the single implementation in difficulty.py"
+    - "ADR-0027/R1 ⚠ unchecked — check_ref_missing: TestGenerateRandom_RefusesDensityZeroAndHundred (`git grep -w` finds it in 0 tracked files); manual read confirms this diff changes no density validation — random_grid.py is comment-only"
+    - "ADR-0027/R2 ⚠ unchecked — check_ref_missing: TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam (0 tracked files); same manual note"
+    - "ADR-0029/R1 ✓ holds — tests/test_difficulty.py and tests/property/test_difficulty_ladder.py green on 3a86aeb; no scoring code in the diff"
+    - "ADR-0029/R2 ⚠ unchecked — check_ref_missing: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve (0 tracked files); manual read finds no strategy-recording code in this diff"
+    - "ADR-0029/R3 ✓ holds — tests/property/test_difficulty_ladder.py green on 3a86aeb"
+    - "ADR-0029/R5 ✓ holds — same run"
+    - "CON-014 ✓ holds — same run (shares ADR-0029/R3's checker)"
+    - "INV-001 ✓ holds — tests/test_clues.py green on 3a86aeb; no clue derivation in the diff"
+    - "INV-002 ✓ holds — tests/test_export_json.py and tests/property/test_solver_uniqueness.py green on 3a86aeb; the re-pinned tests assert solution_count == 1 on the repaired grid, which is the invariant read from the other side"
+    - "INV-003 ✓ holds — tests/test_nudge.py green on 3a86aeb (31 tests), and mutant M4 confirms the cap tests fail when the bound moves, so the pin is tied to the constant rather than to the picture"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/orchestrator.py
+    line: 1811
+    title: "The batch and the CLI still disagree on the empty string, which is the one thing item 1 set out to make impossible"
+    description: |
+      The new gate is
+      `tier = difficulty.parse_tier(difficulty_tier) if difficulty_tier else None`,
+      and the docstring above it says routing through `parse_tier` means "a
+      batch and an interactive run now accept and refuse exactly the same
+      spellings". Measured on this head, they do not:
+
+        generate(difficulty="")        -> UnsupportedDifficulty:
+                                          unsupported difficulty tier ''
+        generate_batch(difficulty_tier="") -> accepted, request.difficulty=None
+
+      `""` is falsy, so the batch never calls `parse_tier` at all and silently
+      means "any tier"; `generate` at :1492 guards on `is not None`, reaches
+      `parse_tier` and refuses. Same input, two answers, in the two functions
+      this item exists to reconcile.
+
+      Nothing pins it either way. Mutation M1 — changing the guard to
+      `is not None` so the empty string *is* refused — SURVIVED the whole of
+      tests/test_orchestrator.py, which means the suite would not notice either
+      behaviour changing.
+
+      The behaviour is unchanged from before the card (the old `if
+      difficulty_tier and ...` was falsy on `""` too) and no caller passes an
+      empty string, so the blast radius is nil. It is filed at this severity
+      because of the claim, not the input: a comment asserting a property the
+      code does not have is the failure mode this whole card is a cleanup of —
+      finding 4 was a comment describing a reader that did not exist.
+    suggestion: |
+      Pick one and pin it. Either guard on `is not None` so both paths refuse
+      `""` (and `parse_tier`'s message explains why), or keep the falsy guard
+      and narrow the docstring to the spellings it really covers — "every
+      non-empty spelling parse_tier accepts". Add the case to
+      `test_generate_batch_accepts_every_spelling_parse_tier_accepts`'s
+      parametrize either way, so M1 stops surviving.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1500c1c
+    dismissed_reason: null
+    fix_note: |
+      the guard is now `is not None`, so "" reaches parse_tier and is refused with the same message generate gives it; test_the_empty_string_is_a_tier_that_does_not_exist_on_both_paths asserts the two messages are equal, and test_none_is_still_the_way_to_say_any_tier pins the other side. Mutants R1 (falsy guard back) and R2 (None refused too) both KILLED
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_nudge.py
+    line: 101
+    title: "BANDS is now a dead constant in test_nudge.py"
+    description: |
+      `BANDS = FIXTURES / "bands.png"` is declared at :101 and `grep -n BANDS
+      tests/test_nudge.py` returns that line and nothing else — the two uses at
+      the old :331/:334 both moved to `OWL`.
+
+      Leaving it is not neutral in this file specifically: the module docstring
+      now explains at length that `bands.png` never matched its pins, so a
+      constant still pointing at it invites the next reader to wire a test back
+      onto the fixture the card just finished moving away from.
+    suggestion: |
+      Delete the constant. `bands.png` itself stays — test_sourcing_image.py
+      and test_grid_dimensions.py's aspect helpers still use it, and those uses
+      are sound.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1500c1c
+    dismissed_reason: null
+    fix_note: |
+      the constant is deleted; bands.png itself stays for test_sourcing_image.py and the aspect helpers
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_nudge.py
+    line: 436
+    title: "AC-2's provenance clause is met by the module docstring, not by two of the five test docstrings"
+    description: |
+      AC-2: "every real-image test's docstring states the count it pins **and
+      where it came from**." Checked one by one:
+
+      - `test_nudge_attempts_bounded_recovery_on_a_real_image` — count and
+        "Re-pinned from bands.png by CARD-070". Both clauses.
+      - `test_a_bare_size_image_run_decodes_the_picture_exactly_twice` — both.
+      - `test_export_reports_nudge_count` — count in the test, provenance in
+        its module docstring, which names CARD-070. Both, across two places.
+      - `test_nudge_reports_failure_at_cap_on_a_real_image` (:436) — states
+        "all five nudges leave ambiguous" and why 15x15 pairs with 10x10, but
+        not that it was re-pinned or from what.
+      - `test_nudge_reports_failure_at_cap_through_the_cli` (:456) — same.
+
+      The module docstring carries the full provenance for all five, so a
+      reader is never more than one scroll away. Filed because the AC says
+      "every ... docstring" and two of them do not, not because the
+      information is missing.
+    suggestion: |
+      One sentence in each of the two cap tests, matching the other three:
+      re-pinned from landscape.png 22x22 by CARD-070, which found that fixture
+      needs zero nudges at every size.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1500c1c
+    dismissed_reason: null
+    fix_note: |
+      both cap tests now name landscape.png 22x22 as what they were re-pinned from and point at the module docstring for why
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 1811
+    title: "The batch gate is now a pure duplicate of generate's own tier parse"
+    description: |
+      Before the card the two differed — the batch compared enum names, which
+      is why `"Easy"` raised there and not in `generate`. Now both call
+      `parse_tier`, and `generate` does it at :1492 *before a seed is drawn and
+      before the aggregate exists*, so a bad tier already aborts on the first
+      loop iteration with no work done. Mutation M3 (remove the batch gate
+      entirely) was killed only by the accept tests' `made == [tier.value]`
+      assertion — the refusal tests passed with the gate gone, because
+      `generate` refused for it.
+
+      So the gate buys nothing behaviourally. It is defensible as boundary
+      validation — failing before the loop rather than inside it reads better,
+      and CARD-076 pinned tests on it — but it is now a second copy of a rule
+      that has one home, which is the shape the card's own item 1 was
+      correcting.
+    suggestion: |
+      Either keep it and say in the comment that it is a boundary convenience
+      duplicating :1492 rather than the enforcement point, or drop it and let
+      `generate` be the single gate (the CARD-076 tests would then need to
+      drive the real `generate` rather than a stub). Not urgent; the risk is
+      drift between the two, not current behaviour.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1500c1c
+    dismissed_reason: null
+    fix_note: |
+      kept as a boundary convenience, with the comment now saying so explicitly — generate at :1492 is the enforcement point, this gate exists so a batch of 200 fails at the call rather than inside the loop, and it must stay a delegation to parse_tier rather than a restatement of the rule
+    learned_pattern: null

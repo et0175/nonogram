@@ -1,6 +1,6 @@
 # CARD-070: Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/orchestrator.py (generate_batch tier validation only), src/nonogram/sourcing/random_grid.py (one comment), tests/test_batch_generator.py or a new tests/test_card_070_batch_tier.py, tests/test_nudge.py, tests/fixtures/bands.png (replace only if (a) below is chosen)
-**Review score:** —
+**Review score:** 9.0 (cycle 1), all findings fixed
 **Started:** 2026-09-13
-**Closed:** —
+**Closed:** 2026-09-13
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -255,3 +255,29 @@ card's declared Touches and guardrails:
 Six `test_sourcing_image.py` failures are the `pictures/` corpus (§10.2 #6),
 excluded by AC-3 and by the owner's standing "don't restructure pic1/ and
 pictures/".
+
+### Review cycle 1 fixes (1500c1c)
+
+One Important, three Minor, all fixed.
+
+| finding | what was wrong | what it is now |
+|---|---|---|
+| F-001 | The gate guarded on truthiness, so `""` skipped `parse_tier` and the batch read it as "any tier" while `generate` refused it one frame down — the exact split item 1 was meant to close, while the docstring claimed it was closed. The mutation check caught it: flipping the guard changed nothing the suite could see. | `is not None`. `""` is a tier name that does not exist and both functions say so with the same message, asserted as **one** claim about both so a later change cannot fix half of it. A second test pins that `None` still means "any" — every real caller passes `None`. |
+| F-004 | The gate became a pure duplicate of `generate`'s own parse at `:1492`, which already runs before a seed is drawn. | Kept — a batch of 200 should fail at the call, not inside the loop — but the comment now says it is a boundary convenience and not the enforcement point, and that it must stay a *delegation* to `parse_tier` rather than a second statement of the rule. |
+| F-002 | `BANDS` left declared and unused in `test_nudge.py` — in the one file whose docstring explains at length why that fixture must not carry nudge pins. | Deleted. `bands.png` itself stays for `test_sourcing_image.py` and the aspect helpers. |
+| F-003 | The two cap tests stated their count but not where it came from, which AC-2 asks for. | Both name `landscape.png` 22x22 as what they were re-pinned from. |
+
+**What the mutation check bought.** Nine mutants across the two cycles, eight
+killed. The one survivor was F-001 — an inconsistency that no reading of the
+diff had turned up, in a line whose comment asserted the opposite. The most
+valuable kill was the opposite kind: changing the resize filter from LANCZOS to
+NEAREST fails all five re-pinned tests, which is the first evidence that these
+pins actually detect pipeline drift. Before this card they could not — they
+failed regardless of the pipeline, so a real regression in `sourcing/image.py`
+would have been invisible underneath them.
+
+**Suite: 14 failures on `main` -> 9 here.** The five stale-pin failures are
+gone. What remains is six `pictures/`-corpus cases (excluded by AC-3), the
+`pyproject` packaging `KeyError`, the Pillow error-string pin in the web
+adapter's tests, and the standing `wave1_e2e` flake — each outside this card's
+Touches and guardrails, and each a small card of its own.
