@@ -1858,6 +1858,14 @@ def test_the_regenerate_loop_still_fires_for_the_modes_it_owns(
             grid = _AMBIGUOUS if self.candidates_requested == 1 else unique
             return [row[:] for row in grid]
 
+    # POL-006 off (CARD-074): this test counts *source* calls, and a repair
+    # does not go to the source. ADR-0024's repair step is random mode's, so
+    # leaving it live here would make the second attempt a flip of the first
+    # candidate rather than the second scripted grid — which is what
+    # tests/test_orchestrator.py's TestRecovery_* section asserts, at length.
+    # The claim under test is unchanged: random mode still recovers from a
+    # non-unique candidate, and image mode still never re-draws.
+    monkeypatch.setattr(orchestrator, "MAX_CONSECUTIVE_REPAIRS", 0)
     source = _TwoShot()
     _install_source(monkeypatch, source)
 

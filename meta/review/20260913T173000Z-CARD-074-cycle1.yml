@@ -1,0 +1,146 @@
+version: 1
+generated_at: "2026-09-13T17:30:00Z"
+target: "CARD-074 — branch card/074-repair-then-redraw, worktree ../PythonProject4-CARD-074, commit 17100ef"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/orchestrator.py (full diff + judge_candidate, export_puzzle, Puzzle)"
+    - "tests/test_orchestrator.py (TestRecovery_* section)"
+    - "tests/property/test_recovery_bound.py"
+    - "tests/test_resample.py, tests/test_naming.py, tests/test_sourcing_image.py (diff only)"
+    - "meta/architecture/decisions/adr/0024-*.md, 0002-*.md"
+    - "meta/architecture/requirements.yml (FR-025, EC-013), trace.yml (FR-025 row)"
+    - "meta/architecture/domain/{policies,commands,events,capabilities}.yml (POL-006/CMD-014/EVT-015)"
+    - "meta/kanban/cards/CARD-074.md (contract + worktree notes)"
+  not_reached:
+    - "src/nonogram/solver/** (unchanged by this diff; verdicts taken as given, certified by CARD-073)"
+    - "src/nonogram/admin/**, src/nonogram/web/** (untouched; the admin retry layer wraps generate and was not re-derived)"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 1546, removed: 22 }
+  max_fan_in: { symbol: "orchestrator.repair_candidate", callers: 14 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — orchestrator.py appears in 4 commits of a 291-commit rewritten chain; churn and defect-density carry no signal at that depth"
+    cochange_missing: "no_eligible_fact — the same 4-commit file history yields no co-change peer except the file itself"
+
+system_contract:
+  rules_checked: 10
+  holds: 10
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0024/R1 ✓ holds — judge_candidate (orchestrator.py:1480-1500) is the module's only solver.solve call site and the only confirm_uniqueness gate; the repaired grid enters it through the same `candidate = judge_candidate(grid)` line as a fresh draw (orchestrator.py:1545). Check ref PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound -> tests/property/test_recovery_bound.py::test_accepted_grids_have_real_verdicts_within_one_bound, green on 17100ef."
+    - "ADR-0024/R2 ✓ holds — both branches of attempt_candidate run under the one run_bounded(puzzle.regenerate); run_bounded and RetryCounter are untouched by the diff (no deletions in the 501,6->531,208 hunk). test_repair_attempts_count_against_the_retry_bound asserts 5 redraws + 15 repairs == 20 == puzzle.regenerate.attempts. Independently re-derived: 90 generate() runs, attempts never exceeded 20."
+    - "ADR-0024/R3 ✓ holds — repair_candidate flips exactly one parent-filled and one parent-empty cell of a single region (orchestrator.py:_first_pair_in_region). Check ref TestRecovery_RepairKeepsFilledCountExact present via the house banner convention; corroborated by test_every_repaired_grid_has_its_parents_density_exactly over the seeded corpus."
+    - "ADR-0024/R4 ✓ holds (review-lens) — no rng, random, time, monotonic or datetime reference in repair_candidate, _region_cells, _disagreement_mask or _first_pair_in_region (grep over orchestrator.py:534-700 returns only comment matches). Re-derivable: two independent runs of a 90-request probe produced byte-identical grids, attempt counts and recovery tallies."
+    - "ADR-0024/R5 ✓ holds (review-lens) — repairs_enabled (orchestrator.py:1508) is the single place mode is consulted; library and image modes take the pre-change `return candidate` path unchanged. test_library_mode_never_repairs green."
+    - "INV-002 ✓ holds — confirm_uniqueness is unchanged and remains the sole readiness gate; the diff adds no acceptance path around it."
+    - "INV-003 ✓ holds — MAX_CONSECUTIVE_REPAIRS is a plain module int, not a RetryCounter; Puzzle.recovery is a tally nothing is compared against. Re-derived over 90 runs: recovery.attempts == regenerate.attempts in every run."
+    - "CON-005 ✓ holds — grep over src/nonogram/orchestrator.py finds exactly one solver.solve call site (line 1481); the diff adds none."
+    - "ADR-0015 ✓ holds — check ref TestRecovery_SameSeedReplaysSameRepairLineage present (compares the recorded region/emptied/filled sequence, not just the accepted grid); independently re-derived by the two-run byte-identical probe above."
+    - "ADR-0007 ✓ holds — test_every_import_in_the_package_points_inward (structural ast checker) green on 17100ef; the diff adds no import to orchestrator.py."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_orchestrator.py
+    line: 1459
+    title: "AC-D's in-suite test asserts over a different corpus than the AC specifies"
+    description: |
+      AC-D states the corpus as "the 100-request 20x20 density-20 seeded corpus".
+      test_the_abandonment_rate_is_not_worse_than_pure_redraw instead runs 36 seeds at
+      10x10 density 30. The substitution is documented in the docstring and is defensible
+      — on the AC's own corpus the assertion is vacuous (60 of 60 requests abandon at both
+      K=0 and K=3, so `with_repair <= pure_redraw` holds trivially), and the 20x20
+      measurement AC-D also demands is recorded in the card's Worktree notes as required.
+      Still, the test's `given` is not the AC's `given`, and a reader checking coverage by
+      name would conclude otherwise.
+    suggestion: |
+      Amend AC-D in requirements.yml/the card to name the corpus the test actually uses and
+      state why (the specified corpus makes the assertion vacuous), rather than leaving the
+      criterion and its test describing different experiments.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_sourcing_image.py
+    line: 1868
+    title: "Two test files outside the card's Touches were modified to disable the new feature"
+    description: |
+      tests/test_naming.py:465 and tests/test_sourcing_image.py:1868 each gained a
+      monkeypatch setting MAX_CONSECUTIVE_REPAIRS = 0. Neither file is in the card's
+      Touches list. No guardrail is broken — G-3 names tests/test_nudge.py and
+      tests/test_sourcing_library.py (both untouched) and G-4 names the solver/sourcing
+      tree (untouched) — so this is undeclared scope, not a violation.
+      The substantive effect is small but real: test_the_regenerate_loop_still_fires_for_the_modes_it_owns
+      is the test guarding "random mode still recovers from a non-unique candidate", and it
+      now guards that claim in a configuration the product does not ship. The shipped
+      configuration is covered elsewhere (the TestRecovery_* section and the property
+      corpus both run at K=3), so the coverage loss is duplicated rather than absolute.
+    suggestion: |
+      Add both files to the card's Touches list so the scope record matches the diff.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 700
+    title: "RecoveryLog omits the one signal that would distinguish 'K too small' from 'K irrelevant'"
+    description: |
+      ADR-0024 defers K's calibration and names RecoveryLog as the data it needs. The tally
+      records redraws, repairs, fallback-region repairs, lineages at the K cap and lineages
+      with no repairable region — but not lineages whose repair reproduces a grid the same
+      lineage already judged. That case is not hypothetical: the AC-113 test's own docstring
+      describes it ("the repair swaps them back — the lineage oscillates between two grids
+      and never converges"), and measured over 1502 real ambiguous candidates at 10x10-15x15
+      it accounts for 154 repeat attempts across roughly 10% of lineages.
+      It matters specifically for the deferred decision: a lineage that oscillates provably
+      gains nothing from a larger K, so lineages_at_repair_cap — the field ADR-0024 will read
+      as the "K was too tight" signal — currently mixes lineages that were still making
+      progress with lineages that were cycling. The recalibration would read the wrong number.
+    suggestion: |
+      Add a `lineages_that_revisited_a_grid` (or `repeat_attempts`) field to RecoveryLog,
+      incremented when a computed Repair's grid equals one the lineage already judged. The
+      cheap sufficient test is comparing the new Repair's (emptied, filled) against the
+      previous one's (filled, emptied) — O(1), no grid hashing needed for the 2-cycle that
+      accounts for the observed cases. This is observability only; it does not change the
+      pair-choice rule and so needs no ADR-0024/R4 amendment.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "RecoveryLog.repeated_attempts — orchestrator.py; tests in tests/test_orchestrator.py and tests/property/test_recovery_bound.py"
+    dismissed_reason: null
+    learned_pattern: null

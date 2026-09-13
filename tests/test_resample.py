@@ -183,6 +183,26 @@ def _outside_band(tier: Tier) -> float:
     return _in_band(other)
 
 
+def _without_repairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn ADR-0024's repair step (POL-006) off for a scripted-source test.
+
+    ``MAX_CONSECUTIVE_REPAIRS = 0`` is ADR-0024's own rollback switch: with it
+    the recovery loop is exactly the pure-redraw loop POL-001 was before
+    CARD-074, so the scripted grid sequence maps one-to-one onto attempts
+    again. Every test that calls this is asserting POL-001's own behaviour —
+    which candidate is kept, how many grids are drawn, where the bound stops —
+    and would otherwise be asserting it *through* a repair lineage, which has
+    its own coverage in the CARD-074 ``TestRecovery_*`` tests (both kinds of
+    attempt against the same one counter, in tests/test_orchestrator.py) and in
+    tests/property/test_recovery_bound.py.
+
+    It is a real switch and not a test seam: the constant is read by
+    :func:`nonogram.orchestrator.generate` on every run, and 0 is the value the
+    card's rollback plan names.
+    """
+    monkeypatch.setattr(orchestrator, "MAX_CONSECUTIVE_REPAIRS", 0)
+
+
 # --------------------------------------------------------------------------
 # AC-024 — TestResample_AcceptsCandidateInRange
 # --------------------------------------------------------------------------
@@ -249,6 +269,7 @@ def test_a_run_without_a_tier_accepts_the_first_unique_candidate(
     source = _ScriptedSource(AMBIGUOUS, UNIQUE)
     scorer = _ScriptedScorer(_in_band(Tier.HARD))
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
     _install_scorer(monkeypatch, scorer)
 
     puzzle = generate(_request())
@@ -273,6 +294,7 @@ def test_a_non_unique_candidate_is_not_scored_at_all(
     source = _ScriptedSource(AMBIGUOUS, AMBIGUOUS, UNIQUE)
     scorer = _ScriptedScorer(_in_band(Tier.EASY))
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
     _install_scorer(monkeypatch, scorer)
 
     puzzle = generate(_request(difficulty="easy"))
@@ -566,6 +588,7 @@ def test_regeneration_still_fires_inside_a_resample_round(
     source = _ScriptedSource(AMBIGUOUS, UNIQUE, ALSO_UNIQUE)
     scorer = _ScriptedScorer(_outside_band(Tier.MEDIUM), _in_band(Tier.MEDIUM))
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
     _install_scorer(monkeypatch, scorer)
 
     puzzle = generate(_request(difficulty="medium"))
@@ -594,6 +617,7 @@ def test_the_regenerate_budget_is_the_requests_and_not_the_rounds(
     source = _ScriptedSource(UNIQUE, AMBIGUOUS, repeat_last=True)
     scorer = _ScriptedScorer(_outside_band(Tier.HARD), repeat_last=True)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
     _install_scorer(monkeypatch, scorer)
 
     with pytest.raises(GenerationAbandoned):
@@ -619,6 +643,7 @@ def test_an_exhausted_regenerate_loop_ends_the_run_rather_than_resampling(
     source = _ScriptedSource(AMBIGUOUS, repeat_last=True)
     scorer = _ScriptedScorer(_in_band(Tier.EASY), repeat_last=True)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
     _install_scorer(monkeypatch, scorer)
 
     with pytest.raises(GenerationAbandoned) as excinfo:
@@ -645,6 +670,7 @@ def test_an_abandonment_message_is_unchanged_when_no_tier_was_requested(
     """
     source = _ScriptedSource(AMBIGUOUS, repeat_last=True)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(_request())

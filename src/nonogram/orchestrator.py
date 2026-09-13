@@ -13,8 +13,10 @@ ADR-0007 gives this module three jobs and nothing else:
 The pipeline (FR-007, FR-010)
 -----------------------------
 ``source a grid -> compute its clues -> count its solutions -> score it ->
-mark ready``. A candidate that is not uniquely solvable is discarded and the
-whole thing is tried again on a fresh grid (POL-001); a candidate that *is*
+mark ready``. A candidate that is not uniquely solvable is repaired in place
+and re-judged, up to :data:`MAX_CONSECUTIVE_REPAIRS` times, before it is
+discarded for a fresh grid (POL-006 then POL-001 — random mode only, ADR-0024;
+library mode goes straight to the redraw); a candidate that *is*
 unique but whose difficulty score misses the requested tier is discarded and
 resampled the same way (POL-004). Both are bounded by the same ADR-0002 number
 (:data:`MAX_RETRY_ATTEMPTS`), after which the run is abandoned (POL-005).
@@ -128,16 +130,22 @@ from nonogram.sourcing import random_grid
 __all__ = [
     "DEFAULT_NAMES",
     "GENERATION_BUDGET_SECONDS",
+    "MAX_CONSECUTIVE_REPAIRS",
     "MAX_NUDGE_ATTEMPTS",
     "MAX_REGENERATE_ATTEMPTS",
     "MAX_RESAMPLE_ATTEMPTS",
     "MAX_RETRY_ATTEMPTS",
+    "UNDECIDED_MASK_REGION",
+    "WITNESS_DISAGREEMENT_REGION",
     "GenerationRequest",
     "NameContext",
     "Puzzle",
+    "RecoveryLog",
+    "Repair",
     "RetryCounter",
     "export_puzzle",
     "generate",
+    "repair_candidate",
     "run_bounded",
 ]
 
@@ -159,6 +167,28 @@ Grid = list[list[bool]]
 #: number, from the same ADR, and so genuinely its own constant).
 MAX_RETRY_ATTEMPTS = 20
 MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
+
+#: ADR-0024's K: how many times in a row random-mode recovery may REPAIR one
+#: candidate (POL-006) before that lineage is abandoned and POL-001 draws a
+#: fresh grid instead.
+#:
+#: Deliberately **not** a second bound, and that distinction is the whole of
+#: ADR-0024/R2 (guardrail G-2). Every repair and every redraw advances the one
+#: :attr:`Puzzle.regenerate` counter bounded by :data:`MAX_RETRY_ATTEMPTS`; K
+#: only says how that single budget is *split* between the two reactions — how
+#: long one correlated lineage may run before the loop goes back to drawing
+#: independent samples. A run can no more make 21 attempts with repairs than
+#: without them, which is why K is a plain constant here and not a
+#: :class:`RetryCounter`: it bounds nothing, it interleaves.
+#:
+#: 3 is ADR-0024's stated initial value — a guess about how often a repair
+#: lineage converges rather than wanders — explicitly scheduled for
+#: recalibration against a seeded corpus (CARD-074's measurement, recorded in
+#: that card's Worktree notes). Setting it to ``0`` disables POL-006 and
+#: restores the pure-redraw loop it replaced exactly, down to the rng draws:
+#: that is ADR-0024's rollback switch, and it is a property of how the branch
+#: in :func:`generate` is written rather than a flag anything consults.
+MAX_CONSECUTIVE_REPAIRS = 3
 
 #: ADR-0002's *other* number: POL-002's pixel-nudge cap is 5, and this is
 #: deliberately **not** written as a fraction or an alias of
@@ -501,6 +531,231 @@ def run_bounded[T](
     )
 
 
+#: The region a repair took its pair from: the cells the solver's two
+#: witnesses disagree on (ADR-0024's primary rule).
+WITNESS_DISAGREEMENT_REGION = "witness-disagreement"
+#: The region a repair took its pair from when the disagreement set held no
+#: filled/empty pair of the parent grid: the first-fixed-point undecided mask
+#: (ADR-0024's fallback rule — measured to fire, see :func:`repair_candidate`).
+UNDECIDED_MASK_REGION = "undecided-mask"
+
+
+@dataclass(frozen=True, slots=True)
+class Repair:
+    """One POL-006 repair of a candidate grid: what changed, and from where.
+
+    A value, not an action: :func:`repair_candidate` computes it and nothing
+    is judged until the orchestrator hands :attr:`grid` to the one
+    ``judge_candidate`` path like any other candidate (ADR-0024/R1).
+
+    Attributes:
+        grid: The repaired grid — the parent with exactly two cells swapped.
+        region: Which rule chose the pair, :data:`WITNESS_DISAGREEMENT_REGION`
+            or :data:`UNDECIDED_MASK_REGION`. Carried for the run summary the
+            K recalibration reads, so that the fallback's share of repairs is
+            an observed number rather than an assumption.
+        emptied: ``(row, column)`` of the parent's filled cell that became
+            empty.
+        filled: ``(row, column)`` of the parent's empty cell that became
+            filled. Exactly one of each, which is what makes the repaired
+            grid's filled count its parent's (ADR-0024/R3, AC-114).
+    """
+
+    grid: Grid
+    region: str
+    emptied: tuple[int, int]
+    filled: tuple[int, int]
+
+
+def _region_cells(mask: list[list[bool]] | None) -> list[tuple[int, int]]:
+    """The ``True`` cells of a grid-shaped mask, ranked by (row, column).
+
+    The ranking is ADR-0024/R4's and comes for free from reading the mask in
+    row-major order — there is no sort, no rng and no host state anywhere in
+    the choice, so the pair a repair flips is a pure function of the grid and
+    the solver's report.
+    """
+    if not mask:
+        return []
+    return [
+        (row_index, column_index)
+        for row_index, row in enumerate(mask)
+        for column_index, cell in enumerate(row)
+        if cell
+    ]
+
+
+def _disagreement_mask(witnesses: tuple[Grid, ...] | None) -> list[list[bool]]:
+    """The cells the solver's two witnesses differ on, grid-shaped.
+
+    Empty when the solve had fewer than two solutions in hand — a candidate
+    the solver did not report ``MANY`` for has no ambiguity to locate, and in
+    random mode there is no such rejected candidate (the clues come from a
+    real grid, so a count of 0 cannot occur). The pair is read positionally:
+    the witnesses are two solutions of the same clue set and therefore the
+    same shape.
+    """
+    if witnesses is None or len(witnesses) < 2:
+        return []
+    first, second = witnesses[0], witnesses[1]
+    return [
+        [left != right for left, right in zip(first_row, second_row, strict=True)]
+        for first_row, second_row in zip(first, second, strict=True)
+    ]
+
+
+def _first_pair_in_region(
+    grid: Grid, cells: list[tuple[int, int]]
+) -> tuple[tuple[int, int], tuple[int, int]] | None:
+    """The region's first filled and first empty cell *of the parent grid*.
+
+    ``cells`` arrives ranked by (row, column), so "first" is ADR-0024/R4's
+    rank and this walk is the whole of the pair choice. Returns ``None`` when
+    the region holds no cell of one of the two kinds — which is exactly the
+    condition ADR-0024 falls back to the wider mask on, and which the
+    CARD-073 review measured firing in 9 of 241 real MANY verdicts (~3.7%),
+    every one of them a disagreement set that was entirely empty in the
+    parent. Cells outside the grid are skipped rather than trusted.
+    """
+    emptied: tuple[int, int] | None = None
+    filled: tuple[int, int] | None = None
+    for row_index, column_index in cells:
+        if row_index >= len(grid) or column_index >= len(grid[row_index]):
+            continue
+        if grid[row_index][column_index]:
+            if emptied is None:
+                emptied = (row_index, column_index)
+        elif filled is None:
+            filled = (row_index, column_index)
+        if emptied is not None and filled is not None:
+            break
+    if emptied is None or filled is None:
+        return None
+    return emptied, filled
+
+
+def _lineage_key(grid: Grid) -> tuple[tuple[bool, ...], ...]:
+    """A hashable identity for a candidate grid, for repeat detection only.
+
+    Used by :func:`generate` to notice that a repair has handed back a grid its
+    own lineage already judged. Nothing decides anything on this — the pair
+    choice is still ADR-0024/R4's first-by-(row, column) rule and is untouched
+    — so building one tuple per attempt (at most 20 of them, against a solve
+    that costs orders of magnitude more) buys the calibration number for free.
+    """
+    return tuple(tuple(row) for row in grid)
+
+
+def repair_candidate(
+    grid: Grid,
+    *,
+    witnesses: tuple[Grid, ...] | None,
+    undecided_mask: list[list[bool]] | None,
+) -> Repair | None:
+    """POL-006 / CMD-014: flip one filled and one empty cell inside the region.
+
+    ADR-0024's repair, as a pure function of the candidate grid and what the
+    solver reported about it — no rng draw, no clock, no host state, so the
+    same seed replays the same repair lineage on every machine (ADR-0024/R4,
+    ADR-0015, guardrail G-5).
+
+    The region is the witness-disagreement set; the undecided mask is the
+    fallback, used only when the disagreement set holds no filled/empty pair
+    of the parent. That fallback is a live path, not a defensive branch: the
+    per-row filled-count argument in ADR-0024's Context only applies when the
+    candidate is itself one of the two witnesses, and CARD-073's measurement
+    found 9 of 241 real MANY verdicts where it does not hold. Both rules are
+    written as one loop over two candidate regions so neither can be dead.
+
+    Cells outside the chosen region are never touched, and the flip is one of
+    each kind, so the repaired grid has its parent's filled count exactly and
+    the requested density holds by construction rather than by ADR-0003's
+    tolerance (ADR-0024/R3, AC-132, AC-114).
+
+    Returns:
+        The :class:`Repair`, or ``None`` when neither region holds a
+        filled/empty pair — there is then nothing this rule can flip, and the
+        caller ends the lineage and redraws (POL-001).
+    """
+    for region, cells in (
+        (WITNESS_DISAGREEMENT_REGION, _region_cells(_disagreement_mask(witnesses))),
+        (UNDECIDED_MASK_REGION, _region_cells(undecided_mask)),
+    ):
+        pair = _first_pair_in_region(grid, cells)
+        if pair is None:
+            continue
+        emptied, filled = pair
+        repaired = [list(row) for row in grid]
+        repaired[emptied[0]][emptied[1]] = False
+        repaired[filled[0]][filled[1]] = True
+        return Repair(grid=repaired, region=region, emptied=emptied, filled=filled)
+    return None
+
+
+@dataclass(slots=True)
+class RecoveryLog:
+    """ADR-0024's per-run recovery tally — observability, and nothing else.
+
+    Not a counter in INV-003's sense and deliberately not a
+    :class:`RetryCounter`: nothing reads these numbers to decide anything, no
+    bound is checked against them, and deleting the field would change no
+    verdict. They exist because ADR-0024 names the K recalibration as owed and
+    says what data it needs — repairs versus redraws, and how many lineages
+    ran to the K cap. Additive; no export schema changes (ADR-0023 untouched).
+
+    Attributes:
+        redraws: Fresh grids drawn from the source (POL-001).
+        repairs: Candidates produced by flipping a pair (POL-006). With
+            :attr:`redraws` this sums to the attempts the one
+            :attr:`Puzzle.regenerate` counter recorded.
+        repairs_from_fallback_region: How many of :attr:`repairs` had to take
+            their pair from the undecided mask because the witness
+            disagreement set held no filled/empty pair.
+        lineages_at_repair_cap: Lineages that made :data:`MAX_CONSECUTIVE_REPAIRS`
+            repairs without a unique verdict and were discarded for a redraw —
+            the "K was too tight / too loose" signal.
+        lineages_without_repairable_region: Lineages ended early because
+            neither region held a pair to flip. Distinct from the above: it
+            says the repair rule had nothing to say, not that it was tried K
+            times and failed.
+        repeated_attempts: Repairs that re-judged a grid their own lineage had
+            already judged — the rule flipped a pair back and the lineage
+            began to cycle. Counted because it is the one number that tells
+            :attr:`lineages_at_repair_cap` apart into its two populations: a
+            lineage still reaching new grids when K stopped it might convert
+            with a larger K, and a lineage cycling between two grids provably
+            will not, however large K grows. Without this field the
+            recalibration ADR-0024 defers would read one number for both.
+    """
+
+    redraws: int = 0
+    repairs: int = 0
+    repairs_from_fallback_region: int = 0
+    lineages_at_repair_cap: int = 0
+    lineages_without_repairable_region: int = 0
+    repeated_attempts: int = 0
+
+    @property
+    def attempts(self) -> int:
+        """Redraws plus repairs — what the one ADR-0002 bound counted."""
+        return self.redraws + self.repairs
+
+    def describe(self) -> str:
+        """One line for a run summary, in the user's terms."""
+        return (
+            f"{self.attempts} recovery attempt"
+            f"{'s' if self.attempts != 1 else ''}: "
+            f"{self.redraws} redraw{'s' if self.redraws != 1 else ''}, "
+            f"{self.repairs} repair{'s' if self.repairs != 1 else ''} "
+            f"({self.repairs_from_fallback_region} from the undecided mask); "
+            f"{self.lineages_at_repair_cap} lineage"
+            f"{'s' if self.lineages_at_repair_cap != 1 else ''} reached the "
+            f"repair cap of {MAX_CONSECUTIVE_REPAIRS}"
+            f", {self.repeated_attempts} of the repairs re-judged a grid the "
+            f"lineage had already seen"
+        )
+
+
 @dataclass(slots=True)
 class Puzzle:
     """AGG-001 — one generation request's puzzle, across all of its retries.
@@ -524,7 +779,11 @@ class Puzzle:
     INV-003  every counter is a :class:`RetryCounter`, advanced only by
              :func:`run_bounded`. :attr:`regenerate` (POL-001),
              :attr:`resample` (POL-004) and :attr:`nudge` (POL-002) are all
-             three of them, and no other field counts anything.
+             three of them, and no other field counts anything a bound is
+             checked against. :attr:`recovery` is a tally rather than a
+             counter: it records how the regenerate counter's attempts divided
+             between redraws and repairs (ADR-0024), and nothing is ever
+             compared to it.
     """
 
     #: The request this puzzle is being generated for. Held whole rather than
@@ -599,6 +858,15 @@ class Puzzle:
     nudge: RetryCounter = field(
         default_factory=lambda: RetryCounter("pixel-nudge", MAX_NUDGE_ATTEMPTS)
     )
+    #: ADR-0024's run summary: how this run's recovery attempts divided
+    #: between POL-001 redraws and POL-006 repairs, and how the repair rule
+    #: fared. A *tally*, not a counter — it bounds nothing and INV-003 does not
+    #: reach it, which is why it is a log object beside the three
+    #: :class:`RetryCounter` fields rather than a fourth one (see
+    #: :class:`RecoveryLog`). Zero everywhere for a run that never had a
+    #: candidate rejected, and ``repairs == 0`` for every mode but random
+    #: (ADR-0024/R5).
+    recovery: RecoveryLog = field(default_factory=RecoveryLog)
     #: The current candidate's solution grid, or ``None`` before the first one
     #: is sourced.
     grid: Grid | None = None
@@ -1082,6 +1350,22 @@ def generate(
     both messages name what the candidates kept failing, the shared budget
     included (:func:`_uniqueness_reason`).
 
+    Random-mode recovery inside POL-001's loop (ADR-0024)
+    -----------------------------------------------------
+    A random-mode candidate the solver rejects is always rejected for
+    *ambiguity* — its clues came from a real grid, so a count of 0 cannot
+    happen — and the solver says where: the cells its two witnesses disagree
+    on. POL-006 acts on that before POL-001 gives up on the grid. The next
+    attempt is the same grid with one filled and one empty cell inside that
+    region swapped (:func:`repair_candidate`), re-judged in full; after
+    :data:`MAX_CONSECUTIVE_REPAIRS` such attempts on one lineage the grid is
+    discarded and a fresh one drawn, and recovery continues from there.
+
+    Both kinds of attempt are attempts of the same ``regenerate`` counter, so
+    the ADR-0002 bound of 20 covers them together and nothing new can overshoot
+    it (INV-003, ADR-0024/R2, AC-113). :attr:`Puzzle.recovery` records how the
+    20 divided, for the K recalibration ADR-0024 owes.
+
     *An exhausted inner loop ends the outer one.* ``GenerationAbandoned`` from
     the regenerate loop travels straight out through the resample attempt
     (``run_bounded`` re-raises whatever an attempt raises), so a run that
@@ -1238,22 +1522,114 @@ def generate(
         )
         return puzzle
 
+    # ADR-0024's recovery state, for random mode only (ADR-0024/R5): the
+    # repair the *next* attempt will judge, and how many repairs the current
+    # lineage has already made. Both live here, in the closure the attempt
+    # callable shares with the loop, because they are per-request state and
+    # `run_bounded` is deliberately stateless — the primitive counts, the
+    # callable decides what to try next (guardrail G-2).
+    repairs_enabled = request.mode == sourcing.RANDOM and MAX_CONSECUTIVE_REPAIRS > 0
+    pending_repair: Repair | None = None
+    consecutive_repairs = 0
+    # The grids the current lineage has already judged, for the repeat tally
+    # only (ADR-0024's deferred K calibration). Never consulted by a decision:
+    # kept under `repairs_enabled` so that K = 0 does not merely behave like
+    # the pre-ADR-0024 loop but performs exactly its work.
+    lineage_grids: set[tuple[tuple[bool, ...], ...]] = set()
+
     def attempt_candidate() -> Puzzle | None:
         """One pass of the pipeline: source -> clues -> uniqueness -> score.
 
         The single ``rng`` is threaded in here, which is what makes the
         *sequence* of discarded candidates reproducible and not merely the
         first one (ADR-0015).
+
+        Recovery (POL-001 and, since ADR-0024, POL-006)
+        ----------------------------------------------
+        Every call is one attempt against the one ``regenerate`` counter,
+        whichever kind it is — that is ADR-0024/R2 and it is structural here:
+        ``run_bounded`` advanced the counter before calling this, and this
+        function has no way to ask for an unpaid attempt.
+
+        What the attempt *is* depends on what the previous one left behind. In
+        random mode a rejected candidate is not thrown away immediately: the
+        solver reported which cells its two witnesses disagree on, so the
+        ambiguity is located, and :func:`repair_candidate` flips one filled and
+        one empty cell inside that region to make the next candidate. Up to
+        :data:`MAX_CONSECUTIVE_REPAIRS` of those run on one lineage; then the
+        lineage is dropped and the next attempt draws a fresh grid from the
+        same ``rng``, exactly as it always did. A repair draws nothing from the
+        ``rng``, so a run's repairs do not perturb the stream its redraws come
+        from (ADR-0024/R4).
+
+        Library mode keeps POL-001's redraw and image mode never reaches here
+        twice — ``repairs_enabled`` is the single place that is decided
+        (ADR-0024/R5, guardrail G-3).
         """
-        # The argument list is the mode's, not the dispatcher's (see
-        # sourcing.for_mode and _source_arguments): the random mode's
-        # density and the library mode's key are assembled per mode around the
-        # shared (width, height) pair,
-        # and CARD-015's image path joins them there. The RNG is appended here
-        # for every mode alike — including library's, whose only draw is
-        # POL-001's boundary tie-break, which is what makes a library retry a
-        # different rendering of the same template rather than a repeat.
-        return judge_candidate(source(*source_arguments, rng))
+        nonlocal pending_repair, consecutive_repairs
+
+        if pending_repair is not None:
+            # POL-006 / CMD-014 -> EVT-015: judge the repaired grid. Consumed
+            # here rather than recomputed, so the grid that is judged is the
+            # one whose parent's witnesses chose the pair.
+            grid = pending_repair.grid
+            if pending_repair.region == UNDECIDED_MASK_REGION:
+                puzzle.recovery.repairs_from_fallback_region += 1
+            if _lineage_key(grid) in lineage_grids:
+                # The lineage has come back to a grid it already judged — the
+                # rule flipped a pair back. Recorded, not acted on: choosing a
+                # different pair here would be a different rule from
+                # ADR-0024/R4's, which this card does not have the mandate to
+                # change. Measured at ~7% of lineages, and ~99% of those are an
+                # immediate reversal of the previous flip.
+                puzzle.recovery.repeated_attempts += 1
+            pending_repair = None
+            consecutive_repairs += 1
+            puzzle.recovery.repairs += 1
+        else:
+            # POL-001, unchanged. The argument list is the mode's, not the
+            # dispatcher's (see sourcing.for_mode and _source_arguments): the
+            # random mode's density and the library mode's key are assembled
+            # per mode around the shared (width, height) pair, and CARD-015's
+            # image path joins them there. The RNG is appended here for every
+            # mode alike — including library's, whose only draw is POL-001's
+            # boundary tie-break, which is what makes a library retry a
+            # different rendering of the same template rather than a repeat.
+            consecutive_repairs = 0
+            lineage_grids.clear()
+            grid = source(*source_arguments, rng)
+            puzzle.recovery.redraws += 1
+
+        if repairs_enabled:
+            lineage_grids.add(_lineage_key(grid))
+
+        # One judge path for both kinds (CON-005, INV-002, ADR-0024/R1): a
+        # repaired grid is re-solved on its own re-derived clues and is no more
+        # assumed unique than a freshly drawn one.
+        candidate = judge_candidate(grid)
+        if candidate is not None or not repairs_enabled:
+            return candidate
+
+        if consecutive_repairs >= MAX_CONSECUTIVE_REPAIRS:
+            # ADR-0024's escape: K consecutive repairs without a unique
+            # verdict end the lineage. Leaving ``pending_repair`` unset is what
+            # "discard and redraw" is in code.
+            puzzle.recovery.lineages_at_repair_cap += 1
+            return None
+
+        # The rejected candidate's own witnesses and mask — still on the
+        # aggregate, because judge_candidate records them before the uniqueness
+        # gate and the next record_candidate has not happened yet.
+        pending_repair = repair_candidate(
+            grid,
+            witnesses=puzzle.witnesses,
+            undecided_mask=puzzle.undecided_mask,
+        )
+        if pending_repair is None:
+            # Neither region held a filled/empty pair, so there is nothing to
+            # flip: the lineage ends here and the next attempt redraws.
+            puzzle.recovery.lineages_without_repairable_region += 1
+        return None
 
     def attempt_candidate_in_tier() -> Puzzle | None:
         """One resample round: a unique candidate, kept only if it is in tier.

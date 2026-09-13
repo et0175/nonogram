@@ -455,6 +455,14 @@ def test_the_name_is_resolved_once_and_survives_every_retry(
     it did not is therefore about the aggregate's lifecycle, not about the
     clock being slow.
     """
+    # ADR-0024's repair step off (MAX_CONSECUTIVE_REPAIRS = 0 is its own
+    # rollback switch, CARD-074): this test is about the *name* surviving three
+    # retries, and it counts them through the source, which a repair does not
+    # go to. With repairs live the second attempt would be a flip of the first
+    # candidate rather than a fresh draw, and the script's three grids would no
+    # longer map one-to-one onto attempts. What POL-006 does with those
+    # attempts is tests/test_orchestrator.py's TestRecovery_* section.
+    monkeypatch.setattr(orchestrator, "MAX_CONSECUTIVE_REPAIRS", 0)
     source = _install_source(monkeypatch, _ScriptedSource(AMBIGUOUS, AMBIGUOUS, UNIQUE))
     names = _at(NOON, datetime(2026, 8, 27, 14, 31), datetime(2026, 8, 27, 14, 32))
 
