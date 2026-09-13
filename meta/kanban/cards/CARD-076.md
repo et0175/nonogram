@@ -1,6 +1,6 @@
 # CARD-076: Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/076-strategy-ladder-guess-tier
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-076
 **Source:** meta/architecture/handoff.md#increment-10 (scoring + tier half; FR-029 persistence/export/admin is CARD-072, the DB re-grade is CARD-077)
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-073
-**Touches:** src/nonogram/difficulty.py (rewrite), src/nonogram/orchestrator.py (Puzzle.difficulty_tier / difficulty_in_requested_tier / record_difficulty go through the one classifier; generate_batch tier validation), src/nonogram/cli.py (--difficulty help lists four tiers), src/nonogram/web/pages.py (tier options from the enum — already enum-driven, verify), src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py (difficulty may be "guess"; SCHEMA_VERSION bump per ADR-0023/R2 if a reader would reject it), src/nonogram/admin/templates/puzzles_list.html (tier badge for Guess), src/nonogram/admin/image_to_puzzle.py (retire the private tier derivation, ADR-0025/R2), tests/test_difficulty.py (rewrite), tests/test_difficulty_tiers.py, tests/property/test_difficulty_ladder.py (new), tests/test_resample.py, tests/test_cli.py, tests/test_export_json.py, tests/test_export_csv.py, docs/GENERATION_ALGORITHM.md (§7 rewrite, §10.2 finding 3), meta/architecture/requirements.yml (AC-020/AC-022/AC-023 re-wording), meta/architecture/decisions/adr/0013-*.md (Superseded stamp already present — verify), 0005-*.md, 0015-*.md, 0023-*.md (History entries), meta/architecture/decisions/resolved.yml (DEC-013 superseded note)
+**Touches:** src/nonogram/difficulty.py (rewrite), src/nonogram/orchestrator.py (Puzzle.difficulty_tier / difficulty_in_requested_tier / record_difficulty go through the one classifier; generate_batch tier validation), src/nonogram/cli.py (--difficulty help lists four tiers), src/nonogram/web/pages.py (tier options from the enum — already enum-driven, verify), src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py (difficulty may be "guess"; SCHEMA_VERSION bump per ADR-0023/R2 if a reader would reject it), src/nonogram/admin/templates/puzzles_list.html (tier badge for Guess), src/nonogram/admin/image_to_puzzle.py (retire the private tier derivation, ADR-0025/R2), tests/test_difficulty.py (rewrite), tests/test_difficulty_tiers.py, tests/property/test_difficulty_ladder.py (new), tests/test_resample.py, tests/test_cli.py, tests/test_export_json.py, tests/test_export_csv.py, docs/GENERATION_ALGORITHM.md (§7 rewrite, §10.2 finding 3), meta/architecture/requirements.yml (AC-020/AC-022/AC-023 re-wording), meta/architecture/decisions/adr/0013-*.md (Superseded stamp already present — verify), 0005-*.md, 0015-*.md, 0023-*.md (History entries), meta/architecture/decisions/resolved.yml (DEC-013 superseded note), meta/architecture/decisions/adr/0029-*.md (2026-09-13 band-edge correction — made at card start, already on the branch)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-13T18:45Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -46,10 +46,25 @@ CARD-072, `binarisation` in CARD-079).
 ## What to implement
 
 1. **`difficulty.py` rewrite (COMP-006).** Score = band start of the
-   hardest rung present + 25 x share of cells settled at that rung
-   (ADR-0029: `simple_overlap` 0..25, `line_dp` 25..50, 
-   50..75, `probe_contradiction` 75..100; share = cells settled at the top
-   rung / total cells). Pure function of the rung counts and
+   hardest rung present + band width x share of cells settled at that rung,
+   over THREE rungs whose band edges are ADR-0005's cutoff constants:
+   `simple_overlap` 0..33, `line_dp` 33..66, `probe_contradiction` 66..100
+   (widths 33, 33, 34); share = cells settled at the top rung / total cells.
+
+   **Two corrections this card was written before — do not re-derive these
+   numbers from the card's original text.** (a) The four 25-wide bands are
+   stale: `cross_line` left the ladder in ADR-0029's 2026-09-12 revision,
+   which is what put the 33/66 cutoffs on rung boundaries. (b) The
+   33.33/66.67 edges that revision wrote are corrected to the cutoff
+   constants by ADR-0029's 2026-09-13 History entry: a puzzle topping out at
+   `simple_overlap` has a within-rung share of exactly 1.0 by definition
+   (measured 1.000 in 420 of 420 line-solvable grids), so at a width of
+   33.33 it scores 33.33, lands above `EASY_MAX_SCORE = 33.0` and classifies
+   **Medium** — emptying the Easy band and making AC-118 unsatisfiable. With
+   the edges at the cutoffs it scores exactly 33.0 and classifies Easy,
+   because the cutoffs are inclusive upper bounds.
+
+   Pure function of the rung counts and
    `branch_nodes` — `elapsed_seconds`, size and density never enter
    (ADR-0029/R3, CON-014). Retire `SignalWeights`, `SIGNAL_WEIGHTS`,
    `NormalizedSignals`, `clue_density`, `SECONDS_PER_CELL_BUDGET`,
@@ -250,4 +265,40 @@ data is touched here — the point of no return is CARD-077's batch).
 
 ## Worktree notes
 
-—
+### Measured before implementation started (2026-09-13)
+
+462 uniquely-solvable random grids, 10x10/12x12/15x15 at densities 30/45/60,
+graded by top rung:
+
+| top rung | count | share of line-solvable | within-rung share range |
+|---|---:|---:|---|
+| `simple_overlap` | 420 | 90.9% | 1.000..1.000 |
+| `line_dp` | 16 | 3.5% | 0.053..0.862 |
+| `probe_contradiction` | 26 | 5.6% | 0.056..0.947 |
+| branched (-> `Tier.GUESS`) | 0 | 0% | — |
+
+Three things follow, and each one changes how this card should be built:
+
+1. **AC-118 is satisfiable, but only just for Medium.** All three bands are
+   populated, so the criterion holds — but a 200-puzzle corpus will carry
+   roughly 7 Medium puzzles. Sample across densities and extents; a corpus
+   drawn at one density can miss the band entirely. This is CARD-073 review
+   finding F-004 ("`line_dp` is rare, ~3% of grids") measured out.
+2. **`Tier.GUESS` is unreachable from the generator.** 0 of 462 here, and 0 of
+   6,620 in ADR-0029's own measurement. AC-120, AC-121 and EC-015 therefore
+   cannot be tested on generated puzzles — they need synthetic signal records
+   with `branch_nodes > 0`. Do not spend time hunting for a branching grid;
+   ADR-0025's History already records the tier as a deliberate safety net.
+3. **Easy is a single point on the scale.** Every puzzle that never leaves
+   overlap scores exactly 33.0, because all of its settled cells are at that
+   rung by definition. So the within-rung ordering ADR-0005's recalibration is
+   waiting on does not exist inside the bottom band. Record it with the AC-118
+   distribution; G-5 says do not retune here.
+
+### ADR-0029 band-edge correction
+
+Made on this branch before implementation, because the card could not be built
+as written: see ADR-0029's 2026-09-13 History entry and item 1 above. No cutoff
+constant moved, ADR-0025/R2's `(score, branch_nodes)` signature is unchanged,
+and no rung changes hands — it corrects a band edge that sat a third of a point
+above the cutoff it was supposed to be.
