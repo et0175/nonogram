@@ -50,12 +50,30 @@ cap-reaching fails loudly there instead of quietly turning an AC test vacuous.
 Real images too
 ---------------
 The scripted grids show the loop; two pinned fixture conversions show that it
-works on an actual picture. ``bands.png`` at 10x10 really does convert to an
-ambiguous grid that two nudges repair, and ``landscape.png`` at 22x22 really
-does survive all five. Both are *pinned cases* in the sense
-``tests/test_sourcing_image.py`` uses the phrase: if the dither, the solver or
-the heuristic changes such that these sizes behave differently, re-pin them by
-re-running a 10..25 sweep over the fixtures rather than deleting the test.
+works on an actual picture. ``owl1.png`` at 10x10 really does convert to an
+ambiguous grid that two nudges repair, and the *same picture* at 15x15 really
+does survive all five. One photograph doing both jobs is deliberate: it removes
+"maybe the other fixture is just harder" as an explanation for the difference,
+leaving the extent as the only variable.
+
+Both are *pinned cases* in the sense ``tests/test_sourcing_image.py`` uses the
+phrase: if the dither, the solver or the heuristic changes such that these sizes
+behave differently, re-pin them by re-running a 10..25 sweep over the fixtures
+rather than deleting the test.
+
+These pins used to name ``bands.png`` at 10x10 and ``landscape.png`` at 22x22,
+and they had **never** matched those files. The tests arrived in commit
+``96da6ac`` (2026-09-08) referring to fixtures that were not in the repository;
+two days later ``2aece6a``/``4295166`` and ``02a25a2`` created replacements to
+make the suite runnable, and nobody re-derived the counts. The replacements are
+32x32 and 60x40 hard black-and-white — two grey levels, no mid-tones — so the
+Floyd-Steinberg dither has nothing to do and every conversion is trivially
+unique. A 10..25 sweep over both finds **zero** nudges at every size, which is
+why re-pinning the sizes (this module's own recipe, above) could not work here
+and the pins had to move to a picture with actual tone in it. ``src/nonogram/
+sourcing/image.py`` has not changed since those fixtures were written, so
+nothing in the pipeline drifted — the pin and the fixture were simply never
+taken from the same image (CARD-070).
 """
 
 from __future__ import annotations
@@ -90,6 +108,14 @@ WIDE = FIXTURES / "wide.png"
 #: sweep (the module docstring's own re-pinning recipe) picked the same two
 #: sizes, which is a coincidence worth naming rather than relying on.
 LANDSCAPE = FIXTURES / "landscape.png"
+
+#: CARD-070 moved the two real-image pins here. ``owl1.png`` is a 405x500
+#: photograph with 256 grey levels, so the dither actually dithers; a 10..25
+#: sweep gives exactly 2 nudges at 10x10 and the cap at 15x15, and both are
+#: seed-independent (image mode draws no randomness — the conversion is a pure
+#: function of the file and the extent, so these are facts about the picture
+#: rather than about a seed).
+OWL = FIXTURES / "owl1.png"
 
 Grid = list[list[bool]]
 
@@ -322,16 +348,18 @@ def test_nudge_attempts_bounded_recovery_keeps_the_clues_matching_the_grid(
 def test_nudge_attempts_bounded_recovery_on_a_real_image() -> None:
     """The same recovery with nothing scripted at all (a pinned case).
 
-    ``bands.png`` at 10x10 was CARD-015's example of a genuinely ambiguous
-    conversion — it is the run that card had ending in a failure — and two
-    nudges now turn it into a puzzle. Two flipped pixels out of a hundred: the
-    picture the user handed over is still their picture, which is the whole
-    premise of nudging rather than re-drawing.
+    ``owl1.png`` at 10x10 converts to a genuinely ambiguous grid that two
+    nudges turn into a puzzle. Two flipped pixels out of a hundred: the picture
+    the user handed over is still their picture, which is the whole premise of
+    nudging rather than re-drawing.
+
+    Re-pinned from ``bands.png`` by CARD-070 — see the module docstring for why
+    that fixture could never have produced this count.
     """
-    converted = image.generate(BANDS, 10, 10, random.Random(1))
+    converted = image.generate(OWL, 10, 10, random.Random(1))
 
     puzzle = generate(
-        GenerationRequest(mode="image", image=BANDS, width=10, height=10, seed=1)
+        GenerationRequest(mode="image", image=OWL, width=10, height=10, seed=1)
     )
 
     assert puzzle.nudge.attempts == 2
@@ -433,12 +461,15 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     """The cap reached by an actual picture rather than a scripted grid (a
     pinned case, re-pinned by sweeping the fixtures — see the module docstring).
 
-    ``landscape.png`` at 22x22 converts to a grid that all five nudges leave
-    ambiguous, which is the run AC-035 describes end to end.
+    ``owl1.png`` at 15x15 converts to a grid that all five nudges leave
+    ambiguous, which is the run AC-035 describes end to end. The same
+    photograph at 10x10 is repaired in two (the test above), so the pair
+    isolates the extent: what reaches the cap is the conversion, not the
+    picture.
     """
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(
-            GenerationRequest(mode="image", image=LANDSCAPE, width=22, height=22, seed=1)
+            GenerationRequest(mode="image", image=OWL, width=15, height=15, seed=1)
         )
 
     assert "pixel-nudge" in str(excinfo.value)
@@ -452,13 +483,14 @@ def test_nudge_reports_failure_at_cap_through_the_cli(
     ``GenerationAbandoned`` is mapped by COMP-001's one exit-code table, so this
     asserts the wiring rather than a second policy.
 
-    ``22x22`` rather than a bare ``22`` since CARD-033: a bare N follows the
-    source's own shape (FR-023), and ``landscape.png``'s 3:2 box would ask for a
-    22x15 — a different conversion, and so not the pinned five-nudge failure
-    this test is the CLI end of.
+    ``15x15`` rather than a bare ``15`` since CARD-033: a bare N follows the
+    source's own shape (FR-023), and ``owl1.png``'s 405x500 box would ask for a
+    12x15 — measured, that conversion is unique on the first solve and needs no
+    nudge at all, so it is emphatically not the pinned five-nudge failure this
+    test is the CLI end of.
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22x22"]
+        ["generate", "--mode", "image", "--image", str(OWL), "--size", "15x15"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED

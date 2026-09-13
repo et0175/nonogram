@@ -93,6 +93,10 @@ from nonogram.sourcing import image, library, random_grid
 #: rather than because there was nothing to open. It is square (32x32), which
 #: matters for the acceptance half — see ``_fits_the_aspect_band``.
 BANDS = Path(__file__).parent.parent / "fixtures" / "bands.png"
+#: The nudging picture. ``BANDS`` above stays where the square ink box is the
+#: point (the aspect-guard helpers below); this one is for the single test that
+#: needs a conversion the nudge loop actually has to repair — CARD-070.
+OWL = Path(__file__).parent.parent / "fixtures" / "owl1.png"
 
 #: A real template key, for the same reason on the library side.
 LIBRARY_KEY = "cat"
@@ -1075,7 +1079,7 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
     else asserts: a later card that resolved the extent inside a retry loop, or
     read the shape a second time to re-check it, would change this number and
     break no other test. Which is why **both** runs below retry — the helper
-    asserts ``nudge.attempts == 2`` for each: ``bands.png`` at 10x10 converts
+    asserts ``nudge.attempts == 2`` for each: ``owl1.png`` at 10x10 converts
     to an ambiguous grid that two pixel-nudges repair
     (``tests/test_nudge.py``'s own pin), so both counts are measured across a
     run with three candidates in it, and the difference between them cannot be
@@ -1083,11 +1087,20 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
     once-outside-both-loops placement of ``orchestrator._resolved_extent``,
     stated as a count instead of as a comment.
 
-    The two requests differ in one token and nothing else: ``bands.png`` is
-    32x32, so a bare ``--size 10`` derives exactly the ``10x10`` the explicit
-    form states, and both runs convert the same picture into the same grid by
-    the same route. The difference in the count is therefore the shape lookup
-    and cannot be anything else.
+    The two requests differ in one token and nothing else, and both land on
+    ``10x10``: ``owl1.png`` is 405x500, so a bare ``--size 10`` puts 10 on the
+    longer axis and derives ``round(10 * 405 / 500) = 8`` for the other, which
+    MIN_SIZE raises to 10 (FR-023's floor, clamped at the bottom only). Both
+    runs therefore convert the same picture into the same grid by the same
+    route, and the difference in the count is the shape lookup and cannot be
+    anything else. That the bare form reaches 10 through the floor rather than
+    by arithmetic is incidental here — this test is about how many times the
+    file is decoded, not about how the second side was derived, which
+    ``PropertyTest_BareSize_DerivesShorterSideFromSourceShape`` owns.
+
+    Re-pinned from ``bands.png`` by CARD-070: that fixture needs zero nudges at
+    every size and always did, so the "both runs retry" premise above was never
+    true of it. See ``tests/test_nudge.py``'s module docstring.
     """
     decodes = 0
     original = image.load_greyscale
@@ -1104,7 +1117,7 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
         try:
             puzzle = orchestrator.generate(
                 orchestrator.GenerationRequest(
-                    mode="image", image=BANDS, seed=1, **extent
+                    mode="image", image=OWL, seed=1, **extent
                 )
             )
         finally:

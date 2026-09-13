@@ -1767,8 +1767,10 @@ def generate_batch(
         sizes: List of grid sizes to randomly choose from (each can be int for
             square or (width, height) tuple)
         source: Generation source mode ("random", "library", or "image")
-        difficulty_tier: Target difficulty tier name (e.g., "Easy", "Medium", "Hard"),
-            or None to accept any difficulty
+        difficulty_tier: Target difficulty tier, in any spelling
+            :func:`nonogram.difficulty.parse_tier` accepts — ``"Easy"``,
+            ``"easy"``, ``"EASY"`` are the same tier — or None to accept any
+            difficulty.
 
     Returns:
         List of successfully generated Puzzle objects with full metadata
@@ -1776,6 +1778,13 @@ def generate_batch(
 
     Raises:
         ValueError: If parameters are invalid (out-of-range count/sizes, unknown source)
+        UnsupportedDifficulty: ``difficulty_tier`` names no tier that exists.
+            This is ``parse_tier``'s own error rather than a second
+            ``ValueError``, because which tiers exist is a domain rule with a
+            domain error already defined for it, already mapped to an exit code
+            by COMP-001, and already carrying a message that lists the tiers
+            read off the enum. Raising ``ValueError`` here would mean catching
+            that answer and restating it less well (CARD-070, item 1).
         GenerationAbandoned: If a puzzle cannot be generated within retry budget
     """
     if not 1 <= count <= 200:
@@ -1784,15 +1793,22 @@ def generate_batch(
         raise ValueError(f"Sizes must be a list of ints or (width, height) tuples, got {sizes}")
     if source not in sourcing.MODES:
         raise ValueError(f"Unknown source mode {source!r}; known modes: {', '.join(sourcing.MODES)}")
-    # Read off the enum rather than spelled out, which is how ADR-0025's fourth
-    # tier reached this gate without an edit — the property CARD-076 pins in
-    # ``tests/test_orchestrator.py``. (That it compares enum *names* and so
-    # refuses the lowercase spelling ``parse_tier`` accepts is
-    # ``docs/GENERATION_ALGORITHM.md`` §10.2 finding 1, cut as CARD-070; every
-    # caller passes ``None`` today and CARD-076 deliberately does not widen the
-    # accepted spellings here.)
-    if difficulty_tier and difficulty_tier not in {t.name for t in difficulty.Tier}:
-        raise ValueError(f"Unknown difficulty tier {difficulty_tier!r}")
+    # One tier vocabulary for the whole system: ``parse_tier`` is the function
+    # the CLI already validates ``--difficulty`` through, so a batch and an
+    # interactive run now accept and refuse exactly the same spellings. It also
+    # keeps ADR-0025's property that CARD-076 pinned — the vocabulary is read
+    # off the enum, so a fifth tier would reach this gate without an edit.
+    #
+    # Until CARD-070 this compared enum *names*, which meant the batch refused
+    # ``"Easy"`` — the spelling this function's own docstring advertised — and
+    # accepted only ``"EASY"``. Nobody noticed because every caller passes
+    # ``None`` (``docs/GENERATION_ALGORITHM.md`` §10.2 finding 1).
+    #
+    # The parsed tier's *value* goes into the request, not the caller's string:
+    # ``GenerationRequest.difficulty`` is parsed again downstream, and handing
+    # it the canonical spelling means the second parse cannot disagree with the
+    # first.
+    tier = difficulty.parse_tier(difficulty_tier) if difficulty_tier else None
 
     puzzles = []
     rng = random.Random()  # Batch uses unseeded RNG; each puzzle draws its own seed
@@ -1811,7 +1827,7 @@ def generate_batch(
             width=width,
             height=height,
             density=50,  # Default to 50% density for random generation
-            difficulty=difficulty_tier,
+            difficulty=tier.value if tier is not None else None,
         )
         puzzle = generate(request)
         puzzles.append(puzzle)

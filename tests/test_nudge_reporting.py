@@ -13,10 +13,12 @@ real CLI entry point end to end (``cli.main``) rather than calling
 ``orchestrator.generate``/``export_puzzle`` directly, because the criterion is
 about what the *CLI* prints.
 
-``bands.png`` at 10x10, seed 1 is the pinned two-nudge conversion
+``owl1.png`` at 10x10, seed 1 is the pinned two-nudge conversion
 ``tests/test_nudge.py::test_nudge_attempts_bounded_recovery_on_a_real_image``
 already relies on (``puzzle.nudge.attempts == 2``); AC-040 reuses it rather
-than re-deriving a fixture that happens to need nudging. AC-041 uses
+than re-deriving a fixture that happens to need nudging. (Re-pinned from
+``bands.png`` by CARD-070, which found that fixture needs zero nudges at every
+size and always did — see ``tests/test_nudge.py``'s module docstring.) AC-041 uses
 ``landscape.png`` at 20x20, seed 1 — the pinned zero-nudge conversion
 ``tests/test_nudge.py::test_a_unique_conversion_is_never_nudged`` already
 relies on (``puzzle.nudge.attempts == 0``, ``ready_for_export is True``),
@@ -45,6 +47,10 @@ from tests.test_nudge import _ONE_SWITCH, _CountingSource, _install_source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BANDS = FIXTURES / "bands.png"
+#: The two-nudge pin, re-pinned onto a photograph by CARD-070. Only AC-040 uses
+#: it; the scripted-source test below keeps ``BANDS`` because its source is
+#: monkeypatched and the file is never converted.
+OWL = FIXTURES / "owl1.png"
 #: Re-pinned from ``wide.png`` by CARD-026 — see the note beside
 #: ``tests/test_nudge.py``'s own ``LANDSCAPE``: a 3:1 source into a square grid
 #: is now an FR-021 refusal, so the zero-nudge pin moved to a 3:2 one.
@@ -61,7 +67,7 @@ def test_export_reports_nudge_count(
             "--mode",
             "image",
             "--image",
-            str(BANDS),
+            str(OWL),
             "--size",
             "10",
             "--seed",

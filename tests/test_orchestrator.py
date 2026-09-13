@@ -43,7 +43,7 @@ from pathlib import Path
 
 import pytest
 
-from nonogram import difficulty, orchestrator
+from nonogram import difficulty, errors, orchestrator
 from nonogram.clues import compute_clues
 from nonogram.errors import (
     ExportRejected,
@@ -1578,12 +1578,11 @@ def test_generate_batch_accepts_every_tier_the_enum_names(
     ``tests/test_difficulty_tiers.py::
     test_requesting_the_fourth_tier_is_a_generation_outcome_not_a_rejection``).
 
-    Note the spelling: the gate compares enum *names*, so ``"GUESS"`` passes
-    and ``"guess"`` would not, even though ``parse_tier`` accepts both. That
-    inconsistency is ``docs/GENERATION_ALGORITHM.md`` §10.2 finding 1, cut as
-    CARD-070, and CARD-076 leaves it alone rather than widening it here — which
-    is why this test reads ``tier.name`` and does not claim the lowercase form
-    works.
+    Spelling is no longer part of the gate: CARD-070 routed it through
+    ``difficulty.parse_tier``, so ``"GUESS"``, ``"guess"`` and ``"Guess"`` are
+    one tier. This test still feeds ``tier.name`` — the spelling that worked
+    before — so it keeps pinning the enum-reading property without becoming a
+    test of the widening; the widening has its own tests below.
     """
     made: list[str | None] = []
 
@@ -1602,7 +1601,10 @@ def test_generate_batch_accepts_every_tier_the_enum_names(
     )
 
     assert len(puzzles) == 1
-    assert made == [tier.name]
+    # The canonical value, not the caller's spelling: the request is parsed
+    # again downstream and handing it ``parse_tier``'s own answer means the
+    # second parse cannot disagree with the first (CARD-070).
+    assert made == [tier.value]
 
 
 def test_generate_batch_still_refuses_a_tier_that_does_not_exist() -> None:
@@ -1610,8 +1612,82 @@ def test_generate_batch_still_refuses_a_tier_that_does_not_exist() -> None:
 
     The mirror of the test above, and the reason that one is not vacuous — a
     validation that accepted everything would pass it for every member.
+
+    CARD-070 changed the error from a local ``ValueError`` to the domain's
+    ``UnsupportedDifficulty``, which COMP-001 already maps to
+    ``ExitCode.INVALID_INPUT``; the message lists the tiers that do exist.
     """
-    with pytest.raises(ValueError, match="Unknown difficulty tier"):
+    with pytest.raises(errors.UnsupportedDifficulty, match="unsupported difficulty tier"):
         orchestrator.generate_batch(
             count=1, sizes=[10], source="random", difficulty_tier="EXTREME"
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-070 item 1 — the batch accepts the spelling its docstring advertises
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("spelling", ["Easy", "easy", "EASY", "  Easy  "])
+def test_generate_batch_accepts_every_spelling_parse_tier_accepts(
+    spelling: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``"Easy"`` is what the docstring promised and what used to raise.
+
+    The gate compared enum *names*, so only ``"EASY"`` got through —
+    ``docs/GENERATION_ALGORITHM.md`` §10.2 finding 1. Every caller passes
+    ``None``, which is why a documented spelling could raise for as long as it
+    did: no test and no user ever tried the middle case.
+    """
+    made: list[str | None] = []
+
+    def fake_generate(request: GenerationRequest) -> Puzzle:
+        made.append(request.difficulty)
+        puzzle = Puzzle(request=request, seed=0)
+        puzzle.record_candidate([[True, True], [True, False]])
+        puzzle.confirm_uniqueness(1)
+        puzzle.record_difficulty(10.0, 0)
+        return puzzle
+
+    monkeypatch.setattr(orchestrator, "generate", fake_generate)
+
+    puzzles = orchestrator.generate_batch(
+        count=1, sizes=[10], source="random", difficulty_tier=spelling
+    )
+
+    assert len(puzzles) == 1
+    assert made == [difficulty.Tier.EASY.value]
+
+
+def test_generate_batch_and_the_cli_refuse_the_same_words() -> None:
+    """One vocabulary, not two.
+
+    The point of routing through ``parse_tier`` is that a batch and an
+    interactive run cannot disagree about which tiers exist. Asserted by
+    comparing the two answers rather than by restating either.
+    """
+    with pytest.raises(errors.UnsupportedDifficulty) as batch_error:
+        orchestrator.generate_batch(
+            count=1, sizes=[10], source="random", difficulty_tier="extreme"
+        )
+    with pytest.raises(errors.UnsupportedDifficulty) as parse_error:
+        difficulty.parse_tier("extreme")
+
+    assert str(batch_error.value) == str(parse_error.value)
+
+
+def test_the_refusal_names_the_tiers_that_do_exist() -> None:
+    """A refusal that does not say what *would* work is a dead end.
+
+    Read off the enum, so the message cannot drift from the rule — including
+    ADR-0025's fourth tier, which the card's AC-1 (written before that ADR
+    landed) still calls "the three tiers".
+    """
+    with pytest.raises(errors.UnsupportedDifficulty) as caught:
+        orchestrator.generate_batch(
+            count=1, sizes=[10], source="random", difficulty_tier="extreme"
+        )
+
+    message = str(caught.value)
+    for tier in difficulty.Tier:
+        assert tier.value in message, tier
