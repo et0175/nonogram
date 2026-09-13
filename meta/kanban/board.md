@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-13 09:20 UTC_
+_Updated: 2026-09-13 18:10 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-074** P1 · Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 then redraw  _(wave 1)_ — after CARD-073
 - **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier  _(wave 1)_ — after CARD-073
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
@@ -60,6 +59,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-074** P1 · Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 per lineage, one shared bound · merged aa6d863 · review 8.5
 - **CARD-073** Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · score 9.0 (cycle 2/2) · merged ab851eb
 - **CARD-066** Filter the puzzle review by status (draft / approved / rejected / in book) · score 9.5 (cycle 3/3) · merged d07f2a2
 - **CARD-065** Small follow-ups from CARD-061..064 — honest percentages, preset labels, stale tests · score 9.5 (cycle 2/3) · merged 18a2287

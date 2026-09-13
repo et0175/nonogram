@@ -1,6 +1,6 @@
 # CARD-074: Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 per lineage, one shared bound
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-073
 **Touches:** src/nonogram/orchestrator.py (run_bounded branch, MAX_CONSECUTIVE_REPAIRS, repair step beside POL-001, run summary counts), tests/test_orchestrator.py, tests/test_resample.py, tests/property/test_recovery_bound.py (new), meta/architecture/decisions/adr/0002-*.md (History entry only)
-**Review score:** —
+**Review score:** 8.5 (cycle 1, one finding fixed)
 **Started:** 2026-09-12T23:57Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-13T18:10Z
+**Actual:** 1d
+**Merge commit:** aa6d863
 **Blocked by:** —
 
 ## Why
