@@ -1,9 +1,9 @@
 # ADR-0005: Difficulty tier cutoffs
 
-**Status:** Accepted
+**Status:** Accepted (revised by ADR-0029, 2026-09-12; cutoff *values* unchanged)
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-13 (History: the bands now sit over ADR-0029's rungs; recalibration owed)
 **Migration:** —
 **Pattern:** —
 **API-Posture:** —
@@ -115,6 +115,59 @@ time.
   ranges)
 
 ## History
+
+- 2026-09-13 (revision note, CARD-076): **the bands now sit over rungs, and the
+  cutoff constants did not move.**
+
+  ADR-0029 replaced ADR-0013's scale, which is the scale this decision divided.
+  It did not, however, re-draw the cutoffs: it mapped its three rungs onto
+  *them*. `simple_overlap` occupies 0..33, `line_dp` 33..66 and
+  `probe_contradiction` 66..100, so `EASY_MAX_SCORE = 33.0` and
+  `MEDIUM_MAX_SCORE = 66.0` are unchanged in value and no stored grade moved on
+  account of a band edge (CARD-076 guardrail G-5). What changed is what a band
+  *means*: Easy is now "the puzzle never left the overlap rule", Medium "it
+  needed the full placement intersection", Hard "it needed a refuted probe" —
+  and ADR-0025 adds a fourth tier, `guess`, which is **not** a band at all and
+  is keyed on the solve's `branch_nodes` (EC-015). This decision's own model,
+  "a tier is a bucket a scored candidate fell into", therefore holds for three
+  of the four members and is broken for the fourth by design.
+
+  It is also worth recording that this arithmetic is load-bearing in a way the
+  original decision could not have anticipated. ADR-0029's first draft mapped
+  the rungs onto idealised thirds (33.33 / 66.67), which places a band edge a
+  third of a point *above* the cutoff it is supposed to be — and since a puzzle
+  topping out at `simple_overlap` has a within-rung share of exactly 1.0 by
+  definition, every Easy puzzle would have scored 33.33 and classified Medium.
+  The Easy band would have been empty. Corrected in ADR-0029's History entry of
+  2026-09-13 by taking "the cutoffs are the rung boundaries" literally, which
+  works precisely because this decision wrote its bands with *inclusive* upper
+  bounds.
+
+  **The recalibration this decision was owed is now half discharged and half
+  still open.** The tier-per-rung mapping falls out of ADR-0029 and needs no
+  data. What remains owed is the *within-rung* ordering — whether the share of
+  cells settled at the top rung spreads puzzles usefully inside a band. The
+  measurement AC-118 asked for exists (CARD-076's Worktree notes; 292
+  uniquely-solvable random puzzles, 10x10..30x30):
+
+  | tier | rung | n | share | score range |
+  |---|---|---:|---:|---|
+  | Easy | `simple_overlap` | 258 | 88.4% | 33.000 only |
+  | Medium | `line_dp` | 8 | 2.7% | 36.667..59.400 |
+  | Hard | `probe_contradiction` | 26 | 8.9% | 68.116..98.640 |
+  | Guess | — | 0 | 0% | — |
+
+  Two things in it bear on the open half. **Easy is a single point on the
+  scale** — every puzzle that never leaves overlap settles *all* its cells
+  there, so the secondary count is 1.0 for all 258 of them and the within-rung
+  ordering this decision is waiting on does not exist inside the bottom band,
+  which is where 88% of the corpus is. And the distribution is lopsided in the
+  way this ADR's own Negative section predicted a skew might make it ("equal
+  tertile bands could leave one tier under-populated, causing the resample loop
+  to retry more often than intended"): requesting Medium at a random extent and
+  density really does resample, and `--difficulty guess` cannot be filled at
+  all on today's sources. CARD-076 recorded this and deliberately retuned
+  nothing.
 
 - 2026-08-27: Created — resolves DEC-005 by dividing the ADR-0013 0..100
   score scale into three equal tertile bands for Easy/Medium/Hard.

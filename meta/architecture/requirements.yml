@@ -383,20 +383,36 @@ functional:
         test: TestRegenerate_StopsAtMaxRetryBound
 
   - id: FR-008
+    # AMENDED 2026-09-13 (CARD-076, delivering ADR-0025/DEC-030). The selector
+    # gains a fourth tier, `guess`. Easy/Medium/Hard now grade LINE-SOLVABLE
+    # puzzles only, by the hardest solving technique the one verifying solve
+    # required (ADR-0029); `guess` is keyed on that solve's branch_nodes >= 1
+    # (EC-015) and is not a score band at all. The statement is widened rather
+    # than rewritten: this FR is still "expose a difficulty selector", and the
+    # criteria below still read over "a supported tier" and survive a rename of
+    # the display label (ADR-0025 reserves the right to rename "Guess"; the
+    # enum VALUE is the contract).
     statement: >-
-      Expose a difficulty selector with tiers Easy, Medium, and Hard.
+      Expose a difficulty selector with tiers Easy, Medium, Hard, and Guess.
     source: [US-008]
     acceptance:
       - id: AC-020
-        given: a request specifying difficulty "Medium"
+        # RE-WORDED 2026-09-13 (CARD-076): the second case is added so the
+        # fourth tier is covered by the criterion rather than only by the enum.
+        # "Pending score confirmation" is unchanged and still the point — the
+        # aggregate carries what was ASKED FOR until a candidate is graded.
+        given: a request specifying difficulty "Medium", and a request specifying difficulty "guess"
         when: generation runs
-        then: the resulting puzzle is tagged with requested tier "Medium" pending score confirmation
+        then: the resulting puzzle is tagged with the requested tier pending score confirmation, for either request
         kind: happy
         test: TestSelectDifficulty_AcceptsValidTier
       - id: AC-021
+        # RE-WORDED 2026-09-13 (CARD-076): the message now names four tiers,
+        # read off the enum rather than spelled out, so it cannot drift from
+        # what parse_tier accepts.
         given: a request specifying difficulty "Extreme" (not a supported tier)
         when: generation is requested
-        then: the request is rejected with an unsupported-difficulty error
+        then: the request is rejected with an unsupported-difficulty error whose message names every supported tier
         kind: negative
         test: TestSelectDifficulty_RejectsUnknownTier
 
@@ -434,14 +450,44 @@ functional:
       score.
     source: [US-008]
     acceptance:
+      # SUPERSEDED 2026-09-13 by AC-118 (CARD-076 implemented ADR-0029). The
+      # id is kept and the text is left as written — the FR-003/AC-009
+      # convention — so the supersession stays legible and reversible. The
+      # test name TestScoreDifficulty_CombinesSignals is RETIRED WITH IT and
+      # deliberately not reused: the weighted combination of five signals no
+      # longer exists to test. `tests/test_difficulty.py` records the
+      # retirement in its AC/test-id map.
       - id: AC-022
+        superseded_by: AC-118
+        superseded_at: 2026-09-13
+        superseded_note: >-
+          ADR-0029 replaced the weighted combination with the strategy ladder:
+          the score is the band of the hardest rung the one verifying solve
+          required plus the share of cells settled at it. There is no weight
+          table, no size or density normaliser and no solve-time term left to
+          combine. AC-118 states what replaces this criterion.
         given: solver signals for a 15x15 candidate (80% of cells solved by line-logic, low backtracking, 0.2s solve time)
         when: the candidate is scored
         then: a single numeric difficulty score is produced reflecting the weighted combination of all signals
         kind: happy
         test: TestScoreDifficulty_CombinesSignals
-      # CONTRADICTED 2026-09-12 by FR-026 (DEC pending) — see the FR-009 note.
+      # SUPERSEDED 2026-09-13 by AC-118/AC-119 (CARD-076). Flagged CONTRADICTED
+      # on 2026-09-12 pending the DEC; the DEC resolved as ADR-0029 and this is
+      # the pointer the FR-009 note promised. Not merely replaced —
+      # CONTRADICTED: under the ladder a puzzle with zero backtracking can
+      # score anywhere on the scale, which is the whole of FR-026. The test
+      # name TestScoreDifficulty_ZeroBacktrackingScoresEasiest is retired with
+      # it and not reused.
       - id: AC-023
+        superseded_by: [AC-118, AC-119]
+        superseded_at: 2026-09-13
+        superseded_note: >-
+          Contradicted, not refined. ADR-0025 moved "needs a guess" out of the
+          score entirely (it is the `guess` TIER, keyed on branch_nodes), so
+          zero backtracking is now true of every Easy, Medium and Hard puzzle
+          and says nothing about where on the scale one lands. AC-121 is what
+          remains of the true part of this criterion: branch_nodes == 0 is
+          never Tier.GUESS.
         given: a candidate solved entirely by line-logic with zero backtracking
         when: the candidate is scored
         then: the score falls at the easiest end of the scale
@@ -1586,7 +1632,7 @@ functional:
       refines: [FR-009, FR-026]
       depends_on_dec: [DEC-030, DEC-031]
       enum: [simple_overlap, line_dp, probe_contradiction, guess]   # fixed by ADR-0029 rev. 2026-09-12; cross_line dropped (it was iteration, not inference)
-      enum_note: "Member names are provisional; DEC-030/DEC-031 (FR-026's open decisions) fix the taxonomy. The criteria below are stated over 'the enum' and survive a rename; only `guess` is named because its meaning (the search branched) is already fixed by EC-015."
+      enum_note: "CLOSED 2026-09-13 (CARD-076). No longer provisional: ADR-0029 fixes the three rungs (simple_overlap < line_dp < probe_contradiction, `cross_line` dropped as iteration rather than inference) and ADR-0025 fixes `guess` as the fourth member, keyed on branch_nodes >= 1 (EC-015). The members are confirmed in code — `difficulty.LADDER` and `solver.RUNG_ORDER`, bound to each other from the test tree because ADR-0007 forbids the import (tests/test_difficulty.py::test_the_ladder_is_the_solvers_own_ladder), and `difficulty.Tier` with four members. Writing the list into `strategies_used`, the JSON `strategies` array and the admin filter remains CARD-072's."
       delivery: CARD-072
       evidence: ["src/nonogram/db/models.py:63", "src/nonogram/admin/batch_generator.py:346", "src/nonogram/admin/app.py:476", "src/nonogram/admin/puzzle_review.py:730", "src/nonogram/export/json_export.py", "docs/GENERATION_ALGORITHM.md#6", "docs/GENERATION_ALGORITHM.md#7"]
     acceptance:

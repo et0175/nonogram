@@ -624,7 +624,7 @@ def test_result_fields_are_unchanged_for_existing_callers() -> None:
         assert puzzle.confirm_uniqueness(result.solution_count) is (expected_count == 1)
 
         # COMP-006 still recognises the signals object it is handed.
-        assert isinstance(difficulty.score_difficulty(result.signals, rows), float)
+        assert isinstance(difficulty.score_difficulty(result.signals), float)
 
         # ``solution`` is still a grid of bools, never a mask.
         assert result.solution is not None

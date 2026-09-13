@@ -1,0 +1,30 @@
+{#
+  One rendering of a difficulty tier, for every admin surface that shows one.
+
+  There were five copies of the badge expression and two of the option list
+  before CARD-076's review, and they had drifted into the same two defects at
+  once: they compared against the display label ("Easy") while a row written by
+  the generation pipeline stores the enum value ("easy"), so no generated row
+  matched anything and every badge fell through to Hard's red; and none of them
+  had a branch for ADR-0025's fourth tier, so a Guess puzzle was indistinguishable
+  from a Hard one. Fixing them one at a time is what let the second and third
+  copies survive two rounds of review, so they are one macro now.
+
+  `|lower` rather than a re-grade: which spelling a stored row carries is
+  CARD-077's to normalise, and this has to be right either way.
+#}
+
+{% macro badge(tier) -%}
+<span class="badge" style="background-color: {% if tier|lower == 'easy' %}#27ae60{% elif tier|lower == 'medium' %}#f39c12{% elif tier|lower == 'hard' %}#e74c3c{% elif tier|lower == 'guess' %}#8e44ad{% else %}#95a5a6{% endif %}">{{ tier or 'N/A' }}</span>
+{%- endmacro %}
+
+{#
+  The filter's options. `selected` is whatever the query string carried, so it
+  is compared case-insensitively for the same reason the badge is.
+#}
+{% macro options(selected) -%}
+                            <option value="Easy" {% if selected|lower == 'easy' %}selected{% endif %}>Easy</option>
+                            <option value="Medium" {% if selected|lower == 'medium' %}selected{% endif %}>Medium</option>
+                            <option value="Hard" {% if selected|lower == 'hard' %}selected{% endif %}>Hard</option>
+                            <option value="Guess" {% if selected|lower == 'guess' %}selected{% endif %}>Guess</option>
+{%- endmacro %}

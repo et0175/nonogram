@@ -132,6 +132,20 @@ class ExportPayload:
             once by the orchestrator — through ``Tier.label``, the single
             source of that spelling — and carried across the boundary as a
             value. ``None`` until the puzzle has been scored.
+
+            Since ADR-0025 the value set has four members, ``"Guess"`` among
+            them. That widening did **not** bump either serialized schema
+            version, and the reason is worth stating because ADR-0023's rule
+            ("bump only when an existing reader could not survive") invites the
+            opposite assumption: this field is not *in* either serialized
+            document. ``json_export.document`` writes ``version``/``seed``/
+            ``request``/``grid``/``clues``, and ``csv_export``'s ``#meta``
+            block has a closed six-key set — neither carries ``difficulty``, so
+            no reader of either format can meet the new value, and a decoded
+            payload has had ``difficulty is None`` since long before this tier
+            existed. The two consumers are both in-process: ``pdf.py``'s page
+            header (FR-016) and the orchestrator's ``<name>-<difficulty>.pdf``
+            filename (ADR-0016), which now also spells ``cat-guess.pdf``.
     """
 
     grid: list[list[bool]]

@@ -81,7 +81,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from nonogram import cli, difficulty, orchestrator, sourcing
+from nonogram import cli, difficulty, limits, orchestrator, sourcing
 from nonogram.errors import (
     ImageNeedsManualCrop,
     SizeOutOfRange,
@@ -325,37 +325,33 @@ def test_an_out_of_band_image_request_is_still_refused_before_any_grid() -> None
         _call_for(sourcing.IMAGE)(30, 10)
 
 
-def test_difficultys_cell_span_agrees_with_the_source_range() -> None:
-    """The range's *second* definition, bound to the first from the test tree.
+def test_the_range_has_no_second_definition_in_the_scorer_any_more() -> None:
+    """The range's *second* definition, removed rather than bound (CARD-076).
 
-    ``difficulty.py`` restates the supported range as cell counts —
+    ``difficulty.py`` used to restate the supported range as cell counts —
     ``MIN_SUPPORTED_CELLS = 10 * 10`` and ``MAX_SUPPORTED_CELLS = 30 * 30`` —
     and CARD-023 had to hand-edit the maximum from ``50 * 50`` alongside
     ``random_grid.MAX_SIZE``. Two definitions of one fact, kept in step by
-    hand, is a silent-drift hazard: the next range change can move one and
-    leave the other, and nothing in ``tests/test_difficulty.py`` would fail
-    because it imports difficulty's own constants.
+    hand, is a silent-drift hazard, and this test used to be the binding that
+    held them together from the test tree (where the cross-boundary import
+    ADR-0007 forbids in ``src/`` is legal).
 
-    The duplication cannot be removed. ``difficulty`` (COMP-006) and
-    ``random_grid`` (COMP-003) are both capability modules, and ADR-0007
-    forbids a lateral import between them — the structural guard in
-    ``tests/test_cli.py`` would fail the moment ``difficulty`` imported
-    ``random_grid`` to derive the constant. So the binding has to live where
-    a cross-boundary import is legal, which is here in the test tree.
+    The duplication is now gone at the source. Those two constants existed only
+    as the denominators of ADR-0013's size normalizer, and ADR-0029 took size
+    out of the score: which technique a puzzle needs is a fact about the
+    puzzle, not about how big it is, so a 30x30 that never leaves simple
+    overlap is exactly as Easy as a 10x10 that never does. The only extent left
+    anywhere in COMP-006 is ``total_cells`` as the denominator of the
+    within-rung share, which is the grid's *own* size and not a range bound.
 
-    The two constants are the *square* corners of the extent space, and stay so
-    deliberately: they are the smallest and largest cell counts a legal request
-    can have, which is what a normalizer denominator needs, and CARD-027's
-    guardrail G-4 leaves open whether area is the right normalizer for a
-    rectangle at all. This test pins the arithmetic, not that question.
-
-    This is not a gate: ``difficulty`` clamps rather than raises, so a
-    disagreement would skew difficulty scores rather than admit an
-    out-of-range grid. It is exactly the kind of quiet wrongness that a
-    property file about the range should refuse to leave unpinned.
+    Kept as an assertion of absence rather than deleted, because "there is only
+    one definition" is the strongest form of "the two cannot drift", and it is
+    worth a line in the file that owns the property.
     """
-    assert difficulty.MIN_SUPPORTED_CELLS == random_grid.MIN_SIZE**2
-    assert difficulty.MAX_SUPPORTED_CELLS == random_grid.MAX_SIZE**2
+    assert not hasattr(difficulty, "MIN_SUPPORTED_CELLS")
+    assert not hasattr(difficulty, "MAX_SUPPORTED_CELLS")
+    # The one that remains is still exactly where CON-011 puts it.
+    assert (random_grid.MIN_SIZE, random_grid.MAX_SIZE) == (limits.MIN_SIZE, limits.MAX_SIZE)
 
 
 # --------------------------------------------------------------------------
@@ -380,9 +376,10 @@ def _annotation_is_int(node: ast.expr | None) -> bool:
 
     A grid extent is a number of cells, so an extent-named binding that admits
     an ``int`` is a scalar-extent boundary. What must NOT be caught is:
-    - ``difficulty.SignalWeights.size``, a ``float`` normalizer weight that has
-      nothing to do with how big a grid is (and which guardrail G-4 forbids
-      touching anyway).
+    - a ``float`` weight named ``size`` that has nothing to do with how big a
+      grid is. ``difficulty.SignalWeights.size`` was the instance when this was
+      written; CARD-076 retired it with ADR-0013's formula, and the exclusion
+      stays because it is about the shape, not that one field.
     - ``Tuple[int, int]`` or similar tuple pairs per ADR-0022/R1, which explicitly
       require extent to be a pair (width, height), not a scalar.
 
@@ -644,10 +641,13 @@ def test_the_scalar_extent_guard_leaves_the_two_declared_exclusions_alone(
     """...and does not fire on the two shapes CARD-027 declared out of scope.
 
     A private helper taking a type size in pixels, and a ``float`` normalizer
-    weight that happens to be called ``size``. Both exist in the package today
-    (``export/pdf._header_font`` and ``difficulty.SignalWeights.size``), and
-    both are exercised here as source rather than by name, so the exclusions are
-    a property of the rule rather than an allowlist someone has to maintain.
+    weight that happens to be called ``size``. The first still exists in the
+    package (``export/pdf._header_font``); the second did until CARD-076
+    retired ``difficulty.SignalWeights`` with the rest of ADR-0013's formula,
+    and is kept here because the *shape* is what the exclusion is about and a
+    later card may well introduce another weight named ``size``. Both are
+    exercised as source rather than by name, so the exclusions are a property
+    of the rule rather than an allowlist someone has to maintain.
     """
     allowed = tmp_path / "allowed.py"
     allowed.write_text(

@@ -164,8 +164,12 @@ Concretely:
 
 - **The 0..100 score is retained as a derived presentation, not as the
   grade.** `score = rung_base + within_rung_share * rung_width`, with the
-  three rungs mapped onto equal bands: `simple_overlap` 0..33.33, `line_dp`
-  33.33..66.67, `probe_contradiction` 66.67..100. The
+  three rungs mapped onto bands whose edges **are ADR-0005's cutoff
+  constants**: `simple_overlap` 0..33, `line_dp` 33..66,
+  `probe_contradiction` 66..100 (widths 33, 33, 34). Idealised thirds —
+  33.33 and 66.67 — are what this bullet said until the 2026-09-13
+  correction below, and they do not work: they place a band edge a third of
+  a point above the cutoff that is supposed to be that edge. The
   within-rung share is the secondary count above (cells settled at the top
   rung / total cells), so two puzzles topping out at the same rung differ by
   how much of the grid needed that technique. The export, the DB column and
@@ -354,6 +358,37 @@ reproducibility promise would stay broken under `--difficulty`.
 - `docs/GENERATION_ALGORITHM.md` §6, §7, §10.2
 
 ## History
+
+- 2026-09-13 (correction, CARD-076): **the score bands are the cutoff
+  constants, not idealised thirds.** The revision below mapped the three rungs
+  onto bands of 33.33 and said ADR-0005's 33/66 cutoffs were the rung
+  boundaries "to within rounding". The rounding is not harmless. A puzzle that
+  tops out at `simple_overlap` has *every* settled cell at that rung by
+  definition, so its within-rung share is exactly 1.0 and its score is exactly
+  the top of the first band — measured at 1.000 in 420 of 420 line-solvable
+  grids (10x10..15x15, densities 30/45/60). At a band width of 33.33 that is
+  33.33, which is above `EASY_MAX_SCORE = 33.0`, so **every Easy puzzle would
+  have classified Medium and the Easy band would have been empty** — 91% of the
+  corpus misgraded, and AC-118 unsatisfiable by construction.
+
+  Fixed by taking "the cutoffs are the rung boundaries" literally: the bands
+  are 0..33, 33..66, 66..100. Because ADR-0005's cutoffs are inclusive upper
+  bounds, a full-share bottom rung lands on 33.0 and classifies Easy, while a
+  higher rung always has a share strictly above zero (a rung is present only if
+  it settled at least one cell) and so scores strictly above its band's lower
+  edge. No cutoff constant moves (CARD-076 G-5), ADR-0025/R2's
+  `(score, branch_nodes)` classifier signature is unchanged, and no rung
+  changes hands.
+
+  Two consequences worth recording rather than fixing here. Easy is a **single
+  point** on the scale — every puzzle that never leaves overlap scores exactly
+  33.0 — so the within-rung ordering ADR-0005's recalibration is waiting on
+  does not exist inside the bottom band; that is input for the AC-118 corpus,
+  not a defect of this correction. And the distribution is lopsided: of 462
+  uniquely-solvable random grids, 420 (90.9%) top out at `simple_overlap`, 16
+  (3.5%) at `line_dp` and 26 (5.6%) at `probe_contradiction`, with 0 branching.
+  All three bands are populated, so AC-118 holds, but a 200-puzzle corpus will
+  carry only a handful of Medium puzzles.
 
 - 2026-09-12 (scoping, same day): **rung attribution applies to
   uniquely-solvable clue sets only.** Added to the Decision and to R5: rung

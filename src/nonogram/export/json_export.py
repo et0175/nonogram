@@ -79,6 +79,13 @@ __all__ = ["SCHEMA_VERSION", "decode", "document", "parse", "read", "render"]
 #: compares this number with ``!=`` and there is deliberately no compatibility
 #: read path, because a best-effort decode of an older shape is how a file
 #: quietly becomes a different puzzle (ADR-0023/R2).
+#:
+#: **Not bumped by ADR-0025's fourth difficulty tier (CARD-076).** The rule
+#: above was applied to evidence rather than to the assumption that a widened
+#: value set must break a reader: :func:`document` does not write a
+#: ``difficulty`` field at all, so no reader of this format can encounter
+#: ``"guess"``. A bump would have refused every version-2 file in existence to
+#: announce a change no version-2 file can contain.
 SCHEMA_VERSION = 2
 
 

@@ -169,6 +169,15 @@
 #       absent), so no prior_pattern fields on this run.
 
 open:
+  # ANNOTATED 2026-09-13 (CARD-076), NOT resolved. ADR-0025 added a fourth
+  # difficulty tier (`guess`), so the `<difficulty>` component of both the
+  # current convention and the revision proposed below now has four possible
+  # values, not three. `<name>-guess.pdf` is written and tested today
+  # (tests/test_export_pdf.py::test_the_pdf_filename_takes_the_fourth_tier_too);
+  # whichever way this DEC resolves, the revision inherits the same fourth
+  # value with no extra work, because the filename is built from `Tier.value`
+  # and not from a tier-to-suffix table. Nothing about the sequencing note
+  # below changes, and this entry stays open.
   - id: DEC-026
     question: >
       ADR-0016 fixes the PDF export filename as `<name>-<difficulty>.pdf`.

@@ -151,6 +151,7 @@ def _puzzle(
     grid: list[list[bool]] | None = None,
     solution_count: int | None = 1,
     score: float | None = MEDIUM_SCORE,
+    branch_nodes: int = 0,
     name: str | None = "cat",
     formats: tuple[str, ...] = (export.PDF,),
     **request_fields: object,
@@ -162,7 +163,9 @@ def _puzzle(
     ``difficulty_tier`` are only ever reached through the aggregate's own
     transitions. ``solution_count=None`` leaves the candidate unjudged, which is
     AC-048's case; ``score=None`` leaves it unscored, which is the untiered
-    aggregate ADR-0016's filename has to cope with.
+    aggregate ADR-0016's filename has to cope with. ``branch_nodes`` is the
+    other half of ADR-0025's classifier input: 0 for every line-solvable
+    fixture here, and non-zero for the one test that needs ``Tier.GUESS``.
     """
     fields: dict[str, object] = {
         "mode": "random",
@@ -180,7 +183,11 @@ def _puzzle(
     if solution_count is not None:
         puzzle.confirm_uniqueness(solution_count)
     if score is not None:
-        puzzle.record_difficulty(score)
+        # ADR-0025's classifier takes the solve's branch count beside the score.
+        # Zero here because every fixture in this file is a line-solvable
+        # puzzle; ``branch_nodes`` is passed explicitly (rather than defaulted)
+        # so a test that wants the fourth tier has to say so.
+        puzzle.record_difficulty(score, branch_nodes)
     return puzzle
 
 
@@ -1270,3 +1277,38 @@ def test_write_pdf_reports_where_it_wrote(tmp_path: Path) -> None:
     assert pdf.write_pdf(_payload(UNIQUE), destination) == destination
     assert pdf.render(_payload(UNIQUE), tmp_path / "again.pdf") is None
     assert (tmp_path / "again.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_the_pdf_filename_takes_the_fourth_tier_too(tmp_path: Path) -> None:
+    """ADR-0016 with ADR-0025's fourth value: ``cat-guess.pdf``.
+
+    The filename convention is stated over ``Tier``'s *value*, so a new enum
+    member reaches it without the naming code changing — which is the property
+    worth pinning, because the alternative design (a lookup table from tier to
+    suffix) would have needed an edit here and would have failed silently by
+    omitting the new member rather than loudly.
+
+    DEC-026's held revision (``<name>-<WxH>-<difficulty>.pdf``) gains the same
+    fourth value when it resolves; CARD-076 annotates that decision and does
+    not resolve it.
+    """
+    puzzle = _puzzle(tmp_path, name="cat", score=10.0, branch_nodes=1)
+
+    assert puzzle.difficulty_tier is difficulty.Tier.GUESS
+    assert export_puzzle(puzzle)[0].name == "cat-guess.pdf"
+
+
+def test_the_page_header_carries_the_fourth_tiers_display_label(tmp_path: Path) -> None:
+    """FR-016's header takes ``Tier.label``, so the page says "Guess", not "guess".
+
+    The two spellings are one string apart deliberately (ADR-0025: the value is
+    the contract, the label is presentation and may be renamed). This pins that
+    the payload the renderer receives carries the label form for the new member
+    as it does for the other three.
+    """
+    puzzle = _puzzle(tmp_path, name="cat", score=10.0, branch_nodes=1)
+    tier = puzzle.difficulty_tier
+    assert tier is not None
+
+    assert tier.label == "Guess"
+    assert tier.value == "guess"

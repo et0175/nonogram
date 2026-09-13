@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from datetime import datetime, date, timezone
 
+from nonogram.difficulty import tier_of_record
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 
@@ -25,7 +26,11 @@ class PuzzleFilter:
     """Filters for puzzle queries."""
 
     size: Optional[Tuple[int, int]] = None  # e.g., (20, 20) as (width, height) extent pair
-    difficulty: Optional[str] = None  # 'Easy', 'Medium', 'Hard'
+    #: Either spelling of any tier — the enum value ("easy") a
+    #: pipeline-written row carries, or the display label ("Easy") an older
+    #: one does. Resolved through difficulty.tier_of_record where it is
+    #: applied, so both match the same rows (ADR-0025's four tiers included).
+    difficulty: Optional[str] = None
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None
     status: Optional[str] = None
@@ -337,9 +342,20 @@ class PuzzleReviewService:
                     width, height = filter_opts.size
                     if puzzle["width"] != width or puzzle["height"] != height:
                         continue
-                # Difficulty filter
-                if filter_opts.difficulty and puzzle["difficulty_tier"] != filter_opts.difficulty:
-                    continue
+                # Difficulty filter. Matched by tier rather than by exact
+                # string when the requested value names one: rows carry either
+                # spelling — the pipeline writes the enum value ("easy"), older
+                # rows the display label ("Easy") — so an exact comparison hid
+                # whole populations (CARD-076 review F-002). A value that is
+                # not a tier at all keeps the old exact behaviour rather than
+                # matching everything.
+                if filter_opts.difficulty:
+                    wanted = tier_of_record(filter_opts.difficulty)
+                    if wanted is None:
+                        if puzzle["difficulty_tier"] != filter_opts.difficulty:
+                            continue
+                    elif tier_of_record(puzzle["difficulty_tier"]) is not wanted:
+                        continue
                 # Quality filter
                 if filter_opts.quality_min and puzzle["quality_score"] < filter_opts.quality_min:
                     continue
@@ -407,7 +423,15 @@ class PuzzleReviewService:
                     width, height = filter_opts.size
                     query = query.filter(Puzzle.width == width, Puzzle.height == height)
                 if filter_opts.difficulty:
-                    query = query.filter(Puzzle.difficulty_tier == filter_opts.difficulty)
+                    # Both spellings, for the reason in the in-memory branch
+                    # above: value and label are the same tier and a row may
+                    # carry either.
+                    wanted = tier_of_record(filter_opts.difficulty)
+                    query = query.filter(
+                        Puzzle.difficulty_tier.in_((wanted.value, wanted.label))
+                        if wanted is not None
+                        else Puzzle.difficulty_tier == filter_opts.difficulty
+                    )
                 if filter_opts.quality_min is not None:
                     query = query.filter(Puzzle.quality_score >= filter_opts.quality_min)
                 if filter_opts.theme:

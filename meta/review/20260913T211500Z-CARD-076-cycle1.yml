@@ -1,0 +1,225 @@
+version: 1
+generated_at: "2026-09-13T21:15:00Z"
+target: "CARD-076 — branch card/076-strategy-ladder-guess-tier, worktree ../PythonProject4-CARD-076, commits fe2b7bd..3635ea4"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/difficulty.py (full rewrite)"
+    - "src/nonogram/orchestrator.py (scoring/tier path, record_difficulty, difficulty_in_requested_tier)"
+    - "src/nonogram/export/{__init__,json_export,csv_export}.py (SCHEMA_VERSION decision)"
+    - "src/nonogram/admin/templates/puzzles_list.html, admin/image_to_puzzle.py"
+    - "tests/test_difficulty.py, test_difficulty_tiers.py, tests/property/test_difficulty_ladder.py"
+    - "meta/architecture/decisions/adr/0029, 0025, 0005; requirements.yml FR-026/EC-015/EC-016; trace.yml"
+    - "meta/kanban/cards/CARD-076.md (contract + worktree notes)"
+  not_reached:
+    - "src/nonogram/solver/** (untouched by the diff; rung tags certified by CARD-073)"
+    - "src/nonogram/admin/app.py and book_pdf_generator.py read only at the tier-comparison call sites, not end to end"
+    - "src/nonogram/web/pages.py (enum-driven, verified by test only)"
+  confidence: high
+
+metrics:
+  diff: { files: 32, added: 3075, removed: 1147 }
+  max_fan_in: { symbol: "difficulty.Tier", callers: 176 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — difficulty.py appears in 3 commits of a rewritten chain; churn carries no signal at that depth"
+    cochange_missing: "no_eligible_fact — same 3-commit file history yields no co-change peer"
+
+system_contract:
+  rules_checked: 11
+  holds: 10
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0025/R1 ✓ holds — classify() applies EC-015 before any band (difficulty.py:401-425); re-derived independently: classify(s, 1) is GUESS and classify(s, 0) is not, at s in {0, 33, 50, 100}. PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched green on 3635ea4."
+    - "ADR-0025/R2 ✓ holds — one classifier; tier_for_score is private (_tier_for_score, difficulty.py:428) and Tier.contains is removed. test_no_module_but_difficulty_classifies_a_tier walks src/nonogram/**/*.py with ast, and carries BOTH a guard-the-guard test (fabricated offending module, asserts 2 offences) and a vacuity check on the exempted path. Green on 3635ea4."
+    - "ADR-0029/R1 ✓ holds — score = band_low + share * band_width over RUNG_BANDS zipped from TIER_BANDS; re-derived at every boundary: bottom rung full share = 33.0 -> Easy, +1 line_dp cell = 33.08 -> Medium, line_dp full share = 66.0 -> Medium, +1 probe cell = 66.085 -> Hard. Corpus spans all three bands (measured 258/8/26)."
+    - "ADR-0029/R2 ✓ holds (review-lens) — grep over src/nonogram/orchestrator.py finds exactly one solver.solve call site; difficulty.py has no solver import at all (its only intra-package import is nonogram.errors) and the one `from nonogram.solver import solve` in that file is inside a docstring example, not code."
+    - "ADR-0029/R3 ✓ holds — structurally, not by discipline: elapsed_seconds is not a member of the SolverSignals protocol (difficulty.py:291-335), so the scorer cannot read a clock; size and density left with the retired formula. PropertyTest_ScoreDifficulty_IndependentOfElapsedTime green."
+    - "CON-014 ✓ holds — same evidence as ADR-0029/R3; the protocol shape makes a wall-clock term unreachable from difficulty.py and from the orchestrator's scoring path (record_difficulty takes score + branch_nodes only)."
+    - "CON-004 ✓ holds (review-lens) — difficulty remains a classifier of produced candidates: score_difficulty reads only the completed solve's signals, nothing in the diff feeds a target grade back into sourcing or the solver."
+    - "ADR-0023/R1 ✓ holds (review-lens) — neither export writes a scalar size; json_export's document is version/seed/request/grid/clues and csv_export's #meta is a closed six-key set. Unchanged by this diff."
+    - "ADR-0023/R2 ✓ holds — SCHEMA_VERSION deliberately NOT bumped, decided from the decoders rather than from ADR-0025's guess: neither format serializes `difficulty` at all, so no reader can reject `guess`; an exact-version bump would refuse every existing file of both formats to announce a change none contain. TestExport_RejectsSupersededSchemaVersion still pinned and green."
+    - "ADR-0016 ✓ holds — PDF filed as <name>-<difficulty>.pdf and the value set gains the fourth member; tests/test_export_pdf.py:1298 asserts `cat-guess.pdf`, and :1302-1314 pins that the page header takes Tier.label (\"Guess\") while the filename takes Tier.value (\"guess\"). Green on 3635ea4."
+    - "ADR-0007 ✓ holds — test_every_import_in_the_package_points_inward (ast checker over src/nonogram/**/*.py) green on 3635ea4; difficulty.py's only intra-package import is nonogram.errors, and it no longer imports nonogram.limits either."
+
+root_causes:
+  - id: RC-1
+    title: "Admin tier surfaces compare display labels against stored enum values, and none has a fourth branch"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-076.md
+    line: 25
+    title: "Architectural card ships a materially changed failure boundary with no declared failure matrix"
+    description: |
+      CARD-076 is Complexity: architectural, and its section list runs Why / What to
+      implement / Acceptance criteria / Engineering constraints / Guardrails / System
+      contract / Architecture context / Worktree notes — there is no `## Failure matrix`.
+      On an architectural card that declaration is owed, and here it is not a formality:
+      this card changed what a user sees when POL-004 cannot be satisfied, and nothing
+      in the contract says so.
+
+      Measured, same seeds on both trees, 10 requests per cell:
+        --difficulty easy, 15x15 d45:  9/10 succeed -> 0/10
+        --difficulty easy, 20x20 d50: 10/10 succeed -> 4/10
+        --difficulty hard, 15x15 d45:  0/10 -> 9/10
+        --difficulty hard, 20x20 d50:  0/10 -> 10/10
+
+      The grading is correct — those puzzles genuinely need probe contradiction, and
+      calling them Easy was ADR-0013's error — so this is not a code defect. But
+      "a tier request that used to always succeed now always abandons" is exactly the
+      failure semantics an architectural card's matrix exists to state before the fact.
+      The card's Rollback line covers reverting the branch; nothing covers the live
+      behaviour.
+    suggestion: |
+      Add a short `## Failure matrix` to the card (retroactively is fine) naming the one
+      failure-bearing boundary this card moves: POL-004 exhausting its shared 20-attempt
+      budget when the requested tier is not reachable at the requested extent/density,
+      surfacing as GenerationAbandoned. State that no bound changed and no new failure
+      mode was introduced — only which requests reach the existing one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 143
+    title: "Four admin tier consumers were left out of the fourth-member sweep, and count by display label"
+    description: |
+      The card's objective 4 is "every Tier consumer handles the fourth member
+      (ADR-0025 Negative)", and it enumerates CLI, web form, exports, PDF filename,
+      admin badge and image_to_puzzle. Four consumers are missing from that list and
+      from the diff, all of them counting or filtering puzzles by tier:
+
+        src/nonogram/admin/book_pdf_generator.py:143-145  easy/medium/hard counts
+        src/nonogram/admin/app.py:1013-1015               the same three counts for a book
+        src/nonogram/admin/templates/puzzles_list.html:66-69  the difficulty filter options
+        src/nonogram/admin/app.py:617, 832, 1234          the filter's request arg
+
+      Two problems compound. (a) All of them compare against the display labels
+      "Easy"/"Medium"/"Hard", while a row written through the generation pipeline stores
+      the enum *value* — app.py:473 persists `puzzle.difficulty_tier`, a StrEnum whose
+      value is lowercase. This is pre-existing: it is the identical mismatch the card
+      DID fix in the badge (puzzles_list.html:163, now `|lower`), and the same reasoning
+      applies one file over. (b) None of them has a fourth branch, so once (a) is fixed —
+      by this card's own badge precedent, or by CARD-077's re-grade — a book's difficulty
+      summary counts Guess puzzles as none of the three and silently under-reports.
+
+      The user's stated workflow is assembling printed books from these summaries, so a
+      count that omits a whole tier is a mislabelling risk, not a cosmetic one. The badge
+      fix in this diff establishes both that the mismatch is real and that fixing it is
+      in this card's scope.
+    suggestion: |
+      Apply the badge's own fix to the other four sites: compare case-insensitively
+      against Tier values, and give Guess its own branch in the two count blocks. If
+      that is judged too wide for this card, file it as a card of its own and say so in
+      CARD-076's notes — but do not leave one consumer fixed and four not, which is the
+      state most likely to read as "handled".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_difficulty_tiers.py
+    line: 149
+    title: "The guard-the-guard test writes its probe module into the repo's tests/ directory"
+    description: |
+      test_the_rule_catches_a_module_that_started_classifying writes
+      tests/__tier_guard_probe__.py and removes it in a finally block. The very next
+      test, test_the_rule_leaves_the_legitimate_shapes_alone, takes tmp_path and writes
+      there instead — so the fixture was available and not used.
+      An interrupt between write and unlink (Ctrl-C, a killed worker, a crash) leaves a
+      module in the directory pytest collects from, where the next run picks it up as a
+      test file.
+    suggestion: |
+      Use tmp_path, exactly as the sibling test does. The walk takes an explicit path
+      argument, so nothing requires the probe to live under tests/.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_difficulty.py
+    line: 251
+    title: "The AC-118 corpus observes Medium and Hard only at 10x10-15x15"
+    description: |
+      Self-flagged by the implementer and confirmed. The corpus reaches 20x20-30x30 only
+      at high density, because mid-density at those extents is the solver's known-hard
+      class. Every Medium and Hard member therefore comes from the small extents, so
+      "the grade is size-free" is asserted structurally (no size term exists; the
+      band-edge test is parametrized over extents) rather than observed at the top of
+      the range for the upper rungs.
+      Independently corroborated: at 20x20 density 45 only 2 of 120 drawn grids are
+      uniquely solvable at all, so a suite-speed corpus genuinely cannot sample there.
+    suggestion: |
+      Record it as an input to ADR-0005's owed recalibration — that sweep is offline and
+      can afford the time. No change to this card's tests.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-076.md
+    line: 17
+    title: "Five test files edited outside the card's declared Touches"
+    description: |
+      tests/property/test_grid_dimensions.py, tests/test_admin_image_uniqueness.py,
+      tests/test_card_051_admin_clues_reuse.py, tests/test_card_063_limits.py and
+      tests/test_web_server.py are absent from the card's Touches line. All five are
+      necessary fallout — a fourth enum member and a changed score reach them — and none
+      weakens a claim, but the scope record no longer matches the diff. Same pattern as
+      CARD-074's F-002, which is now carried by CARD-071.
+    suggestion: |
+      Add the five to the Touches line.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

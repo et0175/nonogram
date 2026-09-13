@@ -281,21 +281,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     # No ``choices=`` here, deliberately, and this is the one flag where that
-    # is easy to get wrong: the three tiers are a closed set, so argparse
+    # is easy to get wrong: the four tiers are a closed set, so argparse
     # *could* enforce them — but AC-021 asks for an unsupported tier to be
     # rejected as a domain error with the tool's own message and exit code 3,
     # not as an argparse usage error with exit code 2 (ADR-0010, guardrail
     # G-4). The names below are still read from ``difficulty.Tier`` rather than
     # spelled out, so ``--help`` cannot drift from what ``parse_tier`` accepts;
-    # what is read is the vocabulary, not the rule.
+    # what is read is the vocabulary, not the rule. That is what made ADR-0025's
+    # fourth tier (``guess``) appear here for free.
     generate.add_argument(
         "--difficulty",
         metavar="TIER",
         help=(
             f"Difficulty tier to generate for "
-            f"({', '.join(difficulty.Tier)}). Candidates whose difficulty "
-            "score misses the tier are discarded and resampled. Which tiers "
-            "exist is a domain rule and is checked after parsing, not here."
+            f"({', '.join(difficulty.Tier)}). easy/medium/hard grade puzzles "
+            "that need no guessing, by the hardest line-solving technique they "
+            "require; guess is for puzzles whose solve had to branch. "
+            "Candidates that classify into another tier are discarded and "
+            "resampled. Which tiers exist is a domain rule and is checked "
+            "after parsing, not here."
         ),
     )
     generate.add_argument(

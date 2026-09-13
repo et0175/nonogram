@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-31
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-13 (History: `difficulty` value set grew; no version bump, and why)
 **Migration:** rewrite
 **Pattern:** —
 **API-Posture:** no-http
@@ -171,6 +171,42 @@ so they must stay in lockstep, and here they should agree on the field's shape.
   description of the `#meta` layout, which changes with this ADR.
 
 ## History
+
+- 2026-09-13 (CARD-076): **the `difficulty` value set grew a fourth member and
+  neither SCHEMA_VERSION moved — decided from the decoders, not from the
+  rule's shape.**
+
+  ADR-0025 added a fourth difficulty tier, `guess`, and flagged in its own
+  Neutral section that "a reader that parses `difficulty` through `Tier(...)`
+  would reject `"guess"`, so it likely does" need a bump under R2. The
+  question was settled against the code instead, because R2 is an
+  **exact-version** rule and a bump is therefore an all-or-nothing event: it
+  refuses every file written under the old number, and by the convention this
+  ADR itself set in 2026-08-31 the two formats move together when one decision
+  touches both. Announcing a widened value set at that price is only worth it
+  if some reader can actually meet the new value.
+
+  None can. **Neither serialized document carries `difficulty` at all.**
+  `json_export.document` writes `version`, `seed`, `request`
+  (`mode`/`width`/`height`/`density`), `grid` and `clues`; `csv_export`'s
+  `#meta` block has a closed six-key set — `version`, `seed`, `mode`, `width`,
+  `height`, `density` — which has never included it. `ExportPayload.difficulty`
+  exists, but it is an in-process carrier read only by `pdf.py`'s page header
+  (FR-016) and by the orchestrator's `<name>-<difficulty>.pdf` filename
+  (ADR-0016); a decoded payload has had `difficulty is None` since long before
+  this tier existed. A bump would have refused every version-2 file in
+  existence in order to announce a change no version-2 file can contain.
+
+  So both constants stay at 2, and `TestExport_RejectsSupersededSchemaVersion`
+  stays pinned there in both `tests/test_export_json.py` and
+  `tests/test_export_csv.py`, each now carrying this reasoning in its assertion
+  message so the next card does not re-derive it. AC-B's round trip of a
+  `guess`-tier puzzle is `test_export_round_trips_a_guess_tier_puzzle` in both
+  files.
+
+  Worth flagging for the card that *does* add a field: CARD-072's `strategies`
+  array (AC-140) is a different case entirely — it adds a key, and CSV's closed
+  key set means a version-2 reader refuses it outright. That one bumps.
 
 - 2026-08-31 — Accepted. Written after establishing four things against the
   running code rather than from the requirement text: that `size` is request

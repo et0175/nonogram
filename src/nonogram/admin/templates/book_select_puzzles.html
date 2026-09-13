@@ -1,3 +1,4 @@
+{% import '_tier.html' as tier %}
 {% extends "base.html" %}
 
 {% block title %}Select Puzzles - {{ book.metadata.title }} - Nonogram Admin{% endblock %}
@@ -33,9 +34,7 @@
                         <label for="difficulty" class="form-label">Difficulty</label>
                         <select class="form-select" id="difficulty" name="difficulty">
                             <option value="">Any</option>
-                            <option value="Easy" {% if difficulty == 'Easy' %}selected{% endif %}>Easy</option>
-                            <option value="Medium" {% if difficulty == 'Medium' %}selected{% endif %}>Medium</option>
-                            <option value="Hard" {% if difficulty == 'Hard' %}selected{% endif %}>Hard</option>
+{{ tier.options(difficulty or '') }}
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -116,9 +115,7 @@
                                 </div>
                                 <div class="info-row">
                                     <span class="info-label">Difficulty:</span>
-                                    <span class="badge difficulty-badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
-                                        {{ puzzle.difficulty_tier or 'N/A' }}
-                                    </span>
+                                    {{ tier.badge(puzzle.difficulty_tier) }}
                                 </div>
                                 <div class="info-row">
                                     <span class="info-label">Quality:</span>

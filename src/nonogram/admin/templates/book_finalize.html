@@ -65,6 +65,9 @@
                         <li><strong>Easy:</strong> {{ easy_count }} puzzles</li>
                         <li><strong>Medium:</strong> {{ medium_count }} puzzles</li>
                         <li><strong>Hard:</strong> {{ hard_count }} puzzles</li>
+                        {# ADR-0025's fourth tier. Shown only when the book has one, so a
+                           book of line-solvable puzzles reads as it did before. #}
+                        {% if guess_count %}<li><strong>Guess:</strong> {{ guess_count }} puzzles</li>{% endif %}
                     </ul>
 
                     <h4 style="margin-top: 20px;">Instructions:</h4>
@@ -118,7 +121,7 @@
                 <hr>
                 <p class="mb-0" style="font-size: 13px;">
                     <strong>Difficulty Breakdown:</strong><br>
-                    Easy: {{ easy_count }} | Medium: {{ medium_count }} | Hard: {{ hard_count }}
+                    Easy: {{ easy_count }} | Medium: {{ medium_count }} | Hard: {{ hard_count }}{% if guess_count %} | Guess: {{ guess_count }}{% endif %}
                 </p>
             </div>
         </div>

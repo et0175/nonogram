@@ -26,7 +26,8 @@ stops. The number itself is COMP-006's and is tested against real solves in
 ``tests/test_difficulty.py``; substituting it here is substituting the
 collaborator, not the behaviour being asserted. Note what is *not* faked even
 then: the uniqueness verdict is always the real solver's (guardrail G-3), and
-the tier classification is always the real ``difficulty.tier_for_score``.
+the tier classification is always the real ``difficulty.classify``, and the
+branch count it is classified with is always the real solve's.
 
 *Pinned-seed* tests run the whole pipeline unmocked, scorer included, and are
 the evidence that the composition works end to end.
@@ -39,11 +40,13 @@ with the answer.
 from __future__ import annotations
 
 import random
+import time
 from collections.abc import Callable, Iterable
 
 import pytest
 
 from nonogram import cli, difficulty, orchestrator
+from nonogram.clues import compute_clues
 from nonogram.difficulty import MEDIUM_MAX_SCORE, SCORE_MAX, Tier
 from nonogram.errors import GenerationAbandoned, InvalidDensity
 from nonogram.orchestrator import (
@@ -114,18 +117,21 @@ class _ScriptedSource:
 class _ScriptedScorer:
     """Stands in for ``difficulty.score_difficulty``: fixed scores, in order.
 
-    Records the clues it was asked about, so a test can show *which* candidate
-    each score was attached to — which is how AC-026 ("the new candidate is
-    re-scored") is checked as something other than a call count.
+    Records the signals it was asked about, so a test can show *which*
+    candidate each score was attached to — which is how AC-026 ("the new
+    candidate is re-scored") is checked as something other than a call count.
+
+    Takes one argument, because since ADR-0029 the scorer does: the clues went
+    with the density term when size and density left the formula.
     """
 
     def __init__(self, *scores: float, repeat_last: bool = False) -> None:
         self._scores = list(scores)
         self._repeat_last = repeat_last
-        self.scored: list[tuple[tuple[int, ...], ...]] = []
+        self.scored: list[object] = []
 
-    def __call__(self, signals: object, clues: tuple[tuple[int, ...], ...]) -> float:
-        self.scored.append(clues)
+    def __call__(self, signals: object) -> float:
+        self.scored.append(signals)
         if not self._repeat_last and len(self.scored) > len(self._scores):
             raise AssertionError(
                 f"the loop scored candidate {len(self.scored)} but the script "
@@ -153,7 +159,10 @@ def _install_scorer(
     Patched on the ``difficulty`` module the orchestrator holds, so what is
     swapped is the collaborator the loop calls — the real function is still
     what ``tests/test_difficulty.py`` exercises, and the real
-    ``tier_for_score`` still classifies whatever this returns.
+    ``difficulty.classify`` still classifies whatever this returns, against the
+    real solve's own branch count — which is what keeps these tests honest
+    about ADR-0025: a scripted score cannot conjure ``Tier.GUESS``, because
+    that tier is not reachable from a number.
     """
     monkeypatch.setattr(orchestrator.difficulty, "score_difficulty", scorer)
 
@@ -171,15 +180,27 @@ def _request(**overrides: object) -> GenerationRequest:
     return GenerationRequest(**fields)  # type: ignore[arg-type]
 
 
+#: The three tiers a *score* can land in. ``Tier.GUESS`` is keyed on the
+#: solve's branch count instead (ADR-0025/R1, EC-015), so it has no band, no
+#: score inside it and no place in any parametrization below that varies a
+#: score. What the loop does when ``guess`` is requested is
+#: ``tests/test_difficulty_tiers.py``'s
+#: ``test_requesting_the_fourth_tier_is_a_generation_outcome_not_a_rejection``:
+#: a legitimate request POL-004 tries and, on today's sources, cannot fill.
+_BAND_TIERS: tuple[Tier, ...] = (Tier.EASY, Tier.MEDIUM, Tier.HARD)
+
+
 def _in_band(tier: Tier) -> float:
     """A score comfortably inside ``tier``'s band."""
-    low, high = tier.band
+    band = tier.band
+    assert band is not None, f"{tier} is not a score band (ADR-0025)"
+    low, high = band
     return (low + high) / 2
 
 
 def _outside_band(tier: Tier) -> float:
     """A score in some *other* tier's band."""
-    other = next(candidate for candidate in Tier if candidate is not tier)
+    other = next(candidate for candidate in _BAND_TIERS if candidate is not tier)
     return _in_band(other)
 
 
@@ -233,7 +254,7 @@ def test_accepts_candidate_in_range(monkeypatch: pytest.MonkeyPatch) -> None:
     assert puzzle.regenerate.attempts == 1
 
 
-@pytest.mark.parametrize("tier", list(Tier))
+@pytest.mark.parametrize("tier", _BAND_TIERS)
 def test_accepts_candidate_in_range_at_either_end_of_the_band(
     tier: Tier, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -244,7 +265,9 @@ def test_accepts_candidate_in_range_at_either_end_of_the_band(
     candidate that was exactly on the cutoff would abandon a perfectly good
     puzzle.
     """
-    low, high = tier.band
+    band = tier.band
+    assert band is not None
+    low, high = band
     for score in (low if tier is Tier.EASY else low + 1e-9, high):
         source = _ScriptedSource(UNIQUE)
         scorer = _ScriptedScorer(score)
@@ -393,10 +416,21 @@ def test_rescores_new_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
     """AC-026: the resampled candidate is scored before anything else is asked.
 
     Checked on *what* was scored rather than on how many times: the scorer
-    records the clues it was handed, so the assertion is that round two scored
-    the clues of round two's grid. A loop that re-checked the previous score
+    records the signals record it was handed, so the assertion is that round
+    two scored *round two's solve*. A loop that re-checked the previous score
     would have scored once, and one that scored the wrong candidate would show
-    the wrong clues.
+    the wrong solve.
+
+    Until ADR-0029 the scorer was handed the candidate's *clues* and this test
+    compared those, which named the candidate outright. The clues left the
+    signature with the density term, and what remains — the per-rung histogram
+    and the cell count — cannot tell two 2x2 grids apart: both settle all four
+    cells at ``simple_overlap``. So the binding is made through the aggregate
+    instead, and it is no weaker for it. The returned puzzle is the *second*
+    grid, carrying the *second* script entry as its score, and the source was
+    asked exactly twice. A loop that re-checked the first candidate's score
+    would have returned the first grid; one that scored the wrong candidate
+    would have returned the second grid with the first score.
     """
     source = _ScriptedSource(UNIQUE, ALSO_UNIQUE)
     scorer = _ScriptedScorer(_outside_band(Tier.EASY), _in_band(Tier.EASY))
@@ -405,11 +439,10 @@ def test_rescores_new_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
 
     puzzle = generate(_request(difficulty="easy"))
 
-    assert scorer.candidates_scored == 2
-    assert scorer.scored[0] != scorer.scored[1]
-    # The second score is the second grid's, and it is the one that was judged.
+    assert scorer.candidates_scored == source.candidates_requested == 2
+    assert puzzle.grid == ALSO_UNIQUE
     assert puzzle.clues is not None
-    assert scorer.scored[1] == puzzle.clues.rows
+    assert puzzle.clues.rows == compute_clues(ALSO_UNIQUE).rows
     assert puzzle.difficulty_score == _in_band(Tier.EASY)
 
 
@@ -425,15 +458,18 @@ def test_a_replaced_candidate_carries_no_score_until_it_is_rescored(
     """
     puzzle = Puzzle(request=_request(), seed=0, requested_tier=Tier.EASY)
     puzzle.record_candidate(UNIQUE)
-    assert puzzle.record_difficulty(_in_band(Tier.EASY)) is True
+    assert puzzle.record_difficulty(_in_band(Tier.EASY), 0) is True
     assert puzzle.difficulty_in_requested_tier is True
 
     puzzle.record_candidate(ALSO_UNIQUE)
 
     assert puzzle.difficulty_score is None
+    assert puzzle.branch_nodes is None
     assert puzzle.difficulty_tier is None
     # Unscored is not "in tier": POL-004 must not accept a candidate on the
-    # strength of its predecessor's score.
+    # strength of its predecessor's solve. Both halves of the grade are dropped
+    # — a branch count left behind would classify the replacement ``GUESS`` on
+    # its predecessor's account, which is AC-026 the other way up (ADR-0025).
     assert puzzle.difficulty_in_requested_tier is False
 
 
@@ -457,7 +493,7 @@ def test_the_score_recorded_is_the_one_the_tier_check_used(
 
     assert scorer.candidates_scored == source.candidates_requested == 2
     assert puzzle.difficulty_score == _in_band(Tier.HARD)
-    assert puzzle.difficulty_tier is difficulty.tier_for_score(_in_band(Tier.HARD))
+    assert puzzle.difficulty_tier is difficulty.classify(_in_band(Tier.HARD), 0)
 
 
 # --------------------------------------------------------------------------
@@ -738,7 +774,7 @@ def test_a_puzzle_generated_for_a_tier_really_scores_in_that_tier(seed: int) -> 
     )
 
     assert puzzle.difficulty_score is not None
-    assert Tier.EASY.contains(puzzle.difficulty_score)
+    assert difficulty.classify(puzzle.difficulty_score, 0) is Tier.EASY
     assert puzzle.difficulty_tier is Tier.EASY
     assert puzzle.requested_tier is Tier.EASY
     assert puzzle.ready_for_export is True
@@ -753,13 +789,18 @@ def test_the_same_seed_replays_the_same_resample_run() -> None:
     something different" would break reproducibility exactly here.
 
     What replays is the *work*: the same grids in the same order, discarded for
-    the same reasons. Not the score to the last digit — ADR-0013 puts wall-clock
-    solve time in the formula, weighted lightest of the three effort terms
-    precisely because "it is the only signal that varies with the machine", so
-    two runs of the identical solve score within a whisker of each other rather
-    than identically. Asserting bit-equality here would be asserting that the
-    machine is a clock-free abstraction, and would fail on a busy laptop rather
-    than on a regression.
+    the same reasons — **and, since CARD-076, the score to the last digit.**
+
+    That last clause used to read the other way round. ADR-0013 put wall-clock
+    solve time in the formula, so two runs of the identical solve scored within
+    a whisker of each other rather than identically, and this test carried an
+    ``abs=1.0`` tolerance with a note saying that asserting bit-equality would
+    be asserting that the machine is a clock-free abstraction. Under ADR-0029
+    the machine *is* a clock-free abstraction as far as the grade is concerned
+    (``difficulty.SolverSignals`` does not carry ``elapsed_seconds``), so the
+    tolerance is gone and its disappearance is the point: a loosened assertion
+    that nobody tightened again is how a reproducibility promise quietly stops
+    being one.
     """
     requests: Iterable[GenerationRequest] = (
         GenerationRequest(
@@ -776,4 +817,223 @@ def test_the_same_seed_replays_the_same_resample_run() -> None:
     # The tier — the thing the loop actually decides on — does replay.
     assert first.difficulty_tier is second.difficulty_tier
     assert first.difficulty_score is not None and second.difficulty_score is not None
-    assert first.difficulty_score == pytest.approx(second.difficulty_score, abs=1.0)
+    assert first.difficulty_score == second.difficulty_score
+    assert first.branch_nodes == second.branch_nodes
+
+
+# --------------------------------------------------------------------------
+# AC-123 (NFR-007) — TestResample_SameSeedSameTierUnderDilatedClock
+# --------------------------------------------------------------------------
+
+
+def _dilate_the_solvers_clock(
+    monkeypatch: pytest.MonkeyPatch, factor: float
+) -> None:
+    """Make every solve *report* ``factor`` times the elapsed seconds it took.
+
+    The injection point is ``time.perf_counter`` inside ``nonogram.solver.search``
+    — the one clock ``SolveSignals.elapsed_seconds`` is measured with — and
+    deliberately not ``time.monotonic``, which is what ADR-0011's cooperative
+    deadline reads. Dilating only the reported elapsed time is exactly the
+    counterfactual AC-123 poses: the same work, on a host that took fifty times
+    as long to do it, with no timeout behaviour changed and nothing else moved.
+
+    A test that instead slowed the machine down would be asserting something
+    about the machine. This asserts something about the scorer.
+    """
+    real = time.perf_counter
+
+    def dilated() -> float:
+        return real() * factor
+
+    monkeypatch.setattr(orchestrator.solver.search.time, "perf_counter", dilated)
+
+
+#: AC-123's request, with one deviation, stated rather than hidden.
+#:
+#: The criterion names "seed 42, 20x20, density 40, --difficulty Medium". That
+#: request *abandons* on this tree — 20x20 at density 40 is where the uniqueness
+#: rate collapses, and the run burns its whole shared budget in about 15 seconds
+#: without producing a puzzle — so "both runs return the same grid" would have
+#: nothing to compare. The claim under test is not about those particular
+#: numbers: it is that a dilated clock changes neither the grid nor the resample
+#: count for a given seed. This request makes that claim checkable, in a
+#: hundredth of the time, on a run that really does exercise POL-004 — three
+#: resample rounds and eight regenerate attempts before a Medium candidate is
+#: accepted, so a clock-dependent tier decision would have plenty of chances to
+#: diverge. The abandoning case is covered for the same property by
+#: ``test_an_infeasible_tier_reaches_the_user_as_generation_failed``.
+_AC123_REQUEST = {"width": 12, "height": 12, "density": 45, "seed": 1}
+
+
+def test_same_seed_same_tier_under_dilated_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-123 — ``TestResample_SameSeedSameTierUnderDilatedClock``.
+
+    One seed, one request, two host speeds: the same grid, the same score, the
+    same tier and the same attempt counts. The two runs are compared with each
+    other rather than against transcribed constants, which is what the
+    criterion asks ("both runs return the same grid") and is also the form that
+    cannot rot — a legitimate change to the source would move both runs
+    together and this test would go on asserting the thing it is for.
+
+    Equality is exact, ``grid`` and ``difficulty_score`` included. Before this
+    card the same claim could only be made to within a tolerance, because
+    ADR-0013 put wall-clock solve time in the formula — ``test_the_same_seed_
+    replays_the_same_resample_run`` below carried an ``abs=1.0`` for exactly
+    that reason and no longer needs it. This is ADR-0015's reproducibility
+    promise extended to requests that carry ``--difficulty``
+    (``docs/GENERATION_ALGORITHM.md`` §10.2 finding 3, now closed).
+
+    The run really exercises POL-004: three resample rounds and eight
+    regenerate attempts before a Medium candidate is accepted, so a
+    clock-dependent tier decision would have eight chances to keep a different
+    candidate under the slow clock.
+    """
+    with monkeypatch.context() as normal_speed:
+        _dilate_the_solvers_clock(normal_speed, 1.0)
+        at_1x = generate(_request(difficulty="Medium", **_AC123_REQUEST))
+
+    with monkeypatch.context() as slow_host:
+        _dilate_the_solvers_clock(slow_host, 50.0)
+        at_50x = generate(_request(difficulty="Medium", **_AC123_REQUEST))
+
+    assert at_1x.difficulty_tier is Tier.MEDIUM
+    assert at_50x.difficulty_tier is at_1x.difficulty_tier
+    assert at_50x.grid == at_1x.grid
+    assert at_50x.clues == at_1x.clues
+    assert at_50x.difficulty_score == at_1x.difficulty_score
+    assert at_50x.branch_nodes == at_1x.branch_nodes
+    # The *sequence* of discarded candidates replays too, not only the accepted
+    # one: that is the half a per-candidate clock term would have broken.
+    assert at_50x.resample.attempts == at_1x.resample.attempts == 3
+    assert at_50x.regenerate.attempts == at_1x.regenerate.attempts == 8
+
+
+def test_the_dilated_clock_really_reaches_the_solvers_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Guard the injection: AC-123 is vacuous if the clock never moved.
+
+    A fixture that patched the wrong ``time`` would make the test above pass by
+    doing nothing at all — the strongest possible form of a silently useless
+    test. So the dilation is shown *arriving*: the same solve reports an
+    elapsed time an order of magnitude larger under the 50x clock, while its
+    score and its tier do not move a digit.
+    """
+    clues = compute_clues(UNIQUE)
+
+    at_1x = orchestrator.solver.solve(clues.rows, clues.columns).signals
+    _dilate_the_solvers_clock(monkeypatch, 50.0)
+    at_50x = orchestrator.solver.solve(clues.rows, clues.columns).signals
+
+    assert at_50x.elapsed_seconds > at_1x.elapsed_seconds * 10
+    assert difficulty.score_difficulty(at_50x) == difficulty.score_difficulty(at_1x)
+    assert difficulty.classify(
+        difficulty.score_difficulty(at_50x), at_50x.branch_nodes
+    ) is difficulty.classify(
+        difficulty.score_difficulty(at_1x), at_1x.branch_nodes
+    )
+
+
+# --------------------------------------------------------------------------
+# AC-A (handoff checkpoint) — TestGenerate_HardTierIsLineSolvableAndMachineIndependent
+# --------------------------------------------------------------------------
+
+#: AC-A's request, and the one deviation this card had to make, stated rather
+#: than hidden.
+#:
+#: The checkpoint names ``--mode random --size 20 --density 25 --difficulty hard
+#: --seed 7``. That request **abandons** on this tree, and for a reason that has
+#: nothing to do with the difficulty grade: at 20x20 and density 25 the
+#: *uniqueness* rate collapses — a measured 0 of 4 draws come back with exactly
+#: one solution, against 3 of 4 at density 65 — so POL-004's shared budget is
+#: spent on candidates that never reach the tier check at all. Changing that
+#: would mean changing the source or the retry bound, neither of which is this
+#: card's business.
+#:
+#: The proposition AC-A makes is "``--difficulty hard`` returns a puzzle that
+#: never branched, with an identical score and tier under a dilated clock", and
+#: that is checkable at a density where the source produces puzzles. 20x20 is
+#: kept — it is the extent the checkpoint names and the one NFR-001 is written
+#: over — and the density moves to 50. The literal request is covered too, by
+#: the second test below: it abandons *identically* under both clocks, which is
+#: the same machine-independence claim made about the failure path.
+_ACA_REQUEST = {"width": 20, "height": 20, "density": 50, "seed": 0}
+
+
+def test_generate_hard_tier_is_line_solvable_and_machine_independent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-A — ``TestGenerate_HardTierIsLineSolvableAndMachineIndependent``.
+
+    Two claims in one run, and they are the whole point of the card together.
+
+    **Line-solvable.** A Hard puzzle comes back with ``branch_nodes == 0``. Under
+    ADR-0013 this was impossible in the other direction: the only route into the
+    Hard band was backtracking, so ``--difficulty hard`` meant "needs guessing" —
+    exactly backwards for the printed-book workflow the intake described.
+    ADR-0025 moved guessing out of the score entirely and ADR-0029 gave line
+    reasoning the whole scale, so Hard now means "deep, and logically solvable".
+
+    **Machine-independent.** The same request under a 1x and a 50x clock returns
+    the same grid, the same score to the last digit and the same tier — the two
+    machines of the checkpoint's "on two different machines", simulated at the
+    one place a host's speed can enter the pipeline (NFR-007, AC-123).
+    """
+    with monkeypatch.context() as normal_speed:
+        _dilate_the_solvers_clock(normal_speed, 1.0)
+        at_1x = generate(_request(difficulty="hard", **_ACA_REQUEST))
+
+    with monkeypatch.context() as slow_host:
+        _dilate_the_solvers_clock(slow_host, 50.0)
+        at_50x = generate(_request(difficulty="hard", **_ACA_REQUEST))
+
+    # The promise --difficulty hard now makes.
+    assert at_1x.difficulty_tier is Tier.HARD
+    assert at_1x.branch_nodes == 0
+    assert at_1x.ready_for_export is True
+
+    # ...made identically on a host fifty times slower.
+    assert at_50x.grid == at_1x.grid
+    assert at_50x.difficulty_score == at_1x.difficulty_score
+    assert at_50x.difficulty_tier is at_1x.difficulty_tier
+    assert at_50x.branch_nodes == at_1x.branch_nodes
+    assert at_50x.resample.attempts == at_1x.resample.attempts
+    assert at_50x.regenerate.attempts == at_1x.regenerate.attempts
+
+
+def test_the_checkpoints_own_request_abandons_identically_on_either_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-A's literal request, and its literal outcome.
+
+    ``--size 20 --density 25 --difficulty hard --seed 7`` abandons — see the
+    note on ``_ACA_REQUEST`` for why, and note that the cause is the uniqueness
+    rate at that density and not the tier: the message names both checks and
+    says they share one budget.
+
+    Pinned rather than quietly replaced, for two reasons. It keeps the
+    checkpoint's own numbers in the tree, so the next person to read AC-A finds
+    out what they actually do instead of re-discovering it. And the failure path
+    carries the same machine-independence claim as the success path: a run that
+    abandoned after a different number of attempts on a slower host would be
+    ADR-0015 broken just as surely, and would be easier to miss.
+    """
+    failures = []
+    for factor in (1.0, 50.0):
+        with monkeypatch.context() as clock:
+            _dilate_the_solvers_clock(clock, factor)
+            with pytest.raises(GenerationAbandoned) as excinfo:
+                generate(
+                    _request(
+                        difficulty="hard", width=20, height=20, density=25, seed=7
+                    )
+                )
+            failures.append(str(excinfo.value))
+
+    assert failures[0] == failures[1]
+    # Both checks are named, because either could be the one that ran out.
+    assert "uniquely solvable" in failures[0]
+    assert Tier.HARD.label in failures[0]

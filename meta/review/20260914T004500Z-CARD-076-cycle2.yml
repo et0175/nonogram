@@ -1,0 +1,206 @@
+version: 1
+generated_at: "2026-09-14T00:45:00Z"
+target: "CARD-076 — branch card/076-strategy-ladder-guess-tier, confirmation of cycle-1 findings F-001..F-005, commits 3635ea4..12d7982"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "the full fix delta 3635ea4..12d7982 (9 files cycle 1->2, 8 more in the template sweep)"
+    - "src/nonogram/difficulty.py tier_of_record; admin/{app,book_pdf_generator,puzzle_review}.py"
+    - "all 18 admin templates (parsed with the app's first_n filter stubbed)"
+    - "tests/test_admin_tier_surfaces.py (new), tests/test_difficulty_tiers.py"
+    - "meta/kanban/cards/CARD-076.md Failure matrix and Touches"
+  not_reached:
+    - "src/nonogram/solver/** — untouched, carried(cycle 1, delta-clean)"
+    - "the export decoders and the scorer — untouched by the delta, carried(cycle 1, delta-clean)"
+  confidence: high
+
+metrics:
+  diff: { files: 37, added: 3700, removed: 1200 }
+  max_fan_in: { symbol: "difficulty.Tier", callers: 176 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — rewritten chain, 3 commits on difficulty.py"
+    cochange_missing: "no_eligible_fact — same"
+    diff: "approximate — cumulative against 8a05238, not re-counted per file"
+
+system_contract:
+  rules_checked: 11
+  holds: 11
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0025/R1 ✓ holds — carried(cycle 1, delta-clean): the delta touches no scoring or classification code."
+    - "ADR-0025/R2 ✓ holds — re-verified, NOT carried: the delta adds difficulty.tier_of_record to the package, which the ast guard scans. test_no_module_but_difficulty_classifies_a_tier green on 12d7982, and a new test pins that tier_of_record takes text only — it cannot be handed a score or a branch count, so it cannot become a second classifier."
+    - "ADR-0029/R1 ✓ holds — carried(cycle 1, delta-clean)."
+    - "ADR-0029/R2 ✓ holds — carried(cycle 1, delta-clean): no solver call added; the delta is readers and templates."
+    - "ADR-0029/R3 ✓ holds — carried(cycle 1, delta-clean)."
+    - "CON-014 ✓ holds — carried(cycle 1, delta-clean)."
+    - "CON-004 ✓ holds — carried(cycle 1, delta-clean)."
+    - "ADR-0023/R1 ✓ holds — carried(cycle 1, delta-clean)."
+    - "ADR-0023/R2 ✓ holds — carried(cycle 1, delta-clean): SCHEMA_VERSION untouched by the delta."
+    - "ADR-0016 ✓ holds — carried(cycle 1, delta-clean): the filename path is untouched."
+    - "ADR-0007 ✓ holds — re-verified, NOT carried: the delta adds imports of nonogram.difficulty to three admin modules. test_every_import_in_the_package_points_inward green on 12d7982."
+
+root_causes:
+  - id: RC-1
+    title: "Cycle-1 fixed instances of the tier-rendering defect rather than the class"
+    finding_ids: [F-006, F-007]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-076.md
+    line: 183
+    title: "Architectural card ships a materially changed failure boundary with no declared failure matrix"
+    description: "Cycle-1 finding."
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "5914b6d — `## Failure matrix` with the four boundaries, the before/after tier success rates, and the extent/density table explaining why easy gets harder as density falls. Re-derived: the section exists and names GenerationAbandoned as the one boundary whose reachable set changed, with no bound moved."
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 143
+    title: "Four admin tier consumers were left out of the fourth-member sweep, and count by display label"
+    description: "Cycle-1 finding."
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "5914b6d + 12d7982 — difficulty.tier_of_record as the single output-side reader; book_pdf_generator.tier_breakdown as the single breakdown used by both the guide page and the finalize screen; both filter predicates resolved through the reader with an exact-string fallback so junk cannot widen the filter. Re-derived by mutation: reverting the in-memory predicate to its pre-fix comparison fails 5 of the new tests; restore is byte-identical and all pass."
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_difficulty_tiers.py
+    line: 544
+    title: "The guard-the-guard test writes its probe module into the repo's tests/ directory"
+    description: "Cycle-1 finding."
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "5914b6d — moved to tmp_path, matching its sibling. Re-derived: no reference to _PACKAGE_DIR.parent.parent remains in the file."
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_difficulty.py
+    line: 251
+    title: "The AC-118 corpus observes Medium and Hard only at 10x10-15x15"
+    description: "Cycle-1 finding."
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "Recorded, not fixed, as the cycle-1 report recommended. Independently corroborated: at 20x20 density 45 only 2 of 120 drawn grids are uniquely solvable, so a suite-speed corpus cannot observe the upper rungs there. Carried into the card's notes as input for ADR-0005's owed recalibration, whose sweep is offline."
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-076.md
+    line: 17
+    title: "Test files edited outside the card's declared Touches"
+    description: "Cycle-1 finding."
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "12d7982 — the cycle-1 edit added the files the review named and still missed three (trace.yml, test_orchestrator.py, test_solver_witnesses_and_rungs.py), which the confirmation pass caught. Touches is now generated from `git diff --name-only`, and re-deriving it against the diff reports nothing missing."
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/templates/book_arrange_puzzles.html
+    line: 48
+    title: "The cycle-1 fix corrected one badge and left three more carrying both defects"
+    description: |
+      Found by the confirmation pass, in exactly the shape F-002's own suggestion
+      warned about ("one consumer fixed and four not is the state most likely to
+      read as handled"). book_arrange_puzzles.html:48, book_select_puzzles.html:119
+      and batch_status.html:141 each carried a verbatim copy of the badge
+      expression the card fixed in puzzles_list.html, with both of its defects: a
+      comparison against a display label that no pipeline-written row carries, and
+      an {% else %} that painted every unmatched row — Guess and ungraded alike —
+      in Hard's red. book_select_puzzles.html:36-38 carried a second three-option
+      filter list with no Guess.
+      Five copies of one expression is why this finding survived a round of review:
+      cycle 1 fixed instances, and the instances outnumbered the fix.
+    suggestion: |
+      Already applied: _tier.html holds the only badge and the only option list,
+      all four templates import it, and a structural test fails on any template
+      that hand-writes either.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "12d7982 — verified by rendering: four tiers get four distinct colours in either spelling, ungraded rows grey rather than Hard's red, the option list carries all four members; grep finds no remaining hand-written badge or option list outside the macro; all 18 templates parse."
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_difficulty_tiers.py
+    line: 683
+    title: "Two template tests asserted on template source text rather than rendered output"
+    description: |
+      test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own and
+      test_the_admin_puzzle_filter_offers_the_fourth_tier read puzzles_list.html
+      and grepped it for `== 'guess'` and `<option value="Guess"`. Both broke when
+      the rendering moved into a macro — correctly, in that they noticed, but the
+      assertion was always weaker than it looked: a source-text match passes on a
+      commented-out line, and it pins where the markup lives rather than what it
+      renders.
+    suggestion: |
+      Already applied: both now render `_tier.html`'s macros and assert on the
+      output. Writing them surfaced an over-assertion of my own — comparing whole
+      markup across the two spellings of a tier, when the claim is only that the
+      colour matches, since the badge shows the row's own text.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "12d7982"
+    dismissed_reason: null
+    learned_pattern: null
