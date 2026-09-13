@@ -254,6 +254,41 @@ class TestStorageBoundary_RefusesRatherThanStoringAnUnprovenGrid:
 
         assert "solutions" not in str(caught.value)
 
+    def test_the_refusal_carries_the_exception_that_caused_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A refusal this card calls unreachable is the one whose cause
+        somebody will need.
+
+        ``batch_generator`` logs the refusal with ``exc_info=True`` and the
+        card points at that log as where the per-candidate detail lives. With
+        no ``from``, the entry is a NotUniquelySolvable with nothing attached
+        and the solver's own exception is gone (CARD-080 review cycle 2,
+        F-008).
+        """
+        import nonogram.admin.puzzle_review as module
+
+        planted = SolverTimeout("gave up at node 12345")
+        monkeypatch.setattr(
+            module, "solve", lambda *a, **k: (_ for _ in ()).throw(planted)
+        )
+
+        with pytest.raises(NotUniquelySolvable) as caught:
+            _add(PuzzleReviewService(), UNIQUE_GRID)
+
+        assert caught.value.__cause__ is planted
+
+    def test_a_verdict_is_not_dressed_up_as_a_failure(self) -> None:
+        """The mirror: an ambiguous grid is a *verdict*, not an exception, so
+        it must carry no cause. Otherwise every refusal would look like
+        something went wrong."""
+        service = PuzzleReviewService()
+
+        with pytest.raises(NotUniquelySolvable) as caught:
+            _add(service, AMBIGUOUS_GRID)
+
+        assert caught.value.__cause__ is None
+
 
 # --------------------------------------------------------------------------
 # AC-E
@@ -382,6 +417,19 @@ class TestTheTwoGridReaders_AgreeWithEachOther:
             {"rows": [[True]]},
             [[True, False], [True]],
             [[True], "no"],
+            # A non-list row whose LENGTH MATCHES the first row's. Without
+            # these the corpus never reaches the ``isinstance(line, list)``
+            # check at all: every generated row is built as a list, and the two
+            # hand-written odd rows above are caught by the width check and by
+            # the outer isinstance instead. A reader that dropped the type
+            # check would read "no" character by character and return
+            # [[True, False], [True, True]] where regrade._as_grid returns
+            # None — the exact drift this class exists to catch, and it was
+            # invisible here (CARD-080 review cycle 2, F-007).
+            [[True, False], "no"],
+            [[True], 1],
+            [[True, False], ("x", "y")],
+            [[True, False, True], "abc"],
         ]
         for _ in range(300):
             height = rng.randint(1, 5)
@@ -389,6 +437,12 @@ class TestTheTwoGridReaders_AgreeWithEachOther:
             grid = [[rng.choice(cells) for _ in range(width)] for _ in range(height)]
             if rng.random() < 0.2:
                 grid[-1] = grid[-1][: rng.randint(0, width)]
+            if rng.random() < 0.1:
+                # Same idea, generated: a row that is not a list, sometimes at
+                # the matching width and sometimes not.
+                grid[rng.randrange(height)] = rng.choice(
+                    ["x" * width, "x" * (width + 1), width, None, tuple([True] * width)]
+                )
             corpus.append(grid)
         return corpus
 
@@ -401,6 +455,37 @@ class TestTheTwoGridReaders_AgreeWithEachOther:
         readable = [c for c in corpus if PuzzleReviewService._as_readable_grid(c) is not None]
         assert len(readable) >= 50
         assert len(corpus) - len(readable) >= 50
+
+    def test_the_corpus_reaches_the_row_type_check(self) -> None:
+        """The specific hole F-007 was: every generated row was built as a
+        list, so no case ever exercised ``isinstance(line, list)`` — the test
+        agreed with itself. Asserted here rather than left to the generator's
+        seed, and asserted at MATCHING width, which is the only shape that gets
+        past the width check to reach the type check."""
+        corpus = self._corpus()
+
+        non_list_rows = [
+            c
+            for c in corpus
+            if isinstance(c, list) and any(not isinstance(row, list) for row in c)
+        ]
+        assert len(non_list_rows) >= 10, "no candidate reaches the row-type check"
+
+        def _width(row) -> int:
+            return len(row) if hasattr(row, "__len__") else -1
+
+        at_matching_width = [
+            c
+            for c in non_list_rows
+            if isinstance(c[0], list)
+            and any(
+                not isinstance(row, list) and _width(row) == len(c[0]) for row in c[1:]
+            )
+        ]
+        assert len(at_matching_width) >= 4, (
+            "every non-list row is caught by the width check first, so the "
+            "row-type check is still unreached"
+        )
 
     def test_they_agree_on_every_case(self) -> None:
         from nonogram.admin import regrade
@@ -618,12 +703,40 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
     def test_the_batch_is_not_thrown_away_over_one_bad_candidate(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Two real puzzles stored is two real puzzles; the note says what is
-        missing rather than discarding what is not."""
-        job, store = _run_batch(monkeypatch, count=3, refuse_at={1})
+        """Eleven real puzzles stored is eleven real puzzles; the note says
+        what is missing rather than discarding what is not.
 
-        assert job.status is not BatchStatus.ERROR
-        assert job.completed_count == 3
+        Driven through ``create_batch`` rather than ``_generate_random_batch``,
+        because that is where the decision actually lives: the inner method
+        never assigns a status at all, so asserting "not ERROR" against it was
+        an assertion that could not fail (CARD-080 review cycle 2, F-013). The
+        real question is whether the wrapper's ``except`` swallows the batch or
+        lets it complete — and whether the note survives the COMPLETE update
+        that follows it. Count is 12 because a random batch refuses fewer
+        than 10.
+        """
+        from nonogram import orchestrator as orchestrator_module
+        from nonogram.admin.batch_generator import BatchGenerator
+
+        monkeypatch.setattr(
+            orchestrator_module,
+            "generate_batch",
+            lambda **kwargs: [_candidate() for _ in range(12)],
+        )
+        generator = BatchGenerator(
+            puzzle_review_service=_StoreThatRefusesChosenCandidates({4})
+        )
+
+        batch_id = generator.create_batch(count=12, sizes=[10])
+
+        job = generator.jobs[batch_id]
+        assert job.status is BatchStatus.COMPLETE
+        assert job.completed_count == 12
+        assert job.puzzle_count == 11
+        # The COMPLETE update runs after the note is written; it must not
+        # overwrite it, or the whole F-003 fix dies one frame above the code
+        # that was reviewed.
+        assert "1 of 12" in job.error_message
 
     def test_a_clean_batch_carries_no_note(
         self, monkeypatch: pytest.MonkeyPatch

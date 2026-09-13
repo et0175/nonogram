@@ -246,14 +246,24 @@ class PuzzleReviewService:
 
     def _why_this_is_not_a_puzzle(
         self, grid: List[List[bool]], *, deadline_seconds: float
-    ) -> Optional[str]:
-        """The solver's objection to ``grid``, or ``None`` if it has none.
+    ) -> tuple[Optional[str], Optional[BaseException]]:
+        """The solver's objection to ``grid`` and its cause, or ``(None, None)``.
 
         The single place either path asks the question, so the write boundary
         and the audit cannot drift into disagreeing about what "a puzzle"
         means. It answers in the audit's voice — a reason, not a refusal —
         because a reason reads correctly in a report *and* inside the
         exception the write path wraps it in, where the reverse is not true.
+
+        The second element is the exception that produced the objection, or
+        ``None`` when the objection is a verdict rather than a failure. The
+        write path re-attaches it with ``raise ... from``; the audit drops it.
+        Returning it rather than raising here is what keeps one question in one
+        place without the write path losing its traceback: a refusal caused by
+        a :class:`SolverTimeout` is logged by ``batch_generator`` with
+        ``exc_info=True``, and a refusal that *should be unreachable* is
+        exactly the one whose cause somebody will need (CARD-080 review cycle
+        2, F-008).
 
         The clues are re-derived from the grid rather than taken from any
         ``clues_rows``/``clues_cols`` the caller supplied. Those are the
@@ -267,8 +277,8 @@ class PuzzleReviewService:
         """
         try:
             row_clues, column_clues = compute_clues(grid)
-        except (TypeError, ValueError) as exc:
-            return f"not a readable grid: {exc}"
+        except (TypeError, ValueError) as exc:  # pragma: no cover - both callers screen the shape
+            return f"not a readable grid: {exc}", exc
 
         try:
             result = solve(
@@ -276,23 +286,26 @@ class PuzzleReviewService:
                 column_clues,
                 deadline=time.monotonic() + deadline_seconds,
             )
-        except SolverTimeout:
+        except SolverTimeout as exc:
             return (
                 f"uniqueness could not be proven within {deadline_seconds}s "
                 "— unproven is not proven"
-            )
+            ), exc
 
         if result.solution_count != 1:
+            # The zero arm is unreachable while the clues are derived from the
+            # grid, since that grid satisfies them — measured over 120 random
+            # derived clue sets: 97 unique, 23 ambiguous, none unsolvable. Kept
+            # because the solver's contract allows the value, not because a
+            # caller can produce it (CARD-080 review cycle 2, F-015).
             counted = "2 or more" if result.solution_count == MANY else "0"
             return (
                 f"the clue set has {counted} solutions, and a clue set that is "
                 "not uniquely solvable is not a puzzle (FR-006)"
-            )
-        return None
+            ), None
+        return None, None
 
-    def _refuse_unless_uniquely_solvable(
-        self, grid: object, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS
-    ) -> None:
+    def _refuse_unless_uniquely_solvable(self, grid: object) -> None:
         """Ask the solver whether this grid is a puzzle, and refuse if it is not.
 
         FR-006 says uniqueness is the product's defining property, and CON-005
@@ -306,7 +319,9 @@ class PuzzleReviewService:
 
         This is the **write** path, so it is strict about cell type where
         :meth:`_as_readable_grid` coerces — see
-        :meth:`_refuse_unless_shaped_like_a_grid` for why the two differ.
+        :meth:`_refuse_unless_shaped_like_a_grid` for why the two differ. The
+        refusal carries the exception that caused it (``from cause``), so a
+        caller logging with ``exc_info`` records what the solver actually said.
 
         Raises:
             NotUniquelySolvable: the grid is not a readable grid, its clue set
@@ -315,9 +330,15 @@ class PuzzleReviewService:
         """
         self._refuse_unless_shaped_like_a_grid(grid)
 
-        objection = self._why_this_is_not_a_puzzle(grid, deadline_seconds=deadline_seconds)
+        # ADR-0011's bound, not a caller's choice — which is why this takes no
+        # budget argument. The audit's does, because raising the budget is how
+        # an operator asks a deeper question of a table; a *write* that needed
+        # longer than the generation budget to be proven was not proven.
+        objection, cause = self._why_this_is_not_a_puzzle(
+            grid, deadline_seconds=GENERATION_BUDGET_SECONDS
+        )
         if objection is not None:
-            raise NotUniquelySolvable(f"refusing to store a grid: {objection}")
+            raise NotUniquelySolvable(f"refusing to store a grid: {objection}") from cause
 
     def audit_uniqueness(self, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS):
         """Re-verify every stored row and report the ones that are not puzzles.
@@ -356,7 +377,9 @@ class PuzzleReviewService:
                     )
                 )
                 continue
-            objection = self._why_this_is_not_a_puzzle(rows, deadline_seconds=deadline_seconds)
+            objection, _ = self._why_this_is_not_a_puzzle(
+                rows, deadline_seconds=deadline_seconds
+            )
             if objection is not None:
                 failures.append((str(puzzle["id"]), objection))
         return failures
