@@ -29,6 +29,7 @@ stops at "which band is this score in, and which band did the user ask for".
 from __future__ import annotations
 
 import ast
+import inspect
 import itertools
 import warnings
 from pathlib import Path
@@ -45,6 +46,7 @@ from nonogram.difficulty import (
     Tier,
     classify,
     parse_tier,
+    tier_of_record,
 )
 from nonogram.errors import GenerationAbandoned, UnsupportedDifficulty
 from nonogram.orchestrator import GenerationRequest, Puzzle
@@ -541,7 +543,7 @@ def test_no_module_but_difficulty_classifies_a_tier() -> None:
     )
 
 
-def test_the_rule_catches_a_module_that_started_classifying() -> None:
+def test_the_rule_catches_a_module_that_started_classifying(tmp_path: Path) -> None:
     """Guard the guard: the walk above passes vacuously if the rule is broken.
 
     Both shapes, in one fabricated module — the score comparison and the
@@ -552,7 +554,7 @@ def test_the_rule_catches_a_module_that_started_classifying() -> None:
     comparison), which is why the rule is stated over the inputs a tier may
     legitimately be derived from rather than over a list of bad formulas.
     """
-    offending = _PACKAGE_DIR.parent.parent / "tests" / "__tier_guard_probe__.py"
+    offending = tmp_path / "__tier_guard_probe__.py"
     offending.write_text(
         "from nonogram.difficulty import EASY_MAX_SCORE\n"
         "\n"
@@ -714,3 +716,62 @@ def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:
         assert tier.value in text, tier
     assert "guess" in text and "branch" in text
     assert help_text  # the top-level parser still builds
+
+
+# --------------------------------------------------------------------------
+# tier_of_record — reading a tier back out of text that already exists
+# (CARD-076 review, finding F-002)
+# --------------------------------------------------------------------------
+
+
+def test_both_spellings_of_every_tier_read_back_to_the_same_member() -> None:
+    """The whole point: value and label are one tier, not two.
+
+    A row written through the generation pipeline stores the enum *value*,
+    because ``orchestrator.Puzzle.difficulty_tier`` is a ``Tier`` and a
+    ``StrEnum``'s ``str`` is its value; older and hand-entered rows carry the
+    display label. Four admin surfaces compared against the label only and so
+    counted none of the pipeline's own rows — the defect this function exists
+    to make unrepeatable.
+    """
+    for tier in Tier:
+        assert tier_of_record(tier.value) is tier
+        assert tier_of_record(tier.label) is tier
+        assert tier_of_record(tier.value.upper()) is tier
+        assert tier_of_record(f"  {tier.label}  ") is tier
+
+
+def test_guess_reads_back_like_every_other_tier() -> None:
+    """ADR-0025's fourth member is not a special case for the reader."""
+    assert tier_of_record("guess") is Tier.GUESS
+    assert tier_of_record("Guess") is Tier.GUESS
+
+
+@pytest.mark.parametrize(
+    "value", [None, "", "   ", "extreme", "Easyish", 5, 33.0, object(), b"easy"]
+)
+def test_anything_that_is_not_a_tier_reads_back_as_none(value: object) -> None:
+    """Total, and never raising, is the contract that separates it from parse_tier.
+
+    ``parse_tier`` rejects loudly because a user typed the word and needs to be
+    told (AC-021). This one reads text that already exists — a stored row, a
+    query string — where there is nobody to tell and raising would turn a bad
+    row into a 500.
+    """
+    assert tier_of_record(value) is None
+
+
+def test_it_does_not_become_a_second_classifier() -> None:
+    """It reads a tier that was already decided; it never decides one.
+
+    ADR-0025/R2 allows exactly one classifier. ``tier_of_record`` takes text,
+    not a score and not a branch count, so it cannot be handed the inputs a
+    classification is made from — which is why the ast guard above passes with
+    it in the package and would not if it took a score.
+    """
+    signature = inspect.signature(tier_of_record)
+    assert list(signature.parameters) == ["value"]
+    source = inspect.getsource(tier_of_record)
+    assert "branch_nodes" not in source
+    assert "EASY_MAX_SCORE" not in source
+    assert "MEDIUM_MAX_SCORE" not in source

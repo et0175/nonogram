@@ -3,15 +3,45 @@
 Generates complete PDF books with cover, guide, and puzzles.
 """
 
+from collections import Counter
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Any, Dict, Optional, List, Tuple
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
+from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 from nonogram import clues
+
+
+def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
+    """Count a book's puzzles by tier, however their rows spell it.
+
+    One implementation for both places a book's difficulty breakdown is built —
+    the PDF guide page here and the finalize screen in ``app.py`` — because two
+    copies of it is how the defect below survived in both at once.
+
+    Every count goes through :func:`nonogram.difficulty.tier_of_record` rather
+    than comparing against a display label. A row written by the generation
+    pipeline stores the enum *value* (``"easy"``), so the previous
+    ``== "Easy"`` matched none of them: every generated book reported a 0/0/0
+    breakdown, which reads as an empty book rather than as a broken reader
+    (CARD-076 review F-002). Rows whose tier is missing or unrecognised are
+    counted in no tier at all, so the totals never exceed the puzzle count.
+
+    Returns a :class:`collections.Counter`, so every member of :class:`Tier` —
+    ADR-0025's ``GUESS`` included — can be indexed without a ``get`` and reads
+    0 when the book has none.
+    """
+    return Counter(
+        tier
+        for tier in (
+            tier_of_record(puzzle.get("difficulty_tier")) for puzzle in puzzles
+        )
+        if tier is not None
+    )
 
 
 class BookPDFGenerator:
@@ -64,6 +94,7 @@ class BookPDFGenerator:
         easy_count: int,
         medium_count: int,
         hard_count: int,
+        guess_count: int = 0,
     ) -> Image.Image:
         """Create guide page image with difficulty summary.
 
@@ -72,6 +103,10 @@ class BookPDFGenerator:
             easy_count: Number of easy puzzles
             medium_count: Number of medium puzzles
             hard_count: Number of hard puzzles
+            guess_count: Number of puzzles in ADR-0025's fourth tier, which
+                needs a real guess to solve. Defaults to 0 and its line is
+                omitted when it is 0, so a book of line-solvable puzzles reads
+                exactly as it did before the tier existed.
 
         Returns:
             Guide page as PIL Image
@@ -99,6 +134,11 @@ class BookPDFGenerator:
             f"  Easy:   {easy_count} puzzles",
             f"  Medium: {medium_count} puzzles",
             f"  Hard:   {hard_count} puzzles",
+            *(
+                [f"  Guess:  {guess_count} puzzles"]
+                if guess_count
+                else []
+            ),
             "",
             "Instructions:",
             "  1. Fill in the grid based on the clues",
@@ -140,12 +180,16 @@ class BookPDFGenerator:
         pages.append(cover)
 
         # Calculate difficulty counts for guide
-        easy_count = sum(1 for p in puzzles if p.get("difficulty_tier") == "Easy")
-        medium_count = sum(1 for p in puzzles if p.get("difficulty_tier") == "Medium")
-        hard_count = sum(1 for p in puzzles if p.get("difficulty_tier") == "Hard")
+        counts = tier_breakdown(puzzles)
 
         # Add guide page
-        guide = self.create_guide_page(len(puzzles), easy_count, medium_count, hard_count)
+        guide = self.create_guide_page(
+            len(puzzles),
+            counts[Tier.EASY],
+            counts[Tier.MEDIUM],
+            counts[Tier.HARD],
+            counts[Tier.GUESS],
+        )
         pages.append(guide)
 
         # Add puzzle pages and collect answer pages

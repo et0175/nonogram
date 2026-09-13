@@ -428,6 +428,27 @@ density 45, and Medium (`line_dp`) is ~3% overall. A request for Medium at an un
 extent/density will resample, and at a density where its rung does not occur it will exhaust the
 budget and abandon. `--difficulty guess` cannot be filled at all on today's sources (§7).
 
+**Which tier a request can satisfy depends on extent and density** — not because the score reads
+either (ADR-0029/R3 keeps both out of it) but because they decide which puzzles *exist*. The
+structural tension that makes a sparse grid uniquely solvable is the same tension that forces the
+solver past overlap, so sparse unique puzzles are hard puzzles. Measured, 120 draws per cell:
+
+| extent | density | uniquely solvable | of those, Easy |
+|---|---:|---:|---:|
+| 12x12 | 45 | 28 (23%) | 8 (29%) |
+| 12x12 | 60 | 106 (88%) | 105 (99%) |
+| 15x15 | 45 | 8 (7%) | 1 (12%) |
+| 15x15 | 60 | 92 (77%) | 90 (98%) |
+| 20x20 | 45 | 2 (2%) | 0 (0%) |
+| 20x20 | 60 | 76 (63%) | 73 (96%) |
+
+So `--difficulty easy` at 15x15 density 45 must find roughly a 1-in-960 grid inside 20 attempts,
+and does not: measured 9/10 successes before the ladder and 0/10 after, while `hard` at the same
+extent went 0/10 to 9/10. The practical rule for a book: generate Easy at density 50-60 and Hard
+at 45. Nothing here is a defect — no bound moved and no new failure mode exists, the same
+`GenerationAbandoned` fires for a different set of requests — but it is the first thing a user
+meets, and under ADR-0013 it was hidden because every line-solvable puzzle was graded Easy.
+
 ### 8.3 Pixel nudge (POL-002/POL-003) — bound 5, image mode only
 
 Image mode converts **exactly once** and never enters the loops above (`:1232-1238`). If the

@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-073
-**Touches:** src/nonogram/difficulty.py (rewrite), src/nonogram/orchestrator.py (Puzzle.difficulty_tier / difficulty_in_requested_tier / record_difficulty go through the one classifier; generate_batch tier validation), src/nonogram/cli.py (--difficulty help lists four tiers), src/nonogram/web/pages.py (tier options from the enum — already enum-driven, verify), src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py (difficulty may be "guess"; SCHEMA_VERSION bump per ADR-0023/R2 if a reader would reject it), src/nonogram/admin/templates/puzzles_list.html (tier badge for Guess), src/nonogram/admin/image_to_puzzle.py (retire the private tier derivation, ADR-0025/R2), tests/test_difficulty.py (rewrite), tests/test_difficulty_tiers.py, tests/property/test_difficulty_ladder.py (new), tests/test_resample.py, tests/test_cli.py, tests/test_export_json.py, tests/test_export_csv.py, docs/GENERATION_ALGORITHM.md (§7 rewrite, §10.2 finding 3), meta/architecture/requirements.yml (AC-020/AC-022/AC-023 re-wording), meta/architecture/decisions/adr/0013-*.md (Superseded stamp already present — verify), 0005-*.md, 0015-*.md, 0023-*.md (History entries), meta/architecture/decisions/resolved.yml (DEC-013 superseded note), meta/architecture/decisions/adr/0029-*.md (2026-09-13 band-edge correction — made at card start, already on the branch)
+**Touches:** src/nonogram/difficulty.py (rewrite), src/nonogram/orchestrator.py (Puzzle.difficulty_tier / difficulty_in_requested_tier / record_difficulty go through the one classifier; generate_batch tier validation), src/nonogram/cli.py (--difficulty help lists four tiers), src/nonogram/web/pages.py (tier options from the enum — already enum-driven, verify), src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py (difficulty may be "guess"; SCHEMA_VERSION bump per ADR-0023/R2 if a reader would reject it), src/nonogram/admin/templates/puzzles_list.html (tier badge for Guess), src/nonogram/admin/image_to_puzzle.py (retire the private tier derivation, ADR-0025/R2), tests/test_difficulty.py (rewrite), tests/test_difficulty_tiers.py, tests/property/test_difficulty_ladder.py (new), tests/test_resample.py, tests/test_cli.py, tests/test_export_json.py, tests/test_export_csv.py, tests/test_export_pdf.py, tests/test_web_server.py, tests/test_card_063_limits.py, tests/test_card_051_admin_clues_reuse.py, tests/test_admin_image_uniqueness.py, tests/property/test_grid_dimensions.py (fourth-enum-member and changed-score fallout), tests/test_admin_tier_surfaces.py (new, review F-002), src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html (review F-002), docs/GENERATION_ALGORITHM.md (§7 rewrite, §10.2 finding 3), meta/architecture/requirements.yml (AC-020/AC-022/AC-023 re-wording), meta/architecture/decisions/adr/0013-*.md (Superseded stamp already present — verify), 0005-*.md, 0015-*.md, 0023-*.md (History entries), meta/architecture/decisions/resolved.yml (DEC-013 superseded note), meta/architecture/decisions/adr/0029-*.md (2026-09-13 band-edge correction — made at card start, already on the branch)
 **Review score:** —
 **Started:** 2026-09-13T18:45Z
 **Closed:** —
@@ -179,6 +179,58 @@ CARD-072, `binarisation` in CARD-079).
   against `EASY_MAX_SCORE`/`MEDIUM_MAX_SCORE` or derives a tier from
   `branch_nodes` (ast walk, same style as `tests/test_cli.py`'s import guard).
   *test:* `test_no_module_but_difficulty_classifies_a_tier`
+
+## Failure matrix
+
+Added at review cycle 1 (finding F-001): this card is `Complexity:
+architectural` and shipped without one, while materially changing which
+requests reach an existing failure.
+
+| Boundary | Behaviour | Bound | Changed by this card? |
+|---|---|---|---|
+| POL-004 cannot satisfy the requested tier | `GenerationAbandoned`, naming the attempt count and the shared bound | ADR-0002's one 20-attempt budget, shared with POL-001 (unchanged) | **Which requests reach it — yes. The bound, the message and the mechanism — no.** |
+| `--difficulty` names no tier | `UnsupportedDifficulty` from `parse_tier`, mapped to an exit code by `cli.py` | n/a | Only the message, which now lists four tiers (AC-021) |
+| A stored row's tier is missing or unrecognised | Counted in no tier, selected by no tier filter | n/a | New reader behaviour, review F-002 — it is not folded into a band |
+| `SolverTimeout`, invalid input, unreadable image | Propagate untouched | n/a | No |
+
+**The one row that matters**, measured on the same seeds before and after:
+
+| request | before | after |
+|---|---|---|
+| `easy` 15x15 d45 | 9/10 succeed | **0/10** |
+| `easy` 20x20 d50 | 10/10 | **4/10** |
+| `medium` 20x20 d50 | 2/10 | 10/10 |
+| `hard` 15x15 d45 | 0/10 | 9/10 |
+| `hard` 20x20 d50 | 0/10 | 10/10 |
+
+No new failure mode, no bound moved, no new error type: the same
+`GenerationAbandoned` that always fired when POL-004 could not be satisfied
+now fires for a different set of requests. That is the intended consequence of
+regrading — under ADR-0013 every line-solvable puzzle was Easy, so `hard` was
+unsatisfiable everywhere and `easy` was satisfied by the first candidate
+regardless of what the puzzle actually demanded.
+
+**Why `easy` gets harder as density falls**, which is the shape a user will
+meet first. The tier a request can satisfy depends on extent and density, not
+because the score does — ADR-0029/R3 keeps both out of it — but because they
+decide which puzzles *exist*. Measured, 120 draws per cell:
+
+| extent | density | uniquely solvable | of those, Easy |
+|---|---:|---:|---:|
+| 12x12 | 45 | 28 (23%) | 8 (29%) |
+| 12x12 | 60 | 106 (88%) | 105 (99%) |
+| 15x15 | 45 | 8 (7%) | 1 (12%) |
+| 15x15 | 60 | 92 (77%) | 90 (98%) |
+| 20x20 | 45 | 2 (2%) | 0 (0%) |
+| 20x20 | 60 | 76 (63%) | 73 (96%) |
+
+The structural tension that makes a sparse grid uniquely solvable is the same
+tension that forces the solver past overlap: sparse unique puzzles are hard
+puzzles. So `easy` at 15x15 density 45 must find roughly a 1-in-960 grid inside
+20 attempts and does not. Nothing here is a defect to fix on this card —
+raising the bound is ADR-0002's, and moving the cutoffs is the recalibration
+G-5 defers — but it is what a user experiences, and it belongs in the docs
+(`docs/GENERATION_ALGORITHM.md` records it in section 8.2).
 
 ## Guardrails
 
@@ -401,3 +453,44 @@ concern ("the resample loop scores every candidate"): `score_difficulty` +
 left the formula with the density term. AC-037's gate test is `xfail` on both
 trees for the pre-existing reason (p95 is 20.6 s against ADR-0001's 5 s cap);
 CARD-076 does not move it.
+
+### Review cycle 1 — what was fixed (2026-09-13)
+
+**F-002 (Important), the one with teeth.** Four `Tier` consumers were missed by
+objective 4's sweep, and all four compared a row's `difficulty_tier` against a
+*display label* while a pipeline-written row stores the enum *value* — so the
+book difficulty breakdown read 0/0/0 for every generated book and the puzzle
+filter selected none of its own rows. The badge fix already in this card proved
+both the mismatch and that fixing it was in scope; the other four were left.
+
+Fixed with one reader, not four patches: `difficulty.tier_of_record` — the
+output-side counterpart to `parse_tier`, total where `parse_tier` rejects,
+because text already on disk has nobody to reject it to. Then
+`book_pdf_generator.tier_breakdown` became the single implementation of the
+breakdown, used by both the PDF guide page and the finalize screen (two copies
+is how the defect survived in both at once), and both filter predicates resolve
+through the same reader, falling back to exact-string when the requested value
+names no tier so a typo cannot widen the filter to everything.
+`create_guide_page` gained `guess_count` with a default of 0 and omits the line
+when it is 0, so a book of line-solvable puzzles prints the guide it always did.
+
+`tests/test_admin_tier_surfaces.py` is new and written over *pipeline spelling*,
+the case that was broken and uncovered. `test_book_scaffolding.py` already had a
+`test_difficulty_breakdown`, but it recomputed the production expression inside
+the test body — it asserted the formula against itself and would have passed
+whatever production did. Verified by reverting the filter to its pre-fix
+comparison: 5 of the new tests fail, and all 14 pass again on restore.
+
+**F-001 (Important).** `## Failure matrix` added above, with the before/after
+measurement and the density explanation.
+
+**F-003 (Minor).** The guard-the-guard probe moved to `tmp_path`, matching its
+sibling test; it no longer writes into the directory pytest collects from.
+
+**F-004 (Minor), recorded not fixed.** The AC-118 corpus observes Medium and
+Hard only at 10x10-15x15, because at 20x20 density 45 only 2 of 120 drawn grids
+are uniquely solvable at all — a suite-speed corpus genuinely cannot sample
+there. "The grade is size-free" stays asserted structurally. Input for ADR-0005's
+owed recalibration, whose sweep is offline and can afford the time.
+
+**F-005 (Minor).** `Touches` now lists every file the diff reaches.

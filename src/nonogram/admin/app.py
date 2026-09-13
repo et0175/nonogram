@@ -27,12 +27,13 @@ from .image_manager import (
 )
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
-from .book_pdf_generator import BookPDFGenerator
+from .book_pdf_generator import BookPDFGenerator, tier_breakdown
 
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues, orchestrator
+from nonogram.difficulty import Tier
 from nonogram.errors import GenerationAbandoned, NonogramError
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -1009,10 +1010,13 @@ def create_app(debug=None):
                 puzzle["custom_title"] = custom_title
                 puzzles_in_book.append(puzzle)
 
-        # Calculate difficulty breakdown
-        easy_count = sum(1 for p in puzzles_in_book if p.get("difficulty_tier") == "Easy")
-        medium_count = sum(1 for p in puzzles_in_book if p.get("difficulty_tier") == "Medium")
-        hard_count = sum(1 for p in puzzles_in_book if p.get("difficulty_tier") == "Hard")
+        # Calculate difficulty breakdown — the same function the PDF guide
+        # page uses, so the screen and the printed book cannot disagree.
+        tier_counts = tier_breakdown(puzzles_in_book)
+        easy_count = tier_counts[Tier.EASY]
+        medium_count = tier_counts[Tier.MEDIUM]
+        hard_count = tier_counts[Tier.HARD]
+        guess_count = tier_counts[Tier.GUESS]
 
         context = {
             "book": book,
@@ -1021,6 +1025,7 @@ def create_app(debug=None):
             "easy_count": easy_count,
             "medium_count": medium_count,
             "hard_count": hard_count,
+            "guess_count": guess_count,
             "page_count": max(1, len(puzzles_in_book) + 2),  # Cover + guide + puzzles
             "cover_uploaded": bool(session.get(f"book_{book_id}_cover_data")),
             "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else "15.24",

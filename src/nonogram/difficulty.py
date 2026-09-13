@@ -150,6 +150,7 @@ __all__ = [
     "hardest_rung",
     "parse_tier",
     "score_difficulty",
+    "tier_of_record",
 ]
 
 #: The ends of the fixed scale (carried forward from ADR-0013, which is one of
@@ -451,6 +452,41 @@ def _tier_for_score(score: float) -> Tier:
     if score <= MEDIUM_MAX_SCORE:
         return Tier.MEDIUM
     return Tier.HARD
+
+
+def tier_of_record(value: object) -> Tier | None:
+    """Read a tier back out of stored or submitted text. Total; never raises.
+
+    :func:`parse_tier` is the *input* rule — it rejects, because a user who
+    typed ``--difficulty extreme`` needs to be told (AC-021). This is the
+    *output* rule, for text that already exists and cannot be argued with: a
+    row written months ago, a query string, a book's puzzle dict. There is
+    nobody to tell, so an unrecognised value is simply not a tier.
+
+    It exists because the admin surfaces read tiers from rows whose spelling is
+    not one thing. A row written through the generation pipeline stores the
+    enum *value* (``"easy"``) — ``orchestrator.Puzzle.difficulty_tier`` is a
+    :class:`Tier` and a :class:`~enum.StrEnum`'s ``str`` is its value — while
+    older rows and hand-entered ones carry the display label (``"Easy"``).
+    Comparing against one spelling silently matches none of the other's rows,
+    which is not a rendering bug but a *counting* one: it reports zero and
+    looks like an empty book rather than like a broken reader.
+
+    Returns:
+        The :class:`Tier` this text denotes under either spelling and any
+        casing, or ``None`` for ``None``, a blank, a non-string, or a word that
+        is not a tier at all.
+
+    Re-grading the rows so that only one spelling exists is CARD-077's job and
+    a different kind of act — this function only makes the reader honest about
+    what is already on disk, and it keeps working afterwards.
+    """
+    if not isinstance(value, str):
+        return None
+    try:
+        return parse_tier(value)
+    except UnsupportedDifficulty:
+        return None
 
 
 def parse_tier(text: str) -> Tier:
