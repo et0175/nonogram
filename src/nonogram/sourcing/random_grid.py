@@ -84,9 +84,22 @@ MIN_DENSITY = 0
 MAX_DENSITY = 100
 
 #: ADR-0003: a generated grid honours the requested density when its filled
-#: fraction is within this many percentage points of the request. Exposed here
-#: because it is a property of the sampler's contract; CARD-005's regenerate
-#: loop is expected to read it rather than restate the constant.
+#: fraction is within this many percentage points of the request.
+#:
+#: Nothing in the pipeline checks it, and nothing needs to. The sampler places
+#: an exact filled count — ``round(width * height * density / 100)`` — and
+#: shuffles, so the only error is that rounding: at the smallest supported
+#: grid, 10x10, one cell is one percentage point, and the bound is looser than
+#: the error can be at every supported extent. The tolerance holds **by
+#: construction**, not by rejection, which is why CARD-005's regenerate loop
+#: discards candidates for ambiguity alone and never looks at density.
+#:
+#: It is exported as the sampler's *contract* — the number tests assert the
+#: measured fraction against (``tests/test_sourcing_random.py``, three call
+#: sites) — so that ADR-0003's promise is checked somewhere rather than merely
+#: asserted here. An earlier version of this comment said the regenerate loop
+#: "is expected to read it"; the loop never has and never will
+#: (``docs/GENERATION_ALGORITHM.md`` §10.2 finding 4, CARD-070).
 DENSITY_TOLERANCE_POINTS = 3
 
 
