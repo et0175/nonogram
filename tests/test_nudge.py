@@ -98,7 +98,6 @@ from nonogram.orchestrator import (
 from nonogram.sourcing import image
 
 FIXTURES = Path(__file__).parent / "fixtures"
-BANDS = FIXTURES / "bands.png"
 WIDE = FIXTURES / "wide.png"
 #: CARD-026 re-pinned the two real-image cases below onto this fixture.
 #: ``wide.png`` is 60x20, a 3:1 source, and FR-021 now *refuses* it against a
@@ -466,6 +465,10 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     photograph at 10x10 is repaired in two (the test above), so the pair
     isolates the extent: what reaches the cap is the conversion, not the
     picture.
+
+    Re-pinned from ``landscape.png`` at 22x22 by CARD-070, which found that
+    fixture needs zero nudges at every size from 10 to 25 and always did — see
+    the module docstring.
     """
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(
@@ -488,6 +491,9 @@ def test_nudge_reports_failure_at_cap_through_the_cli(
     12x15 — measured, that conversion is unique on the first solve and needs no
     nudge at all, so it is emphatically not the pinned five-nudge failure this
     test is the CLI end of.
+
+    Re-pinned from ``landscape.png`` at 22x22 by CARD-070, alongside the test
+    above and for the same reason — see the module docstring.
     """
     exit_code = cli.main(
         ["generate", "--mode", "image", "--image", str(OWL), "--size", "15x15"]

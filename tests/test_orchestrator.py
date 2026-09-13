@@ -1659,6 +1659,52 @@ def test_generate_batch_accepts_every_spelling_parse_tier_accepts(
     assert made == [difficulty.Tier.EASY.value]
 
 
+def test_the_empty_string_is_a_tier_that_does_not_exist_on_both_paths() -> None:
+    """The spelling the two paths used to disagree about.
+
+    ``""`` is falsy, so the old guard skipped ``parse_tier`` entirely and the
+    batch read it as "any tier" while ``generate`` refused it one frame down —
+    the exact split routing through ``parse_tier`` was supposed to close
+    (review cycle 1, F-001). Asserted as one claim about both functions rather
+    than two separate ones, so a future change cannot fix half of it.
+    """
+    with pytest.raises(errors.UnsupportedDifficulty) as batch_error:
+        orchestrator.generate_batch(
+            count=1, sizes=[10], source="random", difficulty_tier=""
+        )
+    with pytest.raises(errors.UnsupportedDifficulty) as single_error:
+        orchestrator.generate(
+            GenerationRequest(
+                mode="random", width=10, height=10, density=50, seed=1, difficulty=""
+            )
+        )
+
+    assert str(batch_error.value) == str(single_error.value)
+
+
+def test_none_is_still_the_way_to_say_any_tier(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tightening the empty string must not tighten ``None``, which is what
+    every caller in the codebase actually passes."""
+    made: list[str | None] = []
+
+    def fake_generate(request: GenerationRequest) -> Puzzle:
+        made.append(request.difficulty)
+        puzzle = Puzzle(request=request, seed=0)
+        puzzle.record_candidate([[True, True], [True, False]])
+        puzzle.confirm_uniqueness(1)
+        puzzle.record_difficulty(10.0, 0)
+        return puzzle
+
+    monkeypatch.setattr(orchestrator, "generate", fake_generate)
+
+    puzzles = orchestrator.generate_batch(
+        count=1, sizes=[10], source="random", difficulty_tier=None
+    )
+
+    assert len(puzzles) == 1
+    assert made == [None]
+
+
 def test_generate_batch_and_the_cli_refuse_the_same_words() -> None:
     """One vocabulary, not two.
 

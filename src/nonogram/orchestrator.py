@@ -1769,8 +1769,10 @@ def generate_batch(
         source: Generation source mode ("random", "library", or "image")
         difficulty_tier: Target difficulty tier, in any spelling
             :func:`nonogram.difficulty.parse_tier` accepts — ``"Easy"``,
-            ``"easy"``, ``"EASY"`` are the same tier — or None to accept any
-            difficulty.
+            ``"easy"``, ``"EASY"`` are the same tier — or ``None`` to accept
+            any difficulty. ``None`` is the only way to say "any": an empty
+            string is a tier name that does not exist and is refused, the same
+            answer :func:`generate` gives it.
 
     Returns:
         List of successfully generated Puzzle objects with full metadata
@@ -1808,7 +1810,23 @@ def generate_batch(
     # ``GenerationRequest.difficulty`` is parsed again downstream, and handing
     # it the canonical spelling means the second parse cannot disagree with the
     # first.
-    tier = difficulty.parse_tier(difficulty_tier) if difficulty_tier else None
+    #
+    # ``is not None`` rather than a falsy test, because ``""`` is a spelling
+    # like any other and :func:`generate` refuses it — measured, the old falsy
+    # guard made the empty string mean "any tier" here and
+    # ``UnsupportedDifficulty`` one frame down, which is precisely the
+    # disagreement this item exists to remove (CARD-070 review cycle 1, F-001).
+    #
+    # This gate is a **boundary convenience, not the enforcement point**.
+    # :func:`generate` parses the tier itself at the top of every call, before
+    # a seed is drawn and before the aggregate exists, so a bad tier already
+    # aborts on the first iteration with no work done; removing this check
+    # would change nothing a caller can observe except *where* the traceback
+    # starts. It is kept so a batch of 200 fails at the call rather than inside
+    # the loop, and it must stay a delegation to ``parse_tier`` — the moment it
+    # re-states the rule instead of asking for it, the two copies can drift,
+    # which is the bug this whole item is repairing (review cycle 1, F-004).
+    tier = difficulty.parse_tier(difficulty_tier) if difficulty_tier is not None else None
 
     puzzles = []
     rng = random.Random()  # Batch uses unseeded RNG; each puzzle draws its own seed
