@@ -1,0 +1,522 @@
+{
+ "taken_at": "2026-09-13T07:05:31.469789+00:00",
+ "database": "nonogram_ubss (render)",
+ "rows": [
+  {
+   "id": "0119b8fa-3c8c-4dd4-abf3-496a5f208a2b",
+   "difficulty_score": 42,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "026a3f89-2a03-4da7-b4ec-9e44b1a1b5cd",
+   "difficulty_score": 44,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "0278f7f1-5a9c-4c4b-8fc5-17673a2862d1",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "033b0371-a7f9-46f2-811b-a1d18bdf319e",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "03e97e49-79df-4384-a5de-0c04ede011c0",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "041e3c9b-228c-400e-9914-b6e1426246a5",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "051c6632-dac4-4260-ba3c-73c09498d1f5",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "0beb5688-534c-4e33-8314-d58d00ceb74c",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "0cf21c9b-083f-4444-a8bb-ae59fb3f0d28",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "111add21-187b-4456-be61-188eabb9d09a",
+   "difficulty_score": 1,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "15468b12-ddb8-4046-86bc-de662b0f7bb9",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "16f3b47f-6501-47d4-afa0-6eb5f0da8c8d",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "1785adbf-82c8-40be-b4a1-1ff4b0575994",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "17e35f35-81bc-4cb0-934b-ac4e5f113cf7",
+   "difficulty_score": 2,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "1a9e338d-e1c2-40df-b5cd-495ab06f2478",
+   "difficulty_score": 11,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "202f6f91-f255-493d-b87f-7446c079b839",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "209b43da-cba2-46c9-9c20-12581844948b",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "21e58a41-47de-418f-b1a2-39070b883610",
+   "difficulty_score": 78,
+   "difficulty_tier": "hard",
+   "strategies_used": []
+  },
+  {
+   "id": "2339cdb0-c335-4a50-bd07-b7bfbb4ca134",
+   "difficulty_score": 25,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "277b58a6-2ff4-41c8-9394-00d0a9cff9d8",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "28cd436d-beaf-444d-88c5-9913652b1369",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "2ae31045-fba2-43e0-bff4-53e549e3a47e",
+   "difficulty_score": 1,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "312474c0-20e0-4c24-9842-3f48cf356402",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "32861a84-0750-44f7-b0b1-f7502368f0dc",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "34f1609b-07bd-4c09-981f-b9673109d689",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "39fb6513-aa8b-42f1-b7cf-64e11cdf9336",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "3d99dbac-b230-4c20-a8ce-5dbf95deacca",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "40563d27-3d3e-4bfc-8a16-b25d0419ac53",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "49207539-1ade-4488-9044-fe5099c6e43e",
+   "difficulty_score": 2,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "4db020b6-0754-4653-baac-86e4ec8a5663",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "505398e7-9e3a-42ee-9a9f-420b82b7fb27",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "50575b53-ab8c-49ae-8c06-9018df964b37",
+   "difficulty_score": 37,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "56b06d06-7d2d-424d-b8bb-8aed8445b605",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "58f74309-a046-46ce-b075-034b541019de",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "5b85e951-da1d-49db-9a06-8c11ab303e95",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "5ce3a267-2a71-4314-9156-f8acb59760f5",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "66d10553-b7cb-44aa-9ae6-b9a3a1daff77",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "6ad55bc6-ce59-4111-a6e1-4e53a03beffb",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "6d40e365-87b5-4ff8-9006-c78e9be2531c",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "6df91ad8-d385-4f41-941a-677701fc5577",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "6e4b7c99-4cad-4840-b25a-2ba19a4666ff",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "6f9eb0c7-39c7-4e2a-a9b6-b2d0fd5cc2a8",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "76179535-8633-485f-ac57-097f1789fd70",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "7da34563-638a-46ec-a82a-47661ea19c73",
+   "difficulty_score": 39,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "7f28c258-3dc5-40a1-bac2-9e765a8f4d5a",
+   "difficulty_score": 42,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "81822574-5aa4-4bc5-b870-de0432580d78",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "8ae1acea-9ef9-4aba-a4d7-835cb6ef0aec",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "8b20226d-e7c6-4adf-9683-eef5aae484fd",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "8ea07ff4-7d8d-460d-bd0e-71dac112f4b0",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "8f6a572f-789b-4f7b-bcaf-c50397d8203d",
+   "difficulty_score": 38,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "94a95d14-c7c1-4fa6-a89c-b1e08fcd73fa",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "94ebac03-e254-4d64-af1e-6c135ee32c93",
+   "difficulty_score": 24,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "9520121d-d519-4b52-9e28-e0672b3a5b88",
+   "difficulty_score": 5,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "98a1d241-25b5-42b6-a86e-139683d16b2a",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "a735c49b-db85-44e8-807d-e380fedf5f72",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "ac26f1a4-71aa-4296-abdb-a677bd0193a3",
+   "difficulty_score": 1,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "add38b72-31b5-4f40-b629-91550ca28938",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "b0282ccf-81ee-4f72-a31e-6844f92133ec",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "b03bc7e6-580a-4ede-9475-239cb34200c8",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "b76c0b85-43f4-4605-8061-a2b05bbe1662",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "b9386ba2-cd23-446c-b38a-f8e764723ad7",
+   "difficulty_score": 5,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "be523221-a831-4cb0-8a15-cc13e4419429",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "c0f2d3b9-a343-4b7d-8442-fe625eeee34e",
+   "difficulty_score": 55,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "c16e72f9-2ebc-4e74-bb7e-65aff4355681",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "c1e88989-71dc-42be-a344-040d5f863403",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "c82e24a6-fcd3-4b1f-b2d0-5c0e7539feb9",
+   "difficulty_score": 33,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "c97653a9-96c8-4928-ba20-1197c2ef899a",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "cbf974a7-f118-4e85-9af3-175ba43cd1a0",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "ce364afd-a977-4575-aade-e6476d246d0b",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "d19574b3-cef1-4a7d-90f3-b4b6f684cc8e",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "d1b35b12-8e87-44a3-b920-014c383c7915",
+   "difficulty_score": 37,
+   "difficulty_tier": "medium",
+   "strategies_used": []
+  },
+  {
+   "id": "d38d6798-8247-44a2-8f09-57d993d1ef9f",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "d5d72a8c-f640-4ba1-8153-3dcd4b189826",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "d6a0a4c5-d038-4f65-ac26-56afee2e83d7",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "d9c6f93e-97fd-4ef0-b8e7-70a3ead705b2",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "d9ff3e12-1317-4afb-abaf-8b877b3d62a1",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "da1cb394-e289-4e65-b7ce-441dccbc31db",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "da784716-9ef4-477d-ac1a-5b622e9e7b55",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "daac7d2c-eb31-4587-af18-ca5eba7c5a88",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "f025d40f-2d38-4dfe-9dc3-5f70db8df17d",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "f44a94aa-a7da-4581-bc6a-9fcd82daf38b",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "f657b1c7-6a9e-459d-bebb-b7d211febd8c",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "f808dc2c-66d9-4b38-8557-2a4959f1c43c",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "fa73c79c-8941-4891-9fb0-536c3f206b11",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "facddcea-e82b-4308-a5c7-2ee4eb640560",
+   "difficulty_score": 9,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  },
+  {
+   "id": "fbf0e96b-aa35-401b-9367-94a0400f2b41",
+   "difficulty_score": 0,
+   "difficulty_tier": "easy",
+   "strategies_used": []
+  }
+ ]
+}
