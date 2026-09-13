@@ -167,16 +167,20 @@ class PuzzleReviewService:
         ``[]`` encodes to two empty clue sets, ``[[]]`` to ``((0,),)``, and the
         string ``"not a grid"`` to ten rows of one filled cell — a 10x1 grid
         that is uniquely solvable, so a guard that only asked the solver would
-        have stored the string. ``regrade._as_grid`` exists for the same reason
-        on the read side.
+        have stored the string. :meth:`_as_readable_grid` (and
+        ``regrade._as_grid``) exist for the same reason on the read side.
 
-        Strict about cell *type*, where ``regrade._as_grid`` deliberately
-        coerces. They are answering different questions: that one reads rows a
-        previous version of this system already wrote, where a cell stored as
-        ``0``/``1`` is a fact to be accommodated; this one is a write boundary,
-        where a caller handing over anything but booleans has a bug worth
-        hearing about (ADR-0012 fixes the boundary type as
-        ``list[list[bool]]``).
+        Strict about cell *type*, where those two deliberately coerce. They are
+        answering different questions: they read rows a previous version of
+        this system already wrote, where a cell stored as ``0``/``1`` is a fact
+        to be accommodated; this one is a write boundary, where a caller
+        handing over anything but booleans has a bug worth hearing about
+        (ADR-0012 fixes the boundary type as ``list[list[bool]]``).
+
+        The audit used to come through here too, which made it report
+        uniquely-solvable legacy rows as failures — the write path's strictness
+        applied to the read path's question (CARD-080 review cycle 1, F-001).
+        It now reads through :meth:`_as_readable_grid` instead.
         """
         if not isinstance(grid, list) or not grid:
             raise NotUniquelySolvable(
@@ -203,7 +207,92 @@ class PuzzleReviewService:
                     f"row lengths differ ({width} then {len(row)})"
                 )
 
-    def _refuse_unless_uniquely_solvable(self, grid: object) -> None:
+    @staticmethod
+    def _as_readable_grid(grid: object) -> Optional[List[List[bool]]]:
+        """``grid`` as the boundary type, or ``None`` if it is not one.
+
+        The **read** half of the pair whose write half is
+        :meth:`_refuse_unless_shaped_like_a_grid`, and deliberately not the
+        same function. Shape is checked exactly as strictly — a ragged grid has
+        no benign reading, and an empty one encodes to two empty clue sets and
+        would "solve" vacuously — but cell *type* is coerced (``bool(cell)``)
+        rather than refused, because a row whose cells round-tripped as
+        ``0``/``1`` through some earlier writer is still a perfectly good
+        puzzle. Refusing it on the read path would be an audit lying about the
+        data it exists to describe: measured, ``[[1, 1], [0, 1]]`` is a
+        uniquely solvable Easy puzzle that the write-path check calls
+        malformed.
+
+        A native reimplementation of ``regrade._as_grid`` rather than an import
+        of it — the same rule, read by two modules — cross-checked against that
+        one from the test tree by
+        ``tests/test_admin_uniqueness_boundary.py::TestTheTwoGridReaders_AgreeWithEachOther``,
+        which is this package's standing way of keeping duplicated logic honest
+        (``solver.propagate.mask_runs`` is the precedent).
+        """
+        if not isinstance(grid, list) or not grid:
+            return None
+        width: Optional[int] = None
+        rows: List[List[bool]] = []
+        for line in grid:
+            if not isinstance(line, list) or not line:
+                return None
+            if width is None:
+                width = len(line)
+            elif len(line) != width:
+                return None
+            rows.append([bool(cell) for cell in line])
+        return rows
+
+    def _why_this_is_not_a_puzzle(
+        self, grid: List[List[bool]], *, deadline_seconds: float
+    ) -> Optional[str]:
+        """The solver's objection to ``grid``, or ``None`` if it has none.
+
+        The single place either path asks the question, so the write boundary
+        and the audit cannot drift into disagreeing about what "a puzzle"
+        means. It answers in the audit's voice — a reason, not a refusal —
+        because a reason reads correctly in a report *and* inside the
+        exception the write path wraps it in, where the reverse is not true.
+
+        The clues are re-derived from the grid rather than taken from any
+        ``clues_rows``/``clues_cols`` the caller supplied. Those are the
+        caller's claim about the grid, and a guard that trusts the caller's
+        claim is not a guard — CARD-051's rule that ``clues.compute_clues`` is
+        the one encoder says the same thing from the other direction.
+
+        ``deadline_seconds`` is a per-grid budget (ADR-0011). A solve that
+        passes it is an objection, not a pass: storage asks *has this been
+        proven to be a puzzle?*, and an unproven grid is not a proven one.
+        """
+        try:
+            row_clues, column_clues = compute_clues(grid)
+        except (TypeError, ValueError) as exc:
+            return f"not a readable grid: {exc}"
+
+        try:
+            result = solve(
+                row_clues,
+                column_clues,
+                deadline=time.monotonic() + deadline_seconds,
+            )
+        except SolverTimeout:
+            return (
+                f"uniqueness could not be proven within {deadline_seconds}s "
+                "— unproven is not proven"
+            )
+
+        if result.solution_count != 1:
+            counted = "2 or more" if result.solution_count == MANY else "0"
+            return (
+                f"the clue set has {counted} solutions, and a clue set that is "
+                "not uniquely solvable is not a puzzle (FR-006)"
+            )
+        return None
+
+    def _refuse_unless_uniquely_solvable(
+        self, grid: object, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS
+    ) -> None:
         """Ask the solver whether this grid is a puzzle, and refuse if it is not.
 
         FR-006 says uniqueness is the product's defining property, and CON-005
@@ -215,46 +304,20 @@ class PuzzleReviewService:
         from the grid's *size* and never solved anything. Deleting that
         function closed the instance; this closes the class.
 
-        The clues are re-derived from the grid rather than taken from the
-        ``clues_rows``/``clues_cols`` arguments. Those are the caller's claim
-        about the grid, and a guard that trusts the caller's claim is not a
-        guard — CARD-051's rule that ``clues.compute_clues`` is the one encoder
-        says the same thing from the other direction.
+        This is the **write** path, so it is strict about cell type where
+        :meth:`_as_readable_grid` coerces — see
+        :meth:`_refuse_unless_shaped_like_a_grid` for why the two differ.
 
         Raises:
-            NotUniquelySolvable: the clue set has 0 or >= 2 solutions, or the
-                solve passed its deadline (ADR-0011) without concluding. Both
-                are the same answer to the question storage asks — *has this
-                been proven to be a puzzle?* — and an unproven grid is not a
-                proven one.
+            NotUniquelySolvable: the grid is not a readable grid, its clue set
+                has 0 or >= 2 solutions, or the solve passed its deadline
+                (ADR-0011) without concluding.
         """
         self._refuse_unless_shaped_like_a_grid(grid)
 
-        try:
-            row_clues, column_clues = compute_clues(grid)
-        except (TypeError, ValueError) as exc:
-            raise NotUniquelySolvable(
-                f"refusing to store a grid that is not a readable grid: {exc}"
-            ) from exc
-
-        try:
-            result = solve(
-                row_clues,
-                column_clues,
-                deadline=time.monotonic() + GENERATION_BUDGET_SECONDS,
-            )
-        except SolverTimeout as exc:
-            raise NotUniquelySolvable(
-                "refusing to store a grid whose uniqueness could not be proven "
-                f"within {GENERATION_BUDGET_SECONDS}s — unproven is not proven"
-            ) from exc
-
-        if result.solution_count != 1:
-            counted = "2 or more" if result.solution_count == MANY else "0"
-            raise NotUniquelySolvable(
-                f"refusing to store a grid whose clues have {counted} solutions; "
-                "a clue set that is not uniquely solvable is not a puzzle (FR-006)"
-            )
+        objection = self._why_this_is_not_a_puzzle(grid, deadline_seconds=deadline_seconds)
+        if objection is not None:
+            raise NotUniquelySolvable(f"refusing to store a grid: {objection}")
 
     def audit_uniqueness(self, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS):
         """Re-verify every stored row and report the ones that are not puzzles.
@@ -265,6 +328,17 @@ class PuzzleReviewService:
         it again at any time is the part of this card's original quarantine
         framing worth keeping.
 
+        Rows are read through :meth:`_as_readable_grid`, not through the write
+        path's shape check: this method's whole subject is rows written by
+        older code, so a cell stored as ``0`` rather than ``false`` is a fact
+        to accommodate rather than a bug to report.
+
+        Args:
+            deadline_seconds: Per-row solve budget. Raising it is how an
+                operator asks a deeper question of a table whose hard rows time
+                out at the default; it reaches the solver, so a larger number
+                really does buy more proof.
+
         Returns:
             A list of ``(puzzle_id, reason)`` pairs, one per row that is not
             provably a puzzle, in the order the rows were met. Empty means
@@ -273,10 +347,18 @@ class PuzzleReviewService:
         """
         failures = []
         for puzzle in self._all_rows_for_audit():
-            try:
-                self._refuse_unless_uniquely_solvable(puzzle["grid"])
-            except NotUniquelySolvable as exc:
-                failures.append((str(puzzle["id"]), str(exc)))
+            rows = self._as_readable_grid(puzzle.get("grid"))
+            if rows is None:
+                failures.append(
+                    (
+                        str(puzzle["id"]),
+                        "not a readable grid: expected a non-empty rectangle of cells",
+                    )
+                )
+                continue
+            objection = self._why_this_is_not_a_puzzle(rows, deadline_seconds=deadline_seconds)
+            if objection is not None:
+                failures.append((str(puzzle["id"]), objection))
         return failures
 
     def _all_rows_for_audit(self):
@@ -881,6 +963,17 @@ class MockGenerator:
     tension that makes a sparse grid uniquely solvable is the same tension that
     makes it hard to find. At 0.65 the loop below almost always succeeds on its
     first or second draw, at a few milliseconds a solve.
+
+    **Every puzzle this emits is Easy, and that is structural rather than a
+    tuning choice.** Measured over 25 puzzles at sizes 10/15/20: all Easy, all
+    scoring exactly 33. Widening the band does not move it — 0.55-0.75 and
+    0.5-0.8 both give the same answer — because a dense random grid that *is*
+    uniquely solvable is exactly the kind line logic settles on the bottom rung
+    with share 1.0, which pins the score at the Easy band's top edge. So a test
+    that needs a second tier cannot get one from here: pin a grid the way
+    ``tests/test_admin_regrade.py``'s ``GUESS_GRID`` is pinned — seeded search,
+    literal cells, premise asserted against the solver — or it will pass
+    without ever exercising the tier it claims to (CARD-080 review, F-004).
     """
 
     #: Fill density. A measured choice, not a default — see the class

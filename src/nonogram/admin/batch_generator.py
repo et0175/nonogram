@@ -324,7 +324,8 @@ class BatchGenerator:
 
         # Store each puzzle
         puzzle_count = 0
-        # CARD-080: candidates the store refused. Should always be 0.
+        # CARD-080: candidates the store refused. Should always be 0; when it
+        # is not, it is carried onto the batch record below so somebody sees it.
         refused_count = 0
         for i, puzzle in enumerate(puzzles):
             # CARD-050 (AC-2, option 3b): random-mode puzzles have no source
@@ -348,7 +349,9 @@ class BatchGenerator:
                 # enforces INV-002 — so it is logged at error level rather than
                 # swallowed, and counted as refused rather than stored. The
                 # batch continues: one bad candidate is no reason to lose the
-                # rest, and the count is what tells the owner something broke.
+                # rest. What tells the owner is the note written onto the batch
+                # record at the end of this method — not the log, which nobody
+                # is tailing on a localhost admin panel.
                 try:
                     self.puzzle_review_service.add_puzzle(
                         grid=puzzle.grid,
@@ -388,12 +391,38 @@ class BatchGenerator:
                 # DB mode: update completed_count after each puzzle
                 self._update_batch_status(batch_id, completed_count=i + 1)
 
-        # Final update with puzzle count
+        # Final update with puzzle count, plus — when the store refused
+        # anything — a note saying so on the batch record itself.
+        #
+        # CARD-080 review, F-003: `refused_count` was written, incremented and
+        # never read, under a comment claiming it was the owner's signal. It
+        # now is one. `error_message` is an existing column that
+        # batch_status.html already renders as an alert, so the refusal lands
+        # on the page an owner looks at after a batch, without a migration.
+        # The batch is not marked failed: the puzzles that did store are real
+        # and keeping them is right — what failed is a candidate, and the note
+        # says which kind of failure it was.
+        refusal_note = None
+        if refused_count:
+            refusal_note = (
+                f"{refused_count} of {len(puzzles)} generated candidates were refused "
+                "by the store as not uniquely solvable and are not in this batch. "
+                "Every candidate came through orchestrator.generate, which enforces "
+                "INV-002, so this is a bug in the generation path rather than a "
+                "property of this batch; the admin log carries the per-candidate "
+                "reasons."
+            )
+
         if self._session_factory is None:
             job = self.jobs[batch_id]
             job.puzzle_count = puzzle_count
+            if refusal_note is not None:
+                job.error_message = refusal_note
         else:
-            self._update_batch_status(batch_id, puzzle_count=puzzle_count)
+            final_fields = {"puzzle_count": puzzle_count}
+            if refusal_note is not None:
+                final_fields["error_message"] = refusal_note
+            self._update_batch_status(batch_id, **final_fields)
 
     def get_batch_status(self, batch_id: str) -> Optional[BatchJob]:
         """Get status of a batch generation job (legacy or DB-backed).
