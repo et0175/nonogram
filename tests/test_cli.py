@@ -596,6 +596,13 @@ ERROR_EXIT_CODES = [
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),
     (errors.SolverTimeout, cli.ExitCode.GENERATION_FAILED),
+    # CARD-080: the admin's storage boundary refusing a grid the solver would
+    # not certify. No CLI path raises it — the row exists because
+    # ``test_every_domain_error_has_an_exit_code`` below requires every
+    # declared domain error to be grouped, and "nothing reaches it from here"
+    # is not a reason to leave it falling through to INTERNAL_ERROR, which is
+    # reserved for a mapping gap.
+    (errors.NotUniquelySolvable, cli.ExitCode.GENERATION_FAILED),
     (errors.ExportRejected, cli.ExitCode.EXPORT_REJECTED),
 ]
 

@@ -12,8 +12,16 @@ from datetime import datetime
 import asyncio
 import random
 
+import logging
+
 from nonogram import orchestrator
+from nonogram.errors import NotUniquelySolvable
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+
+#: CARD-080: a refused candidate is logged here at error level. It means
+#: the generation path produced something orchestrator.generate should
+#: have made impossible, so it must be visible rather than counted away.
+logger = logging.getLogger(__name__)
 
 
 class BatchStatus(Enum):
@@ -316,6 +324,8 @@ class BatchGenerator:
 
         # Store each puzzle
         puzzle_count = 0
+        # CARD-080: candidates the store refused. Should always be 0.
+        refused_count = 0
         for i, puzzle in enumerate(puzzles):
             # CARD-050 (AC-2, option 3b): random-mode puzzles have no source
             # picture to measure fidelity against, so quality_metric.measure_
@@ -332,21 +342,41 @@ class BatchGenerator:
             # orchestrator returns is stored (the UI never exposes this
             # filter for random-mode batches either; see batch_create.html).
             if self.puzzle_review_service:
-                self.puzzle_review_service.add_puzzle(
-                    grid=puzzle.grid,
-                    clues_rows=puzzle.clues.rows,
-                    clues_cols=puzzle.clues.columns,
-                    width=puzzle.width,
-                    height=puzzle.height,
-                    theme=theme,
-                    difficulty_score=puzzle.difficulty_score,
-                    difficulty_tier=puzzle.difficulty_tier,
-                    quality_score=None,
-                    recognizability=None,
-                    strategies_used=[],
-                    batch_id=batch_id,
-                )
-                puzzle_count += 1
+                # CARD-080: the store refuses a grid the solver will not
+                # certify. Reaching that is a bug, not a data condition — every
+                # candidate here came through orchestrator.generate, which
+                # enforces INV-002 — so it is logged at error level rather than
+                # swallowed, and counted as refused rather than stored. The
+                # batch continues: one bad candidate is no reason to lose the
+                # rest, and the count is what tells the owner something broke.
+                try:
+                    self.puzzle_review_service.add_puzzle(
+                        grid=puzzle.grid,
+                        clues_rows=puzzle.clues.rows,
+                        clues_cols=puzzle.clues.columns,
+                        width=puzzle.width,
+                        height=puzzle.height,
+                        theme=theme,
+                        difficulty_score=puzzle.difficulty_score,
+                        difficulty_tier=puzzle.difficulty_tier,
+                        quality_score=None,
+                        recognizability=None,
+                        strategies_used=[],
+                        batch_id=batch_id,
+                    )
+                except NotUniquelySolvable:
+                    logger.error(
+                        "batch %s: the store refused a candidate as not "
+                        "uniquely solvable. This should be unreachable — every "
+                        "candidate came through orchestrator.generate, which "
+                        "enforces INV-002 — so treat it as a bug in the "
+                        "generation path, not as a rejected puzzle.",
+                        batch_id,
+                        exc_info=True,
+                    )
+                    refused_count += 1
+                else:
+                    puzzle_count += 1
 
             # Update progress
             if self._session_factory is None:

@@ -110,6 +110,27 @@ class SolverTimeout(NonogramError):
     """
 
 
+class NotUniquelySolvable(NonogramError):
+    """A grid offered for storage is not a puzzle (FR-006, CON-005).
+
+    Raised at the storage boundary when the solver does not return exactly one
+    solution for a grid's clues — either because there are 0 or >= 2, or
+    because the solve passed its deadline without concluding. Both are the same
+    answer to the only question storage asks: *has this been proven to be a
+    puzzle?* An unproven grid is not a proven one, and the distinction between
+    "disproven" and "unproven" lives in the message rather than in two classes,
+    because no caller has a different thing to do about them.
+
+    Existing rows are not this error's business — it refuses a write, never
+    reports on what is already stored. That is the audit's job
+    (``puzzle_review.audit_uniqueness``), which reports and changes nothing.
+
+    Raised by ``admin.puzzle_review.add_puzzle``. Reaching it means a caller
+    tried to store something the pipeline should never have produced, so it is
+    a bug in that caller and is meant to be loud.
+    """
+
+
 class ExportRejected(NonogramError):
     """Export was refused for a puzzle that is not exportable.
 

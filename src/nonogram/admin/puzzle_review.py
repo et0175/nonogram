@@ -3,13 +3,19 @@
 Handles filtering puzzles by various criteria and managing approval/rejection.
 """
 
+import math
+import time
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from datetime import datetime, date, timezone
 
-from nonogram.difficulty import tier_of_record
+from nonogram.clues import compute_clues
+from nonogram.difficulty import classify, score_difficulty, tier_of_record
+from nonogram.errors import NotUniquelySolvable, SolverTimeout
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
+from nonogram.solver import MANY, solve
 
 
 class PuzzleStatus(Enum):
@@ -152,6 +158,142 @@ class PuzzleReviewService:
             "created_at": puzzle_row.created_at.isoformat() if puzzle_row.created_at else None,
         }
 
+    @staticmethod
+    def _refuse_unless_shaped_like_a_grid(grid: object) -> None:
+        """Refuse anything that is not a non-empty rectangle of booleans.
+
+        Checked before ``compute_clues``, because ``compute_clues`` is happy to
+        encode things that are not grids and the result then *solves*. Measured:
+        ``[]`` encodes to two empty clue sets, ``[[]]`` to ``((0,),)``, and the
+        string ``"not a grid"`` to ten rows of one filled cell — a 10x1 grid
+        that is uniquely solvable, so a guard that only asked the solver would
+        have stored the string. ``regrade._as_grid`` exists for the same reason
+        on the read side.
+
+        Strict about cell *type*, where ``regrade._as_grid`` deliberately
+        coerces. They are answering different questions: that one reads rows a
+        previous version of this system already wrote, where a cell stored as
+        ``0``/``1`` is a fact to be accommodated; this one is a write boundary,
+        where a caller handing over anything but booleans has a bug worth
+        hearing about (ADR-0012 fixes the boundary type as
+        ``list[list[bool]]``).
+        """
+        if not isinstance(grid, list) or not grid:
+            raise NotUniquelySolvable(
+                "refusing to store a grid that is not a readable grid: "
+                "expected a non-empty list of rows"
+            )
+        width = None
+        for row in grid:
+            if not isinstance(row, list) or not row:
+                raise NotUniquelySolvable(
+                    "refusing to store a grid that is not a readable grid: "
+                    "every row must be a non-empty list"
+                )
+            if not all(isinstance(cell, bool) for cell in row):
+                raise NotUniquelySolvable(
+                    "refusing to store a grid that is not a readable grid: "
+                    "cells must be booleans (ADR-0012)"
+                )
+            if width is None:
+                width = len(row)
+            elif len(row) != width:
+                raise NotUniquelySolvable(
+                    "refusing to store a grid that is not a readable grid: "
+                    f"row lengths differ ({width} then {len(row)})"
+                )
+
+    def _refuse_unless_uniquely_solvable(self, grid: object) -> None:
+        """Ask the solver whether this grid is a puzzle, and refuse if it is not.
+
+        FR-006 says uniqueness is the product's defining property, and CON-005
+        says the solver is the authority on it. Together those make this the
+        only honest place for the check: a store that accepts whatever its
+        callers hand it has the property only as long as every caller does, and
+        the twenty rows deleted on 2026-09-14 are what that argument costs when
+        it stops holding. They came from a third caller that derived a tier
+        from the grid's *size* and never solved anything. Deleting that
+        function closed the instance; this closes the class.
+
+        The clues are re-derived from the grid rather than taken from the
+        ``clues_rows``/``clues_cols`` arguments. Those are the caller's claim
+        about the grid, and a guard that trusts the caller's claim is not a
+        guard — CARD-051's rule that ``clues.compute_clues`` is the one encoder
+        says the same thing from the other direction.
+
+        Raises:
+            NotUniquelySolvable: the clue set has 0 or >= 2 solutions, or the
+                solve passed its deadline (ADR-0011) without concluding. Both
+                are the same answer to the question storage asks — *has this
+                been proven to be a puzzle?* — and an unproven grid is not a
+                proven one.
+        """
+        self._refuse_unless_shaped_like_a_grid(grid)
+
+        try:
+            row_clues, column_clues = compute_clues(grid)
+        except (TypeError, ValueError) as exc:
+            raise NotUniquelySolvable(
+                f"refusing to store a grid that is not a readable grid: {exc}"
+            ) from exc
+
+        try:
+            result = solve(
+                row_clues,
+                column_clues,
+                deadline=time.monotonic() + GENERATION_BUDGET_SECONDS,
+            )
+        except SolverTimeout as exc:
+            raise NotUniquelySolvable(
+                "refusing to store a grid whose uniqueness could not be proven "
+                f"within {GENERATION_BUDGET_SECONDS}s — unproven is not proven"
+            ) from exc
+
+        if result.solution_count != 1:
+            counted = "2 or more" if result.solution_count == MANY else "0"
+            raise NotUniquelySolvable(
+                f"refusing to store a grid whose clues have {counted} solutions; "
+                "a clue set that is not uniquely solvable is not a puzzle (FR-006)"
+            )
+
+    def audit_uniqueness(self, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS):
+        """Re-verify every stored row and report the ones that are not puzzles.
+
+        Reports; never writes. The guard above stops new bad rows, and this
+        answers the separate question the guard cannot — *what is in there
+        now?* — which is the question that found the twenty. Being able to ask
+        it again at any time is the part of this card's original quarantine
+        framing worth keeping.
+
+        Returns:
+            A list of ``(puzzle_id, reason)`` pairs, one per row that is not
+            provably a puzzle, in the order the rows were met. Empty means
+            every stored row was re-verified as uniquely solvable — a real
+            statement about the data, not a default.
+        """
+        failures = []
+        for puzzle in self._all_rows_for_audit():
+            try:
+                self._refuse_unless_uniquely_solvable(puzzle["grid"])
+            except NotUniquelySolvable as exc:
+                failures.append((str(puzzle["id"]), str(exc)))
+        return failures
+
+    def _all_rows_for_audit(self):
+        """Every stored row as ``{"id", "grid"}``, from whichever store is live."""
+        if self._session_factory is None:
+            return [
+                {"id": puzzle_id, "grid": puzzle.get("grid")}
+                for puzzle_id, puzzle in self.puzzles.items()
+            ]
+        from nonogram.db.models import Puzzle
+
+        with self._session_factory() as db:
+            return [
+                {"id": row.id, "grid": row.grid}
+                for row in db.query(Puzzle).order_by(Puzzle.id).all()
+            ]
+
     def add_puzzle(
         self,
         grid: list,
@@ -187,7 +329,18 @@ class PuzzleReviewService:
 
         Returns:
             puzzle_id (in-memory: puzzle_NNNNNN, DB: UUID string)
+
+        Raises:
+            NotUniquelySolvable: ``grid``'s clues do not have exactly one
+                solution, or the solve could not conclude in time. Nothing is
+                written in either case. See
+                :meth:`_refuse_unless_uniquely_solvable`.
         """
+        # Before either branch, so the property is the store's and not one
+        # mode's. A refusal here is a bug in the caller, so it is raised rather
+        # than returned or logged (CARD-080).
+        self._refuse_unless_uniquely_solvable(grid)
+
         if self._session_factory is None:
             # Legacy mode: in-memory dict
             puzzle_id = f"puzzle_{self._next_id:06d}"
@@ -695,15 +848,58 @@ def get_puzzle_review_service() -> PuzzleReviewService:
 
 
 class MockGenerator:
-    """Mock puzzle generator for testing (when actual generator module doesn't exist)."""
+    """A cheap generator for tests and demos that still produces real puzzles.
+
+    "Mock" is historical and now means only *cheap* — it does not call the
+    orchestrator, so it skips naming, the retry policies and the image path.
+    What it no longer skips is the one thing that makes a grid a puzzle.
+
+    Until CARD-080 it emitted a random 50%-density grid, clue lists of random
+    integers **unrelated to that grid**, and a random ``difficulty_score`` and
+    tier. Almost none of its output was uniquely solvable, and 29 tests fed it
+    to :meth:`PuzzleReviewService.add_puzzle` — so the suite's picture of "a
+    stored puzzle" was a non-puzzle with invented clues and an invented grade.
+    That is the same defect as ``image_to_puzzle.create_puzzle_from_image``,
+    the function that wrote the twenty rows deleted on 2026-09-14, and it was
+    still shipping in ``src/`` after that one was removed.
+
+    Three things changed, all of them "ask, don't invent":
+
+    * the clues come from :func:`nonogram.clues.compute_clues` on the grid it
+      actually produced (CARD-051's one encoder), so grid and clues agree;
+    * the grid is resampled until the solver certifies exactly one solution
+      (CON-005), so its output passes the storage guard because it deserves to
+      and not because the guard was relaxed;
+    * the grade comes from that same solve through the real scorer and
+      classifier (ADR-0029, ADR-0025/R2), so no second grading implementation
+      lives here either.
+
+    Density is 0.65 rather than 0.5 deliberately. Uniqueness is not uniform in
+    density — measured over 20 grids per cell, a random grid is uniquely
+    solvable 0/20 at density 0.2 and 0.35, 2-12/20 at 0.5, and 17-18/20 at
+    0.65, for sizes 10 to 20. Sparse grids are the hard ones: the structural
+    tension that makes a sparse grid uniquely solvable is the same tension that
+    makes it hard to find. At 0.65 the loop below almost always succeeds on its
+    first or second draw, at a few milliseconds a solve.
+    """
+
+    #: Fill density. A measured choice, not a default — see the class
+    #: docstring; lowering it makes the resample loop expensive fast.
+    DENSITY = 0.65
+
+    #: How many grids to draw before giving up on one puzzle. Generous: the
+    #: expected number of draws at DENSITY is under two, so reaching this bound
+    #: means something about the solver or the extent has changed, and saying so
+    #: loudly beats returning a grid nobody checked.
+    MAX_DRAWS = 40
 
     def __init__(self, seed=None):
-        """Initialize mock generator."""
+        """Initialize the generator. ``seed`` makes a run reproducible."""
         import random
         self.rng = random.Random(seed)
 
     def generate_batch(self, count, sizes, theme='christmas'):
-        """Generate a batch of mock puzzles.
+        """Generate a batch of puzzles, every one of them uniquely solvable.
 
         Args:
             count: Number of puzzles to generate
@@ -712,7 +908,13 @@ class MockGenerator:
             theme: Theme name
 
         Returns:
-            List of mock puzzle dicts
+            List of puzzle dicts, in the shape ``add_puzzle`` takes.
+
+        Raises:
+            NotUniquelySolvable: no uniquely solvable grid was found for an
+                extent within :attr:`MAX_DRAWS` draws. Raised rather than
+                returning the last draw: a caller that asked for a puzzle and
+                silently got a non-puzzle is the failure this card is about.
         """
         puzzles = []
 
@@ -725,20 +927,9 @@ class MockGenerator:
             else:
                 width = height = size_spec
 
-            grid = [
-                [self.rng.random() < 0.5 for _ in range(width)]
-                for _ in range(height)
-            ]
-
-            # Generate mock clues
-            clues_rows = [
-                [self.rng.randint(1, 3) for _ in range(self.rng.randint(1, 3))]
-                for _ in range(height)
-            ]
-            clues_cols = [
-                [self.rng.randint(1, 3) for _ in range(self.rng.randint(1, 3))]
-                for _ in range(width)
-            ]
+            grid, clues_rows, clues_cols, score, tier = self._draw_until_unique(
+                width, height
+            )
 
             puzzle = {
                 'grid': grid,
@@ -747,8 +938,8 @@ class MockGenerator:
                 'width': width,
                 'height': height,
                 'theme': theme,
-                'difficulty_score': self.rng.randint(1, 100),
-                'difficulty_tier': self.rng.choice(['Easy', 'Medium', 'Hard']),
+                'difficulty_score': score,
+                'difficulty_tier': tier,
                 'quality_score': self.rng.randint(1, 100),
                 'recognizability': self.rng.choice(['low', 'medium', 'high']),
                 'strategies_used': ['LineLogic', 'ConstraintProp'],
@@ -756,3 +947,43 @@ class MockGenerator:
             puzzles.append(puzzle)
 
         return puzzles
+
+    def _draw_until_unique(self, width, height):
+        """Draw grids at :attr:`DENSITY` until the solver certifies one.
+
+        The solve that certifies the grid is the solve its grade comes from —
+        one solver entry per puzzle, the rule ADR-0029/R2 states for the real
+        pipeline and which there is no reason to break here.
+        """
+        for _ in range(self.MAX_DRAWS):
+            grid = [
+                [self.rng.random() < self.DENSITY for _ in range(width)]
+                for _ in range(height)
+            ]
+            row_clues, column_clues = compute_clues(grid)
+            try:
+                result = solve(
+                    row_clues,
+                    column_clues,
+                    deadline=time.monotonic() + GENERATION_BUDGET_SECONDS,
+                )
+            except SolverTimeout:
+                continue
+            if result.solution_count != 1:
+                continue
+
+            score = score_difficulty(result.signals)
+            tier = classify(score, result.signals.branch_nodes)
+            return (
+                grid,
+                [list(run) for run in row_clues],
+                [list(run) for run in column_clues],
+                math.ceil(score),
+                tier.value,
+            )
+
+        raise NotUniquelySolvable(
+            f"no uniquely solvable {width}x{height} grid in {self.MAX_DRAWS} draws "
+            f"at density {self.DENSITY}; returning an unchecked grid is what "
+            "CARD-080 exists to prevent"
+        )

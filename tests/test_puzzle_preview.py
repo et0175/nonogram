@@ -1,6 +1,8 @@
 """Tests for puzzle preview modal feature (CARD-004i)."""
 
 import pytest
+
+from nonogram.difficulty import tier_of_record
 import json
 
 
@@ -50,8 +52,11 @@ class TestPuzzlePreviewData:
 
         assert 'difficulty_score' in sample_puzzle
         assert 'difficulty_tier' in sample_puzzle
-        assert 1 <= sample_puzzle['difficulty_score'] <= 100
-        assert sample_puzzle['difficulty_tier'] in ['Easy', 'Medium', 'Hard']
+        # See tests/test_batch_generation_e2e.py: through tier_of_record, not
+        # against a hardcoded label list that assumed a spelling the classifier
+        # does not emit and omitted ADR-0025's fourth tier.
+        assert 0 <= sample_puzzle['difficulty_score'] <= 100
+        assert tier_of_record(sample_puzzle['difficulty_tier']) is not None
 
     @pytest.mark.unit
     def test_puzzle_has_quality_for_preview(self, sample_puzzle):

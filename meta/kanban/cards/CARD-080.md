@@ -1,6 +1,6 @@
 # CARD-080: No write path can store a puzzle that is not uniquely solvable
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** ops
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/080-uniqueness-at-the-storage-boundary
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-080
 **Source:** CARD-077's pre-implementation measurement (2026-09-14); owner decision "report only on CARD-077, cleanup is its own card"
 **Idea:** —
 **Wave:** 1
 **Depends on:** — (the cleanup this card was opened for has already been done)
-**Touches:** src/nonogram/admin/puzzle_review.py (add_puzzle guard), src/nonogram/admin/app.py + batch_generator.py (handle the refusal), tests/test_admin_uniqueness_boundary.py (new)
+**Touches:** src/nonogram/admin/app.py (upload route reports a refusal and skips that picture), src/nonogram/admin/batch_generator.py (counts a refusal, keeps the batch going), src/nonogram/admin/puzzle_review.py (the guard, the audit, and MockGenerator rewritten to produce real puzzles), src/nonogram/cli.py (its exit-code group), src/nonogram/errors.py (NotUniquelySolvable), tests/test_admin_uniqueness_boundary.py (new — AC-A..AC-E), tests/test_batch_generation_e2e.py (tier assertion through tier_of_record; score range 0..100), tests/test_cli.py (the new error in the exit-code table), tests/test_puzzle_preview.py (same), tests/test_puzzle_review.py (fixture grid was the ambiguous diagonal), tests/test_wave3_e2e.py (same fixture)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-13T15:20Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -97,10 +97,19 @@ accept a non-puzzle is one refactor away from holding non-puzzles again.
 ## System contract
 
 - CON-005 — the solver's verdict is the uniqueness authority (check:
-  TestQuarantine_ReverifiesRatherThanTrustingTheReport)
+  TestStorageBoundary_AsksTheSolverNotTheCaller)
+  *Was* `TestQuarantine_ReverifiesRatherThanTrustingTheReport` — a leftover
+  from the card's original quarantine framing, naming a test that was never
+  written and no longer matches any AC. A dead check ref reads as a live check
+  and is worse than none.
 - ADR-0011 — every solve is deadline-bounded (check: review-lens)
-- NFR-003 / CON-009 — admin action bound to localhost (check: existing admin
-  binding tests)
+- CON-015 / CON-016 — the admin is reachable from this machine only (check:
+  TestAdminPanel_BindsLoopbackOnlyByDefault,
+  TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine)
+  *Was* `NFR-003 / CON-009 ... (check: existing admin binding tests)`. CON-009
+  is COMP-008's rule and there were no admin binding tests — the same false
+  claim CARD-077 carried, found by its review (F-003) and fixed by CARD-081,
+  which added the constraints and the tests this line can now honestly cite.
 - ADR-0006/R1 — no new runtime dependency (check: review-lens)
 
 ## Architecture context
@@ -136,3 +145,86 @@ Recovery, two ways: a file copy in the session scratchpad, and `git checkout --
 nonogram_admin.db`, since the file is tracked and HEAD still holds all 36. The
 DB is deliberately left uncommitted so that second path stays open until the
 owner is satisfied.
+
+### What the guard found when it was switched on (2026-09-13)
+
+The guard itself was small. What it exposed was not.
+
+**29 existing tests broke, and every one of them for the right reason.** They
+were storing grids that are not puzzles. The single root cause was
+`MockGenerator` — which lives in **`src/nonogram/admin/puzzle_review.py`**, not
+in the test tree — producing:
+
+- a random 50%-density grid, which is almost never uniquely solvable (measured
+  over 20 draws per cell: 0/20 unique at density 0.2 and 0.35, 2-12/20 at 0.5,
+  17-18/20 at 0.65, for sizes 10-20);
+- `clues_rows`/`clues_cols` of random integers **bearing no relation to the
+  grid** they shipped beside;
+- a random `difficulty_score` and a random tier — a "Hard" on a score of 17 was
+  an ordinary output.
+
+So the suite's picture of a stored puzzle was a non-puzzle carrying invented
+clues and an invented grade. That is the same defect as
+`image_to_puzzle.create_puzzle_from_image`, the function that wrote the twenty
+rows deleted on 2026-09-14 — **still shipping in `src/` after that one was
+deleted**, which is precisely the "one refactor away" this card was opened
+about. The card's own premise ("its two live callers do go through
+orchestrator.generate, so today's writes are sound") was therefore not quite
+true: a third caller was already there, and it was the one the tests used.
+
+Rewritten to ask rather than invent: clues from `clues.compute_clues`, grid
+resampled until the solver certifies it, grade from that same solve through the
+real scorer and classifier. Density 0.65, chosen off the measurement above, so
+the resample loop almost always succeeds on its first or second draw — 10
+puzzles in 18ms.
+
+**The residue after that fix was small and also real.** Two literal fixtures
+used `[[True,False],[False,True]]`, the diagonal 2x2, which has two solutions;
+exactly 2 of the 16 possible 2x2 grids are ambiguous and they are the two
+diagonals, so each was a one-cell change. Two more tests asserted
+`difficulty_tier in ['Easy','Medium','Hard']` — a hardcoded label list that
+assumed a spelling the real classifier does not emit (it writes the enum value)
+and predated ADR-0025's fourth tier, so a Guess puzzle would have failed them
+too. Both now go through `tier_of_record`, and their score bounds move from
+`1..100` to ADR-0029's actual `0..100`.
+
+**The guard needed a shape check, for the reason `regrade._as_grid` has one.**
+`compute_clues` will happily encode things that are not grids, and the result
+then *solves*: `[]` encodes to two empty clue sets, `[[]]` to `((0,),)`, and the
+string `"not a grid"` to ten rows of one filled cell — a 10x1 grid that is
+uniquely solvable, so a guard that only asked the solver would have stored the
+string. Strict about cell type here, where `regrade._as_grid` deliberately
+coerces: that one reads rows an older version of this system already wrote,
+this one is a write boundary where a non-boolean cell is a caller's bug.
+
+**Callers.** The batch generator logs at error level and counts a refusal as
+`refused_count` rather than as a stored puzzle, and keeps going — one bad
+candidate is no reason to lose the batch. The upload route reports it in the
+results list and skips that picture. Both treat it as a bug rather than a data
+condition, because every candidate they offer came through
+`orchestrator.generate`, which enforces INV-002.
+
+**Cost.** One solve per stored row, which is the same solve the pipeline
+already did — measured at ~14ms per row against a batch that spends seconds per
+puzzle generating. No bypass flag was added and none is wanted: a flag would
+move the trust back to the caller, which is the arrangement that produced the
+twenty rows.
+
+**AC-C is structural, not just tested.** ``_refuse_unless_uniquely_solvable``
+takes ``(self, grid)`` — it never receives ``clues_rows``, ``clues_cols``,
+``difficulty_tier`` or any other thing the caller says about the grid, so
+"trusts the caller" is not a state this code can be mutated into one line at a
+time. The tests cover the behaviour (a caller supplying another grid's clues
+and a full set of plausible grades is still refused); the signature is what
+makes the behaviour unavoidable.
+
+**Mutation check, seven mutants.** Six killed: guard removed, ambiguity
+accepted, timeout treated as proof, shape check removed, audit silenced, and
+``MockGenerator``'s resample loop removed. One was a badly written no-op of my
+own and one — the resample loop — **initially survived**: at density 0.65 a
+first draw is unique about nine times in ten, so a seeded batch of eight can be
+all-first-draw-unique and the loop can be deleted with the suite still green.
+The test that was supposed to pin it was passing on seed luck. Replaced with two
+that force the solver to refuse the first draws and assert the generator drew
+again, and that an exhausted ``MAX_DRAWS`` raises rather than returning the last
+grid.
