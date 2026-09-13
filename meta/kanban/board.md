@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-080** P1 · No write path can store a puzzle that is not uniquely solvable  _(wave 1)_ — the 20 bad rows are deleted; this is the guard that stops a recurrence
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift  _(wave 1)_
@@ -52,13 +51,15 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-077** P2 · Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept · `card/077-admin-db-regrade` · started 2026-09-14T01:30Z
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-080** P1 · No write path can store a puzzle that is not uniquely solvable · score 8.5 (cycle 2/2) · merged b40e6b1
+- **CARD-077** P2 · Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept · score 8.5 (cycle 2/2) · merged 3de767f
+- **CARD-081** P1 · The admin panel binds loopback like the web UI does, and a test says so · merged without a review cycle, at the owner's call · merged 44a5af4
 - **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier · score 9.0 (cycle 2/2) · merged 76c1df4
 - **CARD-074** P1 · Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 per lineage, one shared bound · merged aa6d863 · review 8.5
 - **CARD-073** Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · score 9.0 (cycle 2/2) · merged ab851eb

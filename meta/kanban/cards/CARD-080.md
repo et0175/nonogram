@@ -1,6 +1,6 @@
 # CARD-080: No write path can store a puzzle that is not uniquely solvable
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** ops
 **Estimate:** 0.5d
