@@ -1510,6 +1510,76 @@ def create_app(debug=None):
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
         return redirect(url_for("puzzles_list"))
 
+    # ----------------------------------------------------------------------
+    # CARD-077 — the re-grade batch, behind a confirmation page
+    # ----------------------------------------------------------------------
+
+    def _regrade_batch():
+        """``admin.regrade``, imported at call time and not at module import.
+
+        The module reaches into ``nonogram.db``, so importing it up top would
+        make SQLAlchemy a hard requirement of the admin panel — it is the
+        optional ``db`` extra, and the rest of this file already keeps it that
+        way (see ``delete_puzzle``). Both routes below refuse before they get
+        here when there is no database configured, so the import only runs when
+        there is one.
+        """
+        from .regrade import regrade
+
+        return regrade
+
+    def _render_regrade(report, applied):
+        """Render the one page both the preview and the confirmed run answer with.
+
+        One template and one report shape for both, because the whole promise
+        of the confirmation page is that what the owner approved is what ran.
+        """
+        return render_template(
+            "regrade.html",
+            report=report,
+            applied=applied,
+            tiers=list(Tier),
+        )
+
+    @app.route("/regrade", methods=["GET"])
+    def regrade_preview():
+        """The dry run: what the batch *would* do, writing nothing.
+
+        Every row is solved here exactly as it would be on the write path, so
+        the page costs the same as the run it is previewing. That is affordable
+        at this table's size and is the reason the two paths cannot disagree.
+        """
+        if session_scope is None:
+            flash("Re-grading needs a database (DATABASE_URL is not set)", "error")
+            return redirect(url_for("dashboard"))
+
+        with session_scope() as db:
+            report = _regrade_batch()(db, dry_run=True)
+        return _render_regrade(report, applied=False)
+
+    @app.route("/regrade", methods=["POST"])
+    def regrade_apply():
+        """The confirmed run — the one point of no return in this card.
+
+        Reached only from the preview page's button. What it writes is
+        recoverable by hand: every row it overwrites has its previous grade
+        copied into the legacy columns first, and rows it skips are not
+        touched at all.
+        """
+        if session_scope is None:
+            flash("Re-grading needs a database (DATABASE_URL is not set)", "error")
+            return redirect(url_for("dashboard"))
+
+        with session_scope() as db:
+            report = _regrade_batch()(db, dry_run=False)
+
+        flash(
+            f"Re-graded {len(report.regraded)} of {report.row_count} puzzles; "
+            f"{len(report.skipped)} left unchanged",
+            "success" if not report.skipped else "warning",
+        )
+        return _render_regrade(report, applied=True)
+
     @app.errorhandler(404)
     def not_found(e):
         """Handle 404 errors."""

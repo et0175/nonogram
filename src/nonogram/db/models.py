@@ -56,8 +56,20 @@ class Puzzle(Base):
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
     theme = Column(String, nullable=True)
-    difficulty_score = Column(Integer, nullable=True)  # 1-100
-    difficulty_tier = Column(String, nullable=True)  # 'Easy', 'Medium', 'Hard'
+    difficulty_score = Column(Integer, nullable=True)  # 0-100 (ADR-0029's scale)
+    difficulty_tier = Column(String, nullable=True)  # 'easy'/'medium'/'hard'/'guess'
+    # CARD-077 / migration 006 — what this row's grade was before the re-grade
+    # batch (admin/regrade.py) overwrote it. Nullable and never backfilled:
+    # NULL means "never re-graded", which is also the guard that makes the
+    # capture happen at most once per row.
+    #
+    # Deliberately *not* documented as "the ADR-0013 values". The grades that
+    # were here came from image_to_puzzle's private size-based derivation,
+    # which never called the solver (CARD-076 deleted it). These columns
+    # preserve what was on disk, whatever wrote it. Dropped by a later card,
+    # after the owner has reviewed the new distribution.
+    legacy_difficulty_score = Column(Integer, nullable=True)
+    legacy_difficulty_tier = Column(String, nullable=True)
     quality_score = Column(Integer, nullable=True)  # 1-100 (image fidelity)
     recognizability = Column(String, nullable=True)
     strategies_used = Column(JSON, nullable=True)

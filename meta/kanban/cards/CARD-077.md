@@ -1,6 +1,6 @@
 # CARD-077: Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept ⚑
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/077-admin-db-regrade
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-077
 **Source:** meta/architecture/handoff.md#increment-10 (Migration paragraph, ⚑ risk); ADR-0029 Migration: rewrite
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-076
 **Touches:** migrations/versions/006_*.py (new, expand-only: legacy grade columns), src/nonogram/db/models.py (two nullable legacy columns), src/nonogram/admin/regrade.py (new — the batch), src/nonogram/admin/app.py (one POST route + confirmation page), src/nonogram/admin/templates/regrade.html (new), src/nonogram/admin/templates/dashboard.html (link), tests/test_admin_regrade.py (new), tests/test_db_e2e_smoke.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-14T01:30Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -179,4 +179,162 @@ old columns are dropped only in a later card.
 
 ## Worktree notes
 
-—
+### Measured before implementation started (2026-09-14)
+
+The card is written around a risky migration over real stored grades. Two facts
+about the actual data change what it is.
+
+**1. The working-copy `nonogram_admin.db` holds 0 puzzles.** The 36 puzzles and
+8 batches exist only in the committed version of the file (it is tracked). The
+working copy was emptied on 2026-09-11 at 19:44 and has not been written since
+— repeated full-suite runs on 2026-09-13 left its mtime untouched, so the test
+suite is not what emptied it. Whether those rows should come back is the
+owner's call; they are recoverable with `git show HEAD:nonogram_admin.db`.
+
+**2. Of the 36 rows in the committed copy, 20 (56%) are not uniquely
+solvable** — every one reports `solution_count=2`. That is a data-integrity
+problem, not a grading one: a clue set with two solutions is not a puzzle, and
+four of the 36 rows are marked `approved`. AC-C already says such a row is
+skipped and reported rather than rewritten, so the card's design is right; what
+is new is the scale, which makes the skip list the headline rather than a
+footnote.
+
+Their provenance explains the grades. The stored scores are 65..100 with tiers
+33 Medium / 3 Hard and no Easy — a distribution the ADR-0013 scorer cannot
+produce, since it bounded a line-solvable puzzle at 15. These rows were graded
+by `admin/image_to_puzzle.create_puzzle_from_image`'s private size-based
+derivation, which never called the solver and never checked uniqueness. CARD-076
+deleted that function as dead. So the re-grade is not "ADR-0013 values to
+ADR-0029 values" — it is "values from a path that never solved anything, to real
+ones".
+
+**Dry run over a scratch copy** (writes nothing), 36 rows in 0.5s:
+
+| | |
+|---|---|
+| re-graded | 16 |
+| skipped, not uniquely solvable | 20 |
+| new distribution | Easy 12, Hard 4, Medium 0, Guess 0 |
+| moves | Medium->Easy 11, Medium->Hard 4, Hard->Easy 1 |
+
+Not one row keeps its grade. The 0.5s runtime also means the card's "real
+operational job" framing is over-cautious at this data size — the rehearsal
+discipline still stands, but the batch is not long-running.
+
+### What changed under the card while it was being built (2026-09-13)
+
+Both facts above have since moved, and the note is kept rather than corrected
+because it is the reasoning the design was built on.
+
+**The rows came back, and then the broken ones went.** The owner restored the
+36 puzzles and 8 batches into the working copy, and then directed that the 20
+non-unique rows be deleted outright — reversing the "report only" reading of
+fact 2. That deletion happened outside this worktree and is not this card's
+work. The live table now holds **16 puzzles**, every one re-verified as
+uniquely solvable, with `batches.puzzle_count` recomputed.
+
+**What that changes for the card: nothing.** AC-C is still required and still
+implemented — a non-unique or timed-out row is left untouched and reported with
+its reason. What changed is that its tests now *construct* an ambiguous grid
+(`tests/test_admin_regrade.py::AMBIGUOUS_GRID`, a 2x2 whose clues both
+diagonals satisfy) instead of leaning on the real table containing one. That is
+strictly better: the test no longer depends on the database happening to be
+broken. Future non-unique rows are CARD-080's.
+
+### AC-F rehearsal — over a copy of the live DB as it now stands (2026-09-13)
+
+Never the live file (G-1). Procedure: `cp nonogram_admin.db` to a scratch
+directory, `alembic upgrade 006` on the copy, dry run, then write, then a
+second write.
+
+The copy's `alembic_version` read **003** while its schema already carried
+`puzzle_name`/`book_id`, so it was out of step with itself. The 003 -> 006
+chain nevertheless ran clean on the copy (16 puzzles, 8 batches and 0 books
+intact afterwards, both legacy columns present). **Worth the owner's attention
+before any live run**: the stamp being behind the schema is a pre-existing
+condition, not something 006 introduced.
+
+| | |
+|---|---|
+| rows | 16 |
+| re-graded | 16 |
+| skipped | 0 |
+| runtime | 0.15 s (dry run and write alike) |
+| tiers before | Medium 15, Hard 1 |
+| **tiers after** | **Easy 12, Hard 4, Medium 0, Guess 0** |
+| moves | medium->easy 11, medium->hard 4, hard->easy 1 |
+| rows keeping their tier | 0 |
+
+**Skipped rows: none.** Every stored row was uniquely solvable, which is the
+direct consequence of the deletion above.
+
+Per row, smallest extent first:
+
+| id | extent | before | after | strategies |
+|---|---|---|---|---|
+| 0a07ccc2 | 20x20 | Medium (65) | Hard (68) | simple_overlap, probe_contradiction |
+| 0b322efc | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| 13cc7c15 | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| 272c63f7 | 20x20 | Medium (65) | Hard (67) | simple_overlap, probe_contradiction |
+| 2b8233da | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| ac588486 | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| baf6ef1e | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| 6c4f39f4 | 20x22 | Medium (68) | Easy (33) | simple_overlap |
+| 24f98a82 | 23x20 | Medium (69) | Easy (33) | simple_overlap |
+| b0a48383 | 20x23 | Medium (69) | Easy (33) | simple_overlap |
+| 68a51875 | 20x24 | Medium (71) | Easy (33) | simple_overlap |
+| dcc54bee | 20x24 | Medium (71) | Easy (33) | simple_overlap |
+| e4be67be | 24x20 | Medium (71) | Easy (33) | simple_overlap |
+| 75d22fd3 | 25x20 | Medium (72) | Hard (98) | simple_overlap, probe_contradiction |
+| 3535e73e | 27x20 | Medium (75) | Hard (99) | simple_overlap, line_dp, probe_contradiction |
+| cecbdc75 | 20x30 | Hard (80) | Easy (33) | simple_overlap |
+
+Also checked on the copy:
+
+- the dry run left the file **byte-identical** (sha256 before == after) and its
+  report is outcome-for-outcome equal to the write run's;
+- a **second** write run left the file byte-identical to the first — idempotent
+  in fact, not just in principle;
+- the legacy columns hold the pre-run pairs (15 Medium, 1 Hard) and the second
+  run did not touch them;
+- the admin puzzle list renders the new grades: 12 Easy badges, 4 Hard badges.
+
+The old grades' spread is worth naming. Every one of the 16 sat in 65..75 with
+a single 80, and the extent was the only thing that moved them — 20x20 rows all
+scored exactly 65 whatever the picture. That is the size-based derivation
+showing through. Under the ladder the same 16 spread across two real tiers, and
+the four Hard ones are Hard because their solve needed
+`probe_contradiction`, not because they are big: `cecbdc75` is the *largest*
+grid in the table at 20x30 and it never leaves `simple_overlap`.
+
+**Easy is one point on the scale.** All 12 Easy rows score exactly 33 — the
+known consequence of a bottom-rung puzzle having share 1.0 by construction
+(`difficulty.py`'s module docstring, CARD-076). Nothing to fix here; it is
+input for ADR-0005's owed recalibration.
+
+### Notes on the build
+
+- **The stored score is the ADR-0029 float rounded *up*, not to nearest.** The
+  column is an `Integer`, and a band is `(low, high]` with whole-number edges,
+  so a ceiling keeps the stored number inside the same band as the float it
+  came from. Ordinary rounding does not: a `line_dp` row that settled one cell
+  at its top rung scores 33.08, rounds to 33, and would read back as Easy while
+  the tier string beside it said Medium.
+- **The legacy-capture guard is `legacy_difficulty_tier IS NULL`, and the
+  capture always writes non-NULL** — `NO_LEGACY_TIER` (`""`) for a row that had
+  no tier at all. Without that, a row with no stored grade would leave the guard
+  open after the first run and the *second* run would capture the first run's
+  own values as if they were the originals. AC-B's real requirement is
+  once-per-row-ever, not once-in-the-common-case.
+- **`guess` is appended to the strategies list on the tier, not on
+  `branch_nodes`.** Both say the same thing, but reading the count in `admin/`
+  would put a second reader of EC-015's rule outside `difficulty.py`
+  (ADR-0025/R2).
+- **Card item 6 was already done** by CARD-076's review fix: `app.py` and
+  `book_pdf_generator.py` both count the Guess tier through
+  `book_pdf_generator.tier_breakdown` and `difficulty.tier_of_record`. Verified,
+  not re-implemented.
+- **The card calls `nonogram_admin.db` "standing untracked noise" (G-6); it is
+  in fact tracked.** The rule is the same either way — commit only with explicit
+  pathspecs — but it is tracked, so an accidental `git add -A` would commit a
+  real diff rather than a new file.

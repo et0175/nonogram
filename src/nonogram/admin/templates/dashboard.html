@@ -90,7 +90,11 @@
             <div class="card-body">
                 <a href="/batch/create" class="btn btn-primary btn-sm w-100 mb-2">➕ Start Batch</a>
                 <a href="/puzzles" class="btn btn-outline-primary btn-sm w-100 mb-2">🔍 Review Puzzles</a>
-                <a href="/book/create" class="btn btn-outline-primary btn-sm w-100">📖 Create Book</a>
+                <a href="/book/create" class="btn btn-outline-primary btn-sm w-100 mb-2">📖 Create Book</a>
+                {# CARD-077. Opens the dry run, never the write: the page behind
+                   this link reports what a re-grade would do and asks before
+                   doing it. #}
+                <a href="/regrade" class="btn btn-outline-secondary btn-sm w-100">⚖️ Re-grade Puzzles</a>
             </div>
         </div>
     </div>
