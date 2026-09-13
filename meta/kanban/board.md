@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-13 18:10 UTC_
+_Updated: 2026-09-13 18:40 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier  _(wave 1)_ — after CARD-073
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift  _(wave 1)_
@@ -38,7 +37,7 @@ _(none)_
 - **CARD-079** P2 · Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus review  _(wave 1)_ — after CARD-072, CARD-075, CARD-076; ends at the owner's visual gate
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
-- **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_
+- **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
 - **CARD-078** P3 · Refuse density 0 and 100 — valid range 1..99  _(wave 1)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
@@ -53,6 +52,7 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
+- **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier · `card/076-strategy-ladder-guess-tier` · started 2026-09-13T18:45Z
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review

@@ -10,11 +10,11 @@
 **TDD:** false
 **Branch:** card/071-architecture-docs-hygiene
 **Worktree:** —
-**Source:** docs/GENERATION_ALGORITHM.md §10-§11 (2026-09-12 generation code review) and board.md "Repository integrity note"; follow-up card, not decomposed from handoff.md
+**Source:** docs/GENERATION_ALGORITHM.md §10-§11 (2026-09-12 generation code review), board.md "Repository integrity note", and CARD-074 review cycle 1 findings F-001/F-002 (2026-09-13); follow-up card, not decomposed from handoff.md
 **Idea:** —
 **Wave:** —
 **Depends on:** —
-**Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, meta/architecture/glossary.yml, meta/architecture/platform.yml, meta/architecture/inputs/raw-requirements.md (commit the restored copies), CLAUDE.md, meta/architecture/decisions/adr/0001-*.md, 0004-*.md, 0006-dependency-baseline.md, meta/architecture/domain/policies.yml, docs/REQUIREMENTS/README.md, docs/REQUIREMENTS/DIFFICULTY_ENGINE.md, docs/REQUIREMENTS/REQUIREMENTS_OVERVIEW.md, docs/REQUIREMENTS/ADMIN_CONSOLE_REQUIREMENTS.md, docs/REQUIREMENTS/NONOGRAM_GENERATION_REQUIREMENTS.md
+**Touches:** meta/kanban/cards/CARD-074.md (Touches line + AC-D wording), meta/review/20260913T173000Z-CARD-074-cycle1.yml (finding status), meta/architecture/requirements.yml, meta/architecture/trace.yml, meta/architecture/glossary.yml, meta/architecture/platform.yml, meta/architecture/inputs/raw-requirements.md (commit the restored copies), CLAUDE.md, meta/architecture/decisions/adr/0001-*.md, 0004-*.md, 0006-dependency-baseline.md, meta/architecture/domain/policies.yml, docs/REQUIREMENTS/README.md, docs/REQUIREMENTS/DIFFICULTY_ENGINE.md, docs/REQUIREMENTS/REQUIREMENTS_OVERVIEW.md, docs/REQUIREMENTS/ADMIN_CONSOLE_REQUIREMENTS.md, docs/REQUIREMENTS/NONOGRAM_GENERATION_REQUIREMENTS.md
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -99,6 +99,23 @@ are recorded and what they point at.
 6. **Do not duplicate CARD-053** (the orphaned `analysis/` and
    `generation/` packages) — link to it from the DIFFICULTY_ENGINE banner
    and leave that work where it is.
+7. **CARD-074's two open review findings** (cycle 1, 2026-09-13 — both are
+   record corrections to merged work, no code):
+   - **F-001.** AC-D on FR-025 and in `meta/kanban/cards/CARD-074.md` names
+     "the 100-request 20x20 density-20 seeded corpus", but its test runs 36
+     seeds at 10x10 density 30. The *test* is the right artefact: on the
+     stated corpus the assertion is vacuous, because all 60 sampled requests
+     abandon at both `MAX_CONSECUTIVE_REPAIRS = 0` and `= 3`. Re-word AC-D to
+     name the corpus the test uses and why, keeping the id and the test name
+     (the FR-003/AC-009 convention). The 20x20 measurement AC-D also asks for
+     stays where it is, in CARD-074's Worktree notes.
+   - **F-002.** `tests/test_naming.py` and `tests/test_sourcing_image.py`
+     each gained one `MAX_CONSECUTIVE_REPAIRS = 0` line in CARD-074 and are
+     absent from that card's `Touches`. Add them, with the one-clause reason
+     (both are scripted random-mode tests counting *source* calls, which a
+     repair does not make).
+   Mark both `status: fixed` in
+   `meta/review/20260913T173000Z-CARD-074-cycle1.yml` when done.
 
 ## Acceptance criteria
 
@@ -115,6 +132,9 @@ are recorded and what they point at.
 - **AC-4** — pytest is unaffected: the suite's pass/fail set is identical
   before and after (docs-only plus ADR text; `tests/test_cli.py`'s
   structural import guard still passes).
+- **AC-5** — FR-025's AC-D and CARD-074's `Touches` match what the code and
+  the tests actually do, and both CARD-074 findings read `status: fixed` in
+  the cycle-1 review report. No test file is edited by this card.
 
 ## Guardrails
 
