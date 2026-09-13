@@ -719,6 +719,52 @@ links:
     test-enforced. The check ref is live — the test exists and is green. Follow-up:
     ADR-0020 should carry the same rule in a ## Rules block (adr-writer, not domain-extraction).'
   status: covered
+- req: CON-015
+  description: Bind-scope rule for the ADMIN panel — its own entry point binds
+    loopback only, debugger off
+  capabilities:
+  - CAP-001
+  contexts:
+  - CTX-001
+  components:
+  - COMP-008
+  adrs:
+  - ADR-0020
+  tests:
+  - TestAdminPanel_BindsLoopbackOnlyByDefault
+  notes: 'The admin half of CON-009, added by CARD-081 after CARD-077''s review
+    (cycle 1, F-003) found that card asserting CON-009 for the admin panel — a rule
+    whose own statement says "the web UI''s HTTP server" and whose check is that
+    server''s test. Nothing covered the admin, and its entry point was in fact
+    `app.run(host="0.0.0.0", port=5000, debug=True)`: every interface plus a Werkzeug
+    console. COMPONENT MAPPING GAP: COMP-008 is named because no COMP owns
+    src/nonogram/admin/** — the same gap the FR-029 row records. The rule is scoped
+    by code glob in requirements.yml, so the system-contract lens collects it
+    correctly regardless. Check ref is live and green (24 tests, six mutants killed).'
+  status: covered
+- req: CON-016
+  description: Host-refusal rule for the ADMIN panel — a request that did not
+    address this machine is refused however it arrived
+  capabilities:
+  - CAP-001
+  contexts:
+  - CTX-001
+  components:
+  - COMP-008
+  adrs:
+  - ADR-0020
+  tests:
+  - TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine
+  notes: 'The half of NFR-003 that binding does NOT deliver for the admin, and the
+    reason CON-015 is survivable: the documented launch path is Flask''s own CLI
+    (`flask --app nonogram.admin.app run`, ADMIN_SETUP.md), whose `--host` this
+    package cannot remove, so the bind alone cannot carry the property there. Mirrors
+    CON-010 for the second inbound surface, down to refusing @ / # ? before parsing
+    — the first version of the admin check omitted that and let
+    `evil.com:80@127.0.0.1` through, which its own test caught. The two
+    implementations are held to identical answers by a differential test in the test
+    tree, where the import ADR-0007 forbids in src/ is legal.'
+  status: covered
 - req: CON-010
   description: Origin-refusal rule discharging BCON-0001 for browser-mediated 
     reach
