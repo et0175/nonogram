@@ -186,6 +186,44 @@ running the re-grade batch on the live DB. Everything before it reverts
 with the branch; the batch itself must be run on a backup first, and the
 old columns are dropped only in a later card.
 
+**After merge — every database must be migrated before it can be read
+(added 2026-09-13, after this bit the owner's dev environment).** This card
+adds two columns to `db/models.py` *and* migration 006. Merging delivers the
+model change immediately; the migration only takes effect when somebody runs
+it. In between, SQLAlchemy emits `SELECT ... puzzles.legacy_difficulty_score
+...` against a database that has no such column, and **every** read of the
+`puzzles` table fails:
+
+```
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn)
+column puzzles.legacy_difficulty_score does not exist
+```
+
+Not a defect in the card's work — it is what an expand-only migration means —
+but nothing in the card said it, and the Rollback paragraph above covers
+reverting the *branch*, not the fact that merging it breaks every unmigrated
+database until alembic runs. That gap is the finding, and this paragraph is
+the fix.
+
+**The three databases are not in the same state, and only one migrates
+cleanly:**
+
+| database | stamp before | schema | what it needs |
+|---|---|---|---|
+| dev Postgres (`nonogram_dev`) | 005 | genuinely at 005 | `alembic upgrade head` — **done 2026-09-13**, 311 puzzles / 66 batches / 5 books intact |
+| `nonogram_admin.db` (SQLite) | 003 | already past 003 (`puzzle_name`, `book_id` present) | stamp-then-upgrade; a plain `upgrade head` re-runs 004/005 against columns that exist and fails |
+| Render production | 003 | already past 003 | same, **plus** the legacy-column caveat in the cycle-1 review (F-004): its grades were re-graded out of band on 2026-09-13, so 006 + the batch would capture those as "pre-run". Genuine pre-run values: `meta/ops/render-grades-backup-20260913.json` |
+
+The stamp being behind the schema on two of the three is pre-existing and not
+006's doing — it is recorded in the AC-F rehearsal notes below. It matters here
+because it decides whether `alembic upgrade head` is safe to type.
+
+**For the next card that touches `db/models.py`:** say in the card which
+databases exist, what each is stamped at, and who runs the migration. A card
+that adds a column silently takes on the obligation to migrate every database
+that will be read by the merged code, and "the branch reverts cleanly" is not
+the same promise.
+
 ## Worktree notes
 
 ### Measured before implementation started (2026-09-14)
