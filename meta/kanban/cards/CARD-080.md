@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** — (the cleanup this card was opened for has already been done)
 **Touches:** src/nonogram/admin/app.py (upload route reports a refusal and skips that picture), src/nonogram/admin/batch_generator.py (counts a refusal, keeps the batch going), src/nonogram/admin/puzzle_review.py (the guard, the audit, and MockGenerator rewritten to produce real puzzles), src/nonogram/cli.py (its exit-code group), src/nonogram/errors.py (NotUniquelySolvable), tests/test_admin_uniqueness_boundary.py (new — AC-A..AC-E), tests/test_batch_generation_e2e.py (tier assertion through tier_of_record; score range 0..100), tests/test_cli.py (the new error in the exit-code table), tests/test_puzzle_preview.py (same), tests/test_puzzle_review.py (fixture grid was the ambiguous diagonal), tests/test_wave3_e2e.py (same fixture)
-**Review score:** —
+**Review score:** 8.0 (cycle 1) -> 8.5 (cycle 2), all gating findings fixed
 **Started:** 2026-09-13T15:20Z
-**Closed:** —
+**Closed:** 2026-09-13
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -267,3 +267,37 @@ clean batch. Suite unchanged at the known 14 pre-existing failures;
 `test_batch_history::test_batch_list_sorted_by_date_newest_first` is the
 standing unseeded `GenerationAbandoned` flake (3/3 green standalone), not this
 change.
+
+### Review cycle 2 fixes (b70a050)
+
+Cycle 2 ran the mutation certification cycle 1 had deferred, with **eight
+mutants deliberately different from the ones the cycle-1 fixes were written
+against**. Four survived. Two were equivalent mutants; two were real holes, and
+both are now closed.
+
+| finding | what was wrong | what it is now |
+|---|---|---|
+| F-008 | The objection-as-string refactor dropped `raise ... from exc`. Measured: `__cause__` **and** `__context__` both `None` on the timeout path — and that is the log `batch_generator` writes with `exc_info=True`, the one this card names as where the per-candidate detail lives. | `_why_this_is_not_a_puzzle` returns `(reason, cause)`. The write path re-attaches it, the audit drops it, and a *verdict* still carries no cause so a refusal that is an answer does not read as a malfunction. |
+| F-007 | The cross-check that justifies reimplementing `regrade._as_grid` could not generate a non-list row — every corpus row was a list comprehension, so **0 of 300** cases reached `isinstance(line, list)` and deleting that check left the suite green. | Non-list rows at *matching width* (the only shape that gets past the width check to reach the type check), generated and hand-written, plus a test asserting they are there. |
+| F-011 | `_refuse_unless_uniquely_solvable` had a `deadline_seconds` parameter with no caller, contradicting the docstring and test that say ADR-0011's bound here is not a caller's choice. | Removed. The audit keeps its budget, because raising it is how an operator asks a deeper question; the write path does not, because a write that needed longer than the generation budget to be proven was not proven. |
+| F-013 | `assert job.status is not BatchStatus.ERROR` against a method that never assigns status — an assertion that could not fail. | Drives `create_batch`, where the decision actually lives, and pins that the COMPLETE update does not clear the refusal note. |
+
+F-012 and F-015 came free in the same lines: the `compute_clues` branch now
+carries the `# pragma: no cover` its twin at `regrade.py:304` already had, and
+the zero-solutions arm carries a note that it is unreachable while clues are
+derived from a grid (120 random derived clue sets: 97 unique, 23 ambiguous,
+none unsolvable).
+
+**Still open, by choice.** F-009 (the audit can report a row twice if the
+`continue` is lost, and the covering assertion is a `dict`, which cannot see
+duplicate ids), F-010 (four shape malformations collapsed into one reason
+string), F-014 (the coercion in `_as_readable_grid` is inert — `compute_clues`
+already reads truthiness, so the shape screening is the load-bearing half),
+plus cycle 1's F-005 and F-006.
+
+**The process note worth keeping.** Three of cycle 2's five test findings —
+F-007, F-009, F-013 — share one cause: the tests and the mutants that checked
+them were written by the same author in the same sitting, so the mutants mostly
+confirmed what that author already believed. The four survivors only appeared
+because the review picked deliberately different ones. Mutants chosen by the
+test's author certify less than they look like they do.
