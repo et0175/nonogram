@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% import "_tier.html" as tier_badge %}
+
+{#
+  CARD-077's confirmation page, and the page a confirmed run answers with.
+
+  One template for both, driven by `applied`. The report object is built by the
+  same loop either way (admin/regrade.py), so the numbers under "would" and the
+  numbers under "did" come from the same code — which is the only thing that
+  makes a confirmation page worth having.
+
+  The skipped rows are given the same weight as the re-graded ones, deliberately.
+  A skipped row keeps a grade nobody has checked, so the skip list is the part of
+  this page that says what the run could *not* vouch for.
+#}
+
+{% block title %}Re-grade puzzles - Nonogram Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>{% if applied %}Re-grade complete{% else %}Re-grade puzzles{% endif %}</h1>
+        <p class="text-muted">
+            {% if applied %}
+            Every row below was solved once and re-graded from that solve. The grade
+            each row carried before is preserved in its legacy columns.
+            {% else %}
+            Nothing has been written. Every puzzle below was solved once to work out
+            what its grade would be under the current difficulty scale (ADR-0029).
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ report.row_count }}</div>
+            <div class="stat-label">Puzzles stored</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ report.regraded|length }}</div>
+            <div class="stat-label">{% if applied %}Re-graded{% else %}Would re-grade{% endif %}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ report.skipped|length }}</div>
+            <div class="stat-label">Left unchanged</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ report.regraded|length - report.unchanged_count }}</div>
+            <div class="stat-label">Tier changes</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    {% if applied %}New tier distribution{% else %}Tier distribution after the run{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Tier</th><th class="text-end">Before</th><th class="text-end">After</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for tier in tiers %}
+                        <tr>
+                            <td>{{ tier_badge.badge(tier.label) }}</td>
+                            <td class="text-end">{{ report.old_distribution[tier] }}</td>
+                            <td class="text-end"><strong>{{ report.distribution[tier] }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="text-muted small mt-2 mb-0">
+                    Over the {{ report.regraded|length }} rows that {% if applied %}were{% else %}would be{% endif %}
+                    graded. Rows left unchanged are in neither column.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Left unchanged ({{ report.skipped|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if report.skipped %}
+                <p class="text-muted small">
+                    These rows were <strong>not</strong> touched — not their grade, not their
+                    strategies, not their status. A grade is a claim about a puzzle, and
+                    the solver did not confirm one here.
+                </p>
+                <ul class="list-unstyled mb-0">
+                    {% for outcome in report.skipped %}
+                    <li class="mb-2">
+                        <code>{{ outcome.puzzle_id[:8] }}</code>
+                        {{ outcome.puzzle_name or '(unnamed)' }}
+                        <span class="text-muted">{{ outcome.extent }}</span>
+                        &mdash; {{ outcome.skip.reason.value }}
+                        <div class="text-muted small">{{ outcome.skip.detail }}</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="mb-0">Every stored puzzle was uniquely solvable and graded.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not applied %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h5 class="card-title">Apply this re-grade</h5>
+                <p class="mb-2">
+                    This rewrites <strong>{{ report.regraded|length }}</strong> rows'
+                    difficulty score, tier and strategies. Each row's previous grade is
+                    copied into its legacy columns first, so the run is reversible by
+                    hand &mdash; but it is not an undo button, and the legacy columns are
+                    written once: a second run will not overwrite them.
+                </p>
+                {# CARD-077 review cycle 1, F-004. The capture guard asks "has this
+                   row been captured?", which is only the same question as "is this
+                   the row's original grade?" while this batch is the sole writer of
+                   these columns. On the Render database it already is not: all 86
+                   rows were re-graded out of band on 2026-09-13, before the legacy
+                   columns existed. Saying so here rather than only in the card,
+                   because this is the screen where the button is. #}
+                <p class="mb-2 text-danger small">
+                    <strong>What "previous grade" means:</strong> whatever is in the row
+                    <em>right now</em>. If these grades were written by anything other
+                    than the original pipeline &mdash; an out-of-band script, an earlier
+                    migration, a manual edit &mdash; that is what gets preserved as the
+                    pre-run value, and it is preserved permanently. Check what the
+                    current grades actually are before running this on a database whose
+                    history you do not know.
+                </p>
+                <form method="POST" action="{{ url_for('regrade_apply') }}">
+                    <button type="submit" class="btn btn-danger"
+                            {% if not report.regraded %}disabled{% endif %}>
+                        Re-grade {{ report.regraded|length }} puzzles
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <a href="{{ url_for('puzzles_list') }}" class="btn btn-primary">Review the re-graded puzzles</a>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Every row</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Puzzle</th>
+                                <th>Size</th>
+                                <th>Tier before</th>
+                                <th>Tier after</th>
+                                <th class="text-end">Score before</th>
+                                <th class="text-end">Score after</th>
+                                <th>Strategies</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for outcome in report.outcomes %}
+                            <tr {% if not outcome.regraded %}class="table-secondary"{% endif %}>
+                                <td>
+                                    {{ outcome.puzzle_name or '(unnamed)' }}
+                                    <div class="text-muted small"><code>{{ outcome.puzzle_id[:8] }}</code></div>
+                                </td>
+                                <td>{{ outcome.extent }}</td>
+                                <td>{{ tier_badge.badge(outcome.old_tier_text) }}</td>
+                                <td>
+                                    {% if outcome.regraded %}
+                                    {{ tier_badge.badge(outcome.grade.tier.label) }}
+                                    {% else %}
+                                    <span class="text-muted">unchanged</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ outcome.old_score if outcome.old_score is not none else '—' }}</td>
+                                <td class="text-end">
+                                    {% if outcome.regraded %}{{ outcome.grade.score }}{% else %}—{% endif %}
+                                </td>
+                                <td class="small">
+                                    {% if outcome.regraded %}
+                                    {{ outcome.grade.strategies|join(', ') or '—' }}
+                                    {% else %}
+                                    <span class="text-muted">{{ outcome.skip.reason.value }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,6 @@
 # CARD-077: Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept ⚑
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
@@ -9,16 +9,16 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/077-admin-db-regrade
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-077
 **Source:** meta/architecture/handoff.md#increment-10 (Migration paragraph, ⚑ risk); ADR-0029 Migration: rewrite
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-076
-**Touches:** migrations/versions/006_*.py (new, expand-only: legacy grade columns), src/nonogram/db/models.py (two nullable legacy columns), src/nonogram/admin/regrade.py (new — the batch), src/nonogram/admin/app.py (one POST route + confirmation page), src/nonogram/admin/templates/regrade.html (new), src/nonogram/admin/templates/dashboard.html (link), tests/test_admin_regrade.py (new), tests/test_db_e2e_smoke.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Touches:** migrations/versions/006_add_legacy_grade_columns.py (new, expand-only: two nullable legacy grade columns), src/nonogram/admin/app.py (GET preview + POST apply), src/nonogram/admin/pdf_generator.py (review F-007: the second PDF path printed the tier verbatim, so a book built after the re-grade read 'Difficulty: easy'), src/nonogram/admin/regrade.py (new — the batch), src/nonogram/admin/templates/dashboard.html (link), src/nonogram/admin/templates/regrade.html (new — the confirmation page), src/nonogram/db/models.py (the two columns on the Puzzle model), tests/property/test_regrade_determinism.py (new — the EC property corpus), tests/test_admin_regrade.py (new), tests/test_admin_tier_surfaces.py (review F-007: the PDF spelling, added beside CARD-076's other tier-surface guards)
+**Review score:** 8.5 (cycle 2; cycle 1 7.0)
+**Started:** 2026-09-14T01:30Z
+**Closed:** 2026-09-13T23:55Z
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -151,8 +151,17 @@ lands; if CARD-072 is already merged, reuse its `add_puzzle`
   is not uniquely solvable is not re-graded, it is reported (check:
   TestRegrade_SkipsUnsolvableRowsAndReportsThem)
 - ADR-0011 — every solve is deadline-bounded (check: review-lens)
-- NFR-003 / CON-009 — admin action bound to localhost like the rest of the
-  admin (check: existing admin binding tests)
+- ~~NFR-003 / CON-009 — admin action bound to localhost like the rest of the
+  admin (check: existing admin binding tests)~~ **— withdrawn, cycle 1 F-003.**
+  Both halves were false. There are no admin binding tests: CON-009's own
+  declared check (`TestWebServer_BindsLoopbackOnlyByDefault`,
+  `tests/test_web_server.py:348`) covers COMP-008's web server, and CON-009's
+  statement says "the web UI's HTTP server" — the admin panel is not its
+  subject. And the admin's only entrypoint, `admin/app.py:1598`, is
+  `app.run(host="0.0.0.0", port=5000, debug=True)`: every interface, Werkzeug
+  debugger on. This card does not create that exposure and is not where it is
+  fixed — it is recorded here so the contract stops asserting a property the
+  system does not have. **Follow-up: CARD-081.**
 - ADR-0006/R1 — no new runtime dependency (check: review-lens)
 
 ## Architecture context
@@ -179,4 +188,287 @@ old columns are dropped only in a later card.
 
 ## Worktree notes
 
-—
+### Measured before implementation started (2026-09-14)
+
+The card is written around a risky migration over real stored grades. Two facts
+about the actual data change what it is.
+
+**1. The working-copy `nonogram_admin.db` holds 0 puzzles.** The 36 puzzles and
+8 batches exist only in the committed version of the file (it is tracked). The
+working copy was emptied on 2026-09-11 at 19:44 and has not been written since
+— repeated full-suite runs on 2026-09-13 left its mtime untouched, so the test
+suite is not what emptied it. Whether those rows should come back is the
+owner's call; they are recoverable with `git show HEAD:nonogram_admin.db`.
+
+**2. Of the 36 rows in the committed copy, 20 (56%) are not uniquely
+solvable** — every one reports `solution_count=2`. That is a data-integrity
+problem, not a grading one: a clue set with two solutions is not a puzzle, and
+four of the 36 rows are marked `approved`. AC-C already says such a row is
+skipped and reported rather than rewritten, so the card's design is right; what
+is new is the scale, which makes the skip list the headline rather than a
+footnote.
+
+Their provenance explains the grades. The stored scores are 65..100 with tiers
+33 Medium / 3 Hard and no Easy — a distribution the ADR-0013 scorer cannot
+produce, since it bounded a line-solvable puzzle at 15. These rows were graded
+by `admin/image_to_puzzle.create_puzzle_from_image`'s private size-based
+derivation, which never called the solver and never checked uniqueness. CARD-076
+deleted that function as dead. So the re-grade is not "ADR-0013 values to
+ADR-0029 values" — it is "values from a path that never solved anything, to real
+ones".
+
+**Dry run over a scratch copy** (writes nothing), 36 rows in 0.5s:
+
+| | |
+|---|---|
+| re-graded | 16 |
+| skipped, not uniquely solvable | 20 |
+| new distribution | Easy 12, Hard 4, Medium 0, Guess 0 |
+| moves | Medium->Easy 11, Medium->Hard 4, Hard->Easy 1 |
+
+Not one row keeps its grade. The 0.5s runtime also means the card's "real
+operational job" framing is over-cautious at this data size — the rehearsal
+discipline still stands, but the batch is not long-running.
+
+### What changed under the card while it was being built (2026-09-13)
+
+Both facts above have since moved, and the note is kept rather than corrected
+because it is the reasoning the design was built on.
+
+**The rows came back, and then the broken ones went.** The owner restored the
+36 puzzles and 8 batches into the working copy, and then directed that the 20
+non-unique rows be deleted outright — reversing the "report only" reading of
+fact 2. That deletion happened outside this worktree and is not this card's
+work. The live table now holds **16 puzzles**, every one re-verified as
+uniquely solvable, with `batches.puzzle_count` recomputed.
+
+**What that changes for the card: nothing.** AC-C is still required and still
+implemented — a non-unique or timed-out row is left untouched and reported with
+its reason. What changed is that its tests now *construct* an ambiguous grid
+(`tests/test_admin_regrade.py::AMBIGUOUS_GRID`, a 2x2 whose clues both
+diagonals satisfy) instead of leaning on the real table containing one. That is
+strictly better: the test no longer depends on the database happening to be
+broken. Future non-unique rows are CARD-080's.
+
+### AC-F rehearsal — over a copy of the live DB as it now stands (2026-09-13)
+
+Never the live file (G-1). Procedure: `cp nonogram_admin.db` to a scratch
+directory, `alembic upgrade 006` on the copy, dry run, then write, then a
+second write.
+
+The copy's `alembic_version` read **003** while its schema already carried
+`puzzle_name`/`book_id`, so it was out of step with itself. The 003 -> 006
+chain nevertheless ran clean on the copy (16 puzzles, 8 batches and 0 books
+intact afterwards, both legacy columns present). **Worth the owner's attention
+before any live run**: the stamp being behind the schema is a pre-existing
+condition, not something 006 introduced.
+
+| | |
+|---|---|
+| rows | 16 |
+| re-graded | 16 |
+| skipped | 0 |
+| runtime | 0.15 s (dry run and write alike) |
+| tiers before | Medium 15, Hard 1 |
+| **tiers after** | **Easy 12, Hard 4, Medium 0, Guess 0** |
+| moves | medium->easy 11, medium->hard 4, hard->easy 1 |
+| rows keeping their tier | 0 |
+
+**Skipped rows: none.** Every stored row was uniquely solvable, which is the
+direct consequence of the deletion above.
+
+Per row, smallest extent first:
+
+| id | extent | before | after | strategies |
+|---|---|---|---|---|
+| 0a07ccc2 | 20x20 | Medium (65) | Hard (68) | simple_overlap, probe_contradiction |
+| 0b322efc | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| 13cc7c15 | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| 272c63f7 | 20x20 | Medium (65) | Hard (67) | simple_overlap, probe_contradiction |
+| 2b8233da | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| ac588486 | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| baf6ef1e | 20x20 | Medium (65) | Easy (33) | simple_overlap |
+| 6c4f39f4 | 20x22 | Medium (68) | Easy (33) | simple_overlap |
+| 24f98a82 | 23x20 | Medium (69) | Easy (33) | simple_overlap |
+| b0a48383 | 20x23 | Medium (69) | Easy (33) | simple_overlap |
+| 68a51875 | 20x24 | Medium (71) | Easy (33) | simple_overlap |
+| dcc54bee | 20x24 | Medium (71) | Easy (33) | simple_overlap |
+| e4be67be | 24x20 | Medium (71) | Easy (33) | simple_overlap |
+| 75d22fd3 | 25x20 | Medium (72) | Hard (98) | simple_overlap, probe_contradiction |
+| 3535e73e | 27x20 | Medium (75) | Hard (99) | simple_overlap, line_dp, probe_contradiction |
+| cecbdc75 | 20x30 | Hard (80) | Easy (33) | simple_overlap |
+
+Also checked on the copy:
+
+- the dry run left the file **byte-identical** (sha256 before == after) and its
+  report is outcome-for-outcome equal to the write run's;
+- a **second** write run left the file byte-identical to the first — idempotent
+  in fact, not just in principle;
+- the legacy columns hold the pre-run pairs (15 Medium, 1 Hard) and the second
+  run did not touch them;
+- the admin puzzle list renders the new grades: 12 Easy badges, 4 Hard badges.
+
+The old grades' spread is worth naming. Every one of the 16 sat in 65..75 with
+a single 80, and the extent was the only thing that moved them — 20x20 rows all
+scored exactly 65 whatever the picture. That is the size-based derivation
+showing through. Under the ladder the same 16 spread across two real tiers, and
+the four Hard ones are Hard because their solve needed
+`probe_contradiction`, not because they are big: `cecbdc75` is the *largest*
+grid in the table at 20x30 and it never leaves `simple_overlap`.
+
+**Easy is one point on the scale.** All 12 Easy rows score exactly 33 — the
+known consequence of a bottom-rung puzzle having share 1.0 by construction
+(`difficulty.py`'s module docstring, CARD-076). Nothing to fix here; it is
+input for ADR-0005's owed recalibration.
+
+### Notes on the build
+
+- **The stored score is the ADR-0029 float rounded *up*, not to nearest.** The
+  column is an `Integer`, and a band is `(low, high]` with whole-number edges,
+  so a ceiling keeps the stored number inside the same band as the float it
+  came from. Ordinary rounding does not: a `line_dp` row that settled one cell
+  at its top rung scores 33.08, rounds to 33, and would read back as Easy while
+  the tier string beside it said Medium.
+- **The legacy-capture guard is `legacy_difficulty_tier IS NULL`, and the
+  capture always writes non-NULL** — `NO_LEGACY_TIER` (`""`) for a row that had
+  no tier at all. Without that, a row with no stored grade would leave the guard
+  open after the first run and the *second* run would capture the first run's
+  own values as if they were the originals. AC-B's real requirement is
+  once-per-row-ever, not once-in-the-common-case.
+- **`guess` is appended to the strategies list on the tier, not on
+  `branch_nodes`.** Both say the same thing, but reading the count in `admin/`
+  would put a second reader of EC-015's rule outside `difficulty.py`
+  (ADR-0025/R2).
+- **Card item 6 was already done** by CARD-076's review fix: `app.py` and
+  `book_pdf_generator.py` both count the Guess tier through
+  `book_pdf_generator.tier_breakdown` and `difficulty.tier_of_record`. Verified,
+  not re-implemented.
+- **The card calls `nonogram_admin.db` "standing untracked noise" (G-6); it is
+  in fact tracked.** The rule is the same either way — commit only with explicit
+  pathspecs — but it is tracked, so an accidental `git add -A` would commit a
+  real diff rather than a new file.
+
+### Review cycle 1 — what the findings changed (2026-09-13)
+
+Report: `meta/review/20260913T210000Z-CARD-077-cycle1.yml`. Score 7.0, no
+Critical. Four Important, six Minor. What moved:
+
+**F-001 / F-002 — the two headline decisions were verified by no test.** Both
+were real and both are closed by tests only; no production logic changed.
+
+- The one test naming `guess` ran on `UNIQUE_GRID`, which grades Easy — so it
+  asserted `False == False` and passed with the whole guess branch deleted.
+  `GUESS_GRID` (9x9, 14 branch nodes, `Tier.GUESS`) now exists, found by seeded
+  search over square grids at density 0.35..0.6, smallest extent first; 9x9 is
+  the first extent where a branching unique grid turns up. Its premise — unique
+  *and* branching — is pinned beside the other fixtures' so a solver improvement
+  that settled it by line logic would fail loudly rather than silently.
+- The ceiling in `_stored_score` was defended by the module's longest docstring
+  and by nothing executable. The only band-consistency test used two fixtures
+  scoring exactly 33.0, where ceil and round agree; across the whole 240-grid
+  property corpus, 6 grids have a fractional score and **none** land where the
+  two functions classify differently. `TestStoredScore_KeepsTheBandItsFloatCameFrom`
+  asserts it on the numbers directly, including 33.08 — the docstring's own
+  example, which no grid in the corpus produces.
+
+Both fixes were checked by mutation, not by assumption: `ceil` -> `round` kills
+4 tests, deleting the guess branch kills 2, and `regrade.py` was restored
+byte-identical to HEAD after each.
+
+**F-004 — the legacy-column mitigation is already void for production.** The
+capture guard asks "has this row been captured?", which is the same question as
+"is this the row's original grade?" only while this batch is the sole writer of
+those columns. On Render it is not: all 86 rows were re-graded out of band on
+2026-09-13, before migration 006 existed, so every row carries an ADR-0029 grade
+with `legacy_difficulty_tier IS NULL`. Running 006 + the batch there captures
+the 2026-09-13 values into columns this card describes as the pre-run grades,
+and then closes the guard on them permanently.
+
+No code change — the guard is correct, its premise is what moved. Two things
+instead: the confirmation page now says what "previous grade" actually means
+(whatever is in the row now, preserved permanently), and the genuine pre-run
+values for all 86 production rows are committed at
+`meta/ops/render-grades-backup-20260913.json` — 77 easy / 8 medium / 1 hard,
+every `strategies_used` empty, which is what an un-re-graded table looks like.
+
+**Before any live run on Render:** backfill the legacy columns from that file
+immediately after `alembic upgrade 006` and before the batch, or accept that
+production's legacy columns will hold the 2026-09-13 re-grade rather than the
+original grades — and say which, here.
+
+**F-003 — the card claimed a localhost binding the admin does not have.** The
+system-contract line is withdrawn above with the evidence; the binding itself is
+CARD-081.
+
+**F-007 — there are two book PDF generators and only one was in scope.**
+`book_pdf_generator.py` counts tiers through `tier_breakdown`;
+`pdf_generator.py` printed `difficulty_tier` verbatim into the table of contents
+and the per-puzzle header, so a book built after the re-grade read "Difficulty:
+easy". Resolved through `tier_of_record(...).label`, the same route the badge
+macro and both filter predicates already use. Tested through the rendered
+flowables rather than the helper — asserting the helper alone would leave the
+actual defect (a call site interpolating the column) reachable, which is the
+shape the bug had. Confirmed by mutation: reverting one call site kills 2 tests.
+
+**F-005 — dismissed, my error.** The review said the EC's named property test
+should be a collectible class, citing `TestWebServer_BindsLoopbackOnlyByDefault`.
+Wrong precedent: that is a `Test*` class, and pytest's default `python_classes`
+would not collect a `PropertyTest_*` one anyway. Every `PropertyTest_*` id in
+this repo — `PropertyTest_Solver_NeverFalsePositiveUniqueness`,
+`PropertyTest_ScoreDifficulty_IndependentOfElapsedTime` — is a docstring anchor,
+which is exactly what this card did. The change was made and reverted.
+
+**F-009 — kept the behaviour, fixed the claim.** `_as_grid` coerces cells with
+`bool()` while the module said defects are "reported rather than guessed at".
+Rejecting non-bool cells was the tidier fix and the wrong one: a row whose cells
+round-tripped as `0`/`1` through some other writer is still a gradable puzzle,
+and the local table's 7,240 cells are all `bool` so there is no evidence such
+rows exist to be protected from. Shape stays strict, cell type stays coerced,
+and both docstrings now say so — with a test pinning the asymmetry.
+
+**F-010 — recorded, not acted on.** Every solve runs inside the open write
+transaction with no run-level bound: worst case rows x 30s behind a lock.
+Measured at 0.15s for 16 rows and 1.3s for 86, and the admin has no background
+job machinery to move it into. Left as a note for when the table grows.
+
+### Review cycle 2 — F-011 (2026-09-13)
+
+Report: `meta/review/20260913T233000Z-CARD-077-cycle2.yml`. Score 8.5, one
+Important, one Minor. The Important is fixed here.
+
+**F-011 — a dry run discarded the caller's own uncommitted work.** `regrade`'s
+docstring promised "the caller owns the transaction" and then called
+`session.rollback()` on it, which is not scoped to this function. Demonstrated:
+a session carrying an unrelated pending row, a dry run, then the caller's own
+`commit()` — 0 rows persisted, no error, nothing in the report. Unreachable
+through the shipped routes, which each open a fresh session, which is precisely
+why it survived to here: the line had no observable behaviour to test.
+
+Fixed with a SAVEPOINT (`session.begin_nested()`), rolled back in a `finally`
+so an exception mid-run cannot leave a dry run's partial state behind. Two
+tests, one per half: the caller's pending row survives, and a write made
+*during* the run is undone. The second needs a write to happen inside the loop,
+which the `dry_run` gate otherwise prevents, so it is injected through the
+`monotonic` seam the signature already exposes — called once per row, inside
+the savepoint.
+
+Both confirmed by mutation: removing the savepoint kills
+`test_a_dry_run_undoes_a_write_made_while_it_ran`, and restoring the unscoped
+`session.rollback()` kills
+`test_a_dry_run_leaves_the_callers_own_pending_work_alone`. One test each, which
+is what says the two halves are independently pinned rather than jointly.
+
+**One claim withdrawn during the fix.** The first version of the fix carried a
+comment saying the row query must run *before* the savepoint opens, so the
+caller's autoflush lands outside the undone region. A mutant that moved the
+savepoint above the query survived, so I measured it: SQLAlchemy restores the
+unit of work on a SAVEPOINT rollback, and a caller's pending insert and a
+caller's dirty row both survive either ordering. The comment now says that
+instead of asserting an invariant that is not one — the same overclaim this
+review cycle caught twice in the card's own docstrings.
+
+**F-012 not acted on.** The rectangularity branch in `_as_grid` is an
+equivalent mutant: without it a ragged grid raises inside `compute_clues` and
+becomes the same `Skip(UNREADABLE_GRID)`, differing only in `detail`, which no
+test asserts. The branch still earns its place on the empty-grid case, which is
+covered. Left as a note.

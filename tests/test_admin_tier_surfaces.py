@@ -281,3 +281,109 @@ def test_the_filter_offers_all_four_tiers() -> None:
     for tier in Tier:
         assert f'value="{tier.label}"' in options
     assert 'value="Guess" selected' in options
+
+
+# --------------------------------------------------------------------------
+# The other PDF generator (CARD-077 review cycle 1, F-007)
+# --------------------------------------------------------------------------
+#
+# There are two book PDF paths and they are not the same module:
+# ``book_pdf_generator.py`` builds the guide page and counts tiers through
+# ``tier_breakdown``, while ``pdf_generator.py`` renders the table of contents
+# and the per-puzzle header. CARD-077 normalises every stored row to the enum
+# value (``easy``), so the second path — which printed the column verbatim —
+# started printing lowercase into a book the owner sells. These pin it.
+
+
+@pytest.mark.parametrize(
+    ("stored", "printed"),
+    [
+        pytest.param("easy", "Easy", id="pipeline-spelling"),
+        pytest.param("medium", "Medium", id="pipeline-spelling-medium"),
+        pytest.param("hard", "Hard", id="pipeline-spelling-hard"),
+        pytest.param("guess", "Guess", id="the-fourth-tier"),
+        pytest.param("Easy", "Easy", id="legacy-label-unchanged"),
+        pytest.param("Hard", "Hard", id="legacy-label-unchanged-hard"),
+    ],
+)
+def test_the_book_pdf_prints_a_tier_in_its_display_spelling(
+    stored: str, printed: str
+) -> None:
+    from nonogram.admin.pdf_generator import get_pdf_generator
+
+    assert get_pdf_generator()._tier_label({"difficulty_tier": stored}) == printed
+
+
+@pytest.mark.parametrize(
+    ("row", "printed"),
+    [
+        pytest.param({}, "N/A", id="no-tier-column"),
+        pytest.param({"difficulty_tier": None}, "N/A", id="null-tier"),
+        pytest.param({"difficulty_tier": ""}, "N/A", id="empty-tier"),
+        pytest.param({"difficulty_tier": "extreme"}, "extreme", id="not-a-tier-at-all"),
+    ],
+)
+def test_a_row_the_pdf_cannot_resolve_is_printed_not_invented(
+    row: dict, printed: str
+) -> None:
+    """A spelling naming no tier is printed as it stands. A printed book is the
+    wrong place to silently drop what the row actually says."""
+    from nonogram.admin.pdf_generator import get_pdf_generator
+
+    assert get_pdf_generator()._tier_label(row) == printed
+
+
+@pytest.mark.parametrize("stored", ["easy", "guess", "Medium"])
+def test_the_rendered_toc_and_page_header_carry_the_display_spelling(
+    stored: str,
+) -> None:
+    """Through the rendered flowables, not through the helper.
+
+    Asserting on ``_tier_label`` alone would leave the actual defect
+    reachable: the helper could be correct while a call site still
+    interpolated the column verbatim, which is exactly the shape the bug had.
+    These two are the only places the tier reaches a page.
+    """
+    from nonogram.admin.pdf_generator import get_pdf_generator
+
+    generator = get_pdf_generator()
+    row = {
+        "difficulty_tier": stored,
+        "width": 10,
+        "height": 10,
+        "quality_score": 90,
+        "grid": [[True]],
+    }
+    label = Tier(stored.lower()).label
+
+    toc = " ".join(
+        item.text for item in generator._create_table_of_contents({}, [row])
+        if hasattr(item, "text")
+    )
+    page = " ".join(
+        item.text for item in generator._create_puzzle_page(1, 1, row)
+        if hasattr(item, "text")
+    )
+
+    for rendered, where in ((toc, "table of contents"), (page, "puzzle header")):
+        assert f"Difficulty: {label}" in rendered or f"Difficulty: <b>{label}</b>" in rendered, (
+            f"the {where} did not print {label!r}: {rendered!r}"
+        )
+        if stored != label:
+            assert stored not in rendered, (
+                f"the {where} still carries the stored spelling {stored!r}"
+            )
+
+
+def test_both_pdf_paths_agree_on_how_a_tier_is_spelled() -> None:
+    """The defect was that one of the two normalised and the other did not.
+
+    Asserted as agreement between them rather than against a literal, so the
+    two cannot drift apart again without this failing.
+    """
+    from nonogram.admin.pdf_generator import get_pdf_generator
+
+    generator = get_pdf_generator()
+    for tier in Tier:
+        assert generator._tier_label({"difficulty_tier": tier.value}) == tier.label
+        assert generator._tier_label({"difficulty_tier": tier.label}) == tier.label

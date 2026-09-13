@@ -1,0 +1,126 @@
+version: 1
+generated_at: "2026-09-13T23:30:00Z"
+target: "CARD-077 — branch card/077-admin-db-regrade, commit 623ad36 (fix delta on a3ab9dc). Confirmation cycle."
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "the whole fix delta a3ab9dc..623ad36 (8 files)"
+    - "src/nonogram/admin/pdf_generator.py (helper + both call sites + import block)"
+    - "tests/test_admin_regrade.py (every added test body)"
+    - "tests/test_admin_tier_surfaces.py (added section)"
+    - "meta/kanban/cards/CARD-077.md, CARD-081.md"
+  not_reached:
+    - "code outside the fix delta, except where a carried verdict's scope required re-checking"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 1027, removed: 13 }
+  tests_cover_change: true
+  suite: "14 failures, byte-identical to the set on a3ab9dc (verified by stashing the delta and re-running the same 14)"
+  new_tests: 35
+  unmeasured:
+    max_fan_in: "not_applicable — the fix delta adds one private helper (_tier_label) and no exported symbol"
+    cochange_missing: "not_applicable — confirmation cycle over a fix delta, not a feature diff"
+
+system_contract:
+  rules_checked: 7
+  holds: 6
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0029/R2 ✓ holds — carried(cycle 1, delta-clean): regrade.py's executable code is AST-identical to a3ab9dc (docstring nodes stripped, ast.dump compared); the fix added no code to the solve path"
+    - "ADR-0025/R2 ✓ holds — RE-VERIFIED, not carried: the delta touches admin/pdf_generator.py, which is inside this rule's scope glob (src/nonogram/**). The added _tier_label resolves a stored STRING through difficulty.tier_of_record and reads Tier.label; it derives no tier from a score or from branch_nodes. One implementation still, in difficulty.py."
+    - "ADR-0029/R3 / CON-014 ⚠ unchecked — check_ref_missing: PropertyTest_Regrade_PureFunctionOfStoredGrid is a docstring anchor. Cycle 1 filed this as F-005 and it is DISMISSED as reviewer error — every PropertyTest_* id in this repo is a docstring anchor, so the ref is as live as the project's convention allows. The property itself: carried(cycle 1, delta-clean), regrade.py AST-identical."
+    - "CON-005 ✓ holds — carried(cycle 1, delta-clean); additionally re-confirmed by mutation this cycle: changing `solution_count != 1` to `== 0` kills 6 tests"
+    - "ADR-0011 ✓ holds — carried(cycle 1, delta-clean); additionally re-confirmed by mutation: dropping the deadline argument kills 1 test"
+    - "NFR-003 / CON-009 ✓ holds — vacuously, and that is the fix: the card's claim to this rule is withdrawn (cycle 1 F-003) with the evidence recorded inline, and the real exposure is carded as CARD-081. The contract no longer asserts a property the system lacks."
+    - "ADR-0006/R1 ✓ holds — RE-VERIFIED, not carried: the delta adds one import to admin/pdf_generator.py, `from nonogram.difficulty import tier_of_record` — first-party, stdlib-only transitively. pyproject.toml untouched. tests/test_cli.py::test_every_import_in_the_package_points_inward green."
+
+root_causes: []
+
+findings:
+  - id: F-011
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/regrade.py
+    line: 373
+    title: "A dry run silently discards any work the caller had pending on the session"
+    description: |
+      `regrade`'s docstring says "The caller owns the transaction". The dry-run
+      path then calls `session.rollback()` on it, which is not scoped to this
+      function's own work — it discards the caller's entire uncommitted
+      transaction.
+
+      Demonstrated. Given a fresh session in which the caller has added an
+      unrelated Puzzle and not yet committed, `regrade(session, dry_run=True)`
+      followed by the caller's own `session.commit()` leaves 0 rows persisted.
+      The caller's insert is gone, with no error raised and nothing in the
+      report to say so. (The row does reach the database first — `session.query`
+      autoflushes it — and is then rolled back with everything else.)
+
+      Not reachable through the shipped routes: `regrade_preview` opens a fresh
+      `session_scope()` and does nothing else with it. So this is a latent
+      contract violation rather than a live bug, and it is what makes the
+      rollback line untestable — the mutation check run on this cycle (deferred
+      from cycle 1 by the cost ladder) found the mutant that deletes the
+      rollback entirely SURVIVES the whole suite, because with no caller work
+      and no assignments in dry-run mode there is nothing for it to undo.
+
+      Found by the deferred certification, not by the fix delta: the line is
+      unchanged since a3ab9dc. Cycle 2 is therefore still a clean confirmation
+      of the fixes — this is the check that cycle 1 postponed doing its job.
+    suggestion: |
+      Scope the undo to this function's own work, which also makes it testable:
+      wrap the loop in `with session.begin_nested():` and roll back the
+      SAVEPOINT, or drop the rollback and state in the docstring that dry-run
+      safety comes from the `not dry_run` gate rather than from an undo. If the
+      rollback stays in any form, add the test the mutant would fail: a session
+      carrying an unrelated pending row, asserted to survive a dry run.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/regrade.py
+    line: 489
+    title: "The rectangularity branch in _as_grid is an equivalent mutant — no test can tell it is there"
+    description: |
+      Deleting the `elif len(line) != width: return None` branch leaves the
+      whole suite green. Verified equivalent rather than merely uncovered: with
+      the branch gone, a ragged grid reaches `compute_clues`, whose
+      `zip(strict=True)` raises ValueError, which the caller turns into the same
+      `Skip(SkipReason.UNREADABLE_GRID)`. Only the `detail` string differs —
+      "expected a non-empty rectangle of booleans" versus "zip() argument 2 is
+      shorter than argument 1" — and the tests assert `reason`, not `detail`.
+
+      The branch is still worth keeping: it is what makes the empty-grid case
+      (which would otherwise "solve" vacuously and grade 0) report rather than
+      grade, and that half IS covered. This is about the ragged half only.
+    suggestion: |
+      Assert the detail for the ragged case in
+      test_grade_stored_grid_reports_junk_rather_than_raising — one `in` check
+      pins which of the two paths produced the Skip, and the branch stops being
+      invisible to the suite.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
