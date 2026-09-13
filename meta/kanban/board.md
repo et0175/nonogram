@@ -30,7 +30,6 @@ _(none)_
 ## Ready
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
-- **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift  _(wave 1)_
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
 - **CARD-075** P2 · Image-mode nudge picks its cells from the solver's undecided mask, nearest the ink boundary  _(wave 1)_ — after CARD-073
 - **CARD-079** P2 · Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus review  _(wave 1)_ — after CARD-072, CARD-075, CARD-076; ends at the owner's visual gate
@@ -57,6 +56,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift · score 9.0 (cycle 1/1) · merged 4362a7e
 - **CARD-080** P1 · No write path can store a puzzle that is not uniquely solvable · score 8.5 (cycle 2/2) · merged b40e6b1
 - **CARD-077** P2 · Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept · score 8.5 (cycle 2/2) · merged 3de767f
 - **CARD-081** P1 · The admin panel binds loopback like the web UI does, and a test says so · merged without a review cycle, at the owner's call · merged 44a5af4
