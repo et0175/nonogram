@@ -319,3 +319,39 @@ accepted grid"), not a regression. The scripted POL-001 tests in
 `_without_repairs(monkeypatch)` (`MAX_CONSECUTIVE_REPAIRS = 0`, ADR-0024's own
 rollback switch), so they keep asserting the pure-redraw loop one-to-one
 against their scripts while the repair-on behaviour has its own section.
+
+### Cycle-1 review fix — F-003, the repeat tally
+
+`RecoveryLog` gained `repeated_attempts`: repairs that re-judged a grid their
+own lineage had already judged. It is observability only — the pair choice is
+still ADR-0024/R4's first-by-(row, column) rule, unamended — and that was
+verified rather than asserted: the 90-request determinism probe returns
+byte-identical grids, attempt counts and tallies before and after the change,
+and `MAX_CONSECUTIVE_REPAIRS = 0` still matches pre-CARD-074 `main` exactly.
+
+**Why the field earns its place.** `lineages_at_repair_cap` was going to be the
+number ADR-0024's deferred K calibration read, and on its own it conflates two
+populations. The pathological grid in `test_repair_attempts_count_against_the_retry_bound`
+shows it at full strength: five lineages, all five at the cap — which reads as
+"K is too tight, try 5" — while ten of the fifteen repairs were re-solving a
+grid the lineage had already judged. Two thirds of the repair budget went on
+known grids, so a larger K there buys solver time and nothing else.
+
+**Measured on real runs**, 1,502 ambiguous candidates at 10x10-15x15: repeats
+occur in roughly 7% of lineages, 154 repeat attempts in all, and 105 of 106
+sampled are an immediate reversal of the previous flip rather than a longer
+return.
+
+**What was deliberately not done.** Skipping a pair whose result the lineage
+already judged was measured before being rejected: it costs nothing
+(21.5s against 21.6s over the same corpus — a lineage holds at most four grids)
+but converts only 13 more lineages of 1,502, 32.6% against 31.8%. That is under
+a percentage point in exchange for amending ADR-0024/R4, which this card has no
+mandate to do. Recorded here so the recalibration can weigh it with numbers.
+
+**Tests.** `test_a_cycling_lineage_is_told_apart_from_one_still_making_progress`
+pins the contrast; `test_the_repeat_tally_reads_zero_on_a_lineage_that_keeps_finding_new_grids`
+pins the zero case on a real seeded run so the field cannot become a constant;
+`test_the_repeat_tally_agrees_with_an_independent_count` re-derives the count
+from the outside, off the recorded (parent, repaired) pairs, and fails if the
+corpus ever stops containing a cycling lineage.

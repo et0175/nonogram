@@ -109,6 +109,16 @@ def filled(grid: Grid) -> int:
     return sum(sum(row) for row in grid)
 
 
+def key(grid: Grid) -> tuple[tuple[bool, ...], ...]:
+    """A hashable identity for a grid — this file's own, on purpose.
+
+    The orchestrator has a private helper that does the same thing; not
+    importing it is the point, since the test that uses this one is checking
+    the orchestrator's repeat count against an independent replay.
+    """
+    return tuple(tuple(row) for row in grid)
+
+
 @dataclass(frozen=True, slots=True)
 class RepairRecord:
     """One POL-006 repair, with the region it was allowed to touch."""
@@ -130,6 +140,10 @@ class RunRecord:
     redraws: int = 0
     repairs: int = 0
     fallback_repairs: int = 0
+    #: Only populated for a run that was accepted; an abandoned run never hands
+    #: its aggregate back, and this tally has no outside proxy the way the
+    #: attempt count does.
+    repeated_attempts: int | None = None
     solves: int = 0
     applied: list[RepairRecord] = field(default_factory=list)
     #: ``(state before the draw, state after the draw)`` for every call the run
@@ -202,6 +216,7 @@ def _run(
         record.redraws = puzzle.recovery.redraws
         record.repairs = puzzle.recovery.repairs
         record.fallback_repairs = puzzle.recovery.repairs_from_fallback_region
+        record.repeated_attempts = puzzle.recovery.repeated_attempts
     else:
         # An abandoned run never hands its aggregate back; the attempt count is
         # then what the instrumentation saw, which is the honest outside view.
@@ -362,6 +377,53 @@ def test_the_fallback_region_is_reached_by_real_runs(corpus: list[RunRecord]) ->
         "no repair in the corpus came from the undecided-mask fallback; either "
         "the region rule changed or the corpus no longer contains a candidate "
         "that is a third solution"
+    )
+
+
+def test_the_repeat_tally_agrees_with_an_independent_count(
+    corpus: list[RunRecord],
+) -> None:
+    """ADR-0024's repeat tally, re-derived from the repairs the corpus watched.
+
+    The orchestrator counts a repeat by comparing the grid it is about to judge
+    against the ones its lineage already judged. This test counts the same
+    thing from the outside, off the recorded (parent, repaired) pairs, and
+    requires the two to agree run by run — the house rule about preferring an
+    independent second implementation to re-deriving a number with the function
+    under test.
+
+    Reconstructing the lineages is the whole of the work: ``applied`` holds only
+    repairs, so a repair whose parent is not the previous repair's result marks
+    the start of a new lineage (a redraw happened in between).
+    """
+    checked = 0
+    cycling = 0
+    for record in corpus:
+        if record.repeated_attempts is None:
+            continue
+        checked += 1
+        expected = 0
+        seen: set[tuple[tuple[bool, ...], ...]] = set()
+        previous: Grid | None = None
+        for repair in record.applied:
+            if previous is None or key(repair.parent) != key(previous):
+                # A fresh draw sits between this repair and the last one.
+                seen = {key(repair.parent)}
+            if key(repair.repaired) in seen:
+                expected += 1
+            seen.add(key(repair.repaired))
+            previous = repair.repaired
+        assert record.repeated_attempts == expected, (
+            f"orchestrator counted {record.repeated_attempts} repeated repairs "
+            f"for {record.request}, an independent replay counts {expected}"
+        )
+        cycling += expected
+
+    assert checked >= REQUIRED_ACCEPTED
+    assert cycling, (
+        "no lineage in the corpus ever re-judged a grid it had already judged; "
+        "either the pair-choice rule changed or the corpus no longer contains "
+        "a lineage that cycles, and the tally has stopped being exercised"
     )
 
 

@@ -1318,6 +1318,7 @@ def test_repair_attempts_count_against_the_retry_bound(
     assert puzzle.recovery.attempts == puzzle.regenerate.attempts
     assert puzzle.recovery.lineages_at_repair_cap == 5
     assert puzzle.recovery.lineages_without_repairable_region == 0
+    assert puzzle.recovery.repeated_attempts == 10
     assert source.candidates_requested == 5
 
     message = str(excinfo.value)
@@ -1345,6 +1346,65 @@ def test_the_run_summary_reads_as_one_line(monkeypatch: pytest.MonkeyPatch) -> N
     assert "5 redraws" in summary
     assert "15 repairs" in summary
     assert "5 lineages reached the repair cap of 3" in summary
+    assert "10 of the repairs re-judged a grid the lineage had already seen" in summary
+
+
+def test_a_cycling_lineage_is_told_apart_from_one_still_making_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The repeat tally separates the two populations inside ``lineages_at_repair_cap``.
+
+    ADR-0024 defers K's calibration and names this log as its data. Read alone,
+    ``lineages_at_repair_cap`` is ambiguous in exactly the way that matters: a
+    lineage stopped by K while it was still reaching new grids might convert if
+    K were larger, and a lineage cycling between two grids provably will not,
+    however large K grows. On the pathological grid the two look identical —
+    five lineages, all at the cap — and only the repeat count distinguishes
+    them: ten of the fifteen repairs re-solved a grid their own lineage had
+    already judged, so raising K here would buy nothing but solver time.
+
+    The contrast case is the same request with a source that stops being
+    ambiguous: its lineage reaches the cap having judged a new grid every time,
+    and the repeat count stays at zero. One number, two stories, which is the
+    point of recording it.
+    """
+    puzzles = _capture_puzzles(monkeypatch)
+    source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
+    _install_source(monkeypatch, source)
+
+    with pytest.raises(GenerationAbandoned):
+        generate(_request())
+
+    cycling = puzzles[-1].recovery
+    assert cycling.lineages_at_repair_cap == 5
+    assert cycling.repeated_attempts == 10
+    # Two thirds of the repair budget spent re-judging known grids: the signal
+    # that says "K is not the constraint here", which the cap count alone hides.
+    assert cycling.repeated_attempts > cycling.repairs // 2
+
+
+def test_the_repeat_tally_reads_zero_on_a_lineage_that_keeps_finding_new_grids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other half of the contrast, on a real drawn grid rather than a script.
+
+    Guards against the field silently becoming a constant — a tally that can
+    only count up says as little as one that never does. This seed's run makes
+    two repairs, both landing on grids the lineage had not judged before, and
+    the second of them is accepted; so the count has to stay at zero here while
+    it reads ten on the cycling run above.
+
+    Pinned to a seed deliberately: the claim is about a specific lineage's
+    shape, and ADR-0015 guarantees the same lineage replays on every machine.
+    """
+    puzzles = _capture_puzzles(monkeypatch)
+
+    generate(_request(width=10, height=10, density=40, seed=2))
+
+    recovery = puzzles[-1].recovery
+    assert recovery.redraws == 1
+    assert recovery.repairs == 2
+    assert recovery.repeated_attempts == 0
 
 
 @pytest.mark.parametrize(
