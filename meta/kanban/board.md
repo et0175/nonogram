@@ -28,7 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-080** P1 · Quarantine the stored puzzles that are not uniquely solvable ⚑  _(wave 1)_ — after CARD-077; 20 of 36 stored rows have 2 solutions
+- **CARD-080** P1 · No write path can store a puzzle that is not uniquely solvable  _(wave 1)_ — the 20 bad rows are deleted; this is the guard that stops a recurrence
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift  _(wave 1)_
