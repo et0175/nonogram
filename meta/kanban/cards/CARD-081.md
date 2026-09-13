@@ -1,6 +1,6 @@
 # CARD-081: The admin panel binds loopback like the web UI does, and a test says so ⚑
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** compliance
 **Estimate:** 0.25d
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** ADMIN_SETUP.md (reachability note + the SSH-tunnel replacement), meta/architecture/requirements.yml (CON-015, CON-016; scope note on CON-009), meta/architecture/trace.yml (rows for the two new constraints), src/nonogram/admin/app.py (LOOPBACK_HOST + main(port) + the Host guard), tests/test_admin_binding.py (new — AC-A/B/C)
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-13T14:00Z
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-13T15:10Z
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
