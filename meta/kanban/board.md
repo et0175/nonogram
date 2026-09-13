@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-13 18:40 UTC_
+_Updated: 2026-09-14 01:05 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -52,13 +52,13 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier · `card/076-strategy-ladder-guess-tier` · started 2026-09-13T18:45Z
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-076** P1 · Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier · score 9.0 (cycle 2/2) · merged 76c1df4
 - **CARD-074** P1 · Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 per lineage, one shared bound · merged aa6d863 · review 8.5
 - **CARD-073** Solver exposes the undecided mask, a second witness on MANY, and the rung that settled each cell · score 9.0 (cycle 2/2) · merged ab851eb
 - **CARD-066** Filter the puzzle review by status (draft / approved / rejected / in book) · score 9.5 (cycle 3/3) · merged d07f2a2

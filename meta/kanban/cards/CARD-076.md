@@ -1,6 +1,6 @@
 # CARD-076: Difficulty by strategy ladder and the Guess tier — no clock, no size, one classifier
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-073
 **Touches:** docs/GENERATION_ALGORITHM.md, meta/architecture/decisions/adr/0005-difficulty-tier-cutoffs.md, meta/architecture/decisions/adr/0015-random-seed-and-reproducibility.md, meta/architecture/decisions/adr/0023-export-metadata-grid-extent.md, meta/architecture/decisions/adr/0029-difficulty-by-strategy-ladder.md, meta/architecture/decisions/open.yml, meta/architecture/decisions/resolved.yml, meta/architecture/requirements.yml, meta/architecture/trace.yml, meta/kanban/cards/CARD-076.md, src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/image_to_puzzle.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/templates/puzzles_list.html, src/nonogram/cli.py, src/nonogram/difficulty.py, src/nonogram/export/__init__.py, src/nonogram/export/csv_export.py, src/nonogram/export/json_export.py, src/nonogram/orchestrator.py, tests/property/test_difficulty_ladder.py, tests/property/test_grid_dimensions.py, tests/test_admin_image_uniqueness.py, tests/test_admin_tier_surfaces.py, tests/test_card_051_admin_clues_reuse.py, tests/test_card_063_limits.py, tests/test_difficulty.py, tests/test_difficulty_tiers.py, tests/test_export_csv.py, tests/test_export_json.py, tests/test_export_pdf.py, tests/test_orchestrator.py, tests/test_resample.py, tests/test_solver_witnesses_and_rungs.py, tests/test_web_server.py
-**Review score:** —
+**Review score:** 9.0 (cycle 2/2; 6 findings fixed, 1 recorded)
 **Started:** 2026-09-13T18:45Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-14T01:05Z
+**Actual:** 1d
+**Merge commit:** 76c1df4
 **Blocked by:** —
 
 ## Why
