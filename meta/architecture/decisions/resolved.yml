@@ -49,7 +49,16 @@ resolved:
     resolved_by: ADR-0012
     resolved_at: 2026-08-27
     resolution_label: int_bitmask_per_line
-  # superseded 2026-09-12: DEC-031 / ADR-0029 replaces ADR-0013's formula (ADR-0013 stamped Superseded)
+  # SUPERSEDED 2026-09-12 by DEC-031 / ADR-0029, which replaces ADR-0013's
+  # formula outright (its five signals, its weight table and its size/density
+  # normalisers; its no-solver-re-entry rule and its 0..100 range are carried
+  # forward). ADR-0013 carries the Superseded stamp.
+  # IN CODE 2026-09-13 (CARD-076): `src/nonogram/difficulty.py` now implements
+  # ADR-0029's strategy ladder. `SignalWeights`, `SIGNAL_WEIGHTS`,
+  # `NormalizedSignals`, `normalize_signals`, `clue_density`,
+  # `SECONDS_PER_CELL_BUDGET`, `HARDEST_DENSITY` and the two cell-span
+  # constants are gone, so the resolution_label below describes a formula that
+  # no longer runs anywhere. Kept as the historical record, not re-labelled.
   - id: DEC-013
     resolved_by: ADR-0013
     resolved_at: 2026-08-27

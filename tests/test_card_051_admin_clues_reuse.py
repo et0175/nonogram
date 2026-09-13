@@ -3,11 +3,21 @@ run-length clue encoding and delegates to the canonical
 ``nonogram.clues.compute_clues`` (ADR-0012), matching how ``app.py`` already
 calls ``clues.encode_line`` elsewhere.
 
-AC-1 — for any grid ``create_puzzle_from_image`` produces, the computed
-       clues are byte-for-byte identical to ``nonogram.clues.compute_clues``
-       for the same grid, and match the old local ``encode_line``
-       implementation's behavior (pinned against a corpus of real silhouette
-       images already used elsewhere in this test tree).
+AC-1 — for any grid the admin image path produces, the computed clues are
+       byte-for-byte identical to ``nonogram.clues.compute_clues`` for the
+       same grid, and match the old local ``encode_line`` implementation's
+       behavior (pinned against a corpus of real silhouette images already
+       used elsewhere in this test tree).
+
+       AC-1's third case used to call ``create_puzzle_from_image`` and check
+       the clues it stored. CARD-076 deleted that function: it derived a
+       difficulty tier from the grid's *size* and returned a hardcoded
+       ``strategies_used`` sample, both ADR-0025/R2 violations, and CARD-049
+       had already routed admin image generation through
+       ``orchestrator.generate`` so nothing in ``src/`` called it. The two
+       cases below cover AC-1's real subject — ``generate_clues`` delegating to
+       the canonical encoder — on synthetic grids and on the same real
+       silhouettes the deleted case used.
 AC-2 — a ragged grid raises a clear, named error (``ValueError``, matching
        ``compute_clues``'s ``zip(..., strict=True)`` guard) rather than an
        uncontrolled ``IndexError``.
@@ -18,7 +28,7 @@ from pathlib import Path
 import pytest
 
 from nonogram import clues as clue_derivation
-from nonogram.admin.image_to_puzzle import create_puzzle_from_image, generate_clues
+from nonogram.admin.image_to_puzzle import generate_clues
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -98,16 +108,6 @@ class TestAC1ClueEncodingMatchesCanonicalModule:
         old_rows, old_cols = _old_generate_clues(grid)
         assert row_clues == old_rows
         assert col_clues == old_cols
-
-    def test_create_puzzle_from_image_stores_clues_matching_canonical_module(self):
-        image_path = FIXTURES / "bird1.jpg"
-        puzzle = create_puzzle_from_image(str(image_path), target_width=15, target_height=15)
-        assert puzzle is not None
-
-        expected = clue_derivation.compute_clues(puzzle["grid"])
-        assert tuple(puzzle["clues_rows"]) == expected.rows
-        assert tuple(puzzle["clues_cols"]) == expected.columns
-
 
 class TestAC2RaggedGridRaisesNamedError:
     def test_ragged_grid_raises_value_error_not_index_error(self):

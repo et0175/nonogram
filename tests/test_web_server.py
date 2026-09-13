@@ -2001,9 +2001,21 @@ def test_the_form_lists_every_registered_export_format() -> None:
 
 
 def test_the_form_lists_every_difficulty_tier_plus_an_unset_choice() -> None:
-    """A ``<select>`` needs an explicit "not chosen"; argv just omits the flag."""
+    """A ``<select>`` needs an explicit "not chosen"; argv just omits the flag.
+
+    The options are built from ``list(difficulty.Tier)``, so ADR-0025's fourth
+    member reached this form without the page changing — which is the property
+    this test exists to keep. A hand-written list would have silently dropped
+    ``guess`` and the web form would have offered three tiers where the CLI
+    offers four (ADR-0025's Negative: *every* ``Tier`` consumer must handle the
+    fourth member). The explicit count below is what makes the omission
+    visible: iterating the enum on both sides of an assertion cannot notice a
+    member that was never added.
+    """
     for tier in difficulty.Tier:
         assert f">{tier}</option>" in pages.FORM_PAGE
+    assert f">{difficulty.Tier.GUESS}</option>" in pages.FORM_PAGE
+    assert len(difficulty.Tier) == 4
     # Check for the blank option (may have attributes like "selected" from CARD-030)
     assert '<option value="' in pages.FORM_PAGE and '(any)</option>' in pages.FORM_PAGE
 

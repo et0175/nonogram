@@ -28,7 +28,10 @@ stops at "which band is this score in, and which band did the user ask for".
 
 from __future__ import annotations
 
+import ast
 import itertools
+import warnings
+from pathlib import Path
 
 import pytest
 
@@ -40,10 +43,10 @@ from nonogram.difficulty import (
     SCORE_MIN,
     TIER_BANDS,
     Tier,
+    classify,
     parse_tier,
-    tier_for_score,
 )
-from nonogram.errors import UnsupportedDifficulty
+from nonogram.errors import GenerationAbandoned, UnsupportedDifficulty
 from nonogram.orchestrator import GenerationRequest, Puzzle
 
 # --------------------------------------------------------------------------
@@ -58,6 +61,14 @@ def test_the_scale_is_split_into_the_three_tertiles_adr_0005_names() -> None:
     this module reads them from the module, so a retune moves one test rather
     than a dozen — which is what makes the table tunable in practice and not
     just in principle.
+
+    **Unchanged by ADR-0029, and that is the point of guardrail G-5.** The
+    strategy ladder was mapped onto these two constants rather than the other
+    way round (``simple_overlap`` 0..33, ``line_dp`` 33..66,
+    ``probe_contradiction`` 66..100), so no stored grade moved on account of a
+    band edge. The recalibration ADR-0005 is still owed — whether the
+    within-rung share spreads puzzles usefully inside a band — is recorded with
+    CARD-076's AC-118 distribution and deliberately not done there.
     """
     assert EASY_MAX_SCORE == 33.0
     assert MEDIUM_MAX_SCORE == 66.0
@@ -72,7 +83,7 @@ def test_the_three_bands_tile_the_whole_scale_without_gap_or_overlap() -> None:
     Structural, so it survives a retune: a cutoff pair that left a gap would
     give some scores no tier, and one that overlapped would give some two.
     """
-    bands = [TIER_BANDS[tier] for tier in Tier]
+    bands = [TIER_BANDS[tier] for tier in (Tier.EASY, Tier.MEDIUM, Tier.HARD)]
     assert bands[0][0] == SCORE_MIN
     assert bands[-1][1] == SCORE_MAX
     for (_, previous_high), (next_low, _) in itertools.pairwise(bands):
@@ -105,34 +116,47 @@ def test_a_score_lands_in_the_band_adr_0005_puts_it_in(
     *below* it. An implementation that used ``<`` instead of ``<=`` would pass
     every "inside" case here and fail exactly these two.
     """
-    assert tier_for_score(score) is expected
+    # Through ``classify`` with a zero branch count, because that is the only
+    # way a caller can ask: ADR-0025 makes a score alone insufficient to
+    # classify, and ``tier_for_score`` is private for exactly that reason.
+    assert classify(score, 0) is expected
 
 
 def test_classification_and_the_band_table_never_disagree() -> None:
     """The two derivations of one rule, cross-checked across the whole scale.
 
-    ``tier_for_score`` compares against the cutoffs; ``TIER_BANDS`` lays them
-    out as intervals. Both come from :data:`EASY_MAX_SCORE` and
+    ``classify`` compares against the cutoffs; ``TIER_BANDS`` lays them out as
+    intervals. Both come from :data:`EASY_MAX_SCORE` and
     :data:`MEDIUM_MAX_SCORE`, and this is what holds them to it: for a thousand
     scores spanning the scale, the tier the classifier reports is the one whose
     band contains the score, reading ``low < score <= high`` (with the floor
     included in the lowest band).
+
+    Every call passes ``branch_nodes=0``, which is not incidental: the band
+    table describes the three score-band tiers, and ``Tier.GUESS`` is outside
+    that description entirely (ADR-0025). A classifier that let a branch count
+    of zero reach ``GUESS`` would fail the band lookup below with a
+    ``KeyError``, which is a better failure than a wrong tier.
     """
     steps = 1000
     for step in range(steps + 1):
         score = SCORE_MIN + (SCORE_MAX - SCORE_MIN) * step / steps
-        tier = tier_for_score(score)
+        tier = classify(score, 0)
         low, high = TIER_BANDS[tier]
         assert low <= score <= high
         assert (score > low) or (tier is Tier.EASY and score == SCORE_MIN)
-        # ``Tier.contains`` is the caller-facing form of the same question.
-        assert tier.contains(score)
-        assert [other for other in Tier if other.contains(score)] == [tier]
+        # No other band claims it.
+        assert [
+            other
+            for other in (Tier.EASY, Tier.MEDIUM, Tier.HARD)
+            if TIER_BANDS[other][0] <= score <= TIER_BANDS[other][1]
+            and classify(score, 0) is other
+        ] == [tier]
 
 
 @pytest.mark.parametrize("tier", list(Tier))
 def test_a_tier_is_its_flag_value_and_carries_a_display_label(tier: Tier) -> None:
-    """FR-008's three tiers, in the two spellings the tool needs.
+    """FR-008's four tiers, in the two spellings the tool needs.
 
     ``str`` value = what ``--difficulty`` takes; :attr:`Tier.label` = the
     capitalized form AC-020 writes ("Medium"). One type, so the flag value and
@@ -143,9 +167,45 @@ def test_a_tier_is_its_flag_value_and_carries_a_display_label(tier: Tier) -> Non
     assert tier.label == tier.value.capitalize()
 
 
-def test_the_tool_supports_exactly_easy_medium_and_hard() -> None:
-    """FR-008 names three tiers; a fourth would need an ADR-0005 revision."""
-    assert [tier.value for tier in Tier] == ["easy", "medium", "hard"]
+def test_the_tool_supports_exactly_the_four_tiers_adr_0025_names() -> None:
+    """FR-008 named three tiers; ADR-0025 (DEC-030) added ``guess`` as a fourth.
+
+    The *values* are asserted and not just the count, because the value is the
+    contract: it is what a user types, what an export payload carries, what a
+    PDF filename is built from and what a DB row stores. ``Tier.label`` is
+    presentational and ADR-0025 says outright that "Guess" may be renamed later
+    without any of that moving.
+    """
+    assert [tier.value for tier in Tier] == ["easy", "medium", "hard", "guess"]
+
+
+def test_only_three_of_the_four_tiers_are_score_bands() -> None:
+    """ADR-0025's Negative, as a property of the band table.
+
+    ``Tier.GUESS`` is keyed on the solve's ``branch_nodes``, not on a number
+    (EC-015), so it has no band — and :attr:`Tier.band` says so with ``None``
+    rather than with a fabricated range. A band table that carried a fourth
+    entry would be the first place somebody re-derived the tier from a score,
+    which is precisely what the fourth tier exists to prevent.
+    """
+    assert set(TIER_BANDS) == {Tier.EASY, Tier.MEDIUM, Tier.HARD}
+    assert Tier.GUESS.band is None
+    for tier in (Tier.EASY, Tier.MEDIUM, Tier.HARD):
+        assert tier.band == TIER_BANDS[tier]
+
+
+@pytest.mark.parametrize("score", [SCORE_MIN, 10.0, EASY_MAX_SCORE, 50.0, SCORE_MAX])
+def test_no_score_whatsoever_classifies_guess(score: float) -> None:
+    """The band half of the classifier can never reach the fourth tier.
+
+    EC-015 keys ``GUESS`` on a solve fact, so there is no number — not the top
+    of the scale, not one past it — that a line-solvable puzzle can score and
+    be called Guess for. This is AC-121 stated at the classifier rather than at
+    the scorer.
+    """
+    assert classify(score, 0) is not Tier.GUESS
+    assert classify(score * 10, 0) is not Tier.GUESS
+    assert classify(-score, 0) is not Tier.GUESS
 
 
 # --------------------------------------------------------------------------
@@ -238,6 +298,11 @@ def test_an_unknown_tier_reaches_the_user_as_exit_code_three(
         pytest.param("easy", Tier.EASY, id="easy"),
         pytest.param("medium", Tier.MEDIUM, id="medium"),
         pytest.param("hard", Tier.HARD, id="hard"),
+        # AC-020 (re-worded): ADR-0025's fourth tier is a legitimate request,
+        # not a value the domain refuses. Whether the generator can *satisfy*
+        # it is POL-004's business and a different test.
+        pytest.param("guess", Tier.GUESS, id="guess"),
+        pytest.param("Guess", Tier.GUESS, id="ac-020-capitalized-guess"),
         # AC-020 writes the tier as "Medium"; the flag takes "medium". Both are
         # the same tier, and neither spelling is the user's mistake to fix.
         pytest.param("Medium", Tier.MEDIUM, id="ac-020-capitalized"),
@@ -361,3 +426,291 @@ def test_the_help_lists_the_tiers_that_actually_exist(
     assert "--difficulty" in out
     for tier in difficulty.Tier:
         assert tier.value in out
+
+
+# --------------------------------------------------------------------------
+# EC(ADR-0025/R2) — exactly one tier classifier in the package
+# --------------------------------------------------------------------------
+
+#: The package on disk, walked rather than imported, the same way
+#: ``tests/test_cli.py``'s ADR-0007 import guard does it — so a module a later
+#: card adds is covered from the moment it lands and this test never has to be
+#: edited to keep the rule enforced.
+_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "nonogram"
+if not _PACKAGE_DIR.is_dir():  # pragma: no cover - installed-only checkout
+    _PACKAGE_DIR = Path(difficulty.__file__).parent
+
+#: The module ADR-0025/R2 puts the one classifier in. Matched by *path* and not
+#: by basename, so a second ``difficulty.py`` somewhere under the package (an
+#: ``admin/difficulty.py``, say) would be walked like every other module rather
+#: than exempted by its name — which is precisely the shape ADR-0025/R2 forbids.
+_CLASSIFIER_MODULE = _PACKAGE_DIR / "difficulty.py"
+
+#: Names that would mean "this module is deciding a tier for itself". The two
+#: cutoffs are the score half of the rule; ``branch_nodes`` is the solve-fact
+#: half, and EC-015 is precisely the claim that no second module may read it to
+#: reach a tier.
+_CUTOFF_NAMES = frozenset({"EASY_MAX_SCORE", "MEDIUM_MAX_SCORE"})
+_SOLVE_FACT = "branch_nodes"
+
+
+def _tier_deciding_offences(path: Path) -> list[str]:
+    """Places in one source file that decide a tier without asking COMP-006.
+
+    Two shapes are looked for, both as ``ast`` rather than as text so that a
+    comment or a docstring mentioning a cutoff is not an offence:
+
+    * a comparison against one of the cutoff constants — the score half;
+    * a comparison of a ``branch_nodes`` attribute or name against a *number* —
+      the EC-015 half, which is what ``admin/image_to_puzzle`` used to do with
+      a grid size and what any module could start doing with the real fact.
+
+    Reading ``branch_nodes`` is not itself an offence: the orchestrator has to
+    carry it from the solve to the classifier, and this file's own fixtures
+    pass it around. *Comparing it to a count* is, because that comparison is
+    the rule EC-015 reserves to one place.
+
+    Two exclusions, both narrow and both necessary. ``branch_nodes is None``
+    asks "has this candidate been judged yet", which every carrier of the value
+    must be able to ask and which no tier depends on — so ``is``/``is not`` and
+    the ``None`` literal are not counted. And the numeric test is on the
+    literal's *type*, not on the operator, so ``> 0``, ``>= 1`` and ``== 0``
+    are all caught while a nullability check is not.
+    """
+    offences: list[str] = []
+    with warnings.catch_warnings():
+        # The package carries ASCII-art docstrings with backslashes in them
+        # (``sourcing/templates/``), which ``ast.parse`` flags. Not this rule's
+        # business, and not worth a line of noise per run.
+        warnings.simplefilter("ignore", SyntaxWarning)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare):
+            continue
+        operands = [node.left, *node.comparators]
+        for operand in operands:
+            if isinstance(operand, ast.Name) and operand.id in _CUTOFF_NAMES:
+                offences.append(f"{path.name}:{node.lineno} compares against {operand.id}")
+            if isinstance(operand, ast.Attribute) and operand.attr in _CUTOFF_NAMES:
+                offences.append(f"{path.name}:{node.lineno} compares against {operand.attr}")
+        reads_branch_nodes = any(
+            (isinstance(operand, ast.Attribute) and operand.attr == _SOLVE_FACT)
+            or (isinstance(operand, ast.Name) and operand.id == _SOLVE_FACT)
+            for operand in operands
+        )
+        against_a_count = any(
+            isinstance(operand, ast.Constant)
+            and isinstance(operand.value, (int, float))
+            and not isinstance(operand.value, bool)
+            for operand in operands
+        )
+        if reads_branch_nodes and against_a_count:
+            offences.append(
+                f"{path.name}:{node.lineno} compares {_SOLVE_FACT} against a count"
+            )
+    return offences
+
+
+def test_no_module_but_difficulty_classifies_a_tier() -> None:
+    """EC(ADR-0025/R2) — there is exactly one tier classifier, and it is COMP-006's.
+
+    ADR-0025 broke ADR-0005's "a tier is a score band" model for one member, so
+    the cost of a *second* classifier went up: a module that compared a score
+    against the cutoffs itself would now be silently wrong for every branching
+    puzzle, not merely duplicated. And a retune of the cutoffs would move the
+    bands without moving that module's classification with them.
+
+    Walked over the package on disk, so a module no card has written yet is
+    covered the moment it lands — the same arrangement, and the same reasoning,
+    as ``tests/test_cli.py``'s ADR-0007 import guard.
+    """
+    offences = [
+        offence
+        for path in sorted(_PACKAGE_DIR.rglob("*.py"))
+        if path != _CLASSIFIER_MODULE
+        for offence in _tier_deciding_offences(path)
+    ]
+
+    assert _CLASSIFIER_MODULE.is_file(), (
+        "the one exempted module is supposed to be COMP-006 itself; if it moved, "
+        "this guard has been exempting nothing and passing vacuously"
+    )
+    assert offences == [], (
+        "ADR-0025/R2 violation — these modules decide a tier instead of asking "
+        f"difficulty.classify: {offences}"
+    )
+
+
+def test_the_rule_catches_a_module_that_started_classifying() -> None:
+    """Guard the guard: the walk above passes vacuously if the rule is broken.
+
+    Both shapes, in one fabricated module — the score comparison and the
+    ``branch_nodes`` comparison — because each is a separate way of getting to
+    the same wrong answer and a rule that only caught one would leave the
+    other's door open. ``admin/image_to_puzzle.create_puzzle_from_image``, the
+    real instance this card retired, was a third shape again (a *size*
+    comparison), which is why the rule is stated over the inputs a tier may
+    legitimately be derived from rather than over a list of bad formulas.
+    """
+    offending = _PACKAGE_DIR.parent.parent / "tests" / "__tier_guard_probe__.py"
+    offending.write_text(
+        "from nonogram.difficulty import EASY_MAX_SCORE\n"
+        "\n"
+        "def tier(score, signals):\n"
+        "    if score <= EASY_MAX_SCORE:\n"
+        "        return 'easy'\n"
+        "    if signals.branch_nodes > 0:\n"
+        "        return 'guess'\n"
+        "    return 'hard'\n",
+        encoding="utf-8",
+    )
+    try:
+        offences = _tier_deciding_offences(offending)
+    finally:
+        offending.unlink()
+
+    assert len(offences) == 2
+    assert any("EASY_MAX_SCORE" in offence for offence in offences)
+    assert any("branch_nodes" in offence for offence in offences)
+
+
+def test_the_rule_leaves_the_legitimate_shapes_alone(tmp_path: Path) -> None:
+    """...and does not fire on carrying the facts to the classifier.
+
+    The orchestrator reads ``branch_nodes`` off the solve and hands it to
+    ``classify``; a caller stores it; a test builds a record with it. None of
+    those is a decision, and a rule that forbade *touching* the number would
+    make ADR-0025/R2 unimplementable — the one classifier has to be given its
+    inputs by somebody.
+    """
+    allowed = tmp_path / "allowed.py"
+    allowed.write_text(
+        "from nonogram import difficulty\n"
+        "\n"
+        "def judge(score, signals):\n"
+        "    return difficulty.classify(score, signals.branch_nodes)\n"
+        "\n"
+        "def record(puzzle, signals):\n"
+        "    puzzle.branch_nodes = signals.branch_nodes\n"
+        "\n"
+        "def describe(tier):\n"
+        "    return tier is difficulty.Tier.GUESS\n",
+        encoding="utf-8",
+    )
+
+    assert _tier_deciding_offences(allowed) == []
+
+
+# --------------------------------------------------------------------------
+# AC-020 (re-worded) — `guess` is a request the pipeline tries to satisfy
+# --------------------------------------------------------------------------
+
+
+def test_requesting_the_fourth_tier_is_a_generation_outcome_not_a_rejection() -> None:
+    """ADR-0025: "requesting ``guess`` is a legitimate request the loop can satisfy".
+
+    The distinction this pins is between *refusing the request* and *failing to
+    fill it*. ``--difficulty guess`` parses, reaches the domain and drives
+    POL-004's loop like any other tier; what comes back is
+    ``GenerationAbandoned`` — the resample bound, reported with the tier named —
+    and not ``UnsupportedDifficulty``.
+
+    That outcome is the measured state of the source rather than a property of
+    the tier: no generated puzzle has ever needed a real branch (0 of 6,620 in
+    ADR-0029's sweep, 0 of 462 in CARD-076's), so the loop exhausts its budget.
+    If a source ever produces a branching grid this test starts returning a
+    puzzle instead, and the right response is to say so rather than to keep the
+    exhaustion pinned.
+    """
+    with pytest.raises(GenerationAbandoned) as excinfo:
+        orchestrator.generate(
+            GenerationRequest(
+                mode="random", width=10, height=10, density=50, seed=3,
+                difficulty="guess",
+            )
+        )
+
+    message = str(excinfo.value)
+    assert Tier.GUESS.label in message
+    # The message describes the tier by the fact that defines it, because it
+    # has no band on the 0-100 scale to point the user at (ADR-0025).
+    assert "branch" in message
+
+
+# --------------------------------------------------------------------------
+# ADR-0025's Negative — every Tier consumer handles the fourth member
+# --------------------------------------------------------------------------
+
+#: The admin panel's templates, read as source. The two surfaces below are
+#: Jinja and cannot be reached from ``difficulty.Tier`` the way the CLI's help
+#: and the web form's options are, so they are the two places a fourth enum
+#: member could be silently dropped — which is exactly why they are asserted.
+_ADMIN_TEMPLATES = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "nonogram"
+    / "admin"
+    / "templates"
+)
+
+
+def test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own() -> None:
+    """ADR-0025's Negative, at the admin review's tier badge.
+
+    ``Guess`` is not "a harder Hard": it is the one tier that is not a score
+    band at all. The badge had an ``{% if Easy %}{% elif Medium %}{% else %}``
+    chain, so before this card a Guess row would have rendered in Hard's colour
+    and a reviewer scanning the list could not have told the two apart — the
+    single most consequential confusion the fourth tier exists to prevent.
+
+    Also asserted: the comparison is case-insensitive. A row written through
+    the generation pipeline stores the enum *value* (``"hard"``) while an older
+    row stores the display label (``"Hard"``), and the badge has to colour both
+    — re-grading or rewriting those rows is CARD-077's, not this template's.
+    """
+    source = (_ADMIN_TEMPLATES / "puzzles_list.html").read_text(encoding="utf-8")
+
+    for tier in Tier:
+        assert f"== '{tier.value}'" in source, tier
+    assert "difficulty_tier|lower" in source
+    # A colour of its own, not Hard's.
+    assert "#8e44ad" in source
+
+
+def test_the_admin_puzzle_filter_offers_the_fourth_tier() -> None:
+    """The same Negative at the tier *filter*: an unofferable tier is unreachable.
+
+    The filter itself is a plain equality on the stored string and is unchanged
+    by this card; what is asserted is that a reviewer can ask for the fourth
+    tier at all. (The admin *strategy* filter is CARD-072's and is deliberately
+    not touched here.)
+    """
+    source = (_ADMIN_TEMPLATES / "puzzles_list.html").read_text(encoding="utf-8")
+
+    for tier in Tier:
+        assert f'<option value="{tier.label}"' in source, tier
+
+
+def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:
+    """``--difficulty``'s help is read off the enum, so ``guess`` arrived for free.
+
+    The half that did *not* arrive for free is the explanation. Four tier names
+    in a list tell a user nothing about why one of them is not a difficulty in
+    the ordinary sense, and "which tiers exist" is the question the help exists
+    to answer (AC-021's message answers "which did you mean"). So the help
+    says what the three bands grade and what the fourth is keyed on.
+    """
+    parser = cli.build_parser()
+    help_text = parser.format_help()
+    generate_help = [
+        action.help or ""
+        for action in parser._subparsers._group_actions[0].choices["generate"]._actions
+        if action.dest == "difficulty"
+    ]
+
+    assert generate_help, "--difficulty is gone from the generate subcommand"
+    text = generate_help[0]
+    for tier in Tier:
+        assert tier.value in text, tier
+    assert "guess" in text and "branch" in text
+    assert help_text  # the top-level parser still builds

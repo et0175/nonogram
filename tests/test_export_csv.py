@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from nonogram import cli, export
+from nonogram import cli, difficulty, export
 from nonogram.clues import compute_clues
 from nonogram.export import csv_export, json_export
 from nonogram.orchestrator import GenerationRequest, Puzzle, export_puzzle, generate
@@ -556,4 +556,54 @@ def test_a_version_1_file_is_refused_and_not_migrated(tmp_path: Path) -> None:
     message = str(excinfo.value)
     assert "unsupported CSV export version 1" in message
     assert f"version {csv_export.SCHEMA_VERSION}" in message
-    assert csv_export.SCHEMA_VERSION == 2, "ADR-0023 bumped the CSV schema to 2"
+    assert csv_export.SCHEMA_VERSION == 2, (
+        "ADR-0023 bumped the CSV schema to 2. CARD-076 (ADR-0025's fourth "
+        "difficulty tier) did NOT bump it again: the `#meta` key set is closed "
+        "and `difficulty` was never one of its six keys, so no reader of this "
+        "format can encounter \"guess\". ADR-0023/R2's exact-version rule is "
+        "why that had to be checked rather than assumed — a bump refuses every "
+        "existing file, and the two formats would have had to move together."
+    )
+
+
+# ==========================================================================
+# AC-B — TestExport_RoundTripsGuessTier (ADR-0025's fourth tier, ADR-0023/R2)
+# ==========================================================================
+
+
+def test_export_round_trips_a_guess_tier_puzzle(tmp_path: Path) -> None:
+    """AC-B for the CSV half — and the other reason SCHEMA_VERSION stayed at 2.
+
+    ADR-0023/R2 is an *exact-version* rule, which makes a bump an all-or-
+    nothing event: it refuses every existing file, and because the JSON and CSV
+    versions move together by ADR-0023's own convention when one decision
+    touches both, a bump here would have refused every existing JSON export
+    too. So the question "could an existing reader survive ``difficulty:
+    guess``?" had to be answered from the decoder rather than assumed — and the
+    answer is that this format's ``#meta`` block has a **closed six-key set**
+    (``version``, ``seed``, ``mode``, ``width``, ``height``, ``density``) that
+    has never included ``difficulty``. No reader can meet the new value.
+
+    The round trip below is the EC-002 claim for a ``guess``-tier puzzle: the
+    grid, the clues and the request survive, and ``difficulty`` comes back
+    ``None`` exactly as it does for every other tier.
+    """
+    puzzle = _puzzle(tmp_path)
+    # A solve that branched: ADR-0025 classifies that Guess by the fact alone.
+    puzzle.record_difficulty(10.0, 1)
+    assert puzzle.difficulty_tier is difficulty.Tier.GUESS
+
+    path = export_puzzle(puzzle)[0]
+    text = path.read_text(encoding="utf-8")
+
+    assert f"version,{csv_export.SCHEMA_VERSION}" in text
+    assert csv_export.SCHEMA_VERSION == 2
+    assert "guess" not in text.lower()
+
+    restored = csv_export.read(path)
+    assert restored.grid == puzzle.grid
+    assert puzzle.clues is not None
+    assert restored.row_clues == puzzle.clues.rows
+    assert restored.column_clues == puzzle.clues.columns
+    assert restored.seed == puzzle.seed
+    assert restored.difficulty is None

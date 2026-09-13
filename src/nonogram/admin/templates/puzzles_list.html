@@ -66,6 +66,10 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                             <option value="Easy" {% if request.args.get('difficulty') == 'Easy' %}selected{% endif %}>Easy</option>
                             <option value="Medium" {% if request.args.get('difficulty') == 'Medium' %}selected{% endif %}>Medium</option>
                             <option value="Hard" {% if request.args.get('difficulty') == 'Hard' %}selected{% endif %}>Hard</option>
+                            <!-- ADR-0025's fourth tier. Offered so the member is reachable from
+                                 this surface like the other three; the filter itself is a plain
+                                 equality on the stored string and is unchanged. -->
+                            <option value="Guess" {% if request.args.get('difficulty') == 'Guess' %}selected{% endif %}>Guess</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -159,7 +163,21 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
 
                                 <!-- Difficulty -->
                                 <td>
-                                    <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
+                                    {# ADR-0025: four tiers, and Guess is not "a harder Hard" — it is
+                                       the one tier that is not a score band at all, so it gets a
+                                       colour of its own rather than falling into Hard's else-branch.
+                                       Compared case-insensitively because a row written through the
+                                       generation pipeline carries the enum *value* ("hard") while an
+                                       older row carries the display label ("Hard"); re-grading or
+                                       rewriting those rows is CARD-077's job, not this template's.
+
+                                       Hard has its own branch now rather than being the else: an
+                                       ungraded row (difficulty_tier None, rendered "N/A") used to
+                                       come out in Hard's red, and with a fourth member the
+                                       catch-all was one wrong colour away from a reviewer shipping
+                                       a guessing puzzle in a Hard book. The else is now grey — the
+                                       colour this file already uses for "no value". #}
+                                    <span class="badge" style="background-color: {% if puzzle.difficulty_tier|lower == 'easy' %}#27ae60{% elif puzzle.difficulty_tier|lower == 'medium' %}#f39c12{% elif puzzle.difficulty_tier|lower == 'hard' %}#e74c3c{% elif puzzle.difficulty_tier|lower == 'guess' %}#8e44ad{% else %}#95a5a6{% endif %}">
                                         {{ puzzle.difficulty_tier or 'N/A' }}
                                     </span>
                                 </td>

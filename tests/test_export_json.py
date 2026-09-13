@@ -36,7 +36,7 @@ from pathlib import Path
 
 import pytest
 
-from nonogram import cli, export, orchestrator
+from nonogram import cli, difficulty, export, orchestrator
 from nonogram.clues import compute_clues
 from nonogram.errors import ExportRejected
 from nonogram.export import json_export
@@ -602,7 +602,14 @@ def test_a_version_1_file_is_refused_and_not_migrated(tmp_path: Path) -> None:
     message = str(excinfo.value)
     assert "unsupported JSON export version 1" in message
     assert f"version {json_export.SCHEMA_VERSION}" in message
-    assert json_export.SCHEMA_VERSION == 2, "ADR-0023 bumped the JSON schema to 2"
+    assert json_export.SCHEMA_VERSION == 2, (
+        "ADR-0023 bumped the JSON schema to 2. CARD-076 (ADR-0025's fourth "
+        "difficulty tier) did NOT bump it again, and that decision was taken "
+        "from evidence rather than from the assumption a widened value set "
+        "must break a reader: `document` writes no `difficulty` field at all, "
+        "so no reader of this format can encounter \"guess\". See "
+        "test_export_round_trips_a_guess_tier_puzzle below."
+    )
 
 
 def test_reading_a_file_inverts_writing_one(tmp_path: Path) -> None:
@@ -919,3 +926,50 @@ def test_an_out_directory_that_is_actually_a_file_reaches_the_user_cleanly(
     assert captured.err.startswith(f"{cli.PROG}: error: ")
     assert "Traceback" not in captured.err
     assert blocked.read_text(encoding="utf-8") == "not a directory"
+
+
+# ==========================================================================
+# AC-B — TestExport_RoundTripsGuessTier (ADR-0025's fourth tier, ADR-0023/R2)
+# ==========================================================================
+
+
+def test_export_round_trips_a_guess_tier_puzzle(tmp_path: Path) -> None:
+    """AC-B — ``TestExport_RoundTripsGuessTier``, and the evidence behind the
+    SCHEMA_VERSION decision.
+
+    ADR-0023/R2's rule is "bump only when an existing reader could not
+    survive", and ADR-0025's Neutral section guesses that a reader parsing
+    ``difficulty`` through ``Tier(...)`` would reject ``"guess"`` — "so it
+    likely does". Checked rather than taken: **this format does not serialize
+    ``difficulty`` at all.** ``document`` writes ``version``, ``seed``,
+    ``request``, ``grid`` and ``clues``, and nothing else, so there is no
+    reader anywhere that can meet the new value and nothing for a bump to
+    protect. A bump would have refused every version-2 file in existence in
+    order to announce a change no version-2 file can contain.
+
+    What the round trip therefore shows is that a ``guess``-tier puzzle
+    round-trips exactly as any other does (EC-002), and that ``difficulty``
+    comes back ``None`` for it — which it has done for every tier since the
+    field was added, because the field is an in-process carrier for the PDF
+    header (FR-016) and the ADR-0016 filename, not part of either schema.
+    """
+    puzzle = _puzzle(tmp_path)
+    # A solve that branched: ADR-0025 classifies that Guess by the fact alone.
+    puzzle.record_difficulty(10.0, 1)
+    assert puzzle.difficulty_tier is difficulty.Tier.GUESS
+
+    path = export_puzzle(puzzle)[0]
+    document = json.loads(path.read_text(encoding="utf-8"))
+
+    # The value set widened; the *document shape* did not.
+    assert document["version"] == json_export.SCHEMA_VERSION == 2
+    assert "difficulty" not in document
+    assert "difficulty" not in document["request"]
+
+    restored = json_export.read(path)
+    assert restored.grid == puzzle.grid
+    assert puzzle.clues is not None
+    assert restored.row_clues == puzzle.clues.rows
+    assert restored.column_clues == puzzle.clues.columns
+    assert restored.seed == puzzle.seed
+    assert restored.difficulty is None

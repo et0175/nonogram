@@ -1,11 +1,16 @@
-"""Convert images to nonogram puzzles.
+"""Convert images to grids and clues, for the admin panel.
 
-Handles image processing, grid extraction, and puzzle generation.
+Two thin delegations to the canonical modules — the ink-trim/dither conversion
+in :mod:`nonogram.sourcing.image` and the run-length encoder in
+:mod:`nonogram.clues`. Grading is deliberately *not* here: since CARD-049 the
+admin generates image puzzles through ``orchestrator.generate``, and since
+CARD-076 there is exactly one tier classifier in the package
+(``nonogram.difficulty.classify``, ADR-0025/R2). See the note at the foot of
+this module for what used to live there and why it is gone.
 """
 
 import random
-from pathlib import Path
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Optional
 
 try:
     from PIL import Image as PILImage
@@ -72,64 +77,24 @@ def generate_clues(
     return computed.rows, computed.columns
 
 
-def create_puzzle_from_image(
-    image_path: str,
-    target_width: int,
-    target_height: int,
-    theme: str = "image",
-) -> Optional[Dict[str, Any]]:
-    """Create a complete puzzle from an image.
-
-    Args:
-        image_path: Path to image file
-        target_width: Target puzzle width
-        target_height: Target puzzle height
-        theme: Theme name for the puzzle
-
-    Returns:
-        Dictionary with puzzle data or None if failed
-    """
-    # Convert image to grid
-    grid = image_to_grid(image_path, (target_width, target_height))
-    if grid is None:
-        return None
-
-    # Generate clues
-    row_clues, col_clues = generate_clues(grid)
-
-    # Calculate metrics
-    filled_cells = sum(sum(row) for row in grid)
-    total_cells = target_width * target_height
-    density = filled_cells / total_cells if total_cells > 0 else 0
-
-    # Simple quality score based on density (prefer 30-70% filled)
-    if 0.2 <= density <= 0.8:
-        quality_score = 80 + int(20 * (1 - abs(density - 0.5) * 2))
-    else:
-        quality_score = max(40, 80 - int(40 * abs(density - 0.5)))
-
-    # Difficulty based on size
-    size_difficulty = (target_width + target_height) / 2
-    if size_difficulty < 15:
-        difficulty_tier = "Easy"
-        difficulty_score = 20 + int(30 * (size_difficulty / 15))
-    elif size_difficulty < 25:
-        difficulty_tier = "Medium"
-        difficulty_score = 50 + int(30 * ((size_difficulty - 15) / 10))
-    else:
-        difficulty_tier = "Hard"
-        difficulty_score = 80 + int(20 * min(1, (size_difficulty - 25) / 5))
-
-    return {
-        "grid": grid,
-        "clues_rows": row_clues,
-        "clues_cols": col_clues,
-        "width": target_width,
-        "height": target_height,
-        "theme": theme,
-        "difficulty_score": int(difficulty_score),
-        "difficulty_tier": difficulty_tier,
-        "quality_score": int(quality_score),
-        "recognizability": "medium",  # Images always medium recognizability
-        "strategies_used": ["LineLogic", "ConstraintProp"],
-    }
+# ``create_puzzle_from_image`` lived here until CARD-076 and is gone.
+#
+# It derived a difficulty tier and score from the grid's *size alone*
+# ((width + height) / 2, bucketed at 15 and 25) and returned a hardcoded
+# ``strategies_used`` sample beside them. Both are ADR-0025/R2 violations: tier
+# classification has exactly one implementation, in ``nonogram.difficulty``,
+# taking ``(score, branch_nodes)`` from the one verifying solve — and a size is
+# neither. Under ADR-0029 the claim was not merely unauthorised but wrong: which
+# technique a puzzle needs is a fact about the puzzle, and a 30x30 that never
+# leaves simple overlap is exactly as Easy as a 10x10 that never does.
+#
+# It is deleted rather than routed through the classifier because CARD-049 had
+# already made it dead: ``admin/app.py`` generates image puzzles through
+# ``orchestrator.generate`` (the same solver-verified pipeline
+# ``nonogram generate --mode image`` runs) and stores the score and tier that
+# pipeline produced. Nothing in ``src/`` called this function. Routing a
+# second, unverified conversion through the real classifier would have kept a
+# path that produces a grid nobody ever solved.
+#
+# ``image_to_grid`` and ``generate_clues`` above stay: they are thin delegations
+# to ``nonogram.sourcing.image`` and ``nonogram.clues``, and they are called.

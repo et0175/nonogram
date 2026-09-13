@@ -56,8 +56,24 @@ def test_limits_imports_nothing():
 
 def test_core_modules_read_the_shared_range():
     assert (random_grid.MIN_SIZE, random_grid.MAX_SIZE) == (LOW, HIGH)
-    assert difficulty.MIN_SUPPORTED_CELLS == LOW * LOW
-    assert difficulty.MAX_SUPPORTED_CELLS == HIGH * HIGH
+
+
+def test_the_scorer_no_longer_restates_the_range_at_all():
+    """CARD-076: ``difficulty`` used to hold a *second* definition of the range.
+
+    ``MIN_SUPPORTED_CELLS``/``MAX_SUPPORTED_CELLS`` existed only as the
+    denominators of ADR-0013's size normalizer, and CARD-023 had to hand-edit
+    the maximum alongside ``random_grid.MAX_SIZE`` — two definitions of one
+    fact, kept in step by hand. ADR-0029 took size out of the score entirely
+    (a 30x30 that never leaves simple overlap is exactly as Easy as a 10x10
+    that never does), so the denominators went with it.
+
+    Asserted as an *absence* rather than dropped silently: the strongest form
+    of "these two definitions cannot drift" is that there is only one of them,
+    and this is the test that says so.
+    """
+    assert not hasattr(difficulty, "MIN_SUPPORTED_CELLS")
+    assert not hasattr(difficulty, "MAX_SUPPORTED_CELLS")
 
 
 # --- admin validators ---------------------------------------------------------

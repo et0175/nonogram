@@ -316,40 +316,76 @@ against two brute-force counters in `tests/helpers/brute_force_oracle.py`, which
 
 ---
 
-## 7. Difficulty score (COMP-006) — `difficulty.py`
+## 7. Difficulty grade (COMP-006) — `difficulty.py`
 
-> **Superseded in decision, not yet in code.** ADR-0013's formula below is what
-> `difficulty.py` still runs. ADR-0029 replaced it on 2026-09-12 with the strategy ladder
-> (§6.5): score = the band of the hardest rung the solve required, plus the share of cells
-> settled at that rung, with no wall-clock, size or density term. CARD-076 implements it and
-> re-grades the stored puzzles. Until then this section describes live behaviour that is
-> already known to be wrong on two counts — it is machine-dependent through `time_pressure`,
-> and it pins every line-solvable puzzle under 15 points.
+ADR-0029 (the strategy ladder) and ADR-0025 (the fourth tier) replaced ADR-0013's
+five-signal weighted sum in CARD-076. There is no clock, no size and no density term
+anywhere in what follows; the scorer never re-enters the solver.
 
-Pure function of the solve's signals and the clues; never re-solves.
+**The grade is the hardest rung the one verifying solve required** (§6.5), and the tier is
+that rung's band — unless the search branched, in which case it is `Tier.GUESS` on that fact
+alone.
 
-Normalised signals (`:437-478`), each in 0..1, larger = harder:
+| rung | tier | band | means |
+|---|---|---|---|
+| `simple_overlap` | Easy | `[0, 33]` | the overlap rule finished the puzzle by itself |
+| `line_dp` | Medium | `(33, 66]` | some line needed the full placement intersection |
+| `probe_contradiction` | Hard | `(66, 100]` | some cell needed a refuted one-step probe |
+| — (`branch_nodes >= 1`) | Guess | none | the search really had to branch (EC-015) |
 
-| signal | formula |
-|---|---|
-| `line_logic_gap` | `1 - line_logic_cells / total_cells` |
-| `branch_pressure` | `min(1, branch_nodes / total_cells)` |
-| `time_pressure` | `min(1, elapsed / (total_cells * 5/400))` (budget: 5 s per 400 cells, `:275`) |
-| `size_pressure` | `(total_cells - 100) / (900 - 100)`, clamped |
-| `density_pressure` | `1 - |density - 0.5| / 0.5` where density = Σ row clues / cells |
-
-Score (`:481-535`), weights from `SIGNAL_WEIGHTS` (`:332-338`):
+The 0..100 number is a derived presentation, kept so the export, the DB column and POL-004's
+predicate survive unchanged in type:
 
 ```
-effort = 0.40 * line_logic_gap + 0.45 * branch_pressure + 0.15 * time_pressure
-relief = 1 - 0.15 * (1 - size_pressure) - 0.15 * (1 - density_pressure)     # ∈ [0.70, 1]
-score  = clamp(100 * effort * relief, 0, 100)
+rung  = the hardest rung with at least one cell settled at it   (rung_cells, §6.5)
+share = rung_cells[rung] / total_cells                          (ADR-0029's secondary count)
+score = band_low(rung) + share * band_width(rung)
 ```
 
-A puzzle solved by line logic alone has gap 0 and pressure 0, so scores ≤ 15 regardless of size.
+**The band edges are ADR-0005's cutoff constants, not idealised thirds** (ADR-0029, History
+2026-09-13). The difference is a third of a point and it decides 88% of the corpus: a puzzle
+topping out at `simple_overlap` has *every* settled cell at that rung by definition, so its
+share is exactly 1.0 and its score is the top of the first band. At a width of 33.33 that is
+33.33, which is above `EASY_MAX_SCORE = 33.0`, so every Easy puzzle would classify Medium and
+the Easy band would be empty. With the edges on the cutoffs — which are *inclusive* upper
+bounds — it scores exactly 33.0 and classifies Easy, while any higher rung has a strictly
+positive share and so scores strictly above its band's floor. That is what makes ADR-0029/R1's
+cross-rung ordering strict by construction.
 
-Tiers (`:143-144, 211-228`): Easy `[0, 33]`, Medium `(33, 66]`, Hard `(66, 100]`. Cutoffs belong
-to the lower band. `parse_tier` is case- and whitespace-insensitive (`:231-255`).
+**Classification takes `(score, branch_nodes)`** and lives in exactly one place,
+`difficulty.classify` (ADR-0025/R2). EC-015 is applied first; the bands only to the remainder.
+`tier_for_score` is private for the same reason: a score alone cannot tell Easy from Guess.
+`tests/test_difficulty_tiers.py::test_no_module_but_difficulty_classifies_a_tier` walks the
+package with `ast` and fails if a second module starts comparing a score against a cutoff or a
+branch count against a number.
+
+**Measured distribution** (CARD-076's AC-118 corpus: 292 uniquely-solvable random puzzles,
+10x10..30x30, seeded):
+
+| tier | rung | n | share of corpus | score range |
+|---|---|---:|---:|---|
+| Easy | `simple_overlap` | 258 | 88.4% | 33.000 (a single point) |
+| Medium | `line_dp` | 8 | 2.7% | 36.667..59.400 |
+| Hard | `probe_contradiction` | 26 | 8.9% | 68.116..98.640 |
+| Guess | — | 0 | 0% | — |
+
+Two things follow and are recorded rather than acted on (CARD-076 guardrail G-5). **Easy is a
+single point on the scale** — every puzzle that never leaves overlap scores exactly 33.0, so the
+within-rung ordering ADR-0005's owed recalibration is waiting on does not exist inside the
+bottom band. And **`Tier.GUESS` is measured-unreachable** from the current sources: 0 of 6,620
+grids in ADR-0029's sweep, 0 of 462 in CARD-076's pre-implementation measurement, 0 of 292 here.
+The tier is kept deliberately (ADR-0025, History 2026-09-12) and its criteria are tested against
+synthetic signal records, which is the only way to pose them.
+
+Retired with ADR-0013: `SignalWeights`, `SIGNAL_WEIGHTS`, `NormalizedSignals`,
+`normalize_signals`, `clue_density`, `SECONDS_PER_CELL_BUDGET`, `HARDEST_DENSITY`,
+`MIN_SUPPORTED_CELLS`, `MAX_SUPPORTED_CELLS`, and the public `tier_for_score`.
+`difficulty.SolverSignals` now names three members — `total_cells`, `branch_nodes`,
+`rung_cells` — and deliberately not `elapsed_seconds`: CON-014 holds because the scorer is
+never handed a clock, not because it declines to read one.
+
+`parse_tier` is case- and whitespace-insensitive and its error message lists all four tiers,
+read off the enum (AC-021).
 
 ---
 
@@ -374,10 +410,23 @@ source is called again with the same `rng` (`:1200-1215`).
 
 Only when `--difficulty` is given. The resample loop *wraps* the regenerate loop
 (`:1217-1230, 1280-1284`): one resample round runs the regenerate loop to obtain a unique
-candidate, then keeps it only if `Tier.contains(score)`. Because neither counter resets, **at
-most 20 grids are ever sourced per request**, however the two rejection causes divide them. An
-exhausted inner loop propagates its own abandonment. Without a tier the check is vacuous and the
-first unique candidate is returned.
+candidate, then keeps it only if `difficulty.classify(score, branch_nodes)` is the requested
+tier. Because neither counter resets, **at most 20 grids are ever sourced per request**, however
+the two rejection causes divide them. An exhausted inner loop propagates its own abandonment.
+Without a tier the check is vacuous and the first unique candidate is returned.
+
+Still **one** tier comparison since ADR-0025, which is what keeps the predicate simple with four
+tiers: `guess` is a legitimate thing to request and every other tier discards branching
+candidates by the same one line. `Tier.contains` is gone — a score alone can no longer classify
+a result, so a second way to ask "is this score in that band" could only be wrong about the
+fourth tier.
+
+Worth knowing before requesting a tier: under ADR-0013 a line-solvable puzzle scored under 15
+and `--difficulty easy` therefore always succeeded on the first candidate. Under the ladder Easy
+means "never left the overlap rule", which is ~88% of random grids overall but only ~15% at
+density 45, and Medium (`line_dp`) is ~3% overall. A request for Medium at an unlucky
+extent/density will resample, and at a density where its rung does not occur it will exhaust the
+budget and abandon. `--difficulty guess` cannot be filled at all on today's sources (§7).
 
 ### 8.3 Pixel nudge (POL-002/POL-003) — bound 5, image mode only
 
@@ -462,14 +511,16 @@ accounted for below (findings 5 and 6).
 | # | Severity | Finding | Where |
 |---|---|---|---|
 > **Status, 2026-09-13.** Findings 1, 2 and 4 are cut as CARD-070 and CARD-078 and remain open.
-> Finding 3 (machine-dependent scoring) is resolved in decision by ADR-0029 and lands with
-> CARD-076. Finding 5 turned out to be wider than one fixture: the `pictures/` corpus was simply
+> Finding 3 (machine-dependent scoring) is **CLOSED** by CARD-076: `time_pressure` is gone with
+> the rest of ADR-0013's formula, `difficulty.SolverSignals` no longer names `elapsed_seconds`
+> at all, and ADR-0015's "same seed replays the same run" now holds with `--difficulty` on any
+> machine (EC-016, AC-122, AC-123). Finding 5 turned out to be wider than one fixture: the `pictures/` corpus was simply
 > missing from `main` (finding 6) and restoring it fixed 11 of 17 failures, leaving 6 stale pins
 > now folded into CARD-070. Finding 8 is unchanged.
 
-| 1 | Low — latent bug | `generate_batch` checks `difficulty_tier` against enum **names** (`EASY`, `MEDIUM`, `HARD`), so `"Easy"` and `"easy"` raise `ValueError` even though the docstring says `"Easy"` and `parse_tier` is case-insensitive. Every caller passes `None` today. Fix: validate with `difficulty.parse_tier`. | `orchestrator.py:1322` |
-| 2 | Medium — spec gap | Density 0 and 100 are accepted and yield all-empty / all-filled grids that pass the uniqueness check (score 0.000 / 0.001, tier Easy). `random_grid.py:78-82` says later stages reject them; none does. Decide whether to reject in `validate_density` or document them as allowed. | `random_grid.py:83-84` |
-| 3 | Low — reproducibility caveat | `time_pressure` (weight 0.15) makes the score, hence the tier, machine-dependent. With `--difficulty` requested the same seed can keep or resample a boundary candidate differently on a slower machine. ADR-0015's "same seed replays the same run" holds unconditionally only without a tier. | `difficulty.py:275, 469` |
+| 1 | Low — latent bug | `generate_batch` checks `difficulty_tier` against enum **names** (`EASY`, `MEDIUM`, `HARD`, and `GUESS` since CARD-076 — the check reads the enum, so the fourth tier arrived without an edit; the *spelling* defect below is untouched), so `"Easy"` and `"easy"` raise `ValueError` even though the docstring says `"Easy"` and `parse_tier` is case-insensitive. Every caller passes `None` today. Fix: validate with `difficulty.parse_tier`. | `orchestrator.py:1322` |
+| 2 | Medium — spec gap | Density 0 and 100 are accepted and yield all-empty / all-filled grids that pass the uniqueness check (score 33.0, tier Easy, since CARD-076 — the overlap rule settles every cell of a blank or solid grid, so it tops out at the bottom rung with a full share; it was 0.000 / 0.001 under ADR-0013). `random_grid.py:78-82` says later stages reject them; none does. Decide whether to reject in `validate_density` or document them as allowed. | `random_grid.py:83-84` |
+| ~~3~~ | ~~Low — reproducibility caveat~~ | **CLOSED 2026-09-13 (CARD-076).** `time_pressure` (weight 0.15) made the score, hence the tier, machine-dependent. Under ADR-0029 the grade is the rung of the hardest technique the solve required plus the share of cells settled at it — no clock term exists, and the scorer's signals protocol does not carry `elapsed_seconds`, so the defect cannot recur without a visible protocol change. | ~~`difficulty.py:275, 469`~~ |
 | 4 | Low — docstring drift | `random_grid.py:86-90` says the regenerate loop "is expected to read `DENSITY_TOLERANCE_POINTS`". It never does and never needs to; the bound is structural. | `random_grid.py:86-90` |
 | 5 | Medium — stale pinned tests | Three nudge tests pin `tests/fixtures/bands.png` at 10×10 as needing exactly 2 nudges. On this tree it converts uniquely on the first solve (0 nudges). The ink box is the whole 32×32 file, so the FR-022 trim is not the cause; the untrimmed conversion is unique too. Either the fixture bytes or the resize/dither path changed since the pin was taken. The nudge mechanism itself passes its scripted tests. | `tests/test_nudge.py:322-340` and the two cap tests on the same fixture |
 | 6 | Info — environment | 13 tests in `tests/test_sourcing_image.py` fail with `FileNotFoundError` for `pictures/`: the corpus the trim criteria are measured over is not on disk. | `tests/test_sourcing_image.py` |
@@ -486,7 +537,7 @@ accounted for below (findings 5 and 6).
 | Cell mapping | ~20 px per cell, majority vote | one resize to W×H cells, then dither |
 | Rejection rules | reject grids with blank rows/cols or fill outside 20–80% | none; blank-line avoidance is best-effort via the trim |
 | Quality score | 0–100 with accept ≥ 50 | no quality score on the core `Puzzle`; admin random batches store `None` |
-| Difficulty | tiers at 70/85 on the quality score; `DIFFICULTY_ENGINE.md`'s strategy-count formula | ADR-0013 `100·effort·relief`, tiers at 33/66 (§7). The strategy-count formula exists only in the orphaned `analysis/strategy_counter.py` |
+| Difficulty | tiers at 70/85 on the quality score; `DIFFICULTY_ENGINE.md`'s strategy-count formula | ADR-0029's strategy ladder: the hardest rung the one verifying solve required, plus the share of cells settled at it, with tiers on ADR-0005's 33/66 cutoffs and a fourth `guess` tier keyed on `branch_nodes` (§7). Closer to `DIFFICULTY_ENGINE.md`'s intent than ADR-0013 was, but it is a rung and not a count, and the formula in the orphaned `analysis/strategy_counter.py` is still not the one that runs |
 | Retry | "reject and retry with different settings" | POL-001/002/004 with caps 20/5/20 (§8) |
 | Image limits | 100–2000 px, ≤ 2 MB, format allowlist | only a 2 MB cap, and only in the admin upload path |
-| Determinism | same image and settings → same grid | true for image mode; random and library are seed-driven by design. Since ADR-0029 the *grade* is also machine-independent once CARD-076 lands, which ADR-0013's `time_pressure` term is not |
+| Determinism | same image and settings → same grid | true for image mode; random and library are seed-driven by design. Since CARD-076 the *grade* is machine-independent too: no clock reaches the score or the tier decision (§7, EC-016) |

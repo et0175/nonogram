@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-13 (History: reproducibility now holds with --difficulty)
 **Migration:** —
 **Pattern:** —
 **API-Posture:** —
@@ -53,5 +53,39 @@ Use the `random` module's implicit global state directly at each call site, with
 - POL-001, POL-002, POL-004 (policies whose stochastic behavior this decision governs)
 
 ## History
+
+- 2026-09-13 (consequence amended, CARD-076): **the same-seed guarantee now
+  holds with `--difficulty` too, on any machine and at any host speed.**
+
+  It did not before, and the gap was real rather than theoretical. ADR-0013's
+  formula carried a `time_pressure` term (weight 0.15, budget 5s per 400
+  cells), so a boundary candidate's *score* — and therefore its tier, and
+  therefore whether POL-004 kept it or resampled it — depended on how fast the
+  host happened to be. A run with `--difficulty` could take a different path on
+  a slower machine from the same seed, which made this ADR's promise
+  conditional in a way nothing here said out loud
+  (`docs/GENERATION_ALGORITHM.md` §10.2 finding 3).
+
+  ADR-0029 removed the clock from the grade entirely, and CARD-076 implemented
+  it. The guarantee is now structural rather than careful: `difficulty.py`'s
+  `SolverSignals` protocol does not carry `elapsed_seconds` at all, so the
+  scorer cannot read a clock it was never handed. `SolveSignals` still records
+  the elapsed time as telemetry (NFR-001 is measured by it) and nothing graded
+  may read it (CON-014, ADR-0029/R3).
+
+  Checked end to end rather than asserted: AC-123's
+  `test_same_seed_same_tier_under_dilated_clock`
+  (`tests/test_resample.py`) runs the same seeded `--difficulty Medium` request
+  under a 1x and a 50x clock injected at the solver's own `perf_counter` and
+  compares the two runs — same grid, same score to the last digit, same tier,
+  same resample and regenerate counts. The pre-existing
+  `test_the_same_seed_replays_the_same_resample_run` had carried an `abs=1.0`
+  tolerance on the score for exactly the reason above; CARD-076 removed the
+  tolerance.
+
+  Nothing in this ADR's Decision changes. `--seed`, the single injected
+  `random.Random` and the seed recorded in the export are all as written; what
+  changed is that the consequence they were meant to deliver is now
+  unconditional.
 
 - 2026-08-27: Created — adopted an explicit `--seed` flag with a single injected `random.Random` instance and seed-plus-parameters recorded in the JSON export, to make FR-012's reconstruction guarantee cover random/library-sourced puzzles and to make the pipeline's stochastic paths deterministically testable.

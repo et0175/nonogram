@@ -876,14 +876,26 @@ class Puzzle:
     #: The solver's verdict on the current candidate: ``0``, ``1`` or
     #: ``solver.MANY``. The solver's number, stored as given (G-3).
     solution_count: int | None = None
-    #: COMP-006's score for the current candidate on ADR-0013's 0..100 scale,
+    #: COMP-006's score for the current candidate on ADR-0029's 0..100 scale,
     #: or ``None`` while the candidate is unscored — which is every candidate
     #: that has not yet passed the uniqueness check, since the score of a
-    #: non-unique clue set means nothing. Dropped by
-    #: :meth:`record_candidate` along with the rest of the previous
-    #: candidate's verdict, so a resampled candidate cannot be checked against
-    #: its predecessor's score (AC-026).
+    #: non-unique clue set means nothing (ADR-0029 reports no rung attribution
+    #: for one at all). Dropped by :meth:`record_candidate` along with the rest
+    #: of the previous candidate's verdict, so a resampled candidate cannot be
+    #: checked against its predecessor's score (AC-026).
     difficulty_score: float | None = None
+    #: The branch count of the solve that produced :attr:`difficulty_score`, or
+    #: ``None`` while the candidate is unscored. Recorded *beside* the score and
+    #: never folded into it, because ADR-0025 makes them two different kinds of
+    #: fact: the score grades line reasoning, and this one number decides
+    #: ``Tier.GUESS`` on its own (EC-015). :attr:`difficulty_tier` needs both,
+    #: which is exactly why ``difficulty.classify`` takes both.
+    #:
+    #: Stored as the solver reported it, like :attr:`solution_count` and
+    #: :attr:`difficulty_score` (guardrail G-3) — this module composes
+    #: capabilities, it does not second-guess them, and in particular it does
+    #: not compare this number against anything itself (ADR-0025/R2).
+    branch_nodes: int | None = None
     #: The cells line logic left undecided at the current candidate's **first**
     #: propagation fixed point, grid-shaped (FR-024), or ``None`` while the
     #: candidate is unjudged. Stored exactly as the solver reported it, the way
@@ -962,6 +974,10 @@ class Puzzle:
         self.clues = clue_derivation.compute_clues(grid)
         self.solution_count = None
         self.difficulty_score = None
+        # The score's companion (ADR-0025) goes with the score: a branch count
+        # left behind would classify the replacement candidate Guess on the
+        # strength of its predecessor's solve, which is AC-026 the other way up.
+        self.branch_nodes = None
         # Everything the previous candidate's solve reported goes with it, for
         # the same reason its score does: a mask, a witness pair or a rung map
         # left attached to a replacement grid would describe the wrong puzzle.
@@ -989,46 +1005,63 @@ class Puzzle:
 
     @property
     def difficulty_tier(self) -> difficulty.Tier | None:
-        """Which tier the current candidate actually *scored* into (ADR-0005).
+        """Which tier the current candidate actually classified into (ADR-0025).
 
         The counterpart of :attr:`requested_tier`: what the puzzle turned out
         to be, rather than what was asked for. ``None`` until the candidate has
-        been scored. Classified through ``difficulty.tier_for_score`` on every
-        read instead of being stored alongside the score, so the tier and the
-        cutoffs it comes from cannot fall out of step with each other.
+        been scored.
+
+        Classified through ``difficulty.classify`` on every read instead of
+        being stored alongside the score, so the tier and the rule it comes from
+        cannot fall out of step with each other — and through *that* function
+        rather than a comparison here, because ADR-0025/R2 allows exactly one
+        tier classifier in the package and it is COMP-006's. This module hands
+        it the two facts the one verifying solve reported and takes the answer.
         """
-        if self.difficulty_score is None:
+        if self.difficulty_score is None or self.branch_nodes is None:
             return None
-        return difficulty.tier_for_score(self.difficulty_score)
+        return difficulty.classify(self.difficulty_score, self.branch_nodes)
 
     @property
     def difficulty_in_requested_tier(self) -> bool:
         """POL-004's condition: does the current candidate match the request?
 
-        ``True`` when no tier was requested — there is no band to miss — and
+        One tier comparison, as it always was — ADR-0025 keeps the predicate a
+        single test and makes ``guess`` a legitimate thing to ask for, so a run
+        requesting it keeps branching candidates and a run requesting anything
+        else discards them by this same line.
+
+        ``True`` when no tier was requested — there is nothing to miss — and
         ``False`` for a candidate that has not been scored yet, so "in tier" is
-        never claimed on the strength of a previous candidate's score (AC-026).
+        never claimed on the strength of a previous candidate's solve (AC-026).
         """
         if self.requested_tier is None:
             return True
-        return self.difficulty_score is not None and self.requested_tier.contains(
-            self.difficulty_score
-        )
+        return self.difficulty_tier is self.requested_tier
 
-    def record_difficulty(self, score: float) -> bool:
-        """Record COMP-006's score for the current candidate and judge it.
+    def record_difficulty(self, score: float, branch_nodes: int) -> bool:
+        """Record COMP-006's grade for the current candidate and judge it.
 
-        POL-004's decision point. The score is stored as COMP-006 gave it —
-        unrounded and un-bucketed — for the same reason the solver's count is
-        (guardrail G-3): this module composes capabilities, it does not
-        second-guess them.
+        POL-004's decision point. Both numbers are stored as they were given —
+        the score unrounded and un-bucketed, the branch count untouched — for
+        the same reason the solver's count is (guardrail G-3): this module
+        composes capabilities, it does not second-guess them.
+
+        Args:
+            score: ``difficulty.score_difficulty``'s number for the solve that
+                just judged this candidate.
+            branch_nodes: the *same* solve's branch count. Taken as a second
+                argument rather than derived from the score, because it cannot
+                be: EC-015 makes ``Tier.GUESS`` a fact about the solve, and no
+                threshold on the score can recover it.
 
         Returns:
-            :attr:`difficulty_in_requested_tier` for the score just recorded:
+            :attr:`difficulty_in_requested_tier` for the grade just recorded:
             ``True`` when the candidate may be kept (AC-024), ``False`` when
             POL-004's resample must fire (AC-025).
         """
         self.difficulty_score = score
+        self.branch_nodes = branch_nodes
         return self.difficulty_in_requested_tier
 
     def require_ready_for_export(self) -> None:
@@ -1178,15 +1211,26 @@ _UNIQUENESS_REASON = (
 
 
 def _band_text(tier: difficulty.Tier) -> str:
-    """``"Hard band (66-100)"`` — a tier named *and* placed on the scale.
+    """``"Hard band (66-100) of the 0-100 difficulty scale"`` — a tier named
+    *and* placed.
 
     The band is spelled out rather than left as a bare tier name because the
     user cannot see the 0..100 scale from the outside; saying where the tier
     sits on it is what makes an abandonment message actionable rather than
     merely truthful (AC-027's "clear error").
+
+    ``Tier.GUESS`` has no band to spell out (ADR-0025: it is keyed on the
+    solve's branch count, not on a score), so it is described by the fact that
+    defines it instead — and the mention of the scale goes with the band, since
+    telling a user to look for that tier on a scale it does not live on is the
+    opposite of actionable. That is why the whole phrase is built here rather
+    than assembled by each caller around a bare band.
     """
-    low, high = tier.band
-    return f"{tier.label} band ({low:g}-{high:g})"
+    band = tier.band
+    if band is None:
+        return f"{tier.label} tier (puzzles whose one verifying solve had to branch)"
+    low, high = band
+    return f"{tier.label} band ({low:g}-{high:g}) of the 0-100 difficulty scale"
 
 
 def _uniqueness_reason(tier: difficulty.Tier | None) -> str:
@@ -1203,8 +1247,8 @@ def _uniqueness_reason(tier: difficulty.Tier | None) -> str:
     if tier is None:
         return _UNIQUENESS_REASON
     return (
-        "no candidate grid was both uniquely solvable and scored inside the "
-        f"{_band_text(tier)} of the 0-100 difficulty scale — the two checks "
+        "no candidate grid was both uniquely solvable and classified into the "
+        f"{_band_text(tier)} — the two checks "
         f"share one {MAX_RETRY_ATTEMPTS}-attempt budget; try another "
         "--difficulty, a different --size/--density combination, or another "
         "--seed"
@@ -1269,10 +1313,9 @@ def _image_tier_reason(tier: difficulty.Tier | None) -> str:
     """
     band = _band_text(tier) if tier is not None else "requested band"
     return (
-        f"the converted image scored outside the {band} of the 0-100 "
-        "difficulty scale, and an uploaded image is fixed — a resample would "
-        "convert the same picture again; try another --difficulty, a different "
-        "--size, or another image"
+        f"the converted image classified outside the {band}, and an uploaded "
+        "image is fixed — a resample would convert the same picture again; try "
+        "another --difficulty, a different --size, or another image"
     )
 
 
@@ -1292,9 +1335,9 @@ def _resample_reason(tier: difficulty.Tier | None) -> str:
     if tier is None:  # pragma: no cover - the vacuous check never abandons
         return "no candidate grid was usable"
     return (
-        f"no candidate scored inside the {_band_text(tier)} of the 0-100 "
-        "difficulty scale; try another --difficulty, a different "
-        "--size/--density combination, or another --seed"
+        f"no candidate classified into the {_band_text(tier)}; try another "
+        "--difficulty, a different --size/--density combination, or another "
+        "--seed"
     )
 
 
@@ -1516,9 +1559,14 @@ def generate(
         if not puzzle.confirm_uniqueness(verdict.solution_count):
             return None
         # COMP-006, off the signals of the solve that just happened — no second
-        # solve, and no re-derivation of anything the solver reported (FR-009).
+        # solve, and no re-derivation of anything the solver reported
+        # (FR-026, ADR-0029/R2, guardrail G-1). Both of ADR-0025's classifier
+        # inputs come from this one `verdict.signals`: the rung counts the score
+        # is built from and the branch count the Guess tier is keyed on. The
+        # clues are no longer passed — ADR-0029 took density out of the score.
         puzzle.record_difficulty(
-            difficulty.score_difficulty(verdict.signals, candidate_clues.rows)
+            difficulty.score_difficulty(verdict.signals),
+            verdict.signals.branch_nodes,
         )
         return puzzle
 
@@ -1736,6 +1784,13 @@ def generate_batch(
         raise ValueError(f"Sizes must be a list of ints or (width, height) tuples, got {sizes}")
     if source not in sourcing.MODES:
         raise ValueError(f"Unknown source mode {source!r}; known modes: {', '.join(sourcing.MODES)}")
+    # Read off the enum rather than spelled out, which is how ADR-0025's fourth
+    # tier reached this gate without an edit — the property CARD-076 pins in
+    # ``tests/test_orchestrator.py``. (That it compares enum *names* and so
+    # refuses the lowercase spelling ``parse_tier`` accepts is
+    # ``docs/GENERATION_ALGORITHM.md`` §10.2 finding 1, cut as CARD-070; every
+    # caller passes ``None`` today and CARD-076 deliberately does not widen the
+    # accepted spellings here.)
     if difficulty_tier and difficulty_tier not in {t.name for t in difficulty.Tier}:
         raise ValueError(f"Unknown difficulty tier {difficulty_tier!r}")
 

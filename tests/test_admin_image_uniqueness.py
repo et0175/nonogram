@@ -182,18 +182,29 @@ def test_ac3_difficulty_comes_from_real_solver_signals_not_grid_size(admin_app, 
     size alone.
 
     Two independent checks distinguish this from the old
-    ``image_to_puzzle.create_puzzle_from_image`` size-only formula:
+    ``image_to_puzzle.create_puzzle_from_image`` size-only formula (which
+    CARD-076 has since deleted outright, as an ADR-0025/R2 violation on a
+    function CARD-049 had already made dead):
 
     1. The stored tier is one of the real ``Tier`` StrEnum's lowercase
-       values (``"easy"``/``"medium"``/``"hard"``) — the old code stored
-       capitalized string literals (``"Easy"``/``"Medium"``/``"Hard"``)
+       values (``"easy"``/``"medium"``/``"hard"``/``"guess"``) — the old code
+       stored capitalized string literals (``"Easy"``/``"Medium"``/``"Hard"``)
        that were never derived from a score at all.
-    2. The stored tier is exactly what ``difficulty.tier_for_score`` maps
-       the stored score to — true by construction for the real pipeline
-       (``Puzzle.difficulty_tier`` *is* ``tier_for_score(difficulty_score)``)
-       but not for the old formula, whose "Easy" score band (20..50) mostly
-       falls in the real pipeline's Medium band (33..66], so the two
-       wouldn't agree if the size-only formula were still in play.
+    2. The stored tier is exactly what ``difficulty.classify`` maps the stored
+       score to — true by construction for the real pipeline
+       (``Puzzle.difficulty_tier`` *is* ``classify(difficulty_score,
+       branch_nodes)``) but not for the old formula, whose "Easy" score band
+       (20..50) mostly falls in the real pipeline's Medium band (33..66], so
+       the two would not agree if the size-only formula were still in play.
+
+    The branch count is passed as ``0`` rather than read back from the row,
+    because the DB does not store it (recording the solve's strategies is
+    CARD-072's, re-grading stored rows is CARD-077's). That is sound on a
+    measured premise rather than an assumption: no generated puzzle has ever
+    needed a real branch — 0 of 6,620 in ADR-0029's sweep, 0 of 462 in
+    CARD-076's, 0 of 292 in its AC-118 corpus — so a row written by this
+    pipeline is line-solvable. If that ever stops being true this assertion
+    fails, which is the right way to find out.
     """
     response = _upload_and_generate(client, [(str(FIXTURES / "bird1.jpg"), "bird1.jpg")])
     assert response.status_code == 302
@@ -209,4 +220,4 @@ def test_ac3_difficulty_comes_from_real_solver_signals_not_grid_size(admin_app, 
     assert stored_tier in {t.value for t in difficulty.Tier}
 
     assert stored_score is not None
-    assert difficulty.tier_for_score(stored_score).value == stored_tier
+    assert difficulty.classify(stored_score, 0).value == stored_tier

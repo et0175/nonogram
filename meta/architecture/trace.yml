@@ -272,7 +272,7 @@ links:
 
   # ---------------------------------------------------------------- CAP-004
 - req: FR-008
-  description: "Difficulty selector with Easy / Medium / Hard tiers"
+  description: "Difficulty selector with Easy / Medium / Hard / Guess tiers"
   capabilities: [CAP-004]
   contexts: [CTX-001]
   components: [COMP-001, COMP-006]
@@ -288,7 +288,14 @@ links:
     untouched pending ADR-0029's re-draw. COMP-001 only carries the value
     through (ADR-0010); the one classifier is COMP-006 (ADR-0025/R2). The
     FR-026 row carries the guess-tier tests.
-  status: partial
+    SHIPPED 2026-09-13 (CARD-076): `difficulty.Tier` has four members, the
+    single classifier is `difficulty.classify(score, branch_nodes)`,
+    `tier_for_score` is private, and every consumer carries the fourth value —
+    CLI --difficulty help, the web form (`list(difficulty.Tier)`, pinned),
+    `<name>-guess.pdf` (ADR-0016), the admin badge and filter, and
+    `generate_batch`'s validation. AC-020 re-worded and AC-021's message now
+    names all four, read off the enum.
+  status: covered
 
 - req: FR-009
   description: "Weighted heuristic difficulty score from line-logic coverage, backtracking,
@@ -318,6 +325,16 @@ links:
     names stay listed until the superseded criterion's test is retired with it
     (the FR-003/AC-009 convention). FR-029 REFINES this requirement: the same
     rung list is the persisted strategies list.
+    IN CODE 2026-09-13 (CARD-076): the supersession is now real, not only
+    decided. difficulty.py implements the ladder; SignalWeights,
+    SIGNAL_WEIGHTS, NormalizedSignals, normalize_signals, clue_density,
+    SECONDS_PER_CELL_BUDGET, HARDEST_DENSITY and the two cell-span constants
+    are deleted. AC-022 and AC-023 are stamped superseded in requirements.yml
+    (by AC-118 and by AC-118/AC-119 respectively) and the two test names above
+    are RETIRED with them — kept listed per the FR-003/AC-009 convention, but
+    no test of those names exists any more. The live criteria are on the
+    FR-026 row. `partial` stands: this requirement's own statement (five
+    signals, weighted) is what was superseded, so it cannot become `covered`.
   status: partial
 
 - req: FR-010
@@ -343,7 +360,13 @@ links:
     NFR-007/CON-014 — no clock reading reaches the tier decision, so the same
     seed keeps or discards the same candidate on every host (AC-123, carried
     on the NFR-007 row). Loop shape and bound unchanged (ADR-0002).
-  status: partial
+    SHIPPED 2026-09-13 (CARD-076): `Puzzle.difficulty_tier` and
+    `difficulty_in_requested_tier` go through `difficulty.classify` with the
+    `(score, branch_nodes)` of the one verifying solve; `Puzzle.branch_nodes`
+    carries the second input and is dropped by `record_candidate` with the
+    score (AC-026). `Tier.contains` is gone — it was a second way to ask the
+    same question and could not see the fourth tier.
+  status: covered
 
   # ---------------------------------------------------------------- CAP-005
 - req: FR-011
@@ -1147,6 +1170,8 @@ links:
   - TestScoreDifficulty_RequiresGuessingAttributeSetWhenSearchBranched
   - TestScoreDifficulty_RequiresGuessingAttributeClearForLineSolvable
   - PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched
+  - PropertyTest_ScoreDifficulty_MonotoneInRungOrder
+  - test_no_module_but_difficulty_classifies_a_tier
   notes: >-
     Story US-008. Both DECs resolved: DEC-030 by ADR-0025
     (guessing_as_separate_tier — the enum becomes Easy/Medium/Hard/Guess,
@@ -1165,7 +1190,23 @@ links:
     puzzles. Supersedes AC-023 (FR-009 row) and re-words AC-020. Requesting
     `--difficulty hard` now promises a logically solvable puzzle — the
     printed-book reason recorded in the intake.
-  status: partial
+    STALE DETAIL, corrected: the DEC-031 summary above still lists four rungs
+    with `cross_line` among them. That rung left the ladder in ADR-0029's
+    2026-09-12 revision (it was iteration, not inference, and made a puzzle
+    grade differently from its transpose); the ladder is
+    simple_overlap < line_dp < probe_contradiction.
+    SHIPPED 2026-09-13 (CARD-076). The score is `band_low(rung) + share *
+    band_width(rung)` over bands whose edges ARE ADR-0005's cutoffs — 0..33,
+    33..66, 66..100 — corrected from idealised thirds by ADR-0029's 2026-09-13
+    History entry, because a full-share bottom rung scores 33.33 at a width of
+    33.33, classifies Medium and empties the Easy band. AC-118's corpus (292
+    uniquely-solvable random puzzles, 10x10..30x30, seeded) populates all three
+    bands: Easy 258, Medium 8, Hard 26, Guess 0. Two measured facts recorded
+    with it and deliberately not acted on (CARD-076 G-5): Easy is a single
+    point on the scale (every overlap-only puzzle scores exactly 33.0), and
+    Tier.GUESS remains measured-unreachable, so AC-120/AC-121/EC-015 are tested
+    against synthetic signal records.
+  status: covered
 
 - req: FR-027
   description: "Silhouette binarisation after the LANCZOS resize: inclusive 50%
@@ -1303,9 +1344,15 @@ links:
     consequence holds only without --difficulty today
     (docs/GENERATION_ALGORITHM.md §10.2 #3) and unconditionally once this
     ships; the ADR-0015 History entry recording that is owed by the
-    adr-writer. `partial` is honest here: the shipped scorer contradicts the
-    metric until ADR-0029's card lands.
-  status: partial
+    adr-writer. SHIPPED 2026-09-13 (CARD-076): the time_pressure term is gone
+    with the rest of ADR-0013's formula, and `difficulty.SolverSignals` no
+    longer names `elapsed_seconds` at all — the scorer cannot read a clock it
+    is never handed, so the metric ("0 dependence") holds structurally rather
+    than by discipline. The owed ADR-0015 History entry is written. AC-123 is
+    checked end to end by injecting a 50x clock at the solver's own
+    perf_counter and comparing two runs of one seeded --difficulty request:
+    same grid, same score to the last digit, same tier, same attempt counts.
+  status: covered
 
 - req: CON-014
   description: "Wall-clock solve time never enters the difficulty score or
@@ -1326,9 +1373,19 @@ links:
     and density terms. NOT `covered`: unlike the design-satisfied CONs above,
     this one is currently VIOLATED by the shipped time_pressure term in
     difficulty.py, and its declared check ref does not exist yet — the
-    CON-011 precedent (partial until the check goes live). Flips to
-    `covered` when the property test lands green with ADR-0029's card.
-  status: partial
+    CON-011 precedent (partial until the check goes live).
+    COVERED 2026-09-13 (CARD-076): the declared check now exists and is green —
+    `PropertyTest_ScoreDifficulty_IndependentOfElapsedTime`, i.e.
+    `tests/property/test_difficulty_ladder.py::test_independent_of_elapsed_time`
+    over a seeded corpus of real SolveSignals with the elapsed time substituted
+    across eight dilations, plus a synthetic-corpus twin that also covers the
+    branching half of the input space the generator never reaches. The
+    violation is gone: the time_pressure term is deleted and the scorer's
+    signals protocol carries no clock member, so the constraint is structural.
+    Note the description above still says "and clues" — since ADR-0029 the
+    clues do not reach the scorer either (density left the formula with size);
+    the rule is only narrower for it.
+  status: covered
 
 components:
 - id: COMP-001

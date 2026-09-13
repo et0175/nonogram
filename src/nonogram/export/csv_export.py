@@ -125,6 +125,13 @@ __all__ = [
 #: is a change to the other. That both constants read 2 today is a coincidence
 #: of history — ADR-0023 changed both formats, for each format's own reason —
 #: and not a link between them.
+#:
+#: **Not bumped by ADR-0025's fourth difficulty tier (CARD-076).** The ``#meta``
+#: key set is closed, and ``difficulty`` was never one of its six keys — so no
+#: reader of this format can encounter ``"guess"`` and there is nothing for a
+#: bump to protect. ADR-0023/R2's exact-version rule is why that had to be
+#: checked rather than assumed: a bump here refuses every existing file, and
+#: the two formats would have had to move together.
 SCHEMA_VERSION = 2
 
 #: The four section markers, in the order they must appear in the file.

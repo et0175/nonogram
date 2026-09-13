@@ -302,3 +302,102 @@ as written: see ADR-0029's 2026-09-13 History entry and item 1 above. No cutoff
 constant moved, ADR-0025/R2's `(score, branch_nodes)` signature is unchanged,
 and no rung changes hands — it corrects a band edge that sat a third of a point
 above the cutoff it was supposed to be.
+
+### AC-118 measurement — the calibration input (2026-09-13, implementation)
+
+Corpus: **292 uniquely-solvable random puzzles**, built by
+`tests/test_difficulty.py::_line_solvable_corpus` (seed 118, 21 extent/density
+cells, 14 puzzles wanted per cell, 645 grids drawn). Every one is graded through
+the real `compute_clues` -> `solve` -> `score_difficulty`; draws that are not
+puzzles are dropped before grading, as the generator drops them.
+
+| tier | rung | n | share | score range |
+|---|---|---:|---:|---|
+| Easy | `simple_overlap` | 258 | 88.4% | 33.000 only |
+| Medium | `line_dp` | 8 | 2.7% | 36.667 .. 59.400 |
+| Hard | `probe_contradiction` | 26 | 8.9% | 68.116 .. 98.640 |
+| Guess | — (branched) | 0 | 0% | — |
+
+Per extent (tier counts):
+
+| extent | Easy | Medium | Hard |
+|---|---:|---:|---:|
+| 10x10 | 64 | 2 | 4 |
+| 12x12 | 47 | 2 | 7 |
+| 15x15 | 49 | 4 | 15 |
+| 20x20 | 42 | 0 | 0 |
+| 25x25 | 28 | 0 | 0 |
+| 30x30 | 28 | 0 | 0 |
+
+Per density (tier counts):
+
+| density | Easy | Medium | Hard |
+|---|---:|---:|---:|
+| 45 | 15 | 5 | 20 |
+| 50 | 34 | 3 | 5 |
+| 55 | 41 | 0 | 1 |
+| 60 | 56 | 0 | 0 |
+| 65 | 28 | 0 | 0 |
+| 70 | 56 | 0 | 0 |
+| 75 | 28 | 0 | 0 |
+
+**AC-118 holds**: all three bands are populated. Band coverage was checked at
+seeds 118, 2026 and 7 before 118 was pinned — Medium came out at 8, 13 and 7
+puzzles, so the margin is real rather than an artefact of the first seed tried.
+
+Four things the numbers say, none of them acted on here (G-5):
+
+1. **Easy is a single point.** All 258 Easy puzzles score exactly 33.000, because
+   a puzzle that tops out at `simple_overlap` has settled *every* cell there and
+   its within-rung share is 1.0 by definition. The within-rung ordering ADR-0005's
+   recalibration is waiting on therefore does not exist inside the bottom band —
+   which is where 88% of the corpus is. Pinned as a test
+   (`test_every_corpus_puzzle_that_never_left_overlap_scores_the_same_point`) so
+   the recalibration has to change it on purpose.
+2. **The other two rungs do spread.** `line_dp` occupies 36.7..59.4 of its 33..66
+   band and `probe_contradiction` 68.1..98.6 of its 66..100, so the secondary
+   count is doing real work where it can do any.
+3. **Where the bands live is a property of the source, not of the extent.**
+   Medium and Hard are concentrated at densities 45-50 and at the smaller
+   extents — 25 of the 34 non-Easy puzzles are at density 45 or 50. That is why
+   the corpus plan samples those cells at all: a corpus drawn at one density, or
+   only at the fast high-density end, misses Medium entirely and the AC-118 test
+   would look flaky rather than wrong. A separate measurement over 12,000 draws
+   at 10x10..15x15 puts `line_dp` at 22% of unique 12x12 grids at density 45,
+   0.4% at density 55 and 0% at 65+.
+4. **Guess stays measured-unreachable.** 0 of 292 here, on top of 0 of 462
+   pre-implementation and 0 of 6,620 in ADR-0029's own sweep. AC-120, AC-121 and
+   EC-015 are therefore tested against synthetic signal records, and the zero is
+   itself pinned (`test_no_corpus_puzzle_needed_a_real_branch`) so that the day a
+   source does produce a branching grid is a test failure somebody reads.
+
+**A consequence for `--difficulty` worth flagging to the owner.** Under ADR-0013
+every line-solvable puzzle scored under 15, so `--difficulty easy` was satisfied
+by the first candidate and Medium/Hard were unreachable without guessing. Under
+the ladder all four tiers mean something, and that cuts both ways: `easy` is now
+a real filter that rejects ~85% of candidates at density 45, and a Medium request
+at a density where `line_dp` does not occur will exhaust POL-004's budget and
+abandon. The behaviour is correct and is what FR-026 asked for; it is a change in
+what a user experiences, not only in what a number says.
+
+### Benchmark (card item 7)
+
+`tests/bench_generate.py` 20x20, uncensored `report()`, same machine, back to back:
+
+| | p95 (nearest-rank, n=20) |
+|---|---|
+| base (8a05238) | 20.614 s |
+| this branch | 20.793 s |
+
++0.87%, and every one of the 20 samples matches its baseline to within ~1% with
+the identical outcome (unique / abandoned / timeout) per seed. Well within noise.
+The corpus is dominated by abandoned density-30/40 runs, i.e. by solver search,
+which this card does not touch.
+
+The scorer itself got *cheaper*, which is the number that speaks to the card's
+concern ("the resample loop scores every candidate"): `score_difficulty` +
+`classify` over one 20x20 record measures **0.246 us/call on this branch against
+2.155 us/call on base**, an 8.8x reduction — the clue-density sum over every line
+left the formula with the density term. AC-037's gate test is `xfail` on both
+trees for the pre-existing reason (p95 is 20.6 s against ADR-0001's 5 s cap);
+CARD-076 does not move it.
