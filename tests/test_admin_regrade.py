@@ -40,6 +40,7 @@ the real table happening to contain one.
 from __future__ import annotations
 
 import hashlib
+import time
 import math
 import uuid
 from pathlib import Path
@@ -538,6 +539,74 @@ class TestRegrade_DryRunWritesNothing:
         assert report.dry_run is True
         assert report.regraded, "the dry run must have had something to report"
         assert _digest(path) == before
+
+    def test_a_dry_run_leaves_the_callers_own_pending_work_alone(
+        self, tmp_path: Path
+    ) -> None:
+        """The caller owns the transaction, and a dry run gives it back intact.
+
+        The dry run used to call ``session.rollback()``, which is not scoped to
+        this function's work: it discarded the caller's entire uncommitted
+        transaction, silently and with nothing in the report to say so
+        (CARD-077 review cycle 2, F-011). Unreachable through the shipped
+        routes, which each open a fresh session — which is exactly why it
+        needed a test rather than a reader.
+        """
+        engine = _new_db(tmp_path / "caller.db")
+        _add_row(engine, UNIQUE_GRID, name="already stored")
+
+        with sessionmaker(bind=engine)() as session:
+            pending_id = uuid.uuid4()
+            session.add(
+                Puzzle(
+                    id=pending_id,
+                    width=2,
+                    height=2,
+                    grid=[[True, False], [False, True]],
+                    clues_rows=[[1], [1]],
+                    clues_cols=[[1], [1]],
+                    difficulty_tier="Easy",
+                )
+            )
+
+            report = regrade(session, dry_run=True)
+
+            session.commit()
+
+        assert report.regraded, "the dry run must have had something to report"
+        with sessionmaker(bind=engine)() as session:
+            assert session.get(Puzzle, pending_id) is not None, (
+                "the dry run rolled back the caller's own uncommitted row"
+            )
+
+    def test_a_dry_run_undoes_a_write_made_while_it_ran(
+        self, tmp_path: Path
+    ) -> None:
+        """The other half: the SAVEPOINT still covers this function's region.
+
+        Asserting it needs a write to happen *inside* the loop, which the
+        ``dry_run`` gate otherwise prevents — so the write is injected through
+        the ``monotonic`` seam the signature already exposes, which is called
+        once per row inside the savepoint. Without this, deleting the rollback
+        entirely leaves the suite green (it did, at cycle 2), because a correct
+        gate means there is nothing to undo.
+        """
+        engine = _new_db(tmp_path / "undo.db")
+        row_id = _add_row(engine, UNIQUE_GRID, tier="Medium")
+
+        with sessionmaker(bind=engine)() as session:
+            rows = session.query(Puzzle).all()
+
+            def tampering_clock() -> float:
+                rows[0].difficulty_tier = "tampered"
+                return time.monotonic()
+
+            regrade(session, dry_run=True, monotonic=tampering_clock)
+            session.commit()
+
+        assert _row(engine, row_id)["difficulty_tier"] == "Medium", (
+            "a write made during the dry run survived it"
+        )
 
     def test_the_dry_run_reports_what_the_write_run_produces(
         self, tmp_path: Path

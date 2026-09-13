@@ -430,3 +430,45 @@ and both docstrings now say so — with a test pinning the asymmetry.
 transaction with no run-level bound: worst case rows x 30s behind a lock.
 Measured at 0.15s for 16 rows and 1.3s for 86, and the admin has no background
 job machinery to move it into. Left as a note for when the table grows.
+
+### Review cycle 2 — F-011 (2026-09-13)
+
+Report: `meta/review/20260913T233000Z-CARD-077-cycle2.yml`. Score 8.5, one
+Important, one Minor. The Important is fixed here.
+
+**F-011 — a dry run discarded the caller's own uncommitted work.** `regrade`'s
+docstring promised "the caller owns the transaction" and then called
+`session.rollback()` on it, which is not scoped to this function. Demonstrated:
+a session carrying an unrelated pending row, a dry run, then the caller's own
+`commit()` — 0 rows persisted, no error, nothing in the report. Unreachable
+through the shipped routes, which each open a fresh session, which is precisely
+why it survived to here: the line had no observable behaviour to test.
+
+Fixed with a SAVEPOINT (`session.begin_nested()`), rolled back in a `finally`
+so an exception mid-run cannot leave a dry run's partial state behind. Two
+tests, one per half: the caller's pending row survives, and a write made
+*during* the run is undone. The second needs a write to happen inside the loop,
+which the `dry_run` gate otherwise prevents, so it is injected through the
+`monotonic` seam the signature already exposes — called once per row, inside
+the savepoint.
+
+Both confirmed by mutation: removing the savepoint kills
+`test_a_dry_run_undoes_a_write_made_while_it_ran`, and restoring the unscoped
+`session.rollback()` kills
+`test_a_dry_run_leaves_the_callers_own_pending_work_alone`. One test each, which
+is what says the two halves are independently pinned rather than jointly.
+
+**One claim withdrawn during the fix.** The first version of the fix carried a
+comment saying the row query must run *before* the savepoint opens, so the
+caller's autoflush lands outside the undone region. A mutant that moved the
+savepoint above the query survived, so I measured it: SQLAlchemy restores the
+unit of work on a SAVEPOINT rollback, and a caller's pending insert and a
+caller's dirty row both survive either ordering. The comment now says that
+instead of asserting an invariant that is not one — the same overclaim this
+review cycle caught twice in the card's own docstrings.
+
+**F-012 not acted on.** The rectangularity branch in `_as_grid` is an
+equivalent mutant: without it a ragged grid raises inside `compute_clues` and
+becomes the same `Skip(UNREADABLE_GRID)`, differing only in `detail`, which no
+test asserts. The branch still earns its place on the empty-grid case, which is
+covered. Left as a note.

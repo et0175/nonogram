@@ -57,8 +57,9 @@ Dry run and write are one code path
 flag gates only the three assignments at the end of a row's turn. That is what
 makes the confirmation page's report the report of the run it is confirming,
 rather than a second implementation that could disagree with it. In dry-run
-mode the session is rolled back before returning, so nothing this function did
-is even committable.
+mode the run happens inside a SAVEPOINT that is rolled back before returning,
+so nothing this function did is even committable — and nothing the *caller* had
+pending is disturbed, which a plain session rollback did not manage.
 
 Determinism (NFR-007, CON-014, ADR-0015)
 ----------------------------------------
@@ -336,11 +337,12 @@ def regrade(
     """Re-grade every stored puzzle, or report what that would do.
 
     Args:
-        session: An open SQLAlchemy session. The caller owns the transaction:
-            on the write path it must commit (``session_scope`` does), and on
-            the dry-run path there is nothing to commit — this function rolls
-            the session back before returning, so a caller that commits anyway
-            still writes nothing.
+        session: An open SQLAlchemy session. The caller owns the transaction,
+            and a dry run leaves it that way: on the write path the caller must
+            commit (``session_scope`` does), and on the dry-run path this
+            function undoes its own region through a SAVEPOINT, so a caller
+            that commits anyway still writes nothing of *this* function's —
+            and keeps everything of its own.
         dry_run: ``True`` to produce the report without touching a row. The
             same loop runs either way; the flag gates only the assignments.
         budget_seconds: ADR-0011's per-row solve budget. Per *row*, not per
@@ -357,23 +359,41 @@ def regrade(
     order; nothing about a grade depends on the order, but a report that
     reshuffled itself between runs would be hard to compare by eye.
     """
+    # Note for anyone moving this line: it autoflushes whatever the caller had
+    # pending, and it reads as though that flush must therefore land outside
+    # the savepoint below. Measured, it does not matter — SQLAlchemy restores
+    # the unit of work on a SAVEPOINT rollback, so a caller's pending insert
+    # and a caller's dirty row both survive either ordering. Kept here for
+    # reading order, not as a load-bearing invariant.
     rows = session.query(Puzzle).order_by(Puzzle.id).all()
 
-    outcomes: list[RowOutcome] = []
-    for row in rows:
-        graded = grade_stored_grid(row.grid, deadline=monotonic() + budget_seconds)
-        outcomes.append(_outcome(row, graded))
+    # AC-D as a property of the function rather than of its callers: a dry run
+    # undoes anything written while it ran, so nothing it touched can reach the
+    # file even by accident.
+    #
+    # A SAVEPOINT rather than session.rollback(). The plain rollback was not
+    # scoped to this function's work — it discarded the caller's entire
+    # uncommitted transaction, silently, while the docstring above promised the
+    # caller owns it (CARD-077 review cycle 2, F-011). A nested transaction
+    # undoes exactly the region between here and the rollback, which is what
+    # "this function writes nothing" was always meant to mean.
+    savepoint = session.begin_nested() if dry_run else None
+    try:
+        outcomes: list[RowOutcome] = []
+        for row in rows:
+            graded = grade_stored_grid(row.grid, deadline=monotonic() + budget_seconds)
+            outcomes.append(_outcome(row, graded))
 
-        if isinstance(graded, Grade) and not dry_run:
-            _capture_legacy_grade(row)
-            row.difficulty_score = graded.score
-            row.difficulty_tier = graded.tier.value
-            row.strategies_used = list(graded.strategies)
-
-    if dry_run:
-        # AC-D as a property of the function rather than of its callers: after
-        # this, nothing the run touched can reach the file even by accident.
-        session.rollback()
+            if isinstance(graded, Grade) and not dry_run:
+                _capture_legacy_grade(row)
+                row.difficulty_score = graded.score
+                row.difficulty_tier = graded.tier.value
+                row.strategies_used = list(graded.strategies)
+    finally:
+        if savepoint is not None:
+            # In `finally` so an exception mid-run cannot leave a dry run's
+            # partial state behind for the caller to commit.
+            savepoint.rollback()
 
     return RegradeReport(dry_run=dry_run, outcomes=tuple(outcomes))
 
