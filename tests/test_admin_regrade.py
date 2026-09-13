@@ -51,10 +51,15 @@ from sqlalchemy.orm import sessionmaker
 from nonogram.admin.regrade import (
     NO_LEGACY_TIER,
     Grade,
+    Skip,
     SkipReason,
     grade_stored_grid,
     regrade,
 )
+# Private, and imported deliberately: `_as_grid` and `_stored_score` are the two
+# places where a stored row stops being JSON and starts being a puzzle, and both
+# have behaviour worth pinning that no public entry point exposes directly.
+from nonogram.admin.regrade import _as_grid, _stored_score
 from nonogram.clues import compute_clues
 from nonogram.db.models import Base, Puzzle
 from nonogram.difficulty import Tier, classify, score_difficulty
@@ -94,6 +99,33 @@ OTHER_UNIQUE_GRID = [
     [False, False, True],
 ]
 
+#: A grid whose verifying solve has to *search*: uniquely solvable, but line
+#: logic alone does not finish it, so the solver branches (14 nodes) and
+#: ADR-0025's EC-015 makes the tier ``Tier.GUESS`` whatever the score is.
+#:
+#: It exists because every other grid in this file is line-solvable, which left
+#: the one test that names ``guess`` asserting ``False == False`` — it could not
+#: reach the branch it was written for (CARD-077 review cycle 1, F-001). That is
+#: not a hypothetical gap: commit bb1d5f6 records a real ``Tier.GUESS`` row in
+#: the production database, so the branch is on the live path of the migration
+#: this card performs.
+#:
+#: Found by seeded search over square grids at density 0.35..0.6, smallest
+#: first; 9x9 is the first extent where a branching unique grid turns up at all.
+#: Pinned as literal cells rather than regenerated, so the fixture cannot drift
+#: with the search.
+GUESS_GRID = [
+    [False, False, True, True, False, False, True, True, False],
+    [True, False, True, False, False, True, False, False, True],
+    [True, False, False, True, False, False, True, False, False],
+    [False, False, False, True, True, False, True, False, False],
+    [False, True, False, False, True, False, False, False, False],
+    [True, False, True, True, False, False, False, False, False],
+    [False, True, False, True, True, False, False, False, False],
+    [False, True, False, False, False, False, False, True, True],
+    [False, True, False, False, False, False, False, False, False],
+]
+
 
 def _assert_solution_counts() -> None:
     """The fixtures' premise, checked against the solver rather than asserted.
@@ -106,6 +138,17 @@ def _assert_solution_counts() -> None:
     assert solve(*compute_clues(UNIQUE_GRID)).solution_count == 1
     assert solve(*compute_clues(OTHER_UNIQUE_GRID)).solution_count == 1
     assert solve(*compute_clues(AMBIGUOUS_GRID)).solution_count == 2
+
+    # GUESS_GRID's premise is two facts, not one: unique *and* reached by
+    # search. A solver improvement that settled it by line logic alone would
+    # leave the guess tests below passing vacuously again, which is exactly the
+    # failure this fixture was added to end.
+    guess_result = solve(*compute_clues(GUESS_GRID))
+    assert guess_result.solution_count == 1
+    assert guess_result.signals.branch_nodes > 0, (
+        "GUESS_GRID no longer branches, so nothing in this file reaches "
+        "Tier.GUESS and the guess assertions are vacuous"
+    )
 
 
 def test_the_fixture_grids_are_what_the_tests_assume() -> None:
@@ -791,19 +834,171 @@ class TestRegradeRoute_PreviewsBeforeItWrites:
         assert untouched["legacy_difficulty_tier"] is None
 
 
-def test_grade_stored_grid_appends_guess_only_when_the_tier_says_so() -> None:
-    """FR-029's list ends in ``guess`` exactly when ADR-0025's tier does.
+# --------------------------------------------------------------------------
+# The stored integer keeps the band its float came from (CARD-077 review F-002)
+# --------------------------------------------------------------------------
 
-    Asserted through the tier rather than through ``branch_nodes``, because
-    that is how the production derivation reads it: one classifier, one rule
-    (ADR-0025/R2).
+
+class TestStoredScore_KeepsTheBandItsFloatCameFrom:
+    """``_stored_score`` ceils rather than rounds, and these are the cases that
+    tell the two apart.
+
+    Cycle 1 measured that nothing in the suite could: the two hand fixtures both
+    score exactly 33.0 — an integer, where ceil and round agree by construction
+    — and across the 240-grid property corpus, 6 grids have a fractional score
+    and *none* land where the two functions classify differently. So the
+    decision the module's longest docstring defends was verified by no test at
+    all. These assert it directly on the numbers rather than waiting for a grid
+    that produces them.
     """
+
+    @pytest.mark.parametrize(
+        ("score", "expected"),
+        [
+            # Just inside a band's lower edge: the cases where rounding down
+            # would carry the number back across into the band below.
+            pytest.param(33.08, 34, id="line_dp-one-cell-above-its-floor"),
+            pytest.param(33.5, 34, id="line_dp-midpoint"),
+            pytest.param(66.04, 67, id="probe-one-cell-above-its-floor"),
+            pytest.param(66.5, 67, id="probe-midpoint"),
+            # Exact edges are whole numbers already and must not move.
+            pytest.param(0.0, 0, id="floor-of-the-scale"),
+            pytest.param(33.0, 33, id="easy-ceiling-exact"),
+            pytest.param(66.0, 66, id="medium-ceiling-exact"),
+            pytest.param(100.0, 100, id="top-of-the-scale"),
+            # Out-of-range input is clamped, not wrapped.
+            pytest.param(-0.5, 0, id="below-the-scale"),
+            pytest.param(100.4, 100, id="above-the-scale"),
+        ],
+    )
+    def test_the_integer_is_the_ceiling_within_the_scale(self, score, expected) -> None:
+        assert _stored_score(score) == expected
+
+    @pytest.mark.parametrize(
+        "score",
+        [0.01, 12.4, 32.99, 33.0, 33.08, 50.5, 65.99, 66.0, 66.04, 80.3, 99.9, 100.0],
+    )
+    def test_the_stored_integer_classifies_as_the_float_did(self, score) -> None:
+        """The property the ceiling exists to hold, stated as the property.
+
+        ``branch_nodes=0`` on both sides: this is about the score-to-band
+        mapping, and EC-015's guess rule deliberately ignores the score
+        entirely (see the GUESS case below, which is the documented exception).
+        """
+        assert classify(float(_stored_score(score)), 0) is classify(score, 0)
+
+    def test_rounding_instead_of_ceiling_would_break_that(self) -> None:
+        """The discriminating case, named.
+
+        Without this the suite cannot tell ``math.ceil`` from ``round``, which
+        is what cycle 1 found. 33.08 is a real score: a ``line_dp`` puzzle that
+        settled one cell in roughly four hundred at its top rung.
+        """
+        assert classify(33.08, 0) is Tier.MEDIUM
+        assert classify(float(round(33.08)), 0) is Tier.EASY, (
+            "if this fails, rounding is no longer lossy here and the test "
+            "above has stopped discriminating"
+        )
+        assert classify(float(_stored_score(33.08)), 0) is Tier.MEDIUM
+
+    def test_a_guess_row_is_the_documented_exception(self) -> None:
+        """EC-015 keys Tier.GUESS on a fact about the solve, not on the score,
+        so a guess row's stored number need not read back as ``guess`` — and
+        cannot, since no band maps to it.
+
+        Pinned so the claim in ``_stored_score``'s docstring stays bounded to
+        what it can actually promise.
+        """
+        graded = grade_stored_grid(GUESS_GRID)
+
+        assert isinstance(graded, Grade)
+        assert graded.tier is Tier.GUESS
+        assert classify(float(graded.score), 0) is not Tier.GUESS
+
+
+def test_a_branching_solve_ends_its_strategies_list_with_guess() -> None:
+    """FR-029's list ends in ``guess`` when the verifying solve searched.
+
+    The positive case, stated positively. The biconditional below is the honest
+    shape of the rule but it cannot fail on a line-solvable grid, which is how
+    the branch went untested through cycle 1 — so the branch is asserted here
+    on a grid that actually reaches it.
+    """
+    graded = grade_stored_grid(GUESS_GRID)
+
+    assert isinstance(graded, Grade)
+    assert graded.tier is Tier.GUESS
+    assert graded.strategies[-1] == "guess"
+    # ``guess`` is appended to the rungs, not substituted for them: the list
+    # still says how the line work went before the search started.
+    assert graded.strategies[:-1], "the rungs the solve did use are still there"
+    assert "guess" not in graded.strategies[:-1], "appended once, at the end"
+
+
+def test_a_line_solvable_solve_has_no_guess_on_its_strategies_list() -> None:
+    """The negative case, on the same rule. Together with the test above this
+    is the biconditional — each half on a grid that can refute it."""
     graded = grade_stored_grid(UNIQUE_GRID)
+
+    assert isinstance(graded, Grade)
+    assert graded.tier is not Tier.GUESS
+    assert "guess" not in graded.strategies
+
+
+@pytest.mark.parametrize("grid", [UNIQUE_GRID, OTHER_UNIQUE_GRID, GUESS_GRID])
+def test_guess_is_on_the_list_exactly_when_the_tier_says_so(grid) -> None:
+    """ADR-0025/R2 read as one rule over every gradable fixture in the file.
+
+    Parametrised over both sides of it, so the corpus this runs on can no
+    longer be all-one-side without the parametrisation visibly shrinking.
+    """
+    graded = grade_stored_grid(grid)
 
     assert isinstance(graded, Grade)
     assert ("guess" in graded.strategies) == (graded.tier is Tier.GUESS)
 
 
-def test_grade_stored_grid_never_raises_on_junk() -> None:
-    for junk in (None, 42, {}, [[None]], [["x", "y"]]):
-        assert grade_stored_grid(junk) is not None
+@pytest.mark.parametrize(
+    "junk",
+    [
+        pytest.param(None, id="none"),
+        pytest.param(42, id="int"),
+        pytest.param({}, id="dict"),
+        pytest.param("[[true]]", id="json-text-not-decoded"),
+        pytest.param([[True, False], [True]], id="ragged"),
+    ],
+)
+def test_grade_stored_grid_reports_junk_rather_than_raising(junk) -> None:
+    """Not "it returned something" — *what* it returned, and why.
+
+    The previous form asserted ``is not None`` over a function that has no
+    None path, so it could only fail by raising; and two of its five inputs
+    (``[[None]]``, ``[["x", "y"]]``) are coerced into valid grids by
+    ``_as_grid`` and were quietly exercising the happy path. Both are fixed
+    here: these five are all genuinely unreadable, and the reason is asserted.
+    """
+    outcome = grade_stored_grid(junk)
+
+    assert isinstance(outcome, Skip)
+    assert outcome.reason is SkipReason.UNREADABLE_GRID
+
+
+@pytest.mark.parametrize(
+    ("grid", "filled"),
+    [
+        pytest.param([[None, None]], 0, id="null-cells-read-as-empty"),
+        pytest.param([["x", "y"]], 2, id="truthy-strings-read-as-filled"),
+        pytest.param([[1, 0]], 1, id="ints-read-as-bool"),
+    ],
+)
+def test_a_grid_of_non_booleans_is_coerced_rather_than_refused(grid, filled) -> None:
+    """``_as_grid`` reads truthiness, and that is deliberate — see its docstring.
+
+    Pinned as its own test because it is the surprising half of the contract:
+    the shape of a stored grid is validated strictly, its cell *type* is not.
+    A row of JSON nulls is a grid of empty cells, not a data defect.
+    """
+    outcome = grade_stored_grid(grid)
+
+    assert isinstance(outcome, Grade)
+    assert sum(row.count(True) for row in _as_grid(grid)) == filled

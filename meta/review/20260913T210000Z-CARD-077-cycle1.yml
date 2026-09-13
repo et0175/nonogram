@@ -1,0 +1,440 @@
+version: 1
+generated_at: "2026-09-13T21:00:00Z"
+target: "CARD-077 — branch card/077-admin-db-regrade, worktree ../PythonProject4-CARD-077, commit a3ab9dc (single commit on bb1d5f6)"
+overall_score: 7.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/regrade.py (full)"
+    - "src/nonogram/admin/app.py (diff + route context + entrypoint)"
+    - "src/nonogram/db/models.py (diff)"
+    - "migrations/versions/006_add_legacy_grade_columns.py (full)"
+    - "src/nonogram/admin/templates/regrade.html (form + tier rendering)"
+    - "src/nonogram/admin/templates/_tier.html (full)"
+    - "tests/test_admin_regrade.py (structure + 9 bodies)"
+    - "tests/property/test_regrade_determinism.py (full)"
+    - "src/nonogram/admin/puzzle_review.py (both filter predicates)"
+    - "meta/kanban/cards/CARD-077.md (full)"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (card item 6 verified only via the agent's report + grep)"
+    - "src/nonogram/solver/** (unchanged by this diff; treated as given)"
+    - "tests/test_admin_regrade.py lines 1-110, 540-735 (helpers and migration-test bodies read only in outline)"
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 2031, removed: 7 }
+  max_fan_in: { symbol: "Puzzle.difficulty_tier", callers: 25 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (80 commits/12mo, 42 fix-ish — 53% defect density)"
+  cochange_missing:
+    - "src/nonogram/admin/templates/puzzles_list.html (7 co-changes with app.py; absent — verified not needed, CARD-076 macro absorbs it)"
+    - "src/nonogram/admin/pdf_generator.py (prints difficulty_tier raw; see F-007)"
+  unmeasured:
+    grade_stored_grid_fan_in: "no_eligible_fact — exported in __all__ but called only by regrade() and tests; the zero is real and says nothing about risk"
+
+system_contract:
+  rules_checked: 7
+  holds: 5
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0029/R2 ✓ holds — one solve per row: grade_stored_grid calls solve() once (regrade.py:305) and classify() consumes that same result's signals (regrade.py:316-317); TestRegrade_EntersSolverOncePerRow (2 call-counter tests) green"
+    - "ADR-0025/R2 ✓ holds — regrade.py imports no cutoff constant (grep for EASY_MAX/MEDIUM_MAX: 0 hits) and _strategies_used branches on `tier is Tier.GUESS`, not on branch_nodes (regrade.py:425); tests/test_cli.py::test_every_import_in_the_package_points_inward green over admin/"
+    - "ADR-0029/R3 / CON-014 ⚠ unchecked — check_ref_missing: PropertyTest_Regrade_PureFunctionOfStoredGrid exists only as a docstring line at tests/property/test_regrade_determinism.py:3, not as a collectible class/function. Equivalent coverage read and green: test_the_grade_is_the_same_under_a_dilated_clock (8x global monotonic dilation) and test_the_grade_is_the_same_whatever_the_budget[1.0/5.0/60.0/3600.0]. The property holds by shape too — difficulty.SolverSignals has no elapsed_seconds member."
+    - "CON-005 ✓ holds — solution_count != 1 returns Skip(NOT_UNIQUE) before any grade is computed (regrade.py:310-315) and the row is never assigned; TestRegrade_SkipsUnsolvableRowsAndReportsThem (6 tests incl. test_a_skipped_row_never_reaches_the_legacy_columns) green"
+    - "ADR-0011 ✓ holds — every solve carries an absolute deadline computed per row (regrade.py:349) and SolverTimeout becomes Skip(TIMED_OUT) rather than a partial write; test_a_timed_out_row_is_not_touched_and_is_reported green"
+    - "NFR-003 / CON-009 ⚠ unchecked — check_ref_missing: the card names 'existing admin binding tests' and none exist. CON-009's own ref (TestWebServer_BindsLoopbackOnlyByDefault, tests/test_web_server.py:348) is scoped to COMP-008's web server, not the admin panel. Manual read contradicts the card's premise rather than confirming it: src/nonogram/admin/app.py:1598 binds 0.0.0.0 with debug=True. See F-003."
+    - "ADR-0006/R1 ✓ holds — pyproject.toml untouched by the diff; regrade.py imports only stdlib (math, time, collections, dataclasses, enum), sqlalchemy (the pre-existing optional `db` extra) and first-party nonogram modules"
+
+root_causes:
+  - id: RC-1
+    title: "Neither fixture grid nor any of the 240 corpus grids produces the two cases the card's headline decisions are about (a branching solve; a fractional score near a band's lower edge)"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "The contract's own bookkeeping drifted from the artifacts it names (test ids, Touches, an inherited binding claim)"
+    finding_ids: [F-003, F-005, F-006]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_regrade.py
+    line: 794
+    title: "The only test naming GUESS never reaches GUESS — the guess-append branch is untested"
+    description: |
+      test_grade_stored_grid_appends_guess_only_when_the_tier_says_so asserts
+      `("guess" in graded.strategies) == (graded.tier is Tier.GUESS)` over
+      UNIQUE_GRID. Measured: grade_stored_grid(UNIQUE_GRID) returns
+      Grade(score=33, tier=Tier.EASY, strategies=('simple_overlap',)). The
+      assertion is therefore `False == False` and would pass with the entire
+      `if tier is Tier.GUESS` branch of _strategies_used (regrade.py:424-427)
+      deleted. Tautological in the Step 8f sense.
+
+      No other test in either new file constructs a GUESS-tier row: grep for
+      GUESS/guess across tests/test_admin_regrade.py and
+      tests/property/test_regrade_determinism.py returns only this one test and
+      its docstring, and the property corpus's own spread assertion
+      (test_the_corpus_is_large_enough_to_mean_anything) pins three tiers, all
+      of them line-solvable.
+
+      This is not hypothetical coverage. Commit bb1d5f6 records a real
+      Tier.GUESS row in the production database (15x15, 35% density, 199 branch
+      nodes) — so the untested branch is on the live path of the very migration
+      this card exists to perform, and FR-029's strategies list is what card
+      item 6's Guess count reads.
+    suggestion: |
+      Add a fixture grid whose verifying solve branches, and assert the positive
+      case directly: strategies[-1] == "guess" and tier is Tier.GUESS. The
+      production row's grid (or any 15x15 at ~35% density that solves with
+      branch_nodes > 0) works; derive it once and pin it as GUESS_GRID beside
+      UNIQUE_GRID. Keep the existing biconditional test as the negative case.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/regrade.py
+    line: 452
+    title: "The ceil-not-round decision is unverified — no test in the suite can tell the two apart"
+    description: |
+      _stored_score's docstring makes ceiling a correctness argument, not a
+      taste call: a line_dp row scoring 33.08 would round to 33 and read back as
+      Easy while its stored tier says Medium. The suite cannot detect a
+      regression to round().
+
+      Two measurements. (1) The only band-consistency assertion,
+      test_the_stored_score_still_classifies_as_the_stored_tier
+      (tests/test_admin_regrade.py:251), runs over UNIQUE_GRID and
+      OTHER_UNIQUE_GRID; both score exactly 33.0, an integer, so ceil and round
+      agree by construction and the ceiling never acts on a fraction. (2) Over
+      the whole 240-grid property corpus, 6 uniquely-solvable grids have a
+      fractional score and 0 of them land where round() and ceil() classify
+      differently (measured: scores 93.2, 70.018, 81.583, 89.491, 55.407, ...
+      — all comfortably inside their bands).
+
+      The implementation is right; the evidence for it is absent. Mutation check
+      deferred per the cost ladder, but the static result is decisive.
+    suggestion: |
+      Add a direct unit test on _stored_score (or on a grid engineered to land
+      there) covering the band's lower edge: assert
+      classify(float(_stored_score(33.08)), 0) is classify(33.08, 0), and the
+      same at 66.04. A table test over (score, expected_int, expected_tier)
+      triples at each band edge is cheaper than hunting a grid that produces
+      them.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: ops
+    type: risk
+    file: src/nonogram/admin/regrade.py
+    line: 378
+    title: "On the production DB the legacy columns would capture already-re-graded values as 'pre-run'"
+    description: |
+      _capture_legacy_grade's guard is exactly right and that is the problem.
+      The guard is `legacy_difficulty_tier IS NULL`, which answers "has this
+      row's original grade been captured?" — a question that is only equivalent
+      to "has this row been overwritten?" while this batch is the sole writer.
+
+      For the Render production database it is already false. All 86 rows were
+      re-graded out of band on 2026-09-13, before migration 006 existed, so
+      every row now carries an ADR-0029 score and tier while
+      legacy_difficulty_tier is NULL. Running 006 + this batch on that database
+      captures the 2026-09-13 values into columns the card's Why section, the
+      migration docstring and the confirmation page all describe as the pre-run
+      grades — and the capture-once guard then closes permanently on the wrong
+      values, which is precisely the failure NO_LEGACY_TIER was designed to
+      prevent for a different cause.
+
+      The card's registered mitigation for its ⚑ point-of-no-return risk
+      ("old values copied to legacy columns before overwrite") is therefore void
+      for the one database where the risk is real. The actual pre-run record for
+      production is render-grades-backup.json, which is session-scoped scratch
+      and not durable.
+    suggestion: |
+      No code change is required — this is a precondition, and stating it is the
+      fix. Either (a) backfill legacy_difficulty_score/legacy_difficulty_tier on
+      the production rows from render-grades-backup.json immediately after
+      `alembic upgrade 006` and before the batch runs, which restores the
+      columns' stated meaning; or (b) record in the card's Worktree notes and on
+      the confirmation page that for the production database the legacy columns
+      hold the 2026-09-13 re-grade, not the original grades. Either way, persist
+      render-grades-backup.json somewhere durable first.
+    confidence: high
+    source: inferred
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: compliance
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 1598
+    title: "The card asserts the admin is loopback-bound; its only entrypoint binds 0.0.0.0 with debug=True"
+    description: |
+      CARD-077's system contract carries "NFR-003 / CON-009 — admin action bound
+      to localhost like the rest of the admin (check: existing admin binding
+      tests)". Neither half holds.
+
+      There are no admin binding tests: CON-009's own declared check,
+      TestWebServer_BindsLoopbackOnlyByDefault (tests/test_web_server.py:348),
+      is scoped to COMP-008's web server, and CON-009's statement says "the web
+      UI's HTTP server" — the admin panel is not its subject. And the admin's
+      only runnable entrypoint is app.py:1598,
+      `app.run(host="0.0.0.0", port=5000, debug=True)` — every interface, with
+      the Werkzeug debugger enabled.
+
+      The diff does not create this exposure and is not where it should be
+      fixed. What the diff does is add the most destructive route in the admin
+      to that surface: an unauthenticated, CSRF-free POST /regrade that
+      overwrites the grade of every stored puzzle, on the premise — stated in
+      the contract and in regrade_apply's own docstring ("Reached only from the
+      preview page's button") — that only the owner can reach it.
+    suggestion: |
+      Two separable moves. Correct the card's contract line now, so the review
+      record stops claiming a property the system does not have. Then open a
+      follow-up (CARD-080 is adjacent and already about the storage boundary)
+      to default the admin entrypoint to 127.0.0.1, drop debug=True from it, and
+      add the admin binding test CON-009's admin half would need to exist for
+      this check to ever be live.
+    confidence: high
+    source: model
+    violates: "CON-009"
+    root_cause: RC-2
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_regrade_determinism.py
+    line: 3
+    title: "The EC's named property test exists only as a docstring line"
+    description: |
+      The card's engineering constraint names
+      PropertyTest_Regrade_PureFunctionOfStoredGrid. That name appears at
+      tests/property/test_regrade_determinism.py:3 and in a cross-reference at
+      tests/test_admin_regrade.py:30, but there is no class or function by that
+      name — the file uses plain test_* functions. The project's own convention
+      elsewhere is a real class (tests/test_web_server.py:3 names
+      TestWebServer_BindsLoopbackOnlyByDefault and line 348 defines it), and
+      this card's six AC test names all follow it. Only the EC's does not.
+
+      The property itself is genuinely covered — I read and ran the dilated-clock
+      and budget-variance tests — so this is a record defect, not a coverage
+      one. But it is the defect that makes a contract check unverifiable by
+      anything except a human reading the file.
+    suggestion: |
+      Wrap the four property functions in
+      `class PropertyTest_Regrade_PureFunctionOfStoredGrid:` so the contract's
+      ref resolves, matching the convention the six AC classes already follow.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: |
+      Reviewer error. The finding cited TestWebServer_BindsLoopbackOnlyByDefault as the precedent, but that is a Test* class and pytest's default python_classes would not collect a PropertyTest_* one. Every PropertyTest_* id in this repo (PropertyTest_Solver_NeverFalsePositiveUniqueness, PropertyTest_ScoreDifficulty_IndependentOfElapsedTime) is a docstring anchor — which is exactly what the card did. Change made, then reverted; test file byte-identical to a3ab9dc.
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-077.md
+    line: 17
+    title: "Touches drift in both directions"
+    description: |
+      tests/property/test_regrade_determinism.py (222 lines, new) is in the diff
+      and absent from Touches; tests/test_db_e2e_smoke.py is in Touches and
+      absent from the diff. `git diff --name-only bb1d5f6..a3ab9dc` is the
+      authority for the first half.
+
+      Same class as CARD-074's F-002 and CARD-076's cycle-1 F-005 — three cards
+      running, which suggests generating the line from git rather than hand-
+      editing it is the actual fix.
+    suggestion: |
+      Regenerate Touches from `git diff --name-only`, and either drop
+      tests/test_db_e2e_smoke.py or say in one clause why it needed no change
+      (the smoke test does not read the graded columns).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/pdf_generator.py
+    line: 179
+    title: "The non-book PDF path prints difficulty_tier raw, so re-graded rows print lowercase"
+    description: |
+      admin/pdf_generator.py lines 179 and 200 interpolate
+      puzzle.get('difficulty_tier', 'N/A') straight into the PDF. It is live:
+      POST /book/<book_id>/generate-pdf reaches it via get_pdf_generator() at
+      app.py:1187. After this card's write every row carries the enum value, so
+      a generated book prints "Difficulty: easy" and, for a branching puzzle,
+      "Difficulty: guess".
+
+      Pre-existing rather than introduced — pipeline-generated rows already
+      store the lowercase value, which is why CARD-076's _tier.html macro
+      normalises with |lower and notes "which spelling a stored row carries is
+      CARD-077's to normalise". This card completes that normalisation for the
+      badge surfaces and leaves the one surface that has no macro.
+
+      Card item 6 named book_pdf_generator.py; there are two PDF generators and
+      only one was in scope.
+    suggestion: |
+      Render through Tier.label — `tier_of_record(t).label if tier_of_record(t)
+      else (t or 'N/A')` — at both sites, the same resolution the badge macro
+      and the filter predicates already use.
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_regrade.py
+    line: 807
+    title: "test_grade_stored_grid_never_raises_on_junk asserts a value the function cannot return, over inputs that are not junk"
+    description: |
+      The assertion is `grade_stored_grid(junk) is not None`. grade_stored_grid
+      returns Grade | Skip and has no None path, so the assertion adds nothing
+      to "it did not raise" — which is the real claim and is worth making, but
+      is made implicitly.
+
+      Two of the five parametrised inputs are not junk once _as_grid runs:
+      [[None]] coerces to [[False]], a valid 1x1 grid that solves uniquely and
+      is graded, and [["x","y"]] coerces to [[True,True]], likewise. So 40% of
+      the "junk" corpus exercises the happy path under a name that says
+      otherwise.
+    suggestion: |
+      Assert the outcome type and reason: for the genuinely malformed inputs
+      (None, 42, {}) assert isinstance(result, Skip) and
+      result.reason is SkipReason.UNREADABLE_GRID. Move [[None]] and
+      [["x","y"]] to a separate test that states what they actually document —
+      that _as_grid coerces truthy cells rather than rejecting them (F-009).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/regrade.py
+    line: 478
+    title: "_as_grid coerces non-boolean cells, which is the opposite of what its docstring promises"
+    description: |
+      The module docstring says a malformed row is "a data defect, reported
+      rather than guessed at", and _as_grid's own docstring frames itself as
+      "reading, not validating". But the read is `bool(cell)` per cell, so a
+      JSON grid of strings, ints or nulls is silently coerced into a boolean
+      grid and graded as a puzzle rather than reported UNREADABLE_GRID. Shape is
+      validated strictly (rectangularity, non-emptiness); cell type is not
+      validated at all.
+
+      Filed Minor rather than as the intent-drift Important the lens would
+      default to, because I cannot demonstrate a reachable failure: ADR-0012
+      fixes the boundary type at list[list[bool]], JSON round-trips booleans
+      faithfully, and no writer in the repo produces non-bool cells. The
+      divergence between the stated posture and the code is real; its blast
+      radius today is not.
+    suggestion: |
+      Either reject a non-bool cell (`if not isinstance(cell, bool): return
+      None`), which matches the docstring, or keep the coercion and say so in
+      the docstring — that a truthy cell is read as filled, deliberately,
+      because a JSON column has no bool guarantee.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: a3ab9dc+fix
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/regrade.py
+    line: 346
+    title: "Every solve runs inside the open write transaction, with no bound on the run as a whole"
+    description: |
+      regrade() loads all rows with .all() and solves each one inside the
+      session the caller opened; on the POST path session_scope commits only
+      after the last solve returns. The budget is per row
+      (GENERATION_BUDGET_SECONDS = 30s) with no ceiling on the run, so worst-
+      case wall clock is rows x 30s — 43 minutes at production's 86 rows — with
+      a SQLite write transaction held throughout and a Flask request blocked on
+      it.
+
+      Measured reality is nowhere near that: 16 rows in 0.15s locally, 86 rows
+      in 1.3s on Render, and the card's own notes say "the batch is not long-
+      running". The admin has no background-job machinery to reach for either
+      (no threading anywhere in src/nonogram/admin/). So this is a latent
+      scaling property, not a present defect — worth recording because the
+      table only grows and the failure mode (a half-minute-per-row stall behind
+      a lock) is invisible until it is not.
+    suggestion: |
+      Nothing now. If the table grows past a few hundred rows, either bound the
+      run as a whole and report the unreached rows as a fourth skip reason, or
+      commit in batches of N rows — the capture-once guard already makes a
+      partially-applied run safe to resume.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: |
+      Latent scaling property, not a present defect: measured 0.15s over 16 rows and 1.3s over 86, and the admin has no background-job machinery to move the loop into. Recorded in the card's Worktree notes for when the table grows.
+    learned_pattern: null

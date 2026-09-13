@@ -13,6 +13,8 @@ from io import BytesIO
 from datetime import datetime
 import os
 
+from nonogram.difficulty import tier_of_record
+
 
 class BookPDFGenerator:
     """Generate PDF books from puzzles and metadata."""
@@ -167,6 +169,29 @@ class BookPDFGenerator:
 
         return story
 
+    @staticmethod
+    def _tier_label(puzzle):
+        """The stored tier as a reader should see it — ``Easy``, not ``easy``.
+
+        A stored row carries whichever spelling its writer used: the pipeline
+        and CARD-077's re-grade batch write the enum value (``easy``), older
+        rows the display label (``Easy``). Every other admin surface resolves
+        that through ``difficulty.tier_of_record`` — the badge macro in
+        ``templates/_tier.html``, both filter predicates in
+        ``puzzle_review.py`` — and this PDF was the one that did not, so a book
+        printed after the re-grade read "Difficulty: easy" (CARD-077 review
+        cycle 1, F-007).
+
+        A spelling that names no tier is printed as it stands rather than
+        blanked: it is still what the row says, and a printed book is the wrong
+        place to silently drop data.
+        """
+        stored = puzzle.get("difficulty_tier")
+        tier = tier_of_record(stored)
+        if tier is not None:
+            return tier.label
+        return stored or "N/A"
+
     def _create_table_of_contents(self, metadata, puzzles):
         """Create table of contents."""
         story = []
@@ -176,7 +201,7 @@ class BookPDFGenerator:
 
         # TOC entries
         toc_text = "<br/>".join([
-            f"<b>Puzzle {i}:</b> Difficulty: {puzzle.get('difficulty_tier', 'N/A')} | "
+            f"<b>Puzzle {i}:</b> Difficulty: {self._tier_label(puzzle)} | "
             f"Size: {puzzle.get('width', 0)}×{puzzle.get('height', 0)} | "
             f"Quality: {puzzle.get('quality_score', 0)}/100"
             for i, puzzle in enumerate(puzzles, 1)
@@ -197,7 +222,7 @@ class BookPDFGenerator:
         # Puzzle metadata
         meta = f"""
         <font size=8>
-        Difficulty: <b>{puzzle.get('difficulty_tier', 'N/A')}</b> |
+        Difficulty: <b>{self._tier_label(puzzle)}</b> |
         Size: <b>{puzzle.get('width', 0)}×{puzzle.get('height', 0)}</b> |
         Quality: <b>{puzzle.get('quality_score', 0)}/100</b>
         </font>

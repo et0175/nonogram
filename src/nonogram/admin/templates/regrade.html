@@ -134,6 +134,22 @@
                     hand &mdash; but it is not an undo button, and the legacy columns are
                     written once: a second run will not overwrite them.
                 </p>
+                {# CARD-077 review cycle 1, F-004. The capture guard asks "has this
+                   row been captured?", which is only the same question as "is this
+                   the row's original grade?" while this batch is the sole writer of
+                   these columns. On the Render database it already is not: all 86
+                   rows were re-graded out of band on 2026-09-13, before the legacy
+                   columns existed. Saying so here rather than only in the card,
+                   because this is the screen where the button is. #}
+                <p class="mb-2 text-danger small">
+                    <strong>What "previous grade" means:</strong> whatever is in the row
+                    <em>right now</em>. If these grades were written by anything other
+                    than the original pipeline &mdash; an out-of-band script, an earlier
+                    migration, a manual edit &mdash; that is what gets preserved as the
+                    pre-run value, and it is preserved permanently. Check what the
+                    current grades actually are before running this on a database whose
+                    history you do not know.
+                </p>
                 <form method="POST" action="{{ url_for('regrade_apply') }}">
                     <button type="submit" class="btn btn-danger"
                             {% if not report.regraded %}disabled{% endif %}>

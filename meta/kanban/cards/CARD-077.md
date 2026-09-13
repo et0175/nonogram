@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-076
-**Touches:** migrations/versions/006_*.py (new, expand-only: legacy grade columns), src/nonogram/db/models.py (two nullable legacy columns), src/nonogram/admin/regrade.py (new — the batch), src/nonogram/admin/app.py (one POST route + confirmation page), src/nonogram/admin/templates/regrade.html (new), src/nonogram/admin/templates/dashboard.html (link), tests/test_admin_regrade.py (new), tests/test_db_e2e_smoke.py
+**Touches:** migrations/versions/006_add_legacy_grade_columns.py (new, expand-only: two nullable legacy grade columns), src/nonogram/admin/app.py (GET preview + POST apply), src/nonogram/admin/pdf_generator.py (review F-007: the second PDF path printed the tier verbatim, so a book built after the re-grade read 'Difficulty: easy'), src/nonogram/admin/regrade.py (new — the batch), src/nonogram/admin/templates/dashboard.html (link), src/nonogram/admin/templates/regrade.html (new — the confirmation page), src/nonogram/db/models.py (the two columns on the Puzzle model), tests/property/test_regrade_determinism.py (new — the EC property corpus), tests/test_admin_regrade.py (new), tests/test_admin_tier_surfaces.py (review F-007: the PDF spelling, added beside CARD-076's other tier-surface guards)
 **Review score:** —
 **Started:** 2026-09-14T01:30Z
 **Closed:** —
@@ -151,8 +151,17 @@ lands; if CARD-072 is already merged, reuse its `add_puzzle`
   is not uniquely solvable is not re-graded, it is reported (check:
   TestRegrade_SkipsUnsolvableRowsAndReportsThem)
 - ADR-0011 — every solve is deadline-bounded (check: review-lens)
-- NFR-003 / CON-009 — admin action bound to localhost like the rest of the
-  admin (check: existing admin binding tests)
+- ~~NFR-003 / CON-009 — admin action bound to localhost like the rest of the
+  admin (check: existing admin binding tests)~~ **— withdrawn, cycle 1 F-003.**
+  Both halves were false. There are no admin binding tests: CON-009's own
+  declared check (`TestWebServer_BindsLoopbackOnlyByDefault`,
+  `tests/test_web_server.py:348`) covers COMP-008's web server, and CON-009's
+  statement says "the web UI's HTTP server" — the admin panel is not its
+  subject. And the admin's only entrypoint, `admin/app.py:1598`, is
+  `app.run(host="0.0.0.0", port=5000, debug=True)`: every interface, Werkzeug
+  debugger on. This card does not create that exposure and is not where it is
+  fixed — it is recorded here so the contract stops asserting a property the
+  system does not have. **Follow-up: CARD-081.**
 - ADR-0006/R1 — no new runtime dependency (check: review-lens)
 
 ## Architecture context
@@ -338,3 +347,86 @@ input for ADR-0005's owed recalibration.
   in fact tracked.** The rule is the same either way — commit only with explicit
   pathspecs — but it is tracked, so an accidental `git add -A` would commit a
   real diff rather than a new file.
+
+### Review cycle 1 — what the findings changed (2026-09-13)
+
+Report: `meta/review/20260913T210000Z-CARD-077-cycle1.yml`. Score 7.0, no
+Critical. Four Important, six Minor. What moved:
+
+**F-001 / F-002 — the two headline decisions were verified by no test.** Both
+were real and both are closed by tests only; no production logic changed.
+
+- The one test naming `guess` ran on `UNIQUE_GRID`, which grades Easy — so it
+  asserted `False == False` and passed with the whole guess branch deleted.
+  `GUESS_GRID` (9x9, 14 branch nodes, `Tier.GUESS`) now exists, found by seeded
+  search over square grids at density 0.35..0.6, smallest extent first; 9x9 is
+  the first extent where a branching unique grid turns up. Its premise — unique
+  *and* branching — is pinned beside the other fixtures' so a solver improvement
+  that settled it by line logic would fail loudly rather than silently.
+- The ceiling in `_stored_score` was defended by the module's longest docstring
+  and by nothing executable. The only band-consistency test used two fixtures
+  scoring exactly 33.0, where ceil and round agree; across the whole 240-grid
+  property corpus, 6 grids have a fractional score and **none** land where the
+  two functions classify differently. `TestStoredScore_KeepsTheBandItsFloatCameFrom`
+  asserts it on the numbers directly, including 33.08 — the docstring's own
+  example, which no grid in the corpus produces.
+
+Both fixes were checked by mutation, not by assumption: `ceil` -> `round` kills
+4 tests, deleting the guess branch kills 2, and `regrade.py` was restored
+byte-identical to HEAD after each.
+
+**F-004 — the legacy-column mitigation is already void for production.** The
+capture guard asks "has this row been captured?", which is the same question as
+"is this the row's original grade?" only while this batch is the sole writer of
+those columns. On Render it is not: all 86 rows were re-graded out of band on
+2026-09-13, before migration 006 existed, so every row carries an ADR-0029 grade
+with `legacy_difficulty_tier IS NULL`. Running 006 + the batch there captures
+the 2026-09-13 values into columns this card describes as the pre-run grades,
+and then closes the guard on them permanently.
+
+No code change — the guard is correct, its premise is what moved. Two things
+instead: the confirmation page now says what "previous grade" actually means
+(whatever is in the row now, preserved permanently), and the genuine pre-run
+values for all 86 production rows are committed at
+`meta/ops/render-grades-backup-20260913.json` — 77 easy / 8 medium / 1 hard,
+every `strategies_used` empty, which is what an un-re-graded table looks like.
+
+**Before any live run on Render:** backfill the legacy columns from that file
+immediately after `alembic upgrade 006` and before the batch, or accept that
+production's legacy columns will hold the 2026-09-13 re-grade rather than the
+original grades — and say which, here.
+
+**F-003 — the card claimed a localhost binding the admin does not have.** The
+system-contract line is withdrawn above with the evidence; the binding itself is
+CARD-081.
+
+**F-007 — there are two book PDF generators and only one was in scope.**
+`book_pdf_generator.py` counts tiers through `tier_breakdown`;
+`pdf_generator.py` printed `difficulty_tier` verbatim into the table of contents
+and the per-puzzle header, so a book built after the re-grade read "Difficulty:
+easy". Resolved through `tier_of_record(...).label`, the same route the badge
+macro and both filter predicates already use. Tested through the rendered
+flowables rather than the helper — asserting the helper alone would leave the
+actual defect (a call site interpolating the column) reachable, which is the
+shape the bug had. Confirmed by mutation: reverting one call site kills 2 tests.
+
+**F-005 — dismissed, my error.** The review said the EC's named property test
+should be a collectible class, citing `TestWebServer_BindsLoopbackOnlyByDefault`.
+Wrong precedent: that is a `Test*` class, and pytest's default `python_classes`
+would not collect a `PropertyTest_*` one anyway. Every `PropertyTest_*` id in
+this repo — `PropertyTest_Solver_NeverFalsePositiveUniqueness`,
+`PropertyTest_ScoreDifficulty_IndependentOfElapsedTime` — is a docstring anchor,
+which is exactly what this card did. The change was made and reverted.
+
+**F-009 — kept the behaviour, fixed the claim.** `_as_grid` coerces cells with
+`bool()` while the module said defects are "reported rather than guessed at".
+Rejecting non-bool cells was the tidier fix and the wrong one: a row whose cells
+round-tripped as `0`/`1` through some other writer is still a gradable puzzle,
+and the local table's 7,240 cells are all `bool` so there is no evidence such
+rows exist to be protected from. Shape stays strict, cell type stays coerced,
+and both docstrings now say so — with a test pinning the asymmetry.
+
+**F-010 — recorded, not acted on.** Every solve runs inside the open write
+transaction with no run-level bound: worst case rows x 30s behind a lock.
+Measured at 0.15s for 16 rows and 1.3s for 86, and the admin has no background
+job machinery to move it into. Left as a note for when the table grows.

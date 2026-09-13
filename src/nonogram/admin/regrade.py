@@ -47,6 +47,10 @@ grid at all, the row is **left exactly as it is** — not marked, not cleared,
 not partially written — and appears in the report with its reason. A grade is
 a claim about a puzzle, and a clue set with two solutions is not one.
 
+"Not a readable grid" means the wrong *shape* — not a list, empty, ragged, or
+holding an empty row. Cell values are read for truthiness rather than type
+checked; :func:`_as_grid` says why.
+
 Dry run and write are one code path
 -----------------------------------
 :func:`regrade` takes ``dry_run`` and runs the identical loop either way; the
@@ -448,6 +452,19 @@ def _stored_score(score: float) -> int:
     not: a ``line_dp`` puzzle that settled one cell at its top rung scores
     33.08, which rounds to 33 and reads back as Easy while its stored tier says
     Medium. The bottom rung's exact 33.0 is unmoved either way.
+
+    One documented exception, and it is not this function's to fix:
+    :data:`~nonogram.difficulty.Tier.GUESS` is keyed on ``branch_nodes``, not on
+    a band (ADR-0025's EC-015), so a guess row's stored number reads back as
+    whatever band it falls in — never as ``guess``, since no band maps there.
+    The invariant above is therefore "the stored number keeps the *band* its
+    float came from", which is what every reader comparing the two columns
+    needs, rather than the stronger claim that it re-derives the stored tier.
+
+    Both halves are pinned by
+    ``tests/test_admin_regrade.py::TestStoredScore_KeepsTheBandItsFloatCameFrom``,
+    including the case that tells ceiling from rounding — which cycle 1 found
+    no test could (F-002).
     """
     return int(math.ceil(_clamp(score, SCORE_MIN, SCORE_MAX)))
 
@@ -461,6 +478,20 @@ def _as_grid(grid: object) -> list[list[bool]] | None:
     :func:`~nonogram.clues.compute_clues`'s ``zip(strict=True)`` so that an
     empty grid — which encodes to two empty clue sets and would "solve"
     vacuously — is reported as unreadable instead of being graded 0.
+
+    **Shape is validated; cell type is not.** A cell is read for its truthiness
+    (``bool(cell)``), so a row of JSON nulls is a row of empty cells and a row
+    of non-empty strings is a row of filled ones — neither is refused. That is
+    deliberate rather than an oversight, and the reason is asymmetric risk: a
+    row whose cells round-tripped as ``0``/``1`` through some other writer is
+    still a perfectly good puzzle, and refusing it would skip a gradable row on
+    the strength of a JSON encoding detail. A malformed *shape* has no such
+    benign reading, which is why that half is strict.
+
+    Pinned by
+    ``tests/test_admin_regrade.py::test_a_grid_of_non_booleans_is_coerced_rather_than_refused``
+    so the asymmetry stays a decision rather than becoming folklore
+    (CARD-077 review cycle 1, F-009).
     """
     if not isinstance(grid, list) or not grid:
         return None
