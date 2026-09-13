@@ -65,6 +65,21 @@ python -m flask --app src.nonogram.admin.app run --debug --port 8888
 
 The app will start at **http://localhost:8888**
 
+> **This machine only.** The admin panel has no login and a route that rewrites
+> every stored grade, so it is reachable from this computer and nowhere else
+> (CON-015, CON-016). Two things enforce that: the bind address, and a check on
+> the `Host` header of every request.
+>
+> The command above is already loopback — that is Flask's default. What changed
+> in CARD-081 is `python -m nonogram.admin.app`, the other entry point, which
+> used to bind every interface with the debugger on.
+>
+> **If you were reaching the admin from a phone or another machine, that no
+> longer works, and `flask run --host=0.0.0.0` will not bring it back** — the
+> `Host` check refuses those requests whatever the socket is bound to. Use an
+> SSH tunnel instead: `ssh -L 8888:127.0.0.1:8888 <this-machine>`, then open
+> `http://localhost:8888` on the other device.
+
 ### 5. Test the Workflow
 
 1. **Navigate to** http://localhost:8888/batch/create

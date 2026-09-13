@@ -2328,6 +2328,12 @@ constraints:
       BCON-0001's socket-reach half is discharged by more than a threshold
       visible only in requirements.yml.
     source: NFR-003, AC-052; BCON-0001 (meta/business/constraints.md)
+    # Scope note added 2026-09-13 (CARD-081, from CARD-077 review F-003).
+    # This constraint is about COMP-008's web server and nothing else — its
+    # statement says so, and its check is that server's test. CARD-077's
+    # system contract cited it for the ADMIN panel's binding, which no test
+    # covered and which was in fact `0.0.0.0` with the debugger on. The admin
+    # is CON-015 (bind) and CON-016 (Host refusal); cite those for it.
     bcon_ref: BCON-0001
     check:
       kind: test
@@ -2421,4 +2427,49 @@ constraints:
     check:
       kind: test
       ref: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
+    severity: mandatory
+  - id: CON-015
+    # New 2026-09-13 (CARD-081, from CARD-077 review cycle 1 finding F-003).
+    # The admin half of what CON-009 says for the web adapter. Added as a
+    # sibling rather than by widening CON-009 because a constraint carries one
+    # `check:`, and two inbound surfaces with one test between them is how the
+    # admin came to be governed by nothing at all.
+    type: technical
+    statement: >-
+      The admin panel's own entry point binds its listening socket to
+      127.0.0.1 (loopback) only and runs with the debugger off. The bind
+      address is a constant, not a parameter: no supported call into
+      nonogram.admin.app widens it, and no module under src/nonogram/admin/
+      names another bind address in code. Restates NFR-003 for the second
+      inbound HTTP surface, which CON-009 does not reach.
+    source: NFR-003; BCON-0001 (meta/business/constraints.md); CARD-077 review F-003
+    scope:
+      code: ["src/nonogram/admin/**"]
+    bcon_ref: BCON-0001
+    check:
+      kind: test
+      ref: TestAdminPanel_BindsLoopbackOnlyByDefault
+    severity: mandatory
+  - id: CON-016
+    # New 2026-09-13 (CARD-081). The admin half of CON-010, and the reason
+    # CON-015 is survivable: the documented launch path is Flask's own CLI
+    # (`flask --app nonogram.admin.app run`, ADMIN_SETUP.md), whose `--host`
+    # this package cannot remove. The bind is the wall; this is what stands
+    # when someone opens a door in it.
+    type: technical
+    statement: >-
+      The admin panel refuses any request whose Host header does not name
+      this machine — a bare authority, no userinfo, path, query or fragment,
+      a port absent or all digits, and a host component in {localhost,
+      127.0.0.1, ::1} — and refuses a request carrying no Host header at all.
+      The refusal is indistinguishable from "no such page", so it tells a
+      scanner nothing. Holds however the socket was bound, including when the
+      bind was widened by an option outside this package's control.
+    source: NFR-003, NFR-004; BCON-0001; CARD-077 review F-003
+    scope:
+      code: ["src/nonogram/admin/**"]
+    bcon_ref: BCON-0001
+    check:
+      kind: test
+      ref: TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine
     severity: mandatory

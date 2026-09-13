@@ -1,10 +1,39 @@
-"""Flask admin panel application for nonogram puzzle management."""
+"""Flask admin panel application for nonogram puzzle management.
+
+The listening socket
+--------------------
+:data:`LOOPBACK_HOST` is the one load-bearing line in this module. The admin
+panel has no authentication, no CSRF token and a route that rewrites every
+stored grade (``POST /regrade``, CARD-077), so NFR-003's answer to "who can
+reach this?" is "whoever is on this machine" — and that answer is a property of
+the bind address, not of anything a request carries.
+
+It was ``0.0.0.0`` with ``debug=True`` until CARD-081: every interface, plus a
+Werkzeug debug console, which is remote code execution rather than an
+information leak. CARD-077's review found the card asserting the opposite
+(cycle 1, F-003) because no test had ever checked.
+
+Two entry points reach the socket and only one of them is ours:
+
+* ``python -m nonogram.admin.app`` runs :func:`main` below, which takes no host
+  and passes :data:`LOOPBACK_HOST`.
+* ``flask --app nonogram.admin.app run`` — the path ``ADMIN_SETUP.md``
+  documents — is Flask's own CLI. It defaults to ``127.0.0.1``, so it is
+  correct out of the box, but ``--host`` is its argument and this module cannot
+  take it away. :func:`_reject_non_loopback_requests` is why that is survivable:
+  a request that arrives over a widened bind is refused by ``Host`` header, the
+  same defence ``nonogram.web`` applies at its own boundary (CON-010).
+
+The two are deliberately independent. The bind is the wall; the header check is
+what stands when someone opens a door in it.
+"""
 
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from datetime import datetime
 import json
 import os
 import tempfile
+import urllib.parse
 import uuid
 from pathlib import Path
 from io import BytesIO
@@ -109,6 +138,86 @@ def _page_window(total_count: int, limit: int, offset: int, width: int = 5) -> d
     }
 
 
+#: The only address the admin's own entry point binds (NFR-003, CON-009).
+#:
+#: A constant, not a parameter: :func:`main` takes no host, so there is no
+#: supported call that widens it. Pinned by
+#: ``tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault``.
+LOOPBACK_HOST = "127.0.0.1"
+
+#: The admin's default port. ``ADMIN_SETUP.md`` documents 8888/8889 via
+#: ``flask run --port``; this is only what ``python -m nonogram.admin.app`` uses.
+DEFAULT_PORT = 5000
+
+#: Host header values that name this machine.
+#:
+#: Reimplemented here rather than imported from ``nonogram.web.handler``, which
+#: has the same frozenset: ADR-0007 forbids the lateral import, and CLAUDE.md's
+#: rule for exactly this case is to reimplement natively (the precedent is
+#: ``solver/propagate.py``'s ``mask_runs``). Two short allowlists that agree is
+#: the intended shape; one importing the other is not.
+ALLOWED_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _host_is_local(host_header: str | None) -> bool:
+    """Does this ``Host`` header name this machine?
+
+    One sentence: *the value must be a bare authority — no userinfo, path,
+    query or fragment, and a port that is absent or all digits — whose host
+    component is one of three names.*
+
+    The port's value is ignored (``127.0.0.1:8888`` and ``127.0.0.1`` are the
+    same host); its shape is not. Parsed with ``urlsplit`` rather than by
+    splitting on ``":"`` so a bracketed ``[::1]:5000`` reads as the host
+    ``::1`` and not as ``[``.
+
+    ``@``, ``/``, ``#`` and ``?`` are refused *before* parsing, and that order
+    matters. ``urlsplit`` splits all four off, so it reads
+    ``evil.com:80@127.0.0.1`` as the host ``127.0.0.1`` — which is how the
+    first version of this function let that value through, until
+    ``tests/test_admin_binding.py`` said so. An authority is not a URL: RFC
+    7230 §5.4 admits none of the four, so a value carrying one is not a host
+    name whatever its host component parses to.
+
+    A missing header is refused too. HTTP/1.1 requires one; a request without
+    it is not a browser asking for a page.
+
+    This is ``nonogram.web.handler._host_is_local`` reimplemented, not
+    imported — ADR-0007 forbids the lateral import, and CLAUDE.md's rule for
+    this case is to reimplement natively. The test tree, where the import is
+    legal, is what holds the two copies to the same answer.
+    """
+    if not host_header:
+        return False
+    if any(char in host_header for char in "@/#?"):
+        return False
+    if not _port_is_well_formed(host_header):
+        return False
+    try:
+        hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
+    except ValueError:
+        return False
+    return hostname in ALLOWED_HOSTS
+
+
+def _port_is_well_formed(authority: str) -> bool:
+    """Is the port component absent, or present and all digits?
+
+    An empty port (``127.0.0.1:``) and a non-numeric one (``127.0.0.1:evil``)
+    are both read by ``urlsplit`` as the *host* ``127.0.0.1``, so a check
+    consulting only the host component would serve them. Neither is a
+    well-formed authority; RFC 3986 §3.2.3 admits digits and nothing else.
+
+    The split is taken after the last ``]`` so the colons inside a bracketed
+    IPv6 literal are not mistaken for the port separator.
+    """
+    after_brackets = authority.rsplit("]", 1)[-1]
+    _, colon, port = after_brackets.rpartition(":")
+    if not colon:
+        return True
+    return port.isascii() and port.isdigit()
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -122,6 +231,23 @@ def create_app(debug=None):
     app.config["ENV"] = os.getenv("FLASK_ENV", "production" if not debug else "development")
     app.config["SESSION_COOKIE_SECURE"] = False  # Allow localhost
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Chrome compatibility
+
+    @app.before_request
+    def _reject_non_loopback_requests():
+        """Refuse anything that did not address this machine (NFR-003).
+
+        The bind address is the primary defence and this is the one that
+        survives it being widened — by ``flask run --host=0.0.0.0``, which this
+        module cannot prevent, or by a reverse proxy someone puts in front. The
+        admin has no authentication and a route that rewrites every stored
+        grade, so "reachable" and "authorised" are the same question here.
+
+        404 rather than 403: a refusal that distinguishes "wrong host" from
+        "no such page" tells a scanner it found something.
+        """
+        if not _host_is_local(request.headers.get("Host")):
+            return render_template("404.html"), 404
+        return None
 
     # Resolve the DB session factory fresh on every create_app() call rather
     # than once at module-import time. DATABASE_URL can differ per call (the
@@ -1593,6 +1719,21 @@ def create_app(debug=None):
     return app
 
 
+def main(port: int = DEFAULT_PORT) -> None:
+    """Run the admin panel on this machine only.
+
+    Takes a port and nothing else. A ``host=`` parameter here would move
+    NFR-003's criterion out of this module and into every call site, which is
+    the shape ``nonogram.web.create_server`` already refuses for the same
+    reason — and the shape a test can pin by signature.
+
+    ``debug`` is off. It was on, together with the wildcard bind, which put a
+    Werkzeug console on every interface. Debugging is what
+    ``flask --app nonogram.admin.app run --debug`` is for: opting in by typing
+    it, on a path that already defaults to loopback.
+    """
+    create_app().run(host=LOOPBACK_HOST, port=port)
+
+
 if __name__ == "__main__":
-    app = create_app(debug=True)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    main()
