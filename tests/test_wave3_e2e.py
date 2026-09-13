@@ -222,7 +222,9 @@ class TestWave3ImageGeneration:
         service = PuzzleReviewService()
 
         puzzle_id = service.add_puzzle(
-            grid=[[True, False], [False, True]],
+            # See tests/test_puzzle_review.py's fixture: the diagonal 2x2 has two
+            # solutions and CARD-080's storage guard refuses it.
+            grid=[[True, True], [False, True]],
             clues_rows=[[1], [1]],
             clues_cols=[[1], [1]],
             width=2,

@@ -1,0 +1,295 @@
+version: 1
+generated_at: "2026-09-13T17:15:00Z"
+target: "CARD-080 — branch card/080-uniqueness-at-the-storage-boundary, commit 0efd218 on bd0a66e"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/puzzle_review.py (guard, audit, MockGenerator, both add_puzzle branches)"
+    - "src/nonogram/admin/batch_generator.py (the refusal path and its surroundings)"
+    - "src/nonogram/admin/app.py (upload-route refusal path, errors accumulator scope)"
+    - "src/nonogram/errors.py, src/nonogram/cli.py (the new error and its exit-code group)"
+    - "tests/test_admin_uniqueness_boundary.py (every test body)"
+    - "the four existing test files whose fixtures changed"
+  not_reached:
+    - "src/nonogram/admin/image_manager.py and the rest of the upload path beyond the add_puzzle call"
+    - "the DB-backed add_puzzle branch exercised against a real Postgres (SQLite only)"
+  confidence: high
+
+metrics:
+  diff: { files: 12, added: 910, removed: 67 }
+  max_fan_in: { symbol: "PuzzleReviewService.add_puzzle", callers: 2 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/batch_generator.py (18 commits/12mo, 11 fix-ish — 61% defect density)"
+    - "src/nonogram/admin/puzzle_review.py (15 commits, 6 fix-ish — 40%)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — both live callers of the changed symbol are in the diff; the co-change set for these files resolves to files already touched"
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — the verdict comes from nonogram.solver.solve at puzzle_review.py:241, never from a caller-supplied flag; TestStorageBoundary_AsksTheSolverNotTheCaller green, and the guard's signature (self, grid) structurally cannot receive the caller's claim"
+    - "ADR-0011 ✓ holds — both solve() calls added by this diff pass an absolute deadline (puzzle_review.py:244 and :968, each time.monotonic() + GENERATION_BUDGET_SECONDS); SolverTimeout is converted to a refusal, never to a store"
+    - "CON-015 / CON-016 ✓ holds — no admin entry point or Host handling is touched by this diff; TestAdminPanel_BindsLoopbackOnlyByDefault and TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine (CARD-081, merged 44a5af4) green on this head"
+    - "ADR-0006/R1 ✓ holds — pyproject.toml not in the diff (git diff --name-only: 0 matches); the new imports are first-party (nonogram.clues, .solver, .difficulty, .errors, .orchestrator) plus stdlib math/time"
+
+root_causes:
+  - id: RC-1
+    title: "One guard is made to answer two different questions — write-time certification and read-time audit — and its write-path strictness is wrong for the read path"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/puzzle_review.py
+    line: 268
+    title: "The audit reports uniquely-solvable legacy rows as failures, because it reuses the write-path guard"
+    description: |
+      `audit_uniqueness` calls `_refuse_unless_uniquely_solvable`, whose first
+      step is `_refuse_unless_shaped_like_a_grid` — a check this diff
+      deliberately made STRICT about cell type ("a caller handing over anything
+      but booleans has a bug worth hearing about"). That reasoning is right for
+      a write boundary and wrong for an audit, which exists to examine rows
+      written by older code.
+
+      Demonstrated. A stored row whose cells round-tripped as 0/1 rather than
+      false/true:
+
+        audit_uniqueness() -> [('legacy_ints', '...cells must be booleans...')]
+        regrade.grade_stored_grid([[1,1],[0,1]]) -> Grade(33, Tier.EASY, ...)
+
+      The same row is a perfectly good Easy puzzle on the read path and a
+      reported failure on the audit path. AC-E says the audit "reports every
+      non-unique stored row"; this reports a row that IS uniquely solvable.
+
+      The diff itself documents the asymmetry and then does not honour it:
+      `_refuse_unless_shaped_like_a_grid`'s docstring explains at length why it
+      is strict where `regrade._as_grid` coerces, "because they are answering
+      different questions" — and the audit then asks the read-path question
+      with the write-path tool.
+
+      No false positive exists in the live data today (all 7,240 cells in
+      nonogram_admin.db are bool), which is why the suite is green. The audit's
+      whole purpose is the rows nobody has checked.
+    suggestion: |
+      Split the two questions. Keep `_refuse_unless_shaped_like_a_grid` on the
+      write path, and have `audit_uniqueness` read grids the way the read path
+      does — the coercing shape reader, i.e. the same discipline as
+      `regrade._as_grid` (reimplemented or promoted to a shared admin helper;
+      both modules are in `admin/`, so an intra-package import is legal).
+      Add the regression test the current suite cannot fail: a stored row with
+      integer cells must be audited as fine, not reported.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 74cc3ab
+    dismissed_reason: null
+    fix_note: |
+      audit_uniqueness now reads rows through PuzzleReviewService._as_readable_grid (shape strict, cell type coerced) instead of the write path's guard; cross-checked against regrade._as_grid over a seeded 309-case corpus, and TestStorageAudit_ReadsRowsTheWayTheReadPathDoes pins both halves of the asymmetry
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/puzzle_review.py
+    line: 253
+    title: "audit_uniqueness accepts deadline_seconds and silently ignores it"
+    description: |
+      The signature is
+      `audit_uniqueness(self, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS)`,
+      but the only solve it reaches is inside
+      `_refuse_unless_uniquely_solvable`, which hardcodes
+      `time.monotonic() + GENERATION_BUDGET_SECONDS` (line 244) and takes no
+      deadline argument at all.
+
+      Verified: `audit_uniqueness(deadline_seconds=0.001)` returns the same
+      result as the default — the tight budget has no effect whatsoever.
+
+      A parameter that is accepted and ignored is worse than one that does not
+      exist: an operator running a deeper audit over a big table would pass a
+      larger budget, see it change nothing, and have no error to explain why.
+      It is also the same species of defect this card exists to remove — an
+      interface making a claim the code does not honour.
+    suggestion: |
+      Either thread it through — give `_refuse_unless_uniquely_solvable` a
+      `deadline_seconds` parameter defaulting to `GENERATION_BUDGET_SECONDS`
+      and pass it from both callers — or delete the parameter from
+      `audit_uniqueness`. Threading it is the better half, since a per-row
+      budget is exactly what a whole-table audit wants to raise.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 74cc3ab
+    dismissed_reason: null
+    fix_note: |
+      deadline_seconds is threaded into the solve and into the timeout reason; TestStorageAudit_HonoursTheBudgetItAccepts records the deadline the solver is handed, so a run that ignored the argument cannot pass
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/batch_generator.py
+    line: 328
+    title: "refused_count is written, incremented, and never read — and a comment claims it is what surfaces the failure"
+    description: |
+      `refused_count` is initialised at line 328 and incremented at line 377.
+      `grep -n refused_count` returns exactly those two lines: nothing reads
+      it, and neither `job.puzzle_count` / `_update_batch_status` nor any
+      response carries it.
+
+      The comment two lines above the increment says "the batch continues: one
+      bad candidate is no reason to lose the rest, **and the count is what
+      tells the owner something broke**". It does not: the counter is dead, and
+      the only real signal is the `logger.error` line — which reaches a log
+      nobody is watching in a localhost admin panel.
+
+      CARD-080's item 2 asks that callers "handle the refusal rather than
+      swallowing it: the batch generator counts it as a failed candidate". Half
+      of that is delivered (the log); the counting half is a variable with no
+      reader. This lands in the diff's worst hotspot — batch_generator.py has
+      11 fix-shaped commits out of 18 in twelve months.
+
+      There IS an incidental signal: `puzzle_count` (stored) ends below
+      `completed_count` (attempted). But nothing states that, no test asserts
+      it, and it is indistinguishable from other causes.
+    suggestion: |
+      Surface it or delete it. Surfacing is cheap: carry `refused_count` into
+      the batch record the way `puzzle_count` already is
+      (`_update_batch_status(batch_id, puzzle_count=...)` and the legacy
+      `job.puzzle_count` both take it), and show it on the batch status page
+      when non-zero. If that is more than the card wants, delete the variable
+      and rewrite the comment to say the log is the signal — an honest comment
+      about a log beats a false one about a count.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 74cc3ab
+    dismissed_reason: null
+    fix_note: |
+      refused_count is carried onto the batch record as error_message, which batch_status.html already renders; covered in both the legacy and DB-backed branches, and the comment claiming the count was the signal now says what the signal actually is
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 900
+    title: "MockGenerator can now only ever emit Easy — and that is structural, not a tuning choice"
+    description: |
+      Measured over 25 generated puzzles at sizes 10/15/20:
+      `{'easy': 25}`, with `difficulty_score` exactly 33 for every one.
+
+      This is not fixable by widening the density band, which was my first
+      guess. Measured: density 0.55-0.75 gives `{'easy': 25}` and 0.5-0.8 gives
+      `{'easy': 25}` too. Dense random grids that are uniquely solvable are
+      exactly the ones line logic settles at the bottom rung with share 1.0, so
+      the score pins at the Easy band's top edge — the same effect CARD-076
+      measured from the other direction.
+
+      Nothing breaks today. The risk is the next test: a future assertion about
+      tier filtering, tier breakdowns or the Guess badge, written against this
+      generator, would pass without ever exercising a second tier — the exact
+      "test that cannot fail" pattern this card's own fixtures were fixed for.
+      The old generator's tiers were random and meaningless, so this is still a
+      strict improvement; it just trades one blind spot for another, quieter
+      one.
+    suggestion: |
+      Do not chase it with density. Say it in the class docstring — "every
+      puzzle this emits is Easy, structurally; a test that needs another tier
+      must pin a grid" — and, when such a test appears, pin fixtures the way
+      CARD-077's GUESS_GRID is pinned (seeded search, literal cells, premise
+      asserted against the solver).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 74cc3ab
+    dismissed_reason: null
+    fix_note: |
+      documented rather than chased, as the suggestion asked: the MockGenerator class docstring now states that every puzzle it emits is Easy structurally and that a test needing another tier must pin a grid
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 285
+    title: "The audit loads every row's grid into memory and solves them unbounded"
+    description: |
+      `_all_rows_for_audit` does `db.query(Puzzle).order_by(Puzzle.id).all()`
+      with no limit or batching, materialising `{id, grid}` for the whole table,
+      then solves each one at up to GENERATION_BUDGET_SECONDS. At 86 rows
+      (production) or 16 (local) this is nothing; the bound is the table, not a
+      page.
+
+      Same shape as CARD-077's F-010, which was accepted for the same reason
+      and at the same scale. Recorded rather than acted on, but the audit is
+      the one place in this card explicitly meant to run over "every stored
+      row", so it is the one most likely to meet a big table first.
+    suggestion: |
+      Nothing now. If the table grows past a few thousand, page with
+      `yield_per` / a keyset cursor and give the whole run a budget, reporting
+      rows not reached as a distinct outcome from rows that failed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-080.md
+    line: 60
+    title: "Card item 4 asked for an audit action; an audit method was delivered"
+    description: |
+      Item 4: "**An audit action** that re-verifies every stored row and
+      reports (not changes) any that fail — so the property can be checked at
+      any time". What exists is `PuzzleReviewService.audit_uniqueness()`, a
+      method with no route, no template and no dashboard link — unlike
+      CARD-077's re-grade, which item 4 of *that* card explicitly wired to
+      GET/POST and a confirmation page.
+
+      No AC demands a route (AC-E is satisfied by the method), so this is not
+      an AC failure. But "can be checked at any time" is doing work in that
+      sentence, and today the only way to run it is a Python REPL against the
+      admin's session factory. Worth an explicit owner decision rather than an
+      implicit one.
+    suggestion: |
+      Either wire a read-only `GET /audit` beside `/regrade` (it writes
+      nothing, so it needs no confirmation step), or amend item 4 to say the
+      capability is the deliverable and a screen is a later card.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

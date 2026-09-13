@@ -2,6 +2,7 @@
 
 import pytest
 from nonogram.admin.puzzle_review import get_puzzle_review_service, MockGenerator
+from nonogram.difficulty import tier_of_record
 
 
 class TestBatchGenerationE2E:
@@ -62,9 +63,15 @@ class TestBatchGenerationE2E:
             assert isinstance(puzzle['clues_cols'], list)
 
             # Verify metrics
-            assert 1 <= puzzle['difficulty_score'] <= 100, \
+            # Tier asserted through `tier_of_record` rather than against a
+            # hardcoded list of display labels. The list said
+            # ['Easy','Medium','Hard']: it assumed the label spelling, which the
+            # real classifier does not use (it emits the enum value, 'easy'), and
+            # it predated ADR-0025's fourth tier, so a Guess puzzle would have
+            # failed it too. Score range is 0..100 on ADR-0029's scale, not 1..100.
+            assert 0 <= puzzle['difficulty_score'] <= 100, \
                 f"Difficulty score out of range: {puzzle['difficulty_score']}"
-            assert puzzle['difficulty_tier'] in ['Easy', 'Medium', 'Hard'], \
+            assert tier_of_record(puzzle['difficulty_tier']) is not None, \
                 f"Invalid difficulty tier: {puzzle['difficulty_tier']}"
             assert 1 <= puzzle['quality_score'] <= 100, \
                 f"Quality score out of range: {puzzle['quality_score']}"

@@ -49,6 +49,7 @@ from nonogram.errors import (
     InvalidDensity,
     InvalidPuzzleName,
     NonogramError,
+    NotUniquelySolvable,
     SizeOutOfRange,
     SolverTimeout,
     UnknownLibraryImage,
@@ -112,6 +113,13 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     UnsupportedDifficulty: ExitCode.INVALID_INPUT,
     GenerationAbandoned: ExitCode.GENERATION_FAILED,
     SolverTimeout: ExitCode.GENERATION_FAILED,
+    # Storage refused a grid the solver would not certify (CARD-080). Grouped
+    # with the other two for the reason the enum's docstring gives — what the
+    # user does about it is "the run did not produce a usable puzzle, try
+    # again" — even though no CLI path raises it today: it comes from the admin
+    # panel's storage boundary. Listed rather than left to fall through to
+    # INTERNAL_ERROR, which is reserved for a mapping gap, i.e. for a bug.
+    NotUniquelySolvable: ExitCode.GENERATION_FAILED,
     ExportRejected: ExitCode.EXPORT_REJECTED,
 }
 

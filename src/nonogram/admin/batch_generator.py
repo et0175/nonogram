@@ -12,8 +12,16 @@ from datetime import datetime
 import asyncio
 import random
 
+import logging
+
 from nonogram import orchestrator
+from nonogram.errors import NotUniquelySolvable
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+
+#: CARD-080: a refused candidate is logged here at error level. It means
+#: the generation path produced something orchestrator.generate should
+#: have made impossible, so it must be visible rather than counted away.
+logger = logging.getLogger(__name__)
 
 
 class BatchStatus(Enum):
@@ -316,6 +324,9 @@ class BatchGenerator:
 
         # Store each puzzle
         puzzle_count = 0
+        # CARD-080: candidates the store refused. Should always be 0; when it
+        # is not, it is carried onto the batch record below so somebody sees it.
+        refused_count = 0
         for i, puzzle in enumerate(puzzles):
             # CARD-050 (AC-2, option 3b): random-mode puzzles have no source
             # picture to measure fidelity against, so quality_metric.measure_
@@ -332,21 +343,43 @@ class BatchGenerator:
             # orchestrator returns is stored (the UI never exposes this
             # filter for random-mode batches either; see batch_create.html).
             if self.puzzle_review_service:
-                self.puzzle_review_service.add_puzzle(
-                    grid=puzzle.grid,
-                    clues_rows=puzzle.clues.rows,
-                    clues_cols=puzzle.clues.columns,
-                    width=puzzle.width,
-                    height=puzzle.height,
-                    theme=theme,
-                    difficulty_score=puzzle.difficulty_score,
-                    difficulty_tier=puzzle.difficulty_tier,
-                    quality_score=None,
-                    recognizability=None,
-                    strategies_used=[],
-                    batch_id=batch_id,
-                )
-                puzzle_count += 1
+                # CARD-080: the store refuses a grid the solver will not
+                # certify. Reaching that is a bug, not a data condition — every
+                # candidate here came through orchestrator.generate, which
+                # enforces INV-002 — so it is logged at error level rather than
+                # swallowed, and counted as refused rather than stored. The
+                # batch continues: one bad candidate is no reason to lose the
+                # rest. What tells the owner is the note written onto the batch
+                # record at the end of this method — not the log, which nobody
+                # is tailing on a localhost admin panel.
+                try:
+                    self.puzzle_review_service.add_puzzle(
+                        grid=puzzle.grid,
+                        clues_rows=puzzle.clues.rows,
+                        clues_cols=puzzle.clues.columns,
+                        width=puzzle.width,
+                        height=puzzle.height,
+                        theme=theme,
+                        difficulty_score=puzzle.difficulty_score,
+                        difficulty_tier=puzzle.difficulty_tier,
+                        quality_score=None,
+                        recognizability=None,
+                        strategies_used=[],
+                        batch_id=batch_id,
+                    )
+                except NotUniquelySolvable:
+                    logger.error(
+                        "batch %s: the store refused a candidate as not "
+                        "uniquely solvable. This should be unreachable — every "
+                        "candidate came through orchestrator.generate, which "
+                        "enforces INV-002 — so treat it as a bug in the "
+                        "generation path, not as a rejected puzzle.",
+                        batch_id,
+                        exc_info=True,
+                    )
+                    refused_count += 1
+                else:
+                    puzzle_count += 1
 
             # Update progress
             if self._session_factory is None:
@@ -358,12 +391,38 @@ class BatchGenerator:
                 # DB mode: update completed_count after each puzzle
                 self._update_batch_status(batch_id, completed_count=i + 1)
 
-        # Final update with puzzle count
+        # Final update with puzzle count, plus — when the store refused
+        # anything — a note saying so on the batch record itself.
+        #
+        # CARD-080 review, F-003: `refused_count` was written, incremented and
+        # never read, under a comment claiming it was the owner's signal. It
+        # now is one. `error_message` is an existing column that
+        # batch_status.html already renders as an alert, so the refusal lands
+        # on the page an owner looks at after a batch, without a migration.
+        # The batch is not marked failed: the puzzles that did store are real
+        # and keeping them is right — what failed is a candidate, and the note
+        # says which kind of failure it was.
+        refusal_note = None
+        if refused_count:
+            refusal_note = (
+                f"{refused_count} of {len(puzzles)} generated candidates were refused "
+                "by the store as not uniquely solvable and are not in this batch. "
+                "Every candidate came through orchestrator.generate, which enforces "
+                "INV-002, so this is a bug in the generation path rather than a "
+                "property of this batch; the admin log carries the per-candidate "
+                "reasons."
+            )
+
         if self._session_factory is None:
             job = self.jobs[batch_id]
             job.puzzle_count = puzzle_count
+            if refusal_note is not None:
+                job.error_message = refusal_note
         else:
-            self._update_batch_status(batch_id, puzzle_count=puzzle_count)
+            final_fields = {"puzzle_count": puzzle_count}
+            if refusal_note is not None:
+                final_fields["error_message"] = refusal_note
+            self._update_batch_status(batch_id, **final_fields)
 
     def get_batch_status(self, batch_id: str) -> Optional[BatchJob]:
         """Get status of a batch generation job (legacy or DB-backed).

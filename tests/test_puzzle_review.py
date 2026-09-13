@@ -20,9 +20,17 @@ def review_service():
 def sample_puzzle_data():
     """Sample puzzle data for testing."""
     return {
-        "grid": [[True, False], [False, True]],
-        "clues_rows": [[1], [1]],
-        "clues_cols": [[1], [1]],
+        # A real 2x2 puzzle, with its clues derived from the grid rather than
+        # asserted beside it. The previous grid here was [[T,F],[F,T]] — one
+        # filled cell per row and column, which BOTH diagonals satisfy, so it
+        # had two solutions and was not a puzzle at all. CARD-080's storage
+        # guard refuses it, correctly: 14 of this file's tests were exercising
+        # storage with something the product's defining property (FR-006) says
+        # cannot be stored. Exactly 2 of the 16 possible 2x2 grids are
+        # ambiguous and they are the two diagonals, so this is a one-cell fix.
+        "grid": [[True, True], [False, True]],
+        "clues_rows": [[2], [1]],
+        "clues_cols": [[1], [2]],
         "width": 2,
         "height": 2,
         "theme": "christmas",

@@ -1,0 +1,402 @@
+version: 1
+generated_at: "2026-09-13T23:55:00Z"
+target: "CARD-080 cycle 2 (confirmation) — branch card/080-uniqueness-at-the-storage-boundary, fix delta 74cc3ab + c6fcc36 on the cycle-1 reviewed state 0efd218"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "the whole fix delta: puzzle_review.py (_as_readable_grid, _why_this_is_not_a_puzzle, _refuse_unless_uniquely_solvable, audit_uniqueness, MockGenerator docstring)"
+    - "batch_generator.py (refusal counter, refusal_note, both final-update branches) and its caller create_batch, both modes"
+    - "every test added by the delta, read for discrimination rather than for pass/fail"
+    - "regrade._as_grid, as the other half of the cross-checked pair"
+    - "batch_status.html, as the surface F-003's fix writes to"
+  not_reached:
+    - "src/nonogram/admin/image_manager.py and the upload path beyond the add_puzzle call (unchanged by the delta; carried from cycle 1)"
+    - "the DB-backed path against a real Postgres (SQLite only, as in cycle 1)"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 941, removed: 54 }
+  max_fan_in: { symbol: "PuzzleReviewService.add_puzzle", callers: 2 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/batch_generator.py (61% defect density over 12mo — carried from cycle 1)"
+    - "src/nonogram/admin/puzzle_review.py (40% — carried from cycle 1)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — the fix delta touches the same two modules cycle 1 measured; their co-change peers are already in the diff"
+    churn: "carried(cycle 1) — the delta adds no file, so the 12-month history of the touched set is unchanged"
+
+system_contract:
+  rules_checked: 9
+  holds: 5
+  unchecked: 4
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — the verdict still comes from nonogram.solver.solve, now at the single site puzzle_review.py:274 (the delta reduced two solve sites in the guard path to one); TestStorageBoundary_AsksTheSolverNotTheCaller green, and mutant N3 confirmed the solution_count comparison is the verdict"
+    - "ADR-0011 ✓ holds — both solve() calls in the file pass an absolute deadline (puzzle_review.py:277 via deadline_seconds, :1061 via GENERATION_BUDGET_SECONDS). Mutant N8 (default budget replaced with 0.001) was KILLED by test_the_write_path_still_uses_the_generation_budget, so the write boundary's bound is pinned, not merely present"
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy green on this head; `git diff 0efd218..HEAD -- src/ | grep '^+import|^+from'` returns zero new imports and pyproject.toml is not in the delta"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault green on this head; the delta touches no entry point (scope src/nonogram/admin/** intersects, so re-verified rather than carried)"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine green on this head; same scope reasoning"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the delta adds no extent handling; width/height appear only in test fixtures"
+    - "ADR-0022/R3, ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the delta touches no image fitting or extent derivation"
+    - "ADR-0025/R2 ⚠ unchecked — no_eligible_fact: the delta changes no tier classification; the MockGenerator change is a docstring only"
+    - "ADR-0027/R2 ⚠ unchecked — check_ref_missing: TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam does not exist (pre-existing, carried on CARD-071); manual read of this delta found no density logic at all"
+
+root_causes:
+  - id: RC-2
+    title: "Turning the refusal into a returned string moved it away from its cause, and specific information was lost on the way"
+    finding_ids: [F-008, F-010]
+  - id: RC-3
+    title: "The new tests were written against the mutants their author had in mind, so three checks in the delta have no case that can distinguish them"
+    finding_ids: [F-007, F-009, F-013]
+
+findings:
+  - id: F-007
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_uniqueness_boundary.py
+    line: 378
+    title: "The cross-check corpus cannot generate a non-list row, so the test that justifies duplicating regrade._as_grid cannot see that whole divergence class"
+    description: |
+      `TestTheTwoGridReaders_AgreeWithEachOther` is the entire argument for
+      reimplementing `regrade._as_grid` rather than importing it. Mutation N4 —
+      delete `isinstance(line, list)` from `_as_readable_grid` — SURVIVED the
+      full file.
+
+      Measured why. `_corpus()` builds every row as a list comprehension, and
+      its one malformation truncates a row; so it generates a non-list row
+      **0 times in 300**. The two hand-written cases with a non-list row are
+      `[[True], "no"]` (caught by the width check, not the type check) and
+      `"not a grid"` (caught by the outer isinstance). No case reaches the
+      check the mutant removes.
+
+      The divergence is real, not theoretical: for `[[True, False], "no"]`
+      both readers return None today, but the mutated reader returns
+      `[[True, False], [True, True]]` — it reads a string row character by
+      character — while `regrade._as_grid` still returns None. That is exactly
+      the "the copies drifted apart" failure the cross-check exists to catch,
+      and it is invisible to it.
+    suggestion: |
+      Add a non-list row **of the same width as row 0** to the hand-written
+      cases (e.g. `[[True, False], "no"]`, `[[True], 1]`), and let the
+      generator emit a bare string or int as a row with some probability.
+      Then assert the corpus contains at least one such case, the way it
+      already asserts the readable/unreadable split, so the hole cannot
+      reopen silently.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: b70a050
+    dismissed_reason: null
+    fix_note: |
+      the corpus now carries non-list rows at matching width, generated and hand-written, and test_the_corpus_reaches_the_row_type_check asserts they are present; mutant N4 (drop isinstance(line, list)) is now KILLED by test_they_agree_on_every_case
+    learned_pattern: null
+
+  - id: F-008
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/puzzle_review.py
+    line: 320
+    title: "The write boundary's refusal lost its exception chain, and it is the log F-003's fix points at that goes blind"
+    description: |
+      Before the delta, both refusal paths carried the cause:
+      `raise NotUniquelySolvable(...) from exc` for the `compute_clues` error
+      and for `SolverTimeout`. `_why_this_is_not_a_puzzle` now returns a
+      string, and the write path raises outside any handler, so the chain is
+      gone entirely.
+
+      Measured, on this head:
+
+        ambiguous grid -> __cause__: None
+        solver timeout -> __cause__: None, __context__: None
+
+      `__context__` is None too, because the raise happens after the except
+      block returned.
+
+      This interacts with the other fix in the same commit.
+      `batch_generator.py:377` logs the refusal with `exc_info=True`, and
+      F-003's fix advertises that log as where the detail lives ("the admin log
+      carries the per-candidate reasons"). After the delta that log records a
+      NotUniquelySolvable with no cause attached — for a refusal caused by a
+      solver timeout, the SolverTimeout and everything it carried no longer
+      appear anywhere. The card's own AC-D path ("a solve that times out is
+      refused rather than stored, and says so") is the one that lost the most.
+
+      Behaviour is unchanged; this is forensic capability on a path the code
+      itself calls unreachable, which is precisely the path where forensics is
+      the only tool available.
+    suggestion: |
+      Keep the objection helper and re-attach the cause: have
+      `_why_this_is_not_a_puzzle` return `(reason, cause)` (cause `None` for
+      the verdict case), and raise `... from cause` at the write boundary. One
+      line at each end, and the audit keeps reading reasons.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: b70a050
+    dismissed_reason: null
+    fix_note: |
+      _why_this_is_not_a_puzzle returns (reason, cause); the write path re-attaches it with `from cause` and the audit drops it. Pinned both ways: test_the_refusal_carries_the_exception_that_caused_it and test_a_verdict_is_not_dressed_up_as_a_failure
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_uniqueness_boundary.py
+    line: 295
+    title: "The audit can report one row twice, and the covering assertion is built on a dict, which cannot see duplicate ids"
+    description: |
+      Mutation N5 — drop the `continue` after an unreadable row is recorded —
+      SURVIVED. Without it the row is appended once by the shape branch and a
+      second time by `_why_this_is_not_a_puzzle(None, ...)` (whose
+      TypeError branch catches it), so the report carries the same puzzle id
+      twice.
+
+      Nothing fails, because `test_the_report_says_why_each_row_failed` does
+      `dict(service.audit_uniqueness())` and a dict collapses duplicate keys
+      by construction. The other audit tests compare
+      `[row_id for row_id, _ in failures]` against a single-element list, but
+      only on rows that are readable, so they never reach the branch.
+
+      "One pair per failing row" is the documented return contract of
+      `audit_uniqueness`, and no test states it.
+    suggestion: |
+      Assert on the list, not the dict, in at least one test: plant an
+      unreadable row and assert `len(failures) == 1` (or that the ids are
+      unique across a mixed store). Cheap, and it turns the docstring's "one
+      per row" into something the suite enforces.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 353
+    title: "The audit's shape reasons collapsed from four specific messages to one generic string"
+    description: |
+      Before the delta the audit inherited the write guard's messages, which
+      named the actual defect: "row lengths differ (2 then 1)", "every row must
+      be a non-empty list", "expected a non-empty list of rows". Now every
+      shape failure emits the same sentence. Measured:
+
+        ragged    -> not a readable grid: expected a non-empty rectangle of cells
+        emptyrow  -> not a readable grid: expected a non-empty rectangle of cells
+        string    -> not a readable grid: expected a non-empty rectangle of cells
+        empty     -> not a readable grid: expected a non-empty rectangle of cells
+
+      Four structurally different malformations, one string. AC-E is still
+      satisfied (the rows are reported) and the row id is there, so an operator
+      can go look — but the audit exists so the property can be *asked about*,
+      and it now answers a narrower question than it used to.
+    suggestion: |
+      Have `_as_readable_grid` return the reason alongside the rows (or a small
+      result type), so the audit keeps the resolution the write path already
+      has. If that is more than the card wants, say in the docstring that the
+      audit reports *that* a row is unreadable and not *how*, so the narrowing
+      is a decision rather than a side effect.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 293
+    title: "_refuse_unless_uniquely_solvable gained a deadline_seconds parameter that no caller passes and its own test says should not exist"
+    description: |
+      `grep -rn _refuse_unless_uniquely_solvable src/ tests/` gives one call
+      site, `add_puzzle` at puzzle_review.py:424, which does not pass the
+      keyword. Fan-in for the parameter is 0.
+
+      The delta's own test is named
+      `test_the_write_path_still_uses_the_generation_budget` and its docstring
+      reads "ADR-0011's bound on the write boundary is not a caller's choice" —
+      while the signature it tests offers exactly that choice. This is the same
+      species as the finding it was introduced to fix (F-002: an interface
+      offering something the code does not honour), just inverted: here the
+      interface offers something the design says it should not.
+
+      Private method, so the blast radius is nil; it is a simplification, not a
+      risk.
+    suggestion: |
+      Drop the parameter and call `_why_this_is_not_a_puzzle(grid,
+      deadline_seconds=GENERATION_BUDGET_SECONDS)` directly. The pinning test
+      keeps working and the signature stops contradicting the docstring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: b70a050
+    dismissed_reason: null
+    fix_note: |
+      the parameter is gone; the call passes GENERATION_BUDGET_SECONDS explicitly, with a comment saying why the write boundary's bound is not a caller's choice while the audit's is
+    learned_pattern: null
+
+  - id: F-012
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 268
+    title: "_why_this_is_not_a_puzzle's compute_clues except branch is unreachable from both call sites, without the marker its own precedent carries"
+    description: |
+      Both callers screen the grid first — the write path through
+      `_refuse_unless_shaped_like_a_grid`, the audit through
+      `_as_readable_grid` — so `compute_clues` only ever receives a non-empty
+      rectangular `list[list[bool]]`, on which it does not raise (checked
+      across the shapes in the file's own fixtures: no exceptions).
+
+      The identical branch in `regrade.py:304` carries
+      `# pragma: no cover - _as_grid screens these`, which is how the
+      repository marks exactly this situation. Here there is no marker, no
+      test, and no coverage — so a reader cannot tell defensive-by-design from
+      a path somebody forgot to test. (Mutation N5 reaches it, but only from a
+      mutated caller.)
+    suggestion: |
+      Carry the precedent across: `# pragma: no cover - both callers screen
+      the shape first`. If instead the branch is meant to be live, name the
+      caller that can reach it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: b70a050
+    dismissed_reason: null
+    fix_note: |
+      carries `# pragma: no cover - both callers screen the shape`, the marker its twin at regrade.py:304 already had
+    learned_pattern: null
+
+  - id: F-013
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_uniqueness_boundary.py
+    line: 512
+    title: "assert job.status is not BatchStatus.ERROR is tautological — the method under test never assigns status"
+    description: |
+      `test_the_batch_is_not_thrown_away_over_one_bad_candidate` asserts that
+      the job's status is not ERROR after `_generate_random_batch`. Grepping
+      the method's whole body (batch_generator.py:281-425) for `status` returns
+      only `_update_batch_status(batch_id, completed_count=i + 1)` and the
+      final-update call — it never assigns a status at all. The job was
+      constructed as GENERATING by the test helper, so the assertion holds no
+      matter what the refusal handling does.
+
+      The second assertion in the same test (`completed_count == 3`) is real,
+      so the test is half load-bearing rather than empty. What it claims to
+      prove — "the batch is not thrown away over one bad candidate" — is
+      actually decided in `create_batch`, one frame up, which no test in this
+      delta drives.
+    suggestion: |
+      Drive `create_batch` instead of `_generate_random_batch` for this one
+      test (count must be >= 10 for a random batch), and assert the status it
+      really lands in — COMPLETE with a refusal note. Verified by hand on this
+      head: status COMPLETE, puzzle_count 11, note present, so the assertion
+      would be true and discriminating.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: fixed
+    fixed_in: b70a050
+    dismissed_reason: null
+    fix_note: |
+      the test drives create_batch (count 12) and asserts status COMPLETE, puzzle_count 11 and the surviving note; mutant P3 (COMPLETE update clears error_message) is KILLED by it
+    learned_pattern: null
+
+  - id: F-014
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/puzzle_review.py
+    line: 211
+    title: "The coercion in _as_readable_grid is inert; what actually fixed F-001 is not running the strict type check"
+    description: |
+      Mutation N2 — have the audit solve the raw stored value instead of the
+      coerced one — SURVIVED, and it is an equivalent mutant rather than a test
+      gap: `compute_clues` already reads cells by truthiness, so
+      `compute_clues(raw) == compute_clues(coerced)` for both int cells and
+      mixed truthy cells (checked).
+
+      The fix is correct either way, and the shape screening it also does IS
+      load-bearing (mutation N1 was killed). But the docstring presents
+      coercion as the mechanism, and it is not — the mechanism is that the
+      audit no longer runs `_refuse_unless_shaped_like_a_grid`. Worth knowing
+      before someone "simplifies" by dropping the shape check and keeping the
+      coercion, which is the harmful half of that trade.
+    suggestion: |
+      One sentence in the docstring: the coercion keeps the returned value at
+      ADR-0012's boundary type, and the shape screening is what the verdict
+      depends on.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-015
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/puzzle_review.py
+    line: 285
+    title: "The zero-solutions branch is unreachable by construction, so counted == '0' is dead"
+    description: |
+      Mutation N3 — treat only MANY as an objection, letting a 0-solution clue
+      set pass — SURVIVED, and no test can kill it, because a clue set derived
+      by `compute_clues(grid)` is satisfied by that grid: solution_count is
+      always >= 1. Measured over 120 derived clue sets: 97 with one solution,
+      23 with two, none with zero. A solver that cannot conclude raises
+      SolverTimeout rather than reporting 0.
+
+      So `counted = "2 or more" if ... else "0"` has a dead arm, and the
+      docstrings' "0 or >= 2 solutions" describes a case the code cannot meet.
+      Unchanged logic from cycle 1 — it only moved into the new helper — so
+      this is a note, not a regression.
+    suggestion: |
+      Leave the guard (it is cheap and correct), but say in the docstring that
+      the zero arm is unreachable while clues are derived from a grid, so a
+      later reader does not go hunting for the test that covers it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: b70a050
+    dismissed_reason: null
+    fix_note: |
+      documented in place: a comment records that the zero arm is unreachable while clues are derived from a grid, with the 120-case measurement
+    learned_pattern: null

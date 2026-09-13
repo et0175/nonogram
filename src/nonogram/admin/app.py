@@ -63,7 +63,7 @@ from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues, orchestrator
 from nonogram.difficulty import Tier
-from nonogram.errors import GenerationAbandoned, NonogramError
+from nonogram.errors import GenerationAbandoned, NonogramError, NotUniquelySolvable
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 # CARD-050: real image-mode quality/recognizability, in place of the
@@ -589,21 +589,39 @@ def create_app(debug=None):
                     # from nonogram.difficulty.score_difficulty via the real
                     # SolverSignals orchestrator.generate() computed, not from
                     # grid size alone (AC-3).
-                    puzzle_id = puzzle_review.add_puzzle(
-                        grid=puzzle.grid,
-                        clues_rows=puzzle.clues.rows,
-                        clues_cols=puzzle.clues.columns,
-                        width=puzzle.width,
-                        height=puzzle.height,
-                        theme="image",
-                        difficulty_score=puzzle.difficulty_score,
-                        difficulty_tier=puzzle.difficulty_tier,
-                        quality_score=quality_score,
-                        recognizability=recognizability,
-                        strategies_used=[],
-                        batch_id=batch_id,
-                        source_image=image.original_filename,
-                    )
+                    # CARD-080: the store refuses a grid the solver will not
+                    # certify. Reaching it is a bug — this candidate came from
+                    # orchestrator.generate, which enforces INV-002 — so it is
+                    # reported to the owner in the results list rather than
+                    # silently dropped, and this picture is skipped instead of
+                    # failing the whole upload.
+                    try:
+                        puzzle_id = puzzle_review.add_puzzle(
+                            grid=puzzle.grid,
+                            clues_rows=puzzle.clues.rows,
+                            clues_cols=puzzle.clues.columns,
+                            width=puzzle.width,
+                            height=puzzle.height,
+                            theme="image",
+                            difficulty_score=puzzle.difficulty_score,
+                            difficulty_tier=puzzle.difficulty_tier,
+                            quality_score=quality_score,
+                            recognizability=recognizability,
+                            strategies_used=[],
+                            batch_id=batch_id,
+                            source_image=image.original_filename,
+                        )
+                    except NotUniquelySolvable as exc:
+                        app.logger.error(
+                            "%s: the store refused a generated puzzle — this "
+                            "should be unreachable (INV-002)",
+                            image.original_filename,
+                            exc_info=True,
+                        )
+                        errors.append(
+                            f"{image.original_filename}: not stored — {exc}"
+                        )
+                        continue
 
                     generated_count += 1
                     if fit.status == MOVED_TO_LARGE:
