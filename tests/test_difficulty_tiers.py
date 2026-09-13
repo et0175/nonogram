@@ -35,6 +35,7 @@ import warnings
 from pathlib import Path
 
 import pytest
+from jinja2 import Environment, FileSystemLoader
 
 from nonogram import cli, difficulty, orchestrator
 from nonogram.difficulty import (
@@ -656,6 +657,17 @@ _ADMIN_TEMPLATES = (
 )
 
 
+def _tier_macro(name: str):
+    """One of ``_tier.html``'s macros, rendered rather than grepped.
+
+    The admin templates all import their tier badge and tier option list from
+    that one file since review cycle 2; before it, five copies of the badge had
+    drifted into the same two defects at once.
+    """
+    environment = Environment(loader=FileSystemLoader(str(_ADMIN_TEMPLATES)))
+    return getattr(environment.get_template("_tier.html").module, name)
+
+
 def test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own() -> None:
     """ADR-0025's Negative, at the admin review's tier badge.
 
@@ -670,13 +682,26 @@ def test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own() -> Non
     row stores the display label (``"Hard"``), and the badge has to colour both
     — re-grading or rewriting those rows is CARD-077's, not this template's.
     """
-    source = (_ADMIN_TEMPLATES / "puzzles_list.html").read_text(encoding="utf-8")
+    # Asserted on what the badge *renders*, not on the template's source text:
+    # the rendering moved into `_tier.html`'s macro at review cycle 2 (five
+    # copies of this expression had drifted apart), and a source-text match
+    # would pass on a commented-out line anyway.
+    badge = _tier_macro("badge")
 
-    for tier in Tier:
-        assert f"== '{tier.value}'" in source, tier
-    assert "difficulty_tier|lower" in source
-    # A colour of its own, not Hard's.
-    assert "#8e44ad" in source
+    def colour_of(stored: str) -> str:
+        return str(badge(stored)).split("background-color: ")[1].split('"')[0]
+
+    colours = {tier: colour_of(tier.value) for tier in Tier}
+    for tier, colour in colours.items():
+        # Either spelling of the row, same colour: the pipeline writes the enum
+        # value ("hard"), older rows the display label ("Hard"), and re-grading
+        # them is CARD-077's job, not this template's. Only the *colour* is the
+        # claim — the badge shows the row's own text, so the markup differs.
+        assert colour_of(tier.label) == colour, tier
+    # A colour of its own, not Hard's — four tiers, four distinct colours.
+    assert len(set(colours.values())) == len(Tier)
+    assert colours[Tier.GUESS] == "#8e44ad"
+    assert colours[Tier.GUESS] != colours[Tier.HARD]
 
 
 def test_the_admin_puzzle_filter_offers_the_fourth_tier() -> None:
@@ -687,10 +712,11 @@ def test_the_admin_puzzle_filter_offers_the_fourth_tier() -> None:
     tier at all. (The admin *strategy* filter is CARD-072's and is deliberately
     not touched here.)
     """
-    source = (_ADMIN_TEMPLATES / "puzzles_list.html").read_text(encoding="utf-8")
+    options = str(_tier_macro("options")(""))
 
+    assert options.count("<option") == len(Tier)
     for tier in Tier:
-        assert f'<option value="{tier.label}"' in source, tier
+        assert f'<option value="{tier.label}"' in options, tier
 
 
 def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:

@@ -1,3 +1,4 @@
+{% import '_tier.html' as tier %}
 {% extends "base.html" %}
 
 {% block title %}Batch Status - Nonogram Admin{% endblock %}
@@ -138,9 +139,7 @@
                             <div class="puzzle-id">{{ puzzle.id }}</div>
 
                             <div class="metrics-row">
-                                <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
-                                    {{ puzzle.difficulty_tier }}
-                                </span>
+                                {{ tier.badge(puzzle.difficulty_tier) }}
                                 <span class="quality-badge">Quality: {{ puzzle.quality_score or 'N/A' }}</span>
                             </div>
 

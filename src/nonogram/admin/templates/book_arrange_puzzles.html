@@ -1,3 +1,4 @@
+{% import '_tier.html' as tier %}
 {% extends "base.html" %}
 
 {% block title %}Arrange Puzzles - {{ book.metadata.title }} - Nonogram Admin{% endblock %}
@@ -45,9 +46,7 @@
                         <div class="item-info">
                             <div class="info-size">{{ puzzle.width }}×{{ puzzle.height }} px</div>
                             <div class="info-difficulty">
-                                <span class="badge" style="background-color: {% if puzzle.difficulty_tier == 'Easy' %}#27ae60{% elif puzzle.difficulty_tier == 'Medium' %}#f39c12{% else %}#e74c3c{% endif %}">
-                                    {{ puzzle.difficulty_tier or 'N/A' }}
-                                </span>
+                                {{ tier.badge(puzzle.difficulty_tier) }}
                             </div>
                         </div>
 

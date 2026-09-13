@@ -20,8 +20,12 @@ would have passed no matter what production did.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
+from jinja2 import Environment, FileSystemLoader
+
+import nonogram.admin
 
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, tier_breakdown
 from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService
@@ -193,3 +197,87 @@ def test_a_row_with_no_tier_is_selected_by_no_tier_filter() -> None:
     for requested in ("easy", "medium", "hard", "guess"):
         selected = service.filter_puzzles(PuzzleFilter(difficulty=requested))
         assert "p0" not in _ids(selected), f"{requested} claimed an ungraded row"
+
+
+# --------------------------------------------------------------------------
+# The templates — one rendering of a tier, guarded structurally
+# (CARD-076 review cycle 2: the cycle-1 fix corrected one badge and one option
+#  list, and three more badges and a second option list survived it)
+# --------------------------------------------------------------------------
+
+_TEMPLATES = Path(nonogram.admin.__file__).parent / "templates"
+
+
+def _macro(name: str):
+    """``_tier.html``'s macros, loaded straight off the templates directory."""
+    env = Environment(loader=FileSystemLoader(str(_TEMPLATES)))
+    return getattr(env.get_template("_tier.html").module, name)
+
+
+def test_no_template_writes_its_own_tier_badge_or_option_list() -> None:
+    """The structural guard, and the reason this finding recurred twice.
+
+    Five copies of the badge expression and two of the option list had drifted
+    into the same two defects at once — comparing against a display label that
+    no pipeline-written row carries, and having no branch for ADR-0025's fourth
+    tier. Cycle 1 fixed one of each and three badges plus an option list
+    survived, because the fix was per-instance. This test makes the class of
+    defect unrepeatable: a new template that hand-writes either fails here.
+    """
+    offences = [
+        f"{path.name}: {line_number}"
+        for path in sorted(_TEMPLATES.glob("*.html"))
+        if path.name != "_tier.html"
+        for line_number, line in enumerate(path.read_text().splitlines(), 1)
+        if "difficulty_tier ==" in line or 'value="Easy"' in line
+    ]
+
+    assert offences == [], (
+        "these templates render a tier themselves instead of importing "
+        f"_tier.html's macro: {offences}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("stored", "colour"),
+    [
+        ("easy", "#27ae60"),
+        ("Easy", "#27ae60"),
+        ("medium", "#f39c12"),
+        ("hard", "#e74c3c"),
+        ("guess", "#8e44ad"),
+        ("Guess", "#8e44ad"),
+    ],
+)
+def test_the_badge_gives_every_tier_its_own_colour_in_either_spelling(
+    stored: str, colour: str
+) -> None:
+    """Guess is not "a harder Hard" — it is the tier that is not a score band.
+
+    Before this card every one of these rendered red, because the comparison
+    matched no pipeline-written row and the ``else`` branch was Hard's colour.
+    """
+    rendered = str(_macro("badge")(stored))
+
+    assert colour in rendered
+    assert stored in rendered
+
+
+@pytest.mark.parametrize("stored", [None, "", "extreme"])
+def test_an_ungraded_row_is_grey_rather_than_borrowing_a_tier_colour(
+    stored: object,
+) -> None:
+    """An ungraded row used to render in Hard's red, which reads as a grade."""
+    rendered = str(_macro("badge")(stored))
+
+    assert "#95a5a6" in rendered
+
+
+def test_the_filter_offers_all_four_tiers() -> None:
+    """An unofferable member is an unreachable one (ADR-0025's Negative)."""
+    options = str(_macro("options")("guess"))
+
+    assert options.count("<option") == len(Tier)
+    for tier in Tier:
+        assert f'value="{tier.label}"' in options
+    assert 'value="Guess" selected' in options
