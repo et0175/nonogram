@@ -228,3 +228,42 @@ The test that was supposed to pin it was passing on seed luck. Replaced with two
 that force the solver to refuse the first draws and assert the generator drew
 again, and that an exhausted ``MAX_DRAWS`` raises rather than returning the last
 grid.
+
+### Review cycle 1 fixes (74cc3ab)
+
+Three Important findings, one root cause between the first two: **one guard
+was made to answer two different questions**, and its write-path strictness is
+wrong for the read path.
+
+| finding | what was wrong | what it is now |
+|---|---|---|
+| F-001 | `audit_uniqueness` ran the write guard, which refuses a cell that is not a `bool`. A row stored as `[[1,1],[0,1]]` is a uniquely solvable Easy puzzle and was reported as a failure. | Reads through `_as_readable_grid`: shape checked exactly as strictly, cell type coerced. |
+| F-002 | `deadline_seconds` was accepted and ignored — the one solve it reached hardcoded `GENERATION_BUDGET_SECONDS`. | Threaded into the solve and into the timeout reason. The write boundary keeps ADR-0011's bound as its own default. |
+| F-003 | `refused_count` was incremented and never read, under a comment saying the count was what told the owner. | Carried onto the batch record as `error_message`, which `batch_status.html` already renders. No migration; the batch is not marked failed. |
+
+F-004 was documented rather than chased, as its suggestion asked: every
+`MockGenerator` puzzle is Easy *structurally* — density does not move it — so a
+test that needs another tier must pin a grid the way `GUESS_GRID` is pinned.
+
+**Why `_as_readable_grid` is a reimplementation and not an import.**
+`regrade._as_grid` is the same rule, and both modules live in `admin/`, so the
+import would be legal. It is duplicated anyway because the package's answer to
+shared logic is a native copy cross-checked from the test tree
+(`solver/propagate.py`'s `mask_runs` is the precedent) — here over a seeded
+309-case corpus of the shapes and cell types a JSON column can actually hold,
+with the corpus asserted to contain at least 50 readable and 50 unreadable
+cases so the agreement cannot be vacuous.
+
+**Not fixed, deliberately.** F-005 (the audit materialises the whole table) —
+same shape and same scale as CARD-077's F-010, accepted for the same reason.
+F-006 (item 4 asked for an audit *action*; a method was delivered) is an owner
+question: either a read-only `GET /audit` beside `/regrade`, or amend item 4 to
+say the capability is the deliverable and a screen is a later card.
+
+**Verification.** Seven mutants, seven killed — the read path's coercion and
+its rectangularity check, the budget in both the deadline and the message, and
+the refusal note in the legacy branch, the DB branch, and its silence on a
+clean batch. Suite unchanged at the known 14 pre-existing failures;
+`test_batch_history::test_batch_list_sorted_by_date_newest_first` is the
+standing unseeded `GenerationAbandoned` flake (3/3 green standalone), not this
+change.
