@@ -107,3 +107,13 @@ attempts mostly extend the time to a failure that was already going to happen.
 
 - 2026-08-27: Created — adopted 20 regenerate/resample retries and 5
   pixel-nudge attempts as the default bounds for NFR-002 and FR-013.
+- 2026-09-13: History (ADR-0024, CARD-074) — random-mode recovery now REPAIRS
+  a non-unique candidate before it redraws it, and repairs and redraws share
+  this ADR's one 20-attempt bound: both kinds of attempt advance the same
+  `RetryCounter`, and `GenerationAbandoned` is raised whichever kind came last.
+  ADR-0024's `MAX_CONSECUTIVE_REPAIRS` (K, initially 3) is an *interleaving
+  split* of that budget — how long one repair lineage may run before the loop
+  goes back to drawing independent samples — and is never a second bound. The
+  20 and the 5 stand, unchanged and unrecalibrated; the one visible
+  consequence is that "20 attempts" in an abandonment message now mixes
+  redraws and repairs, which ADR-0024 accepts explicitly.

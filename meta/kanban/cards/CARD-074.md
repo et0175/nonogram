@@ -1,6 +1,6 @@
 # CARD-074: Repair before redraw — flip one filled/empty pair inside the disagreement set, K=3 per lineage, one shared bound
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/074-repair-then-redraw
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-074
 **Source:** meta/architecture/handoff.md#increment-9
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-073
 **Touches:** src/nonogram/orchestrator.py (run_bounded branch, MAX_CONSECUTIVE_REPAIRS, repair step beside POL-001, run summary counts), tests/test_orchestrator.py, tests/test_resample.py, tests/property/test_recovery_bound.py (new), meta/architecture/decisions/adr/0002-*.md (History entry only)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-12T23:57Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -226,4 +226,96 @@ without a revert; a full revert is one branch. No stored data changes.
 
 ## Worktree notes
 
-—
+### Where the repair sits
+
+`generate`'s `attempt_candidate` closure decides what the *next* attempt is;
+`run_bounded` is untouched and still counts. A random-mode candidate the solver
+rejects leaves a `Repair` pending (computed by the pure, module-level
+`repair_candidate` from the rejected grid's own witnesses and mask, which are
+still on the aggregate at that point); the next call judges that grid instead
+of drawing one. After `MAX_CONSECUTIVE_REPAIRS` consecutive repairs on one
+lineage the pending repair is simply not set, and the next call draws from the
+same `rng` — POL-001 exactly as before. Both kinds of attempt are attempts of
+the one `regenerate` `RetryCounter`; `Puzzle.recovery` (a `RecoveryLog`) is a
+tally, not a counter, and records how the 20 divided.
+
+### Calibration (AC-D, the K=3 measurement ADR-0024 owes)
+
+Same seeds, same requests, `MAX_CONSECUTIVE_REPAIRS = 0` (today's pure redraw)
+against `= 3`. Solver calls are counted at `orchestrator.solver.solve`.
+
+| corpus | metric | K=0 (redraw) | K=3 (repair) |
+|---|---|---|---|
+| 20x20, densities 20/25/30, seeds 0..19 (60 requests) | abandoned | 60 (100%) | 60 (100%) |
+| | solver calls / accepted puzzle | n/a (none accepted) | n/a (none accepted) |
+| | seconds / request | 1.258 | 1.242 |
+| 10x10, densities 30/40/50, seeds 0..39 (120 requests) | abandoned | 32 (26.7%) | 22 (18.3%) |
+| | solver calls / accepted puzzle | 5.39 | 4.77 |
+| | seconds / request | 0.015 | 0.012 |
+| 15x15, densities 40/50, seeds 0..19 (40 requests) | abandoned | 13 (32.5%) | 8 (20.0%) |
+| | solver calls / accepted puzzle | 4.33 | 4.69 |
+| | seconds / request | 0.215 | 0.211 |
+
+**Reading.** Repair helps where the request is near-feasible and is free where
+it is not. At 10x10 it removes 10 of 32 abandonments (-31% relative) and costs
+*fewer* solver calls per accepted puzzle, because a repair that lands converges
+in one or two attempts where a redraw re-rolls from scratch. At 15x15 it
+removes 5 of 13 (-38%) for 8% more solver calls per accepted puzzle — it
+converts abandonments into accepted puzzles, which is the trade ADR-0024 asked
+for. The handoff's own corpus — 20x20 at density 20 — shows **no difference**:
+every one of those 60 requests is abandoned either way. A 20x20 grid at 20-30%
+density has an undecided mask covering essentially the whole grid (400 of 400
+cells at density 20), so one pair flip cannot make it unique; those requests
+are infeasible under a 20-attempt bound, with or without POL-006. Repair is not
+worse there — the wall time per request is within noise (1.24s vs 1.26s),
+because a repair costs one solve exactly as a redraw does.
+
+**K is not retuned on this card** (the card says record and stop). The data K's
+recalibration will want is now recorded per run in `Puzzle.recovery`: across the
+10x10 corpus, 60 lineages hit K=3 and 309 repairs were made on accepted runs,
+21 of them (6.8%) from the undecided-mask fallback region.
+
+### The fallback region is a live path, not a defensive branch
+
+ADR-0024's per-row filled-count argument holds only when the candidate grid is
+itself one of the two witnesses. Often it is not — the witnesses are the first
+two solutions the search found, and the candidate is frequently a *third*
+solution. Measured here: at 20x20 density 20, 40 of 40 sampled ambiguous
+candidates were third solutions and 9 of 40 (22.5%) had a disagreement set with
+no filled/empty pair of the parent; over the property corpus (10x10/12x12) the
+fallback supplied 32 of 466 repairs (6.9%). CARD-073's review measured 9 in 241
+(3.7%) on its own corpus. It has both a forced unit test
+(`test_falls_back_to_the_undecided_mask_when_the_disagreement_set_has_no_pair`)
+and a corpus test that fails if real runs stop reaching it
+(`test_the_fallback_region_is_reached_by_real_runs`).
+
+### Determinism (AC-C)
+
+`--seed 42 --size 10 --density 30` exports byte-identical puzzles on two
+consecutive runs (the auto-name's duplicate counter aside), and
+`test_the_same_seed_replays_the_same_repair_lineage` compares the recorded
+repair sequence — region, emptied cell, filled cell — of two runs of the same
+request, not merely the accepted grid. The repair draws nothing from the `rng`:
+`test_a_repair_draws_nothing_from_the_rng` checks that the rng state entering
+each draw is exactly its state leaving the previous one, across the corpus.
+
+### Rollback switch, verified rather than asserted
+
+`MAX_CONSECUTIVE_REPAIRS = 0` was checked against the pre-change code on main
+(d48ade8) over 45 requests — 10x10 at densities 30/40/50, seeds 0..14 — and the
+two agree on every request: same outcome, same accepted grid, same regenerate
+and resample attempt counts, same abandonment messages. The repair step is off
+by construction when K is 0 (the branch is never entered and no rng draw
+moves), so the rollback is a constant, not a revert.
+
+### Re-pinned test
+
+`test_regenerate_stops_at_max_retry_bound_for_a_real_request` moved from seed 0
+to seed 3 (10x10, density 30): with POL-006 live, seed 0 now succeeds on its
+nineteenth attempt after fourteen repairs. That is ADR-0024's stated Negative
+("every existing random seed that ever hit MANY now maps to a different
+accepted grid"), not a regression. The scripted POL-001 tests in
+`tests/test_orchestrator.py` and `tests/test_resample.py` now call
+`_without_repairs(monkeypatch)` (`MAX_CONSECUTIVE_REPAIRS = 0`, ADR-0024's own
+rollback switch), so they keep asserting the pure-redraw loop one-to-one
+against their scripts while the repair-on behaviour has its own section.

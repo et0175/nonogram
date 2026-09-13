@@ -6,6 +6,13 @@ pytest-idiomatic function names:
     AC-018  TestRegenerate_FiresOnUniquenessFailure -> test_regenerate_fires_on_uniqueness_failure*
     AC-019  TestRegenerate_StopsAtMaxRetryBound     -> test_regenerate_stops_at_max_retry_bound*
     AC-039  TestRetryLoop_BoundedIterations         -> test_retry_loop_bounded_iterations*
+    AC-111  TestRecovery_RepairFlipsOnePairInsideUndecidedMask
+    AC-132  TestRecovery_RepairLeavesCellsOutsideMaskUntouched
+    AC-112  TestRecovery_RecoveredGridIsReverifiedBySolver
+    AC-113  TestRecovery_RepairAttemptsCountAgainstRetryBound
+    AC-114  TestRecovery_RepairKeepsFilledCountExact
+    AC-A/B/C/D (CARD-074)                            -> the TestRecovery_* section
+                                                        at the end of this file
 
 The invariants this module is the single enforcement point for (ADR-0007) are
 covered directly rather than incidentally: INV-002 (the export gate) in the
@@ -190,6 +197,26 @@ def _puzzle(**overrides: object) -> Puzzle:
     return Puzzle(request=_request(**overrides), seed=0)
 
 
+def _without_repairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn ADR-0024's repair step (POL-006) off for a scripted-source test.
+
+    ``MAX_CONSECUTIVE_REPAIRS = 0`` is ADR-0024's own rollback switch: with it
+    the recovery loop is exactly the pure-redraw loop POL-001 was before
+    CARD-074, so the scripted grid sequence maps one-to-one onto attempts
+    again. Every test that calls this is asserting POL-001's own behaviour —
+    which candidate is kept, how many grids are drawn, where the bound stops —
+    and would otherwise be asserting it *through* a repair lineage, which has
+    its own coverage in the CARD-074 ``TestRecovery_*`` tests (both kinds of
+    attempt against the same one counter, in tests/test_orchestrator.py) and in
+    tests/property/test_recovery_bound.py.
+
+    It is a real switch and not a test seam: the constant is read by
+    :func:`nonogram.orchestrator.generate` on every run, and 0 is the value the
+    card's rollback plan names.
+    """
+    monkeypatch.setattr(orchestrator, "MAX_CONSECUTIVE_REPAIRS", 0)
+
+
 # --------------------------------------------------------------------------
 # The Puzzle aggregate (AGG-001) — one instance per request, INV-001/INV-002
 # --------------------------------------------------------------------------
@@ -298,6 +325,7 @@ def test_one_aggregate_spans_every_retry(monkeypatch: pytest.MonkeyPatch) -> Non
     is one invariant on one instance rather than a per-attempt tally."""
     source = _ScriptedSource(AMBIGUOUS, ALSO_AMBIGUOUS, AMBIGUOUS, UNIQUE)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     puzzle = generate(_request())
 
@@ -374,6 +402,7 @@ def test_every_attempt_draws_from_the_one_injected_random(
     first one."""
     source = _ScriptedSource(AMBIGUOUS, AMBIGUOUS, UNIQUE)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     generate(_request(seed=7))
 
@@ -580,6 +609,7 @@ def test_regenerate_fires_on_uniqueness_failure(
     is sourced and re-checked, with no user interaction."""
     source = _ScriptedSource(AMBIGUOUS, UNIQUE)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     def no_prompting(*args: object, **kwargs: object) -> str:
         raise AssertionError("the regenerate policy must not ask the user anything")
@@ -601,6 +631,7 @@ def test_regenerate_fires_on_uniqueness_failure_repeatedly(
     """The policy is a loop, not a single second chance."""
     source = _ScriptedSource(AMBIGUOUS, AMBIGUOUS, ALSO_AMBIGUOUS, AMBIGUOUS, UNIQUE)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     puzzle = generate(_request())
 
@@ -614,6 +645,7 @@ def test_regenerate_discards_the_failed_candidate(
     """"Discard" means the rejected grid is gone, not merely re-judged."""
     source = _ScriptedSource(ALSO_AMBIGUOUS, UNIQUE)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     puzzle = generate(_request())
 
@@ -651,6 +683,7 @@ def test_regenerate_stops_at_max_retry_bound(
     """At the bound the run is abandoned with a clear error, not retried."""
     source = _ScriptedSource(AMBIGUOUS, repeat_last=True)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(_request())
@@ -669,14 +702,19 @@ def test_an_abandoned_run_reports_a_domain_error() -> None:
 
 
 def test_regenerate_stops_at_max_retry_bound_for_a_real_request() -> None:
-    """The same bound with nothing mocked.
+    """The same bound with nothing mocked — repairs included (AC-113).
 
-    Pinned seed: at 10x10 / 30% density, seed 0 produces twenty consecutive
-    candidates that are not uniquely solvable (sweep over seeds 0..11: seeds
-    0, 1, 4, 5, 10 and 11 all exhaust the budget).
+    Pinned seed: at 10x10 / 30% density, seed 3's twenty attempts — redraws
+    and ADR-0024 repairs together — never reach a uniquely-solvable candidate
+    (sweep over seeds 0..11 with the repair step live: seeds 3, 4, 5, 6, 9 and
+    11 exhaust the budget). Re-pinned by CARD-074: the previous pin, seed 0,
+    now *succeeds* on its nineteenth attempt after fourteen repairs, which is
+    the change ADR-0024 makes and not a regression — its Negative section says
+    in as many words that every seed that ever hit MANY maps to a different
+    accepted grid. Re-pin by re-running the sweep, not by deleting the test.
     """
     with pytest.raises(GenerationAbandoned):
-        generate(_request(width=10, height=10, density=30, seed=0))
+        generate(_request(width=10, height=10, density=30, seed=3))
 
 
 def test_an_abandoned_run_writes_nothing(
@@ -686,6 +724,7 @@ def test_an_abandoned_run_writes_nothing(
     monkeypatch.chdir(tmp_path)
     source = _ScriptedSource(AMBIGUOUS, repeat_last=True)
     _install_source(monkeypatch, source)
+    _without_repairs(monkeypatch)
 
     with pytest.raises(GenerationAbandoned):
         generate(_request(out=tmp_path))
@@ -831,3 +870,626 @@ def test_a_counter_refuses_to_advance_past_its_bound() -> None:
         counter.record_attempt()
 
     assert counter.attempts == 1
+
+
+# --------------------------------------------------------------------------
+# CARD-074 / ADR-0024 — POL-006's repair, then POL-001's redraw
+#
+#   AC-111  TestRecovery_RepairFlipsOnePairInsideUndecidedMask
+#   AC-132  TestRecovery_RepairLeavesCellsOutsideMaskUntouched
+#   AC-112  TestRecovery_RecoveredGridIsReverifiedBySolver
+#   AC-113  TestRecovery_RepairAttemptsCountAgainstRetryBound
+#   AC-114  TestRecovery_RepairKeepsFilledCountExact
+#   AC-A    TestRecovery_RedrawsAfterKConsecutiveRepairs
+#   AC-B    TestRecovery_FallsBackToUndecidedMaskWhenNoPairInDisagreementSet
+#   AC-C    TestRecovery_SameSeedReplaysSameRepairLineage
+#   AC-D    TestRecovery_AbandonmentRateNotWorseThanPureRedraw
+#
+# The corpus-wide claims (EC-013, the rng-independence of the pair choice, the
+# exact density of every repaired grid) live in
+# tests/property/test_recovery_bound.py.
+# --------------------------------------------------------------------------
+
+
+def _ambiguous_at_forty_percent() -> list[list[bool]]:
+    """AC-111's given: a 20x20 grid at density 40 whose solve reports MANY
+    with a six-cell undecided mask.
+
+    Constructed rather than sampled, and the reason is worth recording: a
+    *drawn* 20x20 grid at density 40 is nowhere near line-solvable — a sweep of
+    300 seeds found none with an undecided mask under thirteen cells, and a
+    sixth of them could not be solved inside two seconds at all. A grid with a
+    six-cell mask at that density has to be built.
+
+    The build is a rigid part plus one gadget. Rows 0..7 filled edge to edge is
+    160 cells, exactly 40% of 400, and every clue of it is forced: a row clue
+    of ``(20)`` has one placement and a row clue of ``(0)`` has one placement,
+    so line logic settles the whole grid. Three cells are then taken out of row
+    7 and put back as isolated singles at (10, 0), (12, 0) and (14, 1) — which
+    leaves the filled count at 160 and turns columns 0 and 1 into the clue pair
+    the ambiguity lives in. The solver reports:
+
+        undecided mask    (10,0) (10,1) (12,0) (12,1) (14,0) (14,1)  — six
+        witnesses differ  (12,0) (12,1) (14,0) (14,1)                — four
+
+    i.e. a disagreement set inside the mask, as EC-011 says, with the parent
+    filled at (12, 0) and (14, 1) and empty at (12, 1) and (14, 0).
+    """
+    grid = [[False] * 20 for _ in range(20)]
+    for row in range(8):
+        for column in range(20):
+            grid[row][column] = True
+    for row, column in ((7, 0), (7, 1), (7, 2)):
+        grid[row][column] = False
+    for row, column in ((10, 0), (12, 0), (14, 1)):
+        grid[row][column] = True
+    return grid
+
+
+def _solved(grid: list[list[bool]]) -> SolveResult:
+    """The real solver's verdict on ``grid``'s own clues (CON-005)."""
+    return solve(*compute_clues(grid))
+
+
+def _cells(mask: list[list[bool]]) -> set[tuple[int, int]]:
+    return {
+        (row_index, column_index)
+        for row_index, row in enumerate(mask)
+        for column_index, cell in enumerate(row)
+        if cell
+    }
+
+
+def _differences(
+    before: list[list[bool]], after: list[list[bool]]
+) -> set[tuple[int, int]]:
+    return {
+        (row_index, column_index)
+        for row_index, (before_row, after_row) in enumerate(zip(before, after))
+        for column_index, (was, now) in enumerate(zip(before_row, after_row))
+        if was != now
+    }
+
+
+def _filled(grid: list[list[bool]]) -> int:
+    return sum(sum(row) for row in grid)
+
+
+def _capture_puzzles(monkeypatch: pytest.MonkeyPatch) -> list[Puzzle]:
+    """Collect every aggregate :func:`generate` builds, abandoned runs included.
+
+    A run that raises ``GenerationAbandoned`` never hands its puzzle back, so
+    its counters and its ADR-0024 tally are otherwise unobservable — and they
+    are exactly what AC-113 is about. The subclass changes no behaviour; it
+    only keeps a reference.
+    """
+    created: list[Puzzle] = []
+    real_puzzle = orchestrator.Puzzle
+
+    class _Recorded(real_puzzle):  # type: ignore[valid-type,misc]
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            created.append(self)
+
+    monkeypatch.setattr(orchestrator, "Puzzle", _Recorded)
+    return created
+
+
+class _RepairRecorder:
+    """Wrap ``orchestrator.repair_candidate`` and remember every call.
+
+    The lineage a run took is otherwise invisible from outside: the aggregate
+    keeps counts, not a history. Nothing is faked — the real function computes
+    the real repair — so this observes the loop rather than replacing part of
+    it.
+    """
+
+    def __init__(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        real: Callable[..., orchestrator.Repair | None],
+    ) -> None:
+        self._real = real
+        self.calls: list[tuple[str, tuple[int, int], tuple[int, int]] | None] = []
+        monkeypatch.setattr(orchestrator, "repair_candidate", self)
+
+    def __call__(
+        self, grid: list[list[bool]], **kwargs: object
+    ) -> orchestrator.Repair | None:
+        repair = self._real(grid, **kwargs)
+        self.calls.append(
+            None if repair is None else (repair.region, repair.emptied, repair.filled)
+        )
+        return repair
+
+
+class _SolveRecorder:
+    """Wrap ``orchestrator.solver.solve`` and remember the clues it was given.
+
+    Again an observer over the real solver: every verdict the assertions turn
+    on is the solver's own (guardrail G-3).
+    """
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._real = orchestrator.solver.solve
+        self.clues: list[tuple[object, object]] = []
+        monkeypatch.setattr(orchestrator.solver, "solve", self)
+
+    def __call__(self, rows: object, columns: object, **kwargs: object) -> SolveResult:
+        self.clues.append((rows, columns))
+        return self._real(rows, columns, **kwargs)
+
+
+# --- AC-111 / AC-132: what one repair does, and what it leaves alone --------
+
+
+def test_repair_flips_one_pair_inside_the_undecided_mask() -> None:
+    """AC-111: exactly one filled and one empty cell inside the mask swap.
+
+    Both cells come from the witness-disagreement set, which is a subset of the
+    mask (EC-011), so "inside that six-cell mask" holds for the primary region
+    rule and for the fallback alike.
+    """
+    grid = _ambiguous_at_forty_percent()
+    verdict = _solved(grid)
+    mask = _cells(verdict.undecided_mask)
+
+    assert verdict.solution_count == MANY
+    assert len(mask) == 6
+
+    repair = orchestrator.repair_candidate(
+        grid, witnesses=verdict.witnesses, undecided_mask=verdict.undecided_mask
+    )
+
+    assert repair is not None
+    changed = _differences(grid, repair.grid)
+    assert len(changed) == 2
+    assert changed <= mask
+    assert changed == {repair.emptied, repair.filled}
+    # One cell of each kind, which is the whole of ADR-0024/R3's flip rule.
+    assert grid[repair.emptied[0]][repair.emptied[1]] is True
+    assert repair.grid[repair.emptied[0]][repair.emptied[1]] is False
+    assert grid[repair.filled[0]][repair.filled[1]] is False
+    assert repair.grid[repair.filled[0]][repair.filled[1]] is True
+
+
+def test_repair_leaves_every_cell_outside_the_mask_untouched() -> None:
+    """AC-132: the repair is local to the region — 394 of the 400 cells of this
+    grid cannot move, whatever the pair choice does."""
+    grid = _ambiguous_at_forty_percent()
+    verdict = _solved(grid)
+    mask = _cells(verdict.undecided_mask)
+
+    repair = orchestrator.repair_candidate(
+        grid, witnesses=verdict.witnesses, undecided_mask=verdict.undecided_mask
+    )
+
+    assert repair is not None
+    for row_index, row in enumerate(grid):
+        for column_index, cell in enumerate(row):
+            if (row_index, column_index) in mask:
+                continue
+            assert repair.grid[row_index][column_index] == cell
+
+
+def test_the_pair_choice_is_deterministic_in_the_grid_and_the_witnesses() -> None:
+    """ADR-0024/R4: same inputs, same pair — and host state does not enter.
+
+    The global ``random`` module is re-seeded and drawn from between the two
+    calls: a repair that consulted any source of randomness at all would have
+    to disagree with itself here.
+    """
+    grid = _ambiguous_at_forty_percent()
+    verdict = _solved(grid)
+
+    random.seed(1)
+    first = orchestrator.repair_candidate(
+        grid, witnesses=verdict.witnesses, undecided_mask=verdict.undecided_mask
+    )
+    random.seed(999)
+    for _ in range(10):
+        random.random()
+    second = orchestrator.repair_candidate(
+        grid, witnesses=verdict.witnesses, undecided_mask=verdict.undecided_mask
+    )
+
+    assert first == second
+    # The rank is (row, column) over the region: the first filled cell and the
+    # first empty cell in row-major order.
+    assert first is not None
+    assert (first.emptied, first.filled) == ((12, 0), (12, 1))
+
+
+# --- AC-114: the filled count, and so the density, is exact ----------------
+
+
+def test_repair_keeps_the_filled_count_exact() -> None:
+    """AC-114: five repairs in a row, every one of them 160 filled cells.
+
+    The lineage is re-solved between repairs, as the loop does — each repair
+    reads its own parent's witnesses — and the count is asserted after every
+    one rather than only at the end, so two flips that cancelled out would
+    still be caught.
+    """
+    grid = _ambiguous_at_forty_percent()
+    assert _filled(grid) == 160
+
+    for _ in range(5):
+        verdict = _solved(grid)
+        assert verdict.solution_count == MANY
+        repair = orchestrator.repair_candidate(
+            grid, witnesses=verdict.witnesses, undecided_mask=verdict.undecided_mask
+        )
+        assert repair is not None
+        assert _filled(repair.grid) == 160
+        assert len(_differences(grid, repair.grid)) == 2
+        grid = repair.grid
+
+
+# --- AC-B: the fallback region is a live path, not dead code ---------------
+
+
+def test_falls_back_to_the_undecided_mask_when_the_disagreement_set_has_no_pair() -> (
+    None
+):
+    """AC-B: a disagreement set holding no filled/empty pair of the parent.
+
+    ADR-0024's per-row filled-count argument only applies when the candidate
+    grid is itself one of the two witnesses. Often it is not — the witnesses
+    are the first two solutions the search found, and the parent can be a third
+    — and CARD-073's review measured nine cases out of 241 where every
+    disagreeing cell was *empty* in the parent. This is that case, built by
+    hand so the condition is exact rather than incidental: the witnesses differ
+    only at (1, 1) and (1, 2), both empty in the parent, so there is no filled
+    cell for the primary rule to empty.
+
+    The wider mask does hold a pair, and the repair must take it rather than
+    quietly degrading into a redraw.
+    """
+    grid = [
+        [True, False, False, False],
+        [False, False, False, False],
+        [False, True, False, False],
+        [False, False, False, False],
+    ]
+    first_witness = [
+        [True, False, False, False],
+        [False, True, False, False],
+        [False, True, False, False],
+        [False, False, False, False],
+    ]
+    second_witness = [
+        [True, False, False, False],
+        [False, False, True, False],
+        [False, True, False, False],
+        [False, False, False, False],
+    ]
+    # What line logic left open: the disagreeing pair, plus (0, 0) — filled in
+    # the parent, and what makes the fallback region usable at all.
+    undecided_mask = [
+        [True, True, False, False],
+        [False, True, True, False],
+        [False, False, False, False],
+        [False, False, False, False],
+    ]
+
+    disagreement = _differences(first_witness, second_witness)
+    assert disagreement == {(1, 1), (1, 2)}
+    assert all(grid[row][column] is False for row, column in disagreement)
+
+    repair = orchestrator.repair_candidate(
+        grid,
+        witnesses=(first_witness, second_witness),
+        undecided_mask=undecided_mask,
+    )
+
+    assert repair is not None
+    assert repair.region == orchestrator.UNDECIDED_MASK_REGION
+    assert (repair.emptied, repair.filled) == ((0, 0), (0, 1))
+    assert _differences(grid, repair.grid) == {(0, 0), (0, 1)}
+    assert _filled(repair.grid) == _filled(grid)
+
+
+def test_the_disagreement_set_is_preferred_when_it_holds_a_pair() -> None:
+    """The other side of AC-B: the fallback is a fallback, not the rule.
+
+    Same parent, same mask, witnesses that disagree on a filled cell too — the
+    pair now comes from the disagreement set, and the mask's extra cells are
+    not consulted even though (0, 0) ranks first over the mask as a whole.
+    """
+    grid = [
+        [True, False, False, False],
+        [True, False, False, False],
+        [False, True, False, False],
+        [False, False, False, False],
+    ]
+    first_witness = [row[:] for row in grid]
+    second_witness = [row[:] for row in grid]
+    second_witness[1][0] = False
+    second_witness[1][1] = True
+    undecided_mask = [
+        [True, True, False, False],
+        [True, True, False, False],
+        [False, False, False, False],
+        [False, False, False, False],
+    ]
+
+    repair = orchestrator.repair_candidate(
+        grid,
+        witnesses=(first_witness, second_witness),
+        undecided_mask=undecided_mask,
+    )
+
+    assert repair is not None
+    assert repair.region == orchestrator.WITNESS_DISAGREEMENT_REGION
+    assert (repair.emptied, repair.filled) == ((1, 0), (1, 1))
+
+
+def test_a_region_with_nothing_to_flip_produces_no_repair() -> None:
+    """Neither region holds a filled/empty pair: there is nothing to flip.
+
+    The loop's answer is a redraw — POL-001, exactly as before — and the
+    aggregate records that the lineage ended for want of a region rather than
+    at the K cap, which are different facts about K's calibration.
+    """
+    grid = [[False, False], [False, False]]
+
+    assert (
+        orchestrator.repair_candidate(grid, witnesses=None, undecided_mask=None) is None
+    )
+    assert (
+        orchestrator.repair_candidate(
+            grid,
+            witnesses=(
+                [[False, False], [False, True]],
+                [[False, True], [False, False]],
+            ),
+            undecided_mask=[[True, True], [True, True]],
+        )
+        is None
+    )
+
+
+# --- AC-112 / AC-113 / AC-A: the repair inside the one bounded loop --------
+
+
+def test_a_recovered_grid_is_reverified_by_the_solver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-112 / ADR-0024/R1: a repaired candidate is accepted only on a fresh
+    solver verdict of 1 on its own re-derived clues.
+
+    Pinned seed, nothing mocked but the two observers: at 10x10 / 30% density
+    seed 10 draws one grid, repairs it twice and accepts the second repair. So
+    the accepted grid is *not* a grid the source ever produced, and the
+    evidence that it was judged rather than assumed unique is that the solver
+    was asked about its own clues — one solve per attempt, the last of them
+    this grid's.
+    """
+    solves = _SolveRecorder(monkeypatch)
+    drawn: list[list[list[bool]]] = []
+    real_source = orchestrator.sourcing.for_mode("random")
+
+    def recording_source(*args: object) -> list[list[bool]]:
+        grid = real_source(*args)
+        drawn.append([list(row) for row in grid])
+        return grid
+
+    monkeypatch.setattr(
+        orchestrator.sourcing, "for_mode", lambda mode: recording_source
+    )
+
+    puzzle = generate(_request(width=10, height=10, density=30, seed=10))
+
+    assert puzzle.recovery.repairs > 0
+    assert puzzle.grid not in drawn  # the accepted grid is a repair
+    assert len(solves.clues) == puzzle.regenerate.attempts
+    accepted_clues = compute_clues(puzzle.grid)
+    assert solves.clues[-1] == (accepted_clues.rows, accepted_clues.columns)
+    assert puzzle.solution_count == 1
+    assert puzzle.ready_for_export is True
+    # And the verdict stands when the accepted grid is re-solved from scratch.
+    assert _solved(puzzle.grid).solution_count == 1
+
+
+def test_repair_attempts_count_against_the_retry_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-113 / ADR-0024/R2: one counter, both kinds of attempt, one bound.
+
+    The scripted source hands back the same ambiguous 20x20 grid for ever, and
+    its repair lineage is the pathological one K exists for: the pair choice
+    swaps (12, 0) with (12, 1), the next solve locates the same ambiguity, and
+    the repair swaps them back — the lineage oscillates between two grids and
+    never converges. Twenty attempts later the run is abandoned, and the twenty
+    are five drawn grids plus fifteen repairs, not twenty of either.
+    """
+    puzzles = _capture_puzzles(monkeypatch)
+    source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
+    _install_source(monkeypatch, source)
+
+    with pytest.raises(GenerationAbandoned) as excinfo:
+        generate(_request())
+
+    puzzle = puzzles[-1]
+    assert puzzle.regenerate.attempts == MAX_REGENERATE_ATTEMPTS == 20
+    assert puzzle.recovery.redraws == 5
+    assert puzzle.recovery.repairs == 15
+    assert puzzle.recovery.attempts == puzzle.regenerate.attempts
+    assert puzzle.recovery.lineages_at_repair_cap == 5
+    assert puzzle.recovery.lineages_without_repairable_region == 0
+    assert source.candidates_requested == 5
+
+    message = str(excinfo.value)
+    assert str(MAX_REGENERATE_ATTEMPTS) in message
+    assert "regenerate" in message
+    assert "one solution" in message
+
+
+def test_the_run_summary_reads_as_one_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-0024's observability: repairs versus redraws, and lineages at K.
+
+    Additive and inert — nothing in the pipeline reads these numbers back — but
+    they are the data ADR-0024 says the K recalibration needs, so they have to
+    be legible.
+    """
+    puzzles = _capture_puzzles(monkeypatch)
+    source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
+    _install_source(monkeypatch, source)
+
+    with pytest.raises(GenerationAbandoned):
+        generate(_request())
+
+    summary = puzzles[-1].recovery.describe()
+    assert "20 recovery attempts" in summary
+    assert "5 redraws" in summary
+    assert "15 repairs" in summary
+    assert "5 lineages reached the repair cap of 3" in summary
+
+
+@pytest.mark.parametrize(
+    ("bound", "expected_draws", "expected_repairs", "expected_cap"),
+    [
+        # One lineage: the draw, then repairs 1, 2 and 3. The third consecutive
+        # repair is still a repair — K is not reached until it has been made.
+        (2, 1, 1, 0),
+        (3, 1, 2, 0),
+        (4, 1, 3, 1),
+        # The attempt after the third repair is the redraw: K consecutive
+        # repairs failed, so the lineage is discarded and POL-001 sources.
+        (5, 2, 3, 1),
+        (8, 2, 6, 2),
+        (9, 3, 6, 2),
+    ],
+)
+def test_redraws_after_k_consecutive_repairs(
+    monkeypatch: pytest.MonkeyPatch,
+    bound: int,
+    expected_draws: int,
+    expected_repairs: int,
+    expected_cap: int,
+) -> None:
+    """AC-A: the K boundary from both sides, with the counter arithmetic.
+
+    The bound is lowered rather than the script lengthened so that each run
+    ends *at* the attempt under test: at a bound of 4 the run stops on the
+    third consecutive repair, and at 5 the extra attempt is a redraw. Every row
+    asserts the same three things — how many grids the source was asked for,
+    how many repairs were made, and that the two sum to the attempts the one
+    counter recorded (ADR-0024/R2, INV-003).
+
+    Lowering ADR-0002's 20 is the only way to observe a *particular* attempt's
+    kind, since a run reports counts rather than a history; K itself is left at
+    its production value of 3 throughout.
+    """
+    monkeypatch.setattr(orchestrator, "MAX_REGENERATE_ATTEMPTS", bound)
+    puzzles = _capture_puzzles(monkeypatch)
+    source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
+    _install_source(monkeypatch, source)
+
+    with pytest.raises(GenerationAbandoned):
+        generate(_request())
+
+    assert orchestrator.MAX_CONSECUTIVE_REPAIRS == 3
+    puzzle = puzzles[-1]
+    assert source.candidates_requested == expected_draws
+    assert puzzle.recovery.redraws == expected_draws
+    assert puzzle.recovery.repairs == expected_repairs
+    assert puzzle.recovery.lineages_at_repair_cap == expected_cap
+    assert puzzle.recovery.attempts == puzzle.regenerate.attempts == bound
+
+
+def test_library_mode_never_repairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-0024/R5: POL-006 is random mode's. Library mode keeps POL-001.
+
+    The same scripted ambiguous grid and the same lowered bound as above, in
+    the other re-drawable mode: six grids are asked for rather than two, and
+    the tally records no repair at all.
+    """
+    monkeypatch.setattr(orchestrator, "MAX_REGENERATE_ATTEMPTS", 6)
+    puzzles = _capture_puzzles(monkeypatch)
+    source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
+    _install_source(monkeypatch, source)
+
+    with pytest.raises(GenerationAbandoned):
+        generate(_request(mode="library", library_key="cat", density=None))
+
+    assert source.candidates_requested == 6
+    assert puzzles[-1].recovery.repairs == 0
+    assert puzzles[-1].recovery.redraws == 6
+
+
+# --- AC-C: a seed replays its lineage --------------------------------------
+
+
+def test_the_same_seed_replays_the_same_repair_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-C / ADR-0015: same seed, same accepted grid, same lineage.
+
+    Not merely the same answer: the same *sequence* of repairs, cell for cell,
+    through an observer over the real repair. Seed 42 at 10x10 / 30% density
+    accepts on its nineteenth attempt after five draws and fourteen repairs,
+    three of which came from the fallback region — a lineage long enough for a
+    difference to show up in.
+    """
+    real_repair = orchestrator.repair_candidate
+    request = _request(width=10, height=10, density=30, seed=42)
+
+    first_recorder = _RepairRecorder(monkeypatch, real_repair)
+    first = generate(request)
+    first_lineage = list(first_recorder.calls)
+
+    second_recorder = _RepairRecorder(monkeypatch, real_repair)
+    second = generate(request)
+
+    assert first_lineage  # the seed really does repair, or this asserts nothing
+    assert first_lineage == second_recorder.calls
+    assert first.grid == second.grid
+    assert first.clues == second.clues
+    assert first.regenerate.attempts == second.regenerate.attempts
+    assert first.recovery == second.recovery
+    assert first.recovery.repairs > 0
+    assert first.seed == second.seed == 42
+
+
+# --- AC-D: the calibration check the handoff asks for ----------------------
+
+
+def test_the_abandonment_rate_is_not_worse_than_pure_redraw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-D: on one seeded corpus, repair must not abandon more often.
+
+    A *check* of the card's calibration measurement rather than the measurement
+    itself — the 20x20 corpus at densities 20, 25 and 30 that ADR-0024 asks for
+    is in the card's Worktree notes and takes minutes. This is the slice cheap
+    enough to live in the suite: 10x10 at 30% density, the extent and density
+    CARD-005 pinned its own abandonment cases at, over a corpus whose size is
+    asserted here so it cannot silently shrink. Measured when written: 18
+    abandonments with repair against 26 without, over these 36 seeds.
+
+    The claim is one-sided on purpose. ADR-0024 does not promise that repair
+    rescues a given seed — a repair spends an attempt a redraw would have spent,
+    so a seed whose lucky draw was the eighteenth can lose it — only that the
+    reaction is not a net loss across a corpus.
+    """
+    corpus = range(36)
+    assert len(corpus) >= 30
+
+    def abandonments(consecutive_repairs: int) -> int:
+        monkeypatch.setattr(
+            orchestrator, "MAX_CONSECUTIVE_REPAIRS", consecutive_repairs
+        )
+        failures = 0
+        for seed in corpus:
+            try:
+                generate(_request(width=10, height=10, density=30, seed=seed))
+            except GenerationAbandoned:
+                failures += 1
+        return failures
+
+    with_repair = abandonments(3)
+    pure_redraw = abandonments(0)
+
+    assert with_repair <= pure_redraw
