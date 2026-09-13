@@ -1,6 +1,6 @@
 # CARD-077: Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept ⚑
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-076
 **Touches:** migrations/versions/006_add_legacy_grade_columns.py (new, expand-only: two nullable legacy grade columns), src/nonogram/admin/app.py (GET preview + POST apply), src/nonogram/admin/pdf_generator.py (review F-007: the second PDF path printed the tier verbatim, so a book built after the re-grade read 'Difficulty: easy'), src/nonogram/admin/regrade.py (new — the batch), src/nonogram/admin/templates/dashboard.html (link), src/nonogram/admin/templates/regrade.html (new — the confirmation page), src/nonogram/db/models.py (the two columns on the Puzzle model), tests/property/test_regrade_determinism.py (new — the EC property corpus), tests/test_admin_regrade.py (new), tests/test_admin_tier_surfaces.py (review F-007: the PDF spelling, added beside CARD-076's other tier-surface guards)
-**Review score:** —
+**Review score:** 8.5 (cycle 2; cycle 1 7.0)
 **Started:** 2026-09-14T01:30Z
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-13T23:55Z
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
