@@ -202,6 +202,32 @@ shape the intake asked us to avoid.
 
 ## History
 
+- 2026-09-14: **`Tier.GUESS` is reachable after all — measured on production
+  data.** The entry below recorded an assignment rate of zero (0 of 6,620) and
+  kept the tier as a deliberate safety net. That measurement was taken over
+  *generated* grids — random and structured — and it does not generalise. A
+  re-grade of the 86 puzzles in the Render database found one that classifies
+  `guess`: a 15x15 at 35% density, uniquely solvable, whose solve needs **199
+  branch nodes and 760 backtracks** while line logic settles only 3 cells. The
+  count is stable across re-solves, so it is not a deadline artefact.
+
+  The difference is the source. The zero was measured on the random source,
+  whose grids are line-solvable essentially always; this row is image-derived,
+  and a dithered picture can produce a clue set that genuinely needs search.
+  So the honest statement is *"no grid the **random** source produces has
+  needed a real branch"*, not *"the current sources"* — and ADR-0029's History
+  entry of 2026-09-12 carries the same overclaim, for the same reason.
+
+  Nothing about the decision changes: the tier exists, is keyed on
+  `branch_nodes > 0`, and now has a real member. What changes is its status —
+  it is a live tier, not a safety net, and `Easy/Medium/Hard contain only
+  line-solvable puzzles` is now a claim with teeth rather than a vacuous one.
+  `tests/property/test_difficulty_ladder.py`'s
+  `test_no_real_generated_puzzle_is_classified_guess` is correctly scoped
+  already (its corpus is random-mode and its docstring says so), so no test is
+  wrong; the ADRs' prose is.
+
+
 - 2026-09-12 (measurement, same day): **`Tier.GUESS` is unreachable for the
   current sources, and the tier is kept anyway.** ADR-0029's revision of the
   same date made probe refutation a phase of the solve rather than work the
