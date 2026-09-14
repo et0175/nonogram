@@ -308,3 +308,198 @@ class TestAdminServing_DeploysOnPurpose:
             "render.yaml should carry autoDeploy: false"
         )
         assert not re.search(r"^\s*autoDeploy:\s*true\s*$", content, re.M)
+
+
+# --------------------------------------------------------------------------
+# CARD-086 follow-up — the deployment diagnoses itself
+#
+# Written after a live deploy 404'd every route and there was no way to tell,
+# from outside or from the logs, which of three causes it was. The 404 is
+# deliberately indistinguishable from "no such page" for a scanner (CON-016);
+# that is exactly why the operator needs the reason somewhere else.
+# --------------------------------------------------------------------------
+
+
+class TestAdminServing_TheConfiguredHostIsWhatTheOperatorPasted:
+    """ADMIN_ALLOWED_HOST accepts what the dashboard actually shows.
+
+    Render's dashboard displays ``https://nonogram-admin.onrender.com``, so
+    that is what gets pasted. Compared against a bare ``Host`` header it never
+    matches, and the result is a panel that 404s every route while every
+    variable looks right — the failure this class exists to prevent recurring.
+    """
+
+    HOST = "nonogram-admin.onrender.com"
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch: pytest.MonkeyPatch):
+        for name in (
+            "ADMIN_ALLOWED_HOST", "ADMIN_USER", "ADMIN_PASSWORD",
+            "SECRET_KEY", "DATABASE_URL",
+        ):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv("ADMIN_USER", "operator")
+        monkeypatch.setenv("ADMIN_PASSWORD", "x" * 20)
+        monkeypatch.setenv("SECRET_KEY", "k" * 20)
+
+    @pytest.mark.parametrize(
+        "pasted",
+        [
+            pytest.param("nonogram-admin.onrender.com", id="bare-host"),
+            pytest.param("https://nonogram-admin.onrender.com", id="with-scheme"),
+            pytest.param("https://nonogram-admin.onrender.com/", id="scheme-and-slash"),
+            pytest.param("nonogram-admin.onrender.com/", id="trailing-slash"),
+            pytest.param("http://nonogram-admin.onrender.com:443", id="with-port"),
+            pytest.param("  nonogram-admin.onrender.com  ", id="whitespace"),
+            pytest.param("NONOGRAM-ADMIN.ONRENDER.COM", id="upper-case"),
+        ],
+    )
+    def test_every_shape_an_operator_might_paste_works(
+        self, monkeypatch: pytest.MonkeyPatch, pasted
+    ) -> None:
+        import base64
+
+        from nonogram.admin import app as admin_app
+
+        monkeypatch.setenv("ADMIN_ALLOWED_HOST", pasted)
+        application = admin_app.create_app()
+        token = base64.b64encode(f"operator:{'x' * 20}".encode()).decode()
+
+        with application.test_client() as client:
+            response = client.get(
+                "/", headers={"Host": self.HOST, "Authorization": f"Basic {token}"}
+            )
+
+        assert response.status_code == 200, pasted
+
+    @pytest.mark.parametrize(
+        "unusable",
+        [
+            pytest.param("https://nonogram-admin.onrender.com/puzzles", id="with-path"),
+            pytest.param("https://", id="no-host"),
+            pytest.param("https://host/?q=1", id="with-query"),
+        ],
+    )
+    def test_a_value_that_is_not_a_host_fails_at_boot(
+        self, monkeypatch: pytest.MonkeyPatch, unusable
+    ) -> None:
+        """Loudly, where an operator is looking, not silently per request."""
+        from nonogram.admin import app as admin_app
+
+        monkeypatch.setenv("ADMIN_ALLOWED_HOST", unusable)
+
+        with pytest.raises(admin_app.AdminConfigurationError) as caught:
+            admin_app.create_app()
+
+        assert "ADMIN_ALLOWED_HOST" in str(caught.value)
+
+
+class TestAdminServing_SaysWhyItRefused:
+    """The 404 tells a scanner nothing; the log tells the operator everything."""
+
+    HOST = "nonogram-admin.onrender.com"
+
+    @staticmethod
+    def _captured(application):
+        import logging
+
+        records: list[str] = []
+
+        class Capture(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage())
+
+        application.logger.addHandler(Capture())
+        application.logger.setLevel(logging.INFO)
+        return records
+
+    def test_a_host_mismatch_is_logged_with_both_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from nonogram.admin import app as admin_app
+
+        monkeypatch.setenv("ADMIN_ALLOWED_HOST", self.HOST)
+        monkeypatch.setenv("ADMIN_USER", "operator")
+        monkeypatch.setenv("ADMIN_PASSWORD", "x" * 20)
+        monkeypatch.setenv("SECRET_KEY", "k" * 20)
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+
+        application = admin_app.create_app()
+        records = self._captured(application)
+        with application.test_client() as client:
+            client.get("/", headers={"Host": "wrong.example.com"})
+
+        assert any("wrong.example.com" in line for line in records), records
+        assert any(self.HOST in line for line in records), records
+
+    def test_the_response_itself_still_gives_nothing_away(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CON-016: the log is for the operator, never the body for the caller."""
+        from nonogram.admin import app as admin_app
+
+        monkeypatch.setenv("ADMIN_ALLOWED_HOST", self.HOST)
+        monkeypatch.setenv("ADMIN_USER", "operator")
+        monkeypatch.setenv("ADMIN_PASSWORD", "x" * 20)
+        monkeypatch.setenv("SECRET_KEY", "k" * 20)
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+
+        application = admin_app.create_app()
+        with application.test_client() as client:
+            response = client.get("/", headers={"Host": "wrong.example.com"})
+
+        body = response.get_data(as_text=True)
+        assert response.status_code == 404
+        assert self.HOST not in body
+        assert "ADMIN_ALLOWED_HOST" not in body
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            pytest.param("nonogram-admin.onrender.com", "reachable", id="deployed"),
+            pytest.param(None, "loopback-only", id="local"),
+            pytest.param("   ", "loopback-only", id="whitespace-reads-as-unset"),
+        ],
+    )
+    def test_the_boot_log_says_which_door_is_open(
+        self, monkeypatch: pytest.MonkeyPatch, value, expected
+    ) -> None:
+        """The whitespace case is why this exists as well as the mismatch log.
+
+        ``ADMIN_ALLOWED_HOST="   "`` is indistinguishable from unset, so it
+        lands in loopback-only mode and 404s every request through a proxy —
+        with no mismatch to log, because the host check never runs. Stating the
+        mode at boot is the only thing that catches it.
+        """
+        import logging
+
+        from nonogram.admin import app as admin_app
+
+        for name in ("ADMIN_ALLOWED_HOST", "DATABASE_URL"):
+            monkeypatch.delenv(name, raising=False)
+        if value is not None:
+            monkeypatch.setenv("ADMIN_ALLOWED_HOST", value)
+        monkeypatch.setenv("ADMIN_USER", "operator")
+        monkeypatch.setenv("ADMIN_PASSWORD", "x" * 20)
+        monkeypatch.setenv("SECRET_KEY", "k" * 20)
+
+        records: list[str] = []
+
+        class Capture(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage())
+
+        handler = Capture()
+        logging.getLogger("nonogram.admin.app").addHandler(handler)
+        try:
+            application = admin_app.create_app()
+            application.logger.addHandler(handler)
+            application.logger.setLevel(logging.INFO)
+            # create_app logs during construction; rebuild with the handler on
+            # the logger it will use.
+            records.clear()
+            application = admin_app.create_app()
+        finally:
+            logging.getLogger("nonogram.admin.app").removeHandler(handler)
+
+        assert any(expected in line for line in records), (expected, records)
