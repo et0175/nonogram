@@ -212,7 +212,7 @@ cleanly:**
 |---|---|---|---|
 | dev Postgres (`nonogram_dev`) | 005 | genuinely at 005 | `alembic upgrade head` — **done 2026-09-13**, 311 puzzles / 66 batches / 5 books intact |
 | `nonogram_admin.db` (SQLite) | 003 | ~~already past 003~~ **genuinely at 003** — corrected 2026-09-13, see below | plain `alembic upgrade head` — **done 2026-09-13**, 16 puzzles / 8 batches / 0 books intact, stamp now 006 |
-| Render production | 003 | **unverified** — the claim below was derived by the same faulty reading, so treat it as unknown until somebody inspects the live schema | inspect first, then almost certainly a plain `upgrade head`; **plus** the legacy-column caveat in the cycle-1 review (F-004): its grades were re-graded out of band on 2026-09-13, so 006 + the batch would capture those as "pre-run". Genuine pre-run values: `meta/ops/render-grades-backup-20260913.json` |
+| Render production | ~~003~~ **006** | **inspected 2026-09-14: already fully migrated.** Stamp 006, all of 004/005/006 applied, `books.nonogram_ids` dropped, `legacy_*` columns present. Postgres 16.15, 86 puzzles / 88 batches / 2 books | **nothing** — the schema is done. The legacy-column caveat (F-004) is still live, though: see below |
 
 **Correction (2026-09-13): the "schema past its stamp" diagnosis was wrong, and
 it was wrong in a way worth recording.** It rested on `puzzles` carrying
@@ -233,6 +233,37 @@ The lesson is the operational one: **a stamp/schema mismatch is a measurement,
 not an inference.** Read the columns each pending migration adds and check for
 them, one migration at a time, before choosing between `upgrade` and `stamp`.
 The two commands are not interchangeable and the wrong one is silent.
+
+**Render, measured (2026-09-14).** The inspection that the correction above
+called for has now been done, and it settles both open questions about that
+database.
+
+*The schema needed nothing.* It was never at 003 — that was the same faulty
+reading. Stamp 006, every migration applied, consistent.
+
+*The re-grade has already run there, and F-004's trap is armed.* All 86 rows
+differ from `meta/ops/render-grades-backup-20260913.json` (taken 07:05Z that
+day): `strategies_used` is populated on all 86 where the backup had none, and
+the score range is 0..100 where the backup's was 0..78 — ADR-0029's scale, not
+the old one. The newest `batches` row is 2026-09-12, so this was not a
+generation run; something re-graded the rows directly. **`legacy_difficulty_tier`
+is NULL on all 86**, so it did not go through `admin/regrade.py` — or it went
+through it before migration 006 existed, which is exactly the sequence F-004
+predicted.
+
+The consequence is unchanged and now confirmed: **running the re-grade batch
+against Render would write today's already-new grades into the legacy columns
+as the "pre-run" baseline**, and the genuine pre-run values would exist only in
+that JSON file. G-1 still stands.
+
+*And the ceil-vs-round question was not as settled as the corpus suggested.*
+Re-grading all 86 production rows with today's code: **79 reproduce exactly, 7
+differ by exactly +1 point, 0 change tier, 0 change strategies.** This card
+closed that question after measuring that 0 of 240 corpus grids discriminated
+`ceil` from `round`; production has 7 that do. The decision survives — nobody
+sees a different tier — but "nothing discriminates" was a property of the
+corpus, not of the scorer, and the 7 rows are a ready-made fixture if that
+choice is ever revisited.
 
 **For the next card that touches `db/models.py`:** say in the card which
 databases exist, what each is stamped at, and who runs the migration. A card
