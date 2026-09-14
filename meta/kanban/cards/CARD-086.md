@@ -1,6 +1,6 @@
 # CARD-086: Serve the deployed admin with a production server, and give its slowest route a bound it can live with
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -16,7 +16,7 @@
 **Depends on:** CARD-085 (merged 84fcc46) — the panel is only worth serving properly now that it is reachable
 **Touches:** pyproject.toml (the `admin` extra), requirements.txt, start.sh, render.yaml, ADMIN_SETUP.md, tests/test_admin_serving.py (new)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-14
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -153,14 +153,76 @@ a second long route; it is not warranted by one.
 
 ## Open questions for the owner
 
-- **Q-1** — which of the three options above for `POST /regrade`?
-  *(Recommended: 2 — give the route its own bound and report the shortfall.)*
-- **Q-2** — `render.yaml` still has `autoDeploy: true`, so every merge to
-  `main` goes straight to production; that is how CARD-081's guard reached
-  Render without anyone choosing to send it, and how CARD-085 took production
-  down until its variables were set. Worth turning off, separately from this
-  card?
+- ~~**Q-1** — which of the three options for `POST /regrade`?~~ **Answered
+  2026-09-14: option 2** — the route gets its own bound and the report says it
+  stopped early.
+- ~~**Q-2** — `autoDeploy: true` sends every merge to production.~~ **Answered
+  2026-09-14: turn it off.** Folded into this card rather than split out: it is
+  one line in the same file, and shipping a server change on a branch that
+  still auto-deploys would be the last thing this card should do.
 
 ## Worktree notes
 
-_(none yet)_
+**AC-5, measured before the bound was chosen.** A full re-grade over a *copy*
+of the 290-row development database (`pg_dump | psql` into a scratch database,
+dropped after — CARD-077 G-1: copies only):
+
+| | |
+|---|---|
+| rows | 290 (20 skipped as not uniquely solvable) |
+| total | **5.5 s** |
+| mean / median | 19 ms / 2 ms |
+| p95 / p99 | 46 ms / 290 ms |
+| slowest row | 2.1 s |
+| rows over 10 s | **0** |
+
+So the 43-minute worst case in the card's "Why" is arithmetic, not observation:
+real data re-grades a table larger than production's in under six seconds.
+`REGRADE_BUDGET_SECONDS = 60` is therefore over ten times the measured cost and
+will not fire on data like today's. It exists for the case the arithmetic
+allows and the measurement did not contain — enough rows hitting ADR-0011's own
+30 s ceiling to outlast a worker.
+
+**The ceiling is 90 s, not 60.** The deadline is checked *before* each row, so a
+row that starts always finishes: `REGRADE_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS`.
+`--timeout 120` clears it, and `tests/test_admin_serving.py` reads the flag out
+of `start.sh` and asserts it clears the sum — the two numbers cannot drift
+apart in a comment.
+
+Checking before the row rather than interrupting one is also what keeps the
+clock out of `SkipReason`. A row skipped for running out of time would make the
+skip list ambiguous between "this is not a puzzle" (CON-005) and "we were in a
+hurry", which is the one thing it must never be.
+
+**An existing test caught a real bug in this change.** I computed
+`run_deadline = monotonic() + run_budget_seconds` one line *above*
+`session.begin_nested()`. `monotonic` is an injected seam, so that read is a
+call into caller code, and on the dry-run path it fell outside the savepoint —
+`test_a_dry_run_undoes_a_write_made_while_it_ran` failed immediately. That test
+was written at CARD-077 cycle 2 because deleting the rollback entirely had left
+the suite green; it earned its keep a second time here.
+
+**Two of my own tests were wrong before the code was.** The first asserted "no
+`flask run` in `start.sh`" over the raw file and matched the comment explaining
+what had been removed — it now reads the script with comments stripped. The
+second drove the run budget with a fake clock returning small numbers, which
+made every *row's* deadline (`monotonic() + budget_seconds`, handed to a solver
+that reads the **real** clock) an absolute time decades in the past, so every
+row timed out and the test measured nothing it intended. The clock now returns
+the real time plus a jumping offset.
+
+**Smoke-tested under real gunicorn**, not only the test client:
+
+```
+anonymous GET /              -> 401
+authenticated GET /          -> 200
+cross-site POST /regrade     -> 403
+cross-site link to the panel -> 200
+wrong password               -> 401
+"development server" in log  -> 0 occurrences
+missing ADMIN_PASSWORD       -> AdminConfigurationError, worker refuses to boot
+```
+
+CARD-085's boot refusal survives the move: gunicorn loads through
+`create_app()`, so the exception propagates out of the worker's app load rather
+than being swallowed by an import-time module-level app.

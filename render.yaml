@@ -5,7 +5,13 @@ services:
     plan: free
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt && alembic upgrade head
     startCommand: bash start.sh
-    autoDeploy: true
+    # Off at the owner's call (CARD-086 Q-2). It was on, and that is how
+    # CARD-081's host guard reached production without anyone choosing to send
+    # it — every route 404'd until it was diagnosed — and how CARD-085's merge
+    # took the service down until its variables were set. A deploy to a panel
+    # holding the only copy of the puzzle data is a decision, not a side effect
+    # of merging. Deploy from the Render dashboard.
+    autoDeploy: false
     envVars:
       - key: FLASK_ENV
         value: production

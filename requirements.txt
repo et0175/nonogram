@@ -11,6 +11,11 @@ reportlab>=4.0
 Flask>=3.0
 Werkzeug>=3.0
 
+# Production WSGI server for the deployed admin panel (CARD-086). Flask's own
+# `flask run` is a development server — single-threaded, no request timeout, no
+# graceful shutdown — and said so in Render's boot log on every deploy.
+gunicorn>=23.0
+
 # Database
 psycopg2-binary>=2.9
 sqlalchemy>=2.0
