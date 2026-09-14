@@ -15,6 +15,7 @@ import random
 import logging
 
 from nonogram import orchestrator
+from nonogram.orchestrator import MAX_BATCH_COUNT
 from nonogram.errors import NotUniquelySolvable
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -191,15 +192,25 @@ class BatchGenerator:
         Raises:
             ValueError: If parameters invalid
         """
-        # Validate count based on source
-        # Images: allow 1-200 (count = number of images)
-        # Random: require 10-200 (count = number to generate)
+        # Validate count based on source.
+        # Images: allow 1..MAX (count = number of images)
+        # Random: require 10..MAX (count = number to generate)
+        #
+        # The ceiling is read from the orchestrator rather than repeated. It was
+        # 200 written out here *and* 200 written out there, and CARD-088 lowered
+        # one of them — which is how this layer came to accept a count the layer
+        # below refused, turning a validation error into a generation crash.
+        # Two copies of a bound is the bug; one is the fix.
         if source == "images":
-            if not 1 <= count <= 200:
-                raise ValueError(f"Image batch count must be 1-200, got {count}")
+            if not 1 <= count <= MAX_BATCH_COUNT:
+                raise ValueError(
+                    f"Image batch count must be 1-{MAX_BATCH_COUNT}, got {count}"
+                )
         else:
-            if not 10 <= count <= 200:
-                raise ValueError(f"Random batch count must be 10-200, got {count}")
+            if not 10 <= count <= MAX_BATCH_COUNT:
+                raise ValueError(
+                    f"Random batch count must be 10-{MAX_BATCH_COUNT}, got {count}"
+                )
         if not sizes or not all(MIN_SIZE <= s <= MAX_SIZE for s in sizes):
             raise ValueError(f"Sizes must be {MIN_SIZE}-{MAX_SIZE}, got {sizes}")
         if source not in ("random", "images"):
@@ -415,7 +426,13 @@ class BatchGenerator:
         # "missing puzzles" number, because an owner who cannot tell them apart
         # learns nothing from either.
         notes = []
-        abandoned_count = count - len(puzzles)
+        # Two different shortfalls, and they mean opposite things to whoever
+        # reads this: an abandoned candidate is bad luck and a re-run may do
+        # better, while a batch stopped by its own clock will stop in the same
+        # place every time. Read off the result rather than inferred from
+        # `count - len(puzzles)`, which cannot tell them apart (CARD-088).
+        abandoned_count = getattr(puzzles, "abandoned", count - len(puzzles))
+        not_attempted = getattr(puzzles, "not_attempted", 0)
         if abandoned_count:
             notes.append(
                 f"{abandoned_count} of {count} candidates could not be made "
@@ -424,6 +441,15 @@ class BatchGenerator:
                 f"That is expected occasionally — it is how a random grid can "
                 f"come out — and the batch was kept rather than discarded "
                 f"(CARD-083). Re-run if you need the full count."
+            )
+        if not_attempted:
+            notes.append(
+                f"{not_attempted} of {count} were never attempted: the batch "
+                f"reached its time budget first. This is not bad luck — the "
+                f"same request will stop in the same place — so ask for fewer "
+                f"puzzles, or for a smaller size. A puzzle costs about 0.06s at "
+                f"20x20 and about 3.9s at 30x30, which is the whole of the "
+                f"difference."
             )
         if refused_count:
             notes.append(
