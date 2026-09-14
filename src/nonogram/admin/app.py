@@ -28,7 +28,7 @@ The two are deliberately independent. The bind is the wall; the header check is
 what stands when someone opens a door in it.
 """
 
-from flask import Flask, Response, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from flask import Flask, Response, abort, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from datetime import datetime
 import hmac
 import json
@@ -638,6 +638,15 @@ def create_app(debug=None):
         # cookie is not also offered over a plaintext downgrade.
         app.config["SESSION_COOKIE_SECURE"] = True
 
+    # The re-grade (CARD-077) is an operator step: it rewrites every stored
+    # grade with no undo, and its own page says to take a snapshot first. That
+    # is a thing to do from this machine against a database whose backup you
+    # hold, not a button on a panel the internet can reach — so the deployed
+    # panel does not offer it. The routes answer 404 (indistinguishable from
+    # "no such page", which is the truth for that instance) and the navigation
+    # does not mention it. Local mode is unchanged.
+    app.config["REGRADE_ENABLED"] = not remote_host
+
     # Which mode was chosen, said once at boot. The two modes differ only in an
     # environment variable, and choosing the wrong one produces a panel that
     # 404s every route with no explanation — including when the variable is set
@@ -812,7 +821,10 @@ def create_app(debug=None):
                     return True
             return False
 
-        return {"nav_current": nav_current}
+        return {
+            "nav_current": nav_current,
+            "regrade_enabled": app.config.get("REGRADE_ENABLED", True),
+        }
 
     @app.route("/")
     def dashboard():
@@ -2323,6 +2335,8 @@ def create_app(debug=None):
         the page costs the same as the run it is previewing. That is affordable
         at this table's size and is the reason the two paths cannot disagree.
         """
+        if not app.config["REGRADE_ENABLED"]:
+            abort(404)
         if session_scope is None:
             flash("Re-grading needs a database (DATABASE_URL is not set)", "error")
             return redirect(url_for("dashboard"))
@@ -2341,6 +2355,8 @@ def create_app(debug=None):
         so the only record of them is a snapshot taken beforehand. Rows it
         skips are not touched at all.
         """
+        if not app.config["REGRADE_ENABLED"]:
+            abort(404)
         if session_scope is None:
             flash("Re-grading needs a database (DATABASE_URL is not set)", "error")
             return redirect(url_for("dashboard"))

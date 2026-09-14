@@ -67,7 +67,9 @@
                 {# CARD-077. Opens the dry run, never the write: the page behind
                    this link reports what a re-grade would do and asks before
                    doing it. #}
+                {% if regrade_enabled %}
                 <a href="/regrade" class="btn btn-sm btn-outline-secondary mt-3">{{ icons.icon('refresh') }} Re-grade puzzles</a>
+                {% endif %}
             </div>
         </div>
     </div>

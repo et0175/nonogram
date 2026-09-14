@@ -136,12 +136,16 @@ alembic upgrade head
 
 ### Who can reach the deployed panel
 
-**The admin panel has no login of its own beyond the password below, and
-`POST /regrade` rewrites the difficulty score, tier and strategies of every row
-it can grade — keeping no copy of what it replaced.** Anyone holding
-`ADMIN_PASSWORD` can do that, delete puzzles, and run bulk curation against
+**The admin panel has no login of its own beyond the password below.** Anyone
+holding `ADMIN_PASSWORD` can delete puzzles and run bulk curation against
 production. Treat the password as the only thing standing between the internet
 and the production data, because it is.
+
+The one route that rewrites every stored grade with no undo, `POST /regrade`,
+is **not served by the deployed panel at all**: when `ADMIN_ALLOWED_HOST` is
+set, `/regrade` answers 404 and the navigation does not mention it. Re-grading
+is an operator step run locally, against a database whose snapshot you hold
+(see `meta/ops/README.md`).
 
 By default the panel refuses every request that did not come from the machine
 it runs on (CARD-081), which on Render means **every request returns 404**.
@@ -218,9 +222,9 @@ The deployed panel also refuses any request your browser says another site
 started (a `Sec-Fetch-Site` outside `same-origin`/`none`, or an `Origin` naming
 another host), answering `403`. This is not optional hardening: a browser
 replays a cached HTTP Basic credential on a cross-site form POST, so without it
-any page you visit could aim a form at `POST /regrade` and rewrite every stored
-grade. Typed URLs, bookmarks, the panel's own forms, `curl` and Render's health
-probe are all unaffected.
+any page you visit could aim a form at a bulk-curation or delete route. Typed
+URLs, bookmarks, the panel's own forms, `curl` and Render's health probe are
+all unaffected.
 
 The formal decision behind all of this is
 [ADR-0030](meta/architecture/decisions/adr/0030-admin-remote-access-behind-a-credential.md),
