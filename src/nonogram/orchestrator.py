@@ -1868,6 +1868,12 @@ def generate_batch(
     #: Candidates skipped so far, and how many of those ran back-to-back.
     abandoned = 0
     consecutive_abandonments = 0
+    #: The most recent candidate-level abandonment, so *both* exits below can
+    #: chain it. Chaining only the consecutive one left a count<=2 caller with
+    #: __cause__ None — CARD-080's F-008 defect, reproduced on the other branch
+    #: of the function whose commit message cited that lesson (review cycle 1,
+    #: F-001).
+    last_abandonment: GenerationAbandoned | None = None
     rng = random.Random()  # Batch uses unseeded RNG; each puzzle draws its own seed
 
     for _ in range(count):
@@ -1906,6 +1912,7 @@ def generate_batch(
         except GenerationAbandoned as abandonment:
             abandoned += 1
             consecutive_abandonments += 1
+            last_abandonment = abandonment
             if consecutive_abandonments >= MAX_CONSECUTIVE_ABANDONMENTS:
                 raise GenerationAbandoned(
                     f"abandoned the batch after {consecutive_abandonments} "
@@ -1921,12 +1928,22 @@ def generate_batch(
         puzzles.append(puzzle)
 
     if not puzzles:
+        # Reachable only when ``count`` is below
+        # :data:`MAX_CONSECUTIVE_ABANDONMENTS`: with no successes the
+        # consecutive counter never resets, so for count >= 3 the bound above
+        # fires on the third candidate and this line is never reached. It is
+        # the tail case, not the general "everything failed" exit — measured,
+        # count 1 and 2 arrive here and count 3 and up do not. Said out loud
+        # because the message reads like the general one otherwise, and
+        # somebody debugging a failed 50-puzzle batch would hunt for it in
+        # vain (CARD-083 review cycle 1, F-003).
         raise GenerationAbandoned(
-            f"no puzzle in a batch of {count} could be made uniquely solvable; "
-            f"every candidate was abandoned after {MAX_RETRY_ATTEMPTS} "
-            f"attempts. A batch that produced nothing is not a short batch, it "
-            f"is a failed one — try a different size, or another run"
-        )
+            f"no puzzle in this batch of {count} could be made uniquely "
+            f"solvable; every candidate was abandoned after "
+            f"{MAX_RETRY_ATTEMPTS} attempts. A batch that produced nothing is "
+            f"not a short batch, it is a failed one — try a different size, or "
+            f"another run"
+        ) from last_abandonment
 
     return puzzles
 

@@ -144,7 +144,7 @@ class TestBatch_StillFailsWhenTheBatchItselfFailed:
         puzzles, and no error saying so."""
         _script(monkeypatch, [_abandonment(), _abandonment()])
 
-        with pytest.raises(GenerationAbandoned, match="no puzzle in a batch of 2"):
+        with pytest.raises(GenerationAbandoned, match="no puzzle in this batch of 2"):
             _batch(2)
 
     def test_the_consecutive_bound_ends_the_batch(
@@ -192,11 +192,47 @@ class TestBatch_StillFailsWhenTheBatchItselfFailed:
         candidate-level one, or a caller logging with ``exc_info`` loses what
         the pipeline actually said."""
         last = _abandonment()
-        _script(monkeypatch, ["ok", _abandonment(), _abandonment(), last])
+        # Padded to the full count: a mutant that moved the bound would
+        # otherwise run past a short script and die on IndexError rather than
+        # on the assertion this test is about (review cycle 1, F-005).
+        outcomes: list[object] = ["ok", _abandonment(), _abandonment(), last]
+        outcomes += [_abandonment()] * (10 - len(outcomes))
+        _script(monkeypatch, outcomes)
 
         with pytest.raises(GenerationAbandoned) as caught:
             _batch(10)
 
+        assert caught.value.__cause__ is last
+
+    @pytest.mark.parametrize(
+        ("count", "exit_taken"), [(1, "no puzzle in this batch"), (2, "no puzzle in this batch"), (3, "consecutive"), (10, "consecutive")]
+    )
+    def test_both_exits_chain_the_candidate_s_abandonment(
+        self, monkeypatch: pytest.MonkeyPatch, count: int, exit_taken: str
+    ) -> None:
+        """There are two ways out and they must not disagree about this.
+
+        Only the consecutive one chained at first, so a caller asking for one
+        or two puzzles lost what the pipeline said — CARD-080's F-008 defect,
+        on the other branch of the same function (review cycle 1, F-001). The
+        parametrize spans the boundary deliberately: count 1 and 2 reach the
+        empty-batch exit, count 3 and up cannot, because with no successes the
+        consecutive counter never resets.
+        """
+        # The abandonment that actually triggers the exit — the last slot for a
+        # count below the bound, the third one above it. Getting this wrong is
+        # how the first draft of this test asserted against an exception the
+        # run never reached.
+        trigger = min(count, MAX_CONSECUTIVE_ABANDONMENTS)
+        last = _abandonment()
+        outcomes: list[object] = [_abandonment() for _ in range(trigger - 1)]
+        outcomes += [last] + [_abandonment()] * (count - trigger)
+        _script(monkeypatch, outcomes)
+
+        with pytest.raises(GenerationAbandoned) as caught:
+            _batch(count)
+
+        assert exit_taken in str(caught.value)
         assert caught.value.__cause__ is last
 
 

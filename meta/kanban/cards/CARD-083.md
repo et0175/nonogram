@@ -103,8 +103,11 @@ answers.
 - G-2: No edits under `src/nonogram/solver/`, `difficulty.py`, or
   `sourcing/`. The generation of a candidate is unchanged; only the loop's
   reaction to one is new.
-- G-3: `generate`'s own contract is untouched — one abandoned puzzle still
-  raises for a single-puzzle caller (AC-019), including `generate_batch(count=1)`.
+- G-3: `generate`'s own contract is untouched — it is not in the diff — and
+  `generate_batch(count=1)` still raises on an abandoned candidate (AC-019).
+  What a count=1 caller *reads* does change: the message is now the batch's
+  rather than the candidate's. The candidate's own exception is chained as
+  `__cause__` on both exits, so nothing is lost (review cycle 1, F-004).
 - G-4: Commit only your own files; `nonogram_admin.db` and the egg-info churn
   are standing noise.
 
