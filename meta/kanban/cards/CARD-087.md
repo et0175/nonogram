@@ -1,6 +1,6 @@
 # CARD-087: The synthetic image fixtures are what their tests say they are
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/fixtures/{bands,landscape,portrait}.png, tests/fixtures/make_fixtures.py (new), tests/test_sourcing_image.py (one re-pin), tests/e2e/README.md
-**Review score:** —
+**Review score:** merged without a review cycle, at the owner's call
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
