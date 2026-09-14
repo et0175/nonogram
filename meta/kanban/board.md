@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-14 18:10 UTC_
+_Updated: 2026-09-14 19:00 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-089** P2 · The retry bound was a guess that asked to be measured, and the measurement says 40  _(wave 1)_ — answers CARD-088's Q-1; refutes ADR-0002's stated reason for rejecting a larger bound
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
@@ -57,6 +56,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-089** P2 · The retry bound measured, and left at 20 · closed as a measurement, no code change · merged d575708
 - **CARD-088** P1 · A batch stops on its own clock, not on the worker's · merged without a review cycle, at the owner's call · merged 55d83a5
 - **CARD-087** P2 · The synthetic image fixtures are what their tests say they are · merged without a review cycle, at the owner's call · merged 964b3c7
 - **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them · merged without a review cycle, at the owner's call · merged 20e9203
