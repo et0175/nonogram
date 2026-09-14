@@ -56,6 +56,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-082** P2 · The suite baseline says what it means — three standing failures and one 40% flake · score 9.0 (cycle 1/1) · merged a13c9bf
 - **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift · score 9.0 (cycle 1/1) · merged 4362a7e
 - **CARD-080** P1 · No write path can store a puzzle that is not uniquely solvable · score 8.5 (cycle 2/2) · merged b40e6b1
 - **CARD-077** P2 · Re-grade the admin DB under the ladder scale — admin action, backup first, legacy columns kept · score 8.5 (cycle 2/2) · merged 3de767f
