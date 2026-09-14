@@ -56,7 +56,7 @@ _(none)_
 _(none)_
 
 ## Done
-- **CARD-088** P1 · A batch stops on its own clock, not on the worker's · merged without a review cycle, at the owner's call · merged MERGESHA
+- **CARD-088** P1 · A batch stops on its own clock, not on the worker's · merged without a review cycle, at the owner's call · merged 55d83a5
 - **CARD-087** P2 · The synthetic image fixtures are what their tests say they are · merged without a review cycle, at the owner's call · merged 964b3c7
 - **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them · merged without a review cycle, at the owner's call · merged 20e9203
 - **CARD-086** P2 · Serve the deployed admin with gunicorn, bound its slowest route, and say why a request was refused · merged without a review cycle, at the owner's call · merged f381d62
