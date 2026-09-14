@@ -28,7 +28,11 @@ dev = ["pytest>=8.3"]
 # above: it is used only by admin/pdf_generator.py's book-PDF feature
 # (CARD-008), the same reason Flask/Werkzeug are extras rather than core -
 # a bare `pip install nonogram` (CLI-only) has no use for any of the three.
-admin = ["Flask>=3.0", "Werkzeug>=3.0", "reportlab>=4.0"]
+# gunicorn joins them for the same reason and under the same rule (CARD-086):
+# it serves the admin panel in a deployment and a CLI-only install has no use
+# for it. ADR-0006/R1's baseline is `project.dependencies` above, which stays
+# exactly Pillow + NumPy — the extras have always been outside it.
+admin = ["Flask>=3.0", "Werkzeug>=3.0", "reportlab>=4.0", "gunicorn>=23.0"]
 # Database dependencies
 db = ["SQLAlchemy>=2.0", "alembic>=1.13", "psycopg2-binary>=2.9"]
 

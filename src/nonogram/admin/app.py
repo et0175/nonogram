@@ -314,17 +314,68 @@ def _hostname_of(host_header: str | None) -> str | None:
         return None
 
 
+def _configured_hostname(raw: str) -> str:
+    """Reduce whatever the operator pasted into ``ADMIN_ALLOWED_HOST`` to a host.
+
+    The dashboard this value is copied from shows a *URL*
+    (``https://nonogram-admin.onrender.com``), so that is what gets pasted, and
+    the first version of this code compared it against a bare ``Host`` header —
+    which never matches, so every route 404s with no explanation anywhere. The
+    operator is then debugging the one refusal the panel deliberately makes
+    indistinguishable from "no such page" (CARD-086, after it happened).
+
+    So the common shapes are accepted and normalised rather than rejected: a
+    bare host, a URL with a scheme, either with a trailing slash, either with a
+    port, any case, any surrounding whitespace. What cannot be reduced to a
+    hostname raises :class:`AdminConfigurationError` at boot, where an operator
+    is looking at a log, instead of failing silently at request time.
+
+    Returns the lower-cased hostname, which is what
+    :func:`_hostname_of` produces for the incoming header — the two have to be
+    the output of the same kind of parse or the comparison is a guess.
+    """
+    value = raw.strip()
+    if not value:
+        raise AdminConfigurationError(f"{REMOTE_HOST_VAR} is set but empty.")
+
+    # A bare authority is not a URL, so give urlsplit a scheme to find when the
+    # operator did not paste one.
+    candidate = value if "//" in value else f"//{value}"
+    try:
+        split = urllib.parse.urlsplit(candidate)
+    except ValueError as bad_url:
+        raise AdminConfigurationError(
+            f"{REMOTE_HOST_VAR}={raw!r} cannot be read as a host name."
+        ) from bad_url
+
+    if split.path not in ("", "/") or split.query or split.fragment:
+        raise AdminConfigurationError(
+            f"{REMOTE_HOST_VAR}={raw!r} carries a path, query or fragment. It "
+            f"names the host this panel answers to, not a URL to visit — set "
+            f"it to just the host name, e.g. 'nonogram-admin.onrender.com'."
+        )
+
+    hostname = split.hostname
+    if not hostname:
+        raise AdminConfigurationError(
+            f"{REMOTE_HOST_VAR}={raw!r} has no host name in it. Set it to the "
+            f"service's host, e.g. 'nonogram-admin.onrender.com'."
+        )
+    return hostname
+
+
 def _host_is_the_configured_remote(host_header: str | None, expected: str) -> bool:
     """Does this ``Host`` name the one host remote access was configured for?
 
     An equality test, not an allowlist: the deployed door admits exactly one
-    name. ``urlsplit`` lower-cases the host component, so the configured value
-    is lower-cased too rather than compared case-sensitively — DNS names are
-    case-insensitive and an operator typing the hostname with a capital would
-    otherwise produce a service that 404s with no explanation.
+    name. Both sides come out of :func:`urllib.parse.urlsplit`'s ``hostname``,
+    which lower-cases — the header through :func:`_hostname_of`, the configured
+    value through :func:`_configured_hostname` at boot. Two host checks that
+    disagreed about what a host is would be a bypass waiting to happen, and
+    two that parsed differently would be a 404 nobody could explain.
     """
     hostname = _hostname_of(host_header)
-    return hostname is not None and hostname == expected.strip().lower()
+    return hostname is not None and hostname == expected
 
 
 def _credential_is_correct(
@@ -531,6 +582,10 @@ def create_app(debug=None):
     # configuration question with no single answer, and the boot-time refusal
     # below only means anything if this is the value the hook will use.
     remote_host = os.getenv(REMOTE_HOST_VAR, "").strip()
+    if remote_host:
+        # Normalised once, at boot, so a pasted URL works and an unusable value
+        # fails here rather than as a silent 404 on every route.
+        remote_host = _configured_hostname(remote_host)
     expected_user = os.getenv(ADMIN_USER_VAR, "").strip() or DEFAULT_ADMIN_USER
     expected_password = os.getenv(ADMIN_PASSWORD_VAR, "")
 
@@ -567,6 +622,23 @@ def create_app(debug=None):
         # The deployed panel is served over HTTPS; say so, so the session
         # cookie is not also offered over a plaintext downgrade.
         app.config["SESSION_COOKIE_SECURE"] = True
+
+    # Which mode was chosen, said once at boot. The two modes differ only in an
+    # environment variable, and choosing the wrong one produces a panel that
+    # 404s every route with no explanation — including when the variable is set
+    # to whitespace, which is indistinguishable from unset and lands in local
+    # mode silently. An operator reading the boot log should not have to infer
+    # which door is open from the behaviour of the door.
+    if remote_host:
+        app.logger.info(
+            "admin reachable at %s=%r, behind a credential", REMOTE_HOST_VAR, remote_host
+        )
+    else:
+        app.logger.info(
+            "admin in loopback-only mode (%s not set): every request whose Host "
+            "is not localhost/127.0.0.1/::1 gets 404, credentials or not",
+            REMOTE_HOST_VAR,
+        )
 
     @app.before_request
     def _refuse_what_this_panel_should_not_serve():
@@ -611,6 +683,17 @@ def create_app(debug=None):
             return None
 
         if not _host_is_the_configured_remote(host_header, remote_host):
+            # The refusal stays a bare 404 to the caller — that is the whole
+            # point of it (CON-016). But the *operator* gets a reason, in the
+            # server log they already have open, because otherwise the one
+            # refusal designed to be indistinguishable from "no such page" is
+            # also the one they have to debug blind.
+            app.logger.warning(
+                "refused: Host %r does not match %s=%r",
+                host_header,
+                REMOTE_HOST_VAR,
+                remote_host,
+            )
             return render_template("404.html"), 404
         if not _credential_is_correct(
             request.authorization, expected_user, expected_password

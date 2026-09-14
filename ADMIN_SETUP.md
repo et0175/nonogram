@@ -152,7 +152,7 @@ access is opt-in, and turning it on means setting all four variables below.
 
 | Variable | Set it to | Secret |
 |---|---|---|
-| `ADMIN_ALLOWED_HOST` | your service's hostname, e.g. `nonogram-admin.onrender.com` | no |
+| `ADMIN_ALLOWED_HOST` | your service's URL or host — `https://nonogram-admin.onrender.com` and `nonogram-admin.onrender.com` both work | no |
 | `ADMIN_USER` | a username (defaults to `admin` if unset) | no |
 | `ADMIN_PASSWORD` | a long random string | **yes** |
 | `SECRET_KEY` | a long random string | **yes** |
@@ -161,6 +161,22 @@ access is opt-in, and turning it on means setting all four variables below.
 `render.yaml` declares the secret-bearing ones as `sync: false`, so Render
 prompts for the values instead of reading them from this repository. Never
 commit a value for any of them.
+
+**`ADMIN_ALLOWED_HOST` is the switch.** Without it the panel stays in
+loopback-only mode and returns **404 on every route no matter what credentials
+you send** — which looks exactly like a broken deploy. If you are seeing 404s,
+check this variable first. The boot log says which mode it chose:
+
+```
+admin reachable at ADMIN_ALLOWED_HOST='nonogram-admin.onrender.com', behind a credential
+admin in loopback-only mode (ADMIN_ALLOWED_HOST not set): every request whose Host is not ...
+```
+
+and a request refused for the wrong host logs both values:
+
+```
+refused: Host 'x.example.com' does not match ADMIN_ALLOWED_HOST='nonogram-admin.onrender.com'
+```
 
 **Set all four before you merge, not after.** `render.yaml` carries
 `ADMIN_ALLOWED_HOST` as a literal value and the service has `autoDeploy: true`,
@@ -174,11 +190,17 @@ have.
 rate-limits guesses and `ADMIN_USER` defaults to `admin`, so the password is the
 whole of the defence; the app refuses to boot with a shorter one.
 
-Generate the two random strings with:
+Generate the two random strings by **running this command twice** and pasting
+each *output* — not the command itself:
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
+
+It prints something like `kJ8mN2pQ7rS4tV6wX9yZ1aB3cD5eF7gH9iJ2kL4mN6o`. Use the
+first output for `ADMIN_PASSWORD` and a second, different one for `SECRET_KEY`:
+they are unrelated secrets, and reusing one value means a leak of either is a
+leak of both.
 
 **The app refuses to start** if `ADMIN_ALLOWED_HOST` is set and either
 `ADMIN_PASSWORD` is missing or `SECRET_KEY` is still the built-in development

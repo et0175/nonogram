@@ -127,6 +127,35 @@ __all__ = [
 NO_LEGACY_TIER = ""
 
 
+#: How long the whole re-grade run may work before it stops and reports.
+#:
+#: A *second* bound, and deliberately so — ADR-0011's
+#: ``GENERATION_BUDGET_SECONDS`` is per solve, so a run over N rows inherits a
+#: worst case of N x 30s and no bound of its own. That was survivable while a
+#: development server ran the panel and a long run merely blocked; under a
+#: production server a request that outlives the worker timeout is *killed*,
+#: and this function commits per run, so the work would be lost rather than
+#: reported. CARD-083 answered the same question the same way for
+#: ``generate_batch``: a batch gets its own number rather than borrowing the
+#: per-item one (INV-003, ADR-0002 — one bound per question, and "how long may
+#: the batch work?" is a different question from "how long may one solve
+#: take?").
+#:
+#: 60 seconds is chosen against a measurement, not a guess. Re-grading a copy
+#: of the 290-row development database took **5.5 s** end to end — median 2 ms
+#: per row, p99 290 ms, slowest row 2.1 s, nothing over 10 s (CARD-086 AC-5).
+#: So this bound is more than ten times the real cost of a table larger than
+#: production's 86 rows, and will not fire on data like today's. It exists for
+#: the case the arithmetic allows and the measurement did not contain: enough
+#: rows hitting ADR-0011's own 30 s ceiling to outlast a worker.
+#:
+#: It must stay comfortably below the server's request timeout, or it cannot
+#: do its job — the worker would be killed before this ever stopped. That
+#: relationship is not a comment: ``tests/test_admin_serving.py`` reads the
+#: deployment's ``--timeout`` and asserts it exceeds this number.
+REGRADE_BUDGET_SECONDS = 60.0
+
+
 class SkipReason(StrEnum):
     """Why a row was left alone. The values are what the report prints."""
 
@@ -210,10 +239,25 @@ class RegradeReport:
 
     dry_run: bool
     outcomes: tuple[RowOutcome, ...]
+    #: Rows the run never reached because it hit
+    #: :data:`REGRADE_BUDGET_SECONDS` first. ``0`` on every run that finished,
+    #: which is every run over data like today's.
+    not_attempted: int = 0
 
     @property
     def row_count(self) -> int:
         return len(self.outcomes)
+
+    @property
+    def stopped_early(self) -> bool:
+        """Did the run stop on its own clock rather than on running out of rows?
+
+        The question the confirmation page has to be able to ask. A short run
+        that says nothing is indistinguishable from a complete one, and the
+        rows it did not reach still carry grades nobody has checked — the same
+        reason :attr:`skipped` is first-class rather than a footnote.
+        """
+        return self.not_attempted > 0
 
     @property
     def regraded(self) -> tuple[RowOutcome, ...]:
@@ -332,6 +376,7 @@ def regrade(
     *,
     dry_run: bool,
     budget_seconds: float = GENERATION_BUDGET_SECONDS,
+    run_budget_seconds: float = REGRADE_BUDGET_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> RegradeReport:
     """Re-grade every stored puzzle, or report what that would do.
@@ -348,6 +393,14 @@ def regrade(
         budget_seconds: ADR-0011's per-row solve budget. Per *row*, not per
             run: one pathological grid must not eat the budget of the rows
             behind it, and a row that times out is reported, not fatal.
+        run_budget_seconds: How long the whole run may work before it stops
+            and reports the shortfall (:data:`REGRADE_BUDGET_SECONDS`). The
+            bound ``budget_seconds`` deliberately does not provide: N rows at
+            30 s each is a worst case of N x 30 s, which outlives any worker.
+            Checked *before* each row rather than during one, so a row that
+            starts always finishes — the ceiling is therefore
+            ``run_budget_seconds + budget_seconds``, not ``run_budget_seconds``,
+            and the server's request timeout has to clear the sum.
         monotonic: The clock the deadline is read from. Injected only so a test
             can dilate it; nothing graded depends on it (CON-014).
 
@@ -377,10 +430,33 @@ def regrade(
     # caller owns it (CARD-077 review cycle 2, F-011). A nested transaction
     # undoes exactly the region between here and the rollback, which is what
     # "this function writes nothing" was always meant to mean.
+    not_attempted = 0
+
     savepoint = session.begin_nested() if dry_run else None
     try:
+        # The run's own clock, started before the first row and never reset. A
+        # deadline rather than a per-row subtraction, so the bound is one
+        # number read in one place (INV-003).
+        #
+        # Inside the savepoint, and that is not cosmetic: `monotonic` is an
+        # injected seam, so reading it is a call into the caller's code, and a
+        # dry run promises that *everything* this function does is undone.
+        # Computed one line earlier — outside `begin_nested()` — it escaped the
+        # region, which `test_a_dry_run_undoes_a_write_made_while_it_ran` caught
+        # immediately. That test exists because deleting the rollback once left
+        # the suite green (CARD-077 cycle 2); it earned its keep again here.
+        run_deadline = monotonic() + run_budget_seconds
         outcomes: list[RowOutcome] = []
-        for row in rows:
+        for index, row in enumerate(rows):
+            # Checked before the row, not inside it. Interrupting a solve
+            # mid-flight would mean reporting a row as skipped for a reason
+            # that is about the clock and not about the puzzle — the one thing
+            # SkipReason is careful never to say (CON-005: a row is skipped
+            # because it is not a puzzle, never because we ran out of time).
+            if monotonic() >= run_deadline:
+                not_attempted = len(rows) - index
+                break
+
             graded = grade_stored_grid(row.grid, deadline=monotonic() + budget_seconds)
             outcomes.append(_outcome(row, graded))
 
@@ -395,7 +471,9 @@ def regrade(
             # partial state behind for the caller to commit.
             savepoint.rollback()
 
-    return RegradeReport(dry_run=dry_run, outcomes=tuple(outcomes))
+    return RegradeReport(
+        dry_run=dry_run, outcomes=tuple(outcomes), not_attempted=not_attempted
+    )
 
 
 def _capture_legacy_grade(row: Puzzle) -> None:
