@@ -1,6 +1,6 @@
 # CARD-088: A batch stops on its own clock, not on the worker's
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** CARD-086 (merged f381d62) — the worker timeout this card exists to stay inside
 **Touches:** src/nonogram/orchestrator.py (the batch loop + one constant), src/nonogram/admin/batch_generator.py (the note), src/nonogram/admin/app.py (the form default), src/nonogram/admin/templates/batch_create.html, tests/test_batch_abandonment.py
-**Review score:** —
+**Review score:** merged without a review cycle, at the owner's call
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
