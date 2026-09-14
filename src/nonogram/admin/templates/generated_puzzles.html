@@ -1,257 +1,105 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
-{% block title %}Generated Puzzles - Nonogram Admin{% endblock %}
+{% block title %}Generated puzzles - Nonogram admin{% endblock %}
+{% block section %}New batch · step 4{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <h1>✅ Generated Puzzles</h1>
-        <p class="text-muted">Preview and download your generated nonogram puzzles</p>
+<div class="page-head">
+    <div>
+        <h1>Review the batch</h1>
+        <p class="lede">{{ puzzles|length }} puzzle{{ 's' if puzzles|length != 1 else '' }} from {{ total_images }} picture{{ 's' if total_images != 1 else '' }}{% if filtered_count > 0 %}; {{ filtered_count }} filtered out by the quality threshold{% endif %}. Approve the ones worth printing.</p>
     </div>
 </div>
 
 <div class="row">
     <div class="col-md-9">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Generated Puzzle Grids ({{ puzzles|length }})</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Generated grids <span class="badge count">{{ puzzles|length }}</span></h2></div>
             <div class="card-body">
                 {% if puzzles %}
-                    <div class="row">
+                    <div class="result-grid">
                         {% for puzzle in puzzles %}
-                        <div class="col-md-6 mb-4">
-                            <div class="card border">
-                                <div class="card-body">
-                                    <!-- Puzzle SVG Grid -->
-                                    <div class="puzzle-preview-box mb-3">
-                                        <img src="/api/puzzle/{{ puzzle.id }}/grid"
-                                             alt="Puzzle {{ puzzle.id }}"
-                                             class="puzzle-grid-img"
-                                             onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load grid</div></div>'">
-                                    </div>
+                        <div class="result-card" data-puzzle-id="{{ puzzle.id }}">
+                            <div class="thumb thumb-lg">
+                                <img src="/api/puzzle/{{ puzzle.id }}/grid"
+                                     alt=""
+                                     onerror="this.parentElement.innerHTML='<span class=fallback>No preview</span>'">
+                            </div>
 
-                                    <!-- Download Buttons -->
-                                    <div class="mb-3">
-                                        <div class="btn-group w-100" role="group">
-                                            <a href="/api/puzzle/{{ puzzle.id }}/grid/download"
-                                               class="btn btn-sm btn-outline-primary"
-                                               download>
-                                                ⬇️ SVG
-                                            </a>
-                                            <a href="/api/puzzle/{{ puzzle.id }}/grid/download-pdf"
-                                               class="btn btn-sm btn-outline-success"
-                                               download>
-                                                📄 PDF
-                                            </a>
-                                        </div>
-                                    </div>
+                            <dl class="kv">
+                                <dt>Source</dt><dd>{{ puzzle.get('source_image', 'N/A') }}</dd>
+                                <dt>Size</dt><dd class="num">{{ puzzle.get('width', '?') }}×{{ puzzle.get('height', '?') }}</dd>
+                                <dt>Difficulty</dt><dd>{{ puzzle.get('difficulty_tier', 'N/A') }}</dd>
+                                <dt>Quality</dt><dd class="num">{{ puzzle.get('quality_score') or 'N/A' }}/100</dd>
+                            </dl>
 
-                                    <!-- Puzzle Info -->
-                                    <div class="puzzle-info">
-                                        <div class="row mb-2">
-                                            <div class="col-6">
-                                                <small><strong>Size:</strong></small><br>
-                                                <small>{{ puzzle.get('width', '?') }}×{{ puzzle.get('height', '?') }}</small>
-                                            </div>
-                                            <div class="col-6">
-                                                <small><strong>Difficulty:</strong></small><br>
-                                                <small>{{ puzzle.get('difficulty_tier', 'N/A') }}</small>
-                                            </div>
-                                        </div>
-                                        <div class="row mb-3">
-                                            <div class="col-6">
-                                                <small><strong>Quality:</strong></small><br>
-                                                <small>{{ puzzle.get('quality_score') or 'N/A' }}/100</small>
-                                            </div>
-                                            <div class="col-6">
-                                                <small><strong>Source:</strong></small><br>
-                                                <small>{{ puzzle.get('source_image', 'N/A') }}</small>
-                                            </div>
-                                        </div>
-                                    </div>
+                            <div class="actions" data-puzzle-id="{{ puzzle.id }}">
+                                <form method="POST" action="/puzzle/{{ puzzle.id }}/approve?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="approve">
+                                    <button type="submit" class="btn btn-sm btn-success puzzle-action-btn" title="Approve this puzzle">{{ icons.icon('check') }} Approve</button>
+                                </form>
+                                <form method="POST" action="/puzzle/{{ puzzle.id }}/reject?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="reject">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger puzzle-action-btn" title="Reject this puzzle">{{ icons.icon('x') }} Reject</button>
+                                </form>
+                                <span class="puzzle-status-badge ms-auto">{% if puzzle.status == 'approved' %}<span class="badge" data-status="approved">✓ Approved</span>{% elif puzzle.status == 'rejected' %}<span class="badge" data-status="rejected">✕ Rejected</span>{% elif puzzle.status == 'in_book' %}<span class="badge" data-status="in_book">In book</span>{% endif %}</span>
+                            </div>
 
-                                    <!-- Action Buttons -->
-                                    <div class="action-buttons" data-puzzle-id="{{ puzzle.id }}">
-                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/approve?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="approve" style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-success puzzle-action-btn" title="Approve this puzzle">
-                                                ✓ Approve
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="/puzzle/{{ puzzle.id }}/reject?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="reject" style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-danger puzzle-action-btn" title="Reject this puzzle">
-                                                ✕ Reject
-                                            </button>
-                                        </form>
-                                        <span class="puzzle-status-badge ms-2">{% if puzzle.status == 'approved' %}<span class="badge bg-success ms-2">✓ Approved</span>{% elif puzzle.status == 'rejected' %}<span class="badge bg-danger ms-2">✕ Rejected</span>{% elif puzzle.status == 'in_book' %}<span class="badge bg-primary ms-2">In book</span>{% endif %}</span>
-                                    </div>
-                                </div>
+                            <div class="actions">
+                                <a href="/api/puzzle/{{ puzzle.id }}/grid/download" class="btn btn-sm btn-outline-secondary" download>{{ icons.icon('download') }} SVG</a>
+                                <a href="/api/puzzle/{{ puzzle.id }}/grid/download-pdf" class="btn btn-sm btn-outline-secondary" download>{{ icons.icon('download') }} PDF</a>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="alert alert-info">
-                        No puzzles were generated. This might be due to quality filter or processing errors.
-                    </div>
+                    <p class="empty">No puzzles were generated — every picture fell below the quality threshold, or generation failed. <a href="/batch/create">Start another batch</a>.</p>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Sidebar -->
     <div class="col-md-3">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Summary</h5>
-            </div>
-            <div class="card-body">
-                <strong>Generated:</strong><br>
-                <span class="badge bg-success">{{ puzzles|length }} puzzle(s)</span>
-
-                {% if total_images > 0 and filtered_count > 0 %}
-                <br><small class="text-muted mt-2 d-block">
-                    from {{ total_images }} image(s)<br>
-                    <strong>{{ filtered_count }} filtered out</strong> by quality threshold
-                </small>
-                {% elif total_images > 0 %}
-                <br><small class="text-muted mt-2 d-block">
-                    from {{ total_images }} image(s)
-                </small>
-                {% endif %}
-
-                <hr>
-
-                <strong>Batch ID:</strong><br>
-                <code style="font-size: 0.85rem;">{{ batch_id }}</code>
-
-                <hr>
-
-                <div class="alert alert-light text-center mb-0">
-                    <small class="text-muted">
-                        ✅ Generation complete!<br>
-                        Review and download your puzzles.
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Bulk Actions</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Whole batch</h2></div>
             <div class="card-body">
                 <div class="d-grid gap-2">
                     <form method="POST" action="/batch/{{ batch_id }}/approve-all"
                           onsubmit="return confirm('Approve all puzzles in this batch?');">
-                        <button type="submit" class="btn btn-success w-100">✓ Approve All</button>
+                        <button type="submit" class="btn btn-success w-100">{{ icons.icon('check') }} Approve all</button>
                     </form>
                     <form method="POST" action="/batch/{{ batch_id }}/reject-all"
                           onsubmit="return confirm('Reject all puzzles in this batch?');">
-                        <button type="submit" class="btn btn-danger w-100">✕ Reject All</button>
+                        <button type="submit" class="btn btn-outline-danger w-100">{{ icons.icon('x') }} Reject all</button>
                     </form>
                     <form method="POST" action="/batch/{{ batch_id }}/delete-rejected"
                           onsubmit="return confirm('Delete all rejected puzzles in this batch? This cannot be undone.');">
-                        <button type="submit" class="btn btn-outline-danger w-100">🗑️ Delete Rejected</button>
+                        <button type="submit" class="btn btn-outline-danger w-100">{{ icons.icon('trash') }} Delete rejected</button>
                     </form>
                 </div>
                 <small class="text-muted d-block mt-2">Puzzles already in a book are not changed.</small>
             </div>
         </div>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Navigation</h5>
-            </div>
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Workflow</h2></div>
             <div class="card-body">
+                {{ stepper.batch_steps(4) }}
+                <hr>
+                <dl class="kv small mb-3">
+                    <dt>Batch</dt><dd><code>{{ batch_id|first_n(8) }}</code></dd>
+                </dl>
                 <div class="d-grid gap-2">
-                    <a href="/batch/create" class="btn btn-primary">
-                        ➕ Create New Batch
-                    </a>
-                    <a href="/" class="btn btn-outline-secondary">
-                        🏠 Back to Dashboard
-                    </a>
+                    <a href="/batch/create" class="btn btn-primary">{{ icons.icon('plus') }} New batch</a>
+                    <a href="/" class="btn btn-outline-secondary">Dashboard</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.puzzle-preview-box {
-    width: 200px;
-    height: 200px;
-    max-width: 100%;
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    border: 2px solid #b0bec5;
-    border-radius: 8px;
-    overflow: hidden;
-    position: relative;
-}
-
-.puzzle-grid-img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-}
-
-.placeholder-content {
-    text-align: center;
-    color: #555;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.preview-icon {
-    font-size: 3rem;
-}
-
-.preview-dims {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #333;
-}
-
-.puzzle-info {
-    background-color: #f8f9fa;
-    padding: 12px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.action-buttons form {
-    flex: 1;
-    min-width: 80px;
-}
-
-.action-buttons .btn {
-    width: 100%;
-}
-
-.puzzle-status-badge {
-    white-space: nowrap;
-    display: inline-block;
-    vertical-align: middle;
-}
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle approve/reject with visual feedback
     document.querySelectorAll('.puzzle-action-form').forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -261,47 +109,31 @@ document.addEventListener('DOMContentLoaded', function() {
             const container = this.closest('[data-puzzle-id]');
             const statusBadge = container.querySelector('.puzzle-status-badge');
 
-            // Confirm reject action
-            if (action === 'reject' && !confirm('Reject this puzzle?')) {
-                return;
-            }
+            if (action === 'reject' && !confirm('Reject this puzzle?')) return;
 
-            // Disable button and show loading state
             actionBtn.disabled = true;
-            const originalText = actionBtn.textContent;
-            actionBtn.textContent = '⏳...';
+            const originalHtml = actionBtn.innerHTML;
+            actionBtn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
 
-            // Submit form
-            fetch(this.action, {
-                method: 'POST'
-            })
+            fetch(this.action, { method: 'POST' })
             .then(response => {
-                // Update UI with status badge
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 if (action === 'approve') {
-                    statusBadge.innerHTML = '<span class="badge bg-success ms-2">✓ Approved</span>';
+                    statusBadge.innerHTML = '<span class="badge" data-status="approved">✓ Approved</span>';
                 } else if (action === 'reject') {
-                    statusBadge.innerHTML = '<span class="badge bg-danger ms-2">✕ Rejected</span>';
+                    statusBadge.innerHTML = '<span class="badge" data-status="rejected">✕ Rejected</span>';
                 }
-
-                // Disable both buttons
-                container.querySelectorAll('.puzzle-action-btn').forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.6';
-                });
-
-                // Show success message
-                console.log(`Puzzle ${action}ed successfully`);
+                container.querySelectorAll('.puzzle-action-btn').forEach(btn => { btn.disabled = true; });
+                actionBtn.innerHTML = originalHtml;
             })
             .catch(error => {
-                // Restore button
                 actionBtn.disabled = false;
-                actionBtn.textContent = originalText;
-                statusBadge.innerHTML = `<span class="badge bg-danger">Error</span>`;
+                actionBtn.innerHTML = originalHtml;
+                statusBadge.innerHTML = '<span class="badge" data-status="failed">Error</span>';
                 console.error('Error:', error);
             });
         });
     });
 });
 </script>
-
 {% endblock %}

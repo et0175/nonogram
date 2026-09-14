@@ -1,0 +1,87 @@
+/* Design tokens — Nonogram admin panel, direction "Pressroom".
+   Source of truth: forge:ui. Edit via /forge:ui, not by hand.
+   Mirrored verbatim into src/nonogram/admin/static/tokens.css
+   (tests/test_admin_design_tokens.py fails when the two differ).
+   Webfonts intended: Source Serif 4 (display + UI), IBM Plex Mono (numerals,
+   identifiers) — the panel loads no webfonts, so the stacks below approximate
+   them with Iowan Old Style / Georgia and SF Mono / Menlo.
+   Contrast checked to WCAG 2.1 AA on 2026-09-14 (ratios noted per pair). */
+
+:root {
+  /* Color — surfaces & text */
+  --color-bg: #f5f0e6;               /* paper */
+  --color-surface: #fbf8f1;          /* sheet: tables, forms, panels */
+  --color-surface-hover: #f1ebdd;    /* row hover, quiet button hover */
+  --color-surface-sunken: #efe9dc;   /* table head, code, sunken wells */
+  --color-input: #fffdf8;
+  --color-text: #1c2333;             /* ink navy — 14.8:1 on surface */
+  --color-text-secondary: #5c6070;   /* 5.9:1 on surface, 5.5:1 on bg */
+  --color-border: #d6cdb9;           /* hairline rules (decorative) */
+  --color-border-strong: #7f755f;    /* input/control edges — 3.9:1 on surface */
+  --color-topbar: #1c2333;
+  --color-topbar-text: #f5f0e6;      /* 13.8:1 */
+  --color-topbar-text-secondary: #b9bcc8; /* 8.3:1 */
+
+  /* Color — accent & semantic (state, never decoration) */
+  --color-accent: #1f5f5b;           /* bookcloth green — 7.0:1 on surface */
+  --color-accent-hover: #164744;
+  --color-on-accent: #fbf8f1;        /* 7.0:1 */
+  --color-accent-tint: #e6efec;      /* accent text on it: 6.3:1 */
+  --color-success: #2f6b3a;          /* 6.0:1 on surface; white on it 6.4:1 */
+  --color-success-tint: #e7efe6;     /* success text on it: 5.4:1 */
+  --color-warning: #855d00;          /* 5.6:1 on surface, 5.0:1 on its tint */
+  --color-warning-tint: #f6ecd4;
+  --color-danger: #9b3b26;           /* brick — 6.5:1; white on it 6.9:1 */
+  --color-danger-hover: #7a2d1c;
+  --color-danger-tint: #f5e6e0;      /* danger text on it: 5.7:1 */
+  --color-focus: #1f5f5b;
+
+  /* Color — difficulty tiers. Hue sources only; pinned by
+     tests/test_admin_tier_surfaces.py. A chip mixes 14% of the hue into the
+     surface for its ground and 50% into the ink for its text
+     (worst pair, Medium: 4.8:1). */
+  --color-tier-easy: #27ae60;
+  --color-tier-medium: #f39c12;
+  --color-tier-hard: #e74c3c;
+  --color-tier-guess: #8e44ad;
+  --color-tier-none: #95a5a6;
+
+  /* Color — the puzzle grid itself (SVG thumbnails, previews) */
+  --grid-paper: #fffdf8;
+  --grid-ink: #1c2333;
+
+  /* Color — data-viz categorical slots (charts pull from here, in order) */
+  --viz-1: #1f5f5b; --viz-2: #9b3b26; --viz-3: #8f6400; --viz-4: #2f6b3a;
+
+  /* Typography */
+  --font-display: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-ui: var(--font-display);
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: var(--font-num);
+  --text-xs: 0.78rem; --text-sm: 0.9rem; --text-base: 1rem;
+  --text-lg: 1.25rem; --text-xl: 1.9rem; --text-2xl: 2.5rem;
+  --leading-tight: 1.2; --leading-base: 1.55;
+  --weight-display: 500;             /* h1 is italic 500, not bold */
+
+  /* Spacing (rhythm: 4px base, opening up above 24px) */
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.25rem; --space-6: 1.75rem; --space-8: 2.5rem; --space-12: 3.5rem;
+
+  /* Shape & elevation.
+     Policy: hairlines do the work of boxes. Containers 4px, controls 3px,
+     chips 3px. The only shadows are an inset on inputs (letterpress) and the
+     modal's; nothing else is elevated. */
+  --radius-control: 3px; --radius-container: 4px; --radius-badge: 3px;
+  --border-width: 1px;
+  --shadow-inset-input: inset 0 1px 2px rgb(28 35 51 / 0.08);
+  --shadow-raised: none;
+  --shadow-modal: 0 12px 32px rgb(28 35 51 / 0.22);
+
+  /* Motion */
+  --duration-fast: 150ms; --duration-base: 220ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout sizes */
+  --side-w: 220px; --topbar-h: 52px; --control-h: 36px;
+  --row-h: 64px; --thumb: 52px; --measure: 68ch;
+}

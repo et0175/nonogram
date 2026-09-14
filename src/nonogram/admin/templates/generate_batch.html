@@ -1,87 +1,81 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
-{% block title %}Generate Batch - Nonogram Admin{% endblock %}
+{% block title %}Generate - Nonogram admin{% endblock %}
+{% block section %}New batch · step 3{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <h1>Generate Puzzles from Images</h1>
-        <p class="text-muted">Convert your selected images to nonogram puzzles</p>
+<div class="page-head">
+    <div>
+        <h1>Generate</h1>
+        <p class="lede">The last look before the solver runs: one row per picture, with the grid it will get.</p>
     </div>
 </div>
 
 {% if error %}
 <div class="alert alert-danger alert-dismissible fade show" role="alert">
     <strong>Error:</strong> {{ error }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 {% endif %}
 
 <div class="row">
     <div class="col-md-9">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Ready to Generate</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">{{ images|length }} picture{{ 's' if images|length != 1 else '' }} to convert</h2></div>
             <div class="card-body">
-                <p>You are about to generate puzzles from <strong>{{ images|length }}</strong> image(s).</p>
-
-                <div class="alert alert-info">
-                    <h6 class="alert-heading">Puzzle Configuration Summary</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Image</th>
-                                    <th>Dimensions</th>
-                                    <th>Mode</th>
-                                    <th>Grid Size</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for image in images %}
-                                {% set fit = image.size_fit() %}
-                                <tr>
-                                    <td><strong>{{ image.puzzle_name }}</strong></td>
-                                    <td>{{ image.dimensions[0] }}×{{ image.dimensions[1] }}px</td>
-                                    <td>{{ image.size_mode|capitalize }}</td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm"
-                                               value="{% if fit.status == 'cannot_fit' %}skipped{% else %}{{ fit.extent[0] }}×{{ fit.extent[1] }}{% endif %}"
-                                               title="Puzzle grid dimensions (Width×Height)">
-                                        {% if fit.status == 'moved_to_large' %}
-                                        <span class="text-warning small"
-                                              title="The chosen size would cut this picture; using Large instead.">
-                                            ⚠ moved to Large
-                                        </span>
-                                        {% elif fit.status == 'cannot_fit' %}
-                                        <span class="text-danger small"
-                                              title="Too elongated for any supported size; this picture will be skipped.">
-                                            ⛔ will be skipped
-                                        </span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Picture</th>
+                                <th class="text-end">Pixels</th>
+                                <th>Mode</th>
+                                <th>Grid</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for image in images %}
+                            {% set fit = image.size_fit() %}
+                            <tr>
+                                <td><strong>{{ image.puzzle_name }}</strong></td>
+                                <td class="text-end">{{ image.dimensions[0] }}×{{ image.dimensions[1] }}</td>
+                                <td>{{ image.size_mode|capitalize }}</td>
+                                <td>
+                                    <span class="num">{% if fit.status == 'cannot_fit' %}skipped{% else %}{{ fit.extent[0] }}×{{ fit.extent[1] }}{% endif %}</span>
+                                    {% if fit.status == 'moved_to_large' %}
+                                    <span class="text-warning small d-block"
+                                          title="The chosen size would cut this picture; using Large instead.">
+                                        moved to Large
+                                    </span>
+                                    {% elif fit.status == 'cannot_fit' %}
+                                    <span class="text-danger small d-block"
+                                          title="Too elongated for any supported size; this picture will be skipped.">
+                                        will be skipped
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
 
                 <form method="POST" id="generateForm">
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="confirmGeneration" required>
                         <label class="form-check-label" for="confirmGeneration">
-                            I'm ready to generate puzzles from these images
+                            I'm ready to generate puzzles from these pictures
                         </label>
                     </div>
 
-                    <div class="d-grid gap-2">
+                    <div class="actions">
                         <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
-                            ⚡ Generate {{ images|length }} Puzzle{{ images|length != 1 and 's' or '' }}
+                            Generate {{ images|length }} puzzle{{ images|length != 1 and 's' or '' }}
                         </button>
-                        <a href="/batch/select-images" class="btn btn-outline-secondary">
-                            ◄ Back to Images
+                        <a href="/batch/preview-images" class="btn btn-outline-secondary">
+                            {{ icons.icon('arrow-left') }} Back to preview &amp; size
                         </a>
                     </div>
                 </form>
@@ -91,88 +85,36 @@
 
     <div class="col-md-3">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Summary</h5>
-            </div>
-            <div class="card-body">
-                <strong>Source Images:</strong><br>
-                <span class="badge bg-primary">{{ images|length }}</span>
-
-                <hr>
-
-                <strong>Total Data:</strong><br>
-                {% if images %}
-                    {% set total_size = images|map(attribute='file_size')|sum %}
-                    {{ (total_size / 1024 / 1024)|round(2) }} MB
-                {% else %}
-                    0 MB
-                {% endif %}
-
-                <hr>
-
-                <strong>Output Format:</strong><br>
-                <small>
-                    PNG images<br>
-                    Nonogram puzzles<br>
-                    Metadata preserved
-                </small>
-
-                <hr>
-
-                <div class="alert alert-light text-center mb-0">
-                    <small class="text-muted">
-                        Processing will<br>create a new batch
-                    </small>
-                </div>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Workflow</h2></div>
+            <div class="card-body">{{ stepper.batch_steps(3, {1: '/batch/select-images', 2: '/batch/preview-images'}) }}</div>
         </div>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Status</h5>
-            </div>
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">This batch</h2></div>
             <div class="card-body">
-                <div id="statusBox">
-                    <span class="badge bg-warning">Ready</span>
-                    <p class="small mt-2 mb-0">Click "Generate" to start</p>
-                </div>
+                <dl class="kv mb-3">
+                    <dt>Pictures</dt><dd class="num">{{ images|length }}</dd>
+                    <dt>Data</dt><dd class="num">{% if images %}{% set total_size = images|map(attribute='file_size')|sum %}{{ (total_size / 1024 / 1024)|round(2) }}{% else %}0{% endif %} MB</dd>
+                    <dt>Status</dt><dd id="statusBox"><span class="badge" data-status="ready">Ready</span></dd>
+                </dl>
+                <small class="text-muted">Generating creates a new batch; every puzzle in it starts as a draft.</small>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-#generateBtn:not(:disabled) {
-    transition: all 0.2s;
-}
-
-#generateBtn:not(:disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-}
-</style>
-
 <script>
 document.getElementById('confirmGeneration').addEventListener('change', function() {
-    const btn = document.getElementById('generateBtn');
-    btn.disabled = !this.checked;
+    document.getElementById('generateBtn').disabled = !this.checked;
 });
 
-// Initialize button state
 document.getElementById('generateBtn').disabled = true;
 
 document.getElementById('generateForm').addEventListener('submit', function(e) {
     const btn = document.getElementById('generateBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-
-    const statusBox = document.getElementById('statusBox');
-    statusBox.innerHTML = '<span class="badge bg-info">Processing</span><p class="small mt-2 mb-0">Generating puzzles from images...</p>';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Generating…';
+    document.getElementById('statusBox').innerHTML = '<span class="badge" data-status="generating">Generating</span>';
 });
 </script>
 {% endblock %}

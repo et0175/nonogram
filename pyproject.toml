@@ -58,6 +58,9 @@ where = ["src"]
 # glob that happens to catch it.
 [tool.setuptools.package-data]
 "nonogram.export" = ["fonts/*.ttf", "fonts/LICENSE"]
+# The admin panel's Jinja templates and stylesheet: the same rule as the font —
+# absent from every wheel unless named here.
+"nonogram.admin" = ["templates/*.html", "static/*.css"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -1,19 +1,18 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
 
-{% block title %}500 Server Error - Nonogram Admin{% endblock %}
+{% block title %}Server error - Nonogram admin{% endblock %}
 
 {% block content %}
-<div class="row" style="margin-top: 100px;">
-    <div class="col-md-6 mx-auto text-center">
-        <h1 style="font-size: 4rem; color: #e74c3c;">500</h1>
-        <h2>Server Error</h2>
-        <p class="text-muted mb-2">An internal server error occurred.</p>
-        {% if error %}
-        <div class="alert alert-danger mt-3" style="text-align: left;">
-            <strong>Error:</strong> {{ error }}
-        </div>
-        {% endif %}
-        <a href="/" class="btn btn-primary">← Back to Dashboard</a>
+<div class="error-page is-danger">
+    <div class="code">500</div>
+    <h1>Something went wrong</h1>
+    <p class="text-muted mb-2">The panel hit an error it could not recover from.</p>
+    {% if error %}
+    <div class="alert alert-danger mt-3 text-start">
+        <strong>Error:</strong> {{ error }}
     </div>
+    {% endif %}
+    <a href="/" class="btn btn-primary">{{ icons.icon('arrow-left') }} Back to dashboard</a>
 </div>
 {% endblock %}

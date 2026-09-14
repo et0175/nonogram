@@ -1,163 +1,126 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
 
-{% block title %}{{ book.metadata.title }} - Nonogram Admin{% endblock %}
+{% block title %}{{ book.metadata.title }} - Nonogram admin{% endblock %}
+{% block section %}Books · {{ book.metadata.title }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-8">
+<div class="page-head">
+    <div>
         <h1>{{ book.metadata.title }}</h1>
-        <p class="text-muted">{{ book.metadata.description }}</p>
+        <p class="lede">{{ book.metadata.description }}</p>
     </div>
-    <div class="col-md-4 text-end">
-        <span class="badge badge-{{ book.status|replace('_', '-') }}" style="font-size: 1rem;">
-            {{ book.status|replace('_', ' ')|title }}
-        </span>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Book Details</h5>
-            </div>
-            <div class="card-body">
-                <table class="table">
-                    <tr>
-                        <td><strong>Book ID</strong></td>
-                        <td><code>{{ book.book_id }}</code></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Theme</strong></td>
-                        <td>{{ book.metadata.theme|capitalize }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Audience</strong></td>
-                        <td>{{ book.metadata.target_audience }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Size</strong></td>
-                        <td>{{ book.metadata.size }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Puzzles</strong></td>
-                        <td>{{ book.puzzle_ids|length }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Pages</strong></td>
-                        <td>{{ book.metadata.page_count }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Created</strong></td>
-                        <td>{{ book.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Status & Actions</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="/book/{{ book.book_id }}/status" class="mb-3">
-                    <label for="status" class="form-label">Update Status</label>
-                    <select class="form-select" id="status" name="status" required>
-                        <option value="draft" {% if book.status == 'draft' %}selected{% endif %}>Draft</option>
-                        <option value="ready_for_pdf" {% if book.status == 'ready_for_pdf' %}selected{% endif %}>Ready for PDF</option>
-                        <option value="pdf_generated" {% if book.status == 'pdf_generated' %}selected{% endif %}>PDF Generated</option>
-                        <option value="ready_for_kdp" {% if book.status == 'ready_for_kdp' %}selected{% endif %}>Ready for KDP</option>
-                        <option value="published" {% if book.status == 'published' %}selected{% endif %}>Published</option>
-                    </select>
-                    <button type="submit" class="btn btn-primary btn-sm mt-2">Update Status</button>
-                </form>
-
-                <hr>
-
-                <h6>PDF Generation</h6>
-                {% if book.puzzle_ids|length > 0 %}
-                <form method="POST" action="/book/{{ book.book_id }}/generate-pdf" style="display:inline;">
-                    <button type="submit" class="btn btn-success btn-sm w-100">📥 Generate & Download PDF</button>
-                </form>
-                {% else %}
-                <button class="btn btn-success btn-sm w-100" disabled>
-                    📥 Generate PDF (add puzzles first)
-                </button>
-                {% endif %}
-
-                <hr>
-
-                {% if book.metadata.pdf_url %}
-                <p>📄 <strong>Last Generated:</strong> {{ book.metadata.pdf_url }}</p>
-                {% endif %}
-
-                {% if book.metadata.kdp_asin %}
-                <p>📦 <strong>ASIN:</strong> {{ book.metadata.kdp_asin }}</p>
-                {% endif %}
-            </div>
-        </div>
+    <div class="page-actions align-items-center">
+        <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
+        {% if book.status == 'draft' %}
+        <a href="/book/{{ book.book_id }}/setup-print" class="btn btn-primary">Continue scaffolding {{ icons.icon('arrow-right') }}</a>
+        {% endif %}
     </div>
 </div>
 
 <div class="row">
-    <div class="col-md-12">
+    <div class="col-md-6">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Puzzles ({{ book.puzzle_ids|length }})</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Details</h2></div>
             <div class="card-body">
-                {% if book.puzzle_ids %}
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Position</th>
-                                <th>Puzzle ID</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for puzzle_id in book.puzzle_ids %}
-                            <tr>
-                                <td>{{ loop.index }}</td>
-                                <td><code>{{ puzzle_id }}</code></td>
-                                <td>
-                                    <form action="/book/{{ book.book_id }}/remove-puzzle" method="POST" style="display:inline;">
-                                        <input type="hidden" name="puzzle_id" value="{{ puzzle_id }}">
-                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this puzzle?')">Remove</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <p class="text-muted">No puzzles in this book yet.</p>
-                {% endif %}
+                <dl class="kv">
+                    <dt>Book ID</dt><dd><code>{{ book.book_id }}</code></dd>
+                    <dt>Theme</dt><dd>{{ book.metadata.theme|capitalize }}</dd>
+                    <dt>Audience</dt><dd>{{ book.metadata.target_audience }}</dd>
+                    <dt>Size</dt><dd>{{ book.metadata.size }}</dd>
+                    <dt>Puzzles</dt><dd class="num">{{ book.puzzle_ids|length }}</dd>
+                    <dt>Pages</dt><dd class="num">{{ book.metadata.page_count }}</dd>
+                    <dt>Created</dt><dd class="num">{{ book.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Status &amp; export</h2></div>
+            <div class="card-body">
+                <form method="POST" action="/book/{{ book.book_id }}/status" class="mb-3">
+                    <label for="status" class="form-label">Update status</label>
+                    <div class="d-flex gap-2">
+                        <select class="form-select" id="status" name="status" required>
+                            <option value="draft" {% if book.status == 'draft' %}selected{% endif %}>Draft</option>
+                            <option value="ready_for_pdf" {% if book.status == 'ready_for_pdf' %}selected{% endif %}>Ready for PDF</option>
+                            <option value="pdf_generated" {% if book.status == 'pdf_generated' %}selected{% endif %}>PDF generated</option>
+                            <option value="ready_for_kdp" {% if book.status == 'ready_for_kdp' %}selected{% endif %}>Ready for KDP</option>
+                            <option value="published" {% if book.status == 'published' %}selected{% endif %}>Published</option>
+                        </select>
+                        <button type="submit" class="btn btn-outline-secondary">Update</button>
+                    </div>
+                </form>
 
                 <hr>
 
-                <h6>Add Puzzles to Book</h6>
-                <form method="POST" action="/book/{{ book.book_id }}/add-puzzles">
-                    <div class="mb-3">
-                        <label for="puzzle_ids" class="form-label">Puzzle IDs (comma-separated)</label>
-                        <textarea class="form-control" id="puzzle_ids" name="puzzle_ids" rows="3"
-                                  placeholder="e.g., puzzle_000001, puzzle_000002, puzzle_000003"></textarea>
-                        <small class="form-text text-muted">Enter puzzle IDs separated by commas</small>
-                    </div>
-                    <button type="submit" class="btn btn-primary">➕ Add Puzzles</button>
+                {% if book.puzzle_ids|length > 0 %}
+                <form method="POST" action="/book/{{ book.book_id }}/generate-pdf">
+                    <button type="submit" class="btn btn-primary">{{ icons.icon('download') }} Generate &amp; download PDF</button>
                 </form>
+                {% else %}
+                <button class="btn btn-primary" disabled>{{ icons.icon('download') }} Generate PDF</button>
+                <p class="text-muted small mt-2 mb-0">Add puzzles first.</p>
+                {% endif %}
+
+                {% if book.metadata.pdf_url or book.metadata.kdp_asin %}
+                <dl class="kv mt-3">
+                    {% if book.metadata.pdf_url %}<dt>Last generated</dt><dd>{{ book.metadata.pdf_url }}</dd>{% endif %}
+                    {% if book.metadata.kdp_asin %}<dt>ASIN</dt><dd><code>{{ book.metadata.kdp_asin }}</code></dd>{% endif %}
+                </dl>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-md-12">
-        <a href="/books" class="btn btn-outline-secondary">← Back to Books</a>
+<div class="card">
+    <div class="card-header"><h2 class="card-title mb-0">Puzzles <span class="badge count">{{ book.puzzle_ids|length }}</span></h2></div>
+    <div class="card-body">
+        {% if book.puzzle_ids %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th class="text-end">#</th>
+                        <th>Puzzle ID</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for puzzle_id in book.puzzle_ids %}
+                    <tr>
+                        <td class="text-end">{{ loop.index }}</td>
+                        <td><code>{{ puzzle_id }}</code></td>
+                        <td class="text-end">
+                            <form action="/book/{{ book.book_id }}/remove-puzzle" method="POST" onsubmit="return confirm('Remove this puzzle from the book?')">
+                                <input type="hidden" name="puzzle_id" value="{{ puzzle_id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty">No puzzles in this book yet. Use <a href="/book/{{ book.book_id }}/select-puzzles">puzzle selection</a>, or paste IDs below.</p>
+        {% endif %}
+
+        <hr>
+
+        <form method="POST" action="/book/{{ book.book_id }}/add-puzzles">
+            <div class="mb-3">
+                <label for="puzzle_ids" class="form-label">Add puzzles by ID (comma-separated)</label>
+                <textarea class="form-control" id="puzzle_ids" name="puzzle_ids" rows="2"
+                          placeholder="e.g. e4be67be-…, 272c63f7-…"></textarea>
+            </div>
+            <button type="submit" class="btn btn-outline-secondary">{{ icons.icon('plus') }} Add puzzles</button>
+        </form>
     </div>
 </div>
+
+<p><a href="/books" class="btn btn-outline-secondary">{{ icons.icon('arrow-left') }} Back to books</a></p>
 {% endblock %}

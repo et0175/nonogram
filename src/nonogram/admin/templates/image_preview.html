@@ -1,267 +1,148 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
-{% block title %}Preview Images - Nonogram Admin{% endblock %}
+{% block title %}Preview pictures - Nonogram admin{% endblock %}
+{% block section %}New batch · step 2{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <h1>Batch: Preview Images & Select Sizes</h1>
-        <p class="text-muted">Configure puzzle size for each image (Fixed, Short Side, Min, or Max)</p>
+<div class="page-head">
+    <div>
+        <h1>Preview &amp; size</h1>
+        <p class="lede">Each picture is shown cropped to the grid it will become. Choose a size mode per picture, or apply one to all.</p>
     </div>
 </div>
 
 <div class="row">
     <div class="col-md-9">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Images with Size Configuration</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Apply a size to every picture</h2></div>
             <div class="card-body">
-                <!-- Global Size Controls -->
-                <div class="mb-4 p-3 bg-light border rounded">
-                    <h6 class="mb-3">Apply size to all images:</h6>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <select class="form-select" id="globalSizeMode" onchange="updateGlobalSize()">
-                                <option value="fixed">Fixed Size</option>
-                                <option value="short">Short Side (follows picture)</option>
-                                <option value="min">Minimum Size</option>
-                                <option value="max">Maximum Size</option>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="globalSizeMode" class="form-label">Size mode</label>
+                        <select class="form-select" id="globalSizeMode" onchange="updateGlobalSize()">
+                            <option value="fixed">Fixed size</option>
+                            <option value="short">Short side (follows picture)</option>
+                            <option value="min">Minimum size</option>
+                            <option value="max">Maximum size</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="globalFixedSection">
+                        <label for="globalSizeValue" class="form-label">Cells</label>
+                        <input type="number" class="form-control" id="globalSizeValue"
+                               min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="20" onchange="updateGlobalSize()">
+                        <small class="form-text text-muted">{{ MIN_SIZE }}-{{ MAX_SIZE }}</small>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-secondary w-100" onclick="applyToAll()">Apply to all</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            {% for image in images %}
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        {% set fit = image.size_fit() %}
+                        <div class="thumb thumb-lg mb-3" id="imageBox_{{ image.file_id }}">
+                            {% include '_size_fit_box.html' %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="name_{{ image.file_id }}">Puzzle name</label>
+                            <input type="text" class="form-control"
+                                   id="name_{{ image.file_id }}"
+                                   value="{{ image.puzzle_name }}">
+                            <small class="form-text text-muted">From the file name: {{ image.original_filename|replace('.' + image.original_filename.split('.')[-1], '') }}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="mode_{{ image.file_id }}">Size mode</label>
+                            <select class="form-select" id="mode_{{ image.file_id }}"
+                                    onchange="updateSize('{{ image.file_id }}')">
+                                <option value="fixed" {% if image.size_mode == 'fixed' %}selected{% endif %}>Fixed size</option>
+                                <option value="short" {% if image.size_mode == 'short' %}selected{% endif %}>Short side (follows picture)</option>
+                                <option value="min" {% if image.size_mode == 'min' %}selected{% endif %}>Minimum size (auto)</option>
+                                <option value="max" {% if image.size_mode == 'max' %}selected{% endif %}>Maximum size (auto)</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <div id="globalFixedSection">
-                                <input type="number" class="form-control" id="globalSizeValue"
-                                       min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="20" onchange="updateGlobalSize()">
-                                <small class="form-text text-muted">{{ MIN_SIZE }}-{{ MAX_SIZE }}</small>
-                            </div>
+
+                        <div class="mb-3" id="fixedSection_{{ image.file_id }}">
+                            <label class="form-label" for="value_{{ image.file_id }}">Cells</label>
+                            <input type="number" class="form-control"
+                                   id="value_{{ image.file_id }}"
+                                   min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ image.size_value }}"
+                                   onchange="updateSize('{{ image.file_id }}')">
+                            <small class="form-text text-muted">{{ MIN_SIZE }}-{{ MAX_SIZE }} cells</small>
                         </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-outline-secondary w-100" onclick="applyToAll()">
-                                Apply to All
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Individual Image Controls -->
-                <div class="row">
-                    {% for image in images %}
-                    <div class="col-md-6 mb-4">
-                        <div class="card border">
-                            <div class="card-body">
-                                {% set fit = image.size_fit() %}
-                                <!-- Cropped Image Preview (what will be used for puzzle) -->
-                                <div class="image-preview-box mb-3" id="imageBox_{{ image.file_id }}">
-                                    {% include '_size_fit_box.html' %}
-                                </div>
-
-                                <!-- Image Name -->
-                                <div class="mb-3">
-                                    <label class="form-label">Puzzle Name</label>
-                                    <input type="text" class="form-control"
-                                           id="name_{{ image.file_id }}"
-                                           value="{{ image.puzzle_name }}"
-                                           onchange="updateName('{{ image.file_id }}')">
-                                    <small class="form-text text-muted">(default: {{ image.original_filename|replace('.' + image.original_filename.split('.')[-1], '') }})</small>
-                                </div>
-
-                                <!-- Size Selection -->
-                                <div class="mb-3">
-                                    <label class="form-label">Puzzle Size</label>
-                                    <select class="form-select" id="mode_{{ image.file_id }}"
-                                            onchange="updateSize('{{ image.file_id }}')">
-                                        <option value="fixed" {% if image.size_mode == 'fixed' %}selected{% endif %}>Fixed Size</option>
-                                        <option value="short" {% if image.size_mode == 'short' %}selected{% endif %}>Short Side (follows picture)</option>
-                                        <option value="min" {% if image.size_mode == 'min' %}selected{% endif %}>Minimum Size (auto)</option>
-                                        <option value="max" {% if image.size_mode == 'max' %}selected{% endif %}>Maximum Size (auto)</option>
-                                    </select>
-                                </div>
-
-                                <!-- Fixed Size Input -->
-                                <div class="mb-3" id="fixedSection_{{ image.file_id }}">
-                                    <label class="form-label">Size Value</label>
-                                    <input type="number" class="form-control"
-                                           id="value_{{ image.file_id }}"
-                                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ image.size_value }}"
-                                           onchange="updateSize('{{ image.file_id }}')">
-                                    <small class="form-text text-muted">{{ MIN_SIZE }}-{{ MAX_SIZE }} cells</small>
-                                </div>
-
-                                <!-- Size Preview -->
-                                <div class="alert alert-info mb-0">
-                                    <strong>Predicted Output:</strong>
-                                    <div class="text-center mt-2" id="prediction_{{ image.file_id }}">
-                                        {% include '_size_fit_prediction.html' %}
-                                    </div>
-                                </div>
+                        <div class="alert alert-info mb-0">
+                            <strong>Predicted grid</strong>
+                            <div class="mt-1" id="prediction_{{ image.file_id }}">
+                                {% include '_size_fit_prediction.html' %}
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
                 </div>
             </div>
+            {% endfor %}
         </div>
     </div>
 
-    <!-- Sidebar -->
     <div class="col-md-3">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Summary</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Workflow</h2></div>
             <div class="card-body">
-                <strong>Images:</strong><br>
-                <span class="badge bg-primary">{{ images|length }}</span>
-
+                {{ stepper.batch_steps(2, {1: '/batch/select-images'}) }}
                 <hr>
-
-                <strong>Total Data:</strong><br>
-                {{ total_size_mb|round(2) }} MB
-
-                <hr>
-
-                <strong>Size Modes:</strong><br>
-                <small>
-                    <strong>Fixed:</strong> Set exact size<br>
-                    <strong>Short Side:</strong> Short side fixed, long side follows the picture<br>
-                    <strong>Min:</strong> Smallest readable<br>
-                    <strong>Max:</strong> Best quality
-                </small>
-
-                <hr>
-
-                <div class="alert alert-light text-center mb-0">
-                    <small class="text-muted">
-                        Next: Generate puzzles from images
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Navigation</h5>
-            </div>
-            <div class="card-body">
                 <form method="POST" action="/batch/preview-images" id="sizeConfigForm">
                     <input type="hidden" name="save_config" value="1">
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary" name="action" value="save_and_redirect">
-                            Next: Generate Puzzles ➡️
+                            Next: generate {{ icons.icon('arrow-right') }}
                         </button>
                         <a href="/batch/select-images" class="btn btn-outline-secondary">
-                            ◄ Back to Images
+                            {{ icons.icon('arrow-left') }} Back to select images
                         </a>
                     </div>
                 </form>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">This batch</h2></div>
+            <div class="card-body">
+                <dl class="kv mb-3">
+                    <dt>Pictures</dt><dd class="num">{{ images|length }}</dd>
+                    <dt>Data</dt><dd class="num">{{ total_size_mb|round(2) }} MB</dd>
+                </dl>
+                <h3 class="fs-6">Size modes</h3>
+                <dl class="kv small mb-0">
+                    <dt>Fixed</dt><dd>Exactly this many cells</dd>
+                    <dt>Short side</dt><dd>Short side fixed, long side follows the picture</dd>
+                    <dt>Min</dt><dd>Smallest readable grid</dd>
+                    <dt>Max</dt><dd>Best quality</dd>
+                </dl>
+            </div>
+        </div>
     </div>
 </div>
-
-<!-- Hidden form to collect configuration data -->
-<form id="configForm" method="POST" style="display:none;">
-    {% for image in images %}
-    <input type="hidden" name="mode_{{ image.file_id }}" id="mode_{{ image.file_id }}_hidden">
-    <input type="hidden" name="value_{{ image.file_id }}" id="value_{{ image.file_id }}_hidden">
-    <input type="hidden" name="name_{{ image.file_id }}" id="name_{{ image.file_id }}_hidden">
-    {% endfor %}
-</form>
-
-<style>
-.image-preview-box {
-    width: 200px;
-    height: 200px;
-    max-width: 100%;
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    border: 2px dashed #b0bec5;
-    border-radius: 8px;
-    font-size: 2rem;
-    overflow: hidden;
-    position: relative;
-}
-
-.preview-img {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    display: block;
-}
-
-.placeholder-content {
-    text-align: center;
-    color: #555;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.preview-icon {
-    font-size: 3rem;
-}
-
-.preview-dims {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #333;
-    letter-spacing: 0.5px;
-}
-
-.preview-format {
-    font-size: 0.7rem;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.placeholder {
-    text-align: center;
-}
-
-.dimensions {
-    font-size: 0.65rem;
-    color: #666;
-    margin-top: 5px;
-}
-
-#globalFixedSection.hidden {
-    display: none;
-}
-</style>
 
 <script>
 function updateGlobalSize() {
     const mode = document.getElementById('globalSizeMode').value;
     const fixedSection = document.getElementById('globalFixedSection');
-
-    if (mode === 'fixed' || mode === 'short') {
-        fixedSection.classList.remove('hidden');
-    } else {
-        fixedSection.classList.add('hidden');
-    }
+    fixedSection.hidden = !(mode === 'fixed' || mode === 'short');
 }
 
 function updateSize(fileId) {
     const mode = document.getElementById('mode_' + fileId).value;
     const value = document.getElementById('value_' + fileId).value;
     const fixedSection = document.getElementById('fixedSection_' + fileId);
-
-    // Show/hide fixed size input based on mode
-    if (mode === 'fixed' || mode === 'short') {
-        fixedSection.style.display = 'block';
-    } else {
-        fixedSection.style.display = 'none';
-    }
-
+    fixedSection.hidden = !(mode === 'fixed' || mode === 'short');
     refreshPrediction(fileId, mode, value);
 }
 
@@ -302,79 +183,53 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function updateName(fileId) {
-    const name = document.getElementById('name_' + fileId).value;
-    console.log('Updated name for', fileId, ':', name);
-}
-
 function applyToAll() {
     const mode = document.getElementById('globalSizeMode').value;
     const value = document.getElementById('globalSizeValue').value;
 
     // Apply to all image selectors, then refresh each prediction once
-    document.querySelectorAll('[id^="mode_"]:not([id$="_hidden"])').forEach(el => {
+    document.querySelectorAll('[id^="mode_"]').forEach(el => {
         const fileId = el.id.replace('mode_', '');
         el.value = mode;
         const valueEl = document.getElementById('value_' + fileId);
-        if (valueEl) {
-            valueEl.value = value;
-        }
+        if (valueEl) valueEl.value = value;
         updateSize(fileId);
     });
 }
 
-// Initialize
 document.addEventListener('DOMContentLoaded', function() {
     updateGlobalSize();
 
-    // Initialize individual controls
-    document.querySelectorAll('[id^="mode_"]:not([id$="_hidden"])').forEach(el => {
+    document.querySelectorAll('[id^="mode_"]').forEach(el => {
         const fileId = el.id.replace('mode_', '');
         const mode = el.value;
-        const fixedSection = document.getElementById('fixedSection_' + fileId);
-        if (mode !== 'fixed' && mode !== 'short') {
-            fixedSection.style.display = 'none';
-        }
+        document.getElementById('fixedSection_' + fileId).hidden = !(mode === 'fixed' || mode === 'short');
     });
 
-    // Add form submission handler
     const form = document.getElementById('sizeConfigForm');
     if (form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Create FormData with all configuration data
             const formData = new FormData();
-
-            // Add the save_config field
             formData.append('save_config', '1');
 
-            // Collect all configuration data from visible form fields
-            document.querySelectorAll('[id^="mode_"]:not([id$="_hidden"])').forEach(el => {
+            document.querySelectorAll('[id^="mode_"]').forEach(el => {
                 const fileId = el.id.replace('mode_', '');
-                const mode = document.getElementById('mode_' + fileId).value;
-                const value = document.getElementById('value_' + fileId).value;
-                const name = document.getElementById('name_' + fileId).value;
-
-                // Add to FormData
-                formData.append('mode_' + fileId, mode);
-                formData.append('value_' + fileId, value);
-                formData.append('name_' + fileId, name);
+                formData.append('mode_' + fileId, document.getElementById('mode_' + fileId).value);
+                formData.append('value_' + fileId, document.getElementById('value_' + fileId).value);
+                formData.append('name_' + fileId, document.getElementById('name_' + fileId).value);
             });
 
-            // Submit via fetch to POST /batch/preview-images
-            fetch('/batch/preview-images', {
-                method: 'POST',
-                body: formData
-            }).then(response => {
-                if (response.ok) {
-                    window.location.href = '/batch/generate-puzzles';
-                } else {
-                    alert('Error saving configuration');
-                }
-            }).catch(error => {
-                alert('Error: ' + error);
-            });
+            fetch('/batch/preview-images', { method: 'POST', body: formData })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/batch/generate-puzzles';
+                    } else {
+                        alert('Error saving configuration');
+                    }
+                })
+                .catch(error => { alert('Error: ' + error); });
         });
     }
 });

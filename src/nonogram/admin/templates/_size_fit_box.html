@@ -1,13 +1,9 @@
 {#- The cropped preview for one image at its current size — rendered by
     image_preview.html and re-rendered by POST /api/image/<id>/size. -#}
 {% if fit.status == 'cannot_fit' %}
-<div class="placeholder-content">
-    <div class="preview-icon">⛔</div>
-    <div class="preview-dims">Will be skipped</div>
-</div>
+<span class="fallback">Will be skipped</span>
 {% else %}
 <img src="/api/image/{{ image.file_id }}/cropped?extent={{ fit.extent[0] }}x{{ fit.extent[1] }}"
      alt="Cropped preview of {{ image.original_filename }}"
-     class="preview-img"
-     onerror="this.parentElement.innerHTML='<div class=placeholder-content><div class=preview-icon>⚠️</div><div class=preview-dims>Failed to load image</div></div>'">
+     onerror="this.parentElement.innerHTML='<span class=fallback>Failed to load image</span>'">
 {% endif %}

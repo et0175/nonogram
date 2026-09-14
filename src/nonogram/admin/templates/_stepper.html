@@ -1,0 +1,35 @@
+{#
+  The book-scaffolding step list and the batch workflow list, once each.
+  Every step page rendered its own copy before the design system, and the
+  copies had already drifted (one marked the current step with a green badge,
+  one with bold, one with both).
+#}
+{% macro book_steps(current) -%}
+{% set steps = [(1, 'Print setup', 'Trim size and units'), (2, 'Puzzle selection', 'Pick approved grids'), (3, 'Arrangement', 'Order and title them'), (4, 'Finalise & export', 'Cover, guide page, PDF')] -%}
+<ol class="stepper" aria-label="Book scaffolding steps">
+    {% for n, label, hint in steps -%}
+    <li class="{% if n < current %}is-done{% elif n == current %}is-current{% endif %}" {% if n == current %}aria-current="step"{% endif %}>
+        <span class="step-n">{{ n }}</span>
+        <span>{{ label }}<small>{{ hint }}</small></span>
+    </li>
+    {% endfor -%}
+</ol>
+{%- endmacro %}
+
+{#
+  `links` maps a step number to the URL that reopens it. A finished step with
+  a link renders as one, so the list is the flow's back navigation as well as
+  its progress; steps that cannot be reopened (after generation clears the
+  loaded pictures) are passed without links and stay plain text.
+#}
+{% macro batch_steps(current, links={}) -%}
+{% set steps = [(1, 'Select images', 'Upload files or a folder'), (2, 'Preview & size', 'Choose a grid size per picture'), (3, 'Generate', 'Convert to puzzles'), (4, 'Review', 'Approve or reject each grid')] -%}
+<ol class="stepper" aria-label="Batch workflow">
+    {% for n, label, hint in steps -%}
+    <li class="{% if n < current %}is-done{% elif n == current %}is-current{% endif %}" {% if n == current %}aria-current="step"{% endif %}>
+        <span class="step-n">{{ n }}</span>
+        <span>{% if n != current and links.get(n) %}<a href="{{ links[n] }}">{{ label }}</a>{% else %}{{ label }}{% endif %}<small>{{ hint }}</small></span>
+    </li>
+    {% endfor -%}
+</ol>
+{%- endmacro %}

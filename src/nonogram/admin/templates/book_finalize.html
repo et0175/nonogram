@@ -1,66 +1,56 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
-{% block title %}Finalize Book - {{ book.metadata.title }} - Nonogram Admin{% endblock %}
+{% block title %}Finalise - {{ book.metadata.title }} - Nonogram admin{% endblock %}
+{% block section %}Books · {{ book.metadata.title }} · step 4{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h1>Book Scaffolding: Step 4 - Finalization & Export</h1>
-                <p class="text-muted">Prepare for publication: <strong>{{ book.metadata.title }}</strong></p>
-            </div>
-            <div class="badge bg-info">Draft</div>
-        </div>
+<div class="page-head">
+    <div>
+        <h1>Finalise &amp; export</h1>
+        <p class="lede">Step 4 of 4 for <strong>{{ book.metadata.title }}</strong>: cover, guide page, and the PDF.</p>
+    </div>
+    <div class="page-actions align-items-center">
+        <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
     </div>
 </div>
 
 <div class="row">
-    <!-- Main Content -->
     <div class="col-md-8">
-        <!-- Cover Page Section -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">📄 Cover Page (Optional)</h5>
-            </div>
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Cover page <small class="text-muted fw-normal fs-6">optional</small></h2></div>
             <div class="card-body">
                 {% if cover_uploaded %}
-                <div class="alert alert-success">
-                    ✓ Cover image uploaded
-                    <form method="POST" style="display:inline; float:right;">
+                <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <span>{{ icons.icon('check') }} Cover image uploaded</span>
+                    <form method="POST">
                         <input type="hidden" name="action" value="clear_cover">
                         <button type="submit" class="btn btn-sm btn-outline-secondary">Remove cover</button>
                     </form>
                 </div>
                 {% else %}
-                <div class="alert alert-info mb-3">
-                    Upload a pre-built cover image (PNG/JPG, max 10 MB), or leave blank for a simple title page.
-                </div>
-
                 <form method="POST" enctype="multipart/form-data">
                     <div class="mb-3">
-                        <label for="cover" class="form-label">Choose cover image</label>
+                        <label for="cover" class="form-label">Cover image</label>
                         <input type="file" class="form-control" id="cover" name="cover"
                                accept="image/png,image/jpeg" maxlength="10485760">
-                        <small class="form-text text-muted">PNG or JPG, max 10 MB. Aspect ratio should match trim size (6×9 for A5).</small>
+                        <small class="form-text text-muted">PNG or JPG, max 10 MB, in the trim size's aspect ratio (6 × 9 for the KDP default). Leave empty for a plain title page.</small>
                     </div>
-                    <button type="submit" class="btn btn-sm btn-primary">Upload Cover</button>
+                    <button type="submit" class="btn btn-outline-secondary">Upload cover</button>
                 </form>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Guide Page Section -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">📖 Guide Page (Auto-Generated)</h5>
-            </div>
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Guide page <small class="text-muted fw-normal fs-6">generated</small></h2></div>
             <div class="card-body">
                 <div class="guide-preview">
-                    <h3>How to Use This Book</h3>
+                    <h3>How to use this book</h3>
                     <p>This book contains <strong>{{ puzzle_count }}</strong> puzzles.</p>
 
-                    <h4 style="margin-top: 20px;">Difficulty Levels:</h4>
+                    <h4>Difficulty levels</h4>
                     <ul>
                         <li><strong>Easy:</strong> {{ easy_count }} puzzles</li>
                         <li><strong>Medium:</strong> {{ medium_count }} puzzles</li>
@@ -70,157 +60,62 @@
                         {% if guess_count %}<li><strong>Guess:</strong> {{ guess_count }} puzzles</li>{% endif %}
                     </ul>
 
-                    <h4 style="margin-top: 20px;">Instructions:</h4>
+                    <h4>Instructions</h4>
                     <ol>
                         <li>Fill in the grid based on the clues</li>
                         <li>Check your work against the answer key</li>
                         <li>Have fun!</li>
                     </ol>
                 </div>
-                <small class="text-muted">The guide page will appear after the cover and before the first puzzle.</small>
-            </div>
-        </div>
-
-        <!-- PDF Preview Section -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">📋 PDF Preview</h5>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-info mb-3">
-                    <strong>Estimated page count:</strong> ~{{ page_count }} pages
-                    (Cover + Guide + {{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }})
-                </div>
-
-                <h6>Book Contents:</h6>
-                <ol style="font-size: 13px;">
-                    <li>Cover page{% if cover_uploaded %} (your cover image){% else %} (title page){% endif %}</li>
-                    <li>Guide page (instructions and difficulty summary)</li>
-                    <li>{{ puzzle_count }} puzzles</li>
-                </ol>
-
-                <small class="text-muted d-block mt-3">
-                    Preview shows the first 3 puzzles. Full PDF will include all {{ puzzle_count }} puzzles in your chosen order.
-                </small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sidebar: Info & Actions -->
-    <div class="col-md-4">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Summary</h5>
-            </div>
-            <div class="card-body">
-                <p class="mb-2">
-                    <strong>Puzzles:</strong> {{ puzzle_count }}<br>
-                    <strong>Est. Pages:</strong> ~{{ page_count }}<br>
-                    <strong>Trim Size:</strong> {{ trim_width_cm }} × {{ trim_height_cm }} cm
-                </p>
-                <hr>
-                <p class="mb-0" style="font-size: 13px;">
-                    <strong>Difficulty Breakdown:</strong><br>
-                    Easy: {{ easy_count }} | Medium: {{ medium_count }} | Hard: {{ hard_count }}{% if guess_count %} | Guess: {{ guess_count }}{% endif %}
-                </p>
-            </div>
-        </div>
-
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">What's Included</h5>
-            </div>
-            <div class="card-body">
-                <ul class="mb-0" style="font-size: 13px;">
-                    <li>✓ Cover page</li>
-                    <li>✓ Guide page</li>
-                    <li>✓ All {{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}</li>
-                    <li>✓ Puzzles in your order</li>
-                    <li>✓ Custom titles for each</li>
-                    <li>✓ Print specs (trim, margins)</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Scaffolding Steps</h5>
-            </div>
-            <div class="card-body">
-                <ol class="mb-0" style="font-size: 13px;">
-                    <li>Print Setup</li>
-                    <li>Puzzle Selection</li>
-                    <li>Puzzle Arrangement</li>
-                    <li><strong>Finalization</strong> <span class="badge bg-success">Current</span></li>
-                </ol>
+                <small class="text-muted d-block mt-2">Appears after the cover and before the first puzzle.</small>
             </div>
         </div>
 
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Next Steps</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Contents</h2></div>
             <div class="card-body">
-                <p style="font-size: 13px; margin-bottom: 10px;">
-                    <strong>Ready to download?</strong> Click "Download PDF" to get your book ready for printing.
-                </p>
-                <form method="POST" class="mb-2">
+                <ol class="mb-2">
+                    <li>Cover page{% if cover_uploaded %} (your cover image){% else %} (title page){% endif %}</li>
+                    <li>Guide page (instructions and difficulty summary)</li>
+                    <li>{{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}, in your order, with their titles</li>
+                </ol>
+                <small class="text-muted">About {{ page_count }} pages at {{ trim_width_cm }} × {{ trim_height_cm }} cm.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Summary</h2></div>
+            <div class="card-body">
+                <dl class="kv mb-3">
+                    <dt>Puzzles</dt><dd class="num">{{ puzzle_count }}</dd>
+                    <dt>Pages</dt><dd class="num">~{{ page_count }}</dd>
+                    <dt>Trim size</dt><dd class="num">{{ trim_width_cm }} × {{ trim_height_cm }} cm</dd>
+                    <dt>Easy</dt><dd class="num">{{ easy_count }}</dd>
+                    <dt>Medium</dt><dd class="num">{{ medium_count }}</dd>
+                    <dt>Hard</dt><dd class="num">{{ hard_count }}</dd>
+                    {% if guess_count %}<dt>Guess</dt><dd class="num">{{ guess_count }}</dd>{% endif %}
+                </dl>
+                <form method="POST">
                     <input type="hidden" name="action" value="download_pdf">
-                    <button type="submit" class="btn btn-success w-100 btn-sm">
-                        📥 Download PDF
-                    </button>
+                    <button type="submit" class="btn btn-primary w-100">{{ icons.icon('download') }} Download PDF</button>
                 </form>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Navigation Buttons -->
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="d-flex gap-2">
-            <a href="/book/{{ book.book_id }}/arrange-puzzles" class="btn btn-outline-secondary">
-                ← Back to Step 3: Arrangement
-            </a>
-            <form method="POST" style="display:inline;">
-                <input type="hidden" name="action" value="save_and_finish">
-                <button type="submit" class="btn btn-primary">
-                    ✓ Save & Return to Books
-                </button>
-            </form>
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Steps</h2></div>
+            <div class="card-body">{{ stepper.book_steps(4) }}</div>
         </div>
     </div>
 </div>
 
-<style>
-.guide-preview {
-    padding: 20px;
-    background: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 13px;
-    line-height: 1.6;
-}
-
-.guide-preview h3 {
-    margin-top: 0;
-    font-size: 18px;
-    font-weight: bold;
-}
-
-.guide-preview h4 {
-    font-size: 14px;
-    font-weight: bold;
-    margin-top: 15px;
-}
-
-.guide-preview ul, .guide-preview ol {
-    margin-bottom: 10px;
-    padding-left: 20px;
-}
-
-.guide-preview li {
-    margin-bottom: 5px;
-}
-</style>
+<div class="actions mt-2">
+    <a href="/book/{{ book.book_id }}/arrange-puzzles" class="btn btn-outline-secondary">{{ icons.icon('arrow-left') }} Back to arrangement</a>
+    <form method="POST">
+        <input type="hidden" name="action" value="save_and_finish">
+        <button type="submit" class="btn btn-outline-secondary">Save and return to books</button>
+    </form>
+</div>
 {% endblock %}

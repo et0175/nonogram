@@ -1,94 +1,87 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
-{% block title %}Create Batch - Nonogram Admin{% endblock %}
+{% block title %}New batch - Nonogram admin{% endblock %}
+{% block section %}New batch · step 1{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <h1>Create Batch from Images</h1>
-        <p class="text-muted">Convert images to nonogram puzzles. Upload images or select from directory.</p>
+<div class="page-head">
+    <div>
+        <h1>New batch</h1>
+        <p class="lede">Turn a set of pictures into nonogram puzzles. Upload files, or point at a folder.</p>
     </div>
 </div>
 
 <div class="row">
     <div class="col-md-8">
+        {% if loaded_images %}
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">{{ loaded_images|length }} picture{{ 's' if loaded_images|length != 1 else '' }} already loaded</h2></div>
+            <div class="card-body">
+                <p class="mb-3">
+                    {% for image in loaded_images[:8] %}<span class="badge count">{{ image.original_filename }}</span> {% endfor %}
+                    {% if loaded_images|length > 8 %}<span class="text-muted small">and {{ loaded_images|length - 8 }} more</span>{% endif %}
+                </p>
+                <div class="actions">
+                    <a href="/batch/preview-images" class="btn btn-primary">Continue to preview &amp; size {{ icons.icon('arrow-right') }}</a>
+                    <form method="POST" action="/batch/clear-images" onsubmit="return confirm('Discard the loaded pictures and start over?');">
+                        <button type="submit" class="btn btn-outline-danger">{{ icons.icon('trash') }} Start over</button>
+                    </form>
+                </div>
+                <p class="text-muted small mt-3 mb-0">Uploading below replaces this set.</p>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card">
             <div class="card-body">
                 <form method="POST" action="/batch/from-images" enctype="multipart/form-data">
 
-                    <!-- Image Source Selection -->
-                    <div class="mb-4">
-                        <h6 class="mb-3">Step 1: Select Images</h6>
+                    <h2 class="card-title">{% if loaded_images %}Upload a different set{% else %}Pictures{% endif %}</h2>
+                    <p class="text-muted small">PNG, JPG or GIF, up to 2 MB each. Use either field or both — every selected file is included.</p>
 
-                        <small class="form-text text-muted d-block mb-3">
-                            Supports: PNG, JPG, GIF (max 2MB each)
+                    <div class="mb-3">
+                        <label for="image_files" class="form-label">Image files</label>
+                        <input type="file" class="form-control" id="image_files" name="image_files"
+                               accept=".png,.jpg,.jpeg,.gif" multiple>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="directory" class="form-label">Or a whole folder</label>
+                        <input type="file" class="form-control" id="directory" name="directory"
+                               webkitdirectory mozdirectory>
+                    </div>
+
+                    <h2 class="card-title">Puzzle size</h2>
+                    <div class="mb-4">
+                        <label for="default_size" class="form-label">Default size for every picture</label>
+                        <select class="form-select" id="default_size" name="default_size">
+                            <option value="small" {% if default_size == 'small' %}selected{% endif %}>Small (10 cells on the short side) — easy</option>
+                            <option value="medium" {% if default_size in ('medium', None, '') %}selected{% endif %}>Medium (20 cells on the long side) — balanced</option>
+                            <option value="large" {% if default_size == 'large' %}selected{% endif %}>Large (30 cells on the long side) — hard</option>
+                            <option value="auto" {% if default_size == 'auto' %}selected{% endif %}>Auto (from the picture)</option>
+                        </select>
+                        <small class="form-text text-muted d-block mt-2">You can change it per picture in the next step.</small>
+                    </div>
+
+                    <h2 class="card-title">Quality filter</h2>
+                    <div class="mb-4">
+                        <label for="quality_filter" class="form-label">Minimum quality score</label>
+                        <input type="number" class="form-control" id="quality_filter" name="quality_filter"
+                               min="0" max="100" value="{{ quality_filter if quality_filter is not none else 25 }}" required>
+                        <small class="form-text text-muted">
+                            0–100: skip puzzles below this threshold (0 accepts all).
+                            Quality measures how closely the generated puzzle matches
+                            <strong>your uploaded picture</strong>, so it applies to
+                            image-mode batches only; randomly generated puzzles have no
+                            source picture to score against.
                         </small>
-
-                        <!-- Upload Multiple Images -->
-                        <div class="mb-3">
-                            <label for="image_files" class="form-label">📁 Choose Image Files</label>
-                            <input type="file" class="form-control" id="image_files" name="image_files"
-                                   accept=".png,.jpg,.jpeg,.gif" multiple>
-                            <small class="form-text text-muted">
-                                Select one or more image files directly
-                            </small>
-                        </div>
-
-                        <!-- Directory Selection -->
-                        <div class="mb-3">
-                            <label for="directory" class="form-label">📂 Choose Directory</label>
-                            <input type="file" class="form-control" id="directory" name="directory"
-                                   webkitdirectory mozdirectory>
-                            <small class="form-text text-muted">
-                                Select a folder containing images
-                            </small>
-                        </div>
-
-                        <div class="alert alert-info">
-                            <small>💡 Use either option or both - all selected files will be included</small>
-                        </div>
                     </div>
 
-                    <!-- Puzzle Size Settings -->
-                    <div class="mb-4 p-3 bg-light border rounded border-primary">
-                        <h6 class="mb-3">⚙️ Puzzle Size Settings</h6>
-
-                        <div class="mb-3">
-                            <label for="default_size" class="form-label fw-bold">Default Puzzle Size</label>
-                            <select class="form-select" id="default_size" name="default_size">
-                                <option value="small">🟩 Small (10 cells on the short side) - Easy</option>
-                                <option value="medium" selected>🟩🟩 Medium (20 cells on the long side) - Balanced</option>
-                                <option value="large">🟩🟩🟩 Large (30 cells on the long side) - Hard</option>
-                                <option value="auto">🎯 Auto (based on image)</option>
-                            </select>
-                            <small class="form-text text-muted d-block mt-2">
-                                <strong>Tip:</strong> Applied to all images. You can customize per image later.
-                            </small>
-                        </div>
-                    </div>
-
-                    <!-- Quality Filter -->
-                    <div class="mb-4">
-                        <h6 class="mb-3">Step 3: Quality Filter</h6>
-
-                        <div class="mb-3">
-                            <label for="quality_filter" class="form-label">Minimum Quality Score</label>
-                            <input type="number" class="form-control" id="quality_filter" name="quality_filter"
-                                   min="0" max="100" value="25" required>
-                            <small class="form-text text-muted">
-                                0-100: skip puzzles below this quality threshold (0 = accept all).
-                                Quality here measures how closely the generated puzzle matches
-                                <strong>your uploaded image</strong> — this filter applies to
-                                image-mode batches only; randomly-generated puzzles have no
-                                source picture to score against, so it does not apply to them.
-                            </small>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="d-flex gap-2">
+                    <div class="actions">
                         <button type="submit" class="btn btn-primary" id="submitBtn">
-                            📸 Next: Preview Images
+                            Next: preview pictures {{ icons.icon('arrow-right') }}
                         </button>
                         <a href="/" class="btn btn-outline-secondary">Cancel</a>
                     </div>
@@ -99,47 +92,11 @@
 
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Workflow</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Workflow</h2></div>
             <div class="card-body">
-                <div class="d-flex mb-3">
-                    <div class="badge bg-primary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">1</div>
-                    <div class="ms-3">
-                        <strong>Select Images</strong><br>
-                        <small class="text-muted">Upload or browse directory</small>
-                    </div>
-                </div>
-
-                <div class="d-flex mb-3">
-                    <div class="badge bg-secondary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">2</div>
-                    <div class="ms-3">
-                        <strong>Preview & Size</strong><br>
-                        <small class="text-muted">Adjust puzzle sizes (Fixed/Min/Max)</small>
-                    </div>
-                </div>
-
-                <div class="d-flex mb-3">
-                    <div class="badge bg-secondary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">3</div>
-                    <div class="ms-3">
-                        <strong>Generate</strong><br>
-                        <small class="text-muted">Convert images to puzzles</small>
-                    </div>
-                </div>
-
-                <div class="d-flex">
-                    <div class="badge bg-secondary rounded-circle p-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">4</div>
-                    <div class="ms-3">
-                        <strong>Review</strong><br>
-                        <small class="text-muted">Verify quality, approve puzzles</small>
-                    </div>
-                </div>
-
-                <hr class="my-3">
-
-                <div class="alert alert-info mb-0">
-                    <strong>💡 Tip:</strong> Upload 1-200 images. Format: PNG, JPG, or GIF. Max 2MB each. (Recommended: 10+ images for better variety)
-                </div>
+                {{ stepper.batch_steps(1) }}
+                <hr>
+                <p class="small text-muted mb-0">Up to 200 pictures per batch. Ten or more gives a book some variety.</p>
             </div>
         </div>
     </div>
@@ -151,60 +108,30 @@ function getSelectedFiles() {
     const imagesInput = document.getElementById('image_files');
     const directoryInput = document.getElementById('directory');
 
-    // Create a combined FileList-like array
     const allFiles = [];
-
-    if (imagesInput.files) {
-        allFiles.push(...Array.from(imagesInput.files));
-    }
-    if (directoryInput.files) {
-        allFiles.push(...Array.from(directoryInput.files));
-    }
+    if (imagesInput.files) allFiles.push(...Array.from(imagesInput.files));
+    if (directoryInput.files) allFiles.push(...Array.from(directoryInput.files));
 
     // Filter to only image files (avoid hidden OS files like .DS_Store)
     return allFiles.filter(file => {
         const type = file.type.toLowerCase();
         const name = file.name.toLowerCase();
-        return type.startsWith('image/') ||
-               /\.(png|jpg|jpeg|gif)$/i.test(name);
+        return type.startsWith('image/') || /\.(png|jpg|jpeg|gif)$/i.test(name);
     });
 }
 
-// Handle form submission
 document.querySelector('form').addEventListener('submit', function(e) {
     const allFiles = getSelectedFiles();
 
     if (allFiles.length === 0) {
         e.preventDefault();
-        alert('Please select at least one image file (PNG, JPG, GIF).\n\nTip: You can select individual files OR an entire folder.');
+        alert('Select at least one image file (PNG, JPG, GIF) — individual files or a whole folder.');
         return false;
     }
 
-    // Show loading state
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing ' + allFiles.length + ' image(s)...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Uploading ' + allFiles.length + ' picture' + (allFiles.length === 1 ? '' : 's') + '…';
 });
-
-// Update validation when files are selected
-document.addEventListener('DOMContentLoaded', function() {
-    const imagesInput = document.getElementById('image_files');
-    const directoryInput = document.getElementById('directory');
-
-    imagesInput.addEventListener('change', function() {
-        const count = getSelectedFiles().length;
-        updateFileCount(count);
-    });
-
-    directoryInput.addEventListener('change', function() {
-        const count = getSelectedFiles().length;
-        updateFileCount(count);
-    });
-});
-
-function updateFileCount(count) {
-    // Optional: show feedback about selected files
-    console.log('Selected files: ' + count);
-}
 </script>
 {% endblock %}

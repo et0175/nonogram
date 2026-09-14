@@ -3,202 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Nonogram Admin Panel{% endblock %}</title>
+    <title>{% block title %}Nonogram admin{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23f5f0e6'/%3E%3Cpath d='M2 2h5v5H2zM9 9h5v5H9z' fill='%231c2333'/%3E%3C/svg%3E">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --accent-color: #e74c3c;
-            --success-color: #27ae60;
-        }
-
-        body {
-            background-color: #ecf0f1;
-            color: var(--primary-color);
-        }
-
-        .navbar {
-            background-color: var(--primary-color) !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .navbar-brand {
-            font-weight: bold;
-            font-size: 1.3rem;
-        }
-
-        .sidebar {
-            background-color: #fff;
-            border-right: 1px solid #ddd;
-            padding: 20px 0;
-        }
-
-        .sidebar .nav-link {
-            color: var(--primary-color);
-            border-left: 3px solid transparent;
-            margin: 5px 0;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar .nav-link:hover {
-            border-left-color: var(--accent-color);
-            color: var(--accent-color);
-        }
-
-        .sidebar .nav-link.active {
-            border-left-color: var(--accent-color);
-            color: var(--accent-color);
-            font-weight: bold;
-        }
-
-        .card {
-            border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .card-header {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .stat-card {
-            text-align: center;
-            padding: 20px;
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--accent-color);
-        }
-
-        .stat-label {
-            color: #7f8c8d;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-        }
-
-        .btn-primary {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        .btn-primary:hover {
-            background-color: #c0392b;
-            border-color: #c0392b;
-        }
-
-        .badge-draft {
-            background-color: #95a5a6;
-        }
-
-        .badge-approved {
-            background-color: var(--success-color);
-        }
-
-        .badge-rejected {
-            background-color: #e74c3c;
-        }
-
-        .badge-in_book {
-            background-color: #3498db;
-        }
-
-        .puzzle-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .puzzle-item {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
-            text-align: center;
-            background-color: #fff;
-            transition: transform 0.2s ease;
-        }
-
-        .puzzle-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        .alert-container {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .table-hover tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-
-        footer {
-            background-color: var(--primary-color);
-            color: #ecf0f1;
-            text-align: center;
-            padding: 20px;
-            margin-top: 40px;
-        }
-    </style>
+    {# Design tokens (meta/design/tokens.css, mirrored) then the panel's own
+       rules. Loaded after Bootstrap so the tokens win. #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='tokens.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-dark mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">📊 Nonogram Admin Panel</a>
-            <div class="navbar-text text-white">
-                <small>Puzzle Management System</small>
-            </div>
-        </div>
-    </nav>
+    {% import '_icons.html' as icons %}
+    <header class="topbar">
+        <a class="brand" href="/">{{ icons.icon('grid') }}<span>Nonogram admin</span></a>
+        <span class="crumb">{% block section %}{% endblock %}</span>
+    </header>
 
-    <div class="alert-container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show m-3" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+    <div class="shell">
+        <aside class="side">
+            <nav aria-label="Sections">
+                <a href="/" {% if nav_current('/') %}aria-current="page"{% endif %}>Dashboard</a>
+                <div class="group">Generate</div>
+                <a href="/batch/create" {% if nav_current('/batch') %}aria-current="page"{% endif %}>New batch</a>
+                <div class="group">Curate</div>
+                <a href="/puzzles" {% if nav_current('/puzzles', '/puzzle') %}aria-current="page"{% endif %}>Puzzles</a>
+                <a href="/regrade" {% if nav_current('/regrade') %}aria-current="page"{% endif %}>Re-grade</a>
+                <div class="group">Publish</div>
+                <a href="/books" {% if nav_current('/books', '/book') and not nav_current('/book/create') %}aria-current="page"{% endif %}>Books</a>
+                <a href="/book/create" {% if nav_current('/book/create') %}aria-current="page"{% endif %}>New book</a>
+            </nav>
+        </aside>
+        <main class="main">
+            <div class="flash-stack">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+            {% block content %}{% endblock %}
+        </main>
     </div>
-
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-2">
-                <div class="sidebar">
-                    <nav class="nav flex-column">
-                        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
-                        <hr>
-                        <strong class="nav-link text-muted" style="cursor: default;">Batch Generation</strong>
-                        <a class="nav-link" href="/batch/create">Create Batch</a>
-                        <hr>
-                        <strong class="nav-link text-muted" style="cursor: default;">Puzzles</strong>
-                        <a class="nav-link" href="/puzzles">View & Filter</a>
-                        <hr>
-                        <strong class="nav-link text-muted" style="cursor: default;">Books</strong>
-                        <a class="nav-link" href="/books">View All</a>
-                        <a class="nav-link" href="/book/create">Create Book</a>
-                    </nav>
-                </div>
-            </div>
-            <div class="col-md-10">
-                <main>
-                    {% block content %}{% endblock %}
-                </main>
-            </div>
-        </div>
-    </div>
-
-    <footer>
-        <p>&copy; 2026 Nonogram Admin Panel | v1.0</p>
-    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}

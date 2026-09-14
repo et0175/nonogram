@@ -12,10 +12,14 @@
 
   `|lower` rather than a re-grade: which spelling a stored row carries is
   CARD-077's to normalise, and this has to be right either way.
+
+  The hex values are the tier hues pinned by tests/test_admin_tier_surfaces.py
+  and declared as --color-tier-* in meta/design/tokens.css. They are passed
+  as the chip's --tier custom property; admin.css tints them onto the paper.
 #}
 
 {% macro badge(tier) -%}
-<span class="badge" style="background-color: {% if tier|lower == 'easy' %}#27ae60{% elif tier|lower == 'medium' %}#f39c12{% elif tier|lower == 'hard' %}#e74c3c{% elif tier|lower == 'guess' %}#8e44ad{% else %}#95a5a6{% endif %}">{{ tier or 'N/A' }}</span>
+<span class="badge tier" style="--tier: {% if tier|lower == 'easy' %}#27ae60{% elif tier|lower == 'medium' %}#f39c12{% elif tier|lower == 'hard' %}#e74c3c{% elif tier|lower == 'guess' %}#8e44ad{% else %}#95a5a6{% endif %}">{{ tier or 'N/A' }}</span>
 {%- endmacro %}
 
 {#

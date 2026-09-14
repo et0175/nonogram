@@ -1,93 +1,78 @@
 {% extends "base.html" %}
+{% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
-{% block title %}Print Setup - {{ book.metadata.title }} - Nonogram Admin{% endblock %}
+{% block title %}Print setup - {{ book.metadata.title }} - Nonogram admin{% endblock %}
+{% block section %}Books · {{ book.metadata.title }} · step 1{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h1>Book Scaffolding: Step 1 - Print Setup</h1>
-                <p class="text-muted">Configure print specifications for: <strong>{{ book.metadata.title }}</strong></p>
-            </div>
-            <div class="badge bg-info">Draft</div>
-        </div>
+<div class="page-head">
+    <div>
+        <h1>Print setup</h1>
+        <p class="lede">Step 1 of 4 for <strong>{{ book.metadata.title }}</strong>: the trim size every page will be laid out for.</p>
+    </div>
+    <div class="page-actions align-items-center">
+        <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
     </div>
 </div>
 
 <div class="row">
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Trim Size & Unit Preference</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Trim size</h2></div>
             <div class="card-body">
                 <form method="POST">
-                    <!-- Unit Preference -->
                     <div class="mb-4">
-                        <label class="form-label"><strong>Measurement Unit</strong></label>
-                        <div class="btn-group" role="group" style="width: 100%;">
+                        <span class="form-label d-block">Measurement unit</span>
+                        <div class="btn-group" role="group" aria-label="Measurement unit">
                             <input type="radio" class="btn-check" name="unit" id="unit_cm" value="cm"
                                    {% if unit_preference == 'cm' %}checked{% endif %}
                                    onchange="updateUnits()">
-                            <label class="btn btn-outline-primary" for="unit_cm">Centimeters (cm)</label>
+                            <label class="btn btn-outline-secondary" for="unit_cm">Centimetres</label>
 
                             <input type="radio" class="btn-check" name="unit" id="unit_inches" value="inches"
                                    {% if unit_preference == 'inches' %}checked{% endif %}
                                    onchange="updateUnits()">
-                            <label class="btn btn-outline-primary" for="unit_inches">Inches (in)</label>
+                            <label class="btn btn-outline-secondary" for="unit_inches">Inches</label>
                         </div>
-                        <small class="d-block mt-2 text-muted">Unit preference will be remembered for this session</small>
+                        <small class="d-block mt-2 text-muted">Remembered for this session.</small>
                     </div>
 
-                    <!-- Trim Size Input -->
-                    <div class="row mb-4">
+                    <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="width" class="form-label"><strong>Trim Width</strong></label>
+                            <label for="width" class="form-label">Trim width</label>
                             <div class="input-group">
                                 <input type="number" class="form-control" id="width" name="width"
                                        value="{{ default_width }}" min="10" max="30" step="0.01" required>
-                                <span class="input-group-text" id="width_unit">
-                                    {% if unit_preference == 'cm' %}cm{% else %}in{% endif %}
-                                </span>
+                                <span class="input-group-text" id="width_unit">{% if unit_preference == 'cm' %}cm{% else %}in{% endif %}</span>
                             </div>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="height" class="form-label"><strong>Trim Height</strong></label>
+                            <label for="height" class="form-label">Trim height</label>
                             <div class="input-group">
                                 <input type="number" class="form-control" id="height" name="height"
                                        value="{{ default_height }}" min="10" max="48" step="0.01" required>
-                                <span class="input-group-text" id="height_unit">
-                                    {% if unit_preference == 'cm' %}cm{% else %}in{% endif %}
-                                </span>
+                                <span class="input-group-text" id="height_unit">{% if unit_preference == 'cm' %}cm{% else %}in{% endif %}</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Default Size Quick Link -->
-                    <div class="alert alert-info mb-4">
-                        <strong>📋 Default:</strong> A5 size (15.24 × 22.86 cm / 6 × 9 inches) — Amazon KDP standard
-                        <button type="button" class="btn btn-sm btn-info ms-2" onclick="setDefaultSize()">
-                            Use A5 Default
-                        </button>
-                    </div>
+                    <p class="mb-4">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDefaultSize()">Use the KDP default (6 × 9 in / 15.24 × 22.86 cm)</button>
+                    </p>
 
-                    <!-- Validation Info -->
                     <div class="alert alert-secondary mb-4">
-                        <strong>📐 Validation Rules:</strong>
-                        <ul class="mb-0 mt-2">
-                            <li>Minimum size: 10 × 10 cm (3.94 × 3.94 in)</li>
-                            <li>Maximum width: 30 cm (11.81 in) — Amazon KDP limit</li>
-                            <li>Maximum height: 48 cm (18.90 in) — Amazon KDP limit</li>
+                        <strong>Limits.</strong>
+                        <ul class="mb-0 mt-1">
+                            <li>Minimum 10 × 10 cm (3.94 × 3.94 in)</li>
+                            <li>Maximum width 30 cm (11.81 in) — Amazon KDP limit</li>
+                            <li>Maximum height 48 cm (18.90 in) — Amazon KDP limit</li>
                         </ul>
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            ✓ Continue to Step 2: Puzzle Selection
-                        </button>
+                    <div class="actions">
+                        <button type="submit" class="btn btn-primary">Continue to puzzle selection {{ icons.icon('arrow-right') }}</button>
                         <a href="/books" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>
@@ -95,57 +80,23 @@
         </div>
     </div>
 
-    <!-- Sidebar: Info -->
     <div class="col-md-4">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">What is Trim Size?</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>Trim size</strong> is the final dimensions of your printed book after cutting.</p>
-                <p>For example, A5 (6×9 inches) is ideal for puzzle books — compact, portable, easy to hold.</p>
-                <p class="mb-0"><small class="text-muted">Source: <a href="https://kdp.amazon.com/en_US/help/topic/G202145400" target="_blank">Amazon KDP Printing Specs</a></small></p>
-            </div>
-        </div>
-
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Common Sizes</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <tbody>
-                        <tr>
-                            <td><strong>A5</strong></td>
-                            <td>15.24 × 22.86 cm</td>
-                            <td>6 × 9 in</td>
-                        </tr>
-                        <tr>
-                            <td><strong>A4</strong></td>
-                            <td>21 × 29.7 cm</td>
-                            <td>8.3 × 11.7 in</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Letter</strong></td>
-                            <td>21.6 × 27.9 cm</td>
-                            <td>8.5 × 11 in</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Steps</h2></div>
+            <div class="card-body">{{ stepper.book_steps(1) }}</div>
         </div>
 
         <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Scaffolding Steps</h5>
-            </div>
+            <div class="card-header"><h2 class="card-title mb-0">Common sizes</h2></div>
             <div class="card-body">
-                <ol class="mb-0">
-                    <li class="mb-2"><strong>Print Setup</strong> <span class="badge bg-success">Current</span></li>
-                    <li class="mb-2">Puzzle Selection</li>
-                    <li class="mb-2">Puzzle Arrangement</li>
-                    <li>Finalization & Export</li>
-                </ol>
+                <table class="table table-sm mb-2">
+                    <tbody>
+                        <tr><td><strong>6 × 9 in</strong></td><td class="num">15.24 × 22.86 cm</td></tr>
+                        <tr><td><strong>A4</strong></td><td class="num">21 × 29.7 cm</td></tr>
+                        <tr><td><strong>Letter</strong></td><td class="num">21.6 × 27.9 cm</td></tr>
+                    </tbody>
+                </table>
+                <p class="mb-0 small text-muted">Trim size is the page after cutting. Source: <a href="https://kdp.amazon.com/en_US/help/topic/G202145400" target="_blank" rel="noopener">Amazon KDP printing specs</a>.</p>
             </div>
         </div>
     </div>
@@ -154,16 +105,9 @@
 <script>
 function updateUnits() {
     const unit = document.querySelector('input[name="unit"]:checked').value;
-    const widthUnit = document.getElementById('width_unit');
-    const heightUnit = document.getElementById('height_unit');
-
-    if (unit === 'cm') {
-        widthUnit.textContent = 'cm';
-        heightUnit.textContent = 'cm';
-    } else {
-        widthUnit.textContent = 'in';
-        heightUnit.textContent = 'in';
-    }
+    const label = unit === 'cm' ? 'cm' : 'in';
+    document.getElementById('width_unit').textContent = label;
+    document.getElementById('height_unit').textContent = label;
 }
 
 function setDefaultSize() {

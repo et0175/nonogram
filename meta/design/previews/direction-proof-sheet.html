@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proof sheet — Swiss / International · Nonogram admin preview</title>
+<style>
+:root{
+  /* Intended webfont: Inter Tight (UI + display). Approximated by the system grotesk stack. */
+  --font-ui:"Inter Tight","Helvetica Neue",Helvetica,Arial,sans-serif;--font-display:var(--font-ui);--font-num:var(--font-ui);--font-mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --weight-display:700;
+  --text-xs:.75rem;--text-sm:.8125rem;--text-base:.875rem;--text-lg:1.125rem;--text-xl:1.75rem;--text-2xl:2.25rem;--leading-base:1.45;
+  --color-bg:#ffffff;--color-surface:#ffffff;--color-surface-hover:#f4f4f4;--color-thead:#ffffff;--color-input:#ffffff;--color-side:#ffffff;--color-topbar:#ffffff;--color-topbar-text:#111;--color-topbar-text-2:#595959;
+  --color-text:#111111;--color-text-secondary:#595959;--color-border:#dadada;--color-border-strong:#9a9a9a;
+  --color-accent:#1849c7;--color-accent-hover:#12379a;--color-on-accent:#fff;--color-accent-tint:#eef2fc;
+  --color-success:#1e7d3c;--color-success-tint:#eaf5ee;--color-warning:#a86500;--color-danger:#c0392b;--color-danger-tint:#fbeeec;
+  --grid-paper:#fff;--grid-ink:#111;
+  --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-6:1.5rem;--space-8:2rem;
+  --radius-control:2px;--radius-container:0;--radius-badge:2px;--border-width:1px;
+  --side-w:200px;--topbar-h:48px;--control-h:32px;--row-h:56px;--thumb:44px;
+  --duration-fast:100ms;--ease:linear;
+}
+h1{letter-spacing:-.02em}
+.topbar{border-bottom-width:2px;border-bottom-color:#111}
+.stat{border:0;border-top:2px solid #111;border-radius:0;padding-left:0;background:transparent}
+.stat-n{font-size:2.25rem;letter-spacing:-.03em}
+.filters{border:0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);border-radius:0;padding-left:0;padding-right:0;background:transparent}
+.table-wrap{border:0;border-radius:0}
+.table-head{padding-left:0;padding-right:0;border-bottom:2px solid #111}
+th{background:transparent;border-bottom:1px solid #111;padding-left:0}
+td:first-child,th:first-child{padding-left:0}
+.tier{border-radius:0}.status{border-radius:0}.rec{border-radius:0}
+.side a[aria-current]{background:transparent}
+
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base);line-height:var(--leading-base);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.shell{display:grid;grid-template-columns:var(--side-w) 1fr;grid-template-rows:auto 1fr;min-height:calc(100vh - 44px)}
+.topbar{grid-column:1/3;display:flex;align-items:center;gap:var(--space-4);padding:0 var(--space-4);height:var(--topbar-h);border-bottom:var(--border-width) solid var(--color-border);background:var(--color-topbar)}
+.brand{display:inline-flex;align-items:center;gap:var(--space-2);text-decoration:none;font-weight:600;color:var(--color-topbar-text)}
+.crumbs{color:var(--color-topbar-text-2)}
+.topbar-right{margin-left:auto;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-topbar-text-2)}
+.side{border-right:var(--border-width) solid var(--color-border);background:var(--color-side);padding:var(--space-3) 0}
+.side nav{display:flex;flex-direction:column}
+.side a{display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-4);text-decoration:none;color:var(--color-text);border-left:3px solid transparent}
+.side a:hover{background:var(--color-surface-hover)}
+.side a[aria-current]{border-left-color:var(--color-accent);color:var(--color-accent);font-weight:600;background:var(--color-accent-tint)}
+.side .group{padding:var(--space-4) var(--space-4) var(--space-1);font-size:var(--text-xs);letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-secondary)}
+.side .count{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary)}
+.main{padding:var(--space-6) var(--space-8);min-width:0}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-6)}
+h1{font-family:var(--font-display);font-size:var(--text-2xl);line-height:1.1;margin:0 0 var(--space-1);font-weight:var(--weight-display)}
+.lede{margin:0;color:var(--color-text-secondary)}
+.head-actions{display:flex;gap:var(--space-2)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-3);margin-bottom:var(--space-6)}
+.stat{padding:var(--space-3) var(--space-4);border:var(--border-width) solid var(--color-border);border-radius:var(--radius-container);background:var(--color-surface);display:flex;flex-direction:column}
+.stat-n{font-family:var(--font-num);font-size:var(--text-xl);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat-l{font-size:var(--text-sm);color:var(--color-text-secondary)}
+.filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);border:var(--border-width) solid var(--color-border);border-radius:var(--radius-container);background:var(--color-surface)}
+.filters label{display:flex;flex-direction:column;gap:var(--space-1);font-size:var(--text-xs);color:var(--color-text-secondary);min-width:7rem}
+.filters .grow{flex:1 1 12rem}
+.filters .clear{font-size:var(--text-sm);color:var(--color-text-secondary);align-self:center}
+input,select{font:inherit;padding-top:0;padding-bottom:0;color:var(--color-text);background:var(--color-input);border:var(--border-width) solid var(--color-border-strong);border-radius:var(--radius-control);padding:var(--space-2) var(--space-3);height:var(--control-h)}
+input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--color-accent);outline-offset:1px}
+.btn{display:inline-flex;align-items:center;gap:var(--space-1);font:inherit;font-weight:600;font-size:var(--text-sm);height:var(--control-h);padding:0 var(--space-3);border-radius:var(--radius-control);border:var(--border-width) solid transparent;cursor:pointer;transition:background var(--duration-fast) var(--ease),color var(--duration-fast) var(--ease);white-space:nowrap}
+.btn-primary{background:var(--color-accent);color:var(--color-on-accent)}.btn-primary:hover{background:var(--color-accent-hover)}
+.btn-quiet{background:var(--color-surface);border-color:var(--color-border-strong);color:var(--color-text)}.btn-quiet:hover{background:var(--color-surface-hover)}
+.btn-ok{background:var(--color-success-tint);color:var(--color-success);border-color:var(--color-success)}
+.btn-ok:hover{background:var(--color-success);color:#fff}
+.btn-no{background:var(--color-surface);color:var(--color-danger);border-color:var(--color-danger)}
+.btn-no:hover{background:var(--color-danger);color:#fff}
+.btn-danger-quiet{background:transparent;color:var(--color-danger);border-color:var(--color-border-strong)}
+.table-wrap{border:var(--border-width) solid var(--color-border);border-radius:var(--radius-container);background:var(--color-surface);overflow:hidden}
+.table-head{display:flex;justify-content:space-between;align-items:baseline;padding:var(--space-3) var(--space-4);border-bottom:var(--border-width) solid var(--color-border)}
+.table-head h2{margin:0;font-size:var(--text-lg);font-family:var(--font-display);font-weight:var(--weight-display)}
+.muted{color:var(--color-text-secondary);font-weight:400;font-size:var(--text-sm);font-family:var(--font-ui)}
+.sort{font-size:var(--text-xs);color:var(--color-text-secondary)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:var(--text-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-secondary);padding:var(--space-2) var(--space-3);border-bottom:var(--border-width) solid var(--color-border);background:var(--color-thead)}
+.th-sort{all:unset;cursor:pointer}.th-sort.is-sorted{color:var(--color-text)}
+td{padding:var(--space-2) var(--space-3);border-bottom:var(--border-width) solid var(--color-border);vertical-align:middle;height:var(--row-h)}
+tbody tr:hover{background:var(--color-surface-hover)}
+tbody tr[data-status="rejected"] .name,tbody tr[data-status="rejected"] .grid{opacity:.55}
+.c-num{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.x{color:var(--color-text-secondary);padding:0 1px}
+.q{font-weight:600}.q-of{color:var(--color-text-secondary);font-size:var(--text-xs)}
+.c-thumb{width:calc(var(--thumb) + 2 * var(--space-3))}
+.thumb{display:block;width:var(--thumb);height:var(--thumb);border:1px solid var(--color-border);background:var(--grid-paper);border-radius:var(--radius-control)}
+.grid{width:100%;height:100%;display:block}
+.name{font-weight:600;text-decoration:none}.name:hover{text-decoration:underline}
+.meta{font-size:var(--text-xs);color:var(--color-text-secondary);font-family:var(--font-mono)}
+.tier,.status,.rec{display:inline-block;font-size:var(--text-xs);font-weight:600;line-height:1;padding:.3em .55em;border-radius:var(--radius-badge);white-space:nowrap}
+.tier{--c:var(--tier);color:color-mix(in srgb,var(--c) 70%,var(--color-text));background:color-mix(in srgb,var(--c) 14%,var(--color-surface));border:1px solid color-mix(in srgb,var(--c) 40%,var(--color-surface))}
+.status{border:1px solid var(--color-border-strong);color:var(--color-text-secondary);text-transform:capitalize}
+.status[data-status="approved"]{color:var(--color-success);border-color:var(--color-success);background:var(--color-success-tint)}
+.status[data-status="rejected"]{color:var(--color-danger);border-color:var(--color-danger);background:var(--color-danger-tint)}
+.status[data-status="in_book"]{color:var(--color-accent);border-color:var(--color-accent);background:var(--color-accent-tint)}
+.rec{color:var(--color-text-secondary);background:var(--color-surface-hover)}.rec-high{color:var(--color-success)}
+.actions{display:flex;gap:var(--space-1);justify-content:flex-end}
+.c-actions{text-align:right}
+.pager{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);font-size:var(--text-sm)}
+.pager a,.pager span[aria-current]{padding:var(--space-1) var(--space-2);border-radius:var(--radius-control);text-decoration:none}
+.pager span[aria-current]{background:var(--color-accent);color:var(--color-on-accent)}
+.pager a[aria-disabled]{color:var(--color-text-secondary);pointer-events:none}
+.pager-note{margin-left:auto;color:var(--color-text-secondary)}
+.strip{display:flex;align-items:center;gap:var(--space-4);height:44px;padding:0 var(--space-4);background:#111;color:#eee;font:12px/1 -apple-system,"Segoe UI",sans-serif;position:sticky;bottom:0}
+.strip-char{color:#aaa}.swatches{margin-left:auto;display:flex;gap:4px}.sw{width:18px;height:18px;border-radius:3px;border:1px solid #444}
+@media (max-width:820px){.shell{grid-template-columns:1fr}.side{display:none}.main{padding:var(--space-4)}.stats{grid-template-columns:repeat(2,1fr)}.c-thumb,.meta,.sort{display:none}}
+</style></head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="#"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 1h6v6H1zM9 1h6v6H9zM1 9h6v6H1zM9 9h6v6H9z" fill="currentColor"/></svg><span>Nonogram Press</span></a>
+    <nav class="crumbs" aria-label="Breadcrumb"><span>Puzzles</span></nav>
+    <div class="topbar-right"><span class="db">sqlite · nonogram_admin.db</span></div>
+  </header>
+  <aside class="side">
+    <nav aria-label="Sections">
+      <a href="#">Dashboard</a>
+      <div class="group">Generate</div>
+      <a href="#">New batch</a>
+      <a href="#">Batch history</a>
+      <div class="group">Curate</div>
+      <a href="#" aria-current="page">Puzzles <span class="count">16</span></a>
+      <a href="#">Re-grade</a>
+      <div class="group">Publish</div>
+      <a href="#">Books <span class="count">0</span></a>
+      <a href="#">New book</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Puzzle review</h1>
+        <p class="lede">Approve the grids that belong in a book, reject the rest. 14 waiting.</p>
+      </div>
+      <div class="head-actions"><button class="btn btn-quiet">Export CSV</button><button class="btn btn-primary">New batch</button></div>
+    </div>
+
+    <section class="stats" aria-label="Totals">
+      <div class="stat"><span class="stat-n">16</span><span class="stat-l">stored</span></div>
+      <div class="stat"><span class="stat-n">14</span><span class="stat-l">draft</span></div>
+      <div class="stat"><span class="stat-n">2</span><span class="stat-l">approved</span></div>
+      <div class="stat"><span class="stat-n">0</span><span class="stat-l">in a book</span></div>
+    </section>
+
+    <form class="filters" aria-label="Filters">
+      <label>Status<select><option>Any</option><option selected>Draft</option><option>Approved</option><option>Rejected</option><option>In book</option></select></label>
+      <label>Difficulty<select><option>Any</option><option>Easy</option><option>Medium</option><option>Hard</option><option>Guess</option></select></label>
+      <label>Size<input type="number" placeholder="10–30" /></label>
+      <label>Min quality<input type="number" placeholder="0–100" value="90" /></label>
+      <label>Book<select><option>All</option><option>Unassigned</option></select></label>
+      <label class="grow">Name<input type="search" placeholder="crab, owl, butterfly…" /></label>
+      <button class="btn btn-primary" type="button">Apply</button>
+      <a href="#" class="clear">Clear</a>
+    </form>
+
+    <section class="table-wrap">
+      <div class="table-head">
+        <h2>Puzzles <span class="muted">(16 total) · showing 1–9</span></h2>
+        <div class="sort">Sorted by batch, size ↓, quality</div>
+      </div>
+      <table>
+        <thead><tr>
+          <th scope="col"><span class="vh">Preview</span></th>
+          <th scope="col"><button class="th-sort">Puzzle</button></th>
+          <th scope="col" class="c-num"><button class="th-sort">Size</button></th>
+          <th scope="col"><button class="th-sort">Difficulty</button></th>
+          <th scope="col" class="c-num"><button class="th-sort is-sorted">Quality ↓</button></th>
+          <th scope="col">Recognizable</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="c-actions">Actions</th>
+        </tr></thead>
+        <tbody>
+<tr data-status="approved">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open crab6"><svg class="grid" viewBox="0 0 24 20" shape-rendering="crispEdges" role="img" aria-label="24 by 20 puzzle grid"><rect width="24" height="20" fill="var(--grid-paper)"/><path d="M2 1h1v1h-1zM21 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM5 2h1v1h-1zM18 2h1v1h-1zM21 2h1v1h-1zM22 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM17 3h1v1h-1zM18 3h1v1h-1zM21 3h1v1h-1zM22 3h1v1h-1zM23 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM19 4h1v1h-1zM21 4h1v1h-1zM22 4h1v1h-1zM23 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM17 5h1v1h-1zM18 5h1v1h-1zM19 5h1v1h-1zM20 5h1v1h-1zM21 5h1v1h-1zM22 5h1v1h-1zM23 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM18 6h1v1h-1zM19 6h1v1h-1zM20 6h1v1h-1zM21 6h1v1h-1zM22 6h1v1h-1zM23 6h1v1h-1zM1 7h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM20 7h1v1h-1zM21 7h1v1h-1zM22 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM20 8h1v1h-1zM21 8h1v1h-1zM3 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM20 9h1v1h-1zM3 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM20 10h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM19 11h1v1h-1zM20 11h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM18 12h1v1h-1zM19 12h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM17 13h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM18 15h1v1h-1zM19 15h1v1h-1zM4 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM14 16h1v1h-1zM15 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM19 16h1v1h-1zM5 17h1v1h-1zM6 17h1v1h-1zM17 17h1v1h-1zM5 18h1v1h-1zM18 18h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">crab6</a><div class="meta">crab6.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">24<span class="x">×</span>20</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">95</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="approved">approved</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-quiet">Restore</button></div></td>
+</tr>
+<tr data-status="draft">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open crab2"><svg class="grid" viewBox="0 0 20 20" shape-rendering="crispEdges" role="img" aria-label="20 by 20 puzzle grid"><rect width="20" height="20" fill="var(--grid-paper)"/><path d="M5 0h1v1h-1zM6 0h1v1h-1zM13 0h1v1h-1zM14 0h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM14 1h1v1h-1zM15 1h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM7 2h1v1h-1zM12 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM16 2h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM13 3h1v1h-1zM14 3h1v1h-1zM15 3h1v1h-1zM16 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM16 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM8 6h1v1h-1zM11 6h1v1h-1zM16 6h1v1h-1zM17 6h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM15 7h1v1h-1zM16 7h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM1 11h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM18 11h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM2 15h1v1h-1zM5 15h1v1h-1zM6 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM17 15h1v1h-1zM4 16h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM14 16h1v1h-1zM15 16h1v1h-1zM4 17h1v1h-1zM5 17h1v1h-1zM15 17h1v1h-1zM4 18h1v1h-1zM15 18h1v1h-1zM5 19h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">crab2</a><div class="meta">crab2.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>20</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">97</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="draft">draft</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-ok" aria-label="Approve"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Approve</span></button><button class="btn btn-no" aria-label="Reject"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Reject</span></button></div></td>
+</tr>
+<tr data-status="draft">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open jellyfish2"><svg class="grid" viewBox="0 0 20 23" shape-rendering="crispEdges" role="img" aria-label="20 by 23 puzzle grid"><rect width="20" height="23" fill="var(--grid-paper)"/><path d="M6 0h1v1h-1zM7 0h1v1h-1zM8 0h1v1h-1zM9 0h1v1h-1zM10 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM13 0h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM14 1h1v1h-1zM15 1h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM13 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM16 2h1v1h-1zM17 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM13 3h1v1h-1zM14 3h1v1h-1zM15 3h1v1h-1zM16 3h1v1h-1zM17 3h1v1h-1zM18 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM19 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM18 5h1v1h-1zM19 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM16 6h1v1h-1zM17 6h1v1h-1zM18 6h1v1h-1zM19 6h1v1h-1zM0 7h1v1h-1zM1 7h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM15 7h1v1h-1zM16 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM3 15h1v1h-1zM4 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM2 16h1v1h-1zM3 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM2 17h1v1h-1zM3 17h1v1h-1zM4 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM17 17h1v1h-1zM3 18h1v1h-1zM4 18h1v1h-1zM8 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM11 18h1v1h-1zM15 18h1v1h-1zM16 18h1v1h-1zM3 19h1v1h-1zM4 19h1v1h-1zM9 19h1v1h-1zM10 19h1v1h-1zM14 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM4 20h1v1h-1zM9 20h1v1h-1zM10 20h1v1h-1zM15 20h1v1h-1zM4 21h1v1h-1zM9 21h1v1h-1zM10 21h1v1h-1zM15 21h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">jellyfish2</a><div class="meta">jellyfish2.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>23</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">99</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="draft">draft</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-ok" aria-label="Approve"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Approve</span></button><button class="btn btn-no" aria-label="Reject"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Reject</span></button></div></td>
+</tr>
+<tr data-status="draft">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open octopus1"><svg class="grid" viewBox="0 0 20 22" shape-rendering="crispEdges" role="img" aria-label="20 by 22 puzzle grid"><rect width="20" height="22" fill="var(--grid-paper)"/><path d="M8 0h1v1h-1zM9 0h1v1h-1zM10 0h1v1h-1zM11 0h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM13 2h1v1h-1zM14 2h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM13 3h1v1h-1zM14 3h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM1 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM17 10h1v1h-1zM18 10h1v1h-1zM1 11h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM18 11h1v1h-1zM2 12h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM1 14h1v1h-1zM2 14h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM0 15h1v1h-1zM1 15h1v1h-1zM2 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM17 15h1v1h-1zM18 15h1v1h-1zM19 15h1v1h-1zM0 16h1v1h-1zM1 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM18 16h1v1h-1zM19 16h1v1h-1zM0 17h1v1h-1zM1 17h1v1h-1zM3 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM11 17h1v1h-1zM12 17h1v1h-1zM16 17h1v1h-1zM18 17h1v1h-1zM19 17h1v1h-1zM0 18h1v1h-1zM1 18h1v1h-1zM2 18h1v1h-1zM3 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM12 18h1v1h-1zM13 18h1v1h-1zM16 18h1v1h-1zM17 18h1v1h-1zM18 18h1v1h-1zM19 18h1v1h-1zM2 19h1v1h-1zM6 19h1v1h-1zM13 19h1v1h-1zM17 19h1v1h-1zM6 20h1v1h-1zM13 20h1v1h-1zM7 21h1v1h-1zM12 21h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">octopus1</a><div class="meta">octopus1.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>22</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">99</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="draft">draft</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-ok" aria-label="Approve"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Approve</span></button><button class="btn btn-no" aria-label="Reject"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Reject</span></button></div></td>
+</tr>
+<tr data-status="draft">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open sea horse1"><svg class="grid" viewBox="0 0 20 24" shape-rendering="crispEdges" role="img" aria-label="20 by 24 puzzle grid"><rect width="20" height="24" fill="var(--grid-paper)"/><path d="M8 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM14 1h1v1h-1zM15 1h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM13 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM16 2h1v1h-1zM17 2h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM13 3h1v1h-1zM14 3h1v1h-1zM15 3h1v1h-1zM16 3h1v1h-1zM17 3h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM18 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM16 6h1v1h-1zM17 6h1v1h-1zM18 6h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM15 7h1v1h-1zM16 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM19 8h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM19 9h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM16 10h1v1h-1zM17 10h1v1h-1zM18 10h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM6 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM1 17h1v1h-1zM2 17h1v1h-1zM3 17h1v1h-1zM4 17h1v1h-1zM5 17h1v1h-1zM6 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM11 17h1v1h-1zM12 17h1v1h-1zM13 17h1v1h-1zM0 18h1v1h-1zM1 18h1v1h-1zM2 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM11 18h1v1h-1zM12 18h1v1h-1zM13 18h1v1h-1zM0 19h1v1h-1zM1 19h1v1h-1zM10 19h1v1h-1zM11 19h1v1h-1zM12 19h1v1h-1zM13 19h1v1h-1zM0 20h1v1h-1zM1 20h1v1h-1zM2 20h1v1h-1zM10 20h1v1h-1zM11 20h1v1h-1zM12 20h1v1h-1zM13 20h1v1h-1zM1 21h1v1h-1zM2 21h1v1h-1zM3 21h1v1h-1zM9 21h1v1h-1zM10 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM2 22h1v1h-1zM3 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM7 22h1v1h-1zM8 22h1v1h-1zM9 22h1v1h-1zM10 22h1v1h-1zM11 22h1v1h-1zM3 23h1v1h-1zM4 23h1v1h-1zM5 23h1v1h-1zM6 23h1v1h-1zM7 23h1v1h-1zM8 23h1v1h-1zM9 23h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">sea horse1</a><div class="meta">sea_horse1.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>24</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">99</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="draft">draft</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-ok" aria-label="Approve"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Approve</span></button><button class="btn btn-no" aria-label="Reject"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Reject</span></button></div></td>
+</tr>
+<tr data-status="approved">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open butterfly1"><svg class="grid" viewBox="0 0 27 20" shape-rendering="crispEdges" role="img" aria-label="27 by 20 puzzle grid"><rect width="27" height="20" fill="var(--grid-paper)"/><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM22 1h1v1h-1zM23 1h1v1h-1zM24 1h1v1h-1zM25 1h1v1h-1zM26 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM10 2h1v1h-1zM19 2h1v1h-1zM20 2h1v1h-1zM21 2h1v1h-1zM22 2h1v1h-1zM23 2h1v1h-1zM24 2h1v1h-1zM25 2h1v1h-1zM26 2h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM18 3h1v1h-1zM19 3h1v1h-1zM23 3h1v1h-1zM24 3h1v1h-1zM25 3h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM23 4h1v1h-1zM24 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM22 5h1v1h-1zM23 5h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM22 6h1v1h-1zM23 6h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM22 7h1v1h-1zM23 7h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM22 8h1v1h-1zM23 8h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM19 9h1v1h-1zM20 9h1v1h-1zM21 9h1v1h-1zM22 9h1v1h-1zM5 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM19 10h1v1h-1zM20 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM4 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM21 11h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM21 12h1v1h-1zM22 12h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM10 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM15 13h1v1h-1zM22 13h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM21 14h1v1h-1zM22 14h1v1h-1zM3 15h1v1h-1zM4 15h1v1h-1zM9 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM16 15h1v1h-1zM21 15h1v1h-1zM22 15h1v1h-1zM4 16h1v1h-1zM5 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM4 17h1v1h-1zM5 17h1v1h-1zM6 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM17 17h1v1h-1zM18 17h1v1h-1zM19 17h1v1h-1zM20 17h1v1h-1zM21 17h1v1h-1zM4 18h1v1h-1zM5 18h1v1h-1zM18 18h1v1h-1zM19 18h1v1h-1zM20 18h1v1h-1zM21 18h1v1h-1zM20 19h1v1h-1zM21 19h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">butterfly1</a><div class="meta">butterflies/butterfly1.png · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">27<span class="x">×</span>20</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">92</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="approved">approved</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-quiet">Restore</button></div></td>
+</tr>
+<tr data-status="draft">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open butterfly3"><svg class="grid" viewBox="0 0 20 30" shape-rendering="crispEdges" role="img" aria-label="20 by 30 puzzle grid"><rect width="20" height="30" fill="var(--grid-paper)"/><path d="M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM7 0h1v1h-1zM8 0h1v1h-1zM9 0h1v1h-1zM10 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM13 0h1v1h-1zM14 0h1v1h-1zM15 0h1v1h-1zM16 0h1v1h-1zM2 7h1v1h-1zM17 7h1v1h-1zM1 8h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM1 10h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM17 10h1v1h-1zM18 10h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM2 12h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM2 13h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM17 13h1v1h-1zM2 14h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM17 14h1v1h-1zM5 15h1v1h-1zM6 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM3 16h1v1h-1zM4 16h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM14 16h1v1h-1zM15 16h1v1h-1zM16 16h1v1h-1zM3 17h1v1h-1zM4 17h1v1h-1zM6 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM11 17h1v1h-1zM12 17h1v1h-1zM13 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM3 18h1v1h-1zM4 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM12 18h1v1h-1zM13 18h1v1h-1zM15 18h1v1h-1zM16 18h1v1h-1zM3 19h1v1h-1zM4 19h1v1h-1zM5 19h1v1h-1zM6 19h1v1h-1zM7 19h1v1h-1zM8 19h1v1h-1zM11 19h1v1h-1zM12 19h1v1h-1zM13 19h1v1h-1zM14 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM3 20h1v1h-1zM4 20h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM7 20h1v1h-1zM12 20h1v1h-1zM13 20h1v1h-1zM14 20h1v1h-1zM15 20h1v1h-1zM16 20h1v1h-1zM4 21h1v1h-1zM5 21h1v1h-1zM6 21h1v1h-1zM7 21h1v1h-1zM12 21h1v1h-1zM13 21h1v1h-1zM14 21h1v1h-1zM15 21h1v1h-1zM0 29h1v1h-1zM1 29h1v1h-1zM2 29h1v1h-1zM3 29h1v1h-1zM4 29h1v1h-1zM6 29h1v1h-1zM7 29h1v1h-1zM9 29h1v1h-1zM10 29h1v1h-1zM11 29h1v1h-1zM12 29h1v1h-1zM13 29h1v1h-1zM14 29h1v1h-1zM15 29h1v1h-1zM16 29h1v1h-1zM17 29h1v1h-1zM18 29h1v1h-1zM19 29h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">butterfly3</a><div class="meta">butterflies/butterfly3.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>30</td>
+  <td><span class="tier" style="--tier:#e74c3c">Hard</span></td>
+  <td class="c-num"><span class="q">93</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="draft">draft</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-ok" aria-label="Approve"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Approve</span></button><button class="btn btn-no" aria-label="Reject"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Reject</span></button></div></td>
+</tr>
+<tr data-status="rejected">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open raven1"><svg class="grid" viewBox="0 0 20 20" shape-rendering="crispEdges" role="img" aria-label="20 by 20 puzzle grid"><rect width="20" height="20" fill="var(--grid-paper)"/><path d="M4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM7 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM17 14h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM17 15h1v1h-1zM8 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM14 16h1v1h-1zM15 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM8 17h1v1h-1zM11 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM17 17h1v1h-1zM18 17h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM10 18h1v1h-1zM16 18h1v1h-1zM17 18h1v1h-1zM18 18h1v1h-1zM19 18h1v1h-1zM5 19h1v1h-1zM6 19h1v1h-1zM8 19h1v1h-1zM9 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">raven1</a><div class="meta">raven1.jpg · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>20</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">97</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="rejected">rejected</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-quiet">Restore</button><button class="btn btn-danger-quiet">Delete</button></div></td>
+</tr>
+<tr data-status="draft">
+  <td class="c-thumb"><a href="#" class="thumb" aria-label="Open owl1"><svg class="grid" viewBox="0 0 20 24" shape-rendering="crispEdges" role="img" aria-label="20 by 24 puzzle grid"><rect width="20" height="24" fill="var(--grid-paper)"/><path d="M3 0h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM14 1h1v1h-1zM15 1h1v1h-1zM16 1h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM13 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM16 2h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM15 3h1v1h-1zM16 3h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM8 4h1v1h-1zM11 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM2 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM12 5h1v1h-1zM17 5h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM17 6h1v1h-1zM18 6h1v1h-1zM1 7h1v1h-1zM2 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM1 8h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM0 9h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM11 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM19 9h1v1h-1zM0 10h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM16 10h1v1h-1zM17 10h1v1h-1zM0 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM0 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM19 12h1v1h-1zM0 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM7 13h1v1h-1zM9 13h1v1h-1zM12 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM19 13h1v1h-1zM0 14h1v1h-1zM4 14h1v1h-1zM6 14h1v1h-1zM8 14h1v1h-1zM11 14h1v1h-1zM13 14h1v1h-1zM15 14h1v1h-1zM19 14h1v1h-1zM4 15h1v1h-1zM6 15h1v1h-1zM8 15h1v1h-1zM13 15h1v1h-1zM15 15h1v1h-1zM1 16h1v1h-1zM3 16h1v1h-1zM5 16h1v1h-1zM7 16h1v1h-1zM9 16h1v1h-1zM12 16h1v1h-1zM14 16h1v1h-1zM15 16h1v1h-1zM16 16h1v1h-1zM18 16h1v1h-1zM2 17h1v1h-1zM3 17h1v1h-1zM4 17h1v1h-1zM6 17h1v1h-1zM8 17h1v1h-1zM11 17h1v1h-1zM13 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM17 17h1v1h-1zM3 18h1v1h-1zM4 18h1v1h-1zM6 18h1v1h-1zM8 18h1v1h-1zM10 18h1v1h-1zM11 18h1v1h-1zM13 18h1v1h-1zM15 18h1v1h-1zM16 18h1v1h-1zM17 18h1v1h-1zM4 19h1v1h-1zM5 19h1v1h-1zM6 19h1v1h-1zM7 19h1v1h-1zM8 19h1v1h-1zM9 19h1v1h-1zM10 19h1v1h-1zM11 19h1v1h-1zM12 19h1v1h-1zM13 19h1v1h-1zM14 19h1v1h-1zM15 19h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM7 20h1v1h-1zM8 20h1v1h-1zM9 20h1v1h-1zM10 20h1v1h-1zM11 20h1v1h-1zM12 20h1v1h-1zM13 20h1v1h-1zM14 20h1v1h-1zM5 21h1v1h-1zM6 21h1v1h-1zM7 21h1v1h-1zM9 21h1v1h-1zM10 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM13 21h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM12 22h1v1h-1zM13 22h1v1h-1zM14 22h1v1h-1zM12 23h1v1h-1zM14 23h1v1h-1z" fill="var(--grid-ink)"/></svg></a></td>
+  <td class="c-name"><a href="#" class="name">owl1</a><div class="meta">owl1.png · batch b7f2 · 2026-09-09</div></td>
+  <td class="c-num">20<span class="x">×</span>24</td>
+  <td><span class="tier" style="--tier:#f39c12">Medium</span></td>
+  <td class="c-num"><span class="q">99</span><span class="q-of">/100</span></td>
+  <td><span class="rec rec-medium">medium</span></td>
+  <td><span class="status" data-status="draft">draft</span></td>
+  <td class="c-actions"><div class="actions"><button class="btn btn-ok" aria-label="Approve"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Approve</span></button><button class="btn btn-no" aria-label="Reject"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Reject</span></button></div></td>
+</tr>
+        </tbody>
+      </table>
+      <nav class="pager" aria-label="Pagination">
+        <a href="#" aria-disabled="true">‹ Prev</a><span aria-current="page">1</span><a href="#">2</a><a href="#">Next ›</a>
+        <span class="pager-note">Page 1 of 2</span>
+      </nav>
+    </section>
+  </main>
+</div>
+<footer class="strip">
+  <strong>Proof sheet — Swiss / International</strong><span class="strip-char">One grotesk, black on white, cobalt for the one thing you can do. Structure from rules, not boxes.</span><span class="swatches"><span class="sw" style="background:#ffffff" title="bg"></span><span class="sw" style="background:#111111" title="text"></span><span class="sw" style="background:#595959" title="secondary"></span><span class="sw" style="background:#dadada" title="border"></span><span class="sw" style="background:#1849c7" title="accent"></span><span class="sw" style="background:#1e7d3c" title="success"></span><span class="sw" style="background:#a86500" title="warning"></span><span class="sw" style="background:#c0392b" title="danger"></span></span>
+</footer>
+</body></html>

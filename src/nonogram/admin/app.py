@@ -788,6 +788,26 @@ def create_app(debug=None):
         query = _list_return_query(request.form.get("return_to"))
         return redirect(url_for("puzzles_list") + (f"?{query}" if query else ""))
 
+    @app.context_processor
+    def _navigation():
+        """``nav_current(prefix)`` — is the request inside this section?
+
+        The sidebar marks one link ``aria-current="page"`` per request. The
+        dashboard is exact-match (every path starts with "/"); the others are
+        prefixes, so /book/<id>/select-puzzles still lights "Books".
+        """
+        path = request.path
+
+        def nav_current(*prefixes):
+            for prefix in prefixes:
+                if prefix == "/" and path == "/":
+                    return True
+                if prefix != "/" and (path == prefix or path.startswith(prefix.rstrip("/") + "/")):
+                    return True
+            return False
+
+        return {"nav_current": nav_current}
+
     @app.route("/")
     def dashboard():
         """Admin dashboard overview."""
@@ -852,7 +872,35 @@ def create_app(debug=None):
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")
 
-        return render_template("batch_create.html")
+        return _render_batch_step_one()
+
+    def _render_batch_step_one():
+        """Step 1 of the batch flow, aware of what is already loaded.
+
+        The image manager keeps the uploaded set until generation finishes,
+        so "back" from step 2 or 3 lands here with pictures still loaded. The
+        page used to render a blank upload form regardless, which read as
+        "your pictures are gone" and pushed the owner into re-uploading
+        (which really does discard them: from-images clears first). It now
+        shows the loaded set with a way forward and a way to start over, and
+        the form remembers the size and quality the set was uploaded with.
+        """
+        image_mgr = get_image_manager()
+        return render_template(
+            "batch_create.html",
+            loaded_images=image_mgr.get_all_images(),
+            default_size=session.get("batch_default_size", "medium"),
+            quality_filter=session.get("batch_quality_filter", 25),
+        )
+
+    @app.route("/batch/clear-images", methods=["POST"])
+    def batch_clear_images():
+        """Discard the loaded pictures and start the batch flow over."""
+        get_image_manager().clear_all()
+        session.pop("batch_quality_filter", None)
+        session.pop("batch_default_size", None)
+        flash("Loaded pictures discarded", "info")
+        return redirect(url_for("batch_select_images"))
 
     @app.route("/batch/from-images", methods=["POST"])
     def batch_from_images():
@@ -938,7 +986,7 @@ def create_app(debug=None):
     @app.route("/batch/select-images", methods=["GET", "POST"])
     def batch_select_images():
         """Select images for batch generation (Wave 3 workflow)."""
-        return render_template("batch_create.html")
+        return _render_batch_step_one()
 
     @app.route("/batch/preview-images", methods=["GET", "POST"])
     def preview_batch_images():
@@ -947,7 +995,7 @@ def create_app(debug=None):
         images = image_mgr.get_all_images()
 
         if not images:
-            flash("No images loaded. Please upload images first.", "error")
+            flash("No pictures are loaded — upload some to start a batch.", "error")
             return redirect(url_for("batch_select_images"))
 
         if request.method == "POST":
@@ -999,7 +1047,9 @@ def create_app(debug=None):
         images = image_mgr.get_all_images()
 
         if not images:
-            flash("No images to process", "error")
+            # Also where the browser's Back button lands after a batch has
+            # finished: the set is cleared on generation, on purpose.
+            flash("No pictures are loaded — the last batch has finished, or none were uploaded. Start a new batch.", "error")
             return redirect(url_for("batch_select_images"))
 
         # GET: Show confirmation page
@@ -1812,6 +1862,26 @@ def create_app(debug=None):
         except ValueError as e:
             flash(f"Error: {str(e)}", "error")
 
+        # The puzzle-review modal posts here too and wants its list back, with
+        # the filters it was opened from; book_detail's own form has no
+        # return_to and lands on the book.
+        if request.form.get("return_to") is not None:
+            return _back_to_puzzles_list()
+        return redirect(url_for("book_detail", book_id=book_id))
+
+    @app.route("/book/<book_id>/remove-puzzle", methods=["POST"])
+    def remove_puzzle_from_book(book_id):
+        """Remove one puzzle from a book.
+
+        book_detail.html's per-row Remove button posted here since the page
+        was written, but no route answered — every click was a 404. The
+        manager method it needed already existed.
+        """
+        puzzle_id = request.form.get("puzzle_id", "").strip()
+        if book_mgr.remove_puzzle_from_book(book_id, puzzle_id):
+            flash("Puzzle removed from book", "success")
+        else:
+            flash("Book or puzzle not found", "error")
         return redirect(url_for("book_detail", book_id=book_id))
 
     @app.route("/book/<book_id>/status", methods=["POST"])
