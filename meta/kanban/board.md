@@ -1,11 +1,11 @@
 # Kanban Board
 
-_Updated: 2026-09-14 13:10 UTC_
+_Updated: 2026-09-14 13:35 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
 |------|-------|--------|
-| 1 | CARD-080 P1, CARD-001 P1, CARD-019 P1, CARD-022 P1, CARD-023 P1, CARD-024 P1, CARD-025 P2, CARD-045 P1, CARD-046 P2, CARD-047 P2, CARD-048 P3, CARD-049 P1, CARD-050 P1, CARD-051 P2, CARD-054 P3, CARD-055 P3, CARD-058 P3, CARD-059 P3, CARD-060 P3, CARD-061 P2, CARD-062 P2, CARD-063 P3, CARD-064 P2, CARD-065 P3, CARD-066 P3, CARD-067 P2, CARD-068 P2, CARD-069 P2, CARD-070 P2, CARD-071 P3, CARD-072 P2, CARD-073 P1, CARD-074 P1, CARD-075 P2, CARD-076 P1, CARD-077 P2, CARD-078 P3, CARD-079 P2, CARD-084 P3, CARD-085 P1 | ▶ active |
+| 1 | CARD-080 P1, CARD-001 P1, CARD-019 P1, CARD-022 P1, CARD-023 P1, CARD-024 P1, CARD-025 P2, CARD-045 P1, CARD-046 P2, CARD-047 P2, CARD-048 P3, CARD-049 P1, CARD-050 P1, CARD-051 P2, CARD-054 P3, CARD-055 P3, CARD-058 P3, CARD-059 P3, CARD-060 P3, CARD-061 P2, CARD-062 P2, CARD-063 P3, CARD-064 P2, CARD-065 P3, CARD-066 P3, CARD-067 P2, CARD-068 P2, CARD-069 P2, CARD-070 P2, CARD-071 P3, CARD-072 P2, CARD-073 P1, CARD-074 P1, CARD-075 P2, CARD-076 P1, CARD-077 P2, CARD-078 P3, CARD-079 P2, CARD-084 P3, CARD-085 P1, CARD-086 P2 | ▶ active |
 | 2 | CARD-002 P1, CARD-003 P1, CARD-020 P1, CARD-026 P1, CARD-029 P3, CARD-052 P2, CARD-053 P3, CARD-056 P3 | ⏳ blocked (→ wave 1) |
 | 3 | CARD-004 P1, CARD-021 P2, CARD-027 P1 | ⏳ blocked (→ wave 2) |
 | 4 | CARD-005 P1, CARD-028 P2, CARD-030 P2, CARD-031 P2, CARD-032 P2 | ⏳ blocked (→ wave 3) |
@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-086** P2 · Serve the deployed admin with a production server, and bound its slowest route  _(wave 1)_ — after CARD-085; Render still runs the Flask dev server
 - **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them  _(wave 1)_ — **parked at the owner's call until production is working**; code complete on `card/084-drop-legacy-difficulty-columns`, migration 007 applied nowhere
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
