@@ -19,7 +19,7 @@
 **Started:** 2026-09-14
 **Closed:** 2026-09-14
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** d3db715
 **Blocked by:** —
 
 ## Why
