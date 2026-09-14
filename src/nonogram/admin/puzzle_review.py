@@ -569,6 +569,17 @@ class PuzzleReviewService:
         if filter_opts.offset < 0:
             raise ValueError("Offset must be >= 0")
         if filter_opts.size:
+            # Named rather than unpacked blind. A caller passing a bare int —
+            # extent as one number, which ADR-0022/R1 removed from every
+            # boundary in CARD-027 — used to reach the unpack and die there
+            # with "cannot unpack non-iterable int object", five frames from
+            # anything that names the rule it broke (CARD-082).
+            if not isinstance(filter_opts.size, (tuple, list)) or len(filter_opts.size) != 2:
+                raise ValueError(
+                    f"Size filter must be a (width, height) pair, got "
+                    f"{filter_opts.size!r} — a grid's extent is two numbers "
+                    f"(ADR-0022/R1)"
+                )
             width, height = filter_opts.size
             if not (MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE):
                 raise ValueError(f"Size dimensions must be {MIN_SIZE}-{MAX_SIZE}")

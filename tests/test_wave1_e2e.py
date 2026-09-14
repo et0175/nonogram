@@ -1,4 +1,27 @@
-"""Wave 1 comprehensive E2E tests: batch history, preview, bulk operations."""
+"""Wave 1 comprehensive E2E tests: batch history, preview, bulk operations.
+
+Batch sizes are the minimum ``create_batch`` accepts (10), deliberately.
+
+These tests are about history, preview and bulk operations; generation is a
+dependency they lean on, not their subject. But every puzzle in a batch is a
+real unseeded draw through the whole pipeline, and a random 20x20 at density 50
+genuinely fails to be uniquely solvable within POL-001's 20 regenerate attempts
+about **1 time in 300** (measured over 300 draws per size: 0/300 at 15x15,
+1/300 at 20x20). ``orchestrator.generate_batch`` has no per-candidate
+tolerance — one ``GenerationAbandoned`` ends the whole batch — so the counts
+this file asks for are also its exposure to that.
+
+At the 350 draws this file used to make, the chance of at least one spurious
+failure per suite run was around 40%, which is what had been showing up as "a
+flaky e2e test" that moved between tests run to run. At 60 draws it is nearer
+10%. Not zero: the remaining exposure is a real product behaviour, not a test
+defect, and whether a batch should skip an abandoned candidate and continue is
+an owner decision recorded on CARD-082 rather than something these tests should
+paper over.
+
+No assertion changed: each still checks ``puzzle_count == count``, which is the
+claim, at a count that costs 5x fewer dice rolls to make.
+"""
 
 import pytest
 from nonogram.admin.puzzle_review import PuzzleFilter
@@ -12,7 +35,7 @@ class TestBatchHistoryE2E:
         """Test that generated batch appears in history."""
         # Generate batch
         batch_id = batch_generator_service.create_batch(
-            count=50,
+            count=10,
             sizes=[15, 20],
             theme='christmas'
         )
@@ -24,14 +47,14 @@ class TestBatchHistoryE2E:
         job = batch_generator_service.get_batch_status(batch_id)
         assert job is not None
         assert job.status.name == 'COMPLETE'
-        assert job.puzzle_count == 50
+        assert job.puzzle_count == 10
 
     @pytest.mark.e2e
     def test_batch_history_shows_multiple_batches(self, batch_generator_service, puzzle_review_service):
         """Test that multiple batches appear in history."""
         # Generate two batches
-        batch_id1 = batch_generator_service.create_batch(count=50, sizes=[15])
-        batch_id2 = batch_generator_service.create_batch(count=100, sizes=[20])
+        batch_id1 = batch_generator_service.create_batch(count=10, sizes=[15])
+        batch_id2 = batch_generator_service.create_batch(count=10, sizes=[20])
 
         batch_generator_service._generate_random_batch(batch_id1)
         batch_generator_service._generate_random_batch(batch_id2)
@@ -50,8 +73,8 @@ class TestBatchHistoryE2E:
     def test_batch_history_filters_by_status(self, batch_generator_service, puzzle_review_service):
         """Test filtering batch history by status."""
         # Create batches - both complete synchronously
-        batch_id1 = batch_generator_service.create_batch(count=50, sizes=[15])
-        batch_id2 = batch_generator_service.create_batch(count=50, sizes=[20])
+        batch_id1 = batch_generator_service.create_batch(count=10, sizes=[15])
+        batch_id2 = batch_generator_service.create_batch(count=10, sizes=[20])
 
         # Filter for complete (both should be complete now)
         from nonogram.admin.batch_generator import BatchStatus
@@ -266,9 +289,20 @@ class TestBulkOperationsE2E:
                 strategies_used=puzzle.get('strategies_used', []),
             )
 
-        # Filter by size
-        filter_opts = PuzzleFilter(size=15, limit=100)
+        # Filter by size. A (width, height) pair, not a bare 15: extent has
+        # crossed this boundary as a pair since CARD-027 (ADR-0022/R1), and
+        # this was the last scalar call left in the repository — it raised
+        # `TypeError: cannot unpack non-iterable int object` inside
+        # `filter_puzzles` on every run, which is why this test had been
+        # failing rather than flaking (CARD-082).
+        filter_opts = PuzzleFilter(size=(15, 15), limit=100)
         result = puzzle_review_service.filter_puzzles(filter_opts)
+
+        # The filter has to match something, or the two loops below iterate
+        # over nothing and assert nothing. sample_puzzles draws from
+        # [10, 15, 20], so some 15x15 rows exist by construction.
+        assert result.puzzles, "the size filter matched nothing; the test is vacuous"
+        assert all(p['width'] == 15 and p['height'] == 15 for p in result.puzzles)
 
         # Bulk approve all matching
         for puzzle in result.puzzles:
@@ -320,18 +354,18 @@ class TestCompleteWorkflowWave1:
         """Test complete workflow: generate → preview → bulk approve."""
         # 1. Generate batch
         batch_id = batch_generator_service.create_batch(
-            count=50,
+            count=10,
             sizes=[15, 20],
             theme='christmas'
         )
 
         # 2. Verify batch in history (generation happens during create_batch)
         job = batch_generator_service.get_batch_status(batch_id)
-        assert job.puzzle_count == 50
+        assert job.puzzle_count == 10
 
         # 3. Get puzzles from batch
         puzzles = batch_generator_service.get_batch_puzzles(batch_id, limit=100)
-        assert len(puzzles) == 50
+        assert len(puzzles) == 10
 
         # 4. Preview first puzzle (verify grid and clues available)
         first_puzzle = puzzles[0]
@@ -347,7 +381,7 @@ class TestCompleteWorkflowWave1:
 
         # 6. Verify all approved
         final_stats = puzzle_review_service.get_stats()
-        assert final_stats['approved'] >= 50
+        assert final_stats['approved'] >= 10
 
 
 # Run with: pytest tests/test_wave1_e2e.py -v

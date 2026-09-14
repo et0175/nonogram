@@ -275,6 +275,33 @@ class TestPuzzleFiltering:
         with pytest.raises(ValueError):
             review_service.filter_puzzles(PuzzleFilter(quality_min=101))
 
+    @pytest.mark.parametrize("scalar", [15, "15", 15.0, (15,), (15, 15, 15)])
+    def test_an_extent_that_is_not_a_pair_is_refused_by_name(
+        self, review_service, scalar
+    ) -> None:
+        """ADR-0022/R1 at this boundary, with a message that names it.
+
+        A bare ``15`` used to reach ``width, height = filter_opts.size`` and
+        die there with "cannot unpack non-iterable int object" — a message
+        that says nothing about extents, five frames from the caller that
+        wrote the scalar. One such caller survived in the repository until
+        CARD-082 and had been failing every run; nothing pinned the refusal,
+        so nothing said what it was.
+
+        Parametrized over the shapes that are *nearly* right as well as the
+        scalar, because a length check that only rejected non-sequences would
+        let ``(15,)`` through to the same unpack error.
+        """
+        with pytest.raises(ValueError, match="width, height"):
+            review_service.filter_puzzles(PuzzleFilter(size=scalar))
+
+    def test_a_pair_is_still_accepted(self, review_service) -> None:
+        """The mirror, so the check above cannot be tightened into refusing
+        everything — which would pass every case of the test above."""
+        result = review_service.filter_puzzles(PuzzleFilter(size=(15, 15)))
+
+        assert result is not None
+
 
 class TestPuzzleApproval:
     """Test puzzle approval workflow."""

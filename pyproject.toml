@@ -39,6 +39,22 @@ nonogram = "nonogram.cli:main"
 # src-layout package structure
 where = ["src"]
 
+# The PDF exporter's bundled face. setuptools ships no non-Python file unless
+# it is named here, so without this block the font is present in a source
+# checkout — where pytest's `pythonpath = ["src"]` reads it straight off disk —
+# and absent from every built wheel. Measured before this entry existed: a
+# wheel built from this tree carried 60 entries and none of them a font, so
+# `pdf._font_bytes()` raised on any real install while the whole suite stayed
+# green. ADR-0006/R1 allows the font precisely *because* it ships as package
+# data rather than as a dependency; that permission is only true once this
+# block makes it so.
+#
+# The LICENSE travels with the file as an obligation of the DejaVu licence,
+# not as a nicety, which is why it is listed explicitly rather than left to a
+# glob that happens to catch it.
+[tool.setuptools.package-data]
+"nonogram.export" = ["fonts/*.ttf", "fonts/LICENSE"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
