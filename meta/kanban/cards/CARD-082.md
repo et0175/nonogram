@@ -1,6 +1,6 @@
 # CARD-082: The suite baseline says what it means — three standing failures and one 40% flake
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** — (CARD-070 merged 4362a7e)
 **Touches:** pyproject.toml (package-data), tests/test_web_upload.py (one assertion), tests/test_wave1_e2e.py + tests/test_wave2_async_generation.py (one stale call + batch counts and sizes), tests/test_puzzle_review.py (new tests), src/nonogram/admin/puzzle_review.py (a legible refusal)
-**Review score:** —
+**Review score:** 9.0 (cycle 1), all findings fixed
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
