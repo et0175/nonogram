@@ -160,3 +160,23 @@ yours to decide.
 ## Worktree notes
 
 —
+
+### Review cycle 1 fixes (73c06a8)
+
+| finding | what was wrong | what it is now |
+|---|---|---|
+| F-001 | The rewritten upload assertion compared the two messages' causes to each other and nothing else — which **any constant satisfies**. Replacing the decoder's half in `image.py` with the literal `"unreadable"` left the test green. The robustness half of the trade was right; the lost half is the half a user reads. | The expected cause is derived in the test: `corrupt.png` is decoded with PIL and what it raises becomes the expectation. A Pillow reword updates it automatically; a constant no longer passes. |
+| F-002 | `assert result is not None` against a function that either returns a response or raises — "did not raise", written indirectly. | Asserts `isinstance(result.puzzles, list)`. |
+| F-003 | The card claimed "no assertion changed" where two count-derived assertions did. | Says no *claim* changed, and names them. |
+
+Five mutants, five killed: the cause dropped for a literal, the cause replaced
+by an exception class name, the path dropped, the extent guard removed, and the
+extent guard tightened into refusing valid pairs.
+
+**What the mutation check bought on this card.** F-001 was invisible to
+reading — I had just written that assertion, reasoned about it in the commit
+message, and described it to the owner as *stronger* than what it replaced. It
+was stronger in one direction and weaker in another, and only a mutant that
+replaced the decoder's message with a constant showed which. The final version
+is stronger than both the original pin and the first rewrite: wording-
+independent like the rewrite, substantive like the pin.

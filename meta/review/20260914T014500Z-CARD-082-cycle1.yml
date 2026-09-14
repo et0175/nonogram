@@ -1,0 +1,190 @@
+version: 1
+generated_at: "2026-09-14T01:45:00Z"
+target: "CARD-082 cycle 1 — branch card/082-suite-baseline, commit 015c887 on main 908c87f"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "the whole diff: pyproject's package-data block, the filter guard, and all four touched test files"
+    - "every production constructor of PuzzleFilter with a size (app.py:789, :988, :1389 and from_dict) — the boundary the new guard sits on"
+    - "sourcing/image.py's UnreadableImage template, the other half of the web-upload assertion"
+    - "the built wheel, before and after, and three attempts to break it while keeping the AC-1 test green"
+  not_reached:
+    - "the sdist — `build` is not installed in this venv, so source-distribution inclusion was not verified (the wheel is the material artifact for an install)"
+    - "tests/test_sourcing_image.py's corpus cases (the pictures/ folder is not on disk — excluded by AC-4)"
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 327, removed: 35 }
+  max_fan_in: { symbol: "PuzzleReviewService.filter_puzzles", callers: 4 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/puzzle_review.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — the diff's peers (the test files it repairs) are all in it; that is the card"
+
+system_contract:
+  rules_checked: 8
+  holds: 4
+  unchecked: 4
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — and this diff is what makes it true: [project.dependencies] is untouched (`git diff -- pyproject.toml` adds only a package-data table), and the rule's own clause that non-executable static assets 'may ship as package data instead' now describes reality — a wheel built from this head carries nonogram/export/fonts/DejaVuSans.ttf and fonts/LICENSE where the pre-diff wheel carried neither. tests/test_export_pdf.py green on 015c887 apart from nothing"
+    - "ADR-0022/R1 ✓ holds, strengthened — the diff removes the repository's last scalar-extent caller (tests/test_wave1_e2e.py:270) and adds a boundary refusal at puzzle_review.py:572 that names the rule; mutants M1 (guard removed) and M2 (type checked but not length) both KILLED. All three production constructors build a pair (app.py:789, :988, :1389), verified by grep"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff touches no image fitting"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff touches no extent derivation"
+    - "ADR-0025/R2 ⚠ unchecked — no_eligible_fact: the diff performs no classification"
+    - "ADR-0027/R2 ⚠ unchecked — check_ref_missing: TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam resolves to 0 tracked files by `git grep -w`. Note: the lens reported dead_check_ref: [] on this invocation while reporting this same ref dead on CARD-070's — the lens disagrees with itself between runs, so this verdict is my own grep, not its output. Manual read: no density logic in this diff"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault green on 015c887; scope (src/nonogram/admin/**) intersects the diff so this was re-verified rather than assumed, and the diff touches no entry point"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine green on 015c887; same scope reasoning"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_web_upload.py
+    line: 318
+    title: "The rewritten upload assertion is satisfied by any constant cause, so it no longer checks that the decoder's explanation reaches the user"
+    description: |
+      The old assertion pinned Pillow's sentence, which was fragile and never
+      matched this fixture. The replacement asserts our half of the template on
+      each message and then `web["cause"] == cli["cause"]`.
+
+      Mutation M4 — replace the decoder's half in
+      `sourcing/image.py:261` with a constant:
+
+        f"cannot read image {str(source)!r}: {error}"
+          ->  f"cannot read image {str(source)!r}: unreadable"
+
+      SURVIVED the whole of tests/test_web_upload.py. A constant equals
+      itself, so an equality check between the two surfaces passes while the
+      message stops explaining anything. (M3, dropping the path, was KILLED —
+      our half of the template is still pinned.)
+
+      The trade was deliberate and the robustness half of it is right: the
+      test should not break when Pillow rewords. But "both surfaces agree" is
+      only half of what the old assertion covered, and the half that was lost
+      is the half a user reads.
+    suggestion: |
+      Derive the expected cause in the test instead of hardcoding or dropping
+      it: open `corrupt.png` with PIL inside the test, capture `str(exc)` from
+      the failure, and assert both surfaces' cause equals *that*. Wording-
+      independent — a Pillow reword updates the expectation automatically —
+      and a constant no longer passes, because the constant will not equal
+      what PIL actually said.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 73c06a8
+    dismissed_reason: null
+    fix_note: |
+      the expected cause is now derived in the test — corrupt.png is decoded with PIL and what it raises becomes the expectation — so a Pillow reword updates it automatically and a constant no longer passes. Mutants R1 (cause replaced by a literal) and R2 (cause replaced by the exception class name) both KILLED, and R3 confirms the path half is still pinned
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_review.py
+    line: 289
+    title: "The mirror test asserts `result is not None`, which is weaker than the claim it is there to make"
+    description: |
+      `test_a_pair_is_still_accepted` exists so the refusal above it cannot be
+      tightened into refusing everything. What it asserts is
+      `assert result is not None` — and `filter_puzzles` either returns a
+      `PuzzleListResponse` or raises, so the assertion is really "did not
+      raise", written indirectly.
+
+      It does its job (a guard that refused pairs would raise and fail this
+      test), but the assertion does not say what it means, and a reader
+      checking whether the mirror is real has to reason about the return
+      contract to find out.
+    suggestion: |
+      Assert the shape it actually expects — that `result.puzzles` is a list —
+      or drop the assert and let the call stand alone with a comment that the
+      absence of an exception is the claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 73c06a8
+    dismissed_reason: null
+    fix_note: |
+      asserts isinstance(result.puzzles, list) — the shape it means. Mutant R5 (the guard tightened into refusing valid pairs) KILLED by this test
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-082.md
+    line: 96
+    title: "The card says 'no assertion changed' where assertions did change, proportionately"
+    description: |
+      Section 4 reads "**no assertion changed** — each still checks
+      `puzzle_count == count`". Two assertions did change:
+      `assert len(puzzles) == 50` -> `== 10` and
+      `assert final_stats['approved'] >= 50` -> `>= 10`
+      (tests/test_wave1_e2e.py, the complete-workflow test).
+
+      The *claims* are unchanged and scale with the count, which is the
+      defensible thing the sentence is reaching for. But a card whose whole
+      subject is "the baseline stops lying" should not overstate its own
+      change — the wave2 paragraph gets this right ("no assertion was
+      weakened"), and the wave1 one does not.
+    suggestion: |
+      "No claim changed — the two count-derived assertions scale with it."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 73c06a8
+    dismissed_reason: null
+    fix_note: |
+      the card now says no *claim* changed and names the two count-derived assertions that do carry a different number
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: risk
+    file: tests/test_export_pdf.py
+    line: 708
+    title: "AC-1's test reads the manifest and the source tree, never a built artifact — but I could not make that gap bite"
+    description: |
+      The test asserts the package-data entries exist in pyproject, that the
+      dependency set is unchanged, and that `pdf._font_bytes()` returns a real
+      TTF — the last via `importlib.resources` against the *source* tree,
+      which pytest's `pythonpath = ["src"]` resolves off disk. No step in it
+      builds or inspects a wheel. So its guarantee is "the declaration is
+      right", while AC-1's wording is about what the wheel contains.
+
+      Recorded as info rather than as a finding because I tried twice to
+      construct a reachable case — excluding `nonogram.export` from
+      `packages.find`, with and without pip's cache — and neither actually
+      broke the wheel, so I have no evidence the gap is exploitable by any
+      realistic edit. Stated so the next reader knows the distinction exists
+      and that it was probed, not assumed.
+    suggestion: |
+      If it ever matters, the honest version is a test that builds a wheel and
+      inspects it — slow, and probably belongs in a release check rather than
+      the unit suite. Not worth doing on this card.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
