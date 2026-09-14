@@ -13,3 +13,32 @@ services:
         value: 3.11
       - key: PYTHONUNBUFFERED
         value: "1"
+
+      # --- Remote access (CARD-085) -------------------------------------
+      # ADMIN_ALLOWED_HOST is the switch. Unset, the panel answers only to
+      # loopback and every request through Render's proxy gets a 404 — which
+      # is what it did before this card. Set to the service's hostname, it
+      # answers to that hostname and nothing else, and only with the
+      # credential below.
+      #
+      # The panel has no other authentication and POST /regrade rewrites
+      # every stored grade, so the app refuses to boot if ADMIN_ALLOWED_HOST
+      # is set without ADMIN_PASSWORD, or with the development SECRET_KEY.
+      # A failed build is the intended outcome of a half-finished setup.
+      - key: ADMIN_ALLOWED_HOST
+        value: nonogram-admin.onrender.com
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+
+      # Signs session cookies. Must not be left unset: the fallback is a
+      # literal in this repository, so cookies signed with it are forgeable
+      # by anyone who can read the source.
+      - key: SECRET_KEY
+        sync: false
+
+      # The Postgres connection string. Use Render's *internal* URL so the
+      # traffic stays inside Render's network.
+      - key: DATABASE_URL
+        sync: false

@@ -28,8 +28,9 @@ The two are deliberately independent. The bind is the wall; the header check is
 what stands when someone opens a door in it.
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from flask import Flask, Response, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from datetime import datetime
+import hmac
 import json
 import os
 import tempfile
@@ -194,18 +195,13 @@ def _host_is_local(host_header: str | None) -> bool:
     imported — ADR-0007 forbids the lateral import, and CLAUDE.md's rule for
     this case is to reimplement natively. The test tree, where the import is
     legal, is what holds the two copies to the same answer.
+
+    The parse itself moved to :func:`_hostname_of` when CARD-085 added a second
+    question about the same header. This function's answer is unchanged: the
+    same values are refused for the same reasons, and CARD-081's test class
+    pins that.
     """
-    if not host_header:
-        return False
-    if any(char in host_header for char in "@/#?"):
-        return False
-    if not _port_is_well_formed(host_header):
-        return False
-    try:
-        hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
-    except ValueError:
-        return False
-    return hostname in ALLOWED_HOSTS
+    return _hostname_of(host_header) in ALLOWED_HOSTS
 
 
 def _port_is_well_formed(authority: str) -> bool:
@@ -226,6 +222,132 @@ def _port_is_well_formed(authority: str) -> bool:
     return port.isascii() and port.isdigit()
 
 
+#: The environment variable that opens the *deployed* door (CARD-085).
+#:
+#: Unset is the whole of CARD-081's behaviour: loopback only, no credential.
+#: Set to one hostname — ``nonogram-admin.onrender.com`` — it closes that door
+#: and opens a different one: that host, with a credential, and nothing else.
+#: Never both at once; see :func:`create_app`'s hook for why.
+REMOTE_HOST_VAR = "ADMIN_ALLOWED_HOST"
+
+#: Where the credential comes from. The password has no default on purpose —
+#: :func:`create_app` refuses to boot without one when remote access is on.
+ADMIN_USER_VAR = "ADMIN_USER"
+ADMIN_PASSWORD_VAR = "ADMIN_PASSWORD"
+DEFAULT_ADMIN_USER = "admin"
+
+#: The session-signing key this module falls back to, and the one value that
+#: must never reach a reachable deployment.
+#:
+#: It is a literal in this file, so it is a literal in every clone of this
+#: repository: cookies signed with it can be forged by anyone who has read the
+#: source. Harmless while the panel answers only to this machine, which is why
+#: it survived; :func:`create_app` treats it as a fatal misconfiguration the
+#: moment :data:`REMOTE_HOST_VAR` is set.
+DEV_SECRET_KEY = "dev-key-change-in-production"
+
+
+class AdminConfigurationError(RuntimeError):
+    """The admin was asked to serve remotely without the means to do it safely.
+
+    Deliberately *not* a :class:`nonogram.errors.NonogramError`: that hierarchy
+    is the domain's, and every member of it is something the CLI maps onto an
+    exit code for a user who asked for a puzzle. This is an operator telling
+    the process to start in a configuration it must refuse — it belongs to the
+    admin adapter, and the only correct response to it is a failed boot.
+
+    Raised at :func:`create_app` time rather than per request, so a deploy that
+    forgot the password dies in its build logs instead of coming up serving an
+    open panel. A loud failure is recoverable in a minute; an open admin is
+    not recoverable at all.
+    """
+
+
+def _hostname_of(host_header: str | None) -> str | None:
+    """The host component of a ``Host`` header, or ``None`` if it is not one.
+
+    Everything :func:`_host_is_local` used to do inline, minus the final
+    comparison, so that the *second* question this module now asks — "is this
+    the one host we were configured to answer to?" — is asked of exactly the
+    same parse. Two host checks that disagree about what a host is would be a
+    bypass waiting to happen.
+
+    The rules and the reasons for them are unchanged; see
+    :func:`_host_is_local`.
+    """
+    if not host_header:
+        return None
+    if any(char in host_header for char in "@/#?"):
+        return None
+    if not _port_is_well_formed(host_header):
+        return None
+    try:
+        return urllib.parse.urlsplit(f"//{host_header}").hostname
+    except ValueError:
+        return None
+
+
+def _host_is_the_configured_remote(host_header: str | None, expected: str) -> bool:
+    """Does this ``Host`` name the one host remote access was configured for?
+
+    An equality test, not an allowlist: the deployed door admits exactly one
+    name. ``urlsplit`` lower-cases the host component, so the configured value
+    is lower-cased too rather than compared case-sensitively — DNS names are
+    case-insensitive and an operator typing the hostname with a capital would
+    otherwise produce a service that 404s with no explanation.
+    """
+    hostname = _hostname_of(host_header)
+    return hostname is not None and hostname == expected.strip().lower()
+
+
+def _credential_is_correct(
+    supplied, expected_user: str, expected_password: str
+) -> bool:
+    """Is this request carrying the configured username *and* password?
+
+    Both halves are compared every time, with :func:`hmac.compare_digest`, and
+    the ``and`` is applied to two values that have *already been computed*. A
+    wrong username therefore costs the same work as a wrong password. The
+    obvious spelling — ``if user != expected: return False`` — leaks which half
+    was wrong through timing, which turns one unknown into two known-separately.
+
+    Compared as UTF-8 bytes rather than as ``str``: ``compare_digest`` refuses
+    a ``str`` containing anything outside ASCII, and a password that raises
+    ``TypeError`` instead of returning ``False`` would be an availability bug
+    reachable by anyone who can type a non-ASCII character into a login box.
+    """
+    username = (supplied.username or "") if supplied else ""
+    password = (supplied.password or "") if supplied else ""
+
+    username_ok = hmac.compare_digest(
+        username.encode("utf-8"), expected_user.encode("utf-8")
+    )
+    password_ok = hmac.compare_digest(
+        password.encode("utf-8"), expected_password.encode("utf-8")
+    )
+    return username_ok and password_ok
+
+
+def _ask_for_a_credential() -> Response:
+    """401 with a challenge, which is the one refusal that has to be legible.
+
+    The wrong-host refusal is a 404 that tells a scanner nothing (CARD-081).
+    This one cannot be: a browser shows its password prompt only when it sees
+    ``WWW-Authenticate``, so a caller who reached the right host is told, in
+    the protocol's own words, that a credential is what is missing.
+
+    That is not a leak. Being at :data:`REMOTE_HOST_VAR`'s hostname already
+    means knowing the service exists; the 404 disguise protects the panel from
+    people who do not, and this answers the people who do.
+    """
+    return Response(
+        "Authentication required.\n",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Nonogram admin", charset="UTF-8"'},
+        mimetype="text/plain",
+    )
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -240,21 +362,77 @@ def create_app(debug=None):
     app.config["SESSION_COOKIE_SECURE"] = False  # Allow localhost
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Chrome compatibility
 
+    # Which door is open. Read once, here, rather than per request: an admin
+    # whose reachability could change under a running process would be a
+    # configuration question with no single answer, and the boot-time refusal
+    # below only means anything if this is the value the hook will use.
+    remote_host = os.getenv(REMOTE_HOST_VAR, "").strip()
+    expected_user = os.getenv(ADMIN_USER_VAR, "").strip() or DEFAULT_ADMIN_USER
+    expected_password = os.getenv(ADMIN_PASSWORD_VAR, "")
+
+    if remote_host:
+        # Fail closed, in the build log, before a socket is ever opened.
+        if not expected_password:
+            raise AdminConfigurationError(
+                f"{REMOTE_HOST_VAR} is set to {remote_host!r}, which makes this "
+                f"admin panel reachable from outside this machine, but "
+                f"{ADMIN_PASSWORD_VAR} is not set. The panel has no other "
+                f"authentication and a route that rewrites every stored grade, "
+                f"so refusing to start is the only safe answer — set "
+                f"{ADMIN_PASSWORD_VAR}, or unset {REMOTE_HOST_VAR} to go back "
+                f"to loopback-only."
+            )
+        if app.config["SECRET_KEY"] == DEV_SECRET_KEY:
+            raise AdminConfigurationError(
+                f"{REMOTE_HOST_VAR} is set to {remote_host!r} but SECRET_KEY is "
+                f"still the built-in development value, which is a literal in "
+                f"this repository and therefore public. Session cookies signed "
+                f"with it can be forged by anyone who has read the source. Set "
+                f"SECRET_KEY to a long random string."
+            )
+        # The deployed panel is served over HTTPS; say so, so the session
+        # cookie is not also offered over a plaintext downgrade.
+        app.config["SESSION_COOKIE_SECURE"] = True
+
     @app.before_request
-    def _reject_non_loopback_requests():
-        """Refuse anything that did not address this machine (NFR-003).
+    def _refuse_what_this_panel_should_not_serve():
+        """Exactly one door is open, and the environment chose which (CARD-085).
 
-        The bind address is the primary defence and this is the one that
-        survives it being widened — by ``flask run --host=0.0.0.0``, which this
-        module cannot prevent, or by a reverse proxy someone puts in front. The
-        admin has no authentication and a route that rewrites every stored
-        grade, so "reachable" and "authorised" are the same question here.
+        **Local mode** (:data:`REMOTE_HOST_VAR` unset) is CARD-081 unchanged:
+        the ``Host`` must name this machine, nothing is asked for beyond that,
+        and everything else gets a 404 that admits nothing. The bind address is
+        the primary defence; this is the one that survives it being widened by
+        ``flask run --host=0.0.0.0``, which this module cannot prevent.
 
-        404 rather than 403: a refusal that distinguishes "wrong host" from
-        "no such page" tells a scanner it found something.
+        **Deployed mode** replaces that rule rather than adding to it. The
+        ``Host`` must equal the configured hostname *and* the request must
+        carry the credential — and a request claiming ``Host: localhost`` is
+        refused like any other stranger.
+
+        That last clause is the point of the whole design. Behind a reverse
+        proxy, "this request came from this machine" is not something the
+        ``Host`` header can establish: the header is written by the caller, and
+        the proxy's own address is what ``REMOTE_ADDR`` shows — Render's logs
+        report every request as ``127.0.0.1``. Leaving the loopback door open
+        in deployed mode would make ``Host: localhost`` a password bypass, so
+        the two doors are mutually exclusive by construction and not by
+        vigilance.
+
+        Runs before any view, so a refusal never costs a database query.
         """
-        if not _host_is_local(request.headers.get("Host")):
+        host_header = request.headers.get("Host")
+
+        if not remote_host:
+            if not _host_is_local(host_header):
+                return render_template("404.html"), 404
+            return None
+
+        if not _host_is_the_configured_remote(host_header, remote_host):
             return render_template("404.html"), 404
+        if not _credential_is_correct(
+            request.authorization, expected_user, expected_password
+        ):
+            return _ask_for_a_credential()
         return None
 
     # Resolve the DB session factory fresh on every create_app() call rather

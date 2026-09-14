@@ -134,11 +134,57 @@ alembic upgrade head
 
 ## Render Deployment
 
+### Who can reach the deployed panel
+
+**The admin panel has no login of its own beyond the password below, and
+`POST /regrade` rewrites the difficulty score, tier and strategies of every row
+it can grade — keeping no copy of what it replaced.** Anyone holding
+`ADMIN_PASSWORD` can do that, delete puzzles, and run bulk curation against
+production. Treat the password as the only thing standing between the internet
+and the production data, because it is.
+
+By default the panel refuses every request that did not come from the machine
+it runs on (CARD-081), which on Render means **every request returns 404**.
+That is not a broken deploy — it is the panel declining to be public. Remote
+access is opt-in, and turning it on means setting all four variables below.
+
+### Environment variables
+
+| Variable | Set it to | Secret |
+|---|---|---|
+| `ADMIN_ALLOWED_HOST` | your service's hostname, e.g. `nonogram-admin.onrender.com` | no |
+| `ADMIN_USER` | a username (defaults to `admin` if unset) | no |
+| `ADMIN_PASSWORD` | a long random string | **yes** |
+| `SECRET_KEY` | a long random string | **yes** |
+| `DATABASE_URL` | Render's **internal** Postgres URL | **yes** |
+
+`render.yaml` declares the secret-bearing ones as `sync: false`, so Render
+prompts for the values instead of reading them from this repository. Never
+commit a value for any of them.
+
+Generate the two random strings with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+**The app refuses to start** if `ADMIN_ALLOWED_HOST` is set and either
+`ADMIN_PASSWORD` is missing or `SECRET_KEY` is still the built-in development
+value. A half-finished setup fails the build with an `AdminConfigurationError`
+naming the variable, which is deliberate: a build you can fix in a minute is
+better than a panel that came up reachable with no password.
+
+Setting `ADMIN_ALLOWED_HOST` **closes** the loopback door rather than adding to
+it. In deployed mode a request claiming `Host: localhost` gets the same 404 as
+any other stranger, even carrying valid credentials — behind a proxy the `Host`
+header is written by the caller, so leaving that door open would make it a
+password bypass.
+
 ### Prerequisites
 
 - Render account with PostgreSQL add-on already configured
 - GitHub repository linked to Render
-- `DATABASE_URL` environment variable set on Render
+- The environment variables above set in the Render dashboard
 
 ### Deployment Steps
 
@@ -155,7 +201,12 @@ alembic upgrade head
 
 3. **Verify deployment:**
    - Check Render build logs for `alembic upgrade head` success
-   - App should be running at your Render URL
+   - Check the logs for `AdminConfigurationError` — that means a variable above
+     is missing, and the service will not be serving
+   - Open your Render URL: the browser should show a password prompt. If you
+     get a 404 instead, `ADMIN_ALLOWED_HOST` does not match the hostname you
+     typed; if you get in with no prompt, stop and check the variables, because
+     the panel is open.
 
 ### Testing on Render
 
