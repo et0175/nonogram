@@ -28,8 +28,9 @@ The two are deliberately independent. The bind is the wall; the header check is
 what stands when someone opens a door in it.
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from flask import Flask, Response, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from datetime import datetime
+import hmac
 import json
 import os
 import tempfile
@@ -194,18 +195,13 @@ def _host_is_local(host_header: str | None) -> bool:
     imported — ADR-0007 forbids the lateral import, and CLAUDE.md's rule for
     this case is to reimplement natively. The test tree, where the import is
     legal, is what holds the two copies to the same answer.
+
+    The parse itself moved to :func:`_hostname_of` when CARD-085 added a second
+    question about the same header. This function's answer is unchanged: the
+    same values are refused for the same reasons, and CARD-081's test class
+    pins that.
     """
-    if not host_header:
-        return False
-    if any(char in host_header for char in "@/#?"):
-        return False
-    if not _port_is_well_formed(host_header):
-        return False
-    try:
-        hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
-    except ValueError:
-        return False
-    return hostname in ALLOWED_HOSTS
+    return _hostname_of(host_header) in ALLOWED_HOSTS
 
 
 def _port_is_well_formed(authority: str) -> bool:
@@ -226,6 +222,296 @@ def _port_is_well_formed(authority: str) -> bool:
     return port.isascii() and port.isdigit()
 
 
+#: The environment variable that opens the *deployed* door (CARD-085).
+#:
+#: Unset is the whole of CARD-081's behaviour: loopback only, no credential.
+#: Set to one hostname — ``nonogram-admin.onrender.com`` — it closes that door
+#: and opens a different one: that host, with a credential, and nothing else.
+#: Never both at once; see :func:`create_app`'s hook for why.
+REMOTE_HOST_VAR = "ADMIN_ALLOWED_HOST"
+
+#: Where the credential comes from. The password has no default on purpose —
+#: :func:`create_app` refuses to boot without one when remote access is on.
+ADMIN_USER_VAR = "ADMIN_USER"
+ADMIN_PASSWORD_VAR = "ADMIN_PASSWORD"
+DEFAULT_ADMIN_USER = "admin"
+
+#: The session-signing key this module falls back to, and the one value that
+#: must never reach a reachable deployment.
+#:
+#: It is a literal in this file, so it is a literal in every clone of this
+#: repository: cookies signed with it can be forged by anyone who has read the
+#: source. Harmless while the panel answers only to this machine, which is why
+#: it survived; :func:`create_app` treats it as a fatal misconfiguration the
+#: moment :data:`REMOTE_HOST_VAR` is set.
+DEV_SECRET_KEY = "dev-key-change-in-production"
+
+#: The shortest ``ADMIN_PASSWORD`` :func:`create_app` will boot with.
+#:
+#: The check that only asked "is it non-empty?" was the right check for a panel
+#: nobody could reach. Once :data:`REMOTE_HOST_VAR` is set the password is the
+#: entire defence, there is no rate limiting in this package, and
+#: :data:`DEFAULT_ADMIN_USER` means the other half of the credential is usually
+#: guessable — so a one-character password is not a weak configuration, it is an
+#: open panel with a formality in front of it. ``ADMIN_SETUP.md`` tells the
+#: operator to generate 32 bytes; this is what makes that instruction binding
+#: rather than advisory (CARD-085 review F-003).
+MIN_ADMIN_PASSWORD_LENGTH = 16
+
+#: The ``Sec-Fetch-Site`` values the deployed panel answers.
+#:
+#: ``same-origin`` is a form posting back to the page it was served from;
+#: ``none`` is a user-initiated navigation with no initiator document — a typed
+#: URL, a bookmark. The two the fetch-metadata spec defines and this omits,
+#: ``same-site`` and ``cross-site``, both say the request was started by a
+#: document this panel did not serve, which is the whole of the attack.
+#:
+#: Reimplemented here rather than imported from ``nonogram.web.handler``, which
+#: holds the identical frozenset for the identical reason: ADR-0007 forbids the
+#: lateral import and CLAUDE.md's rule is to reimplement natively and hold the
+#: two copies together from the test tree — the shape CARD-081 already used for
+#: :data:`ALLOWED_HOSTS`.
+ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+
+
+class AdminConfigurationError(RuntimeError):
+    """The admin was asked to serve remotely without the means to do it safely.
+
+    Deliberately *not* a :class:`nonogram.errors.NonogramError`: that hierarchy
+    is the domain's, and every member of it is something the CLI maps onto an
+    exit code for a user who asked for a puzzle. This is an operator telling
+    the process to start in a configuration it must refuse — it belongs to the
+    admin adapter, and the only correct response to it is a failed boot.
+
+    Raised at :func:`create_app` time rather than per request, so a deploy that
+    forgot the password dies in its build logs instead of coming up serving an
+    open panel. A loud failure is recoverable in a minute; an open admin is
+    not recoverable at all.
+    """
+
+
+def _hostname_of(host_header: str | None) -> str | None:
+    """The host component of a ``Host`` header, or ``None`` if it is not one.
+
+    Everything :func:`_host_is_local` used to do inline, minus the final
+    comparison, so that the *second* question this module now asks — "is this
+    the one host we were configured to answer to?" — is asked of exactly the
+    same parse. Two host checks that disagree about what a host is would be a
+    bypass waiting to happen.
+
+    The rules and the reasons for them are unchanged; see
+    :func:`_host_is_local`.
+    """
+    if not host_header:
+        return None
+    if any(char in host_header for char in "@/#?"):
+        return None
+    if not _port_is_well_formed(host_header):
+        return None
+    try:
+        return urllib.parse.urlsplit(f"//{host_header}").hostname
+    except ValueError:
+        return None
+
+
+def _host_is_the_configured_remote(host_header: str | None, expected: str) -> bool:
+    """Does this ``Host`` name the one host remote access was configured for?
+
+    An equality test, not an allowlist: the deployed door admits exactly one
+    name. ``urlsplit`` lower-cases the host component, so the configured value
+    is lower-cased too rather than compared case-sensitively — DNS names are
+    case-insensitive and an operator typing the hostname with a capital would
+    otherwise produce a service that 404s with no explanation.
+    """
+    hostname = _hostname_of(host_header)
+    return hostname is not None and hostname == expected.strip().lower()
+
+
+def _credential_is_correct(
+    supplied, expected_user: str, expected_password: str
+) -> bool:
+    """Is this request carrying the configured username *and* password?
+
+    Both halves are compared every time, with :func:`hmac.compare_digest`, and
+    the ``and`` is applied to two values that have *already been computed*. A
+    wrong username therefore costs the same work as a wrong password. The
+    obvious spelling — ``if user != expected: return False`` — leaks which half
+    was wrong through timing, which turns one unknown into two known-separately.
+
+    Compared as UTF-8 bytes rather than as ``str``: ``compare_digest`` refuses
+    a ``str`` containing anything outside ASCII, and a password that raises
+    ``TypeError`` instead of returning ``False`` would be an availability bug
+    reachable by anyone who can type a non-ASCII character into a login box.
+    """
+    username = (supplied.username or "") if supplied else ""
+    password = (supplied.password or "") if supplied else ""
+
+    username_ok = hmac.compare_digest(
+        username.encode("utf-8"), expected_user.encode("utf-8")
+    )
+    password_ok = hmac.compare_digest(
+        password.encode("utf-8"), expected_password.encode("utf-8")
+    )
+    return username_ok and password_ok
+
+
+def _origin_names(origin: str) -> str | None:
+    """The host of an ``Origin`` header, or ``None`` if it is not an origin.
+
+    An ``Origin`` is a *serialized origin* — ``scheme "://" host [":" port]``
+    and nothing more (RFC 6454 6.1) — so a value carrying a path, a query or a
+    fragment is not one, and the opaque origin ``null`` has no host at all.
+    Each is refused rather than mined for a host substring.
+
+    The scheme and port are read for shape and then discarded, exactly as the
+    ``Host`` check discards the port: the question is which *name* the
+    initiating document was served from.
+    """
+    value = origin.strip()
+    try:
+        split = urllib.parse.urlsplit(value)
+    except ValueError:
+        return None
+    if not split.scheme or split.path or split.query or split.fragment:
+        return None
+    return _hostname_of(split.netloc)
+
+
+def _is_top_level_navigation(method: str, headers) -> bool:
+    """Is this the operator clicking a link to the panel from somewhere else?
+
+    The one cross-site shape that must still be served. A link to the panel in
+    a chat message, an email, or another tab's bookmark bar arrives as a
+    top-level navigation with ``Sec-Fetch-Site: cross-site``, and refusing it
+    would break the operator's most natural way in while buying nothing: every
+    route in this panel that changes anything is a ``POST`` (``GET /regrade``
+    is a preview that writes through a savepoint and rolls it back), so a
+    cross-site ``GET`` has nothing to trigger.
+
+    This is the standard fetch-metadata Resource Isolation Policy carve-out,
+    and its three conditions are load-bearing together:
+
+    * **a safe method** — a cross-site *form submission* is also a navigation
+      to a document, and that is precisely the CSRF attack. Without the method
+      test this exemption would re-open exactly what
+      :func:`_request_is_cross_site` exists to close;
+    * **``Sec-Fetch-Mode: navigate``** — not a ``fetch``/XHR;
+    * **``Sec-Fetch-Dest: document``** — the top-level frame, not an
+      ``<iframe>`` (``iframe``), an ``<img>`` (``image``), or a script.
+
+    A request that omits the fetch-metadata headers never reaches here: absent
+    means served, decided in :func:`_request_is_cross_site`.
+    """
+    if method.upper() not in {"GET", "HEAD"}:
+        return False
+    modes = {value.strip() for header in headers.get_all("Sec-Fetch-Mode")
+             for value in header.split(",")}
+    dests = {value.strip() for header in headers.get_all("Sec-Fetch-Dest")
+             for value in header.split(",")}
+    return modes == {"navigate"} and dests == {"document"}
+
+
+def _request_is_cross_site(method: str, headers, expected_host: str) -> bool:
+    """Did a document this panel did not serve start this request?
+
+    The defence HTTP Basic auth does not provide. A browser caches the
+    credential per origin and replays it on a *cross-site* form POST, so
+    "carries the password" and "was sent deliberately by the operator" stopped
+    being the same statement the moment the panel became reachable. Without
+    this, any page the operator's browser loads can aim a form at
+    ``POST /regrade`` and rewrite every stored grade — which after CARD-084
+    keeps no copy of what it replaced (CARD-085 review F-001).
+
+    Two headers, both of which page script is forbidden to set:
+
+    * ``Sec-Fetch-Site`` other than :data:`ALLOWED_FETCH_SITES`;
+    * ``Origin`` whose host is not the configured host.
+
+    **Every** value of each header is read, not just the first: a request
+    carrying two that disagree has no single answer, and taking the first is
+    how an allowlisted value smuggles a foreign one past.
+
+    Under WSGI that means splitting on commas, not iterating ``get_all``. The
+    gateway folds repeated headers into a *single* comma-joined value before
+    this code ever runs — ``Sec-Fetch-Site: same-origin`` twice over arrives as
+    the one string ``"same-origin, cross-site"`` — so ``get_all`` returns one
+    element and a loop over it reads the whole smuggled pair as one token.
+    Measured, not assumed: a mutation restricting that loop to its first
+    element changed nothing, because there was never a second
+    (CARD-085 review, M7). Splitting is what makes "every value" true here; the
+    loop over ``get_all`` is kept because a future non-WSGI gateway may stop
+    folding, and then both arms matter.
+
+    **Absent means served**, and that is safe rather than lucky. A cross-origin
+    GET may legitimately carry no ``Origin`` — a ``no-cors`` fetch, an
+    ``<img>``, a top-level navigation — so absence proves nothing on its own.
+    It does not have to: the Fetch standard requires an ``Origin`` on every
+    cross-origin request whose method is not GET/HEAD, plain
+    ``<form method=post>`` included, and every route that writes here is a
+    POST. On any browser implementing fetch metadata (Chrome 76+, Firefox 90+,
+    Safari 16.4+) ``Sec-Fetch-Site`` catches the GET case too. Keeping absence
+    servable is also what keeps ``curl``, a typed URL, and Render's own health
+    probe working.
+
+    ``Referer`` is deliberately not consulted: an attacking page can switch it
+    off with a referrer policy, so a rule resting on it is one the attacker
+    controls.
+
+    One cross-site shape is still served: a top-level GET navigation — the
+    operator clicking a link to the panel from a chat message or an email. See
+    :func:`_is_top_level_navigation` for why that is safe here and for the
+    three conditions that keep a cross-site *form post* out of the exemption.
+    """
+    foreign = False
+    for header in headers.get_all("Sec-Fetch-Site"):
+        for value in header.split(","):
+            if value.strip() not in ALLOWED_FETCH_SITES:
+                foreign = True
+    for header in headers.get_all("Origin"):
+        for value in header.split(","):
+            if _origin_names(value) != expected_host:
+                foreign = True
+
+    if not foreign:
+        return False
+    return not _is_top_level_navigation(method, headers)
+
+
+def _refuse_cross_site() -> Response:
+    """403 for a request the browser itself says came from somewhere else.
+
+    Not a 404: this caller reached the configured host *and* presented the
+    credential, so there is nothing left to hide from them — and not a 401
+    either, because re-prompting for a password would invite the operator to
+    re-enter it in answer to a page they did not open.
+    """
+    return Response(
+        "Refused: this request was started by another site.\n",
+        403,
+        mimetype="text/plain",
+    )
+
+
+def _ask_for_a_credential() -> Response:
+    """401 with a challenge, which is the one refusal that has to be legible.
+
+    The wrong-host refusal is a 404 that tells a scanner nothing (CARD-081).
+    This one cannot be: a browser shows its password prompt only when it sees
+    ``WWW-Authenticate``, so a caller who reached the right host is told, in
+    the protocol's own words, that a credential is what is missing.
+
+    That is not a leak. Being at :data:`REMOTE_HOST_VAR`'s hostname already
+    means knowing the service exists; the 404 disguise protects the panel from
+    people who do not, and this answers the people who do.
+    """
+    return Response(
+        "Authentication required.\n",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Nonogram admin", charset="UTF-8"'},
+        mimetype="text/plain",
+    )
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -240,21 +526,100 @@ def create_app(debug=None):
     app.config["SESSION_COOKIE_SECURE"] = False  # Allow localhost
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Chrome compatibility
 
+    # Which door is open. Read once, here, rather than per request: an admin
+    # whose reachability could change under a running process would be a
+    # configuration question with no single answer, and the boot-time refusal
+    # below only means anything if this is the value the hook will use.
+    remote_host = os.getenv(REMOTE_HOST_VAR, "").strip()
+    expected_user = os.getenv(ADMIN_USER_VAR, "").strip() or DEFAULT_ADMIN_USER
+    expected_password = os.getenv(ADMIN_PASSWORD_VAR, "")
+
+    if remote_host:
+        # Fail closed, in the build log, before a socket is ever opened.
+        if not expected_password:
+            raise AdminConfigurationError(
+                f"{REMOTE_HOST_VAR} is set to {remote_host!r}, which makes this "
+                f"admin panel reachable from outside this machine, but "
+                f"{ADMIN_PASSWORD_VAR} is not set. The panel has no other "
+                f"authentication and a route that rewrites every stored grade, "
+                f"so refusing to start is the only safe answer — set "
+                f"{ADMIN_PASSWORD_VAR}, or unset {REMOTE_HOST_VAR} to go back "
+                f"to loopback-only."
+            )
+        if len(expected_password) < MIN_ADMIN_PASSWORD_LENGTH:
+            raise AdminConfigurationError(
+                f"{ADMIN_PASSWORD_VAR} is {len(expected_password)} characters; "
+                f"{MIN_ADMIN_PASSWORD_LENGTH} is the minimum when "
+                f"{REMOTE_HOST_VAR} is set. Nothing in this package rate-limits "
+                f"guesses and {ADMIN_USER_VAR} defaults to "
+                f"{DEFAULT_ADMIN_USER!r}, so a short password is the whole "
+                f"defence and a brief one. Generate one with: "
+                f"python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        if app.config["SECRET_KEY"] == DEV_SECRET_KEY:
+            raise AdminConfigurationError(
+                f"{REMOTE_HOST_VAR} is set to {remote_host!r} but SECRET_KEY is "
+                f"still the built-in development value, which is a literal in "
+                f"this repository and therefore public. Session cookies signed "
+                f"with it can be forged by anyone who has read the source. Set "
+                f"SECRET_KEY to a long random string."
+            )
+        # The deployed panel is served over HTTPS; say so, so the session
+        # cookie is not also offered over a plaintext downgrade.
+        app.config["SESSION_COOKIE_SECURE"] = True
+
     @app.before_request
-    def _reject_non_loopback_requests():
-        """Refuse anything that did not address this machine (NFR-003).
+    def _refuse_what_this_panel_should_not_serve():
+        """Exactly one door is open, and the environment chose which (CARD-085).
 
-        The bind address is the primary defence and this is the one that
-        survives it being widened — by ``flask run --host=0.0.0.0``, which this
-        module cannot prevent, or by a reverse proxy someone puts in front. The
-        admin has no authentication and a route that rewrites every stored
-        grade, so "reachable" and "authorised" are the same question here.
+        **Local mode** (:data:`REMOTE_HOST_VAR` unset) is CARD-081 unchanged:
+        the ``Host`` must name this machine, nothing is asked for beyond that,
+        and everything else gets a 404 that admits nothing. The bind address is
+        the primary defence; this is the one that survives it being widened by
+        ``flask run --host=0.0.0.0``, which this module cannot prevent.
 
-        404 rather than 403: a refusal that distinguishes "wrong host" from
-        "no such page" tells a scanner it found something.
+        **Deployed mode** replaces that rule rather than adding to it. The
+        ``Host`` must equal the configured hostname, the request must carry the
+        credential, **and** the browser must not say the request was started by
+        another site — and a request claiming ``Host: localhost`` is refused
+        like any other stranger.
+
+        The third rule is the one HTTP Basic auth cannot supply on its own: a
+        browser replays a cached credential on a cross-site form POST, so
+        "carries the password" stopped meaning "the operator asked for this"
+        the moment the panel became reachable. It is checked *after* the
+        credential, so an anonymous caller still learns exactly one thing —
+        401 — and the vocabulary of refusals does not widen for people who have
+        not authenticated (:func:`_request_is_cross_site`).
+
+        That last clause is the point of the whole design. Behind a reverse
+        proxy, "this request came from this machine" is not something the
+        ``Host`` header can establish: the header is written by the caller, and
+        the proxy's own address is what ``REMOTE_ADDR`` shows — Render's logs
+        report every request as ``127.0.0.1``. Leaving the loopback door open
+        in deployed mode would make ``Host: localhost`` a password bypass, so
+        the two doors are mutually exclusive by construction and not by
+        vigilance.
+
+        Runs before any view, so a refusal never costs a database query.
         """
-        if not _host_is_local(request.headers.get("Host")):
+        host_header = request.headers.get("Host")
+
+        if not remote_host:
+            if not _host_is_local(host_header):
+                return render_template("404.html"), 404
+            return None
+
+        if not _host_is_the_configured_remote(host_header, remote_host):
             return render_template("404.html"), 404
+        if not _credential_is_correct(
+            request.authorization, expected_user, expected_password
+        ):
+            return _ask_for_a_credential()
+        if _request_is_cross_site(
+            request.method, request.headers, remote_host.strip().lower()
+        ):
+            return _refuse_cross_site()
         return None
 
     # Resolve the DB session factory fresh on every create_app() call rather
@@ -274,9 +639,17 @@ def create_app(debug=None):
     # Add CORS and security headers for Chrome compatibility
     @app.after_request
     def add_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        # The wildcard was written for a panel only this machine could reach,
+        # where "any origin" meant "this browser". Once REMOTE_HOST_VAR is set
+        # it means any origin on the internet, which is a grant with no
+        # purpose: nothing outside this panel is supposed to read its pages
+        # (CARD-085 review F-006). Browsers already refuse a wildcard on a
+        # credentialed cross-origin read, so dropping it closes no working
+        # path — it stops advertising one.
+        if not remote_host:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         return response
