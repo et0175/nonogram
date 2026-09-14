@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-14 14:05 UTC_
+_Updated: 2026-09-14 14:40 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them  _(wave 1)_ — **parked at the owner's call until production is working**; code complete on `card/084-drop-legacy-difficulty-columns`, migration 007 applied nowhere
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
@@ -57,6 +56,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them · merged without a review cycle, at the owner's call · merged 20e9203
 - **CARD-086** P2 · Serve the deployed admin with gunicorn, bound its slowest route, and say why a request was refused · merged without a review cycle, at the owner's call · merged f381d62
 - **CARD-085** P1 · The admin panel can be reached from somewhere other than this machine, but only with a credential · score 9.0 (cycle 2/2) · merged 84fcc46
 - **CARD-083** P2 · A batch survives a candidate it had to abandon · score 8.0 (cycle 1/1) · merged d3db715
