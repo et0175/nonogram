@@ -307,17 +307,63 @@ class TestWebUpload_RejectsUndecodableUploadLikeCLI:
             capsys,
         )
 
-        # Both messages are ``UnreadableImage``'s exact template — "cannot
-        # read image '<path>': cannot identify image file '<path>'" — with the
-        # *same* path repeated in both halves of each message. Comparing the
-        # two messages for literal equality is not possible (each names its
-        # own path: a temp file CARD-021 created for the web adapter, the
-        # fixture copy given directly to the CLI), so what is asserted is the
-        # template itself, once per message, which is "the same domain error"
-        # actually means for a message that is allowed to differ only by path.
-        _shape = re.compile(r"^cannot read image '(?P<path>.+)': cannot identify image file '(?P=path)'$")
-        assert _shape.match(web_message), web_message
-        assert _shape.match(cli_message), cli_message
+        # Both messages are ``UnreadableImage``'s template — "cannot read
+        # image '<path>': <what the decoder said>". Comparing the two for
+        # literal equality is not possible (each names its own path: a temp
+        # file CARD-021 created for the web adapter, the fixture copy given
+        # directly to the CLI), so what is asserted is our half of the
+        # template on each, and then that the *decoder's* half is identical
+        # between them. That second assertion is what "the same domain error"
+        # actually means here, and it is stronger than the sentence this test
+        # used to match: it compares the two surfaces against each other
+        # rather than both against a hardcoded string.
+        #
+        # It used to pin Pillow's wording — "cannot identify image file
+        # '<path>'" — which never matched this fixture. ``corrupt.png`` is a
+        # valid PNG signature followed by garbage (asserted as such by
+        # ``tests/test_sourcing_image.py::test_the_fixture_images_are_present_and_shaped_as_documented``),
+        # so Pillow *identifies* it and then fails on the data
+        # with "broken data stream when reading image file". The pin was
+        # written in 96da6ac against a fixture that was not in the repository
+        # at that commit and was fabricated two days later in 02a25a2 — the
+        # same history as CARD-070's nudge pins. Pinning a third-party
+        # library's prose was the underlying mistake either way (CARD-082).
+        _shape = re.compile(r"^cannot read image '(?P<path>.+?)': (?P<cause>.+)$")
+        web = _shape.match(web_message)
+        cli = _shape.match(cli_message)
+        assert web, web_message
+        assert cli, cli_message
+
+        assert web["path"] != cli["path"], (
+            "the two runs are supposed to name different files; if they agree, "
+            "this test is not comparing two surfaces"
+        )
+        assert "corrupt-for-cli" in cli["path"], cli["path"]
+
+        # What the decoder actually said, derived here rather than hardcoded or
+        # merely compared to itself. Asserting only `web == cli` was satisfied
+        # by *any* constant — replacing the cause in `image.py` with the
+        # literal "unreadable" left this test green, because a constant equals
+        # itself (CARD-082 review cycle 1, F-001). Reading it out of PIL keeps
+        # the assertion wording-independent — a Pillow reword updates the
+        # expectation on its own — while restoring what the equality check
+        # dropped: that the explanation reaching the user is the decoder's.
+        try:
+            Image.open(io.BytesIO(corrupt_bytes)).load()
+        except Exception as decoder_failure:  # noqa: BLE001 - whatever PIL raises
+            expected_cause = str(decoder_failure)
+        else:  # pragma: no cover - the fixture is corrupt by construction
+            pytest.fail("corrupt.png decoded cleanly; the fixture is not corrupt")
+
+        assert expected_cause, "PIL raised without a message; nothing to compare"
+        assert web["cause"] == expected_cause, (
+            f"the page said {web['cause']!r}, the decoder said "
+            f"{expected_cause!r}"
+        )
+        assert cli["cause"] == expected_cause, (
+            f"the CLI said {cli['cause']!r}, the decoder said "
+            f"{expected_cause!r}"
+        )
 
 
 # --------------------------------------------------------------------------

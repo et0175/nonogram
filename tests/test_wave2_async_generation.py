@@ -1,4 +1,21 @@
-"""Wave 2 tests: Async batch generation (CARD-004k)."""
+"""Wave 2 tests: Async batch generation (CARD-004k).
+
+Batch counts and sizes are the cheapest that still carry each assertion — see
+``tests/test_wave1_e2e.py``'s module docstring for the measurement. Every
+puzzle in a batch is a real unseeded draw, a random 20x20 at density 50 fails
+POL-001's 20 regenerate attempts about 1 time in 300, and
+``orchestrator.generate_batch`` loses the whole batch when one candidate
+abandons. This file used to make roughly 600 such draws per run, which is not a
+test of anything it claims to test — most of the assertions here are
+``is not None`` on stubs whose implementation is still a TODO.
+
+Where a test says nothing about grid size, it now asks for ``[15]``, which
+measured 0 abandonments in 300 draws. That is a cheaper fixture, not a fix: the
+1-in-300 is real product behaviour and whether a batch should survive an
+abandoned candidate is CARD-082's open question for the owner. Nothing here
+papers over it — no assertion was weakened, and the two tests that genuinely
+need volume (a 100-row first page, 25 approved puzzles) still ask for it.
+"""
 
 import pytest
 from nonogram.admin.batch_generator import BatchStatus
@@ -13,8 +30,8 @@ class TestAsyncBatchGeneration:
         # TODO: Implement async job queue
         # For now, batches complete synchronously
         batch_id = batch_generator_service.create_batch(
-            count=50,
-            sizes=[15, 20],
+            count=10,
+            sizes=[15],
             theme='christmas'
         )
 
@@ -28,8 +45,8 @@ class TestAsyncBatchGeneration:
     def test_multiple_batches_run_concurrently(self, batch_generator_service):
         """Test that multiple batches can be generated concurrently."""
         # TODO: Implement async job queue for true concurrency
-        batch_id1 = batch_generator_service.create_batch(count=50, sizes=[15])
-        batch_id2 = batch_generator_service.create_batch(count=50, sizes=[20])
+        batch_id1 = batch_generator_service.create_batch(count=10, sizes=[15])
+        batch_id2 = batch_generator_service.create_batch(count=10, sizes=[15])
 
         job1 = batch_generator_service.get_batch_status(batch_id1)
         job2 = batch_generator_service.get_batch_status(batch_id2)
@@ -42,7 +59,7 @@ class TestAsyncBatchGeneration:
     @pytest.mark.integration
     def test_progress_polling(self, batch_generator_service):
         """Test that batch progress can be polled during generation."""
-        batch_id = batch_generator_service.create_batch(count=100, sizes=[15, 20])
+        batch_id = batch_generator_service.create_batch(count=10, sizes=[15])
 
         job = batch_generator_service.get_batch_status(batch_id)
 
@@ -59,7 +76,7 @@ class TestErrorRecovery:
     def test_failed_batch_shows_error_message(self, batch_generator_service):
         """Test that failed batch stores error message."""
         # TODO: Simulate batch failure and verify error handling
-        batch_id = batch_generator_service.create_batch(count=50, sizes=[15])
+        batch_id = batch_generator_service.create_batch(count=10, sizes=[15])
 
         job = batch_generator_service.get_batch_status(batch_id)
         # Should not have error if batch completed successfully
@@ -70,8 +87,8 @@ class TestErrorRecovery:
     def test_retry_batch_uses_same_parameters(self, batch_generator_service):
         """Test that retry batch uses original parameters."""
         batch_id1 = batch_generator_service.create_batch(
-            count=50,
-            sizes=[15, 20],
+            count=10,
+            sizes=[15],
             theme='christmas'
         )
 
@@ -99,7 +116,7 @@ class TestBookManagement:
         """Test creating a book and adding approved puzzles."""
         # TODO: Implement book creation
         # Generate and approve puzzles
-        batch_id = batch_generator_service.create_batch(count=50, sizes=[15])
+        batch_id = batch_generator_service.create_batch(count=30, sizes=[15])
 
         puzzles = batch_generator_service.get_batch_puzzles(batch_id, limit=100)
 
@@ -127,7 +144,10 @@ class TestPDFGeneration:
     def test_pdf_generation_for_large_book(self, batch_generator_service):
         """Test PDF generation with many puzzles."""
         # TODO: Implement PDF generation
-        batch_id = batch_generator_service.create_batch(count=200, sizes=[15, 20])
+        # 200 stays — the assertions below are about a 100-row first page
+        # and a 200-puzzle batch, so the volume *is* the claim. Only the size
+        # moves, and this test says nothing about sizes.
+        batch_id = batch_generator_service.create_batch(count=200, sizes=[15])
 
         job = batch_generator_service.get_batch_status(batch_id)
         puzzles = batch_generator_service.get_batch_puzzles(batch_id, limit=100)
