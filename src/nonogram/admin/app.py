@@ -377,7 +377,41 @@ def _origin_names(origin: str) -> str | None:
     return _hostname_of(split.netloc)
 
 
-def _request_is_cross_site(headers, expected_host: str) -> bool:
+def _is_top_level_navigation(method: str, headers) -> bool:
+    """Is this the operator clicking a link to the panel from somewhere else?
+
+    The one cross-site shape that must still be served. A link to the panel in
+    a chat message, an email, or another tab's bookmark bar arrives as a
+    top-level navigation with ``Sec-Fetch-Site: cross-site``, and refusing it
+    would break the operator's most natural way in while buying nothing: every
+    route in this panel that changes anything is a ``POST`` (``GET /regrade``
+    is a preview that writes through a savepoint and rolls it back), so a
+    cross-site ``GET`` has nothing to trigger.
+
+    This is the standard fetch-metadata Resource Isolation Policy carve-out,
+    and its three conditions are load-bearing together:
+
+    * **a safe method** — a cross-site *form submission* is also a navigation
+      to a document, and that is precisely the CSRF attack. Without the method
+      test this exemption would re-open exactly what
+      :func:`_request_is_cross_site` exists to close;
+    * **``Sec-Fetch-Mode: navigate``** — not a ``fetch``/XHR;
+    * **``Sec-Fetch-Dest: document``** — the top-level frame, not an
+      ``<iframe>`` (``iframe``), an ``<img>`` (``image``), or a script.
+
+    A request that omits the fetch-metadata headers never reaches here: absent
+    means served, decided in :func:`_request_is_cross_site`.
+    """
+    if method.upper() not in {"GET", "HEAD"}:
+        return False
+    modes = {value.strip() for header in headers.get_all("Sec-Fetch-Mode")
+             for value in header.split(",")}
+    dests = {value.strip() for header in headers.get_all("Sec-Fetch-Dest")
+             for value in header.split(",")}
+    return modes == {"navigate"} and dests == {"document"}
+
+
+def _request_is_cross_site(method: str, headers, expected_host: str) -> bool:
     """Did a document this panel did not serve start this request?
 
     The defence HTTP Basic auth does not provide. A browser caches the
@@ -422,16 +456,25 @@ def _request_is_cross_site(headers, expected_host: str) -> bool:
     ``Referer`` is deliberately not consulted: an attacking page can switch it
     off with a referrer policy, so a rule resting on it is one the attacker
     controls.
+
+    One cross-site shape is still served: a top-level GET navigation — the
+    operator clicking a link to the panel from a chat message or an email. See
+    :func:`_is_top_level_navigation` for why that is safe here and for the
+    three conditions that keep a cross-site *form post* out of the exemption.
     """
+    foreign = False
     for header in headers.get_all("Sec-Fetch-Site"):
         for value in header.split(","):
             if value.strip() not in ALLOWED_FETCH_SITES:
-                return True
+                foreign = True
     for header in headers.get_all("Origin"):
         for value in header.split(","):
             if _origin_names(value) != expected_host:
-                return True
-    return False
+                foreign = True
+
+    if not foreign:
+        return False
+    return not _is_top_level_navigation(method, headers)
 
 
 def _refuse_cross_site() -> Response:
@@ -573,7 +616,9 @@ def create_app(debug=None):
             request.authorization, expected_user, expected_password
         ):
             return _ask_for_a_credential()
-        if _request_is_cross_site(request.headers, remote_host.strip().lower()):
+        if _request_is_cross_site(
+            request.method, request.headers, remote_host.strip().lower()
+        ):
             return _refuse_cross_site()
         return None
 

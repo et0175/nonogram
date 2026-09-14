@@ -706,6 +706,101 @@ class TestAdminAuth_RefusesRequestsAnotherSiteStarted:
             f"value; got {values!r}"
         )
 
+    @pytest.mark.parametrize(
+        "method, url, extra, label",
+        [
+            pytest.param("GET", "/", {}, "a link from a chat message", id="link-to-root"),
+            pytest.param(
+                "GET", "/puzzles", {}, "a link to a deep page", id="link-to-page"
+            ),
+            pytest.param(
+                "GET",
+                "/",
+                {"Origin": "https://evil.example.com"},
+                "a navigation carrying an Origin",
+                id="navigation-with-origin",
+            ),
+        ],
+    )
+    def test_a_cross_site_top_level_get_navigation_is_still_served(
+        self, deployed_client, method, url, extra, label
+    ) -> None:
+        """The operator's most natural way in must keep working.
+
+        A link to the panel in Slack, an email, or another tab arrives with
+        ``Sec-Fetch-Site: cross-site``, and refusing it would break that flow
+        for nothing: every route here that changes anything is a POST
+        (``GET /regrade`` previews through a savepoint and rolls it back), so a
+        cross-site GET has nothing to trigger. This is the fetch-metadata
+        Resource Isolation Policy's standard carve-out.
+
+        The third case is deliberate rather than incidental. A browser does not
+        send ``Origin`` on a GET navigation at all, so this shape comes from a
+        non-browser client — which does not have the operator's cached
+        credentials, and is therefore not the attack this defends against. The
+        standard policy does not consult ``Origin`` for navigations either.
+        """
+        response = deployed_client.open(
+            url,
+            method=method,
+            headers={
+                "Host": REMOTE,
+                **basic(USER, PASSWORD),
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Dest": "document",
+                **extra,
+            },
+        )
+        assert response.status_code != 403, label
+
+    @pytest.mark.parametrize(
+        "method, url, extra, label",
+        [
+            pytest.param(
+                "POST", "/regrade", {}, "a cross-site form post", id="form-post"
+            ),
+            pytest.param(
+                "POST",
+                "/puzzle/3f2504e0-4f89-11d3-9a0c-0305e82c3301/delete",
+                {},
+                "a cross-site form delete",
+                id="form-delete",
+            ),
+            pytest.param(
+                "GET", "/", {"Sec-Fetch-Dest": "iframe"}, "framed", id="iframe"
+            ),
+            pytest.param(
+                "GET", "/", {"Sec-Fetch-Dest": "image"}, "loaded as an img", id="image"
+            ),
+            pytest.param(
+                "GET", "/", {"Sec-Fetch-Mode": "cors"}, "a cross-site fetch", id="cors"
+            ),
+        ],
+    )
+    def test_the_carve_out_does_not_let_the_attack_back_in(
+        self, deployed_client, method, url, extra, label
+    ) -> None:
+        """Each of the carve-out's three conditions, defeated one at a time.
+
+        The method test is the one that matters most: a cross-site *form
+        submission* is also a navigation to a document, so without it the
+        exemption would re-open precisely what this class exists to close.
+        """
+        response = deployed_client.open(
+            url,
+            method=method,
+            headers={
+                "Host": REMOTE,
+                **basic(USER, PASSWORD),
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Dest": "document",
+                **extra,
+            },
+        )
+        assert response.status_code == 403, label
+
     def test_an_anonymous_cross_site_caller_still_learns_only_401(
         self, deployed_client
     ) -> None:

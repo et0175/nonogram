@@ -15,7 +15,7 @@
 **Wave:** 1
 **Depends on:** — (CARD-081 merged 44a5af4, which added the guard this card widens)
 **Touches:** src/nonogram/admin/app.py, tests/test_admin_auth.py (new), tests/test_admin_binding.py, render.yaml, ADMIN_SETUP.md
-**Review score:** 3.0 (cycle 1), all findings fixed
+**Review score:** 3.0 (cycle 1) -> 9.0 (cycle 2, confirmation), all findings fixed
 **Started:** 2026-09-14
 **Closed:** —
 **Actual:** —
@@ -147,6 +147,9 @@ ADR-0006/R1's baseline is untouched.
   hostname) is refused `403`, even carrying valid credentials. Absent headers
   are served, so `curl`, a typed URL and Render's health probe still work.
   Checked after the credential, so an anonymous caller still learns only 401.
+  A cross-site **top-level GET navigation** is still served — a link to the
+  panel from a chat message is the operator's most natural way in, and no route
+  that changes anything is a GET.
   *test:* `TestAdminAuth_RefusesRequestsAnotherSiteStarted`
 - **AC-9** (a usable password) — `create_app` refuses to boot in deployed mode
   with a password shorter than `MIN_ADMIN_PASSWORD_LENGTH` (16).
@@ -189,6 +192,43 @@ ADR-0006/R1's baseline is untouched.
 - **`autoDeploy: true`.** `render.yaml` deploys every merge to `main`
   automatically, which is how CARD-081's guard reached production without
   anyone choosing to send it. Worth revisiting; not this card.
+
+## Review cycle 2 — confirmation
+
+Re-derived each cycle-1 fix from evidence rather than from the fix's own claim.
+All six hold; G-1 confirmed mechanically (`git diff main --numstat` on
+`tests/test_admin_binding.py` is **132 insertions, 0 deletions** — CARD-081's
+class is byte-identical). Model: `dead_check_ref: []`, validator 0 errors.
+
+**One new finding, introduced by the cycle-1 fix itself** — which is the reason
+a confirmation cycle re-reviews the delta at full depth rather than trusting it:
+
+- **F-007 (Important) — the cross-site rule blocked the front door.** A link to
+  the panel from Slack, an email, or another tab arrives as a top-level
+  navigation with `Sec-Fetch-Site: cross-site`, and cycle 1 refused it `403`
+  with no explanation. Measured: `GET /` and `GET /puzzles` as cross-site
+  navigations both returned 403. It bought nothing — every route that changes
+  anything is a POST, and `GET /regrade` previews through a savepoint it rolls
+  back — so the strictness cost the operator their normal way in for no
+  security at all. Fixed with the fetch-metadata Resource Isolation Policy's
+  standard carve-out (`_is_top_level_navigation`), whose three conditions are
+  load-bearing together: a **safe method** (a cross-site form submission is
+  *also* a navigation to a document — without this the exemption re-opens the
+  whole attack), `Sec-Fetch-Mode: navigate`, and `Sec-Fetch-Dest: document`.
+
+**A probe expectation that was wrong, not the code.** A cross-site GET
+navigation carrying `Origin: https://evil.example.com` is served, and I had
+written down "should refuse". Browsers do not send `Origin` on a GET
+navigation, so that shape comes from a non-browser client — which has none of
+the operator's cached credentials, and is therefore not the attack being
+defended against. The standard policy does not consult `Origin` for
+navigations either. The behaviour is now pinned by a test that says why, so it
+is a decision rather than an accident.
+
+Mutation checks: **14 mutants across both cycles, 14 killed.** The three new
+ones defeat each condition of the carve-out in turn; M11 (dropping the method
+test) is the one that matters, since it turns every cross-site form post back
+into an allowed navigation.
 
 ## Review cycle 1 — findings and fixes
 
