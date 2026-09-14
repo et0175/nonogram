@@ -32,6 +32,12 @@ class PuzzleFilter:
     """Filters for puzzle queries."""
 
     size: Optional[Tuple[int, int]] = None  # e.g., (20, 20) as (width, height) extent pair
+    #: A side range: ``(low, high)`` in cells, either bound optional. A grid
+    #: matches when *at least one* of its sides falls inside — so a 20×30 is
+    #: found by 25–30 as well as by 10–20. ``size`` above is the exact-extent
+    #: filter the API keeps; this is the one the review page's from/to fields
+    #: drive, since almost no picture-derived grid is square.
+    side_range: Optional[Tuple[Optional[int], Optional[int]]] = None
     #: Either spelling of any tier — the enum value ("easy") a
     #: pipeline-written row carries, or the display label ("Easy") an older
     #: one does. Resolved through difficulty.tier_of_record where it is
@@ -53,6 +59,7 @@ class PuzzleFilter:
         """Convert to dictionary for API."""
         return {
             "size": self.size,
+            "side_range": self.side_range,
             "difficulty": self.difficulty,
             "quality_min": self.quality_min,
             "theme": self.theme,
@@ -72,6 +79,7 @@ class PuzzleFilter:
         """Create PuzzleFilter from dictionary."""
         return PuzzleFilter(
             size=data.get("size"),
+            side_range=data.get("side_range"),
             difficulty=data.get("difficulty"),
             quality_min=data.get("quality_min"),
             theme=data.get("theme"),
@@ -531,7 +539,7 @@ class PuzzleReviewService:
             Query with order_by applied
         """
         from nonogram.db.models import Puzzle
-        from sqlalchemy import desc
+        from sqlalchemy import desc, or_
 
         col_map = {
             "batch_id": Puzzle.batch_id,
@@ -553,6 +561,34 @@ class PuzzleReviewService:
             query = query.order_by(desc(col) if direction == "desc" else col)
 
         return query
+
+    @staticmethod
+    def _side_bounds(side_range) -> Tuple[int, int]:
+        """The ``(low, high)`` a side range means, validated.
+
+        An absent bound is the supported limit on that end, so "from 25" and
+        "to 15" are both complete requests. Out-of-range or inverted bounds
+        raise, the way the exact-extent filter does — a range that can match
+        nothing is a mistake to report, not an empty page to puzzle over.
+        """
+        if not isinstance(side_range, (tuple, list)) or len(side_range) != 2:
+            raise ValueError(f"Side range must be a (from, to) pair, got {side_range!r}")
+        low, high = side_range
+        low = MIN_SIZE if low is None else low
+        high = MAX_SIZE if high is None else high
+        if not (MIN_SIZE <= low <= MAX_SIZE and MIN_SIZE <= high <= MAX_SIZE):
+            raise ValueError(f"Size range must stay within {MIN_SIZE}-{MAX_SIZE} cells")
+        if low > high:
+            raise ValueError(f"Size range is inverted: from {low} to {high}")
+        return low, high
+
+    @staticmethod
+    def _name_matches(needle: str, puzzle: dict) -> bool:
+        wanted = needle.lower()
+        return any(
+            wanted in (puzzle.get(field) or "").lower()
+            for field in ("puzzle_name", "source_image")
+        )
 
     def filter_puzzles(self, filter_opts: PuzzleFilter) -> PuzzleListResponse:
         """Filter puzzles based on criteria (legacy in-memory or DB-backed).
@@ -583,6 +619,8 @@ class PuzzleReviewService:
             width, height = filter_opts.size
             if not (MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE):
                 raise ValueError(f"Size dimensions must be {MIN_SIZE}-{MAX_SIZE}")
+        if filter_opts.side_range:
+            low, high = self._side_bounds(filter_opts.side_range)
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
             raise ValueError("Quality min must be 0-100")
 
@@ -611,6 +649,10 @@ class PuzzleReviewService:
                     width, height = filter_opts.size
                     if puzzle["width"] != width or puzzle["height"] != height:
                         continue
+                if filter_opts.side_range:
+                    low, high = self._side_bounds(filter_opts.side_range)
+                    if not any(low <= side <= high for side in (puzzle["width"], puzzle["height"])):
+                        continue
                 # Difficulty filter. Matched by tier rather than by exact
                 # string when the requested value names one: rows carry either
                 # spelling — the pipeline writes the enum value ("easy"), older
@@ -634,10 +676,12 @@ class PuzzleReviewService:
                 # Status filter
                 if filter_opts.status and puzzle["status"] != filter_opts.status:
                     continue
-                # Puzzle name filter (free-text search)
+                # Puzzle name filter: a case-insensitive substring of either
+                # name a row can carry. Picture-derived rows often have no
+                # puzzle_name at all and are listed under their source_image,
+                # so a search that ignored it found nothing the page shows.
                 if filter_opts.puzzle_name:
-                    pname = puzzle.get("puzzle_name", "").lower()
-                    if filter_opts.puzzle_name.lower() not in pname:
+                    if not self._name_matches(filter_opts.puzzle_name, puzzle):
                         continue
                 # Book ID filter
                 if filter_opts.book_id:
@@ -678,6 +722,7 @@ class PuzzleReviewService:
 
         else:
             # DB mode: query database
+            from sqlalchemy import or_
             from nonogram.db.models import Puzzle
             import uuid as uuid_module
 
@@ -691,6 +736,11 @@ class PuzzleReviewService:
                 if filter_opts.size:
                     width, height = filter_opts.size
                     query = query.filter(Puzzle.width == width, Puzzle.height == height)
+                if filter_opts.side_range:
+                    low, high = self._side_bounds(filter_opts.side_range)
+                    query = query.filter(
+                        or_(Puzzle.width.between(low, high), Puzzle.height.between(low, high))
+                    )
                 if filter_opts.difficulty:
                     # Both spellings, for the reason in the in-memory branch
                     # above: value and label are the same tier and a row may
@@ -717,9 +767,13 @@ class PuzzleReviewService:
                     # Add 1 day to make it inclusive of the entire date_to day
                     query = query.filter(Puzzle.created_at < (dt.replace(hour=0, minute=0, second=0) + __import__('datetime').timedelta(days=1)))
 
-                # Free-text puzzle name search
+                # Free-text name search over both name fields (see the
+                # in-memory branch for why source_image is included).
                 if filter_opts.puzzle_name:
-                    query = query.filter(Puzzle.puzzle_name.ilike(f"%{filter_opts.puzzle_name}%"))
+                    pattern = f"%{filter_opts.puzzle_name}%"
+                    query = query.filter(
+                        or_(Puzzle.puzzle_name.ilike(pattern), Puzzle.source_image.ilike(pattern))
+                    )
 
                 # Book ID filter
                 if filter_opts.book_id:

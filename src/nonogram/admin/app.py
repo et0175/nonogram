@@ -782,6 +782,12 @@ def create_app(debug=None):
     app.batch_generator = batch_gen
     app.book_manager = book_mgr
 
+    def _side_range_from_args():
+        """``(from, to)`` in cells from ``size_from``/``size_to``, or None."""
+        low = request.args.get("size_from", type=int)
+        high = request.args.get("size_to", type=int)
+        return (low, high) if low is not None or high is not None else None
+
     def _back_to_puzzles_list():
         """Return to the review list on the page, filters and sort the action
         was taken from (the form posts them as ``return_to``)."""
@@ -1325,8 +1331,10 @@ def create_app(debug=None):
     @app.route("/puzzles")
     def puzzles_list():
         """List and filter puzzles."""
-        # Basic filters
+        # Basic filters. ``size`` is the exact-extent filter the API keeps;
+        # the page's own fields are the side range (either side, from/to).
         size = request.args.get("size", type=int)
+        side_range = _side_range_from_args()
         difficulty = request.args.get("difficulty")
         quality_min = request.args.get("quality_min", type=int)
 
@@ -1355,6 +1363,7 @@ def create_app(debug=None):
         try:
             filter_opts = PuzzleFilter(
                 size=(size, size) if size is not None else None,
+                side_range=side_range,
                 difficulty=difficulty,
                 quality_min=quality_min,
                 date_from=date_from,
@@ -1551,6 +1560,7 @@ def create_app(debug=None):
 
         # Get filter parameters from query string
         size = request.args.get("size", type=int)
+        side_range = _side_range_from_args()
         difficulty = request.args.get("difficulty")
         quality_min = request.args.get("quality_min", type=int)
         theme = request.args.get("theme")
@@ -1563,6 +1573,7 @@ def create_app(debug=None):
         try:
             filter_opts = PuzzleFilter(
                 size=(size, size) if size is not None else None,
+                side_range=side_range,
                 difficulty=difficulty,
                 quality_min=quality_min,
                 theme=theme,
@@ -1586,6 +1597,8 @@ def create_app(debug=None):
                 "total_count": len(filtered_puzzles),
                 "has_more": result.has_more,
                 "size": size,
+                "size_from": side_range[0] if side_range else None,
+                "size_to": side_range[1] if side_range else None,
                 "difficulty": difficulty,
                 "quality_min": quality_min,
                 "theme": theme,
@@ -1984,6 +1997,8 @@ def create_app(debug=None):
 
             filter_opts = PuzzleFilter(
                 size=(size, size) if size is not None else None,
+                side_range=_side_range_from_args(),
+                puzzle_name=request.args.get("puzzle_name"),
                 difficulty=difficulty,
                 quality_min=quality_min,
                 limit=limit,

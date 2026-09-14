@@ -3,7 +3,7 @@
 {% extends "base.html" %}
 
 {%- macro preserve_filters(offset=None) -%}
-date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('date_to', '') }}&book_id={{ request.args.get('book_id', '') }}&puzzle_name={{ request.args.get('puzzle_name', '') }}&size={{ request.args.get('size', '') }}&difficulty={{ request.args.get('difficulty', '') }}&status={{ request.args.get('status', '') }}&quality_min={{ request.args.get('quality_min', '') }}&sort_by={{ request.args.get('sort_by', 'batch_id,-size,quality') }}&limit={{ request.args.get('limit', '25') }}&offset={{ offset if offset is not none else request.args.get('offset', '0') }}
+date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('date_to', '') }}&book_id={{ request.args.get('book_id', '') }}&puzzle_name={{ request.args.get('puzzle_name', '') }}&size_from={{ request.args.get('size_from', '') }}&size_to={{ request.args.get('size_to', '') }}&difficulty={{ request.args.get('difficulty', '') }}&status={{ request.args.get('status', '') }}&quality_min={{ request.args.get('quality_min', '') }}&sort_by={{ request.args.get('sort_by', 'batch_id,-size,quality') }}&limit={{ request.args.get('limit', '25') }}&offset={{ offset if offset is not none else request.args.get('offset', '0') }}
 {%- endmacro -%}
 
 {%- macro sort_head(column, label) -%}
@@ -52,9 +52,14 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                        value="{{ request.args.get('puzzle_name', '') }}" placeholder="crab, owl, butterfly…">
             </div>
             <div class="col-md-2">
-                <label for="size" class="form-label">Size (cells)</label>
-                <input type="number" class="form-control" id="size" name="size"
-                       min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ request.args.get('size', '') }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
+                <label for="size_from" class="form-label">Size (cells), either side</label>
+                <div class="input-group">
+                    <input type="number" class="form-control" id="size_from" name="size_from" aria-label="Side from"
+                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ request.args.get('size_from', '') }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
+                    <span class="input-group-text">to</span>
+                    <input type="number" class="form-control" id="size_to" name="size_to" aria-label="Side to"
+                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ request.args.get('size_to', '') }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
+                </div>
             </div>
             <div class="col-md-2">
                 <label for="difficulty" class="form-label">Difficulty</label>

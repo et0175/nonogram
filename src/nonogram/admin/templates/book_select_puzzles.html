@@ -21,10 +21,15 @@
     <div class="card-header"><h2 class="card-title mb-0">Filters</h2></div>
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-2">
-                <label for="size" class="form-label">Size (cells)</label>
-                <input type="number" class="form-control" id="size" name="size"
-                       min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size or '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
+            <div class="col-md-3">
+                <label for="size_from" class="form-label">Size (cells), either side</label>
+                <div class="input-group">
+                    <input type="number" class="form-control" id="size_from" name="size_from" aria-label="Side from"
+                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size_from if size_from is not none else '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
+                    <span class="input-group-text">to</span>
+                    <input type="number" class="form-control" id="size_to" name="size_to" aria-label="Side to"
+                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size_to if size_to is not none else '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
+                </div>
             </div>
             <div class="col-md-2">
                 <label for="difficulty" class="form-label">Difficulty</label>

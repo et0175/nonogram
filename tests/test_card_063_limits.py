@@ -182,7 +182,10 @@ def test_the_image_preview_page_renders_the_range(admin_app, tmp_path):
 
 def test_the_puzzle_list_filter_renders_the_range(admin_app):
     body = admin_app.test_client().get("/puzzles").get_data(as_text=True)
-    assert _input_bounds(body, "size") == (str(LOW), str(HIGH), f"{LOW}-{HIGH}")
+    # The side range is two inputs since the filter became from/to; both
+    # carry the range.
+    for input_id in ("size_from", "size_to"):
+        assert _input_bounds(body, input_id) == (str(LOW), str(HIGH), f"{LOW}-{HIGH}")
 
 
 def test_the_book_puzzle_filter_renders_the_range(admin_app):
@@ -190,7 +193,8 @@ def test_the_book_puzzle_filter_renders_the_range(admin_app):
         title="Range check", description="d", theme="christmas", target_audience="kids"
     )
     body = admin_app.test_client().get(f"/book/{book_id}/select-puzzles").get_data(as_text=True)
-    assert _input_bounds(body, "size") == (str(LOW), str(HIGH), f"{LOW}-{HIGH}")
+    for input_id in ("size_from", "size_to"):
+        assert _input_bounds(body, input_id) == (str(LOW), str(HIGH), f"{LOW}-{HIGH}")
 
 
 def test_the_admin_app_exposes_the_range_to_templates(monkeypatch):
