@@ -128,6 +128,9 @@ from nonogram.sourcing import image as image_source
 from nonogram.sourcing import random_grid
 
 __all__ = [
+    "BATCH_BUDGET_SECONDS",
+    "BatchResult",
+    "MAX_BATCH_COUNT",
     "DEFAULT_NAMES",
     "GENERATION_BUDGET_SECONDS",
     "MAX_CONSECUTIVE_ABANDONMENTS",
@@ -222,6 +225,41 @@ MAX_CONSECUTIVE_ABANDONMENTS = 3
 #: The bound lives here, next to the other one, because INV-003 has exactly one
 #: home — COMP-002. ``sourcing.image`` applies the nudge and counts nothing.
 MAX_NUDGE_ATTEMPTS = 5
+#: How long a whole *batch* may work before it stops starting candidates.
+#:
+#: The third bound of this shape, and the last request-bound loop to get one.
+#: :data:`MAX_CONSECUTIVE_ABANDONMENTS` answers "when is this batch hopeless?";
+#: :data:`GENERATION_BUDGET_SECONDS` answers "how long may one request take?";
+#: neither answers "when will this outlive the worker?" — which became a real
+#: question the moment CARD-086 put gunicorn in front of the admin, because
+#: ``generate_batch`` runs synchronously inside the request and a worker killed
+#: mid-batch loses everything it had produced.
+#:
+#: Chosen against measurement, not taste. At density 50 — the value the admin
+#: hardcodes — a puzzle costs about 0.06 s at 20x20, 0.55 s at 25x25 and
+#: **3.90 s** at 30x30, so a 50-puzzle batch is 3 s at the small end and 195 s
+#: at the large one. A flat count cannot be right at both; 75 s is what makes
+#: the *same* request safe at every extent, returning about 19 puzzles of a
+#: 50-puzzle 30x30 batch instead of dying at 120 s with nothing.
+#:
+#: Checked **before** each candidate, so one that starts always finishes: the
+#: true ceiling is ``BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS`` = 105 s,
+#: which is what has to clear the server's request timeout.
+#: ``tests/test_admin_serving.py`` reads ``--timeout`` out of ``start.sh`` and
+#: asserts it, the same way it does for the re-grade route — a comment claiming
+#: the relationship is exactly what drifts.
+BATCH_BUDGET_SECONDS = 75.0
+#: The largest batch that may be asked for in one request.
+#:
+#: Down from 200 (CARD-088, at the owner's proposal). 200 was never reachable
+#: at the top of the supported range — a 200-puzzle 30x30 batch needs about 13
+#: minutes and the server waits two — so the old ceiling described nothing real.
+#:
+#: A sanity bound, not the mechanism. :data:`BATCH_BUDGET_SECONDS` is what
+#: actually keeps a request inside the worker's patience at every extent; this
+#: just stops a caller asking for an obviously unservable number, and gives the
+#: form a range to render.
+MAX_BATCH_COUNT = 50
 
 #: ADR-0001's hard time bound for one generation *request*, in seconds: 30s up
 #: to the largest grid CON-011 supports, 30x30 (ADR-0022 narrowed that ceiling
@@ -1768,12 +1806,49 @@ def generate(
     )
 
 
+class BatchResult(list):
+    """The puzzles a batch produced, and why it has as many as it has.
+
+    A ``list`` subclass rather than a new dataclass, deliberately. CARD-083
+    decided the shortfall *is* the return value — the caller compares
+    ``len(result)`` against ``count`` — and that was right while there was one
+    fact to carry. There are two now: candidates the generator had to abandon,
+    and candidates never attempted because the batch ran out of time. They mean
+    opposite things to whoever re-runs the batch (one is bad luck, the other
+    will happen again), so a caller has to be able to tell them apart.
+
+    Subclassing keeps every existing use working untouched — ``len``,
+    iteration, indexing, ``==`` against a plain list, the ten test modules that
+    treat the return as a sequence — while the two counts ride along as
+    attributes. A dataclass would have been cleaner in isolation and would have
+    rewritten every one of those call sites to reach through a ``.puzzles``.
+
+    One caveat, stated because it is the usual cost of this pattern: slicing or
+    concatenating a ``BatchResult`` gives a plain ``list``, so the counts are
+    read at the call site, not carried onward.
+    """
+
+    #: Candidates the generator abandoned — 20 draws each, none uniquely
+    #: solvable. Bad luck, and re-running may well do better.
+    abandoned: int = 0
+    #: Candidates never attempted, because :data:`BATCH_BUDGET_SECONDS` ran out
+    #: first. Not bad luck: the same request will stop in the same place.
+    not_attempted: int = 0
+
+    @property
+    def stopped_early(self) -> bool:
+        """Did the clock end this batch, rather than the count?"""
+        return self.not_attempted > 0
+
+
 def generate_batch(
     count: int,
     sizes: list[int],
     source: str = "random",
     difficulty_tier: str | None = None,
-) -> list[Puzzle]:
+    budget_seconds: float = BATCH_BUDGET_SECONDS,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> BatchResult:
     """Generate multiple puzzles using the standard generation pipeline.
 
     Generates ``count`` puzzles, each using the exact same pipeline as
@@ -1825,8 +1900,15 @@ def generate_batch(
             call site; a batch that swallowed timeouts would have no time bound
             at all.
     """
-    if not 1 <= count <= 200:
-        raise ValueError(f"Count must be 1-200, got {count}")
+    if not 1 <= count <= MAX_BATCH_COUNT:
+        raise ValueError(
+            f"Count must be 1-{MAX_BATCH_COUNT}, got {count}. The ceiling came "
+            f"down from 200 with CARD-088: a batch runs inside one request, and "
+            f"at 30x30 even {MAX_BATCH_COUNT} candidates cost more than the "
+            f"server will wait — which is why the run also stops on "
+            f"BATCH_BUDGET_SECONDS rather than trusting a count to be safe at "
+            f"every extent."
+        )
     if not sizes or not all(isinstance(s, (int, tuple, list)) for s in sizes):
         raise ValueError(f"Sizes must be a list of ints or (width, height) tuples, got {sizes}")
     if source not in sourcing.MODES:
@@ -1864,9 +1946,13 @@ def generate_batch(
     # which is the bug this whole item is repairing (review cycle 1, F-004).
     tier = difficulty.parse_tier(difficulty_tier) if difficulty_tier is not None else None
 
-    puzzles: list[Puzzle] = []
+    puzzles = BatchResult()
     #: Candidates skipped so far, and how many of those ran back-to-back.
     abandoned = 0
+    #: Candidates never started, because the batch's own clock ran out
+    #: first. A different fact from `abandoned`, and the reason
+    #: BatchResult carries both (CARD-088).
+    not_attempted = 0
     consecutive_abandonments = 0
     #: The most recent candidate-level abandonment, so *both* exits below can
     #: chain it. Chaining only the consecutive one left a count<=2 caller with
@@ -1876,7 +1962,21 @@ def generate_batch(
     last_abandonment: GenerationAbandoned | None = None
     rng = random.Random()  # Batch uses unseeded RNG; each puzzle draws its own seed
 
-    for _ in range(count):
+    # The batch's own clock. Started before the first candidate and never
+    # reset, so the bound is one number read in one place (INV-003).
+    deadline = monotonic() + budget_seconds
+
+    for index in range(count):
+        # Before the candidate, not during it: a candidate that starts always
+        # finishes, so a puzzle is never half-made and the ceiling is a sum we
+        # can state (BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS) rather
+        # than a race. It also keeps the clock out of GenerationAbandoned's
+        # vocabulary — a candidate is abandoned because 20 draws failed, never
+        # because the batch was in a hurry.
+        if monotonic() >= deadline:
+            not_attempted = count - index
+            break
+
         size_spec = rng.choice(sizes)
         # Handle both int (square) and (width, height) tuple formats
         if isinstance(size_spec, (tuple, list)):
@@ -1927,6 +2027,9 @@ def generate_batch(
         consecutive_abandonments = 0
         puzzles.append(puzzle)
 
+    puzzles.abandoned = abandoned
+    puzzles.not_attempted = not_attempted
+
     if not puzzles:
         # Reachable only when ``count`` is below
         # :data:`MAX_CONSECUTIVE_ABANDONMENTS`: with no successes the
@@ -1937,6 +2040,17 @@ def generate_batch(
         # because the message reads like the general one otherwise, and
         # somebody debugging a failed 50-puzzle batch would hunt for it in
         # vain (CARD-083 review cycle 1, F-003).
+        if not_attempted and last_abandonment is None:
+            # The clock stopped it before anything was even tried, which is a
+            # configuration problem rather than a generation one: saying
+            # "every candidate was abandoned" would name a cause that never
+            # happened.
+            raise GenerationAbandoned(
+                f"this batch of {count} ran out of its {budget_seconds:.0f}s "
+                f"budget before producing a puzzle, with {not_attempted} never "
+                f"attempted. At the largest supported extent one puzzle can "
+                f"cost several seconds, so ask for fewer, or for a smaller size"
+            )
         raise GenerationAbandoned(
             f"no puzzle in this batch of {count} could be made uniquely "
             f"solvable; every candidate was abandoned after "

@@ -21,6 +21,8 @@ The premise the scripting stands on (that ``generate`` raises
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from nonogram import orchestrator
@@ -163,12 +165,19 @@ class TestBatch_StillFailsWhenTheBatchItselfFailed:
     ) -> None:
         """The point of the bound is the work it *saves*. A version that
         counted consecutive failures and reported them only at the end would
-        pass the test above and none of this one."""
-        outcomes: list[object] = ["ok"] + [_abandonment()] * 199
+        pass the test above and none of this one.
+
+        The count was 200 until CARD-088 brought the ceiling down to 50; the
+        assertion is about how few candidates are *attempted* (four), so the
+        largest askable batch demonstrates it exactly as well as the old one
+        did. Changed because 200 is now refused before the loop runs, not
+        because the claim weakened.
+        """
+        outcomes: list[object] = ["ok"] + [_abandonment()] * 49
         attempted = _script(monkeypatch, outcomes)
 
         with pytest.raises(GenerationAbandoned):
-            _batch(200)
+            _batch(orchestrator.MAX_BATCH_COUNT)
 
         assert len(attempted) == 1 + MAX_CONSECUTIVE_ABANDONMENTS
 
@@ -283,3 +292,176 @@ def test_the_batch_bound_is_its_own_number() -> None:
     """
     assert MAX_CONSECUTIVE_ABANDONMENTS == 3
     assert MAX_CONSECUTIVE_ABANDONMENTS != MAX_RETRY_ATTEMPTS
+
+
+# --------------------------------------------------------------------------
+# CARD-088 — the batch stops on its own clock, not on the worker's
+# --------------------------------------------------------------------------
+
+
+class TestBatch_StopsOnItsOwnClock:
+    """AC-1: a batch that would outlive the request stops and returns.
+
+    ``generate_batch`` runs synchronously inside the request, and since
+    CARD-086 the deployed panel has a gunicorn worker timeout. A batch that
+    overran it was killed mid-run and lost everything it had produced — after
+    doing all the work. The clock here is what makes the same request safe at
+    every extent, where a flat count cannot be: measured, a puzzle costs about
+    0.06s at 20x20 and 3.90s at 30x30, so 50 of them is 3s at one end and 195s
+    at the other.
+    """
+
+    @staticmethod
+    def _clock_that_jumps_after(calls: int):
+        """Real time plus an offset that leaps once, so only the batch's own
+        deadline is crossed — a fake returning small absolute numbers would
+        also poison each candidate's own deadline, which the solver reads
+        against the real clock (the trap CARD-086 hit)."""
+        base = time.monotonic()
+        state = {"calls": 0}
+
+        def clock() -> float:
+            state["calls"] += 1
+            return base + (0.0 if state["calls"] <= calls else 999.0)
+
+        return clock
+
+    def test_a_batch_that_fits_reports_no_shortfall(self) -> None:
+        result = orchestrator.generate_batch(count=5, sizes=[10])
+
+        assert len(result) == 5
+        assert result.not_attempted == 0
+        assert result.stopped_early is False
+
+    def test_a_batch_that_runs_out_of_time_stops_and_counts_the_rest(self) -> None:
+        result = orchestrator.generate_batch(
+            count=10,
+            sizes=[10],
+            budget_seconds=10.0,
+            monotonic=self._clock_that_jumps_after(3),
+        )
+
+        assert result.stopped_early is True
+        assert result.not_attempted > 0
+        assert len(result) >= 1, "the puzzles it did make are still returned"
+
+    def test_every_candidate_is_accounted_for(self) -> None:
+        """Produced, abandoned, or never attempted — no third state.
+
+        A candidate falling out of all three would be a puzzle the caller paid
+        for and cannot see, which is exactly the silence this card removes.
+        """
+        result = orchestrator.generate_batch(
+            count=10,
+            sizes=[10],
+            budget_seconds=10.0,
+            monotonic=self._clock_that_jumps_after(3),
+        )
+
+        assert len(result) + result.abandoned + result.not_attempted == 10
+
+    def test_the_result_is_still_a_list(self) -> None:
+        """CARD-083's contract survives: the shortfall *is* the return value.
+
+        Ten test modules and the one production caller treat this as a
+        sequence. Carrying the new counts as attributes on a list subclass
+        keeps every one of them working untouched — a dataclass would have
+        rewritten them all to reach through a ``.puzzles``.
+        """
+        result = orchestrator.generate_batch(count=3, sizes=[10])
+
+        assert isinstance(result, list)
+        assert result == list(result)
+        assert len([puzzle for puzzle in result]) == 3
+
+    def test_a_started_candidate_always_finishes(self) -> None:
+        """The deadline is checked before a candidate, never during one.
+
+        So the ceiling is a sum that can be stated —
+        ``BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS`` — rather than a
+        race, and no puzzle is ever half-made. Every puzzle that comes back is
+        complete and uniquely solvable, clock or no clock.
+        """
+        result = orchestrator.generate_batch(
+            count=10,
+            sizes=[10],
+            budget_seconds=10.0,
+            monotonic=self._clock_that_jumps_after(3),
+        )
+
+        for puzzle in result:
+            assert puzzle.solution_count == 1
+            assert puzzle.ready_for_export
+
+
+class TestBatch_SaysWhichBoundStoppedIt:
+    """AC-3: "unlucky" and "will happen again" are different facts.
+
+    A caller told only "you got fewer than you asked for" re-runs the request.
+    That is the right move after an abandoned candidate and a waste of time
+    after a clock stop, which will end in the same place every time.
+    """
+
+    def test_a_clock_stop_is_not_reported_as_an_abandonment(self) -> None:
+        base = time.monotonic()
+        state = {"calls": 0}
+
+        def clock() -> float:
+            state["calls"] += 1
+            return base + (0.0 if state["calls"] <= 3 else 999.0)
+
+        result = orchestrator.generate_batch(
+            count=10, sizes=[10], budget_seconds=10.0, monotonic=clock
+        )
+
+        assert result.not_attempted > 0
+        assert result.abandoned == 0, (
+            "these candidates were never tried; calling them abandoned would "
+            "name a cause that did not happen"
+        )
+
+    def test_an_empty_clock_stopped_batch_says_so(self) -> None:
+        """Not "every candidate was abandoned" — none of them were tried."""
+        base = time.monotonic()
+        state = {"calls": 0}
+
+        def clock() -> float:
+            state["calls"] += 1
+            return base + (0.0 if state["calls"] <= 1 else 999.0)
+
+        with pytest.raises(orchestrator.GenerationAbandoned) as caught:
+            orchestrator.generate_batch(
+                count=5, sizes=[10], budget_seconds=10.0, monotonic=clock
+            )
+
+        message = str(caught.value)
+        assert "budget" in message
+        assert "abandoned after" not in message, (
+            "the retry-exhaustion message would name a cause that never ran"
+        )
+
+
+class TestBatch_CountCap:
+    """AC-4: 200 described nothing real at the top of the supported range."""
+
+    def test_the_ceiling_is_fifty(self) -> None:
+        assert orchestrator.MAX_BATCH_COUNT == 50
+
+    @pytest.mark.parametrize("count", [0, 51, 200])
+    def test_a_count_outside_the_range_is_refused(self, count: int) -> None:
+        with pytest.raises(ValueError) as caught:
+            orchestrator.generate_batch(count=count, sizes=[10])
+
+        assert str(orchestrator.MAX_BATCH_COUNT) in str(caught.value)
+
+    def test_the_boundary_itself_is_accepted(self) -> None:
+        """The limit, not limit-1: 50 must be askable or the cap is 49."""
+        result = orchestrator.generate_batch(count=50, sizes=[10])
+
+        assert len(result) <= 50
+
+    def test_the_cap_is_not_the_mechanism(self) -> None:
+        """G-1 in miniature: the count bound and the clock answer different
+        questions, so neither is derived from the other. A cap that happened to
+        equal the budget would read as one number doing two jobs."""
+        assert orchestrator.MAX_BATCH_COUNT != orchestrator.BATCH_BUDGET_SECONDS

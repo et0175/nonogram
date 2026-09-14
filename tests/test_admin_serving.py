@@ -162,6 +162,36 @@ class TestAdminServing_TheRequestTimeoutClearsTheSlowestRoute:
             f"before the route's own bound could stop it"
         )
 
+    def test_the_worker_timeout_clears_the_batch_ceiling(self) -> None:
+        """AC-2 (CARD-088): the other long route with a clock of its own.
+
+        ``generate_batch`` runs inside the request too, and stops starting
+        candidates at ``BATCH_BUDGET_SECONDS`` while one already started may
+        run for ``GENERATION_BUDGET_SECONDS`` more. Same arithmetic as the
+        re-grade route above, same reason for asserting it here rather than
+        writing it in a comment: two numbers in two files drift.
+        """
+        from nonogram.orchestrator import BATCH_BUDGET_SECONDS
+
+        ceiling = BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS
+
+        assert _timeout_flag() > ceiling, (
+            f"gunicorn --timeout is {_timeout_flag()}s but a batch can take up "
+            f"to {ceiling:.0f}s ({BATCH_BUDGET_SECONDS:.0f}s of starting "
+            f"candidates + one candidate's {GENERATION_BUDGET_SECONDS:.0f}s); "
+            f"the worker would be killed before the batch's own bound stopped it"
+        )
+
+    def test_the_two_long_routes_do_not_share_a_bound(self) -> None:
+        """INV-003: the re-grade run and the batch answer different questions.
+
+        They happen to sit under the same worker timeout, which is a fact about
+        the server, not a reason for one number to stand in for both.
+        """
+        from nonogram.orchestrator import BATCH_BUDGET_SECONDS
+
+        assert BATCH_BUDGET_SECONDS != REGRADE_BUDGET_SECONDS
+
     def test_the_timeout_is_set_at_all(self) -> None:
         """gunicorn's default is 30s, which the ceiling above exceeds on its own."""
         assert _timeout_flag() != 30, "that is gunicorn's default, not a decision"
@@ -503,3 +533,27 @@ class TestAdminServing_SaysWhyItRefused:
             logging.getLogger("nonogram.admin.app").removeHandler(handler)
 
         assert any(expected in line for line in records), (expected, records)
+
+
+def test_the_form_default_count_is_safe_at_every_extent() -> None:
+    """AC-5 (CARD-088): a default has to work at the worst supported size.
+
+    The create-batch route defaulted ``count`` to 100. At 30x30 a puzzle costs
+    about 3.9s, so that default asked for roughly 390s of work from a server
+    that waits 120 — it died before producing anything, and nobody had a reason
+    to suspect the *default* rather than the request.
+
+    No template carries a count input, so the route's fallback is the only
+    default there is; this asserts the one that exists rather than a pair that
+    would need to agree.
+    """
+    from nonogram.admin.app import DEFAULT_BATCH_COUNT
+    from nonogram.orchestrator import BATCH_BUDGET_SECONDS, MAX_BATCH_COUNT
+
+    worst_case_seconds_per_puzzle = 3.9  # measured at 30x30, density 50
+
+    assert DEFAULT_BATCH_COUNT <= MAX_BATCH_COUNT
+    assert DEFAULT_BATCH_COUNT * worst_case_seconds_per_puzzle < BATCH_BUDGET_SECONDS, (
+        f"the default of {DEFAULT_BATCH_COUNT} would hit the batch budget at "
+        f"30x30, so the commonest request anyone makes would come back short"
+    )

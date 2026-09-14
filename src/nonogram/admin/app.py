@@ -66,11 +66,26 @@ from nonogram import clues, orchestrator
 from nonogram.difficulty import Tier
 from nonogram.errors import GenerationAbandoned, NonogramError, NotUniquelySolvable
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from nonogram.orchestrator import MAX_BATCH_COUNT
 
 # CARD-050: real image-mode quality/recognizability, in place of the
 # density-only heuristic and hardcoded "medium" this replaces below.
 from PIL import Image as PILImage
 from nonogram.analysis.quality_metric import measure_quality
+
+
+#: What the create-batch form asks for when the operator does not say.
+#:
+#: 100 before CARD-088, which asked for roughly 390 s of work at 30x30 from a
+#: server that waits 120 — the commonest request anyone makes was the one that
+#: could not finish, and nothing pointed at the *default* as the cause.
+#:
+#: 15 rather than 20, and the difference is the whole point of having a test
+#: for it: at the measured 3.9 s per puzzle at 30x30, twenty would cost 78 s
+#: against a 75 s batch budget, so the default request would come back *short*
+#: at the top of the supported range. A default that silently truncates is a
+#: worse default than a small one.
+DEFAULT_BATCH_COUNT = 15
 
 
 #: The statuses a puzzle can be filtered by, in curation order (CARD-066).
@@ -814,7 +829,10 @@ def create_app(debug=None):
         """Create a new batch generation job."""
         if request.method == "POST":
             try:
-                count = int(request.form.get("count", 100))
+                # 20, not 100: a default has to be a number that works at
+                # every supported extent, and 100 at 30x30 costs about 390s
+                # against a server that waits 120 (CARD-088).
+                count = int(request.form.get("count", DEFAULT_BATCH_COUNT))
                 sizes = [int(s) for s in request.form.get("sizes", "20").split(",")]
                 theme = request.form.get("theme", "christmas")
                 source = request.form.get("source", "random")

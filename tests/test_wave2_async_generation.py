@@ -147,19 +147,36 @@ class TestPDFGeneration:
         # 200 stays — the assertions below are about a 100-row first page
         # and a 200-puzzle batch, so the volume *is* the claim. Only the size
         # moves, and this test says nothing about sizes.
-        batch_id = batch_generator_service.create_batch(count=200, sizes=[15])
-
-        job = batch_generator_service.get_batch_status(batch_id)
-        puzzles = batch_generator_service.get_batch_puzzles(batch_id, limit=100)
-
-        # Should have sufficient puzzles for a book.
+        # Two batches, because one can no longer fill a page.
         #
-        # Not `puzzle_count == 200`: since CARD-083 a batch skips a candidate
-        # it had to abandon, so the exact count is a promise the system stopped
-        # making. What this test is about survives — the batch is big enough
-        # that the first page is full, which is the "large book" in its name.
-        assert 100 < job.puzzle_count <= 200
-        assert len(puzzles) == 100  # a full first page
+        # This asked for a single batch of 200 until CARD-088 capped a batch at
+        # 50 — a batch runs inside one request, and at the largest supported
+        # extent 200 candidates cost about thirteen minutes against a server
+        # that waits two. So a book of a hundred puzzles is now assembled from
+        # more than one batch, which is the real consequence of that cap and
+        # worth a test saying so rather than an assertion quietly lowered to
+        # fit.
+        first = batch_generator_service.create_batch(count=50, sizes=[15])
+        second = batch_generator_service.create_batch(count=50, sizes=[15])
+
+        counts = [
+            batch_generator_service.get_batch_status(batch).puzzle_count
+            for batch in (first, second)
+        ]
+
+        # Not `== 100`: since CARD-083 a batch skips a candidate it had to
+        # abandon, so the exact count is a promise the system stopped making.
+        # What this test is about survives — together they hold enough puzzles
+        # for the book in its name.
+        assert sum(counts) > 80, counts
+        assert all(count <= 50 for count in counts), (
+            f"a single batch may not exceed the CARD-088 cap: {counts}"
+        )
+
+        puzzles = batch_generator_service.get_batch_puzzles(first, limit=100)
+        assert len(puzzles) == counts[0], (
+            "a page larger than the batch returns the whole batch, not an error"
+        )
 
     @pytest.mark.integration
     def test_pdf_download_works(self):
