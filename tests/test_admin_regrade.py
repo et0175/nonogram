@@ -1,20 +1,16 @@
-"""CARD-077 — the re-grade batch, its safety rules, and migration 006.
+"""CARD-077/CARD-084 — the re-grade batch, its safety rules, and migrations 006/007.
 
     TestRegrade_RewritesGradeAndStrategiesFromOneSolve   (AC-A)
         -> test_a_uniquely_solvable_row_gets_the_pipeline_grade
         -> test_the_stored_strategies_are_the_solves_own_rungs
-        -> test_the_legacy_columns_hold_the_pre_run_values
         -> test_the_stored_score_still_classifies_as_the_stored_tier
-    TestRegrade_IsIdempotentAndPreservesLegacyColumns    (AC-B)
+    TestRegrade_IsIdempotent                            (AC-B, CARD-084 AC-3)
         -> test_two_runs_leave_byte_identical_rows
-        -> test_the_second_run_does_not_overwrite_the_legacy_columns
-        -> test_a_row_that_had_no_grade_cannot_have_one_invented_for_its_legacy
     TestRegrade_SkipsUnsolvableRowsAndReportsThem       (AC-C)
         -> test_an_ambiguous_row_is_not_touched
         -> test_an_ambiguous_row_is_reported_with_its_reason
         -> test_a_timed_out_row_is_not_touched_and_is_reported
         -> test_an_unreadable_grid_is_reported_rather_than_fatal
-        -> test_a_skipped_row_never_reaches_the_legacy_columns
     TestRegrade_DryRunWritesNothing                     (AC-D)
         -> test_the_database_file_is_byte_identical_after_a_dry_run
         -> test_the_dry_run_reports_what_the_write_run_produces
@@ -22,6 +18,13 @@
         -> test_upgrade_adds_two_nullable_columns_in_place
         -> test_upgrade_leaves_existing_rows_and_strategies_untouched
         -> test_downgrade_removes_exactly_those_two_columns
+    TestMigration007_DropsExactlyTheTwoColumns         (CARD-084 AC-1)
+        -> test_upgrade_removes_exactly_the_two_legacy_columns
+        -> test_upgrade_leaves_existing_rows_and_their_grades_intact
+    TestMigration007_DowngradeRestoresTheShapeNotTheData (CARD-084 AC-2)
+        -> test_downgrade_puts_the_two_nullable_columns_back
+        -> test_downgrade_does_not_pretend_to_restore_the_values
+    test_no_code_or_template_still_reads_the_legacy_columns (CARD-084 AC-4)
     TestRegrade_EntersSolverOncePerRow                  (EC ADR-0029/R2)
         -> test_the_solver_is_entered_exactly_once_per_row
         -> test_a_skipped_row_costs_one_solve_too_not_two
@@ -40,6 +43,7 @@ the real table happening to contain one.
 from __future__ import annotations
 
 import hashlib
+import re
 import time
 import math
 import uuid
@@ -50,7 +54,6 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from nonogram.admin.regrade import (
-    NO_LEGACY_TIER,
     Grade,
     Skip,
     SkipReason,
@@ -222,8 +225,6 @@ def _row(engine, row_id: str) -> dict:
             "difficulty_score": row.difficulty_score,
             "difficulty_tier": row.difficulty_tier,
             "strategies_used": row.strategies_used,
-            "legacy_difficulty_score": row.legacy_difficulty_score,
-            "legacy_difficulty_tier": row.legacy_difficulty_tier,
             "status": row.status,
         }
 
@@ -279,19 +280,6 @@ class TestRegrade_RewritesGradeAndStrategiesFromOneSolve:
         expected = _expected_grade(UNIQUE_GRID)
         assert _row(engine, row_id)["strategies_used"] == list(expected.strategies)
 
-    def test_the_legacy_columns_hold_the_pre_run_values(self, tmp_path: Path) -> None:
-        engine = _new_db(tmp_path / "a.db")
-        row_id = _add_row(engine, UNIQUE_GRID, score=75, tier="Medium")
-
-        _run(engine)
-
-        row = _row(engine, row_id)
-        assert row["legacy_difficulty_score"] == 75
-        assert row["legacy_difficulty_tier"] == "Medium"
-        assert row["difficulty_tier"] != "Medium", (
-            "the fixture is only interesting if the grade actually moved"
-        )
-
     def test_the_stored_score_still_classifies_as_the_stored_tier(
         self, tmp_path: Path
     ) -> None:
@@ -337,12 +325,21 @@ class TestRegrade_RewritesGradeAndStrategiesFromOneSolve:
 
 
 # --------------------------------------------------------------------------
-# AC-B — idempotent, deterministic, and the legacy columns are written once
+# AC-B — idempotent and deterministic: same rows in, identical rows out
 # --------------------------------------------------------------------------
 
 
-class TestRegrade_IsIdempotentAndPreservesLegacyColumns:
-    """AC-B / NFR-007 / CON-014: same rows in, identical rows out."""
+class TestRegrade_IsIdempotent:
+    """AC-B / NFR-007 / CON-014: same rows in, identical rows out.
+
+    CARD-077 stated AC-B as two claims joined by "and": the rows come out
+    identical, *and* the legacy columns are not overwritten by the second
+    run. CARD-084 dropped those columns, so only the first claim is left —
+    and it was always the load-bearing one. It is a statement about the
+    grader being deterministic, which is what makes re-running the batch
+    safe; the column guard was a property of the storage side-effect that
+    no longer exists.
+    """
 
     def test_two_runs_leave_byte_identical_rows(self, tmp_path: Path) -> None:
         engine = _new_db(tmp_path / "b.db")
@@ -358,44 +355,6 @@ class TestRegrade_IsIdempotentAndPreservesLegacyColumns:
         after_second = [_row(engine, row_id) for row_id in ids]
 
         assert after_first == after_second
-
-    def test_the_second_run_does_not_overwrite_the_legacy_columns(
-        self, tmp_path: Path
-    ) -> None:
-        engine = _new_db(tmp_path / "b.db")
-        row_id = _add_row(engine, UNIQUE_GRID, score=88, tier="Hard")
-
-        _run(engine)
-        _run(engine)
-
-        row = _row(engine, row_id)
-        assert row["legacy_difficulty_score"] == 88
-        assert row["legacy_difficulty_tier"] == "Hard"
-
-    def test_a_row_that_had_no_grade_cannot_have_one_invented_for_its_legacy(
-        self, tmp_path: Path
-    ) -> None:
-        """The case a NULL-guard alone gets wrong, and the reason for the sentinel.
-
-        A row with no stored grade leaves nothing to preserve. If "already
-        captured?" were answered by ``legacy IS NULL``, the first run would
-        write NULL, the guard would still read "not captured", and the *second*
-        run would copy in the values the *first* run produced — legacy columns
-        quietly holding ADR-0029 grades labelled as pre-run ones.
-        """
-        engine = _new_db(tmp_path / "b.db")
-        row_id = _add_row(engine, UNIQUE_GRID, score=None, tier=None)
-
-        _run(engine)
-        first = _row(engine, row_id)
-        _run(engine)
-        second = _row(engine, row_id)
-
-        assert first["legacy_difficulty_tier"] == NO_LEGACY_TIER
-        assert first["legacy_difficulty_score"] is None
-        assert second["legacy_difficulty_tier"] == NO_LEGACY_TIER
-        assert second["legacy_difficulty_score"] is None
-
 
 # --------------------------------------------------------------------------
 # AC-C — safety: what the batch refuses to grade, it refuses to touch
@@ -480,17 +439,6 @@ class TestRegrade_SkipsUnsolvableRowsAndReportsThem:
 
         (skipped,) = report.skipped
         assert skipped.skip.reason is SkipReason.UNREADABLE_GRID
-
-    def test_a_skipped_row_never_reaches_the_legacy_columns(self, tmp_path: Path) -> None:
-        """The legacy columns record an overwrite. A skipped row had none."""
-        engine = _new_db(tmp_path / "c.db")
-        row_id = _add_row(engine, AMBIGUOUS_GRID)
-
-        _run(engine)
-
-        row = _row(engine, row_id)
-        assert row["legacy_difficulty_score"] is None
-        assert row["legacy_difficulty_tier"] is None
 
     def test_one_bad_row_does_not_stop_the_good_ones(self, tmp_path: Path) -> None:
         engine = _new_db(tmp_path / "c.db")
@@ -665,30 +613,70 @@ def _alembic_config(url: str):
 def pre_006_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """A database in the shape it had *before* 006, with a row already in it.
 
-    Built by creating today's schema and dropping the two new columns again,
-    rather than by replaying 001..005: what AC-E is about is whether 006
-    upgrades a table that already holds data, and this produces exactly that
-    table without making the test depend on five older migrations still
-    running.
+    Built by creating today's schema rather than by replaying 001..005: what
+    AC-E is about is whether 006 upgrades a table that already holds data, and
+    this produces exactly that table without making the test depend on five
+    older migrations still running.
+
+    Since CARD-084's migration 007 dropped the two legacy columns again,
+    today's schema *is* the pre-006 shape as far as those columns go — the
+    fixture no longer has to drop them back off. That coincidence is load
+    bearing in one direction only: it is asserted below rather than assumed,
+    so a future migration that re-adds a ``legacy_difficulty_*`` column fails
+    here instead of silently making 006's test vacuous.
     """
     path = tmp_path / "pre006.db"
     url = f"sqlite:///{path}"
     engine = _new_db(path)
     row_id = _add_row(engine, UNIQUE_GRID, name="already here")
-    with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "ALTER TABLE puzzles DROP COLUMN legacy_difficulty_score"
-        )
-        connection.exec_driver_sql(
-            "ALTER TABLE puzzles DROP COLUMN legacy_difficulty_tier"
-        )
     engine.dispose()
+
+    assert not {"legacy_difficulty_score", "legacy_difficulty_tier"} & _columns(url), (
+        "this fixture is the pre-006 shape only while today's schema has no "
+        "legacy grade columns (migration 007 dropped them); if one came back, "
+        "drop it here explicitly rather than letting 006's test assert nothing"
+    )
 
     monkeypatch.setenv("DATABASE_URL", url)
     from alembic import command
 
     config = _alembic_config(url)
     command.stamp(config, "005")
+    return path, url, row_id
+
+
+@pytest.fixture
+def pre_007_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """A database in the shape 006 left behind, with a graded row already in it.
+
+    The mirror of :func:`pre_006_db`: today's schema plus the two legacy
+    columns put back by hand, stamped 006. The row carries a grade *and* a
+    populated pair of legacy columns, because the interesting question about
+    007 is whether dropping a column that holds data takes any other column's
+    data with it — SQLite's ``DROP COLUMN`` rebuilds the table, so "it only
+    dropped two columns" is a claim about a copy, not an edit.
+    """
+    path = tmp_path / "pre007.db"
+    url = f"sqlite:///{path}"
+    engine = _new_db(path)
+    row_id = _add_row(engine, UNIQUE_GRID, name="already here")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "ALTER TABLE puzzles ADD COLUMN legacy_difficulty_score INTEGER"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE puzzles ADD COLUMN legacy_difficulty_tier VARCHAR"
+        )
+        connection.exec_driver_sql(
+            "UPDATE puzzles SET legacy_difficulty_score = 42, "
+            "legacy_difficulty_tier = 'easy'"
+        )
+    engine.dispose()
+
+    monkeypatch.setenv("DATABASE_URL", url)
+    from alembic import command
+
+    command.stamp(_alembic_config(url), "006")
     return path, url, row_id
 
 
@@ -777,6 +765,182 @@ class TestMigration006_ExpandOnlyAndReversible:
         finally:
             engine.dispose()
         assert surviving == 1, "a reversal is not a way to lose the table's rows"
+
+
+# --------------------------------------------------------------------------
+# CARD-084 AC-1/AC-2 — 007 drops exactly those two columns, and says honestly
+# what its reversal does and does not give back
+# --------------------------------------------------------------------------
+
+
+class TestMigration007_DropsExactlyTheTwoColumns:
+    """AC-1 / G-6: two columns leave, nothing else moves."""
+
+    def test_upgrade_removes_exactly_the_two_legacy_columns(self, pre_007_db) -> None:
+        _path, url, _row_id = pre_007_db
+        from alembic import command
+
+        before = _columns(url)
+        assert {"legacy_difficulty_score", "legacy_difficulty_tier"} <= before
+
+        command.upgrade(_alembic_config(url), "007")
+
+        after = _columns(url)
+        assert before - after == {
+            "legacy_difficulty_score",
+            "legacy_difficulty_tier",
+        }
+        assert after <= before, "007 may not add or rename a column on the way past"
+
+    def test_upgrade_leaves_existing_rows_and_their_grades_intact(
+        self, pre_007_db
+    ) -> None:
+        """The claim SQLite makes this worth asserting.
+
+        ``DROP COLUMN`` on SQLite rebuilds the table rather than editing it, so
+        "only two columns went" is a statement about what the rebuild copied
+        across. A row that survives with its grade, tier, strategies and status
+        intact is the evidence; a column set alone would not be.
+        """
+        _path, url, _row_id = pre_007_db
+        from alembic import command
+
+        command.upgrade(_alembic_config(url), "007")
+
+        engine = create_engine(url)
+        try:
+            with engine.connect() as connection:
+                row = connection.execute(
+                    text(
+                        "SELECT difficulty_score, difficulty_tier, strategies_used, "
+                        "status, puzzle_name FROM puzzles"
+                    )
+                ).one()
+                surviving = connection.execute(
+                    text("SELECT count(*) FROM puzzles")
+                ).scalar()
+        finally:
+            engine.dispose()
+
+        assert surviving == 1
+        assert row.difficulty_score == 70
+        assert row.difficulty_tier == "Medium"
+        assert "LineLogic" in row.strategies_used
+        assert row.status == "draft"
+        assert row.puzzle_name == "already here"
+
+
+class TestMigration007_DowngradeRestoresTheShapeNotTheData:
+    """AC-2: reversing 007 gives back two empty columns, and claims no more."""
+
+    def test_downgrade_puts_the_two_nullable_columns_back(self, pre_007_db) -> None:
+        _path, url, _row_id = pre_007_db
+        from alembic import command
+
+        before = _columns(url)
+        command.upgrade(_alembic_config(url), "007")
+        command.downgrade(_alembic_config(url), "006")
+
+        assert _columns(url) == before
+
+        engine = create_engine(url)
+        try:
+            with engine.connect() as connection:
+                nullable = {
+                    column["name"]: column["nullable"]
+                    for column in inspect(connection).get_columns("puzzles")
+                }
+        finally:
+            engine.dispose()
+        assert nullable["legacy_difficulty_score"] is True
+        assert nullable["legacy_difficulty_tier"] is True
+
+    def test_downgrade_does_not_pretend_to_restore_the_values(
+        self, pre_007_db
+    ) -> None:
+        """The honest half of AC-2, asserted rather than left to the docstring.
+
+        The fixture's row goes into 007 carrying ``42``/``easy`` in its legacy
+        columns. Coming back out through the downgrade those columns are NULL,
+        because the upgrade dropped the only copy. A reader who mistakes
+        ``alembic downgrade`` for an undo would find that out from production;
+        this test says it here instead.
+        """
+        _path, url, _row_id = pre_007_db
+        from alembic import command
+
+        command.upgrade(_alembic_config(url), "007")
+        command.downgrade(_alembic_config(url), "006")
+
+        engine = create_engine(url)
+        try:
+            with engine.connect() as connection:
+                row = connection.execute(
+                    text(
+                        "SELECT legacy_difficulty_score, legacy_difficulty_tier "
+                        "FROM puzzles"
+                    )
+                ).one()
+        finally:
+            engine.dispose()
+
+        assert row.legacy_difficulty_score is None
+        assert row.legacy_difficulty_tier is None
+
+
+# --------------------------------------------------------------------------
+# CARD-084 AC-4 — no reader left behind
+# --------------------------------------------------------------------------
+
+
+def test_no_code_or_template_still_reads_the_legacy_columns() -> None:
+    """Nothing under ``src/`` names either dropped column.
+
+    A structural sweep rather than a list of call sites, in the spirit of
+    ``tests/test_cli.py``'s import guard: the point of dropping a column is
+    that reading it is now an ``OperationalError`` at runtime, and the cheapest
+    place to find the last reader is here. Templates are walked too — the admin
+    screen that describes the re-grade run is exactly where the stale promise
+    lived, and a Jinja template fails only when somebody loads the page.
+
+    ``migrations/`` is deliberately out of scope: 006 and 007 both have to name
+    the columns to do their jobs.
+    """
+    root = Path(__file__).resolve().parent.parent / "src" / "nonogram"
+    names = ("legacy_difficulty_score", "legacy_difficulty_tier", "NO_LEGACY_TIER")
+
+    def without_comments(source: str, suffix: str) -> str:
+        """Blank out what cannot read a column, keeping line numbers intact.
+
+        Jinja comments only — a Python ``#`` comment or docstring naming the
+        column is left visible on purpose, because the sweep is also how a
+        stale *explanation* gets found. The template exception exists because
+        ``regrade.html`` deliberately carries a ``{# ... #}`` note saying why
+        the promise this screen used to make is gone; blanking the comment
+        rather than exempting the file means a real ``{{ puzzle.legacy_... }}``
+        in that same template is still caught.
+        """
+        if suffix != ".html":
+            return source
+        return re.sub(
+            r"\{#.*?#\}",
+            lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+            source,
+            flags=re.S,
+        )
+
+    offenders = []
+    for path in sorted(root.rglob("*")):
+        if path.suffix not in {".py", ".html"} or not path.is_file():
+            continue
+        source = without_comments(path.read_text(encoding="utf-8"), path.suffix)
+        for lineno, line in enumerate(source.splitlines(), start=1):
+            if any(name in line for name in names):
+                offenders.append(f"{path.relative_to(root)}:{lineno}: {line.strip()}")
+
+    assert offenders == [], (
+        "these still name a column migration 007 dropped:\n" + "\n".join(offenders)
+    )
 
 
 # --------------------------------------------------------------------------
@@ -898,9 +1062,10 @@ class TestRegradeRoute_PreviewsBeforeItWrites:
             engine.dispose()
 
         assert regraded["difficulty_tier"] == _expected_grade(UNIQUE_GRID).tier.value
-        assert regraded["legacy_difficulty_tier"] == "Medium"
-        assert untouched["difficulty_tier"] == "Medium"
-        assert untouched["legacy_difficulty_tier"] is None
+        assert untouched["difficulty_tier"] == "Medium", (
+            "the ambiguous row is the one the run refused to vouch for, so the "
+            "POST must leave its stored grade exactly as it found it"
+        )
 
 
 # --------------------------------------------------------------------------

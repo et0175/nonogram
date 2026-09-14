@@ -2232,10 +2232,11 @@ def create_app(debug=None):
     def regrade_apply():
         """The confirmed run — the one point of no return in this card.
 
-        Reached only from the preview page's button. What it writes is
-        recoverable by hand: every row it overwrites has its previous grade
-        copied into the legacy columns first, and rows it skips are not
-        touched at all.
+        Reached only from the preview page's button. What it overwrites is
+        not recoverable from inside the app: the grades it replaces are not
+        copied anywhere (CARD-084 dropped the columns that used to hold them),
+        so the only record of them is a snapshot taken beforehand. Rows it
+        skips are not touched at all.
         """
         if session_scope is None:
             flash("Re-grading needs a database (DATABASE_URL is not set)", "error")

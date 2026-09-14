@@ -23,7 +23,8 @@
         <p class="text-muted">
             {% if applied %}
             Every row below was solved once and re-graded from that solve. The grade
-            each row carried before is preserved in its legacy columns.
+            each row carried before has been overwritten and is not kept anywhere in
+            this database.
             {% else %}
             Nothing has been written. Every puzzle below was solved once to work out
             what its grade would be under the current difficulty scale (ADR-0029).
@@ -129,26 +130,24 @@
                 <h5 class="card-title">Apply this re-grade</h5>
                 <p class="mb-2">
                     This rewrites <strong>{{ report.regraded|length }}</strong> rows'
-                    difficulty score, tier and strategies. Each row's previous grade is
-                    copied into its legacy columns first, so the run is reversible by
-                    hand &mdash; but it is not an undo button, and the legacy columns are
-                    written once: a second run will not overwrite them.
+                    difficulty score, tier and strategies. The grades it replaces are
+                    <strong>not saved anywhere</strong> &mdash; there is no undo, and no
+                    copy is kept in the database.
                 </p>
-                {# CARD-077 review cycle 1, F-004. The capture guard asks "has this
-                   row been captured?", which is only the same question as "is this
-                   the row's original grade?" while this batch is the sole writer of
-                   these columns. On the Render database it already is not: all 86
-                   rows were re-graded out of band on 2026-09-13, before the legacy
-                   columns existed. Saying so here rather than only in the card,
-                   because this is the screen where the button is. #}
+                {# CARD-084 dropped the legacy_difficulty_* columns this screen used to
+                   promise. They were a once-per-row-ever capture, so they recorded the
+                   state before the *first* run and were blind to every run after it;
+                   across all three databases they held 0 non-NULL values, because
+                   Render's 86 rows were re-graded out of band on 2026-09-13, before
+                   the columns existed. The replacement is an operator step, so it is
+                   stated here, on the screen with the button, and not only in the
+                   card. #}
                 <p class="mb-2 text-danger small">
-                    <strong>What "previous grade" means:</strong> whatever is in the row
-                    <em>right now</em>. If these grades were written by anything other
-                    than the original pipeline &mdash; an out-of-band script, an earlier
-                    migration, a manual edit &mdash; that is what gets preserved as the
-                    pre-run value, and it is preserved permanently. Check what the
-                    current grades actually are before running this on a database whose
-                    history you do not know.
+                    <strong>Take a backup first.</strong> The record of what these rows
+                    were graded before a run is whatever snapshot you took before it
+                    &mdash; see <code>meta/ops/</code> for the ones taken so far, and
+                    <code>meta/ops/README.md</code> for how to take another. Running
+                    this without one means the previous grades are gone.
                 </p>
                 <form method="POST" action="{{ url_for('regrade_apply') }}">
                     <button type="submit" class="btn btn-danger"

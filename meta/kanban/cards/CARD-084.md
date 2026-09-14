@@ -1,6 +1,6 @@
 # CARD-084: Drop the legacy difficulty columns — the snapshots replaced them
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** chore
 **Estimate:** 0.5d
@@ -16,7 +16,7 @@
 **Depends on:** — (CARD-077 merged 3de767f, which added the columns and said dropping them is a later card)
 **Touches:** src/nonogram/db/models.py, src/nonogram/admin/regrade.py, src/nonogram/admin/templates/regrade.html, src/nonogram/admin/app.py (one docstring), migrations/versions/007_drop_legacy_grade_columns.py (new), tests/test_admin_regrade.py, tests/property/test_regrade_determinism.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-14
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -174,9 +174,12 @@ formality.
   is a required step before any re-grade run? Without it, the mechanism that
   replaces the columns is a convention held in this card's prose. *(Suggested:
   yes, three lines.)*
-- **Q-2** — `nonogram_dev` holds 260 rows still on the pre-ladder scale. Do you
-  want a re-grade run against dev after this card lands, or is dev scratch data
-  whose grades do not matter?
+- **Q-2** — ~~`nonogram_dev` holds 260 rows still on the pre-ladder scale. Do
+  you want a re-grade run against dev after this card lands?~~ **Answered
+  2026-09-14: no.** Dev's grades do not need to be correct. This does not
+  change the card: the snapshot still has to exist before `007` drops the
+  columns, because it is the only remaining record of what those 294 rows were
+  graded, and "we do not need it today" is not "we can never want it".
 
 ## Worktree notes
 

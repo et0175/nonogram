@@ -16,9 +16,13 @@ reasoning, to one that is". Book assembly reads ``difficulty_tier`` to print a
 difficulty breakdown, so leaving the rows as they are means shipping a book
 whose printed grades are about nothing.
 
-The old values are not thrown away: they move to ``legacy_difficulty_score``
-and ``legacy_difficulty_tier`` (migration 006), which stay until the owner has
-reviewed the new distribution. Dropping them is a later card.
+The old values are overwritten, and this module keeps no copy of them: the
+record of what a row was graded before a run is the JSON snapshot taken
+immediately before it and committed under ``meta/ops/`` (CARD-084, which
+dropped the ``legacy_difficulty_*`` columns migration 006 had added for the
+purpose). Taking that snapshot is an operator step, not something this module
+can do for itself — by the time ``regrade`` is reading a row, the caller has
+already decided to run.
 
 What the batch does to one row
 ------------------------------
@@ -98,7 +102,6 @@ from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
 from nonogram.solver import MANY, solve
 
 __all__ = [
-    "NO_LEGACY_TIER",
     "Grade",
     "RegradeReport",
     "RowOutcome",
@@ -107,24 +110,6 @@ __all__ = [
     "grade_stored_grid",
     "regrade",
 ]
-
-
-#: What ``legacy_difficulty_tier`` holds for a row that had **no** tier at all
-#: when the batch first re-graded it.
-#:
-#: The point is that it is not ``NULL``. "Has this row's original grade already
-#: been captured?" is answered by ``legacy_difficulty_tier IS NOT NULL``, and a
-#: capture that wrote ``NULL`` for a row with no original tier would leave that
-#: question answering "no" forever — so the *second* run would capture the
-#: values the *first* run wrote, and the legacy columns would quietly hold
-#: ADR-0029 grades presented as pre-run ones. Writing a non-NULL "there was
-#: nothing here" instead makes the capture provably once-per-row
-#: (:func:`_capture_legacy_grade`), which is AC-B's real requirement rather
-#: than the common case of it.
-#:
-#: It reads back as "not a tier" through
-#: :func:`nonogram.difficulty.tier_of_record`, which is exactly true.
-NO_LEGACY_TIER = ""
 
 
 #: How long the whole re-grade run may work before it stops and reports.
@@ -461,7 +446,6 @@ def regrade(
             outcomes.append(_outcome(row, graded))
 
             if isinstance(graded, Grade) and not dry_run:
-                _capture_legacy_grade(row)
                 row.difficulty_score = graded.score
                 row.difficulty_tier = graded.tier.value
                 row.strategies_used = list(graded.strategies)
@@ -473,23 +457,6 @@ def regrade(
 
     return RegradeReport(
         dry_run=dry_run, outcomes=tuple(outcomes), not_attempted=not_attempted
-    )
-
-
-def _capture_legacy_grade(row: Puzzle) -> None:
-    """Move a row's pre-run grade into the legacy columns, at most once, ever.
-
-    The guard is ``legacy_difficulty_tier IS NULL`` and the capture always
-    writes a non-NULL value there — see :data:`NO_LEGACY_TIER`. Those two facts
-    together are what make "the second run cannot overwrite the originals"
-    structural: after one capture the guard is closed for good, whatever the
-    row's original grade was, including no grade at all.
-    """
-    if row.legacy_difficulty_tier is not None:
-        return
-    row.legacy_difficulty_score = row.difficulty_score
-    row.legacy_difficulty_tier = (
-        row.difficulty_tier if row.difficulty_tier is not None else NO_LEGACY_TIER
     )
 
 
