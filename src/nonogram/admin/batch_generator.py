@@ -284,6 +284,12 @@ class BatchGenerator:
         Uses orchestrator.generate_batch() to generate real, uniquely-solvable
         puzzles with calculated difficulty scores — the same pipeline as the CLI.
 
+        The returned list may be shorter than the requested count: since
+        CARD-083 a candidate the generator had to abandon is skipped rather
+        than ending the batch. The shortfall is reported on the batch record
+        below, beside the store-refusal note CARD-080 added, and the two are
+        kept as separate sentences because they mean opposite things.
+
         Works in both legacy and DB-backed modes.
 
         Args:
@@ -402,9 +408,25 @@ class BatchGenerator:
         # The batch is not marked failed: the puzzles that did store are real
         # and keeping them is right — what failed is a candidate, and the note
         # says which kind of failure it was.
-        refusal_note = None
+        # Two different shortfalls, and they mean opposite things. A candidate
+        # the *generator* abandoned is ordinary bad luck at a measured rate
+        # (CARD-083); a candidate the *store* refused should be unreachable and
+        # is a bug. They are reported as separate sentences rather than one
+        # "missing puzzles" number, because an owner who cannot tell them apart
+        # learns nothing from either.
+        notes = []
+        abandoned_count = count - len(puzzles)
+        if abandoned_count:
+            notes.append(
+                f"{abandoned_count} of {count} candidates could not be made "
+                f"uniquely solvable within the retry budget and were skipped, "
+                f"so this batch has {len(puzzles)} puzzles rather than {count}. "
+                f"That is expected occasionally — it is how a random grid can "
+                f"come out — and the batch was kept rather than discarded "
+                f"(CARD-083). Re-run if you need the full count."
+            )
         if refused_count:
-            refusal_note = (
+            notes.append(
                 f"{refused_count} of {len(puzzles)} generated candidates were refused "
                 "by the store as not uniquely solvable and are not in this batch. "
                 "Every candidate came through orchestrator.generate, which enforces "
@@ -412,6 +434,7 @@ class BatchGenerator:
                 "property of this batch; the admin log carries the per-candidate "
                 "reasons."
             )
+        refusal_note = " ".join(notes) if notes else None
 
         if self._session_factory is None:
             job = self.jobs[batch_id]

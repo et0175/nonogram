@@ -152,9 +152,14 @@ class TestPDFGeneration:
         job = batch_generator_service.get_batch_status(batch_id)
         puzzles = batch_generator_service.get_batch_puzzles(batch_id, limit=100)
 
-        # Should have sufficient puzzles for a book
-        assert len(puzzles) == 100  # First page
-        assert job.puzzle_count == 200
+        # Should have sufficient puzzles for a book.
+        #
+        # Not `puzzle_count == 200`: since CARD-083 a batch skips a candidate
+        # it had to abandon, so the exact count is a promise the system stopped
+        # making. What this test is about survives — the batch is big enough
+        # that the first page is full, which is the "large book" in its name.
+        assert 100 < job.puzzle_count <= 200
+        assert len(puzzles) == 100  # a full first page
 
     @pytest.mark.integration
     def test_pdf_download_works(self):

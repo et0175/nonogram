@@ -40,8 +40,12 @@ class TestBatchHistoryE2E:
             theme='christmas'
         )
 
-        # Generate puzzles
-        batch_generator_service._generate_random_batch(batch_id)
+        # `create_batch` already generates synchronously, so the explicit
+        # call that used to sit here generated the batch a second time —
+        # twice the draws, and a store holding twice as many rows as
+        # `puzzle_count` claimed. Harmless while nothing compared the two;
+        # CARD-083's `puzzle_count == len(stored)` assertion is what
+        # surfaced it.
 
         # Verify batch in history
         job = batch_generator_service.get_batch_status(batch_id)
@@ -56,8 +60,12 @@ class TestBatchHistoryE2E:
         batch_id1 = batch_generator_service.create_batch(count=10, sizes=[15])
         batch_id2 = batch_generator_service.create_batch(count=10, sizes=[20])
 
-        batch_generator_service._generate_random_batch(batch_id1)
-        batch_generator_service._generate_random_batch(batch_id2)
+        # `create_batch` already generates synchronously, so the explicit
+        # call that used to sit here generated the batch a second time —
+        # twice the draws, and a store holding twice as many rows as
+        # `puzzle_count` claimed. Harmless while nothing compared the two;
+        # CARD-083's `puzzle_count == len(stored)` assertion is what
+        # surfaced it.
 
         # Verify both in history
         batches = [

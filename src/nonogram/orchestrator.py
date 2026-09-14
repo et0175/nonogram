@@ -130,6 +130,7 @@ from nonogram.sourcing import random_grid
 __all__ = [
     "DEFAULT_NAMES",
     "GENERATION_BUDGET_SECONDS",
+    "MAX_CONSECUTIVE_ABANDONMENTS",
     "MAX_CONSECUTIVE_REPAIRS",
     "MAX_NUDGE_ATTEMPTS",
     "MAX_REGENERATE_ATTEMPTS",
@@ -189,6 +190,24 @@ MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
 #: that is ADR-0024's rollback switch, and it is a property of how the branch
 #: in :func:`generate` is written rather than a flag anything consults.
 MAX_CONSECUTIVE_REPAIRS = 3
+
+#: How many candidates in a row a *batch* may abandon before it stops trying.
+#:
+#: Not a second per-puzzle bound — INV-003's counters are untouched and still
+#: end one candidate's life after :data:`MAX_RETRY_ATTEMPTS` draws. This one
+#: ends the *batch*, and it exists because skipping an abandoned candidate
+#: (CARD-083) removed the thing that used to stop a hopeless request: the first
+#: failure. Without it, ``generate_batch(count=200)`` against parameters that
+#: can never produce a puzzle would spend 200 x 20 = 4000 solves discovering
+#: that, where it used to spend 20.
+#:
+#: Three, matching :data:`MAX_CONSECUTIVE_REPAIRS` next door, because three in
+#: a row is not bad luck at any rate this function can actually reach. Measured
+#: over 200 draws per size at the density ``generate_batch`` hardcodes (50):
+#: 0/200 abandoned at 10x10, 15x15 and 20x20, and 4/200 at 25x25. At the worst
+#: of those, p = 0.02, the chance of three consecutive abandonments is 8 in a
+#: million; a batch that hits it has parameters that are wrong, not unlucky.
+MAX_CONSECUTIVE_ABANDONMENTS = 3
 
 #: ADR-0002's *other* number: POL-002's pixel-nudge cap is 5, and this is
 #: deliberately **not** written as a fraction or an alias of
@@ -1775,8 +1794,15 @@ def generate_batch(
             answer :func:`generate` gives it.
 
     Returns:
-        List of successfully generated Puzzle objects with full metadata
-        (difficulty scores, solution counts, export-ready).
+        Successfully generated Puzzle objects, with full metadata (difficulty
+        scores, solution counts, export-ready).
+
+        **May be shorter than ``count``.** A candidate that cannot be made
+        uniquely solvable within its retry budget is skipped and the batch
+        continues (CARD-083); the length of this list against ``count`` is how
+        a caller learns it happened. One bad draw used to end the whole batch,
+        which at a measured 1-in-50 abandon rate at 25x25 meant a 50-puzzle
+        request lost everything about a third of the time.
 
     Raises:
         ValueError: If parameters are invalid (out-of-range count/sizes, unknown source)
@@ -1787,7 +1813,17 @@ def generate_batch(
             by COMP-001, and already carrying a message that lists the tiers
             read off the enum. Raising ``ValueError`` here would mean catching
             that answer and restating it less well (CARD-070, item 1).
-        GenerationAbandoned: If a puzzle cannot be generated within retry budget
+        GenerationAbandoned: Only when the *batch* fails, which is now a
+            narrower thing than one puzzle failing. Two cases: no puzzle at all
+            was produced, or :data:`MAX_CONSECUTIVE_ABANDONMENTS` candidates
+            were abandoned back-to-back, which says the parameters are
+            infeasible rather than unlucky. Both carry the counts, and the
+            consecutive case chains the candidate's own abandonment as its
+            cause so a caller logging with ``exc_info`` keeps it.
+        SolverTimeout: A candidate spent ADR-0011's whole 30s deadline without
+            a verdict. **Not** skipped, deliberately — see the comment at the
+            call site; a batch that swallowed timeouts would have no time bound
+            at all.
     """
     if not 1 <= count <= 200:
         raise ValueError(f"Count must be 1-200, got {count}")
@@ -1828,7 +1864,16 @@ def generate_batch(
     # which is the bug this whole item is repairing (review cycle 1, F-004).
     tier = difficulty.parse_tier(difficulty_tier) if difficulty_tier is not None else None
 
-    puzzles = []
+    puzzles: list[Puzzle] = []
+    #: Candidates skipped so far, and how many of those ran back-to-back.
+    abandoned = 0
+    consecutive_abandonments = 0
+    #: The most recent candidate-level abandonment, so *both* exits below can
+    #: chain it. Chaining only the consecutive one left a count<=2 caller with
+    #: __cause__ None — CARD-080's F-008 defect, reproduced on the other branch
+    #: of the function whose commit message cited that lesson (review cycle 1,
+    #: F-001).
+    last_abandonment: GenerationAbandoned | None = None
     rng = random.Random()  # Batch uses unseeded RNG; each puzzle draws its own seed
 
     for _ in range(count):
@@ -1847,8 +1892,58 @@ def generate_batch(
             density=50,  # Default to 50% density for random generation
             difficulty=tier.value if tier is not None else None,
         )
-        puzzle = generate(request)
+
+        # One candidate that cannot be made unique is a bad draw, not a broken
+        # batch (CARD-083). It is skipped and the batch carries on; the
+        # shortfall is visible to the caller as a list shorter than ``count``,
+        # which ``admin/batch_generator`` reports on the batch record the same
+        # way CARD-080 reports a store refusal.
+        #
+        # Deliberately only ``GenerationAbandoned``. A ``SolverTimeout`` is not
+        # a bad draw — it is ADR-0011's 30s bound being spent on one grid — and
+        # swallowing it per candidate would leave a batch with no time bound at
+        # all: 200 candidates x 30s is an hour and a half of grinding where the
+        # request used to fail in thirty seconds. Measured: 30x30 at density 50
+        # reaches the deadline rather than the retry bound, so that is not a
+        # hypothetical size. Whether a batch should survive a timeout too is a
+        # separate decision, recorded as CARD-083's open question.
+        try:
+            puzzle = generate(request)
+        except GenerationAbandoned as abandonment:
+            abandoned += 1
+            consecutive_abandonments += 1
+            last_abandonment = abandonment
+            if consecutive_abandonments >= MAX_CONSECUTIVE_ABANDONMENTS:
+                raise GenerationAbandoned(
+                    f"abandoned the batch after {consecutive_abandonments} "
+                    f"consecutive candidates could not be made uniquely "
+                    f"solvable ({len(puzzles)} of {count} produced before "
+                    f"that): at this rate the request is infeasible rather "
+                    f"than unlucky, so the remaining "
+                    f"{count - len(puzzles) - abandoned} were not attempted"
+                ) from abandonment
+            continue
+
+        consecutive_abandonments = 0
         puzzles.append(puzzle)
+
+    if not puzzles:
+        # Reachable only when ``count`` is below
+        # :data:`MAX_CONSECUTIVE_ABANDONMENTS`: with no successes the
+        # consecutive counter never resets, so for count >= 3 the bound above
+        # fires on the third candidate and this line is never reached. It is
+        # the tail case, not the general "everything failed" exit — measured,
+        # count 1 and 2 arrive here and count 3 and up do not. Said out loud
+        # because the message reads like the general one otherwise, and
+        # somebody debugging a failed 50-puzzle batch would hunt for it in
+        # vain (CARD-083 review cycle 1, F-003).
+        raise GenerationAbandoned(
+            f"no puzzle in this batch of {count} could be made uniquely "
+            f"solvable; every candidate was abandoned after "
+            f"{MAX_RETRY_ATTEMPTS} attempts. A batch that produced nothing is "
+            f"not a short batch, it is a failed one — try a different size, or "
+            f"another run"
+        ) from last_abandonment
 
     return puzzles
 
