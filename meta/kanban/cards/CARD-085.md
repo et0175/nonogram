@@ -1,6 +1,6 @@
 # CARD-085: The admin panel can be reached from somewhere other than this machine, but only with a credential
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -17,7 +17,7 @@
 **Touches:** src/nonogram/admin/app.py, tests/test_admin_auth.py (new), tests/test_admin_binding.py, render.yaml, ADMIN_SETUP.md
 **Review score:** 3.0 (cycle 1) -> 9.0 (cycle 2, confirmation), all findings fixed
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —

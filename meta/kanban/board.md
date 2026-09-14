@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-14 11:40 UTC_
+_Updated: 2026-09-14 13:10 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them  _(wave 1)_ — **parked at the owner's call until production is working**; code complete on `card/084-drop-legacy-difficulty-columns`, migration 007 applied nowhere
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
@@ -50,14 +51,13 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-085** P1 · The admin panel can be reached from somewhere other than this machine, but only with a credential · `card/085-admin-auth-for-remote-access` · started 2026-09-14
-- **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them · `card/084-drop-legacy-difficulty-columns` · started 2026-09-14
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-085** P1 · The admin panel can be reached from somewhere other than this machine, but only with a credential · score 9.0 (cycle 2/2) · merged MERGESHA
 - **CARD-083** P2 · A batch survives a candidate it had to abandon · score 8.0 (cycle 1/1) · merged d3db715
 - **CARD-082** P2 · The suite baseline says what it means — three standing failures and one 40% flake · score 9.0 (cycle 1/1) · merged a13c9bf
 - **CARD-070** P2 · Generation quick fixes — batch tier spelling, stale nudge pins, docstring drift · score 9.0 (cycle 1/1) · merged 4362a7e
