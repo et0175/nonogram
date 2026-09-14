@@ -167,7 +167,13 @@ def test_two_runs_over_one_table_leave_identical_rows(tmp_path: Path) -> None:
 
     The end-to-end statement of the property: not just that the grading
     function is pure, but that running the operational job twice is the same as
-    running it once — legacy columns included.
+    running it once.
+
+    This is what is left of CARD-077's AC-B after CARD-084 dropped the legacy
+    columns, and it is the half that carried the weight. The column guard said
+    the *second* run did not clobber what the *first* captured; this says every
+    graded column comes out the same, which is why re-running the batch is safe
+    at all.
     """
     cases = _corpus()[:60]
     path = tmp_path / "corpus.db"
@@ -202,8 +208,7 @@ def test_two_runs_over_one_table_leave_identical_rows(tmp_path: Path) -> None:
                     row.difficulty_score,
                     row.difficulty_tier,
                     tuple(row.strategies_used or ()),
-                    row.legacy_difficulty_score,
-                    row.legacy_difficulty_tier,
+                    row.status,
                 )
                 for row in session.query(Puzzle).order_by(Puzzle.id).all()
             ]

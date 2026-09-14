@@ -1,6 +1,6 @@
 # CARD-084: Drop the legacy difficulty columns — the snapshots replaced them
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** chore
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** — (CARD-077 merged 3de767f, which added the columns and said dropping them is a later card)
 **Touches:** src/nonogram/db/models.py, src/nonogram/admin/regrade.py, src/nonogram/admin/templates/regrade.html, src/nonogram/admin/app.py (one docstring), migrations/versions/007_drop_legacy_grade_columns.py (new), tests/test_admin_regrade.py, tests/property/test_regrade_determinism.py
-**Review score:** —
-**Started:** —
-**Closed:** —
+**Review score:** — (merged without a review cycle at the owner's call; the code was already complete and green when the card was parked)
+**Started:** 2026-09-14
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -166,7 +166,23 @@ formality.
    `TestRegrade_IsIdempotentAndPreservesLegacyColumns`, fix the two references
    in `tests/property/test_regrade_determinism.py:205-206`, and add the AC-1,
    AC-2 and AC-4 tests.
-7. Apply `007` in G-2's order, recording each stamp.
+7. Apply `007` in G-2's order, recording each stamp. **Done 2026-09-14:**
+
+| # | database | rows before/after | legacy filled | stamp |
+|---|---|---|---|---|
+| 1 | `nonogram_admin.db` (SQLite) | 16 / 16 | 0 | 006 -> **007** |
+| 2 | `nonogram_dev` (local PG) | 282 / 282 | 0 | 006 -> **007** |
+| 3 | `nonogram_ubss` (Render) | 86 / 86 | 0 | 006 -> **007** |
+
+SQLite was proved on a `/tmp` copy before the real file was touched — the
+backend where `DROP COLUMN` rebuilds the table, so "only two columns went" is a
+claim about what the rebuild copied. Grades, tiers and strategies all intact on
+the copy first, then on the file. `meta/ops/render-grades-backup-20260914-pre007.json`
+holds production's 86 rows taken immediately before the migration, with the
+count asserted stable across the read.
+
+0 legacy values on all three, exactly as the card predicted — 384 rows and not
+one of them had anything to lose.
 
 ## Open questions for the owner
 
@@ -174,10 +190,30 @@ formality.
   is a required step before any re-grade run? Without it, the mechanism that
   replaces the columns is a convention held in this card's prose. *(Suggested:
   yes, three lines.)*
-- **Q-2** — `nonogram_dev` holds 260 rows still on the pre-ladder scale. Do you
-  want a re-grade run against dev after this card lands, or is dev scratch data
-  whose grades do not matter?
+- **Q-2** — ~~`nonogram_dev` holds 260 rows still on the pre-ladder scale. Do
+  you want a re-grade run against dev after this card lands?~~ **Answered
+  2026-09-14: no.** Dev's grades do not need to be correct. This does not
+  change the card: the snapshot still has to exist before `007` drops the
+  columns, because it is the only remaining record of what those 294 rows were
+  graded, and "we do not need it today" is not "we can never want it".
 
 ## Worktree notes
 
-_(none yet)_
+**Unparked and rebased onto main 2026-09-14**, after CARD-085 and CARD-086
+merged. One conflict, in `regrade.py`: this card deletes the `NO_LEGACY_TIER`
+block and CARD-086 added `REGRADE_BUDGET_SECONDS` immediately after it.
+Resolved by keeping the new constant and dropping the old one — the two changes
+are adjacent, not competing. The `regrade` loop then carried both edits
+together: CARD-086's run deadline and `not_attempted`, and this card's removal
+of the legacy capture from the same block. 222 admin tests pass after the
+rebase.
+
+**Dev had drifted.** The snapshot in `meta/ops/dev-grades-backup-20260914.json`
+records 294 rows; dev held 282 by the time the migration ran. That is the owner
+pruning between the two moments, not a fault — and it is the reason the
+snapshot names its `taken_at`. It is a record of a moment, not a claim about
+the present.
+
+**Production checked after the fact**, not only before: the live panel still
+answers `401` to an anonymous request, so the migrated schema and CARD-085's
+credential gate are both working against the same database.
