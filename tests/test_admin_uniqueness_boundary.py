@@ -757,6 +757,97 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         assert job.puzzle_count == 1
         assert "3 of 4" in job.error_message
 
+    def test_a_generator_shortfall_is_reported_as_a_different_thing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CARD-083: a candidate the *generator* abandoned is ordinary bad
+        luck; a candidate the *store* refused is a bug. One "missing puzzles"
+        number would make them indistinguishable, which is the state CARD-080
+        put the refusal count into words to escape."""
+        from nonogram import orchestrator as orchestrator_module
+        from nonogram.admin.batch_generator import BatchGenerator, BatchJob
+
+        # The generator returns 8 for a request of 10 — two were abandoned.
+        monkeypatch.setattr(
+            orchestrator_module,
+            "generate_batch",
+            lambda **kwargs: [_candidate() for _ in range(8)],
+        )
+        generator = BatchGenerator(
+            puzzle_review_service=_StoreThatRefusesChosenCandidates(set())
+        )
+        generator.jobs["batch-1"] = BatchJob(
+            batch_id="batch-1",
+            status=BatchStatus.GENERATING,
+            total_count=10,
+            sizes=[10],
+            theme="christmas",
+        )
+
+        generator._generate_random_batch("batch-1")
+
+        job = generator.jobs["batch-1"]
+        assert job.puzzle_count == 8
+        assert "2 of 10 candidates could not be made" in job.error_message
+        assert "refused by the store" not in job.error_message
+
+    def test_both_shortfalls_are_reported_side_by_side(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """They can happen in the same batch, and the note must not lose one."""
+        from nonogram import orchestrator as orchestrator_module
+        from nonogram.admin.batch_generator import BatchGenerator, BatchJob
+
+        monkeypatch.setattr(
+            orchestrator_module,
+            "generate_batch",
+            lambda **kwargs: [_candidate() for _ in range(8)],
+        )
+        generator = BatchGenerator(
+            puzzle_review_service=_StoreThatRefusesChosenCandidates({3})
+        )
+        generator.jobs["batch-1"] = BatchJob(
+            batch_id="batch-1",
+            status=BatchStatus.GENERATING,
+            total_count=10,
+            sizes=[10],
+            theme="christmas",
+        )
+
+        generator._generate_random_batch("batch-1")
+
+        note = generator.jobs["batch-1"].error_message
+        assert "2 of 10 candidates could not be made" in note
+        assert "1 of 8 generated candidates were refused" in note
+
+    def test_a_full_batch_carries_no_shortfall_note(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The note is a signal; a batch that delivered what it promised must
+        stay silent, or the alert is on every batch and therefore on none."""
+        from nonogram import orchestrator as orchestrator_module
+        from nonogram.admin.batch_generator import BatchGenerator, BatchJob
+
+        monkeypatch.setattr(
+            orchestrator_module,
+            "generate_batch",
+            lambda **kwargs: [_candidate() for _ in range(10)],
+        )
+        generator = BatchGenerator(
+            puzzle_review_service=_StoreThatRefusesChosenCandidates(set())
+        )
+        generator.jobs["batch-1"] = BatchJob(
+            batch_id="batch-1",
+            status=BatchStatus.GENERATING,
+            total_count=10,
+            sizes=[10],
+            theme="christmas",
+        )
+
+        generator._generate_random_batch("batch-1")
+
+        assert generator.jobs["batch-1"].error_message is None
+
     def test_the_refusal_reaches_the_batch_row_in_db_mode(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path
     ) -> None:
