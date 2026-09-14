@@ -83,7 +83,7 @@
                                                 ✕ Reject
                                             </button>
                                         </form>
-                                        <span class="puzzle-status-badge ms-2"></span>
+                                        <span class="puzzle-status-badge ms-2">{% if puzzle.status == 'approved' %}<span class="badge bg-success ms-2">✓ Approved</span>{% elif puzzle.status == 'rejected' %}<span class="badge bg-danger ms-2">✕ Rejected</span>{% elif puzzle.status == 'in_book' %}<span class="badge bg-primary ms-2">In book</span>{% endif %}</span>
                                     </div>
                                 </div>
                             </div>
@@ -133,6 +133,29 @@
                         Review and download your puzzles.
                     </small>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Bulk Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <form method="POST" action="/batch/{{ batch_id }}/approve-all"
+                          onsubmit="return confirm('Approve all puzzles in this batch?');">
+                        <button type="submit" class="btn btn-success w-100">✓ Approve All</button>
+                    </form>
+                    <form method="POST" action="/batch/{{ batch_id }}/reject-all"
+                          onsubmit="return confirm('Reject all puzzles in this batch?');">
+                        <button type="submit" class="btn btn-danger w-100">✕ Reject All</button>
+                    </form>
+                    <form method="POST" action="/batch/{{ batch_id }}/delete-rejected"
+                          onsubmit="return confirm('Delete all rejected puzzles in this batch? This cannot be undone.');">
+                        <button type="submit" class="btn btn-outline-danger w-100">🗑️ Delete Rejected</button>
+                    </form>
+                </div>
+                <small class="text-muted d-block mt-2">Puzzles already in a book are not changed.</small>
             </div>
         </div>
 

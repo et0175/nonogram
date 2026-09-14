@@ -855,6 +855,93 @@ class PuzzleReviewService:
                 puzzle.status = PuzzleStatus.DRAFT.value
                 return True
 
+    def set_batch_status(self, batch_id: str, status: PuzzleStatus) -> int:
+        """Move every puzzle of ``batch_id`` that is not in a book to ``status``.
+
+        A puzzle already in a book is left alone: approving or rejecting it in
+        bulk would silently detach it from the book's curation state.
+
+        Returns:
+            How many puzzles changed status.
+        """
+        if status is PuzzleStatus.IN_BOOK:
+            raise ValueError("in_book is set by assigning to a book, not in bulk")
+        changed = 0
+        if self._session_factory is None:
+            for puzzle in self.puzzles.values():
+                if (
+                    puzzle.get("batch_id") == batch_id
+                    and not puzzle.get("book_id")
+                    and puzzle["status"] not in (PuzzleStatus.IN_BOOK.value, status.value)
+                ):
+                    puzzle["status"] = status.value
+                    changed += 1
+            return changed
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        with self._session_factory() as db:
+            rows = db.query(Puzzle).filter(
+                Puzzle.batch_id == uuid_module.UUID(batch_id),
+                Puzzle.book_id.is_(None),
+                Puzzle.status.notin_([PuzzleStatus.IN_BOOK.value, status.value]),
+            )
+            for row in rows:
+                row.status = status.value
+                changed += 1
+        return changed
+
+    def delete_puzzle(self, puzzle_id: str) -> bool:
+        """Delete one puzzle, whatever its status (callers check that).
+
+        Returns:
+            True if deleted, False if not found
+        """
+        if self._session_factory is None:
+            return self.puzzles.pop(puzzle_id, None) is not None
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        with self._session_factory() as db:
+            row = db.query(Puzzle).filter(Puzzle.id == uuid_module.UUID(puzzle_id)).first()
+            if row is None:
+                return False
+            db.delete(row)
+            return True
+
+    def delete_rejected_in_batch(self, batch_id: str) -> int:
+        """Delete every rejected puzzle of ``batch_id`` that is not in a book.
+
+        Returns:
+            How many puzzles were deleted.
+        """
+        if self._session_factory is None:
+            doomed = [
+                puzzle_id
+                for puzzle_id, puzzle in self.puzzles.items()
+                if puzzle.get("batch_id") == batch_id
+                and puzzle["status"] == PuzzleStatus.REJECTED.value
+                and not puzzle.get("book_id")
+            ]
+            for puzzle_id in doomed:
+                del self.puzzles[puzzle_id]
+            return len(doomed)
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        with self._session_factory() as db:
+            rows = db.query(Puzzle).filter(
+                Puzzle.batch_id == uuid_module.UUID(batch_id),
+                Puzzle.book_id.is_(None),
+                Puzzle.status == PuzzleStatus.REJECTED.value,
+            ).all()
+            for row in rows:
+                db.delete(row)
+            return len(rows)
+
     def mark_in_book(self, puzzle_id: str, book_id: str) -> bool:
         """Mark puzzle as included in a specific book.
 

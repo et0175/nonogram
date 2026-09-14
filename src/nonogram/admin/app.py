@@ -138,6 +138,14 @@ def _page_window(total_count: int, limit: int, offset: int, width: int = 5) -> d
     }
 
 
+def _list_return_query(raw: str | None) -> str:
+    """The review list's filter/sort/page query a puzzle action came from,
+    re-encoded from its parsed pairs so only a query string — never a path
+    or another host — can come back out of the redirect."""
+    pairs = urllib.parse.parse_qsl((raw or "").lstrip("?"), keep_blank_values=True)
+    return urllib.parse.urlencode(pairs)
+
+
 #: The only address the admin's own entry point binds (NFR-003, CON-009).
 #:
 #: A constant, not a parameter: :func:`main` takes no host, so there is no
@@ -302,6 +310,12 @@ def create_app(debug=None):
     app.puzzle_review_service = puzzle_review
     app.batch_generator = batch_gen
     app.book_manager = book_mgr
+
+    def _back_to_puzzles_list():
+        """Return to the review list on the page, filters and sort the action
+        was taken from (the form posts them as ``return_to``)."""
+        query = _list_return_query(request.form.get("return_to"))
+        return redirect(url_for("puzzles_list") + (f"?{query}" if query else ""))
 
     @app.route("/")
     def dashboard():
@@ -737,6 +751,36 @@ def create_app(debug=None):
             filtered_count=filtered_count,
         )
 
+    @app.route("/batch/<batch_id>/approve-all", methods=["POST"])
+    def approve_batch_puzzles(batch_id):
+        """Approve every puzzle of a batch that is not already in a book."""
+        if not batch_gen.get_batch_status(batch_id):
+            flash("Batch not found", "error")
+            return redirect(url_for("dashboard"))
+        count = puzzle_review.set_batch_status(batch_id, PuzzleStatus.APPROVED)
+        flash(f"Approved {count} puzzle(s)", "success")
+        return redirect(url_for("generated_puzzles", batch_id=batch_id))
+
+    @app.route("/batch/<batch_id>/reject-all", methods=["POST"])
+    def reject_batch_puzzles(batch_id):
+        """Reject every puzzle of a batch that is not already in a book."""
+        if not batch_gen.get_batch_status(batch_id):
+            flash("Batch not found", "error")
+            return redirect(url_for("dashboard"))
+        count = puzzle_review.set_batch_status(batch_id, PuzzleStatus.REJECTED)
+        flash(f"Rejected {count} puzzle(s)", "success")
+        return redirect(url_for("generated_puzzles", batch_id=batch_id))
+
+    @app.route("/batch/<batch_id>/delete-rejected", methods=["POST"])
+    def delete_rejected_batch_puzzles(batch_id):
+        """Delete every rejected puzzle of a batch that is not in a book."""
+        if not batch_gen.get_batch_status(batch_id):
+            flash("Batch not found", "error")
+            return redirect(url_for("dashboard"))
+        count = puzzle_review.delete_rejected_in_batch(batch_id)
+        flash(f"Deleted {count} rejected puzzle(s)", "success")
+        return redirect(url_for("generated_puzzles", batch_id=batch_id))
+
     @app.route("/batch/<batch_id>")
     def batch_status(batch_id):
         """View batch status and puzzles."""
@@ -800,6 +844,15 @@ def create_app(debug=None):
             )
             result = puzzle_review.filter_puzzles(filter_opts)
 
+            # An action can empty the page it was taken on (the last draft on
+            # the last page of ?status=draft is approved): show the new last
+            # page, keeping every filter, rather than "no puzzles found".
+            if not result.puzzles and result.total_count and offset > 0:
+                last_offset = _page_window(result.total_count, result.limit, 0)["last_offset"]
+                args = request.args.to_dict()
+                args["offset"] = str(last_offset)
+                return redirect(url_for("puzzles_list", **args))
+
             return render_template(
                 "puzzles_list.html",
                 puzzles=result.puzzles,
@@ -834,7 +887,7 @@ def create_app(debug=None):
         # Return to batch if batch_id provided, else global puzzles list
         if batch_id:
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
-        return redirect(url_for("puzzles_list"))
+        return _back_to_puzzles_list()
 
     @app.route("/puzzle/<puzzle_id>/reject", methods=["POST"])
     def reject_puzzle(puzzle_id):
@@ -848,7 +901,7 @@ def create_app(debug=None):
         # Return to batch if batch_id provided, else global puzzles list
         if batch_id:
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
-        return redirect(url_for("puzzles_list"))
+        return _back_to_puzzles_list()
 
     @app.route("/books")
     def books_list():
@@ -1423,6 +1476,32 @@ def create_app(debug=None):
         except Exception as e:
             return f"Error loading image: {str(e)}", 500
 
+    @app.route("/api/image/<file_id>/size", methods=["POST"])
+    def api_update_image_size(file_id):
+        """Store an image's size choice and return the grid it now predicts,
+        so the preview page's "Predicted Output" follows the size controls
+        instead of showing the size the page was rendered with."""
+        image_mgr = get_image_manager()
+        image = image_mgr.get_image(file_id)
+        if not image:
+            return jsonify({"error": "Not found"}), 404
+
+        mode = request.form.get("mode", image.size_mode)
+        if mode not in ("fixed", "short", "min", "max"):
+            return jsonify({"error": f"Unknown size mode {mode!r}"}), 400
+        value = request.form.get("value", image.size_value, type=int)
+        if value is None or not MIN_SIZE <= value <= MAX_SIZE:
+            return jsonify({"error": f"Size must be {MIN_SIZE}-{MAX_SIZE}"}), 400
+
+        image_mgr.update_image_size(file_id, mode, value)
+        fit = image.size_fit()
+        return jsonify({
+            "status": fit.status,
+            "extent": list(fit.extent),
+            "prediction_html": render_template("_size_fit_prediction.html", image=image, fit=fit),
+            "box_html": render_template("_size_fit_box.html", image=image, fit=fit),
+        })
+
     @app.route("/api/image/<file_id>/cropped")
     def api_get_cropped_image(file_id):
         """Serve cropped preview (what will be used for puzzle generation).
@@ -1613,32 +1692,24 @@ def create_app(debug=None):
 
         if not puzzle:
             flash("Puzzle not found", "error")
-            return redirect(url_for("puzzles_list"))
+            return _back_to_puzzles_list()
 
         # Only allow deletion of rejected puzzles
         if puzzle.get("status") != "rejected":
             flash("Only rejected puzzles can be deleted", "error")
-            return redirect(url_for("puzzles_list"))
+            return _back_to_puzzles_list()
 
         # Only allow deletion if not in a book
         if puzzle.get("book_id"):
             flash("Cannot delete puzzle that is in a book", "error")
-            return redirect(url_for("puzzles_list"))
+            return _back_to_puzzles_list()
 
-        # Delete from database
-        try:
-            import uuid as uuid_module
-            from nonogram.db.models import Puzzle
-            with session_scope() as db:
-                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
-                p = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
-                if p:
-                    db.delete(p)
-            flash(f"Puzzle deleted", "success")
-        except Exception as e:
-            flash(f"Error deleting puzzle: {str(e)}", "error")
+        if puzzle_review.delete_puzzle(puzzle_id):
+            flash("Puzzle deleted", "success")
+        else:
+            flash("Puzzle not found", "error")
 
-        return redirect(url_for("puzzles_list"))
+        return _back_to_puzzles_list()
 
     @app.route("/puzzle/<puzzle_id>/restore", methods=["POST"])
     def restore_puzzle(puzzle_id):
@@ -1652,7 +1723,7 @@ def create_app(debug=None):
         batch_id = request.args.get("batch_id")
         if batch_id:
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
-        return redirect(url_for("puzzles_list"))
+        return _back_to_puzzles_list()
 
     # ----------------------------------------------------------------------
     # CARD-077 — the re-grade batch, behind a confirmation page

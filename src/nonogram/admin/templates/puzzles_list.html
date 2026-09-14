@@ -188,13 +188,16 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                                 <td>
                                     {% if puzzle.status == 'draft' %}
                                     <form action="/puzzle/{{ puzzle.id }}/approve" method="POST" style="display:inline;">
+                                        <input type="hidden" name="return_to" value="{{ request.query_string.decode() }}">
                                         <button type="submit" class="btn btn-sm btn-success" title="Approve">✓</button>
                                     </form>
                                     <form action="/puzzle/{{ puzzle.id }}/reject" method="POST" style="display:inline;">
+                                        <input type="hidden" name="return_to" value="{{ request.query_string.decode() }}">
                                         <button type="submit" class="btn btn-sm btn-danger" title="Reject">✕</button>
                                     </form>
                                     {% elif puzzle.status == 'rejected' %}
                                     <form action="/puzzle/{{ puzzle.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this puzzle? This cannot be undone.');">
+                                        <input type="hidden" name="return_to" value="{{ request.query_string.decode() }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">🗑️</button>
                                     </form>
                                     {% else %}
@@ -320,6 +323,7 @@ async function openPuzzleDetail(puzzleId) {
         const data = await response.json();
         const puzzle = data.puzzle;
         const books = data.books;
+        const returnTo = escapeAttr(window.location.search.replace(/^\?/, ''));
 
         // Build modal content
         let html = `
@@ -377,21 +381,25 @@ async function openPuzzleDetail(puzzleId) {
                     <div class="btn-group flex-wrap" role="group" style="flex-wrap: wrap; gap: 6px;">
                         ${puzzle.status === 'draft' ? `
                         <form method="POST" action="/puzzle/${puzzle.id}/approve" style="display:inline;">
+                            <input type="hidden" name="return_to" value="${returnTo}">
                             <button type="submit" class="btn btn-success">✓ Approve</button>
                         </form>
                         <form method="POST" action="/puzzle/${puzzle.id}/reject" style="display:inline;">
+                            <input type="hidden" name="return_to" value="${returnTo}">
                             <button type="submit" class="btn btn-danger" onclick="return confirm('Reject this puzzle?')">✕ Reject</button>
                         </form>
                         ` : ''}
 
                         ${(puzzle.status === 'rejected' || puzzle.status === 'approved') ? `
                         <form method="POST" action="/puzzle/${puzzle.id}/restore" style="display:inline;">
+                            <input type="hidden" name="return_to" value="${returnTo}">
                             <button type="submit" class="btn btn-warning">↩️ Restore to Draft</button>
                         </form>
                         ` : ''}
 
                         ${puzzle.status === 'rejected' && !puzzle.book_id ? `
                         <form method="POST" action="/puzzle/${puzzle.id}/delete" style="display:inline;" onsubmit="return confirm('Delete this puzzle? This cannot be undone.');">
+                            <input type="hidden" name="return_to" value="${returnTo}">
                             <button type="submit" class="btn btn-outline-danger">🗑️ Delete</button>
                         </form>
                         ` : ''}
@@ -427,6 +435,10 @@ async function openPuzzleDetail(puzzleId) {
     } catch (error) {
         content.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
     }
+}
+
+function escapeAttr(text) {
+    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function closePuzzleDetail() {
