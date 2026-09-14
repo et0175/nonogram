@@ -1,6 +1,7 @@
 # Puzzle Generation Algorithm — as implemented
 
 **Status:** Reference, reverse-engineered from the code on `main` as of 2026-09-12.
+Retry bound updated to 30 on 2026-09-14 (CARD-090, ADR-0002/R1); the rest is unchanged.
 **Supersedes for algorithm questions:** `docs/REQUIREMENTS/NONOGRAM_GENERATION_REQUIREMENTS.md`
 (which describes an Otsu-threshold pipeline that was never built — see §11).
 **Formal basis:** ADR-0001, 0002, 0003, 0005, 0011, 0013, 0015, 0022 under
@@ -92,7 +93,7 @@ Each mode reports its own shape (`sourcing/__init__.py:85-89`): random → `(1, 
   as the last argument to every source call (`orchestrator.py:1146-1147, 1215`).
 - `deadline = time.monotonic() + 30.0`, fixed once and handed to every `solver.solve` the
   request makes, retries included (`orchestrator.py:1159, 1188-1190`). It is a per-request
-  budget, not per-solve: 20 retries cannot stretch it.
+  budget, not per-solve: 30 retries cannot stretch it.
 
 ---
 
@@ -401,12 +402,12 @@ shared deadline → `confirm_uniqueness` (reject if count ≠ 1) → `score_diff
 solve's signals → record score. This is the only `solver.solve` call in the module, so every
 grid — fresh, re-rendered, uploaded or nudged — is judged identically.
 
-### 8.1 Regenerate (POL-001) — bound 20
+### 8.1 Regenerate (POL-001) — bound 30
 
 Random and library modes. A candidate whose clues have 0 or ≥2 solutions is discarded and the
 source is called again with the same `rng` (`:1200-1215`).
 
-### 8.2 Resample (POL-004) — bound 20, **shared budget**
+### 8.2 Resample (POL-004) — bound 30, **shared budget**
 
 Only when `--difficulty` is given. The resample loop *wraps* the regenerate loop
 (`:1217-1230, 1280-1284`): one resample round runs the regenerate loop to obtain a unique
@@ -442,8 +443,8 @@ solver past overlap, so sparse unique puzzles are hard puzzles. Measured, 120 dr
 | 20x20 | 45 | 2 (2%) | 0 (0%) |
 | 20x20 | 60 | 76 (63%) | 73 (96%) |
 
-So `--difficulty easy` at 15x15 density 45 must find roughly a 1-in-960 grid inside 20 attempts,
-and does not: measured 9/10 successes before the ladder and 0/10 after, while `hard` at the same
+So `--difficulty easy` at 15x15 density 45 must find roughly a 1-in-960 grid inside the retry budget,
+and does not: measured (at the then-bound of 20; 30 since CARD-090) 9/10 successes before the ladder and 0/10 after, while `hard` at the same
 extent went 0/10 to 9/10. The practical rule for a book: generate Easy at density 50-60 and Hard
 at 45. Nothing here is a defect — no bound moved and no new failure mode exists, the same
 `GenerationAbandoned` fires for a different set of requests — but it is the first thing a user
@@ -521,7 +522,7 @@ accounted for below (findings 5 and 6).
   cut-off rounds are discarded whole; node limits grow without bound so the search is complete.
   Every counted solution is re-verified with code independent of the DP.
 - **Oracle.** The EC-001 property corpus against two independent brute-force counters passes.
-- **Retry accounting.** ≤ 20 grids sourced per request; ≤ 5 nudges; timeouts and invalid input
+- **Retry accounting.** ≤ 30 grids sourced per request; ≤ 5 nudges; timeouts and invalid input
   never consume a retry; the deadline is per request.
 - **Density.** Rounding-only error, inside ±3 points at every supported extent.
 - **Aspect logic.** `derive_extent`'s half-retention predicate and `validate_aspect_ratio` are
@@ -546,7 +547,7 @@ accounted for below (findings 5 and 6).
 | 5 | Medium — stale pinned tests | Three nudge tests pin `tests/fixtures/bands.png` at 10×10 as needing exactly 2 nudges. On this tree it converts uniquely on the first solve (0 nudges). The ink box is the whole 32×32 file, so the FR-022 trim is not the cause; the untrimmed conversion is unique too. Either the fixture bytes or the resize/dither path changed since the pin was taken. The nudge mechanism itself passes its scripted tests. | `tests/test_nudge.py:322-340` and the two cap tests on the same fixture |
 | 6 | Info — environment | 13 tests in `tests/test_sourcing_image.py` fail with `FileNotFoundError` for `pictures/`: the corpus the trim criteria are measured over is not on disk. | `tests/test_sourcing_image.py` |
 | 7 | Info — flaky | `tests/test_timeout.py` passed 17/17 in isolation twice; one earlier run in a larger batch showed two exit-code assertions failing. Timing-dependent. | `tests/test_timeout.py` |
-| 8 | Info — undocumented | Library mode at exactly 16×16 has no boundary cells, so a non-unique template spends 20 identical solves before abandoning. Documented only in the module docstring. | `library.py:80-95` |
+| 8 | Info — undocumented | Library mode at exactly 16×16 has no boundary cells, so a non-unique template spends 30 identical solves before abandoning. Documented only in the module docstring. | `library.py:80-95` |
 
 ---
 
@@ -559,6 +560,6 @@ accounted for below (findings 5 and 6).
 | Rejection rules | reject grids with blank rows/cols or fill outside 20–80% | none; blank-line avoidance is best-effort via the trim |
 | Quality score | 0–100 with accept ≥ 50 | no quality score on the core `Puzzle`; admin random batches store `None` |
 | Difficulty | tiers at 70/85 on the quality score; `DIFFICULTY_ENGINE.md`'s strategy-count formula | ADR-0029's strategy ladder: the hardest rung the one verifying solve required, plus the share of cells settled at it, with tiers on ADR-0005's 33/66 cutoffs and a fourth `guess` tier keyed on `branch_nodes` (§7). Closer to `DIFFICULTY_ENGINE.md`'s intent than ADR-0013 was, but it is a rung and not a count, and the formula in the orphaned `analysis/strategy_counter.py` is still not the one that runs |
-| Retry | "reject and retry with different settings" | POL-001/002/004 with caps 20/5/20 (§8) |
+| Retry | "reject and retry with different settings" | POL-001/002/004 with caps 30/5/30 (§8) |
 | Image limits | 100–2000 px, ≤ 2 MB, format allowlist | only a 2 MB cap, and only in the admin upload path |
 | Determinism | same image and settings → same grid | true for image mode; random and library are seed-driven by design. Since CARD-076 the *grade* is machine-independent too: no clock reaches the score or the tier decision (§7, EC-016) |

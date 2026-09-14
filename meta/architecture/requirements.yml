@@ -1364,7 +1364,7 @@ functional:
       # holds under every alternative
       - id: AC-113
         given: a random-mode request whose every candidate and every repair of it stays non-unique
-        when: recovery attempts — redraws and repairs together — reach the ADR-0002 bound of 20
+        when: recovery attempts — redraws and repairs together — reach the ADR-0002 bound of 30 (R1, CARD-090; was 20)
         then: generation is abandoned with the existing GenerationAbandoned error and the bound counts both kinds of attempt in one counter
         kind: boundary
         invariant: INV-003
