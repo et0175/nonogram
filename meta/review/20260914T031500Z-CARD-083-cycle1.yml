@@ -1,0 +1,239 @@
+version: 1
+generated_at: "2026-09-14T03:15:00Z"
+target: "CARD-083 cycle 1 — branch card/083-batch-survives-abandonment, commit ff58225 on main 63924c3"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "the whole diff: generate_batch's loop, the new constant, the admin shortfall note, both new test files"
+    - "both error exits, exercised by count to find which is reachable when"
+    - "every exact-batch-count assertion in the suite, and which generator each goes through"
+  not_reached:
+    - "tests/test_sourcing_image.py's corpus cases (pictures/ not on disk)"
+    - "a real batch large enough to trip the consecutive bound end-to-end — it needs three abandonments in a row, which at the measured rate does not happen on demand"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 419, removed: 8 }
+  max_fan_in: { symbol: "orchestrator.generate_batch", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/batch_generator.py"]
+  cochange_missing: ["tests/test_batch_history.py"]
+  unmeasured: {}
+
+system_contract:
+  rules_checked: 3
+  holds: 3
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "INV-003 / NFR-002 ✓ holds — no per-puzzle counter changed: `git diff -- src/ | grep 'MAX_\\(RETRY\\|REGENERATE\\|RESAMPLE\\|NUDGE\\)_ATTEMPTS *='` returns nothing, and the new MAX_CONSECUTIVE_ABANDONMENTS bounds the *batch*, not a candidate's retries. tests/test_orchestrator.py green on ff58225. The skipped candidate is discarded, never re-attempted, so no candidate receives a second budget"
+    - "ADR-0011 ✓ holds — and this is the rule that shaped the design: SolverTimeout is deliberately not caught, so a batch cannot become a way to spend unbounded time. TestBatch_DoesNotSwallowATimeout pins both halves (it ends the batch, and it is never counted as an abandonment); tests/test_batch_abandonment.py green on ff58225"
+    - "ADR-0002 ✓ holds — one bound per question. The new constant answers 'how many failures in a row mean the request is infeasible', not 'how many draws is one candidate worth'; its docstring says so and test_the_batch_bound_is_its_own_number pins that it is not an alias of MAX_RETRY_ATTEMPTS. The lens resolves 25 rules by scope over orchestrator.py; the 22 not listed here bear on generation internals this diff does not touch (it changes only the loop's reaction to an exception), and the card's own ## System contract names these three"
+
+root_causes:
+  - id: RC-1
+    title: "The empty-batch exit was written as the general all-failed path, but the consecutive bound reaches every case with count >= 3 first"
+    finding_ids: [F-001, F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/orchestrator.py
+    line: 1874
+    title: "The empty-batch refusal drops the candidate's cause — the same defect CARD-080 F-008 fixed, on the other branch of the function that fixed it"
+    description: |
+      The consecutive-bound exit chains the candidate's own abandonment
+      (`... from abandonment`) and the card says so explicitly, citing
+      CARD-080's F-008 as the reason. The empty-batch exit twelve lines later
+      does not:
+
+        raise GenerationAbandoned(
+            f"no puzzle in a batch of {count} could be made uniquely solvable; ..."
+        )
+
+      Measured, with every candidate abandoning:
+
+        count=1   -> empty-batch        __cause__: None
+        count=2   -> empty-batch        __cause__: None
+        count=3   -> consecutive-bound  __cause__: GenerationAbandoned
+        count=10  -> consecutive-bound  __cause__: GenerationAbandoned
+
+      So a caller who asks for one or two puzzles and gets none loses what the
+      pipeline actually said — which is precisely the forensic loss F-008 was
+      filed for, in the same session, in a commit whose own message cites that
+      lesson.
+    suggestion: |
+      Keep the last abandonment and chain it: hold the exception from the
+      `except` block in a local (`last_abandonment`) and
+      `raise GenerationAbandoned(...) from last_abandonment`. One line, and it
+      makes the two exits consistent instead of one carrying the lesson and
+      one not.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 5900515
+    dismissed_reason: null
+    fix_note: |
+      both exits now chain the candidate's abandonment via a `last_abandonment` local; test_both_exits_chain_the_candidate_s_abandonment parametrizes count 1, 2, 3, 10 so it spans the boundary between the two exits. Mutants R1 (from-clause dropped) and R2 (the abandonment never captured) both KILLED
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_batch_history.py
+    line: 68
+    title: "The card withdrew the exact-count guarantee and left its heaviest consumer asserting it — 900 unseeded draws per run, untouched"
+    description: |
+      `generate_batch` may now return fewer than `count`, which the card states
+      as the headline change. Four assertions in the suite still pin the exact
+      number against an orchestrator-backed batch:
+
+        tests/test_batch_history.py:68   job.puzzle_count == 20
+        tests/test_batch_history.py:177  job.puzzle_count == 30
+        tests/test_batch_history.py:187  len(puzzles) == 50
+        tests/test_wave2_async_generation.py:156-157  == 100 / == 200
+
+      (`test_batch_generation_e2e.py:21` and `test_random_generator.py:158` go
+      through `MockGenerator`, not the orchestrator — checked, not affected.)
+
+      `tests/test_batch_history.py` is the file CARD-082 did not touch: 18
+      `create_batch` calls totalling **900 real draws per run**, more than
+      wave1 and wave2 combined before that card reduced them, including
+      `count=100, sizes=[20]`. It takes 30s of every suite run on its own.
+
+      Not currently failing — 4 of 4 clean runs on this head — because the
+      abandon rate at 15x15 and 20x20 measured 0/200. But 0/200 bounds p only
+      at about 1.5% with 95% confidence, and over 900 draws that upper bound is
+      not reassuring. Before this card such an event raised; now it returns
+      short and trips `== N`. The flake is not new, but the card changed the
+      contract these assertions encode and did not revisit them.
+    suggestion: |
+      Two things, and they are separable. (1) Change the four assertions to the
+      guarantee that survives — `<= count`, plus `== count` only where the test
+      genuinely needs a full batch (wave2's first-page test does; the history
+      ones do not). (2) Give `test_batch_history.py` the CARD-082 treatment —
+      counts reduced to what each assertion carries — which also returns 30s
+      per suite run. The second is arguably its own card; the first belongs
+      here, because this card is what made those assertions wrong.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 5900515
+    dismissed_reason: null
+    fix_note: |
+      the four assertions now pin what survives — puzzle_count == len(stored rows), and 100 < puzzle_count <= 200 for the first-page test. tests/test_batch_history.py also got CARD-082's treatment: counts to the floor, sizes to 15 where unasserted, and the three redundant _generate_random_batch calls removed (they were generating every batch twice). 38s -> 10.4s across the three heavy files
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/orchestrator.py
+    line: 1874
+    title: "The empty-batch message reads as the general all-failed path but can only ever print count 1 or 2"
+    description: |
+      For `puzzles` to be empty at the loop's end, every slot must have
+      abandoned *and* the consecutive counter must never have reached 3 — but
+      with no successes the counter never resets, so it reaches 3 at the third
+      slot. The exit is therefore unreachable for `count >= 3`, confirmed by
+      the measurement in F-001.
+
+      The message says "no puzzle in a batch of {count} ... every candidate was
+      abandoned", which reads as the answer for a batch of any size. The admin
+      never reaches it at all: `create_batch` requires count 10-200 for random
+      batches. A reader debugging a failed 50-puzzle batch will look for this
+      message and never find it.
+    suggestion: |
+      Say what it is: "a batch of 1 or 2 that produced nothing" — or restructure
+      so the consecutive check runs after the loop as well, making this the
+      general exit it reads as. The first is a comment; the second is a design
+      choice worth stating either way.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 5900515
+    dismissed_reason: null
+    fix_note: |
+      the empty-batch exit carries a comment saying it is reachable only below MAX_CONSECUTIVE_ABANDONMENTS and why, and the message says 'this batch' rather than implying generality
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-083.md
+    line: 96
+    title: "G-3 says the single-puzzle contract is untouched; `generate` is, but what a count=1 caller reads is not"
+    description: |
+      G-3: "`generate`'s own contract is untouched — one abandoned puzzle still
+      raises for a single-puzzle caller (AC-019), including
+      `generate_batch(count=1)`."
+
+      The first half holds: `generate` is not in the diff. The second half is
+      true about *whether* it raises and not about *what* it raises —
+      `generate_batch(count=1)` now produces the batch-level message ("no puzzle
+      in a batch of 1 ... try a different size, or another run") with no
+      `__cause__`, where it previously propagated the candidate's own
+      `GenerationAbandoned` untouched. AC-019 asks for "a clear error", which
+      this still is, so it is a wording gap in the guardrail rather than a
+      violation of the AC.
+    suggestion: |
+      Narrow G-3 to what was checked: `generate` is untouched, and a count=1
+      batch still raises — noting that the message is now the batch's. Fixing
+      F-001 removes half the discrepancy on its own.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 5900515
+    dismissed_reason: null
+    fix_note: |
+      G-3 narrowed to what was checked: generate is untouched and count=1 still raises, while noting the message is now the batch's and that the cause is chained so nothing is lost
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: risk
+    file: tests/test_batch_abandonment.py
+    line: 196
+    title: "Some mutants die on an IndexError from a short script rather than on an assertion"
+    description: |
+      `test_the_candidate_s_own_abandonment_is_the_cause` scripts four outcomes
+      but passes `count=10`, relying on the bound raising at the fourth call.
+      A mutant that moves the bound (the off-by-one M3, or M1 which never
+      increments) runs past the script and dies with `IndexError`, not with the
+      assertion the test is about.
+
+      It still kills, and the meaningful kill exists elsewhere —
+      `test_it_stops_rather_than_finishing_the_loop` scripts 200 outcomes and
+      asserts `len(attempted) == 1 + MAX_CONSECUTIVE_ABANDONMENTS`. Recorded so
+      the next reader knows which of the two is load-bearing.
+    suggestion: |
+      Pad the script to `count` entries so an over-running loop fails on the
+      assertion rather than on list indexing.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 5900515
+    dismissed_reason: null
+    fix_note: |
+      the script is padded to the full count, so a mutant that moves the bound fails on the assertion rather than on list indexing
+    learned_pattern: null

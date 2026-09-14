@@ -1,6 +1,6 @@
 # CARD-083: A batch survives a candidate it had to abandon
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** — (CARD-082 merged a13c9bf)
 **Touches:** src/nonogram/orchestrator.py (generate_batch's loop + one constant), src/nonogram/admin/batch_generator.py (the shortfall note), tests/test_batch_abandonment.py (new), tests/test_admin_uniqueness_boundary.py (the note's tests)
-**Review score:** —
+**Review score:** 8.0 (cycle 1), all findings fixed
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -169,3 +169,34 @@ abandonment` dropped; the shortfall note never written; and the two shortfalls
 merged into one number. The last two matter most — they are the ones that would
 leave the behaviour correct and the owner uninformed, which is the failure mode
 CARD-080 and CARD-082 were both about.
+
+### Review cycle 1 fixes (5900515)
+
+Three of the five findings were one root cause: the empty-batch exit was
+written as the general all-failed path, when the consecutive bound reaches
+every `count >= 3` case first.
+
+| finding | what was wrong | what it is now |
+|---|---|---|
+| F-001 | Only the consecutive exit chained the candidate's abandonment, so `count` 1 or 2 gave `__cause__ None` — **CARD-080's F-008 defect on the other branch of the function whose own commit message cites that lesson.** | Both exits chain it, pinned by a parametrize spanning count 1, 2, 3 and 10 — the boundary between the two exits. |
+| F-003 | The empty-batch message read as the general answer while being reachable only below the bound. | Says so, and says why. |
+| F-004 | G-3 claimed the single-puzzle contract was untouched. `generate` is; what a count=1 caller *reads* is not. | Narrowed to what was checked. |
+| F-002 | The card withdrew `puzzle_count == count` and left four assertions pinning it. | They assert what survives: the batch *tracks* what it stored, and that number agrees with the rows in it. |
+| F-005 | A short script meant two mutants died on `IndexError`, not on an assertion. | Padded to the full count. |
+
+**Two things fell out of F-002 that were not on the card.**
+
+`tests/test_batch_history.py` had never had CARD-082's treatment — 18
+`create_batch` calls, **900 real unseeded draws per run**, 30s of every suite
+run, all to assert metadata (ids, sizes, themes, timestamps, ordering). Counts
+are now the floor and unasserted sizes are 15. The three heavy batch files
+together: **38s → 10.4s**.
+
+And removing the exact-count assertion surfaced a defect underneath it: three
+tests called `_generate_random_batch` explicitly *after* `create_batch`, which
+already generates synchronously. **Every one of those batches was generated
+twice**, so the store held twice the rows `puzzle_count` claimed. Harmless
+while nothing compared the two — which is exactly why replacing `== 20` with
+`== len(stored)` found it.
+
+Seven mutants, seven killed.
