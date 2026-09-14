@@ -1,8 +1,8 @@
-# CARD-089: The retry bound was a guess that asked to be measured, and the measurement says 40
+# CARD-089: The retry bound was a guess that asked to be measured — measured, and left at 20
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
-**Category:** enabler
+**Category:** enabler  _(closed as a measurement; the constant did not move)_
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** CARD-088 (merged 55d83a5) — whose Q-1 this answers
 **Touches:** src/nonogram/orchestrator.py (one constant), meta/architecture/decisions/adr/0002-retry-and-nudge-bounds.md, tests/test_retry_bound_corpus.py (new)
-**Review score:** —
-**Started:** —
-**Closed:** —
+**Review score:** — (no code change to review; closed at the owner's decision)
+**Started:** 2026-09-14
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -149,6 +149,79 @@ median **44**, mean 54.0, max 120 — and by budget: 17% within 10, **27% within
 
 Set against the pipeline's measured 84% at bound 20, the gap is POL-006.
 
+## Outcome — AC-1 ran, and the owner declined the change
+
+**The constant did not move.** `MAX_RETRY_ATTEMPTS` stays 20. The owner's call,
+made against the wide measurement below rather than the narrow one this card
+was opened on — which is the order that matters, because the two disagree.
+
+### AC-1, the wide run: 100 requests per bound, seeded, both extents
+
+| extent | bound | made | abandoned | timed out | success | median | p95 | max | total |
+|---|---|---|---|---|---|---|---|---|---|
+| 25x25 | **20** | 100 | **0** | 0 | 100% | 0.31 s | 1.33 s | 1.87 s | 45 s |
+| 25x25 | 40 | 100 | 0 | 0 | 100% | 0.31 s | 1.34 s | 2.07 s | 47 s |
+| 25x25 | 60 | 100 | 0 | 0 | 100% | 0.32 s | 1.32 s | 2.25 s | 47 s |
+| 30x30 | **20** | 85 | **14** | **1** | 85% | 3.68 s | 16.20 s | **30.01 s** | 583 s |
+| 30x30 | 40 | 96 | 3 | 1 | 96% | 2.86 s | 14.73 s | 30.01 s | 482 s |
+| 30x30 | 60 | 98 | 1 | 1 | 98% | 2.07 s | 11.39 s | 30.00 s | 375 s |
+
+### Three things the wide run changed about the narrow one
+
+**The conversion is real but smaller than claimed.** The 25-request probe this
+card was opened on reported 4 of 4 abandonments converted — 100% at bound 40.
+At 100 requests it is 11 of 14: **85% -> 96%**, not 85% -> 100%. The direction
+held; the magnitude did not. A card written on the narrow number would have
+promised something the wide number does not support.
+
+**25x25 never needed anything.** 300 requests, zero abandonments at every
+bound, identical timings. The single abandonment seen at that extent in the
+narrow probe was noise. Q-2 is answered: the question only ever concerned
+30x30, which is where per-draw uniqueness collapses to 2.7%.
+
+**The deadline does bind, once in a hundred.** Every 30x30 row carries one
+`SolverTimeout` at 30.01 s — at *every* bound, including 20. This card's own
+G-3, and the argument in CARD-088 that raising the retry bound would not make
+the deadline bind, were both written on "zero timeouts in 65 draws" from a
+narrow run. At 100 requests the rate is ~1%. It does not change either card's
+conclusion, but "the deadline never binds" was too strong and is corrected here.
+
+### Why declining is a reasonable reading of this table
+
+At 30x30 the bound buys 11 percentage points, and the extent is the one a
+50-puzzle batch cannot finish anyway (CARD-088 caps that run at 19 puzzles on
+time). Everywhere the tool is actually used — 20x20 and 25x25 — the bound never
+fires. Raising a number stated in an accepted ADR to improve the one extent
+that is already time-bound is a fair thing to decline.
+
+Curiously, a larger bound is *cheaper* in total wall-clock (583 s -> 482 s ->
+375 s), because a converted request stops as soon as it succeeds while an
+abandoned one always pays its full budget. That is an argument for the change,
+not against it, and it is recorded here for whoever revisits.
+
+### What survives
+
+`meta/ops/retry_bound_sweep.py` — committed rather than left in a terminal, for
+the reason ADR-0002 needed this card at all: it said its numbers were "chosen
+without empirical tuning ... and will likely need revisiting once usage data
+exists". The next person asking "is 20 still right?" runs one command instead
+of rebuilding this.
+
+**ADR-0002 is untouched**, deliberately. Its `50_retries` rejection reasoning is
+contradicted by this data — a combination unsatisfiable in 20 attempts *is*
+meaningfully more likely to be satisfied in 40, and the worst case does not
+worsen — but the decision it records still stands, because the owner has now
+re-made it with the data in hand. Amending an ADR whose conclusion is unchanged
+would be noise; the record of why lives here and the ADR's History can gain a
+line if the bound ever does move.
+
 ## Worktree notes
 
-_(none yet)_
+The harness monkeypatches `MAX_REGENERATE_ATTEMPTS`/`MAX_RESAMPLE_ATTEMPTS`
+rather than editing the constant, which works because
+`orchestrator.Puzzle`'s counters are built by a `default_factory` lambda that
+reads the module global at call time. It restores both in a `finally`, so an
+interrupted sweep cannot leave the process with a mutated bound.
+
+Every bound is measured against **the same seeds**, so a difference between
+rows is the bound and not a different set of grids.
