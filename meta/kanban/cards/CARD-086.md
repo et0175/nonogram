@@ -1,6 +1,6 @@
 # CARD-086: Serve the deployed admin with a production server, and give its slowest route a bound it can live with
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -15,9 +15,9 @@
 **Wave:** 1
 **Depends on:** CARD-085 (merged 84fcc46) — the panel is only worth serving properly now that it is reachable
 **Touches:** pyproject.toml (the `admin` extra), requirements.txt, start.sh, render.yaml, ADMIN_SETUP.md, tests/test_admin_serving.py (new)
-**Review score:** —
+**Review score:** merged without a review cycle, at the owner's call — production was down and the card carries the diagnostics
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-14
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —

@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-14 13:35 UTC_
+_Updated: 2026-09-14 14:05 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-086** P2 · Serve the deployed admin with a production server, and bound its slowest route  _(wave 1)_ — after CARD-085; Render still runs the Flask dev server
 - **CARD-084** P3 · Drop the legacy difficulty columns — the snapshots replaced them  _(wave 1)_ — **parked at the owner's call until production is working**; code complete on `card/084-drop-legacy-difficulty-columns`, migration 007 applied nowhere
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
@@ -58,6 +57,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-086** P2 · Serve the deployed admin with gunicorn, bound its slowest route, and say why a request was refused · merged without a review cycle, at the owner's call · merged MERGESHA
 - **CARD-085** P1 · The admin panel can be reached from somewhere other than this machine, but only with a credential · score 9.0 (cycle 2/2) · merged 84fcc46
 - **CARD-083** P2 · A batch survives a candidate it had to abandon · score 8.0 (cycle 1/1) · merged d3db715
 - **CARD-082** P2 · The suite baseline says what it means — three standing failures and one 40% flake · score 9.0 (cycle 1/1) · merged a13c9bf
