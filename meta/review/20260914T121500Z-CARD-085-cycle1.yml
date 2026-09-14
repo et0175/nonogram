@@ -1,0 +1,287 @@
+version: 1
+generated_at: "2026-09-14T12:15:00Z"
+target: "CARD-085 cycle 1 — branch card/085-admin-auth-for-remote-access, commit c61d507 on main 0070524"
+overall_score: 3.0
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py"
+    - "tests/test_admin_auth.py"
+    - "tests/test_admin_binding.py"
+    - "render.yaml"
+    - "ADMIN_SETUP.md"
+    - "src/nonogram/web/handler.py"
+    - "meta/architecture/requirements.yml (NFR-003, CON-009/010/015/016)"
+    - "meta/kanban/cards/CARD-085.md"
+  not_reached:
+    - "src/nonogram/admin/templates/** (beyond 404.html/base.html)"
+    - "meta/business/constraints.md (absent — BCON-0001 text unreadable)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1043, removed: 28 }
+  max_fan_in: { symbol: "create_app", callers: 63 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — top co-change peers of app.py are UI templates (image_preview.html x18, image_manager.py x12); none bear on a request-level auth hook, so no peer is a missing-change candidate"
+
+system_contract:
+  rules_checked: 12
+  holds: 8
+  unchecked: 3
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no runtime dependency added; hmac is stdlib, Response/Authorization are Flask/Werkzeug, already in requirements.txt"
+    - "ADR-0007 ✓ holds — no lateral import added; tests/test_cli.py::test_every_import_in_the_package_points_inward green in the full-suite run on this head"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: this diff touches no grid extent"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: this diff touches no image fitting"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: this diff touches no size token"
+    - "ADR-0025/R2 ✓ holds — no tier derivation added; diff contains no classify/branch_nodes reference"
+    - "ADR-0027/R2 ✓ holds — no density verdict added"
+    - "CON-005 ✓ holds — solver untouched"
+    - "CON-009 ✓ holds — nonogram.web unchanged by this diff"
+    - "CON-010 ✓ holds for web — but see F-001: the admin now has the same browser-mediated reach the web adapter guards against, with no equivalent guard"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size range touched"
+    - "CON-015 ✓ holds — main() still passes LOOPBACK_HOST; no module under src/nonogram/admin/ names another bind address (git grep 0.0.0.0 in admin/: none)"
+    - "CON-016 ✗ violated — src/nonogram/admin/app.py:432-438 serves a request whose Host is nonogram-admin.onrender.com when ADMIN_ALLOWED_HOST is set; CON-016 mandates refusal of any Host outside {localhost,127.0.0.1,::1} and admits no credential exception. Its check ref TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine still passes because it only exercises local mode."
+
+root_causes:
+  - id: RC-1
+    title: "The admin's trust boundary moved from 'the machine' to 'a password', but nothing that depended on the old boundary followed it"
+    finding_ids: [F-001, F-002, F-003]
+  - id: RC-2
+    title: "AC-5's route sweep asserts a status code the hook returns for every URL, real or not"
+    finding_ids: [F-004]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: compliance
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 435
+    title: "No cross-site defence: a hostile page can trigger POST /regrade with the browser's cached Basic credentials"
+    description: |
+      Verified by probe: POST /regrade carrying valid Basic credentials plus
+      `Origin: https://evil.example.com` and `Sec-Fetch-Site: cross-site` is
+      accepted (302 — dispatched to the view). Nothing in the request pipeline
+      reads Origin or Sec-Fetch-Site.
+
+      HTTP Basic credentials are cached per-origin by the browser and replayed
+      on cross-site form POSTs; the attacker cannot read the response, but the
+      side effect happens. POST /regrade rewrites difficulty_score,
+      difficulty_tier and strategies_used on every gradeable row, and after
+      CARD-084 no copy of the previous values is kept.
+
+      Before this card the route was unreachable from the internet (every
+      request 404'd), so this card converts CSRF from unreachable to
+      exploitable. The card names CSRF as out-of-scope on the grounds that "the
+      practical exposure is low while the panel has one user who is not
+      browsing hostile pages in the same session" — but Basic credentials are
+      cached for the browser session across tabs, so the precondition is just
+      "the admin has a browser open".
+
+      The project already mandates and implements this defence for its other
+      HTTP surface: CON-010 requires nonogram.web to refuse any request the
+      browser marks cross-site, implemented in src/nonogram/web/handler.py.
+    suggestion: |
+      In the same before_request hook, for unsafe methods (POST/PUT/PATCH/DELETE)
+      in deployed mode, refuse when Sec-Fetch-Site is present and not
+      same-origin/none, or when Origin is present and its host is not the
+      configured remote host. Reimplement natively rather than importing
+      nonogram.web (ADR-0007), cross-checking against handler.py from the test
+      tree — the precedent CARD-081 already set for _host_is_local/ALLOWED_HOSTS.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "cycle-1 fixes (uncommitted at review time)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: critical
+    category: compliance
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1786
+    title: "CON-016 and NFR-003 still forbid what this card ships, and no architecture file was amended"
+    description: |
+      The diff touches zero files under meta/architecture/ (verified:
+      `git diff --name-only | grep -c meta/architecture` => 0), and the card
+      never mentions CON-015, CON-016, NFR-003 or BCON-0001.
+
+      CON-016 (mandatory): "The admin panel refuses any request whose Host
+      header does not name this machine — ... a host component in {localhost,
+      127.0.0.1, ::1}". It admits no credential exception. In deployed mode the
+      code serves nonogram-admin.onrender.com.
+
+      NFR-003's threshold is more direct still: "binds 127.0.0.1 (loopback)
+      only; **no authentication enforced (BCON-0001)**", with a rationale that
+      explicitly rejects the option this card takes — "gated behind credentials
+      a single-user tool has no clean way to manage".
+
+      So the model records a decision against remote+credential access, and the
+      code now implements it. The behaviour is owner-approved; the record is
+      not. Worse, CON-016's mechanical check
+      (TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine) still passes,
+      because it only exercises local mode — the constraint reads green while
+      being violated in the mode this card adds.
+    suggestion: |
+      Write an ADR recording the decision to allow credentialed remote access,
+      revise CON-016 to state both doors (and that they are exclusive), and
+      update NFR-003's threshold and rationale. Extend CON-016's check ref to
+      cover deployed mode so the constraint's test can see the mode it now
+      permits.
+    confidence: high
+    source: model
+    violates: CON-016
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "cycle-1 fixes (uncommitted at review time)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: compliance
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 371
+    title: "The boot check requires a password but not a usable one, and nothing throttles guessing"
+    description: |
+      Verified by probe: ADMIN_PASSWORD='a' boots cleanly. The only validation
+      is `if not expected_password`. There is no rate limiting, lockout, or
+      attempt counter anywhere in src/nonogram/admin/ (git grep for
+      ratelimit/throttle: no hits), and ADMIN_USER defaults to the guessable
+      "admin".
+
+      On a loopback-only panel neither mattered. On an internet-facing one they
+      are the difference between a 256-bit secret and a one-character password
+      an attacker reaches by brute force, against a panel whose POST /regrade
+      is unrecoverable after CARD-084.
+
+      ADMIN_SETUP.md tells the operator to generate a 32-byte token, but nothing
+      enforces it, and the card's AC-4 only specifies "missing or empty".
+    suggestion: |
+      Add a minimum-length floor to the boot check (e.g. 16 characters) with the
+      same AdminConfigurationError, and state the floor in ADMIN_SETUP.md. Rate
+      limiting is a larger question — if it is deferred, say so in the card
+      rather than leaving it unstated.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "cycle-1 fixes (uncommitted at review time)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_auth.py
+    line: 391
+    title: "AC-5's route sweep cannot distinguish a protected route from a URL that matches nothing"
+    description: |
+      Verified by probe: in deployed mode, GET /this-route-does-not-exist-at-all
+      without a credential returns 401 (with a credential it returns 404).
+      Flask's before_request runs after routing but fires for unmatched URLs
+      too, so the hook's 401 is returned for any path whatsoever.
+
+      test_no_route_is_reachable_without_the_credential builds URLs by
+      string-replacing converter placeholders and asserts each returns 401.
+      Every URL it produces returns 401 regardless of whether the substitution
+      produced a real, matchable URL — so the sweep's assertion holds even if
+      the URL construction is entirely broken. The `len(urls) >= 30` floor
+      counts url_map rules, not valid URLs, so it does not close the gap.
+
+      Two smaller weaknesses in the same helper: it reads `rule._converters`, a
+      private Werkzeug attribute that can change across releases, and it skips
+      `rule.endpoint == "static"`, so the static endpoint is not asserted to be
+      behind the credential (it is, since the hook is global — it is simply
+      untested).
+    suggestion: |
+      Assert each constructed URL actually matches the map before asserting its
+      status — e.g. `application.url_map.bind(REMOTE).match(url, method=method)`
+      inside the loop, failing the test if it raises NotFound. Then the 401
+      assertion means "this real route is protected". Prefer
+      `rule.arguments` + a public builder over `rule._converters`, and drop the
+      static exclusion.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "cycle-1 fixes (uncommitted at review time)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: ops
+    type: risk
+    file: render.yaml
+    line: 28
+    title: "Merging this card crash-loops the deployed service until the dashboard variables exist"
+    description: |
+      render.yaml sets ADMIN_ALLOWED_HOST as a literal `value:` and the service
+      has `autoDeploy: true`. On merge, Render redeploys with
+      ADMIN_ALLOWED_HOST set; if ADMIN_PASSWORD and SECRET_KEY are not yet in
+      the dashboard, create_app raises AdminConfigurationError and the service
+      fails to boot.
+
+      This is the intended fail-closed direction and is recoverable in a minute,
+      but it is an ordering requirement that neither the card nor ADMIN_SETUP.md
+      states: the secrets must be set *before* the merge, not after.
+    suggestion: |
+      State the ordering in ADMIN_SETUP.md's deployment steps ("set the four
+      variables before merging"), or declare ADMIN_ALLOWED_HOST `sync: false`
+      too so remote access is opt-in from the dashboard rather than switched on
+      by the merge.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "cycle-1 fixes (uncommitted at review time)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: compliance
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 400
+    title: "Access-Control-Allow-Origin: * is now served from an internet-facing admin"
+    description: |
+      The after_request hook sets Access-Control-Allow-Origin: * and
+      Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS on every
+      response, including the 401 (verified by probe).
+
+      Not directly exploitable: browsers refuse a wildcard ACAO on credentialed
+      cross-origin XHR, so authenticated responses stay unreadable. But a
+      wildcard CORS policy on an admin panel that is now reachable from the
+      internet is a control granted for no reason, and it was written when the
+      only possible caller was the same machine ("for Chrome compatibility").
+    suggestion: |
+      In deployed mode, either drop the CORS headers or echo only the configured
+      origin. Independent of the CSRF fix in F-001 — CORS does not gate form
+      POSTs — but the same hook is the natural place for both.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "cycle-1 fixes (uncommitted at review time)"
+    dismissed_reason: null
+    learned_pattern: null

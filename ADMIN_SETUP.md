@@ -162,6 +162,18 @@ access is opt-in, and turning it on means setting all four variables below.
 prompts for the values instead of reading them from this repository. Never
 commit a value for any of them.
 
+**Set all four before you merge, not after.** `render.yaml` carries
+`ADMIN_ALLOWED_HOST` as a literal value and the service has `autoDeploy: true`,
+so the merge itself turns remote access on. If `ADMIN_PASSWORD` or `SECRET_KEY`
+is still missing at that moment the app raises `AdminConfigurationError` and the
+service fails to boot until you set them — which is the intended direction (it
+refuses to come up open), but it is a minute of downtime you can simply not
+have.
+
+`ADMIN_PASSWORD` must be at least 16 characters. Nothing in this package
+rate-limits guesses and `ADMIN_USER` defaults to `admin`, so the password is the
+whole of the defence; the app refuses to boot with a shorter one.
+
 Generate the two random strings with:
 
 ```bash
@@ -179,6 +191,18 @@ it. In deployed mode a request claiming `Host: localhost` gets the same 404 as
 any other stranger, even carrying valid credentials — behind a proxy the `Host`
 header is written by the caller, so leaving that door open would make it a
 password bypass.
+
+The deployed panel also refuses any request your browser says another site
+started (a `Sec-Fetch-Site` outside `same-origin`/`none`, or an `Origin` naming
+another host), answering `403`. This is not optional hardening: a browser
+replays a cached HTTP Basic credential on a cross-site form POST, so without it
+any page you visit could aim a form at `POST /regrade` and rewrite every stored
+grade. Typed URLs, bookmarks, the panel's own forms, `curl` and Render's health
+probe are all unaffected.
+
+The formal decision behind all of this is
+[ADR-0030](meta/architecture/decisions/adr/0030-admin-remote-access-behind-a-credential.md),
+which revises CON-016.
 
 ### Prerequisites
 

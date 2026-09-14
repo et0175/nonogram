@@ -24,6 +24,7 @@ from __future__ import annotations
 import ast
 import base64
 import inspect
+import uuid
 from pathlib import Path
 
 import pytest
@@ -360,31 +361,96 @@ class TestAdminAuth_EveryRouteIsBehindTheCredential:
 
     @staticmethod
     def _concrete_urls(application) -> list[tuple[str, str]]:
-        """Every rule, with placeholders filled, as ``(method, url)``."""
+        """Every rule, with placeholders filled, as ``(method, url)``.
+
+        Built with Werkzeug's own ``url_for``-style builder rather than by
+        string-replacing ``<converter:name>`` by hand: the builder is the same
+        code that routes the request, so a URL it produces is one the map
+        matches by construction. The hand-rolled version this replaces read
+        ``rule._converters`` — a private attribute — and could silently emit a
+        URL matching nothing (CARD-085 review F-004).
+        """
         sample = {
-            "int": "1",
-            "float": "1.0",
+            "int": 1,
+            "float": 1.0,
             "path": "x/y",
-            "uuid": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+            "uuid": uuid.UUID("3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
             "string": "x",
+            "any": "x",
             "default": "x",
         }
+        adapter = application.url_map.bind(REMOTE)
         urls = []
         for rule in application.url_map.iter_rules():
-            if rule.endpoint == "static":
-                continue
-            url = rule.rule
+            # Try each sample type per argument and keep the first the builder
+            # accepts. Which converter a rule uses is the map's business, not
+            # this test's — asking the builder is how that stays true when a
+            # route changes its converter.
+            values: dict[str, object] = {}
             for argument in rule.arguments:
-                converter = rule._converters[argument].__class__.__name__.lower()
-                key = next(
-                    (k for k in sample if k in converter and k != "default"), "default"
-                )
-                url = url.replace(f"<{argument}>", sample[key])
-                for prefix in ("int:", "float:", "path:", "uuid:", "string:"):
-                    url = url.replace(f"<{prefix}{argument}>", sample[key])
+                for candidate in ("uuid", "int", "float", "path", "string"):
+                    values[argument] = sample[candidate]
+                    try:
+                        adapter.build(rule.endpoint, values, method=None)
+                    except Exception:
+                        continue
+                    break
+            try:
+                url = adapter.build(rule.endpoint, values, method=None)
+            except Exception:  # pragma: no cover - a rule that cannot be built
+                continue
             method = "POST" if "POST" in rule.methods else "GET"
             urls.append((method, url))
         return urls
+
+    def test_the_sweep_builds_urls_the_router_actually_matches(
+        self, deployed_app
+    ) -> None:
+        """The assertion that makes the next test mean anything.
+
+        ``before_request`` fires for a URL matching *no* rule — Flask stores the
+        routing exception and runs the hooks anyway — so the hook returns 401
+        for ``/this-matches-nothing`` exactly as it does for a real route.
+        A sweep that only asserted 401 would therefore pass just as happily on
+        forty malformed URLs, which is what the first version of it did.
+
+        Here every swept URL is matched against the map before it is used, so
+        "401" in the next test means "this real, routable endpoint is behind
+        the credential".
+        """
+        from werkzeug.exceptions import NotFound, MethodNotAllowed
+
+        urls = self._concrete_urls(deployed_app)
+        assert len(urls) >= 30, f"the URL map looks wrong: {len(urls)} rules"
+
+        adapter = deployed_app.url_map.bind(REMOTE)
+        unmatchable = []
+        for method, url in urls:
+            try:
+                adapter.match(url, method=method)
+            except MethodNotAllowed:
+                pass  # the rule exists; only this verb is not on it
+            except NotFound:
+                unmatchable.append(f"{method} {url}")
+
+        assert unmatchable == [], (
+            "the sweep built URLs that match no route, so asserting 401 on "
+            "them would prove nothing:\n" + "\n".join(unmatchable)
+        )
+
+    def test_an_unmatched_url_also_returns_401_which_is_why_the_guard_exists(
+        self, deployed_client
+    ) -> None:
+        """Pin the fact the guard above compensates for.
+
+        If Flask ever stopped running ``before_request`` for unroutable URLs,
+        this flips to 404 and the guard becomes unnecessary — better to be told
+        than to keep a check whose reason has quietly expired.
+        """
+        response = deployed_client.get(
+            "/this-url-matches-no-rule-at-all", headers={"Host": REMOTE}
+        )
+        assert response.status_code == 401
 
     def test_no_route_is_reachable_without_the_credential(
         self, deployed_app, deployed_client
@@ -494,6 +560,262 @@ class TestAdminAuth_ComparesBothHalvesWithoutShortCircuit:
             "/", headers={"Host": REMOTE, **basic("Ольга", "пароль")}
         )
         assert response.status_code == 401
+
+
+# --------------------------------------------------------------------------
+# AC-8 — the credential is not, by itself, evidence the operator asked
+# --------------------------------------------------------------------------
+
+
+class TestAdminAuth_RefusesRequestsAnotherSiteStarted:
+    """The defence HTTP Basic auth does not provide (review F-001).
+
+    A browser caches the credential per origin and replays it on a cross-site
+    form POST, so once the panel is reachable "carries the password" and "the
+    operator asked for this" are different statements. Without this, any page
+    the operator's browser loads can aim a form at ``POST /regrade`` and
+    rewrite every stored grade — which after CARD-084 keeps no copy.
+    """
+
+    @pytest.mark.parametrize(
+        "headers, label",
+        [
+            pytest.param(
+                {"Origin": "https://evil.example.com", "Sec-Fetch-Site": "cross-site"},
+                "the full attack shape",
+                id="hostile-origin-and-cross-site",
+            ),
+            pytest.param(
+                {"Sec-Fetch-Site": "cross-site"}, "fetch metadata alone", id="cross-site"
+            ),
+            pytest.param(
+                {"Origin": "https://evil.example.com"}, "origin alone", id="hostile-origin"
+            ),
+            pytest.param(
+                {"Sec-Fetch-Site": "same-site"},
+                "a sibling domain is not this origin",
+                id="same-site",
+            ),
+            pytest.param(
+                {"Origin": f"https://{REMOTE}.evil.com"},
+                "the configured host as a prefix",
+                id="origin-near-miss",
+            ),
+            pytest.param(
+                {"Origin": "null"}, "an opaque origin has no host", id="origin-null"
+            ),
+        ],
+    )
+    def test_a_cross_site_write_is_refused_despite_valid_credentials(
+        self, deployed_client, headers, label
+    ) -> None:
+        response = deployed_client.post(
+            "/regrade", headers={"Host": REMOTE, **basic(USER, PASSWORD), **headers}
+        )
+        assert response.status_code == 403, label
+
+    @pytest.mark.parametrize(
+        "headers, label",
+        [
+            pytest.param(
+                {"Origin": f"https://{REMOTE}", "Sec-Fetch-Site": "same-origin"},
+                "the panel's own form posting back",
+                id="same-origin",
+            ),
+            pytest.param(
+                {"Sec-Fetch-Site": "none"}, "a typed URL or a bookmark", id="none"
+            ),
+            pytest.param({}, "curl, or Render's health probe", id="no-fetch-metadata"),
+            pytest.param(
+                {"Origin": f"https://{REMOTE}:443"},
+                "the port is not part of the question",
+                id="same-origin-with-port",
+            ),
+        ],
+    )
+    def test_the_operators_own_requests_still_work(
+        self, deployed_client, headers, label
+    ) -> None:
+        response = deployed_client.post(
+            "/regrade", headers={"Host": REMOTE, **basic(USER, PASSWORD), **headers}
+        )
+        assert response.status_code != 403, label
+
+    @pytest.mark.parametrize(
+        "pair",
+        [
+            pytest.param(
+                [("Sec-Fetch-Site", "same-origin"), ("Sec-Fetch-Site", "cross-site")],
+                id="allowed-then-foreign",
+            ),
+            pytest.param(
+                [("Sec-Fetch-Site", "cross-site"), ("Sec-Fetch-Site", "same-origin")],
+                id="foreign-then-allowed",
+            ),
+            pytest.param(
+                [("Origin", f"https://{REMOTE}"), ("Origin", "https://evil.example.com")],
+                id="own-origin-then-foreign",
+            ),
+            pytest.param(
+                [("Origin", "https://evil.example.com"), ("Origin", f"https://{REMOTE}")],
+                id="foreign-then-own-origin",
+            ),
+        ],
+    )
+    def test_a_smuggled_second_value_does_not_get_past(
+        self, deployed_client, pair
+    ) -> None:
+        """A request carrying two values that disagree has no single answer.
+
+        Both orders, because the two are not symmetric under every possible
+        reading: putting the allowed value first is what defeats a check that
+        stops at the first, and putting it last defeats one that stops at the
+        last.
+
+        Under WSGI these arrive folded into one comma-joined value, which is
+        why the implementation splits on commas rather than trusting
+        ``get_all`` to yield two elements — a mutation restricting that loop to
+        its first element changed nothing, because there was never a second.
+        """
+        headers = [("Host", REMOTE), *basic(USER, PASSWORD).items(), *pair]
+        response = deployed_client.post("/regrade", headers=headers)
+        assert response.status_code == 403
+
+    def test_the_gateway_folds_repeats_which_is_why_splitting_is_the_check(
+        self, deployed_app
+    ) -> None:
+        """Pin the platform fact the implementation depends on.
+
+        If a future gateway stops folding repeated headers into one value, this
+        flips and the comma-splitting becomes belt-and-braces rather than the
+        load-bearing part — better to be told by a failing test than to keep a
+        comment explaining a fact that has changed.
+        """
+        from werkzeug.test import EnvironBuilder
+        from werkzeug.wrappers import Request
+
+        environ = EnvironBuilder(
+            path="/",
+            headers=[("Sec-Fetch-Site", "same-origin"), ("Sec-Fetch-Site", "cross-site")],
+        ).get_environ()
+
+        values = Request(environ).headers.get_all("Sec-Fetch-Site")
+
+        assert values == ["same-origin, cross-site"], (
+            "WSGI is expected to fold repeated headers into one comma-joined "
+            f"value; got {values!r}"
+        )
+
+    def test_an_anonymous_cross_site_caller_still_learns_only_401(
+        self, deployed_client
+    ) -> None:
+        """The check runs after the credential, on purpose.
+
+        An unauthenticated scanner sees exactly what it saw before this fix —
+        401 — so the refusal vocabulary does not widen for people who have not
+        authenticated.
+        """
+        response = deployed_client.post(
+            "/regrade",
+            headers={"Host": REMOTE, "Origin": "https://evil.example.com"},
+        )
+        assert response.status_code == 401
+
+    def test_local_mode_does_not_gain_the_check(self, local_client) -> None:
+        """G-1: loopback-only behaviour is still byte-for-byte CARD-081's.
+
+        The panel is unreachable from any browser but this machine's, and the
+        machine's own browser posting to it is same-origin anyway.
+        """
+        response = local_client.post(
+            "/regrade",
+            headers={"Host": "localhost", "Sec-Fetch-Site": "cross-site"},
+        )
+        assert response.status_code != 403
+
+    def test_the_fetch_site_allowlist_agrees_with_the_web_adapters(self) -> None:
+        """Two short allowlists that agree is the intended shape (ADR-0007).
+
+        ``admin`` may not import ``web`` laterally, so the frozenset is
+        reimplemented — and this is the seam that keeps the copy honest,
+        exactly as ``test_the_allowlist_and_the_web_adapters_agree`` does for
+        ``ALLOWED_HOSTS`` in ``tests/test_admin_binding.py``.
+        """
+        from nonogram.web.handler import ALLOWED_FETCH_SITES as web_sites
+
+        assert admin_app.ALLOWED_FETCH_SITES == web_sites
+
+
+# --------------------------------------------------------------------------
+# AC-4 (extended) — a password that is present but useless is not a password
+# --------------------------------------------------------------------------
+
+
+class TestAdminAuth_RefusesToBootWithAGuessablePassword:
+    """Presence was the right check for a panel nobody could reach (F-003).
+
+    Once ``ADMIN_ALLOWED_HOST`` is set the password is the entire defence,
+    nothing in this package rate-limits guesses, and ``ADMIN_USER`` defaults to
+    ``admin`` — so the other half of the credential is usually known.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _remote_configured(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv(admin_app.REMOTE_HOST_VAR, REMOTE)
+        monkeypatch.setenv("SECRET_KEY", REAL_KEY)
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    @pytest.mark.parametrize("password", ["a", "admin", "hunter2", "x" * 15])
+    def test_a_short_password_is_fatal(
+        self, monkeypatch: pytest.MonkeyPatch, password
+    ) -> None:
+        monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, password)
+
+        with pytest.raises(admin_app.AdminConfigurationError) as caught:
+            admin_app.create_app()
+
+        assert str(admin_app.MIN_ADMIN_PASSWORD_LENGTH) in str(caught.value)
+
+    def test_the_boundary_itself_boots(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Exactly ``MIN_ADMIN_PASSWORD_LENGTH`` is enough — the limit, not limit+1."""
+        monkeypatch.setenv(
+            admin_app.ADMIN_PASSWORD_VAR, "x" * admin_app.MIN_ADMIN_PASSWORD_LENGTH
+        )
+
+        assert admin_app.create_app() is not None
+
+    def test_local_mode_imposes_no_floor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """G-1 again: none of this exists for a loopback-only panel."""
+        monkeypatch.delenv(admin_app.REMOTE_HOST_VAR, raising=False)
+        monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, "a")
+
+        assert admin_app.create_app() is not None
+
+
+# --------------------------------------------------------------------------
+# F-006 — the wildcard CORS grant does not follow the panel onto the internet
+# --------------------------------------------------------------------------
+
+
+def test_deployed_mode_does_not_advertise_a_wildcard_cors_grant(
+    deployed_client,
+) -> None:
+    """Written when "any origin" meant "this browser"; it no longer does."""
+    response = deployed_client.get("/", headers={"Host": REMOTE, **basic(USER, PASSWORD)})
+
+    assert "Access-Control-Allow-Origin" not in response.headers
+    assert response.headers["X-Content-Type-Options"] == "nosniff", (
+        "the security headers in the same hook are not what this removes"
+    )
+
+
+def test_local_mode_keeps_the_headers_it_always_had(local_client) -> None:
+    """G-1: the wildcard was added for Chrome on loopback and stays there."""
+    response = local_client.get("/", headers={"Host": "localhost"})
+
+    assert response.headers["Access-Control-Allow-Origin"] == "*"
 
 
 # --------------------------------------------------------------------------

@@ -246,6 +246,33 @@ DEFAULT_ADMIN_USER = "admin"
 #: moment :data:`REMOTE_HOST_VAR` is set.
 DEV_SECRET_KEY = "dev-key-change-in-production"
 
+#: The shortest ``ADMIN_PASSWORD`` :func:`create_app` will boot with.
+#:
+#: The check that only asked "is it non-empty?" was the right check for a panel
+#: nobody could reach. Once :data:`REMOTE_HOST_VAR` is set the password is the
+#: entire defence, there is no rate limiting in this package, and
+#: :data:`DEFAULT_ADMIN_USER` means the other half of the credential is usually
+#: guessable — so a one-character password is not a weak configuration, it is an
+#: open panel with a formality in front of it. ``ADMIN_SETUP.md`` tells the
+#: operator to generate 32 bytes; this is what makes that instruction binding
+#: rather than advisory (CARD-085 review F-003).
+MIN_ADMIN_PASSWORD_LENGTH = 16
+
+#: The ``Sec-Fetch-Site`` values the deployed panel answers.
+#:
+#: ``same-origin`` is a form posting back to the page it was served from;
+#: ``none`` is a user-initiated navigation with no initiator document — a typed
+#: URL, a bookmark. The two the fetch-metadata spec defines and this omits,
+#: ``same-site`` and ``cross-site``, both say the request was started by a
+#: document this panel did not serve, which is the whole of the attack.
+#:
+#: Reimplemented here rather than imported from ``nonogram.web.handler``, which
+#: holds the identical frozenset for the identical reason: ADR-0007 forbids the
+#: lateral import and CLAUDE.md's rule is to reimplement natively and hold the
+#: two copies together from the test tree — the shape CARD-081 already used for
+#: :data:`ALLOWED_HOSTS`.
+ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+
 
 class AdminConfigurationError(RuntimeError):
     """The admin was asked to serve remotely without the means to do it safely.
@@ -328,6 +355,100 @@ def _credential_is_correct(
     return username_ok and password_ok
 
 
+def _origin_names(origin: str) -> str | None:
+    """The host of an ``Origin`` header, or ``None`` if it is not an origin.
+
+    An ``Origin`` is a *serialized origin* — ``scheme "://" host [":" port]``
+    and nothing more (RFC 6454 6.1) — so a value carrying a path, a query or a
+    fragment is not one, and the opaque origin ``null`` has no host at all.
+    Each is refused rather than mined for a host substring.
+
+    The scheme and port are read for shape and then discarded, exactly as the
+    ``Host`` check discards the port: the question is which *name* the
+    initiating document was served from.
+    """
+    value = origin.strip()
+    try:
+        split = urllib.parse.urlsplit(value)
+    except ValueError:
+        return None
+    if not split.scheme or split.path or split.query or split.fragment:
+        return None
+    return _hostname_of(split.netloc)
+
+
+def _request_is_cross_site(headers, expected_host: str) -> bool:
+    """Did a document this panel did not serve start this request?
+
+    The defence HTTP Basic auth does not provide. A browser caches the
+    credential per origin and replays it on a *cross-site* form POST, so
+    "carries the password" and "was sent deliberately by the operator" stopped
+    being the same statement the moment the panel became reachable. Without
+    this, any page the operator's browser loads can aim a form at
+    ``POST /regrade`` and rewrite every stored grade — which after CARD-084
+    keeps no copy of what it replaced (CARD-085 review F-001).
+
+    Two headers, both of which page script is forbidden to set:
+
+    * ``Sec-Fetch-Site`` other than :data:`ALLOWED_FETCH_SITES`;
+    * ``Origin`` whose host is not the configured host.
+
+    **Every** value of each header is read, not just the first: a request
+    carrying two that disagree has no single answer, and taking the first is
+    how an allowlisted value smuggles a foreign one past.
+
+    Under WSGI that means splitting on commas, not iterating ``get_all``. The
+    gateway folds repeated headers into a *single* comma-joined value before
+    this code ever runs — ``Sec-Fetch-Site: same-origin`` twice over arrives as
+    the one string ``"same-origin, cross-site"`` — so ``get_all`` returns one
+    element and a loop over it reads the whole smuggled pair as one token.
+    Measured, not assumed: a mutation restricting that loop to its first
+    element changed nothing, because there was never a second
+    (CARD-085 review, M7). Splitting is what makes "every value" true here; the
+    loop over ``get_all`` is kept because a future non-WSGI gateway may stop
+    folding, and then both arms matter.
+
+    **Absent means served**, and that is safe rather than lucky. A cross-origin
+    GET may legitimately carry no ``Origin`` — a ``no-cors`` fetch, an
+    ``<img>``, a top-level navigation — so absence proves nothing on its own.
+    It does not have to: the Fetch standard requires an ``Origin`` on every
+    cross-origin request whose method is not GET/HEAD, plain
+    ``<form method=post>`` included, and every route that writes here is a
+    POST. On any browser implementing fetch metadata (Chrome 76+, Firefox 90+,
+    Safari 16.4+) ``Sec-Fetch-Site`` catches the GET case too. Keeping absence
+    servable is also what keeps ``curl``, a typed URL, and Render's own health
+    probe working.
+
+    ``Referer`` is deliberately not consulted: an attacking page can switch it
+    off with a referrer policy, so a rule resting on it is one the attacker
+    controls.
+    """
+    for header in headers.get_all("Sec-Fetch-Site"):
+        for value in header.split(","):
+            if value.strip() not in ALLOWED_FETCH_SITES:
+                return True
+    for header in headers.get_all("Origin"):
+        for value in header.split(","):
+            if _origin_names(value) != expected_host:
+                return True
+    return False
+
+
+def _refuse_cross_site() -> Response:
+    """403 for a request the browser itself says came from somewhere else.
+
+    Not a 404: this caller reached the configured host *and* presented the
+    credential, so there is nothing left to hide from them — and not a 401
+    either, because re-prompting for a password would invite the operator to
+    re-enter it in answer to a page they did not open.
+    """
+    return Response(
+        "Refused: this request was started by another site.\n",
+        403,
+        mimetype="text/plain",
+    )
+
+
 def _ask_for_a_credential() -> Response:
     """401 with a challenge, which is the one refusal that has to be legible.
 
@@ -382,6 +503,16 @@ def create_app(debug=None):
                 f"{ADMIN_PASSWORD_VAR}, or unset {REMOTE_HOST_VAR} to go back "
                 f"to loopback-only."
             )
+        if len(expected_password) < MIN_ADMIN_PASSWORD_LENGTH:
+            raise AdminConfigurationError(
+                f"{ADMIN_PASSWORD_VAR} is {len(expected_password)} characters; "
+                f"{MIN_ADMIN_PASSWORD_LENGTH} is the minimum when "
+                f"{REMOTE_HOST_VAR} is set. Nothing in this package rate-limits "
+                f"guesses and {ADMIN_USER_VAR} defaults to "
+                f"{DEFAULT_ADMIN_USER!r}, so a short password is the whole "
+                f"defence and a brief one. Generate one with: "
+                f"python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
         if app.config["SECRET_KEY"] == DEV_SECRET_KEY:
             raise AdminConfigurationError(
                 f"{REMOTE_HOST_VAR} is set to {remote_host!r} but SECRET_KEY is "
@@ -405,9 +536,18 @@ def create_app(debug=None):
         ``flask run --host=0.0.0.0``, which this module cannot prevent.
 
         **Deployed mode** replaces that rule rather than adding to it. The
-        ``Host`` must equal the configured hostname *and* the request must
-        carry the credential — and a request claiming ``Host: localhost`` is
-        refused like any other stranger.
+        ``Host`` must equal the configured hostname, the request must carry the
+        credential, **and** the browser must not say the request was started by
+        another site — and a request claiming ``Host: localhost`` is refused
+        like any other stranger.
+
+        The third rule is the one HTTP Basic auth cannot supply on its own: a
+        browser replays a cached credential on a cross-site form POST, so
+        "carries the password" stopped meaning "the operator asked for this"
+        the moment the panel became reachable. It is checked *after* the
+        credential, so an anonymous caller still learns exactly one thing —
+        401 — and the vocabulary of refusals does not widen for people who have
+        not authenticated (:func:`_request_is_cross_site`).
 
         That last clause is the point of the whole design. Behind a reverse
         proxy, "this request came from this machine" is not something the
@@ -433,6 +573,8 @@ def create_app(debug=None):
             request.authorization, expected_user, expected_password
         ):
             return _ask_for_a_credential()
+        if _request_is_cross_site(request.headers, remote_host.strip().lower()):
+            return _refuse_cross_site()
         return None
 
     # Resolve the DB session factory fresh on every create_app() call rather
@@ -452,9 +594,17 @@ def create_app(debug=None):
     # Add CORS and security headers for Chrome compatibility
     @app.after_request
     def add_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        # The wildcard was written for a panel only this machine could reach,
+        # where "any origin" meant "this browser". Once REMOTE_HOST_VAR is set
+        # it means any origin on the internet, which is a grant with no
+        # purpose: nothing outside this panel is supposed to read its pages
+        # (CARD-085 review F-006). Browsers already refuse a wildcard on a
+        # credentialed cross-origin read, so dropping it closes no working
+        # path — it stops advertising one.
+        if not remote_host:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         return response

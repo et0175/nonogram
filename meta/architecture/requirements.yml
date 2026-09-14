@@ -1784,6 +1784,14 @@ non_functional:
         test: TestRetryLoop_BoundedIterations
 
   - id: NFR-003
+    # Scope note (2026-09-14, ADR-0030/CARD-085): this NFR's condition names
+    # the *web UI's* server, and it is unchanged — the web UI is still
+    # loopback-only with no authentication. Its restatement for the second
+    # inbound HTTP surface, the admin panel, is CON-015 (bind) and CON-016
+    # (request refusal), and CON-016 has been revised: the admin may now be
+    # reached at one configured hostname behind a credential. A reader who
+    # takes "no authentication enforced" below as describing the admin panel
+    # is reading the wrong requirement — read CON-016 and ADR-0030.
     category: security
     metric: web_server_bind_scope
     threshold: "binds 127.0.0.1 (loopback) only; no authentication enforced (BCON-0001)"
@@ -2456,20 +2464,37 @@ constraints:
     # (`flask --app nonogram.admin.app run`, ADMIN_SETUP.md), whose `--host`
     # this package cannot remove. The bind is the wall; this is what stands
     # when someone opens a door in it.
+    #
+    # Revised 2026-09-14 (ADR-0030, CARD-085). The original statement admitted
+    # no exception, and the admin panel is now deployed at a public hostname —
+    # so the constraint had to either forbid the deployment or describe it. It
+    # describes it, as two mutually exclusive modes. The clause that matters is
+    # that no configuration serves a request on the strength of naming a
+    # loopback host *and* another on the strength of a credential: a panel with
+    # both doors open would make `Host: localhost` a password bypass, which is
+    # the failure this wording exists to prevent.
     type: technical
     statement: >-
-      The admin panel refuses any request whose Host header does not name
-      this machine — a bare authority, no userinfo, path, query or fragment,
-      a port absent or all digits, and a host component in {localhost,
-      127.0.0.1, ::1} — and refuses a request carrying no Host header at all.
-      The refusal is indistinguishable from "no such page", so it tells a
+      The admin panel serves a request through exactly one of two mutually
+      exclusive doors, chosen by whether ADMIN_ALLOWED_HOST is set, and
+      refuses every request that does not pass the door in force. With it
+      unset (the default), it refuses any request whose Host header does not
+      name this machine — a bare authority, no userinfo, path, query or
+      fragment, a port absent or all digits, and a host component in
+      {localhost, 127.0.0.1, ::1} — and refuses a request carrying no Host
+      header at all. With it set, it refuses any request whose Host is not
+      exactly that hostname (a loopback Host included), any request not
+      carrying the configured credential, and any request the browser marks as
+      started by another site (a Sec-Fetch-Site outside {same-origin, none},
+      or an Origin whose host is not that hostname). The wrong-host refusal is
+      indistinguishable from "no such page" in both modes, so it tells a
       scanner nothing. Holds however the socket was bound, including when the
       bind was widened by an option outside this package's control.
-    source: NFR-003, NFR-004; BCON-0001; CARD-077 review F-003
+    source: NFR-003, NFR-004; BCON-0001; CARD-077 review F-003; ADR-0030 (CARD-085)
     scope:
       code: ["src/nonogram/admin/**"]
     bcon_ref: BCON-0001
     check:
       kind: test
-      ref: TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine
+      ref: TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit
     severity: mandatory

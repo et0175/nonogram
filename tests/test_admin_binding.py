@@ -375,3 +375,135 @@ class TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine:
             assert admin_app._host_is_local(authority) is web_host_is_local(
                 authority
             ), authority
+
+
+# --------------------------------------------------------------------------
+# CON-016's check ref (revised 2026-09-14, ADR-0030 / CARD-085)
+# --------------------------------------------------------------------------
+
+
+class TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit:
+    """CON-016 over **both** doors, which is what the revised wording states.
+
+    CARD-081 wrote CON-016 as one rule about the ``Host`` header, and
+    ``TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine`` above is
+    still exactly that rule — untouched, and still run. What it cannot see is
+    the mode ADR-0030 added: with ``ADMIN_ALLOWED_HOST`` set, the panel answers
+    a hostname that names no machine of ours, which the old class had no way to
+    express and would have had no reason to.
+
+    That gap is why this class exists rather than an edit up there. A
+    constraint whose only check exercises one of its two modes reports green
+    while the other mode is unverified — the aspirational-green pattern, on a
+    security constraint (CARD-085 review F-002).
+
+    The clause both modes share, and the one that matters most, is **exclusivity**:
+    no configuration serves a request on the strength of naming a loopback host
+    *and* another on the strength of a credential. A panel with both doors open
+    would make ``Host: localhost`` a password bypass.
+    """
+
+    REMOTE = "nonogram-admin.onrender.com"
+    PASSWORD = "a-password-long-enough-to-boot"
+
+    @staticmethod
+    def _basic(user: str, password: str) -> dict[str, str]:
+        import base64
+
+        token = base64.b64encode(f"{user}:{password}".encode()).decode()
+        return {"Authorization": f"Basic {token}"}
+
+    @pytest.fixture
+    def local_client(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.delenv("ADMIN_ALLOWED_HOST", raising=False)
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        application = admin_app.create_app()
+        with application.test_client() as client:
+            yield client
+
+    @pytest.fixture
+    def deployed_client(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("ADMIN_ALLOWED_HOST", self.REMOTE)
+        monkeypatch.setenv("ADMIN_USER", "operator")
+        monkeypatch.setenv("ADMIN_PASSWORD", self.PASSWORD)
+        monkeypatch.setenv("SECRET_KEY", "a-real-production-secret")
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        application = admin_app.create_app()
+        with application.test_client() as client:
+            yield client
+
+    def test_the_default_door_is_the_loopback_one(self, local_client) -> None:
+        assert local_client.get("/", headers={"Host": "127.0.0.1"}).status_code == 200
+        assert (
+            local_client.get("/", headers={"Host": self.REMOTE}).status_code == 404
+        )
+
+    def test_the_default_door_asks_for_no_credential(self, local_client) -> None:
+        response = local_client.get("/", headers={"Host": "localhost"})
+        assert "WWW-Authenticate" not in response.headers
+
+    def test_the_deployed_door_admits_only_the_configured_host(
+        self, deployed_client
+    ) -> None:
+        credential = self._basic("operator", self.PASSWORD)
+        assert (
+            deployed_client.get(
+                "/", headers={"Host": self.REMOTE, **credential}
+            ).status_code
+            == 200
+        )
+        for elsewhere in ("evil.example.com", f"{self.REMOTE}.evil.com"):
+            assert (
+                deployed_client.get(
+                    "/", headers={"Host": elsewhere, **credential}
+                ).status_code
+                == 404
+            ), elsewhere
+
+    @pytest.mark.parametrize("host", ["localhost", "127.0.0.1", "[::1]:5000"])
+    def test_the_doors_are_exclusive_so_loopback_is_not_a_bypass(
+        self, deployed_client, host
+    ) -> None:
+        """The clause the whole revision turns on.
+
+        Behind a proxy the ``Host`` header is written by the caller and
+        ``REMOTE_ADDR`` is the proxy, so neither establishes that a request is
+        local. Serving a loopback ``Host`` in deployed mode would hand anyone a
+        way past the password.
+        """
+        response = deployed_client.get(
+            "/", headers={"Host": host, **self._basic("operator", self.PASSWORD)}
+        )
+        assert response.status_code == 404
+
+    def test_the_deployed_door_refuses_without_the_credential(
+        self, deployed_client
+    ) -> None:
+        response = deployed_client.get("/", headers={"Host": self.REMOTE})
+        assert response.status_code == 401
+
+    def test_the_deployed_door_refuses_what_another_site_started(
+        self, deployed_client
+    ) -> None:
+        """ADR-0030/R2 — the admin's copy of CON-010."""
+        response = deployed_client.post(
+            "/regrade",
+            headers={
+                "Host": self.REMOTE,
+                **self._basic("operator", self.PASSWORD),
+                "Sec-Fetch-Site": "cross-site",
+            },
+        )
+        assert response.status_code == 403
+
+    def test_a_missing_host_header_is_refused_in_both_modes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """HTTP/1.1 requires one; a request without it is not a browser.
+
+        Built at the WSGI environ level because the test client always supplies
+        a Host — the same reason the CARD-081 class builds its version this way.
+        """
+        assert admin_app._hostname_of(None) is None
+        assert admin_app._host_is_local(None) is False
+        assert admin_app._host_is_the_configured_remote(None, self.REMOTE) is False

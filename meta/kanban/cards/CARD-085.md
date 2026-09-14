@@ -15,7 +15,7 @@
 **Wave:** 1
 **Depends on:** — (CARD-081 merged 44a5af4, which added the guard this card widens)
 **Touches:** src/nonogram/admin/app.py, tests/test_admin_auth.py (new), tests/test_admin_binding.py, render.yaml, ADMIN_SETUP.md
-**Review score:** —
+**Review score:** 3.0 (cycle 1), all findings fixed
 **Started:** 2026-09-14
 **Closed:** —
 **Actual:** —
@@ -141,6 +141,16 @@ ADR-0006/R1's baseline is untouched.
   indistinguishable paths: both halves compared, with `compare_digest`, no
   early return.
   *test:* `TestAdminAuth_ComparesBothHalvesConstantTime` (structural + behavioural)
+- **AC-8** (cross-site refusal) — in deployed mode a request the browser
+  marks as started by another site (`Sec-Fetch-Site` outside
+  `{same-origin, none}`, or an `Origin` whose host is not the configured
+  hostname) is refused `403`, even carrying valid credentials. Absent headers
+  are served, so `curl`, a typed URL and Render's health probe still work.
+  Checked after the credential, so an anonymous caller still learns only 401.
+  *test:* `TestAdminAuth_RefusesRequestsAnotherSiteStarted`
+- **AC-9** (a usable password) — `create_app` refuses to boot in deployed mode
+  with a password shorter than `MIN_ADMIN_PASSWORD_LENGTH` (16).
+  *test:* `TestAdminAuth_RefusesToBootWithAGuessablePassword`
 - **AC-7** (the deploy is documented) — `render.yaml` declares the new env vars
   with `sync: false` so Render prompts for them rather than storing secrets in
   the repo, and `ADMIN_SETUP.md` says what to set and that the panel is open to
@@ -179,6 +189,64 @@ ADR-0006/R1's baseline is untouched.
 - **`autoDeploy: true`.** `render.yaml` deploys every merge to `main`
   automatically, which is how CARD-081's guard reached production without
   anyone choosing to send it. Worth revisiting; not this card.
+
+## Review cycle 1 — findings and fixes
+
+Scored **3.0** on two Critical findings. Both were about the same thing: the
+trust boundary moved from "the machine" to "a password", and two things that
+had been depending on the old boundary did not move with it.
+
+- **F-001 (Critical) — CSRF.** A browser replays a cached Basic credential on
+  a cross-site form POST, so any page the operator visited could aim a form at
+  `POST /regrade` and rewrite every stored grade. Probed before the fix:
+  `POST /regrade` with valid credentials, `Origin: https://evil.example.com`
+  and `Sec-Fetch-Site: cross-site` returned **302 — accepted**. Before this
+  card the route was unreachable, so the card *created* the exposure; the
+  card's own "out of scope" note underrated it. Fixed by
+  `_request_is_cross_site`, the admin's native copy of CON-010's rule
+  (ADR-0007: reimplemented, not imported, and cross-checked against
+  `nonogram.web.handler`'s `ALLOWED_FETCH_SITES` from the test tree).
+- **F-002 (Critical) — the model still forbade this.** CON-016 admitted no
+  credential exception, and its check ref
+  (`TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine`) passed anyway
+  because it only exercises local mode — a mandatory security constraint
+  reading green while violated in the mode this card adds. Fixed by ADR-0030,
+  a revised CON-016 stating both doors and their exclusivity, and a new check
+  ref that exercises **both**. CARD-081's class is untouched (G-1) and still
+  runs; the new class sits beside it. The rules lens now reports
+  `dead_check_ref: []` and the validator 0 errors / 64 warnings.
+  *Correction to the review's own wording:* it cited NFR-003's "no
+  authentication enforced" as if it governed the admin. NFR-003's `condition`
+  names the **web UI's** server; the admin restatement is CON-015/CON-016.
+  NFR-003's threshold is therefore unchanged — it gained only a scope note
+  pointing a reader at CON-016.
+- **F-003 (Important) — a password floor.** `ADMIN_PASSWORD='a'` booted.
+  Nothing here rate-limits guesses and `ADMIN_USER` defaults to `admin`, so the
+  password is the whole defence. Now 16 characters minimum, enforced at boot.
+- **F-004 (Important) — the AC-5 sweep proved nothing.** Flask runs
+  `before_request` for URLs matching no rule, so the hook answers 401 for any
+  path; the sweep's 401 assertion held even if its URL construction was
+  broken. Now every swept URL is matched against the map first, built through
+  Werkzeug's own builder instead of string-replacing `rule._converters`
+  (a private attribute).
+- **F-005, F-006 (Minor)** — deploy ordering documented (set the four
+  variables *before* merging, since `autoDeploy` turns remote access on), and
+  the wildcard `Access-Control-Allow-Origin` no longer follows the panel onto
+  the internet.
+
+**M7 was an equivalent mutant, and finding that out changed the code.**
+Restricting the `get_all` loop to its first element killed nothing — because
+WSGI folds repeated headers into a *single* comma-joined value before the hook
+runs, so `Sec-Fetch-Site` twice over arrives as the one string
+`"same-origin, cross-site"` and there was never a second element to skip. The
+loop implied a multi-value defence the platform made impossible. It now splits
+on commas, which is what "reads every value" actually means here; the mutant is
+killed twice over (first-value and last-value), and a test pins the folding
+behaviour so the day a gateway stops doing it is a failing test rather than a
+silent regression.
+
+Mutation checks across both cycles: **11 mutants, 11 killed** (M7 only after
+the code was corrected).
 
 ## Worktree notes
 
