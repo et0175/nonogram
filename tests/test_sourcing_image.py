@@ -129,6 +129,10 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 BANDS = FIXTURES / "bands.png"
 LANDSCAPE = FIXTURES / "landscape.png"
+#: A real photograph, for the cases that need a conversion the nudges cannot
+#: repair. The synthetic fixtures above are deliberately simple shapes, and a
+#: simple shape converts uniquely — see CARD-087.
+DUCK1 = FIXTURES / "duck1.png"
 PORTRAIT = FIXTURES / "portrait.png"
 WIDE = FIXTURES / "wide.png"
 TALL = FIXTURES / "tall.png"
@@ -1797,7 +1801,7 @@ def test_a_successful_image_run_also_spends_no_retry_attempt() -> None:
 def test_a_real_image_that_converts_ambiguously_reports_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The same failure without a scripted source anywhere: ``landscape.png`` at
+    """The same failure without a scripted source anywhere: ``duck1.png`` at
     22x22 genuinely converts to a grid whose clues have more than one solution,
     and stays that way through all five of CARD-016's nudges.
 
@@ -1808,15 +1812,22 @@ def test_a_real_image_that_converts_ambiguously_reports_it(
     CARD-016: that conversion is now repaired by two nudges, which is
     ``tests/test_nudge.py``'s real-image recovery case. It was ``wide.png`` at
     22x22 until CARD-026 made a 3:1 source into a square grid an FR-021
-    refusal; the re-run sweep put ``landscape.png`` at the same size.)
+    refusal; the re-run sweep put ``landscape.png`` at the same size. It was
+    ``landscape.png`` until CARD-087 regenerated that fixture to hold what its
+    other tests say it holds — outer bands and a small centred core — and a
+    solid rectangle on white is the most uniqueness-friendly shape there is:
+    the re-run sweep found **no** ambiguous size in 10..25 for it. So the pin
+    moved to a real photograph, which is what this test's name asks for
+    anyway.)
 
-    The token is ``22x22`` and not a bare ``22`` since CARD-033: a bare N
-    follows the source's own shape now, and ``landscape.png``'s ink box is 3:2,
-    so it would ask for a 22x15 and stop being the conversion this test pins.
-    The pin is on an extent, so the extent is stated (FR-023, AC-096).
+    ``duck1.png`` abandons at every size in 20..25, so the pin does not balance
+    on one extent — see the table in CARD-087. The token is ``22x22`` and not a
+    bare ``22`` since CARD-033: a bare N follows the source's own shape now, so
+    it would ask for a non-square grid and stop being the conversion this test
+    pins. The pin is on an extent, so the extent is stated (FR-023, AC-096).
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(LANDSCAPE), "--size", "22x22"]
+        ["generate", "--mode", "image", "--image", str(DUCK1), "--size", "22x22"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
