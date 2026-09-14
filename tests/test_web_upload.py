@@ -338,11 +338,32 @@ class TestWebUpload_RejectsUndecodableUploadLikeCLI:
             "the two runs are supposed to name different files; if they agree, "
             "this test is not comparing two surfaces"
         )
-        assert web["cause"] == cli["cause"], (
-            f"web said {web['cause']!r}, CLI said {cli['cause']!r} — the two "
-            "surfaces disagree about why the picture could not be read"
-        )
         assert "corrupt-for-cli" in cli["path"], cli["path"]
+
+        # What the decoder actually said, derived here rather than hardcoded or
+        # merely compared to itself. Asserting only `web == cli` was satisfied
+        # by *any* constant — replacing the cause in `image.py` with the
+        # literal "unreadable" left this test green, because a constant equals
+        # itself (CARD-082 review cycle 1, F-001). Reading it out of PIL keeps
+        # the assertion wording-independent — a Pillow reword updates the
+        # expectation on its own — while restoring what the equality check
+        # dropped: that the explanation reaching the user is the decoder's.
+        try:
+            Image.open(io.BytesIO(corrupt_bytes)).load()
+        except Exception as decoder_failure:  # noqa: BLE001 - whatever PIL raises
+            expected_cause = str(decoder_failure)
+        else:  # pragma: no cover - the fixture is corrupt by construction
+            pytest.fail("corrupt.png decoded cleanly; the fixture is not corrupt")
+
+        assert expected_cause, "PIL raised without a message; nothing to compare"
+        assert web["cause"] == expected_cause, (
+            f"the page said {web['cause']!r}, the decoder said "
+            f"{expected_cause!r}"
+        )
+        assert cli["cause"] == expected_cause, (
+            f"the CLI said {cli['cause']!r}, the decoder said "
+            f"{expected_cause!r}"
+        )
 
 
 # --------------------------------------------------------------------------

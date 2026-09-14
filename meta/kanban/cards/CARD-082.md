@@ -98,8 +98,11 @@ about **1 time in 300** (measured, 300 draws per size: 0/300 at 15x15, 1/300 at
 | 60 (after) | ~10% |
 
 That is the "flaky e2e test" that moved between tests run to run. Counts are
-now the minimum `create_batch` accepts (10); **no assertion changed** — each
-still checks `puzzle_count == count`, at a fifth of the dice rolls.
+now the minimum `create_batch` accepts (10); **no claim changed** — each
+still checks `puzzle_count == count`, at a fifth of the dice rolls. Two
+assertions do carry a different number (`len(puzzles) == 50` -> `== 10`,
+`approved >= 50` -> `>= 10`); both scale with the count they are derived
+from, which is the distinction the first draft of this sentence blurred.
 
 `tests/test_wave2_async_generation.py` turned out to be the same defect and
 worse — roughly **600** draws per run, to support assertions that are mostly

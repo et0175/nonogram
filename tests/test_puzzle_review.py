@@ -300,7 +300,12 @@ class TestPuzzleFiltering:
         everything — which would pass every case of the test above."""
         result = review_service.filter_puzzles(PuzzleFilter(size=(15, 15)))
 
-        assert result is not None
+        # The shape it actually promises, not `is not None` — filter_puzzles
+        # either returns a response or raises, so that spelling asserted "did
+        # not raise" indirectly and left a reader to work out the return
+        # contract before they could tell whether the mirror was real
+        # (CARD-082 review cycle 1, F-002).
+        assert isinstance(result.puzzles, list)
 
 
 class TestPuzzleApproval:
