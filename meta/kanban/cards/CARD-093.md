@@ -1,6 +1,6 @@
 # CARD-093: A random batch that stops early keeps the puzzles it had already made
 
-**Status:** in progress
+**Status:** done
 **Priority:** P3
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-083 (merged) — revisits one of its decisions; CARD-088 (merged) — the batch clock
 **Touches:** src/nonogram/orchestrator.py (`generate_batch`), src/nonogram/admin/batch_generator.py (`_generate_random_batch`), tests/test_batch_abandonment.py, docs/GENERATION_ALGORITHM.md (§9.1, finding 9)
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-15
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 3a7f309
 **Blocked by:** —
 
 ## Why

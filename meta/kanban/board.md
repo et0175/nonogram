@@ -50,13 +50,13 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-093** P3 · A random batch that stops early keeps the puzzles it had already made · `card/093-batch-keeps-puzzles-it-made` · started 2026-09-15
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-093** P3 · A random batch that stops early keeps the puzzles it made — stored as made, COMPLETE with a note · merged without a review cycle, at the owner's call · merged 3a7f309
 - **CARD-092** P3 · The generation algorithm reference describes the loop the code runs — §8 repair, §9 batches, findings re-established, symbol references checked by script · merged without a review cycle, at the owner's call · merged 50ba053
 - **CARD-091** P2 · K recalibrated from 3 to 5 — measured (30x30 95% → 99%, wall clock 329 s → 226 s) · merged without a review cycle, at the owner's call · merged b27435c
 - **CARD-090** P2 · The retry bound moves to 30 — measured at the knee of the curve (85% → 95% at 30x30) · merged without a review cycle, at the owner's call · merged 5d4bc3a
