@@ -690,7 +690,7 @@ code. `tests/test_timeout.py` passed 17/17 on three consecutive runs.
 ### 10.2 Findings
 
 Findings 1–8 were raised in the 2026-09-12 review; 9 and 10 in the 2026-09-15 refresh; 9 was
-closed the same day by CARD-093. Each
+closed the same day by CARD-093, and 10 by CARD-094. Each
 status was re-established on `41096cf` by re-running or re-reading the check.
 
 | # | Status | Severity | Finding | Where |
@@ -704,7 +704,7 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | 7 | **Not reproduced** | Info — flaky | Two exit-code assertions in `tests/test_timeout.py` failed once in a large batch. CARD-070 could not reproduce it in five runs; this refresh passed 17/17 three times. Kept as a note, not a known flake. | `tests/test_timeout.py` |
 | 8 | **Open**, unchanged | Info — undocumented | Library mode at exactly 16×16 has no boundary cells, so a non-unique template spends 30 identical solves before abandoning (library mode never repairs). Documented only in the module docstring. | `sourcing.library` |
 | 9 | **Closed** — CARD-093 | Low — lost work | When `MAX_CONSECUTIVE_ABANDONMENTS` candidates in a row were abandoned — or a candidate timed out — `generate_batch` raised, and the admin stored a random batch only after the call returned, so every puzzle already made was lost and the batch ended `ERROR`. Puzzles are now handed over through `on_puzzle` as they are made and stored at once; a batch that stops early with puzzles made ends `COMPLETE` with a note. The stopping rule itself is unchanged. | `orchestrator.generate_batch`, `admin.batch_generator.BatchGenerator._generate_random_batch` |
-| 10 | **Open** — new | Low — docstring drift | About fifteen comments and docstrings in `orchestrator` still describe the retry bound as 20 or a batch as up to 200 — among them `orchestrator.BatchResult`'s `abandoned` ("20 draws each"), `orchestrator._lineage_key` ("at most 20"), the `GENERATION_BUDGET_SECONDS` comment ("20 retries"), `orchestrator.generate`'s `Raises` section ("20 infeasible candidates"), and two comments inside `orchestrator.generate_batch` ("20 draws failed", "200 candidates x 30s"). The same `generate_batch` comment says 30x30 at density 50 "reaches the deadline rather than the retry bound", which CARD-091 measured no longer true (0 timeouts in 100). Code behaviour is correct; the prose is not. | `orchestrator` |
+| 10 | **Closed** — CARD-094 | Low — docstring drift | About fifteen comments and docstrings still described the retry bound as 20 or a batch as up to 200, and one `generate_batch` comment claimed 30x30 reaches the deadline rather than the retry bound, which CARD-091 measured no longer true. Each now names `MAX_RETRY_ATTEMPTS` or `MAX_BATCH_COUNT`, or states the current figure; history that correctly narrates the old numbers was kept. The sweep also found the bound left behind in code: the image-batch preview refused only above 200 and the batch form said "Up to 200 pictures", so 51–200 pictures passed preview and failed at generate. Both now read `MAX_BATCH_COUNT`. | `orchestrator`, `sourcing.library`, `admin.batch_generator`, `admin.app` |
 
 ---
 
@@ -732,3 +732,4 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | 2026-09-14 | `8ccbda9` (CARD-090) | the retry bound's value wherever cited | everything else |
 | 2026-09-15 | `41096cf` (CARD-092) | §8 rewritten for POL-006 repair and K; §9 rewritten for CARD-083/088 batches and re-verified for image batches; §10 findings re-established, 9 and 10 added; every code reference converted from line anchors to symbols and resolved by `meta/ops/check_doc_references.py`; §10's suites re-run | §7's measured distribution and §8.3's tier-by-density table predate repair and were not re-measured (both said so in place) |
 | 2026-09-15 | CARD-093 | §9.1 batch hand-off and early-stop status; finding 9 closed | everything else |
+| 2026-09-15 | CARD-094 | finding 10 closed | everything else |

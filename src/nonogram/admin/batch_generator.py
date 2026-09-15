@@ -181,7 +181,8 @@ class BatchGenerator:
         """Create and start a batch generation job (legacy in-memory or DB-backed).
 
         Args:
-            count: Number of puzzles to generate (1-200 for images, 10-200 for random)
+            count: Number of puzzles to generate (1 to ``MAX_BATCH_COUNT`` for images,
+                10 to ``MAX_BATCH_COUNT`` for random)
             sizes: List of sizes to use (e.g., [10, 20, 30])
             theme: Puzzle theme (e.g., 'christmas')
             source: Generation source ('random' or 'images')
