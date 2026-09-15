@@ -42,6 +42,7 @@ from io import BytesIO
 from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
 from .puzzle_review import (
     get_puzzle_review_service,
+    MAX_PUZZLE_NAME_LENGTH,
     PuzzleFilter,
     PuzzleReviewService,
     PuzzleStatus,
@@ -152,6 +153,23 @@ def _page_window(total_count: int, limit: int, offset: int, width: int = 5) -> d
         "next_offset": current * limit,
         "last_offset": (pages - 1) * limit,
     }
+
+
+#: How each FR-029 strategy name reads on a puzzle card, easiest first.
+#: A name not listed here is shown as stored rather than hidden.
+STRATEGY_LABELS = {
+    "simple_overlap": "Simple overlap",
+    "line_dp": "Full line solving",
+    "probe_contradiction": "Contradiction probing",
+    "guess": "Guessing (trial and error)",
+}
+
+
+def _strategy_view(names) -> list[dict] | None:
+    """``[{"name", "label"}]`` for a strategies list, or ``None`` if unknown."""
+    if names is None:
+        return None
+    return [{"name": name, "label": STRATEGY_LABELS.get(name, name)} for name in names]
 
 
 def _list_return_query(raw: str | None) -> str:
@@ -769,7 +787,12 @@ def create_app(debug=None):
     app.jinja_env.filters['percent'] = floor_percent
 
     # The supported grid range, for form bounds and labels (CARD-063).
-    app.jinja_env.globals.update(MIN_SIZE=MIN_SIZE, MAX_SIZE=MAX_SIZE)
+    app.jinja_env.globals.update(
+        MIN_SIZE=MIN_SIZE,
+        MAX_SIZE=MAX_SIZE,
+        MAX_PUZZLE_NAME_LENGTH=MAX_PUZZLE_NAME_LENGTH,
+    )
+    app.jinja_env.filters['strategy_label'] = lambda name: STRATEGY_LABELS.get(name, name)
 
     # Construct service instances
     # If DATABASE_URL is set, use DB-backed persistence; otherwise use in-memory mode
@@ -799,9 +822,23 @@ def create_app(debug=None):
 
     def _back_to_puzzles_list():
         """Return to the review list on the page, filters and sort the action
-        was taken from (the form posts them as ``return_to``)."""
+        was taken from (the form posts them as ``return_to``).
+
+        A form on a batch's puzzle list also posts ``return_batch``, and goes
+        back there instead. Only a well-formed batch id is honoured, and the
+        URL is built by ``url_for``, so neither field can point off the panel.
+        """
         query = _list_return_query(request.form.get("return_to"))
-        return redirect(url_for("puzzles_list") + (f"?{query}" if query else ""))
+        suffix = f"?{query}" if query else ""
+        return_batch = (request.form.get("return_batch") or "").strip()
+        if return_batch:
+            try:
+                return_batch = str(uuid.UUID(return_batch))
+            except ValueError:
+                return_batch = ""
+        if return_batch:
+            return redirect(url_for("batch_puzzles", batch_id=return_batch) + suffix)
+        return redirect(url_for("puzzles_list") + suffix)
 
     @app.context_processor
     def _navigation():
@@ -1280,6 +1317,10 @@ def create_app(debug=None):
             flash("No puzzles generated for this batch", "warning")
             return redirect(url_for("batch_status", batch_id=batch_id))
 
+        # Keyed by id rather than written onto the dicts: in-memory mode hands
+        # back the stored dicts themselves.
+        strategies = {p["id"]: puzzle_review.strategies_for(p) for p in puzzles}
+
         # Get batch job info for total image count
         batch_job = batch_gen.get_batch_status(batch_id)
         total_images = batch_job.total_count if batch_job else len(puzzles)
@@ -1289,6 +1330,7 @@ def create_app(debug=None):
             "generated_puzzles.html",
             batch_id=batch_id,
             puzzles=puzzles,
+            strategies=strategies,
             total_images=total_images,
             filtered_count=filtered_count,
         )
@@ -1419,6 +1461,73 @@ def create_app(debug=None):
                 books=books,
                 statuses=_PUZZLE_STATUSES,
             )
+
+    @app.route("/puzzle/<puzzle_id>/rename", methods=["POST"])
+    def rename_puzzle(puzzle_id):
+        """Give a puzzle a new display name; blank clears it."""
+        try:
+            if puzzle_review.rename_puzzle(puzzle_id, request.form.get("puzzle_name")):
+                flash("Puzzle renamed", "success")
+            else:
+                flash("Puzzle not found", "error")
+        except ValueError as e:
+            flash(f"Error: {str(e)}", "error")
+        return _back_to_puzzles_list()
+
+    @app.route("/batches")
+    def batches_list():
+        """Every batch, newest first, optionally within a from/to date range."""
+        date_from = request.args.get("date_from") or None
+        date_to = request.args.get("date_to") or None
+        try:
+            batches = batch_gen.list_batches(date_from=date_from, date_to=date_to)
+        except ValueError as e:
+            flash(f"Filter error: {str(e)}", "error")
+            batches = []
+        summaries = puzzle_review.batch_summaries([job.batch_id for job in batches])
+        return render_template(
+            "batches_list.html",
+            batches=batches,
+            summaries=summaries,
+        )
+
+    @app.route("/batches/<batch_id>")
+    def batch_puzzles(batch_id):
+        """One batch's puzzles: the review list's table, without its filters."""
+        try:
+            batch_id = str(uuid.UUID(batch_id))
+        except ValueError:
+            abort(404)
+        job = batch_gen.get_batch_status(batch_id)
+        if not job:
+            abort(404)
+
+        sort_by = request.args.get("sort_by", "batch_id,-size,quality")
+        limit = request.args.get("limit", 25, type=int)
+        offset = request.args.get("offset", 0, type=int)
+        try:
+            result = puzzle_review.filter_puzzles(
+                PuzzleFilter(batch_id=batch_id, sort_by=sort_by, limit=limit, offset=offset)
+            )
+        except ValueError as e:
+            flash(f"Error: {str(e)}", "error")
+            return redirect(url_for("batch_puzzles", batch_id=batch_id))
+
+        # Same as the review list: an action that empties the last page lands
+        # on the new last page.
+        if not result.puzzles and result.total_count and offset > 0:
+            args = request.args.to_dict()
+            args["offset"] = str(_page_window(result.total_count, result.limit, 0)["last_offset"])
+            return redirect(url_for("batch_puzzles", batch_id=batch_id, **args))
+
+        return render_template(
+            "batch_puzzles.html",
+            job=job,
+            summary=puzzle_review.batch_summaries([batch_id])[batch_id],
+            puzzles=result.puzzles,
+            total_count=result.total_count,
+            pagination=_page_window(result.total_count, result.limit, result.offset),
+        )
 
     @app.route("/puzzle/<puzzle_id>/approve", methods=["POST"])
     def approve_puzzle(puzzle_id):
@@ -2253,6 +2362,7 @@ def create_app(debug=None):
 
         return jsonify({
             "puzzle": puzzle,
+            "strategies": _strategy_view(puzzle_review.strategies_for(puzzle)),
             "books": [{"id": b.book_id, "title": b.metadata.title} for b in books],
         })
 

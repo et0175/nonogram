@@ -32,6 +32,7 @@
                                 <dt>Source</dt><dd>{{ puzzle.get('source_image', 'N/A') }}</dd>
                                 <dt>Size</dt><dd class="num">{{ puzzle.get('width', '?') }}×{{ puzzle.get('height', '?') }}</dd>
                                 <dt>Difficulty</dt><dd>{{ puzzle.get('difficulty_tier', 'N/A') }}</dd>
+                                <dt>Strategies</dt><dd>{% set used = strategies[puzzle.id] %}{% if used is none %}<span class="text-muted">Unknown</span>{% elif used %}<ol class="strategies">{% for name in used %}<li><span class="badge strategy" data-strategy="{{ name }}" title="{{ name }}">{{ name|strategy_label }}</span></li>{% endfor %}</ol>{% else %}<span class="text-muted">None recorded</span>{% endif %}</dd>
                                 <dt>Quality</dt><dd class="num">{{ puzzle.get('quality_score') or 'N/A' }}/100</dd>
                             </dl>
 

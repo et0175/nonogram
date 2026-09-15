@@ -91,7 +91,8 @@ def test_list_forms_carry_the_current_query(admin_app):
     _add(admin_app, "draft")
     _add(admin_app, "rejected")
     body = admin_app.test_client().get("/puzzles?status=&size=10&limit=5").get_data(as_text=True)
-    assert body.count('name="return_to" value="status=&amp;size=10&amp;limit=5"') == 3
+    # approve + reject on the draft, delete on the rejected, and one rename form per row
+    assert body.count('name="return_to" value="status=&amp;size=10&amp;limit=5"') == 5
 
 
 def test_emptied_last_page_moves_to_the_new_last_page(admin_app):

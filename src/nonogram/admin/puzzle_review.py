@@ -11,11 +11,22 @@ from enum import Enum
 from datetime import datetime, date, timezone
 
 from nonogram.clues import compute_clues
-from nonogram.difficulty import classify, score_difficulty, tier_of_record
+from nonogram.difficulty import Tier, classify, score_difficulty, tier_of_record
 from nonogram.errors import NotUniquelySolvable, SolverTimeout
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
-from nonogram.solver import MANY, solve
+from nonogram.solver import MANY, RUNG_ORDER, solve
+
+
+#: Every name FR-029's strategies list can carry, in the order a list is
+#: written: ADR-0029's ladder rungs, then ``guess`` when the search branched.
+#: A stored list holding anything else was written by an older caller that
+#: invented its names (``"LineLogic"``, ``"backtracking"``), so it is not read
+#: as a statement about the puzzle — see :meth:`PuzzleReviewService.strategies_for`.
+STRATEGY_NAMES: Tuple[str, ...] = (*RUNG_ORDER, Tier.GUESS.value)
+
+#: The longest name a puzzle can be given from the review list.
+MAX_PUZZLE_NAME_LENGTH = 120
 
 
 class PuzzleStatus(Enum):
@@ -254,8 +265,14 @@ class PuzzleReviewService:
 
     def _why_this_is_not_a_puzzle(
         self, grid: List[List[bool]], *, deadline_seconds: float
-    ) -> tuple[Optional[str], Optional[BaseException]]:
-        """The solver's objection to ``grid`` and its cause, or ``(None, None)``.
+    ) -> tuple[Optional[str], Optional[BaseException], Optional[Any]]:
+        """The solver's objection to ``grid``, its cause, and the solve.
+
+        ``(None, None, result)`` when the grid is a puzzle: the third element
+        is the :class:`~nonogram.solver.SolveResult` that proved it, so a
+        caller that also wants the strategies list reads it off this solve
+        instead of paying for a second one (ADR-0029/R2). It is ``None``
+        whenever there is an objection.
 
         The single place either path asks the question, so the write boundary
         and the audit cannot drift into disagreeing about what "a puzzle"
@@ -286,7 +303,7 @@ class PuzzleReviewService:
         try:
             row_clues, column_clues = compute_clues(grid)
         except (TypeError, ValueError) as exc:  # pragma: no cover - both callers screen the shape
-            return f"not a readable grid: {exc}", exc
+            return f"not a readable grid: {exc}", exc, None
 
         try:
             result = solve(
@@ -298,7 +315,7 @@ class PuzzleReviewService:
             return (
                 f"uniqueness could not be proven within {deadline_seconds}s "
                 "— unproven is not proven"
-            ), exc
+            ), exc, None
 
         if result.solution_count != 1:
             # The zero arm is unreachable while the clues are derived from the
@@ -310,10 +327,10 @@ class PuzzleReviewService:
             return (
                 f"the clue set has {counted} solutions, and a clue set that is "
                 "not uniquely solvable is not a puzzle (FR-006)"
-            ), None
-        return None, None
+            ), None, None
+        return None, None, result
 
-    def _refuse_unless_uniquely_solvable(self, grid: object) -> None:
+    def _refuse_unless_uniquely_solvable(self, grid: object):
         """Ask the solver whether this grid is a puzzle, and refuse if it is not.
 
         FR-006 says uniqueness is the product's defining property, and CON-005
@@ -331,6 +348,10 @@ class PuzzleReviewService:
         refusal carries the exception that caused it (``from cause``), so a
         caller logging with ``exc_info`` records what the solver actually said.
 
+        Returns:
+            The :class:`~nonogram.solver.SolveResult` that proved the grid a
+            puzzle.
+
         Raises:
             NotUniquelySolvable: the grid is not a readable grid, its clue set
                 has 0 or >= 2 solutions, or the solve passed its deadline
@@ -342,11 +363,63 @@ class PuzzleReviewService:
         # budget argument. The audit's does, because raising the budget is how
         # an operator asks a deeper question of a table; a *write* that needed
         # longer than the generation budget to be proven was not proven.
-        objection, cause = self._why_this_is_not_a_puzzle(
+        objection, cause, result = self._why_this_is_not_a_puzzle(
             grid, deadline_seconds=GENERATION_BUDGET_SECONDS
         )
         if objection is not None:
             raise NotUniquelySolvable(f"refusing to store a grid: {objection}") from cause
+        return result
+
+    @staticmethod
+    def _strategies_of(result) -> List[str]:
+        """FR-029's list from one solve: its rungs, then ``guess`` if it branched.
+
+        ``guess`` is appended on the tier :func:`classify` returns rather than
+        on ``branch_nodes`` read here, so ADR-0025's rule keeps one reader.
+        A native reimplementation of ``regrade._strategies_used`` — that
+        module imports SQLAlchemy, which this one must not require — held to
+        the same answer from the test tree.
+        """
+        signals = result.signals
+        strategies = list(signals.rungs)
+        if classify(score_difficulty(signals), signals.branch_nodes) is Tier.GUESS:
+            strategies.append(Tier.GUESS.value)
+        return strategies
+
+    @staticmethod
+    def _is_strategies_list(value: object) -> bool:
+        """Is ``value`` a list this system's solver could have written?"""
+        return (
+            isinstance(value, (list, tuple))
+            and bool(value)
+            and all(name in STRATEGY_NAMES for name in value)
+        )
+
+    def strategies_for(
+        self, puzzle: Dict[str, Any], *, deadline_seconds: float = GENERATION_BUDGET_SECONDS
+    ) -> Optional[List[str]]:
+        """The strategies a solver needs for ``puzzle``, or ``None`` if unknown.
+
+        The stored list when it is one the solver wrote. Otherwise — rows
+        stored before the list was recorded carry ``[]``, and older test and
+        demo writers invented names — the stored grid is solved again and the
+        list read off that solve. Read-only: nothing is written back.
+
+        ``None`` when that solve cannot answer: the grid is unreadable, not
+        uniquely solvable, or not concluded within ``deadline_seconds``.
+        """
+        stored = puzzle.get("strategies_used")
+        if self._is_strategies_list(stored):
+            return list(stored)
+        rows = self._as_readable_grid(puzzle.get("grid"))
+        if rows is None:
+            return None
+        objection, _, result = self._why_this_is_not_a_puzzle(
+            rows, deadline_seconds=deadline_seconds
+        )
+        if objection is not None:
+            return None
+        return self._strategies_of(result)
 
     def audit_uniqueness(self, *, deadline_seconds: float = GENERATION_BUDGET_SECONDS):
         """Re-verify every stored row and report the ones that are not puzzles.
@@ -385,7 +458,7 @@ class PuzzleReviewService:
                     )
                 )
                 continue
-            objection, _ = self._why_this_is_not_a_puzzle(
+            objection, _, _ = self._why_this_is_not_a_puzzle(
                 rows, deadline_seconds=deadline_seconds
             )
             if objection is not None:
@@ -436,7 +509,9 @@ class PuzzleReviewService:
             difficulty_tier: Difficulty tier (Easy/Medium/Hard)
             quality_score: Quality score (1-100)
             recognizability: Recognizability (high/medium/low)
-            strategies_used: List of strategy names
+            strategies_used: List of strategy names. Empty means "not
+                recorded by the caller": the list is then read off the
+                uniqueness solve this method already runs.
             batch_id: Optional batch ID to link puzzle to batch
             source_image: Optional source image name (for image-based generation)
 
@@ -452,7 +527,11 @@ class PuzzleReviewService:
         # Before either branch, so the property is the store's and not one
         # mode's. A refusal here is a bug in the caller, so it is raised rather
         # than returned or logged (CARD-080).
-        self._refuse_unless_uniquely_solvable(grid)
+        proof = self._refuse_unless_uniquely_solvable(grid)
+        if not strategies_used:
+            # Neither generation path had the solve to hand, and this guard
+            # just ran one — record what it says rather than store nothing.
+            strategies_used = self._strategies_of(proof)
 
         if self._session_factory is None:
             # Legacy mode: in-memory dict
@@ -824,6 +903,110 @@ class PuzzleReviewService:
                 puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
                 puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 return self._row_to_dict(puzzle) if puzzle else None
+
+    @staticmethod
+    def _clean_puzzle_name(name: Optional[str]) -> Optional[str]:
+        """A name as stored: trimmed, and ``None`` when blank.
+
+        Blank clears the name, so the list falls back to showing the source
+        picture's filename — which is what a row the pipeline wrote shows.
+
+        Raises:
+            ValueError: the name is longer than :data:`MAX_PUZZLE_NAME_LENGTH`.
+        """
+        cleaned = " ".join((name or "").split())
+        if len(cleaned) > MAX_PUZZLE_NAME_LENGTH:
+            raise ValueError(
+                f"Puzzle name must be at most {MAX_PUZZLE_NAME_LENGTH} characters"
+            )
+        return cleaned or None
+
+    def rename_puzzle(self, puzzle_id: str, name: Optional[str]) -> bool:
+        """Set a puzzle's display name; a blank name clears it.
+
+        Returns:
+            True if renamed, False if not found
+
+        Raises:
+            ValueError: the name is too long.
+        """
+        cleaned = self._clean_puzzle_name(name)
+        if self._session_factory is None:
+            if puzzle_id not in self.puzzles:
+                return False
+            self.puzzles[puzzle_id]["puzzle_name"] = cleaned
+            return True
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        try:
+            puzzle_uuid = uuid_module.UUID(puzzle_id)
+        except ValueError:
+            return False
+        with self._session_factory() as db:
+            puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
+            if not puzzle:
+                return False
+            puzzle.puzzle_name = cleaned
+            return True
+
+    def batch_summaries(self, batch_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Per batch: puzzle counts by status and the first few puzzle names.
+
+        Counted from the puzzles themselves rather than read from the batch
+        row's ``puzzle_count``, which is written once at generation and does
+        not follow later deletions.
+
+        Returns:
+            ``{batch_id: {"total": n, "draft": n, "approved": n,
+            "rejected": n, "in_book": n, "names": [...]}}`` for every id
+            asked about, zeros included.
+        """
+        summaries: Dict[str, Dict[str, Any]] = {
+            batch_id: {
+                "total": 0,
+                **{status.value: 0 for status in PuzzleStatus},
+                "names": [],
+            }
+            for batch_id in batch_ids
+        }
+
+        def count(batch_id, status, name):
+            summary = summaries.get(batch_id)
+            if summary is None:
+                return
+            summary["total"] += 1
+            if status in summary:
+                summary[status] += 1
+            if name and len(summary["names"]) < 3 and name not in summary["names"]:
+                summary["names"].append(name)
+
+        if self._session_factory is None:
+            for puzzle in self.puzzles.values():
+                count(
+                    puzzle.get("batch_id"),
+                    puzzle.get("status"),
+                    puzzle.get("puzzle_name") or puzzle.get("source_image"),
+                )
+            return summaries
+
+        if not batch_ids:
+            return summaries
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        with self._session_factory() as db:
+            rows = (
+                db.query(Puzzle.batch_id, Puzzle.status, Puzzle.puzzle_name, Puzzle.source_image)
+                .filter(Puzzle.batch_id.in_([uuid_module.UUID(b) for b in batch_ids]))
+                .order_by(Puzzle.created_at)
+                .all()
+            )
+            for batch_id, status, puzzle_name, source_image in rows:
+                count(str(batch_id), status, puzzle_name or source_image)
+        return summaries
 
     def approve_puzzle(self, puzzle_id: str) -> bool:
         """Mark puzzle as approved for book inclusion.

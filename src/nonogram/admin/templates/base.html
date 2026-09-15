@@ -27,6 +27,7 @@
                 <a href="/batch/create" {% if nav_current('/batch') %}aria-current="page"{% endif %}>New batch</a>
                 <div class="group">Curate</div>
                 <a href="/puzzles" {% if nav_current('/puzzles', '/puzzle') %}aria-current="page"{% endif %}>Puzzles</a>
+                <a href="/batches" {% if nav_current('/batches') %}aria-current="page"{% endif %}>Batches</a>
                 {% if regrade_enabled %}<a href="/regrade" {% if nav_current('/regrade') %}aria-current="page"{% endif %}>Re-grade</a>{% endif %}
                 <div class="group">Publish</div>
                 <a href="/books" {% if nav_current('/books', '/book') and not nav_current('/book/create') %}aria-current="page"{% endif %}>Books</a>

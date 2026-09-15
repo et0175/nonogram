@@ -1,15 +1,13 @@
 {% import '_tier.html' as tier %}
 {% import '_icons.html' as icons %}
+{% import '_puzzle_table.html' as puzzle_table with context %}
 {% extends "base.html" %}
 
 {%- macro preserve_filters(offset=None) -%}
 date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('date_to', '') }}&book_id={{ request.args.get('book_id', '') }}&puzzle_name={{ request.args.get('puzzle_name', '') }}&size_from={{ request.args.get('size_from', '') }}&size_to={{ request.args.get('size_to', '') }}&difficulty={{ request.args.get('difficulty', '') }}&status={{ request.args.get('status', '') }}&quality_min={{ request.args.get('quality_min', '') }}&sort_by={{ request.args.get('sort_by', 'batch_id,-size,quality') }}&limit={{ request.args.get('limit', '25') }}&offset={{ offset if offset is not none else request.args.get('offset', '0') }}
 {%- endmacro -%}
 
-{%- macro sort_head(column, label) -%}
-{% set current = request.args.get('sort_by', '') -%}
-<a class="sort" href="#" data-column="{{ column }}" {% if current.startswith(column) or current.startswith('-' + column) %}aria-current="true"{% endif %}>{{ label }}{% if current.startswith(column) %} ↑{% elif current.startswith('-' + column) %} ↓{% endif %}</a>
-{%- endmacro -%}
+{%- macro page_href(offset) -%}?{{ preserve_filters(offset=offset) }}{%- endmacro -%}
 
 {% block title %}Puzzles - Nonogram admin{% endblock %}
 {% block section %}Puzzles{% endblock %}
@@ -105,97 +103,7 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
     </div>
     <div class="card-body">
         {% if puzzles %}
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th scope="col"><span class="visually-hidden">Preview</span></th>
-                        <th scope="col">{{ sort_head('puzzle_name', 'Puzzle') }}</th>
-                        <th scope="col" class="text-end">{{ sort_head('size', 'Size') }}</th>
-                        <th scope="col">{{ sort_head('difficulty', 'Difficulty') }}</th>
-                        <th scope="col" class="text-end">{{ sort_head('quality', 'Quality') }}</th>
-                        <th scope="col">Recognisable</th>
-                        <th scope="col">Status</th>
-                        <th scope="col" class="text-end">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for puzzle in puzzles %}
-                    {% set label = puzzle.puzzle_name or puzzle.source_image or puzzle.id|first_n(8) %}
-                    <tr data-status="{{ puzzle.status }}">
-                        <td>
-                            <a href="#" class="thumb" onclick="openPuzzleDetail('{{ puzzle.id }}'); return false;" aria-label="Open {{ label }}">
-                                <img src="/api/puzzle/{{ puzzle.id }}/grid" alt=""
-                                     onerror="this.parentElement.innerHTML='<span class=fallback>No preview</span>'">
-                            </a>
-                        </td>
-                        <td>
-                            <a href="#" class="name" onclick="openPuzzleDetail('{{ puzzle.id }}'); return false;">{{ label }}</a>
-                            {% if puzzle.puzzle_name and puzzle.source_image %}<div class="subtle">{{ puzzle.source_image }}</div>{% endif %}
-                        </td>
-                        <td class="text-end num">{{ puzzle.width }}×{{ puzzle.height }}</td>
-                        <td>{{ tier.badge(puzzle.difficulty_tier) }}</td>
-                        <td class="text-end num"><strong>{{ puzzle.quality_score or 'N/A' }}</strong><span class="text-muted small">/100</span></td>
-                        <td><span class="badge rec" data-level="{{ puzzle.recognizability or 'none' }}">{{ puzzle.recognizability or 'N/A' }}</span></td>
-                        <td><span class="badge" data-status="{{ puzzle.status }}">{{ puzzle.status }}</span></td>
-                        <td class="text-end">
-                            <div class="actions justify-content-end">
-                            {% if puzzle.status == 'draft' %}
-                            <form action="/puzzle/{{ puzzle.id }}/approve" method="POST">
-                                <input type="hidden" name="return_to" value="{{ request.query_string.decode() }}">
-                                <button type="submit" class="btn btn-sm btn-success btn-icon" aria-label="Approve {{ label }}" title="Approve">{{ icons.icon('check') }}</button>
-                            </form>
-                            <form action="/puzzle/{{ puzzle.id }}/reject" method="POST">
-                                <input type="hidden" name="return_to" value="{{ request.query_string.decode() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon" aria-label="Reject {{ label }}" title="Reject">{{ icons.icon('x') }}</button>
-                            </form>
-                            {% elif puzzle.status == 'rejected' %}
-                            {# Restore lives in the detail modal; the row offers delete only. #}
-                            <form action="/puzzle/{{ puzzle.id }}/delete" method="POST" onsubmit="return confirm('Delete this puzzle? This cannot be undone.');">
-                                <input type="hidden" name="return_to" value="{{ request.query_string.decode() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon" aria-label="Delete {{ label }}" title="Delete">{{ icons.icon('trash') }}</button>
-                            </form>
-                            {% else %}
-                            <span class="text-muted">—</span>
-                            {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination: First, Previous, up to 5 page numbers, Next, Last -->
-        {% if pagination and pagination.pages > 1 %}
-        {% macro page_link(label, page_offset, disabled, aria) -%}
-        <li class="page-item{% if disabled %} disabled{% endif %}">
-            {%- if disabled %}
-            <span class="page-link" aria-disabled="true">{{ label }}</span>
-            {%- else %}
-            <a class="page-link" href="?{{ preserve_filters(offset=page_offset) }}" aria-label="{{ aria }}">{{ label }}</a>
-            {%- endif %}
-        </li>
-        {%- endmacro %}
-        {% set on_first = pagination.current == 1 %}
-        {% set on_last = pagination.current == pagination.pages %}
-        <nav aria-label="Pagination" class="mt-4">
-            <ul class="pagination justify-content-center flex-wrap">
-                {{ page_link("« First", pagination.first_offset, on_first, "First page") }}
-                {{ page_link("‹ Previous", pagination.prev_offset, on_first, "Previous page") }}
-                {% for number, page_offset in pagination.numbers %}
-                {% if number == pagination.current %}
-                <li class="page-item active" aria-current="page"><span class="page-link">{{ number }}</span></li>
-                {% else %}
-                {{ page_link(number, page_offset, false, "Page " ~ number) }}
-                {% endif %}
-                {% endfor %}
-                {{ page_link("Next ›", pagination.next_offset, on_last, "Next page") }}
-                {{ page_link("Last »", pagination.last_offset, on_last, "Last page") }}
-            </ul>
-            <p class="text-center text-muted small mb-0">Page {{ pagination.current }} of {{ pagination.pages }}</p>
-        </nav>
-        {% endif %}
+        {{ puzzle_table.table(puzzles, pagination, page_href) }}
 
         {% else %}
         <p class="empty">No puzzles match these filters.{% if request.args %} <a href="/puzzles">Clear them</a>.{% endif %}</p>
@@ -203,158 +111,5 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
     </div>
 </div>
 
-<!-- Detail Modal -->
-<div id="puzzleDetailModal" class="puzzle-detail-modal" role="dialog" aria-modal="true" aria-labelledby="puzzleDetailTitle">
-    <div class="puzzle-detail-content">
-        <div class="puzzle-detail-header">
-            <h2 id="puzzleDetailTitle">Puzzle</h2>
-            <button type="button" class="btn-close" onclick="closePuzzleDetail()" aria-label="Close"></button>
-        </div>
-        <div class="puzzle-detail-body" id="puzzleDetailContent">
-            <!-- Content loaded via fetch -->
-        </div>
-    </div>
-</div>
-
-<script>
-function buildSortUrl(column) {
-    const params = new URLSearchParams(window.location.search);
-    const currentSort = params.get('sort_by') || 'batch_id,-size,quality';
-    const parts = currentSort.split(',');
-
-    // If clicking the same column, toggle direction
-    if (parts[0] === column) {
-        parts[0] = '-' + column;
-    } else if (parts[0] === '-' + column) {
-        parts[0] = column;
-    } else {
-        // New column: add to front, keep others as secondary sorts
-        parts.unshift(column);
-    }
-
-    params.set('sort_by', parts.join(','));
-    params.set('offset', '0');  // Reset to first page when sorting changes
-    return '?' + params.toString();
-}
-
-// Sortable headers are real links, so they work from the keyboard; their
-// href is derived from the current query string once the page has loaded.
-document.querySelectorAll('a.sort[data-column]').forEach(link => {
-    link.href = buildSortUrl(link.dataset.column);
-});
-
-const ICON_CHECK = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>';
-const ICON_X = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-
-async function openPuzzleDetail(puzzleId) {
-    const modal = document.getElementById('puzzleDetailModal');
-    const content = document.getElementById('puzzleDetailContent');
-    const title = document.getElementById('puzzleDetailTitle');
-
-    content.innerHTML = '<div class="text-center py-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-    modal.classList.add('is-open');
-
-    try {
-        const response = await fetch(`/api/puzzle/${puzzleId}/details`);
-        if (!response.ok) {
-            content.innerHTML = '<div class="alert alert-danger">Failed to load puzzle details</div>';
-            return;
-        }
-
-        const data = await response.json();
-        const puzzle = data.puzzle;
-        const books = data.books;
-        const returnTo = escapeAttr(window.location.search.replace(/^\?/, ''));
-        const name = escapeHtml(puzzle.puzzle_name || puzzle.source_image || puzzle.id.slice(0, 8));
-        title.textContent = name;
-
-        const assign = !puzzle.book_id ? (books.length ? `
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Assign to book</button>
-                <ul class="dropdown-menu">
-                    ${books.map(book => `
-                    <li>
-                        <form method="POST" action="/book/${escapeAttr(book.book_id)}/add-puzzles">
-                            <input type="hidden" name="puzzle_ids" value="${escapeAttr(puzzle.id)}">
-                            <input type="hidden" name="return_to" value="${returnTo}">
-                            <button type="submit" class="dropdown-item">${escapeHtml(book.title)}</button>
-                        </form>
-                    </li>`).join('')}
-                </ul>
-            </div>` : '<span class="text-muted">No books yet — <a href="/book/create">create one</a> to assign this puzzle.</span>')
-            : '<span class="text-muted">Already in a book</span>';
-
-        content.innerHTML = `
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="thumb thumb-lg"><img src="/api/puzzle/${escapeAttr(puzzle.id)}/grid" alt="Grid of ${name}"></div>
-                </div>
-                <div class="col-md-6">
-                    <dl class="kv">
-                        <dt>ID</dt><dd><code>${escapeHtml(puzzle.id)}</code></dd>
-                        <dt>Size</dt><dd class="num">${puzzle.width}<span class="x">×</span>${puzzle.height}</dd>
-                        <dt>Difficulty</dt><dd>${escapeHtml(puzzle.difficulty_tier || 'N/A')}</dd>
-                        <dt>Quality</dt><dd class="num">${escapeHtml(String(puzzle.quality_score || 'N/A'))}/100</dd>
-                        <dt>Recognisable</dt><dd>${escapeHtml(puzzle.recognizability || 'N/A')}</dd>
-                        <dt>Status</dt><dd><span class="badge" data-status="${escapeAttr(puzzle.status)}">${escapeHtml(puzzle.status)}</span></dd>
-                        ${puzzle.source_image ? `<dt>Source</dt><dd>${escapeHtml(puzzle.source_image)}</dd>` : ''}
-                        ${puzzle.batch_id ? `<dt>Batch</dt><dd><code>${escapeHtml(puzzle.batch_id)}</code></dd>` : ''}
-                        <dt>Created</dt><dd>${new Date(puzzle.created_at).toLocaleDateString()}</dd>
-                    </dl>
-                </div>
-            </div>
-            <hr>
-            <div class="actions mb-3">
-                ${puzzle.status === 'draft' ? `
-                <form method="POST" action="/puzzle/${escapeAttr(puzzle.id)}/approve">
-                    <input type="hidden" name="return_to" value="${returnTo}">
-                    <button type="submit" class="btn btn-success">${ICON_CHECK} Approve</button>
-                </form>
-                <form method="POST" action="/puzzle/${escapeAttr(puzzle.id)}/reject" onsubmit="return confirm('Reject this puzzle?')">
-                    <input type="hidden" name="return_to" value="${returnTo}">
-                    <button type="submit" class="btn btn-outline-danger">${ICON_X} Reject</button>
-                </form>` : ''}
-                ${(puzzle.status === 'rejected' || puzzle.status === 'approved') ? `
-                <form method="POST" action="/puzzle/${escapeAttr(puzzle.id)}/restore">
-                    <input type="hidden" name="return_to" value="${returnTo}">
-                    <button type="submit" class="btn btn-outline-secondary">Restore to draft</button>
-                </form>` : ''}
-                ${puzzle.status === 'rejected' && !puzzle.book_id ? `
-                <form method="POST" action="/puzzle/${escapeAttr(puzzle.id)}/delete" onsubmit="return confirm('Delete this puzzle? This cannot be undone.');">
-                    <input type="hidden" name="return_to" value="${returnTo}">
-                    <button type="submit" class="btn btn-outline-danger">Delete</button>
-                </form>` : ''}
-                ${assign}
-            </div>
-            <div class="actions">
-                <a href="/api/puzzle/${escapeAttr(puzzle.id)}/grid/download" class="btn btn-sm btn-outline-secondary" download>Download SVG</a>
-                <a href="/api/puzzle/${escapeAttr(puzzle.id)}/grid/download-pdf" class="btn btn-sm btn-outline-secondary" download>Download PDF</a>
-                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" onclick="closePuzzleDetail()">Close</button>
-            </div>
-        `;
-    } catch (error) {
-        content.innerHTML = `<div class="alert alert-danger">Error: ${escapeHtml(error.message)}</div>`;
-    }
-}
-
-function escapeHtml(text) {
-    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function escapeAttr(text) {
-    return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
-function closePuzzleDetail() {
-    document.getElementById('puzzleDetailModal').classList.remove('is-open');
-}
-
-// Close when clicking the backdrop or pressing Escape
-window.addEventListener('click', function(event) {
-    if (event.target === document.getElementById('puzzleDetailModal')) closePuzzleDetail();
-});
-window.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') closePuzzleDetail();
-});
-</script>
+{{ puzzle_table.detail_modal() }}
 {% endblock %}

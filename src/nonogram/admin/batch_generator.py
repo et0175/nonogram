@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from enum import Enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import random
 
@@ -82,6 +82,7 @@ class BatchJob:
     sizes: Optional[List[int]] = None  # Store sizes for retry
     theme: Optional[str] = None  # Store theme for retry
     puzzle_count: int = 0  # Number of puzzles actually stored
+    source: Optional[str] = None  # "random" | "images"
 
     def __post_init__(self):
         """Set count alias after initialization."""
@@ -230,6 +231,7 @@ class BatchGenerator:
                 count=count,
                 sizes=sizes,
                 theme=theme,
+                source=source,
             )
             self.jobs[batch_id] = job
 
@@ -509,7 +511,79 @@ class BatchGenerator:
                     completed_at=batch.completed_at,
                     sizes=batch.sizes,
                     theme=batch.theme,
+                    source=batch.source,
                 )
+
+    @staticmethod
+    def _date_bounds(date_from: Optional[str], date_to: Optional[str]):
+        """``(first datetime, datetime after the last day)``, either ``None``.
+
+        Both ends are whole days and inclusive, the way the review list's
+        date filter reads them.
+
+        Raises:
+            ValueError: a date is not YYYY-MM-DD, or the range is inverted.
+        """
+        def parse(value):
+            if not value:
+                return None
+            try:
+                return datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(f"Invalid date {value!r} (use YYYY-MM-DD)") from None
+
+        start, end = parse(date_from), parse(date_to)
+        if start and end and start > end:
+            raise ValueError("Date from must be on or before date to")
+        return start, (end + timedelta(days=1)) if end else None
+
+    def list_batches(
+        self, date_from: Optional[str] = None, date_to: Optional[str] = None
+    ) -> List[BatchJob]:
+        """Every batch created within the date range, newest first.
+
+        Args:
+            date_from: First day included (YYYY-MM-DD), or None for no bound.
+            date_to: Last day included (YYYY-MM-DD), or None for no bound.
+
+        Raises:
+            ValueError: a date is not YYYY-MM-DD, or the range is inverted.
+        """
+        start, end = self._date_bounds(date_from, date_to)
+
+        if self._session_factory is None:
+            jobs = [
+                job for job in self.jobs.values()
+                if (start is None or job.created_at >= start)
+                and (end is None or job.created_at < end)
+            ]
+            return sorted(jobs, key=lambda job: job.created_at, reverse=True)
+
+        from nonogram.db.models import Batch
+
+        with self._session_factory() as db:
+            query = db.query(Batch)
+            if start is not None:
+                query = query.filter(Batch.created_at >= start)
+            if end is not None:
+                query = query.filter(Batch.created_at < end)
+            return [
+                BatchJob(
+                    batch_id=str(batch.id),
+                    status=BatchStatus(batch.status),
+                    total_count=batch.total_count,
+                    completed_count=batch.completed_count,
+                    puzzle_count=batch.puzzle_count,
+                    error_message=batch.error_message,
+                    created_at=batch.created_at,
+                    updated_at=batch.updated_at,
+                    completed_at=batch.completed_at,
+                    sizes=batch.sizes,
+                    theme=batch.theme,
+                    source=batch.source,
+                )
+                for batch in query.order_by(Batch.created_at.desc()).all()
+            ]
 
     def get_batch_puzzles(self, batch_id: str, offset: int = 0, limit: int = 25) -> Optional[List[dict]]:
         """Get puzzles from a completed batch (legacy or DB-backed).

@@ -1,0 +1,90 @@
+{% import '_icons.html' as icons %}
+{% extends "base.html" %}
+
+{% block title %}Batches - Nonogram admin{% endblock %}
+{% block section %}Batches{% endblock %}
+
+{% block content %}
+{% set date_query = 'date_from=' ~ (request.args.get('date_from', '')|urlencode) ~ '&date_to=' ~ (request.args.get('date_to', '')|urlencode) %}
+<div class="page-head">
+    <div>
+        <h1>Batches</h1>
+        <p class="lede">Every generation run, newest first. Open one to review its puzzles together.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2 class="card-title mb-0">Filters</h2></div>
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">Created from</label>
+                <input type="date" class="form-control" id="date_from" name="date_from"
+                       value="{{ request.args.get('date_from', '') }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">Created to</label>
+                <input type="date" class="form-control" id="date_to" name="date_to"
+                       value="{{ request.args.get('date_to', '') }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">{{ icons.icon('search') }} Apply</button>
+                <a href="/batches" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title mb-0">Batches <span class="badge count">{{ batches|length }}</span></h2>
+    </div>
+    <div class="card-body">
+        {% if batches %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Created</th>
+                        <th scope="col">Contents</th>
+                        <th scope="col">Source</th>
+                        <th scope="col" class="text-end">Sizes</th>
+                        <th scope="col" class="text-end">Puzzles</th>
+                        <th scope="col">Review</th>
+                        <th scope="col">Batch</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in batches %}
+                    {% set summary = summaries[job.batch_id] %}
+                    <tr>
+                        <td class="num">
+                            <a class="name" href="/batches/{{ job.batch_id }}?{{ date_query }}">{{ job.created_at.strftime('%Y-%m-%d %H:%M') if job.created_at else '—' }}</a>
+                        </td>
+                        <td>
+                            {% if summary.names %}{{ summary.names|join(', ') }}{% if summary.total > summary.names|length %}<span class="text-muted"> and {{ summary.total - summary.names|length }} more</span>{% endif %}
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                            <div class="subtle">{{ job.batch_id|first_n(8) }}</div>
+                        </td>
+                        <td>{{ job.source or '—' }}</td>
+                        <td class="text-end num">{{ (job.sizes or [])|join(', ') or '—' }}</td>
+                        <td class="text-end num"><strong>{{ summary.total }}</strong></td>
+                        <td>
+                            <div class="batch-counts">
+                                {% for status in ('draft', 'approved', 'rejected', 'in_book') if summary[status] %}
+                                <span class="badge" data-status="{{ status }}">{{ summary[status] }} {{ status|replace('_', ' ') }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td><span class="badge" data-status="{{ job.status.value }}">{{ job.status.value }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty">No batches{% if request.args.get('date_from') or request.args.get('date_to') %} in this date range. <a href="/batches">Show all</a>.{% else %} yet. <a href="/batch/create">Generate one</a>.{% endif %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

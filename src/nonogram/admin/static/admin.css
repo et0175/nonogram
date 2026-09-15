@@ -181,6 +181,17 @@ tr[data-status="rejected"] .thumb, tr[data-status="rejected"] .name { opacity: 0
 .name { font-weight: 600; color: inherit; text-decoration: none; }
 .name:hover { text-decoration: underline; }
 .subtle { font-size: var(--text-xs); color: var(--color-text-secondary); font-family: var(--font-mono); }
+.name-line { display: flex; align-items: center; gap: var(--space-1); }
+.btn-rename { --bs-btn-color: var(--color-text-secondary); --bs-btn-hover-color: var(--color-accent); --bs-btn-border-color: transparent; --bs-btn-hover-border-color: transparent; --bs-btn-bg: transparent; --bs-btn-hover-bg: transparent; --bs-btn-padding-y: 0.1rem; opacity: 0.6; }
+tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
+.rename-form { display: flex; align-items: center; gap: var(--space-1); min-width: 14rem; }
+.rename-form[hidden] { display: none; }
+
+/* ---------- Strategies & batch counts ---------- */
+.strategies { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.badge.strategy { text-transform: none; background: var(--color-surface-sunken); }
+.badge.strategy[data-strategy="guess"] { color: var(--color-warning); border-color: var(--color-warning); background: var(--color-warning-tint); }
+.batch-counts { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 
 /* ---------- Icon buttons & inline SVG icons ---------- */
 .icon { width: 1em; height: 1em; vertical-align: -0.125em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
