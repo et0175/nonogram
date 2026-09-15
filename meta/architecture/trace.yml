@@ -229,8 +229,8 @@ links:
     POL-001 / POL-005 live in COMP-002, the single enforcement point for
     INV-003 (ADR-0007). Bound: 30 attempts (ADR-0002/R1, CARD-090; was 20).
     AMENDED 2026-09-12: ADR-0024 (FR-025, redraw_then_repair) puts POL-006's
-    in-place repair AHEAD of this redraw for random mode — K=3 consecutive
-    repairs on one lineage, then POL-001 discards and redraws. Library mode
+    in-place repair AHEAD of this redraw for random mode — K consecutive
+    repairs on one lineage (K=5 since CARD-091; was 3), then POL-001 discards and redraws. Library mode
     still recovers by this redraw alone (ADR-0024/R5). The bound is unchanged
     and shared: repairs and redraws advance the one RetryCounter (ADR-0024/R2),
     which is why no test here changes; the FR-025 row carries the repair tests.
@@ -1191,7 +1191,7 @@ links:
     POL-006 RepairCandidateOnUniquenessFailure -> CMD-014 RepairCandidateGrid
     -> EVT-015 CandidateGridRepaired, always followed by a fresh CMD-005.
     COMP-002 owns all of it — the repair (ADR-0024/R3, R4: deterministic pair
-    choice, no rng draw), the K=3 lineage escape back to POL-001 redraw, and
+    choice, no rng draw), the K-repair lineage escape back to POL-001 redraw (K=5 since CARD-091), and
     the INV-002 acceptance gate (ADR-0024/R1) — because it is the single
     enforcement point for INV-003 (ADR-0007); K is a split of the one
     ADR-0002 bound, never a second one (ADR-0024/R2), which is why NFR-002's
