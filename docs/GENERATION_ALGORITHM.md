@@ -605,10 +605,15 @@ Runs `orchestrator.generate` once per requested puzzle — the same pipeline, re
 - **An abandoned candidate is skipped** (CARD-083): `GenerationAbandoned` from one puzzle is bad
   luck, not a broken batch. **`MAX_CONSECUTIVE_ABANDONMENTS` (3) in a row ends the batch** by
   raising `GenerationAbandoned` — at that rate the request is infeasible rather than unlucky.
-  That raise does **not** return the puzzles already made in the call; see §10 finding 9.
+  Every puzzle made before that stop has already been handed to the caller (below).
 - **`SolverTimeout` is not skipped.** It ends the batch, because swallowing it per candidate would
   leave a batch no time bound but its own clock. Whether a batch should survive a timeout too is
   CARD-083's open owner question.
+- **Each puzzle is handed over as it is made** (CARD-093): an optional `on_puzzle` callable is
+  called once per finished puzzle, before the next candidate starts. Both stopping exits raise,
+  and a worker killed mid-batch never returns at all, so a caller that stores from the return
+  value would lose everything made before a stop; a caller that stores from `on_puzzle` loses
+  nothing. The module stays ignorant of where puzzles go — the callable is the whole interface.
 - **The result** is an `orchestrator.BatchResult`: a `list` of puzzles carrying `abandoned` and
   `not_attempted` counts, and `stopped_early` when the clock rather than the count ended it. The
   two counts mean opposite things to whoever re-runs the batch — bad luck versus a request that
@@ -618,9 +623,12 @@ Runs `orchestrator.generate` once per requested puzzle — the same pipeline, re
   up the consecutive rule fires first).
 
 The admin's random batch (`admin.batch_generator.BatchGenerator._generate_random_batch`) calls it
-with `source="random"` and `difficulty_tier=None`, falls back to sizes `[15, 20, 25]` when the
-batch record has none, and stores the returned puzzles after the call. It writes the abandoned and
-not-attempted counts onto the batch record as two separate notes.
+with `source="random"`, `difficulty_tier=None` and its store step as `on_puzzle`, and falls back to
+sizes `[15, 20, 25]` when the batch record has none. A batch that stops early — three abandonments
+in a row, or a solver timeout — after making at least one puzzle ends **`COMPLETE`**, its puzzles
+stored, with a "stopped early" note giving the reason and how many were made; one that made nothing
+propagates the error and ends `ERROR`. The abandoned and not-attempted counts go onto the batch
+record as separate notes, as before.
 
 ### 9.2 Image batches
 
@@ -681,7 +689,8 @@ code. `tests/test_timeout.py` passed 17/17 on three consecutive runs.
 
 ### 10.2 Findings
 
-Findings 1–8 were raised in the 2026-09-12 review; 9 and 10 in the 2026-09-15 refresh. Each
+Findings 1–8 were raised in the 2026-09-12 review; 9 and 10 in the 2026-09-15 refresh; 9 was
+closed the same day by CARD-093. Each
 status was re-established on `41096cf` by re-running or re-reading the check.
 
 | # | Status | Severity | Finding | Where |
@@ -694,7 +703,7 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | 6 | **Closed** — `f3ba719` | Info — environment | `tests/test_sourcing_image.py` failed with `FileNotFoundError` because the `pictures/` corpus its trim criteria are measured over was not on `main`. The 25-image corpus was committed to `main` on 2026-09-12, so a fresh clone has it; CARD-087 then made the synthetic fixtures in `tests/fixtures/` match what their tests assert. Re-checked: 117 passed in a clean worktree. | `tests/test_sourcing_image.py` |
 | 7 | **Not reproduced** | Info — flaky | Two exit-code assertions in `tests/test_timeout.py` failed once in a large batch. CARD-070 could not reproduce it in five runs; this refresh passed 17/17 three times. Kept as a note, not a known flake. | `tests/test_timeout.py` |
 | 8 | **Open**, unchanged | Info — undocumented | Library mode at exactly 16×16 has no boundary cells, so a non-unique template spends 30 identical solves before abandoning (library mode never repairs). Documented only in the module docstring. | `sourcing.library` |
-| 9 | **Open** — new | Low — lost work | When `MAX_CONSECUTIVE_ABANDONMENTS` candidates in a row are abandoned, `generate_batch` raises, and the puzzles it had already produced in that call are discarded with the exception. The admin stores a random batch only after the call returns, so a 50-puzzle batch that abandons three in a row late loses everything it made. Rare at today's rates (1 abandonment in 100 requests at 30x30), but the loss is total when it happens. Recorded, not fixed (CARD-092 G-1). | `orchestrator.generate_batch`, `admin.batch_generator.BatchGenerator._generate_random_batch` |
+| 9 | **Closed** — CARD-093 | Low — lost work | When `MAX_CONSECUTIVE_ABANDONMENTS` candidates in a row were abandoned — or a candidate timed out — `generate_batch` raised, and the admin stored a random batch only after the call returned, so every puzzle already made was lost and the batch ended `ERROR`. Puzzles are now handed over through `on_puzzle` as they are made and stored at once; a batch that stops early with puzzles made ends `COMPLETE` with a note. The stopping rule itself is unchanged. | `orchestrator.generate_batch`, `admin.batch_generator.BatchGenerator._generate_random_batch` |
 | 10 | **Open** — new | Low — docstring drift | About fifteen comments and docstrings in `orchestrator` still describe the retry bound as 20 or a batch as up to 200 — among them `orchestrator.BatchResult`'s `abandoned` ("20 draws each"), `orchestrator._lineage_key` ("at most 20"), the `GENERATION_BUDGET_SECONDS` comment ("20 retries"), `orchestrator.generate`'s `Raises` section ("20 infeasible candidates"), and two comments inside `orchestrator.generate_batch` ("20 draws failed", "200 candidates x 30s"). The same `generate_batch` comment says 30x30 at density 50 "reaches the deadline rather than the retry bound", which CARD-091 measured no longer true (0 timeouts in 100). Code behaviour is correct; the prose is not. | `orchestrator` |
 
 ---
@@ -722,3 +731,4 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | 2026-09-13 | `064611c`, `3635ea4`, `5914b6d` | §6.5 solver ladder; §7 grade; §8.3 tier notes; finding 3 | §8 loop structure, §9 |
 | 2026-09-14 | `8ccbda9` (CARD-090) | the retry bound's value wherever cited | everything else |
 | 2026-09-15 | `41096cf` (CARD-092) | §8 rewritten for POL-006 repair and K; §9 rewritten for CARD-083/088 batches and re-verified for image batches; §10 findings re-established, 9 and 10 added; every code reference converted from line anchors to symbols and resolved by `meta/ops/check_doc_references.py`; §10's suites re-run | §7's measured distribution and §8.3's tier-by-density table predate repair and were not re-measured (both said so in place) |
+| 2026-09-15 | CARD-093 | §9.1 batch hand-off and early-stop status; finding 9 closed | everything else |
