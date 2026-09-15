@@ -50,13 +50,13 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-091** P2 · K was a guess ADR-0024 scheduled for measurement — measure it, and move it if the curve says so · `card/091-recalibrate-consecutive-repairs` · started 2026-09-15
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-091** P2 · K recalibrated from 3 to 5 — measured (30x30 95% → 99%, wall clock 329 s → 226 s) · merged without a review cycle, at the owner's call · merged b27435c
 - **CARD-090** P2 · The retry bound moves to 30 — measured at the knee of the curve (85% → 95% at 30x30) · merged without a review cycle, at the owner's call · merged 5d4bc3a
 - **CARD-089** P2 · The retry bound measured, and left at 20 · closed as a measurement, no code change · merged d575708
 - **CARD-088** P1 · A batch stops on its own clock, not on the worker's · merged without a review cycle, at the owner's call · merged 55d83a5

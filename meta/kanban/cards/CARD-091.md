@@ -1,6 +1,6 @@
 # CARD-091: K was a guess ADR-0024 scheduled for measurement — measure it, and move it if the curve says so
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-090 (merged 5d4bc3a) — the bound K splits is now 30
 **Touches:** src/nonogram/orchestrator.py (one constant), meta/architecture/decisions/adr/0024-random-mode-repair-then-redraw.md, meta/ops/retry_bound_sweep.py, tests/test_orchestrator.py, tests/property/test_recovery_bound.py
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-15
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** b27435c
 **Blocked by:** —
 
 ## Why
