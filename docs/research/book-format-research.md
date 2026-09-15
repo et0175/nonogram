@@ -22,6 +22,7 @@ This document checks each assumption against printing costs, page geometry, and 
 | Book size | 200+ puzzles | **100–150 puzzles, ~120–190 pages, $9.99–12.99** for a first book |
 | Size mix | 15 / 35 / 35 / 15 by cell count | Buckets overlap; bucket by **longest side** instead. A 30×30 cap is small for experienced solvers. |
 | Difficulty | 70 / 20 / 10 | Only makes sense for a book labelled "beginner". For a mixed book: ~30 / 45 / 25, or a series of single-level books. |
+| Very large grids (40×40–50×50) | Worth offering? | **Yes, but not in Book 1.** Challenge books advertise them and they show off image-based pictures, but cells drop to ~3–3.7 mm and the generator stops at 30×30 today (section 7). |
 | Easy puzzles in big books | Maybe not needed | **Yes, about 25%.** Reviewers of big books asked for *more* easy puzzles. What they punish is wrong difficulty labels, guessing, multiple solutions and poor print quality (section 5). |
 
 The admin panel's default book trim changed from 6×9 in to **8.5×11 in** as a result. (The old default was 15.24 × 22.86 cm, which is 6×9 in, not A5.)
@@ -196,7 +197,44 @@ Wide grids go on the page in portrait (e.g. 20 wide × 30 tall). For an enthusia
 - Titles advertise difficulty as a selling point ("Upper Intermediate to Hard", "Beginner to Master"). "Mostly easy" isn't something titles brag about.
 - "Easy / medium / hard" should come from what the solver measures, not from grid size: solvable by line logic alone (easy), needs shallow lookahead (medium), needs deeper lookahead (hard).
 
-## 7. Recommendation
+## 7. Very large grids: 40×40 to 50×50
+
+**Question:** should books go beyond 30×30, up to 40×40–50×50?
+
+**Short answer:** worth doing, but not in Book 1. They belong in a challenge book, or in the hardest section of a big book.
+
+### For
+
+- **Experienced solvers expect them.** Challenge books in the top 30 advertise grids up to 50×50: #5 (20×20–50×50), #13 (up to 50×50), #21 (up to 50×50), #26 (30×30–50×50), #30 (35×35–50×50). #8 prints its 40×40+ expert puzzles one per page, and its reviewer liked them best for the "more complex, satisfying image".
+- **Pictures get better.** A 1★ review of #9 complained about "simple symmetric pictures". Image-based pictures look far better at 40×40 than at 20×20, which is this generator's strength; a 30×30 cap hides it.
+
+### Against
+
+**Cells get small.** Same model as section 2: the drawing is ~1.3 × N cells across ~190 mm of usable 8.5×11 width.
+
+| Grid | Cell on 8.5×11 | Fit |
+|---|---|---|
+| 35×35 | 4.2 mm | ⚠️ |
+| 40×40 | 3.7 mm | ❌ |
+| 45×45 | 3.2 mm | ❌ |
+| 50×50 | 2.9 mm | ❌ |
+
+That's below the ~5 mm pencil threshold, and exactly what #18's 2★ "Very tiny squares. Not good for older people" review complains about. It rules these sizes out for beginner and large-print books. For experienced solvers with a fine pencil it's workable, but only with dark grid lines and clearly bolder 5×5 guides; at this size those decide whether a puzzle can be counted at all.
+
+**It's an engineering change, not a setting.**
+- `src/nonogram/limits.py` caps grids at `MAX_SIZE = 30`, and every layer checks against it.
+- The solver can take seconds on random mid-density 40×40+ grids, and its cooperative timeout isn't enforced yet. The generator retries up to 30 times per puzzle, and large pictures fail the one-solution check more often.
+- Difficulty grading was calibrated inside the current 10–30 range.
+- The PDF cell-size table (`src/nonogram/export/layout.py`) stops at 30×30. The 2 mm floor would still hold, but nothing is tuned for 35–50.
+
+### If you do it
+
+- **Tall rather than square.** Width is the tight side of a portrait page, so keep width at 35–40 and let height go to 45–50. A 40×50 prints at the same cell size as a 40×40 and still fits the page height.
+- **Keep them to the hardest section:** about 20–30% of a challenge book, one per page, never in a beginner or large-print book.
+- **Test first:** print one 40×40 and one 50×50 page at 8.5×11 and solve them with a pencil.
+- **Engineering order:** raise `MAX_SIZE`, then enforce the solver timeout, then recalibrate difficulty grading for the new sizes, then extend the PDF layout table to 35–50.
+
+## 8. Recommendation
 
 **Book 1:** 8.5×11 in (or 8×10), 100–150 puzzles, one per page, ~120–190 pages, $9.99–12.99, with a theme rather than a generic title.
 
@@ -222,11 +260,13 @@ Size × difficulty matrix for a mixed book (each cell is % of the book):
 
 **Later:**
 - A big book (250–400 puzzles, $14.99–16.99) only once Book 1 sells. Mix: ~25% easy (10×10–20×20, 2–4 per page), ~40% medium (20×20–25×25), ~35% hard (25×25–30×30+, one per page), in labelled sections ordered by difficulty.
+- A challenge book for experienced solvers: 8.5×11, up to 40 wide × 50 tall, with 40×40+ puzzles as the hardest 20–30%, one per page. Needs the engineering steps in section 7 first.
 - A 6×9 pocket edition with easy/medium puzzles up to 15×15.
 - Color nonograms as a separate product line.
 
 **Cheap checks before committing:**
 - Print one 25×25 page at 6×9 and at 8.5×11 and try solving it with a pencil.
+- Print one 40×40 and one 50×50 page at 8.5×11 and solve them with a pencil before building larger sizes.
 - Re-run the Amazon snapshot in a month to see which 2026 launches stayed ranked.
 
 ## Sources
