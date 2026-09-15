@@ -14,7 +14,7 @@ The admin panel needs a new "Book Scaffolding" workflow to let curators assemble
 
 ## Print Specifications (Constraints)
 
-- **Trim size (default):** 15.24 × 22.86 cm (A5, Amazon KDP standard)
+- **Trim size (default):** 21.59 × 27.94 cm (8.5 × 11 in, US Letter — Amazon KDP standard; was 15.24 × 22.86 cm / 6 × 9 in, previously mislabelled A5)
 - **Support unit conversion:** cm ↔ inches (1 in = 2.54 cm)
 - **Margins** (calculated per page count, implemented in Step 1.2):
   - Inside gutter margin
@@ -32,7 +32,7 @@ The admin panel needs a new "Book Scaffolding" workflow to let curators assemble
 
 **Acceptance Criteria:**
 - [ ] Print setup form allows input of trim width/height in cm or inches
-- [ ] Default trim size is 15.24 × 22.86 cm (A5)
+- [ ] Default trim size is 21.59 × 27.94 cm (8.5 × 11 in)
 - [ ] Unit preference (cm/inches) persists for the session
 - [ ] Form validates that trim size is within printable bounds (min 10×10 cm, max 30×48 cm)
 

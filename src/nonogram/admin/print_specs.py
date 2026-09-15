@@ -37,9 +37,10 @@ class PrintSpecValidator:
     MAX_TRIM_WIDTH_CM = 30.0
     MAX_TRIM_HEIGHT_CM = 48.0
 
-    # Default A5 trim size (cm)
-    DEFAULT_TRIM_WIDTH_CM = "15.24"
-    DEFAULT_TRIM_HEIGHT_CM = "22.86"
+    # Default trim size (cm): US Letter, 8.5 × 11 in — the dominant trim among
+    # top-selling nonogram books, and wide enough for 25×25–30×30 grids
+    DEFAULT_TRIM_WIDTH_CM = "21.59"
+    DEFAULT_TRIM_HEIGHT_CM = "27.94"
 
     @staticmethod
     def cm_to_inches(cm: str) -> str:
@@ -131,8 +132,8 @@ class PrintSpecValidator:
         """Create a print spec with validation.
 
         Args:
-            width_cm: Trim width in cm (defaults to A5 15.24 cm)
-            height_cm: Trim height in cm (defaults to A5 22.86 cm)
+            width_cm: Trim width in cm (defaults to 8.5 in, 21.59 cm)
+            height_cm: Trim height in cm (defaults to 11 in, 27.94 cm)
             gutter_margin_cm: Inside gutter margin in cm (optional)
             outside_margin_cm: Outside margin in cm (optional)
             outside_margin_bleed_cm: Outside margin with bleed in cm (optional)

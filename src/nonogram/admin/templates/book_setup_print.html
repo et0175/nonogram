@@ -59,7 +59,7 @@
                     </div>
 
                     <p class="mb-4">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDefaultSize()">Use the KDP default (6 × 9 in / 15.24 × 22.86 cm)</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDefaultSize()">Use the default (8.5 × 11 in / 21.59 × 27.94 cm)</button>
                     </p>
 
                     <div class="alert alert-secondary mb-4">
@@ -91,9 +91,10 @@
             <div class="card-body">
                 <table class="table table-sm mb-2">
                     <tbody>
+                        <tr><td><strong>8.5 × 11 in (Letter)</strong></td><td class="num">21.59 × 27.94 cm</td></tr>
+                        <tr><td><strong>8 × 10 in</strong></td><td class="num">20.32 × 25.40 cm</td></tr>
                         <tr><td><strong>6 × 9 in</strong></td><td class="num">15.24 × 22.86 cm</td></tr>
                         <tr><td><strong>A4</strong></td><td class="num">21 × 29.7 cm</td></tr>
-                        <tr><td><strong>Letter</strong></td><td class="num">21.6 × 27.9 cm</td></tr>
                     </tbody>
                 </table>
                 <p class="mb-0 small text-muted">Trim size is the page after cutting. Source: <a href="https://kdp.amazon.com/en_US/help/topic/G202145400" target="_blank" rel="noopener">Amazon KDP printing specs</a>.</p>
@@ -116,11 +117,11 @@ function setDefaultSize() {
     const heightInput = document.getElementById('height');
 
     if (unit === 'cm') {
-        widthInput.value = '15.24';
-        heightInput.value = '22.86';
+        widthInput.value = '21.59';
+        heightInput.value = '27.94';
     } else {
-        widthInput.value = '6.00';
-        heightInput.value = '9.00';
+        widthInput.value = '8.50';
+        heightInput.value = '11.00';
     }
 }
 </script>

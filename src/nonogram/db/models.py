@@ -85,8 +85,8 @@ class Book(Base):
     book_metadata = Column(JSON, nullable=False, default={})  # Stores: size, cover_image_url, pdf_url, kdp_asin
     status = Column(String, default='draft')  # 'draft', 'ready_for_pdf', 'pdf_generated', 'ready_for_kdp', 'published'
     # Print specifications (Step 1)
-    trim_width_cm = Column(String, nullable=True, default='15.24')  # stored as string for precision
-    trim_height_cm = Column(String, nullable=True, default='22.86')
+    trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
+    trim_height_cm = Column(String, nullable=True, default='27.94')
     gutter_margin_cm = Column(String, nullable=True)  # inside margin
     outside_margin_cm = Column(String, nullable=True)
     outside_margin_bleed_cm = Column(String, nullable=True)

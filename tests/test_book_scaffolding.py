@@ -82,8 +82,9 @@ class TestPrintSpecValidator:
         spec, error = PrintSpecValidator.create_spec()
         assert error is None
         assert spec is not None
-        assert spec.trim_width_cm == "15.24"
-        assert spec.trim_height_cm == "22.86"
+        # 8.5 × 11 in (US Letter)
+        assert spec.trim_width_cm == "21.59"
+        assert spec.trim_height_cm == "27.94"
 
     def test_create_spec_with_custom_values(self):
         """Test creating a spec with custom values."""
@@ -111,8 +112,8 @@ class TestPrintSpecValidator:
         spec, _ = PrintSpecValidator.create_spec()
         spec_dict = spec.to_dict()
 
-        assert spec_dict["trim_width_cm"] == "15.24"
-        assert spec_dict["trim_height_cm"] == "22.86"
+        assert spec_dict["trim_width_cm"] == "21.59"
+        assert spec_dict["trim_height_cm"] == "27.94"
         assert spec_dict["gutter_margin_cm"] is None
 
 
@@ -142,7 +143,7 @@ class TestBookScaffoldingFlow:
             height_cm=height_cm,
         )
         assert error is None
-        # Should be close to A5 size
+        # Should be 15.24 × 22.86 cm
         assert float(spec.trim_width_cm) == pytest.approx(15.24, abs=0.01)
         assert float(spec.trim_height_cm) == pytest.approx(22.86, abs=0.01)
 

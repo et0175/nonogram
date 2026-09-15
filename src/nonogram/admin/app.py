@@ -1635,8 +1635,8 @@ def create_app(debug=None):
                 flash(f"Error: {str(e)}", "error")
 
         # Prepare default trim size
-        default_width = "15.24"
-        default_height = "22.86"
+        default_width = PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM
+        default_height = PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM
         unit_preference = session.get("unit_preference", "cm")
 
         # Convert defaults to inches if that's the preference
@@ -1883,8 +1883,8 @@ def create_app(debug=None):
             "guess_count": guess_count,
             "page_count": max(1, len(puzzles_in_book) + 2),  # Cover + guide + puzzles
             "cover_uploaded": bool(session.get(f"book_{book_id}_cover_data")),
-            "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else "15.24",
-            "trim_height_cm": book.metadata.size.split("×")[1] if book.metadata.size and "×" in book.metadata.size else "22.86",
+            "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM,
+            "trim_height_cm": book.metadata.size.split("×")[1] if book.metadata.size and "×" in book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM,
         }
 
         return render_template("book_finalize.html", **context)
