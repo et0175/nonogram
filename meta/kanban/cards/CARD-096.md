@@ -1,6 +1,6 @@
 # CARD-096: Image-mode abandonment is measured and sorted by cause, so CARD-075 and CARD-079 have a baseline to beat
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler (measurement; no production code changes)
 **Estimate:** 0.5d
@@ -16,11 +16,11 @@
 **Depends on:** CARD-095 (merged) — whose probe surfaced the rate
 **Relates to:** **CARD-075** (ready since 2026-09-12, never started — mask-driven nudge) and **CARD-079** (ready, never started — threshold binarisation behind a switch, owner-gated on rendered grids)
 **Touches:** meta/ops/image_abandonment_sweep.py (new), meta/ops/image_abandonment_contact_sheet.py (new), this card
-**Review score:** —
+**Review score:** — (a measurement; merged at the owner's call)
 **Started:** 2026-09-15
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** ade79e8
 **Blocked by:** —
 
 ## Why

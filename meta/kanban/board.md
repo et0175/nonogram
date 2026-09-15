@@ -50,13 +50,13 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-096** P2 · Image-mode abandonment is measured and sorted by cause, so CARD-075 and CARD-079 have a baseline to beat · `card/096-image-abandonment-baseline` · started 2026-09-15
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
 _(none)_
 
 ## Done
+- **CARD-096** P2 · Image-mode abandonment measured by cause — admin loses 3-7 of 25 per preset; witnesses disagree on 4 cells in 27 of 34; CARD-075 revised from it · a measurement, merged at the owner's call · merged ade79e8
 - **CARD-095** P3 · An image batch stops on its own clock, as a random batch does — checked before every generate call, unstarted pictures stay loaded · merged without a review cycle, at the owner's call · merged d50bce7
 - **CARD-094** P3 · Nothing still says 20 attempts or 200 puzzles where it means the live bound; the image preview reads the real ceiling · merged without a review cycle, at the owner's call · merged 949471a
 - **CARD-093** P3 · A random batch that stops early keeps the puzzles it made — stored as made, COMPLETE with a note · merged without a review cycle, at the owner's call · merged 3a7f309
