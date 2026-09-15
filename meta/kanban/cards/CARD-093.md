@@ -129,3 +129,53 @@ does not do today but `generate_batch` accepts.
   reason and the counts, and `ERROR` only when nothing was produced. The
   alternative is `ERROR` with puzzles attached, which would show a batch as
   failed while its puzzles sit in the list.
+
+**Answered 2026-09-15:** Q-1 — option (a): `generate_batch` hands each finished
+puzzle to an optional callback and the admin stores it then. Q-2 — a batch that
+stopped early with puzzles stored ends `COMPLETE` with a note; `ERROR` only when
+nothing was produced.
+
+## Outcome
+
+- **`orchestrator.generate_batch(..., on_puzzle=None)`** calls `on_puzzle` once
+  per finished puzzle, immediately after it is made and before the next
+  candidate starts. Nothing else in the loop moved: the stopping rule, the
+  clock, the counts and both raises are exactly as CARD-083/088 left them
+  (AC-1, AC-5, G-1). An exception from the callable propagates. The module
+  imports nothing new (G-2; `tests/test_cli.py`'s import guard passes).
+- **`admin.batch_generator.BatchGenerator._generate_random_batch`** — its
+  per-puzzle store step (CARD-050's `None` quality fields, CARD-080's refusal
+  handling, the progress update) moved unchanged into a nested `store` passed
+  as `on_puzzle`. Around the call, `GenerationAbandoned` and `SolverTimeout`
+  are caught: with at least one puzzle made, the method records a
+  "stopped early" note (the reason, and "N of COUNT puzzles made") and returns
+  normally, so `create_batch` marks the batch `COMPLETE` (Q-2); with none made,
+  it re-raises and the batch ends `ERROR` as before (AC-4).
+- **The note** for a consecutive stop quotes the generator's own message, which
+  already says how many were produced and how many were not attempted; for a
+  timeout it says a candidate timed out. The abandoned / not-attempted notes are
+  read off `BatchResult` as before and are not written for a stopped batch,
+  whose result never arrived — the stop note carries those counts instead.
+- **Tests** (`tests/test_batch_keeps_partial_work.py`, 11): hand-off once per
+  puzzle in order; before the next candidate starts (the killed-worker
+  property); abandoned candidates not handed over; puzzles made before a
+  consecutive stop and before a timeout already handed over; the stopping rule
+  unchanged; admin stores 7 of 20 and completes with a note on both exits;
+  a batch that made nothing is still `ERROR`; a clean batch has no note; the
+  database record agrees. Written first: 9 failed before the change, for the
+  right reason, and the 2 that passed were the two behaviours that must not
+  change.
+- **Mutation check.** Dropping the `on_puzzle` call: 9 of 11 fail. Making the
+  admin always re-raise: 3 fail. Both restored from saved copies.
+- **Existing fakes.** Seven `generate_batch` stand-ins in
+  `tests/test_admin_uniqueness_boundary.py` returned a list without calling
+  back, so under the new contract they would have stored nothing. They now use
+  one `_delivering(n)` helper that hands each candidate over and returns them,
+  as the real function does. No assertion in those tests changed.
+- **Doc.** §9.1 describes the hand-off and the early-stop status; finding 9 is
+  closed with this card; the refresh log has a row. Reference checker: 205
+  resolved, 0 failed.- **Full suite:** 3,413 passed, 26 skipped, 0 failed, with the two admin-markup
+  tests already failing on untouched main deselected
+  (`test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own`,
+  `test_size_configuration_applied`).
+

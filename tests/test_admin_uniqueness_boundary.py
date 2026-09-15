@@ -624,6 +624,25 @@ def _candidate():
     )
 
 
+def _delivering(count: int):
+    """A stand-in for ``orchestrator.generate_batch`` that keeps its contract.
+
+    Since CARD-093 the admin stores each puzzle from ``on_puzzle`` as the batch
+    makes it, not from the returned list — so a fake that only returned a list
+    would store nothing and every assertion below would be about an empty
+    batch. It hands each candidate over, then returns them, as the real one does.
+    """
+
+    def fake(*, on_puzzle=None, **kwargs):
+        puzzles = [_candidate() for _ in range(count)]
+        for puzzle in puzzles:
+            if on_puzzle is not None:
+                on_puzzle(puzzle)
+        return puzzles
+
+    return fake
+
+
 def _run_batch(monkeypatch, *, count: int, refuse_at: set):
     from nonogram import orchestrator as orchestrator_module
     from nonogram.admin.batch_generator import BatchGenerator, BatchJob, BatchStatus
@@ -631,7 +650,7 @@ def _run_batch(monkeypatch, *, count: int, refuse_at: set):
     monkeypatch.setattr(
         orchestrator_module,
         "generate_batch",
-        lambda **kwargs: [_candidate() for _ in range(count)],
+        _delivering(count),
     )
     store = _StoreThatRefusesChosenCandidates(refuse_at)
     generator = BatchGenerator(puzzle_review_service=store)
@@ -721,7 +740,7 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         monkeypatch.setattr(
             orchestrator_module,
             "generate_batch",
-            lambda **kwargs: [_candidate() for _ in range(12)],
+            _delivering(12),
         )
         generator = BatchGenerator(
             puzzle_review_service=_StoreThatRefusesChosenCandidates({4})
@@ -771,7 +790,7 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         monkeypatch.setattr(
             orchestrator_module,
             "generate_batch",
-            lambda **kwargs: [_candidate() for _ in range(8)],
+            _delivering(8),
         )
         generator = BatchGenerator(
             puzzle_review_service=_StoreThatRefusesChosenCandidates(set())
@@ -801,7 +820,7 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         monkeypatch.setattr(
             orchestrator_module,
             "generate_batch",
-            lambda **kwargs: [_candidate() for _ in range(8)],
+            _delivering(8),
         )
         generator = BatchGenerator(
             puzzle_review_service=_StoreThatRefusesChosenCandidates({3})
@@ -831,7 +850,7 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         monkeypatch.setattr(
             orchestrator_module,
             "generate_batch",
-            lambda **kwargs: [_candidate() for _ in range(10)],
+            _delivering(10),
         )
         generator = BatchGenerator(
             puzzle_review_service=_StoreThatRefusesChosenCandidates(set())
@@ -876,7 +895,7 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         monkeypatch.setattr(
             orchestrator_module,
             "generate_batch",
-            lambda **kwargs: [_candidate() for _ in range(3)],
+            _delivering(3),
         )
         generator = BatchGenerator(
             puzzle_review_service=_StoreThatRefusesChosenCandidates({2}),
@@ -918,7 +937,7 @@ class TestBatchGenerator_SaysOutLoudWhenTheStoreRefusedACandidate:
         monkeypatch.setattr(
             orchestrator_module,
             "generate_batch",
-            lambda **kwargs: [_candidate() for _ in range(3)],
+            _delivering(3),
         )
         generator = BatchGenerator(
             puzzle_review_service=_StoreThatRefusesChosenCandidates(set()),

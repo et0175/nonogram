@@ -1877,6 +1877,7 @@ def generate_batch(
     difficulty_tier: str | None = None,
     budget_seconds: float = BATCH_BUDGET_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
+    on_puzzle: Callable[[Puzzle], None] | None = None,
 ) -> BatchResult:
     """Generate multiple puzzles using the standard generation pipeline.
 
@@ -1896,6 +1897,16 @@ def generate_batch(
             any difficulty. ``None`` is the only way to say "any": an empty
             string is a tier name that does not exist and is refused, the same
             answer :func:`generate` gives it.
+        on_puzzle: Called once with each puzzle as soon as it is made, before
+            the next candidate starts (CARD-093). A caller that stores puzzles
+            should store them here rather than from the return value: both
+            stopping exits below *raise*, so a batch that stops early never
+            returns, and a worker killed mid-batch never returns either. With
+            this callable the work done before any of those is already the
+            caller's. It is a plain callable so this module stays ignorant of
+            where puzzles go (ADR-0007); an exception it raises propagates and
+            ends the batch, because a store that is failing is the caller's
+            to handle, not a candidate to skip.
 
     Returns:
         Successfully generated Puzzle objects, with full metadata (difficulty
@@ -2055,6 +2066,8 @@ def generate_batch(
 
         consecutive_abandonments = 0
         puzzles.append(puzzle)
+        if on_puzzle is not None:
+            on_puzzle(puzzle)
 
     puzzles.abandoned = abandoned
     puzzles.not_attempted = not_attempted

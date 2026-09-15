@@ -16,7 +16,7 @@ import logging
 
 from nonogram import orchestrator
 from nonogram.orchestrator import MAX_BATCH_COUNT
-from nonogram.errors import NotUniquelySolvable
+from nonogram.errors import GenerationAbandoned, NotUniquelySolvable, SolverTimeout
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 #: CARD-080: a refused candidate is logged here at error level. It means
@@ -333,20 +333,25 @@ class BatchGenerator:
                 # below on why random-mode quality_score is None rather
                 # than a fabricated number.
 
-        # Generate real puzzles using the orchestrator pipeline
-        puzzles = orchestrator.generate_batch(
-            count=count,
-            sizes=sizes,
-            source="random",
-            difficulty_tier=None,  # Accept any difficulty
-        )
-
         # Store each puzzle
         puzzle_count = 0
         # CARD-080: candidates the store refused. Should always be 0; when it
         # is not, it is carried onto the batch record below so somebody sees it.
         refused_count = 0
-        for i, puzzle in enumerate(puzzles):
+        # Puzzles the generator has handed over so far, stored or refused.
+        made = 0
+
+        def store(puzzle) -> None:
+            """Store one puzzle the moment the generator has made it (CARD-093).
+
+            Called from inside ``orchestrator.generate_batch`` rather than over
+            its return value, because the batch does not always return: three
+            abandonments in a row and a solver timeout both raise, and a worker
+            killed mid-batch never gets that far either. Storing here means the
+            work done before any of those is already in the store.
+            """
+            nonlocal puzzle_count, refused_count, made
+            made += 1
             # CARD-050 (AC-2, option 3b): random-mode puzzles have no source
             # picture to measure fidelity against, so quality_metric.measure_
             # quality() (an image-comparison metric) does not apply here —
@@ -408,7 +413,31 @@ class BatchGenerator:
                 job.updated_at = datetime.utcnow()
             else:
                 # DB mode: update completed_count after each puzzle
-                self._update_batch_status(batch_id, completed_count=i + 1)
+                self._update_batch_status(batch_id, completed_count=made)
+
+        # Generate real puzzles using the orchestrator pipeline, storing each as
+        # it arrives.
+        #
+        # A batch that stops early is not a failed batch once it has made
+        # something (CARD-093, owner Q-2): the puzzles are real and already
+        # stored, so it completes, and a note says why it stopped and how far it
+        # got. CARD-083's stopping rule still stops it — this only decides what
+        # happens to the work before the stop. With nothing made, the exception
+        # propagates and create_batch marks the batch ERROR exactly as before.
+        stopped_by: Exception | None = None
+        try:
+            puzzles = orchestrator.generate_batch(
+                count=count,
+                sizes=sizes,
+                source="random",
+                difficulty_tier=None,  # Accept any difficulty
+                on_puzzle=store,
+            )
+        except (GenerationAbandoned, SolverTimeout) as stop:
+            if made == 0:
+                raise
+            stopped_by = stop
+            puzzles = None
 
         # Final update with puzzle count, plus — when the store refused
         # anything — a note saying so on the batch record itself.
@@ -428,18 +457,34 @@ class BatchGenerator:
         # "missing puzzles" number, because an owner who cannot tell them apart
         # learns nothing from either.
         notes = []
+        if stopped_by is not None:
+            reason = (
+                "a candidate timed out in the solver"
+                if isinstance(stopped_by, SolverTimeout)
+                else f"{stopped_by}"
+            )
+            notes.append(
+                f"This batch stopped early with {made} of {count} puzzles made: "
+                f"{reason}. The {made} it made are kept (CARD-093); re-run for "
+                f"the rest, and if it stops again the size or the request is "
+                f"the problem rather than luck."
+            )
         # Two different shortfalls, and they mean opposite things to whoever
         # reads this: an abandoned candidate is bad luck and a re-run may do
         # better, while a batch stopped by its own clock will stop in the same
         # place every time. Read off the result rather than inferred from
         # `count - len(puzzles)`, which cannot tell them apart (CARD-088).
-        abandoned_count = getattr(puzzles, "abandoned", count - len(puzzles))
-        not_attempted = getattr(puzzles, "not_attempted", 0)
+        # A stopped batch has no result to read these from; its note above
+        # already carries the counts the generator's message gives.
+        abandoned_count = (
+            0 if puzzles is None else getattr(puzzles, "abandoned", count - len(puzzles))
+        )
+        not_attempted = 0 if puzzles is None else getattr(puzzles, "not_attempted", 0)
         if abandoned_count:
             notes.append(
                 f"{abandoned_count} of {count} candidates could not be made "
                 f"uniquely solvable within the retry budget and were skipped, "
-                f"so this batch has {len(puzzles)} puzzles rather than {count}. "
+                f"so this batch has {made} puzzles rather than {count}. "
                 f"That is expected occasionally — it is how a random grid can "
                 f"come out — and the batch was kept rather than discarded "
                 f"(CARD-083). Re-run if you need the full count."
@@ -455,7 +500,7 @@ class BatchGenerator:
             )
         if refused_count:
             notes.append(
-                f"{refused_count} of {len(puzzles)} generated candidates were refused "
+                f"{refused_count} of {made} generated candidates were refused "
                 "by the store as not uniquely solvable and are not in this batch. "
                 "Every candidate came through orchestrator.generate, which enforces "
                 "INV-002, so this is a bug in the generation path rather than a "
