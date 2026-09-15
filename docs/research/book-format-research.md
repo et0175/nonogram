@@ -22,6 +22,7 @@ This document checks each assumption against printing costs, page geometry, and 
 | Book size | 200+ puzzles | **100–150 puzzles, ~120–190 pages, $9.99–12.99** for a first book |
 | Size mix | 15 / 35 / 35 / 15 by cell count | Buckets overlap; bucket by **longest side** instead. A 30×30 cap is small for experienced solvers. |
 | Difficulty | 70 / 20 / 10 | Only makes sense for a book labelled "beginner". For a mixed book: ~30 / 45 / 25, or a series of single-level books. |
+| Easy puzzles in big books | Maybe not needed | **Yes, about 25%.** Reviewers of big books asked for *more* easy puzzles. What they punish is wrong difficulty labels, guessing, multiple solutions and poor print quality (section 5). |
 
 The admin panel's default book trim changed from 6×9 in to **8.5×11 in** as a result. (The old default was 15.24 × 22.86 cm, which is 6×9 in, not A5.)
 
@@ -130,13 +131,53 @@ Outside the top 30: Djape's *The Massive Book of Picross* (600+ puzzles, 440 pag
 5. **Color is a real segment.** 5–6 of the top 30 are color nonograms. The generator is black-and-white only, and color interiors cost much more on KDP. A possible later niche.
 6. **Crowding and themes.** 11 books launched in 2026, mostly "large print", have no sales rank yet. Themed books do stand out: a murder mystery is #1; "Around the World", "Cats & Dogs" and "Animals" also chart.
 
-## 5. The assumptions, reviewed
+## 5. Reader reviews of big books
+
+**Question:** do big books need easy puzzles, or do easy puzzles feel like filler to the people who buy 300+ puzzles?
+
+**Method.** Written reviews of the four big books in the top 30, collected 2026-09-15: #4 The Big Book of Picross (406 puzzles, 4.7★), #8 400 Challenging Puzzles (4.6★), #9 Beginner to Master 300+ (4.0★), #18 Beginner to Master 450+ (3.9★). That's 50 reviews: 12, 11, 10 and 17.
+
+**Caveats.**
+- Amazon shows only ~10–17 written reviews per book, a mix of top and critical ones, so this is not a random sample.
+- Several 5★ reviews of #9 and #18 look unreliable: generic wording, many posted on the same day, some in Spanish. The critical reviews carry more weight here.
+
+### Difficulty
+
+| Book | What reviewers said |
+|---|---|
+| #4 Big Book (406) | 1★ "Not enough small puzzles." 1★ only the small puzzles are doable, and there aren't many. 1★ "Far too easy", all levels "as easy as each other". 2★ wants a hint page for when "even seasoned players get stuck". 4★ notes some small ones are "real simple", without complaint. |
+| #8 400 puzzles | A 4★ reviewer counted **96 easy / 90 medium / 90 hard / 124 expert (24 / 22 / 22 / 31%)** and called the levels reasonable. Easy: 10×10–20×20, 6 per page. Expert: 40×40+, one per page. 2★ "Not enough easy ones." An experienced 5★ solver used the easy ones as "time killers". |
+| #9 300+ puzzles | 1★ "WAY too easy… regardless of level": simple symmetric pictures, and labels that don't match. The same review and a 3★ complain about puzzles that need guessing, with "no starting points". |
+| #18 450+ puzzles | Difficulty is barely mentioned. The low rating comes from print quality. |
+
+### Puzzle quality and print
+
+| Complaint | Where | Reviews |
+|---|---|---|
+| Faint grid lines, hard to count squares | #18 | 7 of 17 |
+| Tiny squares; "less puzzles but enlarged" would be better | #18 | 2 |
+| A puzzle with more than one solution | #18 | 1 (1★) |
+| Puzzles that need guessing | #9 | 2 |
+| 5×5 guide lines not thicker than the rest | #8 | 1 |
+| Misprinted clues, duplicated puzzles | #8 | 2 |
+| Thin paper, ink bleeds through | #4 | 2 |
+| Picture name printed on the puzzle page "feels like a cheat" | #4 | 1 |
+
+### What the reviews say
+
+1. **Easy puzzles don't hurt a big book.** Three reviews asked for more easy or small puzzles. The two "too easy" complaints were about labels that don't match the puzzles, not about the share of easy ones. #8's split of roughly a quarter per level drew no complaints about the mix.
+2. **Labels must match the real difficulty.** Grading by what the solver needs, not by grid size, answers exactly this.
+3. **Guessing is a dealbreaker.** "You should not have to guess in these puzzles." Keep guess-tier puzzles out of books.
+4. **One solution per puzzle is a selling point.** The generator's solver already guarantees it; say so on the cover and in the description.
+5. **Print quality drives the worst ratings.** Dark grid lines, bold 5×5 guides and a minimum cell size matter more than the difficulty mix.
+
+## 6. The assumptions, reviewed
 
 ### Size mix (15 / 35 / 35 / 15 by cell count)
 
 - **The buckets overlap.** 20×20 (400 cells) is in both b and c; 600–625 cells is in both c and d. And 30×20 (600) lands in c while 25×25 (625) lands in d, although the 30-wide grid is harder to fit.
 - **Cell count is the wrong measure.** Page fit depends on the longest side, because that sets the width of the clue band. 10×20 and 14×14 both have ~200 cells but lay out very differently.
-- **Size and difficulty aren't independent.** A 10×10 is almost never hard, and a 30×30 "easy" is tedious rather than easy. Plan them together (section 6).
+- **Size and difficulty aren't independent.** A 10×10 is almost never hard, and a 30×30 "easy" is tedious rather than easy. Plan them together (section 7).
 
 Suggested mix for an 8.5×11 book, by longest side:
 
@@ -151,11 +192,11 @@ Wide grids go on the page in portrait (e.g. 20 wide × 30 tall). For an enthusia
 
 ### Difficulty mix (70 / 20 / 10)
 
-- Beginners tend to buy books labelled "easy" or "for beginners". A mixed book is mostly bought by people who already know nonograms, and 70% easy invites "too easy" reviews. That part is a hypothesis; review texts weren't analysed.
+- Beginners tend to buy books labelled "easy" or "for beginners". A mixed book is mostly bought by people who already know nonograms, and 70% easy risks "too easy" reviews. The big-book reviews (section 5) show the opposite risk too: readers complain when there are too *few* easy puzzles. About a quarter is the safe range.
 - Titles advertise difficulty as a selling point ("Upper Intermediate to Hard", "Beginner to Master"). "Mostly easy" isn't something titles brag about.
 - "Easy / medium / hard" should come from what the solver measures, not from grid size: solvable by line logic alone (easy), needs shallow lookahead (medium), needs deeper lookahead (hard).
 
-## 6. Recommendation
+## 7. Recommendation
 
 **Book 1:** 8.5×11 in (or 8×10), 100–150 puzzles, one per page, ~120–190 pages, $9.99–12.99, with a theme rather than a generic title.
 
@@ -173,8 +214,14 @@ Size × difficulty matrix for a mixed book (each cell is % of the book):
 | 21–25 | 5 | 15 | 10 |
 | 26–30 | – | 5 | 10 |
 
+**Rules for every book** (from the reviews):
+- No guess-tier puzzles; every puzzle has exactly one solution, and the description says so.
+- Difficulty labels come from the solver, not from grid size.
+- Dark grid lines, clearly bolder 5×5 guide lines, and a minimum cell size.
+- Picture titles only in the answer key, not on the puzzle page.
+
 **Later:**
-- A big book (250+ puzzles, $14.99–16.99) only once Book 1 sells.
+- A big book (250–400 puzzles, $14.99–16.99) only once Book 1 sells. Mix: ~25% easy (10×10–20×20, 2–4 per page), ~40% medium (20×20–25×25), ~35% hard (25×25–30×30+, one per page), in labelled sections ordered by difficulty.
 - A 6×9 pocket edition with easy/medium puzzles up to 15×15.
 - Color nonograms as a separate product line.
 
