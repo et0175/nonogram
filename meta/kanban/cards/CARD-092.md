@@ -1,6 +1,6 @@
 # CARD-092: The generation algorithm reference describes the loop the code actually runs
 
-**Status:** in progress
+**Status:** done
 **Priority:** P3
 **Category:** docs
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-091 (merged b27435c) — the last change to the loop this documents
 **Touches:** docs/GENERATION_ALGORITHM.md, meta/ops/check_doc_references.py (new — AC-4's repeatable check)
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-15
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 50ba053
 **Blocked by:** —
 
 ## Why
