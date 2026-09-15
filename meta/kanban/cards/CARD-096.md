@@ -145,3 +145,129 @@ or shrunk it.
 ## Open questions for the owner
 
 None before starting — the decisions this card exists to inform come at AC-5.
+
+## Outcome
+
+Run on `main` at `45c8a94`, machine otherwise idle:
+`PYTHONPATH=src python meta/ops/image_abandonment_sweep.py` (all 25 pictures, sizes
+10/15/20/25/30, presets small/medium/large/auto).
+
+### AC-1 / AC-3 — the engine, with the original conversion's ambiguity
+
+| size | made | first try | after nudges | abandoned | timed out | small residual | widespread |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 10 | 19 | 16 | 3 | 6 | 0 | 4 | 2 |
+| 15 | 21 | 14 | 7 | 4 | 0 | 0 | 4 |
+| 20 | 17 | 16 | 1 | 8 | 0 | 2 | 6 |
+| 25 | 16 | 15 | 1 | 8 | 1 | 3 | 5 |
+| 30 | 16 | 15 | 1 | 8 | 1 | 2 | 6 |
+
+Fails at every size: `butterfly.png`, `cat_Mouse.png`, `dear.png`.
+
+**The threshold is a share, and the data drew it.** The grids run from 100 to 900
+cells, so the count of undecided cells is not comparable across sizes; the share
+is. Sorted, the 34 abandonments' undecided shares are
+`1.8 2.0 2.1 3.5 4.0 4.0 4.0 4.0 4.8 5.4 8.0 | 22.5 29.3 … 100.0` — nothing
+between 8.0% and 22.5%. Small residual is set at **≤ 15% of the grid**: 11
+abandonments, 23 widespread.
+
+**The finding the scoping probe could not see.** The scoping numbers were read
+off the *last* nudge's candidate. On the original conversion, the cells the
+solver's two witnesses actually disagree on are **4 in 27 of the 34
+abandonments** — one 2x2 block that can be drawn either way — and never more
+than 24, even where line logic leaves 97% of the grid undecided. The undecided
+share measures how hard the picture is for line logic; the disagreement measures
+how far it is from unique. Nearly every abandoned picture is **one ambiguous
+block away** from a puzzle, and today's nudge ranking is not finding the block.
+
+### AC-2 — what the owner sees in the admin
+
+| preset | made at its size | made at a neighbour | abandoned | timed out | lost |
+|---|---:|---:|---:|---:|---:|
+| small | 19 | 3 | 3 | 0 | **3 / 25** |
+| medium | 17 | 3 | 5 | 0 | **5 / 25** |
+| large | 16 | 2 | 6 | 1 | **7 / 25** |
+| auto | 16 | 2 | 6 | 1 | **7 / 25** |
+
+The columns are exclusive and sum to 25. "Made at a neighbour" is what CARD-062's
+retry recovered after the preset's own extent was abandoned.
+
+### AC-4 — the contact sheets
+
+14 sheets, one per picture that failed at some size, rendered to
+`/Users/omelnikova/PycharmProjects/CARD-096-contact-sheets/` (outside the repo,
+not committed). Each shows the source, then the original conversion at each
+failing size with undecided cells tinted. What looking at them adds, which no
+number above says:
+
+- **Most widespread failures are dark-grey silhouettes, not busy pictures.**
+  `dear1` (a fawn) and `wolf_face` are drawn in dark grey rather than black;
+  Floyd–Steinberg dithers the grey into a black/white checkerboard, and the
+  silhouette dissolves into exactly the scattered cells a nonogram cannot pin
+  down. `dear` is a clean black silhouette carrying a grey **"Pikbest"
+  watermark** — the dithered watermark *is* its widespread ambiguity.
+  `cat_dog` and `frog1` speckle along thin parts. All of this is CARD-079's
+  stated mechanism, visible.
+- **Three pictures are outside image mode's calibrated scope** (CON-013:
+  high-contrast silhouettes): `cat_Mouse` is line art (a colouring page),
+  `butterfly` is intricate line work, `zebra` is a photograph with a fake
+  transparency checkerboard baked in.
+- **Fidelity, not only reachability, is poor on the failures.** At 16x20
+  `wolf_face` is unrecognisable. Whether *made* puzzles look this way too was
+  not in scope and was not checked.
+
+### Experiments — what each card would buy (scratch, not committed)
+
+Neither card's code. Three scratch scripts over the 36 dither failures (34
+abandonments and 2 timeouts), recorded here so the numbers can be challenged:
+
+1. **Flip inside the witness disagreement** — solve; while not unique and fewer
+   than 5 flips, flip the first cell (row-major) where the two witnesses differ;
+   cumulative, like the nudge. **19 of 34 abandonments become unique**, 7 with one
+   flip; 10 of the 11 small-residual failures. Today's nudge rescued 0 of these.
+2. **50% threshold instead of dithering** — `sourcing.image.binarize` swapped for
+   the same LANCZOS resize followed by a plain threshold at 128, through the real
+   `orchestrator.generate` with today's nudge. **19 of 36 made** — a different 19:
+   all five `cat_Mouse` sizes, every `eagle-silhouette1` size, `dear1` at 20/25.
+3. **Both** — threshold conversion, then disagreement flips. **32 of 36 unique.**
+   Still lost: `butterfly` at 10 and 30, `dear` at 20 and 25. Every failure
+   either experiment rescued alone, the combination rescues too.
+
+**What the experiments do not show, and why they are not a decision:**
+
+- **Regressions.** They ran only on pictures dithering *fails*. A threshold
+  changes every conversion, so it may break some of the 101 conversions dither
+  makes today. Unmeasured.
+- **Fidelity.** "Unique" is not "recognisable". `cat_Mouse` made at every size
+  from line art may be dots. This is CARD-079's owner gate, and it is binding.
+- **The flip rule** is the crudest one (first differing cell). CARD-075's own
+  ranking may do better or worse; its cap of 5 was respected.
+- **No admin retry** was layered on top, so the admin-level gain is unknown.
+
+### AC-5 — recommendation (the owner decides)
+
+1. **Take CARD-075 first.** It is the safe lever: the nudge only runs on a
+   conversion that is *not* unique, so it cannot change a puzzle that is made
+   today, and experiment 1 says it could recover roughly half of the
+   abandonments within the existing 5-cell cap.
+2. **But revise CARD-075 before it starts.** Its text draws cells from the
+   *undecided mask* first and the witness-disagreement set only "when present".
+   The data says the other way round: the disagreement is 4 cells where the mask
+   is a median 35% of the grid, so the disagreement set should be the primary
+   source and the mask the fallback. It was also written before CARD-074's
+   repair (which already works from the disagreement set in random mode),
+   CARD-090's bound and CARD-091's K.
+3. **Then CARD-079, as it is written** — owner-gated on side-by-side renders of
+   every corpus picture. Experiments 2 and 3 say it is the bigger lever (with
+   flips, 32 of 36), and the contact sheets show why: dithered dark-grey
+   silhouettes and watermarks. Its AC-127 must now also count **regressions on
+   pictures dither already makes**, which its current text does not ask for.
+4. **Say plainly what image mode is not for.** Line art, intricate line work and
+   photographs fail and will keep failing, and the owner's corpus contains all
+   three. Whether the admin should warn on upload (CON-013 already scopes image
+   mode to silhouettes) is a product question, not a fix.
+
+- **G-1..G-5 held.** Nothing under `src/` or `tests/` changed; `pictures/` was
+  read only — a stray symlink my own `ln` created inside the worktree's copy was
+  removed at once and never committed; CARD-075 and CARD-079 are untouched.
+
