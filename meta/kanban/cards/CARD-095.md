@@ -1,6 +1,6 @@
 # CARD-095: An image batch stops on its own clock, as a random batch does
 
-**Status:** in progress
+**Status:** done
 **Priority:** P3
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-088 (merged) — the batch clock this reuses; CARD-086 (merged) — gunicorn's 120 s timeout
 **Touches:** src/nonogram/admin/app.py (the image-batch generate route, `_generate_image_puzzle`), a new test module, docs/GENERATION_ALGORITHM.md (§9.2)
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-15
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** d50bce7
 **Blocked by:** —
 
 ## Why
