@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-091 (merged b27435c) — the last change to the loop this documents
-**Touches:** docs/GENERATION_ALGORITHM.md only
+**Touches:** docs/GENERATION_ALGORITHM.md, meta/ops/check_doc_references.py (new — AC-4's repeatable check)
 **Review score:** —
 **Started:** 2026-09-15
 **Closed:** —
@@ -105,3 +105,73 @@ that succeeds 38% of the time at 30x30 where the real one succeeds 99%.
   symbol first with the line as of the stated commit. Proposed: **(a)**, with
   line ranges kept only where a symbol is too large to be a useful pointer (the
   solver's search loop). AC-4's script checks whichever form is chosen.
+
+**Answered 2026-09-15:** Q-1 — "take option a": symbol references, with line
+ranges kept only where a symbol is too large to be a useful pointer.
+
+## Outcome
+
+`docs/GENERATION_ALGORITHM.md` rewritten against `41096cf` (565 → 724 lines).
+
+- **AC-1.** §8 is now *Recovery policies*: a counter table (regenerate / resample
+  / nudge, plus K as a split rather than a bound), §8.1 redraw, **§8.2 repair
+  then redraw** (region and fallback, flip, pair choice, re-verify, the K escape,
+  the one budget, the K=0 rollback switch, cycling counted not acted on, what
+  `RecoveryLog` records), §8.3 resample, §8.4 nudge, §8.5 never retried. §1, §2's
+  pipeline diagram and §11's Retry row say the same thing.
+- **AC-2.** §9 split into §9.1 `generate_batch` (count 1..50, the 75 s clock read
+  before each candidate, skip-on-abandonment, 3-in-a-row raises, `SolverTimeout`
+  ends the batch as CARD-083's open question, `BatchResult`'s counters, the two
+  empty-result messages) and §9.2 image batches, re-verified against
+  `admin/image_manager.py` and `admin/app.py`. What had drifted there was detail,
+  not substance: square extents only move toward the picture's shape, neighbour
+  ties go to the smaller extent, the fit share is an integer cross-product, `min`
+  is a size mode but not a preset, and the random batch falls back to sizes
+  `[15, 20, 25]`.
+- **AC-3.** Every finding re-established on this tree rather than copied:
+
+  | # | status | evidence |
+  |---|---|---|
+  | 1 | closed (CARD-070) | `generate_batch(count=1, sizes=[10], difficulty_tier="Easy")` returns a puzzle |
+  | 2 | open (CARD-078) | density 0 and 100 → `ready_for_export=True`, score 33.0, `easy` |
+  | 3 | closed (CARD-076) | `difficulty.SolverSignals` has no `elapsed_seconds` |
+  | 4 | closed (CARD-070) | the `DENSITY_TOLERANCE_POINTS` comment now says the loop never reads it |
+  | 5 | closed (CARD-070) | `tests/test_nudge.py` passes |
+  | 6 | closed (`f3ba719`) | 117 passed in a clean worktree |
+  | 7 | not reproduced | `tests/test_timeout.py` 17/17 three times |
+  | 8 | open, unchanged | — |
+
+  §10's suites re-run on `41096cf`: **692 passed, 1 failed**. The failure is the
+  admin tier-badge markup test already known to fail on untouched main.
+  §10.1's recovery-accounting claim now covers repairs, and a "repair preserves
+  density" entry was added.
+- **Two new findings, recorded not fixed (G-1):**
+  - **9 — a batch that hits 3 consecutive abandonments discards the puzzles it
+    already made.** `generate_batch` raises, and `_generate_random_batch` stores
+    only after a return, so the loss is total. Rare today (1 abandonment in 100
+    at 30x30), but worth a card.
+  - **10 — about fifteen comments and docstrings in `orchestrator.py` still say
+    20 attempts or 200 puzzles**, and one `generate_batch` comment says 30x30
+    "reaches the deadline rather than the retry bound", which CARD-091 measured
+    no longer true. Prose only; behaviour is correct.
+- **AC-4.** Every code reference is a symbol (Q-1 option a); no line anchors
+  remain anywhere, code blocks included. `meta/ops/check_doc_references.py`
+  resolves them with `ast` — package re-exports followed, nested functions
+  through their parent, bare constants checked, `path::test` checked, and lines
+  marked `<!-- historical -->` inverted so the retired ADR-0013 names are proven
+  gone. Result: **201 resolved, 0 failed.** Checked that it discriminates: a
+  misspelled symbol, a misspelled constant, a "retired" name that still exists
+  and a line anchor inside a code block each fail.
+- **AC-5.** §8.2 carries one small table (38% / 85% / 95% / 99%) naming CARD-089,
+  CARD-090, CARD-091 and the sweep harness, and says timings are only comparable
+  within one run.
+- **AC-6.** The header names `41096cf`, and a *Refresh log* at the end records
+  what each of the four refreshes re-checked **and what it did not**: §7's tier
+  distribution and §8.3's tier-by-density table predate repair and were not
+  re-measured, which both sections now say in place.
+- **A mistake caught in my own draft.** The first version of finding 6 called
+  `pictures/` the owner's untracked folder and said a fresh clone would still
+  fail. It is tracked (25 files, `f3ba719`); corrected before commit.
+- G-1..G-4 held: nothing under `src/` or `tests/` changed, no ADR argued with,
+  `NONOGRAM_GENERATION_REQUIREMENTS.md` untouched.
+
