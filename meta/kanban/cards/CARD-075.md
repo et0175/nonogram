@@ -1,11 +1,11 @@
-# CARD-075: Image-mode nudge picks its cells from the solver's undecided mask, nearest the ink boundary first
+# CARD-075: Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree
 
 **Status:** ready
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
 **Complexity:** standard
-**Revision pending:** false
+**Revision pending:** false  _(revised 2026-09-15 from CARD-096 — see Revision)_
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/075-mask-driven-nudge
@@ -14,13 +14,52 @@
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-073
-**Touches:** src/nonogram/sourcing/image.py (nudge_cells, nudge — signature gains the mask), src/nonogram/orchestrator.py (attempt_nudged_candidate passes the ORIGINAL conversion's mask — the one call site), tests/test_nudge.py, tests/property/test_nudge_mask.py (new)
+**Touches:** src/nonogram/sourcing/image.py (nudge_cells, nudge), src/nonogram/orchestrator.py (the nudge call site only — it keeps the attempt's chosen cells, as it keeps the repair lineage), tests/test_nudge.py, tests/property/test_nudge_mask.py (new), meta/architecture/requirements.yml (FR-013 AC-115/AC-116, EC-014 — amended by this card), docs/GENERATION_ALGORITHM.md (§8.4)
 **Review score:** —
 **Started:** —
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## Revision — 2026-09-15, from CARD-096's measurement (owner: "revise CARD-075")
+
+This card was written on 2026-09-12, before anyone had measured why image mode
+abandons. CARD-096 measured it, and two of the choices below were wrong in a
+way the data makes plain. **What changed, and why:**
+
+1. **The source of cells is the witness-disagreement set, with the undecided
+   mask as the fallback** — not the mask first. On the original conversion of
+   every abandoned picture, the two witnesses disagreed on **4 cells in 27 of
+   34** (one 2x2 block that can be drawn either way), while the undecided mask
+   covered a median **35% of the grid** and up to 100%. Ranking inside a mask
+   that size is guessing again; the disagreement set is the ambiguity itself.
+2. **Each attempt adds one cell chosen from the previous attempt's verdict** —
+   not the best n cells chosen once from the original conversion. Flipping one
+   cell of an ambiguous block usually exposes the *next* ambiguity somewhere the
+   original disagreement set never contained. Measured on the 36 dither failures,
+   cap 5, both variants nested and exactly n cells from the picture:
+   **static 9 of 36, adaptive 19 of 36** (CARD-096, *Follow-up measurement*).
+   Today's nudge rescued 0 of those.
+
+**What did not change:** the policy half. The cap is 5 (ADR-0002); POL-003
+reports at the cap with the same message; every nudged grid is judged by the one
+`judge_candidate` path; image mode never draws from the rng and never repairs.
+And the user-facing promise FR-013's cumulative property exists for still
+holds in full: **attempt n differs from the uploaded picture's conversion in
+exactly n cells, and contains every cell attempt n−1 flipped** — no edit is ever
+undone. What changes is only *which* cell each attempt adds.
+
+**It cannot break a picture that works today.** The nudge runs only when the
+conversion is not unique, so every puzzle made at the first solve is untouched.
+
+**Sequencing with CARD-079** is unchanged — this card first. CARD-096 measured
+the two together at 32 of 36, with no regression on the 89 conversions dither
+makes today; CARD-079's AC-127 is taken after this lands.
+
+**The owner question below** ("fewer than n cells in the mask") is superseded:
+attempts no longer draw n cells from one fixed set. Its successor is AC-116's
+fallback rule.
 
 ## Why
 
@@ -45,7 +84,7 @@ with CARD-074 is possible; the two share `orchestrator.py` only at the
 nudge call site (conflict-graph matter). CARD-079's AC-127 nudge counts
 are taken after this card lands, so this card precedes CARD-079.
 
-**Owner question (FR-013 _meta.gaps, recorded not invented):** what does
+**Owner question (FR-013 _meta.gaps, recorded not invented) — _superseded 2026-09-15, see Revision; kept for the record_:** what does
 attempt n do when the mask holds fewer than n cells? EC-014 reads it as
 "flip all min(n, |mask|) of them" — implement that reading and record it
 in the module docstring; if the owner wants a secondary ranking instead,
@@ -53,46 +92,66 @@ that is a follow-up, not this card.
 
 ## What to implement
 
-1. `sourcing.image.nudge_cells(grid, count, mask)` ranks candidate cells
-   **from the mask only** (undecided mask, or the witness-disagreement set
-   when present — both grid-shaped `list[list[bool]]` from CARD-073), by
-   Chebyshev distance to the nearest differently-valued neighbour (ink
-   boundary) ascending, then (row, column) for determinism. Returns the
-   first `min(count, |mask|)` cells. The 2x2 switching-block ranking
-   (`_switch_counts`, `_boundary_counts` as primary key) is retired or
-   demoted to a tiebreak inside the mask — say which in the docstring.
-2. `sourcing.image.nudge(grid, attempt_number, mask)` keeps flipping the
-   best n cells of the ORIGINAL conversion (nesting preserved), now drawn
-   from the mask.
-3. `orchestrator.attempt_nudged_candidate` passes the mask recorded for
-   the ORIGINAL conversion (stored by CARD-073 on the aggregate at the
-   first `judge_candidate`) — not the previous nudge round's mask. Cap,
-   counter, `run_bounded` exhaustion branch and POL-003 wording unchanged.
+*(Revised 2026-09-15 — see the Revision section.)*
+
+1. `sourcing.image.next_nudge_cell(grid, flipped, witnesses, undecided_mask)`
+   returns the one cell attempt n adds, or `None`. `grid` is the grid the
+   *previous* attempt judged (the original conversion for attempt 1); `flipped`
+   is the set of cells already changed from the original. Candidates are the
+   cells where the two witnesses differ, excluding `flipped`; if there are none,
+   the undecided mask's cells, excluding `flipped`. Within the candidates, rank
+   by Chebyshev distance to the nearest differently-valued neighbour (ink
+   boundary) ascending, then (row, column). A pure function: no rng, no count,
+   no state (INV-003 — `sourcing.image` counts nothing).
+2. `sourcing.image.nudge(original, cells)` returns the original conversion with
+   exactly `cells` flipped — the whole of nesting is that the caller passes
+   attempt n−1's cells plus one. The 2x2 switching-block ranking
+   (`nudge_cells`, `_switch_counts`, `_boundary_counts`) is retired.
+3. The orchestrator's nudge call site keeps the chosen cells across attempts
+   in its closure, as `attempt_candidate` keeps the repair lineage: each
+   attempt reads the witnesses and mask `judge_candidate` stored for the
+   *previous* candidate, asks `next_nudge_cell`, appends it, and judges
+   `nudge(original, cells)`. When `next_nudge_cell` returns `None` the attempt
+   has nothing to add and returns `None` — the counter still advances, so the
+   cap and POL-003's report are reached exactly as today. Cap, counter,
+   `run_bounded` exhaustion branch and POL-003 wording unchanged.
 4. Re-pin `tests/test_nudge.py` to the mask-driven choice: the scripted
    sources gain a mask; real-image pins are re-taken honestly (CARD-070's
    convention: the docstring states the count and where it came from).
    The mechanism-agnostic tests (cap, failure message, CLI reporting —
    AC-034..AC-036, FR-014) must pass unchanged in assertion.
-5. Rewrite the `nudge_cells` docstring and `docs/GENERATION_ALGORITHM.md`
-   §8.3's one paragraph on cell choice (a one-row docs touch; do not
-   restructure the doc).
+5. Rewrite the docstrings and `docs/GENERATION_ALGORITHM.md` §8.4's
+   paragraph on cell choice; keep `meta/ops/check_doc_references.py` passing.
+6. Amend FR-013's AC-115/AC-116 and EC-014 in `meta/architecture/requirements.yml`
+   to the revised rule (below), with a `_meta` note citing CARD-096.
+7. Re-run `PYTHONPATH=src python meta/ops/image_abandonment_sweep.py` and record
+   the before/after in Worktree notes.
 
 ## Acceptance criteria
 
-- **AC-115** — given an uploaded silhouette whose conversion at 20x20
-  reports MANY with an undecided/disagreement mask of 14 cells, when nudge
-  attempt 3 is applied, then all 3 flipped cells are members of that
-  14-cell mask.
-  *test:* `TestNudge_FlipsOnlyCellsInsideUndecidedMask`
-- **AC-116** — given an undecided mask containing one cell adjacent to the
-  ink boundary (Chebyshev distance 0 from a differently-valued neighbour)
-  and one cell 3 cells away from any ink boundary, when attempt 1 is
-  applied, then the cell adjacent to the ink boundary is the one flipped.
-  *test:* `TestNudge_PrefersCellsNearestInkBoundary`
-- **AC-117** — given a conversion whose mask-driven attempts 1, 2 and 3
-  flipped sets S1, S2, S3, when compared to the ORIGINAL conversion, then
+- **AC-115** *(revised)* — given a candidate the solver reported MANY for, whose
+  witnesses disagree on a set D, when the next nudge attempt is built, then the
+  one cell it adds is a member of D not already flipped.
+  *test:* `TestNudge_AddsACellWhereTheWitnessesDisagree`
+- **AC-116** *(revised)* — given a MANY candidate whose witness-disagreement
+  cells are all already flipped (or absent), when the next attempt is built,
+  then the added cell comes from that candidate's undecided mask; and given
+  neither holds an unflipped cell, then the attempt adds nothing and returns no
+  candidate, and the counter still advances. Within either source the cell
+  nearest the ink boundary is chosen, then (row, column).
+  *test:* `TestNudge_FallsBackToTheMaskThenStops`, `TestNudge_PrefersCellsNearestInkBoundary`
+- **AC-117** *(unchanged in substance)* — given attempts 1, 2 and 3 with flipped
+  sets S1, S2, S3, when compared to the ORIGINAL conversion, then
   S1 ⊂ S2 ⊂ S3 and S3 differs from the original in exactly 3 cells.
   *test:* `TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion`
+- **AC-172** *(new — the measured effect)* — the corpus sweep
+  (`meta/ops/image_abandonment_sweep.py`, all 25 pictures, sizes 10..30) makes
+  **at least 19 more** of the 36 conversions that dithering fails today than it
+  did before this card, and **every** conversion made before is still made.
+  The second half holds by construction (the nudge runs only on a non-unique
+  conversion); the first is CARD-096's adaptive, nested measurement, and a
+  result below it is reported rather than shipped. Numbers, not a test: the
+  corpus is not in the suite's time budget.
 - **AC-034 / AC-035 / AC-036** unchanged and green
   (`TestNudge_AttemptsBoundedRecovery`, `TestNudge_ReportsFailureAtCap`,
   `TestNudge_FailureMessageSuggestsRetry`); FR-014 nudge-count reporting
@@ -100,11 +159,13 @@ that is a follow-up, not this card.
 
 ## Engineering constraints
 
-- **EC-014** — For any uploaded image whose conversion reports MANY and any
-  attempt number n in 1..5, the set of cells nudge attempt n flips is a
-  subset of the solver's undecided/disagreement mask for the ORIGINAL
-  conversion, has exactly min(n, |mask|) members, and contains every cell
-  attempt n-1 flipped — for every image and every n. The cap of 5 and the
+- **EC-014** *(revised)* — For any uploaded image whose conversion reports MANY
+  and any attempt number n in 1..5 that adds a cell, the set of cells attempt n
+  flips has exactly one more member than attempt n−1's, contains every cell
+  attempt n−1 flipped, and its new cell belongs to the witness-disagreement set
+  of attempt n−1's candidate or, when that holds no unflipped cell, to that
+  candidate's undecided mask — for every image and every n. The grid attempt n
+  judges differs from the ORIGINAL conversion in exactly those cells. The cap of 5 and the
   re-verification of every nudged grid by the real solver (CON-005) are
   unchanged. Seeded corpus of scripted grids + masks, minimum case count
   asserted in the test, no hypothesis.
@@ -149,9 +210,10 @@ that is a follow-up, not this card.
 - **Components:** COMP-003 (sourcing/image), COMP-002 (call site)
 - **Trace:** meta/architecture/trace.yml (FR-013 row)
 
-**Checkpoint (from the Increment 9 checkpoint, the nudge half):** the
-nudge tests are re-pinned to the mask-driven choice and green; a MANY
-conversion's nudges all land inside its mask.
+**Checkpoint (from the Increment 9 checkpoint, the nudge half, revised):** the
+nudge tests are re-pinned to the disagreement-driven choice and green; every
+nudge attempt adds one cell from the previous candidate's disagreement set (mask
+fallback); the corpus sweep's before/after is in Worktree notes.
 **Collapses:** FR-013's "which cell to flip is a guess" risk (CARD-016);
 EC-014.
 **Rollback:** revert the branch — `nudge_cells` returns to the 2x2
