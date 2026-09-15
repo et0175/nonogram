@@ -55,8 +55,8 @@ The orchestrator's retry loop discards a candidate whose clues have zero or many
 solutions and asks the source for another one. A library template, unlike a
 random draw, has nothing obvious to vary: the card is explicit that a retry must
 *not* switch key, so re-rendering "cat" at 20x20 would hand the loop the same
-grid twenty times, twenty identical solver verdicts, and an abandonment that
-took twenty times longer than it needed to.
+grid on every attempt — the whole retry budget of identical solver verdicts,
+and an abandonment that took that many times longer than it needed to.
 
 What genuinely is a free choice — the "tie-break" the card names — is where the
 boundary of the shape falls. A partially covered cell is one the rasteriser has

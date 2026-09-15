@@ -135,3 +135,44 @@ third place CARD-088 did not find.
   Proposed: **fold it in.** It is the same drift with the same cause, a
   one-comparison fix with its own test, and a "prose" card that found a live
   instance of the bug and left it would be the drift this card exists to end.
+
+**Answered 2026-09-15:** Q-1 — "fix it now and we can then forget about it": the
+image-count bound is folded into this card, and the card is taken through to merge.
+
+## Outcome
+
+- **AC-3, the bound left behind in code.** `tests/test_image_batch_count_bound.py`
+  (3 tests) written first: with the ceiling patched to 2, three pictures must be
+  refused at preview naming "1-2", two must not be, and the batch form must say
+  "Up to {MAX_BATCH_COUNT} pictures". Before the fix two failed — three pictures
+  went straight through to `/batch/generate-puzzles`, and the form said 200. The
+  preview route now compares against `MAX_BATCH_COUNT` and its flash names it;
+  `MAX_BATCH_COUNT` joined the admin's Jinja globals beside the size range, and
+  `batch_create.html` reads it.
+- **AC-1, AC-2, the prose.** All fifteen stale statements corrected — thirteen
+  in `orchestrator`, one in `sourcing.library`, one in
+  `admin.batch_generator.BatchGenerator.create_batch`. Where a sentence is about
+  the bound it now names `MAX_RETRY_ATTEMPTS` or `MAX_BATCH_COUNT`; where a figure
+  makes the argument it states today's (fifteen minutes). Two needed more than a
+  number: the image-mode line about decoding the file "twenty times" (image mode
+  converts once and nudges at most 5 — now "again for every nudge"), and the
+  `SolverTimeout` comment, which kept its reason, dropped the claim that 30x30
+  reaches the deadline, cited CARD-091's 0 in 100, and no longer says a batch
+  would have "no time bound at all" — true only before CARD-088's clock.
+- **AC-4.** Nothing in the "legitimate" list was edited.
+- **AC-5, the sweep, re-runnable.**
+
+  ```
+  grep -rnE "\b(20|200|twenty|twentieth)\b" src/nonogram --include="*.py" --include="*.html" \
+    | grep -vE "20x20|2026|20%|\b20\.|range\(|= 20\b|\(20, |0\.06 s at 20|\"medium\": \(20|\[15, 20, 25\]|20 \* |width=20|height=20|size=20|200px|\(200, 200\)" \
+    | grep -iE "attempt|retr|draw|candidate|batch|bound|solve|deadline|nudge|count|puzzles|pictures|images|repair|times"
+  ```
+
+  After the fix, every match is history, a sample size, a grid size or an
+  unrelated example — plus `nonogram.generation.random_generator`'s own 50–200
+  rule, the possibly dead module noted above and left alone.
+- **AC-6.** Finding 10 closed in `docs/GENERATION_ALGORITHM.md`; refresh log row
+  added; reference checker 206 resolved, 0 failed.
+- **Full suite:** 3,416 passed, 26 skipped, 0 failed (the two admin-markup tests
+  already failing on untouched main deselected).
+

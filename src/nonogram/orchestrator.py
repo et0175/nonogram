@@ -46,7 +46,8 @@ attempt callable turns ``solution_count != 1`` into a rejection and nothing
 else. Every exception — invalid input (SizeOutOfRange, InvalidDensity),
 ``SolverTimeout`` (ADR-0011), a wiring bug — travels straight
 out of the loop and ends the run. Conflating a timeout with a non-unique
-verdict would let one infeasible request spend 20 full solver deadlines, which
+verdict would let one infeasible request spend ``MAX_RETRY_ATTEMPTS`` full solver
+deadlines, which
 is exactly the worst case ADR-0002's bound and ADR-0001's time budget exist to
 prevent; the two bounds are meant to "operate together but independently"
 (ADR-0002, Neutral).
@@ -58,9 +59,9 @@ POL-001's whole premise is that a rejected candidate can be replaced by a
 library source (the same template at a different boundary tie-break); it does
 not hold for an uploaded image, whose conversion at a given extent is fully
 determined. Asking ``sourcing.image`` for another grid returns the grid it just
-returned, so running image mode through the regenerate loop would spend a
-twentieth of the time budget re-confirming one verdict and then report an
-"abandoned after 20 attempts" that never had 20 attempts in it.
+returned, so running image mode through the regenerate loop would spend the
+whole retry budget re-confirming one verdict and then report an "abandoned after
+``MAX_RETRY_ATTEMPTS`` attempts" that never had more than one attempt in it.
 
 So image mode does not enter either of those bounded loops: :func:`generate`
 converts once, and the regenerate and resample counters stay at zero, which is
@@ -297,8 +298,9 @@ MAX_BATCH_COUNT = 50
 #: ADR-0011's cooperative deadline —
 #: :func:`generate` turns it into an absolute monotonic instant once per
 #: request and hands that same instant to every solver call the request makes,
-#: retries included. Deliberately not a per-solve budget: 20 retries times a
-#: per-solve 30s would be a ten-minute "timeout", and ADR-0002's attempt bound
+#: retries included. Deliberately not a per-solve budget: 30 attempts
+#: (:data:`MAX_RETRY_ATTEMPTS`) times a per-solve 30s would be a fifteen-minute
+#: "timeout", and ADR-0002's attempt bound
 #: and this time bound are meant to operate together but independently.
 #:
 #: ADR-0001's other number, the 5s p95 for grids up to 20x20, is *not* here:
@@ -726,7 +728,8 @@ def _lineage_key(grid: Grid) -> tuple[tuple[bool, ...], ...]:
     Used by :func:`generate` to notice that a repair has handed back a grid its
     own lineage already judged. Nothing decides anything on this — the pair
     choice is still ADR-0024/R4's first-by-(row, column) rule and is untouched
-    — so building one tuple per attempt (at most 20 of them, against a solve
+    — so building one tuple per attempt (at most :data:`MAX_RETRY_ATTEMPTS` of
+    them, against a solve
     that costs orders of magnitude more) buys the calibration number for free.
     """
     return tuple(tuple(row) for row in grid)
@@ -1327,7 +1330,7 @@ def _uniqueness_reason(tier: difficulty.Tier | None) -> str:
     though candidates *were* found unique and discarded for their difficulty.
     Reporting only the uniqueness failure there would name the wrong cause, so
     this message names both checks and says outright that they share a budget —
-    which is also the fact a user needs to make sense of "20 attempts" when
+    which is also the fact a user needs to make sense of the attempt count when
     they can see the tool rejected candidates for two different reasons.
     """
     if tier is None:
@@ -1348,7 +1351,8 @@ def _image_uniqueness_reason(solution_count: int | None) -> str:
     different sentence rather than a reused one: what ran here was not POL-001.
     The image was *never re-drawn* — an uploaded picture converts to the same
     grid every time — and what the cap counts is edits to that one conversion,
-    so a message about 20 discarded candidate grids would describe a loop that
+    so a message about :data:`MAX_RETRY_ATTEMPTS` discarded candidate grids would
+    describe a loop that
     never ran (CARD-015 guardrail G-4).
 
     Three things it has to say, and each is an acceptance criterion rather than
@@ -1470,8 +1474,8 @@ def generate(
 
     *The retry budget is the request's, not the round's.* Neither counter is
     reset between rounds, so the regenerate budget spans the whole request: a
-    resample round does **not** get a fresh 20 candidates to find a unique one
-    in. Across a run at most :data:`MAX_RETRY_ATTEMPTS` grids are ever sourced,
+    resample round does **not** get a fresh :data:`MAX_RETRY_ATTEMPTS`
+    candidates to find a unique one in. Across a run at most :data:`MAX_RETRY_ATTEMPTS` grids are ever sourced,
     however the two rejection causes divide them up, which is what keeps
     scoring inside the loop from multiplying the work NFR-001 budgets
     (guardrail G-6). It also means a request that keeps missing its tier ends
@@ -1491,9 +1495,10 @@ def generate(
     discarded and a fresh one drawn, and recovery continues from there.
 
     Both kinds of attempt are attempts of the same ``regenerate`` counter, so
-    the ADR-0002 bound of 20 covers them together and nothing new can overshoot
-    it (INV-003, ADR-0024/R2, AC-113). :attr:`Puzzle.recovery` records how the
-    20 divided, for the K recalibration ADR-0024 owes.
+    ADR-0002's one bound, :data:`MAX_RETRY_ATTEMPTS`, covers them together and
+    nothing new can overshoot it (INV-003, ADR-0024/R2, AC-113).
+    :attr:`Puzzle.recovery` records how that budget divided — the data CARD-091
+    recalibrated K from.
 
     *An exhausted inner loop ends the outer one.* ``GenerationAbandoned`` from
     the regenerate loop travels straight out through the resample attempt
@@ -1565,8 +1570,8 @@ def generate(
             (INV-002, guardrail G-4).
         ValueError: ``request.mode`` has no registered source, or has one but
             no argument list in :func:`_source_arguments`. Both are raised
-            before the loop starts, so a wiring bug cannot be mistaken for 20
-            infeasible candidates.
+            before the loop starts, so a wiring bug cannot be mistaken for a
+            run of infeasible candidates.
     """
     # FR-015, first and once: an invalid name must abort before a puzzle
     # exists (AC-045), and a valid one is the run's for good (G-6).
@@ -1585,7 +1590,7 @@ def generate(
     # (AC-098) — must abort before a puzzle exists. Resolved *once*, here: the
     # derivation reads the request and the source's own shape, neither of which
     # a retry changes, so re-deriving per attempt could only differ by being
-    # wrong (and, in image mode, would decode the file twenty times).
+    # wrong (and, in image mode, would decode the file again for every nudge).
     extent = _resolved_extent(request)
 
     seed = request.seed if request.seed is not None else secrets.randbits(64)
@@ -1857,8 +1862,8 @@ class BatchResult(list):
     read at the call site, not carried onward.
     """
 
-    #: Candidates the generator abandoned — 20 draws each, none uniquely
-    #: solvable. Bad luck, and re-running may well do better.
+    #: Candidates the generator abandoned — :data:`MAX_RETRY_ATTEMPTS` attempts
+    #: each, redraws and repairs, none uniquely solvable. Bad luck, and re-running may well do better.
     abandoned: int = 0
     #: Candidates never attempted, because :data:`BATCH_BUDGET_SECONDS` ran out
     #: first. Not bad luck: the same request will stop in the same place.
@@ -1980,7 +1985,7 @@ def generate_batch(
     # a seed is drawn and before the aggregate exists, so a bad tier already
     # aborts on the first iteration with no work done; removing this check
     # would change nothing a caller can observe except *where* the traceback
-    # starts. It is kept so a batch of 200 fails at the call rather than inside
+    # starts. It is kept so a whole batch fails at the call rather than inside
     # the loop, and it must stay a delegation to ``parse_tier`` — the moment it
     # re-states the rule instead of asking for it, the two copies can drift,
     # which is the bug this whole item is repairing (review cycle 1, F-004).
@@ -2011,7 +2016,7 @@ def generate_batch(
         # finishes, so a puzzle is never half-made and the ceiling is a sum we
         # can state (BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS) rather
         # than a race. It also keeps the clock out of GenerationAbandoned's
-        # vocabulary — a candidate is abandoned because 20 draws failed, never
+        # vocabulary — a candidate is abandoned because its attempts ran out, never
         # because the batch was in a hurry.
         if monotonic() >= deadline:
             not_attempted = count - index
@@ -2041,12 +2046,14 @@ def generate_batch(
         #
         # Deliberately only ``GenerationAbandoned``. A ``SolverTimeout`` is not
         # a bad draw — it is ADR-0011's 30s bound being spent on one grid — and
-        # swallowing it per candidate would leave a batch with no time bound at
-        # all: 200 candidates x 30s is an hour and a half of grinding where the
-        # request used to fail in thirty seconds. Measured: 30x30 at density 50
-        # reaches the deadline rather than the retry bound, so that is not a
-        # hypothetical size. Whether a batch should survive a timeout too is a
-        # separate decision, recorded as CARD-083's open question.
+        # swallowing it per candidate would let one undecidable size spend the
+        # batch's whole clock thirty seconds at a time. Before CARD-088 gave the
+        # batch that clock it was worse — no time bound at all, 200 candidates x
+        # 30s. Timeouts are rare at today's bounds (CARD-091 measured 0 in 100
+        # 30x30 requests at K=5), but rare is not impossible. Whether a batch
+        # should survive a timeout too is a separate decision, recorded as
+        # CARD-083's open question; CARD-093 made sure the puzzles before one
+        # are kept either way.
         try:
             puzzle = generate(request)
         except GenerationAbandoned as abandonment:

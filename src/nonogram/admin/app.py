@@ -791,6 +791,8 @@ def create_app(debug=None):
         MIN_SIZE=MIN_SIZE,
         MAX_SIZE=MAX_SIZE,
         MAX_PUZZLE_NAME_LENGTH=MAX_PUZZLE_NAME_LENGTH,
+        # The batch ceiling, for the same reason (CARD-094).
+        MAX_BATCH_COUNT=MAX_BATCH_COUNT,
     )
     app.jinja_env.filters['strategy_label'] = lambda name: STRATEGY_LABELS.get(name, name)
 
@@ -1055,9 +1057,16 @@ def create_app(debug=None):
 
         if request.method == "POST":
             try:
-                # Validate image count before processing
-                if len(images) < 1 or len(images) > 200:
-                    flash(f"❌ Invalid image count: {len(images)}. Must be 1-200 images.", "error")
+                # Validate image count before processing. The ceiling is the
+                # orchestrator's, read here rather than restated: this said 200
+                # after CARD-088 lowered it to 50, so a selection of 51-200 passed
+                # preview and was refused one step later by create_batch (CARD-094).
+                if len(images) < 1 or len(images) > MAX_BATCH_COUNT:
+                    flash(
+                        f"❌ Invalid image count: {len(images)}. "
+                        f"Must be 1-{MAX_BATCH_COUNT} images.",
+                        "error",
+                    )
                     return render_template(
                         "image_preview.html",
                         images=images,
