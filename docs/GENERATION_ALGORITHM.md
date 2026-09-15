@@ -648,6 +648,17 @@ record as separate notes, as before.
   smaller extent), at most 2 extra full runs. A square extent only moves toward the picture's own
   shape. On the predicted extent any other error propagates at once; on a neighbour, any other
   `NonogramError` ends the retry and the first abandonment is reported.
+- **The image batch's clock** (CARD-095). The `/batch/generate-puzzles` route runs every loaded
+  picture in one request, and one picture can cost three `orchestrator.generate` calls — the
+  predicted extent and two neighbours — each with its own 30 s deadline. The route reads
+  `BATCH_BUDGET_SECONDS` before **every** generate call: before a picture's predicted extent, and
+  inside `admin.app._generate_image_puzzle` before each neighbour. Checking only between pictures
+  would allow the budget plus three deadlines; checking before each call holds the same
+  `BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS` ceiling as a random batch. Pictures the clock
+  stopped the batch before, or part-way through, are reported as not started and **stay loaded**
+  for the next batch; the rest are cleared as before. The batch record's `puzzle_count` is written
+  as each puzzle is stored, and a clock-stopped batch ends `COMPLETE` with a note, or `ERROR` if it
+  made nothing.
 
 ---
 
@@ -733,3 +744,4 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | 2026-09-15 | `41096cf` (CARD-092) | §8 rewritten for POL-006 repair and K; §9 rewritten for CARD-083/088 batches and re-verified for image batches; §10 findings re-established, 9 and 10 added; every code reference converted from line anchors to symbols and resolved by `meta/ops/check_doc_references.py`; §10's suites re-run | §7's measured distribution and §8.3's tier-by-density table predate repair and were not re-measured (both said so in place) |
 | 2026-09-15 | CARD-093 | §9.1 batch hand-off and early-stop status; finding 9 closed | everything else |
 | 2026-09-15 | CARD-094 | finding 10 closed | everything else |
+| 2026-09-15 | CARD-095 | §9.2 image-batch clock | everything else |

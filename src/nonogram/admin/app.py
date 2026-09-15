@@ -34,6 +34,7 @@ import hmac
 import json
 import os
 import tempfile
+import time
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -67,7 +68,7 @@ from nonogram import clues, orchestrator
 from nonogram.difficulty import Tier
 from nonogram.errors import GenerationAbandoned, NonogramError, NotUniquelySolvable
 from nonogram.limits import MAX_SIZE, MIN_SIZE
-from nonogram.orchestrator import MAX_BATCH_COUNT
+from nonogram.orchestrator import BATCH_BUDGET_SECONDS, MAX_BATCH_COUNT
 
 # CARD-050: real image-mode quality/recognizability, in place of the
 # density-only heuristic and hardcoded "medium" this replaces below.
@@ -88,13 +89,27 @@ from nonogram.analysis.quality_metric import measure_quality
 #: worse default than a small one.
 DEFAULT_BATCH_COUNT = 15
 
+#: The image batch's clock (CARD-095). A module attribute rather than a direct
+#: ``time.monotonic()`` call so a test can run a batch past its budget without
+#: sleeping — the same reason ``orchestrator.generate_batch`` takes ``monotonic``.
+_batch_clock = time.monotonic
+
 
 #: The statuses a puzzle can be filtered by, in curation order (CARD-066).
 #: Read from the enum so the page cannot drift from the store.
 _PUZZLE_STATUSES = tuple(status.value for status in PuzzleStatus)
 
 
-def _generate_image_puzzle(image, width, height):
+class _BatchOutOfTime(Exception):
+    """The batch clock ran out between one extent of a picture and the next.
+
+    Raised by :func:`_generate_image_puzzle` instead of trying a neighbour
+    extent, so the batch route can tell "this picture was cut short by the
+    batch's clock" apart from "this picture could not be made" (CARD-095).
+    """
+
+
+def _generate_image_puzzle(image, width, height, may_start=None):
     """Generate ``image`` at ``(width, height)``; if that extent is abandoned
     (not uniquely solvable within the pixel-nudge bound), retry at the
     long-side ±1 neighbours from ``image.neighbour_extents`` (CARD-062).
@@ -106,15 +121,26 @@ def _generate_image_puzzle(image, width, height):
     predicted extent's abandonment is what gets reported — that is the
     picture's real problem, not the neighbour's side effect.
 
+    ``may_start``, when given, is asked before each *neighbour* extent (the
+    caller asks before the predicted one). Each extent is a whole
+    ``orchestrator.generate`` with its own 30 s deadline, so one picture can cost
+    three of them; checking only between pictures would let a batch run
+    ``BATCH_BUDGET_SECONDS`` plus three deadlines, past the server's timeout.
+    Checked here, the ceiling is one deadline past the budget (CARD-095).
+
     Returns:
         ``(puzzle, extent_used)``.
 
     Raises:
         GenerationAbandoned: the predicted extent's own error, when it and
             every neighbour were abandoned.
+        _BatchOutOfTime: an extent was abandoned and ``may_start`` said no to
+            trying the next one.
     """
     first_abandonment = None
-    for extent in [(width, height), *image.neighbour_extents((width, height))]:
+    for index, extent in enumerate([(width, height), *image.neighbour_extents((width, height))]):
+        if index > 0 and may_start is not None and not may_start():
+            raise _BatchOutOfTime() from first_abandonment
         request = orchestrator.GenerationRequest(
             mode="image",
             image=Path(image.file_path),
@@ -1124,6 +1150,20 @@ def create_app(debug=None):
             )
 
         # POST: Actually generate puzzles
+        #
+        # The batch's own clock (CARD-095), started before any work and read
+        # before every generate call — each picture's first extent here, each
+        # neighbour extent inside _generate_image_puzzle. A picture already
+        # running finishes its current extent, so the worst case is
+        # BATCH_BUDGET_SECONDS + GENERATION_BUDGET_SECONDS: the same ceiling the
+        # random batch holds, and the one tests/test_admin_serving.py checks
+        # against gunicorn's --timeout. Before this card an image batch had no
+        # bound at all, and one slow picture costs up to three deadlines.
+        batch_deadline = _batch_clock() + BATCH_BUDGET_SECONDS
+
+        def may_start() -> bool:
+            return _batch_clock() < batch_deadline
+
         try:
             # Extract configured sizes from images (unique values)
             sizes = list(set(img.size_value if img.size_mode in ("fixed", "short") else 20 for img in images))
@@ -1142,6 +1182,9 @@ def create_app(debug=None):
             quality_filter = session.get("batch_quality_filter", 0)
             generated_count = 0
             errors = []
+            # Pictures the clock stopped the batch before (or part-way through).
+            # Kept loaded for the next batch rather than cleared (owner, Q-1).
+            not_started = []
             adjustments = []
             skipped = []
             moved = []
@@ -1159,6 +1202,13 @@ def create_app(debug=None):
                         continue
                     width, height = fit.extent
 
+                    # Once the clock has stopped the batch it starts nothing
+                    # else; the rest of the loop only sorts the remaining
+                    # pictures into "skipped" (above) and "not started".
+                    if not_started or not may_start():
+                        not_started.append(image)
+                        continue
+
                     # Convert image to puzzle through the canonical,
                     # solver-verified pipeline (CARD-049) — the same
                     # judge_candidate uniqueness check and bounded pixel-nudge
@@ -1166,7 +1216,9 @@ def create_app(debug=None):
                     # of a grid nothing ever solver-checks. One call per
                     # extent tried: orchestrator.generate_batch() has no
                     # per-item image-path parameter.
-                    puzzle, used = _generate_image_puzzle(image, width, height)
+                    puzzle, used = _generate_image_puzzle(
+                        image, width, height, may_start=may_start
+                    )
 
                     # CARD-050 (AC-1): a real measurement against the source
                     # picture this puzzle was converted from, replacing the
@@ -1226,6 +1278,11 @@ def create_app(debug=None):
                         continue
 
                     generated_count += 1
+                    # Written as each puzzle is stored, so the record matches
+                    # the store even if the worker is killed anyway (CARD-095).
+                    # create_batch already marked an image batch COMPLETE
+                    # before this loop, so the count was the lie.
+                    batch_gen._update_batch_status(batch_id, puzzle_count=generated_count)
                     if fit.status == MOVED_TO_LARGE:
                         # CARD-064 (G-2): the chosen size was not used — say
                         # so in the results too, not only in the preview.
@@ -1251,6 +1308,11 @@ def create_app(debug=None):
                             )
                         adjustments.append(note)
 
+                except _BatchOutOfTime:
+                    # Its predicted extent was abandoned and the clock ran out
+                    # before a neighbour could be tried: not a failed picture,
+                    # an unfinished one. It goes back to the next batch.
+                    not_started.append(image)
                 except NonogramError as e:
                     # E.g. GenerationAbandoned: the conversion (and every
                     # bounded pixel-nudge attempt) never came out uniquely
@@ -1263,6 +1325,26 @@ def create_app(debug=None):
 
             # Update batch with final puzzle count
             batch_gen._update_batch_status(batch_id, puzzle_count=generated_count)
+
+            if not_started:
+                # A clock stop, reported as one (CARD-088's distinction): not bad
+                # luck, and the same selection will stop in the same place.
+                picture_word = "picture was" if len(not_started) == 1 else "pictures were"
+                clock_note = (
+                    f"{len(not_started)} {picture_word} not started before this "
+                    f"batch's {BATCH_BUDGET_SECONDS:.0f}s time budget ran out. "
+                    f"{'It is' if len(not_started) == 1 else 'They are'} still "
+                    f"loaded — run another batch for "
+                    f"{'it' if len(not_started) == 1 else 'them'}."
+                )
+                flash(clock_note, "warning")
+                if generated_count > 0:
+                    # COMPLETE with a note: the puzzles are real (owner, Q-2).
+                    batch_gen._update_batch_status(batch_id, error_message=clock_note)
+                else:
+                    batch_gen._update_batch_status(
+                        batch_id, BatchStatus.ERROR, error_message=clock_note
+                    )
 
             # Show results
             if generated_count > 0:
@@ -1294,7 +1376,14 @@ def create_app(debug=None):
             # Clear session and image manager
             session.pop("batch_quality_filter", None)
             session.pop("batch_default_size", None)
-            image_mgr.clear_all()  # Clear images so next workflow starts fresh
+            if not_started:
+                # Clear only what this batch attempted; the rest waits (Q-1).
+                waiting = {image.file_id for image in not_started}
+                for image in images:
+                    if image.file_id not in waiting:
+                        image_mgr.remove_image(image.file_id)
+            else:
+                image_mgr.clear_all()  # Clear images so next workflow starts fresh
 
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
