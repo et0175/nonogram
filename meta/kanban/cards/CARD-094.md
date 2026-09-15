@@ -1,6 +1,6 @@
 # CARD-094: Nothing still says 20 attempts or 200 puzzles where it means the live bound
 
-**Status:** in progress
+**Status:** done
 **Priority:** P3
 **Category:** docs (plus one bound left behind in code — see "What the sweep found")
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-088 (batch ceiling 200 → 50), CARD-090 (retry bound 20 → 30), CARD-091 (K 3 → 5) — the three changes the prose did not follow
 **Touches:** src/nonogram/orchestrator.py, src/nonogram/sourcing/library.py, src/nonogram/admin/batch_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/batch_create.html, a test for the image-count bound, docs/GENERATION_ALGORITHM.md (finding 10)
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-15
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 949471a
 **Blocked by:** —
 
 ## Why
