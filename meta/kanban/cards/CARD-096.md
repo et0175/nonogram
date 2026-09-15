@@ -235,9 +235,10 @@ abandonments and 2 timeouts), recorded here so the numbers can be challenged:
 
 **What the experiments do not show, and why they are not a decision:**
 
-- **Regressions.** They ran only on pictures dithering *fails*. A threshold
-  changes every conversion, so it may break some of the 101 conversions dither
-  makes today. Unmeasured.
+- **Regressions — measured afterwards, see *Follow-up measurement* below.** The
+  first three experiments ran only on pictures dithering fails; whether a
+  threshold breaks any of the 89 conversions dither makes today was checked
+  separately, and it breaks none.
 - **Fidelity.** "Unique" is not "recognisable". `cat_Mouse` made at every size
   from line art may be dots. This is CARD-079's owner gate, and it is binding.
 - **The flip rule** is the crudest one (first differing cell). CARD-075's own
@@ -250,13 +251,13 @@ abandonments and 2 timeouts), recorded here so the numbers can be challenged:
    conversion that is *not* unique, so it cannot change a puzzle that is made
    today, and experiment 1 says it could recover roughly half of the
    abandonments within the existing 5-cell cap.
-2. **But revise CARD-075 before it starts.** Its text draws cells from the
-   *undecided mask* first and the witness-disagreement set only "when present".
-   The data says the other way round: the disagreement is 4 cells where the mask
-   is a median 35% of the grid, so the disagreement set should be the primary
-   source and the mask the fallback. It was also written before CARD-074's
-   repair (which already works from the disagreement set in random mode),
-   CARD-090's bound and CARD-091's K.
+2. **But revise CARD-075 before it starts** — done at the owner's word, on this
+   card's branch. Two changes, both from the data: take cells from the
+   **witness-disagreement set** first and the undecided mask only as a fallback
+   (the disagreement is 4 cells where the mask is a median 35% of the grid); and
+   choose each attempt's new cell from the **previous attempt's** verdict rather
+   than all n up front from the original (19 against 9, *Follow-up measurement*),
+   keeping attempt n nested and exactly n cells from the picture.
 3. **Then CARD-079, as it is written** — owner-gated on side-by-side renders of
    every corpus picture. Experiments 2 and 3 say it is the bigger lever (with
    flips, 32 of 36), and the contact sheets show why: dithered dark-grey
@@ -270,4 +271,28 @@ abandonments and 2 timeouts), recorded here so the numbers can be challenged:
 - **G-1..G-5 held.** Nothing under `src/` or `tests/` changed; `pictures/` was
   read only — a stray symlink my own `ln` created inside the worktree's copy was
   removed at once and never committed; CARD-075 and CARD-079 are untouched.
+
+### Follow-up measurement, taken while revising CARD-075 (owner: "revise CARD-075")
+
+Experiment 1 re-solved after every flip and took the *new* disagreement, and did
+not stop a later flip undoing an earlier one. CARD-075 as written is neither: it
+flips the best n cells of the **original** conversion, chosen once. Both
+variants were re-measured with FR-013's policy half enforced — attempt n differs
+from the original conversion in exactly n cells and contains every cell attempt
+n−1 flipped — cap 5, on the 36 dither failures:
+
+| nudge variant | dither | threshold |
+|---|---:|---:|
+| **static** — first n cells of the original conversion's disagreement set, mask fallback | 9 | 23 |
+| **adaptive** — attempt n−1's cells plus one new cell from attempt n−1's own disagreement set, mask fallback | **19** | **32** |
+
+- **The nesting guarantee costs nothing:** adaptive with it is 19, the same as
+  the unconstrained experiment.
+- **Choosing cells once, from the original, loses half the gain** (9 against 19).
+  Flipping one cell of a 2x2 ambiguity usually exposes the *next* one somewhere
+  the original disagreement set never contained.
+- **Regressions:** threshold conversion with adaptive nudges still makes **all 89**
+  conversions dither makes today.
+
+This is what CARD-075's revision is built on.
 
