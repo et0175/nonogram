@@ -148,3 +148,6 @@ Two limits on this, both reasons for AC-1 rather than a shortcut past it:
   check explicitly says a K card does not have the mandate to make. Proposed
   default: **not in this card** — measure K alone first; if cycling shows up as
   the cost that decides between two K values, open it as its own card.
+
+**Answered 2026-09-15:** Q-1 — "take your values": K ∈ {0, 3, 5, 8, 12}.
+Q-2 — "not in this card": the repair rule stays exactly as ADR-0024/R4 has it.
