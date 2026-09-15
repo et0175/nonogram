@@ -196,18 +196,27 @@ MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
 #: :attr:`Puzzle.regenerate` counter bounded by :data:`MAX_RETRY_ATTEMPTS`; K
 #: only says how that single budget is *split* between the two reactions — how
 #: long one correlated lineage may run before the loop goes back to drawing
-#: independent samples. A run can no more make 21 attempts with repairs than
+#: independent samples. A run can no more exceed that bound with repairs than
 #: without them, which is why K is a plain constant here and not a
 #: :class:`RetryCounter`: it bounds nothing, it interleaves.
 #:
-#: 3 is ADR-0024's stated initial value — a guess about how often a repair
-#: lineage converges rather than wanders — explicitly scheduled for
-#: recalibration against a seeded corpus (CARD-074's measurement, recorded in
-#: that card's Worktree notes). Setting it to ``0`` disables POL-006 and
+#: 5 since CARD-091 (ADR-0024, revised), measured rather than guessed. ADR-0024 chose
+#: 3 as "a guess about how often a repair lineage converges rather than wanders"
+#: and scheduled the recalibration. Swept at 30x30, density 50, bound 30, over
+#: 100 seeded requests per value: K=0 (pure redraw) 38%, K=3 95%, K=5 99%,
+#: K=8 98%, K=12 98%. The tell was where acceptances landed: at K=3, 45 of the
+#: 95 accepted puzzles were found on the *last* repair K allowed — lineages
+#: still converging were being thrown away for a fresh grid that is unique 2.7%
+#: of the time. 5 is the smallest value within one request of the best, and it
+#: is cheaper, not dearer: total wall clock fell from 329 s to 226 s, and the
+#: one request that ran into the 30 s deadline at K=3 finished inside 10 s.
+#: Smallest rather than fastest (K=8 took 193 s) because a larger K costs more
+#: on the rare lineage that flips a pair back and forth, and a 100-request
+#: corpus under-samples those. Setting it to ``0`` disables POL-006 and
 #: restores the pure-redraw loop it replaced exactly, down to the rng draws:
 #: that is ADR-0024's rollback switch, and it is a property of how the branch
 #: in :func:`generate` is written rather than a flag anything consults.
-MAX_CONSECUTIVE_REPAIRS = 3
+MAX_CONSECUTIVE_REPAIRS = 5
 
 #: How many candidates in a row a *batch* may abandon before it stops trying.
 #:
@@ -222,7 +231,9 @@ MAX_CONSECUTIVE_REPAIRS = 3
 #: and CARD-090 moved the bound, so both numbers are restated here rather than
 #: left describing a call this module no longer accepts.)
 #:
-#: Three, matching :data:`MAX_CONSECUTIVE_REPAIRS` next door, because three in
+#: Three — which once matched :data:`MAX_CONSECUTIVE_REPAIRS` next door; that
+#: one moved to 5 in CARD-091 on its own measurement, and nothing about this
+#: argument depended on the match — because three in
 #: a row is not bad luck at any rate this function can actually reach. Measured
 #: over 200 draws per size at the density ``generate_batch`` hardcodes (50):
 #: 0/200 abandoned at 10x10, 15x15 and 20x20, and 4/200 at 25x25. At the worst

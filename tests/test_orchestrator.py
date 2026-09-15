@@ -1491,10 +1491,15 @@ def test_redraws_after_k_consecutive_repairs(
     how many repairs were made, and that the two sum to the attempts the one
     counter recorded (ADR-0024/R2, INV-003).
 
-    Lowering ADR-0002's 20 is the only way to observe a *particular* attempt's
-    kind, since a run reports counts rather than a history; K itself is left at
-    its production value of 3 throughout.
+    Lowering ADR-0002's bound is the only way to observe a *particular*
+    attempt's kind, since a run reports counts rather than a history. K is
+    pinned to 3 here rather than read from production: the table spells out
+    K=3's boundaries literally, because a boundary test whose expected values
+    are computed by the same arithmetic as the code would not test the boundary.
+    The production value is pinned in ``tests/property/test_recovery_bound.py``
+    (5 since CARD-091), and the boundary shape is the same at any K.
     """
+    monkeypatch.setattr(orchestrator, "MAX_CONSECUTIVE_REPAIRS", 3)
     monkeypatch.setattr(orchestrator, "MAX_REGENERATE_ATTEMPTS", bound)
     puzzles = _capture_puzzles(monkeypatch)
     source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
@@ -1503,7 +1508,6 @@ def test_redraws_after_k_consecutive_repairs(
     with pytest.raises(GenerationAbandoned):
         generate(_request())
 
-    assert orchestrator.MAX_CONSECUTIVE_REPAIRS == 3
     puzzle = puzzles[-1]
     assert source.candidates_requested == expected_draws
     assert puzzle.recovery.redraws == expected_draws

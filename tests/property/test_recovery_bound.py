@@ -432,11 +432,11 @@ def test_k_is_a_split_of_the_one_budget_and_not_a_second_bound(
 ) -> None:
     """ADR-0024/R2, read off the corpus rather than off a scripted source.
 
-    No run exceeds ADR-0002's twenty attempts, no lineage exceeds K consecutive
+    No run exceeds ADR-0002's bound (``MAX_RETRY_ATTEMPTS``), no lineage exceeds K consecutive
     repairs, and — the half that makes K a *split* — a run that hit the cap
     still went on drawing fresh grids inside the same budget.
     """
-    assert MAX_CONSECUTIVE_REPAIRS == 3
+    assert MAX_CONSECUTIVE_REPAIRS == 5
     for record in corpus:
         assert record.attempts <= MAX_RETRY_ATTEMPTS
         # Every lineage is a draw followed by at most K repairs, so the repairs

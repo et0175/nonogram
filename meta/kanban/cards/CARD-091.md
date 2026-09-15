@@ -151,3 +151,77 @@ Two limits on this, both reasons for AC-1 rather than a shortcut past it:
 
 **Answered 2026-09-15:** Q-1 — "take your values": K ∈ {0, 3, 5, 8, 12}.
 Q-2 — "not in this card": the repair rule stays exactly as ADR-0024/R4 has it.
+
+## Measurement — AC-1 and AC-2 ran; K moves to 5
+
+`PYTHONPATH=src python meta/ops/retry_bound_sweep.py 100 30 25,30 0,3,5,8,12`,
+run detached with nothing else on the machine.
+
+| extent | K | made | abandoned | timed out | success | max | total | attempts / made | accepted at repair depth |
+|---|---|---|---|---|---|---|---|---|---|
+| 25x25 | 0 | 74 | 26 | 0 | 74% | 1.81 s | 86 s | 23.4 | 0:74 |
+| 25x25 | **3** (was) | 100 | 0 | 0 | 100% | 1.31 s | 31 s | 6.0 | 0:10 1:28 2:33 **3:29** |
+| 25x25 | **5** | 100 | 0 | 0 | 100% | 1.50 s | 33 s | 5.7 | 0:7 1:20 2:22 3:24 4:18 5:9 |
+| 25x25 | 8 | 100 | 0 | 0 | 100% | 2.23 s | 34 s | 5.8 | 0:4 1:14 2:20 3:21 4:17 5:8 6:9 8:7 |
+| 25x25 | 12 | 100 | 0 | 0 | 100% | 2.69 s | 35 s | 5.9 | … 9:3 10:1 |
+| 30x30 | 0 | 38 | 58 | 4 | 38% | 30.00 s | 753 s | 59.4 | 0:38 |
+| 30x30 | **3** (was) | 95 | 4 | 1 | 95% | 30.00 s | 329 s | 11.4 | 0:8 1:20 2:22 **3:45** |
+| 30x30 | **5** | **99** | **1** | **0** | **99%** | **9.84 s** | **226 s** | **8.7** | 0:4 1:11 2:11 3:26 4:18 **5:29** |
+| 30x30 | 8 | 98 | 2 | 0 | 98% | 9.47 s | 193 s | 7.4 | 0:3 1:7 2:7 3:20 4:13 5:17 6:14 7:11 8:6 |
+| 30x30 | 12 | 98 | 2 | 0 | 98% | 10.69 s | 185 s | 7.7 | … 8:6 9:2 10:3 |
+
+**AC-3's rule, applied as written.** Best 30x30 success is 99% (K=5). The
+smallest K within one request of it is 5 (K=3 is four requests short). Its
+total wall clock, 226 s, is not worse than K=3's 329 s. K moves to **5**.
+
+What the table says beyond the rule:
+
+- **The probe's reading held at full size.** At K=3, 45 of 95 accepted puzzles
+  were found on the last repair allowed. Lineages were being cut off while
+  converging.
+- **K is a bigger lever than the retry bound was.** CARD-090's bound change
+  took 30x30 from 85% to 95%; this takes it from 95% to 99%, and cuts the
+  attempts spent per accepted puzzle from 11.4 to 8.7 (the draws-only K=0
+  control spends 59.4).
+- **The deadline stops binding.** The one request that timed out at every retry
+  bound in CARD-089/090 finishes at K≥5, and the slowest 30x30 request drops
+  from 30.0 s to 9.8 s. CARD-090's AC-4 said the deadline binds "independently
+  of the bound"; that stays true of the *bound*, but it was not independent of
+  K — the timeout was a symptom of redrawing fresh 30x30 grids.
+- **K=5 still piles up at its cap** (29 of 99 accepted at depth 5), and K=8 is
+  15% faster (193 s) at 98%. Not chosen, per the rule and for the reason the
+  rule gives: a larger K costs more on flip-back cycles this corpus
+  under-samples. If the owner prefers speed, 8 is the defensible alternative
+  and the change is one constant.
+- **25x25 is unaffected in outcome** (100% at every K ≥ 3). Total 31 s → 33 s is
+  within this run's noise; attempts per puzzle fell 6.0 → 5.7.
+
+## Outcome
+
+- `MAX_CONSECUTIVE_REPAIRS = 5`, with the measurement in its docstring. Its
+  docstring's "a run can no more make 21 attempts" (stale since CARD-090) now
+  says "exceed that bound".
+- `MAX_CONSECUTIVE_ABANDONMENTS` stays 3 (G-4). Its docstring said "Three,
+  matching `MAX_CONSECUTIVE_REPAIRS` next door"; it now says that match was
+  once true and never mattered to the argument.
+- **ADR-0024 revised** (Revised field, a recalibration note at the Decision's
+  "initial value 3", the Negative consequence marked discharged, History with
+  the table and the rule). ADR-0024 already has a rule R5, so this revision is
+  not labelled R5 anywhere.
+- `trace.yml`'s two "K=3" descriptions now say K=5 and that it was 3.
+- **Pins:** `tests/property/test_recovery_bound.py` pins K == 5.
+  `test_redraws_after_k_consecutive_repairs` spelt out K=3's boundaries as
+  literal rows (bound 4 = last repair, 5 = redraw); it now sets K=3 itself
+  instead of asserting the production value, so it tests the boundary shape at
+  a known K rather than a copy of the code's arithmetic. Its stale "ADR-0002's
+  20" wording and a "twenty attempts" docstring in the property test were
+  corrected on the way.
+- G-1..G-6 held: bound 30, repair rule unchanged (Q-2), library mode untouched.
+- **Out-of-scope observation:** `docs/GENERATION_ALGORITHM.md` does not mention
+  POL-006 repair at all. It was reverse-engineered on 2026-09-12, before
+  CARD-074 landed repair, so its §8 describes a draws-only loop the pipeline no
+  longer runs. Not fixed here; worth its own small doc card.- **Checks.** Full suite: two failures, the same two admin-markup tests
+  CARD-090 confirmed failing on untouched main (`test_size_configuration_applied`,
+  `test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own`);
+  nothing else. Architecture validator: 0 errors, warning set identical to main.
+

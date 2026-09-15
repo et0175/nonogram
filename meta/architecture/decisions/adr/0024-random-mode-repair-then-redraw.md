@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-15 (CARD-091) — K recalibrated from 3 to 5, measured
 **Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
@@ -88,7 +88,8 @@ The mechanism, pinned so that AC-111/AC-132/AC-114 have one reading:
 - **Escape.** K consecutive repairs on one lineage without a unique verdict
   end the lineage: the grid is discarded and POL-001 redraws. K is a named
   tunable constant beside `MAX_RETRY_ATTEMPTS` in the orchestrator, initial
-  value **3**, to be recalibrated once a seeded corpus has been measured. K is
+  value **3**, to be recalibrated once a seeded corpus has been measured.
+  *(Recalibrated 2026-09-15, CARD-091: K is **5**. See History.)* K is
   a *split* of the one budget, not a second bound.
 - **Bound.** Every repair and every redraw advances the same `RetryCounter`
   ADR-0002 already bounds at 20 (INV-003). When it is exhausted the run
@@ -182,7 +183,9 @@ abandonment message keeps ADR-0002's uniform `GenerationAbandoned`.
 - Every existing random seed that ever hit MANY now maps to a different
   accepted grid. ADR-0015's reproducibility is per-version anyway, but an
   export's recorded seed no longer regenerates a pre-change puzzle.
-- K is chosen without measurement. Three consecutive repairs is a guess about
+- *(Discharged 2026-09-15, CARD-091 — K was measured and moved to 5; see
+  History. The consequence is kept as written.)* K is chosen without
+  measurement. Three consecutive repairs is a guess about
   how often a lineage converges versus wanders; it may prove too tight
   (escaping lineages one flip from unique) or too loose (spending budget on
   wandering ones). The recalibration is owed, not optional, and needs a
@@ -297,3 +300,28 @@ abandonment message keeps ADR-0002's uniform `GenerationAbandoned`.
   the decision was made. K (`MAX_CONSECUTIVE_REPAIRS`, 3) is untouched and its
   recalibration is still outstanding — the same sweep suggests it is now the
   larger lever.
+- 2026-09-15: **Revised (CARD-091) — K recalibrated from 3 to 5.** The
+  measurement this ADR's Negative consequences said was "owed, not optional".
+  Swept with `meta/ops/retry_bound_sweep.py 100 30 25,30 0,3,5,8,12`: 100
+  seeded requests per K, density 50, bound 30 (ADR-0002/R1).
+
+  | 30x30 | K=0 | K=3 | **K=5** | K=8 | K=12 |
+  |---|---|---|---|---|---|
+  | success | 38% | 95% | **99%** | 98% | 98% |
+  | timed out | 4 | 1 | **0** | 0 | 0 |
+  | total wall clock | 753 s | 329 s | **226 s** | 193 s | 185 s |
+  | attempts per accepted puzzle | 59.4 | 11.4 | **8.7** | 7.4 | 7.7 |
+
+  At 25x25 every K from 3 up succeeds 100% (K=0: 74%); totals 31-35 s.
+
+  The "too tight" reading this ADR anticipated was the true one: at K=3, 45 of
+  the 95 accepted puzzles were found on the third and last repair allowed, so
+  lineages still converging were being discarded for a fresh draw. The
+  decision rule was fixed before the numbers were read: the smallest K whose
+  30x30 success is within one request of the best, provided its wall clock is
+  no worse than K=3's. That is 5. K=8 is faster still at the same success
+  within noise, and was not chosen because a larger K spends more on the rare
+  lineage that flips a pair back and forth, which a 100-request corpus
+  under-samples. The repair rule itself (R1-R5) is unchanged; whether a lineage
+  that returns to a grid it has already judged should end early was
+  deliberately left out and would be a change to R4.
