@@ -227,7 +227,7 @@ links:
   - TestRegenerate_StopsAtMaxRetryBound
   notes: >-
     POL-001 / POL-005 live in COMP-002, the single enforcement point for
-    INV-003 (ADR-0007). Bound: 20 attempts (ADR-0002).
+    INV-003 (ADR-0007). Bound: 30 attempts (ADR-0002/R1, CARD-090; was 20).
     AMENDED 2026-09-12: ADR-0024 (FR-025, redraw_then_repair) puts POL-006's
     in-place repair AHEAD of this redraw for random mode — K=3 consecutive
     repairs on one lineage, then POL-001 discards and redraws. Library mode

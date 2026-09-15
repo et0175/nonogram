@@ -1,6 +1,12 @@
 """CARD-089 AC-1 — measure what a retry bound actually buys, and what it costs.
 
-    PYTHONPATH=src python meta/ops/retry_bound_sweep.py [requests-per-bound]
+    PYTHONPATH=src python meta/ops/retry_bound_sweep.py \
+        [requests-per-bound] [bounds-csv] [extents-csv]
+
+Defaults reproduce CARD-089's sweep. The seeds depend only on the extent, so
+a later run of one bound is directly comparable to an earlier run of another
+at the same extent and request count -- which is how CARD-090 added its 30
+row without re-running 20, 40 and 60.
 
 Committed rather than run ad hoc, for the reason ADR-0002 gives for needing it
 at all: its two numbers were "chosen without empirical tuning ... and will
@@ -23,8 +29,8 @@ import time
 from nonogram import orchestrator
 from nonogram.errors import GenerationAbandoned, SolverTimeout
 
-BOUNDS = (20, 40, 60)
-EXTENTS = (25, 30)
+DEFAULT_BOUNDS = (20, 40, 60)
+DEFAULT_EXTENTS = (25, 30)
 DENSITY = 50  # what generate_batch hardcodes, so this is the lived case
 
 
@@ -73,23 +79,31 @@ def sweep(extent: int, bound: int, requests: int, seed_base: int) -> dict:
         orchestrator.MAX_RESAMPLE_ATTEMPTS = original_resample
 
 
+def _numbers(argument: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in argument.split(",") if part.strip())
+
+
 def main() -> None:
     requests = int(sys.argv[1]) if len(sys.argv) > 1 else 100
+    bounds = _numbers(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_BOUNDS
+    extents = _numbers(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_EXTENTS
     print(f"  {requests} requests per bound, density {DENSITY}, seeded")
-    print(f"  bounds {BOUNDS}, extents {EXTENTS}")
+    print(f"  bounds {bounds}, extents {extents}")
     print()
     header = (
         f"  {'extent':>7} {'bound':>6} {'made':>5} {'aband':>6} {'t/out':>6} "
         f"{'success':>8} {'median':>8} {'p95':>8} {'max':>8} {'total':>8}"
     )
     print(header)
-    for extent in EXTENTS:
+    for extent in extents:
         # The same seeds at every bound, so a difference is the bound and not
         # a different set of grids.
         seed_base = 100_000 + extent * 1_000
-        for bound in BOUNDS:
+        for bound in bounds:
             row = sweep(extent, bound, requests, seed_base)
-            marker = "  <- today" if bound == 20 else ""
+            marker = (
+                "  <- shipped" if bound == orchestrator.MAX_RETRY_ATTEMPTS else ""
+            )
             print(
                 f"  {row['extent']}x{row['extent']:<3} {row['bound']:>6} "
                 f"{row['made']:>5} {row['abandoned']:>6} {row['timed_out']:>6} "

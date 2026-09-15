@@ -40,6 +40,7 @@ from __future__ import annotations
 import random
 from collections.abc import Callable
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -674,7 +675,13 @@ def test_regenerate_fires_on_a_real_random_candidate() -> None:
 
 
 def test_the_regenerate_bound_is_the_adr_0002_value() -> None:
-    assert MAX_REGENERATE_ATTEMPTS == 20
+    """ADR-0002/R1 (CARD-090): 30, measured, not ADR-0002's original guess of 20.
+
+    The pin is the point. The constant and the ADR are meant to move together,
+    so a future retune that edits one and not the other fails here rather than
+    leaving an accepted decision describing a number the code stopped using.
+    """
+    assert MAX_REGENERATE_ATTEMPTS == 30
 
 
 def test_regenerate_stops_at_max_retry_bound(
@@ -1292,6 +1299,37 @@ def test_a_recovered_grid_is_reverified_by_the_solver(
     assert _solved(puzzle.grid).solution_count == 1
 
 
+class _RecoveryShape(NamedTuple):
+    """How ADR-0024's interleave divides one exhausted retry budget.
+
+    A lineage costs one redraw plus ``MAX_CONSECUTIVE_REPAIRS`` repairs, so the
+    budget splits into whole lineages and at most one partial one. Every count
+    below follows from the two constants; none of it is observation, which is
+    why the tests derive it instead of pinning literals that are really a
+    statement about the bound. CARD-090's retune (20 -> 30) broke four such
+    literals at once, and this exists so the next one breaks none.
+    """
+
+    redraws: int
+    repairs: int
+    capped_lineages: int
+    repeated: int
+
+
+def _recovery_shape() -> _RecoveryShape:
+    per_lineage = orchestrator.MAX_CONSECUTIVE_REPAIRS + 1
+    full, remainder = divmod(MAX_REGENERATE_ATTEMPTS, per_lineage)
+    redraws = full + (1 if remainder else 0)
+    # A capped lineage re-judges a grid it has already seen on every repair but
+    # its first; a partial lineage never reaches the cap to do so.
+    return _RecoveryShape(
+        redraws=redraws,
+        repairs=MAX_REGENERATE_ATTEMPTS - redraws,
+        capped_lineages=full,
+        repeated=full * (orchestrator.MAX_CONSECUTIVE_REPAIRS - 1),
+    )
+
+
 def test_repair_attempts_count_against_the_retry_bound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1301,9 +1339,16 @@ def test_repair_attempts_count_against_the_retry_bound(
     its repair lineage is the pathological one K exists for: the pair choice
     swaps (12, 0) with (12, 1), the next solve locates the same ambiguity, and
     the repair swaps them back — the lineage oscillates between two grids and
-    never converges. Twenty attempts later the run is abandoned, and the twenty
-    are five drawn grids plus fifteen repairs, not twenty of either.
+    never converges. The bound's worth of attempts later the run is abandoned,
+    and those attempts are drawn grids *plus* repairs, not that many of either.
+
+    The counts are derived rather than pinned, because they are arithmetic, not
+    observation: one lineage costs a redraw plus ``MAX_CONSECUTIVE_REPAIRS``
+    repairs, so the budget divides into whole lineages and a possible partial
+    one. Written as literals they were silently a statement about the bound, and
+    CARD-090's retune (20 -> 30) broke all three of them at once.
     """
+    shape = _recovery_shape()
     puzzles = _capture_puzzles(monkeypatch)
     source = _ScriptedSource(_ambiguous_at_forty_percent(), repeat_last=True)
     _install_source(monkeypatch, source)
@@ -1312,14 +1357,14 @@ def test_repair_attempts_count_against_the_retry_bound(
         generate(_request())
 
     puzzle = puzzles[-1]
-    assert puzzle.regenerate.attempts == MAX_REGENERATE_ATTEMPTS == 20
-    assert puzzle.recovery.redraws == 5
-    assert puzzle.recovery.repairs == 15
+    assert puzzle.regenerate.attempts == MAX_REGENERATE_ATTEMPTS
+    assert puzzle.recovery.redraws == shape.redraws
+    assert puzzle.recovery.repairs == shape.repairs
     assert puzzle.recovery.attempts == puzzle.regenerate.attempts
-    assert puzzle.recovery.lineages_at_repair_cap == 5
+    assert puzzle.recovery.lineages_at_repair_cap == shape.capped_lineages
     assert puzzle.recovery.lineages_without_repairable_region == 0
-    assert puzzle.recovery.repeated_attempts == 10
-    assert source.candidates_requested == 5
+    assert puzzle.recovery.repeated_attempts == shape.repeated
+    assert source.candidates_requested == shape.redraws
 
     message = str(excinfo.value)
     assert str(MAX_REGENERATE_ATTEMPTS) in message
@@ -1342,11 +1387,18 @@ def test_the_run_summary_reads_as_one_line(monkeypatch: pytest.MonkeyPatch) -> N
         generate(_request())
 
     summary = puzzles[-1].recovery.describe()
-    assert "20 recovery attempts" in summary
-    assert "5 redraws" in summary
-    assert "15 repairs" in summary
-    assert "5 lineages reached the repair cap of 3" in summary
-    assert "10 of the repairs re-judged a grid the lineage had already seen" in summary
+    assert f"{MAX_REGENERATE_ATTEMPTS} recovery attempts" in summary
+    shape = _recovery_shape()
+    assert f"{shape.redraws} redraws" in summary
+    assert f"{shape.repairs} repairs" in summary
+    assert (
+        f"{shape.capped_lineages} lineages reached the repair cap of "
+        f"{orchestrator.MAX_CONSECUTIVE_REPAIRS}" in summary
+    )
+    assert (
+        f"{shape.repeated} of the repairs re-judged a grid the lineage had "
+        "already seen" in summary
+    )
 
 
 def test_a_cycling_lineage_is_told_apart_from_one_still_making_progress(
@@ -1376,8 +1428,9 @@ def test_a_cycling_lineage_is_told_apart_from_one_still_making_progress(
         generate(_request())
 
     cycling = puzzles[-1].recovery
-    assert cycling.lineages_at_repair_cap == 5
-    assert cycling.repeated_attempts == 10
+    shape = _recovery_shape()
+    assert cycling.lineages_at_repair_cap == shape.capped_lineages
+    assert cycling.repeated_attempts == shape.repeated
     # Two thirds of the repair budget spent re-judging known grids: the signal
     # that says "K is not the constraint here", which the cap count alone hides.
     assert cycling.repeated_attempts > cycling.repairs // 2

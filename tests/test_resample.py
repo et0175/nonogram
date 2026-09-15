@@ -588,12 +588,14 @@ def test_an_infeasible_tier_reaches_the_user_as_generation_failed(
 def test_the_two_loops_share_one_bound_constant() -> None:
     """Guardrail G-2 / ADR-0002: one number, not two that can drift apart.
 
-    Identity, not equality: two independently-declared ``20``s would satisfy
-    ``==`` today and diverge the first time somebody retuned one of them.
+    Identity, not equality: two independently-declared ``30``s would satisfy
+    ``==`` today and diverge the first time somebody retuned one of them. That
+    retune has now happened once -- CARD-090 moved the number from 20 to 30 --
+    and the identity below is why it was a one-line change.
     """
     assert MAX_REGENERATE_ATTEMPTS is MAX_RETRY_ATTEMPTS
     assert MAX_RESAMPLE_ATTEMPTS is MAX_RETRY_ATTEMPTS
-    assert MAX_RETRY_ATTEMPTS == 20
+    assert MAX_RETRY_ATTEMPTS == 30
 
 
 def test_both_counters_are_the_same_primitive_with_the_same_bound() -> None:

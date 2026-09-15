@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** R1 (2026-09-14, CARD-090) — the retry bound is 30, measured
 **Migration:** —
 **Pattern:** —
 **API-Posture:** —
@@ -32,6 +32,13 @@ budget within a single generation run.
 
 ## Decision
 
+> **R1 (2026-09-14, CARD-090): the retry bound is now 30, not 20.** The nudge
+> cap of 5 is unchanged. Everything this section says about *why* both loops
+> need a bound at all still holds — only the retry number moved, and it moved
+> because it was finally measured. See the History entry and the revised
+> alternatives section below; the original text is kept as written so the
+> reasoning that was superseded stays legible.
+
 We will adopt alternative **20_retries_5_nudges**: the regenerate/resample loop
 (random/library generation plus difficulty resampling) is capped at 20 attempts,
 and the pixel-nudge recovery loop (image mode) is capped at 5 attempts. This
@@ -48,6 +55,43 @@ from drifting the exported puzzle far from what the user actually uploaded.
 ## Alternatives considered
 
 ### 50_retries_10_nudges
+
+> **Superseded by measurement (R1, CARD-090).** Both of the two claims this
+> rejection rests on are false, and CARD-089 measured them at 30x30, density 50,
+> over 100 seeded requests through the real generation path:
+>
+> | bound | abandoned | success | total wall clock |
+> |---|---|---|---|
+> | 20 | 14 | 85% | 583 s |
+> | **30** | **4** | **95%** | **340 s** |
+> | 40 | 3 | 96% | 482 s |
+> | 60 | 1 | 98% | 375 s |
+>
+> *"It directly worsens the worst-case failure latency"* — it does not. A single
+> request's worst case is set by the NFR-001 deadline mechanism decided later
+> (`GENERATION_BUDGET_SECONDS`, one deadline per request shared by every attempt
+> in it), not by the attempt count; the longest request was 30.0 s at **every**
+> bound tried. Nor does a larger bound cost throughput: total wall clock *fell*
+> as the bound rose, because an abandonment is the expensive outcome — it spends
+> the entire budget and returns nothing, while a success usually lands early.
+> This ADR reasoned as though attempts were the scarce resource. They are not;
+> abandonments are.
+>
+> *"A combination that cannot be satisfied in 20 attempts is not meaningfully
+> more likely to be satisfied in 50"* — ten of the fourteen grids abandoned at
+> bound 20 are produced at bound 30, from the *same seeds*. They were not
+> infeasible combinations. They were false negatives, and the user saw
+> "infeasible" for a request that was not.
+>
+> What survives is this section's *instinct* that doubling is more than the
+> problem needs: 30 captures ten of the eleven conversions that 40 delivers, and
+> the curve is visibly flat past it. The bound moved to 30, not to 50.
+>
+> The lesson this ADR records for its successors is the one its own Negative
+> consequences predicted in writing: a number chosen without measurement, and
+> then defended with an argument about a cost that was never measured either,
+> will be wrong in a direction nobody can guess from the armchair. It was wrong
+> in the direction that made the tool *both* less reliable and slower.
 
 Doubling both bounds (50 regenerate/resample attempts, 10 pixel-nudge attempts)
 was considered. It would lower the chance of spurious abandonment for
@@ -117,3 +161,15 @@ attempts mostly extend the time to a failure that was already going to happen.
   20 and the 5 stand, unchanged and unrecalibrated; the one visible
   consequence is that "20 attempts" in an abandonment message now mixes
   redraws and repairs, which ADR-0024 accepts explicitly.
+- 2026-09-14: **Revised — R1 (CARD-090).** The regenerate/resample bound moves
+  from 20 to 30. CARD-089 built the seeded sweep this ADR's Negative
+  consequences asked for (`meta/ops/retry_bound_sweep.py`) and measured 20, 40
+  and 60; the owner left the number at 20 on that evidence, then took the middle
+  value once the shape of the curve was clear, and CARD-090 measured 30 rather
+  than interpolating it. Result: 85% -> 95% at 30x30, with total wall clock
+  falling. The `50_retries_10_nudges` rejection reasoning is marked superseded
+  above on both of its claims. `MAX_NUDGE_ATTEMPTS` (5) is untouched and remains
+  a separate judgement about a different question — how much of a user's own
+  picture may be altered — and `MAX_CONSECUTIVE_REPAIRS` (ADR-0024's K, still 3)
+  is untouched too, though the same measurement suggests it, not this bound, is
+  now the larger lever; recalibrating it is still scheduled and still undone.

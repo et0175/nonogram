@@ -158,7 +158,7 @@ __all__ = [
 #: the clue derivation consumes.
 Grid = list[list[bool]]
 
-#: ADR-0002: the regenerate/resample loop is capped at 20 attempts. **One**
+#: ADR-0002/R1: the regenerate/resample loop is capped at 30 attempts. **One**
 #: number for both loop kinds, and deliberately one *constant* — ADR-0002 gives
 #: regenerate and resample the same bound, so two literals could silently drift
 #: apart under a retune that only found one of them. The aliases below are the
@@ -169,7 +169,22 @@ Grid = list[list[bool]]
 #: Named here because INV-003's bound is the orchestrator's business (the
 #: pixel-nudge cap of 5 lands with CARD-016's counter, same way — a *different*
 #: number, from the same ADR, and so genuinely its own constant).
-MAX_RETRY_ATTEMPTS = 20
+#:
+#: 30 rather than ADR-0002's original 20 since CARD-090, and the difference is
+#: measured rather than argued. At 30x30, density 50, over 100 seeded requests
+#: through this function: bound 20 abandoned 14, bound 30 abandons 4, bound 40
+#: abandons 3, bound 60 abandons 1. Ten of the fourteen were *false* negatives —
+#: the same seeds produce a puzzle once the budget allows it — and 30 is where
+#: the curve knees, capturing ten of the eleven conversions bound 40 offers.
+#:
+#: Raising it costs nothing, which is the counter-intuitive part and the reason
+#: ADR-0002 originally argued the other way: an abandonment is the *expensive*
+#: outcome, since it spends the whole budget and returns nothing, while a
+#: success usually lands early. Total wall clock over those 100 requests fell
+#: as the bound rose. A single request's worst case is set by
+#: :data:`GENERATION_BUDGET_SECONDS`, not by this number — one deadline per
+#: request, shared by every attempt in it — so this bound cannot extend it.
+MAX_RETRY_ATTEMPTS = 30
 MAX_REGENERATE_ATTEMPTS = MAX_RESAMPLE_ATTEMPTS = MAX_RETRY_ATTEMPTS
 
 #: ADR-0024's K: how many times in a row random-mode recovery may REPAIR one
@@ -200,9 +215,12 @@ MAX_CONSECUTIVE_REPAIRS = 3
 #: end one candidate's life after :data:`MAX_RETRY_ATTEMPTS` draws. This one
 #: ends the *batch*, and it exists because skipping an abandoned candidate
 #: (CARD-083) removed the thing that used to stop a hopeless request: the first
-#: failure. Without it, ``generate_batch(count=200)`` against parameters that
-#: can never produce a puzzle would spend 200 x 20 = 4000 solves discovering
-#: that, where it used to spend 20.
+#: failure. Without it, ``generate_batch(count=50)`` against parameters that
+#: can never produce a puzzle would spend 50 x 30 = 1500 solves discovering
+#: that, where it used to spend 30. (The example was written as ``count=200``
+#: against a bound of 20; CARD-088 capped a batch at :data:`MAX_BATCH_COUNT`
+#: and CARD-090 moved the bound, so both numbers are restated here rather than
+#: left describing a call this module no longer accepts.)
 #:
 #: Three, matching :data:`MAX_CONSECUTIVE_REPAIRS` next door, because three in
 #: a row is not bad luck at any rate this function can actually reach. Measured
@@ -214,7 +232,7 @@ MAX_CONSECUTIVE_ABANDONMENTS = 3
 
 #: ADR-0002's *other* number: POL-002's pixel-nudge cap is 5, and this is
 #: deliberately **not** written as a fraction or an alias of
-#: :data:`MAX_RETRY_ATTEMPTS` (CARD-016 guardrail G-2). The 20 above and the 5
+#: :data:`MAX_RETRY_ATTEMPTS` (CARD-016 guardrail G-2). The 30 above and the 5
 #: here are two independent judgements from the same ADR about two different
 #: things — how many *fresh* candidates it is worth drawing before a request is
 #: called infeasible, versus how much of the user's own picture it is

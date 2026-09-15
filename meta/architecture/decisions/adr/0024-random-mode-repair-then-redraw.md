@@ -240,7 +240,7 @@ abandonment message keeps ADR-0002's uniform `GenerationAbandoned`.
   check: {kind: test, ref: PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound}
   severity: mandatory
 - id: ADR-0024/R2
-  statement: Repairs and redraws advance the same RetryCounter bounded by MAX_RETRY_ATTEMPTS (20). K, the consecutive-repair limit on one lineage, is a named constant beside it and is never a second bound; exhausting the counter raises GenerationAbandoned whichever kind of attempt came last.
+  statement: Repairs and redraws advance the same RetryCounter bounded by MAX_RETRY_ATTEMPTS (30 since ADR-0002/R1; 20 when this rule was written). K, the consecutive-repair limit on one lineage, is a named constant beside it and is never a second bound; exhausting the counter raises GenerationAbandoned whichever kind of attempt came last.
   scope: {contexts: [CTX-001], code: ["src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: TestRecovery_RepairAttemptsCountAgainstRetryBound}
   severity: mandatory
@@ -290,3 +290,10 @@ abandonment message keeps ADR-0002's uniform `GenerationAbandoned`.
   corpus measurement. Migration `rewrite`: today's pure-redraw loop in the
   orchestrator must be brought to this decision once FR-024's solver change
   has landed.
+- 2026-09-14: History (ADR-0002/R1, CARD-090) — the shared bound this ADR's
+  repairs and redraws advance is now 30, not 20, measured. The rule above is
+  unchanged in substance; only the number it cites moved, and the "20 attempts"
+  in this ADR's Context and consequences describes the bound as it stood when
+  the decision was made. K (`MAX_CONSECUTIVE_REPAIRS`, 3) is untouched and its
+  recalibration is still outstanding — the same sweep suggests it is now the
+  larger lever.
