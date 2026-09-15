@@ -133,3 +133,47 @@ which restores the same 105 s ceiling the random path has.
 - **Q-2 — status of a batch the clock stopped?** Proposed: **`COMPLETE` with a
   note**, matching CARD-093's decision for a random batch that stopped early with
   puzzles made; `ERROR` only if the clock stopped it before any puzzle.
+
+**Answered 2026-09-15:** Q-1 — option (a): pictures a stopped batch never started
+stay loaded for the next batch. Q-2 — a batch the clock stopped ends `COMPLETE`
+with a note; `ERROR` only if the clock stopped it before any puzzle was made.
+
+## Outcome
+
+- **AC-1, the clock before every generate call.** The route starts a batch
+  clock (`BATCH_BUDGET_SECONDS`) before any work and asks it before each
+  picture's predicted extent; `admin.app._generate_image_puzzle` takes a
+  `may_start` callable and asks it before each neighbour extent, raising a
+  private `_BatchOutOfTime` instead of trying the next one. A running extent
+  always finishes, so the ceiling is `BATCH_BUDGET_SECONDS +
+  GENERATION_BUDGET_SECONDS`, the sum `tests/test_admin_serving.py` already
+  holds against `--timeout`.
+- **AC-2.** Pictures the clock stopped before — or part-way through, when a
+  predicted extent was abandoned and no neighbour could start — are collected as
+  *not started* and reported in their own flash and batch note ("N pictures were
+  not started before this batch's 75s time budget ran out. They are still
+  loaded — run another batch for them."), separate from skipped, abandoned and
+  errored pictures. `CANNOT_FIT` pictures after the stop are still reported as
+  skipped, since they would never generate anyway.
+- **Q-1 (a).** A stopped batch removes only the pictures it attempted; the not
+  started ones stay loaded. A batch that finishes clears everything as before.
+- **Q-2.** Stopped with puzzles: `COMPLETE`, note in `error_message`. Stopped
+  with none: `ERROR`, same note.
+- **AC-3.** `puzzle_count` is written after each stored puzzle, and still once
+  at the end.
+- **AC-4.** No new constant; the clock is the module attribute
+  `admin.app._batch_clock`, which the tests replace.
+- **Tests** (`tests/test_image_batch_clock.py`, 6), written first — the red was
+  behavioural once the clock hook existed (5 failed, and the one that passed was
+  "a batch that fits is unchanged"): pictures after the budget are not started;
+  they stay loaded; a picture cut short does not try its neighbours; a clock stop
+  with no puzzle is `ERROR`; `puzzle_count` is written 1, 2, 3 as puzzles store;
+  a batch that fits is unchanged (same puzzles, same flash, everything cleared,
+  no note).
+- **Mutation check.** Removing the neighbour check, removing the per-picture
+  check, and clearing every picture each fail 2 of the 6. Restored from a saved
+  copy.
+- **AC-6.** §9.2 describes the clock; reference checker 211 resolved, 0 failed.
+- **Full suite:** 3,422 passed, 26 skipped, 0 failed (the two admin-markup tests
+  already failing on untouched main deselected).
+
