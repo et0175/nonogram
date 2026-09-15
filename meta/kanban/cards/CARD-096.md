@@ -195,7 +195,7 @@ retry recovered after the preset's own extent was abandoned.
 ### AC-4 — the contact sheets
 
 14 sheets, one per picture that failed at some size, rendered to
-`/Users/omelnikova/PycharmProjects/CARD-096-contact-sheets/` (outside the repo,
+`~/Documents/nonogram-reviews/CARD-096/` (moved there from beside the repo at the owner's request; outside the repo,
 not committed). Each shows the source, then the original conversion at each
 failing size with undecided cells tinted. What looking at them adds, which no
 number above says:
