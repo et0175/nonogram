@@ -1,6 +1,6 @@
 # CARD-090: The retry bound moves to 30 — the middle value the owner took after seeing the curve
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 1
 **Depends on:** CARD-089 (merged d575708) — whose measurement this acts on
 **Touches:** src/nonogram/orchestrator.py (one constant), meta/architecture/decisions/adr/0002-retry-and-nudge-bounds.md, meta/ops/retry_bound_sweep.py, tests/test_resample.py, tests/test_orchestrator.py
-**Review score:** —
+**Review score:** — (merged without a review cycle, at the owner's call)
 **Started:** 2026-09-14
-**Closed:** —
+**Closed:** 2026-09-15
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 5d4bc3a
 **Blocked by:** —
 
 ## Why
