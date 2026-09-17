@@ -624,37 +624,59 @@ functional:
   - id: FR-013
     # AMENDED 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 3 —
     # NOT marked DECISION). Mechanism half only: which cells a nudge flips.
-    # Today's ranking (sourcing/image.py nudge_cells) is a 2x2 "switching
-    # block" heuristic that guesses where the ambiguity is; the nudge now
-    # chooses from the solver's own undecided/disagreement mask (FR-024) —
-    # the cells line logic left undecided at its first fixed point, or where
-    # the two witness solutions disagree — nearest the ink boundary first.
+    # The ranking it replaced (sourcing/image.py nudge_cells, now retired) was
+    # a 2x2 "switching block" heuristic that guessed where the ambiguity is;
+    # the nudge now chooses from the solver's own report (FR-024).
+    #
+    # RE-AMENDED 2026-09-17 (CARD-075, from CARD-096's measurement). The
+    # 2026-09-12 wording had the mask as the primary region and had attempt n
+    # choose n cells at once from the ORIGINAL conversion. CARD-096 measured
+    # both and found both wrong:
+    #   * the two witnesses disagreed on 4 cells in 27 of 34 abandonments,
+    #     while the undecided mask covered a median 35% of the grid (up to
+    #     100%) — so the disagreement set is the primary region and the mask
+    #     is the fallback, the same order ADR-0024's repair already uses;
+    #   * choosing once from the original conversion rescued 9 of the 36
+    #     conversions dithering fails, re-reading the solver each attempt
+    #     rescued 19 (the retired ranking rescued 0) — so each attempt adds
+    #     ONE cell, chosen from what the solver reported about the grid the
+    #     PREVIOUS attempt was judged on.
     # The POLICY half (POL-002/POL-003: bounded, automatic, report at the cap)
-    # is unchanged; so are the cap of 5 (ADR-0002) and the "attempt n flips
-    # the best n cells of the ORIGINAL conversion" cumulative property. Id,
-    # kind and test refs of AC-034..AC-036 are stable (EC-007 2026-08-31
-    # precedent); AC-115..AC-117 and EC-014 are new. Open gap, recorded not
-    # invented: the intake does not say what attempt n does when the mask
-    # holds fewer than n cells — see _meta.gaps.
+    # is unchanged; so are the cap of 5 (ADR-0002) and the cumulative property
+    # — attempt n differs from the ORIGINAL conversion in exactly n cells and
+    # contains every cell attempt n-1 flipped. Id, kind and test refs of
+    # AC-034..AC-036 are stable (EC-007 2026-08-31 precedent); AC-115..AC-117
+    # and EC-014 are the amended ones. The 2026-09-12 gap below ("attempt n
+    # when the mask holds fewer than n cells") is RESOLVED by the re-amendment
+    # rather than answered: attempts no longer draw n cells from one fixed
+    # set, and the successor rule is AC-116's — fall back to the mask, then
+    # stop adding while the counter keeps running.
     statement: >-
       When an uploaded image's converted grid fails the uniqueness check,
       attempt a bounded number of automatic pixel nudges and re-check; if
       still not unique after the capped attempts, report failure to the
-      user rather than continuing to alter the image silently. Each nudge
-      chooses the cells it flips from the solver's undecided/disagreement
-      mask for the ORIGINAL conversion (FR-024) — the cells line logic left
-      undecided at its first fixed point, or on which the two witness
-      solutions disagree — ordered nearest the ink boundary first; attempt
-      n flips the n best such cells of the original conversion, so the
-      nudges of one run nest and at most the capped number of the user's
-      pixels are ever altered.
+      user rather than continuing to alter the image silently. Each attempt
+      adds ONE cell to the set it flips, chosen from what the solver
+      reported about the grid the previous attempt was judged on (FR-024) —
+      the cells on which that solve's two witness solutions disagree, or,
+      when those hold no cell not already flipped, the cells line logic
+      left undecided — ordered nearest the ink boundary first. The flips
+      are applied to the ORIGINAL conversion, so attempt n differs from the
+      user's picture in exactly n cells, the nudges of one run nest, and at
+      most the capped number of the user's pixels are ever altered.
     source: [US-007]
     _meta:
       source: authored
       amended: 2026-09-12
-      evidence: ["docs/GENERATION_ALGORITHM.md#8.3", "src/nonogram/sourcing/image.py nudge_cells"]
-      gaps:
-        - "Attempt n when the undecided/disagreement mask holds fewer than n cells: flip all of them and stop, or fall back to a secondary ranking? Not stated in the intake — needs an owner answer before the card is cut."
+      re_amended: 2026-09-17
+      re_amended_by: CARD-075
+      evidence:
+        - "docs/GENERATION_ALGORITHM.md#8.4"
+        - "src/nonogram/sourcing/image.py next_nudge_cell"
+        - "meta/kanban/cards/CARD-096.md"
+      gaps: []
+      resolved_gaps:
+        - "2026-09-12: 'Attempt n when the undecided/disagreement mask holds fewer than n cells' — dissolved by the 2026-09-17 re-amendment (CARD-075); attempts no longer draw n cells from one fixed set. Successor rule: AC-116."
     acceptance:
       - id: AC-034
         given: an uploaded image whose initial conversion fails the uniqueness check, with nudge attempts remaining under the cap
@@ -677,38 +699,55 @@ functional:
         then: the message states that the user should retry with a different image or size
         kind: negative
         test: TestNudge_FailureMessageSuggestsRetry
+      # AC-115/AC-116 re-amended 2026-09-17 (CARD-075): the region order is the
+      # disagreement set first, the mask as fallback, and an attempt adds one
+      # cell rather than choosing n at once. AC-117 is unchanged in substance.
       - id: AC-115
-        given: an uploaded silhouette whose conversion at 20x20 reports MANY, with an undecided/disagreement mask of 14 cells
-        when: nudge attempt 3 is applied
-        then: all 3 flipped cells are members of that 14-cell mask
+        given: a candidate the solver reported MANY for, whose two witnesses disagree on a set D
+        when: the next nudge attempt is built
+        then: the one cell it adds is a member of D that is not already flipped
         kind: boundary
         policy: POL-002
-        test: TestNudge_FlipsOnlyCellsInsideUndecidedMask
+        test: TestNudge_AddsACellWhereTheWitnessesDisagree
       - id: AC-116
-        given: an undecided mask containing one cell adjacent to the ink boundary (Chebyshev distance 0 from a differently-valued neighbour) and one cell 3 cells away from any ink boundary
-        when: nudge attempt 1 is applied
-        then: the cell adjacent to the ink boundary is the one flipped
-        kind: happy
-        test: TestNudge_PrefersCellsNearestInkBoundary
+        given: a MANY candidate whose witness-disagreement cells are all already flipped or absent, and separately one whose undecided mask holds a cell adjacent to the ink boundary and a cell 3 cells away from any boundary
+        when: the next nudge attempt is built
+        then: the added cell comes from that candidate's undecided mask, the cell nearest the ink boundary is the one chosen (then row, then column), and when neither region holds an unflipped cell the attempt adds nothing and returns no candidate while the counter still advances
+        kind: boundary
+        test: TestNudge_FallsBackToTheMaskThenStops
       - id: AC-117
-        given: a conversion whose mask-driven nudge attempts 1, 2 and 3 flipped cell sets S1, S2, S3
+        given: a conversion whose nudge attempts 1, 2 and 3 flipped cell sets S1, S2, S3
         when: the three sets are compared to the ORIGINAL conversion
         then: S1 is a subset of S2, S2 is a subset of S3, and S3 differs from the original conversion in exactly 3 cells
         kind: boundary
         test: TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion
+      # AC-172 is a measurement, not a suite test: the owner's 25-picture
+      # corpus is not in the suite's time budget (meta/ops/
+      # image_abandonment_sweep.py, ~20 minutes). Recorded here because it is
+      # the criterion CARD-075 was accepted on.
+      - id: AC-172
+        given: the owner's 25-picture corpus swept at sizes 10,15,20,25,30 before and after CARD-075
+        when: the two sweeps are compared
+        then: at least 19 more of the 36 conversions that dithering fails are made, and every conversion made before is still made
+        kind: happy
+        test: meta/ops/image_abandonment_sweep.py
     engineering_constraints:
       - id: EC-014
+        # Re-amended 2026-09-17 (CARD-075) alongside AC-115/AC-116.
         statement: >-
           For any uploaded image whose conversion reports MANY and any
-          attempt number n in 1..5, the set of cells nudge attempt n flips
-          is a subset of the solver's undecided/disagreement mask for the
-          ORIGINAL conversion, has exactly min(n, |mask|) members, and
-          contains every cell attempt n-1 flipped — for every image and
-          every n, not only the measured examples. The cap of 5 and the
-          re-verification of every nudged grid by the real solver
+          attempt number n in 1..5 that adds a cell, the set of cells
+          attempt n flips has exactly one more member than attempt n-1's,
+          contains every cell attempt n-1 flipped, and its new cell belongs
+          to the witness-disagreement set of attempt n-1's candidate or,
+          when that set holds no unflipped cell, to that candidate's
+          undecided mask — for every image and every n, not only the
+          measured examples. The grid attempt n is judged on differs from
+          the ORIGINAL conversion in exactly those cells. The cap of 5 and
+          the re-verification of every nudged grid by the real solver
           (CON-005) are unchanged by the mechanism.
         kind: consistency
-        instances: [AC-115, AC-117]
+        instances: [AC-115, AC-116, AC-117]
         test: PropertyTest_Nudge_FlippedCellsSubsetOfUndecidedMaskAndNested
 
   - id: FR-014

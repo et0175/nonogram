@@ -247,7 +247,8 @@ links:
   - TestNudge_AttemptsBoundedRecovery
   - TestNudge_ReportsFailureAtCap
   - TestNudge_FailureMessageSuggestsRetry
-  - TestNudge_FlipsOnlyCellsInsideUndecidedMask
+  - TestNudge_AddsACellWhereTheWitnessesDisagree
+  - TestNudge_FallsBackToTheMaskThenStops
   - TestNudge_PrefersCellsNearestInkBoundary
   - TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion
   - PropertyTest_Nudge_FlippedCellsSubsetOfUndecidedMaskAndNested
@@ -256,19 +257,26 @@ links:
     COMP-003 (it owns the grid the image produced). Cap: 5 attempts
     (ADR-0002).
     AMENDED 2026-09-12 (raw-requirements.md entry 3, no DEC): the mechanism
-    half changes — each nudge now picks its cells from the solver's
-    undecided/disagreement mask for the ORIGINAL conversion (FR-024, COMP-005)
-    ordered nearest the ink boundary first, replacing sourcing/image.py
-    nudge_cells' 2x2 switching-block guess. Policy half (POL-002/POL-003, cap
-    of 5, cumulative attempt-n-flips-the-best-n rule) unchanged, so AC-034..
-    AC-036 and their tests are stable; AC-115..AC-117 and EC-014 are the new
-    criteria, listed above. ADR-0009/ADR-0012 added because the mask is the
-    solver contract extension those ADRs govern (crosses the boundary as
+    half changes — each nudge now picks its cells from the solver's report
+    (FR-024, COMP-005) rather than from sourcing/image.py nudge_cells' 2x2
+    switching-block guess.
+    RE-AMENDED and DELIVERED 2026-09-17 (CARD-075, from CARD-096's
+    measurement): the region order is the witness-disagreement set first with
+    the undecided mask as fallback — the same order ADR-0024's repair uses —
+    and each attempt adds ONE cell chosen from what the solver reported about
+    the grid the PREVIOUS attempt was judged on, ranked nearest the ink
+    boundary first then (row, column). Policy half (POL-002/POL-003, cap of 5,
+    attempt n differing from the ORIGINAL conversion in exactly n nested cells)
+    unchanged, so AC-034..AC-036 and their tests are stable. AC-115/AC-116
+    re-worded with their test names; AC-117 unchanged in substance; AC-172 is
+    the corpus measurement and is a meta/ops script, not a suite test.
+    ADR-0009/ADR-0012 are here because the mask and witnesses are the solver
+    contract extension those ADRs govern (they cross the boundary as
     list[list[bool]], EC-012); their History entries recording the extension
-    are still owed by the adr-writer (open.yml 2026-09-12 note). Open gap
-    carried from FR-013 _meta.gaps: what attempt n does when |mask| < n is an
-    owner question, not decided here (EC-014 reads it as min(n, |mask|)).
-  status: partial
+    are still owed by the adr-writer (open.yml 2026-09-12 note). The
+    2026-09-12 open gap (what attempt n does when |mask| < n) is dissolved
+    rather than answered — attempts no longer draw n cells from one fixed set.
+  status: done
 
   # ---------------------------------------------------------------- CAP-004
 - req: FR-008

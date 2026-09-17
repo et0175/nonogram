@@ -8,7 +8,7 @@ end for what each refresh re-checked.
 `meta/architecture/decisions/adr/`; POL-001..POL-006 in `meta/architecture/domain/policies.yml`.
 
 **How to read the references.** Code is cited by *symbol*, relative to `src/nonogram/`:
-`orchestrator.generate`, `solver.search._expand`, `sourcing.image.nudge_cells`. A nested
+`orchestrator.generate`, `solver.search._expand`, `sourcing.image.next_nudge_cell`. A nested
 function is written through its parent (`orchestrator.generate.judge_candidate`). Line numbers
 are deliberately not used: they went stale within three days the last time the orchestrator
 grew. Every reference in this file is resolved mechanically by
@@ -562,14 +562,25 @@ Image mode converts **exactly once** and never enters the loops above: the regen
 counters stay at zero, because asking the source for a second candidate would return the first.
 If the conversion is not unique:
 
-- attempt *n* (1..5) flips the best *n* cells of the **original** conversion — cumulative from
+- attempt *n* (1..5) flips exactly *n* cells of the **original** conversion — cumulative from
   the conversion, not from the previous nudge — and the result is fully re-solved through
-  `judge_candidate` (`sourcing.image.nudge`).
-- Cell ranking (`sourcing.image.nudge_cells`): (1) participation in 2×2 "switching" blocks
-  (`# .` / `. #` diagonals), descending; (2) number of orthogonal neighbours with the other
-  value, descending; (3) Chebyshev distance from the grid centre, ascending; (4) row, column.
-  Greedy selection with a Chebyshev spacing of `_NUDGE_SPACING` (1) between chosen cells; if
-  spacing cannot supply enough cells the rest of the ranking fills in.
+  `judge_candidate` (`sourcing.image.nudge`, which applies a set of cells and decides nothing).
+- Which cell attempt *n* **adds** (`sourcing.image.next_nudge_cell`) is read off the solver's
+  report on the grid attempt *n−1* was judged on — the original conversion for attempt 1 — not
+  off the shape of the grid. Candidates are the cells where that solve's two **witnesses
+  disagree**, minus the cells already flipped; when that set holds no unflipped cell, the cells
+  of its **undecided mask**, minus the same. Within whichever region supplied them, the ranking
+  is (1) Chebyshev distance to the nearest differently-valued cell, ascending — the edge of the
+  ink first; (2) row, column. When neither region holds an unflipped cell the attempt adds
+  nothing and returns no candidate, and POL-002's counter still advances.
+- CARD-075 replaced a structural guess with that (a 2×2 "switching block" ranking over the
+  conversion, `nudge_cells`, retired). Both halves of the change are measured, on the 36
+  conversions dithering fails across the owner's 25-picture corpus at sizes 10..30
+  (`meta/ops/image_abandonment_sweep.py`, CARD-096): choosing the cells **once** from the
+  original conversion rescued 9, re-reading the solver **each attempt** rescued 19, and the 2×2
+  ranking rescued 0. The disagreement set is also far smaller than the mask — 4 cells in 27 of
+  34 abandonments, against a mask covering a median 35% of the grid — which is why it is the
+  primary region and the mask only the fallback.
 - At the cap: `GenerationAbandoned` saying the picture was never re-drawn and the tool has
   stopped altering it (`orchestrator._image_uniqueness_reason`).
 - A conversion that is unique but **outside the requested tier** is not nudged; the run is

@@ -47,9 +47,10 @@ from tests.test_nudge import _ONE_SWITCH, _CountingSource, _install_source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BANDS = FIXTURES / "bands.png"
-#: The two-nudge pin, re-pinned onto a photograph by CARD-070. Only AC-040 uses
-#: it; the scripted-source test below keeps ``BANDS`` because its source is
-#: monkeypatched and the file is never converted.
+#: The two-nudge pin, re-pinned onto a photograph by CARD-070 and re-taken at
+#: 15x15 by CARD-075. Only AC-040 uses it; the scripted-source test below
+#: keeps ``BANDS`` because its source is monkeypatched and the file is never
+#: converted.
 OWL = FIXTURES / "owl1.png"
 #: Re-pinned from ``wide.png`` by CARD-026 — see the note beside
 #: ``tests/test_nudge.py``'s own ``LANDSCAPE``: a 3:1 source into a square grid
@@ -60,7 +61,15 @@ LANDSCAPE = FIXTURES / "landscape.png"
 def test_export_reports_nudge_count(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AC-040: 2 pixel nudges -> a line stating 2 cells were nudged."""
+    """AC-040: 2 pixel nudges -> a line stating 2 cells were nudged.
+
+    ``15x15`` since CARD-075, which changed how a nudge picks its cell and so
+    changed how many any given conversion needs: ``owl1.png`` at 10x10 is now
+    repaired by **one** nudge, which is the singular line the boundary test
+    below owns, and would have made this test assert the wrong branch. A fresh
+    10..25 sweep (``tests/test_nudge.py``'s re-pinning recipe) puts 2 at every
+    size from 14 to 19; 15x15 is the middle of that run.
+    """
     exit_code = cli.main(
         [
             "generate",
@@ -69,7 +78,7 @@ def test_export_reports_nudge_count(
             "--image",
             str(OWL),
             "--size",
-            "10",
+            "15x15",
             "--seed",
             "1",
             "--export",
