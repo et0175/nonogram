@@ -1,6 +1,6 @@
 # CARD-079: Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus rendered both ways for the owner's eye
 
-**Status:** in progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -289,7 +289,7 @@ puzzles are never re-converted.
 
 ## Worktree notes
 
-### Delivered to the gate, 2026-09-17 — **awaiting the owner's decision**
+### Delivered to the gate, 2026-09-17 — _decided the same day, see **The owner's decision** at the end_
 
 **What shipped.** `sourcing/image.py` gained `THRESHOLD`/`DITHER`,
 `MIDTONE_BAND`, `MIDTONE_SHARE_THRESHOLD`, `DEFAULT_BINARISATION`,
@@ -406,3 +406,138 @@ re-worded. G-9 explicit pathspecs. G-10 (Revision) nothing under
 ADR-0028 History with the calibration; ADR-0006 History scope note;
 `meta/architecture/trace.yml` FR-027 row. `check_doc_references.py`: 227
 resolved, 0 failed.
+
+### The owner's decision — flip the default, add the blank-grid guard (2026-09-17)
+
+Owner: "flip the default and add the blank-grid guard". G-1 ("never this card's
+commit") is superseded by that instruction: the flip is on this card's branch
+at the owner's word, which is the follow-up G-1 reserved for them.
+
+**The flip.** `DEFAULT_BINARISATION = None` — the classifier chooses per
+picture. ADR-0026 is **Accepted** (conditional on the guard, recorded in its
+History); ADR-0028 is live.
+
+**The guard, and two choices made in building it** — both stated because the
+instruction named the guard, not its shape:
+
+1. **Fall back to dither, not refuse.** A threshold conversion outside
+   `USABLE_INK_SHARE` is redone on the dither path. Dither is what every
+   picture got before the flip, so a fallback can never turn a picture the
+   tool used to convert into an error; a refusal could. It also needs no new
+   error type, exit code or message. On the two live cases the outcome is
+   identical anyway — the dither path abandons both, as it always did. A
+   degenerate *dither* conversion stands: there is nothing to fall back to.
+2. **The floor is 5%, not 10%.** The corpus gap is wide (line art at
+   1.0–2.7%, the next conversion at 18.0%), and 10% was my first cut. A test
+   caught it: `tests/fixtures/landscape.png`, a thin horizon — sparse but a
+   real picture — converts at **9.0%**, and a 10% floor sent it to dither for
+   no reason. 5% sits in the narrower gap [2.7%, 9.0%]. The ceiling mirrors it
+   at 95% and nothing on hand triggers it (densest conversion 82.0%).
+
+**A design flaw found and fixed while doing it.** `binarize(path=None)` used to
+resolve the default itself, but the guard lives one level up in the new
+`convert`, so any caller of `binarize` got an *unguarded* conversion while
+`generate` got a guarded one — two answers to "what does this picture convert
+to". FR-022's trim tests were such callers and showed a false regression (worst
+blank edge 11). `path` is now **required** on `binarize`, and `convert` is the
+only place a path is chosen. `binarisation_for` now takes the extent and
+converts to answer, because the guard makes the path depend on the result —
+~4 ms a picture, against a solve of tens to thousands of ms.
+
+**AC-127, re-worded to what the decision rests on — shipped vs dither
+everywhere** (comparing the raw paths credited the threshold with pictures the
+guard sends back). 25 pictures × sizes 10,15,20,25,30:
+
+| | shipped | dither everywhere |
+|---|---:|---:|
+| conversions made | **110** of 125 | 109 |
+| unique at the first solve | **91** | 80 |
+| nudges spent | **39** | 53 |
+| **(c) dither makes, shipped loses** | **0** | — |
+
+107 of the 110 took the threshold path, 3 took dither. The one gain is
+`duck2.png` at 30. At 25×25 alone (the suite's clause (a)): **17 against 16**.
+
+So the honest size of the win: **one extra conversion in 125**, **11 more
+unique first time**, **14 fewer pixels of owners' pictures changed**, and
+silhouettes that look like silhouettes. Raw threshold's "116 made" was
+inflated by `cat_Mouse`'s four blank-page "gains" and by `zebra`, which the
+classifier correctly keeps on dither. The re-rendered sheets (same folder,
+columns now *shipped* and *dither*) show `cat_Mouse` refused on both.
+
+**Pins the flip moved — all re-measured, each recorded where it lives:**
+
+| where | was | now | why |
+|---|---|---|---|
+| FR-022 AC-086 (requirements.yml + test) | 17 of 19 fixed, 2 residual, 23/25 | **16, 3, 22/25** | `duck2.png` thresholds and gains one blank line at its right edge |
+| FR-022 AC-089 | near-white 6 vs mid-grey 2 | **7 vs 3** | the same picture, both sides; the gap the criterion is about holds |
+| FR-022 AC-088 `dear1.jpg` edges | [0,0,0,2] | [0,0,1,2] | deepest edge unchanged at 2 |
+| FR-022 AC-091 `wolf1.jpeg` | before == after | deepest 3 both sides | trim now takes one line off an edge that was never the problem |
+| AC-127(a) at 25×25 | raw 19 vs 16 | **shipped 17 vs 16** | re-worded to shipped vs dither |
+
+The AC-086 test keeps its `17_of_the_19` function name — it is the pytest
+spelling of the trace id, and ids stay stable across an amendment.
+
+**New criterion:** FR-027 **AC-173** (checked free; AC-172 is CARD-075's) —
+a threshold conversion outside 5%..95% ink is redone on the dither path and
+no near-empty threshold grid is scored or exported. Tests
+`test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_*`: the
+washed-out picture, `cat_Mouse` at 25 (skips without the corpus),
+`landscape.png` left alone, and a degenerate dither conversion left standing.
+
+**Also updated:** FR-027 in requirements.yml (decision recorded, gap resolved,
+AC-127 re-worded, AC-173 added); trace FR-027 → `done`;
+`docs/GENERATION_ALGORITHM.md` §4.3 rewritten for what ships, finding 11
+closed, §11 row; ADR-0026 Accepted; ADR-0028 History (live; and the recorded
+path can differ from the classifier's choice when the guard fires); ADR-0006
+and ADR-0028 History entries put back in oldest-first order. The review script
+gained `--from-rows`, because its report crashed after a 25-minute sweep on a
+variable my own edit left behind, and re-reporting from the saved rows beat
+re-running it.
+
+### After the flip — what else moved, and the suite
+
+**Pins outside FR-022 that the flip moved** (all re-measured, each recorded in
+its own docstring):
+
+| pin | was | now | why |
+|---|---|---|---|
+| `test_nudge.py` real-image recovery | `owl1.png` 10x10, 1 nudge | **`bird2.jpg` 14x14**, 1 nudge | `owl1.png` now takes the threshold path and converts at *every* size 10..30, so it has no cap case left; the pair moved together to keep one photograph doing both jobs |
+| `test_nudge.py` real-image cap + its CLI end | `owl1.png` 24x24 | **`bird2.jpg` 16x16** | made at 14x14 and 15x15, abandoned at 16x16, made again at 17x17 — the extent is plainly the only variable |
+| `test_nudge_reporting.py` AC-040 plural line | `owl1.png` 15x15, 2 nudges | **20x20**, 2 nudges | a fresh 10..30 sweep puts 2 at 19, 20, 24, 27 |
+| `property/test_grid_dimensions.py` decode count | bare 2, explicit 1 | **bare 3, explicit 2** | `binarisation_for` decodes once per request; renamed `..._exactly_three_times` |
+| `test_nudge.py` API-surface pin | 12 names | 24 names | the binarisation vocabulary |
+
+A fixture sweep over 10..30 found eight fixtures that still reach the cap, so
+the cap case is not scarce — `bird2.jpg` was chosen for the adjacent-size
+contrast, not for being the only one.
+
+**A second design leak, found by a test.** The orchestrator asked
+`binarisation_for` for *every* image-mode run, including runs whose grid comes
+from a scripted source — so it opened the uploaded file through a channel the
+source never used, and `tests/test_naming.py`'s image-stem test (which uploads
+an empty placeholder `cat.png`) failed with `UnreadableImage`. The field
+records which path *a conversion* took, and a grid no conversion produced has
+none, so it is now recorded only when the real image module is the source in
+use. Pinned by `test_a_grid_no_conversion_produced_records_no_binarisation`.
+
+**Mutation check on the flip and the guard** — four more mutants, restored from
+a saved copy: guard removed (8 failures), guard applied to the dither path too
+(**survived** — re-dithering a dither grid returns the same grid, so it was
+invisible in the result; the test now counts conversions and catches it), floor
+raised back to 10% (caught by the `landscape.png` case), flip reverted (9
+failures).
+
+**Full suite: 3,451 passed, 0 failed, 26 skipped.** `check_doc_references.py`:
+230 resolved, 0 failed.
+
+**One environmental note for the owner, not a card issue.** A local PostgreSQL
+18 is now listening on 5432. The suite's DB tests skip when Postgres is
+unreachable and had skipped all day; with it up, the full run hangs in
+`tests/test_admin_regrade.py` (10+ minutes, one leaked connection, ~1 s of CPU).
+That file passes in about a second on its own on **both** `main` and this
+branch, and the full suite completes normally in 97 s once Postgres is
+unreachable again — so it is an inter-test interaction that the running server
+exposes, present on `main`, and nothing to do with this card. It is worth its
+own card.
+

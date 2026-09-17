@@ -1632,10 +1632,20 @@ def generate(
     # FR-027: resolved once, here, for the same reason the extent and the
     # deadline are — it cannot change between attempts, and a nudge must not
     # be able to move a picture onto the other path halfway through a run.
-    # Costs nothing while `DEFAULT_BINARISATION` is pinned (see
-    # `image_source.binarisation_for`).
-    if request.mode == sourcing.IMAGE:
-        puzzle.binarisation = image_source.binarisation_for(request.image)
+    # Takes the extent because the degenerate-ink guard makes the answer
+    # depend on it: the same picture can threshold at one size and fall back
+    # to the dither path at another (see `image_source.binarisation_for`,
+    # which states what the call costs).
+    #
+    # Only when the image module is the source actually in use. The field
+    # records which path *a conversion* took, and a grid supplied by any
+    # other callable — a test's scripted source, say — went through no
+    # conversion at all, so `None` is the true answer. Asking anyway would
+    # also open the uploaded file through a second channel the source never
+    # used, which is how a scripted run with a placeholder file first
+    # failed here.
+    if request.mode == sourcing.IMAGE and source is image_source.generate:
+        puzzle.binarisation = image_source.binarisation_for(request.image, *extent)
 
     def judge_candidate(grid: Grid) -> Puzzle | None:
         """Judge one already-sourced grid: clues -> uniqueness -> score.

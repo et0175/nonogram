@@ -1,9 +1,9 @@
 # ADR-0026: Silhouette binarisation — 50% ink-coverage threshold after the resize
 
-**Status:** Proposed (gated: Accepted once the owner has eyeballed rendered grids of the picture corpus (`pictures/`, 25 files, tracked since `f3ba719`) converted both ways and confirmed the threshold path; AC-127 is the measurable half of the gate. CARD-079 implemented the path and put the render in front of the owner on 2026-09-17 — see History)
+**Status:** Accepted (2026-09-17, by the owner after the FR-027 visual gate — conditional on the degenerate-ink guard recorded in History; was Proposed and gated since 2026-09-12)
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-17
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -250,6 +250,21 @@ cell vanish, a second binarisation path is introduced, and the module's
   decision adjacent to CARD-078's "refuse density 0 and 100". Recorded in
   `docs/GENERATION_ALGORITHM.md` §10 as finding 11.
 
+- 2026-09-17: **Accepted — with a condition.** The owner reviewed the 25
+  corpus pictures rendered both ways (`~/Documents/nonogram-reviews/CARD-079/`)
+  and chose this ADR's threshold for silhouettes, selected per picture by
+  ADR-0028's classifier. The condition is the guard the entry above calls a
+  precondition: a threshold conversion whose filled share falls outside
+  `USABLE_INK_SHARE` (5%..95%) is redone on the dither path rather than
+  shipped (FR-027 AC-173). Fallback was chosen over refusal because
+  dithering is what every picture got before this decision, so the guard
+  can never turn a picture the tool used to convert into an error. The floor
+  is 5%, not the corpus-gap midpoint of 10%: line art converts at 1.0-2.7%,
+  but `tests/fixtures/landscape.png` — a sparse, legitimate picture —
+  converts at 9.0%, and a 10% floor bounced it for no reason.
+  `DEFAULT_BINARISATION` is now `None`. R1 is the contract from this date,
+  and its review note ("intent under test") is retired.
+
 ## Rules
 ```yaml
 - id: ADR-0026/R1
@@ -258,7 +273,7 @@ cell vanish, a second binarisation path is introduced, and the module's
   check: {kind: test, ref: TestBinarize_ExactlyHalfCoverageIsFilled}
   # Binding once Status flips to Accepted (FR-027 gate); the check ref goes
   # live with the card that implements FR-027 and is expected to be the
-  # AC-126 test. Until then this rule is the intent under test, not the
-  # contract — review should not flag the shipped dither against it.
+  # AC-126 test. Accepted 2026-09-17: this is the contract, for pictures the
+  # classifier sends to the threshold path and the guard keeps there.
   severity: mandatory
 ```

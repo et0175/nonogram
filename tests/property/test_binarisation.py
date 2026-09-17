@@ -72,9 +72,11 @@ def _gradient(rng: random.Random, span: int) -> Image.Image:
     classifier correctly calls it a silhouette — it is simply not a member of
     the population ADR-0028 calls "genuinely greyscale", and putting one in
     this corpus would be mislabelling the fixture rather than finding a defect.
-    What such a picture *does* do downstream is a real finding and is pinned in
-    ``tests/test_sourcing_image.py``
-    (``test_the_threshold_path_turns_an_inkless_picture_into_a_blank_grid``).
+    What such a picture *does* do downstream was a real finding — the threshold
+    erases it to a blank grid that passes as a puzzle — and is now guarded:
+    ``tests/test_sourcing_image.py``'s
+    ``test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_*``
+    (FR-027 AC-173).
     """
     low, high = image.MIDTONE_BAND
     span = max(span, high - low + 2)

@@ -230,6 +230,14 @@ hidden decision in the image pipeline the owner cannot override per picture
 
 ## History
 
+- 2026-09-12: Created — Accepted, inert until ADR-0026 is Accepted. Chose
+  the mid-tone share of the source histogram (band `[64, 191]`, provisional
+  `MIDTONE_SHARE_THRESHOLD = 0.10`, calibration-owed on the picture corpus)
+  over an explicit `--binarize` option, a source-format heuristic, and the
+  "always threshold" collapse, for zero new surface and consistency with
+  CON-013; the path taken is recorded as `binarisation: threshold|dither` on
+  the puzzle/export metadata (ADR-0023 follow-up). Migration `on-touch`.
+
 - 2026-09-17: **Implemented** — CARD-079. `sourcing.image.midtone_share` and
   `classify_binarisation` are live; R1's purity is held by
   `PropertyTest_Binarize_ClassifierPureFunctionOfSourceImage` over seeded
@@ -250,13 +258,15 @@ hidden decision in the image pipeline the owner cannot override per picture
   dither side of the line, so the constant is calibrated against a single
   positive example. A corpus with more photographs could move it.
 
-- 2026-09-12: Created — Accepted, inert until ADR-0026 is Accepted. Chose
-  the mid-tone share of the source histogram (band `[64, 191]`, provisional
-  `MIDTONE_SHARE_THRESHOLD = 0.10`, calibration-owed on the picture corpus)
-  over an explicit `--binarize` option, a source-format heuristic, and the
-  "always threshold" collapse, for zero new surface and consistency with
-  CON-013; the path taken is recorded as `binarisation: threshold|dither` on
-  the puzzle/export metadata (ADR-0023 follow-up). Migration `on-touch`.
+- 2026-09-17: **Live.** ADR-0026 was Accepted and `DEFAULT_BINARISATION`
+  flipped to `None`, so this classifier now chooses the path for every
+  uploaded picture — no longer inert policy. One interaction worth stating:
+  the classifier's answer is not always the path taken. When it chooses the
+  threshold and the conversion is degenerate (FR-027 AC-173), the picture is
+  converted on the dither path instead, and `Puzzle.binarisation` records the
+  path actually used. So "which path did the classifier choose" and "which
+  path did the puzzle get" can differ — deliberately — and the recorded field
+  is the second.
 
 ## Rules
 ```yaml

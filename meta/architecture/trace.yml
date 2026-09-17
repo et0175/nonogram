@@ -1279,6 +1279,7 @@ links:
   - TestBinarize_RecordsBinarisationPathOnPuzzle
   - PropertyTest_Binarize_ClassifierPureFunctionOfSourceImage
   - PropertyTest_Binarize_ThresholdIsInclusiveHalfCoverageOnResizedImage
+  - TestBinarize_GuardSendsDegenerateThresholdConversionToDither
   notes: >-
     Story US-003. DEC-032 resolved by ADR-0026 (ink_coverage_threshold_50pct)
     — but ADR-0026 is PROPOSED, not Accepted: FR-027's _meta.gate requires the
@@ -1316,7 +1317,18 @@ links:
     ADR-0026's History and GENERATION_ALGORITHM.md finding 11 — so the owner's
     confirmation is owed a decision about that guard, not only about the
     renders.
-  status: partial
+    DECIDED and SHIPPED 2026-09-17 (CARD-079, owner): ADR-0026 Accepted,
+    DEFAULT_BINARISATION = None, conditional on the guard — a threshold
+    conversion outside USABLE_INK_SHARE (5%..95%) is redone on the dither
+    path (AC-173); the floor is 5% not 10% because a sparse fixture,
+    landscape.png, converts at 9.0%. ADR-0028 is live. AC-127 re-worded to
+    shipped-vs-dither-everywhere: over 10..30 the shipped conversion makes 110
+    of 125 against 109, is unique at the first solve 91 against 80, spends 39
+    nudges against 53, and loses none of dither's conversions; 107 of the 110
+    took the threshold path. The flip moved FR-022's trim criteria by one
+    picture (duck2.png joins the residual violators); recorded in those
+    tests' docstrings rather than absorbed.
+  status: done
 
 - req: FR-028
   description: "Density 0 and 100 refused as InvalidDensity at the

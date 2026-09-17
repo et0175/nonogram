@@ -31,7 +31,6 @@ _(none)_
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
-- **CARD-079** P2 · Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus review  _(wave 1)_ — after CARD-072, CARD-075, CARD-076; ends at the owner's visual gate
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -52,7 +51,7 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-_(none)_
+- **CARD-079** P2 · Threshold binarisation for silhouettes, classifier-selected, with a dither fallback for blank conversions · `card/079-threshold-binarisation-gated` · owner flipped the default after the visual gate; shipped vs dither: 110 vs 109 made, 91 vs 80 unique first time, 39 vs 53 nudges, 0 regressions
 
 ## Done
 - **CARD-075** P2 · Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree — 107 of 125 corpus conversions made against 89, 0 regressions; admin loss 3/5/7/7 → 2/2/3/3 · AC-172 closed at 18 of 19, owner kept the ink-boundary ranking · merged without a review cycle, at the owner's call · merged bb35762

@@ -988,21 +988,28 @@ def _deepest_blank_edge(grid: list[list[bool]]) -> int:
 def _untrimmed_grid(source: Path) -> list[list[bool]]:
     """The conversion FR-022 replaced: aspect crop, resize, dither, no trim.
 
-    ``binarize`` is the pipeline from the aspect crop onward and does not trim,
+    ``convert`` is the pipeline from the aspect crop onward and does not trim,
     so handing it the whole decoded picture reproduces exactly what ``generate``
     did before CARD-030 — the "before trimming" half of AC-086 and AC-087,
-    without a second copy of the resize and the dither to drift from the real
-    one.
+    without a second copy of the resize and the binarisation to drift from the
+    real one.
+
+    ``convert`` rather than ``binarize`` since CARD-079: the binarisation is
+    now a choice (threshold or dither, plus the degenerate-ink guard), and
+    ``convert`` is the only place that makes it. Calling ``binarize`` here
+    would mean naming a path, and this criterion is about the **trim** — it
+    has to compare the same conversion with and without it, whichever
+    conversion the tool currently ships.
     """
     with image.load_greyscale(source) as greyscale:
-        return image.to_grid(image.binarize(greyscale, *TRIM_EXTENT))
+        return image.convert(greyscale, *TRIM_EXTENT)[0]
 
 
 def _trimmed_grid(source: Path, threshold: int) -> list[list[bool]]:
     """The same conversion with the ink box of ``threshold`` trimmed off first."""
     with image.load_greyscale(source) as greyscale:
         box = image.ink_bounding_box(greyscale, threshold)
-        return image.to_grid(image.binarize(greyscale.crop(box), *TRIM_EXTENT))
+        return image.convert(greyscale.crop(box), *TRIM_EXTENT)[0]
 
 
 def test_the_corpus_the_trim_criteria_are_stated_over_is_the_one_on_disk() -> None:
@@ -1021,13 +1028,28 @@ def test_the_corpus_the_trim_criteria_are_stated_over_is_the_one_on_disk() -> No
 
 
 def test_trim_to_ink_fixes_17_of_the_19_corpus_violations() -> None:
-    """AC-086 verbatim, on the criterion's own numbers.
+    """AC-086, re-measured after CARD-079 flipped the binarisation default.
 
     Given the 25 committed pictures each fitted to a 20x20 grid: 19 carry more
     than one all-empty row or column at some edge before trimming. Trimming to
-    the ink box (ink < 128) first, 17 of those 19 satisfy the
-    at-most-one-blank-line-per-edge rule and exactly 2 do not, so 23 of 25 hold
-    overall. All four figures re-measured on this tree and reproduced exactly.
+    the ink box (ink < 128) first, **16** of those 19 satisfy the
+    at-most-one-blank-line-per-edge rule and **3** do not, so **22** of 25 hold
+    overall.
+
+    **The criterion's own numbers were 17, 2 and 23**, and they held exactly
+    until CARD-079. They moved because this test measures the trim through
+    whatever conversion the tool ships, and the shipped conversion changed:
+    ``duck2.png`` takes the threshold path, which gives it one more blank line
+    at the right edge (2 rather than 1) and so moves it from "fixed" to
+    "residual". One picture, one line deep — recorded rather than absorbed,
+    because FR-022's figures are the kind that quietly rot. It is the only
+    FR-022 regression the flip caused, and it is why the named survivors are
+    now three rather than AC-088/AC-091's two.
+
+    The function keeps its ``17_of_the_19`` name on purpose: it is the pytest
+    spelling of the trace id ``TestTrimToInk_Fixes17Of19CorpusViolations``,
+    and trace ids stay stable across an amendment (``requirements.yml``'s
+    AC-086 note records the change).
 
     The two survivors are named rather than counted, because AC-088 and AC-091
     pin them individually: a change that fixed either must amend those criteria,
@@ -1048,11 +1070,11 @@ def test_trim_to_ink_fixes_17_of_the_19_corpus_violations() -> None:
 
     assert len(corpus) == 25
     assert len(violated_before) == 19, sorted(violated_before)
-    assert len(violated_before - violated_after) == 17
-    assert len(violated_before & violated_after) == 2
-    assert violated_after == {"dear1.jpg", "wolf1.jpeg"}
+    assert len(violated_before - violated_after) == 16
+    assert len(violated_before & violated_after) == 3
+    assert violated_after == {"dear1.jpg", "duck2.png", "wolf1.jpeg"}
     assert violated_after - violated_before == set()
-    assert len(corpus) - len(violated_after) == 23
+    assert len(corpus) - len(violated_after) == 22
 
 
 def test_trim_to_ink_reduces_the_worst_case_border_to_at_most_one_line() -> None:
@@ -1090,8 +1112,10 @@ def test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg() -> None:
     """AC-088 verbatim: an accepted residual, not a defect.
 
     ``dear1.jpg`` trimmed at ink < 128 still shows 2 blank lines at one edge —
-    measured on this tree: 2 at the right edge, 0 at the other three, down from
-    4 before the trim. FR-022 is best-effort by explicit decision, and this is
+    measured on this tree: 2 at the right edge, 1 at the left and 0 at the
+    other two, down from 4 before the trim. (The left edge read 0 before
+    CARD-079 flipped the binarisation default; the deepest edge, which is what
+    the criterion is about, is unchanged at 2.) FR-022 is best-effort by explicit decision, and this is
     one of the two places it falls short.
 
     Asserted as an equality rather than as ``>= 2``: if a later change fixes
@@ -1103,7 +1127,7 @@ def test_trim_to_ink_accepts_the_residual_blank_lines_on_dear1_jpg() -> None:
 
     assert max(before.values()) == 4, before
     assert max(after.values()) == 2, after
-    assert sorted(after.values()) == [0, 0, 0, 2], after
+    assert sorted(after.values()) == [0, 0, 1, 2], after
 
 
 def test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg() -> None:
@@ -1111,17 +1135,27 @@ def test_trim_to_ink_accepts_the_residual_blank_lines_on_wolf1_jpeg() -> None:
 
     ``wolf1.jpeg`` trimmed at ink < 128 still shows 3 blank lines at one edge —
     measured: 3 at the left, 1 at the right, 0 top and bottom. It measures 3
-    deep *before* the trim as well, so the trim neither helps nor harms it, and
-    that is precisely why FR-022 is a best-effort transform rather than an
-    invariant: no threshold in the swept range reaches this picture. The blank
-    margin here survives the resize and the dither, not the crop.
+    deep *before* the trim as well, so the trim does not reach the edge that
+    matters, and that is precisely why FR-022 is a best-effort transform rather
+    than an invariant: no threshold in the swept range reaches this picture.
+    The blank margin here survives the resize and the binarisation, not the
+    crop.
+
+    The criterion said the two were *identical* (``before == after``), and that
+    held until CARD-079 flipped the binarisation default: the right edge now
+    goes 2 to 1 across the trim, so the trim helps this picture by one line at
+    an edge that was never the problem. The deepest edge — the one the
+    criterion is about — is unchanged at 3 on both sides, which is asserted
+    directly rather than through an equality that was always incidental.
     """
     before = _blank_edges(_untrimmed_grid(PICTURES / "wolf1.jpeg"))
     after = _blank_edges(_trimmed_grid(PICTURES / "wolf1.jpeg", image.INK_THRESHOLD))
 
     assert max(before.values()) == 3, before
     assert max(after.values()) == 3, after
-    assert before == after, (before, after)
+    assert before["left"] == after["left"] == 3, (before, after)
+    assert before["top"] == after["top"] == 0, (before, after)
+    assert before["bottom"] == after["bottom"] == 0, (before, after)
 
     # The worst *remaining* case in the corpus, so "3" is a bound and not an
     # anecdote.
@@ -1138,10 +1172,16 @@ def test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold() -
     """AC-089 verbatim: why 128 and not "anything not pure white".
 
     The same 25 pictures at the same 20x20 grid, trimmed at ink < 245: 6 of the
-    25 violate the at-most-one-blank-line-per-edge rule, against 2 at ink < 128.
-    Both counts re-measured on this tree and reproduced exactly. Near-white
-    counts JPEG ringing and off-white backgrounds as ink, so it finds a bounding
-    box that is very nearly the whole file and trims almost nothing.
+    25 violate the at-most-one-blank-line-per-edge rule, against 3 at ink < 128.
+    Near-white counts JPEG ringing and off-white backgrounds as ink, so it finds
+    a bounding box that is very nearly the whole file and trims almost nothing.
+
+    The criterion's counts were **6 and 2**, and both moved by one when
+    CARD-079 flipped the binarisation default — the same single picture,
+    ``duck2.png``, on both sides of the comparison (see AC-086 above). What the
+    criterion actually claims is the *gap*, and the gap is unchanged: the
+    mid-grey threshold leaves less than half as many violators as near-white,
+    before and after.
 
     This is the evidence the threshold was chosen rather than assumed, so it is
     stated as a comparison of two measurements and not as "128 is good".
@@ -1159,8 +1199,8 @@ def test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold() -
     ]
 
     assert len(corpus) == 25
-    assert len(near_white) == 6, [path.name for path in near_white]
-    assert len(mid_grey) == 2, [path.name for path in mid_grey]
+    assert len(near_white) == 7, [path.name for path in near_white]
+    assert len(mid_grey) == 3, [path.name for path in mid_grey]
     assert image.INK_THRESHOLD == 128
 
 
@@ -1738,11 +1778,12 @@ def test_a_non_unique_conversion_is_never_re_sourced(
     counter left at zero is the same fact read off the aggregate.
 
     "One candidate" is a count of *conversions*, not of decodes, and since
-    FR-023 the two differ: the explicit ``--size 10x10`` below decodes the
-    picture once, while a bare ``--size 10`` reads the ink box first and
-    decodes twice (``image.source_shape``, pinned as a count by
-    ``test_a_bare_size_image_run_decodes_the_picture_exactly_twice`` in
-    ``tests/property/test_grid_dimensions.py``). Neither figure moves with the
+    FR-023 the two differ: with the real image source an explicit
+    ``--size 10x10`` decodes the picture twice (once to learn the binarisation
+    path, since CARD-079, once for the pixels), and a bare ``--size 10`` reads
+    the ink box first and decodes three times — pinned as counts by
+    ``test_a_bare_size_image_run_decodes_the_picture_exactly_three_times`` in
+    ``tests/property/test_grid_dimensions.py``. Neither figure moves with the
     number of nudges, which is what this test is about.
     """
     source = _CountingSource(_AMBIGUOUS)
@@ -2140,11 +2181,14 @@ def test_an_image_run_exports_like_any_other(tmp_path: Path) -> None:
 # input; ADR-0028 keeps genuinely greyscale pictures on the dither path by
 # reading the source histogram.
 #
-# **Both paths ship, and the default is still dither** (guardrail G-1): this
-# card ends at the owner's eye on rendered grids, not at a measurement, and
-# flipping `DEFAULT_BINARISATION` is the owner's action in a later commit.
-# `test_the_shipped_default_is_still_dither` is that guardrail as a test, and
-# AC-C is the rest of this file passing unchanged in assertion.
+# **Both paths ship, and since 2026-09-17 the classifier chooses.** CARD-079
+# landed them with `DEFAULT_BINARISATION` pinned to dither and stopped at the
+# owner's eye on rendered grids; the owner flipped it, on the condition of the
+# degenerate-ink guard (the `test_binarize_guard_*` tests at the end of this
+# section, AC-173). `test_the_shipped_default_asks_the_classifier` pins the flip. The
+# flip moved real pins elsewhere in this file — FR-022's trim criteria, whose
+# numbers are measured through whatever conversion ships — and each moved pin
+# says so in its own docstring.
 #
 # Grey values, not fixtures, wherever the criterion is about the cut-point.
 # `binarize` resizes before it binarises, so a test that fed it a picture
@@ -2230,16 +2274,21 @@ def test_the_threshold_path_diffuses_no_error() -> None:
     assert len(set(dithered)) == 2, "the fixture must actually be a mid-grey"
 
 
-def test_the_shipped_default_is_still_dither() -> None:
-    """Guardrail G-1 as a test, because it is the whole shape of this card.
+def test_the_shipped_default_asks_the_classifier() -> None:
+    """The owner's flip, 2026-09-17, pinned.
 
-    Both paths land here, but the one that runs is unchanged until the owner
-    has looked at the renders. ``None`` is what the flip sets this to — "ask
-    the classifier" — so the constant carries three states and this pins which
-    one ships.
+    ``DEFAULT_BINARISATION`` carries three states — a path name, used for
+    every picture, or ``None``, meaning "ask :func:`classify_binarisation` per
+    picture". CARD-079 shipped it pinned to ``dither`` and stopped at the
+    owner's visual gate; the owner looked at 25 rendered pairs and flipped it,
+    conditional on the degenerate-ink guard below.
+
+    So this test is the inverse of the one it replaces, and deliberately kept
+    in the same place: what ships is now a *decision per picture*, and a
+    future change that quietly pinned the constant again — to either path —
+    fails here.
     """
-    assert image.DEFAULT_BINARISATION == image.DITHER
-    assert _binarised(image.DEFAULT_BINARISATION, 160) == _binarised(image.DITHER, 160)
+    assert image.DEFAULT_BINARISATION is None
 
 
 # --------------------------------------------------------------------------
@@ -2297,24 +2346,28 @@ def test_binarize_classifier_is_deterministic_and_reads_source_histogram(
     )
 
 
-def test_the_classifier_is_not_consulted_while_the_default_is_pinned(
-    tmp_path: Path,
+def test_the_classifier_decides_each_picture_and_a_pin_overrides_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The switch's two levels, which are easy to conflate.
 
     :data:`image.DEFAULT_BINARISATION` decides whether the classifier is asked
-    at all. While it names a path, that path is used for every picture and the
-    classifier is inert — so a silhouette, which the classifier would send to
-    the threshold, still ships dithered today. This is guardrail G-1 again,
-    one level down from the test above, and it is what "the default is
-    unchanged" has to mean for a card that also lands a classifier.
+    at all. With it at ``None`` — what ships since the owner's flip — a
+    silhouette goes to the threshold path and a gradient to the dither path,
+    each on its own histogram. Pinned to a path, that path is used for every
+    picture and the classifier is inert, which is the state the review render
+    drives to run both columns.
     """
-    silhouette = _silhouette(tmp_path)
+    silhouette, gradient = _silhouette(tmp_path), _gradient(tmp_path)
 
+    assert image.binarisation_for(silhouette, 20, 20) == image.THRESHOLD
+    assert image.binarisation_for(gradient, 20, 20) == image.DITHER
+
+    monkeypatch.setattr(image, "DEFAULT_BINARISATION", image.DITHER)
     assert image.classify_binarisation(image.load_greyscale(silhouette)) == (
         image.THRESHOLD
     )
-    assert image.binarisation_for(silhouette) == image.DITHER
+    assert image.binarisation_for(silhouette, 20, 20) == image.DITHER
 
 
 # --------------------------------------------------------------------------
@@ -2347,8 +2400,45 @@ def test_binarize_records_binarisation_path_on_puzzle() -> None:
         )
     )
 
-    assert converted.binarisation == image.DEFAULT_BINARISATION
+    # Since the flip this is a per-picture answer, so it is checked against the
+    # module's own determination for this file and extent rather than against
+    # a constant — and against the two legal values, so a third could not slip
+    # through as "equal to whatever the code said".
+    assert converted.binarisation == image.binarisation_for(LANDSCAPE, 20, 20)
+    assert converted.binarisation in {image.THRESHOLD, image.DITHER}
     assert drawn.binarisation is None
+
+
+def test_a_grid_no_conversion_produced_records_no_binarisation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``binarisation`` is a fact about a conversion, so no conversion, no fact.
+
+    When the grid comes from anything other than the image module — a test's
+    scripted source is the case in practice — nothing was binarised, and the
+    field is ``None``. The file is also never opened: the placeholder below is
+    empty and would raise ``UnreadableImage`` if anything read it. Found by
+    ``tests/test_naming.py``'s image-stem test, which scripts its grid and
+    uploads an empty ``cat.png``, the first time the orchestrator started
+    asking the image module which path it had taken.
+    """
+    placeholder = tmp_path / "cat.png"
+    placeholder.touch()
+    # One filled cell in a 10x10 grid: its clues have exactly one solution.
+    unique = [[row == 0 and column == 0 for column in range(10)] for row in range(10)]
+    monkeypatch.setattr(
+        orchestrator.sourcing,
+        "for_mode",
+        lambda mode: lambda *arguments: [row[:] for row in unique],
+    )
+
+    puzzle = orchestrator.generate(
+        orchestrator.GenerationRequest(
+            mode="image", image=placeholder, width=10, height=10, seed=1
+        )
+    )
+
+    assert puzzle.binarisation is None
 
 
 def test_the_recorded_path_is_resolved_once_and_not_per_attempt(
@@ -2360,15 +2450,16 @@ def test_the_recorded_path_is_resolved_once_and_not_per_attempt(
     between attempts, and re-asking would put a decode inside the nudge loop
     the moment the owner flips the default (``binarisation_for`` opens the
     file only once the classifier is live). Counted rather than reasoned
-    about, because the cost only appears after the flip and would otherwise
-    land silently.
+    about: since the owner's flip `binarisation_for` converts the picture to
+    answer, so a call inside the nudge loop would decode and convert five more
+    times for an answer that cannot have changed.
     """
     asked: list[object] = []
     real = orchestrator.image_source.binarisation_for
 
-    def counting(source: object) -> str:
+    def counting(source: object, width: int, height: int) -> str:
         asked.append(source)
-        return real(source)  # type: ignore[arg-type]
+        return real(source, width, height)  # type: ignore[arg-type]
 
     monkeypatch.setattr(orchestrator.image_source, "binarisation_for", counting)
 
@@ -2403,16 +2494,24 @@ def test_the_recorded_path_is_resolved_once_and_not_per_attempt(
 CORPUS_EXTENT = (25, 25)
 
 
-def _first_solve_unique(path: str) -> set[str]:
+def _first_solve_unique(default: str | None) -> set[str]:
     """Which corpus pictures convert to a uniquely-solvable grid, before any
-    nudge, under ``path``.
+    nudge, with ``image.DEFAULT_BINARISATION`` set to ``default``.
+
+    ``None`` is the shipped conversion — the classifier per picture plus the
+    degenerate-ink guard — and a path name pins every picture to it. Comparing
+    *those* is the comparison the decision rests on; comparing the two raw
+    paths flatters the threshold, because it credits it with pictures the
+    guard sends straight back to the dither path.
 
     The conversion is assembled here from the module's own steps rather than
     driven through ``orchestrator.generate``, because the nudge loop is
-    exactly what this criterion is measuring the *need* for: a path that
-    converts uniquely first time has not spent any of the user's pixels.
+    exactly what this criterion is measuring the *need* for: a conversion that
+    is unique first time has not spent any of the user's pixels.
     """
     unique: set[str] = set()
+    previous = image.DEFAULT_BINARISATION
+    image.DEFAULT_BINARISATION = default
     for picture in _corpus():
         greyscale = image.load_greyscale(picture)
         box = image.ink_bounding_box(greyscale)
@@ -2424,9 +2523,7 @@ def _first_solve_unique(path: str) -> set[str]:
             # FR-021 refuses it against a square grid on both paths alike, so
             # it says nothing about the binarisation either way.
             continue
-        grid = image.to_grid(
-            image.binarize(greyscale.crop(box), *CORPUS_EXTENT, path=path)
-        )
+        grid = image.convert(greyscale.crop(box), *CORPUS_EXTENT)[0]
         line_clues = clues.compute_clues(grid)
         try:
             verdict = solver.solve(
@@ -2438,71 +2535,67 @@ def _first_solve_unique(path: str) -> set[str]:
             continue
         if verdict.solution_count == 1:
             unique.add(picture.name)
+    image.DEFAULT_BINARISATION = previous
     return unique
 
 
 @pytest.mark.skipif(not PICTURES.is_dir(), reason="the owner's corpus is absent")
 def test_binarize_threshold_corpus_needs_no_more_nudges_than_dither() -> None:
-    """AC-127(a): the threshold path converts at least as many pictures
-    uniquely on the first solve as the dither path does.
+    """AC-127(a): the shipped conversion converts at least as many pictures
+    uniquely on the first solve as dithering everything did.
 
     FR-027's hypothesis, and the only part of it a unit test can hold cheaply.
     Dithering preserves average density rather than contour, so on a
     silhouette it seeds isolated cells and ragged edges — one-cell runs and
     2x2 switching blocks, which is what a non-unique nonogram is made of. If
-    that is right, thresholding the same pictures should need the nudge less
+    that is right, thresholding those pictures should need the nudge less
     often.
 
-    Measured on this tree: **19 against 16** of 25 pictures at 25x25.
+    Measured on this tree: **17 against 16** of 25 pictures at 25x25.
 
-    A count, not a subset, and the difference is worth naming rather than
-    burying: threshold gains four pictures (``cat_Mouse``, ``duck2``,
-    ``wolf_2``, ``zebra``) and loses one (``konek``, which dither converts
-    uniquely first time and threshold needs three nudges for). The criterion
-    is stated as a count because that one exchange is the honest shape of the
-    result, and pinning the set would turn a corpus measurement into a list
-    of filenames that any re-crop of any picture would invalidate.
+    That is a smaller margin than the raw paths show (19 against 16), and the
+    smaller number is the true one. Two of the raw threshold's four "gains"
+    do not survive contact with the shipped conversion: ``cat_Mouse`` is line
+    art, thresholds to 1.6% ink and is sent back to the dither path by the
+    degenerate-ink guard, and ``zebra`` is a photograph the classifier never
+    routes to the threshold in the first place. What remains is ``duck2`` and
+    ``wolf_2`` gained, ``konek`` lost — and ``konek`` is still *made*, in
+    three nudges instead of none.
 
-    ``konek`` is still **made** under the threshold path, and no picture the
-    dither path makes is lost — but that is an outcome-level claim over full
-    runs, which is AC-127(c) and lives in
-    ``meta/ops/binarisation_review.py`` for the reason in this section's
-    header.
+    So the honest claim of this card is narrow: at 25x25 the flip buys one
+    picture. Its real value is in the grids, which the owner judged by eye
+    (an eagle silhouette that dither turns to chequerboard, and that the
+    threshold keeps solid), and in the five-size totals that
+    ``meta/ops/binarisation_review.py`` carries for clauses (b) and (c).
+
+    A count, not a subset: pinning the set would turn a corpus measurement
+    into a list of filenames that any re-crop of any picture would invalidate.
     """
-    threshold = _first_solve_unique(image.THRESHOLD)
+    shipped = _first_solve_unique(None)
     dither = _first_solve_unique(image.DITHER)
 
     assert len(_corpus()) == 25, "the corpus moved; re-take the numbers above"
-    assert len(threshold) >= len(dither)
-    assert len(threshold) == 19 and len(dither) == 16
+    assert len(shipped) >= len(dither)
+    assert len(shipped) == 17 and len(dither) == 16
 
 
-def test_the_threshold_path_turns_an_inkless_picture_into_a_blank_grid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_for_an_inkless_picture(
+    tmp_path: Path,
 ) -> None:
-    """A finding, pinned so it is known rather than discovered later.
+    """The guard the owner attached to ADR-0026's acceptance, on the case that
+    found it.
 
     ``ink_bounding_box`` falls back to the whole frame when a picture has no
     pixel below :data:`image.INK_THRESHOLD`, so a washed-out photograph — a
     ramp living entirely in the highlights — reaches binarisation intact.
-    Thresholding it fills nothing: every cell is above the cut, and the result
-    is an **all-empty grid**, which is trivially uniquely solvable and is
-    accepted, scored and exported as a puzzle.
+    Thresholding it fills nothing: every cell is above the cut. An all-empty
+    grid's clues have exactly one solution, so *every check downstream passes
+    it* and the user is handed a blank page.
 
-    Dithering the same picture does not do that. Error diffusion turns a pale
-    ramp into sparse dots, which is ambiguous, so the run is abandoned and the
-    user is told to try another picture.
-
-    So the threshold path has a failure mode the dither path does not: it can
-    ship a blank puzzle where the dither path refuses. It is harmless while
-    :data:`image.DEFAULT_BINARISATION` is pinned to dither (guardrail G-1),
-    and it is recorded in CARD-079's Worktree notes as a **precondition of the
-    owner's flip** rather than fixed here — what should happen instead
-    (refuse the conversion, or fall back to dither) is a product decision, and
-    the neighbouring one is CARD-078's "refuse density 0 and 100".
-
-    This test asserts today's behaviour, not the desired behaviour. When the
-    guard lands it should fail, and be rewritten to the refusal.
+    :func:`image.convert` catches it on ink share and re-converts with the
+    dither path, which is what the picture would have got before ADR-0026 was
+    accepted. Falling back rather than refusing is the point: it cannot turn a
+    picture the tool used to convert into an error.
     """
     pale = Image.new("L", (96, 96))
     pale.putdata([200 + (x * 40) // 95 for _ in range(96) for x in range(96)])
@@ -2511,29 +2604,114 @@ def test_the_threshold_path_turns_an_inkless_picture_into_a_blank_grid(
 
     greyscale = image.load_greyscale(picture)
     box = image.ink_bounding_box(greyscale)
-    thresholded = image.to_grid(
-        image.binarize(greyscale.crop(box), 20, 20, path=image.THRESHOLD)
-    )
+    cropped = greyscale.crop(box)
 
-    assert not any(any(row) for row in thresholded), "no cell survives the cut"
+    # Unguarded, the threshold path erases it completely.
+    bare = image.to_grid(image.binarize(cropped, 20, 20, path=image.THRESHOLD))
+    assert not any(any(row) for row in bare)
+    assert image.is_degenerate(bare)
 
-    def convert() -> orchestrator.Puzzle:
-        return orchestrator.generate(
+    # Guarded, the conversion comes back on the dither path and says so.
+    grid, path = image.convert(cropped, 20, 20)
+    assert path == image.DITHER
+    assert grid == image.to_grid(image.binarize(cropped, 20, 20, path=image.DITHER))
+    assert image.binarisation_for(picture, 20, 20) == image.DITHER
+
+    # And the run is refused, as it was before ADR-0026 — not shipped blank.
+    with pytest.raises(GenerationAbandoned):
+        orchestrator.generate(
             orchestrator.GenerationRequest(
                 mode="image", image=picture, width=20, height=20, seed=1
             )
         )
 
-    # As shipped — the dither path — the picture is refused rather than turned
-    # into a puzzle. This is the comparison that makes the above a finding.
-    with pytest.raises(GenerationAbandoned):
-        convert()
 
-    # With the flip the owner would make, the same picture is accepted, scored
-    # and marked exportable, with not one filled cell in it.
-    monkeypatch.setattr(image, "DEFAULT_BINARISATION", image.THRESHOLD)
-    blank = convert()
+def test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_for_line_art() -> None:
+    """The other case, and the one AC-127's arithmetic scored as a *gain*.
 
-    assert blank.binarisation == image.THRESHOLD
-    assert blank.ready_for_export is True
-    assert blank.grid is not None and not any(any(row) for row in blank.grid)
+    A coverage threshold keeps filled areas; line art is made of strokes
+    thinner than a cell, each averaging to more paper than ink, so the cut
+    erases them. ``cat_Mouse.png`` thresholds to 1.0-2.7% ink at every size in
+    10..30 — two blobs where the cat's eyes are — and that grid is uniquely
+    solvable *by being nearly empty*, so before the guard it counted as four of
+    the seven conversions the threshold path "gained".
+
+    Skipped when the owner's corpus is absent, like every other test that
+    reads it.
+    """
+    picture = PICTURES / "cat_Mouse.png"
+    if not picture.is_file():
+        pytest.skip("the owner's corpus is absent")
+
+    greyscale = image.load_greyscale(picture)
+    cropped = greyscale.crop(image.ink_bounding_box(greyscale))
+
+    bare = image.to_grid(image.binarize(cropped, 25, 25, path=image.THRESHOLD))
+    assert image.ink_share(bare) < 0.05
+    assert image.is_degenerate(bare)
+
+    assert image.convert(cropped, 25, 25)[1] == image.DITHER
+    assert image.binarisation_for(picture, 25, 25) == image.DITHER
+
+
+def test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_but_leaves_a_sparse_picture_alone() -> None:
+    """The other side of the constant, and why it is 5% and not 10%.
+
+    ``landscape.png`` converts to **9.0%** ink — a thin horizon on a wide
+    sheet. Sparse, and a picture. A floor taken from the corpus gap's midpoint
+    (10%) bounced it to the dither path for no reason; the shipped floor is
+    set from the narrower gap between known line art (2.7%) and this (9.0%).
+
+    This is the assertion that would fail if someone raised the floor to catch
+    a new bad case without re-checking the good ones.
+    """
+    greyscale = image.load_greyscale(LANDSCAPE)
+    cropped = greyscale.crop(image.ink_bounding_box(greyscale))
+    grid = image.to_grid(image.binarize(cropped, 20, 20, path=image.THRESHOLD))
+
+    assert 0.05 < image.ink_share(grid) < 0.10
+    assert not image.is_degenerate(grid)
+    assert image.convert(cropped, 20, 20)[1] == image.THRESHOLD
+
+
+def test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_and_only_rescues_the_threshold_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A degenerate *dither* conversion stands, because nothing is better.
+
+    Dither is the incumbent: it is what every picture got before ADR-0026 was
+    accepted, so there is no path to fall back *to*, and rejecting its output
+    would be a new refusal this card did not decide (that is FR-028's and
+    ADR-0027's territory).
+
+    The count is the assertion with teeth. Re-running the *dither* path on its
+    own degenerate output returns the same grid and the same recorded path, so
+    a guard that fired on both paths would be invisible in the result and
+    visible only as a second conversion nobody needed. Dropping the
+    ``path == THRESHOLD`` clause was run as a mutant and survived every other
+    assertion in this file; this is what catches it.
+    """
+    # A picture the *classifier* sends to dither — a fifth of its pixels sit
+    # inside MIDTONE_BAND — whose dither conversion is nonetheless nearly
+    # empty, because those pixels are pale and sparse. Built rather than
+    # found: a flat pale sheet has no mid-tones and would be classified to
+    # the threshold, which is the other branch entirely.
+    speckle = random.Random(3)
+    pale = Image.new("L", (96, 96))
+    pale.putdata([191 if speckle.random() < 0.20 else 255 for _ in range(96 * 96)])
+    assert image.classify_binarisation(pale) == image.DITHER
+
+    grid = image.to_grid(image.binarize(pale, 20, 20, path=image.DITHER))
+    assert image.is_degenerate(grid)
+
+    conversions: list[str] = []
+    real = image.binarize
+
+    def counting(greyscale, width, height, *, path):  # type: ignore[no-untyped-def]
+        conversions.append(path)
+        return real(greyscale, width, height, path=path)
+
+    monkeypatch.setattr(image, "binarize", counting)
+
+    assert image.convert(pale, 20, 20) == (grid, image.DITHER)
+    assert conversions == [image.DITHER], conversions

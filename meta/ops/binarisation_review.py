@@ -1,7 +1,7 @@
 """CARD-079's gate — every corpus picture converted both ways, for the owner's eye.
 
     PYTHONPATH=src python meta/ops/binarisation_review.py OUTDIR \\
-        [--sizes 10,15,20,25,30] [--pictures DIR] [--sheet-size 25]
+        [--sizes 10,15,20,25,30] [--pictures DIR] [--sheet-size 25] [--from-rows FILE]
 
 Two outputs, because the decision needs both halves:
 
@@ -67,18 +67,27 @@ def _panel(grid: list[list[bool]]) -> Image.Image:
     return panel
 
 
-def _convert(picture: Path, size: int, path: str) -> dict:
-    """One picture, one size, one path, through the real pipeline.
+#: The two columns. ``None`` is the shipped conversion since the owner's flip
+#: — classifier per picture, plus the degenerate-ink guard — and ``DITHER`` is
+#: the incumbent it replaced. Comparing *those* is the decision-relevant
+#: comparison; comparing the two raw paths flatters the threshold, because it
+#: credits it with pictures the guard sends straight back to the dither path.
+COLUMNS = (("shipped", None), ("dither", image_source.DITHER))
+
+
+def _convert(picture: Path, size: int, column: tuple[str, str | None]) -> dict:
+    """One picture, one size, one column, through the real pipeline.
 
     ``DEFAULT_BINARISATION`` is moved rather than a ``path=`` argument threaded
-    through the orchestrator: the point is to exercise what the owner's flip
-    would actually do, including :func:`image_source.binarisation_for`'s
-    recording on the aggregate.
+    through the orchestrator: the point is to exercise what the switch actually
+    does, including the guard and
+    :func:`image_source.binarisation_for`'s recording on the aggregate.
     """
+    label, path = column
     previous = image_source.DEFAULT_BINARISATION
     image_source.DEFAULT_BINARISATION = path
     started = time.monotonic()
-    row = {"picture": picture.name, "size": size, "path": path}
+    row = {"picture": picture.name, "size": size, "path": label}
     try:
         puzzle = orchestrator.generate(
             orchestrator.GenerationRequest(
@@ -97,7 +106,7 @@ def _convert(picture: Path, size: int, path: str) -> dict:
             "outcome": type(error).__name__,
             "nudges": None,
             "first_solve_unique": False,
-            "binarisation": path,
+            "binarisation": None,
             "grid": None,
         }
     finally:
@@ -116,8 +125,9 @@ def _sheet(picture: Path, rows: list[dict], out: Path) -> Path | None:
         if row["grid"] is None:
             continue
         nudges = row["nudges"]
+        used = row.get("binarisation") or row["path"]
         panels.append(
-            (f"{row['path']}: made, {nudges} nudge{'' if nudges == 1 else 's'}",
+            (f"{row['path']} ({used}): made, {nudges} nudge{'' if nudges == 1 else 's'}",
              _panel(row["grid"]))
         )
     for row in rows:
@@ -145,6 +155,10 @@ def main() -> None:
     parser.add_argument("--sizes", default="10,15,20,25,30")
     parser.add_argument("--sheet-size", type=int, default=25)
     parser.add_argument("--pictures", default="pictures")
+    parser.add_argument(
+        "--from-rows",
+        help="re-report a finished sweep from the JSON rows it printed on stderr",
+    )
     args = parser.parse_args()
 
     directory = Path(args.pictures)
@@ -158,6 +172,21 @@ def main() -> None:
     out = Path(args.out).expanduser()
     out.mkdir(parents=True, exist_ok=True)
 
+    if args.from_rows:
+        saved = [
+            json.loads(line)
+            for line in Path(args.from_rows).read_text().splitlines()
+            if line.startswith("{")
+        ]
+        shares = {
+            picture.name: round(
+                image_source.midtone_share(image_source.load_greyscale(picture)), 4
+            )
+            for picture in pictures
+        }
+        _report(saved, shares, out)
+        return
+
     print(f"  {len(pictures)} pictures, sizes {sizes}, sheets at {args.sheet_size}")
     rows: list[dict] = []
     shares: dict[str, float] = {}
@@ -166,8 +195,8 @@ def main() -> None:
             image_source.midtone_share(image_source.load_greyscale(picture)), 4
         )
         for size in sizes:
-            for path in (image_source.THRESHOLD, image_source.DITHER):
-                row = _convert(picture, size, path)
+            for column in COLUMNS:
+                row = _convert(picture, size, column)
                 rows.append(row)
                 print(
                     json.dumps({k: v for k, v in row.items() if k != "grid"}),
@@ -181,32 +210,48 @@ def main() -> None:
         if _sheet(picture, sheet_rows, out):
             print(f"  sheet: {picture.name}", flush=True)
 
-    def side(path: str) -> list[dict]:
-        return [r for r in rows if r["path"] == path]
+    _report(rows, shares, out)
 
-    print("\n  AC-127 — threshold against dither, over every picture and size")
+
+def _report(rows: list[dict], shares: dict[str, float], out: Path) -> None:
+    """Print AC-127's totals and the calibration table, and save the rows.
+
+    Split out of :func:`main` so a finished sweep's rows can be re-reported
+    without converting anything again (``--from-rows``): the sweep takes about
+    twenty-five minutes, and the report is the part most likely to be re-cut.
+    """
+    def side(label: str) -> list[dict]:
+        return [r for r in rows if r["path"] == label]
+
+    print("\n  AC-127 — the shipped conversion against dither-everywhere")
     print(f"  {'':10} {'made':>6} {'1st-solve':>10} {'nudges':>8} {'failed':>8}")
-    for path in (image_source.THRESHOLD, image_source.DITHER):
-        these = side(path)
+    for label, _ in COLUMNS:
+        these = side(label)
         made = sum(r["outcome"] == "made" for r in these)
         first = sum(bool(r["first_solve_unique"]) for r in these)
         nudges = sum(r["nudges"] or 0 for r in these)
-        print(f"  {path:10} {made:>6} {first:>10} {nudges:>8} {len(these) - made:>8}")
+        print(f"  {label:10} {made:>6} {first:>10} {nudges:>8} {len(these) - made:>8}")
+
+    shipped_made = [r for r in side("shipped") if r["outcome"] == "made"]
+    used = {}
+    for r in shipped_made:
+        used[r["binarisation"]] = used.get(r["binarisation"], 0) + 1
+    print(f"  shipped conversions made, by the path actually used: {used}")
 
     made_by = {
-        path: {(r["picture"], r["size"]) for r in side(path) if r["outcome"] == "made"}
-        for path in (image_source.THRESHOLD, image_source.DITHER)
+        label: {(r["picture"], r["size"]) for r in side(label) if r["outcome"] == "made"}
+        for label, _ in COLUMNS
     }
-    regressions = sorted(made_by[image_source.DITHER] - made_by[image_source.THRESHOLD])
-    gains = sorted(made_by[image_source.THRESHOLD] - made_by[image_source.DITHER])
-    print(f"\n  (c) conversions dither makes and threshold does not: {len(regressions)}")
+    regressions = sorted(made_by["dither"] - made_by["shipped"])
+    gains = sorted(made_by["shipped"] - made_by["dither"])
+    print(f"\n  (c) conversions dither makes and the shipped conversion does not: {len(regressions)}")
     for case in regressions:
         print(f"      REGRESSION {case[0]} at {case[1]}")
-    print(f"  conversions threshold makes and dither does not: {len(gains)}")
+    print(f"  conversions the shipped conversion makes and dither does not: {len(gains)}")
     for case in gains:
         print(f"      gain {case[0]} at {case[1]}")
 
-    print("\n  mid-tone share per picture (ADR-0028's owed calibration)")
+    print("\n  mid-tone share per picture (ADR-0028's calibration)")
     for name, share in sorted(shares.items(), key=lambda item: item[1]):
         flag = "dither" if share >= image_source.MIDTONE_SHARE_THRESHOLD else "threshold"
         print(f"      {share:>7.4f}  {flag:>9}  {name}")
@@ -217,7 +262,7 @@ def main() -> None:
          "midtone_shares": shares},
         indent=1,
     ))
-    print(f"\n  {len(pictures)} sheets and {report.name} in {out}")
+    print(f"\n  {report.name} in {out}")
 
 
 if __name__ == "__main__":

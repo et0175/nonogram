@@ -50,8 +50,8 @@ cap-reaching fails loudly there instead of quietly turning an AC test vacuous.
 Real images too
 ---------------
 The scripted grids show the loop; two pinned fixture conversions show that it
-works on an actual picture. ``owl1.png`` at 10x10 really does convert to an
-ambiguous grid that two nudges repair, and the *same picture* at 15x15 really
+works on an actual picture. ``bird2.jpg`` at 14x14 really does convert to an
+ambiguous grid that one nudge repairs, and the *same picture* at 16x16 really
 does survive all five. One photograph doing both jobs is deliberate: it removes
 "maybe the other fixture is just harder" as an explanation for the difference,
 leaving the extent as the only variable.
@@ -108,13 +108,18 @@ WIDE = FIXTURES / "wide.png"
 #: sizes, which is a coincidence worth naming rather than relying on.
 LANDSCAPE = FIXTURES / "landscape.png"
 
-#: CARD-070 moved the two real-image pins here. ``owl1.png`` is a 405x500
-#: photograph with 256 grey levels, so the dither actually dithers; a 10..25
-#: sweep gives exactly 2 nudges at 10x10 and the cap at 15x15, and both are
-#: seed-independent (image mode draws no randomness — the conversion is a pure
-#: function of the file and the extent, so these are facts about the picture
-#: rather than about a seed).
-OWL = FIXTURES / "owl1.png"
+#: The two real-image pins, and where they have been: CARD-070 put them on
+#: ``owl1.png`` (2 nudges at 10x10, the cap at 15x15), CARD-075's nudge moved
+#: them within it (1 at 10x10, the cap at 24x24), and CARD-079 moved them here. Since the owner's binarisation flip ``owl1.png``
+#: takes the threshold path and converts at **every** size from 10 to 30, so it
+#: no longer has a cap case at all — which is the flip's effect showing up in
+#: one fixture, and why the pair had to move rather than the cap test go
+#: vacuous. A sweep of every fixture over 10..30 found eight that still reach
+#: the cap; ``bird2.jpg`` is the one where the extent is most plainly the only
+#: variable: made at 14x14 in one nudge and at 15x15 in none, abandoned at
+#: 16x16, made again at 17x17. Threshold path at all of those sizes, and
+#: seed-independent (image mode draws no randomness).
+BIRD = FIXTURES / "bird2.jpg"
 
 Grid = list[list[bool]]
 
@@ -391,10 +396,14 @@ def test_nudge_attempts_bounded_recovery_keeps_the_clues_matching_the_grid(
 def test_nudge_attempts_bounded_recovery_on_a_real_image() -> None:
     """The same recovery with nothing scripted at all (a pinned case).
 
-    ``owl1.png`` at 10x10 converts to a genuinely ambiguous grid that **one**
-    nudge turns into a puzzle. One flipped pixel out of a hundred: the picture
-    the user handed over is still their picture, which is the whole premise of
+    ``bird2.jpg`` at 14x14 converts to a genuinely ambiguous grid that **one**
+    nudge turns into a puzzle. One flipped pixel out of 196: the picture the
+    user handed over is still their picture, which is the whole premise of
     nudging rather than re-drawing.
+
+    Moved here from ``owl1.png`` at 10x10 by CARD-079, together with the cap
+    case below — see ``BIRD``'s note. ``owl1.png`` at 10x10 still needs exactly
+    one nudge; it moved only so the two real-image pins stay one photograph.
 
     Re-pinned from ``bands.png`` by CARD-070 — see the module docstring for why
     that fixture could never have produced a count at all — and re-taken by
@@ -405,10 +414,10 @@ def test_nudge_attempts_bounded_recovery_on_a_real_image() -> None:
     reached at 15x15 before this card and is now reached at 24x24), which is
     the whole of CARD-075's measured effect showing up in one fixture.
     """
-    converted = image.generate(OWL, 10, 10, random.Random(1))
+    converted = image.generate(BIRD, 14, 14, random.Random(1))
 
     puzzle = generate(
-        GenerationRequest(mode="image", image=OWL, width=10, height=10, seed=1)
+        GenerationRequest(mode="image", image=BIRD, width=14, height=14, seed=1)
     )
 
     assert puzzle.nudge.attempts == 1
@@ -566,11 +575,11 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     """The cap reached by an actual picture rather than a scripted grid (a
     pinned case, re-pinned by sweeping the fixtures — see the module docstring).
 
-    ``owl1.png`` at 24x24 converts to a grid that all five nudges leave
+    ``bird2.jpg`` at 16x16 converts to a grid that all five nudges leave
     ambiguous, which is the run AC-035 describes end to end. The same
-    photograph at 10x10 is repaired in one (the test above), so the pair
-    isolates the extent: what reaches the cap is the conversion, not the
-    picture.
+    photograph at 14x14 is repaired in one (the test above) and at 15x15 needs
+    none, so the pair isolates the extent: what reaches the cap is the
+    conversion, not the picture.
 
     Re-pinned from ``landscape.png`` at 22x22 by CARD-070, which found that
     fixture needs zero nudges at every size from 10 to 25 and always did — see
@@ -578,10 +587,13 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     same 10..25 sweep: under the solver's disagreement set the picture now
     converts at every size up to 23, so 15x15 is no longer a failure to pin and
     asserting it there would have made this test vacuous rather than green.
+    CARD-079 moved it to ``bird2.jpg`` at 16x16 for the same reason, one step
+    further: after the binarisation flip ``owl1.png`` has no cap case at any
+    size.
     """
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(
-            GenerationRequest(mode="image", image=OWL, width=24, height=24, seed=1)
+            GenerationRequest(mode="image", image=BIRD, width=16, height=16, seed=1)
         )
 
     assert "pixel-nudge" in str(excinfo.value)
@@ -595,17 +607,18 @@ def test_nudge_reports_failure_at_cap_through_the_cli(
     ``GenerationAbandoned`` is mapped by COMP-001's one exit-code table, so this
     asserts the wiring rather than a second policy.
 
-    ``24x24`` rather than a bare ``24`` since CARD-033: a bare N follows the
-    source's own shape (FR-023), and ``owl1.png``'s 386x486 ink box would ask
-    for a 19x24 — measured, that conversion *is* recovered, in five nudges, so
+    ``16x16`` rather than a bare ``16`` since CARD-033: a bare N follows the
+    source's own shape (FR-023), and ``bird2.jpg``'s 359x321 ink box would ask
+    for a 16x14 — measured, that conversion is unique on the first solve, so
     it is emphatically not the pinned failure this test is the CLI end of.
 
     Re-pinned from ``landscape.png`` at 22x22 by CARD-070, alongside the test
-    above and for the same reason — see the module docstring — and moved from
-    15x15 to 24x24 by CARD-075 with the test above.
+    above and for the same reason — see the module docstring — moved from
+    15x15 to 24x24 by CARD-075, and to ``bird2.jpg`` at 16x16 by CARD-079, each
+    time with the test above.
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(OWL), "--size", "24x24"]
+        ["generate", "--mode", "image", "--image", str(BIRD), "--size", "16x16"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -736,10 +749,11 @@ def test_the_image_module_counts_nothing_itself() -> None:
     INV-003's single home stated as an API rather than as a comment.
 
     CARD-079 added the binarisation vocabulary — two path names, the mid-tone
-    band and its threshold, the pinned default, and the three functions that
-    read them. None of them counts anything either: the classifier is a pure
-    function of a picture, and ``DEFAULT_BINARISATION`` is a policy constant
-    rather than a tally.
+    band and its threshold, the default, the degenerate-ink band, and the
+    functions that read them. None of them counts anything either: the
+    classifier and the ink-share guard are pure functions of a picture or a
+    grid, and ``DEFAULT_BINARISATION`` and ``USABLE_INK_SHARE`` are policy
+    constants rather than tallies.
     """
     assert image.__all__ == [
         "DEFAULT_BINARISATION",
@@ -749,12 +763,16 @@ def test_the_image_module_counts_nothing_itself() -> None:
         "MIDTONE_SHARE_THRESHOLD",
         "RESAMPLING",
         "THRESHOLD",
+        "USABLE_INK_SHARE",
         "binarisation_for",
         "binarize",
         "classify_binarisation",
+        "convert",
         "fit_crop_box",
         "generate",
         "ink_bounding_box",
+        "ink_share",
+        "is_degenerate",
         "load_greyscale",
         "midtone_share",
         "next_nudge_cell",

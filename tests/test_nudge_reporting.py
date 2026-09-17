@@ -47,8 +47,8 @@ from tests.test_nudge import _ONE_SWITCH, _CountingSource, _install_source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BANDS = FIXTURES / "bands.png"
-#: The two-nudge pin, re-pinned onto a photograph by CARD-070 and re-taken at
-#: 15x15 by CARD-075. Only AC-040 uses it; the scripted-source test below
+#: The two-nudge pin, re-pinned onto a photograph by CARD-070, re-taken at
+#: 15x15 by CARD-075 and at 20x20 by CARD-079. Only AC-040 uses it; the scripted-source test below
 #: keeps ``BANDS`` because its source is monkeypatched and the file is never
 #: converted.
 OWL = FIXTURES / "owl1.png"
@@ -63,12 +63,12 @@ def test_export_reports_nudge_count(
 ) -> None:
     """AC-040: 2 pixel nudges -> a line stating 2 cells were nudged.
 
-    ``15x15`` since CARD-075, which changed how a nudge picks its cell and so
-    changed how many any given conversion needs: ``owl1.png`` at 10x10 is now
-    repaired by **one** nudge, which is the singular line the boundary test
-    below owns, and would have made this test assert the wrong branch. A fresh
-    10..25 sweep (``tests/test_nudge.py``'s re-pinning recipe) puts 2 at every
-    size from 14 to 19; 15x15 is the middle of that run.
+    ``20x20`` since CARD-079. CARD-075 moved it to ``15x15`` when the nudge
+    changed which cell it flips (``owl1.png`` at 10x10 became a one-nudge run,
+    the singular line the boundary test below owns). CARD-079 then changed the
+    conversion itself — ``owl1.png`` now takes the threshold path — and a fresh
+    10..30 sweep puts exactly 2 nudges at 19, 20, 24 and 27 and 1 at 15. So
+    the pin moved again rather than the assertion weakening to "some cells".
     """
     exit_code = cli.main(
         [
@@ -78,7 +78,7 @@ def test_export_reports_nudge_count(
             "--image",
             str(OWL),
             "--size",
-            "15x15",
+            "20x20",
             "--seed",
             "1",
             "--export",

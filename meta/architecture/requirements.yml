@@ -1118,6 +1118,14 @@ functional:
       bound on how far short of the property the transform falls.
     source: [US-020]
     acceptance:
+      # AC-086 and AC-089 AMENDED 2026-09-17 (CARD-079). Both are measured
+      # through the conversion the tool ships, and FR-027's binarisation flip
+      # changed that conversion: duck2.png now thresholds, gains one blank line
+      # at its right edge (2 rather than 1) and moves from fixed to residual.
+      # One picture, on both sides of AC-089's comparison. Was: 17 of 19
+      # fixed, 2 residual, 23 of 25 holding; near-white 6 against 2. The test
+      # id keeps its "17Of19" name for trace stability (the EC-007 2026-08-31
+      # precedent); its docstring says why.
       - id: AC-086
         given: >-
           the 25-image corpus committed under pictures/, each fitted to a
@@ -1125,8 +1133,9 @@ functional:
           row or column at some edge before trimming
         when: each picture is trimmed to its ink bounding box (ink < 128) before the same 20x20 fit
         then: >-
-          17 of those 19 satisfy the at-most-one-blank-line-per-edge rule;
-          exactly 2 do not (see AC-088), so 23 of 25 hold overall
+          16 of those 19 satisfy the at-most-one-blank-line-per-edge rule;
+          exactly 3 do not (dear1.jpg and wolf1.jpeg, see AC-088 and AC-091,
+          and duck2.png), so 22 of 25 hold overall
         kind: happy
         test: TestTrimToInk_Fixes17Of19CorpusViolations
       - id: AC-087
@@ -1142,8 +1151,10 @@ functional:
       # is right that "dear1 shows 2 and wolf1 shows 3" is two outcomes, and
       # they are not the same finding. wolf1.jpeg is the one that justifies
       # FR-022 being best-effort rather than an invariant — it measures 3 deep
-      # BEFORE trimming too, so the trim does not improve it at all and no
-      # threshold in the swept range does. Both criteria exist to stop the
+      # BEFORE trimming too, so the trim does not improve its deepest edge and
+      # no threshold in the swept range does. (Since CARD-079's binarisation
+      # flip the trim does take one line off its right edge, 2 to 1 — not the
+      # edge this criterion is about.) Both criteria exist to stop the
       # shortfall drifting unnoticed; a change that fixes either should amend
       # the criterion, never silently pass it.
       - id: AC-088
@@ -1164,7 +1175,7 @@ functional:
       - id: AC-089
         given: the same 25-image corpus fitted to a 20x20 grid at seed 1, trimmed at a near-white threshold (ink < 245)
         when: the resulting grids are inspected
-        then: 6 of the 25 violate the at-most-one-blank-line-per-edge rule, against 2 at ink < 128
+        then: 7 of the 25 violate the at-most-one-blank-line-per-edge rule, against 3 at ink < 128
         kind: boundary
         test: TestTrimToInk_MidGreyThresholdOutperformsNearWhiteThreshold
 
@@ -1510,6 +1521,20 @@ functional:
     # must validate the result before it lands — a green test is not the
     # gate (memory: image-pipeline changes need a rendered-grid eyeball).
     # Touches ADR-0006's "Pillow does the dithering" rationale — adr-writer.
+    #
+    # DECIDED 2026-09-17 (CARD-079, owner, after the visual gate). The gate ran
+    # on 25 pictures rendered both ways and found what AC-127's arithmetic
+    # could not: a coverage threshold erases LINE ART to near-blank, and a
+    # near-blank grid is uniquely solvable by being empty, so it scored as a
+    # gain. The owner chose the threshold alternative (ADR-0026 Accepted),
+    # selected per picture by ADR-0028's mid-tone classifier, CONDITIONAL on a
+    # degenerate-ink guard: a threshold conversion outside the usable ink
+    # share is redone on the dither path (AC-173). The statement below is left
+    # as formalized — neutral — and this note is the resolution, the same
+    # convention FR-013's amendments use. AC-127 is re-worded to compare the
+    # SHIPPED conversion (classifier + guard) against dithering every
+    # picture, and to count regressions case by case; comparing the two raw
+    # paths credits the threshold with pictures the guard sends back.
     statement: >-
       For CON-013 silhouette input, the per-cell binarisation applied after
       the LANCZOS resize to the grid extent is one of: (a) a plain
@@ -1529,10 +1554,15 @@ functional:
       dec_alternatives: [ink_coverage_threshold_50pct, floyd_steinberg_dither]
       gate: "Owner visual validation of the converted picture corpus before the change lands — not dischargeable by tests alone."
       evidence: ["docs/GENERATION_ALGORITHM.md#4.3", "docs/GENERATION_ALGORITHM.md#11", "src/nonogram/sourcing/image.py binarize", "ADR-0006"]
-      gaps:
-        - "The criterion that classifies an upload as 'genuinely greyscale' (keeps dithering) versus silhouette (threshold) is not stated in the intake."
+      decided: 2026-09-17
+      decided_by: owner, after the visual gate (CARD-079)
+      chosen_alternative: ink_coverage_threshold_50pct
+      gate_discharged: "2026-09-17 — 25 corpus pictures rendered both ways, ~/Documents/nonogram-reviews/CARD-079; flip conditional on AC-173's guard"
+      gaps: []
+      resolved_gaps:
+        - "'Genuinely greyscale' vs silhouette: resolved by ADR-0028 — mid-tone share of the source histogram in [64, 191] against MIDTONE_SHARE_THRESHOLD 0.10, calibrated on the corpus (24 pictures 0.0021..0.0652, one photograph 0.1647)."
       criteria_by_alternative:
-        threshold_alternative_only: [AC-124, AC-125, AC-126]
+        threshold_alternative_only: [AC-124, AC-125, AC-126, AC-173]
         holds_under_every_alternative: [AC-127]
     acceptance:
       # alternative: ink_coverage_threshold_50pct
@@ -1557,12 +1587,24 @@ functional:
         kind: boundary
         test: TestBinarize_ExactlyHalfCoverageIsFilled
       # holds under every alternative — this is the hypothesis, measured
+      # Re-worded 2026-09-17 (CARD-079): shipped conversion vs dither-everywhere,
+      # regressions counted case by case. (a) is the suite test at 25x25; (b)
+      # and (c) are meta/ops/binarisation_review.py over sizes 10..30, because
+      # driving both through generate costs ~30 s of one picture's deadline.
       - id: AC-127
-        given: the committed picture corpus under pictures/, each converted at a bare --size 25 by both binarisation paths
-        when: the first-solve uniqueness verdicts and the nudge counts of both paths are compared over the corpus
-        then: the threshold path's count of conversions unique on the first solve is greater than or equal to the dither path's, and its total nudges over the corpus are less than or equal to the dither path's
+        given: the committed picture corpus under pictures/, converted by the shipped binarisation (classifier plus degenerate-ink guard) and, separately, with every picture on the dither path
+        when: first-solve uniqueness, nudge counts and outcomes are compared over the corpus
+        then: (a) the shipped conversion's count of conversions unique on the first solve is greater than or equal to the dither path's, (b) its total nudges are less than or equal to the dither path's, and (c) every conversion the dither path makes, the shipped conversion also makes
         kind: boundary
         test: TestBinarize_ThresholdCorpusNeedsNoMoreNudgesThanDither
+      # alternative: ink_coverage_threshold_50pct — the condition the owner
+      # attached to choosing it (CARD-079, 2026-09-17)
+      - id: AC-173
+        given: a picture whose threshold conversion fills less than 5% or more than 95% of the grid — line art erased to near-blank, or a washed-out photograph with no ink at all
+        when: the picture is converted with the shipped binarisation
+        then: the conversion is redone on the dither path, the path recorded on the puzzle is dither, and no all-empty or near-empty threshold grid is scored or exported as a puzzle
+        kind: negative
+        test: TestBinarize_GuardSendsDegenerateThresholdConversionToDither
 
   - id: FR-028
     # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 7 —
