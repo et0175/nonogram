@@ -1,24 +1,24 @@
 # CARD-075: Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false  _(revised 2026-09-15 from CARD-096 — see Revision)_
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (5 mutants, 1 survived and drove a new test)
 **Branch:** card/075-mask-driven-nudge
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-075
 **Source:** meta/architecture/handoff.md#increment-9 (FR-013 amendment, split from CARD-074 by decompose)
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-073
-**Touches:** src/nonogram/sourcing/image.py (nudge_cells, nudge), src/nonogram/orchestrator.py (the nudge call site only — it keeps the attempt's chosen cells, as it keeps the repair lineage), tests/test_nudge.py, tests/property/test_nudge_mask.py (new), meta/architecture/requirements.yml (FR-013 AC-115/AC-116, EC-014 — amended by this card), docs/GENERATION_ALGORITHM.md (§8.4)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Touches:** src/nonogram/sourcing/image.py (next_nudge_cell, nudge; nudge_cells retired), src/nonogram/orchestrator.py (the nudge call site only — it keeps the attempt's chosen cells, as it keeps the repair lineage), tests/test_nudge.py, tests/property/test_nudge_mask.py (new), meta/architecture/requirements.yml (FR-013 AC-115/AC-116, EC-014 — amended by this card), docs/GENERATION_ALGORITHM.md (§8.4)
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-17
+**Closed:** 2026-09-17
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -221,4 +221,145 @@ heuristic; no stored data changes.
 
 ## Worktree notes
 
-—
+### Delivered 2026-09-17
+
+**The mechanism.** `sourcing/image.py` gained two functions and lost three.
+`next_nudge_cell(grid, flipped, *, witnesses, undecided_mask)` returns the one
+cell the next attempt adds, or `None`; `nudge(original, cells)` applies a set of
+cells to the original conversion and decides nothing. `nudge_cells`,
+`_switch_counts`, `_boundary_counts` and `_NUDGE_SPACING` are gone. Neither new
+function is told which attempt it is on, which is INV-003 as an API rather than
+as a comment — `test_the_image_module_counts_nothing_itself` pins both
+signatures.
+
+`_boundary_distances` computes the ranking key for the whole grid in one pass —
+two multi-source BFS over the eight-neighbourhood, which on an open grid is
+exactly Chebyshev — rather than scanning outward per candidate. That matters
+only for the fallback region, which CARD-096 measured at a median 35% of the
+grid and up to 100%.
+
+**The call site** keeps the chosen cells and the last judged grid in the
+closure, the same shape as `attempt_candidate`'s repair lineage. An attempt that
+finds no cell returns `None` without solving anything: the counter has already
+advanced, so the cap and POL-003's report arrive exactly as before.
+
+**Measured — the corpus, `meta/ops/image_abandonment_sweep.py`, 25 pictures x
+sizes 10,15,20,25,30.** Before is CARD-096's run on `main`.
+
+| | before | after |
+|---|---:|---:|
+| engine, conversions made | 89 of 125 | **107 of 125** |
+| made at the first solve (no nudge) | 76 | 76 |
+| abandoned | 34 | 17 |
+| timed out | 2 | 1 |
+| admin loss, small / medium / large / auto (of 25) | 3 / 5 / 7 / 7 | **2 / 2 / 3 / 3** |
+
+**18 of the 36 failures rescued, 0 regressions.** The regression half is
+by construction — the nudge runs only on a conversion that is not unique — and
+the sweep confirms it: the "made at the first solve" column is identical, and a
+case-by-case diff of the two runs shows an empty regression set.
+
+**AC-172 asked for at least 19 and this is 18 — reported, per the AC's own
+instruction, not quietly shipped.** The missing case is one picture at one size
+(`frog1.jpeg` at 30), and the cause is known exactly. CARD-096's experiment
+ranked candidates by reading order ("the crudest rule, first differing cell",
+its Threats section); AC-116 as written ranks them by distance to the ink
+boundary first. Both variants were re-run on the 36 failures at the sweep's own
+extents:
+
+| ranking | rescued |
+|---|---:|
+| ink-boundary, then (row, column) — AC-116 as written | 18 |
+| (row, column) only — CARD-096's experiment | 19 |
+| cells rescued only by ink-boundary | none |
+| cells rescued only by (row, column) | `frog1.jpeg` at 30 |
+
+So the ink-boundary rule costs exactly one conversion and gains none on this
+corpus. Rendered for the owner by `meta/ops/nudge_ranking_contact_sheet.py`
+(36 sheets, `~/Documents/nonogram-reviews/CARD-075/`: source, conversion with
+the undecided cells tinted, then the two rules' results with the flipped pixels
+in blue). A third measurement taken alongside them, since the sheets raise the
+question: **the two rules choose identical cells in 22 of the 35 cases that do
+not time out**, and of the 13 where they differ, only `frog1.jpeg` at 30 ends
+differently. Where both succeed the flip counts are a wash — `dear.png` at
+14x15 is 3 flips under ink-boundary against 4 under reading order, `dear1.jpg`
+at 14x20 is 4 against 3.
+
+The corpus therefore does not separate the two rules on yield or on economy;
+it separates them by one picture.
+
+**Owner's decision, 2026-09-17, after looking at the sheets: keep the
+ink-boundary rule.** So AC-172 closes at **18**, not met as written, with the
+cause recorded above rather than the criterion quietly re-cut. The reasoning
+the owner accepted: the corpus does not choose between the rules, so the rule
+with a stated reason wins over the one that happens to win a case — reading
+order is "the crudest rule" by CARD-096's own description, and the pixels it
+flips land wherever ties fall rather than on the ink. AC-172's second half
+(every conversion made before is still made) is met in full.
+
+This is a live question for CARD-079, not a closed one: with a threshold
+conversion in play the 36 failures become a different population, and if the
+ink-boundary ranking costs a rescue there too it is worth re-asking with the
+new sheets in hand. It is shipped anyway, because AC-116 mandates it and because the reason
+it exists is fidelity rather than yield: a flip buried in a solid expanse plants
+a stray dot or splits a run, and the owner's gate on image work is visual. The
+trade is one conversion in 125 against that — **the owner's call, and it is
+open**: dropping the distance term from the one `min()` key in
+`next_nudge_cell` is the whole of the alternative, and
+`test_nudge_prefers_cells_nearest_the_ink_boundary` is the test that would go
+with it.
+
+**Tests.** `tests/test_nudge.py` 37 (was 36): the mechanism half rewritten, the
+AC/policy half unchanged in assertion. New `tests/property/test_nudge_mask.py`
+carries EC-014 over 192 seeded ambiguous grids and 738 attempts, with both
+floors asserted in the tests.
+
+Real-image pins re-taken by this module's own 10..25 sweep recipe, in three
+files — the same picture moving by one nudge shows up in each:
+
+| pin | was | now |
+|---|---|---|
+| `test_nudge.py` recovery case, `owl1.png` | 10x10, 2 nudges | 10x10, **1** nudge |
+| `test_nudge.py` cap case, `owl1.png` | 15x15 | **24x24** (15x15 is now made in 2) |
+| `test_nudge_reporting.py` AC-040 plural line | `--size 10`, 2 nudges | **`--size 15x15`**, 2 nudges |
+| `property/test_grid_dimensions.py` decode count | asserts 2 nudges | asserts **1** |
+
+The last two are the ones a careless run would have missed: AC-040 asserts the
+*plural* wording, and at 10x10 the run now prints the singular line that the
+test below it owns — so it moved to a size where owl1 still needs two, rather
+than having its assertion weakened. The decode-count property only needs both
+runs to retry *at all*; its number moved, its premise did not.
+
+**Mutation check** — five mutants, restored from saved copies, never
+`git checkout`:
+
+| mutant | caught by |
+|---|---|
+| regions swapped (mask before disagreement) | AC-115 + both property tests |
+| `flipped` not excluded from the candidates | nesting tests + both property tests |
+| ink-boundary term dropped from the ranking key | `..._prefers_cells_nearest_the_ink_boundary` |
+| nudges the previous grid, not the original conversion | `..._stops_altering_the_image` |
+| an exhausted mechanism re-judges the last grid | `..._when_there_is_nothing_left_to_add` |
+
+The last one **survived the first pass** and is why that test exists: with
+`next_nudge_cell` exhausted, re-judging the unchanged grid raises the same error
+after the same five attempts. Only the solve count tells them apart, so the test
+counts solves (1, not 5) as well as nudges (0).
+
+**Full suite:** 3,431 passed, 0 failed, 26 skipped, with the two admin-markup
+tests that already fail on `main` deselected
+(`test_the_admin_puzzle_list_gives_the_fourth_tier_a_badge_of_its_own`,
+`test_size_configuration_applied`).
+
+**Guardrails.** G-1 cap/POL-003 wording untouched (AC-034..AC-036 pass
+unchanged in assertion). G-2 one `judge_candidate` path; image mode still never
+repairs and never draws from the rng. G-3 nothing under `solver/`,
+`difficulty.py`, `export/`, `web/`, `admin/`; `orchestrator.py` changed only at
+the nudge call site and in the module docstring. G-4 no fixture altered. G-5 the
+random-mode recovery loop untouched. G-6 explicit pathspecs.
+
+**Also updated:** FR-013's statement, AC-115/AC-116 and EC-014 in
+`requirements.yml` (with the 2026-09-12 gap recorded as dissolved rather than
+answered, and AC-172 recorded as a meta/ops measurement); the FR-013 row in
+`trace.yml`, now `done`; `docs/GENERATION_ALGORITHM.md` §8.4
+(`check_doc_references.py`: 212 resolved, 0 failed).

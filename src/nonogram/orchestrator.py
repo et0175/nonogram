@@ -82,8 +82,12 @@ difficulty dial.
 
 The split of POL-002 across two components is trace.yml's FR-013 note: the
 policy (when, how often, what to say at the cap) is here, the mechanism (which
-cell to flip) is in ``sourcing.image.nudge``, which owns the grid the image
-produced and counts nothing.
+cell to flip) is in ``sourcing.image.next_nudge_cell`` and
+``sourcing.image.nudge``, which own the grid the image produced and count
+nothing. Since CARD-075 the mechanism reads the solver's verdict on the
+previous attempt's candidate, so this loop carries the cells chosen so far in
+its closure — the same shape as ADR-0024's repair lineage, and for the same
+reason: ``run_bounded`` counts, the callable decides what to try next.
 
 Naming (FR-015, ADR-0018)
 -------------------------
@@ -1799,14 +1803,25 @@ def generate(
                     "image conversion was judged but recorded no grid to nudge"
                 )
 
-            def attempt_nudged_candidate() -> Puzzle | None:
-                """One POL-002 round: nudge the conversion, judge the result.
+            # POL-002's state, in this closure for the reason ADR-0024's
+            # repair lineage is in the one above: it is per-request, and
+            # `run_bounded` is deliberately stateless — the primitive counts,
+            # the callable decides what to try next (guardrail G-2). The cells
+            # chosen so far, and the grid the last attempt was judged on.
+            nudged_cells: list[tuple[int, int]] = []
+            last_judged = converted
 
-                ``puzzle.nudge.attempts`` is read rather than tracked
-                separately: :func:`run_bounded` advances the counter *before*
-                calling this, so it is already this attempt's 1-based number,
-                and taking it from the counter is what keeps INV-003's single
-                home (guardrail G-2) from acquiring a shadow copy.
+            def attempt_nudged_candidate() -> Puzzle | None:
+                """One POL-002 round: add a cell, nudge the conversion, judge.
+
+                CARD-075's loop, and the only part of POL-002 that changed:
+                each round asks ``sourcing.image`` for *one more* cell, read
+                off what the solver reported about the grid the **previous**
+                round was judged on — the cells its two witnesses disagreed on,
+                or its undecided mask when those are used up. Those are still
+                on the aggregate here: :func:`judge_candidate` records them
+                before the uniqueness gate and the next ``record_candidate``
+                has not happened yet, exactly as ADR-0024's repair reads them.
 
                 Every round nudges ``converted`` — the original conversion —
                 and not the previous round's grid, so attempt *n* differs from
@@ -1815,10 +1830,25 @@ def generate(
                 The result then goes through :func:`judge_candidate` like any
                 other candidate: the solver's verdict on the nudged grid is the
                 only thing that ends this loop successfully (CON-005, G-4).
+
+                When neither region holds an unflipped cell there is nothing to
+                add and the round returns no candidate. The counter has already
+                advanced — :func:`run_bounded` advances it before calling this
+                — so the cap and POL-003's report are reached exactly as they
+                are when a nudged grid is simply still ambiguous.
                 """
-                return judge_candidate(
-                    image_source.nudge(converted, puzzle.nudge.attempts)
+                nonlocal last_judged
+                cell = image_source.next_nudge_cell(
+                    last_judged,
+                    nudged_cells,
+                    witnesses=puzzle.witnesses,
+                    undecided_mask=puzzle.undecided_mask,
                 )
+                if cell is None:
+                    return None
+                nudged_cells.append(cell)
+                last_judged = image_source.nudge(converted, nudged_cells)
+                return judge_candidate(last_judged)
 
             # POL-003 lives in run_bounded's exhaustion branch: at the bound it
             # raises instead of nudging again, which is what "stops altering

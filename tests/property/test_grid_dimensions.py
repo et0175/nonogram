@@ -1079,13 +1079,17 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
     else asserts: a later card that resolved the extent inside a retry loop, or
     read the shape a second time to re-check it, would change this number and
     break no other test. Which is why **both** runs below retry — the helper
-    asserts ``nudge.attempts == 2`` for each: ``owl1.png`` at 10x10 converts
-    to an ambiguous grid that two pixel-nudges repair
+    asserts ``nudge.attempts == 1`` for each: ``owl1.png`` at 10x10 converts
+    to an ambiguous grid that a pixel-nudge repairs
     (``tests/test_nudge.py``'s own pin), so both counts are measured across a
-    run with three candidates in it, and the difference between them cannot be
+    run with two candidates in it, and the difference between them cannot be
     an artefact of one run retrying and the other not — the
     once-outside-both-loops placement of ``orchestrator._resolved_extent``,
     stated as a count instead of as a comment.
+
+    The count was 2 until CARD-075 changed which cell a nudge flips; one nudge
+    now suffices at this extent. Only the number moved — the premise this test
+    rests on is that both runs retry *at all*, which they still do.
 
     The two requests differ in one token and nothing else, and both land on
     ``10x10``: ``owl1.png`` is 405x500, so a bare ``--size 10`` puts 10 on the
@@ -1123,7 +1127,7 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
         finally:
             image.load_greyscale = original
         assert puzzle.extent == (MIN_SUPPORTED, MIN_SUPPORTED), extent
-        assert puzzle.nudge.attempts == 2, extent
+        assert puzzle.nudge.attempts == 1, extent
         return decodes, puzzle.nudge.attempts
 
     bare, _ = run(width=MIN_SUPPORTED)

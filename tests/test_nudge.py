@@ -155,6 +155,18 @@ def _solution_count(grid: Grid) -> int:
     return solver.solve(grid_clues.rows, grid_clues.columns).solution_count
 
 
+def _verdict(grid: Grid) -> solver.SolveResult:
+    """The real solver's verdict on ``grid``'s own clues (never a stand-in).
+
+    Every witness pair and undecided mask below comes from here rather than
+    from a hand-written literal: the cells ``next_nudge_cell`` chooses from are
+    whatever COMP-005 actually reports, so a test that invented them could
+    agree with the implementation and disagree with the solver.
+    """
+    grid_clues = clues.compute_clues(grid)
+    return solver.solve(grid_clues.rows, grid_clues.columns)
+
+
 def _differences(left: Grid, right: Grid) -> list[tuple[int, int]]:
     """Every cell where two same-shaped grids disagree, in row-major order."""
     return [
@@ -165,6 +177,38 @@ def _differences(left: Grid, right: Grid) -> list[tuple[int, int]]:
     ]
 
 
+def _nudge_run(original: Grid, cap: int = MAX_NUDGE_ATTEMPTS) -> list[Grid]:
+    """The grids POL-002's loop judges for ``original``, attempt 1 first.
+
+    COMP-002's loop replayed over COMP-003's two functions, so a test can name
+    "the grid attempt 3 judged" without driving a whole run — the shape
+    CARD-075 replaced ``image.nudge(grid, attempt)`` with, now that an attempt's
+    cell depends on the solver's verdict on the attempt before it. It stops
+    where the loop stops: at ``cap``, at a uniquely-solvable grid, or when
+    there is no unflipped cell left to add.
+    """
+    cells: list[tuple[int, int]] = []
+    judged = original
+    verdict = _verdict(original)
+    grids: list[Grid] = []
+    for _ in range(cap):
+        cell = image.next_nudge_cell(
+            judged,
+            cells,
+            witnesses=verdict.witnesses,
+            undecided_mask=verdict.undecided_mask,
+        )
+        if cell is None:
+            break
+        cells.append(cell)
+        judged = image.nudge(original, cells)
+        grids.append(judged)
+        verdict = _verdict(judged)
+        if verdict.solution_count == 1:
+            break
+    return grids
+
+
 def test_the_scripted_grids_are_what_the_ac_tests_assume() -> None:
     """Guard the fixtures: an AC test on a grid that is accidentally unique, or
     accidentally repairable, would pass while asserting nothing.
@@ -173,13 +217,14 @@ def test_the_scripted_grids_are_what_the_ac_tests_assume() -> None:
     the cap tests rest on: six independent ambiguities, five permitted flips.
     """
     assert _solution_count(_ONE_SWITCH) == solver.MANY
-    assert _solution_count(image.nudge(_ONE_SWITCH, 1)) == 1
+    one_switch = _nudge_run(_ONE_SWITCH)
+    assert len(one_switch) == 1
+    assert _solution_count(one_switch[0]) == 1
 
     assert _solution_count(_SIX_SWITCHES) == solver.MANY
-    assert all(
-        _solution_count(image.nudge(_SIX_SWITCHES, attempt)) == solver.MANY
-        for attempt in range(1, MAX_NUDGE_ATTEMPTS + 1)
-    )
+    six_switches = _nudge_run(_SIX_SWITCHES)
+    assert len(six_switches) == MAX_NUDGE_ATTEMPTS
+    assert all(_solution_count(grid) == solver.MANY for grid in six_switches)
 
 
 # --------------------------------------------------------------------------
@@ -285,7 +330,7 @@ def test_nudge_attempts_bounded_recovery_edits_the_grid_and_not_the_source(
     assert puzzle.regenerate.attempts == 0
     assert puzzle.resample.attempts == 0
     assert puzzle.grid is not None
-    assert _differences(_ONE_SWITCH, puzzle.grid) == [(3, 3)]
+    assert _differences(_ONE_SWITCH, puzzle.grid) == [(2, 2)]
 
 
 def test_nudge_attempts_bounded_recovery_re_solves_every_nudged_grid(
@@ -303,6 +348,12 @@ def test_nudge_attempts_bounded_recovery_re_solves_every_nudged_grid(
     """
     source = _CountingSource(_SIX_SWITCHES)
     _install_source(monkeypatch, source)
+    # Replayed *before* the solver is wrapped: `_nudge_run` solves too, and its
+    # solves are not the ones this test is counting.
+    expected = [
+        clues.compute_clues(_SIX_SWITCHES),
+        *(clues.compute_clues(grid) for grid in _nudge_run(_SIX_SWITCHES)),
+    ]
     real_solve = orchestrator.solver.solve
     solved: list[tuple[tuple[tuple[int, ...], ...], ...]] = []
 
@@ -316,13 +367,6 @@ def test_nudge_attempts_bounded_recovery_re_solves_every_nudged_grid(
         generate(_image_request())
 
     assert len(solved) == 1 + MAX_NUDGE_ATTEMPTS
-    expected = [
-        clues.compute_clues(_SIX_SWITCHES),
-        *(
-            clues.compute_clues(image.nudge(_SIX_SWITCHES, attempt))
-            for attempt in range(1, MAX_NUDGE_ATTEMPTS + 1)
-        ),
-    ]
     assert solved == [(each.rows, each.columns) for each in expected]
 
 
@@ -347,13 +391,19 @@ def test_nudge_attempts_bounded_recovery_keeps_the_clues_matching_the_grid(
 def test_nudge_attempts_bounded_recovery_on_a_real_image() -> None:
     """The same recovery with nothing scripted at all (a pinned case).
 
-    ``owl1.png`` at 10x10 converts to a genuinely ambiguous grid that two
-    nudges turn into a puzzle. Two flipped pixels out of a hundred: the picture
+    ``owl1.png`` at 10x10 converts to a genuinely ambiguous grid that **one**
+    nudge turns into a puzzle. One flipped pixel out of a hundred: the picture
     the user handed over is still their picture, which is the whole premise of
     nudging rather than re-drawing.
 
     Re-pinned from ``bands.png`` by CARD-070 — see the module docstring for why
-    that fixture could never have produced this count.
+    that fixture could never have produced a count at all — and re-taken by
+    CARD-075 from a fresh 10..25 sweep, which is this module's own recipe. It
+    was 2 under the 2x2 switching-block ranking and is 1 under the solver's
+    disagreement set: the same conversion, one fewer pixel of the user's
+    picture spent. The sweep's other sizes moved the same way (the cap was
+    reached at 15x15 before this card and is now reached at 24x24), which is
+    the whole of CARD-075's measured effect showing up in one fixture.
     """
     converted = image.generate(OWL, 10, 10, random.Random(1))
 
@@ -361,10 +411,10 @@ def test_nudge_attempts_bounded_recovery_on_a_real_image() -> None:
         GenerationRequest(mode="image", image=OWL, width=10, height=10, seed=1)
     )
 
-    assert puzzle.nudge.attempts == 2
+    assert puzzle.nudge.attempts == 1
     assert puzzle.solution_count == 1
     assert puzzle.grid is not None
-    assert len(_differences(converted, puzzle.grid)) == 2
+    assert len(_differences(converted, puzzle.grid)) == 1
 
 
 # --------------------------------------------------------------------------
@@ -422,9 +472,11 @@ def test_nudge_reports_failure_at_cap_stops_altering_the_image(
     real_nudge = orchestrator.image_source.nudge
     attempts: list[int] = []
 
-    def recording(grid: Grid, attempt_number: int) -> Grid:
-        attempts.append(attempt_number)
-        return real_nudge(grid, attempt_number)
+    def recording(original: Grid, cells: list[tuple[int, int]]) -> Grid:
+        # How many cells the call applies *is* the attempt number, since the
+        # loop appends exactly one per round before nudging.
+        attempts.append(len(cells))
+        return real_nudge(original, cells)
 
     monkeypatch.setattr(orchestrator.image_source, "nudge", recording)
 
@@ -433,6 +485,60 @@ def test_nudge_reports_failure_at_cap_stops_altering_the_image(
 
     assert attempts == list(range(1, MAX_NUDGE_ATTEMPTS + 1))
     assert source.candidates_requested == 1
+
+
+def test_nudge_reports_failure_at_cap_when_there_is_nothing_left_to_add(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other way POL-002's budget runs out, since CARD-075.
+
+    An attempt can now fail to find a cell at all — both regions used up — and
+    the card's rule is that this costs an attempt like any other: the counter
+    has already advanced when the callable runs, so the loop still reaches the
+    cap and still raises POL-003's report rather than ending quietly with no
+    puzzle and no explanation. Driven by exhausting the mechanism outright,
+    because a conversion that exhausts it naturally is a fixture nobody can
+    pin: it depends on the solver's witnesses agreeing everywhere they are
+    allowed to.
+
+    The grid is never nudged in this run, and the solver is asked exactly once
+    — for the conversion itself. Those are the other two assertions, and the
+    second is the one with teeth: re-judging the unchanged grid on every empty
+    attempt would raise the same error after the same five attempts while
+    spending five solves to ask one question, which is precisely the
+    degeneration the "still has candidates" rule was written against.
+    """
+    built = _capture_puzzles(monkeypatch)
+    _install_source(monkeypatch, _CountingSource(_SIX_SWITCHES))
+    monkeypatch.setattr(
+        orchestrator.image_source,
+        "next_nudge_cell",
+        lambda *arguments, **keywords: None,
+    )
+    nudged: list[object] = []
+    monkeypatch.setattr(
+        orchestrator.image_source,
+        "nudge",
+        lambda *arguments: nudged.append(arguments),
+    )
+    real_solve = orchestrator.solver.solve
+    solves = 0
+
+    def counting(*arguments, **keywords):  # type: ignore[no-untyped-def]
+        nonlocal solves
+        solves += 1
+        return real_solve(*arguments, **keywords)
+
+    monkeypatch.setattr(orchestrator.solver, "solve", counting)
+
+    with pytest.raises(GenerationAbandoned) as excinfo:
+        generate(_image_request())
+
+    assert built[0].nudge.attempts == MAX_NUDGE_ATTEMPTS
+    assert nudged == []
+    assert solves == 1
+    assert "pixel-nudge" in str(excinfo.value)
+    assert built[0].grid == _SIX_SWITCHES
 
 
 def test_nudge_reports_failure_at_cap_never_drifts_from_the_conversion(
@@ -460,19 +566,22 @@ def test_nudge_reports_failure_at_cap_on_a_real_image() -> None:
     """The cap reached by an actual picture rather than a scripted grid (a
     pinned case, re-pinned by sweeping the fixtures — see the module docstring).
 
-    ``owl1.png`` at 15x15 converts to a grid that all five nudges leave
+    ``owl1.png`` at 24x24 converts to a grid that all five nudges leave
     ambiguous, which is the run AC-035 describes end to end. The same
-    photograph at 10x10 is repaired in two (the test above), so the pair
+    photograph at 10x10 is repaired in one (the test above), so the pair
     isolates the extent: what reaches the cap is the conversion, not the
     picture.
 
     Re-pinned from ``landscape.png`` at 22x22 by CARD-070, which found that
     fixture needs zero nudges at every size from 10 to 25 and always did — see
-    the module docstring.
+    the module docstring. CARD-075 moved it again, from 15x15 to 24x24, by the
+    same 10..25 sweep: under the solver's disagreement set the picture now
+    converts at every size up to 23, so 15x15 is no longer a failure to pin and
+    asserting it there would have made this test vacuous rather than green.
     """
     with pytest.raises(GenerationAbandoned) as excinfo:
         generate(
-            GenerationRequest(mode="image", image=OWL, width=15, height=15, seed=1)
+            GenerationRequest(mode="image", image=OWL, width=24, height=24, seed=1)
         )
 
     assert "pixel-nudge" in str(excinfo.value)
@@ -486,17 +595,17 @@ def test_nudge_reports_failure_at_cap_through_the_cli(
     ``GenerationAbandoned`` is mapped by COMP-001's one exit-code table, so this
     asserts the wiring rather than a second policy.
 
-    ``15x15`` rather than a bare ``15`` since CARD-033: a bare N follows the
-    source's own shape (FR-023), and ``owl1.png``'s 405x500 box would ask for a
-    12x15 — measured, that conversion is unique on the first solve and needs no
-    nudge at all, so it is emphatically not the pinned five-nudge failure this
-    test is the CLI end of.
+    ``24x24`` rather than a bare ``24`` since CARD-033: a bare N follows the
+    source's own shape (FR-023), and ``owl1.png``'s 386x486 ink box would ask
+    for a 19x24 — measured, that conversion *is* recovered, in five nudges, so
+    it is emphatically not the pinned failure this test is the CLI end of.
 
     Re-pinned from ``landscape.png`` at 22x22 by CARD-070, alongside the test
-    above and for the same reason — see the module docstring.
+    above and for the same reason — see the module docstring — and moved from
+    15x15 to 24x24 by CARD-075 with the test above.
     """
     exit_code = cli.main(
-        ["generate", "--mode", "image", "--image", str(OWL), "--size", "15x15"]
+        ["generate", "--mode", "image", "--image", str(OWL), "--size", "24x24"]
     )
 
     assert exit_code == cli.ExitCode.GENERATION_FAILED
@@ -617,6 +726,14 @@ def test_the_image_module_counts_nothing_itself() -> None:
     ``source_shape``, which reports the ink box's extent so a bare ``--size N``
     can be completed from it — and which, like ``nudge``, decides nothing and
     counts nothing.
+
+    CARD-075 replaced ``nudge_cells`` with ``next_nudge_cell``, and the
+    signatures are the interesting half of that. The old pair took an *attempt
+    number* — the one place COMP-003 came close to knowing about the loop — and
+    the new pair does not: ``next_nudge_cell`` is handed the cells already
+    flipped and returns one more, ``nudge`` is handed cells and applies them.
+    Neither can tell which attempt it is on or how many are left, which is
+    INV-003's single home stated as an API rather than as a comment.
     """
     assert image.__all__ == [
         "INK_THRESHOLD",
@@ -626,8 +743,8 @@ def test_the_image_module_counts_nothing_itself() -> None:
         "generate",
         "ink_bounding_box",
         "load_greyscale",
+        "next_nudge_cell",
         "nudge",
-        "nudge_cells",
         "source_shape",
         "to_grid",
         "validate_aspect_ratio",
@@ -636,10 +753,13 @@ def test_the_image_module_counts_nothing_itself() -> None:
     assert not any(
         name.startswith("MAX_") or "attempts" in name.lower() for name in vars(image)
     )
-    assert list(inspect.signature(image.nudge).parameters) == [
+    assert list(inspect.signature(image.next_nudge_cell).parameters) == [
         "grid",
-        "attempt_number",
+        "flipped",
+        "witnesses",
+        "undecided_mask",
     ]
+    assert list(inspect.signature(image.nudge).parameters) == ["original", "cells"]
 
 
 # --------------------------------------------------------------------------
@@ -702,33 +822,211 @@ def test_the_other_modes_never_nudge(request_: GenerationRequest) -> None:
 
 
 # --------------------------------------------------------------------------
-# COMP-003 — the mechanism's contract (sourcing.image.nudge)
+# COMP-003 — the mechanism's contract (next_nudge_cell and nudge)
+# --------------------------------------------------------------------------
+#
+# CARD-075 replaced the 2x2 switching-block ranking with the solver's own
+# report. The two functions split the mechanism in half: :func:`next_nudge_cell`
+# decides *which* cell the next attempt adds, and :func:`nudge` applies a set of
+# cells to the original conversion. Neither counts anything (INV-003) and
+# neither reads a clock or an rng (ADR-0015).
+
+
+def _disagreeing_cells(witnesses: tuple[Grid, ...]) -> set[tuple[int, int]]:
+    """Where the two witnesses differ — the test's own second implementation."""
+    first, second = witnesses[0], witnesses[1]
+    return {
+        (row, column)
+        for row, (first_row, second_row) in enumerate(zip(first, second, strict=True))
+        for column, (left, right) in enumerate(
+            zip(first_row, second_row, strict=True)
+        )
+        if left != right
+    }
+
+
+def _mask_of(size: int, cells: tuple[tuple[int, int], ...]) -> list[list[bool]]:
+    """A grid-shaped undecided mask holding exactly ``cells``."""
+    mask = [[False] * size for _ in range(size)]
+    for row, column in cells:
+        mask[row][column] = True
+    return mask
+
+
+# --------------------------------------------------------------------------
+# AC-115 — TestNudge_AddsACellWhereTheWitnessesDisagree
 # --------------------------------------------------------------------------
 
 
-def test_nudge_flips_exactly_one_cell_per_attempt() -> None:
-    """The unit of a nudge, for every attempt number up to the cap."""
-    for attempt in range(1, MAX_NUDGE_ATTEMPTS + 1):
-        assert len(_differences(_SIX_SWITCHES, image.nudge(_SIX_SWITCHES, attempt))) == (
-            attempt
-        )
+def test_nudge_adds_a_cell_where_the_witnesses_disagree() -> None:
+    """The primary source of cells, from the solver rather than from a guess.
 
-
-def test_nudge_attempts_nest_so_no_edit_is_ever_undone() -> None:
-    """Attempt ``n`` is attempt ``n - 1`` plus one more flip.
-
-    The property the orchestrator's loop depends on: because every round nudges
-    the *conversion* rather than the previous round's grid, a later nudge must
-    not be able to revert an earlier one — otherwise a five-attempt budget
-    degenerates into an oscillation between two grids.
+    CARD-096 measured the alternative: on the original conversion of every
+    abandoned picture the two witnesses disagreed on 4 cells in 27 of 34 cases,
+    while the undecided mask covered a median 35% of the grid. Ranking inside a
+    mask that size is guessing again; the disagreement set *is* the ambiguity.
     """
-    for attempt in range(2, MAX_NUDGE_ATTEMPTS + 1):
-        earlier = set(
-            _differences(_SIX_SWITCHES, image.nudge(_SIX_SWITCHES, attempt - 1))
+    verdict = _verdict(_ONE_SWITCH)
+    disagreeing = _disagreeing_cells(verdict.witnesses)
+
+    cell = image.next_nudge_cell(
+        _ONE_SWITCH,
+        (),
+        witnesses=verdict.witnesses,
+        undecided_mask=verdict.undecided_mask,
+    )
+
+    assert disagreeing  # the fixture really is ambiguous (guarded above too)
+    assert cell in disagreeing
+
+
+def test_nudge_never_adds_a_cell_it_has_already_flipped() -> None:
+    """``flipped`` is subtracted from the candidates, which is what makes the
+    attempts nest: a cell already changed from the original can never be
+    offered again, so no later attempt can undo an earlier one (EC-014)."""
+    verdict = _verdict(_ONE_SWITCH)
+    disagreeing = sorted(_disagreeing_cells(verdict.witnesses))
+
+    for taken in range(1, len(disagreeing)):
+        already = disagreeing[:taken]
+        cell = image.next_nudge_cell(
+            _ONE_SWITCH,
+            already,
+            witnesses=verdict.witnesses,
+            undecided_mask=verdict.undecided_mask,
         )
-        later = set(_differences(_SIX_SWITCHES, image.nudge(_SIX_SWITCHES, attempt)))
-        assert earlier < later
-        assert len(later) == len(earlier) + 1
+        assert cell not in already
+        assert cell in set(disagreeing) - set(already)
+
+
+# --------------------------------------------------------------------------
+# AC-116 — TestNudge_FallsBackToTheMaskThenStops / PrefersCellsNearestInkBoundary
+# --------------------------------------------------------------------------
+
+
+def test_nudge_falls_back_to_the_mask_then_stops() -> None:
+    """Two rules in one walk, mirroring ``orchestrator.repair_candidate``.
+
+    The disagreement set is preferred; the undecided mask is the fallback and
+    is a live path, not a defensive branch (a solve that reported ``MANY`` has
+    witnesses, but a run can exhaust their disagreement long before the cap).
+    When neither holds an unflipped cell there is nothing to add, and saying so
+    is how the attempt returns no candidate while the counter still advances.
+    """
+    grid = [[False] * 6 for _ in range(6)]
+    mask = _mask_of(6, ((0, 0), (5, 5)))
+
+    from_mask = image.next_nudge_cell(
+        grid, (), witnesses=None, undecided_mask=mask
+    )
+    assert from_mask in {(0, 0), (5, 5)}
+
+    exhausted = image.next_nudge_cell(
+        grid, ((0, 0), (5, 5)), witnesses=None, undecided_mask=mask
+    )
+    assert exhausted is None
+
+    assert image.next_nudge_cell(grid, (), witnesses=None, undecided_mask=None) is None
+
+
+def test_nudge_falls_back_only_once_the_disagreement_set_is_used_up() -> None:
+    """Ordering between the two sources, pinned on a case where they differ."""
+    grid = [[False] * 6 for _ in range(6)]
+    witnesses = ([row[:] for row in grid], [row[:] for row in grid])
+    witnesses[1][2][2] = True
+    mask = _mask_of(6, ((0, 0), (2, 2)))
+
+    assert image.next_nudge_cell(
+        grid, (), witnesses=witnesses, undecided_mask=mask
+    ) == (2, 2)
+    assert image.next_nudge_cell(
+        grid, ((2, 2),), witnesses=witnesses, undecided_mask=mask
+    ) == (0, 0)
+
+
+def test_nudge_prefers_cells_nearest_the_ink_boundary() -> None:
+    """The ranking inside whichever source supplied the candidates.
+
+    A flip buried in a solid expanse splits a run in two or plants a stray dot
+    — it changes the picture more than it changes the puzzle. A flip on the
+    edge of the ink moves a boundary the clues are already arguing about. The
+    distance is Chebyshev to the nearest differently-valued cell, so "on the
+    boundary" is 1 and the middle of a blank corner is far.
+    """
+    grid = [[False] * 9 for _ in range(9)]
+    for row in range(4, 7):
+        for column in range(4, 7):
+            grid[row][column] = True
+    mask = _mask_of(9, ((0, 0), (3, 3)))
+
+    assert image.next_nudge_cell(
+        grid, (), witnesses=None, undecided_mask=mask
+    ) == (3, 3)
+
+
+def test_nudge_breaks_a_boundary_tie_by_row_then_column() -> None:
+    """Full determinism: equal distance falls to reading order, so the same
+    picture nudges the same way on every machine and in every run."""
+    grid = [[False] * 9 for _ in range(9)]
+    for row in range(4, 7):
+        for column in range(4, 7):
+            grid[row][column] = True
+    mask = _mask_of(9, ((3, 5), (3, 3), (5, 3)))
+
+    assert image.next_nudge_cell(
+        grid, (), witnesses=None, undecided_mask=mask
+    ) == (3, 3)
+
+
+def test_nudge_still_chooses_when_no_cell_has_a_differing_neighbour() -> None:
+    """A featureless conversion has no ink boundary at all, so every candidate
+    scores the same distance and the tie-break carries the whole choice. The
+    alternative — returning nothing — would spend the budget on one question."""
+    blank = [[False] * 8 for _ in range(8)]
+    mask = _mask_of(8, ((6, 6), (1, 4)))
+
+    assert image.next_nudge_cell(
+        blank, (), witnesses=None, undecided_mask=mask
+    ) == (1, 4)
+
+
+def test_next_nudge_cell_is_pure() -> None:
+    """No rng, no clock, no mutation of anything handed in (ADR-0015, G-2)."""
+    verdict = _verdict(_ONE_SWITCH)
+    original = [row[:] for row in _ONE_SWITCH]
+    flipped = [(2, 2)]
+
+    first = image.next_nudge_cell(
+        _ONE_SWITCH,
+        flipped,
+        witnesses=verdict.witnesses,
+        undecided_mask=verdict.undecided_mask,
+    )
+    second = image.next_nudge_cell(
+        _ONE_SWITCH,
+        flipped,
+        witnesses=verdict.witnesses,
+        undecided_mask=verdict.undecided_mask,
+    )
+
+    assert first == second
+    assert _ONE_SWITCH == original
+    assert flipped == [(2, 2)]
+
+
+# --------------------------------------------------------------------------
+# sourcing.image.nudge — applying a set of cells to the original conversion
+# --------------------------------------------------------------------------
+
+
+def test_nudge_flips_exactly_the_cells_it_is_given() -> None:
+    """The whole of what ``nudge`` decides, which is nothing: the caller passes
+    attempt *n − 1*'s cells plus one, and nesting follows from that."""
+    cells = ((1, 1), (5, 9), (9, 5))
+
+    for length in range(len(cells) + 1):
+        nudged = image.nudge(_SIX_SWITCHES, cells[:length])
+        assert set(_differences(_SIX_SWITCHES, nudged)) == set(cells[:length])
 
 
 def test_nudge_is_deterministic_and_does_not_mutate_its_argument() -> None:
@@ -740,8 +1038,8 @@ def test_nudge_is_deterministic_and_does_not_mutate_its_argument() -> None:
     """
     original = [row[:] for row in _ONE_SWITCH]
 
-    first = image.nudge(_ONE_SWITCH, 3)
-    second = image.nudge(_ONE_SWITCH, 3)
+    first = image.nudge(_ONE_SWITCH, ((2, 2), (3, 3)))
+    second = image.nudge(_ONE_SWITCH, ((2, 2), (3, 3)))
 
     assert first == second
     assert first is not second
@@ -752,73 +1050,27 @@ def test_nudge_preserves_the_grid_shape_and_the_boundary_type() -> None:
     """ADR-0012: what comes back is the same boundary representation, same
     dimensions, plain ``bool`` — the clue derivation must not be able to tell a
     nudged grid from a converted one by its type."""
-    nudged = image.nudge(_SIX_SWITCHES, 4)
+    nudged = image.nudge(_SIX_SWITCHES, ((0, 0), (4, 4)))
 
     assert len(nudged) == len(_SIX_SWITCHES)
     assert {len(row) for row in nudged} == {len(_SIX_SWITCHES[0])}
     assert all(type(cell) is bool for row in nudged for cell in row)
 
 
-def test_nudge_rejects_an_attempt_number_below_one() -> None:
-    """A nudge is an attempt that has already been counted, so a zeroth one is
-    a wiring bug in the caller — a plain ``ValueError``, not a domain error the
-    CLI would map to an exit code."""
-    with pytest.raises(ValueError, match="start at 1"):
-        image.nudge(_ONE_SWITCH, 0)
+def test_nudge_rejects_a_repeated_cell() -> None:
+    """Flipping one cell twice would return it to its original value, which
+    would break the "attempt *n* differs from the picture in exactly *n* cells"
+    promise silently. A wiring bug in the caller, so a plain ``ValueError``."""
+    with pytest.raises(ValueError, match="twice"):
+        image.nudge(_ONE_SWITCH, ((2, 2), (2, 2)))
 
 
-def test_nudge_prefers_a_cell_inside_a_switching_block() -> None:
-    """The heuristic's primary signal, isolated.
-
-    A grid with one diagonal pair and one large solid block: the flip must land
-    on the pair, which is where the ambiguity is, and not in the middle of the
-    block, which is merely the biggest thing in the picture.
-    """
-    grid = [[False] * 12 for _ in range(12)]
-    for row in range(7, 11):
-        for column in range(7, 11):
-            grid[row][column] = True
-    grid[1][1] = grid[2][2] = True
-
-    assert image.nudge_cells(grid, 1)[0] in {(1, 1), (1, 2), (2, 1), (2, 2)}
+def test_nudge_rejects_a_cell_outside_the_grid() -> None:
+    """The same reasoning, for a cell the conversion does not have."""
+    with pytest.raises(ValueError, match="outside"):
+        image.nudge(_ONE_SWITCH, ((0, 99),))
 
 
-def test_nudge_spaces_its_flips_apart() -> None:
-    """Why the ranking is not simply "the top n cells".
-
-    All four cells of a switching block score identically, so an unspaced
-    top-``n`` would spend the whole budget inside one block — and flipping both
-    cells of a diagonal pair just produces the other diagonal, which is the
-    same ambiguity again. Every pair of chosen cells is therefore at least two
-    apart.
-    """
-    chosen = image.nudge_cells(_SIX_SWITCHES, MAX_NUDGE_ATTEMPTS)
-
-    assert len(set(chosen)) == MAX_NUDGE_ATTEMPTS
-    assert all(
-        max(abs(a[0] - b[0]), abs(a[1] - b[1])) > 1
-        for index, a in enumerate(chosen)
-        for b in chosen[index + 1 :]
-    )
-
-
-def test_nudge_still_has_candidates_for_a_featureless_conversion() -> None:
-    """A blank or solid conversion fires neither signal, and must still yield a
-    full supply of distinct cells — otherwise the loop would re-check the same
-    grid five times and burn the budget on one question.
-
-    The fallback order is centre-outward, which is where a picture's subject
-    would have been had there been one.
-    """
-    blank = [[False] * 10 for _ in range(10)]
-
-    chosen = image.nudge_cells(blank, MAX_NUDGE_ATTEMPTS)
-
-    assert len(set(chosen)) == MAX_NUDGE_ATTEMPTS
-    assert chosen[0] in {(4, 4), (4, 5), (5, 4), (5, 5)}
-
-
-def test_nudge_cells_asked_for_none_returns_none() -> None:
-    """The degenerate end of the ranking's contract, since ``run_bounded``'s
-    counter starts at zero and a future caller could ask."""
-    assert image.nudge_cells(_ONE_SWITCH, 0) == ()
+def test_nudge_of_no_cells_is_the_conversion_itself() -> None:
+    """The degenerate end of the contract: the zeroth attempt's grid."""
+    assert image.nudge(_ONE_SWITCH, ()) == _ONE_SWITCH

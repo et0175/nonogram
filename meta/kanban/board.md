@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-14 19:00 UTC_
+_Updated: 2026-09-17 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -31,7 +31,6 @@ _(none)_
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
-- **CARD-075** P2 · Image-mode nudge picks its cells from the solver's undecided mask, nearest the ink boundary  _(wave 1)_ — after CARD-073
 - **CARD-079** P2 · Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus review  _(wave 1)_ — after CARD-072, CARD-075, CARD-076; ends at the owner's visual gate
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
@@ -53,7 +52,7 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-_(none)_
+- **CARD-075** P2 · Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree · `card/075-mask-driven-nudge` · 18 of 36 corpus failures rescued, 0 regressions; AC-172 asked 19 — one open owner question, see the card
 
 ## Done
 - **CARD-096** P2 · Image-mode abandonment measured by cause — admin loses 3-7 of 25 per preset; witnesses disagree on 4 cells in 27 of 34; CARD-075 revised from it · a measurement, merged at the owner's call · merged ade79e8
