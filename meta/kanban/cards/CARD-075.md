@@ -1,6 +1,6 @@
 # CARD-075: Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-073
 **Touches:** src/nonogram/sourcing/image.py (next_nudge_cell, nudge; nudge_cells retired), src/nonogram/orchestrator.py (the nudge call site only — it keeps the attempt's chosen cells, as it keeps the repair lineage), tests/test_nudge.py, tests/property/test_nudge_mask.py (new), meta/architecture/requirements.yml (FR-013 AC-115/AC-116, EC-014 — amended by this card), docs/GENERATION_ALGORITHM.md (§8.4)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-17
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-17
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -286,7 +286,21 @@ differently. Where both succeed the flip counts are a wash — `dear.png` at
 at 14x20 is 4 against 3.
 
 The corpus therefore does not separate the two rules on yield or on economy;
-it separates them by one picture. It is shipped anyway, because AC-116 mandates it and because the reason
+it separates them by one picture.
+
+**Owner's decision, 2026-09-17, after looking at the sheets: keep the
+ink-boundary rule.** So AC-172 closes at **18**, not met as written, with the
+cause recorded above rather than the criterion quietly re-cut. The reasoning
+the owner accepted: the corpus does not choose between the rules, so the rule
+with a stated reason wins over the one that happens to win a case — reading
+order is "the crudest rule" by CARD-096's own description, and the pixels it
+flips land wherever ties fall rather than on the ink. AC-172's second half
+(every conversion made before is still made) is met in full.
+
+This is a live question for CARD-079, not a closed one: with a threshold
+conversion in play the 36 failures become a different population, and if the
+ink-boundary ranking costs a rescue there too it is worth re-asking with the
+new sheets in hand. It is shipped anyway, because AC-116 mandates it and because the reason
 it exists is fidelity rather than yield: a flip buried in a solid expanse plants
 a stray dot or splits a run, and the owner's gate on image work is visual. The
 trade is one conversion in 125 against that — **the owner's call, and it is
