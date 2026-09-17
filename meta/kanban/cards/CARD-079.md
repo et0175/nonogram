@@ -1,6 +1,6 @@
 # CARD-079: Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus rendered both ways for the owner's eye
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** ~~CARD-072~~ (released 2026-09-17 — see Revision), CARD-075 (done), CARD-076 (done)
 **Touches:** src/nonogram/sourcing/image.py (binarize switch, MIDTONE_SHARE_THRESHOLD + band, classifier, module rationale rewrite), src/nonogram/orchestrator.py (Puzzle carries `binarisation`), tests/test_sourcing_image.py, tests/property/test_binarisation.py (new), meta/ops/binarisation_review.py (new — renders the corpus both ways), docs/GENERATION_ALGORITHM.md (§4.3 one row, §11), meta/architecture/decisions/adr/0006-*.md (History touch). _Export files dropped from this card — see Revision._
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-17
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-17
+**Actual:** 1d
 **Merge commit:** —
 **Blocked by:** —
 
