@@ -275,7 +275,18 @@ extents:
 | cells rescued only by (row, column) | `frog1.jpeg` at 30 |
 
 So the ink-boundary rule costs exactly one conversion and gains none on this
-corpus. It is shipped anyway, because AC-116 mandates it and because the reason
+corpus. Rendered for the owner by `meta/ops/nudge_ranking_contact_sheet.py`
+(36 sheets, `~/Documents/nonogram-reviews/CARD-075/`: source, conversion with
+the undecided cells tinted, then the two rules' results with the flipped pixels
+in blue). A third measurement taken alongside them, since the sheets raise the
+question: **the two rules choose identical cells in 22 of the 35 cases that do
+not time out**, and of the 13 where they differ, only `frog1.jpeg` at 30 ends
+differently. Where both succeed the flip counts are a wash — `dear.png` at
+14x15 is 3 flips under ink-boundary against 4 under reading order, `dear1.jpg`
+at 14x20 is 4 against 3.
+
+The corpus therefore does not separate the two rules on yield or on economy;
+it separates them by one picture. It is shipped anyway, because AC-116 mandates it and because the reason
 it exists is fidelity rather than yield: a flip buried in a solid expanse plants
 a stray dot or splits a run, and the owner's gate on image work is visual. The
 trade is one conversion in 125 against that — **the owner's call, and it is
