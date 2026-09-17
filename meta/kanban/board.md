@@ -52,9 +52,10 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-- **CARD-075** P2 · Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree · `card/075-mask-driven-nudge` · 18 of 36 corpus failures rescued, 0 regressions; AC-172 asked 19 — one open owner question, see the card
+_(none)_
 
 ## Done
+- **CARD-075** P2 · Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree — 107 of 125 corpus conversions made against 89, 0 regressions; admin loss 3/5/7/7 → 2/2/3/3 · AC-172 closed at 18 of 19, owner kept the ink-boundary ranking · merged without a review cycle, at the owner's call · merged bb35762
 - **CARD-096** P2 · Image-mode abandonment measured by cause — admin loses 3-7 of 25 per preset; witnesses disagree on 4 cells in 27 of 34; CARD-075 revised from it · a measurement, merged at the owner's call · merged ade79e8
 - **CARD-095** P3 · An image batch stops on its own clock, as a random batch does — checked before every generate call, unstarted pictures stay loaded · merged without a review cycle, at the owner's call · merged d50bce7
 - **CARD-094** P3 · Nothing still says 20 attempts or 200 puzzles where it means the live bound; the image preview reads the real ceiling · merged without a review cycle, at the owner's call · merged 949471a

@@ -19,7 +19,7 @@
 **Started:** 2026-09-17
 **Closed:** 2026-09-17
 **Actual:** 0.5d
-**Merge commit:** —
+**Merge commit:** bb35762
 **Blocked by:** —
 
 ## Revision — 2026-09-15, from CARD-096's measurement (owner: "revise CARD-075")
