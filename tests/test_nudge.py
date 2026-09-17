@@ -734,15 +734,29 @@ def test_the_image_module_counts_nothing_itself() -> None:
     flipped and returns one more, ``nudge`` is handed cells and applies them.
     Neither can tell which attempt it is on or how many are left, which is
     INV-003's single home stated as an API rather than as a comment.
+
+    CARD-079 added the binarisation vocabulary — two path names, the mid-tone
+    band and its threshold, the pinned default, and the three functions that
+    read them. None of them counts anything either: the classifier is a pure
+    function of a picture, and ``DEFAULT_BINARISATION`` is a policy constant
+    rather than a tally.
     """
     assert image.__all__ == [
+        "DEFAULT_BINARISATION",
+        "DITHER",
         "INK_THRESHOLD",
+        "MIDTONE_BAND",
+        "MIDTONE_SHARE_THRESHOLD",
         "RESAMPLING",
+        "THRESHOLD",
+        "binarisation_for",
         "binarize",
+        "classify_binarisation",
         "fit_crop_box",
         "generate",
         "ink_bounding_box",
         "load_greyscale",
+        "midtone_share",
         "next_nudge_cell",
         "nudge",
         "source_shape",

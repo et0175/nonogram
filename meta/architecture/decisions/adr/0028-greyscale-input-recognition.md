@@ -230,6 +230,26 @@ hidden decision in the image pipeline the owner cannot override per picture
 
 ## History
 
+- 2026-09-17: **Implemented** — CARD-079. `sourcing.image.midtone_share` and
+  `classify_binarisation` are live; R1's purity is held by
+  `PropertyTest_Binarize_ClassifierPureFunctionOfSourceImage` over seeded
+  synthetic silhouettes and gradients. The classifier is *inert policy* until
+  ADR-0026 is Accepted: `DEFAULT_BINARISATION` names a path, and only `None`
+  consults the classifier.
+
+  **The owed calibration, taken.** `MIDTONE_SHARE_THRESHOLD` was a provisional
+  0.10. Measured over the owner's 25 pictures, the two populations separate
+  cleanly and widely: 24 pictures score between **0.0021** (`duck.png`) and
+  **0.0652** (`wolf_2.png`), and one — `zebra.png`, a photograph — scores
+  **0.1647**. There is nothing between 0.066 and 0.164, so 0.10 sits in the
+  middle of an empty gap and any value in roughly [0.07, 0.16] classifies this
+  corpus identically. The guess was a good one; it is now a measurement, and
+  the constant is left at 0.10.
+
+  Caveat worth recording: the corpus contains exactly one picture on the
+  dither side of the line, so the constant is calibrated against a single
+  positive example. A corpus with more photographs could move it.
+
 - 2026-09-12: Created — Accepted, inert until ADR-0026 is Accepted. Chose
   the mid-tone share of the source histogram (band `[64, 191]`, provisional
   `MIDTONE_SHARE_THRESHOLD = 0.10`, calibration-owed on the picture corpus)

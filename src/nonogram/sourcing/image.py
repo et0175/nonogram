@@ -130,10 +130,35 @@ NumPy does the arithmetic on the far side of it — the bilevel raster comes bac
 as an array and is inverted into the boundary type in one vectorised step
 rather than pixel by pixel (ADR-0006's division of labour).
 
-Dither before threshold, not instead of it: a plain 50% cut turns a photograph
-into two flat blobs, while error diffusion trades grey *level* for filled-cell
-*density*, which is what makes a mid-tone region readable at all on a grid this
-coarse.
+Two ways to reach black and white, and which one a picture gets
+--------------------------------------------------------------
+CARD-015 shipped one: Floyd-Steinberg dither, on the reasoning that a plain
+50% cut turns a photograph into two flat blobs while error diffusion trades
+grey *level* for filled-cell *density*, which is what makes a mid-tone region
+readable at all on a grid this coarse. That reasoning is still right — about
+photographs.
+
+It is wrong about silhouettes, which is what CON-013 actually scopes this mode
+to. Dither preserves average density, not *contour*: along a hard edge it
+seeds isolated cells and ragged boundaries, which is precisely the one-cell
+runs and 2x2 switching blocks that make a nonogram non-unique and that
+POL-002's nudge then repairs one pixel at a time. So CARD-079 lands both:
+:data:`THRESHOLD` (ADR-0026, an inclusive 50% ink-coverage cut on the resized
+value) and :data:`DITHER` (unchanged), with
+:func:`classify_binarisation` choosing between them on the source histogram
+(ADR-0028) — mid-tones mean a photograph, their absence means a drawing.
+
+**Which one ships is not decided here.** :data:`DEFAULT_BINARISATION` pins
+every picture to the dither path until the owner has looked at rendered grids
+of the corpus converted both ways (DEC-032's gate, FR-027 ``_meta.gate``); the
+classifier is live code and inert policy until then. Measured on that corpus
+at 25x25, the threshold path converts 19 of 25 pictures uniquely on the first
+solve against the dither path's 16 — but the gate is fidelity, not yield, and
+the two disagree: a *line-art* picture has no filled areas for a coverage
+threshold to keep, so the cut erases it to near-blank and the result is
+uniquely solvable by being empty. That is a fidelity failure a uniqueness
+count reads as a success, which is the whole reason the decision is the
+owner's eye rather than AC-127's arithmetic.
 
 No retry loop lives here (guardrails G-3, G-6; CARD-016 G-2)
 ------------------------------------------------------------
@@ -180,13 +205,21 @@ from nonogram.errors import ImageNeedsManualCrop, UnreadableImage
 from nonogram.sourcing import random_grid
 
 __all__ = [
+    "DEFAULT_BINARISATION",
+    "DITHER",
     "INK_THRESHOLD",
+    "MIDTONE_BAND",
+    "MIDTONE_SHARE_THRESHOLD",
     "RESAMPLING",
+    "THRESHOLD",
+    "binarisation_for",
     "binarize",
+    "classify_binarisation",
     "fit_crop_box",
     "generate",
     "ink_bounding_box",
     "load_greyscale",
+    "midtone_share",
     "next_nudge_cell",
     "nudge",
     "source_shape",
@@ -209,6 +242,51 @@ RESAMPLING = Image.Resampling.LANCZOS
 #: (FR-022). A mid grey, and measured rather than assumed — see the module
 #: docstring for the corpus figures that put it here rather than at near-white.
 INK_THRESHOLD = 128
+
+#: The two ways a resized grey value can become a filled or empty cell.
+#: Strings rather than an ``Enum`` because this is a boundary value in the
+#: ADR-0012 sense — it is recorded on the aggregate and (CARD-072) exported —
+#: and the module's other vocabulary (``sourcing.IMAGE`` and its siblings) is
+#: spelled the same way.
+THRESHOLD = "threshold"
+DITHER = "dither"
+
+#: ADR-0028/R1's mid-tone band, closed at both ends. A picture whose pixels
+#: mostly sit *outside* it is two-toned — a silhouette, a logo, line art — and
+#: has a contour for the threshold to keep. One whose pixels sit inside it is
+#: a photograph or a shaded drawing, where a threshold would flatten the
+#: modelling into a blob and the dither's average-density trade is the right
+#: one. 64 and 191 are the quarter and three-quarter points of the 8-bit
+#: range, chosen for being obvious rather than measured.
+MIDTONE_BAND = (64, 191)
+
+#: The share of pixels inside :data:`MIDTONE_BAND` at or above which a picture
+#: is treated as genuinely greyscale (ADR-0028/R1).
+#:
+#: **Provisional, and owed a calibration.** 0.10 is a guess; CARD-079 records
+#: the measured share of every corpus picture in its Worktree notes so the
+#: owner can set this on data rather than on the guess. Anti-aliasing alone
+#: puts a few percent of a clean silhouette's pixels in the band, which is the
+#: floor this has to clear; JPEG ringing raises it further.
+MIDTONE_SHARE_THRESHOLD = 0.10
+
+#: Which path :func:`binarize` takes when it is not told — and therefore the
+#: one every uploaded picture actually gets. Three states, and the difference
+#: between them is the whole shape of CARD-079:
+#:
+#: * :data:`DITHER` — what ships today. Every picture is dithered and
+#:   :func:`classify_binarisation` is never consulted.
+#: * :data:`THRESHOLD` — every picture is thresholded. Useful for the review
+#:   render; not a state anything is expected to ship in.
+#: * ``None`` — ask :func:`classify_binarisation` per picture. This is what
+#:   ADR-0026 and ADR-0028 together describe, and it is what the owner's flip
+#:   sets after the visual gate (CARD-079 guardrail G-1: never this card's
+#:   commit).
+#:
+#: Pinned rather than defaulted, because a binarisation change alters every
+#: converted picture and the owner validates image work by eye, not by test
+#: (CARD-079's gate, DEC-032).
+DEFAULT_BINARISATION: str | None = DITHER
 
 #: Pillow's byte value for a black pixel in the bilevel ``"1"`` mode. Black is
 #: *ink*, and ink is a filled cell (ADR-0012's ``True``) — the one place this
@@ -395,6 +473,19 @@ def fit_crop_box(
         source_height: Source height in pixels.
         target_width: Requested grid width in cells.
         target_height: Requested grid height in cells.
+        path: :data:`THRESHOLD`, :data:`DITHER`, or ``None`` to resolve it the
+            way a real conversion does — :data:`DEFAULT_BINARISATION` if it
+            names one, else :func:`classify_binarisation` on ``greyscale``.
+            Passed explicitly by the review render and by AC-127, which have
+            to run both paths over one picture; left ``None`` everywhere else.
+
+            Note that when the classifier is consulted here it sees the image
+            **this function was handed** — already trimmed to its ink box by
+            :func:`generate`, though not yet cropped or resized. That is close
+            enough to the source for the share to mean what ADR-0028 says (the
+            trim removes blank margin, which is outside the band either way),
+            but :func:`binarisation_for` is what COMP-002 asks, and it
+            classifies the untrimmed source.
 
     Returns:
         A Pillow crop box ``(left, upper, right, lower)`` lying entirely inside
@@ -566,11 +657,90 @@ def source_shape(source: str | PathLike[str] | None) -> tuple[int, int]:
     return width, height
 
 
+def midtone_share(greyscale: Image.Image) -> float:
+    """The share of ``greyscale``'s pixels inside :data:`MIDTONE_BAND`.
+
+    ADR-0028/R1's one measurement, as a pure function of the decoded image:
+    one ``Image.histogram()`` pass, no sampling, no rng, no host state. A
+    two-toned picture scores near zero — only its anti-aliased rim and any
+    compression ringing land in the band — while a photograph or a shaded
+    drawing scores high, because modelling *is* mid-tones.
+
+    Args:
+        greyscale: The source in mode ``"L"``, as :func:`load_greyscale`
+            returns it: EXIF applied, alpha composited onto white, and
+            **not** trimmed, cropped or resized. Which image this is asked
+            about is the whole of ADR-0028's care — see
+            :func:`classify_binarisation`.
+
+    Returns:
+        A share in ``[0.0, 1.0]``. An image with no pixels scores ``0.0``
+        rather than raising: :func:`generate` and :func:`source_shape` already
+        refuse such a file with :class:`UnreadableImage`, and a classifier is
+        not the place to discover it a second time.
+    """
+    counts = greyscale.histogram()
+    total = sum(counts)
+    if not total:
+        return 0.0
+    low, high = MIDTONE_BAND
+    return sum(counts[low : high + 1]) / total
+
+
+def classify_binarisation(greyscale: Image.Image) -> str:
+    """Which path ADR-0028 puts this picture on: :data:`THRESHOLD` or
+    :data:`DITHER`.
+
+    Mid-tone share at or above :data:`MIDTONE_SHARE_THRESHOLD` means a
+    genuinely greyscale picture, which keeps today's dither; anything below is
+    a silhouette in CON-013's sense and takes the threshold.
+
+    **The image asked about is the source, before trim, crop and resize** —
+    that is the rule, not an implementation detail. The resize *manufactures*
+    mid-tones: averaging a hard black-and-white edge over a cell produces
+    exactly the intermediate greys the band is looking for, so classifying the
+    resized image would route every silhouette to the dither path by way of
+    its own anti-aliasing, and the classifier would be measuring the pipeline
+    rather than the picture.
+
+    ADR-0028 rejected a ``--binarize`` flag deliberately, and the signature is
+    where that holds: there is no request field, no override and no rng here,
+    so the same file classifies the same way on every host and in every run
+    (guardrail G-4, ADR-0015).
+    """
+    return DITHER if midtone_share(greyscale) >= MIDTONE_SHARE_THRESHOLD else THRESHOLD
+
+
+def binarisation_for(source: str | PathLike[str] | None) -> str:
+    """Which path :func:`generate` will take for ``source``.
+
+    So COMP-002 can record the path on the aggregate without the decoded image
+    crossing a boundary that carries ``list[list[bool]]`` and nothing else
+    (ADR-0012). The orchestrator calls this once per image request, not once
+    per nudge attempt — the answer cannot change within a run.
+
+    **Costs a decode only once the classifier is live.** While
+    :data:`DEFAULT_BINARISATION` names a path, that path is the answer for
+    every picture and this returns it without opening the file; the extra
+    decode arrives with the owner's flip, alongside the behaviour that
+    justifies it. Stated here because a bare ``--size`` image run already
+    decodes twice (see :func:`source_shape`), and a third would otherwise be a
+    silent cost.
+    """
+    if DEFAULT_BINARISATION is not None:
+        return DEFAULT_BINARISATION
+    return classify_binarisation(load_greyscale(source))
+
+
 def binarize(
-    greyscale: Image.Image, target_width: int, target_height: int
+    greyscale: Image.Image,
+    target_width: int,
+    target_height: int,
+    *,
+    path: str | None = None,
 ) -> Image.Image:
     """Crop to the grid's ratio, resize to ``target_width`` x ``target_height``
-    and Floyd-Steinberg dither.
+    and reduce to black and white — by threshold or by Floyd-Steinberg dither.
 
     Args:
         greyscale: The source in mode ``"L"``. Since FR-022 this is the picture
@@ -595,11 +765,31 @@ def binarize(
     materialised and the resampling filter sees the crop's true pixel grid
     rather than a re-quantised copy of it.
     """
+    if path is None:
+        path = (
+            DEFAULT_BINARISATION
+            if DEFAULT_BINARISATION is not None
+            else classify_binarisation(greyscale)
+        )
     scaled = greyscale.resize(
         (target_width, target_height),
         resample=RESAMPLING,
         box=fit_crop_box(*greyscale.size, target_width, target_height),
     )
+    if path == THRESHOLD:
+        # ADR-0026/R1. `point` is a per-pixel lookup table, so a cell's verdict
+        # depends on its own resized value and on nothing else — which is the
+        # property that distinguishes this path, not merely how it is spelled.
+        # The cut is inclusive on the ink side: the resized value is 255 minus
+        # the cell's ink coverage, so `<= INK_THRESHOLD - 1` is "at least half
+        # ink", as closely as an 8-bit raster can say it (AC-126).
+        return scaled.point(
+            lambda value: 255 if value >= INK_THRESHOLD else 0, mode="L"
+        ).convert("1", dither=Image.Dither.NONE)
+    if path != DITHER:
+        raise ValueError(
+            f"binarisation path must be {THRESHOLD!r} or {DITHER!r}, got {path!r}"
+        )
     # Pillow's default dither for a 1-bit target *is* Floyd-Steinberg; naming it
     # anyway, because "the default" is not what the card asked for.
     return scaled.convert("1", dither=Image.Dither.FLOYDSTEINBERG)

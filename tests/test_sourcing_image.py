@@ -108,6 +108,7 @@ import argparse
 import io
 import random
 import struct
+import time
 import zlib
 from collections.abc import Callable
 from pathlib import Path
@@ -115,14 +116,16 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from nonogram import cli, orchestrator, sourcing
+from nonogram import cli, clues, orchestrator, solver, sourcing
 from nonogram.errors import (
     GenerationAbandoned,
     ImageNeedsManualCrop,
     NonogramError,
     SizeOutOfRange,
+    SolverTimeout,
     UnreadableImage,
 )
+from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
 from nonogram.sourcing import image, library, random_grid
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -134,6 +137,10 @@ LANDSCAPE = FIXTURES / "landscape.png"
 #: simple shape converts uniquely — see CARD-087.
 DUCK1 = FIXTURES / "duck1.png"
 PORTRAIT = FIXTURES / "portrait.png"
+#: The nudging photograph ``tests/test_nudge.py`` pins its real-image
+#: cases on (CARD-070, re-pinned by CARD-075). Used here only where a
+#: conversion that actually retries is needed.
+OWL = FIXTURES / "owl1.png"
 WIDE = FIXTURES / "wide.png"
 TALL = FIXTURES / "tall.png"
 CORRUPT = FIXTURES / "corrupt.png"
@@ -2119,3 +2126,414 @@ def test_an_image_run_exports_like_any_other(tmp_path: Path) -> None:
 
     assert exit_code == cli.ExitCode.OK
     assert [path.suffix for path in sorted(tmp_path.iterdir())] == [".json"]
+
+
+# --------------------------------------------------------------------------
+# AC-124..AC-127, AC-A, AC-B (FR-027, CARD-079) — the threshold path,
+# the mid-tone classifier, and the switch between them
+#
+# What this section is about. Floyd-Steinberg dithering preserves average
+# density, not contour: on a silhouette it seeds isolated cells and ragged
+# edges along the boundary, which is exactly the one-cell runs and 2x2
+# switching blocks that make a nonogram non-unique. ADR-0026 proposes an
+# inclusive 50% ink-coverage threshold instead, for CON-013's silhouette
+# input; ADR-0028 keeps genuinely greyscale pictures on the dither path by
+# reading the source histogram.
+#
+# **Both paths ship, and the default is still dither** (guardrail G-1): this
+# card ends at the owner's eye on rendered grids, not at a measurement, and
+# flipping `DEFAULT_BINARISATION` is the owner's action in a later commit.
+# `test_the_shipped_default_is_still_dither` is that guardrail as a test, and
+# AC-C is the rest of this file passing unchanged in assertion.
+#
+# Grey values, not fixtures, wherever the criterion is about the cut-point.
+# `binarize` resizes before it binarises, so a test that fed it a picture
+# would be asserting the threshold *and* Pillow's LANCZOS rounding at once.
+# The three cut-point criteria therefore hand it an image already at the
+# target size, where the resize is the identity (verified below), and read the
+# cut directly.
+# --------------------------------------------------------------------------
+
+
+def _cells(*greys: int) -> Image.Image:
+    """A 1-pixel-tall ``"L"`` image, one pixel per cell, in the given greys."""
+    strip = Image.new("L", (len(greys), 1))
+    strip.putdata(greys)
+    return strip
+
+
+def _binarised(path: str, *greys: int) -> list[bool]:
+    """``greys`` through ``binarize`` on ``path``, as one row of the grid."""
+    strip = _cells(*greys)
+    return image.to_grid(image.binarize(strip, len(greys), 1, path=path))[0]
+
+
+def test_the_identity_resize_this_sections_cut_point_tests_rest_on() -> None:
+    """Guard the premise, so the three cut-point criteria cannot go vacuous.
+
+    They hand ``binarize`` an image already at the target size so that the
+    LANCZOS step is the identity and the only thing under test is the cut. If
+    a Pillow upgrade ever made a same-size resample perturb values, those
+    tests would be asserting something else entirely and would say so here
+    first.
+    """
+    greys = (0, 51, 127, 128, 130, 255)
+    resized = _cells(*greys).resize(
+        (len(greys), 1),
+        resample=image.RESAMPLING,
+        box=image.fit_crop_box(len(greys), 1, len(greys), 1),
+    )
+
+    assert list(resized.get_flattened_data()) == list(greys)
+
+
+def test_binarize_threshold_fills_cell_at_or_above_half_ink_coverage() -> None:
+    """AC-124: 80% ink coverage (grey 51) fills the cell under the threshold.
+
+    "Ink coverage" is what the resized grey value *means*: LANCZOS averages
+    the source pixels a cell covers, so a cell 80% black and 20% white arrives
+    as ``255 * 0.20 = 51``. The threshold reads it back the same way.
+    """
+    assert _binarised(image.THRESHOLD, 51) == [True]
+
+
+def test_binarize_threshold_leaves_cell_empty_below_half_ink_coverage() -> None:
+    """AC-125: 49% coverage (grey 130) leaves the cell empty."""
+    assert _binarised(image.THRESHOLD, 130) == [False]
+
+
+def test_binarize_exactly_half_coverage_is_filled() -> None:
+    """AC-126: the boundary is inclusive — ADR-0026/R1's check ref.
+
+    Exactly half coverage is grey 127.5, which no 8-bit pixel can hold, so the
+    criterion is pinned on the pair that straddles it: 127 fills, 128 does
+    not. That is "filled iff coverage >= 50%" as closely as an integer raster
+    can state it, and it is the half the *ink* keeps — a tie goes to the
+    drawing, not to the paper.
+    """
+    assert _binarised(image.THRESHOLD, 127, 128) == [True, False]
+
+
+def test_the_threshold_path_diffuses_no_error() -> None:
+    """The point of the path, stated as the property that distinguishes it.
+
+    Dithering is *error diffusion*: a cell's verdict depends on its
+    neighbours' rounding, which is how a flat mid-grey becomes a chequerboard
+    and how a silhouette's edge becomes ragged. The threshold path decides
+    each cell on its own value alone, so a run of identical greys binarises
+    identically — the same input can never produce two different cells.
+    """
+    flat = _binarised(image.THRESHOLD, *([160] * 12))
+    assert flat == [False] * 12
+
+    dithered = _binarised(image.DITHER, *([160] * 12))
+    assert len(set(dithered)) == 2, "the fixture must actually be a mid-grey"
+
+
+def test_the_shipped_default_is_still_dither() -> None:
+    """Guardrail G-1 as a test, because it is the whole shape of this card.
+
+    Both paths land here, but the one that runs is unchanged until the owner
+    has looked at the renders. ``None`` is what the flip sets this to — "ask
+    the classifier" — so the constant carries three states and this pins which
+    one ships.
+    """
+    assert image.DEFAULT_BINARISATION == image.DITHER
+    assert _binarised(image.DEFAULT_BINARISATION, 160) == _binarised(image.DITHER, 160)
+
+
+# --------------------------------------------------------------------------
+# AC-A — the mid-tone classifier (ADR-0028/R1)
+# --------------------------------------------------------------------------
+
+
+def _silhouette(tmp_path: Path, name: str = "silhouette.png") -> Path:
+    """Hard black on white with a one-pixel anti-aliased rim — a CON-013 input."""
+    canvas = Image.new("L", (120, 120), 255)
+    draw = ImageDraw.Draw(canvas)
+    draw.ellipse((20, 20, 100, 100), fill=0)
+    target = tmp_path / name
+    canvas.save(target)
+    return target
+
+
+def _gradient(tmp_path: Path, name: str = "gradient.png") -> Path:
+    """A left-to-right ramp — mid-tones everywhere, the dither path's input."""
+    canvas = Image.new("L", (120, 120))
+    canvas.putdata([(x * 255) // 119 for _ in range(120) for x in range(120)])
+    target = tmp_path / name
+    canvas.save(target)
+    return target
+
+
+def test_binarize_classifier_is_deterministic_and_reads_source_histogram(
+    tmp_path: Path,
+) -> None:
+    """AC-A: a silhouette classifies threshold, a gradient classifies dither.
+
+    Three claims in one test because they are one rule. The band is the closed
+    ``[64, 191]`` of :data:`image.MIDTONE_BAND` and the share is measured on
+    the image ``load_greyscale`` returns — after EXIF transpose and alpha onto
+    white, and **before** trim, crop or resize, which is ADR-0028's point: the
+    resize manufactures mid-tones out of a hard edge, so classifying the
+    resized image would put every silhouette on the dither path by way of its
+    own anti-aliasing.
+    """
+    silhouette, gradient = _silhouette(tmp_path), _gradient(tmp_path)
+
+    assert image.classify_binarisation(image.load_greyscale(silhouette)) == (
+        image.THRESHOLD
+    )
+    assert image.classify_binarisation(image.load_greyscale(gradient)) == image.DITHER
+
+    # Deterministic across loads: a pure function of the file's pixels.
+    assert image.midtone_share(image.load_greyscale(silhouette)) == (
+        image.midtone_share(image.load_greyscale(silhouette))
+    )
+    # And read from the source, not the resized cells: the silhouette's share
+    # is far below the constant, while its 20x20 conversion is not.
+    assert image.midtone_share(image.load_greyscale(silhouette)) < (
+        image.MIDTONE_SHARE_THRESHOLD
+    )
+
+
+def test_the_classifier_is_not_consulted_while_the_default_is_pinned(
+    tmp_path: Path,
+) -> None:
+    """The switch's two levels, which are easy to conflate.
+
+    :data:`image.DEFAULT_BINARISATION` decides whether the classifier is asked
+    at all. While it names a path, that path is used for every picture and the
+    classifier is inert — so a silhouette, which the classifier would send to
+    the threshold, still ships dithered today. This is guardrail G-1 again,
+    one level down from the test above, and it is what "the default is
+    unchanged" has to mean for a card that also lands a classifier.
+    """
+    silhouette = _silhouette(tmp_path)
+
+    assert image.classify_binarisation(image.load_greyscale(silhouette)) == (
+        image.THRESHOLD
+    )
+    assert image.binarisation_for(silhouette) == image.DITHER
+
+
+# --------------------------------------------------------------------------
+# AC-B — the path is recorded on the aggregate
+# --------------------------------------------------------------------------
+
+
+def test_binarize_records_binarisation_path_on_puzzle() -> None:
+    """AC-B: an image-mode puzzle says how it was binarised; others say nothing.
+
+    Recorded rather than inferred: two pictures that differ only in mid-tone
+    content take different paths, and the finished grid does not say which one
+    it got. Random and library mode carry ``None`` because there is no picture
+    — not ``"dither"`` by default, which would be a claim about a conversion
+    that never happened.
+
+    The export half of this criterion moved to CARD-072 (the card's Revision
+    3): ``binarisation`` and ``strategies`` touch the same metadata, and CSV's
+    decoder rejects unknown keys, so landing them together costs one
+    ``SCHEMA_VERSION`` bump instead of two.
+    """
+    converted = orchestrator.generate(
+        orchestrator.GenerationRequest(
+            mode="image", image=LANDSCAPE, width=20, height=20, seed=1
+        )
+    )
+    drawn = orchestrator.generate(
+        orchestrator.GenerationRequest(
+            mode="random", width=10, height=10, density=40, seed=7
+        )
+    )
+
+    assert converted.binarisation == image.DEFAULT_BINARISATION
+    assert drawn.binarisation is None
+
+
+def test_the_recorded_path_is_resolved_once_and_not_per_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The field is a fact about the request, not about the last attempt.
+
+    A run that nudges five times must ask once: the picture does not change
+    between attempts, and re-asking would put a decode inside the nudge loop
+    the moment the owner flips the default (``binarisation_for`` opens the
+    file only once the classifier is live). Counted rather than reasoned
+    about, because the cost only appears after the flip and would otherwise
+    land silently.
+    """
+    asked: list[object] = []
+    real = orchestrator.image_source.binarisation_for
+
+    def counting(source: object) -> str:
+        asked.append(source)
+        return real(source)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(orchestrator.image_source, "binarisation_for", counting)
+
+    puzzle = orchestrator.generate(
+        orchestrator.GenerationRequest(
+            mode="image", image=OWL, width=10, height=10, seed=1
+        )
+    )
+
+    assert puzzle.nudge.attempts >= 1, "the fixture must actually nudge"
+    assert len(asked) == 1
+
+
+# --------------------------------------------------------------------------
+# AC-127 — the corpus criterion (FR-027's hypothesis, measured)
+#
+# Cost, disclosed because this module otherwise runs in under a second: the
+# comparison below solves 25 real pictures twice and takes ~7s. The *full*
+# comparison — both paths through `orchestrator.generate`, so that nudge
+# totals and made/abandoned outcomes can be compared — costs ~32s, of which
+# ~30s is one picture (`butterfly.png`) running out the request deadline on
+# the dither path. That is not a cost the suite should pay on every run, so
+# AC-127's clauses (b) and (c) live in `meta/ops/binarisation_review.py`,
+# which sweeps five sizes rather than one and is where the owner's gate reads
+# them anyway. This test carries clause (a).
+# --------------------------------------------------------------------------
+
+#: AC-127's extent. A bare ``--size 25`` in the criterion's words; written as
+#: an explicit square here because the criterion is about the two paths and
+#: not about FR-023's derivation, which would give each picture a different
+#: extent and make the two columns incomparable across pictures.
+CORPUS_EXTENT = (25, 25)
+
+
+def _first_solve_unique(path: str) -> set[str]:
+    """Which corpus pictures convert to a uniquely-solvable grid, before any
+    nudge, under ``path``.
+
+    The conversion is assembled here from the module's own steps rather than
+    driven through ``orchestrator.generate``, because the nudge loop is
+    exactly what this criterion is measuring the *need* for: a path that
+    converts uniquely first time has not spent any of the user's pixels.
+    """
+    unique: set[str] = set()
+    for picture in _corpus():
+        greyscale = image.load_greyscale(picture)
+        box = image.ink_bounding_box(greyscale)
+        try:
+            image.validate_aspect_ratio(
+                box[2] - box[0], box[3] - box[1], *CORPUS_EXTENT
+            )
+        except ImageNeedsManualCrop:
+            # FR-021 refuses it against a square grid on both paths alike, so
+            # it says nothing about the binarisation either way.
+            continue
+        grid = image.to_grid(
+            image.binarize(greyscale.crop(box), *CORPUS_EXTENT, path=path)
+        )
+        line_clues = clues.compute_clues(grid)
+        try:
+            verdict = solver.solve(
+                line_clues.rows,
+                line_clues.columns,
+                deadline=time.monotonic() + GENERATION_BUDGET_SECONDS,
+            )
+        except SolverTimeout:
+            continue
+        if verdict.solution_count == 1:
+            unique.add(picture.name)
+    return unique
+
+
+@pytest.mark.skipif(not PICTURES.is_dir(), reason="the owner's corpus is absent")
+def test_binarize_threshold_corpus_needs_no_more_nudges_than_dither() -> None:
+    """AC-127(a): the threshold path converts at least as many pictures
+    uniquely on the first solve as the dither path does.
+
+    FR-027's hypothesis, and the only part of it a unit test can hold cheaply.
+    Dithering preserves average density rather than contour, so on a
+    silhouette it seeds isolated cells and ragged edges — one-cell runs and
+    2x2 switching blocks, which is what a non-unique nonogram is made of. If
+    that is right, thresholding the same pictures should need the nudge less
+    often.
+
+    Measured on this tree: **19 against 16** of 25 pictures at 25x25.
+
+    A count, not a subset, and the difference is worth naming rather than
+    burying: threshold gains four pictures (``cat_Mouse``, ``duck2``,
+    ``wolf_2``, ``zebra``) and loses one (``konek``, which dither converts
+    uniquely first time and threshold needs three nudges for). The criterion
+    is stated as a count because that one exchange is the honest shape of the
+    result, and pinning the set would turn a corpus measurement into a list
+    of filenames that any re-crop of any picture would invalidate.
+
+    ``konek`` is still **made** under the threshold path, and no picture the
+    dither path makes is lost — but that is an outcome-level claim over full
+    runs, which is AC-127(c) and lives in
+    ``meta/ops/binarisation_review.py`` for the reason in this section's
+    header.
+    """
+    threshold = _first_solve_unique(image.THRESHOLD)
+    dither = _first_solve_unique(image.DITHER)
+
+    assert len(_corpus()) == 25, "the corpus moved; re-take the numbers above"
+    assert len(threshold) >= len(dither)
+    assert len(threshold) == 19 and len(dither) == 16
+
+
+def test_the_threshold_path_turns_an_inkless_picture_into_a_blank_grid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finding, pinned so it is known rather than discovered later.
+
+    ``ink_bounding_box`` falls back to the whole frame when a picture has no
+    pixel below :data:`image.INK_THRESHOLD`, so a washed-out photograph — a
+    ramp living entirely in the highlights — reaches binarisation intact.
+    Thresholding it fills nothing: every cell is above the cut, and the result
+    is an **all-empty grid**, which is trivially uniquely solvable and is
+    accepted, scored and exported as a puzzle.
+
+    Dithering the same picture does not do that. Error diffusion turns a pale
+    ramp into sparse dots, which is ambiguous, so the run is abandoned and the
+    user is told to try another picture.
+
+    So the threshold path has a failure mode the dither path does not: it can
+    ship a blank puzzle where the dither path refuses. It is harmless while
+    :data:`image.DEFAULT_BINARISATION` is pinned to dither (guardrail G-1),
+    and it is recorded in CARD-079's Worktree notes as a **precondition of the
+    owner's flip** rather than fixed here — what should happen instead
+    (refuse the conversion, or fall back to dither) is a product decision, and
+    the neighbouring one is CARD-078's "refuse density 0 and 100".
+
+    This test asserts today's behaviour, not the desired behaviour. When the
+    guard lands it should fail, and be rewritten to the refusal.
+    """
+    pale = Image.new("L", (96, 96))
+    pale.putdata([200 + (x * 40) // 95 for _ in range(96) for x in range(96)])
+    picture = tmp_path / "washed-out.png"
+    pale.save(picture)
+
+    greyscale = image.load_greyscale(picture)
+    box = image.ink_bounding_box(greyscale)
+    thresholded = image.to_grid(
+        image.binarize(greyscale.crop(box), 20, 20, path=image.THRESHOLD)
+    )
+
+    assert not any(any(row) for row in thresholded), "no cell survives the cut"
+
+    def convert() -> orchestrator.Puzzle:
+        return orchestrator.generate(
+            orchestrator.GenerationRequest(
+                mode="image", image=picture, width=20, height=20, seed=1
+            )
+        )
+
+    # As shipped — the dither path — the picture is refused rather than turned
+    # into a puzzle. This is the comparison that makes the above a finding.
+    with pytest.raises(GenerationAbandoned):
+        convert()
+
+    # With the flip the owner would make, the same picture is accepted, scored
+    # and marked exportable, with not one filled cell in it.
+    monkeypatch.setattr(image, "DEFAULT_BINARISATION", image.THRESHOLD)
+    blank = convert()
+
+    assert blank.binarisation == image.THRESHOLD
+    assert blank.ready_for_export is True
+    assert blank.grid is not None and not any(any(row) for row in blank.grid)

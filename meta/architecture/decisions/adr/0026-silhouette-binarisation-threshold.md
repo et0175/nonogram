@@ -1,6 +1,6 @@
 # ADR-0026: Silhouette binarisation — 50% ink-coverage threshold after the resize
 
-**Status:** Proposed (gated: Accepted once the owner has eyeballed rendered grids of the picture corpus (`pictures/`, currently not on disk — the owner's own trial folder) converted both ways and confirmed the threshold path; AC-127 is the measurable half of the gate)
+**Status:** Proposed (gated: Accepted once the owner has eyeballed rendered grids of the picture corpus (`pictures/`, 25 files, tracked since `f3ba719`) converted both ways and confirmed the threshold path; AC-127 is the measurable half of the gate. CARD-079 implemented the path and put the render in front of the owner on 2026-09-17 — see History)
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
 **Revised:** —
@@ -226,6 +226,29 @@ cell vanish, a second binarisation path is introduced, and the module's
   FR-027's owner visual gate over the picture corpus, with AC-127 as the
   measured half of that gate. Migration `on-touch`: stored image puzzles are
   not re-converted. DEC-033 (greyscale recognition) left open and dependent.
+- 2026-09-17: **Implemented, still Proposed** — CARD-079. R1 is live code
+  behind `sourcing.image.DEFAULT_BINARISATION`, which is pinned to `dither`,
+  so the rule remains the intent under test rather than the contract. AC-127
+  measured over the 25-picture corpus at 10,15,20,25,30: the threshold path
+  makes **116 of 125** conversions against dither's 109, converts **99**
+  uniquely on the first solve against 80, spends **36** nudges against 53, and
+  loses **none** of the conversions dither makes. The Status line's claim that
+  the corpus was "not on disk" was wrong at the time of writing and is
+  corrected above.
+- 2026-09-17: **A precondition of accepting this ADR, found by implementing
+  it** — R1 fills a cell only at >= 50% ink coverage, so a picture with no
+  solid areas converts to an all-empty or near-empty grid, which is *uniquely
+  solvable by being empty* and is therefore accepted, scored and exported. Two
+  live cases: a washed-out photograph with no pixel below `INK_THRESHOLD`, and
+  `cat_Mouse.png` (line art, thin strokes), which the corpus sweep counts as
+  an AC-127 gain at four sizes and which renders as two dots. Floyd-Steinberg
+  refuses both by producing something ambiguous. So the threshold path trades
+  "sometimes refuses a picture it could convert" for "sometimes ships a blank
+  page", and the second is the worse failure for a printed book. Accepting
+  this ADR should be conditional on a guard — refuse an all-empty or all-filled
+  conversion, or fall back to the dither path for one — which is a product
+  decision adjacent to CARD-078's "refuse density 0 and 100". Recorded in
+  `docs/GENERATION_ALGORITHM.md` §10 as finding 11.
 
 ## Rules
 ```yaml

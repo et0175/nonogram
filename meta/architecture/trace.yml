@@ -1275,6 +1275,10 @@ links:
   - TestBinarize_ThresholdLeavesCellEmptyBelowHalfInkCoverage
   - TestBinarize_ExactlyHalfCoverageIsFilled
   - TestBinarize_ThresholdCorpusNeedsNoMoreNudgesThanDither
+  - TestBinarize_ClassifierIsDeterministicAndReadsSourceHistogram
+  - TestBinarize_RecordsBinarisationPathOnPuzzle
+  - PropertyTest_Binarize_ClassifierPureFunctionOfSourceImage
+  - PropertyTest_Binarize_ThresholdIsInclusiveHalfCoverageOnResizedImage
   notes: >-
     Story US-003. DEC-032 resolved by ADR-0026 (ink_coverage_threshold_50pct)
     — but ADR-0026 is PROPOSED, not Accepted: FR-027's _meta.gate requires the
@@ -1294,6 +1298,24 @@ links:
     follow-up on ADR-0023's export schema, not traced here. AC-124..AC-126
     survive under the chosen alternative; AC-127 holds under either. CON-013
     scope unchanged: greyscale is tolerated, not promoted to a mode.
+    IMPLEMENTED 2026-09-17 (CARD-079) and still gated. Both paths and the
+    classifier are live in sourcing/image.py; DEFAULT_BINARISATION is pinned
+    to dither, so ADR-0026/R1 stays intent-under-test and ADR-0028 stays inert
+    exactly as described above. The path is recorded on the Puzzle aggregate
+    (`binarisation`, None for random and library); the EXPORT half moved to
+    CARD-072 so that `strategies` and `binarisation` cost one SCHEMA_VERSION
+    bump rather than two — which also released this card's CARD-072
+    dependency. AC-127 amended by CARD-079's Revision to count regressions
+    case by case, not only totals: measured at 10,15,20,25,30 over the 25
+    pictures, threshold makes 116 of 125 against dither's 109, converts 99
+    uniquely on the first solve against 80, spends 36 nudges against 53, and
+    loses none of dither's conversions. ADR-0028's owed calibration is taken
+    (24 pictures at 0.0021..0.0652, one at 0.1647; 0.10 sits in the gap and is
+    left as it is). The gate is NOT discharged: a threshold conversion of a
+    picture with no solid areas is blank and passes as a puzzle — see
+    ADR-0026's History and GENERATION_ALGORITHM.md finding 11 — so the owner's
+    confirmation is owed a decision about that guard, not only about the
+    renders.
   status: partial
 
 - req: FR-028

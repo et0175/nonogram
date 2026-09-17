@@ -1015,6 +1015,17 @@ class Puzzle:
     #: persists the rung list beside them. They come off the solve that already
     #: happened — nothing here re-solves to classify (ADR-0029/R2).
     rung_tags: list[list[str | None]] | None = None
+    #: Which way an uploaded picture was reduced to black and white —
+    #: ``sourcing.image.THRESHOLD`` or ``sourcing.image.DITHER`` (FR-027,
+    #: ADR-0026/ADR-0028). ``None`` for random and library mode, which have no
+    #: picture and so nothing to record.
+    #:
+    #: Recorded rather than inferred, and set once per request before the
+    #: first candidate: two pictures that differ only in mid-tone content take
+    #: different paths, so "which one did this puzzle get" cannot be recovered
+    #: from the grid afterwards. CARD-072 carries it into the export metadata;
+    #: until then it is read by CARD-079's review render and by nothing else.
+    binarisation: str | None = None
     #: INV-002's gate. Only :meth:`confirm_uniqueness` writes it.
     ready_for_export: bool = False
 
@@ -1617,6 +1628,14 @@ def generate(
     # burning the retry budget.
     source = sourcing.for_mode(request.mode)
     source_arguments = _source_arguments(request, extent)
+
+    # FR-027: resolved once, here, for the same reason the extent and the
+    # deadline are — it cannot change between attempts, and a nudge must not
+    # be able to move a picture onto the other path halfway through a run.
+    # Costs nothing while `DEFAULT_BINARISATION` is pinned (see
+    # `image_source.binarisation_for`).
+    if request.mode == sourcing.IMAGE:
+        puzzle.binarisation = image_source.binarisation_for(request.image)
 
     def judge_candidate(grid: Grid) -> Puzzle | None:
         """Judge one already-sourced grid: clues -> uniqueness -> score.

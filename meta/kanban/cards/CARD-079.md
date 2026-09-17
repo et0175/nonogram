@@ -1,26 +1,74 @@
 # CARD-079: Threshold binarisation for silhouettes behind a switch, mid-tone classifier, corpus rendered both ways for the owner's eye
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** standard
-**Revision pending:** false
+**Revision pending:** false  _(revised 2026-09-17 at the owner's word — see Revision)_
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (4 mutants, all caught)
 **Branch:** card/079-threshold-binarisation-gated
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-079
 **Source:** meta/architecture/handoff.md#increment-12
 **Idea:** —
 **Wave:** 1
-**Depends on:** CARD-072, CARD-075, CARD-076
-**Touches:** src/nonogram/sourcing/image.py (binarize switch, MIDTONE_SHARE_THRESHOLD + band, classifier, module rationale rewrite), src/nonogram/orchestrator.py (Puzzle carries `binarisation`), src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/export/csv_export.py (`binarisation` metadata field, ADR-0023 rules), tests/test_sourcing_image.py, tests/test_export_json.py, tests/test_export_csv.py, tests/property/test_export_roundtrip.py, tools/render_binarisation_review.py or tests/bench-style script (new — renders the corpus both ways into a review folder), docs/GENERATION_ALGORITHM.md (§4.3 one row, §11), meta/architecture/decisions/adr/0006-*.md (History touch)
+**Depends on:** ~~CARD-072~~ (released 2026-09-17 — see Revision), CARD-075 (done), CARD-076 (done)
+**Touches:** src/nonogram/sourcing/image.py (binarize switch, MIDTONE_SHARE_THRESHOLD + band, classifier, module rationale rewrite), src/nonogram/orchestrator.py (Puzzle carries `binarisation`), tests/test_sourcing_image.py, tests/property/test_binarisation.py (new), meta/ops/binarisation_review.py (new — renders the corpus both ways), docs/GENERATION_ALGORITHM.md (§4.3 one row, §11), meta/architecture/decisions/adr/0006-*.md (History touch). _Export files dropped from this card — see Revision._
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-17
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## Revision — 2026-09-17, at the owner's word ("open a card for CARD-079")
+
+Three things had moved since the card was written on 2026-09-12. Two are
+corrections of fact; one is the owner's decision.
+
+**1. The corpus is on disk and tracked.** The card and ADR-0026 both say
+`pictures/` is "currently not on disk — the owner's own trial folder". It is
+tracked, 25 files, since `f3ba719`; CARD-096 swept it in full. The
+skip-cleanly-when-absent behaviour stays (it is still the owner's folder and
+still not restructured, G-7), but AC-127 and the gate render are live rather
+than conditional. ADR-0026's Status line carries the same stale parenthetical
+and is corrected with it.
+
+**2. AC-127 must count regressions, not only gains** — CARD-096's
+recommendation 3, verbatim: "Its AC-127 must now also count **regressions on
+pictures dither already makes**, which its current text does not ask for." As
+written, "more first-solve-unique and no more nudges" is a pair of totals, and
+totals can improve while individual conversions that work today break. CARD-075
+was accepted on exactly this shape — 18 rescued **and** 0 regressions, the
+second half checked case by case — and AC-127 is amended to match. Its baseline
+is also re-taken: the nudge counts it compares against must be the mask-driven
+nudge's (CARD-075, merged `bb35762`), not the retired 2x2 ranking's.
+
+**3. The export field is dropped from this card (owner's call).** Item 3 and
+AC-B move to CARD-072, which touches the same metadata for `strategies`. The
+reason is the card's own sequencing note — "one more version bump at most" —
+which CARD-079 could not honour while CARD-072 was still open: CSV's decoder
+rejects unknown keys, so each field costs a `SCHEMA_VERSION` bump and a pass
+over every export test. The path taken is still recorded **on the `Puzzle`
+aggregate** for image mode, which is what the gate render reads; only the
+export half waits. **This releases the CARD-072 dependency** — nothing else in
+this card needed it — so CARD-079 no longer waits on a card whose own item 1 is
+blocked on the difficulty-rescoring ADR.
+
+**4. Shape confirmed, not changed (owner's call).** The card ships both paths
+behind `DEFAULT_BINARISATION`, default `dither`, and stops at the visual gate —
+rather than CARD-096's measure-only shape with the threshold path living in a
+`meta/ops` script. The owner chose the switch: a path that has been measured
+belongs in the module, tested on both branches, with the flip a one-line
+follow-up. G-1 is unchanged and binding — flipping the default is never this
+card's commit.
+
+**The review render** goes in `meta/ops/binarisation_review.py`, beside
+`image_abandonment_sweep.py` and `nudge_ranking_contact_sheet.py`, rather than
+in a new `tools/` directory the repository does not have. Same house style,
+same JSON-plus-sheets output, and its numbers are directly comparable to the
+two runs already taken.
 
 ## Why
 
@@ -73,21 +121,25 @@ existing corpus tests in `tests/test_sourcing_image.py`.
    no per-upload override. **Calibration-owed:** record the mid-tone share
    of every corpus picture in Worktree notes so the owner can set the
    constant on data; do not tune it on this card.
-3. **`binarisation` recorded, not inferred:** the path taken is set on the
-   `Puzzle` aggregate for image mode and carried into the JSON/CSV export
-   metadata as `binarisation: threshold | dither` (ADR-0023 follow-up: an
-   additive field, or a `SCHEMA_VERSION` bump if an existing reader could
-   not survive — decide by ADR-0023/R2's own rule; JSON accepts unknown
-   keys, CSV rejects them, so CSV likely needs the bump). Random/library
-   puzzles carry no such field (or `null`) — say which.
-4. **Review render.** A script (test-tree or `tools/`) that converts every
-   picture under `pictures/` both ways at the batch's predicted extent
-   (`derive_extent`, the CARD-061/064 presets) and writes a side-by-side
-   rendered grid per picture (PNG via the existing renderer, threshold
-   left, dither right) plus AC-127's two numbers per picture
-   (first-solve unique? nudges needed) into a review folder outside `src/`
-   (e.g. `review/binarisation-<date>/`, untracked — not committed). Skips
-   cleanly when `pictures/` is absent.
+3. **`binarisation` recorded on the aggregate, not inferred:** the path
+   taken is set on the `Puzzle` for image mode; `None` for random and
+   library, which have no binarisation to record. That is what the gate
+   render reads. **The export half is deferred to CARD-072** (Revision 3):
+   `binarisation: threshold | dither` in the JSON/CSV metadata, decided by
+   ADR-0023/R2's own rule, in the same `SCHEMA_VERSION` change that carries
+   `strategies` — one bump instead of two.
+4. **Review render — `meta/ops/binarisation_review.py`** (Revision, not
+   `tools/`: the repository has no such directory and two comparable
+   scripts already live in `meta/ops`). Converts every picture under
+   `pictures/` both ways at the batch's predicted extent (`derive_extent`,
+   the CARD-061/064 presets) and writes, per picture, a side-by-side
+   rendered grid (source, threshold, dither) plus AC-127's numbers
+   (first-solve unique? nudges needed? made or abandoned?) — sheets into
+   `~/Documents/nonogram-reviews/CARD-079/` (memory: renders never live
+   beside the repo or inside it), a JSON row set beside them for the
+   totals. Skips cleanly when `pictures/` is absent, as the corpus tests
+   in `tests/test_sourcing_image.py` do — though it is present now
+   (Revision 1).
 5. **Docs and ADR touches:** the module rationale "dither before
    threshold, not instead of it" (`image.py:133-136`) is rewritten to
    describe both paths and the switch; `docs/GENERATION_ALGORITHM.md` §4.3
@@ -112,21 +164,37 @@ existing corpus tests in `tests/test_sourcing_image.py`.
   boundary is inclusive).
   *test:* `TestBinarize_ExactlyHalfCoverageIsFilled` (ADR-0026/R1's check
   ref — goes live with this card)
-- **AC-127** — given the corpus under `pictures/`, each converted at a bare
-  `--size 25` by both paths, when the first-solve uniqueness verdicts and
-  nudge counts are compared, then the threshold path's count of
-  first-solve-unique conversions is >= the dither path's and its total
-  nudges <= the dither path's. Skips cleanly when `pictures/` is absent.
-  *test:* `TestBinarize_ThresholdCorpusNeedsNoMoreNudgesThanDither`
+- **AC-127** *(amended 2026-09-17 — Revision 2)* — given the corpus under
+  `pictures/`, each converted by both paths, when the first-solve
+  uniqueness verdicts, nudge counts and outcomes are compared, then
+  (a) the threshold path's count of first-solve-unique conversions is >=
+  the dither path's, (b) its total nudges is <= the dither path's, and
+  (c) **every conversion the dither path makes, the threshold path also
+  makes** — counted case by case, not as a total. Nudge counts are the
+  mask-driven nudge's (CARD-075, `bb35762`), not the retired ranking's.
+  **Where each clause is checked, and why they are split.** The suite test
+  carries (a) at 25x25 and skips cleanly when `pictures/` is absent — ~7 s,
+  disclosed in the test file, against a module that otherwise runs in under a
+  second. Clauses (b) and (c) need both paths driven through
+  `orchestrator.generate`, which costs ~32 s, ~30 s of it one picture
+  (`butterfly.png`) running out the request deadline on the dither path; they
+  live in `meta/ops/binarisation_review.py`, which sweeps five sizes instead
+  of one and is where the owner's gate reads them anyway. Nothing is weakened
+  by the split — (c) over five sizes is strictly more than (c) over one — but
+  the suite does not pay 30 s per run for a deadline it already knows about.
+  *test:* `TestBinarize_ThresholdCorpusNeedsNoMoreNudgesThanDither` (a);
+  `meta/ops/binarisation_review.py` (b, c)
 - **AC-A** (classifier) — a silhouette fixture (mid-tone share well below
   0.10) classifies `threshold`; a greyscale-gradient fixture (share well
   above) classifies `dither`; the classification is identical on repeated
   loads and reads the source image, not the resized one.
   *test:* `TestBinarize_ClassifierIsDeterministicAndReadsSourceHistogram`
-- **AC-B** (recorded path) — an image-mode puzzle carries `binarisation`
-  on the aggregate and in the JSON and CSV export, round-tripping
-  (EC-002 style); random/library puzzles carry none.
-  *test:* `TestBinarize_RecordsBinarisationPathOnPuzzleAndExport`
+- **AC-B** (recorded path) *(halved 2026-09-17 — Revision 3)* — an
+  image-mode puzzle carries `binarisation` on the aggregate; random and
+  library puzzles carry `None`. **The export half — the field in JSON and
+  CSV, round-tripping EC-002 style — moves to CARD-072** and is not
+  asserted here.
+  *test:* `TestBinarize_RecordsBinarisationPathOnPuzzle`
 - **AC-C** (default unchanged until the gate) — with the shipped default,
   every existing image-mode test in `tests/test_sourcing_image.py` and
   `tests/test_nudge.py` passes unchanged in assertion (the dither path is
@@ -171,6 +239,9 @@ existing corpus tests in `tests/test_sourcing_image.py`.
 - G-8: FR-003's statement and AC-007's test name are not re-worded here
   (post-gate follow-up).
 - G-9: Commit only your own files — explicit pathspecs.
+- G-10 _(added by Revision 3)_: nothing under `src/nonogram/export/`
+  changes on this card, and `SCHEMA_VERSION` is not bumped — the
+  `binarisation` field is CARD-072's to add.
 
 ## System contract
 
@@ -185,9 +256,9 @@ existing corpus tests in `tests/test_sourcing_image.py`.
   (check: tests/test_sourcing_image.py, tests/property/test_image_fit.py)
 - ADR-0006/R1 — dependency baseline: stdlib + Pillow + NumPy (+ reportlab
   per CARD-057) — nothing new (check: review-lens)
-- ADR-0023/R1 — export records width/height, never a scalar size;
-  ADR-0023/R2 — decoder accepts only its own SCHEMA_VERSION (check:
-  TestExport_RejectsSupersededSchemaVersion)
+- ADR-0023/R1, ADR-0023/R2 — _not exercised by this card since the export
+  field moved to CARD-072 (Revision 3); the export surface is untouched
+  here, which is itself the check._
 - ADR-0015 — image mode draws nothing from the rng (check: review-lens)
 - CON-013 — image sourcing scoped to high-contrast silhouettes; greyscale
   is tolerated via the dither path, not promoted to a mode (check:
@@ -218,4 +289,120 @@ puzzles are never re-converted.
 
 ## Worktree notes
 
-—
+### Delivered to the gate, 2026-09-17 — **awaiting the owner's decision**
+
+**What shipped.** `sourcing/image.py` gained `THRESHOLD`/`DITHER`,
+`MIDTONE_BAND`, `MIDTONE_SHARE_THRESHOLD`, `DEFAULT_BINARISATION`,
+`midtone_share`, `classify_binarisation`, `binarisation_for`, and a `path=`
+argument on `binarize`. `Puzzle.binarisation` records which path an image-mode
+run took (`None` for random and library), resolved once per request beside the
+extent and the deadline. **`DEFAULT_BINARISATION` is pinned to `dither`**
+(G-1), and it carries three states — a path name, or `None` meaning "ask the
+classifier", which is what the owner's flip sets.
+
+**AC-127, all three clauses, over 25 pictures x sizes 10,15,20,25,30**
+(`meta/ops/binarisation_review.py`):
+
+| | threshold | dither |
+|---|---:|---:|
+| conversions made | **116** of 125 | 109 of 125 |
+| uniquely solvable at the first solve | **99** | 80 |
+| nudges spent | **36** | 53 |
+| failed (abandoned or timed out) | **9** | 16 |
+
+**(c) regressions — conversions dither makes and threshold does not: 0.**
+Counted case by case, which is what the Revision amended the criterion to ask
+for. The seven gains are `cat_Mouse` at 10/15/20/25, `duck2` at 30, `zebra` at
+15 and 30.
+
+**ADR-0028's owed calibration, taken.** Mid-tone share of all 25 pictures: 24
+of them between **0.0021** (`duck.png`) and **0.0652** (`wolf_2.png`), and one
+— `zebra.png`, the only photograph — at **0.1647**. Nothing between 0.066 and
+0.164, so the provisional **0.10 sits in the middle of an empty gap** and any
+value in roughly [0.07, 0.16] classifies this corpus identically. Left at 0.10.
+Caveat: one picture on the dither side means the constant is calibrated against
+a single positive example.
+
+### The gate, and the thing the numbers hide
+
+Sheets: `~/Documents/nonogram-reviews/CARD-079/`, one PNG per picture — source,
+threshold grid, dither grid, at 25x25, each labelled with its outcome and nudge
+count. Plus `binarisation_review.json`.
+
+**The threshold path is dramatically better on silhouettes.**
+`eagle-silhouette1.jpg` is the case the ADR was written for: threshold gives a
+clean, solid, recognisable bird; dither gives a chequerboard. `konek.png` (a
+seahorse) is cleaner under threshold too, though it costs 3 nudges where dither
+needed 0 — a nudge count, not a fidelity loss.
+
+**And it fails on line art, in a way AC-127 scores as a win.** A coverage
+threshold keeps *filled areas*; line art has none, only thin strokes, so the
+cut erases it. `cat_Mouse.png` converts to **two small blobs** (the cat's eyes)
+on an otherwise empty 25x25 grid — and because an almost-empty grid is
+uniquely solvable, it is *made*, and counts as four of the seven gains above.
+Dither abandons it, which is the honest outcome.
+
+The same mechanism has a worse form: a washed-out picture with no pixel below
+`INK_THRESHOLD` (`ink_bounding_box` then falls back to the whole frame)
+thresholds to a **wholly blank grid**, which is scored, marked
+`ready_for_export` and exported. Dither refuses it. Pinned as
+`test_the_threshold_path_turns_an_inkless_picture_into_a_blank_grid`, recorded
+as finding 11 in `docs/GENERATION_ALGORITHM.md`, and written into ADR-0026's
+History as **a precondition of accepting the ADR**.
+
+So the trade the owner is being asked about is not "more conversions" — it is:
+
+> the threshold path converts more pictures and converts silhouettes far
+> better, at the cost of sometimes shipping a blank or near-blank page where
+> the dither path refuses.
+
+For a printed book the second is the worse failure, which is why this card
+stops here rather than flipping anything. **What the flip should probably carry
+with it:** refuse an all-empty or all-filled conversion, or fall back to the
+dither path for one. That is a product decision adjacent to CARD-078 ("refuse
+density 0 and 100") and is not invented here.
+
+### Tests
+
+**Full suite: 3,447 passed, 0 failed, 26 skipped**, with the two admin-markup
+tests that already fail on `main` deselected.
+
+Mutation check — four mutants, restored from a saved copy, never `git
+checkout`: the inclusive cut moved off its boundary (caught by AC-126 and the
+ADR-0026 property test), the classifier's two answers swapped (caught by AC-A
+and the ADR-0028 property test), the shipped default flipped to threshold
+(caught by 12 tests — G-1 is the best-guarded thing here), and the mid-tone
+band made exclusive at the top (caught by the property test's re-derived
+share). All four caught on the first pass.
+
+`tests/test_sourcing_image.py` 129 (was 118): AC-124..AC-127, AC-A, AC-B, the
+identity-resize premise guard, the shipped-default guardrail, the two-level
+switch, and the blank-grid finding. New `tests/property/test_binarisation.py`
+carries ADR-0026/R1 and ADR-0028/R1 over seeded synthetic silhouettes and
+gradients. **AC-C holds: every pre-existing test in the module passes unchanged
+in assertion** — the shipped path did not move.
+
+AC-127's clause (a) is the suite's, at 25x25 (~7 s); clauses (b) and (c) are
+`meta/ops/binarisation_review.py`'s, because driving both paths through
+`orchestrator.generate` costs ~32 s of which ~30 s is `butterfly.png` running
+out the request deadline on the dither path. The split is written into the AC.
+
+### Guardrails
+
+G-1 default unchanged and pinned by a test. G-2 pipeline order untouched; the
+classifier reads the source before trim/crop/resize. G-3 no new dependency —
+`Image.point`, a Pillow primitive (ADR-0006 History touch). G-4 image mode
+still rng-free; no request field or CLI option selects the path. G-5 stored
+puzzles never re-converted. G-6 nothing under `solver/` or `difficulty.py`;
+the nudge and recovery loops untouched. G-7 `pictures/` read only; renders went
+to `~/Documents/nonogram-reviews/CARD-079/`. G-8 FR-003 and AC-007 not
+re-worded. G-9 explicit pathspecs. G-10 (Revision) nothing under
+`src/nonogram/export/`; `SCHEMA_VERSION` unchanged.
+
+### Also updated
+
+`docs/GENERATION_ALGORITHM.md` §4.3 (step 7 and the two-path note), §10
+(finding 11), §11; ADR-0026 Status corrected and two History entries;
+ADR-0028 History with the calibration; ADR-0006 History scope note;
+`meta/architecture/trace.yml` FR-027 row. `check_doc_references.py`: 227
+resolved, 0 failed.

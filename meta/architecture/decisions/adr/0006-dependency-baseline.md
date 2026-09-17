@@ -117,6 +117,13 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 
 ## History
 
+- 2026-09-17: Scope note — CARD-079. "Pillow does the dithering" narrows to
+  "Pillow does the binarisation": the threshold path added by ADR-0026 is
+  Pillow's `Image.point` LUT, and the dither path is still Pillow's
+  `convert("1", dither=FLOYDSTEINBERG)`. No dependency changes — the point of
+  the note is that a second binarisation strategy did **not** reach for one
+  (no scikit-image, no OpenCV), which is R1 working as intended.
+
 - 2026-08-27: Created — adopted stdlib + Pillow + NumPy over the recommended stdlib + Pillow-only default, trading a second dependency for vectorized solver headroom at the 50x50 upper bound.
 - 2026-09-01 — Revised — resolves DEC-027. Previous decision: the baseline
   admitted no bundled assets, so PDF header text used Pillow's ASCII-only

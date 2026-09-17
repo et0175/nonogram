@@ -165,12 +165,40 @@ Order is prescribed by ADR-0022 and is load-bearing (the request is judged *befo
 | 4 | `sourcing.image.validate_aspect_ratio` | on the **ink box**, not the file: refuse with `ImageNeedsManualCrop` when a centred crop to the grid's ratio would keep < 50% of it. Exact integers: `kept = min(sw*th, sh*tw)`, `whole = max(...)`, accept iff `2*kept >= whole` (inclusive at exactly 2×) |
 | 5 | `greyscale.crop(box)` | trim blank margin to the ink box (FR-022, best-effort — it does not guarantee no blank rows/columns after resize) |
 | 6 | `sourcing.image.fit_crop_box` | largest **centred** sub-rectangle with the grid's aspect ratio; exactly one axis cropped; floor division; odd leftover pixel goes to the far side |
-| 7 | `sourcing.image.binarize` | `resize((W, H), LANCZOS, box=crop)` — crop and resize in one call, one grey level per cell — then `convert("1", dither=FLOYDSTEINBERG)`, Pillow's built-in error diffusion |
+| 7 | `sourcing.image.binarize` | `resize((W, H), LANCZOS, box=crop)` — crop and resize in one call, one grey level per cell — then **one of two paths**, see below |
 | 8 | `sourcing.image.to_grid` | `numpy.asarray(bilevel) == 0` → black pixel is a filled cell |
 
 The `rng` argument is accepted for the uniform calling convention and **never drawn from**: the
 same file at the same extent always converts to the same grid. That is why image mode does not
 enter the regenerate loop (§8.4).
+
+**Step 7's two paths (FR-027, CARD-079).** `binarize` takes a `path`:
+
+- `sourcing.image.DITHER` — `convert("1", dither=FLOYDSTEINBERG)`, Pillow's error diffusion.
+  What ships.
+- `sourcing.image.THRESHOLD` — a per-pixel LUT: filled iff the resized grey value is `<= 127`,
+  i.e. the cell is at least half ink, inclusive at exactly half (ADR-0026/R1). No error
+  diffusion, so a cell's verdict depends on its own value alone.
+
+`sourcing.image.DEFAULT_BINARISATION` decides which, and carries three states: a path name
+(used for every picture), or `None` (ask `sourcing.image.classify_binarisation`, which reads the
+**source** histogram — before trim, crop and resize, since the resize manufactures mid-tones out
+of a hard edge — and sends a picture with at least `MIDTONE_SHARE_THRESHOLD` of its pixels inside
+`MIDTONE_BAND` to the dither path, everything else to the threshold; ADR-0028/R1).
+
+**It is pinned to `DITHER` today.** ADR-0026 is *Proposed*, and flipping the default is the
+owner's action after a visual gate on the corpus rendered both ways (DEC-032), not a code
+decision. `meta/ops/binarisation_review.py` produces that render and AC-127's numbers. Measured
+at 25×25 on the owner's 25-picture corpus: threshold converts 19 uniquely on the first solve
+against dither's 16, needs 6 nudges against 12, and loses none of dither's conversions — but the
+gate is fidelity and the two disagree. A **line-art** picture has no filled areas for a coverage
+cut to keep, so the threshold erases it to near-blank, and a near-blank grid is uniquely solvable
+*by being empty*: `cat_Mouse.png` counts as a gain in AC-127's arithmetic and is two dots on the
+page. The same mechanism accepts a washed-out photograph as a wholly blank puzzle (§10, finding
+11). Which is the reason the decision is the owner's eye rather than the count.
+
+The path taken is recorded on the aggregate as `Puzzle.binarisation` (`None` for random and
+library). CARD-072 carries it into the export metadata.
 
 Scope note (CON-013): calibrated for high-contrast silhouettes; photographs convert without
 complaint but nothing is tuned for them.
@@ -727,6 +755,7 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | 8 | **Open**, unchanged | Info — undocumented | Library mode at exactly 16×16 has no boundary cells, so a non-unique template spends 30 identical solves before abandoning (library mode never repairs). Documented only in the module docstring. | `sourcing.library` |
 | 9 | **Closed** — CARD-093 | Low — lost work | When `MAX_CONSECUTIVE_ABANDONMENTS` candidates in a row were abandoned — or a candidate timed out — `generate_batch` raised, and the admin stored a random batch only after the call returned, so every puzzle already made was lost and the batch ended `ERROR`. Puzzles are now handed over through `on_puzzle` as they are made and stored at once; a batch that stops early with puzzles made ends `COMPLETE` with a note. The stopping rule itself is unchanged. | `orchestrator.generate_batch`, `admin.batch_generator.BatchGenerator._generate_random_batch` |
 | 10 | **Closed** — CARD-094 | Low — docstring drift | About fifteen comments and docstrings still described the retry bound as 20 or a batch as up to 200, and one `generate_batch` comment claimed 30x30 reaches the deadline rather than the retry bound, which CARD-091 measured no longer true. Each now names `MAX_RETRY_ATTEMPTS` or `MAX_BATCH_COUNT`, or states the current figure; history that correctly narrates the old numbers was kept. The sweep also found the bound left behind in code: the image-batch preview refused only above 200 and the batch form said "Up to 200 pictures", so 51–200 pictures passed preview and failed at generate. Both now read `MAX_BATCH_COUNT`. | `orchestrator`, `sourcing.library`, `admin.batch_generator`, `admin.app` |
+| 11 | **Open — gates CARD-079's flip** | Medium — a blank grid shipped as a puzzle | The threshold binarisation path (`sourcing.image.THRESHOLD`, behind `DEFAULT_BINARISATION`, not shipped) fills a cell only when it is at least half ink, so a picture with no solid areas converts to an all-empty or near-empty grid — and an empty grid's clues have exactly one solution, so nothing downstream objects: it is scored, marked `ready_for_export` and exported. Two live cases on the owner's corpus: a washed-out photograph (no pixel below `INK_THRESHOLD`, so `ink_bounding_box` falls back to the whole frame) becomes wholly blank, and `cat_Mouse.png` — line art, thin strokes, no filled areas — becomes two dots and counts as an AC-127 *gain*. The dither path refuses both by producing something ambiguous. Harmless while the default is `DITHER`; a precondition of the owner's flip, not of this document. The neighbouring decision is finding 2 / CARD-078 (refuse density 0 and 100). | `sourcing.image.binarize`, `sourcing.image.ink_bounding_box` |
 
 ---
 
@@ -734,7 +763,7 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 
 | Topic | `NONOGRAM_GENERATION_REQUIREMENTS.md` / `DIFFICULTY_ENGINE.md` say | Code does |
 |---|---|---|
-| Binarisation | Otsu threshold with a 50% fallback | Floyd–Steinberg dither after LANCZOS resize; grey < 128 is used only to find the ink box |
+| Binarisation | Otsu threshold with a 50% fallback | Floyd–Steinberg dither after LANCZOS resize (grey < 128 is used only to find the ink box). Since CARD-079 an inclusive 50% ink-coverage threshold also exists, behind `DEFAULT_BINARISATION`, and is **not** what ships — so the Otsu document is still wrong about the shipped path, and closer than it was about the intended one |
 | Cell mapping | ~20 px per cell, majority vote | one resize to W×H cells, then dither |
 | Rejection rules | reject grids with blank rows/cols or fill outside 20–80% | none; blank-line avoidance is best-effort via the trim |
 | Quality score | 0–100 with accept ≥ 50 | no quality score on the core `Puzzle`; admin random batches store `None` |
