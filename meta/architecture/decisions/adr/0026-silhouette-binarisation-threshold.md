@@ -1,9 +1,9 @@
 # ADR-0026: Silhouette binarisation — 50% ink-coverage threshold after the resize
 
-**Status:** Proposed (gated: Accepted once the owner has eyeballed rendered grids of the picture corpus (`pictures/`, currently not on disk — the owner's own trial folder) converted both ways and confirmed the threshold path; AC-127 is the measurable half of the gate)
+**Status:** Accepted (2026-09-17, by the owner after the FR-027 visual gate — conditional on the degenerate-ink guard recorded in History; was Proposed and gated since 2026-09-12)
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-17
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -226,6 +226,44 @@ cell vanish, a second binarisation path is introduced, and the module's
   FR-027's owner visual gate over the picture corpus, with AC-127 as the
   measured half of that gate. Migration `on-touch`: stored image puzzles are
   not re-converted. DEC-033 (greyscale recognition) left open and dependent.
+- 2026-09-17: **Implemented, still Proposed** — CARD-079. R1 is live code
+  behind `sourcing.image.DEFAULT_BINARISATION`, which is pinned to `dither`,
+  so the rule remains the intent under test rather than the contract. AC-127
+  measured over the 25-picture corpus at 10,15,20,25,30: the threshold path
+  makes **116 of 125** conversions against dither's 109, converts **99**
+  uniquely on the first solve against 80, spends **36** nudges against 53, and
+  loses **none** of the conversions dither makes. The Status line's claim that
+  the corpus was "not on disk" was wrong at the time of writing and is
+  corrected above.
+- 2026-09-17: **A precondition of accepting this ADR, found by implementing
+  it** — R1 fills a cell only at >= 50% ink coverage, so a picture with no
+  solid areas converts to an all-empty or near-empty grid, which is *uniquely
+  solvable by being empty* and is therefore accepted, scored and exported. Two
+  live cases: a washed-out photograph with no pixel below `INK_THRESHOLD`, and
+  `cat_Mouse.png` (line art, thin strokes), which the corpus sweep counts as
+  an AC-127 gain at four sizes and which renders as two dots. Floyd-Steinberg
+  refuses both by producing something ambiguous. So the threshold path trades
+  "sometimes refuses a picture it could convert" for "sometimes ships a blank
+  page", and the second is the worse failure for a printed book. Accepting
+  this ADR should be conditional on a guard — refuse an all-empty or all-filled
+  conversion, or fall back to the dither path for one — which is a product
+  decision adjacent to CARD-078's "refuse density 0 and 100". Recorded in
+  `docs/GENERATION_ALGORITHM.md` §10 as finding 11.
+
+- 2026-09-17: **Accepted — with a condition.** The owner reviewed the 25
+  corpus pictures rendered both ways (`~/Documents/nonogram-reviews/CARD-079/`)
+  and chose this ADR's threshold for silhouettes, selected per picture by
+  ADR-0028's classifier. The condition is the guard the entry above calls a
+  precondition: a threshold conversion whose filled share falls outside
+  `USABLE_INK_SHARE` (5%..95%) is redone on the dither path rather than
+  shipped (FR-027 AC-173). Fallback was chosen over refusal because
+  dithering is what every picture got before this decision, so the guard
+  can never turn a picture the tool used to convert into an error. The floor
+  is 5%, not the corpus-gap midpoint of 10%: line art converts at 1.0-2.7%,
+  but `tests/fixtures/landscape.png` — a sparse, legitimate picture —
+  converts at 9.0%, and a 10% floor bounced it for no reason.
+  `DEFAULT_BINARISATION` is now `None`. R1 is the contract from this date,
+  and its review note ("intent under test") is retired.
 
 ## Rules
 ```yaml
@@ -235,7 +273,7 @@ cell vanish, a second binarisation path is introduced, and the module's
   check: {kind: test, ref: TestBinarize_ExactlyHalfCoverageIsFilled}
   # Binding once Status flips to Accepted (FR-027 gate); the check ref goes
   # live with the card that implements FR-027 and is expected to be the
-  # AC-126 test. Until then this rule is the intent under test, not the
-  # contract — review should not flag the shipped dither against it.
+  # AC-126 test. Accepted 2026-09-17: this is the contract, for pictures the
+  # classifier sends to the threshold path and the guard keeps there.
   severity: mandatory
 ```

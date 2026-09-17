@@ -1065,18 +1065,27 @@ def test_a_bare_size_out_of_range_is_refused_before_the_source_is_consulted() ->
         sourcing._SHAPES[sourcing.IMAGE] = original
 
 
-def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
-    """The disclosed cost of FR-023 in image mode, measured rather than asserted.
+def test_a_bare_size_image_run_decodes_the_picture_exactly_three_times() -> None:
+    """The disclosed decode cost of image mode, measured rather than asserted.
 
-    A bare ``--size N`` reads the picture twice — once in
+    A bare ``--size N`` reads the picture **three** times — once in
     ``image.source_shape`` for the ink box the derivation needs, once in
-    ``image.generate`` for the pixels — because handing a decoded Pillow image
-    back out would put it on a boundary that carries ``list[list[bool]]`` and
-    nothing else (ADR-0012). An explicit ``--size WxH`` never asks for a shape
-    and still decodes once, which is the cost CARD-030 established.
+    ``image.binarisation_for`` to learn which binarisation path the conversion
+    takes, once in ``image.generate`` for the pixels — because handing a
+    decoded Pillow image back out would put it on a boundary that carries
+    ``list[list[bool]]`` and nothing else (ADR-0012). An explicit
+    ``--size WxH`` never asks for a shape and decodes twice.
 
-    Two rather than three is the claim worth pinning, and it is the one nothing
-    else asserts: a later card that resolved the extent inside a retry loop, or
+    The middle decode is CARD-079's. Since the owner's flip the path is chosen
+    per picture and a degenerate-ink guard can overturn the choice, so which
+    path a conversion took depends on the conversion itself and has to be
+    asked for; it costs ~4 ms a picture against a solve of tens to thousands of
+    milliseconds, and it happens once per request, outside every loop. The
+    counts were 2 and 1 before it. This test is the reason that cost had to be
+    stated rather than slipped in — which is what it is for.
+
+    The exact counts are the claim worth pinning, and nothing else asserts
+    them: a later card that resolved the extent inside a retry loop, or
     read the shape a second time to re-check it, would change this number and
     break no other test. Which is why **both** runs below retry — the helper
     asserts ``nudge.attempts == 1`` for each: ``owl1.png`` at 10x10 converts
@@ -1133,5 +1142,5 @@ def test_a_bare_size_image_run_decodes_the_picture_exactly_twice() -> None:
     bare, _ = run(width=MIN_SUPPORTED)
     explicit, _ = run(width=MIN_SUPPORTED, height=MIN_SUPPORTED)
 
-    assert bare == 2, "a bare --size N decodes for the ink box and for the pixels"
-    assert explicit == 1, "an explicit --size WxH asks for no shape and pays for none"
+    assert bare == 3, "a bare --size N decodes for the ink box, the path and the pixels"
+    assert explicit == 2, "an explicit --size WxH asks for no shape and pays for none"

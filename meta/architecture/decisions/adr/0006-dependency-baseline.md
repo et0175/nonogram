@@ -152,6 +152,12 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
   deliberately does not use ReportLab. No ADR text needed to change: this
   restores what R1 already said, rather than updating it to match a drift
   that turned out to be a misplacement, not a real widening of the baseline.
+- 2026-09-17: Scope note — CARD-079. "Pillow does the dithering" narrows to
+  "Pillow does the binarisation": the threshold path added by ADR-0026 is
+  Pillow's `Image.point` LUT, and the dither path is still Pillow's
+  `convert("1", dither=FLOYDSTEINBERG)`. No dependency changes — the point of
+  the note is that a second binarisation strategy did **not** reach for one
+  (no scikit-image, no OpenCV), which is R1 working as intended.
 
 ## Rules
 ```yaml

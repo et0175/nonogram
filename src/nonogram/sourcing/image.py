@@ -130,10 +130,36 @@ NumPy does the arithmetic on the far side of it — the bilevel raster comes bac
 as an array and is inverted into the boundary type in one vectorised step
 rather than pixel by pixel (ADR-0006's division of labour).
 
-Dither before threshold, not instead of it: a plain 50% cut turns a photograph
-into two flat blobs, while error diffusion trades grey *level* for filled-cell
-*density*, which is what makes a mid-tone region readable at all on a grid this
-coarse.
+Two ways to reach black and white, and which one a picture gets
+--------------------------------------------------------------
+CARD-015 shipped one: Floyd-Steinberg dither, on the reasoning that a plain
+50% cut turns a photograph into two flat blobs while error diffusion trades
+grey *level* for filled-cell *density*, which is what makes a mid-tone region
+readable at all on a grid this coarse. That reasoning is still right — about
+photographs.
+
+It is wrong about silhouettes, which is what CON-013 actually scopes this mode
+to. Dither preserves average density, not *contour*: along a hard edge it
+seeds isolated cells and ragged boundaries, which is precisely the one-cell
+runs and 2x2 switching blocks that make a nonogram non-unique and that
+POL-002's nudge then repairs one pixel at a time. So CARD-079 lands both:
+:data:`THRESHOLD` (ADR-0026, an inclusive 50% ink-coverage cut on the resized
+value) and :data:`DITHER` (unchanged), with
+:func:`classify_binarisation` choosing between them on the source histogram
+(ADR-0028) — mid-tones mean a photograph, their absence means a drawing.
+
+**Which one ships was the owner's decision, not the code's.** CARD-079 landed
+both paths with :data:`DEFAULT_BINARISATION` pinned to dither and stopped at a
+visual gate on the corpus rendered both ways (DEC-032, FR-027 ``_meta.gate``).
+The gate found what a uniqueness count cannot: a coverage threshold keeps
+*filled areas*, and line art has none, so it erases a line drawing to
+near-blank — and a near-blank grid is uniquely solvable *by being empty*, so
+every check downstream passes it. The owner flipped the default on
+2026-09-17 on the condition that this is guarded: :func:`convert` measures the
+threshold conversion's ink share against :data:`USABLE_INK_SHARE` and, when it
+falls outside, converts the picture on the dither path instead. Falling back
+rather than refusing means no picture the tool converted before the flip can
+become an error because of it.
 
 No retry loop lives here (guardrails G-3, G-6; CARD-016 G-2)
 ------------------------------------------------------------
@@ -180,13 +206,25 @@ from nonogram.errors import ImageNeedsManualCrop, UnreadableImage
 from nonogram.sourcing import random_grid
 
 __all__ = [
+    "DEFAULT_BINARISATION",
+    "DITHER",
     "INK_THRESHOLD",
+    "MIDTONE_BAND",
+    "MIDTONE_SHARE_THRESHOLD",
     "RESAMPLING",
+    "THRESHOLD",
+    "USABLE_INK_SHARE",
+    "binarisation_for",
     "binarize",
+    "classify_binarisation",
+    "convert",
     "fit_crop_box",
     "generate",
     "ink_bounding_box",
+    "ink_share",
+    "is_degenerate",
     "load_greyscale",
+    "midtone_share",
     "next_nudge_cell",
     "nudge",
     "source_shape",
@@ -209,6 +247,88 @@ RESAMPLING = Image.Resampling.LANCZOS
 #: (FR-022). A mid grey, and measured rather than assumed — see the module
 #: docstring for the corpus figures that put it here rather than at near-white.
 INK_THRESHOLD = 128
+
+#: The two ways a resized grey value can become a filled or empty cell.
+#: Strings rather than an ``Enum`` because this is a boundary value in the
+#: ADR-0012 sense — it is recorded on the aggregate and (CARD-072) exported —
+#: and the module's other vocabulary (``sourcing.IMAGE`` and its siblings) is
+#: spelled the same way.
+THRESHOLD = "threshold"
+DITHER = "dither"
+
+#: ADR-0028/R1's mid-tone band, closed at both ends. A picture whose pixels
+#: mostly sit *outside* it is two-toned — a silhouette, a logo, line art — and
+#: has a contour for the threshold to keep. One whose pixels sit inside it is
+#: a photograph or a shaded drawing, where a threshold would flatten the
+#: modelling into a blob and the dither's average-density trade is the right
+#: one. 64 and 191 are the quarter and three-quarter points of the 8-bit
+#: range, chosen for being obvious rather than measured.
+MIDTONE_BAND = (64, 191)
+
+#: The share of pixels inside :data:`MIDTONE_BAND` at or above which a picture
+#: is treated as genuinely greyscale (ADR-0028/R1).
+#:
+#: **Provisional, and owed a calibration.** 0.10 is a guess; CARD-079 records
+#: the measured share of every corpus picture in its Worktree notes so the
+#: owner can set this on data rather than on the guess. Anti-aliasing alone
+#: puts a few percent of a clean silhouette's pixels in the band, which is the
+#: floor this has to clear; JPEG ringing raises it further.
+MIDTONE_SHARE_THRESHOLD = 0.10
+
+#: Which path :func:`binarize` takes when it is not told — and therefore the
+#: one every uploaded picture actually gets. Three states, and the difference
+#: between them is the whole shape of CARD-079:
+#:
+#: * :data:`DITHER` — what ships today. Every picture is dithered and
+#:   :func:`classify_binarisation` is never consulted.
+#: * :data:`THRESHOLD` — every picture is thresholded. Useful for the review
+#:   render; not a state anything is expected to ship in.
+#: * ``None`` — ask :func:`classify_binarisation` per picture. This is what
+#:   ADR-0026 and ADR-0028 together describe, and it is what the owner's flip
+#:   sets after the visual gate (CARD-079 guardrail G-1: never this card's
+#:   commit).
+#:
+#: Pinned rather than defaulted, because a binarisation change alters every
+#: converted picture and the owner validates image work by eye, not by test
+#: (CARD-079's gate, DEC-032).
+#:
+#: **Flipped to ``None`` on 2026-09-17**, by the owner, after that gate: 25
+#: pictures rendered both ways at 25x25, plus AC-127 over five sizes. ADR-0026
+#: is Accepted with it. The flip was made conditional on the degenerate-ink
+#: guard below, which is what stops the threshold path shipping the blank page
+#: the gate found.
+DEFAULT_BINARISATION: str | None = None
+
+#: The filled-cell share a conversion has to land inside to be a picture at
+#: all — the guard the owner attached to ADR-0026's acceptance.
+#:
+#: A coverage threshold keeps *filled areas*, and line art has none: it is
+#: made of strokes thinner than a cell, every one of which averages to more
+#: paper than ink and is erased. The result is not a bad puzzle, it is an
+#: **empty** one — and an empty grid's clues have exactly one solution, so
+#: every check downstream passes it and the user is handed a blank page. The
+#: mirror case is a mostly-dark picture thresholding to solid black.
+#:
+#: Measured, not guessed (CARD-079, 25 pictures x five sizes, plus the test
+#: fixtures). Under the threshold path ``cat_Mouse.png`` — line art — converts
+#: at **1.0% to 2.7%** ink at every size, and the emptiest *legitimate*
+#: conversion anywhere on hand is ``tests/fixtures/landscape.png`` at **9.0%**
+#: — a thin horizon on a wide sheet, sparse but a picture. The corpus's own
+#: next-emptiest is ``butterfly.png`` at 18.0%.
+#:
+#: So the floor is set from the narrower of the two gaps, [2.7%, 9.0%], not
+#: from the corpus gap [2.7%, 18.0%] alone: 5% keeps line art caught with
+#: nearly double the margin while leaving a genuinely sparse picture on the
+#: path its histogram chose. Taking the corpus gap's midpoint (10%) would have
+#: bounced ``landscape.png`` to the dither path for no reason — found by a
+#: test, which is the whole argument for having fixtures that are not corpus
+#: pictures.
+#:
+#: The ceiling is the floor's mirror and is **untriggered by anything on
+#: hand** (the densest conversion is 82.0%); it is here because "all black" is
+#: the same defect as "all white" and finding out the hard way is not worth
+#: the asymmetry — ADR-0027 refuses density 0 *and* 100 for the same reason.
+USABLE_INK_SHARE = (0.05, 0.95)
 
 #: Pillow's byte value for a black pixel in the bilevel ``"1"`` mode. Black is
 #: *ink*, and ink is a filled cell (ADR-0012's ``True``) — the one place this
@@ -395,6 +515,16 @@ def fit_crop_box(
         source_height: Source height in pixels.
         target_width: Requested grid width in cells.
         target_height: Requested grid height in cells.
+        path: :data:`THRESHOLD` or :data:`DITHER`. **Required**, and
+            deliberately so: this function is one half of a conversion, and
+            *choosing* the half — reading :data:`DEFAULT_BINARISATION`,
+            consulting the classifier, applying the degenerate-ink guard —
+            belongs to :func:`convert`, which is the only place that does it.
+            An earlier draft let this default to "resolve it yourself", and
+            the result was two answers to "what does this picture convert to":
+            callers that went through :func:`convert` got the guard and
+            callers that came here directly did not. Required is what makes
+            that unrepresentable.
 
     Returns:
         A Pillow crop box ``(left, upper, right, lower)`` lying entirely inside
@@ -566,11 +696,164 @@ def source_shape(source: str | PathLike[str] | None) -> tuple[int, int]:
     return width, height
 
 
-def binarize(
+def midtone_share(greyscale: Image.Image) -> float:
+    """The share of ``greyscale``'s pixels inside :data:`MIDTONE_BAND`.
+
+    ADR-0028/R1's one measurement, as a pure function of the decoded image:
+    one ``Image.histogram()`` pass, no sampling, no rng, no host state. A
+    two-toned picture scores near zero — only its anti-aliased rim and any
+    compression ringing land in the band — while a photograph or a shaded
+    drawing scores high, because modelling *is* mid-tones.
+
+    Args:
+        greyscale: The source in mode ``"L"``, as :func:`load_greyscale`
+            returns it: EXIF applied, alpha composited onto white, and
+            **not** trimmed, cropped or resized. Which image this is asked
+            about is the whole of ADR-0028's care — see
+            :func:`classify_binarisation`.
+
+    Returns:
+        A share in ``[0.0, 1.0]``. An image with no pixels scores ``0.0``
+        rather than raising: :func:`generate` and :func:`source_shape` already
+        refuse such a file with :class:`UnreadableImage`, and a classifier is
+        not the place to discover it a second time.
+    """
+    counts = greyscale.histogram()
+    total = sum(counts)
+    if not total:
+        return 0.0
+    low, high = MIDTONE_BAND
+    return sum(counts[low : high + 1]) / total
+
+
+def classify_binarisation(greyscale: Image.Image) -> str:
+    """Which path ADR-0028 puts this picture on: :data:`THRESHOLD` or
+    :data:`DITHER`.
+
+    Mid-tone share at or above :data:`MIDTONE_SHARE_THRESHOLD` means a
+    genuinely greyscale picture, which keeps today's dither; anything below is
+    a silhouette in CON-013's sense and takes the threshold.
+
+    **The image asked about is the source, before trim, crop and resize** —
+    that is the rule, not an implementation detail. The resize *manufactures*
+    mid-tones: averaging a hard black-and-white edge over a cell produces
+    exactly the intermediate greys the band is looking for, so classifying the
+    resized image would route every silhouette to the dither path by way of
+    its own anti-aliasing, and the classifier would be measuring the pipeline
+    rather than the picture.
+
+    ADR-0028 rejected a ``--binarize`` flag deliberately, and the signature is
+    where that holds: there is no request field, no override and no rng here,
+    so the same file classifies the same way on every host and in every run
+    (guardrail G-4, ADR-0015).
+    """
+    return DITHER if midtone_share(greyscale) >= MIDTONE_SHARE_THRESHOLD else THRESHOLD
+
+
+def ink_share(grid: list[list[bool]]) -> float:
+    """The share of ``grid``'s cells that are filled.
+
+    The measurement :data:`USABLE_INK_SHARE` is read against. Takes the grid
+    rather than the image because that is what the question is about: the
+    defect is a *converted* picture with nothing in it, and the conversion is
+    the only place that is visible.
+    """
+    cells = sum(len(row) for row in grid)
+    if not cells:
+        return 0.0
+    return sum(sum(row) for row in grid) / cells
+
+
+def is_degenerate(grid: list[list[bool]]) -> bool:
+    """Is this conversion too empty, or too full, to be a picture?
+
+    Outside :data:`USABLE_INK_SHARE` in either direction. Such a grid is very
+    often *uniquely solvable* — an all-empty one trivially so — which is
+    exactly why it needs its own check: every gate downstream is about
+    uniqueness, and a blank page passes all of them.
+    """
+    low, high = USABLE_INK_SHARE
+    share = ink_share(grid)
+    return share < low or share > high
+
+
+def convert(
     greyscale: Image.Image, target_width: int, target_height: int
+) -> tuple[list[list[bool]], str]:
+    """The conversion, and the path it actually took.
+
+    One place, so that :func:`generate` and :func:`binarisation_for` cannot
+    disagree about which path a given file at a given extent gets — which they
+    would the moment the guard below made the answer depend on the *result* of
+    a conversion rather than only on the picture.
+
+    The guard, and why it falls back rather than refusing
+    ----------------------------------------------------
+    When the threshold path produces a degenerate grid the conversion is
+    redone with the dither path, and the path reported is the one that was
+    actually used. Falling back is strictly safer than refusing: dithering is
+    what every picture got before ADR-0026 was accepted, so a fallback can
+    never turn a picture the tool used to convert into an error — where a
+    refusal could. If the dither conversion is *also* degenerate it stands,
+    because there is nothing better to reach for and the incumbent path's
+    output is not this card's to start rejecting (that is ADR-0027's
+    territory, and FR-028's).
+
+    Only the threshold path is guarded. Error diffusion cannot erase a drawing
+    the way a coverage cut can — it trades grey level for filled-cell density,
+    so a picture with any tone in it comes back with cells in it.
+    """
+    path = (
+        DEFAULT_BINARISATION
+        if DEFAULT_BINARISATION is not None
+        else classify_binarisation(greyscale)
+    )
+    grid = to_grid(binarize(greyscale, target_width, target_height, path=path))
+    if path == THRESHOLD and is_degenerate(grid):
+        return (
+            to_grid(binarize(greyscale, target_width, target_height, path=DITHER)),
+            DITHER,
+        )
+    return grid, path
+
+
+def binarisation_for(
+    source: str | PathLike[str] | None, width: int, height: int
+) -> str:
+    """Which path a conversion of ``source`` at this extent actually takes.
+
+    So COMP-002 can record the path on the aggregate without the decoded image
+    crossing a boundary that carries ``list[list[bool]]`` and nothing else
+    (ADR-0012). The orchestrator calls this once per image request, not once
+    per nudge attempt — the answer cannot change within a run.
+
+    Takes the extent, and converts, because since the degenerate-ink guard the
+    answer genuinely depends on both: the same picture can take the threshold
+    path at one size and fall back to the dither path at another. Predicting
+    it from the histogram alone would be a guess that the conversion could
+    then contradict, and a field on the aggregate that is sometimes wrong is
+    worse than no field.
+
+    The cost is one conversion — measured at ~4 ms a picture on this project's
+    corpus, against a solve that runs from tens to thousands of milliseconds,
+    and against the ~3 ms the classifier's own decode costs anyway. Stated
+    rather than hidden, because a bare ``--size`` image run already decodes
+    twice (see :func:`source_shape`) and this makes three.
+    """
+    greyscale = load_greyscale(source)
+    box = ink_bounding_box(greyscale)
+    return convert(greyscale.crop(box), width, height)[1]
+
+
+def binarize(
+    greyscale: Image.Image,
+    target_width: int,
+    target_height: int,
+    *,
+    path: str,
 ) -> Image.Image:
     """Crop to the grid's ratio, resize to ``target_width`` x ``target_height``
-    and Floyd-Steinberg dither.
+    and reduce to black and white — by threshold or by Floyd-Steinberg dither.
 
     Args:
         greyscale: The source in mode ``"L"``. Since FR-022 this is the picture
@@ -600,6 +883,20 @@ def binarize(
         resample=RESAMPLING,
         box=fit_crop_box(*greyscale.size, target_width, target_height),
     )
+    if path == THRESHOLD:
+        # ADR-0026/R1. `point` is a per-pixel lookup table, so a cell's verdict
+        # depends on its own resized value and on nothing else — which is the
+        # property that distinguishes this path, not merely how it is spelled.
+        # The cut is inclusive on the ink side: the resized value is 255 minus
+        # the cell's ink coverage, so `<= INK_THRESHOLD - 1` is "at least half
+        # ink", as closely as an 8-bit raster can say it (AC-126).
+        return scaled.point(
+            lambda value: 255 if value >= INK_THRESHOLD else 0, mode="L"
+        ).convert("1", dither=Image.Dither.NONE)
+    if path != DITHER:
+        raise ValueError(
+            f"binarisation path must be {THRESHOLD!r} or {DITHER!r}, got {path!r}"
+        )
     # Pillow's default dither for a 1-bit target *is* Floyd-Steinberg; naming it
     # anyway, because "the default" is not what the card asked for.
     return scaled.convert("1", dither=Image.Dither.FLOYDSTEINBERG)
@@ -706,7 +1003,7 @@ def generate(
     greyscale = load_greyscale(source)
     box = ink_bounding_box(greyscale)
     validate_aspect_ratio(box[2] - box[0], box[3] - box[1], width, height)
-    return to_grid(binarize(greyscale.crop(box), width, height))
+    return convert(greyscale.crop(box), width, height)[0]
 
 
 def _disagreement_cells(

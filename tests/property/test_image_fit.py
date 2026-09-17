@@ -629,7 +629,7 @@ def test_property_a_solid_source_converts_to_a_solid_grid_at_every_shape(
             source_width, source_height, target_width, target_height
         )
         grid = image.to_grid(
-            image.binarize(greyscale, target_width, target_height)
+            image.binarize(greyscale, target_width, target_height, path=image.DITHER)
         )
 
         assert len(grid) == target_height

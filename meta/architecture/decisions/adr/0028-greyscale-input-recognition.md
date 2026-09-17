@@ -238,6 +238,36 @@ hidden decision in the image pipeline the owner cannot override per picture
   CON-013; the path taken is recorded as `binarisation: threshold|dither` on
   the puzzle/export metadata (ADR-0023 follow-up). Migration `on-touch`.
 
+- 2026-09-17: **Implemented** — CARD-079. `sourcing.image.midtone_share` and
+  `classify_binarisation` are live; R1's purity is held by
+  `PropertyTest_Binarize_ClassifierPureFunctionOfSourceImage` over seeded
+  synthetic silhouettes and gradients. The classifier is *inert policy* until
+  ADR-0026 is Accepted: `DEFAULT_BINARISATION` names a path, and only `None`
+  consults the classifier.
+
+  **The owed calibration, taken.** `MIDTONE_SHARE_THRESHOLD` was a provisional
+  0.10. Measured over the owner's 25 pictures, the two populations separate
+  cleanly and widely: 24 pictures score between **0.0021** (`duck.png`) and
+  **0.0652** (`wolf_2.png`), and one — `zebra.png`, a photograph — scores
+  **0.1647**. There is nothing between 0.066 and 0.164, so 0.10 sits in the
+  middle of an empty gap and any value in roughly [0.07, 0.16] classifies this
+  corpus identically. The guess was a good one; it is now a measurement, and
+  the constant is left at 0.10.
+
+  Caveat worth recording: the corpus contains exactly one picture on the
+  dither side of the line, so the constant is calibrated against a single
+  positive example. A corpus with more photographs could move it.
+
+- 2026-09-17: **Live.** ADR-0026 was Accepted and `DEFAULT_BINARISATION`
+  flipped to `None`, so this classifier now chooses the path for every
+  uploaded picture — no longer inert policy. One interaction worth stating:
+  the classifier's answer is not always the path taken. When it chooses the
+  threshold and the conversion is degenerate (FR-027 AC-173), the picture is
+  converted on the dither path instead, and `Puzzle.binarisation` records the
+  path actually used. So "which path did the classifier choose" and "which
+  path did the puzzle get" can differ — deliberately — and the recorded field
+  is the second.
+
 ## Rules
 ```yaml
 - id: ADR-0028/R1
