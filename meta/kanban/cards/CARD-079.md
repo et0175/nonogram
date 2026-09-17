@@ -19,7 +19,7 @@
 **Started:** 2026-09-17
 **Closed:** 2026-09-17
 **Actual:** 1d
-**Merge commit:** —
+**Merge commit:** 97dc287
 **Blocked by:** —
 
 ## Revision — 2026-09-17, at the owner's word ("open a card for CARD-079")
