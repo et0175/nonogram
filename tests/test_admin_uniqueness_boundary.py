@@ -621,6 +621,11 @@ def _candidate():
         height=2,
         difficulty_score=33,
         difficulty_tier="easy",
+        # FR-029 (CARD-072): the store records the deciding solve's ladder, so
+        # a stand-in for a generated puzzle has to carry one. The value is a
+        # real member of the vocabulary rather than a placeholder — the store
+        # is entitled to assume the generator's output is well-formed.
+        strategies=("simple_overlap",),
     )
 
 

@@ -109,6 +109,13 @@ def document(payload: ExportPayload) -> dict[str, Any]:
             "rows": [list(clue) for clue in payload.row_clues],
             "columns": [list(clue) for clue in payload.column_clues],
         },
+        # FR-029 and FR-027, added at the existing SCHEMA_VERSION. ADR-0023/R2
+        # permits that only when no existing reader breaks, and here none can:
+        # :func:`parse` reads the fields it names and ignores the rest, so an
+        # older build reads this document unchanged and this build reads an
+        # older document by defaulting both (CARD-072).
+        "strategies": list(payload.strategies),
+        "binarisation": payload.binarisation,
     }
 
 
@@ -207,7 +214,33 @@ def parse(source: Any) -> ExportPayload:
         width=_optional_int(_field(request, "width", "request"), "request.width"),
         height=_optional_int(_field(request, "height", "request"), "request.height"),
         density=_optional_int(_field(request, "density", "request"), "request.density"),
+        # Read with `get`, not `_field`: these arrived after the version they
+        # ride on, so a document written before them is not malformed and
+        # must decode. Their absence and an empty list are the same thing to
+        # every consumer — "this file says nothing about the strategies" —
+        # which is why the distinction is not preserved.
+        strategies=_strategies(document_.get("strategies")),
+        binarisation=_optional_str(document_.get("binarisation"), "binarisation"),
     )
+
+
+def _strategies(value: Any) -> tuple[str, ...]:
+    """FR-029's list from a document, or ``()`` when it predates the field."""
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(
+        isinstance(name, str) for name in value
+    ):
+        raise ValueError(f"strategies: expected a list of strings, found {value!r}")
+    return tuple(value)
+
+
+def _optional_str(value: Any, where: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{where}: expected a string, found {value!r}")
+    return value
 
 
 def _field(mapping: Mapping[str, Any], key: str, where: str) -> Any:

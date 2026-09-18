@@ -625,6 +625,17 @@ def run_bounded[T](
 
 #: The region a repair took its pair from: the cells the solver's two
 #: witnesses disagree on (ADR-0024's primary rule).
+#: FR-029's fourth strategy name — the one COMP-005 deliberately does not
+#: report. ``SolveSignals.rungs`` carries only ADR-0029's three ladder rungs;
+#: branching is not a rung but the search admitting the ladder ran out, and
+#: ADR-0025 keys it on ``branch_nodes``. Taken from :class:`difficulty.Tier`
+#: rather than spelled again here, because ADR-0025/R2 requires the tier value
+#: ``guess`` and the strategy ``guess`` to be the same fact under the same
+#: name — two literals would let them drift apart in a rename. The *decision*
+#: to append it is taken by asking ``difficulty.classify``, not by re-reading
+#: ``branch_nodes`` (see :meth:`Puzzle.record_difficulty`).
+GUESS_STRATEGY = difficulty.Tier.GUESS.value
+
 WITNESS_DISAGREEMENT_REGION = "witness-disagreement"
 #: The region a repair took its pair from when the disagreement set held no
 #: filled/empty pair of the parent grid: the first-fixed-point undecided mask
@@ -1026,6 +1037,22 @@ class Puzzle:
     #: from the grid afterwards. CARD-072 carries it into the export metadata;
     #: until then it is read by CARD-079's review render and by nothing else.
     binarisation: str | None = None
+    #: FR-029: what a solver has to know to finish this puzzle — the rungs the
+    #: one verifying solve climbed, in ADR-0029's ladder order, with
+    #: ``"guess"`` appended when the search had to branch. ``()`` until a
+    #: candidate has been graded, and again after :meth:`record_candidate`.
+    #:
+    #: Carried, not computed. The rungs are ``SolveSignals.rungs`` from the
+    #: solve that confirmed this grid (ADR-0029/R2: one derivation, from the
+    #: one verifying solve — never a re-solve, never a second classifier), and
+    #: ``guess`` is keyed on that same solve's ``branch_nodes`` because
+    #: ADR-0025 makes it a fact about the search rather than a rung; no
+    #: threshold on the score can recover it (EC-015).
+    #:
+    #: Appended **here and nowhere else**. Persistence, the JSON export and the
+    #: admin review all read this tuple, so "did we remember to add guess?" is
+    #: a question with one answer instead of three call sites.
+    strategies: tuple[str, ...] = ()
     #: INV-002's gate. Only :meth:`confirm_uniqueness` writes it.
     ready_for_export: bool = False
 
@@ -1088,6 +1115,10 @@ class Puzzle:
         self.undecided_mask = None
         self.witnesses = None
         self.rung_tags = None
+        # Cleared with the rest of the judged facts: a strategies list that
+        # outlived its candidate would read as a statement about the puzzle
+        # that shipped while describing one that was discarded.
+        self.strategies = ()
         self.ready_for_export = False
         return self.clues
 
@@ -1143,7 +1174,9 @@ class Puzzle:
             return True
         return self.difficulty_tier is self.requested_tier
 
-    def record_difficulty(self, score: float, branch_nodes: int) -> bool:
+    def record_difficulty(
+        self, score: float, branch_nodes: int, rungs: tuple[str, ...] = ()
+    ) -> bool:
         """Record COMP-006's grade for the current candidate and judge it.
 
         POL-004's decision point. Both numbers are stored as they were given —
@@ -1158,6 +1191,11 @@ class Puzzle:
                 argument rather than derived from the score, because it cannot
                 be: EC-015 makes ``Tier.GUESS`` a fact about the solve, and no
                 threshold on the score can recover it.
+            rungs: the *same* solve's ``SolveSignals.rungs`` — the distinct
+                ladder rungs it climbed, in order. Recorded as
+                :attr:`strategies` with ``"guess"`` appended when
+                ``branch_nodes`` is non-zero, which is the one place that
+                append happens (FR-029, ADR-0025/R1).
 
         Returns:
             :attr:`difficulty_in_requested_tier` for the grade just recorded:
@@ -1166,6 +1204,17 @@ class Puzzle:
         """
         self.difficulty_score = score
         self.branch_nodes = branch_nodes
+        # `guess` is appended on the *tier*, not on `branch_nodes` read here.
+        # The two say the same thing — ADR-0025 keys `Tier.GUESS` on exactly
+        # that count — but reading the count here would add a second reader of
+        # EC-015's rule, which is what ADR-0025/R2 exists to prevent. Both
+        # derivations already in the tree (`admin.regrade._strategies_used`
+        # and `admin.puzzle_review._strategies_of`) ask the classifier for the
+        # same reason; this is a third caller of one rule, not a third rule.
+        # `difficulty_tier` reads the two fields just assigned.
+        self.strategies = tuple(rungs) + (
+            (GUESS_STRATEGY,) if self.difficulty_tier is difficulty.Tier.GUESS else ()
+        )
         return self.difficulty_in_requested_tier
 
     def require_ready_for_export(self) -> None:
@@ -1691,6 +1740,7 @@ def generate(
         puzzle.record_difficulty(
             difficulty.score_difficulty(verdict.signals),
             verdict.signals.branch_nodes,
+            verdict.signals.rungs,
         )
         return puzzle
 
@@ -2247,6 +2297,14 @@ def export_puzzle(puzzle: Puzzle) -> tuple[Path, ...]:
         # COMP-007 may not import COMP-006 to ask (ADR-0007).
         name=puzzle.name,
         difficulty=tier.label if tier is not None else None,
+        # FR-029 and FR-027, carried as values for the same reason the tier is
+        # — COMP-007 may not import COMP-006 or COMP-003 to ask (ADR-0007).
+        # Both are already resolved on the aggregate, and neither is derived
+        # again here: `strategies` is the deciding solve's ladder with `guess`
+        # appended once, in `record_difficulty`, and `binarisation` is the path
+        # the conversion actually took.
+        strategies=puzzle.strategies,
+        binarisation=puzzle.binarisation,
     )
     # One *base* stem for the whole run — the puzzle's name — so a multi-format
     # export produces one named puzzle in several formats rather than several
