@@ -50,9 +50,10 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-- **CARD-098** P2 · The Guess tier retired — three score bands, branching reported as a strategy · `card/098-retire-the-guess-tier` · ADR-0031 supersedes ADR-0025; one of the suite's two standing failures deleted with it
+_(none)_
 
 ## Done
+- **CARD-098** P2 · The Guess tier retired — three score bands, branching reported as the `guess` strategy; ADR-0031 supersedes ADR-0025 · never assigned in ~7,400 measured puzzles · one of the two standing suite failures deleted with it · merged without a review cycle, at the owner's call · merged 0df8d63
 - **CARD-097** P2 · A database that never answers no longer stops the suite — connect deadline, reachability probed once a session, faulthandler net dumping to a file · with Postgres listening: never finished → 2 m 08 s · merged without a review cycle, at the owner's call · merged a073d5c
 - **CARD-072** P2 · A puzzle records the strategies its solve needed — carried to the JSON export (with CARD-079's deferred `binarisation`, no schema bump) and filterable in the admin list · merged without a review cycle, at the owner's call · merged 50996b6
 - **CARD-079** P2 · Silhouettes thresholded, photographs dithered, blank conversions guarded — owner's visual gate discharged, ADR-0026 Accepted; shipped vs dither over 125 conversions: 110 vs 109 made, 91 vs 80 unique first time, 39 vs 53 nudges, 0 regressions · merged without a review cycle, at the owner's call · merged 97dc287
