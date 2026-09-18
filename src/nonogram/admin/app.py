@@ -47,6 +47,7 @@ from .puzzle_review import (
     PuzzleFilter,
     PuzzleReviewService,
     PuzzleStatus,
+    STRATEGY_NAMES,
 )
 from .book_manager import get_book_manager, BookStatus
 from .pdf_generator import get_pdf_generator
@@ -1261,7 +1262,9 @@ def create_app(debug=None):
                             difficulty_tier=puzzle.difficulty_tier,
                             quality_score=quality_score,
                             recognizability=recognizability,
-                            strategies_used=[],
+                            # FR-029, as in the random batch: the aggregate
+                            # carries the deciding solve's ladder (CARD-072).
+                            strategies_used=list(puzzle.strategies),
                             batch_id=batch_id,
                             source_image=image.original_filename,
                         )
@@ -1505,6 +1508,18 @@ def create_app(debug=None):
             flash(f"Unknown status {status!r} — showing every status instead", "info")
             status = None
 
+        # Strategy (FR-029), the same shape as status above and for the same
+        # reason: an unknown value is reported and then ignored, because
+        # filtering on it would show an empty list that reads as "nothing
+        # matches your other filters".
+        strategy = request.args.get("strategy") or None
+        if strategy and strategy not in STRATEGY_NAMES:
+            flash(
+                f"Unknown strategy {strategy!r} — showing every strategy instead",
+                "info",
+            )
+            strategy = None
+
         # Pagination
         limit = request.args.get("limit", 25, type=int)
         offset = request.args.get("offset", 0, type=int)
@@ -1523,6 +1538,7 @@ def create_app(debug=None):
                 book_id=book_id,
                 puzzle_name=puzzle_name,
                 status=status,
+                strategy=strategy,
                 sort_by=sort_by,
                 limit=limit,
                 offset=offset,
@@ -1548,6 +1564,7 @@ def create_app(debug=None):
                 pagination=_page_window(result.total_count, result.limit, result.offset),
                 books=books,
                 statuses=_PUZZLE_STATUSES,
+                strategies=STRATEGY_NAMES,
             )
 
         except ValueError as e:

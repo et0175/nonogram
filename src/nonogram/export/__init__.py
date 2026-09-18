@@ -121,6 +121,28 @@ class ExportPayload:
             produced — the grid's actual extent is derivable from
             :attr:`grid`, and always was.
         density: The requested fill percentage, same nullability, same reason.
+        strategies: FR-029's list — what a solver has to know to finish this
+            puzzle, in ADR-0029's ladder order, with ``"guess"`` last when the
+            search had to branch. ``()`` for a payload built from a decoded
+            document that predates the field, which is a real state and not a
+            claim that the puzzle needed nothing: see ``json_export.parse``.
+        binarisation: For an image-mode puzzle, which way the picture was
+            reduced to black and white — ``"threshold"`` or ``"dither"``
+            (FR-027). ``None`` for random and library puzzles, which converted
+            no picture, and for a document that predates the field.
+
+            Unlike :attr:`difficulty` above, these two *are* serialized — in
+            JSON only. They were added at the existing ``SCHEMA_VERSION``
+            rather than behind a bump, which ADR-0023's rule permits precisely
+            because no existing reader breaks on them: JSON's decoder reads
+            the fields it names and ignores the rest, so a document written
+            before they existed still decodes (the fields default) and one
+            written after is still a valid document to an older build. CSV
+            could not take them on those terms — its ``#meta`` block has a
+            closed key set and its decoder refuses any version but its own —
+            so CSV carries neither, by decision rather than by oversight
+            (CARD-072, the owner's call: keep every file already exported
+            readable).
         name: FR-015's puzzle name, verbatim — what the PDF header shows
             (FR-016) and what the filename stem was derived from. ``None`` for
             an aggregate that never got a name.
@@ -158,6 +180,8 @@ class ExportPayload:
     density: int | None = None
     name: str | None = None
     difficulty: str | None = None
+    strategies: tuple[str, ...] = ()
+    binarisation: str | None = None
 
 
 #: What a renderer looks like from the dispatcher's side: it writes one payload

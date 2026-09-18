@@ -57,6 +57,11 @@ class PuzzleFilter:
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None
     status: Optional[str] = None
+    #: FR-029: keep only puzzles whose recorded strategies *contain* this name
+    #: — "show me the ones that need a guess". Membership, not equality: a
+    #: puzzle needing ``simple_overlap`` and ``guess`` answers both filters.
+    #: One of :data:`STRATEGY_NAMES`; the route rejects anything else.
+    strategy: Optional[str] = None
     batch_id: Optional[str] = None  # Filter by batch ID
     date_from: Optional[str] = None  # Filter by created_at >= date (YYYY-MM-DD)
     date_to: Optional[str] = None    # Filter by created_at <= date (YYYY-MM-DD)
@@ -755,6 +760,11 @@ class PuzzleReviewService:
                 # Status filter
                 if filter_opts.status and puzzle["status"] != filter_opts.status:
                     continue
+                # Strategy filter (FR-029): does this puzzle need that one?
+                if filter_opts.strategy:
+                    recorded = puzzle.get("strategies_used") or ()
+                    if filter_opts.strategy not in recorded:
+                        continue
                 # Puzzle name filter: a case-insensitive substring of either
                 # name a row can carry. Picture-derived rows often have no
                 # puzzle_name at all and are listed under their source_image,
@@ -801,7 +811,7 @@ class PuzzleReviewService:
 
         else:
             # DB mode: query database
-            from sqlalchemy import or_
+            from sqlalchemy import String, cast, or_
             from nonogram.db.models import Puzzle
             import uuid as uuid_module
 
@@ -836,6 +846,23 @@ class PuzzleReviewService:
                     query = query.filter(Puzzle.theme == filter_opts.theme)
                 if filter_opts.status:
                     query = query.filter(Puzzle.status == filter_opts.status)
+                if filter_opts.strategy:
+                    # The column is JSON, and the two databases this runs on
+                    # disagree about how to look inside one: Postgres wants
+                    # JSONB containment, SQLite wants json_each. Matching the
+                    # *quoted* name inside the serialized text is the one
+                    # expression both accept, and it is exact rather than
+                    # approximate because the vocabulary is closed
+                    # (STRATEGY_NAMES): the names contain no quote, no
+                    # wildcard and no substring of one another, so `"guess"`
+                    # can only match the element `guess` — never a longer
+                    # name, and never other text in the row (a source image
+                    # called `guess.png` is not quoted this way).
+                    query = query.filter(
+                        cast(Puzzle.strategies_used, String).like(
+                            f'%"{filter_opts.strategy}"%'
+                        )
+                    )
 
                 # Date range filter
                 if filter_opts.date_from:
@@ -1378,8 +1405,8 @@ class MockGenerator:
             else:
                 width = height = size_spec
 
-            grid, clues_rows, clues_cols, score, tier = self._draw_until_unique(
-                width, height
+            grid, clues_rows, clues_cols, score, tier, strategies = (
+                self._draw_until_unique(width, height)
             )
 
             puzzle = {
@@ -1393,7 +1420,7 @@ class MockGenerator:
                 'difficulty_tier': tier,
                 'quality_score': self.rng.randint(1, 100),
                 'recognizability': self.rng.choice(['low', 'medium', 'high']),
-                'strategies_used': ['LineLogic', 'ConstraintProp'],
+                'strategies_used': strategies,
             }
             puzzles.append(puzzle)
 
@@ -1431,6 +1458,15 @@ class MockGenerator:
                 [list(run) for run in column_clues],
                 math.ceil(score),
                 tier.value,
+                # FR-029, off the same certifying solve as the grade beside it
+                # (CARD-072). Before this the dict below carried a hardcoded
+                # ``['LineLogic', 'ConstraintProp']`` — names this system's
+                # solver has never produced, stored in the same column the
+                # real pipeline writes, where nothing downstream could tell
+                # them apart. Borrowed from ``PuzzleReviewService`` rather than
+                # copied: one rule for appending ``guess`` (ADR-0025/R2), and
+                # a demo generator is not a reason to acquire a second.
+                PuzzleReviewService._strategies_of(result),
             )
 
         raise NotUniquelySolvable(

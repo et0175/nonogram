@@ -389,7 +389,11 @@ class BatchGenerator:
                         difficulty_tier=puzzle.difficulty_tier,
                         quality_score=None,
                         recognizability=None,
-                        strategies_used=[],
+                        # FR-029: the generation path now has the deciding
+                        # solve's ladder on the aggregate (CARD-072), so the
+                        # store no longer has to fall back to deriving it from
+                        # its own uniqueness proof.
+                        strategies_used=list(puzzle.strategies),
                         batch_id=batch_id,
                     )
                 except NotUniquelySolvable:

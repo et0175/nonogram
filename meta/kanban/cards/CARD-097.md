@@ -1,7 +1,7 @@
-# CARD-097: A full-suite run stalled for eleven minutes in the re-grade route test, once, and has not reproduced
+# CARD-097: A Postgres connection with no timeout hangs the suite whenever Postgres.app is waiting on its permission dialog
 
 **Status:** ready
-**Priority:** P3
+**Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
 **Complexity:** standard
@@ -24,12 +24,74 @@
 
 ## Why
 
+_(Written 2026-09-17, before the cause was known — kept as the record of what
+it looked like from outside. The **Diagnosed** section above supersedes its
+conclusion.)_
+
 One full-suite run on 2026-09-17 stalled and never finished. It was killed
 after ~11 minutes. **It has not reproduced since**, and the first diagnosis —
 "a local Postgres being up hangs the suite" — is **wrong**: two later full runs
 with the same Postgres listening completed normally. This card exists because
 a suite that stalls once will stall again, and the next person to meet it
 should start from the evidence rather than from scratch.
+
+## Diagnosed 2026-09-18 — the cause, found while running CARD-072
+
+**It is not a lock, a leaked session or a slow query. The process is blocked
+making the connection, and the connection can never complete.**
+
+Caught in the act during a CARD-072 suite run, with `sample` on the live
+process:
+
+```
+psyco_connect  (in _psycopg...)
+  connection_init
+    conn_connect        <- the main thread, parked here, 0% CPU
+```
+
+And the server's side of the same attempt, from `psql`:
+
+```
+FATAL:  Postgres.app failed to verify "trust" authentication
+DETAIL: You did not confirm the permission dialog.
+```
+
+**Postgres.app (18) shows a macOS permission dialog on connection.** Until
+somebody clicks it, the TCP socket is `ESTABLISHED` — which is why `lsof`
+showed a live connection — but authentication never finishes. Nothing in this
+project sets `connect_timeout`, and libpq's default is *wait forever*, so the
+test that opened it waits forever too.
+
+That explains every observation on this card, including the ones that made it
+look intermittent:
+
+- **0% CPU over eleven minutes** — blocked in `connect`, not computing.
+- **An ESTABLISHED connection with no query running** — connected, unauthenticated.
+- **Not reproducible in short runs** — the dialog is per app session and per
+  user action. Runs after it is confirmed (or where nothing connects) are
+  normal; the "114 s with Postgres listening" measurement was such a run.
+- **The test it stops is arbitrary** — whichever one first opens a connection.
+  It appeared in `test_admin_regrade.py` on 2026-09-17 and in CARD-072's new
+  `create_app()` test on 2026-09-18, which is also why that test now clears
+  `DATABASE_URL` explicitly.
+- **`db_required` tests still "skip"** — the skip hook's `SELECT 1` is what
+  hangs, so the skip it was written to produce never arrives.
+
+## What to implement (revised by the diagnosis)
+
+1. **Give every connection attempt a deadline.** `create_engine(...,
+   connect_args={"connect_timeout": N})` in `db/session.py` turns "hang
+   forever" into an error the existing skip hook already handles. This is the
+   fix; the rest is hygiene.
+2. **Make the skip hook honest.** `pytest_runtest_setup` exists to skip DB
+   tests when the database is unreachable — with no timeout it cannot, because
+   unreachable and unanswered look the same. With item 1 it works as written.
+3. **Then the diagnosability work below** is still worth doing, but it is no
+   longer the way this bug gets found.
+
+**For the owner, separately from the code:** confirming Postgres.app's
+permission dialog once, or quitting Postgres.app, removes the symptom today.
+The card is about the tool not hanging when it happens again.
 
 ## What was observed, exactly
 
@@ -89,6 +151,13 @@ that connection. Finding what, and whether it is ever closed, is step 1.
 
 ## Acceptance criteria
 
+- **AC-0** *(added by the diagnosis, and the one that matters)* — with
+  Postgres listening but not answering (Postgres.app awaiting its permission
+  dialog, or any equivalent), the suite **finishes**: the connection attempt
+  fails inside the configured timeout and the `db_required` tests skip as they
+  were designed to.
+  *test:* an engine built against a black-hole address fails fast rather than
+  blocking — e.g. a listening socket that never replies
 - **AC-1** — a test that hangs is reported as a failure with a stack, not as a
   run that never ends: with a deliberately hanging test injected, the suite
   fails within the configured limit and names the test.
