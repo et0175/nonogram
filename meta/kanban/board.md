@@ -31,6 +31,7 @@ _(none)_
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
 - **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
+- **CARD-097** P3 · A full-suite run stalled eleven minutes in the re-grade route test, once — make the next stall diagnosable, and account for the stray Postgres connection  _(wave 1)_ — not reproduced; evidence recorded on the card
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
