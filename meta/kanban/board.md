@@ -30,7 +30,6 @@ _(none)_
 ## Ready
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
-- **CARD-072** P2 · Record the solving strategies a puzzle needs and save them with the puzzle  _(wave 1)_ — item 1 waits on the difficulty-rescoring ADR
 - **CARD-097** P2 · A Postgres connection with no timeout hangs the whole suite while Postgres.app waits on its permission dialog  _(wave 1)_ — diagnosed 2026-09-18 during CARD-072: blocked in psycopg's connect, so the `db_required` skip hook can never fire; the fix is a `connect_timeout`
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
@@ -55,6 +54,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-072** P2 · A puzzle records the strategies its solve needed — carried to the JSON export (with CARD-079's deferred `binarisation`, no schema bump) and filterable in the admin list · merged without a review cycle, at the owner's call · merged 50996b6
 - **CARD-079** P2 · Silhouettes thresholded, photographs dithered, blank conversions guarded — owner's visual gate discharged, ADR-0026 Accepted; shipped vs dither over 125 conversions: 110 vs 109 made, 91 vs 80 unique first time, 39 vs 53 nudges, 0 regressions · merged without a review cycle, at the owner's call · merged 97dc287
 - **CARD-075** P2 · Image-mode nudge adds one cell per attempt from where the solver's witnesses disagree — 107 of 125 corpus conversions made against 89, 0 regressions; admin loss 3/5/7/7 → 2/2/3/3 · AC-172 closed at 18 of 19, owner kept the ink-boundary ranking · merged without a review cycle, at the owner's call · merged bb35762
 - **CARD-096** P2 · Image-mode abandonment measured by cause — admin loses 3-7 of 25 per preset; witnesses disagree on 4 cells in 27 of 34; CARD-075 revised from it · a measurement, merged at the owner's call · merged ade79e8
