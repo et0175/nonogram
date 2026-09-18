@@ -1,24 +1,24 @@
 # CARD-097: A Postgres connection with no timeout hangs the suite whenever Postgres.app is waiting on its permission dialog
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (6 mutants, 5 caught, 1 near-equivalent)
 **Branch:** card/097-suite-stall-in-regrade-route
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-097
 **Source:** owner — "open a card for the Postgres hang" (observed during CARD-079, 2026-09-17)
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/conftest.py (the DB fixtures and the `db_required` skip hook), tests/test_admin_regrade.py (the `TestRegradeRoute_PreviewsBeforeItWrites` fixture), possibly src/nonogram/db/session.py — none of it decided, because the cause is not known yet
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-18
+**Closed:** 2026-09-18
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -135,14 +135,14 @@ that connection. Finding what, and whether it is ever closed, is step 1.
 ## What to implement
 
 1. **Make the next stall diagnosable instead of fatal.** Today a stalled run
-   has to be caught by hand with `ps`/`sample`. A per-test timeout that dumps
-   the stack would turn an eleven-minute mystery into a failure with a
-   traceback. `pytest-timeout` is the obvious tool and is **not in the
-   dependency baseline** (ADR-0006/R1, dev extra) — adding it is a decision to
-   take deliberately, not a side effect of this card. The alternative with no
-   new dependency is a `faulthandler.dump_traceback_later()` call in
-   `conftest.py`, which needs no package and prints every thread's stack.
-   **Decide which, and say why, in the card's notes.**
+   has to be caught by hand with `ps`/`sample`. **Decided 2026-09-18, by the
+   owner: `faulthandler`, not `pytest-timeout`** — armed before each test and
+   cancelled after, in `tests/conftest.py`. It is stdlib, so ADR-0006/R1's
+   baseline does not move for a debugging convenience, and it dumps *every*
+   thread's stack rather than only the one pytest is watching. The cost is
+   about ten lines of hook and a per-test wall-clock bound that has to be
+   generous enough for the slowest honest test (the corpus property tests run
+   into the tens of seconds), which is worth stating in the notes.
 2. **Account for the Postgres connection.** Find what opens it, whether it is
    closed, and whether a test can leave a session open across tests. A leaked
    connection is worth fixing on its own merits even if it is not the cause.
@@ -205,4 +205,79 @@ that connection. Finding what, and whether it is ever closed, is step 1.
 
 ## Worktree notes
 
-—
+### Delivered 2026-09-18
+
+**The fix (AC-0).** `db/session.py` gains `CONNECT_TIMEOUT_SECONDS = 10`, passed
+as libpq's `connect_timeout` — and **only for PostgreSQL URLs**, since SQLite's
+driver has no such keyword and would raise `TypeError` on every legacy and test
+path. `session.py` is the only place in `src/` that builds an engine, so one
+change covers everything.
+
+**The skip hook, made honest (AC-2).** It now asks a session-cached probe
+instead of connecting per test. That mattered more than expected — see below.
+
+**The net (AC-1).** `tests/hang_guard.py`: `faulthandler.dump_traceback_later`
+armed before each test and cancelled after, 120 s, overridable with
+`NONOGRAM_TEST_HANG_SECONDS`. The owner chose stdlib over `pytest-timeout`, so
+ADR-0006/R1's baseline does not move.
+
+### Measured, before and after (AC-3)
+
+| full suite | before this card | after |
+|---|---|---|
+| Postgres unreachable | 94–97 s | ~95 s (unchanged) |
+| **Postgres listening but not answering** | **never finished** | **2 m 08 s** |
+| Postgres answering normally | 114 s | ~120 s |
+
+### Two things the fix uncovered, both fixed here
+
+1. **The deadline alone made the suite take eight and a half minutes.** With a
+   database that listens and never answers, every fixture wanting one paid the
+   full 10 s — ~25 `test_wave3_*` tests paid it *twice each* in setup, and the
+   run took **8 m 24 s** to report the same 26 skips a 95-second run reports.
+   Trading an infinite hang for eight minutes is a poor fix. The reachability
+   verdict is now taken **once per URL per session**
+   (`conftest._unreachable_reason`), which is what brings it to 2 m 08 s. The
+   cost is now one deadline for the whole run, which is the least it can be.
+
+2. **The stack dump was invisible — twice.** pytest captures at the
+   file-descriptor level, so a dump written to fd 2 during a test lands in a
+   buffer that is discarded when the process is killed a moment later. The
+   first version printed nothing. Duplicating fd 2 at import time fixes that
+   *only* if the module is imported before capture is installed — true under
+   `-p tests.hang_guard`, false when `tests/conftest.py` imports it, so the
+   second version printed nothing either, and I only noticed because a mutant
+   run ended in silence at exactly the 20 s bound. The dump now goes to a
+   **file** (`$TMPDIR/nonogram-test-hang.txt`, or `NONOGRAM_TEST_HANG_DUMP`),
+   whose path is announced in the run header. A file has no ordering problem.
+
+   Worth stating plainly: a safety net that is silent is not a safety net, and
+   this one was silent in exactly the situation it exists for.
+
+### Tests
+
+`tests/test_db_connect_timeout.py`, 5 tests. The fixture is a socket that
+listens and never accepts — the kernel completes the handshake from the
+backlog, so `connect` succeeds and the first read waits forever, which is what
+a Postgres blocked on a permission dialog looks like from the client side. No
+Postgres needed to reproduce the bug.
+
+Mutation check — six mutants, restored from saved copies:
+
+| mutant | caught by |
+|---|---|
+| connection deadline removed | the black-hole test (the run is killed by the guard at its bound — which is the guard proving itself) |
+| deadline applied to every scheme, SQLite included | `..._a_sqlite_url_is_not_given_a_postgres_connect_option` |
+| reachability verdict not cached | `..._the_reachability_verdict_is_taken_once_per_url` |
+| dump written to captured stderr | `..._a_hanging_test_is_killed_and_its_stack_printed` |
+| header announcement removed | `..._a_run_says_where_a_hang_dump_would_go` |
+| timer never cancelled after a test | **survived — near-equivalent**: arming resets the timer each test, so the only difference is an alarm left armed through session teardown. Cancelling is hygiene; a test for it would have to make teardown outlast the bound, which is contrived. Recorded rather than faked. |
+
+**Full suite: 3,473 passed, 0 failed** — with Postgres listening, which is the
+configuration that could not finish at all before this card.
+
+### For the owner
+
+The machine-level symptom is Postgres.app's permission dialog. Confirming it
+once, or quitting Postgres.app, removes it. Nothing here depends on that: the
+suite now finishes either way, which was the point.
