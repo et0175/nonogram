@@ -933,12 +933,12 @@ def test_an_out_directory_that_is_actually_a_file_reaches_the_user_cleanly(
 # ==========================================================================
 
 
-def test_export_round_trips_a_guess_tier_puzzle(tmp_path: Path) -> None:
-    """AC-B — ``TestExport_RoundTripsGuessTier``, and the evidence behind the
-    SCHEMA_VERSION decision.
+def test_export_round_trips_a_branching_puzzle(tmp_path: Path) -> None:
+    """A solve that branched round-trips like any other, and the evidence
+    behind the SCHEMA_VERSION decision.
 
     ADR-0023/R2's rule is "bump only when an existing reader could not
-    survive", and ADR-0025's Neutral section guesses that a reader parsing
+    survive", and ADR-0025's Neutral section guessed that a reader parsing
     ``difficulty`` through ``Tier(...)`` would reject ``"guess"`` — "so it
     likely does". Checked rather than taken: **this format does not serialize
     ``difficulty`` at all.** ``document`` writes ``version``, ``seed``,
@@ -947,16 +947,20 @@ def test_export_round_trips_a_guess_tier_puzzle(tmp_path: Path) -> None:
     protect. A bump would have refused every version-2 file in existence in
     order to announce a change no version-2 file can contain.
 
-    What the round trip therefore shows is that a ``guess``-tier puzzle
+    What the round trip therefore shows is that a puzzle whose solve branched
     round-trips exactly as any other does (EC-002), and that ``difficulty``
     comes back ``None`` for it — which it has done for every tier since the
     field was added, because the field is an in-process carrier for the PDF
     header (FR-016) and the ADR-0016 filename, not part of either schema.
+
+    Since CARD-098 the branching is visible in ``strategies`` rather than in a
+    tier of its own — and ``strategies`` *is* serialized (CARD-072), so this
+    also pins that the fact survives the round trip.
     """
     puzzle = _puzzle(tmp_path)
-    # A solve that branched: ADR-0025 classifies that Guess by the fact alone.
-    puzzle.record_difficulty(10.0, 1)
-    assert puzzle.difficulty_tier is difficulty.Tier.GUESS
+    puzzle.record_difficulty(10.0, 1, ("simple_overlap",))
+    assert puzzle.strategies == ("simple_overlap", "guess")
+    assert puzzle.difficulty_tier is difficulty.classify(10.0)
 
     path = export_puzzle(puzzle)[0]
     document = json.loads(path.read_text(encoding="utf-8"))

@@ -994,9 +994,7 @@ class TestMockGenerator_ProducesPuzzlesAndNotJustGrids:
             result = solve(*compute_clues(puzzle["grid"]))
             score = score_difficulty(result.signals)
             assert puzzle["difficulty_score"] == math.ceil(score)
-            assert puzzle["difficulty_tier"] == classify(
-                score, result.signals.branch_nodes
-            ).value
+            assert puzzle["difficulty_tier"] == classify(score).value
 
     def test_it_keeps_drawing_until_the_solver_certifies_one(
         self, monkeypatch: pytest.MonkeyPatch

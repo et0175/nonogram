@@ -493,7 +493,7 @@ def test_the_score_recorded_is_the_one_the_tier_check_used(
 
     assert scorer.candidates_scored == source.candidates_requested == 2
     assert puzzle.difficulty_score == _in_band(Tier.HARD)
-    assert puzzle.difficulty_tier is difficulty.classify(_in_band(Tier.HARD), 0)
+    assert puzzle.difficulty_tier is difficulty.classify(_in_band(Tier.HARD))
 
 
 # --------------------------------------------------------------------------
@@ -776,7 +776,7 @@ def test_a_puzzle_generated_for_a_tier_really_scores_in_that_tier(seed: int) -> 
     )
 
     assert puzzle.difficulty_score is not None
-    assert difficulty.classify(puzzle.difficulty_score, 0) is Tier.EASY
+    assert difficulty.classify(puzzle.difficulty_score) is Tier.EASY
     assert puzzle.difficulty_tier is Tier.EASY
     assert puzzle.requested_tier is Tier.EASY
     assert puzzle.ready_for_export is True
@@ -933,10 +933,8 @@ def test_the_dilated_clock_really_reaches_the_solvers_report(
     assert at_50x.elapsed_seconds > at_1x.elapsed_seconds * 10
     assert difficulty.score_difficulty(at_50x) == difficulty.score_difficulty(at_1x)
     assert difficulty.classify(
-        difficulty.score_difficulty(at_50x), at_50x.branch_nodes
-    ) is difficulty.classify(
-        difficulty.score_difficulty(at_1x), at_1x.branch_nodes
-    )
+        difficulty.score_difficulty(at_50x)
+    ) is difficulty.classify(difficulty.score_difficulty(at_1x))
 
 
 # --------------------------------------------------------------------------

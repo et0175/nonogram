@@ -627,14 +627,13 @@ def run_bounded[T](
 #: witnesses disagree on (ADR-0024's primary rule).
 #: FR-029's fourth strategy name — the one COMP-005 deliberately does not
 #: report. ``SolveSignals.rungs`` carries only ADR-0029's three ladder rungs;
-#: branching is not a rung but the search admitting the ladder ran out, and
-#: ADR-0025 keys it on ``branch_nodes``. Taken from :class:`difficulty.Tier`
-#: rather than spelled again here, because ADR-0025/R2 requires the tier value
-#: ``guess`` and the strategy ``guess`` to be the same fact under the same
-#: name — two literals would let them drift apart in a rename. The *decision*
-#: to append it is taken by asking ``difficulty.classify``, not by re-reading
-#: ``branch_nodes`` (see :meth:`Puzzle.record_difficulty`).
-GUESS_STRATEGY = difficulty.Tier.GUESS.value
+#: branching is not a rung but the search admitting the ladder ran out.
+#:
+#: Re-exported from COMP-005, where the rest of the strategy vocabulary lives
+#: (CARD-098). It used to be ``difficulty.Tier.GUESS.value``, because ADR-0025
+#: made the tier and the strategy the same fact under one name; ADR-0031
+#: retired the tier, and the strategy outlived it.
+GUESS_STRATEGY = solver.STRATEGY_GUESS
 
 WITNESS_DISAGREEMENT_REGION = "witness-disagreement"
 #: The region a repair took its pair from when the disagreement set held no
@@ -1153,9 +1152,9 @@ class Puzzle:
         tier classifier in the package and it is COMP-006's. This module hands
         it the two facts the one verifying solve reported and takes the answer.
         """
-        if self.difficulty_score is None or self.branch_nodes is None:
+        if self.difficulty_score is None:
             return None
-        return difficulty.classify(self.difficulty_score, self.branch_nodes)
+        return difficulty.classify(self.difficulty_score)
 
     @property
     def difficulty_in_requested_tier(self) -> bool:
@@ -1204,16 +1203,14 @@ class Puzzle:
         """
         self.difficulty_score = score
         self.branch_nodes = branch_nodes
-        # `guess` is appended on the *tier*, not on `branch_nodes` read here.
-        # The two say the same thing — ADR-0025 keys `Tier.GUESS` on exactly
-        # that count — but reading the count here would add a second reader of
-        # EC-015's rule, which is what ADR-0025/R2 exists to prevent. Both
-        # derivations already in the tree (`admin.regrade._strategies_used`
-        # and `admin.puzzle_review._strategies_of`) ask the classifier for the
-        # same reason; this is a third caller of one rule, not a third rule.
-        # `difficulty_tier` reads the two fields just assigned.
+        # Read straight off `branch_nodes` since CARD-098. It used to ask
+        # `difficulty.classify` instead, because ADR-0025 made a branching
+        # solve a *tier* and ADR-0025/R2 allowed only one reader of that rule.
+        # ADR-0031 retired the tier, so there is no longer a rule to
+        # concentrate: "the search branched" is simply what this count says,
+        # and reading it is not a second opinion about anything.
         self.strategies = tuple(rungs) + (
-            (GUESS_STRATEGY,) if self.difficulty_tier is difficulty.Tier.GUESS else ()
+            (GUESS_STRATEGY,) if branch_nodes > 0 else ()
         )
         return self.difficulty_in_requested_tier
 

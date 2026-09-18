@@ -64,6 +64,7 @@ from nonogram.solver.propagate import (
     RUNG_ORDER,
     RUNG_PROBE_CONTRADICTION,
     RUNG_SIMPLE_OVERLAP,
+    STRATEGY_GUESS,
 )
 from nonogram.solver.search import MANY, RungTags, SolveResult, SolveSignals, solve
 
@@ -73,6 +74,7 @@ __all__ = [
     "RUNG_ORDER",
     "RUNG_PROBE_CONTRADICTION",
     "RUNG_SIMPLE_OVERLAP",
+    "STRATEGY_GUESS",
     "RungTags",
     "SolveResult",
     "SolveSignals",

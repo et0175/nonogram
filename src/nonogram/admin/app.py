@@ -188,6 +188,9 @@ STRATEGY_LABELS = {
     "simple_overlap": "Simple overlap",
     "line_dp": "Full line solving",
     "probe_contradiction": "Contradiction probing",
+    # Still here after CARD-098 retired the *tier* of the same name: a solve
+    # that had to branch is still a fact worth showing beside a puzzle, and
+    # FR-029 still reports it. Only the difficulty claim went.
     "guess": "Guessing (trial and error)",
 }
 
@@ -1986,7 +1989,6 @@ def create_app(debug=None):
         easy_count = tier_counts[Tier.EASY]
         medium_count = tier_counts[Tier.MEDIUM]
         hard_count = tier_counts[Tier.HARD]
-        guess_count = tier_counts[Tier.GUESS]
 
         context = {
             "book": book,
@@ -1995,7 +1997,6 @@ def create_app(debug=None):
             "easy_count": easy_count,
             "medium_count": medium_count,
             "hard_count": hard_count,
-            "guess_count": guess_count,
             "page_count": max(1, len(puzzles_in_book) + 2),  # Cover + guide + puzzles
             "cover_uploaded": bool(session.get(f"book_{book_id}_cover_data")),
             "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM,

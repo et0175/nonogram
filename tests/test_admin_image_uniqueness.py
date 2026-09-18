@@ -220,4 +220,4 @@ def test_ac3_difficulty_comes_from_real_solver_signals_not_grid_size(admin_app, 
     assert stored_tier in {t.value for t in difficulty.Tier}
 
     assert stored_score is not None
-    assert difficulty.classify(stored_score, 0).value == stored_tier
+    assert difficulty.classify(stored_score).value == stored_tier

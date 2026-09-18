@@ -1,9 +1,9 @@
 # ADR-0025: "Requires guessing" is a fourth difficulty tier, not a flag
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0031 (2026-09-18)
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-09-18 (superseded)
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -167,6 +167,15 @@ shape the intake asked us to avoid.
 - Unblocked by this ADR: DEC-031 (formula and cutoffs on the new scale, with
   no branch term) and CARD-072 (strategies saved with the puzzle — "guess" is
   now both a strategy and a tier, derived from the same `branch_nodes` fact).
+
+- 2026-09-18: **Superseded by ADR-0031.** The tier this ADR added was never
+  assigned — 0 of 6,620 (ADR-0029), 0 of 462 (CARD-076), 0 of ~290 (AC-118's
+  corpus), 0 of 16 stored rows — and CARD-072 established why: no random draw
+  in the supported range branches at all. The History entry below anticipated
+  the zero rate and kept the tier as a safety net; the owner weighed that
+  argument on 2026-09-18 and retired it. The fact it carried is not lost: a
+  branching solve reports the `guess` **strategy** (FR-029). R1 and R2 below
+  are historical from this date; EC-015 is retired with them.
 
 ## Rules
 ```yaml

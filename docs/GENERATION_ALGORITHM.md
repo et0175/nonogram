@@ -378,8 +378,10 @@ reads (§7).
 **One measured consequence.** Because lookahead is a phase of the solve rather than search work,
 it settles puzzles that previously needed a guess: across 6,620 uniquely-solvable random and
 structured grids from 10x10 to 20x20, **none** required a real branch. Every puzzle the generator
-produces is logically solvable, which is the product promise; ADR-0025's Guess tier is kept as a
-measured-unreachable safety net rather than deleted.
+produces is logically solvable, which is the product promise. ADR-0025 added a Guess tier for the
+case anyway, as a measured-unreachable safety net; **ADR-0031 retired it** (CARD-098) after
+CARD-072 established that no random draw in the supported range branches at all. Branching is
+still reported — as the `guess` *strategy* (§7.1, FR-029) — but it is not a difficulty.
 
 **Independent verification:** `tests/property/test_solver_uniqueness.py` cross-checks the solver
 against two brute-force counters in `tests/helpers/brute_force_oracle.py`, which imports only
@@ -402,7 +404,9 @@ on that fact alone.
 | `simple_overlap` | Easy | `[0, 33]` | the overlap rule finished the puzzle by itself |
 | `line_dp` | Medium | `(33, 66]` | some line needed the full placement intersection |
 | `probe_contradiction` | Hard | `(66, 100]` | some cell needed a refuted one-step probe |
-| — (`branch_nodes >= 1`) | Guess | none | the search really had to branch (EC-015) |
+
+A solve with `branch_nodes >= 1` had a Guess tier of its own until ADR-0031; it now takes whichever
+band its score falls in, and reports the `guess` strategy beside it.
 
 The 0..100 number is a derived presentation (`difficulty.score_difficulty`), kept so the export,
 the DB column and POL-004's predicate survive unchanged in type:
@@ -423,12 +427,12 @@ would classify Medium and the Easy band would be empty. With the edges on the cu
 strictly positive share and so scores strictly above its band's floor. That is what makes
 ADR-0029/R1's cross-rung ordering strict by construction.
 
-**Classification takes `(score, branch_nodes)`** and lives in exactly one place,
-`difficulty.classify` (ADR-0025/R2). EC-015 is applied first; the bands only to the remainder.
-`difficulty._tier_for_score` is private for the same reason: a score alone cannot tell Easy from
-Guess. `tests/test_difficulty_tiers.py::test_no_module_but_difficulty_classifies_a_tier` walks the
-package with `ast` and fails if a second module starts comparing a score against a cutoff or a
-branch count against a number.
+**Classification takes the score alone** and lives in exactly one place, `difficulty.classify`.
+It took `(score, branch_nodes)` until ADR-0031, because one tier was keyed on the solve rather
+than on the scale. `tests/test_difficulty_tiers.py::test_no_module_but_difficulty_classifies_a_tier`
+walks the package with `ast` and fails if a second module starts comparing a score against a
+cutoff. Comparing `branch_nodes` was an offence under the same guard until ADR-0031; it now
+decides a *strategy* rather than a tier, and three modules do it on purpose.
 
 **Measured distribution** (CARD-076's AC-118 corpus: 292 uniquely-solvable random puzzles,
 10x10..30x30, seeded):
@@ -438,7 +442,8 @@ branch count against a number.
 | Easy | `simple_overlap` | 258 | 88.4% | 33.000 (a single point) |
 | Medium | `line_dp` | 8 | 2.7% | 36.667..59.400 |
 | Hard | `probe_contradiction` | 26 | 8.9% | 68.116..98.640 |
-| Guess | — | 0 | 0% | — |
+
+(The corpus contained 0 branching puzzles — the measurement ADR-0031 retired the Guess tier on.)
 
 Two things follow and are recorded rather than acted on (CARD-076 guardrail G-5). **Easy is a
 single point on the scale** — every puzzle that never leaves overlap scores exactly 33.0, so the
@@ -561,25 +566,25 @@ so the cards carry them; the success counts are seed-comparable across runs.
 
 Only when a tier is requested. The resample loop *wraps* the regenerate loop
 (`orchestrator.generate.attempt_candidate_in_tier`): one resample round runs the regenerate loop
-to obtain a unique candidate, then keeps it only if `difficulty.classify(score, branch_nodes)` is
+to obtain a unique candidate, then keeps it only if `difficulty.classify(score)` is
 the requested tier. Because neither counter resets, **at most 30 candidates are judged per request**
 — redraws and repairs together — however the rejection causes divide them. A tier-rejected
 candidate is unique, so it is never repaired: the next attempt redraws. An exhausted inner loop
 propagates its own abandonment. Without a tier the check is vacuous and the first unique candidate
 is returned.
 
-Still **one** tier comparison since ADR-0025, which is what keeps the predicate simple with four
-tiers: `guess` is a legitimate thing to request and every other tier discards branching
-candidates by the same one line. `Tier.contains` is gone — a score alone can no longer classify
-a result, so a second way to ask "is this score in that band" could only be wrong about the
-fourth tier.
+Still **one** tier comparison. `Tier.contains` went when ADR-0025 made a score alone insufficient
+to classify a result; ADR-0031 made it sufficient again, but the one comparison stayed — a second
+way to ask "is this score in that band" would be a second band table, which is what
+`test_no_module_but_difficulty_classifies_a_tier` exists to prevent.
 
 Worth knowing before requesting a tier: under ADR-0013 a line-solvable puzzle scored under 15
 and `--difficulty easy` therefore always succeeded on the first candidate. Under the ladder Easy
 means "never left the overlap rule", which is ~88% of random grids overall but only ~15% at
 density 45, and Medium (`line_dp`) is ~3% overall. A request for Medium at an unlucky
 extent/density will resample, and at a density where its rung does not occur it will exhaust the
-budget and abandon. `--difficulty guess` cannot be filled at all on today's sources (§7).
+budget and abandon. `--difficulty guess` is no longer a request the domain accepts — ADR-0031
+retired that tier (§7).
 
 **Which tier a request can satisfy depends on extent and density** — not because the score reads
 either (ADR-0029/R3 keeps both out of it) but because they decide which puzzles *exist*. The
@@ -786,7 +791,8 @@ status was re-established on `41096cf` by re-running or re-reading the check.
 | Cell mapping | ~20 px per cell, majority vote | one resize to W×H cells, then dither |
 | Rejection rules | reject grids with blank rows/cols or fill outside 20–80% | none; blank-line avoidance is best-effort via the trim |
 | Quality score | 0–100 with accept ≥ 50 | no quality score on the core `Puzzle`; admin random batches store `None` |
-| Difficulty | tiers at 70/85 on the quality score; `DIFFICULTY_ENGINE.md`'s strategy-count formula | ADR-0029's strategy ladder: the hardest rung the one verifying solve required, plus the share of cells settled at it, with tiers on ADR-0005's 33/66 cutoffs and a fourth `guess` tier keyed on `branch_nodes` (§7). Closer to `DIFFICULTY_ENGINE.md`'s intent than ADR-0013 was, but it is a rung and not a count, and the formula in the orphaned `analysis/strategy_counter.py` is still not the one that runs |
+| Difficulty | tiers at 70/85 on the quality score; `DIFFICULTY_ENGINE.md`'s strategy-count formula | ADR-0029's strategy ladder: the hardest rung the one verifying solve required, plus the share of cells settled at it, with tiers on ADR-0005's 33/66 cutoffs (§7; a fourth `guess` tier existed between ADR-0025 and
+ADR-0031, keyed on `branch_nodes`, and is now reported as a strategy instead). Closer to `DIFFICULTY_ENGINE.md`'s intent than ADR-0013 was, but it is a rung and not a count, and the formula in the orphaned `analysis/strategy_counter.py` is still not the one that runs |
 | Retry | "reject and retry with different settings" | random mode *repairs* a non-unique grid inside the solver-located ambiguity up to K = 5 times, then redraws; library redraws; image nudges up to 5 cells; all within bounds of 30/30/5 (§8) |
 | Image limits | 100–2000 px, ≤ 2 MB, format allowlist | only a 2 MB cap, and only in the admin upload path |
 | Determinism | same image and settings → same grid | true for image mode; random and library are seed-driven by design, and a seed replays repairs too. The grade is machine-independent: no clock reaches the score or the tier decision (§7, EC-016) |

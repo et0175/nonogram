@@ -104,15 +104,15 @@ OTHER_UNIQUE_GRID = [
 ]
 
 #: A grid whose verifying solve has to *search*: uniquely solvable, but line
-#: logic alone does not finish it, so the solver branches (14 nodes) and
-#: ADR-0025's EC-015 makes the tier ``Tier.GUESS`` whatever the score is.
+#: logic alone does not finish it, so the solver branches (14 nodes) and the
+#: ``guess`` strategy is reported for it.
 #:
 #: It exists because every other grid in this file is line-solvable, which left
 #: the one test that names ``guess`` asserting ``False == False`` — it could not
 #: reach the branch it was written for (CARD-077 review cycle 1, F-001). That is
-#: not a hypothetical gap: commit bb1d5f6 records a real ``Tier.GUESS`` row in
-#: the production database, so the branch is on the live path of the migration
-#: this card performs.
+#: not a hypothetical gap: commit bb1d5f6 records a real row in the production
+#: database whose stored tier was ``guess``, from before CARD-098 retired that
+#: tier — which is why `difficulty.tier_of_record` still reads the word.
 #:
 #: Found by seeded search over square grids at density 0.35..0.6, smallest
 #: first; 9x9 is the first extent where a branching unique grid turns up at all.
@@ -150,8 +150,8 @@ def _assert_solution_counts() -> None:
     guess_result = solve(*compute_clues(GUESS_GRID))
     assert guess_result.solution_count == 1
     assert guess_result.signals.branch_nodes > 0, (
-        "GUESS_GRID no longer branches, so nothing in this file reaches "
-        "Tier.GUESS and the guess assertions are vacuous"
+        "GUESS_GRID no longer branches, so nothing in this file reports the "
+        "guess strategy and those assertions are vacuous"
     )
 
 
@@ -241,7 +241,7 @@ def _expected_grade(grid) -> Grade:
     """
     result = solve(*compute_clues(grid))
     score = score_difficulty(result.signals)
-    tier = classify(score, result.signals.branch_nodes)
+    tier = classify(score)
     return Grade(
         score=math.ceil(score),
         tier=tier,
@@ -300,7 +300,7 @@ class TestRegrade_RewritesGradeAndStrategiesFromOneSolve:
 
         for row_id in ids:
             row = _row(engine, row_id)
-            assert classify(row["difficulty_score"], 0).value == row["difficulty_tier"]
+            assert classify(row["difficulty_score"]).value == row["difficulty_tier"]
 
     def test_a_row_is_graded_by_its_grid_not_by_its_stored_clues(
         self, tmp_path: Path
@@ -1119,7 +1119,7 @@ class TestStoredScore_KeepsTheBandItsFloatCameFrom:
         mapping, and EC-015's guess rule deliberately ignores the score
         entirely (see the GUESS case below, which is the documented exception).
         """
-        assert classify(float(_stored_score(score)), 0) is classify(score, 0)
+        assert classify(float(_stored_score(score))) is classify(score)
 
     def test_rounding_instead_of_ceiling_would_break_that(self) -> None:
         """The discriminating case, named.
@@ -1128,26 +1128,12 @@ class TestStoredScore_KeepsTheBandItsFloatCameFrom:
         is what cycle 1 found. 33.08 is a real score: a ``line_dp`` puzzle that
         settled one cell in roughly four hundred at its top rung.
         """
-        assert classify(33.08, 0) is Tier.MEDIUM
-        assert classify(float(round(33.08)), 0) is Tier.EASY, (
+        assert classify(33.08) is Tier.MEDIUM
+        assert classify(float(round(33.08))) is Tier.EASY, (
             "if this fails, rounding is no longer lossy here and the test "
             "above has stopped discriminating"
         )
-        assert classify(float(_stored_score(33.08)), 0) is Tier.MEDIUM
-
-    def test_a_guess_row_is_the_documented_exception(self) -> None:
-        """EC-015 keys Tier.GUESS on a fact about the solve, not on the score,
-        so a guess row's stored number need not read back as ``guess`` — and
-        cannot, since no band maps to it.
-
-        Pinned so the claim in ``_stored_score``'s docstring stays bounded to
-        what it can actually promise.
-        """
-        graded = grade_stored_grid(GUESS_GRID)
-
-        assert isinstance(graded, Grade)
-        assert graded.tier is Tier.GUESS
-        assert classify(float(graded.score), 0) is not Tier.GUESS
+        assert classify(float(_stored_score(33.08))) is Tier.MEDIUM
 
 
 def test_a_branching_solve_ends_its_strategies_list_with_guess() -> None:
@@ -1161,7 +1147,6 @@ def test_a_branching_solve_ends_its_strategies_list_with_guess() -> None:
     graded = grade_stored_grid(GUESS_GRID)
 
     assert isinstance(graded, Grade)
-    assert graded.tier is Tier.GUESS
     assert graded.strategies[-1] == "guess"
     # ``guess`` is appended to the rungs, not substituted for them: the list
     # still says how the line work went before the search started.
@@ -1175,21 +1160,24 @@ def test_a_line_solvable_solve_has_no_guess_on_its_strategies_list() -> None:
     graded = grade_stored_grid(UNIQUE_GRID)
 
     assert isinstance(graded, Grade)
-    assert graded.tier is not Tier.GUESS
     assert "guess" not in graded.strategies
 
 
 @pytest.mark.parametrize("grid", [UNIQUE_GRID, OTHER_UNIQUE_GRID, GUESS_GRID])
-def test_guess_is_on_the_list_exactly_when_the_tier_says_so(grid) -> None:
-    """ADR-0025/R2 read as one rule over every gradable fixture in the file.
+def test_guess_is_on_the_list_exactly_when_the_solve_branched(grid) -> None:
+    """FR-029's rule read over every gradable fixture in the file.
 
     Parametrised over both sides of it, so the corpus this runs on can no
     longer be all-one-side without the parametrisation visibly shrinking.
+
+    Against ``branch_nodes`` since CARD-098: the tier this used to compare
+    with is retired, and the count is what the rule was always about.
     """
     graded = grade_stored_grid(grid)
+    branched = solve(*compute_clues(grid)).signals.branch_nodes > 0
 
     assert isinstance(graded, Grade)
-    assert ("guess" in graded.strategies) == (graded.tier is Tier.GUESS)
+    assert ("guess" in graded.strategies) == branched
 
 
 @pytest.mark.parametrize(

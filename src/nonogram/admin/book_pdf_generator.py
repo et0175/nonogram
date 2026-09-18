@@ -31,8 +31,8 @@ def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
     (CARD-076 review F-002). Rows whose tier is missing or unrecognised are
     counted in no tier at all, so the totals never exceed the puzzle count.
 
-    Returns a :class:`collections.Counter`, so every member of :class:`Tier` —
-    ADR-0025's ``GUESS`` included — can be indexed without a ``get`` and reads
+    Returns a :class:`collections.Counter`, so every member of :class:`Tier`
+    can be indexed without a ``get`` and reads
     0 when the book has none.
     """
     return Counter(
@@ -94,7 +94,6 @@ class BookPDFGenerator:
         easy_count: int,
         medium_count: int,
         hard_count: int,
-        guess_count: int = 0,
     ) -> Image.Image:
         """Create guide page image with difficulty summary.
 
@@ -103,10 +102,8 @@ class BookPDFGenerator:
             easy_count: Number of easy puzzles
             medium_count: Number of medium puzzles
             hard_count: Number of hard puzzles
-            guess_count: Number of puzzles in ADR-0025's fourth tier, which
-                needs a real guess to solve. Defaults to 0 and its line is
-                omitted when it is 0, so a book of line-solvable puzzles reads
-                exactly as it did before the tier existed.
+
+        Three counts, one per tier, since CARD-098 retired ADR-0025's fourth.
 
         Returns:
             Guide page as PIL Image
@@ -134,11 +131,6 @@ class BookPDFGenerator:
             f"  Easy:   {easy_count} puzzles",
             f"  Medium: {medium_count} puzzles",
             f"  Hard:   {hard_count} puzzles",
-            *(
-                [f"  Guess:  {guess_count} puzzles"]
-                if guess_count
-                else []
-            ),
             "",
             "Instructions:",
             "  1. Fill in the grid based on the clues",
@@ -188,7 +180,6 @@ class BookPDFGenerator:
             counts[Tier.EASY],
             counts[Tier.MEDIUM],
             counts[Tier.HARD],
-            counts[Tier.GUESS],
         )
         pages.append(guide)
 

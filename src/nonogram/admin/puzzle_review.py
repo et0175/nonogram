@@ -15,7 +15,7 @@ from nonogram.difficulty import Tier, classify, score_difficulty, tier_of_record
 from nonogram.errors import NotUniquelySolvable, SolverTimeout
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
-from nonogram.solver import MANY, RUNG_ORDER, solve
+from nonogram.solver import MANY, RUNG_ORDER, STRATEGY_GUESS, solve
 
 
 #: Every name FR-029's strategies list can carry, in the order a list is
@@ -23,7 +23,7 @@ from nonogram.solver import MANY, RUNG_ORDER, solve
 #: A stored list holding anything else was written by an older caller that
 #: invented its names (``"LineLogic"``, ``"backtracking"``), so it is not read
 #: as a statement about the puzzle — see :meth:`PuzzleReviewService.strategies_for`.
-STRATEGY_NAMES: Tuple[str, ...] = (*RUNG_ORDER, Tier.GUESS.value)
+STRATEGY_NAMES: Tuple[str, ...] = (*RUNG_ORDER, STRATEGY_GUESS)
 
 #: The longest name a puzzle can be given from the review list.
 MAX_PUZZLE_NAME_LENGTH = 120
@@ -379,16 +379,16 @@ class PuzzleReviewService:
     def _strategies_of(result) -> List[str]:
         """FR-029's list from one solve: its rungs, then ``guess`` if it branched.
 
-        ``guess`` is appended on the tier :func:`classify` returns rather than
-        on ``branch_nodes`` read here, so ADR-0025's rule keeps one reader.
-        A native reimplementation of ``regrade._strategies_used`` — that
-        module imports SQLAlchemy, which this one must not require — held to
-        the same answer from the test tree.
+        ``guess`` is read off ``branch_nodes`` since CARD-098 — ADR-0031
+        retired the tier that used to carry the same fact, so there is no
+        classifier to ask. A native reimplementation of
+        ``regrade._strategies_used`` — that module imports SQLAlchemy, which
+        this one must not require — held to the same answer from the test tree.
         """
         signals = result.signals
         strategies = list(signals.rungs)
-        if classify(score_difficulty(signals), signals.branch_nodes) is Tier.GUESS:
-            strategies.append(Tier.GUESS.value)
+        if signals.branch_nodes > 0:
+            strategies.append(STRATEGY_GUESS)
         return strategies
 
     @staticmethod
@@ -1451,7 +1451,7 @@ class MockGenerator:
                 continue
 
             score = score_difficulty(result.signals)
-            tier = classify(score, result.signals.branch_nodes)
+            tier = classify(score)
             return (
                 grid,
                 [list(run) for run in row_clues],
