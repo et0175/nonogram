@@ -1,6 +1,6 @@
 # CARD-097: A Postgres connection with no timeout hangs the suite whenever Postgres.app is waiting on its permission dialog
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/conftest.py (the DB fixtures and the `db_required` skip hook), tests/test_admin_regrade.py (the `TestRegradeRoute_PreviewsBeforeItWrites` fixture), possibly src/nonogram/db/session.py — none of it decided, because the cause is not known yet
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-18
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-18
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
