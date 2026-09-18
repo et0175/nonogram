@@ -1,6 +1,6 @@
 # CARD-072: Record the solving strategies a puzzle needs and save them with the puzzle
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-073 (merged ab851eb), CARD-076 (merged 76c1df4) — both landed; G-5 satisfied
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, src/nonogram/orchestrator.py (Puzzle aggregate, judge_candidate, record_candidate), src/nonogram/export/__init__.py, src/nonogram/export/json_export.py, src/nonogram/web/metadata.py, src/nonogram/admin/batch_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/templates/** (detail + list filter), tests/property/test_export_roundtrip.py, tests/test_solver.py or a new tests/test_solver_strategies.py, tests/property/test_solver_strategies.py (new), tests/test_batch_generator.py, tests/test_puzzle_review.py
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-18
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-18
+**Actual:** 1d
 **Merge commit:** —
 **Blocked by:** —
 
