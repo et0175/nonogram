@@ -193,11 +193,13 @@ def test_a_branching_solve_appends_guess_and_a_settled_one_does_not() -> None:
 
     settled.record_difficulty(12.0, 0, ladder)
     assert settled.strategies == ladder
-    assert settled.difficulty_tier is not difficulty.Tier.GUESS
 
     settled.record_difficulty(12.0, 1, ladder)
     assert settled.strategies == (*ladder, GUESS)
-    assert settled.difficulty_tier is difficulty.Tier.GUESS
+
+    # The tier does not move with it — since CARD-098 branching is a strategy
+    # and the tier is the score's band, so both records above classify alike.
+    assert settled.difficulty_tier is difficulty.classify(12.0)
 
 
 def test_strategies_are_cleared_when_a_new_candidate_arrives() -> None:

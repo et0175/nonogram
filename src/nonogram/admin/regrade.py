@@ -99,7 +99,7 @@ from nonogram.difficulty import (
 )
 from nonogram.errors import SolverTimeout
 from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
-from nonogram.solver import MANY, solve
+from nonogram.solver import MANY, STRATEGY_GUESS, solve
 
 __all__ = [
     "Grade",
@@ -348,11 +348,11 @@ def grade_stored_grid(
         )
 
     score = score_difficulty(result.signals)
-    tier = classify(score, result.signals.branch_nodes)
+    tier = classify(score)
     return Grade(
         score=_stored_score(score),
         tier=tier,
-        strategies=_strategies_used(result.signals.rungs, tier),
+        strategies=_strategies_used(result.signals.rungs, result.signals.branch_nodes),
     )
 
 
@@ -483,22 +483,18 @@ def _outcome(row: Puzzle, graded: Grade | Skip) -> RowOutcome:
     )
 
 
-def _strategies_used(rungs: Sequence[str], tier: Tier) -> tuple[str, ...]:
+def _strategies_used(rungs: Sequence[str], branch_nodes: int) -> tuple[str, ...]:
     """FR-029's list: the solve's rungs in ladder order, ``guess`` last if it branched.
 
-    ``guess`` is appended on the *tier*, not on ``branch_nodes``. The two say
-    the same thing — ADR-0025 keys ``Tier.GUESS`` on exactly that count — but
-    reading the count here would put a second reader of EC-015's rule in
-    ``admin/``, which is the thing ADR-0025/R2 exists to prevent. Asking
-    :func:`~nonogram.difficulty.classify` and believing the answer keeps one
-    implementation.
-
-    CARD-072 persists the same list from the generation path; this is the
-    derivation to reuse there rather than write twice.
+    Read straight off ``branch_nodes`` since CARD-098. It used to ask
+    :func:`~nonogram.difficulty.classify` whether the tier was ``GUESS``,
+    because ADR-0025 made a branching solve a tier and allowed one reader of
+    that rule; ADR-0031 retired the tier, so the count is simply what "the
+    search branched" means and reading it is not a second opinion.
     """
     strategies = tuple(rungs)
-    if tier is Tier.GUESS:
-        return (*strategies, Tier.GUESS.value)
+    if branch_nodes > 0:
+        return (*strategies, STRATEGY_GUESS)
     return strategies
 
 

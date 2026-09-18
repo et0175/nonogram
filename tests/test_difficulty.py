@@ -239,7 +239,7 @@ def test_a_puzzle_that_never_leaves_overlap_scores_exactly_the_easy_cutoff(
     score = score_difficulty(_signals(total_cells, simple_overlap=total_cells))
 
     assert score == EASY_MAX_SCORE
-    assert classify(score, 0) is Tier.EASY
+    assert classify(score) is Tier.EASY
 
 
 def test_the_first_cell_at_a_higher_rung_lifts_the_score_out_of_the_band_below() -> None:
@@ -254,7 +254,7 @@ def test_the_first_cell_at_a_higher_rung_lifts_the_score_out_of_the_band_below()
     score = score_difficulty(_signals(900, simple_overlap=899, line_dp=1))
 
     assert score > EASY_MAX_SCORE
-    assert classify(score, 0) is Tier.MEDIUM
+    assert classify(score) is Tier.MEDIUM
 
 
 # --------------------------------------------------------------------------
@@ -375,7 +375,7 @@ def test_a_line_solvable_corpus_spans_all_three_bands() -> None:
     # Every member is line-solvable, which is what AC-118 says its corpus is.
     assert all(branch_nodes == 0 for _, _, _, branch_nodes, _ in corpus)
 
-    tiers = Counter(classify(score, branch) for _, _, score, branch, _ in corpus)
+    tiers = Counter(classify(score) for _, _, score, _, _ in corpus)
     for tier in (Tier.EASY, Tier.MEDIUM, Tier.HARD):
         assert tiers[tier] >= 1, (
             f"no corpus puzzle classified {tier.label}; distribution was "
@@ -461,8 +461,8 @@ def test_deeper_line_reasoning_scores_higher() -> None:
     deep = _signals(400, simple_overlap=320, line_dp=80)
 
     assert score_difficulty(deep) > score_difficulty(shallow)
-    assert classify(score_difficulty(shallow), 0) is Tier.EASY
-    assert classify(score_difficulty(deep), 0) is Tier.MEDIUM
+    assert classify(score_difficulty(shallow)) is Tier.EASY
+    assert classify(score_difficulty(deep)) is Tier.MEDIUM
 
 
 def test_deeper_line_reasoning_scores_higher_even_at_one_cell_of_depth() -> None:
@@ -506,7 +506,7 @@ def test_deeper_line_reasoning_scores_higher_within_one_rung(rung: str) -> None:
     assert score_difficulty(more) > score_difficulty(less)
     # Still the same tier: the tiebreak orders inside a band, it does not move
     # a puzzle out of one. That is ADR-0029's coarseness, stated as a property.
-    assert classify(score_difficulty(more), 0) is classify(score_difficulty(less), 0)
+    assert classify(score_difficulty(more)) is classify(score_difficulty(less))
 
 
 def test_a_higher_rung_outscores_a_lower_one_whatever_the_shares_are() -> None:
@@ -530,94 +530,30 @@ def test_a_higher_rung_outscores_a_lower_one_whatever_the_shares_are() -> None:
 
 
 # --------------------------------------------------------------------------
-# AC-120 / AC-121 — the Guess tier is a fact about the solve
+# The tier is the score's band, and nothing else (ADR-0031)
+#
+# AC-120 and AC-121 lived here: they posed a synthetic branch count and
+# asserted the tier that ADR-0025 keyed on it. CARD-098 retired that tier, so
+# the cases went with it. What is left is the claim they were the exception to
+# — the tier is a function of the score — and it is checked across the whole
+# scale by `tests/test_difficulty_tiers.py` and
+# `tests/property/test_difficulty_ladder.py`.
+#
+# The measurement those tests were written around is worth keeping in view: a
+# real branch is unreachable from the generator. 0 of 6,620 uniquely-solvable
+# grids in ADR-0029's measurement, 0 of 462 in CARD-076's, 0 in the AC-118
+# corpus below, and 0 in the 16 stored rows of this project's admin database.
+# That is what the retired tier was a safety net against, and branching is
+# still reported — as the `guess` strategy (FR-029), not as a difficulty.
 # --------------------------------------------------------------------------
-
-# Every case below drives ``classify`` with a *synthetic* branch count, and that
-# is not a shortcut. ``Tier.GUESS`` is unreachable from the generator: 0 of
-# 6,620 uniquely-solvable grids in ADR-0029's measurement and 0 of 462 in
-# CARD-076's needed a real branch after the solve's own one-step lookahead
-# phase, and the AC-118 corpus above adds ~290 more with the same result
-# (``test_no_corpus_puzzle_needed_a_real_branch``). The tier is a deliberate,
-# measured safety net (ADR-0025, History 2026-09-12), so the only way to
-# exercise it is to pose the solve fact it keys on directly.
-
-
-@pytest.mark.parametrize("branch_nodes", [1, 2, 17, 4000])
-def test_requires_guessing_attribute_set_when_search_branched(
-    branch_nodes: int,
-) -> None:
-    """AC-120 — a solve that branched classifies ``Tier.GUESS``.
-
-    Parametrized over the whole range of "at least one" rather than checking a
-    single case, because EC-015's threshold is ``>= 1`` and a rule written as
-    ``> 1`` or as a ratio against the cell count would pass on one well-chosen
-    value.
-    """
-    signals = _signals(400, simple_overlap=400, branch_nodes=branch_nodes)
-
-    assert classify(score_difficulty(signals), signals.branch_nodes) is Tier.GUESS
-
-
-@pytest.mark.parametrize(
-    "rung_counts",
-    [
-        {"simple_overlap": 400},
-        {"simple_overlap": 300, "line_dp": 100},
-        {"simple_overlap": 300, "probe_contradiction": 100},
-        {"simple_overlap": 1, "probe_contradiction": 399},
-    ],
-    ids=["overlap", "dp", "probe", "almost-all-probe"],
-)
-def test_requires_guessing_attribute_set_whatever_the_score_would_have_been(
-    rung_counts: dict[str, int],
-) -> None:
-    """AC-120's real content: the tier is the solve fact, **not** a threshold.
-
-    The same branch count against four different scores spanning all three
-    bands. A classifier that read the score first — or that treated Guess as
-    "Hard, but more so" — would answer three different tiers here.
-    """
-    signals = _signals(400, branch_nodes=1, **rung_counts)
-
-    assert classify(score_difficulty(signals), signals.branch_nodes) is Tier.GUESS
-
-
-@pytest.mark.parametrize(
-    "rung_counts",
-    [
-        {"simple_overlap": 400},
-        {"simple_overlap": 300, "line_dp": 100},
-        {"simple_overlap": 300, "probe_contradiction": 100},
-        {"probe_contradiction": 400},
-    ],
-    ids=["overlap", "dp", "probe", "all-probe"],
-)
-def test_requires_guessing_attribute_clear_for_line_solvable(
-    rung_counts: dict[str, int],
-) -> None:
-    """AC-121 — ``branch_nodes == 0`` is never ``Tier.GUESS``, whatever band it
-    lands in.
-
-    The converse of AC-120, and the promise ``--difficulty hard`` makes: Easy,
-    Medium and Hard contain only line-solvable puzzles (ADR-0025/R1). Checked
-    at the top of the scale too — a puzzle that needed refutation on every cell
-    is Hard, not Guess, because refutation is a rung and a branch is not.
-    """
-    signals = _signals(400, branch_nodes=0, **rung_counts)
-    tier = classify(score_difficulty(signals), signals.branch_nodes)
-
-    assert tier is not Tier.GUESS
-    assert tier in (Tier.EASY, Tier.MEDIUM, Tier.HARD)
 
 
 def test_a_real_generated_puzzle_is_line_solvable_and_is_not_guess() -> None:
     """The same claim end to end, on a solve nobody faked.
 
-    Ties the synthetic fixture back to the solver: the plus sign really does
+    Ties the synthetic fixtures back to the solver: the plus sign really does
     come back with ``branch_nodes == 0`` and a ``simple_overlap``-only
-    histogram, which is what the AC-121 cases above assume a real solve can
-    report.
+    histogram, which is what the cases above assume a real solve can report.
     """
     clues = compute_clues(PLUS)
     result = solve(clues.rows, clues.columns)
@@ -628,7 +564,7 @@ def test_a_real_generated_puzzle_is_line_solvable_and_is_not_guess() -> None:
 
     score = score_difficulty(result.signals)
     assert score == EASY_MAX_SCORE
-    assert classify(score, result.signals.branch_nodes) is Tier.EASY
+    assert classify(score) is Tier.EASY
 
 
 # --------------------------------------------------------------------------
@@ -650,9 +586,7 @@ def test_ignores_elapsed_seconds() -> None:
     slow = replace(fast, elapsed_seconds=4.9)
 
     assert score_difficulty(fast) == score_difficulty(slow)
-    assert classify(score_difficulty(fast), fast.branch_nodes) is classify(
-        score_difficulty(slow), slow.branch_nodes
-    )
+    assert classify(score_difficulty(fast)) is classify(score_difficulty(slow))
 
 
 def test_the_scorer_is_not_even_handed_a_clock_to_ignore() -> None:

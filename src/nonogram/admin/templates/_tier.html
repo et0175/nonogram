@@ -10,6 +10,13 @@
   from a Hard one. Fixing them one at a time is what let the second and third
   copies survive two rounds of review, so they are one macro now.
 
+  CARD-098 retired that fourth tier (ADR-0031). The filter no longer offers it,
+  since it is not a tier anyone can ask for. The badge still recognises the
+  word, because rows written while it existed are still on disk and read back
+  as Hard (`difficulty.tier_of_record`) — so it is drawn in Hard's red rather
+  than falling through to the unknown-value grey, which would make a real
+  puzzle look like a data fault.
+
   `|lower` rather than a re-grade: which spelling a stored row carries is
   CARD-077's to normalise, and this has to be right either way.
 
@@ -19,7 +26,7 @@
 #}
 
 {% macro badge(tier) -%}
-<span class="badge tier" style="--tier: {% if tier|lower == 'easy' %}#27ae60{% elif tier|lower == 'medium' %}#f39c12{% elif tier|lower == 'hard' %}#e74c3c{% elif tier|lower == 'guess' %}#8e44ad{% else %}#95a5a6{% endif %}">{{ tier or 'N/A' }}</span>
+<span class="badge tier" style="--tier: {% if tier|lower == 'easy' %}#27ae60{% elif tier|lower == 'medium' %}#f39c12{% elif tier|lower == 'hard' %}#e74c3c{% elif tier|lower == 'guess' %}#e74c3c{% else %}#95a5a6{% endif %}">{{ tier or 'N/A' }}</span>
 {%- endmacro %}
 
 {#
@@ -30,5 +37,4 @@
                             <option value="Easy" {% if selected|lower == 'easy' %}selected{% endif %}>Easy</option>
                             <option value="Medium" {% if selected|lower == 'medium' %}selected{% endif %}>Medium</option>
                             <option value="Hard" {% if selected|lower == 'hard' %}selected{% endif %}>Hard</option>
-                            <option value="Guess" {% if selected|lower == 'guess' %}selected{% endif %}>Guess</option>
 {%- endmacro %}

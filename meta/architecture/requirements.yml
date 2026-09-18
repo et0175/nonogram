@@ -384,16 +384,19 @@ functional:
 
   - id: FR-008
     # AMENDED 2026-09-13 (CARD-076, delivering ADR-0025/DEC-030). The selector
-    # gains a fourth tier, `guess`. Easy/Medium/Hard now grade LINE-SOLVABLE
-    # puzzles only, by the hardest solving technique the one verifying solve
-    # required (ADR-0029); `guess` is keyed on that solve's branch_nodes >= 1
-    # (EC-015) and is not a score band at all. The statement is widened rather
-    # than rewritten: this FR is still "expose a difficulty selector", and the
-    # criteria below still read over "a supported tier" and survive a rename of
-    # the display label (ADR-0025 reserves the right to rename "Guess"; the
-    # enum VALUE is the contract).
+    # gained a fourth tier, `guess`, keyed on the verifying solve's
+    # branch_nodes >= 1 (EC-015) rather than on a score band.
+    #
+    # RE-AMENDED 2026-09-18 (CARD-098, ADR-0031): that tier is RETIRED and the
+    # selector is three tiers again. It was never assigned — 0 of 6,620
+    # (ADR-0029), 0 of 462 (CARD-076), 0 of ~290 (AC-118's corpus), 0 of 16
+    # stored rows — and CARD-072 established why: no random draw in the
+    # supported range branches at all. A solve that branches is still
+    # reported, as FR-029's `guess` STRATEGY; it is no longer a difficulty.
+    # Easy/Medium/Hard continue to grade by the hardest technique the one
+    # verifying solve required (ADR-0029), which is unchanged.
     statement: >-
-      Expose a difficulty selector with tiers Easy, Medium, Hard, and Guess.
+      Expose a difficulty selector with tiers Easy, Medium and Hard.
     source: [US-008]
     acceptance:
       - id: AC-020
@@ -1488,28 +1491,20 @@ functional:
         then: B's score is strictly greater than A's
         kind: boundary
         test: TestScoreDifficulty_DeeperLineReasoningScoresHigher
-      - id: AC-120
-        given: a puzzle whose solve branched (branch_nodes >= 1) before reaching its unique solution
-        when: it is scored
-        then: the result's requires-guessing attribute is set (true, or the guessing tier — per the decision)
+      # AC-120, AC-121 and EC-015 are RETIRED 2026-09-18 (CARD-098, ADR-0031).
+      # They described the requires-guessing attribute as a TIER; the tier is
+      # gone. What they asserted survives one level along: a solve that
+      # branched reports FR-029's `guess` strategy, which FR-029's own AC-1
+      # states as the same biconditional over branch_nodes. Retired rather
+      # than re-pointed, because a criterion that changes what it is about is
+      # a new criterion.
+      - id: AC-174
+        given: two uniquely solvable puzzles with the same difficulty score, one whose solve branched and one whose solve did not
+        when: each is classified
+        then: both receive the same tier — the band their score falls in — and the branching one additionally reports the `guess` strategy
         kind: boundary
-        test: TestScoreDifficulty_RequiresGuessingAttributeSetWhenSearchBranched
-      - id: AC-121
-        given: a puzzle whose solve reached its unique solution with branch_nodes 0
-        when: it is scored
-        then: the result's requires-guessing attribute is NOT set, whatever band its line-reasoning depth places it in
-        kind: negative
-        test: TestScoreDifficulty_RequiresGuessingAttributeClearForLineSolvable
-    engineering_constraints:
-      - id: EC-015
-        statement: >-
-          For any uniquely solvable puzzle, the requires-guessing attribute
-          of its scored result is set if and only if the solver's
-          branch_nodes for that solve is greater than zero — the attribute
-          is a fact about the solve, never a threshold on the score.
-        kind: consistency
-        instances: [AC-120, AC-121]
-        test: PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched
+        test: TestTiers_BranchingIsAStrategyNotATier
+    engineering_constraints: []
 
   - id: FR-027
     # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 6 —

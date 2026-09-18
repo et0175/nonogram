@@ -29,7 +29,7 @@ import nonogram.admin
 
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, tier_breakdown
 from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService
-from nonogram.difficulty import Tier
+from nonogram.difficulty import Tier, tier_of_record
 
 
 def _rows(*tiers: str | None) -> list[dict[str, object]]:
@@ -62,7 +62,6 @@ def test_the_breakdown_counts_the_fourth_tier() -> None:
     """ADR-0025's Guess is a tier of the book, not a row that vanishes."""
     counts = tier_breakdown(_rows("guess", "Guess", "easy"))
 
-    assert counts[Tier.GUESS] == 2
     assert counts[Tier.EASY] == 1
 
 
@@ -78,14 +77,13 @@ def test_unreadable_tiers_are_counted_in_no_tier_rather_than_guessed_at() -> Non
 
     assert sum(counts.values()) == 2
     assert counts[Tier.EASY] == 1
-    assert counts[Tier.GUESS] == 1
 
 
 def test_every_tier_reads_zero_rather_than_missing_on_an_empty_book() -> None:
     """Indexable without a ``get`` — which is why it returns a Counter."""
     counts = tier_breakdown([])
 
-    assert [counts[tier] for tier in Tier] == [0, 0, 0, 0]
+    assert [counts[tier] for tier in Tier] == [0, 0, 0]
 
 
 # --------------------------------------------------------------------------
@@ -93,22 +91,11 @@ def test_every_tier_reads_zero_rather_than_missing_on_an_empty_book() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_the_guide_page_renders_with_a_guess_count() -> None:
-    """The fourth count is a real parameter, not a dict the template ignores."""
-    guide = BookPDFGenerator().create_guide_page(
-        puzzle_count=10, easy_count=3, medium_count=4, hard_count=2, guess_count=1
-    )
-
-    assert guide is not None
-    assert guide.mode == "RGB"
-
-
 def test_the_guide_page_still_takes_three_counts() -> None:
-    """``guess_count`` defaults, so every existing caller keeps working.
+    """Three counts, one per tier, since CARD-098 retired the fourth.
 
-    A book with no Guess puzzles omits the line entirely, so a book of
-    line-solvable puzzles prints exactly the guide it printed before the tier
-    existed.
+    The parameter had a default so that callers predating ADR-0025 kept
+    working; both the default and the parameter are gone with the tier.
     """
     guide = BookPDFGenerator().create_guide_page(
         puzzle_count=10, easy_count=3, medium_count=4, hard_count=3
@@ -166,13 +153,19 @@ def test_the_filter_selects_pipeline_rows_whatever_the_form_submitted(
     assert _ids(selected) == {"p0", "p1"}
 
 
-def test_the_filter_selects_the_fourth_tier() -> None:
-    """``guess`` is offered by the form, so it has to select its rows."""
-    service = _service_holding("guess", "Guess", "hard")
+def test_the_filter_reads_a_stored_guess_row_as_hard() -> None:
+    """CARD-098: the word is no longer a tier, but the rows are still there.
 
-    selected = service.filter_puzzles(PuzzleFilter(difficulty="Guess"))
+    ``guess`` cannot be *asked* for — the form does not offer it and
+    ``parse_tier`` refuses it — yet a row written while the tier existed still
+    has to appear somewhere rather than vanish from every filter. It reads as
+    Hard (``difficulty.tier_of_record``), so asking for Hard finds it.
+    """
+    service = _service_holding("guess", "Guess", "hard", "easy")
 
-    assert _ids(selected) == {"p0", "p1"}
+    selected = service.filter_puzzles(PuzzleFilter(difficulty="Hard"))
+
+    assert _ids(selected) == {"p0", "p1", "p2"}
 
 
 def test_a_query_string_that_names_no_tier_does_not_widen_the_filter() -> None:
@@ -245,8 +238,10 @@ def test_no_template_writes_its_own_tier_badge_or_option_list() -> None:
         ("Easy", "#27ae60"),
         ("medium", "#f39c12"),
         ("hard", "#e74c3c"),
-        ("guess", "#8e44ad"),
-        ("Guess", "#8e44ad"),
+        # Retired as a tier by CARD-098, still drawn: a stored row reads as
+        # Hard, so it wears Hard's colour rather than the unknown-value grey.
+        ("guess", "#e74c3c"),
+        ("Guess", "#e74c3c"),
     ],
 )
 def test_the_badge_gives_every_tier_its_own_colour_in_either_spelling(
@@ -273,14 +268,18 @@ def test_an_ungraded_row_is_grey_rather_than_borrowing_a_tier_colour(
     assert "#95a5a6" in rendered
 
 
-def test_the_filter_offers_all_four_tiers() -> None:
-    """An unofferable member is an unreachable one (ADR-0025's Negative)."""
-    options = str(_macro("options")("guess"))
+def test_the_filter_offers_every_tier() -> None:
+    """An unofferable member is an unreachable one.
+
+    Three since CARD-098, and ``guess`` is not among them: it is no longer a
+    tier, so offering it would invite a request the domain refuses.
+    """
+    options = str(_macro("options")("hard"))
 
     assert options.count("<option") == len(Tier)
     for tier in Tier:
         assert f'value="{tier.label}"' in options
-    assert 'value="Guess" selected' in options
+    assert 'value="Guess"' not in options, "the retired tier is not offerable"
 
 
 # --------------------------------------------------------------------------
@@ -301,7 +300,9 @@ def test_the_filter_offers_all_four_tiers() -> None:
         pytest.param("easy", "Easy", id="pipeline-spelling"),
         pytest.param("medium", "Medium", id="pipeline-spelling-medium"),
         pytest.param("hard", "Hard", id="pipeline-spelling-hard"),
-        pytest.param("guess", "Guess", id="the-fourth-tier"),
+        # A row written while ADR-0025's tier existed. It prints as Hard,
+        # which is what it now reads as (CARD-098).
+        pytest.param("guess", "Hard", id="retired-fourth-tier-reads-as-hard"),
         pytest.param("Easy", "Easy", id="legacy-label-unchanged"),
         pytest.param("Hard", "Hard", id="legacy-label-unchanged-hard"),
     ],
@@ -333,7 +334,7 @@ def test_a_row_the_pdf_cannot_resolve_is_printed_not_invented(
     assert get_pdf_generator()._tier_label(row) == printed
 
 
-@pytest.mark.parametrize("stored", ["easy", "guess", "Medium"])
+@pytest.mark.parametrize("stored", ["easy", "guess", "Medium"])  # "guess" reads as Hard
 def test_the_rendered_toc_and_page_header_carry_the_display_spelling(
     stored: str,
 ) -> None:
@@ -354,7 +355,10 @@ def test_the_rendered_toc_and_page_header_carry_the_display_spelling(
         "quality_score": 90,
         "grid": [[True]],
     }
-    label = Tier(stored.lower()).label
+    # `tier_of_record`, not `Tier(...)`: since CARD-098 a stored value can be
+    # a word that is no longer a member — "guess" — and reading it is exactly
+    # what these two surfaces do.
+    label = tier_of_record(stored).label
 
     toc = " ".join(
         item.text for item in generator._create_table_of_contents({}, [row])

@@ -201,19 +201,23 @@ class Tier(StrEnum):
     built from are one string, with no lookup table between them. The
     capitalized form AC-020 uses for display is :attr:`label`.
 
-    **Three of the four are score bands; the fourth is not.** :attr:`GUESS` is
-    keyed on the solve's ``branch_nodes``, not on a number (ADR-0025/R1,
-    EC-015), which is why :func:`classify` takes two arguments and why
-    :attr:`band` answers ``None`` for it. Easy, Medium and Hard therefore
-    contain only line-solvable puzzles, and ``--difficulty hard`` *is* "deep,
-    and never needs a guess".
+    **Every member is a score band** (ADR-0005, ADR-0031). ADR-0025 added a
+    fourth, ``GUESS``, keyed on the solve's ``branch_nodes`` rather than on a
+    number; CARD-098 retired it, and with it the two shapes it forced —
+    :func:`classify` taking a second argument, and :attr:`band` answering
+    ``None`` for one member.
 
-    ``GUESS``'s measured assignment rate is currently **zero** — no generated
-    puzzle in 6,620 (ADR-0029's measurement) or 462 (CARD-076's) required a
-    branch after the solve's own one-step lookahead phase. It is kept anyway,
-    deliberately: it is the product promise stated as a fact, and a safety net
-    for a future source or extent that does produce a branching grid. See
-    ADR-0025's History.
+    It was retired on evidence: its measured assignment rate was **zero**
+    everywhere anyone looked — 0 of 6,620 (ADR-0029), 0 of 462 (CARD-076), 0
+    of 16 stored rows, and CARD-072 established *why*: no random draw in the
+    supported range branches at all after the solve's one-step lookahead
+    phase, so the tier was not merely rare but unreachable from generation.
+
+    ADR-0025's own argument for keeping it — a safety net for a future source
+    that does branch — is answered rather than dismissed: branching is still
+    reported, as the ``guess`` **strategy** (FR-029,
+    :data:`nonogram.solver.STRATEGY_GUESS`). The fact survives; only the claim
+    that it is a *difficulty* does not.
 
     CON-004: a tier is a bucket a *scored* candidate fell into, never a
     construction target. Asking for ``Tier.EASY`` makes the pipeline discard
@@ -224,7 +228,6 @@ class Tier(StrEnum):
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"
-    GUESS = "guess"
 
     @property
     def label(self) -> str:
@@ -237,25 +240,23 @@ class Tier(StrEnum):
         return self.value.capitalize()
 
     @property
-    def band(self) -> tuple[float, float] | None:
-        """This tier's ``(low, high)`` score band, or ``None`` for :attr:`GUESS`.
+    def band(self) -> tuple[float, float]:
+        """This tier's ``(low, high)`` score band.
 
         Half-open at the bottom and closed at the top — ``low < score <= high``
         — except :attr:`EASY`, whose band includes :data:`SCORE_MIN` itself.
 
-        ``None`` rather than a fabricated range for :attr:`GUESS`, because it
-        does not have one: ADR-0025 breaks ADR-0005's "a tier is a score band"
-        model for exactly one member, and a band table that pretended otherwise
-        would be the first place somebody re-derived the tier from a number.
-        For reporting and for tests that need to see where a band sits;
-        :func:`classify` is what a caller should ask.
+        Total since CARD-098: every tier has a band again, because the one
+        member that did not is gone. For reporting and for tests that need to
+        see where a band sits; :func:`classify` is what a caller should ask.
         """
-        return TIER_BANDS.get(self)
+        return TIER_BANDS[self]
 
 
-#: Each *score-band* tier's ``(low, high)``, derived from the two cutoffs above
-#: rather than written out as four numbers — see :meth:`Tier.band` for the
-#: open/closed ends. :attr:`Tier.GUESS` is absent by design, not by omission.
+#: Each tier's ``(low, high)``, derived from the two cutoffs above rather than
+#: written out as six numbers — see :meth:`Tier.band` for the open/closed ends.
+#: Every member of :class:`Tier` is a key: since CARD-098 there is no tier that
+#: is not a band.
 #: Read-only: the bands are a fact about :data:`EASY_MAX_SCORE` and
 #: :data:`MEDIUM_MAX_SCORE`, so the supported way to move one is to move a
 #: cutoff.
@@ -399,41 +400,26 @@ def score_difficulty(signals: SolverSignals) -> float:
     return _clamp(low + share * (high - low), SCORE_MIN, SCORE_MAX)
 
 
-def classify(score: float, branch_nodes: int) -> Tier:
-    """The single tier classifier (ADR-0025/R1, R2) — EC-015 first, bands after.
+def classify(score: float) -> Tier:
+    """The single tier classifier (ADR-0031) — which band holds ``score``.
 
     Args:
         score: :func:`score_difficulty`'s number for this candidate.
-        branch_nodes: The *same* solve's branch count. Not a second solve and
-            not a re-derivation: the orchestrator takes both off the one
-            verifying solve's signals and hands them here together
-            (ADR-0029/R2).
 
     Returns:
-        :attr:`Tier.GUESS` whenever the search branched — regardless of score,
-        because "requires guessing" is a fact about the solve and never a
-        threshold on a number (EC-015) — and otherwise the tier whose band
-        holds ``score``.
+        The tier whose band holds ``score``.
 
-    This is the only implementation of that rule in the package, which is
-    ADR-0025/R2 and is enforced by an ``ast`` walk in
-    ``tests/test_difficulty_tiers.py``. A module that compared a score against
-    :data:`EASY_MAX_SCORE` itself, or read ``branch_nodes`` to reach a tier,
-    would be a second classifier that a retune could silently leave behind.
-    """
-    if branch_nodes > 0:
-        return Tier.GUESS
-    return _tier_for_score(score)
+    One argument again since CARD-098. ADR-0025 gave this function a second —
+    the solve's ``branch_nodes`` — so that a branching solve could answer
+    ``Tier.GUESS`` regardless of score; ADR-0031 retired that tier, and the
+    fact it carried is now reported as the ``guess`` *strategy* instead
+    (:data:`nonogram.solver.STRATEGY_GUESS`), which is where a consumer should
+    look for it.
 
-
-def _tier_for_score(score: float) -> Tier:
-    """Which *band* a score falls in — :func:`classify`'s second half, and private.
-
-    Private because a score alone can no longer classify a result (ADR-0025's
-    Negative says so in as many words): a caller holding only a number cannot
-    tell Easy from Guess, and one that reached for this function instead of
-    :func:`classify` would be reintroducing exactly the bug the fourth tier
-    exists to prevent.
+    This is the only implementation of the band rule in the package, enforced
+    by an ``ast`` walk in ``tests/test_difficulty_tiers.py``. A module that
+    compared a score against :data:`EASY_MAX_SCORE` itself would be a second
+    classifier that a retune could silently leave behind.
 
     Total on the whole real line, not just on 0..100: a score below
     :data:`SCORE_MIN` reads as Easy and one above :data:`SCORE_MAX` as Hard.
@@ -452,6 +438,12 @@ def _tier_for_score(score: float) -> Tier:
     if score <= MEDIUM_MAX_SCORE:
         return Tier.MEDIUM
     return Tier.HARD
+
+
+#: The value ADR-0025's retired fourth tier was stored as. Kept as a *reading*
+#: rule only (CARD-098, ADR-0031): no build writes it, `parse_tier` refuses it
+#: like any other unknown word, and nothing migrates the rows that carry it.
+_RETIRED_GUESS_TIER = "guess"
 
 
 def tier_of_record(value: object) -> Tier | None:
@@ -475,7 +467,8 @@ def tier_of_record(value: object) -> Tier | None:
     Returns:
         The :class:`Tier` this text denotes under either spelling and any
         casing, or ``None`` for ``None``, a blank, a non-string, or a word that
-        is not a tier at all.
+        is not a tier at all. ``"guess"`` is the one word that is no longer a
+        tier but is still read: see :data:`_RETIRED_GUESS_TIER`.
 
     Re-grading the rows so that only one spelling exists is CARD-077's job and
     a different kind of act — this function only makes the reader honest about
@@ -483,6 +476,16 @@ def tier_of_record(value: object) -> Tier | None:
     """
     if not isinstance(value, str):
         return None
+    if value.strip().casefold() == _RETIRED_GUESS_TIER:
+        # A row written while ADR-0025's fourth tier existed. It reads as Hard
+        # rather than as nothing: `None` means "not a tier at all", which would
+        # drop the row out of every count and filter silently — a counting bug
+        # wearing a rendering bug's clothes, which is the failure this whole
+        # function was written to prevent. A puzzle that needed a branch is at
+        # least as hard as the hardest band, so Hard is the nearest true
+        # statement about it, and a re-grade (CARD-077) will reassign it on its
+        # own terms. Nothing here rewrites what is stored.
+        return Tier.HARD
     try:
         return parse_tier(value)
     except UnsupportedDifficulty:

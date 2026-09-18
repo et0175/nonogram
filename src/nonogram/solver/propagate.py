@@ -151,6 +151,22 @@ RUNG_ORDER: tuple[str, ...] = (
     RUNG_PROBE_CONTRADICTION,
 )
 
+#: FR-029's fourth strategy name, which is **not a rung** and is deliberately
+#: absent from :data:`RUNG_ORDER` and from ``SolveSignals.rungs``.
+#:
+#: A rung is a kind of deduction; branching is the search admitting there is
+#: none available, so it is keyed on ``SolveSignals.branch_nodes`` and appended
+#: by whoever reports the strategies (COMP-002, and the admin's two readers).
+#: It is named here because this is where the rest of the vocabulary lives and
+#: a consumer needs one import to know the whole of it.
+#:
+#: It used to be spelled as ``difficulty.Tier.GUESS.value``. CARD-098 retired
+#: that tier — never once assigned in 6,620, 462 or 16 measured puzzles — and
+#: this is the name's new home: the strategy outlived the tier, because "this
+#: solve had to branch" is still true of a puzzle even when it is not a
+#: difficulty band (ADR-0031).
+STRATEGY_GUESS = "guess"
+
 #: What one line deduction is: the two agreed masks and the placement count,
 #: or ``None`` for "this line admits no placement at all".
 LineDeduction = tuple[int, int, int] | None

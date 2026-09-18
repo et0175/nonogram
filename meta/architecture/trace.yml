@@ -1212,8 +1212,9 @@ links:
 
 - req: FR-026
   description: "Line-solvable puzzles graded across the whole scale by
-    line-reasoning depth; 'requires guessing' is an explicit attribute — a
-    fourth tier `guess`, keyed on branch_nodes > 0"
+    line-reasoning depth; 'requires guessing' is an explicit attribute — the
+    `guess` STRATEGY, keyed on branch_nodes > 0 (a fourth tier until
+    ADR-0031)"
   capabilities: [CAP-004]
   contexts: [CTX-001]
   components: [COMP-006, COMP-005]
@@ -1221,9 +1222,7 @@ links:
   tests:
   - TestScoreDifficulty_LineSolvableCorpusSpansAllThreeBands
   - TestScoreDifficulty_DeeperLineReasoningScoresHigher
-  - TestScoreDifficulty_RequiresGuessingAttributeSetWhenSearchBranched
-  - TestScoreDifficulty_RequiresGuessingAttributeClearForLineSolvable
-  - PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched
+  - TestTiers_BranchingIsAStrategyNotATier
   - PropertyTest_ScoreDifficulty_MonotoneInRungOrder
   - test_no_module_but_difficulty_classifies_a_tier
   notes: >-
@@ -1260,6 +1259,16 @@ links:
     point on the scale (every overlap-only puzzle scores exactly 33.0), and
     Tier.GUESS remains measured-unreachable, so AC-120/AC-121/EC-015 are tested
     against synthetic signal records.
+    RETIRED 2026-09-18 (CARD-098, ADR-0031 supersedes ADR-0025). The fourth
+    tier is gone and `classify` takes the score alone: it was never assigned
+    in 6,620 + 462 + ~290 + 16 measured puzzles, and CARD-072 established that
+    no random draw in the supported range branches at all. AC-120, AC-121 and
+    EC-015 are retired with it — what they asserted lives on one level along,
+    as FR-029's `guess` strategy over the same branch_nodes biconditional, and
+    AC-174 pins that a branching solve and a settled one at the same score now
+    classify alike. The contract change above is undone in one direction only:
+    COMP-006's classifier is single-argument again, while COMP-005's rung
+    tagging (ADR-0029/R2) is untouched.
   status: covered
 
 - req: FR-027

@@ -571,8 +571,8 @@ def test_a_version_1_file_is_refused_and_not_migrated(tmp_path: Path) -> None:
 # ==========================================================================
 
 
-def test_export_round_trips_a_guess_tier_puzzle(tmp_path: Path) -> None:
-    """AC-B for the CSV half — and the other reason SCHEMA_VERSION stayed at 2.
+def test_export_round_trips_a_branching_puzzle(tmp_path: Path) -> None:
+    """The CSV half — and the other reason SCHEMA_VERSION stayed at 2.
 
     ADR-0023/R2 is an *exact-version* rule, which makes a bump an all-or-
     nothing event: it refuses every existing file, and because the JSON and CSV
@@ -584,14 +584,18 @@ def test_export_round_trips_a_guess_tier_puzzle(tmp_path: Path) -> None:
     (``version``, ``seed``, ``mode``, ``width``, ``height``, ``density``) that
     has never included ``difficulty``. No reader can meet the new value.
 
-    The round trip below is the EC-002 claim for a ``guess``-tier puzzle: the
-    grid, the clues and the request survive, and ``difficulty`` comes back
-    ``None`` exactly as it does for every other tier.
+    The round trip below is the EC-002 claim for a puzzle whose solve
+    branched: the grid, the clues and the request survive, and ``difficulty``
+    comes back ``None`` exactly as it does for every other tier.
+
+    CARD-098 retired the tier such a puzzle used to get; the branching is now
+    carried by ``strategies``, which this format still does not serialize — so
+    what is pinned here is unchanged, and deliberately (CARD-072's G-7: CSV
+    keeps its closed key set and its version).
     """
     puzzle = _puzzle(tmp_path)
-    # A solve that branched: ADR-0025 classifies that Guess by the fact alone.
-    puzzle.record_difficulty(10.0, 1)
-    assert puzzle.difficulty_tier is difficulty.Tier.GUESS
+    puzzle.record_difficulty(10.0, 1, ("simple_overlap",))
+    assert puzzle.strategies == ("simple_overlap", "guess")
 
     path = export_puzzle(puzzle)[0]
     text = path.read_text(encoding="utf-8")

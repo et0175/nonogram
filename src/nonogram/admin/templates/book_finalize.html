@@ -57,7 +57,6 @@
                         <li><strong>Hard:</strong> {{ hard_count }} puzzles</li>
                         {# ADR-0025's fourth tier. Shown only when the book has one, so a
                            book of line-solvable puzzles reads as it did before. #}
-                        {% if guess_count %}<li><strong>Guess:</strong> {{ guess_count }} puzzles</li>{% endif %}
                     </ul>
 
                     <h4>Instructions</h4>
@@ -95,7 +94,6 @@
                     <dt>Easy</dt><dd class="num">{{ easy_count }}</dd>
                     <dt>Medium</dt><dd class="num">{{ medium_count }}</dd>
                     <dt>Hard</dt><dd class="num">{{ hard_count }}</dd>
-                    {% if guess_count %}<dt>Guess</dt><dd class="num">{{ guess_count }}</dd>{% endif %}
                 </dl>
                 <form method="POST">
                     <input type="hidden" name="action" value="download_pdf">

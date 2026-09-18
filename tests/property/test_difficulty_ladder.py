@@ -172,75 +172,61 @@ def _ladder_key(signals: _Signals | object) -> tuple[int, float]:
 
 
 # --------------------------------------------------------------------------
-# EC-015 — the tier is `guess` iff the verifying solve branched
+# The tier is a function of the score alone (ADR-0031)
 # --------------------------------------------------------------------------
 
 
-def test_requires_guessing_iff_search_branched() -> None:
-    """``PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched``.
+def test_the_tier_is_a_function_of_the_score_alone() -> None:
+    """What replaces EC-015, and the property CARD-098 actually bought.
 
-    EC-015, both directions, over a corpus that spans the whole branch-count
-    input space: for any uniquely solvable puzzle the tier is ``guess`` **iff**
-    the verifying solve's ``branch_nodes`` is greater than zero — a fact about
-    the solve, never a threshold on the score.
+    ADR-0025 made one tier — ``guess`` — a fact about the *solve* rather than
+    a band on the scale, so ``classify`` took the branch count as a second
+    argument and could answer a tier no score could reach. ADR-0031 retired
+    that tier, and this is the shape left behind: two solves with the same
+    score classify the same way, whatever their searches did.
 
-    The "iff" is what the corpus is for. Either half alone is satisfiable by a
-    broken classifier: one that always answered ``GUESS`` passes the forward
-    direction, and one that never did passes the reverse. Checked together,
-    across every band the score can land in, only the real rule survives.
+    Stated over a corpus that spans the whole branch-count input space,
+    because the interesting case is precisely the one that used to differ — a
+    record with ``branch_nodes > 0`` beside one with zero at the same score.
+
+    The fact itself is not lost, and this test does not cover where it went:
+    branching is reported as the ``guess`` **strategy** (FR-029), which
+    ``tests/test_strategies.py`` pins.
     """
     records = _synthetic_records(seed=15, count=900)
     assert len(records) >= _MIN_SYNTHETIC_RECORDS, "the corpus shrank"
 
+    by_score: dict[int, set] = {}
     branched = 0
-    for signals in records:
-        tier = classify(score_difficulty(signals), signals.branch_nodes)
-        assert (tier is Tier.GUESS) == (signals.branch_nodes > 0), signals
-        branched += signals.branch_nodes > 0
-
-    # Both halves of the "iff" were actually exercised, and not by a handful of
-    # cases: a corpus that drifted to all-branching or none-branching would
-    # still pass the loop above.
-    assert branched >= 100
-    assert len(records) - branched >= 100
-
-
-def test_requires_guessing_is_decided_before_the_score_is_looked_at() -> None:
-    """EC-015's "never a threshold", stated as an independence.
-
-    Holding the branch count and varying the score across the full 0..100
-    range must not move the tier off ``GUESS`` once; holding the branch count
-    at zero must not move it *onto* ``GUESS`` once. Together that says the
-    score is not consulted at all in the first case — which is what "a fact
-    about the solve" means operationally.
-    """
-    records = _synthetic_records(seed=16, count=600)
-    assert len(records) >= _MIN_SYNTHETIC_RECORDS, "the corpus shrank"
-
     scores_seen = set()
     for signals in records:
         score = score_difficulty(signals)
         scores_seen.add(round(score))
-        assert classify(score, 1) is Tier.GUESS
-        assert classify(score, 0) is not Tier.GUESS
+        by_score.setdefault(round(score, 6), set()).add(classify(score))
+        branched += signals.branch_nodes > 0
 
-    # The scores really did span the scale rather than clustering in one band.
+    for score, tiers in by_score.items():
+        assert len(tiers) == 1, (score, tiers)
+
+    # The corpus really did contain both kinds, and really did span the scale;
+    # otherwise the independence above would be true of nothing.
+    assert branched >= 100, branched
+    assert len(records) - branched >= 100
     assert min(scores_seen) <= 33 and max(scores_seen) >= 67
 
 
-def test_no_real_generated_puzzle_is_classified_guess() -> None:
-    """EC-015 against real solves — and the measurement it records.
+def test_no_generated_puzzle_needs_a_branch() -> None:
+    """The measurement CARD-098 was decided on, kept as a test.
 
-    ``Tier.GUESS`` has an assignment rate of zero for the sources this build
-    has: 0 of 6,620 grids in ADR-0029's sweep, 0 of 462 in CARD-076's, and 0
-    here. So this corpus exercises the *reverse* direction of EC-015 on real
-    data — every genuinely generated puzzle is line-solvable and none is
-    classified ``GUESS`` — and the forward direction is left to the synthetic
-    corpus above, which is the only place it can be posed.
+    Every genuinely generated puzzle in this corpus is line-solvable: its
+    verifying solve never branched. That has held everywhere anyone looked —
+    0 of 6,620 grids in ADR-0029's sweep, 0 of 462 in CARD-076's, 0 here —
+    and it is why the tier keyed on branching was retired rather than kept as
+    a safety net.
 
-    The minimum case count is asserted for the usual reason, and it matters
-    doubly here: a corpus that had quietly stopped producing *any* unique
-    puzzle would make the "none is GUESS" claim vacuously true.
+    It is worth keeping as an assertion rather than a footnote: if a future
+    source *does* start producing branching grids, this is the test that says
+    so, and the decision above is the one to revisit.
     """
     records = _real_puzzles(seed=155)
     assert len(records) >= _MIN_REAL_PUZZLES, (
@@ -250,7 +236,6 @@ def test_no_real_generated_puzzle_is_classified_guess() -> None:
 
     for signals in records:
         assert signals.branch_nodes == 0
-        assert classify(score_difficulty(signals), signals.branch_nodes) is not Tier.GUESS
 
 
 # --------------------------------------------------------------------------
@@ -278,11 +263,11 @@ def test_independent_of_elapsed_time() -> None:
     dilations = (0.0, 1e-6, 0.001, 0.2, 1.0, 4.9, 50.0, 3600.0)
     for signals in records:
         baseline_score = score_difficulty(signals)
-        baseline_tier = classify(baseline_score, signals.branch_nodes)
+        baseline_tier = classify(baseline_score)
         for elapsed in dilations:
             moved = replace(signals, elapsed_seconds=elapsed)
             assert score_difficulty(moved) == baseline_score
-            assert classify(score_difficulty(moved), moved.branch_nodes) is baseline_tier
+            assert classify(score_difficulty(moved)) is baseline_tier
 
 
 def test_independent_of_elapsed_time_across_the_whole_input_space() -> None:
@@ -300,8 +285,8 @@ def test_independent_of_elapsed_time_across_the_whole_input_space() -> None:
         stopped = replace(signals, elapsed_seconds=0.0)
         slow = replace(signals, elapsed_seconds=600.0)
         assert score_difficulty(stopped) == score_difficulty(slow)
-        assert classify(score_difficulty(stopped), stopped.branch_nodes) is classify(
-            score_difficulty(slow), slow.branch_nodes
+        assert classify(score_difficulty(stopped)) is classify(
+            score_difficulty(slow)
         )
 
 
@@ -387,4 +372,4 @@ def test_every_score_lands_on_the_scale_and_in_its_rungs_own_band(seed: int) -> 
         # branching ones are not graded on this ladder at all (ADR-0025).
         if signals.branch_nodes == 0:
             expected = (Tier.EASY, Tier.MEDIUM, Tier.HARD)[_ladder_key(signals)[0]]
-            assert classify(score, 0) is expected
+            assert classify(score) is expected
