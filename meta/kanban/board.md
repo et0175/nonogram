@@ -30,7 +30,6 @@ _(none)_
 ## Ready
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
 - **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — after CARD-067
-- **CARD-097** P2 · A Postgres connection with no timeout hangs the whole suite while Postgres.app waits on its permission dialog  _(wave 1)_ — diagnosed 2026-09-18 during CARD-072: blocked in psycopg's connect, so the `db_required` skip hook can never fire; the fix is a `connect_timeout`
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -51,7 +50,7 @@ _(none)_
 - **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
 
 ## Review
-_(none)_
+- **CARD-097** P2 · A database that never answers no longer stops the suite — connection deadline, session-cached reachability probe, and a faulthandler net · `card/097-suite-stall-in-regrade-route` · with Postgres listening: never finished → 2 m 08 s
 
 ## Done
 - **CARD-072** P2 · A puzzle records the strategies its solve needed — carried to the JSON export (with CARD-079's deferred `binarisation`, no schema bump) and filterable in the admin list · merged without a review cycle, at the owner's call · merged 50996b6
