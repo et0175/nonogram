@@ -1,6 +1,6 @@
 # CARD-067: Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.75d
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/image_preview.html, src/nonogram/admin/app.py (a prediction endpoint and a remove route), src/nonogram/admin/image_manager.py (only if the ink ratio needs a helper — `remove_image` already exists), tests
-**Review score:** —
+**Review score:** — _(cycle 1 on the retired branch; rebuilt scope merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-12T05:03:53Z, restarted 2026-09-19
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-19
+**Actual:** 0.75d (2026-09-12 start superseded; rebuilt 2026-09-19)
 **Merge commit:** —
 **Blocked by:** —
 
