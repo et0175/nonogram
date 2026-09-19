@@ -29,6 +29,7 @@ what stands when someone opens a door in it.
 """
 
 from flask import Flask, Response, abort, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from dataclasses import dataclass
 from datetime import datetime
 import hmac
 import json
@@ -116,6 +117,63 @@ def _size_suffix(option_fit, several: bool) -> str:
     if option.mode in ("fixed", "short"):
         return f" ({option.mode} {option.value})"
     return f" ({option.mode})"
+
+
+@dataclass(frozen=True)
+class PictureGroup:
+    """One picture's puzzles, in the order they should be shown (CARD-099).
+
+    ``source`` is the picture's filename, or ``None`` for puzzles that came
+    from no picture at all — a random batch. The unnamed group is not a
+    picture and is never counted as one.
+    """
+
+    source: str | None
+    puzzles: list[dict]
+
+
+def group_by_picture(puzzles) -> list[PictureGroup]:
+    """Gather a batch's puzzles into one group per source picture.
+
+    Both orders are computed here rather than inherited, because the order the
+    page is given is the wrong one: ``PuzzleFilter``'s default sort is
+    ``batch_id,-size,quality``, so within a batch the puzzles arrive
+    widest-first and a picture's sizes are interleaved with every other
+    picture's.
+
+    * Pictures come in the order their first puzzle was made, which for an
+      image batch is the order they were uploaded — the generate loop iterates
+      ``(picture, option)`` pairs built in that order (CARD-069).
+    * A picture's puzzles come in extent order, smallest area first, so the
+      same picture always reads small-to-large.
+
+    Ties fall back to the name and the extent, so the page is a pure function
+    of the rows: two reviewers see the same page, and a re-render does not
+    reshuffle it.
+    """
+    groups: dict[str | None, list[dict]] = {}
+    for puzzle in puzzles:
+        groups.setdefault(puzzle.get("source_image"), []).append(puzzle)
+
+    def made_at(puzzle: dict) -> str:
+        # A missing timestamp sorts first rather than raising: this is a page,
+        # and a row the store wrote without one is still a row to show.
+        return puzzle.get("created_at") or ""
+
+    def picture_key(item):
+        source, found = item
+        # `source is None` keeps the unnamed group last without comparing
+        # None to a string.
+        return (source is None, min(made_at(p) for p in found), source or "")
+
+    def extent_key(puzzle: dict):
+        width, height = puzzle.get("width") or 0, puzzle.get("height") or 0
+        return (width * height, width, height)
+
+    return [
+        PictureGroup(source=source, puzzles=sorted(found, key=extent_key))
+        for source, found in sorted(groups.items(), key=picture_key)
+    ]
 
 
 class _BatchOutOfTime(Exception):
@@ -1544,18 +1602,32 @@ def create_app(debug=None):
         # back the stored dicts themselves.
         strategies = {p["id"]: puzzle_review.strategies_for(p) for p in puzzles}
 
-        # Get batch job info for total image count
+        # CARD-099: two numbers, not one used twice. `total_count` is what the
+        # batch *planned* — since CARD-069 a picture can carry several sizes,
+        # so it counts puzzles, not pictures, and the page said "2 puzzles from
+        # 2 pictures" for one picture at two sizes. The picture count comes
+        # from the rows instead; the unnamed group (a random batch) is not a
+        # picture and does not count as one.
+        groups = group_by_picture(puzzles)
+        picture_count = sum(1 for group in groups if group.source)
+
         batch_job = batch_gen.get_batch_status(batch_id)
-        total_images = batch_job.total_count if batch_job else len(puzzles)
-        filtered_count = total_images - len(puzzles) if batch_job else 0
+        planned_count = batch_job.total_count if batch_job else len(puzzles)
+        # What the batch planned and did not store. The page cannot say *why*:
+        # quality-filtered, skipped as too elongated, refused by the store and
+        # never started all land here identically, so it reports the shortfall
+        # and stops short of naming a cause (AC-3).
+        missing_count = max(0, planned_count - len(puzzles)) if batch_job else 0
 
         return render_template(
             "generated_puzzles.html",
             batch_id=batch_id,
             puzzles=puzzles,
+            groups=groups,
             strategies=strategies,
-            total_images=total_images,
-            filtered_count=filtered_count,
+            picture_count=picture_count,
+            planned_count=planned_count,
+            missing_count=missing_count,
         )
 
     @app.route("/batch/<batch_id>/approve-all", methods=["POST"])

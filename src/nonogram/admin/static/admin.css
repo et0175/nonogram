@@ -243,6 +243,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .result-card .kv { font-size: var(--text-sm); }
 .result-card .actions .btn { flex: 1; justify-content: center; }
 .puzzle-status-badge { white-space: nowrap; display: inline-block; vertical-align: middle; }
+/* One picture's sizes, under one heading (CARD-099). The rule is a heading
+   and a gap, not a box: the cards are the things being reviewed and a border
+   around each group would compete with them. */
+.picture-group + .picture-group, .ungrouped + .ungrouped { margin-top: var(--space-5); }
+.picture-group-head { font-size: var(--text-base); margin: 0 0 var(--space-3); display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-secondary); }
+.picture-group-head::after { content: ''; flex: 1; height: 1px; background: var(--color-border); }
 
 /* ---------- Guide page preview (book step 4) ---------- */
 .guide-preview { padding: var(--space-5); background: var(--grid-paper); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-control); font-size: var(--text-sm); line-height: var(--leading-base); max-width: var(--measure); }

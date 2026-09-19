@@ -9,7 +9,12 @@
 <div class="page-head">
     <div>
         <h1>Review the batch</h1>
-        <p class="lede">{{ puzzles|length }} puzzle{{ 's' if puzzles|length != 1 else '' }} from {{ total_images }} picture{{ 's' if total_images != 1 else '' }}{% if filtered_count > 0 %}; {{ filtered_count }} filtered out by the quality threshold{% endif %}. Approve the ones worth printing.</p>
+        {#- Two numbers from two places: the puzzles are counted from the rows
+            on this page, the pictures from the sources those rows name. They
+            stopped being one number when a picture gained several sizes
+            (CARD-069), and the shortfall names no cause because the page
+            cannot tell filtered-out from never-made (CARD-099). -#}
+        <p class="lede">{{ puzzles|length }} puzzle{{ 's' if puzzles|length != 1 else '' }}{% if picture_count %} from {{ picture_count }} picture{{ 's' if picture_count != 1 else '' }}{% endif %}{% if missing_count %}; {{ missing_count }} of the {{ planned_count }} planned {{ 'was' if missing_count == 1 else 'were' }} not made{% endif %}. Approve the ones worth printing.</p>
     </div>
 </div>
 
@@ -19,8 +24,21 @@
             <div class="card-header"><h2 class="card-title mb-0">Generated grids <span class="badge count">{{ puzzles|length }}</span></h2></div>
             <div class="card-body">
                 {% if puzzles %}
+                    {#- One section per source picture, smallest extent first
+                        (CARD-099). The cards themselves are untouched: the
+                        grouping is a heading, so every puzzle keeps its own
+                        Approve and Reject. A batch with no pictures behind it
+                        — a random one — renders a single unlabelled section
+                        rather than a heading saying nothing. -#}
+                    {% for group in groups %}
+                    {%- if group.source %}
+                    <section class="picture-group" data-source="{{ group.source }}">
+                        <h3 class="picture-group-head">{{ group.source }}{% if group.puzzles|length > 1 %} <span class="badge count">{{ group.puzzles|length }} sizes</span>{% endif %}</h3>
+                    {%- else %}
+                    <section class="ungrouped">
+                    {%- endif %}
                     <div class="result-grid">
-                        {% for puzzle in puzzles %}
+                        {% for puzzle in group.puzzles %}
                         <div class="result-card" data-puzzle-id="{{ puzzle.id }}">
                             <div class="thumb thumb-lg">
                                 <img src="/api/puzzle/{{ puzzle.id }}/grid"
@@ -53,6 +71,8 @@
                         </div>
                         {% endfor %}
                     </div>
+                    </section>
+                    {% endfor %}
                 {% else %}
                     <p class="empty">No puzzles were generated — every picture fell below the quality threshold, or generation failed. <a href="/batch/create">Start another batch</a>.</p>
                 {% endif %}

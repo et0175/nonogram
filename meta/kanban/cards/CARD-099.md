@@ -1,22 +1,22 @@
 # CARD-099: The generated-puzzles page reads as pictures, not as a list — group a picture's sizes, and stop miscounting
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (6 mutants, all caught)
 **Branch:** card/099-group-a-pictures-puzzles
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-099
 **Source:** owner, 2026-09-19 ("open a card for grouping puzzles on the generated page") — CARD-069's item 5, left out deliberately; plus a miscount found while scoping it
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-069 (merged 19564e5) — the page only has several puzzles per picture because of it
-**Touches:** src/nonogram/admin/app.py (the generated_puzzles route's counts and ordering), src/nonogram/admin/templates/generated_puzzles.html, tests
+**Touches:** src/nonogram/admin/app.py (the generated_puzzles route's counts and ordering), src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/static/admin.css, tests
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-19
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -133,3 +133,77 @@ actually want to compare.
 ## Worktree notes
 
 —
+
+### Delivered 2026-09-19
+
+**The count (item 1).** The route computes two numbers where it used one.
+Puzzles are counted from the rows on the page; pictures are counted from the
+sources those rows name, through the same grouping the page renders, so the
+sentence and the headings can never disagree. `batch_job.total_count` keeps
+CARD-069's meaning — what the batch planned — and is now named
+`planned_count`, which is the name it should have had when its meaning
+changed. Measured end to end on `butterfly.png` with two sizes: **"2 puzzles
+from 1 picture"**, where `main` says "2 puzzles from 2 pictures".
+
+**The shortfall (AC-3).** `"; N of the M planned was/were not made"`, and no
+cause. The page genuinely cannot tell quality-filtered from skipped-as-too-
+elongated from refused-by-the-store from never-started — they all arrive as an
+absent row — so the old clause naming the quality threshold was a guess
+dressed as a fact. Now a picture whose only size the clock never reached reads
+"1 of the 2 planned was not made" rather than being blamed on its quality.
+
+**The grouping (item 2, option (a)).** A `<section class="picture-group">` per
+picture: a heading with the filename, a `N sizes` badge where there is more
+than one, and a rule to the right margin. The cards themselves are untouched
+— which is the point of option (a), and is what keeps G-3 true without
+thinking about it: every puzzle still carries its own Approve and Reject.
+
+**The ordering (item 3) is the part that was not free.** `PuzzleFilter`'s
+default sort is `batch_id,-size,quality`, so the page is handed its puzzles
+widest-first with the pictures interleaved — a picture's sizes were never
+adjacent to begin with. `group_by_picture` therefore computes both orders:
+pictures by when their first puzzle was made (the upload order, since the
+generate loop iterates `(picture, option)` pairs built in that order), sizes
+by area ascending. Both fall back to name and extent, so the page is a pure
+function of the rows.
+
+**The ink ratio is not in the heading**, though the card's sketch of option
+(a) had it there. It is a property of the uploaded file, which this page does
+not have — the batch record carries no image list and the puzzle rows carry
+only the filename. Getting it here would mean either re-opening the picture
+per heading or widening what a batch stores, and neither is worth it for a
+number the preview page already shows while the sizes are being chosen.
+
+**A random batch** has no pictures behind it, so it renders one unlabelled
+section and a sentence that claims none: `"10 puzzles."` rather than an
+invented picture count. The old wording said "from N pictures" for random
+batches too.
+
+### Verified by eye
+
+`~/Documents/nonogram-reviews/CARD-099/` — `grouped-top.jpg` (the lede and
+`butterfly.png` at two sizes) and `grouped-three-sizes.jpg` (`dear.png` at
+10x10, 19x19 and 29x30 under one heading). The three-size shot is the argument
+for the card: side by side it is obvious at a glance that 10x10 has lost the
+deer entirely and 29x30 has kept it, which is the comparison a reviewer was
+previously making by reading filenames off scattered cards.
+`grouped-page.html` is the rendered page itself, with the grids inlined.
+
+### Tests
+
+`tests/test_card_099_grouped_page.py`, 19 tests. **AC-5 first** — three
+pictures at one size each still reading "3 puzzles from 3 pictures", and a
+control pair per puzzle — then the defect, the shortfall wording, the random
+batch, the grouping and the two orders.
+
+**Mutation check** — six mutants: the unnamed group counted as a picture, the
+planned count used as the picture count (the original defect), pictures
+ordered by name, sizes left in the order they arrived, the size badge on a
+single-size picture, and the shortfall blaming the quality threshold again.
+The name-ordering mutant **survived the first run**: every other test happened
+to upload its pictures in alphabetical order, so sorting by name passed them
+all. `test_group_by_picture_follows_the_upload_order_not_the_alphabet` and its
+page-level twin were written for that, and all six are caught now.
+
+**Full suite: 3,495 passed, 0 failed**, 26 skipped, one deselection
+(`test_size_configuration_applied`, unrelated).
