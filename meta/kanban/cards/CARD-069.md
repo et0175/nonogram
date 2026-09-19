@@ -1,6 +1,6 @@
 # CARD-069: Up to three size options per picture, one puzzle per size
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** CARD-067 (merged 9c97d88 — same page, and the prediction endpoint this builds on)
 **Touches:** src/nonogram/admin/image_manager.py (a picture carries a list of size options), src/nonogram/admin/app.py (preview save, the generate loop, the batch size record, the results lines), src/nonogram/admin/templates/image_preview.html, src/nonogram/admin/templates/generate_batch.html, tests (CARD-058/061/062/064/065 all assert against a single size)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-19
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-19
+**Actual:** 1d
 **Merge commit:** —
 **Blocked by:** —
 
