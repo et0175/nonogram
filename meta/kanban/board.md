@@ -28,7 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
+- **CARD-068** P2 · Batch results — the per-puzzle Delete, and bulk actions that say what they did  _(wave 1)_ — re-cut 2026-09-19: `db4e0dc` shipped the three bulk actions to main outside the board; AC-2's >100 clause retired (MAX_BATCH_COUNT is 50); Delete-from-Draft is the owner's open pick
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
