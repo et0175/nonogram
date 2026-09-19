@@ -49,9 +49,10 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-069** P2 · Up to four size options per picture, one puzzle per size · `card/069-size-options-per-picture` · one option behaves exactly as before; verified on the rendered admin
+_(none)_
 
 ## Done
+- **CARD-069** P2 · Up to four size options per picture, one puzzle per size — the last of the 2026-09-12 admin review items · every pre-existing single-size test passed untouched · merged without a review cycle, at the owner's call · merged 19564e5
 - **CARD-067** P2 · Preview cards — picture left, ink ratio right, remove a picture · re-cut 2026-09-19: the live-prediction half had shipped on main meanwhile, so the stale branch is retired as `card/067-superseded-2026-09-12` and the rest was rebuilt · verified on the rendered admin · merged without a review cycle, at the owner's call · merged 9c97d88
 - **CARD-098** P2 · The Guess tier retired — three score bands, branching reported as the `guess` strategy; ADR-0031 supersedes ADR-0025 · never assigned in ~7,400 measured puzzles · one of the two standing suite failures deleted with it · merged without a review cycle, at the owner's call · merged 0df8d63
 - **CARD-097** P2 · A database that never answers no longer stops the suite — connect deadline, reachability probed once a session, faulthandler net dumping to a file · with Postgres listening: never finished → 2 m 08 s · merged without a review cycle, at the owner's call · merged a073d5c
