@@ -19,7 +19,7 @@
 **Started:** 2026-09-12T05:03:53Z, restarted 2026-09-19
 **Closed:** 2026-09-19
 **Actual:** 0.75d (2026-09-12 start superseded; rebuilt 2026-09-19)
-**Merge commit:** —
+**Merge commit:** 9c97d88
 **Blocked by:** —
 
 ## Revision — 2026-09-19: most of this card shipped without it
