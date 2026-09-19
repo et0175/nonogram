@@ -101,6 +101,23 @@ _batch_clock = time.monotonic
 _PUZZLE_STATUSES = tuple(status.value for status in PuzzleStatus)
 
 
+def _size_suffix(option_fit, several: bool) -> str:
+    """Which size a results line is about, when a picture has more than one.
+
+    ``""`` for a picture with a single option, so every existing line reads
+    exactly as it did (CARD-069 AC-3). Otherwise the mode and, where it has
+    one, its value — ``" (fixed 20)"`` — because a picture can now appear in
+    these lists several times and "skipped: too elongated" against a bare
+    filename would not say *which* size was skipped (AC-4).
+    """
+    if not several:
+        return ""
+    option = option_fit.option
+    if option.mode in ("fixed", "short"):
+        return f" ({option.mode} {option.value})"
+    return f" ({option.mode})"
+
+
 class _BatchOutOfTime(Exception):
     """The batch clock ran out between one extent of a picture and the next.
 
@@ -1075,6 +1092,37 @@ def create_app(debug=None):
         """Select images for batch generation (Wave 3 workflow)."""
         return _render_batch_step_one()
 
+    @app.route("/batch/image/<file_id>/size-option", methods=["POST"])
+    def toggle_size_option(file_id):
+        """Tick or untick one extra size for this picture (CARD-069).
+
+        A POST per button rather than one fetch per click: the page then
+        re-renders every prediction from the same server-side rule, so two
+        quick clicks cannot leave a card showing a size it is not set to —
+        the failure CARD-067's review found in the fetch path and fixed with
+        a request token.
+
+        Un-ticking the last remaining size is refused by the store, not
+        treated as removing the picture; the message says where the Remove
+        button is.
+        """
+        image_mgr = get_image_manager()
+        image = image_mgr.get_image(file_id)
+        mode = request.form.get("mode", "")
+        if image is None:
+            flash("That picture is no longer in this batch", "info")
+        elif any(option.mode == mode for option in image.size_options):
+            if not image_mgr.remove_size_option(file_id, mode):
+                flash(
+                    "A picture needs at least one size — use Remove this "
+                    "picture to take it out of the batch",
+                    "info",
+                )
+        elif not image_mgr.add_size_option(file_id, mode, image.size_value):
+            flash(f"Could not add the {mode} size", "error")
+
+        return redirect(url_for("preview_batch_images"))
+
     @app.route("/batch/image/<file_id>/remove", methods=["POST"])
     def remove_batch_image(file_id):
         """Drop one picture from the batch job (CARD-067 AC-5).
@@ -1194,12 +1242,21 @@ def create_app(debug=None):
             return _batch_clock() < batch_deadline
 
         try:
-            # Extract configured sizes from images (unique values)
-            sizes = list(set(img.size_value if img.size_mode in ("fixed", "short") else 20 for img in images))
+            # Every size that was actually ticked, across every picture
+            # (CARD-069): a batch whose pictures carry several options records
+            # all of them, and its count is the number of puzzles to be made
+            # rather than the number of pictures — the two stopped being the
+            # same thing with this card.
+            sizes = {
+                option.value if option.mode in ("fixed", "short") else 20
+                for image in images
+                for option in image.size_options
+            }
+            planned = sum(len(image.size_options) for image in images)
 
             # Create batch job
             batch_id = batch_gen.create_batch(
-                count=len(images),
+                count=planned,
                 sizes=sorted(sizes),
                 theme="image",
                 source="images",  # Use "images" not "image"
@@ -1218,24 +1275,43 @@ def create_app(debug=None):
             skipped = []
             moved = []
 
-            for image in images:
+            # CARD-069: one puzzle per (picture, size option), not per
+            # picture. A picture carries one option unless somebody ticked
+            # more, so a batch nobody re-sized is exactly the batch it was.
+            # The pairs are built up front so that the counts below, the
+            # clock's "not started" list and the results lines all speak about
+            # the same unit of work.
+            jobs = [
+                (image, option_fit)
+                for image in images
+                for option_fit in image.size_fits()
+            ]
+
+            for image, option_fit in jobs:
+                # The size this job is for, and how it is to be named. A
+                # picture with several options puts its extent in every name
+                # from it (AC-7), so two puzzles from one picture are never
+                # two rows reading the same; with one option the name is
+                # untouched, which is what keeps AC-3 true to the string.
+                several = len(image.size_options) > 1
                 try:
-                    # CARD-064: a picture even Large would cut below
+                    # CARD-064: a size even Large would cut below
                     # MIN_KEPT_SHARE is never generated; it is reported.
-                    fit = image.size_fit()
+                    fit = option_fit.fit
                     if fit.status == CANNOT_FIT:
                         skipped.append(
-                            f"{image.original_filename} skipped: too elongated for any "
-                            f"supported size (even Large keeps only {floor_percent(fit.kept)})"
+                            f"{image.original_filename}{_size_suffix(option_fit, several)} "
+                            f"skipped: too elongated for any supported size "
+                            f"(even Large keeps only {floor_percent(fit.kept)})"
                         )
                         continue
                     width, height = fit.extent
 
                     # Once the clock has stopped the batch it starts nothing
                     # else; the rest of the loop only sorts the remaining
-                    # pictures into "skipped" (above) and "not started".
+                    # work into "skipped" (above) and "not started".
                     if not_started or not may_start():
-                        not_started.append(image)
+                        not_started.append((image, option_fit))
                         continue
 
                     # Convert image to puzzle through the canonical,
@@ -1314,6 +1390,14 @@ def create_app(debug=None):
                     # create_batch already marked an image batch COMPLETE
                     # before this loop, so the count was the lie.
                     batch_gen._update_batch_status(batch_id, puzzle_count=generated_count)
+                    if several:
+                        # AC-7: the extent distinguishes the puzzles one
+                        # picture produced. Applied after the store because
+                        # `add_puzzle` takes no name — `rename_puzzle` is the
+                        # one writer of that column.
+                        puzzle_review.rename_puzzle(
+                            puzzle_id, f"{image.puzzle_name} ({width}x{height})"
+                        )
                     if fit.status == MOVED_TO_LARGE:
                         # CARD-064 (G-2): the chosen size was not used — say
                         # so in the results too, not only in the preview.
@@ -1323,7 +1407,11 @@ def create_app(debug=None):
                             if fit.chosen is not None
                             else "the chosen size can't keep its shape"
                         )
-                        moved.append(f"{image.original_filename}: moved up to Large — {reason}")
+                        moved.append(
+                            f"{image.original_filename}"
+                            f"{_size_suffix(option_fit, several)}: "
+                            f"moved up to Large — {reason}"
+                        )
                     if used != (width, height):
                         note = (
                             f"{image.original_filename}: generated at "
@@ -1379,7 +1467,13 @@ def create_app(debug=None):
 
             # Show results
             if generated_count > 0:
-                flash(f"✅ Generated {generated_count} puzzle(s) from {len(images)} image(s)", "success")
+                # "from N picture(s)" stays the picture count, which is no
+                # longer an upper bound on the puzzles: a picture with two
+                # sizes ticked contributes two (CARD-069).
+                flash(
+                    f"✅ Generated {generated_count} puzzle(s) from {len(images)} image(s)",
+                    "success",
+                )
             else:
                 flash("No valid puzzles generated", "warning")
 
@@ -1409,7 +1503,7 @@ def create_app(debug=None):
             session.pop("batch_default_size", None)
             if not_started:
                 # Clear only what this batch attempted; the rest waits (Q-1).
-                waiting = {image.file_id for image in not_started}
+                waiting = {image.file_id for image, _ in not_started}
                 for image in images:
                     if image.file_id not in waiting:
                         image_mgr.remove_image(image.file_id)

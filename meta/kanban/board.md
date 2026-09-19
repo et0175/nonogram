@@ -29,7 +29,6 @@ _(none)_
 
 ## Ready
 - **CARD-068** P2 · Batch results — per-puzzle delete, Accept all, Reject all, Delete rejected  _(wave 1)_
-- **CARD-069** P2 · Up to three size options per picture, one puzzle per size  _(wave 1)_ — CARD-067 is done, so this is unblocked
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -50,7 +49,7 @@ _(none)_
 _(none)_
 
 ## Review
-_(none)_
+- **CARD-069** P2 · Up to four size options per picture, one puzzle per size · `card/069-size-options-per-picture` · one option behaves exactly as before; verified on the rendered admin
 
 ## Done
 - **CARD-067** P2 · Preview cards — picture left, ink ratio right, remove a picture · re-cut 2026-09-19: the live-prediction half had shipped on main meanwhile, so the stale branch is retired as `card/067-superseded-2026-09-12` and the rest was rebuilt · verified on the rendered admin · merged without a review cycle, at the owner's call · merged 9c97d88

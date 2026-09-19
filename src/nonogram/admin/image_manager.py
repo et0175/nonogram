@@ -8,7 +8,7 @@ import uuid
 import mimetypes
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -33,6 +33,63 @@ SIZE_PRESETS = {
     "large": (30, "fixed"),  # 30 on the long side
     "auto": (20, "max"),
 }
+
+#: The modes a size option can be in, in the order the page offers them.
+#: One option per mode, so this is also the cap on how many a picture can
+#: carry (CARD-069). ``short`` is here because the **small** preset sets it
+#: (CARD-061) — the card's first draft listed three modes and would have made
+#: a preset's own default unreachable.
+SIZE_MODES: tuple = ("fixed", "short", "min", "max")
+
+
+@dataclass
+class SizeOption:
+    """One size a picture is to be made at: a mode and, where the mode needs
+    one, a number (CARD-069).
+
+    ``min`` and ``max`` carry a value too — the batch preset's — because the
+    page keeps the box populated when a user ticks between modes, and because
+    ``_own_extent`` has always taken one. It is simply not read for them.
+    """
+
+    mode: str
+    value: int = 20
+
+
+#: How each mode is written on the preview page.
+SIZE_MODE_LABELS = {
+    "fixed": "Fixed size",
+    "short": "Short side",
+    "min": "Minimum size",
+    "max": "Maximum size",
+}
+
+
+@dataclass
+class SizeChoice:
+    """One of the extra sizes a picture could also be made at, for the page."""
+
+    mode: str
+    label: str
+    selected: bool
+    fit: "SizeFit"
+
+
+@dataclass
+class OptionFit:
+    """A size option and what it would produce — :class:`SizeFit` per option."""
+
+    option: SizeOption
+    fit: "SizeFit"
+
+    @property
+    def mode(self) -> str:
+        return self.option.mode
+
+    @property
+    def value(self) -> int:
+        return self.option.value
+
 
 FITS = "fits"
 MOVED_TO_LARGE = "moved_to_large"
@@ -91,12 +148,23 @@ class ImageFile:
     puzzle_name: str = ""  # Name for generated puzzle (default: filename without ext)
     size_mode: str = "fixed"  # fixed, short, min, max
     size_value: int = 20  # long side for "fixed", short side for "short"
+    #: The sizes this picture is to be made at, one per mode, in the order
+    #: they were added (CARD-069). One puzzle per option.
+    #:
+    #: A freshly uploaded picture carries exactly one — the batch preset's —
+    #: so a user who never opens the size controls gets the batch they got
+    #: before this field existed. ``size_mode``/``size_value`` above remain
+    #: the *first* option's, in both directions: every caller that predates
+    #: this card keeps working and keeps meaning what it meant.
+    size_options: list = field(default_factory=list)
 
     def __post_init__(self):
-        """Set default puzzle name from filename."""
+        """Set default puzzle name from filename, and the one default option."""
         if not self.puzzle_name:
             # Use filename without extension
             self.puzzle_name = Path(self.original_filename).stem
+        if not self.size_options:
+            self.size_options = [SizeOption(self.size_mode, self.size_value)]
 
     def _source_shape(self) -> tuple:
         """The picture's own shape for sizing purposes: its ink bounding box.
@@ -194,6 +262,50 @@ class ImageFile:
             return "unreadable"
         return f"{source[0]}×{source[1]} px"
 
+    def extra_size_choices(self) -> list:
+        """The modes besides this picture's first, for the preview page.
+
+        One entry per *other* mode, each carrying whether it is currently
+        ticked, its label, and what it would produce. The first option keeps
+        the page's existing mode select and cells box (CARD-069): every
+        control that predates this card still means what it meant, and these
+        are additions beside it rather than a replacement for it.
+
+        The fit is computed here, server-side, for the same reason the
+        prediction partial is: a size rule copied into the browser drifts
+        from this one (CARD-063/064's lesson, CARD-067 AC-6).
+        """
+        primary = self.size_options[0].mode if self.size_options else self.size_mode
+        selected = {option.mode: option for option in self.size_options}
+        choices = []
+        for mode in SIZE_MODES:
+            if mode == primary:
+                continue
+            option = selected.get(mode) or SizeOption(mode, self.size_value)
+            choices.append(
+                SizeChoice(
+                    mode=mode,
+                    label=SIZE_MODE_LABELS[mode],
+                    selected=mode in selected,
+                    fit=self._size_fit_for(option.mode, option.value),
+                )
+            )
+        return choices
+
+    def size_fits(self) -> list:
+        """Each option's own :class:`SizeFit` — one entry per size to be made.
+
+        The per-picture :meth:`size_fit` is this list's first entry, and stays
+        the answer every caller that predates CARD-069 receives. Nothing here
+        re-implements the fit: each option is judged by the same
+        :meth:`_size_fit_for` the single-size path uses, so a per-option
+        verdict cannot drift from the one the page used to show (G-1).
+        """
+        return [
+            OptionFit(option, self._size_fit_for(option.mode, option.value))
+            for option in self.size_options
+        ]
+
     def size_fit(self) -> SizeFit:
         """Whether the chosen size keeps this picture's shape, and what the
         batch does when it doesn't (CARD-064).
@@ -208,6 +320,12 @@ class ImageFile:
         note: every size change, and every skip, is a status the preview and
         the batch results show.
         """
+        return self._size_fit_for(self.size_mode, self.size_value)
+
+    def _size_fit_for(self, size_mode: str, size_value: int) -> SizeFit:
+        """:meth:`size_fit`'s rule, for one (mode, value) rather than for the
+        picture's own. Split out by CARD-069 so that a picture's several
+        options share one implementation; the rule itself is untouched."""
         src_width, src_height = self._source_shape()
         if min(src_width, src_height) <= 0:
             # Degenerate shape (CARD-045): no ratio to judge, so the smallest
@@ -216,7 +334,7 @@ class ImageFile:
             return SizeFit(square, FITS, 1.0, square, 1.0)
 
         source = (src_width, src_height)
-        chosen = self._own_extent(self.size_mode, self.size_value, source)
+        chosen = self._own_extent(size_mode, size_value, source)
         chosen_kept = _kept_share(source, chosen) if chosen is not None else None
         if chosen is not None and chosen_kept >= MIN_KEPT_SHARE:
             return SizeFit(chosen, FITS, chosen_kept, chosen, chosen_kept)
@@ -561,6 +679,67 @@ class ImageManager:
             # Validate size_value
             if MIN_SIZE <= size_value <= MAX_SIZE:
                 image.size_value = size_value
+        # The first option is this picture's own size, in both directions
+        # (CARD-069): setting it here is what a page that knows nothing about
+        # options still does, and it must not leave the list disagreeing.
+        image.size_options[0] = SizeOption(image.size_mode, image.size_value)
+        return True
+
+    def add_size_option(self, file_id: str, size_mode: str, size_value: int = 20) -> bool:
+        """Tick a size for this picture, or change the value of one already on.
+
+        At most one option per mode (AC-5): adding a mode that is already
+        there **replaces its value** rather than refusing. The control is a
+        tick per mode with its own box, so "fixed 25 when fixed 20 is on" is
+        somebody editing a number, and an error would be pedantry.
+
+        Returns:
+            ``True`` when the picture now carries that option; ``False`` for
+            an unknown picture, an unknown mode, or a value outside the
+            supported range for a mode that needs one.
+        """
+        if file_id not in self.images or size_mode not in SIZE_MODES:
+            return False
+        if size_mode in ("fixed", "short") and not MIN_SIZE <= size_value <= MAX_SIZE:
+            return False
+
+        image = self.images[file_id]
+        for existing in image.size_options:
+            if existing.mode == size_mode:
+                existing.value = size_value
+                break
+        else:
+            image.size_options.append(SizeOption(size_mode, size_value))
+        image.size_mode = image.size_options[0].mode
+        image.size_value = image.size_options[0].value
+        return True
+
+    def remove_size_option(self, file_id: str, size_mode: str) -> bool:
+        """Untick a size, unless it is the last one.
+
+        The last is refused (CARD-069's recorded decision): a picture with no
+        sizes would contribute nothing to the batch while still sitting on the
+        page, and treating the gesture as "remove the picture" would make a
+        sizing tweak delete an uploaded file. The Remove button next to it
+        does that, explicitly.
+
+        Returns:
+            ``True`` when the option was removed; ``False`` for an unknown
+            picture, a mode this picture does not carry, or the last option.
+        """
+        if file_id not in self.images:
+            return False
+
+        image = self.images[file_id]
+        if len(image.size_options) <= 1:
+            return False
+        remaining = [o for o in image.size_options if o.mode != size_mode]
+        if len(remaining) == len(image.size_options):
+            return False
+
+        image.size_options = remaining
+        image.size_mode = remaining[0].mode
+        image.size_value = remaining[0].value
         return True
 
     def update_image_name(self, file_id: str, puzzle_name: str) -> bool:
