@@ -1,6 +1,6 @@
 # CARD-099: The generated-puzzles page reads as pictures, not as a list — group a picture's sizes, and stop miscounting
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-069 (merged 19564e5) — the page only has several puzzles per picture because of it
 **Touches:** src/nonogram/admin/app.py (the generated_puzzles route's counts and ordering), src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/static/admin.css, tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-19
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-19
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
