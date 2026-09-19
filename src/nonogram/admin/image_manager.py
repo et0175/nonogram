@@ -162,6 +162,38 @@ class ImageFile:
         """
         return self.size_fit().extent
 
+    def ink_ratio(self) -> str:
+        """The picture's ink bounding box as a ratio, e.g. ``"1.54:1"``.
+
+        The box, not the file: it is the shape the sizing follows
+        (:meth:`_source_shape`, FR-022), so the card explains the predicted
+        size instead of contradicting it on a picture with real margin. A
+        600x450 sheet carrying a 400x200 drawing is 1.33:1 as a file and
+        2.00:1 as a picture, and the second is the one the predicted extent
+        comes from.
+
+        Always long side first, so the number reads as "how elongated" rather
+        than "which way up" — the orientation is already visible in the
+        thumbnail beside it.
+
+        ``"—"`` when the shape is degenerate: an em dash rather than
+        ``"0.00:1"``, because there is nothing to measure and saying so is
+        more honest than dividing by it.
+        """
+        source = self._source_shape()
+        if min(source) <= 0:
+            return "—"
+        return f"{max(source) / min(source):.2f}:1"
+
+    def ink_box(self) -> str:
+        """The ink bounding box itself, e.g. ``"400×200 px"`` — the ratio's
+        working, shown as the card's tooltip so the number can be checked
+        rather than taken."""
+        source = self._source_shape()
+        if min(source) <= 0:
+            return "unreadable"
+        return f"{source[0]}×{source[1]} px"
+
     def size_fit(self) -> SizeFit:
         """Whether the chosen size keeps this picture's shape, and what the
         batch does when it doesn't (CARD-064).

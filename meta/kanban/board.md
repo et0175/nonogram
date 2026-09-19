@@ -47,10 +47,10 @@ _(none)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
 
 ## In Progress
-- **CARD-067** P2 · Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture · `card/067-preview-card-redesign` · started 2026-09-12T05:03Z
+_(none)_
 
 ## Review
-_(none)_
+- **CARD-067** P2 · Preview cards — picture left, ink ratio right, remove a picture · `card/067-ink-ratio-and-remove` · re-cut: the live-prediction half shipped on main meanwhile; verified on the rendered page
 
 ## Done
 - **CARD-098** P2 · The Guess tier retired — three score bands, branching reported as the `guess` strategy; ADR-0031 supersedes ADR-0025 · never assigned in ~7,400 measured puzzles · one of the two standing suite failures deleted with it · merged without a review cycle, at the owner's call · merged 0df8d63

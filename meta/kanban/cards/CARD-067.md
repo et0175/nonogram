@@ -1,14 +1,14 @@
 # CARD-067: Preview cards — picture left, name and ink ratio right; live predicted output; remove a picture
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.75d
 **Complexity:** standard
-**Revision pending:** false
+**Revision pending:** false  _(re-cut 2026-09-19 at the owner's word — see Revision)_
 **Skill:** python-pro
-**TDD:** —
-**Branch:** card/067-preview-card-redesign
+**TDD:** red -> green -> mutation check (3 mutants, all caught)
+**Branch:** card/067-ink-ratio-and-remove  _(the 2026-09-12 branch is retired as `card/067-superseded-2026-09-12` — see Revision)_
 **Worktree:** ../PythonProject4-CARD-067
 **Source:** owner, 2026-09-12, items 1-3 of the admin console review ("put image preview to the left of the cards, puzzle name and add an aspect ratio to the right"; "when we change size, we need to update «Predicted output»"; "possibility to remove a picture from the job")
 **Idea:** —
@@ -16,11 +16,52 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/image_preview.html, src/nonogram/admin/app.py (a prediction endpoint and a remove route), src/nonogram/admin/image_manager.py (only if the ink ratio needs a helper — `remove_image` already exists), tests
 **Review score:** —
-**Started:** 2026-09-12T05:03:53Z
+**Started:** 2026-09-12T05:03:53Z, restarted 2026-09-19
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## Revision — 2026-09-19: most of this card shipped without it
+
+The 2026-09-12 branch sat for a week while other cards rewrote the same page.
+It ended **3 commits ahead of `main` and 164 behind**, and merging it would
+have replaced newer work with older. Re-cut at the owner's word to what is
+actually still missing.
+
+**What landed on `main` meanwhile**, in `db4e0dc` ("live size prediction") and
+`f773015` ("adopt the Pressroom design system"):
+
+| this card's criterion | state on `main` |
+|---|---|
+| AC-3, AC-4 — live predicted output on every size change | **shipped**, via `_size_fit_prediction.html` and `refreshPrediction()` |
+| AC-6 — no sizing arithmetic in JavaScript | **shipped**; the partial is rendered server-side |
+| review cycle 1's F-002 (racing requests from *Apply to all*) | **fixed on `main`**, with a per-card request token — independently of this branch's own fix |
+
+So the live-prediction half of the card is done, and done more recently than
+this branch's version of it. What remains is the half nothing else touched:
+
+- **AC-2 — the ink ratio.** No `ink_ratio` or `ink_box` anywhere under
+  `admin/` on `main`.
+- **AC-5 — remove a picture from the job.** `ImageManager.remove_image`
+  exists and is called by nothing: no route, no control.
+- **AC-1 — the layout.** `main`'s page is the Pressroom design, which
+  postdates this card entirely. Whether it already satisfies the owner's
+  "picture left, name and ratio right" is a question to answer against the
+  rendered page, not against this card's original markup.
+
+**The old branch is retired, not deleted.** It is `card/067-superseded-2026-09-12`,
+with its three commits and its cycle-1 review intact, in case anything in it
+is wanted later. Its worktree is gone. Nothing from it is merged; where its
+design is worth reusing — `ink_ratio()` returning `"1.54:1"` off the *ink box*
+rather than the file, `ink_box()` as the tooltip, a `POST .../remove` route
+that flashes and redirects — this card reimplements it against today's page
+rather than grafting week-old markup onto a design system it never saw.
+
+**What this leaves of the original ACs:** AC-3, AC-4 and AC-6 are struck as
+already delivered; AC-1, AC-2 and AC-5 carry forward. Cycle 1's findings
+F-001..F-008 are moot — they were findings against code that is not being
+merged — except F-002, which `main` has already fixed on its own terms.
 
 ## Why
 
@@ -229,3 +270,64 @@ two the reviewer ran and found surviving:
 branch before its own merge, as the Env note planned — no conflict, the two
 routes are far apart. The card's file plus CARD-066's and the
 CARD-061/063/064/065, pagination and import-guard suites: 239 passed.
+
+### Delivered 2026-09-19 (the re-cut scope)
+
+**AC-1 — the picture is a column, not a band.** The card body is one row:
+`col-5` thumbnail, `col-7` fields. It was a stacked thumbnail above the
+fields; the owner's first review item was "image preview to the left of the
+cards", and it had never been done — the live-prediction work that landed
+meanwhile did not touch the arrangement.
+
+**AC-2 — the ink ratio.** `ImageFile.ink_ratio()` → `"1.74:1"`, with
+`ink_box()` (`"400×200 px"`) as the tooltip. Both read `_source_shape()`, the
+**ink bounding box**, not the file: a 600×450 sheet carrying a 400×200 drawing
+is 1.33:1 as a file and 2.00:1 as a picture, and the second is the one the
+predicted grid is derived from. A ratio off the file would sit on the card
+contradicting the number below it.
+
+Visible in the render: eagle 1.74:1 → 11×20, konek 1.62:1 → 12×20. The ratio
+and the prediction explain each other, which is the point of putting them on
+the same card.
+
+**AC-5 — remove a picture.** A `POST /batch/image/<file_id>/remove` per card.
+`ImageManager.remove_image` already deletes the uploaded temp file with the
+row, which answers the card's open question — nothing extra is needed. An
+unknown id is *reported* rather than silently redirected: the button only
+exists beside a picture, so reaching the route with an id the store lacks
+means the page is stale, and a success message for a removal that did not
+happen is worse than saying so.
+
+**Struck as already delivered:** AC-3, AC-4, AC-6 — see the Revision.
+
+### Verified by eye, not only by test
+
+`~/Documents/nonogram-reviews/CARD-067/preview-cards-top.jpg` — the running
+admin with three of the owner's pictures loaded. A layout criterion asserted
+only as markup structure is a criterion nobody has looked at, and this card
+exists because of what the owner saw on the page.
+
+### Tests
+
+`tests/test_card_067_preview_cards.py`, 12 tests: the ratio against a picture
+whose file and ink disagree (4:3 file, 2:1 ink), a square one, an unreadable
+one, and the cache surviving the file's deletion; the two-column structure;
+the ratio reaching the page; removal of the middle of three pictures (cycle
+1's F-003 — a test that cannot tell "that one" from "the first one"); an
+unknown id; and the rendered page offering one POST form per picture, aimed at
+that picture's own id.
+
+One test premise of mine was wrong and is now pinned as its own case: an
+**all-paper picture is not degenerate**. `ink_bounding_box` returns the whole
+frame when it finds no ink, so a blank sheet has a real shape and a real
+ratio — CARD-079 met the same fallback from the other side. The degenerate
+branch is reached only by an unreadable file, which is how the test builds it
+now.
+
+**Mutation check** — three mutants: the ratio taken from the file instead of
+the ink box, an unknown id no longer reported, and the two columns collapsed
+back to a stack. All three caught.
+
+**Full suite: 3,459 passed, 0 failed**, one deselection
+(`test_size_configuration_applied`, unrelated and failing on `main`).
+
