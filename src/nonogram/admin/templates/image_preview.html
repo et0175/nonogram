@@ -102,6 +102,35 @@
                             </div>
                         </div>
 
+                        {# CARD-069: one puzzle per ticked size. The control
+                           above stays this picture's first size, so a batch
+                           nobody touches is the batch it always was; these
+                           are the extra ones, each with its own predicted
+                           grid computed server-side — there is no sizing
+                           arithmetic in the browser (CARD-067 AC-6). #}
+                        <div class="mt-3">
+                            <span class="form-label mb-1 d-block">Also make this picture at</span>
+                            {% for extra in image.extra_size_choices() %}
+                            <form method="post"
+                                  action="{{ url_for('toggle_size_option', file_id=image.file_id) }}"
+                                  class="d-flex align-items-center gap-2 mb-1">
+                                <input type="hidden" name="mode" value="{{ extra.mode }}">
+                                <button type="submit"
+                                        class="btn btn-sm {% if extra.selected %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+                                    {% if extra.selected %}✓{% endif %} {{ extra.label }}
+                                </button>
+                                {% if extra.selected %}
+                                <code class="small">{{ extra.fit.extent[0] }}×{{ extra.fit.extent[1] }}</code>
+                                {% if extra.fit.status == 'cannot_fit' %}
+                                <span class="small text-danger">will be skipped</span>
+                                {% elif extra.fit.status == 'moved_to_large' %}
+                                <span class="small text-warning">moved up to Large</span>
+                                {% endif %}
+                                {% endif %}
+                            </form>
+                            {% endfor %}
+                        </div>
+
                         {# AC-5. A POST, not a link: this deletes the uploaded
                            temp file, and a GET that changes state is reachable
                            by a browser prefetch. #}
