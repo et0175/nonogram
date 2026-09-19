@@ -1075,6 +1075,31 @@ def create_app(debug=None):
         """Select images for batch generation (Wave 3 workflow)."""
         return _render_batch_step_one()
 
+    @app.route("/batch/image/<file_id>/remove", methods=["POST"])
+    def remove_batch_image(file_id):
+        """Drop one picture from the batch job (CARD-067 AC-5).
+
+        ``ImageManager.remove_image`` already deletes the uploaded temp file
+        along with the row, so there is nothing to clean up here — which is
+        the answer to the card's open question about it.
+
+        An unknown id is reported rather than ignored: the button only exists
+        beside a picture, so reaching this with an id the store does not have
+        means the page is stale, and saying so beats a silent redirect that
+        looks like it worked. Either way the answer is the preview page, which
+        redirects to the upload step by itself once the batch is empty.
+        """
+        image_mgr = get_image_manager()
+        image = image_mgr.get_image(file_id)
+        if image is None:
+            flash("That picture is no longer in this batch", "info")
+        elif image_mgr.remove_image(file_id):
+            flash(f"Removed {image.original_filename} from this batch", "success")
+        else:
+            flash("Could not remove that picture", "error")
+
+        return redirect(url_for("preview_batch_images"))
+
     @app.route("/batch/preview-images", methods=["GET", "POST"])
     def preview_batch_images():
         """Preview and configure sizes for selected images."""
