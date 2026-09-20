@@ -1,6 +1,6 @@
 # CARD-068: Batch results — the per-puzzle Delete, and bulk actions that say what they did
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d _(was 0.5d for the whole card; most of it shipped outside the board — see Re-cut)_
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-099 (merged 2ac201a) — same page; the cards now sit inside per-picture sections
 **Touches:** src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/app.py (the delete route's return and guard, the bulk flashes, the page's counts), src/nonogram/admin/puzzle_review.py (`BulkOutcome`, `batch_action_counts`), src/nonogram/admin/book_manager.py (`book_listing`), tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-20
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-20
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
