@@ -1055,89 +1055,137 @@ class PuzzleReviewService:
                 count(str(batch_id), status, puzzle_name or source_image)
         return summaries
 
+    # ------------------------------------------------------------------
+    # CARD-100 — membership, and the one rule every status change obeys
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _holds_a_book(book_id, status) -> bool:
+        """Is this puzzle in a book?
+
+        ``book_id`` is the fact this card made real. The ``in_book`` status is
+        read too, and only read: rows written before CARD-100 carry it, and
+        they are still in books. Nothing writes it any more except the legacy
+        :meth:`mark_in_book`, the way ``difficulty.tier_of_record`` still
+        answers for the retired guess tier without anything assigning it.
+        """
+        return book_id is not None or status == PuzzleStatus.IN_BOOK.value
+
+    def in_a_book(self, puzzle_id: str) -> bool:
+        """Whether a stored puzzle belongs to a book (CARD-100)."""
+        puzzle = self.get_puzzle(puzzle_id)
+        if puzzle is None:
+            return False
+        return self._holds_a_book(puzzle.get("book_id"), puzzle.get("status"))
+
+    def _set_status(self, puzzle_id: str, status: PuzzleStatus) -> bool:
+        """Move one puzzle to ``status``, unless a book is built on it.
+
+        The three per-puzzle actions were three copies of the same six lines,
+        and none of them asked about books — so a per-puzzle Reject walked
+        straight past the protection the bulk path takes care over (CARD-100).
+        One implementation, one rule, one place for it to be wrong.
+
+        Returns:
+            True if the puzzle moved. False if it does not exist **or** a book
+            holds it; callers that need to tell those apart ask
+            :meth:`in_a_book` first, which is what the routes do so they can
+            say why.
+        """
+        if self._session_factory is None:
+            puzzle = self.puzzles.get(puzzle_id)
+            if puzzle is None:
+                return False
+            if self._holds_a_book(puzzle.get("book_id"), puzzle.get("status")):
+                return False
+            puzzle["status"] = status.value
+            return True
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        with self._session_factory() as db:
+            puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+            row = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
+            if row is None:
+                return False
+            if self._holds_a_book(row.book_id, row.status):
+                return False
+            row.status = status.value
+            return True
+
+    def assign_to_book(self, puzzle_ids, book_id: str) -> int:
+        """Record that a book holds these puzzles (CARD-100).
+
+        Called by :class:`BookManager` as it edits ``Book.puzzle_ids``, so the
+        two sides of membership are written in one gesture. The curation status
+        is deliberately left alone: a puzzle is approved *and* in a book, and
+        overwriting that would leave removal guessing what to restore.
+
+        Returns:
+            How many rows were written.
+        """
+        return self._write_book_id(puzzle_ids, book_id)
+
+    def release_from_book(self, puzzle_ids) -> int:
+        """Clear the book from these puzzles (CARD-100)."""
+        return self._write_book_id(puzzle_ids, None)
+
+    def _write_book_id(self, puzzle_ids, book_id) -> int:
+        written = 0
+        puzzle_ids = list(puzzle_ids)
+        if self._session_factory is None:
+            for puzzle_id in puzzle_ids:
+                puzzle = self.puzzles.get(puzzle_id)
+                if puzzle is not None:
+                    puzzle["book_id"] = book_id
+                    written += 1
+            return written
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        def as_uuid(value):
+            try:
+                return uuid_module.UUID(value) if isinstance(value, str) else value
+            except (ValueError, AttributeError):
+                return None
+
+        wanted = [u for u in (as_uuid(p) for p in puzzle_ids) if u is not None]
+        if not wanted:
+            return 0
+        with self._session_factory() as db:
+            for row in db.query(Puzzle).filter(Puzzle.id.in_(wanted)):
+                row.book_id = as_uuid(book_id)
+                written += 1
+        return written
+
     def approve_puzzle(self, puzzle_id: str) -> bool:
         """Mark puzzle as approved for book inclusion.
 
-        Args:
-            puzzle_id: ID of puzzle to approve
-
         Returns:
-            True if approved, False if not found
+            True if approved; False if not found, or if a book holds it
+            (CARD-100).
         """
-        if self._session_factory is None:
-            # Legacy mode
-            if puzzle_id not in self.puzzles:
-                return False
-            self.puzzles[puzzle_id]["status"] = PuzzleStatus.APPROVED.value
-            return True
-        else:
-            # DB mode
-            import uuid as uuid_module
-            from nonogram.db.models import Puzzle
-
-            with self._session_factory() as db:
-                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
-                if not puzzle:
-                    return False
-                puzzle.status = PuzzleStatus.APPROVED.value
-                return True
+        return self._set_status(puzzle_id, PuzzleStatus.APPROVED)
 
     def reject_puzzle(self, puzzle_id: str) -> bool:
         """Mark puzzle as rejected.
 
-        Args:
-            puzzle_id: ID of puzzle to reject
-
         Returns:
-            True if rejected, False if not found
+            True if rejected; False if not found, or if a book holds it
+            (CARD-100).
         """
-        if self._session_factory is None:
-            # Legacy mode
-            if puzzle_id not in self.puzzles:
-                return False
-            self.puzzles[puzzle_id]["status"] = PuzzleStatus.REJECTED.value
-            return True
-        else:
-            # DB mode
-            import uuid as uuid_module
-            from nonogram.db.models import Puzzle
-
-            with self._session_factory() as db:
-                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
-                if not puzzle:
-                    return False
-                puzzle.status = PuzzleStatus.REJECTED.value
-                return True
+        return self._set_status(puzzle_id, PuzzleStatus.REJECTED)
 
     def restore_puzzle(self, puzzle_id: str) -> bool:
         """Restore rejected or approved puzzle back to draft.
 
-        Args:
-            puzzle_id: ID of puzzle to restore
-
         Returns:
-            True if restored, False if not found
+            True if restored; False if not found, or if a book holds it
+            (CARD-100) — remove it from the book first.
         """
-        if self._session_factory is None:
-            # Legacy mode
-            if puzzle_id not in self.puzzles:
-                return False
-            self.puzzles[puzzle_id]["status"] = PuzzleStatus.DRAFT.value
-            return True
-        else:
-            # DB mode
-            import uuid as uuid_module
-            from nonogram.db.models import Puzzle
-
-            with self._session_factory() as db:
-                puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
-                puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
-                if not puzzle:
-                    return False
-                puzzle.status = PuzzleStatus.DRAFT.value
-                return True
+        return self._set_status(puzzle_id, PuzzleStatus.DRAFT)
 
     def set_batch_status(self, batch_id: str, status: PuzzleStatus) -> BulkOutcome:
         """Move every puzzle of ``batch_id`` that is not in a book to ``status``.
@@ -1309,7 +1357,13 @@ class PuzzleReviewService:
                 if not puzzle:
                     return False
                 puzzle.status = PuzzleStatus.IN_BOOK.value
-                puzzle.book_id = book_id
+                # CARD-100 (AC-6): this branch assigned the str straight to a
+                # UUID column and raised, on the same argument the in-memory
+                # branch accepts. Nothing in production called it, so nothing
+                # noticed.
+                puzzle.book_id = (
+                    uuid_module.UUID(book_id) if isinstance(book_id, str) else book_id
+                )
                 return True
 
     def get_approved_puzzles(self, book_id: str) -> List[Dict[str, Any]]:
@@ -1326,17 +1380,19 @@ class PuzzleReviewService:
             return [
                 p
                 for p in self.puzzles.values()
-                if p.get("status") == PuzzleStatus.IN_BOOK.value
-                and p.get("book_id") == book_id
+                if p.get("book_id") == book_id
             ]
         else:
             # DB mode
+            import uuid as uuid_module
+
             from nonogram.db.models import Puzzle
 
             with self._session_factory() as db:
                 rows = db.query(Puzzle).filter(
-                    Puzzle.status == PuzzleStatus.IN_BOOK.value,
-                    Puzzle.book_id == book_id,
+                    Puzzle.book_id == (
+                        uuid_module.UUID(book_id) if isinstance(book_id, str) else book_id
+                    ),
                 ).all()
                 return [self._row_to_dict(row) for row in rows]
 
@@ -1359,6 +1415,13 @@ class PuzzleReviewService:
                 status = puzzle["status"]
                 if status in stats:
                     stats[status] += 1
+            # CARD-100: "in a book" is the column, not the status. The status
+            # tally above still counts legacy rows that carry it, so count the
+            # column here and take whichever is larger rather than double-count.
+            stats["in_book"] = max(
+                stats["in_book"],
+                sum(1 for p in self.puzzles.values() if p.get("book_id")),
+            )
             return stats
         else:
             # DB mode
@@ -1369,7 +1432,7 @@ class PuzzleReviewService:
                 draft_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.DRAFT.value).count()
                 approved_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.APPROVED.value).count()
                 rejected_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.REJECTED.value).count()
-                in_book_count = db.query(Puzzle).filter(Puzzle.status == PuzzleStatus.IN_BOOK.value).count()
+                in_book_count = db.query(Puzzle).filter(Puzzle.book_id.isnot(None)).count()
 
                 return {
                     "total": total,

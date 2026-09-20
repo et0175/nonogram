@@ -9,7 +9,10 @@ from typing import Optional, List, Dict, Any
 from enum import Enum
 from datetime import datetime
 import json
+import logging
 import uuid as uuid_module
+
+logger = logging.getLogger(__name__)
 
 
 class BookStatus(Enum):
@@ -78,15 +81,24 @@ class BookManager:
     database-backed storage (when session_factory is provided).
     """
 
-    def __init__(self, session_factory=None):
+    def __init__(self, session_factory=None, puzzle_store=None):
         """Initialize book manager.
 
         Args:
             session_factory: Optional callable that yields a DB session.
                            If None, uses in-memory dict storage (legacy mode).
                            If provided, uses database backend.
+            puzzle_store: The :class:`PuzzleReviewService` that owns the puzzle
+                           rows (CARD-100). Membership is two facts that must be
+                           written together — this book's list, and each
+                           puzzle's ``book_id`` — and puzzle rows are not this
+                           module's to write, so it asks the store. A manager
+                           built without one keeps its books correctly and says
+                           so in the log rather than pretending; every manager
+                           ``create_app`` builds has one.
         """
         self._session_factory = session_factory
+        self.puzzle_store = puzzle_store
         # In-memory book storage (used only in legacy mode when session_factory is None)
         self.books: Dict[str, Book] = {}
         self._next_id = 1
@@ -265,6 +277,7 @@ class BookManager:
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
             book.updated_at = datetime.utcnow()
 
+            self._mirror_onto_puzzles(new_puzzles, book_id)
             return True
         else:
             # DB mode: update Book row
@@ -291,7 +304,9 @@ class BookManager:
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()
-                return True
+
+            self._mirror_onto_puzzles(new_puzzles, book_id)
+            return True
 
     def remove_puzzle_from_book(self, book_id: str, puzzle_id: str) -> bool:
         """Remove a puzzle from a book.
@@ -313,6 +328,7 @@ class BookManager:
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
             book.updated_at = datetime.utcnow()
 
+            self._mirror_onto_puzzles([puzzle_id], None)
             return True
         else:
             # DB mode: update Book row
@@ -327,21 +343,32 @@ class BookManager:
                 if puzzle_id not in puzzle_ids:
                     return False
 
-                puzzle_ids.remove(puzzle_id)
-                book_row.puzzle_ids = puzzle_ids
+                # A NEW list, not the same one mutated and assigned back
+                # (CARD-100). `puzzle_ids` is a plain JSON column: SQLAlchemy
+                # compares identity to decide what is dirty, so removing from
+                # the list in place and reassigning it changed nothing at all —
+                # in DB mode, which is production, taking a puzzle out of a book
+                # silently did not happen. `add_puzzles_to_book` was never
+                # affected because it builds a new list by concatenation.
+                book_row.puzzle_ids = [p for p in puzzle_ids if p != puzzle_id]
 
                 # Update page count in metadata
-                if book_row.book_metadata is None:
-                    book_row.book_metadata = {}
-                book_row.book_metadata['page_count'] = max(1, len(book_row.puzzle_ids) // 2)
+                book_row.book_metadata = {
+                    **(book_row.book_metadata or {}),
+                    'page_count': max(1, len(book_row.puzzle_ids) // 2),
+                }
                 book_row.updated_at = datetime.utcnow()
 
-                # Also remove custom title if it exists
+                # Also remove custom title if it exists — a new dict, same reason
                 if book_row.puzzle_titles and puzzle_id in book_row.puzzle_titles:
-                    del book_row.puzzle_titles[puzzle_id]
+                    book_row.puzzle_titles = {
+                        k: v for k, v in book_row.puzzle_titles.items() if k != puzzle_id
+                    }
 
                 db.commit()
-                return True
+
+            self._mirror_onto_puzzles([puzzle_id], None)
+            return True
 
     def reorder_puzzles(self, book_id: str, puzzle_ids: List[str]) -> bool:
         """Reorder puzzles in a book.
@@ -836,6 +863,34 @@ class BookManager:
                 rows = db.query(DBBook).order_by(DBBook.created_at.desc()).all()
                 return [self._row_to_book(row) for row in rows]
 
+    def _mirror_onto_puzzles(self, puzzle_ids, book_id) -> None:
+        """Write this membership change onto the puzzle rows too (CARD-100).
+
+        ``Book.puzzle_ids`` and ``Puzzle.book_id`` are two halves of one fact.
+        Until this card only the first half was ever written, so every guard in
+        the panel — which reads the second — waved through puzzles a book was
+        built on, and "Delete rejected" removed them outright.
+
+        A manager with no store keeps its own half correctly and says so, which
+        is the honest failure: the alternative is a book whose puzzles are
+        unprotected and nothing anywhere saying why. The backfill repairs a
+        history of exactly that.
+        """
+        if not puzzle_ids:
+            return
+        if self.puzzle_store is None:
+            logger.warning(
+                "No puzzle store: book membership for %d puzzle(s) was recorded "
+                "on the book only, so the puzzles are not protected from bulk "
+                "actions (CARD-100). Run the membership backfill.",
+                len(list(puzzle_ids)),
+            )
+            return
+        if book_id is None:
+            self.puzzle_store.release_from_book(puzzle_ids)
+        else:
+            self.puzzle_store.assign_to_book(puzzle_ids, book_id)
+
     def book_listing(self, puzzle_id: str) -> Optional[str]:
         """The id of a book that lists this puzzle, or ``None`` (CARD-068).
 
@@ -861,7 +916,7 @@ class BookManager:
 _book_manager = BookManager(session_factory=None)
 
 
-def get_book_manager(session_factory=None) -> BookManager:
+def get_book_manager(session_factory=None, puzzle_store=None) -> BookManager:
     """Get the book manager.
 
     Args:
@@ -872,8 +927,11 @@ def get_book_manager(session_factory=None) -> BookManager:
         BookManager instance (either singleton or new DB-backed instance)
     """
     if session_factory is None:
-        # Return the singleton in-memory instance
+        # Return the singleton in-memory instance, wiring its store on first
+        # use if the caller brought one (CARD-100).
+        if puzzle_store is not None:
+            _book_manager.puzzle_store = puzzle_store
         return _book_manager
     else:
         # Return a new DB-backed instance
-        return BookManager(session_factory=session_factory)
+        return BookManager(session_factory=session_factory, puzzle_store=puzzle_store)
