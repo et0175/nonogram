@@ -10,11 +10,11 @@
 **TDD:** —
 **Branch:** card/100-book-membership-is-one-fact
 **Worktree:** —
-**Source:** found 2026-09-20 while starting CARD-068; demonstrated end to end before the card was opened
+**Source:** found 2026-09-20 while starting CARD-068; demonstrated end to end before the card was opened, and re-confirmed on `main` at `0861e24`
 **Idea:** —
 **Wave:** 1
-**Depends on:** —
-**Touches:** src/nonogram/admin/book_manager.py (membership writes both sides), src/nonogram/admin/puzzle_review.py (the guards, `mark_in_book`), a backfill for existing rows, tests
+**Depends on:** — _(CARD-068 merged 3223753 left `BookManager.book_listing` behind, which answers "which book holds this puzzle" from the side that actually knows)_
+**Touches:** src/nonogram/admin/book_manager.py (membership writes both sides), src/nonogram/admin/puzzle_review.py (the guards, the `unassigned` filter, `get_approved_puzzles`, `mark_in_book`), src/nonogram/admin/app.py (the bulk reports gain their clause), a backfill for existing rows, tests
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -54,6 +54,24 @@ This is why the bulk actions in CARD-068 report what they changed but say
 nothing about what a book held back: the number would be zero however many
 puzzles a book actually lists, and a confident "0 left alone: in a book" is
 worse than silence.
+
+### Three more things the same root cause breaks (found 2026-09-20)
+
+Surveyed after the card was opened, by reading every site that consults the
+column:
+
+- **The book builder offers puzzles that are already in a book.** Step 2 of
+  the book flow filters `book_id="unassigned"` with the comment "Only show
+  puzzles NOT in any book" — and since nothing sets the column, *every* puzzle
+  matches. A puzzle already bound into book A is offered while building book
+  B, and nothing stops it being used twice. This is the one symptom an owner
+  can see without reading code.
+- **`get_approved_puzzles(book_id)` cannot return anything.** It filters
+  `status == in_book AND book_id == <id>`, neither of which is ever written,
+  so it is empty for every book. It has no production caller — the PDF path
+  reads `Book.puzzle_ids` — so this is dead code that would be wrong if it
+  were revived. Decide whether it is repaired or removed.
+- **The dashboard's "in_book" count is always zero**, for the same reason.
 
 **Two smaller defects found with it:**
 
@@ -111,6 +129,10 @@ worse than silence.
 - **AC-7** — CARD-068's bulk messages gain the "left alone: in a book" clause
   once the number can be trusted, and it is covered by a test that books a
   puzzle through `BookManager` rather than through `mark_in_book`.
+- **AC-8** — the book builder stops offering a puzzle that another book
+  already holds, and the `"unassigned"` filter means what its comment says.
+- **AC-9** — `get_approved_puzzles` either returns a book's puzzles or is
+  gone; it does not stay as a method that silently answers "none".
 
 ## Guardrails
 
