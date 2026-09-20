@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-100** P1 · A puzzle in a book is not protected — membership is written to `Book.puzzle_ids` and read from `Puzzle.book_id`, which nothing in production sets  _(wave 1)_ — demonstrated: "Delete rejected" deleted a puzzle a book lists, and the book still lists it
 - **CARD-068** P2 · Batch results — the per-puzzle Delete, and bulk actions that say what they did  _(wave 1)_ — re-cut 2026-09-19: `db4e0dc` shipped the three bulk actions to main outside the board; AC-2's >100 clause retired (MAX_BATCH_COUNT is 50); Delete-from-Draft is the owner's open pick
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
