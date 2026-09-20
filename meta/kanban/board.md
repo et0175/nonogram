@@ -29,7 +29,6 @@ _(none)_
 
 ## Ready
 - **CARD-101** P1 · Reordering a book's puzzles and naming them do nothing in DB mode — JSON columns mutated in place are not seen as changed  _(wave 1)_ — found while fixing the same bug in `remove_puzzle_from_book` for CARD-100
-- **CARD-100** P1 · A puzzle in a book is not protected — membership is written to `Book.puzzle_ids` and read from `Puzzle.book_id`, which nothing in production sets  _(wave 1)_ — demonstrated: "Delete rejected" deleted a puzzle a book lists, and the book still lists it
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -53,6 +52,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-100** P1 · A puzzle in a book is protected again — membership written to both `Book.puzzle_ids` and `Puzzle.book_id` in one gesture; the three per-puzzle status changes became one rule, so a booked puzzle cannot even be rejected · the book builder stops offering a puzzle another book holds · backfill ships with a dry run, owner runs it (G-2) · `remove_puzzle_from_book` did nothing in DB mode and is fixed — the four with the same bug are CARD-101 · merged without a review cycle, at the owner's call · merged 0360c05
 - **CARD-068** P2 · Batch results — the per-puzzle Delete (rejected only, option (a)), confirmations that name their count, and reports that say what needed nothing · re-cut first: `db4e0dc` had shipped the three bulk actions outside the board, and AC-2's >100 clause was retired (MAX_BATCH_COUNT is 50) · the in-book clause left unbuilt and the sidebar's untrue reassurance removed — see CARD-100 · verified on the rendered page · merged without a review cycle, at the owner's call · merged 3223753
 - **CARD-099** P2 · The generated page counts pictures and puzzles separately, and a picture's sizes read as a group — heading per picture (option (a), owner's pick) · fixes a count CARD-069 broke ("2 puzzles from 2 pictures" for one picture) · the shortfall no longer blames the quality threshold · verified on the rendered page · merged without a review cycle, at the owner's call · merged 2ac201a
 - **CARD-069** P2 · Up to four size options per picture, one puzzle per size — the last of the 2026-09-12 admin review items · every pre-existing single-size test passed untouched · merged without a review cycle, at the owner's call · merged 19564e5
