@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-101** P1 · Reordering a book's puzzles and naming them do nothing in DB mode — JSON columns mutated in place are not seen as changed  _(wave 1)_ — found while fixing the same bug in `remove_puzzle_from_book` for CARD-100
 - **CARD-100** P1 · A puzzle in a book is not protected — membership is written to `Book.puzzle_ids` and read from `Puzzle.book_id`, which nothing in production sets  _(wave 1)_ — demonstrated: "Delete rejected" deleted a puzzle a book lists, and the book still lists it
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
