@@ -29,7 +29,6 @@ _(none)_
 
 ## Ready
 - **CARD-100** P1 · A puzzle in a book is not protected — membership is written to `Book.puzzle_ids` and read from `Puzzle.book_id`, which nothing in production sets  _(wave 1)_ — demonstrated: "Delete rejected" deleted a puzzle a book lists, and the book still lists it
-- **CARD-068** P2 · Batch results — the per-puzzle Delete, and bulk actions that say what they did  _(wave 1)_ — re-cut 2026-09-19: `db4e0dc` shipped the three bulk actions to main outside the board; AC-2's >100 clause retired (MAX_BATCH_COUNT is 50); Delete-from-Draft is the owner's open pick
 - **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -53,6 +52,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-068** P2 · Batch results — the per-puzzle Delete (rejected only, option (a)), confirmations that name their count, and reports that say what needed nothing · re-cut first: `db4e0dc` had shipped the three bulk actions outside the board, and AC-2's >100 clause was retired (MAX_BATCH_COUNT is 50) · the in-book clause left unbuilt and the sidebar's untrue reassurance removed — see CARD-100 · verified on the rendered page · merged without a review cycle, at the owner's call · merged 3223753
 - **CARD-099** P2 · The generated page counts pictures and puzzles separately, and a picture's sizes read as a group — heading per picture (option (a), owner's pick) · fixes a count CARD-069 broke ("2 puzzles from 2 pictures" for one picture) · the shortfall no longer blames the quality threshold · verified on the rendered page · merged without a review cycle, at the owner's call · merged 2ac201a
 - **CARD-069** P2 · Up to four size options per picture, one puzzle per size — the last of the 2026-09-12 admin review items · every pre-existing single-size test passed untouched · merged without a review cycle, at the owner's call · merged 19564e5
 - **CARD-067** P2 · Preview cards — picture left, ink ratio right, remove a picture · re-cut 2026-09-19: the live-prediction half had shipped on main meanwhile, so the stale branch is retired as `card/067-superseded-2026-09-12` and the rest was rebuilt · verified on the rendered admin · merged without a review cycle, at the owner's call · merged 9c97d88
