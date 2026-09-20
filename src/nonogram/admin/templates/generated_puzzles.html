@@ -61,6 +61,17 @@
                                 <form method="POST" action="/puzzle/{{ puzzle.id }}/reject?batch_id={{ batch_id }}" class="puzzle-action-form" data-action="reject">
                                     <button type="submit" class="btn btn-sm btn-outline-danger puzzle-action-btn" title="Reject this puzzle">{{ icons.icon('x') }} Reject</button>
                                 </form>
+                                {#- CARD-068: a puzzle is deletable once it is rejected, so the
+                                    form is rendered for every card and hidden until then —
+                                    rejecting reveals it without a reload. A real POST, not the
+                                    fetch the other two use: the page must re-render, or a
+                                    deleted card would linger and its picture's section could
+                                    outlive its last puzzle. -#}
+                                <form method="POST" action="/puzzle/{{ puzzle.id }}/delete?batch_id={{ batch_id }}" class="puzzle-delete-form" data-action="delete"
+                                      onsubmit="return confirm('Delete this puzzle? This cannot be undone.');"
+                                      {% if puzzle.status != 'rejected' %}hidden{% endif %}>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete this rejected puzzle">{{ icons.icon('trash') }} Delete</button>
+                                </form>
                                 <span class="puzzle-status-badge ms-auto">{% if puzzle.status == 'approved' %}<span class="badge" data-status="approved">✓ Approved</span>{% elif puzzle.status == 'rejected' %}<span class="badge" data-status="rejected">✕ Rejected</span>{% elif puzzle.status == 'in_book' %}<span class="badge" data-status="in_book">In book</span>{% endif %}</span>
                             </div>
 
@@ -84,21 +95,25 @@
         <div class="card">
             <div class="card-header"><h2 class="card-title mb-0">Whole batch</h2></div>
             <div class="card-body">
+                {#- CARD-068: every confirmation names the number it is about —
+                    the count that decides whether you meant it — and a button
+                    with nothing to do is disabled rather than confirming its
+                    way to a no-op. The numbers come from the store, so they
+                    are the same rule the action itself applies. -#}
                 <div class="d-grid gap-2">
                     <form method="POST" action="/batch/{{ batch_id }}/approve-all"
-                          onsubmit="return confirm('Approve all puzzles in this batch?');">
-                        <button type="submit" class="btn btn-success w-100">{{ icons.icon('check') }} Approve all</button>
+                          onsubmit="return confirm('Approve {{ 'all ' if action_counts.approve != 1 else '' }}{{ action_counts.approve }} puzzle{{ 's' if action_counts.approve != 1 else '' }} in this batch?');">
+                        <button type="submit" class="btn btn-success w-100" {{ 'disabled' if not action_counts.approve }}>{{ icons.icon('check') }} Approve all</button>
                     </form>
                     <form method="POST" action="/batch/{{ batch_id }}/reject-all"
-                          onsubmit="return confirm('Reject all puzzles in this batch?');">
-                        <button type="submit" class="btn btn-outline-danger w-100">{{ icons.icon('x') }} Reject all</button>
+                          onsubmit="return confirm('Reject {{ 'all ' if action_counts.reject != 1 else '' }}{{ action_counts.reject }} puzzle{{ 's' if action_counts.reject != 1 else '' }} in this batch?');">
+                        <button type="submit" class="btn btn-outline-danger w-100" {{ 'disabled' if not action_counts.reject }}>{{ icons.icon('x') }} Reject all</button>
                     </form>
                     <form method="POST" action="/batch/{{ batch_id }}/delete-rejected"
-                          onsubmit="return confirm('Delete all rejected puzzles in this batch? This cannot be undone.');">
-                        <button type="submit" class="btn btn-outline-danger w-100">{{ icons.icon('trash') }} Delete rejected</button>
+                          onsubmit="return confirm('Delete {{ 'all ' if action_counts.delete_rejected != 1 else 'the ' }}{{ action_counts.delete_rejected }} rejected puzzle{{ 's' if action_counts.delete_rejected != 1 else '' }} in this batch? This cannot be undone.');">
+                        <button type="submit" class="btn btn-outline-danger w-100" {{ 'disabled' if not action_counts.delete_rejected }}>{{ icons.icon('trash') }} Delete rejected</button>
                     </form>
                 </div>
-                <small class="text-muted d-block mt-2">Puzzles already in a book are not changed.</small>
             </div>
         </div>
 
@@ -139,10 +154,15 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(this.action, { method: 'POST' })
             .then(response => {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
+                const deleteForm = container.querySelector('.puzzle-delete-form');
                 if (action === 'approve') {
                     statusBadge.innerHTML = '<span class="badge" data-status="approved">✓ Approved</span>';
+                    if (deleteForm) deleteForm.hidden = true;
                 } else if (action === 'reject') {
                     statusBadge.innerHTML = '<span class="badge" data-status="rejected">✕ Rejected</span>';
+                    // Rejecting is what makes a puzzle deletable (CARD-068), so
+                    // the button appears on the gesture rather than on a reload.
+                    if (deleteForm) deleteForm.hidden = false;
                 }
                 container.querySelectorAll('.puzzle-action-btn').forEach(btn => { btn.disabled = true; });
                 actionBtn.innerHTML = originalHtml;

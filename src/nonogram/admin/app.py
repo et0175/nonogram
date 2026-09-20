@@ -119,6 +119,30 @@ def _size_suffix(option_fit, several: bool) -> str:
     return f" ({option.mode})"
 
 
+def _bulk_report(verb: str, outcome, already: str | None, *, noun: str = "puzzle") -> str:
+    """What a bulk action did, in one sentence (CARD-068).
+
+    Reports what changed and, where there was one, the number that needed no
+    change — "Approved 1 puzzle; 2 were already approved." A bare "Approved 1
+    puzzle" on a batch of three is the kind of count that sends the owner
+    looking for the other two.
+
+    It says nothing about puzzles a book held back, although
+    ``outcome.in_book`` counts them, because in a running panel that number is
+    zero however many puzzles a book actually lists: membership is written to
+    ``Book.puzzle_ids`` and the guard reads ``Puzzle.book_id``, which nothing
+    in production sets (CARD-100). A confident "0 left alone: in a book" would
+    be worse than silence. The clause belongs here once CARD-100 makes the
+    number true.
+    """
+    plural = "" if outcome.changed == 1 else "s"
+    sentence = f"{verb} {outcome.changed} {noun}{plural}"
+    if already and outcome.unchanged:
+        was = "was" if outcome.unchanged == 1 else "were"
+        sentence += f"; {outcome.unchanged} {was} {already}"
+    return sentence + "."
+
+
 @dataclass(frozen=True)
 class PictureGroup:
     """One picture's puzzles, in the order they should be shown (CARD-099).
@@ -1628,6 +1652,11 @@ def create_app(debug=None):
             picture_count=picture_count,
             planned_count=planned_count,
             missing_count=missing_count,
+            # CARD-068: each bulk button names the number it is about. Asked of
+            # the store, not counted off `puzzles` above, so the number in the
+            # confirmation and the number the action reports are one rule with
+            # two readings rather than two rules.
+            action_counts=puzzle_review.batch_action_counts(batch_id),
         )
 
     @app.route("/batch/<batch_id>/approve-all", methods=["POST"])
@@ -1636,8 +1665,8 @@ def create_app(debug=None):
         if not batch_gen.get_batch_status(batch_id):
             flash("Batch not found", "error")
             return redirect(url_for("dashboard"))
-        count = puzzle_review.set_batch_status(batch_id, PuzzleStatus.APPROVED)
-        flash(f"Approved {count} puzzle(s)", "success")
+        outcome = puzzle_review.set_batch_status(batch_id, PuzzleStatus.APPROVED)
+        flash(_bulk_report("Approved", outcome, "already approved"), "success")
         return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
     @app.route("/batch/<batch_id>/reject-all", methods=["POST"])
@@ -1646,8 +1675,8 @@ def create_app(debug=None):
         if not batch_gen.get_batch_status(batch_id):
             flash("Batch not found", "error")
             return redirect(url_for("dashboard"))
-        count = puzzle_review.set_batch_status(batch_id, PuzzleStatus.REJECTED)
-        flash(f"Rejected {count} puzzle(s)", "success")
+        outcome = puzzle_review.set_batch_status(batch_id, PuzzleStatus.REJECTED)
+        flash(_bulk_report("Rejected", outcome, "already rejected"), "success")
         return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
     @app.route("/batch/<batch_id>/delete-rejected", methods=["POST"])
@@ -1656,8 +1685,8 @@ def create_app(debug=None):
         if not batch_gen.get_batch_status(batch_id):
             flash("Batch not found", "error")
             return redirect(url_for("dashboard"))
-        count = puzzle_review.delete_rejected_in_batch(batch_id)
-        flash(f"Deleted {count} rejected puzzle(s)", "success")
+        outcome = puzzle_review.delete_rejected_in_batch(batch_id)
+        flash(_bulk_report("Deleted", outcome, None, noun="rejected puzzle"), "success")
         return redirect(url_for("generated_puzzles", batch_id=batch_id))
 
     @app.route("/batch/<batch_id>")
@@ -2676,28 +2705,45 @@ def create_app(debug=None):
     @app.route("/puzzle/<puzzle_id>/delete", methods=["POST"])
     def delete_puzzle(puzzle_id):
         """Delete a rejected puzzle."""
+        # CARD-068: the batch page offers this too now, and lands back on the
+        # batch rather than dropping the owner into the global library
+        # mid-review — the same `?batch_id=` the Approve and Reject forms beside
+        # it have always posted.
+        batch_id = request.args.get("batch_id")
+
+        def done():
+            if batch_id:
+                return redirect(url_for("generated_puzzles", batch_id=batch_id))
+            return _back_to_puzzles_list()
+
         puzzle = puzzle_review.get_puzzle(puzzle_id)
 
         if not puzzle:
             flash("Puzzle not found", "error")
-            return _back_to_puzzles_list()
+            return done()
 
         # Only allow deletion of rejected puzzles
         if puzzle.get("status") != "rejected":
             flash("Only rejected puzzles can be deleted", "error")
-            return _back_to_puzzles_list()
+            return done()
 
-        # Only allow deletion if not in a book
-        if puzzle.get("book_id"):
+        # Only allow deletion if not in a book. Two questions, because they
+        # have two different answers: the puzzle row's own `book_id`, and the
+        # book side that actually records membership. Production writes only
+        # the second, so the first alone would delete a puzzle a book is built
+        # on and leave the book pointing at nothing (CARD-100). This route
+        # destroys something, so it asks both.
+        listing_book = book_mgr.book_listing(puzzle_id)
+        if puzzle.get("book_id") or listing_book:
             flash("Cannot delete puzzle that is in a book", "error")
-            return _back_to_puzzles_list()
+            return done()
 
         if puzzle_review.delete_puzzle(puzzle_id):
             flash("Puzzle deleted", "success")
         else:
             flash("Puzzle not found", "error")
 
-        return _back_to_puzzles_list()
+        return done()
 
     @app.route("/puzzle/<puzzle_id>/restore", methods=["POST"])
     def restore_puzzle(puzzle_id):

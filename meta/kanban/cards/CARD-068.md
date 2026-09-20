@@ -1,24 +1,24 @@
 # CARD-068: Batch results — the per-puzzle Delete, and bulk actions that say what they did
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d _(was 0.5d for the whole card; most of it shipped outside the board — see Re-cut)_
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (9 mutants, all caught)
 **Branch:** card/068-batch-results-bulk-actions
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-068
 **Source:** owner, 2026-09-12: "I'd like «delete» button on the generated puzzles last Batch generation step, then «Accept all», «reject all» and «delete rejected»"
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-099 (merged 2ac201a) — same page; the cards now sit inside per-picture sections
-**Touches:** src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/app.py (the delete route's return, the bulk flashes), src/nonogram/admin/puzzle_review.py (bulk helpers return what they skipped), tests
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Touches:** src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/app.py (the delete route's return and guard, the bulk flashes, the page's counts), src/nonogram/admin/puzzle_review.py (`BulkOutcome`, `batch_action_counts`), src/nonogram/admin/book_manager.py (`book_listing`), tests
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-20
+**Closed:** 2026-09-20
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -133,3 +133,90 @@ one-line change to the guard.
 - **FR:** — (admin curation)
 - **Components:** the admin panel's review surface
 - **Trace:** none
+
+### Delivered 2026-09-20
+
+**The Delete button (item 1, AC-1, AC-7).** Beside Approve and Reject on every
+card, hidden until the puzzle is rejected — option (a), the owner's pick. The
+form is rendered for every card rather than only the rejected ones, so the
+fetch that flips the badge reveals it without a reload; approving hides it
+again. A real POST, not the fetch its neighbours use: the page has to
+re-render, or a deleted card would linger and its picture's section (CARD-099)
+could outlive its last puzzle.
+
+**Where Delete lands (item 2).** `?batch_id=` — the same parameter the Approve
+and Reject forms beside it have always posted — returns to the batch instead
+of dropping the owner into the global library mid-review. Without it the route
+behaves exactly as before, which the review list depends on (G-2).
+
+**The counts (item 3, AC-6).** Each bulk confirmation names its number:
+"Approve all 5 puzzles in this batch?", "Delete the 1 rejected puzzle in this
+batch? This cannot be undone." A button with nothing to do is disabled rather
+than confirming its way to a no-op. The numbers come from
+`batch_action_counts`, which applies the store's own rules, so the number on
+the button and the number in the flash are two readings of one rule — pinned
+by `test_the_promised_count_is_what_the_action_reports`, which clicks the
+button and compares.
+
+**The reports (item 4, AC-3, partly).** `BulkOutcome(changed, unchanged,
+in_book)` replaces the bare `int` both helpers returned, and the flash says
+"Approved 1 puzzle; 2 were already approved." A bare "Approved 1" on a batch
+of three is the kind of count that sends the owner looking for the other two.
+
+**AC-5.** The store's bulk operations are now exercised in both modes through
+a parametrised `store` fixture.
+
+### What this card does NOT do, and why (CARD-100)
+
+AC-3's other half — "1 skipped: in a book" — is **not** built, at the owner's
+call, and AC-4 is weaker than it reads. Found while starting this card and
+demonstrated before writing a line of it: **the in-book guard does not fire
+for real books.** `BookManager.add_puzzles_to_book` records membership in
+`Book.puzzle_ids` and never touches the puzzle row; every guard here reads
+`Puzzle.book_id`; and `mark_in_book`, the only code that writes it, has no
+production caller — it is reached only from tests. So the number would be zero
+however many puzzles a book actually lists, and a confident "0 left alone: in
+a book" is worse than silence. `BulkOutcome.in_book` counts them anyway, so
+the clause is one sentence away once CARD-100 makes the number true.
+
+The sidebar's claim "Puzzles already in a book are not changed." is **removed**
+for the same reason: it was the page asserting the thing that is not so.
+
+**The one place this card does close the hole** is the button it adds. A
+Delete the owner clicks is destructive and new, so the route asks
+`book_manager.book_listing(puzzle_id)` — the side that actually records
+membership — as well as the puzzle's own column. A scan, affordable for one
+puzzle at a time, and precisely why it is not the answer for the bulk paths.
+
+### Verified by eye
+
+`~/Documents/nonogram-reviews/CARD-068/` — `batch-top.jpg` (the batch panel
+with its counted buttons) and `delete-on-a-rejected-card.jpg`: `butterfly.png`
+at two sizes, the approved 14x10 offering no Delete and the rejected 20x15
+offering one beside its badge. `batch-review.html` is the rendered page.
+
+### Tests
+
+`tests/test_card_068_batch_curation.py`, 25 tests. The delete rules (rejected
+only, never in a book by either reading, back to the batch), the page's
+offer of Delete, the counted confirmations and the disabled empty button, the
+reports, and the store's two modes side by side.
+
+**Mutation check** — nine mutants: Delete ignoring the batch, Delete trusting
+only the puzzle row, Delete offered on every card, the confirmation dropping
+its count, the empty button left live, the report omitting what needed
+nothing, the counts including booked puzzles, `delete_rejected_in_batch`
+ignoring books, and `book_listing` always returning `None`. All nine caught —
+the seventh only after its first run was found not to have applied (a
+multi-line `perl` substitution without `-0`), which is its own small lesson
+about trusting a mutant that reports "all passed".
+
+**Full suite: 3,522 passed, 0 failed**, 26 skipped, one deselection
+(`test_size_configuration_applied`, unrelated).
+
+### A correction to CARD-099's record
+
+That card's notes say "3,495 passed". The number was measured before its last
+two tests were added (the upload-order pins that caught its surviving mutant),
+so `main` at merge was 3,497. The suite was green at both counts; the figure
+in the card is simply one measurement out of date.
