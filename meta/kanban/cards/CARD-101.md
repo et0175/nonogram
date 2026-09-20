@@ -10,11 +10,11 @@
 **TDD:** —
 **Branch:** card/101-json-columns-are-not-mutable
 **Worktree:** —
-**Source:** found 2026-09-20 while fixing `remove_puzzle_from_book` for CARD-100
+**Source:** found 2026-09-20 while fixing `remove_puzzle_from_book` for CARD-100; measured against a real database before starting, which corrected two of this card's own claims
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-100 (the same bug, in the one method that card had to fix)
-**Touches:** src/nonogram/admin/book_manager.py (`move_puzzle_up`, `move_puzzle_down`, `reorder_puzzles`, `set_puzzle_title`), possibly src/nonogram/db/models.py (the JSON columns), tests
+**Touches:** src/nonogram/admin/book_manager.py (`move_puzzle_up`, `move_puzzle_down`, `set_puzzle_title`), possibly src/nonogram/db/models.py (the JSON columns), tests
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -29,38 +29,65 @@ decides what to write by comparing object identity, so mutating the list or
 dict **in place** and assigning it back to the same attribute is not a change
 as far as the session is concerned, and the `commit()` writes nothing.
 
-Four methods in `BookManager` do exactly that::
+Three methods in `BookManager` do exactly that::
 
     puzzle_ids = book_row.puzzle_ids or []     # the column's own list
     puzzle_ids[i], puzzle_ids[i-1] = ...       # mutated in place
     book_row.puzzle_ids = puzzle_ids           # assigned back: same object
 
-So in DB mode — which is production — **moving a puzzle up or down in a book,
-reordering a book, and setting or clearing a puzzle's title all silently do
-nothing.** The request succeeds, the page re-renders from the unchanged row,
-and the owner sees their change vanish.
+### Measured 2026-09-20, before starting — and two of this card's claims were wrong
 
-`add_puzzles_to_book` was never affected: it builds a new list by
-concatenation (`existing + new`), which is a different object.
+Run against a SQLite-backed `BookManager`, reading every result back through a
+fresh session:
+
+| operation | persists? |
+|---|---|
+| `move_puzzle_up` | **no** |
+| `move_puzzle_down` | **no** |
+| `set_puzzle_title`, first title on a book | yes |
+| `set_puzzle_title`, **changing** an existing title | **no** |
+| `set_puzzle_title`, **clearing** a title | **no** |
+| `reorder_puzzles` | yes |
+| `add_puzzles_to_book` | yes |
+
+So the owner-facing symptoms are: **the arrange page's up and down buttons do
+nothing**, and **a puzzle in a book can be named once and then never renamed
+or un-named**.
+
+Two corrections to what this card asserted when it was opened, both from not
+having run it:
+
+- **`reorder_puzzles` is fine.** It assigns the *caller's* list
+  (`book_row.puzzle_ids = puzzle_ids`, the argument), which is a different
+  object from the column's own, so the change is seen. It is listed above as
+  passing and is out of scope.
+- **`set_puzzle_title` is not simply broken** — it works exactly once per
+  book. `puzzle_titles = book_row.puzzle_titles or {}` builds a *new* dict
+  while the column is still `NULL`, and that first assignment persists; every
+  write after that mutates the dict the column now holds. A bug that works the
+  first time is the reason this needs a test per path rather than one per
+  method.
+
+`add_puzzles_to_book` was never affected: it concatenates (`existing + new`).
 
 CARD-100 hit this in `remove_puzzle_from_book` — a puzzle could not be taken
 out of a book in DB mode — and fixed that one method, because its AC-2 needed
-it. The other four are the same bug and are left here deliberately rather than
-fixed unverified in a card about something else.
+it.
 
-**Not yet confirmed against a running Postgres.** The reasoning above and
-CARD-100's measurement are both from SQLite; the identity-comparison behaviour
-is SQLAlchemy's, not the driver's, so it should hold, but the first task is to
-reproduce it rather than to assume it.
+**Still not confirmed against a running Postgres.** The measurement above is
+SQLite. The identity comparison is SQLAlchemy's behaviour rather than the
+driver's, so it should hold, but nothing here has been run against Postgres.
 
 ## What to implement
 
-1. **Reproduce each one** against a DB-backed `BookManager` before changing
-   anything: move up, move down, reorder, set a title, clear a title.
+1. ~~Reproduce each one~~ — **done before starting**, see the table above.
+   Reproduce once more against Postgres if one is to hand, since everything
+   measured so far is SQLite.
 2. **Fix them.** Two options, and the card should pick one and say why:
    - **(a) Build a new object at each assignment**, as CARD-100 did for
-     removal. Local, obvious, and invisible in a diff — the next person to
-     write `book.puzzle_ids.append(...)` reintroduces it.
+     removal. Local and obvious, but invisible in a diff — the next person to
+     write `book.puzzle_ids.append(...)` reintroduces it, and the measurement
+     above shows this bug can look like it works.
    - **(b) Make the columns `MutableList`/`MutableDict`** in
      `db/models.py` so in-place mutation is tracked everywhere at once. One
      change, protects code not yet written, and touches every reader of those
@@ -73,8 +100,11 @@ reproduce it rather than to assume it.
 ## Acceptance criteria
 
 - **AC-1** — moving a puzzle up, then reading the book back in a new session,
-  shows the new order; likewise down, and `reorder_puzzles`.
-- **AC-2** — setting a puzzle's title, and clearing it, survive a new session.
+  shows the new order; likewise down. `reorder_puzzles` already passes and
+  keeps passing.
+- **AC-2** — setting a title, **changing** it, and **clearing** it each
+  survive a new session — three paths, because the first one already worked
+  and hid the other two.
 - **AC-3** — every book operation is exercised in DB mode, not only
   in-memory; the existing book tests run in both.
 - **AC-4** — whichever option is taken, a test would fail if someone
