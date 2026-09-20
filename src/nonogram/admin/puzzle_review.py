@@ -111,6 +111,26 @@ class PuzzleFilter:
         )
 
 
+@dataclass(frozen=True)
+class BulkOutcome:
+    """What a bulk action did to a batch, and what it did not do (CARD-068).
+
+    These operations pass over puzzles for two different reasons, and only one
+    of them is a refusal: a puzzle already in the target status needed nothing,
+    while a puzzle in a book was *held back* — bulk-approving it would silently
+    detach it from the book's curation state. Reporting one number for both
+    made "Deleted 3 rejected puzzle(s)" read the same whether or not a fourth
+    was kept out of it.
+    """
+
+    #: Puzzles this action actually changed or deleted.
+    changed: int = 0
+    #: Puzzles that were already as the action wanted them.
+    unchanged: int = 0
+    #: Puzzles left alone because they belong to a book.
+    in_book: int = 0
+
+
 @dataclass
 class PuzzleListResponse:
     """Response for puzzle list queries."""
@@ -1119,42 +1139,91 @@ class PuzzleReviewService:
                 puzzle.status = PuzzleStatus.DRAFT.value
                 return True
 
-    def set_batch_status(self, batch_id: str, status: PuzzleStatus) -> int:
+    def set_batch_status(self, batch_id: str, status: PuzzleStatus) -> BulkOutcome:
         """Move every puzzle of ``batch_id`` that is not in a book to ``status``.
 
         A puzzle already in a book is left alone: approving or rejecting it in
         bulk would silently detach it from the book's curation state.
 
         Returns:
-            How many puzzles changed status.
+            A :class:`BulkOutcome` — what changed, what needed nothing, and
+            what a book held back (CARD-068). It was a bare count until the
+            page had to explain itself.
         """
         if status is PuzzleStatus.IN_BOOK:
             raise ValueError("in_book is set by assigning to a book, not in bulk")
-        changed = 0
+        changed = unchanged = in_book = 0
         if self._session_factory is None:
             for puzzle in self.puzzles.values():
-                if (
-                    puzzle.get("batch_id") == batch_id
-                    and not puzzle.get("book_id")
-                    and puzzle["status"] not in (PuzzleStatus.IN_BOOK.value, status.value)
-                ):
+                if puzzle.get("batch_id") != batch_id:
+                    continue
+                if puzzle.get("book_id") or puzzle["status"] == PuzzleStatus.IN_BOOK.value:
+                    in_book += 1
+                elif puzzle["status"] == status.value:
+                    unchanged += 1
+                else:
                     puzzle["status"] = status.value
                     changed += 1
-            return changed
+            return BulkOutcome(changed, unchanged, in_book)
 
         import uuid as uuid_module
         from nonogram.db.models import Puzzle
 
         with self._session_factory() as db:
-            rows = db.query(Puzzle).filter(
-                Puzzle.batch_id == uuid_module.UUID(batch_id),
-                Puzzle.book_id.is_(None),
-                Puzzle.status.notin_([PuzzleStatus.IN_BOOK.value, status.value]),
-            )
+            rows = db.query(Puzzle).filter(Puzzle.batch_id == uuid_module.UUID(batch_id))
             for row in rows:
-                row.status = status.value
-                changed += 1
-        return changed
+                if row.book_id is not None or row.status == PuzzleStatus.IN_BOOK.value:
+                    in_book += 1
+                elif row.status == status.value:
+                    unchanged += 1
+                else:
+                    row.status = status.value
+                    changed += 1
+        return BulkOutcome(changed, unchanged, in_book)
+
+    def batch_action_counts(self, batch_id: str) -> Dict[str, int]:
+        """How many puzzles each bulk action would touch, without touching any.
+
+        The buttons name these numbers in their confirmations, so they are
+        computed from the same rules the actions apply rather than from the
+        rows a page happens to have rendered. An unknown batch is three zeros,
+        not an error: a stale link should disable the buttons, not break the
+        page.
+        """
+        approve = reject = delete_rejected = 0
+        rejected = PuzzleStatus.REJECTED.value
+        approved = PuzzleStatus.APPROVED.value
+        in_book = PuzzleStatus.IN_BOOK.value
+
+        def count(status: str, booked: bool) -> None:
+            nonlocal approve, reject, delete_rejected
+            if booked or status == in_book:
+                return
+            approve += status != approved
+            reject += status != rejected
+            delete_rejected += status == rejected
+
+        if self._session_factory is None:
+            for puzzle in self.puzzles.values():
+                if puzzle.get("batch_id") == batch_id:
+                    count(puzzle["status"], bool(puzzle.get("book_id")))
+        else:
+            import uuid as uuid_module
+            from nonogram.db.models import Puzzle
+
+            try:
+                batch_uuid = uuid_module.UUID(batch_id)
+            except (ValueError, AttributeError, TypeError):
+                return {"approve": 0, "reject": 0, "delete_rejected": 0}
+            with self._session_factory() as db:
+                for row in db.query(Puzzle).filter(Puzzle.batch_id == batch_uuid):
+                    count(row.status, row.book_id is not None)
+
+        return {
+            "approve": approve,
+            "reject": reject,
+            "delete_rejected": delete_rejected,
+        }
 
     def delete_puzzle(self, puzzle_id: str) -> bool:
         """Delete one puzzle, whatever its status (callers check that).
@@ -1175,23 +1244,29 @@ class PuzzleReviewService:
             db.delete(row)
             return True
 
-    def delete_rejected_in_batch(self, batch_id: str) -> int:
+    def delete_rejected_in_batch(self, batch_id: str) -> BulkOutcome:
         """Delete every rejected puzzle of ``batch_id`` that is not in a book.
 
         Returns:
-            How many puzzles were deleted.
+            A :class:`BulkOutcome` whose ``changed`` is the number deleted and
+            whose ``in_book`` is the number of *rejected* puzzles a book kept
+            out of it — the ones the owner asked to be rid of and still has
+            (CARD-068). ``unchanged`` is not used: a puzzle that is not
+            rejected was never in the scope of this action.
         """
+        rejected = PuzzleStatus.REJECTED.value
         if self._session_factory is None:
-            doomed = [
-                puzzle_id
-                for puzzle_id, puzzle in self.puzzles.items()
-                if puzzle.get("batch_id") == batch_id
-                and puzzle["status"] == PuzzleStatus.REJECTED.value
-                and not puzzle.get("book_id")
-            ]
+            doomed, held = [], 0
+            for puzzle_id, puzzle in self.puzzles.items():
+                if puzzle.get("batch_id") != batch_id or puzzle["status"] != rejected:
+                    continue
+                if puzzle.get("book_id"):
+                    held += 1
+                else:
+                    doomed.append(puzzle_id)
             for puzzle_id in doomed:
                 del self.puzzles[puzzle_id]
-            return len(doomed)
+            return BulkOutcome(changed=len(doomed), in_book=held)
 
         import uuid as uuid_module
         from nonogram.db.models import Puzzle
@@ -1199,12 +1274,12 @@ class PuzzleReviewService:
         with self._session_factory() as db:
             rows = db.query(Puzzle).filter(
                 Puzzle.batch_id == uuid_module.UUID(batch_id),
-                Puzzle.book_id.is_(None),
-                Puzzle.status == PuzzleStatus.REJECTED.value,
+                Puzzle.status == rejected,
             ).all()
-            for row in rows:
+            doomed = [row for row in rows if row.book_id is None]
+            for row in doomed:
                 db.delete(row)
-            return len(rows)
+            return BulkOutcome(changed=len(doomed), in_book=len(rows) - len(doomed))
 
     def mark_in_book(self, puzzle_id: str, book_id: str) -> bool:
         """Mark puzzle as included in a specific book.

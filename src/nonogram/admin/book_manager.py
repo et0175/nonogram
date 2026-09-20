@@ -836,6 +836,26 @@ class BookManager:
                 rows = db.query(DBBook).order_by(DBBook.created_at.desc()).all()
                 return [self._row_to_book(row) for row in rows]
 
+    def book_listing(self, puzzle_id: str) -> Optional[str]:
+        """The id of a book that lists this puzzle, or ``None`` (CARD-068).
+
+        Asks the side that actually records membership. Every other in-book
+        check in the panel reads ``Puzzle.book_id``, which nothing in
+        production writes — a puzzle a book is built on carries ``None``
+        there, so those checks wave through a puzzle they were meant to stop
+        (CARD-100). Until that is repaired, a caller that would *destroy* a
+        booked puzzle asks here instead.
+
+        A scan, because ``Book.puzzle_ids`` is a JSON list that can be neither
+        indexed nor joined. Affordable for one puzzle at a time — a Delete the
+        owner clicked — and precisely why it is not the answer for the bulk
+        paths, which is CARD-100's problem to solve properly.
+        """
+        for book in self.get_all_books():
+            if puzzle_id in (book.puzzle_ids or []):
+                return book.book_id
+        return None
+
 
 # Global book manager instance (legacy in-memory mode)
 _book_manager = BookManager(session_factory=None)
