@@ -1,24 +1,24 @@
 # CARD-100: A puzzle in a book is not protected — book membership is recorded in one place and read from another
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (10 mutants, all caught)
 **Branch:** card/100-book-membership-is-one-fact
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-100
 **Source:** found 2026-09-20 while starting CARD-068; demonstrated end to end before the card was opened, and re-confirmed on `main` at `0861e24`
 **Idea:** —
 **Wave:** 1
 **Depends on:** — _(CARD-068 merged 3223753 left `BookManager.book_listing` behind, which answers "which book holds this puzzle" from the side that actually knows)_
 **Touches:** src/nonogram/admin/book_manager.py (membership writes both sides), src/nonogram/admin/puzzle_review.py (the guards, the `unassigned` filter, `get_approved_puzzles`, `mark_in_book`), src/nonogram/admin/app.py (the bulk reports gain their clause), a backfill for existing rows, tests
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-20
+**Closed:** 2026-09-20
+**Actual:** 1d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -82,6 +82,26 @@ column:
   `UUID`, so it raises `AttributeError: 'str' object has no attribute 'hex'`
   in DB mode on the same argument its in-memory branch accepts. Since nothing
   calls it in production, nothing has noticed.
+
+## Decisions taken on starting, 2026-09-20
+
+**1. The puzzle row follows the book (owner).** Option (a). The column exists,
+every guard already reads it, the `"unassigned"` filter depends on it, and
+`Book.puzzle_ids` is a JSON list that can be neither joined nor indexed.
+
+**2. `book_id` is the stored fact; the `in_book` *status* is retired as a
+written value.** Setting the status too would destroy the row's real curation
+state — a puzzle is approved *and* in a book — and removal from a book would
+then have to guess what to restore it to. So membership is one nullable
+column, and status stays what it always was. Rows that already carry the
+`in_book` status keep working: every guard treats it as in-a-book on the read
+side, the way `difficulty.tier_of_record` keeps answering for the retired
+guess tier (ADR-0031). Nothing writes it after this card.
+
+**3. The backfill ships as a command with a dry run; the owner runs it
+(owner).** Same shape as CARD-077's `regrade`: one loop, `dry_run` decides
+only whether it commits, so the report and the write can never disagree. It
+is never pointed at the live database from here (G-2).
 
 ## What to implement
 
@@ -151,3 +171,96 @@ column:
 - **FR:** — (admin curation and books)
 - **Components:** the admin panel's review surface and book manager
 - **Trace:** none
+
+### Delivered 2026-09-20
+
+**One fact, written where it is read.** `BookManager` now asks the puzzle
+store to record membership as it edits `Book.puzzle_ids` — `assign_to_book`
+on add, `release_from_book` on remove — so the two halves are written in one
+gesture. Puzzle rows are not the book module's to write, so it does not write
+them: `create_app` hands it the store, and a manager built without one keeps
+its own half correctly and **says so in the log** rather than pretending.
+That warning fired, as designed, while building the end-to-end backfill
+fixture.
+
+**The status is not the fact (decision 2).** Membership is the nullable
+column. Nothing writes the `in_book` *status* any more; everything still
+reads it, so rows written before this card are not orphaned — the arrangement
+`difficulty.tier_of_record` uses for the retired guess tier. Pinned by
+`test_a_row_carrying_only_the_legacy_status_is_still_in_a_book`, which the
+mutation check demanded: the first run of mutant 4 survived because nothing
+covered the read-side compatibility the decision rests on.
+
+**The per-puzzle bypass is closed (AC-5).** `approve_puzzle`, `reject_puzzle`
+and `restore_puzzle` were three copies of the same six lines and none of them
+asked about books. They are now one `_set_status`, one rule, one place for it
+to be wrong — and the three routes check first so they can say *why*, instead
+of the "Puzzle not found" a refusal used to produce.
+
+**The protection landed a step earlier than the card expected.** The
+reproduction was "reject it, then Delete rejected takes it". A puzzle a book
+holds can no longer be rejected at all, so the bulk path never sees a
+candidate. Both guards are pinned separately — the refusal, and
+`delete_rejected_in_batch`'s own — because the second is what protects a
+puzzle that was rejected *before* it was booked.
+
+**The reads that were always empty (AC-8, AC-9).** `"unassigned"` now means
+what its comment said, so the book builder stops offering a puzzle another
+book holds. `get_approved_puzzles` filtered on the column *and* the status,
+so it answered "none" for every book; it filters on the column.
+`mark_in_book`'s DB branch converts a `str` book id (AC-6).
+
+**The backfill (AC-4).** `nonogram.admin.book_membership`, shaped like
+CARD-077's `regrade`: one loop, `dry_run` decides only whether it writes, so
+the report and the write cannot disagree. It reports rather than guesses in
+the two cases it cannot settle — a puzzle **two books claim** (only possible
+because this bug let the builder offer it twice) and a puzzle **a book lists
+that no longer exists**, the ghosts the bug already made. It writes nothing
+but `book_id` and never edits a book (G-1).
+
+Run as `python -m nonogram.admin.book_membership` — reporting by default,
+writing on `--write`. Proved end to end against a real database file built in
+the broken state, by a `BookManager` with no store:
+
+```
+--- report ---   1 book(s): would repair 1, 0 already correct.
+                 Nothing was written. Re-run with --write to apply this.
+--- repair ---   1 book(s): repaired 1, 0 already correct.
+--- again ---    1 book(s): would repair 0, 1 already correct.
+```
+
+**Not run against the live database** (G-2): it ships, and the owner runs it.
+
+### A defect found and deliberately not fixed here
+
+`remove_puzzle_from_book` did not work in DB mode at all. `Book.puzzle_ids`
+is a plain JSON column, and the method mutated the list in place and assigned
+it back to the same attribute — which SQLAlchemy does not see as a change, so
+the commit wrote nothing. AC-2 needed removal, so that one method is fixed
+here (it builds a new list). **`move_puzzle_up`, `move_puzzle_down`,
+`reorder_puzzles` and `set_puzzle_title` have the identical bug and are not
+touched** — they are CARD-101, opened rather than fixed unverified in a card
+about something else. In production, reordering a book's puzzles and naming
+them silently do nothing.
+
+### Tests
+
+`tests/test_card_100_book_membership.py`, 56 tests, most of them parametrised
+over both storage modes through a `panel` fixture that wires a store and a
+book manager the way `create_app` does. The reproduction first, then the
+writers, the guards, the reads that were empty, the backfill's four verdicts,
+and the operator command.
+
+**Three CARD-068 tests were updated, not deleted** (G-4): they pinned
+behaviour this card deliberately changed — a booked puzzle's row saying
+nothing, and a rejected puzzle reachable by booking then rejecting. Each now
+pins the new rule and says what changed.
+
+**Mutation check** — ten mutants: add not mirroring, remove not releasing,
+the per-puzzle change ignoring books, the legacy status ignored, removal
+mutating in place again, the dry run writing, a contested puzzle silently
+resolved, a ghost not reported, the report dropping its book clause, and
+`get_approved_puzzles` requiring the status again. All ten caught, the fourth
+only after the test named above was written for it.
+
+**Full suite: 3,578 passed, 0 failed**, 26 skipped, one deselection.

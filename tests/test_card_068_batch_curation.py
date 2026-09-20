@@ -126,8 +126,18 @@ def _in_book(store, puzzle_id, book_id="0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c"):
 
 
 def _rejected_in_book(store, puzzle_id):
-    _in_book(store, puzzle_id)
+    """A rejected puzzle that a book also holds.
+
+    Reject first, then book it through ``assign_to_book`` — the writer
+    :class:`BookManager` uses, which records membership and leaves the curation
+    status alone. The legacy ``mark_in_book`` would overwrite "rejected" with
+    the ``in_book`` status and there would be nothing for
+    ``delete_rejected_in_batch`` to consider. Booking first is impossible now:
+    CARD-100 refuses to reject a puzzle a book already holds, which is the
+    stronger guarantee.
+    """
     store.reject_puzzle(puzzle_id)
+    store.assign_to_book([puzzle_id], "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
     return puzzle_id
 
 
@@ -214,13 +224,14 @@ def test_delete_refuses_a_rejected_puzzle_that_is_in_a_book(admin_app):
     assert admin_app.puzzle_review_service.get_puzzle(puzzle_id) is not None
 
 
-def test_delete_refuses_a_puzzle_a_book_lists_though_the_row_says_nothing(admin_app):
-    """The guard that matters, and the only one production can trigger.
+def test_delete_refuses_a_puzzle_a_book_lists(admin_app):
+    """The guard that matters, and the one production can trigger.
 
-    A puzzle added to a book keeps ``book_id = None`` and its own status —
-    membership lives in ``Book.puzzle_ids`` (CARD-100). So a Delete that
-    trusted the puzzle row alone would destroy a puzzle a book is built on and
-    leave the book pointing at nothing. This route asks the book side too.
+    Written when a puzzle added to a book kept ``book_id = None`` — membership
+    lived in ``Book.puzzle_ids`` alone, so a Delete that trusted the puzzle row
+    would destroy a puzzle a book was built on. CARD-100 made the two halves
+    agree, so the row now knows as well, and this test pins both answers: the
+    route still asks the book side, and the column no longer lies.
     """
     batch_id = _real_batch(admin_app)
     puzzle_id = _add(admin_app.puzzle_review_service, "rejected", batch_id)
@@ -229,8 +240,10 @@ def test_delete_refuses_a_puzzle_a_book_lists_though_the_row_says_nothing(admin_
     )
     admin_app.book_manager.add_puzzles_to_book(book_id, [puzzle_id])
 
-    # The row itself still knows nothing about the book — that is the point.
-    assert admin_app.puzzle_review_service.get_puzzle(puzzle_id).get("book_id") is None
+    # Both halves of membership now agree (CARD-100); before it, the column
+    # was None here and the route's second question was the only guard.
+    assert admin_app.puzzle_review_service.get_puzzle(puzzle_id).get("book_id") == book_id
+    assert admin_app.book_manager.book_listing(puzzle_id) == book_id
 
     admin_app.test_client().post(f"/puzzle/{puzzle_id}/delete?batch_id={batch_id}")
 

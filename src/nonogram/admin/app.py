@@ -120,26 +120,26 @@ def _size_suffix(option_fit, several: bool) -> str:
 
 
 def _bulk_report(verb: str, outcome, already: str | None, *, noun: str = "puzzle") -> str:
-    """What a bulk action did, in one sentence (CARD-068).
+    """What a bulk action did, in one sentence (CARD-068, CARD-100).
 
-    Reports what changed and, where there was one, the number that needed no
-    change — "Approved 1 puzzle; 2 were already approved." A bare "Approved 1
-    puzzle" on a batch of three is the kind of count that sends the owner
-    looking for the other two.
+    Three numbers, each earned: what changed, what needed no change, and what a
+    book held back. "Approved 1 puzzle" on a batch of three is the kind of
+    count that sends the owner looking for the other two.
 
-    It says nothing about puzzles a book held back, although
-    ``outcome.in_book`` counts them, because in a running panel that number is
-    zero however many puzzles a book actually lists: membership is written to
-    ``Book.puzzle_ids`` and the guard reads ``Puzzle.book_id``, which nothing
-    in production sets (CARD-100). A confident "0 left alone: in a book" would
-    be worse than silence. The clause belongs here once CARD-100 makes the
-    number true.
+    The book clause was deliberately absent until CARD-100. The guard it
+    reports on read ``Puzzle.book_id``, which nothing wrote — membership went
+    to ``Book.puzzle_ids`` alone — so the number was zero however many puzzles
+    a book actually held, and a confident "0 left alone: in a book" would have
+    been worse than silence. Now that both halves are written together the
+    number is true, and the sentence says it.
     """
     plural = "" if outcome.changed == 1 else "s"
     sentence = f"{verb} {outcome.changed} {noun}{plural}"
     if already and outcome.unchanged:
         was = "was" if outcome.unchanged == 1 else "were"
         sentence += f"; {outcome.unchanged} {was} {already}"
+    if outcome.in_book:
+        sentence += f"; {outcome.in_book} left alone: in a book"
     return sentence + "."
 
 
@@ -930,12 +930,12 @@ def create_app(debug=None):
     if session_scope:
         puzzle_review = PuzzleReviewService(session_factory=session_scope)
         batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=session_scope)
-        book_mgr = get_book_manager(session_factory=session_scope)
+        book_mgr = get_book_manager(session_factory=session_scope, puzzle_store=puzzle_review)
         app.logger.info("Database persistence enabled (DATABASE_URL set)")
     else:
         puzzle_review = PuzzleReviewService(session_factory=None)
         batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=None)
-        book_mgr = get_book_manager()
+        book_mgr = get_book_manager(puzzle_store=puzzle_review)
         app.logger.info("Running in in-memory mode (DATABASE_URL not set)")
 
     # Exposed on the app object (rather than left as route closures only) so
@@ -1871,7 +1871,12 @@ def create_app(debug=None):
     def approve_puzzle(puzzle_id):
         """Approve a puzzle."""
         batch_id = request.args.get("batch_id")
-        if puzzle_review.approve_puzzle(puzzle_id):
+        # CARD-100: the store refuses a puzzle a book is built on, and a bare
+        # "Puzzle not found" would send the owner looking for a missing row
+        # rather than telling them what actually stopped it.
+        if puzzle_review.in_a_book(puzzle_id):
+            flash("Cannot approve a puzzle that is in a book", "error")
+        elif puzzle_review.approve_puzzle(puzzle_id):
             flash(f"Puzzle {puzzle_id} approved", "success")
         else:
             flash(f"Puzzle not found", "error")
@@ -1885,7 +1890,12 @@ def create_app(debug=None):
     def reject_puzzle(puzzle_id):
         """Reject a puzzle."""
         batch_id = request.args.get("batch_id")
-        if puzzle_review.reject_puzzle(puzzle_id):
+        # CARD-100: the store refuses a puzzle a book is built on, and a bare
+        # "Puzzle not found" would send the owner looking for a missing row
+        # rather than telling them what actually stopped it.
+        if puzzle_review.in_a_book(puzzle_id):
+            flash("Cannot reject a puzzle that is in a book", "error")
+        elif puzzle_review.reject_puzzle(puzzle_id):
             flash(f"Puzzle {puzzle_id} rejected", "success")
         else:
             flash(f"Puzzle not found", "error")
@@ -2748,7 +2758,9 @@ def create_app(debug=None):
     @app.route("/puzzle/<puzzle_id>/restore", methods=["POST"])
     def restore_puzzle(puzzle_id):
         """Restore rejected or approved puzzle back to draft."""
-        if puzzle_review.restore_puzzle(puzzle_id):
+        if puzzle_review.in_a_book(puzzle_id):
+            flash("Cannot restore a puzzle that is in a book", "error")
+        elif puzzle_review.restore_puzzle(puzzle_id):
             flash(f"Puzzle restored to draft", "success")
         else:
             flash(f"Puzzle not found", "error")
