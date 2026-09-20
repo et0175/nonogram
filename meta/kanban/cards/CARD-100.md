@@ -1,6 +1,6 @@
 # CARD-100: A puzzle in a book is not protected — book membership is recorded in one place and read from another
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 1d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** — _(CARD-068 merged 3223753 left `BookManager.book_listing` behind, which answers "which book holds this puzzle" from the side that actually knows)_
 **Touches:** src/nonogram/admin/book_manager.py (membership writes both sides), src/nonogram/admin/puzzle_review.py (the guards, the `unassigned` filter, `get_approved_puzzles`, `mark_in_book`), src/nonogram/admin/app.py (the bulk reports gain their clause), a backfill for existing rows, tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-20
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-20
+**Actual:** 1d
 **Merge commit:** —
 **Blocked by:** —
 
