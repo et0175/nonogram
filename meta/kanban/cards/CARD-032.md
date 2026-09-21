@@ -1,22 +1,22 @@
 # CARD-032: Restrict web form to image-only mode
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d _(the feature shipped outside the board; what is left is two tests and a naming repair)_
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
-**Branch:** card/032-image-only-mode
-**Worktree:** —
+**TDD:** n/a — the feature shipped; the work is recovering its two missing tests
+**Branch:** card/032-image-only-mode _(the 2026-09-03 branch of the same name is retired as `card/032-superseded-2026-09-03`)_
+**Worktree:** ../PythonProject4-CARD-032
 **Source:** User feedback post-CARD-021
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-021
 **Touches:** tests/test_web_server.py (the two missing tests), tests/test_export_pdf.py (the citation repair), meta/kanban/cards/CARD-032.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -133,3 +133,71 @@ This reduces cognitive load and signals to users what the web UI is for. The CLI
 ## Worktree notes
 
 —
+
+### Delivered 2026-09-21
+
+**The two missing tests were not written — they were recovered.** A branch
+named `card/032-image-only-mode` already existed, last touched 2026-09-03,
+never merged, and 279 commits divergent from a `main` that had moved 485
+commits the other way. It carries `efe55f9 feat(CARD-032): restrict web form
+to image-only mode` and a worktree note saying all three criteria passed — and
+it was telling the truth. The feature reached `main` by another route; these
+two classes did not come with it. `TestWebForm_OnlyOffersImageMode` did, which
+is exactly why the gap was invisible: the card looked tested.
+
+Both are restored into `tests/test_web_upload.py`, where they were written,
+with a header recording where they came from. The stale branch is renamed
+`card/032-superseded-2026-09-03` rather than deleted — the CARD-067 precedent
+— and this card's work was started fresh from `main`.
+
+**AC-129 gained a second test.** The recovered one posts an empty file and
+checks the failure page mentions the image. That is the symptom; the criterion
+says *"the same path as if mode validation had failed in the domain"*, which is
+about **where** the refusal happens. So the new test pins that the adapter
+builds a request with `image=None` and that the request fails inward with the
+identical `UnreadableImage` a bare `--mode image` produces (ADR-0019/R1). The
+page test alone would look the same if a well-meaning adapter check were added
+in front of it.
+
+**AC-130 gained the comparison it was named for.** The recovered test shows
+image mode works; it compares it with nothing, so it would pass equally well
+if the adapter had started building a different request. The new test compares
+the request the form builds against the one **the CLI actually builds** —
+captured on its way inward, because the mapping lives inside `_run_generate`
+and rebuilding it in the test would compare the web adapter against a copy of
+the CLI rather than against the CLI.
+
+Writing it turned up the one place the two adapters are deliberately *not*
+identical: a urlencoded `image=<path>` field is not read as a picture. Only an
+uploaded file is. A form that could name a server-side path would be a
+file-read primitive rather than a convenience, so the comparison is built the
+way `multipart.py` really does it — posted bytes saved to a temp file, that
+path handed to `from_fields`. The difference is a security property, and the
+test says so.
+
+### Item 3: the citations now point at the decision that authorised the font
+
+The four "CARD-032" mentions in `tests/test_export_pdf.py` meant **ADR-0006's
+2026-09-01 revision (DEC-027)**, which admitted a Unicode TTF as package data.
+They now say so.
+
+**No card records the font work at all.** Nothing in `meta/kanban/cards/`
+cites DEC-027, and no card's `Touches` names a font path, although
+`src/nonogram/export/fonts/DejaVuSans.ttf` ships. CARD-014 identified the tofu
+problem and explicitly deferred the fix; the ADR says "the implementing card
+may subset it" and names no card. So the implementing card is **missing rather
+than misnamed**, and the comment in `test_export_pdf.py` says that plainly
+rather than leaving a reader to wonder.
+
+### Item 4: the AC numbers collide, and both meanings are live
+
+This card's **AC-128 / AC-129 / AC-130** are ad-hoc numbers from its own text.
+**FR-028's AC-128 and AC-130** are registry criteria, implemented by CARD-078
+on 2026-09-21 — density 0 and 100 refused, and the verdict made at the
+`validate_density` seam. Same numbers, unrelated meanings, both current.
+
+Nothing is renumbered here: FR-028's belong to the registry and this card's
+belong to its own prose, and rewriting either would break the other's trail.
+The collision is recorded so the next reader of "AC-128" knows to ask which.
+
+**Full suite: 3,613 passed, 0 failed.**

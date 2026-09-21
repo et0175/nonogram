@@ -428,3 +428,153 @@ class TestWebUpload_ParsesBoundaryCollidingBodyExactly:
         listed = _paths_on(response.body)
         assert len(listed) == 1
         assert Path(listed[0]).is_file()
+
+# --------------------------------------------------------------------------
+# CARD-032 — the web form restricted to image-only mode
+#
+# Recovered 2026-09-21 from `card/032-superseded-2026-09-03`, the branch the
+# original work was done on and which was never merged: the feature reached
+# `main` by another route and these two classes did not come with it. AC-128's
+# class did (it lives in tests/test_web_server.py), which is why the gap was
+# invisible — the card looked tested.
+# --------------------------------------------------------------------------
+
+
+class TestWebForm_RequiresImageForSubmission:
+    """AC-129 — *given* a form submission with no file uploaded, *when*
+    the form is submitted, *then* the handler returns an error (missing
+    image file) with the same path as if mode validation had failed in
+    the domain."""
+
+    def test_submission_without_file_returns_error(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """A multipart submission without an image file is rejected."""
+        response = _submit_multipart(
+            running_server.server_port,
+            {
+                "size": "20x20",
+                "export_formats": ["json"],
+            },
+            file_content=b"",  # Empty file content
+        )
+
+        assert response.status == 200
+        assert _outcome(response.body) == pages.FAILURE
+        # The error page should mention the image issue
+        assert b"image" in response.body.lower()
+
+    def test_the_refusal_is_the_domain_s_own_and_not_the_adapter_s(self) -> None:
+        """"The same path as if mode validation had failed in the domain."
+
+        The adapter carries no validation of its own (ADR-0019/R1), so a form
+        with no file is not caught at the boundary: it builds a request whose
+        image is ``None`` and that request fails inward, with the identical
+        error a bare ``nonogram generate --mode image`` produces. Pinned
+        because the criterion is about *where* the refusal happens, and the
+        page above would look the same if a well-meaning adapter check were
+        added in front of it.
+        """
+        from nonogram import errors, orchestrator
+        from nonogram.web import submission
+
+        built = submission.read("size=20").request
+        assert built.mode == "image" and built.image is None
+
+        with pytest.raises(errors.UnreadableImage) as excinfo:
+            orchestrator.generate(built)
+
+        assert "--image" in str(excinfo.value)
+
+
+class TestWebForm_GeneratesIdenticallyToMultiMode:
+    """AC-130 — *given* the web form in image-only mode, *when* a valid
+    image and size are submitted, *then* the generation pipeline behaves
+    identically to the multi-mode version (same sourcing, same clue
+    derivation, same solver — only the UI offering changed)."""
+
+    def test_image_mode_generation_works(
+        self, running_server: server.LoopbackHTTPServer, tmp_path: Path
+    ) -> None:
+        """Image mode submission generates a puzzle successfully."""
+        response = _submit_multipart(
+            running_server.server_port,
+            {
+                "size": "20x20",
+                "export_formats": ["json"],
+                "out": str(tmp_path),
+            },
+            file_content=_png_bytes(),
+        )
+
+        assert response.status == 200
+        assert _outcome(response.body) == pages.SUCCESS
+        paths = _paths_on(response.body)
+        assert len(paths) > 0
+        assert all(Path(p).is_file() for p in paths)
+
+    def test_the_form_builds_the_request_the_cli_would(self, tmp_path: Path) -> None:
+        """The criterion says *identically to the multi-mode version*.
+
+        The test above shows image mode works; it does not compare it with
+        anything, so it would pass just as well if the adapter had started
+        building a different request. What makes the pipelines identical is
+        that they are handed the same :class:`GenerationRequest` — after which
+        the sourcing, the clue derivation and the solver are not merely
+        equivalent but the same code. So the comparison is made on the request,
+        where a divergence would actually originate.
+        """
+        from nonogram import cli, orchestrator
+        from nonogram.web import submission
+
+        picture = tmp_path / "cat.png"
+        picture.write_bytes(_png_bytes())
+
+        # Built the way an upload really arrives: the multipart handler saves
+        # the posted bytes to a temp file and hands `from_fields` that path
+        # (multipart.py). A urlencoded `image=<path>` field is deliberately NOT
+        # read as a picture — the browser sends bytes, and letting a form name
+        # a server-side path would be a file-read primitive, not a convenience.
+        # That difference in *how the picture arrives* is the one thing the two
+        # adapters are meant not to share; everything else is what this
+        # criterion is about.
+        from_form = submission.from_fields(
+            {"size": ["20x30"], "name": ["Cat"]}, image=picture
+        ).request
+
+        # What the CLI *actually* builds, captured on its way inward. The
+        # mapping lives inside `_run_generate` and is not a function this test
+        # could call, and rebuilding it here by hand would compare the web
+        # adapter against a copy of the CLI rather than against the CLI.
+        class _Captured(Exception):
+            pass
+
+        captured: dict[str, object] = {}
+
+        def _capture(request, **_kwargs):
+            captured["request"] = request
+            raise _Captured
+
+        original = orchestrator.generate
+        orchestrator.generate = _capture
+        try:
+            with pytest.raises(_Captured):
+                cli._run_generate(
+                    cli.build_parser().parse_args(
+                        [
+                            "generate",
+                            "--mode",
+                            "image",
+                            "--size",
+                            "20x30",
+                            "--name",
+                            "Cat",
+                            "--image",
+                            str(picture),
+                        ]
+                    )
+                )
+        finally:
+            orchestrator.generate = original
+
+        assert from_form == captured["request"]

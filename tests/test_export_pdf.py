@@ -573,7 +573,7 @@ def test_the_separator_is_stroked_by_choice_now_rather_than_by_necessity() -> No
     It began as necessity: Pillow's default face is an ASCII subset and sets
     ``"—"`` as the same ``.notdef`` box a permanently-unassigned codepoint gets,
     so drawing the header in one ``draw.text`` call put tofu in the middle of
-    every PDF this tool produced. CARD-032's bundled face removes that
+    every PDF this tool produced. ADR-0006's bundled face removes that
     constraint — the second assertion is the proof that it did — but the rule
     stays: the stroke's geometry is a fixed fraction of the type size, so the
     separator looks the same at every size the header fitting can pick.
@@ -599,7 +599,14 @@ def test_the_separator_is_stroked_by_choice_now_rather_than_by_necessity() -> No
 
 
 # ==========================================================================
-# CARD-032 / ADR-0006 revision — the header sets a non-ASCII name
+# ADR-0006 revision (2026-09-01, DEC-027) — the header sets a non-ASCII name
+#
+# These four citations read "CARD-032" until 2026-09-21. They meant the ADR:
+# CARD-032 is "restrict the web form to image-only mode", which touches no PDF
+# code, and its own re-cut is what turned the mismatch up. No card records the
+# bundled font at all — nothing cites DEC-027, and no card's Touches names a
+# font path — so the authority is the ADR revision that admitted it, and the
+# implementing card is simply missing rather than misnamed.
 #
 #   TestPdfHeader_RendersCyrillicName
 #       -> test_a_cyrillic_header_sets_the_letters_and_not_notdef_boxes
@@ -1205,7 +1212,7 @@ def test_the_pdf_renderer_imports_pillow_and_nothing_third_party() -> None:
 
     Two assertions, because the exact list and the rule behind it are different
     claims. The first pins what this module actually reaches for — ``importlib``
-    among them, which is how CARD-032's bundled font is read as *package data*
+    among them, which is how ADR-0006's bundled font is read as *package data*
     (a data file is not a dependency; ADR-0006/R1). The second is the rule that
     outlives the list: every root outside Pillow and the package itself is a
     stdlib module, checked against the interpreter's own inventory rather than
@@ -1241,7 +1248,7 @@ def test_the_dependency_baseline_is_still_closed() -> None:
     runtime list, because "no new dependency" is the decision, not "not those
     three".
 
-    CARD-032 is what makes this the *rule's* check and not just that card's
+    ADR-0006's revision is what makes this the *rule's* check and not just one card's
     guardrail. The ADR-0006 revision admits non-executable static assets as
     package data while leaving the installed dependency set exactly where it
     was, so this list staying at two entries is precisely what tells the two
