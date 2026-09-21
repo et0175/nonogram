@@ -1,24 +1,24 @@
 # CARD-043: Clear error/success message when new image is uploaded
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** ux-polish
 **Estimate:** 0.25d
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (5 mutants, all caught — two only after the tests were fixed)
 **Branch:** card/043-clear-message-on-upload
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-043
 **Source:** User feedback during wave 3 testing
 **Idea:** —
 **Wave:** 3
 **Depends on:** CARD-038, CARD-041
 **Touches:** src/nonogram/web/static/metadata.js
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-21
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -98,3 +98,51 @@ When a user uploads a new image, clear any previous error/success messages from 
 ## Worktree notes
 
 —
+
+### Delivered 2026-09-21
+
+**`clearResultMessage()` in `metadata.js`**, called from **both** change
+listeners — the File API path and the no-File-API fallback. Both are "the user
+picked a different picture", and the stale result goes at that moment rather
+than waiting for the submit CARD-038 already handles.
+
+**Paired with the picture.** The clear sits beside `clearMetadata()` in the
+change path, because since CARD-037 a failed submission keeps its picture and
+CARD-044 puts it on the page. Removing the message alone would strand the
+previous preview beside a form claiming nothing had happened.
+
+**The stale `upload_token` is left alone, deliberately.** Verified rather than
+assumed: the handler prefers a newly uploaded file and only resolves the token
+when none arrived (`handler.py:772`), so a new choice already wins. Clearing
+it would be invented work.
+
+### The mutation check found two flaws in the tests, not the code
+
+Both tests passed, both would have kept passing through a regression:
+
+* **`data-result-container` appears twice in the page** — once as the
+  element's attribute and once inside the page's own inline script, which
+  queries it. Asserting the bare name passed even with the container renamed
+  away. Fixed to assert `data-result-container="true"`, the rendered attribute.
+* **The handler regex matched both listeners as one span.** The first
+  listener's closing brace is indented differently from the pattern, so the
+  non-greedy match ran from the first listener's opening to the *second*
+  listener's close and reported a single handler containing both bodies. A
+  mutant that removed the call from the path that actually runs still passed,
+  because the fallback's call was inside the same captured text.
+
+The second was replaced with a **count of call sites** rather than a cleverer
+regex. A count cannot be fooled the way the regex was, and it is honest about
+being a count: the test says in as many words that it cannot prove the listener
+fires, and points at CARD-105 for the harness that could.
+
+### Tests
+
+`tests/test_card_043_clear_message_on_new_image.py`, 5 tests: the container
+present on both the fresh form and the page a submission renders, the clear
+wired at both listeners, the message and picture dealt with together, the
+guard for a page without the container, and the server-side half of AC-162 —
+a page carries exactly one outcome, so a result cannot accumulate even with no
+JavaScript at all.
+
+**Full suite: 3,672 passed, 0 failed.** `node --check` validates the script.
