@@ -1,6 +1,6 @@
 # CARD-030: Display inline success/error messages on form page
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, tests/test_web_server.py
 **Review score:** —
 **Started:** —
-**Closed:** —
+**Closed:** 2026-09-21
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** _(with CARD-104)_
 **Blocked by:** —
 
 ## What to implement
@@ -31,13 +31,13 @@ The POST handler (`handler._generate`) already computes success and failure payl
 ## Acceptance criteria
 
 - **AC-122** (happy) — given a successful puzzle generation, when the user submits the form, then the page displays the result (name, seed, written files) in a collapsible "Success" section on the same page, form remains visible and editable.
-  *test:* `TestWebForm_DisplaysSuccessInline`
+  *test:* `tests/test_web_submission.py` — the AC-122 assertions at the success arm ("form remains visible", fields re-populated)
 
 - **AC-123** (error) — given a failed generation, when the form is submitted, then the page displays error summary and details in a collapsible "Error" section, form retains inputs, user can adjust and retry.
-  *test:* `TestWebForm_DisplaysErrorInline`
+  *test:* `tests/test_web_submission.py` — the AC-123 assertions at the failure arm ("form retains inputs")
 
 - **AC-124** (UX) — given a user who has submitted successfully, when they clear the form, the result section collapses and focus returns to form inputs.
-  *test:* `TestWebForm_ClearsResultOnNewSubmit`
+  *test:* `TestWebForm_ResultClearing` in `tests/test_web_server.py` (CARD-038's AC-147/148 cover the same script)
 
 ## Guardrails
 
@@ -57,3 +57,23 @@ The POST handler (`handler._generate`) already computes success and failure payl
 ## Worktree notes
 
 —
+
+### Closed 2026-09-21 by CARD-104
+
+The feature shipped long before this card was looked at again: `POST /generate`
+answers 200 with the form and the result on one page (`pages.form_with_result`),
+and every failure goes through `handler._fail_inline` rather than a redirect.
+
+**AC-122 and AC-123 were already tested** — in `tests/test_web_submission.py`,
+asserting the criteria's own words ("form remains visible", "form retains
+inputs"). They were not found for eighteen days because this card's `*test:*`
+lines named classes that never existed, so nothing led from the criterion to
+its test. Those lines now point at the real ones.
+
+**AC-124's second clause is retired.** It asks that "focus returns to form
+inputs". Nothing moves focus, and nothing should: the listener fires on
+`input`, which cannot happen unless focus is already in a form control, so
+calling `.focus()` would take focus somewhere the user did not put it. The
+clause is satisfied by construction. The script's comment claimed to "manage
+focus" and was doing no such thing; CARD-104 rewrote it to say what the code
+does and why.

@@ -1,0 +1,466 @@
+version: 1
+generated_at: "2026-09-02T13:05:47Z"
+target: "CARD-033 cycle 1 — branch card/033-bare-size-derives-shorter-side @ e41724e (git diff main...HEAD), worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-033"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/cli.py
+    - src/nonogram/errors.py
+    - src/nonogram/orchestrator.py
+    - src/nonogram/sourcing/__init__.py
+    - src/nonogram/sourcing/random_grid.py
+    - src/nonogram/sourcing/image.py
+    - src/nonogram/sourcing/library.py
+    - src/nonogram/web/ (handler.py, server.py, pages.py, __init__.py — grepped, no request construction)
+    - src/nonogram/export/json_export.py (read path + payload construction)
+    - tests/test_derive_shape.py
+    - tests/property/test_grid_dimensions.py
+    - tests/test_cli.py
+    - tests/test_orchestrator.py
+    - tests/test_sourcing_image.py
+    - tests/test_sourcing_library.py
+    - tests/test_resample.py
+    - meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    - meta/architecture/requirements.yml (FR-023, AC-092..AC-098, EC-009)
+    - meta/architecture/trace.yml (FR-023 entry)
+    - meta/architecture/inputs/raw-requirements.md
+    - meta/kanban/cards/CARD-033.md
+    - README.md
+  not_reached:
+    - src/nonogram/solver/** (untouched by this diff; CON-005 carried on its own green check)
+    - src/nonogram/difficulty.py (untouched)
+    - tests/test_export_csv.py, tests/test_export_pdf.py (read only the extent-bearing lines)
+    - tests/test_nudge.py (diff read, full file not)
+  confidence: high
+
+metrics:
+  diff: { files: 18, added: 1940, removed: 110 }
+  max_fan_in: { symbol: "orchestrator._source_arguments", callers: 11 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/orchestrator.py (15 commits/12mo, 3 fix-class)"
+    - "src/nonogram/cli.py (13 commits/12mo)"
+    - "src/nonogram/sourcing/image.py (11 commits/12mo)"
+  cochange_missing:
+    - "tests/test_export_json.py (co-changed with orchestrator.py 4x/12mo; absent from this diff — and it is exactly the file that would have killed mutant m6)"
+    - "tests/test_naming.py (co-changed 4x/12mo; genuinely unaffected — naming does not read extent)"
+  unmeasured:
+    mutation_equivalence_proof: "not_applicable — m3/m4 equivalence was proved exhaustively over the reachable input domain, not sampled"
+
+system_contract:
+  rules_checked: 15
+  holds: 8
+  unchecked: 6
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no dependency added; pyproject.toml untouched by the diff; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full run (1494 passed, 1 xfailed)."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ untouched by the diff (git diff main...HEAD --stat lists no web/ path); test_every_import_in_the_package_points_inward green (7 structural guards passed). The web adapter builds no GenerationRequest today (grep: the only GenerationRequest( construction in src/ is cli.py:429), so the half-stated pair reaches nothing there."
+    - "ADR-0022/R1 ✓ holds — extent still crosses every boundary as a pair: _extent_token -> tuple[int, int|None], GenerationRequest keeps two fields, Puzzle.extent is a pair, derive_extent takes the half-stated PAIR not a scalar N. Mechanically checked by the scalar-extent AST scan over src/nonogram/**, which the card extended with a new _GUARD_SHAPES row ('scalar N derivation', tests/property/test_grid_dimensions.py:544) asserting that derive_extent(n: int, ...) WOULD be flagged; test_the_scalar_extent_guard_would_catch_a_violation + test_the_guard_reaches_exactly_the_shapes_it_claims_to green. A half-stated pair is the opposite of the collapse R1 forbids — it declines to invent the second number rather than fusing two into one."
+    - "ADR-0022/R2 ✓ holds — no range check added to cli.py (tests/test_cli.py:302-311 still push 0/9/31/-5 through the parser unjudged, now as (N, None)); derive_extent delegates every range decision to validate_extent (random_grid.py:317, 331, 336) and invents no second message format. TestValidateExtent_RejectsSideAboveThirty green."
+    - "ADR-0022/R3 ✓ holds — src/nonogram/sourcing/image.py diff adds only source_shape(); validate_aspect_ratio, _retained, the ink-box subject, the error type and the message are byte-unchanged (git diff of image.py contains no -/+ line touching them). TestFitImage_RefusesRatioMismatchBeyondTwice green."
+    - "ADR-0022/R4 ✓ holds — implemented as stated: N on the source's longer axis (random_grid.py:214-217), round(N*short/long) with a MIN_SIZE floor and NO top clamp (random_grid.py:213), refusal past N/5:1 naming the smallest workable N (random_grid.py:339-361). Check ref PropertyTest_BareSize_DerivesShorterSideFromSourceShape is LIVE — tests/property/test_grid_dimensions.py:324 def test_a_bare_size_derives_the_shorter_side_from_the_source_shape. Ceilings re-derived independently: widest accepted long:short is exactly 2.00 / 4.00 / 6.00 at N=10/20/30."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff touches no solver code (src/nonogram/solver/** absent from git diff main...HEAD --stat). PropertyTest_Solver_NeverFalsePositiveUniqueness green in the full run."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/server.py untouched. TestWebServer_BindsLoopbackOnlyByDefault green in the full run."
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest exists nowhere in tests/ (grep over tests/ returns 0 files). Pre-existing and not this card's — tests/test_web_server.py:1154 records CON-010 as unimplemented and owned by CARD-020. Manual read of this diff found no violation; the web adapter is untouched."
+    - "CON-011 ✓ holds — every path still funnels through validate_extent: the derived pair is re-validated on return (random_grid.py:336 `return validate_extent(*extent)`), and the stated side is validated before derivation (random_grid.py:331). PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green over its 500+ rejected and 441 accepted pairs; INV-004's three checks green."
+    - "CON-012 ✓ holds — the guard's meaning, ink-box subject and message are untouched (see ADR-0022/R3). random_grid._keeps_half is a deliberate NATIVE reimplementation of the same criterion (documented at random_grid.py:154-172, with the solver/propagate.py mask_runs precedent cited), used only to choose which shape to REQUEST, never to judge one. PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore green; tests/test_derive_shape.py:373 additionally calls image.validate_aspect_ratio directly on the derived grid at the N/5 boundary and it accepts."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues.py untouched; the card changes which extent is requested, not how a grid encodes. TestComputeClues_MatchesGridExactly green in the full run."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the ready-for-export gate is untouched (orchestrator.require_ready_for_export not in the diff). TestExport_RejectsUnverifiedPuzzle green."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter changed. The extent is resolved ONCE before the aggregate exists (orchestrator.py:1130 `extent = _resolved_extent(request)`, outside both loops), so no retry path can re-derive. All four checks (TestNudge_ReportsFailureAtCap, TestRegenerate_StopsAtMaxRetryBound, TestResample_StopsAtMaxRetryBound, TestRetryLoop_BoundedIterations) green."
+    - "INV-004 ✗ violated — src/nonogram/orchestrator.py:629,638. The invariant is that width and height each lie in 10..30 'at every point in its lifecycle'. Puzzle.width/Puzzle.height fall back to the request's UNVALIDATED, possibly half-stated pair when Puzzle.extent is None, so a hand-assembled aggregate can report height=None. That fallback path is what mutant m6 exercised and it SURVIVED the full suite — nothing asserts the resolved pair reaches the aggregate's accessors, and those accessors are what feeds export.ExportPayload (orchestrator.py:1346-1347). Severity is Important rather than Critical because generate() always writes a concrete pair today, so no shipped path reaches it; it is an unguarded invariant, not a live breach."
+
+root_causes:
+  - id: RC-1
+    title: "The resolved extent was threaded into sourcing but not pinned on the aggregate's recording path"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "Requirement/guardrail text that the implementation correctly outgrew was amended only in part"
+    finding_ids: [F-003, F-004, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 629
+    title: "Puzzle.width/height reading the RESOLVED extent is unpinned — mutant survives the full suite"
+    description: |
+      Mutating `Puzzle.width` (orchestrator.py:629) from
+
+          return self.extent[0] if self.extent is not None else self.request.width
+
+      to `return self.request.width` leaves the ENTIRE suite green (verified: mutant m6,
+      full scoped run of 8 test files, rc=0; restored and md5-verified
+      d50486b4015f2ad2b403df111b67a5d5).
+
+      That accessor is not decorative. `orchestrator.py:1346-1347` feeds
+      `export.ExportPayload(width=puzzle.width, height=puzzle.height)`, so under the mutant a
+      bare `--size 25` run exports the HALF-STATED request pair. Demonstrated end to end on
+      the real code: a bare-size library request (`width=20, height=None`) currently exports
+      `request.width=20, request.height=20`; with the mutant it would export
+      `height: null`, and for a portrait picture it would export `width: 25` where the grid is
+      actually 18 wide. That breaks FR-012's exact-reconstruction promise and INV-004's
+      "10..30 at every point in its lifecycle".
+
+      The gap is precise and narrow: `puzzle.extent` (the FIELD) is asserted exactly once, at
+      tests/test_derive_shape.py:292, and only in RANDOM mode where the resolved pair happens
+      to equal nothing observable. No test reads `puzzle.width`/`puzzle.height`, or an export
+      document, for a half-stated request on a NON-SQUARE source — which is the only shape
+      where the two disagree.
+
+      [history] corroboration: `tests/test_export_json.py` co-changed with `orchestrator.py`
+      4 times in the last 12 months and is absent from this diff. Its two extent tests
+      (`test_the_request_block_records_an_extent_pair_and_never_a_scalar_size` at line 273,
+      and line 201) use `width=2, height=2` / `width=10, height=10` only — fully stated, so
+      they cannot see this.
+
+      Five of seven mutants were killed, and the two other survivors (m3: the
+      `_smallest_workable_size` lower bound; m4: the square-source orientation branch) are
+      PROVABLY EQUIVALENT — verified exhaustively, not sampled: 0 refusal paths whose smallest
+      workable size is MIN_SIZE, and 0 square sources where the two branches differ. So this
+      is the one real test gap, not a scatter.
+    suggestion: |
+      Add one assertion to `tests/test_derive_shape.py` (or to `tests/test_export_json.py`,
+      the co-change peer) that a bare `--size N` on a NON-square source is recorded on the
+      aggregate and in the export, e.g. for the cat:
+
+          puzzle = orchestrator.generate(GenerationRequest(mode="image", image=CAT, width=25, ...))
+          assert (puzzle.width, puzzle.height) == (18, 25)   # not (25, None)
+          document = json.loads(export_puzzle(puzzle)[0].read_text())
+          assert (document["request"]["width"], document["request"]["height"]) == (18, 25)
+
+      Asserting the properties (not the `extent` field) is what kills the mutant, and
+      asserting the exported document is what pins FR-012. A library-mode bare size is a
+      cheaper alternative that still kills it, since `height` goes None under the mutant.
+    confidence: high
+    source: static
+    violates: INV-004
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 1341
+    title: "Export-payload comment still says the extent is 'fed from the request's own pair'"
+    description: |
+      The comment above `export.ExportPayload(...)` reads:
+
+          # ADR-0023's extent pair, fed from the request's own pair (FR-018,
+          # ADR-0022/R1). Nothing here reshapes it: the aggregate carries what
+          # the user asked for, ...
+
+      Both claims are now false for a bare `--size N`: the pair is fed from
+      `Puzzle.extent` (i.e. `_resolved_extent`'s answer), and the aggregate deliberately
+      carries what the DERIVATION decided rather than what the user asked for — which is the
+      whole point of the card. The comment was not touched by the diff (verified: `git diff
+      main...HEAD -- src/nonogram/orchestrator.py` contains no hunk over these lines).
+
+      Same root cause as F-001: the recording path changed and neither its prose nor a test
+      followed. This project has shipped one instance of this class on each of the last three
+      cards.
+
+      Note this is `src/nonogram/orchestrator.py`, not `src/nonogram/export/**`, so fixing it
+      does not breach G-5.
+    suggestion: |
+      Rewrite the comment to say the pair comes from `Puzzle.extent` — the extent the run
+      actually produced (FR-023) — and that for a bare `--size N` it is not the request's own
+      pair. Cross-reference `Puzzle.extent`'s own (accurate) docstring at orchestrator.py:527.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: compliance
+    type: gap
+    file: src/nonogram/cli.py
+    line: 195
+    title: "G-6 breached (justifiably) but the card's guardrail was never amended"
+    description: |
+      G-6 says "Do not edit `src/nonogram/cli.py`". The diff edits it:
+      `_extent_token("30")` returns `(30, None)` instead of `(30, 30)`, plus the `--help`
+      text and three docstrings.
+
+      I judged the breach on its merits rather than rubber-stamping it, and the ENGINEERING
+      is sound on all three tests the card's prompt asks:
+
+      * NECESSARY — verified, no alternative exists. AC-096 requires an explicit `--size 15x30`
+        to bypass derivation, and FR-023's own statement says an explicit NxM "is unaffected by
+        this derivation". If `_extent_token` returns `(30, 30)`, a bare N is indistinguishable
+        from `--size 30x30`, so the only remaining discriminator is `width == height` — which
+        would silently reshape an explicit `--size 25x25` on the cat into 18x25 (confirmed:
+        `derive_extent(25, None, 330, 462) == (18, 25)`). FR-023 forbids that in as many words.
+      * SOUND — G-6's own cited authority is ADR-0010, which puts domain defaults inward of the
+        CLI. Returning `(30, 30)` WAS a domain default (a shape claim about the user's picture),
+        so the edit moves the line in the direction G-6 invokes, not against it. Parsing itself
+        is untouched: the grammar, the `x` separator, the `int()` conversion and the range-free
+        posture are all unchanged, and tests/test_cli.py:302-311 still push 0/9/31/-5 through
+        unjudged.
+      * ANTICIPATED BY THE MODEL — verified at meta/architecture/trace.yml:776: FR-023's
+        components are `[COMP-001, COMP-008, COMP-002, COMP-003]`. COMP-001 is the CLI. The
+        architecture already expected the adapter to participate; G-6 contradicted the trace.
+      * ADR-0022/R1 not violated — `tuple[int, int|None]` is still a pair, and the card even
+        added a `_GUARD_SHAPES` row forbidding the scalar `derive_extent(n: int, ...)`
+        signature FR-023 invites. A half-stated pair declines to invent a number; R1 forbids
+        fusing two into one. Letter and spirit both hold.
+      * NOTHING DOWNSTREAM has to cope with a new `None`. Both fields could already be `None`
+        (`--size` omitted). The only NEW state is the half-stated combination, and its only
+        two consumers are `_resolved_extent` (which handles it explicitly, orchestrator.py:283)
+        and `Puzzle.width`/`height` (F-001's subject). The web adapter constructs no
+        GenerationRequest at all today — `cli.py:429` is the only construction site in `src/` —
+        so `POST /generate` (CARD-020) is where the half-stated pair must be handled next.
+
+      THE ACTUAL DEFECT is bookkeeping, not code: the card's `## Guardrails` section still
+      reads "G-6: Do not edit `src/nonogram/cli.py`" with no amendment marker, and — unlike
+      AC-063 and EC-009, which each got a properly argued intake line in
+      `meta/architecture/inputs/raw-requirements.md` — no intake line was filed for G-6. So the
+      record shows an unamended guardrail beside a violating diff, and the next reader of the
+      card cannot tell a reasoned supersession from an oversight. The disclosure lives only in
+      `## Worktree notes`, which is not where a guardrail verdict is read.
+    suggestion: |
+      No code change. Amend the card: strike or mark G-6 as SUPERSEDED in
+      `meta/kanban/cards/CARD-033.md`'s `## Guardrails` section, citing FR-023's trace entry
+      (trace.yml:776 lists COMP-001) and ADR-0010, and pointing at the Worktree-notes argument.
+      Optionally file the third intake line so the decompose station stops emitting a G-6 of
+      this shape on the next FR whose trace includes COMP-001.
+    confidence: high
+    source: model
+    violates: G-6
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 925
+    title: "FR-023's statement carries the same defective clause as EC-009, and only EC-009 was amended"
+    description: |
+      I re-derived EC-009's arithmetic from scratch and CONFIRM the agent's claim: the
+      requirement is self-contradictory, and the finding is against EC-009, not the code.
+
+        * `round(N*r) < MIN_SIZE` is `long:short > N/9.5`, NOT `> N/5`. Exhaustively
+          computed over N = 10..30 x source ratios: 21 counterexamples, one per supported N
+          (e.g. N=10, a 2:1 source: `round(10*0.5) = 5 < 10`, yet `2.0 > 10/5 = 2.0` is false).
+        * Only the N/5 reading satisfies AC-097: at ratio exactly N/5 the unclamped value is
+          always exactly 5, so the literal EC-009 clause would REFUSE all three of AC-097's
+          cases, while AC-097 requires "the short side lands exactly on MIN_SIZE ... and is
+          accepted, not refused". Verified: at (10, 2:1), (20, 4:1), (30, 6:1) the derived
+          short side is 5 pre-clamp, 10 post-clamp, and `keeps_half` returns True at each —
+          exactly on the inclusive 2x boundary.
+        * Only the N/5 reading satisfies AC-098: for a 5:1 source the smallest N that works
+          is 25 and 24 is refused (verified). EC-009's literal "smallest N for which
+          round(N*r) >= MIN_SIZE" gives 48 — past MAX_SIZE and unofferable.
+
+      So the implemented rule — derive `round(N*short/long)`, APPLY the MIN_SIZE floor, refuse
+      when the resulting grid would discard more than half the source — is not merely *a*
+      resolution, it is THE resolution: it is what ADR-0022/R4 already says verbatim ("clamped
+      to MIN_SIZE at the bottom only ... A source whose ratio exceeds N/5 is refused with a
+      message naming the smallest N that would accommodate it"), and it is the only rule
+      satisfying AC-097 and AC-098 together. R4 needs no change, as the agent says.
+
+      THE GAP: the intake amendment (raw-requirements.md, third new line) addresses EC-009's
+      statement only. FR-023's OWN statement carries the identical defect at
+      requirements.yml:924-925 — "the error names the smallest `--size N` that would
+      accommodate the source's ratio **unclamped**" — which is the 48 reading, contradicting
+      AC-098's 25. FR-023 is the requirement `trace.yml` points at and the one a reader reaches
+      first, so amending EC-009 alone leaves the authoritative text wrong.
+
+      Confirmed clean: `requirements.yml` was NOT hand-edited (`git diff main...HEAD --stat --
+      meta/architecture/` shows only `inputs/raw-requirements.md`, 3 insertions). Both filed
+      intake lines are accurate — I re-derived every figure each one asserts.
+    suggestion: |
+      Extend the EC-009 intake line (or add a fourth) to cover FR-023's own statement:
+      replace "would accommodate the source's ratio unclamped" with "would accommodate the
+      source's ratio" (matching ADR-0022/R4's wording exactly), and replace FR-023's
+      "cannot be reached by that N without clamping" with the retention criterion, since
+      clamping begins at N/9.5 while refusal begins at N/5.
+    confidence: high
+    source: model
+    violates: EC-009
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_cli.py
+    line: 427
+    title: "AC-063's test name now claims the opposite of what it asserts"
+    description: |
+      `test_cli_square_size_shorthand_sets_both_sides` / `TestCLI_SquareSizeShorthandSetsBothSides`
+      now asserts `(request.width, request.height) == (30, None)` — i.e. that the shorthand
+      sets exactly ONE side. The change itself is right and traceability survives: the
+      docstring cites AC-063, explains the supersession, names the covering tests, and points
+      at the queued amendment; the intake line is accurate. But the AC-063 intake line
+      explicitly elects to keep the name unchanged ("its test name ... unchanged; only the
+      answer moves"), and the result is a name asserting something the body refutes.
+
+      Flagged because this project's review contract asks that every claim in prose be
+      literally true and the last three cards each shipped one instance of exactly this class.
+    suggestion: |
+      Either rename to something the body supports (e.g.
+      `TestCLI_BareSizeTokenReachesTheDomainUnsquared` /
+      `test_cli_bare_size_token_reaches_the_domain_unsquared`) and carry the rename in the
+      intake line so AC-063's `test:` field moves with it, or add one sentence to the intake
+      line acknowledging the name is retained deliberately for trace stability despite now
+      misdescribing. The second is cheaper and equally honest; the first is more truthful.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/sourcing/image.py
+    line: 525
+    title: "The disclosed double decode is neither measured nor pinned"
+    description: |
+      A bare `--size N` image run now decodes the picture twice — once in
+      `image.source_shape` for the ink box, once in `generate` for the pixels. The agent
+      disclosed this and the reasoning is correct: passing a decoded Pillow `Image` back out
+      would put it on a boundary that carries `list[list[bool]]` and nothing else (ADR-0012),
+      and the extent must be resolved before the source is called. So the second decode is
+      NECESSARY given the standing constraints, not incidental — I could find no alternative
+      that does not either cross ADR-0012's boundary or introduce module-level caching state.
+
+      It is also correctly bounded: only image mode, only the bare-size path. AC-096's test
+      pins the explicit path at zero shape lookups by making the reporter explode
+      (tests/test_derive_shape.py:323), which is a strong assertion.
+
+      What is missing is the other half: nothing asserts the bare-size path costs exactly TWO
+      decodes rather than three or twenty. CARD-030 already made every image request pay one
+      decode; a future card adding a third would be invisible. `_resolved_extent` is called
+      once outside both retry loops (orchestrator.py:1130), which is what keeps it at two —
+      that ordering is load-bearing and unasserted.
+    suggestion: |
+      Add a counting test alongside `test_a_bare_size_out_of_range_is_refused_before_the_source_is_consulted`
+      (tests/property/test_grid_dimensions.py:400, which already counts source calls): patch
+      `image.load_greyscale` with a counter and assert exactly 2 calls for a bare `--size N`
+      image run through `generate`, and exactly 1 for an explicit `--size WxH`. That pins both
+      the disclosed cost and the once-outside-the-loops ordering.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_sourcing_image.py
+    line: 1726
+    title: "Pre-existing docstring 'however a run turns out, the picture is decoded once' falsified by this card"
+    description: |
+      `test_a_non_unique_conversion_is_never_re_sourced`'s docstring states "a nudge edits the
+      grid already in hand, so however a run turns out, the picture is decoded once." That
+      universal claim is no longer true: a bare `--size N` run decodes twice (F-006). The test
+      itself is unaffected — it uses an explicit `width=10, height=10` — and the diff did not
+      touch this docstring, so this is a pre-existing sentence the card falsified rather than
+      a claim the card wrote.
+    suggestion: |
+      Narrow the sentence to the case the test actually covers: "...so a run at an explicit
+      `--size WxH` decodes the picture once (a bare `--size N` also reads the ink box first —
+      FR-023)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/sourcing/random_grid.py
+    line: 288
+    title: "derive_extent ignores WHICH side was stated; its argument docs read as axis-specific"
+    description: |
+      `derive_extent(None, 25, sw, sh)` and `derive_extent(25, None, sw, sh)` return the same
+      pair — `stated` always lands on the SOURCE's longer axis, never on the axis the caller
+      named. Verified: both forms give (18, 25) for the cat's 330x462 ink box. That is correct
+      for FR-023 (a bare `--size N` is axis-free) and `_derived_extent`'s docstring documents
+      it precisely, but `derive_extent`'s own Args section reads "width: The requested grid
+      width ... height: The requested grid height", which invites a caller to believe the axis
+      is honoured. No caller produces the `(None, N)` shape today — `cli._extent_token` emits
+      only `(N, None)` — so this is latent, not live.
+    suggestion: |
+      One clause in the Args block: note that for a half-stated pair only the VALUE is read,
+      and the axis is chosen by the source's own orientation, so `(None, N)` and `(N, None)`
+      are the same request.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 787
+    title: "FR-023 still traced as unimplemented, and R4's check ref is absent from its test list"
+    description: |
+      `trace.yml`'s FR-023 entry still carries `notes: ... not yet implemented — no kanban card
+      cut for it`, and its `tests:` list omits
+      `PropertyTest_BareSize_DerivesShorterSideFromSourceShape` — which is ADR-0022/R4's own
+      declared `check:` ref, and which DOES exist in the code
+      (tests/property/test_grid_dimensions.py:324). So R4's mechanical check currently resolves
+      by naming convention alone rather than through the trace.
+
+      The agent disclosed this explicitly as deferred to the closing pass, which is this
+      project's normal workflow for trace write-back, so it is recorded rather than charged
+      against the card.
+    suggestion: |
+      At the closing pass, set FR-023 to `covered`, replace the note, and add
+      `PropertyTest_BareSize_DerivesShorterSideFromSourceShape` to the test list.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

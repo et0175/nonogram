@@ -1,6 +1,6 @@
 # CARD-031: Show image metadata and suggested puzzle dimensions after upload
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py, src/nonogram/sourcing/image.py, tests/test_web_upload.py
 **Review score:** —
 **Started:** —
-**Closed:** —
+**Closed:** 2026-09-21
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** _(with CARD-104)_
 **Blocked by:** —
 
 ## What to implement
@@ -33,13 +33,13 @@ This helps users make informed choices about the grid size before generation, re
 ## Acceptance criteria
 
 - **AC-125** (metadata) — given an uploaded image, when the form displays after upload, then the page shows the image's aspect ratio (as a ratio like "4:3" and as decimal like "1.33") below the file input.
-  *test:* `TestWebForm_DisplaysImageAspectRatio`
+  *test:* **retired 2026-09-21** — no server-rendered aspect ratio exists; CARD-034's `/static/metadata.js` shows it client-side, covered by `tests/test_web_metadata.py`
 
 - **AC-126** (suggestions) — given an uploaded image at a known aspect ratio, when the form renders, then it displays 2–3 suggested grid dimensions that fit that ratio within the 10..30 constraint, ordered by how closely they match the image.
-  *test:* `TestWebForm_SuggestsPuzzleDimensions`
+  *test:* **retired 2026-09-21** — as above; `test_suggestion_count_is_2_to_3` covers the rule in `tests/test_web_metadata.py`
 
 - **AC-127** (integration) — given a user who selects a suggested dimension, when they submit the form, the generation uses that size and the image sourcing applies the aspect-ratio crop as designed (ADR-0022, unchanged).
-  *test:* `TestWebForm_GeneratesWithSuggestedSize`
+  *test:* **retired 2026-09-21** — the suggestion buttons set the `size` input client-side; generation from a typed size is covered many times over
 
 ## Guardrails
 
@@ -58,3 +58,31 @@ This helps users make informed choices about the grid size before generation, re
 ## Worktree notes
 
 —
+
+### Closed 2026-09-21 by CARD-104 — the criteria are retired, not met
+
+This card's AC-125 and AC-126 describe the **server** rendering an aspect ratio
+and suggested dimensions. That was never true of a page anyone loaded:
+
+* `pages._metadata_section` and `pages._suggestions_section` were written and
+  **never called** — zero call sites in `src/`.
+* `form_with_result` took `image_metadata_str` and `suggestions` and
+  interpolated neither.
+* `handler._generate` ran `extract_metadata`, `format_aspect_ratio` and
+  `suggest_dimensions` on every image upload and **discarded the results**,
+  inside `except (ImportError, Exception): pass` — a catch that swallows
+  everything, which is why it stayed invisible.
+
+The need was met later and differently: **CARD-034** shows the ratio and the
+suggestion buttons client-side from `/static/metadata.js`, covered by
+`tests/test_web_metadata.py`. So the user-visible behaviour these criteria
+asked for does exist — just not where they said, and not from this code.
+
+**CARD-104 deleted the unreachable path** at the owner's decision: both section
+builders, both unused parameters, and the handler block with its catch-all. The
+`.metadata` / `.suggestions` / `.suggestion-button` CSS stays, because
+`metadata.js` writes exactly those classes.
+
+`src/nonogram/web/metadata.py` also stays: `extract_metadata` and
+`suggest_dimensions` are still exercised by `tests/test_web_metadata.py`'s
+parity tests, which check the Python and JavaScript algorithms agree.

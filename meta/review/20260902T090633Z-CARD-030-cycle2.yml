@@ -1,0 +1,574 @@
+version: 1
+generated_at: "2026-09-02T09:06:33Z"
+target: "CARD-030, branch card/030-trim-to-ink-bounding-box @ 7e6354b (worktree ../PythonProject4-card-030), diff main(ec04baa)...HEAD"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+previous_cycle:
+  report: meta/review/20260902T080013Z-CARD-030-cycle1.yml
+  score: 7.0
+  delta: 2.0
+  min_improvement: 0.5
+  met: true
+
+coverage:
+  read:
+    - src/nonogram/sourcing/image.py
+    - tests/test_sourcing_image.py
+    - tests/property/test_image_fit.py
+    - tests/property/test_grid_dimensions.py
+    - tests/test_nudge.py
+    - README.md
+    - meta/kanban/cards/CARD-030.md
+    - meta/review/20260902T080013Z-CARD-030-cycle1.yml
+    - meta/architecture/requirements.yml (EC-007, FR-021, FR-022, CON-011..CON-013)
+    - meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    - meta/architecture/trace.yml (FR-022 rows)
+  not_reached:
+    - src/nonogram/solver/**  # untouched by the diff; verified green only via the suite
+    - src/nonogram/web/**     # untouched; ADR-0019/R1 and CON-009/CON-010 unchecked
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 1707, removed: 288 }
+  diff_code_only: { files: 6, note: "README.md, src/nonogram/sourcing/image.py, 3 test files, 1 fixture; the other 3 are meta/" }
+  max_fan_in:
+    symbol: "nonogram.sourcing.image.validate_aspect_ratio"
+    callers: 6
+    note: "6 references in src/ (excluding the def), 17 in tests/. ink_bounding_box: 6 src / 13 tests. All within COMP-003 plus its tests — image.py has no inbound src caller outside its own package table."
+  tests_cover_change: true
+  suite: { collected: 1474, passed: 1473, xfailed: 1, exit: 0 }
+  hotspots:
+    - "src/nonogram/sourcing/image.py — 10 commits in 12 months, 4 of them fix/bug (40% defect density); the single highest-churn file in the diff"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — git log --name-only --since=12.months on src/nonogram/sourcing/image.py returns only the file itself; the repository is ~1 month old and every commit touching it is a single-file or card-scoped commit, so the co-change window has no peers to report. An empty list here is 'no history to mine', not 'no missing peers'."
+    bus_factor: "no_eligible_fact — single-author repository (et0175); the signal cannot discriminate."
+
+system_contract:
+  rules_checked: 15
+  holds: 11
+  unchecked: 4
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — image.py's import block (lines 160-169) adds nothing beyond stdlib + numpy + PIL; the ink box is Image.point + getbbox. Checker test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py:1229) green on this head (full suite exit 0)."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file under src/nonogram/web/."
+    - "ADR-0022/R1 ✓ holds — the new public symbol ink_bounding_box returns a 4-tuple crop box and generate passes two extents to validate_aspect_ratio (image.py:641); no scalar 'size' crosses a boundary. test_no_public_boundary_reduces_a_grid_to_one_scalar green on this head."
+    - "ADR-0022/R2 ✓ holds — generate calls random_grid.validate_extent(width, height) at image.py:638 before load_greyscale, i.e. inward of the CLI and before the file is touched; test_every_source_mode_accepts_every_extent_inside_ten_to_thirty[image] green on this head."
+    - "ADR-0022/R3 ✓ holds — verified by mutation, not by reading: M2 (judge greyscale.width/height instead of the box) and M3 (apply greyscale.crop(box) before validate_aspect_ratio) were both applied to image.py and both FAILED test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied; source restored byte-identical (md5 03cb2c0b99186e22182d9a61f66b1144). NOTE: the rule's own declared check ref does not discriminate either revised clause — see F-203."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: bare --size N derivation is FR-023/CARD-033; this diff touches no CLI size parsing and no derivation path."
+    - "CON-005 ✓ holds — no solver code in the diff; the mandatory property test tests/property/test_solver_uniqueness.py green on this head (full suite exit 0)."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web server code in the diff."
+    - "CON-011 ✓ holds — PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 (tests/property/test_grid_dimensions.py) green on this head, including the [image] parametrisation which now routes through the trim."
+    - "CON-012 ✓ holds — the guard judges the ink box, mutation-verified as under ADR-0022/R3 (M2 killed). The inclusive boundary is intact: M8 (2*kept >= whole -> >) killed 6 tests including test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary. NOTE: CON-012's own declared check (PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore) is a pure four-integer test that cannot see which extent is passed — see F-203."
+    - "INV-001 ✓ holds — clue derivation is untouched by the diff; TestComputeClues_MatchesGridExactly green on this head."
+    - "INV-002 ✓ holds — src/nonogram/export/** untouched (guardrail G-5, verified by git diff --name-only); TestExport_RejectsUnverifiedPuzzle green on this head."
+    - "INV-003 ✓ holds — image.py still contains no counter, cap or retry loop; test_the_image_module_counts_nothing_itself (tests/test_nudge.py:557) green on this head, with its __all__ pin updated for the surface change."
+    - "INV-004 ✓ holds — validate_extent is the first thing generate does (image.py:638), before load_greyscale; TestGenerateRandom_* and the [image] extent parametrisation green on this head."
+
+mutation_check:
+  ran: true
+  target_file: src/nonogram/sourcing/image.py
+  pristine_md5: "03cb2c0b99186e22182d9a61f66b1144"
+  restored_md5: "03cb2c0b99186e22182d9a61f66b1144"
+  restore_verified: "md5 identical after every mutant; final `git diff --stat` and `git status --short` both empty"
+  scope: "tests/test_sourcing_image.py tests/property/test_image_fit.py tests/property/test_grid_dimensions.py tests/test_nudge.py, run with -B -p no:cacheprovider and __pycache__ cleared before and after each mutant"
+  mutants:
+    - id: M1
+      mutation: "binarize(greyscale.crop(box), width, height) -> binarize(greyscale, width, height)  # FR-022 undelivered"
+      result: killed
+      killed_by:
+        - test_the_shipped_conversion_applies_the_trim_the_criteria_measure
+        - test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize
+      note: "This is cycle-1 F-001's surviving mutant. Independently reproduced as KILLED. The cycle-1 remedy is a real test, not prose."
+    - id: M2
+      mutation: "validate_aspect_ratio(box[2]-box[0], box[3]-box[1], ...) -> validate_aspect_ratio(greyscale.width, greyscale.height, ...)  # judge the file, not the ink box"
+      result: killed
+      killed_by:
+        - test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
+        - test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize
+    - id: M3
+      mutation: "apply greyscale.crop(box) BEFORE validate_aspect_ratio (guard after the trim) — same verdict, wrong order"
+      result: killed
+      killed_by:
+        - test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
+      note: "EC-007's 'refused before any cropping' half has real teeth; the Image.Image.crop counter the card added is what catches it."
+    - id: M4
+      mutation: "if not 0 <= threshold <= 256 -> <= 257  # cycle-1 F-009's surviving mutant"
+      result: killed
+      killed_by:
+        - test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug
+      note: "Reproduced as KILLED. The message-match remedy works."
+    - id: M5
+      mutation: "return ink.getbbox() or whole -> or (0, 0, 1, 1)  # break the no-ink fallback"
+      result: killed
+      killed_by:
+        - test_a_picture_with_no_ink_at_all_is_trimmed_by_nothing
+        - test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug
+        - test_the_guard_judges_the_extent_the_crop_will_actually_use
+    - id: M6
+      mutation: "LUT made inclusive: [255]*threshold + [0]*(256-threshold) -> [255]*(threshold+1) + [0]*(255-threshold)"
+      result: killed
+      killed_by:
+        - test_an_ink_threshold_outside_the_greyscale_range_is_a_caller_bug
+      note: "Killed only via the threshold=256 legal-end assertion (a 257-entry LUT), not via any grid outcome — see F-206."
+    - id: M7
+      mutation: "INK_THRESHOLD = 128 -> 129"
+      result: killed
+      killed_by:
+        - test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold
+      note: "Killed only by that test's `assert image.INK_THRESHOLD == 128` constant pin; no corpus outcome moved — see F-206."
+    - id: M8
+      mutation: "if 2 * kept >= whole -> if 2 * kept > whole  # inclusive boundary made exclusive"
+      result: killed
+      killed_by:
+        - test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more
+        - test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary
+        - test_aspect_guard_refusal_message_suggests_a_manual_crop
+        - test_property_a_solid_source_converts_to_a_solid_grid_at_every_shape
+        - test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
+        - "test_every_source_mode_accepts_every_extent_inside_ten_to_thirty[image]"
+  survivors: []
+
+independent_verification:
+  # Everything cycle 1 asserted numerically was re-derived from scratch on this
+  # tree, with my own scripts, not by re-running the card's tests.
+  - claim: "F-002 — the as-decoded reading overstates on 22 of 25, reads right on 1, understates on 2; 15 is the >5-percentage-point subset"
+    method: "Own script: for each of the 25 pictures, retained = min(r,rt)/max(r,rt) in exact Fractions at 20x20, computed once from the file extent and once from ink_bounding_box's extent."
+    result: "REPRODUCES EXACTLY — 22 overstate / 1 equal / 2 understate, 15 over by >5pp. The equal one is eagle-silhouette1.jpg (its ink box IS its file); the two understates are cat_Mouse.png (-0.059) and cat_dog.png (-0.079), exactly as the card names them. img_2.png and img_3.png both report 1.000 vs 0.546 — the card's '100% vs 55%'."
+  - claim: "F-007 — 150 cases, 32 outcomes flip, 23 abandoned->converts, 9 converts->GenerationAbandoned, net converting 94 -> 108, one unchanged SolverTimeout"
+    method: "Own sweep: 25 pictures x {10,12,15,20,25,30} square grids at seed 1 through orchestrator.generate, run twice — once against /Users/omelnikova/PycharmProjects/PythonProject4 (main @ ec04baa, src/ clean) and once against the worktree."
+    result: "REPRODUCES EXACTLY — 150 cases, 32 flips, 23/9 split, 94 -> 108, and butterfly.png@30 is SolverTimeout on both trees. All nine named regressions confirmed and none other: butterfly1.png@10, dear.png@12, dear.png@15, dear1.jpg@12, duck2.png@15, duck2.png@20, img_6.png@30, konek.png@20, wolf_2.png@30."
+  - claim: "F-006 — the rewritten README conversion table"
+    method: "Read the 20 relevant cells straight out of the same sweep."
+    result: "REPRODUCES EXACTLY — all 20 cells. wolf1/elephant1 ✓ at 10/12/20/30; eagle-silhouette1 ✗✗✓✓; dear1 ✓✗✓✓; frog1 ✓✓✗✗. The '35 is above MAX_SIZE' correction is also right (CON-011 caps at 30)."
+  - claim: "the EC ordering property sweeps 208 (source, grid) pairs"
+    method: "Imported the test module and evaluated len(INK_EXTENTS) * len(_target_extents()[::17])."
+    result: "REPRODUCES — 8 x 26 = 208, and the test's own floors are >=200 total, >=40 accepted, >=40 refused, >=10 wrong-accepts, >=10 wrong-refusals."
+  - claim: "every conversion fixture in tests/fixtures is a deliberate trim no-op"
+    method: "Computed ink_bounding_box on all five fixtures."
+    result: "TRUE — bands (32x32), landscape (60x40), portrait (40x60), wide (60x20), tall (20x60) all return the whole extent."
+  - claim: "every test name referenced by the card, the failure matrix and the AC map exists"
+    method: "grep 'def <name>' across tests/ for all 17 referenced names."
+    result: "ALL PRESENT. No dangling test-name arrow — the family's second symptom did not recur this cycle."
+
+root_causes:
+  - id: RC-1
+    title: "The card's three headline measured claims are certified by prose alone: nothing in the suite fails if 22/1/2, the README table, or the reachability split drifts"
+    finding_ids: [F-201, F-202]
+  - id: RC-2
+    title: "ADR-0022's 2026-09-01 revision moved what R3/CON-012 assert, but not what their declared check refs test; the test that actually discriminates the revision is registered nowhere in the model"
+    finding_ids: [F-203, F-204, F-205]
+
+findings:
+  - id: F-201
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/sourcing/image.py
+    line: 100
+    title: "Cycle-1's three headline remedies are correct today and mechanically unguarded: the 22/1/2 figure, the README table and the reachability split are prose with no failing test behind them"
+    description: |
+      Point 1 of this cycle's brief, answered directly. F-002, F-006 and F-007
+      were fixed by rewriting prose, and I re-derived all three independently:
+      every number reproduces exactly (see independent_verification above).
+      They are RIGHT. They are not PINNED.
+
+      Concretely, nothing in the 1474-test suite fails if any of them drifts:
+        * image.py:100-105 — "overstates on 22 of them, by more than 5
+          percentage points on 15 of those, reads exactly right on 1, and
+          understates on the remaining 2". grep over tests/ for "overstate",
+          "22 of", "15 of" returns nothing. The corpus premise test
+          (test_the_corpus_the_trim_criteria_are_stated_over_is_the_one_on_disk)
+          pins the corpus at 25 files, which catches a corpus edit — but a
+          change to ink_bounding_box's semantics moves this figure with the
+          suite fully green.
+        * README.md:127-134 — the ✓/✗ conversion table. No test in the repo
+          reads README.md at all (grep -rln README tests/ is empty). This
+          table has already been wrong twice: two cells this card broke and
+          two more that were wrong on main before it.
+        * meta/kanban/cards/CARD-030.md:~380 — the 150/32/23/9/94->108
+          reachability table. Nothing computes it in CI.
+
+      This is exactly the trap named in the brief, and the CARD-027 cycle-2
+      diagnosis applies verbatim: the remedy for prose that overclaimed was
+      more prose. The difference from CARD-027 is that here the prose is
+      currently TRUE, verified by an independent re-derivation — so this is a
+      standing durability gap, not a live defect, which is why it is medium
+      and not high.
+
+      What makes it worth fixing rather than accepting: the machinery already
+      exists three feet away. tests/test_sourcing_image.py already has
+      _ink_extent(), _corpus() and a 25-file premise assertion, and the file
+      already pins five other corpus-wide counts (19/17/2/23, 6, 2, 3, 6-vs-2)
+      as real assertions. The 22/1/2/15 split is the same shape of claim
+      against the same corpus and would be ~12 lines.
+    suggestion: |
+      Add one test next to the AC-089 comparator, e.g.
+      test_the_as_decoded_reading_misstates_what_survives_the_crop: for each of
+      the 25 pictures compare Fraction-exact retained-at-20x20 from
+      load_greyscale().size against the same from ink_bounding_box(), and
+      assert (overstate, equal, understate) == (22, 1, 2) and the >5pp subset
+      == 15, naming eagle-silhouette1.jpg / cat_Mouse.png / cat_dog.png the way
+      AC-086's test names its two survivors. That converts the shipped
+      docstring's central justification from a claim into a check.
+
+      For the README table and the reachability split, a test is heavier than
+      the claim deserves; the cheaper honest move is to stop publishing exact
+      per-picture verdicts in README.md (say "try another --size; results are
+      not monotonic" and drop the grid), and to date-stamp the card's
+      reachability table as a point-in-time measurement rather than a standing
+      fact. If the table stays, it should be generated by a script committed
+      next to it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-030.md
+    line: 262
+    title: "Cycle-1's own fix pass invalidated the card's scope declaration: it still says three files outside `Touches:` and \"Nothing else\""
+    description: |
+      Point 2 of the brief, and the one place where a cycle-1 fix demonstrably
+      generated a new instance of the family it was fixing.
+
+      The card's "Scope — three files outside the predicted `Touches:`, all
+      called out" section enumerates tests/fixtures/bands.png,
+      tests/test_nudge.py, and closes with "3. Nothing else.
+      `orchestrator.py` (G-4), `export/**` and `pyproject.toml` (G-5) are
+      untouched".
+
+      `git diff main...HEAD --name-only` on this head lists nine files. Outside
+      `Touches:` (src/nonogram/sourcing/image.py, tests/test_sourcing_image.py,
+      tests/property/test_image_fit.py) there are five, not three:
+      README.md, tests/fixtures/bands.png, tests/property/test_grid_dimensions.py,
+      tests/test_nudge.py, plus the card and the cycle-1 report under meta/.
+      README.md is disclosed, but only 130 lines further down in the cycle-1
+      fixes section, not in the scope list that says "Nothing else".
+      tests/property/test_grid_dimensions.py — edited by cycle 1's F-005 fix —
+      is disclosed nowhere.
+
+      Same section, second symptom: "**[Suite]** 1471 passed, 1 xfailed ...
+      Net +8: +5 FR-022 acceptance tests, +1 EC ordering property, +3 edge
+      tests ... -1 deleted". The tree collects 1474 and reports 1473 passed /
+      1 xfailed (I re-ran it; exit 0), i.e. net +10 — the fix pass added
+      test_the_shipped_conversion_applies_the_trim_the_criteria_measure and
+      test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize. The
+      commit message for 7e6354b has the right number; the card does not.
+
+      Neither costs anything at runtime. Both are the family's exact
+      signature — a prose declaration that was true when written and was made
+      false by the very pass that was fixing prose — and both are one edit.
+    suggestion: |
+      In CARD-030.md's Scope section, change "three files" to five, add
+      README.md and tests/property/test_grid_dimensions.py to the enumerated
+      list with their one-line reasons (F-006's re-measure; F-005's
+      ink-box justification), and update the [Suite] line to
+      "1473 passed, 1 xfailed (from 1463), net +10" with the two fix-pass
+      tests named. Better still: move the guardrail statement ("orchestrator,
+      export/**, pyproject.toml untouched") out of the prose list and let it
+      stand on the git evidence, so the list cannot be wrong about scope and
+      right about guardrails at the same time.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-203
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0022-grid-extent-and-size-range.md
+    line: 328
+    title: "ADR-0022/R3 and CON-012 were revised to judge the ink box before any crop; their declared `check:` refs are pre-revision tests that cannot discriminate either clause, and the test that can is registered nowhere in the model"
+    description: |
+      ADR-0022/R3's statement now reads "... differs by more than 2x from the
+      source's INK BOUNDING BOX ratio — not from its as-decoded file ratio —
+      ... The bounding box is computed and judged before any crop is applied".
+      Its declared check is
+      `check: {kind: test, ref: TestFitImage_RefusesRatioMismatchBeyondTwice}`.
+
+      That test is tests/test_sourcing_image.py:887,
+      test_fit_image_refuses_a_ratio_mismatch_beyond_twice. Its whole body is
+      two statements: `image.validate_aspect_ratio(60, 20, 20, 20)` inside a
+      raises, and `_convert(WIDE, 30, 10)`. The first calls the pure predicate
+      on four literals — it cannot observe which extent generate passes. The
+      second uses WIDE, whose ink box I measured as its whole 60x20 sheet, so
+      it is a trim no-op and cannot distinguish box from file either. Neither
+      statement touches ordering. So R3's mechanical judge is green on a
+      statement it does not test.
+
+      CON-012 (meta/architecture/requirements.yml:1594, severity mandatory) is
+      the same case: its statement carries the "INK BOUNDING BOX ratio ... not
+      its as-decoded file ratio" wording, and its check is
+      PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore —
+      a sweep over four-integer tuples that never constructs an image. This is
+      the second half of cycle-1's F-011, left open as out-of-scope.
+
+      The property itself holds — I proved it by mutation rather than by
+      reading: M2 (judge greyscale.width/height) and M3 (crop before the
+      guard) were both applied and both killed by
+      test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied.
+      But that test — which the card itself names as the EC test for
+      ADR-0022/R3's revision, `PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied`
+      — appears nowhere in the model: `grep -rn JudgesInkBox meta/` hits only
+      CARD-030.md and the cycle-1 report. It is not in requirements.yml, not in
+      trace.yml's FR-022 test list (which carries the five TestTrimToInk_*
+      names and stops there), and it is not any rule's `check:`.
+
+      Net effect: the only mechanical judge for the clause this whole card
+      exists to implement is invisible to the model, while two mandatory rules
+      point at tests that would stay green if the card were reverted to judging
+      the file. That is precisely the "dead-check-ref" failure mode one level
+      up — not a missing ref, but a live ref aimed at the wrong assertion,
+      which is harder to see.
+    suggestion: |
+      Two one-line model edits, both forge:architect's territory rather than
+      this card's:
+        * ADR-0022/R3 `check.ref` -> PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied
+          (or list both refs if the format allows).
+        * Add PropertyTest_AspectGuard_JudgesInkBoxBeforeAnyCropIsApplied to
+          trace.yml's FR-022 test list, and to CON-012's check.
+      If the card should not touch the model, this belongs on the backlog as a
+      follow-up with F-011 rather than being carried forward silently a second
+      time — it has now survived two review cycles.
+    confidence: high
+    source: model
+    violates: ADR-0022/R3
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-204
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 858
+    title: "AC-087's \"300 of 400 cells spent on border\" is still a known-false figure in an accepted acceptance criterion (cycle-1 F-012, unfixed)"
+    description: |
+      Restated, not re-litigated. AC-087's `given` says img_2.png spends
+      "300 of 400 cells" on border. The implementation agent measured 256
+      (the frame implied by edge depths 6/5/2/2) and 297 (total empty cells),
+      neither of which is 300; the shipped test records the discrepancy in its
+      docstring and asserts only the criterion's real `then` clause. Cycle 1
+      filed this as F-012 (info, out of scope, "needs a requirements
+      amendment, not a code change") and it is unchanged.
+
+      That handling is defensible — the model is not this card's to edit — but
+      it means an accepted, traced acceptance criterion in the project's own
+      requirements file contains a number its own test has documented as
+      false. It is the family's purest specimen and it is now one cycle old.
+    suggestion: |
+      Amend AC-087's `given` to "(the blank frame costs 256 of 400 cells and
+      the grid holds 297 empty cells in total; img_3.png ties it at 6)" via
+      forge:architect, or drop the parenthetical entirely — it is scene-setting
+      that no assertion depends on.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-205
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 806
+    title: "EC-007's annotation still narrates the two-check header probe this card deleted (cycle-1 F-011, unfixed)"
+    description: |
+      requirements.yml:806-818, the comment block above EC-007's statement,
+      still explains the 2026-08-31 narrowing in terms of a guard that "runs
+      twice — a cheap header probe refuses the common case with no decode at
+      all, but where a source's header extent disagrees with its decoded
+      extent (a PNG whose eXIf chunk follows IDAT; an orientation-tagged TIFF)
+      the second check necessarily runs AFTER load_greyscale".
+
+      Both halves of that mechanism are gone: probe_extent and
+      _header_orientation are deleted (verified — the only surviving mentions
+      in src/ are two docstring references at image.py:110 and :628, both
+      correctly past-tense), and the card's own failure matrix retires
+      CARD-026 rows 12/13/14 on exactly that ground. EC-007's *statement* is
+      still true and still verified; only its explanatory annotation now
+      describes deleted code, which is the annotation that a future reader
+      will use to decide what the constraint means.
+    suggestion: "Replace the annotation with the 2026-09-01 position: the guard runs once, after the decode, on the ink bounding box, and 'before any cropping, dithering or solver work' is what it still guarantees (with the counter-instrumented property test named). Bundle with F-203 as one forge:architect pass."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-206
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_sourcing_image.py
+    line: 1220
+    title: "The ink threshold's exclusive boundary (128 is paper) is pinned only by a constant assertion; no behavioural test distinguishes 128 from 129"
+    description: |
+      Point 4 of the brief, on the one new-test claim that turned out weaker
+      than it reads. Two mutants probe the boundary FR-022 defines ("ink = a
+      pixel value BELOW 128"):
+        * M7, INK_THRESHOLD 128 -> 129, was killed by exactly one assertion:
+          `assert image.INK_THRESHOLD == 128` at the end of
+          test_trim_to_ink_mid_grey_threshold_outperforms_the_near_white_threshold.
+          No corpus outcome moved — all five TestTrimToInk_* counts held.
+        * M6, the LUT made inclusive so that value==threshold is ink, was
+          killed only through the `threshold=256` legal-end assertion (a
+          257-entry LUT is a Pillow error), not through any grid outcome.
+      Both are kills, so neither is a survivor finding. The note is about what
+      the kills mean: test_a_picture_with_no_ink_at_all_is_trimmed_by_nothing
+      reads like the discriminating test for the exclusive boundary — its
+      docstring says "The mid-grey field is the case that matters most,
+      because 128 is *not* ink by FR-022's own definition" — but for a FLAT
+      128 field inclusive and exclusive give the same answer: all-ink returns
+      the whole box, no-ink falls back to the whole box. The assertion cannot
+      tell the two apart. Same for image.py:281-284's docstring claim about
+      keeping "a dithering fixture a dithering fixture" — true of the outcome,
+      not evidence of the boundary.
+      Low, not medium: the constant IS the criterion (every AC is stated at
+      ink < 128), so the constant pin is a legitimate guard; it is just not
+      the guard the two docstrings advertise.
+    suggestion: "One assertion in test_a_picture_with_no_ink_at_all_is_trimmed_by_nothing that actually separates the two readings — e.g. a sheet that is white with a flat-128 rectangle inside it, whose ink box must be the WHOLE sheet at threshold 128 (128 is paper) and the rectangle at threshold 129 — and trim the two docstrings' claims to what is asserted."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-207
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/sourcing/image.py
+    line: 494
+    title: "The refusal message now reports the ink box's dimensions but still calls them \"a WxH picture\", so a refused user sees a size that is not their file's"
+    description: |
+      A user-facing consequence of the ADR revision that neither the card, the
+      failure matrix, nor AC-077 addresses in the message's own terms.
+      validate_aspect_ratio's message is unchanged in wording:
+      "a {source_width}x{source_height} picture is too differently shaped from
+      a {target_width}x{target_height} grid: fitting it would keep only N% of
+      the picture. Crop the picture yourself ...". Since this card, the two
+      source integers are the INK BOX extent. The card's own new test asserts
+      this directly: test_a_near_degenerate_ink_box_drives_the_guard_and_the_resize
+      matches on "400x1" for a file that is 400x400 on disk.
+      So a user who uploads a 400x400 PNG is told their picture is 400x1, with
+      no hint that the tool measured the inked region rather than the file, and
+      the advice "crop the picture yourself to roughly the grid's proportions"
+      is now advice about a rectangle they cannot see in an image viewer.
+      Blast radius is small in practice — I swept all 25 corpus pictures x six
+      grid sizes on both trees and not one case reaches ImageNeedsManualCrop —
+      so this is a latent clarity problem on the refusal path, not a live
+      regression, and it is a Minor.
+    suggestion: "Name the trim in the message, e.g. \"the inked part of your picture measures 400x1 (the file is 400x400) and is too differently shaped from a 20x20 grid ...\". validate_aspect_ratio is a pure four-integer predicate, so this needs the file extent threading through or the message assembled by generate; the cheaper variant is a fixed clause — \"measured on the picture's inked area, not the whole file\" — which needs no new argument. Either way AC-077's \"names both extents\" stays satisfied."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+family_regression_determination:
+  question: "Are cycle-2's gating findings attributable to cycle-1's fixes AND in the same six-card finding family (prose that overclaims what the code or a test does; test-name arrows pointing at tests that do not exist)?"
+  answer: "No gating findings this cycle — zero critical, zero high. The loop converged; it did not regenerate defects at gating severity."
+  detail: |
+    Three separable questions, answered separately.
+
+    (a) Did cycle 1's fixes hold up as FACT? Yes, completely. Every number
+    cycle 1 corrected or added reproduces exactly under independent
+    re-derivation on this tree: 22/1/2 with a 15-strong >5pp subset; the
+    150/32/23/9 reachability split with all nine named regressions and no
+    tenth; net 94 -> 108; the single unchanged SolverTimeout; all 20 README
+    cells; 208 property pairs. Nothing cycle 1 wrote is false today.
+
+    (b) Did cycle 1's fixes hold up as MECHANISM? Partly. The three findings
+    that had a code-shaped remedy are genuinely pinned, verified by mutation
+    rather than by reading the fix: F-001's trim (M1 killed), F-009's
+    threshold bound (M4 killed), F-010's near-degenerate box (M1/M2 both
+    kill through it). The three that had a prose-shaped remedy — F-002, F-006,
+    F-007 — remain prose, with nothing that would catch them drifting (F-201).
+    So the CARD-027 cycle-2 diagnosis ("cycle-1's remedy for an overclaiming
+    comment was a longer comment") applies to exactly half this card's fixes.
+    The material difference from CARD-027 is that there the unpinned remedy
+    was itself REVERTIBLE WITH THE SUITE GREEN; here the remedies that could
+    be mechanical were made mechanical, and the ones that stayed prose are
+    verifiably correct as of this head.
+
+    (c) Did cycle 1's fixes GENERATE a new family instance? Yes, one, at low
+    severity: F-202. Cycle 1's F-005 fix edited tests/property/test_grid_dimensions.py
+    and its F-006 fix edited README.md, and neither was added to the card's
+    "three files outside the predicted Touches ... Nothing else" scope list;
+    the [Suite] count was likewise left at 1471/+8 against a tree that is now
+    1473/+10. The mechanism is precise and worth naming because it is
+    structural rather than careless: the card carries a hand-maintained
+    mirror of facts that git and pytest already hold authoritatively (which
+    files changed, how many tests there are), and every fix pass has to
+    remember to update the mirror. A mirror with no check is a defect
+    generator with a fixed rate — this is the fifth cycle in a row where the
+    mirror, not the code, produced the finding.
+
+    (d) The family's SECOND symptom did not recur at all. I checked all 17
+    test names referenced by the card's ACs, its failure matrix, its EC
+    section, the AC->test map at the top of tests/test_sourcing_image.py, and
+    the cross-file docstring reference F-005 added: every one resolves to
+    exactly one `def` in tests/. No dangling arrow. That is a real improvement
+    over the six-card history.
+
+    Verdict on the loop: converging, not regenerating. The one new instance
+    (F-202) is low-severity bookkeeping, and it is the same root cause as
+    F-201 — unchecked hand-maintained facts — which is why they cluster under
+    RC-1 and the score deducts for the cause once.
+
+recommendation:
+  gate: pass
+  merge: true
+  cycle_3: false
+  rationale: |
+    Gate config: min_score 8, zero critical/high, max_cycles 3. This review
+    scores 9.0 with zero critical and zero high findings, so the gate passes
+    on both conditions, and the +2.0 delta clears min_improvement 0.5 by a
+    wide margin.
+    Certification was NOT deferred: the mutation check ran (8 targeted mutants,
+    zero survivors, source restored byte-identical and verified with md5 and
+    an empty git diff --stat), so this is a legitimate passing cycle rather
+    than one that pushed the expensive check forward.
+    A cycle 3 would spend a full loop on two medium findings of which one
+    (F-203) is a model edit outside this card's Touches and outside its
+    guardrails, and the other (F-201) is a durability improvement to prose
+    that is currently correct. Neither changes shipped behaviour. The stronger
+    move is to merge and carry F-201/F-203/F-204/F-205 to the backlog as one
+    model-and-pins follow-up — F-204 and F-205 have now survived two cycles as
+    "out of scope", which is the point at which out-of-scope should become a
+    card rather than a note.
