@@ -1,6 +1,7 @@
 """Database ORM models for nonogram platform."""
 
 from sqlalchemy import Column, String, Integer, DateTime, UUID, ForeignKey, Text, JSON, func
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import uuid
@@ -50,6 +51,10 @@ class Puzzle(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     batch_id = Column(UUID(as_uuid=True), ForeignKey('batches.id'), nullable=True)
+    # Left as plain JSON, unlike Book's columns (CARD-101): these are written
+    # whole and never edited in place, and `MutableList` tracks only top-level
+    # mutation — on a list of rows it would report nothing while a cell
+    # changed, which is worse than not claiming to track them at all.
     grid = Column(JSON, nullable=False)  # list[list[bool]]
     clues_rows = Column(JSON, nullable=False)  # list[list[int]] — display only
     clues_cols = Column(JSON, nullable=False)
@@ -80,9 +85,25 @@ class Book(Base):
     description = Column(Text, nullable=True)
     theme = Column(String, nullable=True)
     target_audience = Column(String, nullable=True)  # 'seniors', 'general'
-    puzzle_ids = Column(JSON, nullable=False, default=[])  # list[str] of puzzle UUIDs
-    puzzle_titles = Column(JSON, nullable=False, default={})  # {puzzle_id: "custom title"}
-    book_metadata = Column(JSON, nullable=False, default={})  # Stores: size, cover_image_url, pdf_url, kdp_asin
+    # CARD-101: mutation-tracked, not plain JSON. SQLAlchemy decides what to
+    # write by comparing object identity, so `row.puzzle_ids[i] = x` — or the
+    # commoner `ids = row.puzzle_ids; ids.remove(x); row.puzzle_ids = ids` —
+    # changed the object in memory and wrote nothing at all. In DB mode, which
+    # is production, that silently lost every "move up", every "move down", and
+    # every title after a book's first.
+    #
+    # Wrapping the columns rather than rebuilding the value at each assignment
+    # is deliberate: the losing pattern is the one that looks correct, it is
+    # invisible in a diff, and it did not even fail consistently — a write
+    # while the column was still NULL persisted, because `or {}` built a new
+    # dict. A rule that has to be remembered at every call site had already
+    # been forgotten at four of them.
+    # (`default=list` over `default=[]` is tidiness, not a fix: measured, the
+    # shared literal does not leak between rows, because the value is
+    # serialised per insert and rebuilt per load.)
+    puzzle_ids = Column(MutableList.as_mutable(JSON), nullable=False, default=list)  # list[str] of puzzle UUIDs
+    puzzle_titles = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)  # {puzzle_id: "custom title"}
+    book_metadata = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)  # Stores: size, cover_image_url, pdf_url, kdp_asin
     status = Column(String, default='draft')  # 'draft', 'ready_for_pdf', 'pdf_generated', 'ready_for_kdp', 'published'
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
