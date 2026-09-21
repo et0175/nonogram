@@ -14,13 +14,73 @@
 **Idea:** —
 **Wave:** 3
 **Depends on:** CARD-037, CARD-042
-**Touches:** src/nonogram/web/static/metadata.js, src/nonogram/web/pages.py, tests/test_web_server.py
+**Touches:** src/nonogram/web/pages.py (the result page has no preview markup), src/nonogram/web/static/metadata.js, possibly src/nonogram/web/handler.py (a route to serve a retained upload), tests
 **Review score:** —
 **Started:** —
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** CARD-037 — the persistence this card bridges into does not exist on `main` (re-confirmed 2026-09-21)
+**Blocked by:** — _(unblocked 2026-09-21 by CARD-037, which built the persistence differently — see the re-cut)_
+
+## Re-cut 2026-09-21 — unblocked, and two of its four criteria no longer fit
+
+CARD-037 landed the persistence this card waited on, but not the shape this
+card assumed. There is no `persisted_image_path`, deliberately: the browser
+gets an opaque `upload_token` and never a filesystem path, because the salvaged
+design's hidden path field accepted any path the client sent. So every
+criterion phrased over "the persisted image path" has to be re-read.
+
+### The stated root cause is only half of it
+
+> *Preview display only triggers on file input change events. When form
+> re-renders with persisted_image_path, no change event fires → preview
+> hidden.*
+
+True, and beside a larger point. **The result page has no preview markup at
+all.** `#image-preview-container`, `#image-preview` and `#image-dimensions`
+live in `FORM_PAGE` only (pages.py:478-480); `form_with_result` — the page
+every submission renders, success or failure — does not carry them.
+`metadata.js`'s `displayImagePreview` looks the container up by id and finds
+nothing. So the preview is not merely un-triggered after a submission; there is
+nowhere for it to appear.
+
+That has to be fixed whichever way the decision below goes, and it is probably
+the whole of AC-164.
+
+### AC-165 now contradicts CARD-037
+
+> **AC-165** (clear on error) — *given a previous preview, when generation
+> fails and form re-renders with error, then the preview clears.*
+
+That was written when a failed submit destroyed the upload, so a preview left
+on screen would have been showing a picture the server no longer had — a stale
+preview, exactly as the card says. Since CARD-037 the server **does** still have
+it, and the retry is the point. Clearing the preview on failure would now show
+the owner an error and no picture, while the file sits in the store waiting to
+be reused.
+
+The criterion should be inverted — the preview **survives** a failure, because
+the picture does — or retired. It cannot stand as written.
+
+## The decision this card needs (for the owner)
+
+AC-163 asks for the preview to appear on page load after a submission. The
+browser holds a token, not an image, and cannot turn one into the other.
+
+- **(a) Serve the retained upload by token.** A route — `GET /upload/<token>`
+  — returns the file the token stands for, and `form_with_result` carries the
+  preview container pointing at it. The token is already unguessable and
+  resolves only to a file this process retained for this visitor, so it gives
+  away nothing they did not just send. Small, and it makes AC-163 true as
+  written.
+- **(b) Retire AC-163.** No preview after a submission; it appears only when a
+  file is chosen. The form still says which picture is held — a line of text
+  naming it — without the server serving image bytes back at all.
+
+**Recommendation: (a).** The retry is worth little if you cannot see what you
+are retrying with, and a card whose entire subject is "the preview after a
+failed submit" that answers "there isn't one" has not earned its P1. The route
+is a dozen lines and the security question is already settled by the token.
 
 ## What to implement
 

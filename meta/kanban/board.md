@@ -35,7 +35,7 @@ _(none)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 - **CARD-034** P2 · Client-side image metadata — **the feature shipped**; AC-138 names a fallback that has never existed (CARD-104 deleted the dead code behind it), and its tests include `assert "if" in content`  _(wave 5)_ — owner's pick: retire the clause or build the fallback
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
-- **CARD-044** P1 · Fix image preview with persisted uploads — **unblocked by CARD-037, and needs re-cutting**: it expects `persisted_image_path` and there is deliberately no path, so AC-163's preview-on-load cannot work as written  _(wave 6)_
+- **CARD-044** P1 · Image preview after a submission — re-cut 2026-09-21: the result page carries no preview markup at all, and AC-165 ("clear the preview on error") now contradicts CARD-037, which keeps the picture · owner's pick on AC-163: serve the retained upload by token, or retire it  _(wave 6)_
 
 ## In Progress
 _(none)_
