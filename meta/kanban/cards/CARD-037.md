@@ -1,22 +1,22 @@
 # CARD-037: Persist uploaded image for retry without re-upload
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (5 mutants, 4 caught, 1 reported)
 **Branch:** card/037-persist-upload-retry
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-037
 **Source:** User feedback during wave 0–2 testing
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-031
 **Touches:** src/nonogram/web/handler.py, src/nonogram/web/submission.py, src/nonogram/web/pages.py, tests/test_web_server.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -184,3 +184,86 @@ The worktree itself (still holding this uncommitted diff) is left in place —
 removing it now would require `--force` and would discard this work with no
 recovery beyond the preserved patch file. Do not force-remove until the patch
 has been reviewed/reapplied against current `main`.
+
+### Delivered 2026-09-21
+
+**`src/nonogram/web/uploads.py`** — a token store. `retain(path)` mints
+`secrets.token_urlsafe(24)` and remembers the file; `resolve(token)` answers
+only for tokens this process minted, and only while the file is still there;
+`release(token)` ends the retention and deletes it. Bounded by
+`MAX_RETAINED = 8`, evicting the longest-held and deleting its file, because a
+browser that never comes back must not leave a file on disk for ever.
+
+**The handler** resolves a posted token when no new file arrived, retains a new
+upload otherwise, and hands the token back through the ordinary form
+re-population as a hidden field. Its `finally` no longer deletes a file the
+store now owns — that was the line that made a failed submit cost you the
+picture.
+
+**The client never sees a path.** That is the whole point, and
+`test_a_path_submitted_as_a_token_is_not_opened` is the test that would fail if
+anyone restored the salvaged design: it plants a real, readable PNG and submits
+its path as the token, and the request fails for want of a picture with the
+file untouched.
+
+### A design question the suite asked, and I had answered wrongly
+
+The first full run failed `TestWebUpload_RejectsUndecodableUploadLikeCLI` — a
+corrupt upload was being retained, so its temp file outlived the request and
+CARD-021's step-5 cleanup guarantee broke.
+
+That was not a test to update. A picture that cannot be decoded will fail
+identically however many times it is resubmitted, so retaining it buys nothing
+and leaves a file behind for a retry that cannot work. Retention now ends when
+the picture itself is what was refused (`UnreadableImage`), and continues only
+for failures a retry could actually fix — a size the domain rejected, with a
+file that was perfectly good.
+
+### The escaping guard, again
+
+Adding the hidden field moved `pages.py`'s interpolation count 47 -> 49 and
+introduced two unescaped names, `token_val` (escaped by `_form_field_value`,
+like every other field value) and `token_field` (a fragment built beside it).
+Both are classified in `_UNESCAPED_PAGE_INTERPOLATIONS` rather than worked
+around. That guard has now caught two consecutive cards' changes to this
+module, which is twice more than anything else has.
+
+### Tests
+
+`tests/test_card_037_upload_retry.py`, 12 tests: the retry end to end (a
+refused size, then the same picture at a good one), that two failures in a row
+keep the same token, that a success releases and deletes, that a plain success
+retains nothing, and four on the store's own contract — a token it never
+minted, a path submitted as a token, eviction deleting the evicted file, and a
+vanished file forgetting its token.
+
+One correction made while writing them: `file_content=b""` with the default
+filename is a **zero-byte upload**, not "no file chosen". A browser submitting
+an untouched file input sends an empty *filename*. The tests say `filename=""`,
+which is what actually happens.
+
+### Mutation check — 4 of 5, and the fifth is not a gap
+
+Caught: `resolve` falling back to treating the token as a path (6 tests),
+retaining an undecodable upload, the store growing without bound, and a
+vanished file still resolving.
+
+**Survived:** removing `uploads.release(upload_token)` from the success path.
+Verified by hand rather than assumed — the mutation applies and the suite still
+passes. The reason is that the outcome is guaranteed twice: the line after it
+sets `upload_token = ""`, so the `finally` no longer sees a retained file and
+deletes it, and `resolve` then forgets a token whose file has gone. The
+observable behaviour is identical, so no test can distinguish them. The
+`release` call stays because it says what is happening at the point it happens,
+but it is belt to the `finally`'s braces, and that is worth knowing.
+
+**Full suite: 3,632 passed, 0 failed.**
+
+### This unblocks CARD-044
+
+`persisted_image_path` was the name CARD-044 expected; the field is
+`upload_token` and it carries no path. That card's AC-163 ("preview on page
+load from a persisted image") has to be rethought around a token the browser
+cannot resolve to an image itself — the preview will need the server to serve
+the retained picture, or to re-read it from the file input. Worth re-cutting
+before it is started.

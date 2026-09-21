@@ -2439,6 +2439,8 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "seed_val": "CARD-030: form field value (escaped by _form_field_value)",
     "out_val": "CARD-030: form field value (escaped by _form_field_value)",
     "export_checkboxes": "CARD-030: checkbox HTML (escaped by _checkboxes)",
+    "token_val": "CARD-037: form field value (escaped by _form_field_value)",
+    "token_field": "CARD-037: hidden-input HTML built above from token_val",
     "MIN_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
     "MAX_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
 }
@@ -2460,16 +2462,17 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """47 interpolations, 16 escaped at the point of interpolation, 31 not.
+        """49 interpolations, 16 escaped at the point of interpolation, 33 not.
 
-        Was 53/19/34 until CARD-104 deleted ``_suggestions_section`` and
-        ``_metadata_section``, which nothing ever called.
+        53/19/34 until CARD-104 deleted ``_suggestions_section`` and
+        ``_metadata_section``, which nothing ever called; 47/16/31 until
+        CARD-037 added the upload token's hidden field.
         """
         found = _page_interpolations()
 
-        assert len(found) == 47, [(i.line, i.expression) for i in found]
+        assert len(found) == 49, [(i.line, i.expression) for i in found]
         assert sum(1 for i in found if i.escaped) == 16
-        assert sum(1 for i in found if not i.escaped) == 31
+        assert sum(1 for i in found if not i.escaped) == 33
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.
