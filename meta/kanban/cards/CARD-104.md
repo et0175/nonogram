@@ -1,22 +1,22 @@
-# CARD-104: Three shipped web-form features whose acceptance tests were never written
+# CARD-104: Three shipped web-form cards — two were tested all along, one described a page that never existed
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** n/a — a deletion and a paperwork repair; the suite is unchanged at 3,613
 **Branch:** card/104-web-form-acceptance-tests
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-104
 **Source:** the 2026-09-21 branch sweep, which CARD-032's re-cut prompted
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
-**Touches:** tests/test_web_server.py and/or tests/test_web_upload.py (ten test classes), meta/kanban/cards/CARD-030.md, CARD-031.md, CARD-033.md (closing them)
+**Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py (the unreachable metadata path), tests/test_web_server.py (the escaping guard's table and counts), meta/kanban/cards/CARD-030.md, CARD-031.md, CARD-033.md, meta/review/ (six recovered files)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -105,3 +105,87 @@ guard read a column nothing wrote; here the criteria cite tests nobody wrote.
 - **FR:** FR-017 (web UI)
 - **Components:** COMP-008
 - **Trace:** none
+
+### Correction, 2026-09-21 — this card was opened on a false premise
+
+**The claim in the title and the Why section was wrong**, and it is left above
+unedited because a card that quietly rewrites its own reasoning is worth less
+than one that shows it.
+
+What was measured: whether classes named `TestWebForm_…` existed. They did not.
+What was reported: that the acceptance tests "were never written anywhere".
+Those are not the same statement, and the second does not follow from the first.
+Checked properly:
+
+* **CARD-033** — all four criteria are tested by
+  `TestWebUI_OutputDirectoryFieldAndStyling`, which names AC-131..134 in its
+  docstring. Covered all along.
+* **CARD-030** — AC-122 and AC-123 are tested in `tests/test_web_submission.py`,
+  asserting the criteria's own words.
+* **CARD-031** — the criteria are **not met**, but not for the reason the card
+  gave. See below; this is the one real finding.
+
+The 9.0 review this card held up as an indictment records
+`coverage.read: [… tests/test_web_metadata.py]` and `tests_cover_change: true`.
+It was reading real tests. The insinuation was unfounded.
+
+The method that produced the error is the same one the error was about:
+trusting a cheap proxy — a class name — instead of reading what the code does.
+
+### The real finding: CARD-031 described a page that never rendered
+
+Verified by reading, not by grep:
+
+* `pages._metadata_section` / `pages._suggestions_section` — **zero call sites**.
+* `form_with_result` took `image_metadata_str` and `suggestions`, interpolated
+  neither.
+* `handler._generate` computed both on every image upload and threw them away,
+  inside `except (ImportError, Exception): pass`.
+
+`Exception` already covers `ImportError`; the tuple is redundant and the clause
+swallows everything, which is how a whole feature came to be computed and
+discarded on every request without anyone noticing.
+
+**Deleted, at the owner's decision** (option (a) of three): both builders, both
+parameters, the handler block and its catch-all. The user-visible need is met
+by CARD-034's client-side `/static/metadata.js`, and the
+`.metadata`/`.suggestions`/`.suggestion-button` CSS stays because that script
+writes exactly those classes. `web/metadata.py` stays too — its functions are
+still exercised by the Python/JavaScript parity tests.
+
+### What the escaping guard caught
+
+Deleting `_suggestions_section` broke
+`TestWebPages_EscapingRuleIsTheOneTheDocstringStates`, which walks `pages.py`'s
+AST and compares it with the counts and the table of allowed unescaped
+interpolations. Exactly as designed — its own docstring says a table entry the
+module no longer interpolates "would otherwise keep vouching for nothing".
+Counts updated 53/19/34 → 47/16/31, and the three stale entries (`width`,
+`height`, `" ".join(buttons)`) removed. That test is the one piece of this
+whole area that was doing its job unprompted.
+
+### Delivered
+
+1. The unreachable path deleted (above).
+2. **AC-124's focus clause retired.** It asks that "focus returns to form
+   inputs"; nothing moves focus and nothing should, because the listener fires
+   on `input`, which cannot happen unless focus is already in a form control.
+   The script's comment claimed to "manage focus" — it now says what the code
+   does and why.
+3. **Every `*test:*` line on the three cards repointed** at the test that
+   actually covers it, or marked retired with the reason. That broken trail is
+   the whole reason two tested cards looked untested for eighteen days.
+4. **CARD-030, CARD-031 and CARD-033 closed**, each with notes recording what
+   shipped and what was retired.
+5. **Six review files recovered** into `meta/review/` from the superseded
+   branches, where the rest of the reviews live.
+
+**Full suite: 3,613 passed, 0 failed — the same count as before the deletion,
+which is the evidence that what was removed was unreachable.**
+
+### Not done, and deliberately
+
+The AC-number collision (this repo has at least two live meanings for AC-122
+through AC-134) is **not** addressed here. It is repo-wide, it needs a decision
+about which numbering survives, and folding it into a card that has already
+been wrong once is how the next mistake would get made.

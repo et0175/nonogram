@@ -1,0 +1,34 @@
+version: 1
+generated_at: "2026-09-03T00:00:00Z"
+target: "card/031-image-metadata"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read: ["src/nonogram/web/metadata.py", "src/nonogram/web/handler.py", "src/nonogram/web/pages.py", "tests/test_web_metadata.py"]
+  not_reached: []
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 540, removed: 28 }
+  max_fan_in: { symbol: "suggest_dimensions", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured: {}
+
+system_contract:
+  rules_checked: 2
+  holds: 2
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-011 ✓ holds — dimension suggestions loop bounds enforce 10..30 constraint"
+    - "ADR-0022 ✓ holds — image sourcing logic unchanged, aspect-ratio crop untouched"
+
+root_causes: []
+
+findings: []

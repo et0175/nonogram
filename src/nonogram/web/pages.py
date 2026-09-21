@@ -22,14 +22,16 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 53 f-string interpolations, of which 19 call :func:`html.escape` at
-the point of interpolation. The other 34 are each one of five kinds:
+there are 47 f-string interpolations, of which 16 call :func:`html.escape` at
+the point of interpolation. The other 31 are each one of five kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
 * **8+ fragments built here**, by a function that escaped as it built them —
   :func:`_options` (twice), :func:`_checkboxes`, :func:`result_page`'s
   ``written``, :func:`failure_page`'s ``listed``, and CARD-030 additions in
-  :func:`form_with_result`;
+  :func:`form_with_result`. CARD-104 removed three more — the ``width``,
+  ``height`` and ``" ".join(buttons)`` of ``_suggestions_section``, which was
+  never called;
 * **:func:`_shell`'s two parameters** — ``title``, which its own docstring
   binds to be a literal, and ``body``, which the caller has already escaped;
 * **multiple values off the wire**: ``{seed:d}`` across multiple functions.
@@ -717,47 +719,6 @@ def _error_section(summary: str, reasons: Sequence[str]) -> str:
 
 
 
-def _metadata_section(aspect_ratio_str: str) -> str:
-    """Render the image metadata section (AC-125).
-
-    Args:
-        aspect_ratio_str: Formatted aspect ratio string (e.g., "4:3 (1.33)").
-
-    Returns:
-        HTML markup for the metadata section, properly escaped.
-    """
-    return f"""<div class="metadata">
-  <p><strong>Image aspect ratio:</strong> {html.escape(aspect_ratio_str)}</p>
-</div>"""
-
-
-def _suggestions_section(suggestions: list[tuple[int, int]]) -> str:
-    """Render suggested puzzle dimensions (AC-126).
-
-    Args:
-        suggestions: List of (width, height) tuples to suggest.
-
-    Returns:
-        HTML markup for the suggestions section, properly escaped.
-    """
-    if not suggestions:
-        return ""
-    
-    buttons = []
-    for width, height in suggestions:
-        size_str = f"{width}x{height}"
-        buttons.append(
-            f'<button type="button" class="suggestion-button" '
-            f'onclick="document.querySelector(\'input[name=\"size\"]\').value = {html.escape(size_str)!r};">'
-            f'{html.escape(size_str)}</button>'
-        )
-    
-    return f"""<div class="suggestions">
-  <p><small><strong>Suggested dimensions (click to set):</strong></small></p>
-  {" ".join(buttons)}
-</div>"""
-
-
 def form_with_result(
     fields: dict[str, list[str]],
     outcome: str,
@@ -766,8 +727,6 @@ def form_with_result(
     paths: Sequence[Path] | None = None,
     error_summary: str = "",
     error_reasons: Sequence[str] | None = None,
-    image_metadata_str: str = "",
-    suggestions: list[tuple[int, int]] | None = None,
 ) -> str:
     """Render the form page with an embedded result section (CARD-030).
 
@@ -874,7 +833,12 @@ the same pipeline behind them.</p>
   <button type="submit">Generate</button>
 </form>
 <script>
-// AC-124: Collapse result section and manage focus when user interacts with form
+// AC-124: collapse the result when the user starts editing again.
+// The criterion also says "focus returns to form inputs". Nothing here moves
+// focus, and nothing should: this listener fires on `input`, which cannot
+// happen unless focus is already in a form control. Calling .focus() would
+// take focus somewhere the user did not put it. The clause is satisfied by
+// construction, and the comment used to claim work that was not being done.
 document.addEventListener('DOMContentLoaded', function() {{
   var resultDetails = document.querySelector('details');
   var formInputs = document.querySelectorAll('input, select, textarea');

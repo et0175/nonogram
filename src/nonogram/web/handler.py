@@ -730,27 +730,12 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             # For urlencoded, re-parse to extract fields for form re-population
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
 
-        # Extract image metadata for form display (CARD-031)
-        image_metadata_str = ""
-        suggestions: list[tuple[int, int]] = []
-        if image_path is not None and posted.request is not None and posted.request.mode == "image":
-            try:
-                from nonogram.web import metadata as web_metadata
-                img_metadata = web_metadata.extract_metadata(image_path)
-                image_metadata_str = web_metadata.format_aspect_ratio(img_metadata.aspect_ratio)
-                suggestions = web_metadata.suggest_dimensions(img_metadata)
-            except (ImportError, Exception):
-                # If metadata extraction fails or module unavailable, continue without suggestions
-                pass
-
         try:
             if posted.request is None:
                 self._fail_inline(
                     fields,
                     "The form could not be read.",
                     posted.unreadable,
-                    image_metadata_str=image_metadata_str,
-                    suggestions=suggestions,
                 )
                 return
             try:
@@ -761,8 +746,6 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     fields,
                     "nonogram refused this request.",
                     [str(error)],
-                    image_metadata_str=image_metadata_str,
-                    suggestions=suggestions,
                 )
                 return
             except OSError as error:
@@ -770,8 +753,6 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     fields,
                     "A file for this request could not be read or written.",
                     [str(error)],
-                    image_metadata_str=image_metadata_str,
-                    suggestions=suggestions,
                 )
                 return
             # CARD-030: Render form with success result inline instead of redirect
@@ -784,8 +765,6 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     puzzle_name=puzzle.name,
                     seed=puzzle.seed,
                     paths=written,
-                    image_metadata_str=image_metadata_str,
-                    suggestions=suggestions,
                 ),
             )
         finally:
@@ -814,8 +793,6 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
         fields: _TYPE_CHECKED,
         summary: str,
         reasons: Sequence[str],
-        image_metadata_str: str = "",
-        suggestions: list[tuple[int, int]] | None = None,
     ) -> None:
         """Render one failure with inline form (CARD-030).
 
@@ -834,8 +811,6 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 pages.FAILURE,
                 error_summary=summary,
                 error_reasons=reasons,
-                image_metadata_str=image_metadata_str,
-                suggestions=suggestions or [],
             ),
         )
 

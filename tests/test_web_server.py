@@ -2439,9 +2439,6 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "seed_val": "CARD-030: form field value (escaped by _form_field_value)",
     "out_val": "CARD-030: form field value (escaped by _form_field_value)",
     "export_checkboxes": "CARD-030: checkbox HTML (escaped by _checkboxes)",
-    "' '.join(buttons)": "CARD-030: constructed fragment from _suggestions_section",
-    "width": "CARD-031: grid dimension (int), part of constructed size_str",
-    "height": "CARD-031: grid dimension (int), part of constructed size_str",
     "MIN_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
     "MAX_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
 }
@@ -2463,12 +2460,16 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """53 interpolations, 19 escaped at the point of interpolation, 34 not."""
+        """47 interpolations, 16 escaped at the point of interpolation, 31 not.
+
+        Was 53/19/34 until CARD-104 deleted ``_suggestions_section`` and
+        ``_metadata_section``, which nothing ever called.
+        """
         found = _page_interpolations()
 
-        assert len(found) == 53, [(i.line, i.expression) for i in found]
-        assert sum(1 for i in found if i.escaped) == 19
-        assert sum(1 for i in found if not i.escaped) == 34
+        assert len(found) == 47, [(i.line, i.expression) for i in found]
+        assert sum(1 for i in found if i.escaped) == 16
+        assert sum(1 for i in found if not i.escaped) == 31
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.
