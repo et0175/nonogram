@@ -36,7 +36,6 @@ _(none)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 - **CARD-030** P2 · Display inline success/error messages on form page  _(wave 4)_
 - **CARD-031** P2 · Show image metadata and suggested puzzle dimensions after upload  _(wave 4)_
-- **CARD-032** P2 · Web form image-only — **the feature is on main**; what is left is AC-129 and AC-130's missing tests and a naming repair  _(wave 4)_ — re-cut 2026-09-21: `test_export_pdf.py` credits a bundled font to CARD-032 too, so one number names two bodies of work
 - **CARD-033** P2 · Add output directory selector and improve form styling  _(wave 5)_
 - **CARD-034** P2 · Calculate image metadata on file upload (client-side)  _(wave 5)_
 - **CARD-037** P2 · Persist uploaded image for retry without re-upload  _(wave 5)_ — not on `main`, but its orphaned worktree holds real uncommitted implementation work; preserved as a patch, see card notes
@@ -50,6 +49,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-032** P2 · Web form image-only — the feature had shipped; AC-129 and AC-130's tests were **recovered** from the never-merged 2026-09-03 branch (retired as `card/032-superseded-2026-09-03`) and each given a stronger sibling · the PDF font citations re-pointed at ADR-0006/DEC-027, whose implementing card is missing rather than misnamed · AC-number collision with FR-028 recorded · merged without a review cycle, at the owner's call · merged be91cff
 - **CARD-102** P2 · The test database enforces foreign keys, as production does — 29 failures and 14 errors were hiding behind SQLite's default; fixed by creating the batches the tests referenced, through one shared helper · the `book_id` constraint deferred to CARD-103 · no schema and no production code changed · merged without a review cycle, at the owner's call · merged a05e500
 - **CARD-078** P3 · Density 0 and 100 refused — valid range 1..99, the verdict made once at `validate_density` and the docstring that promised a later stage would reject them deleted · the adapter audit changed nothing and says why · AC-B re-asked, since the web form has had no density field since CARD-032 · merged without a review cycle, at the owner's call · merged 4fda006
 - **CARD-060** P3 · `grid_to_svg_bytes` and `get_svg_filename` removed from grid_renderer — zero callers re-confirmed before deleting; two imports went with them that this card did not make dead · AC-2's grep is a test now · merged without a review cycle, at the owner's call · merged 9d0ab5a
