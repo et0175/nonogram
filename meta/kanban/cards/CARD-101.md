@@ -1,22 +1,22 @@
 # CARD-101: Reordering a book's puzzles and naming them do nothing in DB mode
 
-**Status:** ready
+**Status:** review
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (5 mutants, 4 caught, 1 reported)
 **Branch:** card/101-json-columns-are-not-mutable
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-101
 **Source:** found 2026-09-20 while fixing `remove_puzzle_from_book` for CARD-100; measured against a real database before starting, which corrected two of this card's own claims
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-100 (the same bug, in the one method that card had to fix)
 **Touches:** src/nonogram/admin/book_manager.py (`move_puzzle_up`, `move_puzzle_down`, `set_puzzle_title`), possibly src/nonogram/db/models.py (the JSON columns), tests
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -125,3 +125,75 @@ driver's, so it should hold, but nothing here has been run against Postgres.
 - **FR:** — (admin books)
 - **Components:** the admin panel's book manager
 - **Trace:** none
+
+### Decision taken on starting, 2026-09-21
+
+**Option (b), the owner's call: `MutableList`/`MutableDict` on the columns.**
+The measurement is the argument. The pattern that loses data is the one that
+looks most obviously correct, it is invisible in a diff, and it did not even
+fail consistently — a title written while the column was still `NULL`
+persisted, because `or {}` built a new dict. A rule that must be remembered at
+every call site had already been forgotten at four of them, and CARD-100 found
+a fifth.
+
+### Delivered 2026-09-21
+
+**Three columns on `Book` are mutation-tracked**: `puzzle_ids`,
+`puzzle_titles`, `book_metadata`. That is the whole fix — **not one line of
+`book_manager.py` changed**, and every method that was losing writes now keeps
+them. The measured table from the top of this card, re-run against the fix:
+
+| operation | before | after |
+|---|---|---|
+| `move_puzzle_up` | no | **yes** |
+| `move_puzzle_down` | no | **yes** |
+| `set_puzzle_title`, changing | no | **yes** |
+| `set_puzzle_title`, clearing | no | **yes** |
+| `reorder_puzzles` | yes | yes |
+| `add_puzzles_to_book` | yes | yes |
+
+**A third symptom, found while writing the tests.** `book_metadata` had the
+same fault: `add_puzzles_to_book` assigns `book_row.book_metadata['page_count']`
+in place, so a book's page count stopped following its puzzles after the first
+add. Fixed by the same wrapping, and pinned by
+`test_the_page_count_follows_the_puzzles`.
+
+**`Puzzle.grid`, `clues_rows` and `clues_cols` are deliberately left plain**,
+with a comment saying so. They are written whole and never edited in place, and
+`MutableList` tracks only *top-level* mutation — on a list of rows it would
+report nothing while a cell changed, which is worse than not claiming to track
+them at all.
+
+### A mutant that survived, and why it is not a gap
+
+Five mutants; four caught. The fifth reverted `default=list`/`default=dict` to
+`default=[]`/`default={}` and **nothing failed** — so the change it reverses
+has no observable behaviour. The worry it was written for (every new row
+handed the *same* container, which matters far more once those containers are
+tracked) turns out not to arise: the value is serialised per insert and rebuilt
+per load. The defaults keep the factory form as the one that cannot be misread,
+and the card says plainly that this is tidiness rather than a fix. The test
+written for it stays, pinning the property itself — one book's edits never
+reach another — rather than the reasoning that turned out to be wrong.
+
+### Tests
+
+`tests/test_card_101_mutable_json_columns.py`, 15 tests, every one DB-backed
+and reading the row back **through a fresh session** — the bug is invisible
+while the original object is still in the identity map, because the in-memory
+object does hold the change. Three title paths rather than one, because the
+first write always worked and hid the other two.
+
+The regression guard is `test_a_list_column_mutated_in_place_is_written` and
+its dict twin: they perform the pattern that used to lose data and assert it
+now persists, so unwrapping a column fails the suite (AC-4).
+
+**Full suite: 3,593 passed, 0 failed**, 26 skipped, one deselection (G-3: the
+whole suite, not only the new file, since mutation tracking changes *when*
+writes happen and not merely whether).
+
+### Still measured only against SQLite
+
+As when the card was opened. The identity comparison is SQLAlchemy's behaviour
+rather than the driver's, so it should hold on Postgres, but nothing here has
+been run against one.
