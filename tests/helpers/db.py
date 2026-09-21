@@ -72,3 +72,25 @@ def make_batch(
             )
         )
     return batch_id
+
+
+def make_book(
+    session_factory,
+    book_id: str | None = None,
+    *,
+    title: str = "Test book",
+) -> str:
+    """Insert a real ``books`` row and return its id as a string.
+
+    The companion to :func:`make_batch`, and needed for the same reason:
+    ``puzzles.book_id`` is a foreign key to this table since CARD-103, so a
+    test that wants a puzzle to belong to a book has to make the book. Before
+    the constraint, any uuid would do — which is precisely the state CARD-100
+    had to write a repair command for.
+    """
+    from nonogram.db.models import Book
+
+    book_id = book_id or str(uuid.uuid4())
+    with session_factory() as db:
+        db.add(Book(id=uuid.UUID(book_id), title=title, puzzle_ids=[], puzzle_titles={}, book_metadata={}))
+    return book_id

@@ -32,7 +32,7 @@ import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
 from nonogram.admin.book_manager import BookManager
 from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService, PuzzleStatus
-from tests.helpers.db import make_batch, sqlite_session_scope
+from tests.helpers.db import make_batch, make_book, sqlite_session_scope
 
 
 # --------------------------------------------------------------------------
@@ -50,7 +50,9 @@ class Panel:
     BATCH = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
     def __init__(self, session_factory=None):
+        self.session_factory = session_factory
         self.store = PuzzleReviewService(session_factory=session_factory)
+        self.store.session_factory_for_tests = session_factory
         self.books = BookManager(session_factory=session_factory, puzzle_store=self.store)
         if session_factory is not None:
             make_batch(session_factory, self.BATCH, source="random", total_count=0)
@@ -187,6 +189,8 @@ def test_a_row_carrying_only_the_legacy_status_is_still_in_a_book(panel):
     ``difficulty.tier_of_record`` uses for the retired guess tier.
     """
     puzzle_id = panel.add("draft")
+    if panel.session_factory is not None:
+        make_book(panel.session_factory, "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
     panel.store.mark_in_book(puzzle_id, "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
     panel.store.release_from_book([puzzle_id])  # the legacy shape: status only
 
@@ -290,6 +294,8 @@ def test_the_route_says_why_it_refused(admin_app):
 def test_mark_in_book_accepts_a_string_book_id(panel):
     """AC-6: the in-memory branch always did; the DB branch raised."""
     puzzle_id = panel.add()
+    if panel.session_factory is not None:
+        make_book(panel.session_factory, "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
 
     assert panel.store.mark_in_book(puzzle_id, "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
 

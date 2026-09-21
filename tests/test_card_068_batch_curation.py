@@ -30,7 +30,7 @@ import pytest
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
 from nonogram.admin.puzzle_review import PuzzleReviewService, PuzzleStatus
-from tests.helpers.db import make_batch, sqlite_session_scope
+from tests.helpers.db import make_batch, make_book, sqlite_session_scope
 
 
 # --------------------------------------------------------------------------
@@ -106,6 +106,9 @@ def _in_book(store, puzzle_id, book_id="0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c"):
     ``reject_puzzle`` rewrites the status and leaves ``book_id`` alone, which is
     its own defect (CARD-100).
     """
+    scope = getattr(store, "session_factory_for_tests", None)
+    if scope is not None:
+        make_book(scope, book_id)  # CARD-103: the book has to exist
     store.mark_in_book(puzzle_id, uuid.UUID(book_id))
     return puzzle_id
 
@@ -122,6 +125,9 @@ def _rejected_in_book(store, puzzle_id):
     stronger guarantee.
     """
     store.reject_puzzle(puzzle_id)
+    scope = getattr(store, "session_factory_for_tests", None)
+    if scope is not None:
+        make_book(scope, "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
     store.assign_to_book([puzzle_id], "0f5b9a2c-1d3e-4f5a-8b7c-9d0e1f2a3b4c")
     return puzzle_id
 
