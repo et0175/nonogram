@@ -1,22 +1,22 @@
 # CARD-060: Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename
 
-**Status:** ready
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** n/a — a deletion; the guard is a test that the names stay gone
 **Branch:** card/060-remove-dead-grid-renderer-helpers
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-060
 **Source:** CARD-059 cycle 1 review (Minor finding) — meta/review/20260911T123052Z-CARD-059-cycle1.yml
 **Idea:** —
 **Wave:** —
 **Depends on:** —
-**Touches:** src/nonogram/admin/grid_renderer.py
+**Touches:** src/nonogram/admin/grid_renderer.py, tests
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -66,3 +66,29 @@ siblings in `app.py`. Do not touch it.
   this card's scope.
 - G-2: Do not touch `src/nonogram/admin/app.py` — that file's dead-route
   cleanup was CARD-059's territory and is already done.
+
+### Delivered 2026-09-21
+
+**Re-confirmed before deleting** (step 1), on `main` at `7edf1d3`: a grep
+across `src/`, `tests/` and the templates finds `grid_to_svg_bytes` and
+`get_svg_filename` only at their own definitions, and in this card's and
+CARD-059's notes. The 2026-09-11 finding still held.
+
+**Both functions removed.** `grid_to_svg` is untouched (G-1), and `app.py` was
+not opened at all (G-2).
+
+**Two imports went with them** (step 3) — and neither was made dead by this
+card: `BytesIO` was never referenced by any function in the module, and
+`Tuple` by none either. They were already unused on the day the card was
+written; the card asked to check, so they are reported rather than quietly
+swept up.
+
+**AC-2 is a test, not a grep.** `tests/test_card_060_grid_renderer_surface.py`
+asserts the two names are absent from the module and that no file under `src/`
+mentions them, so the answer keeps being checked instead of having been true
+on the day someone looked. It also asserts `grid_to_svg` still renders — the
+risk in a deletion card is not only that dead code survives it, but that live
+code leaves with it, and this module's one real function serves every
+`/api/puzzle/<id>/grid` request.
+
+**Full suite: 3,596 passed, 0 failed** (AC-1), 26 skipped, one deselection.
