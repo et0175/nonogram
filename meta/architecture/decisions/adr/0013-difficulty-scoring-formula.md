@@ -78,7 +78,7 @@ Concretely, `score = 100 * effort * relief`, where:
     multiplier rather than left as prose two readings could satisfy.
 - The weights (both the three effort weights and the two relief weights)
   live in one named, tunable constant table, separate from the solver,
-  exactly as docs/requirements.md FR-10's "tunable later" language requires.
+  exactly as the intake requirements document's FR-10 "tunable later" language requires.
 
 This satisfies AC-022 (a score reflecting the weighted combination of all
 five named signals — all five still move the score, just not through the

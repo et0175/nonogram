@@ -845,7 +845,8 @@ Verification:
 
 **Source Code**:
 - `src/nonogram/sourcing/image.py` - Image preprocessing
-- `src/nonogram/sourcing/grid.py` - Grid generation
+- `src/nonogram/sourcing/random_grid.py` - Grid generation (listed here as
+  `sourcing/grid.py`, which has never existed, until CARD-071 corrected it)
 - `src/nonogram/clues.py` - Clue encoding
 - `src/nonogram/solver/` - Uniqueness verification
 - `src/nonogram/difficulty.py` - Difficulty calculation
@@ -856,16 +857,23 @@ Verification:
 - `tests/test_solver.py`
 - `tests/property/test_solver_uniqueness.py`
 
-**Documentation**:
-- `docs/requirements.md` - Full feature specification
-- `docs/ADMIN_CONSOLE_REQUIREMENTS.md` - UI requirements
+**Documentation** *(paths corrected by CARD-071, 2026-09-22 — the two named
+here before, an intake requirements document under `docs/` and
+`docs/ADMIN_CONSOLE_REQUIREMENTS.md`, do not exist in this repository)*:
+- `meta/architecture/requirements.yml` - the FR/NFR registry, with acceptance
+  criteria and the test that verifies each
+- `docs/GENERATION_ALGORITHM.md` - the generation pipeline as implemented
+- `docs/REQUIREMENTS/ADMIN_CONSOLE_REQUIREMENTS.md` - UI requirements
 
 ### C. Related Requirements
 
 **Other Documents**:
-- Admin Console: `ADMIN_CONSOLE_REQUIREMENTS.md`
-- Testing: `TESTING_AND_REQUIREMENTS_INDEX.md`
-- User Features: `docs/requirements.md`
+- Admin Console: `docs/REQUIREMENTS/ADMIN_CONSOLE_REQUIREMENTS.md`
+- Testing: the suite itself under `tests/`, indexed by the `test:` field on
+  each acceptance criterion in `meta/architecture/requirements.yml`
+  (`TESTING_AND_REQUIREMENTS_INDEX.md`, named here until CARD-071, does not
+  exist)
+- User Features: `meta/architecture/requirements.yml`
 
 ## 12. Success Metrics
 

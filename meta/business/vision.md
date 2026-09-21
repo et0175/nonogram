@@ -42,7 +42,13 @@ see `meta/kanban/backlog.md`.)
 - Standalone tool: no external systems, no network dependency, local file
   I/O only (reads an optional source image; writes PNG/SVG/JSON/CSV).
 - Target interface: CLI (Python 3.14).
-- Source material: `docs/monogram.md` (original idea notes), `docs/monogram_idea`
-  (flow diagram), `docs/requirements.md` (formalized FR/NFR and 6 resolved
-  decisions — interface, grid sizes, difficulty scoring, image conversion,
-  ambiguous-image policy, no interactive UI in v1).
+- Source material: this vision was written from three intake documents — the
+  original idea notes, a flow diagram, and a formalized requirements document
+  carrying the FR/NFRs and 6 resolved decisions (interface, grid sizes,
+  difficulty scoring, image conversion, ambiguous-image policy, no interactive
+  UI in v1). **None of the three is in this repository**, and the `docs/` paths
+  this line used to give for them resolved to nothing (checked 2026-09-22,
+  CARD-071). What survives of them is here:
+  `meta/architecture/inputs/raw-requirements.md` (the intake log),
+  `meta/architecture/requirements.yml` (the FR/NFR registry those decisions
+  became) and `meta/architecture/decisions/` (the decisions themselves).

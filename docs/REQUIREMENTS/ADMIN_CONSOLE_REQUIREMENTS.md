@@ -117,7 +117,12 @@ Image Upload → Configuration → Preview → Generation → Review → Approva
   4. Difficulty calculation
   5. Puzzle storage
 - **Acceptance Criteria**:
-  - Generation completes within timeout (60s per image)
+  - Generation completes within timeout — **30 s per generation run**
+    (`orchestrator.GENERATION_BUDGET_SECONDS`), and one picture can cost up to
+    three runs: the predicted extent plus CARD-062's long-side ±1 neighbours,
+    each with its own 30 s deadline. *(Corrected from "60s per image" by
+    CARD-071 on 2026-09-22 — no per-image bound of that kind is enforced
+    anywhere; a batch is additionally bounded by `BATCH_BUDGET_SECONDS`.)*
   - Progress tracked and reported
   - Errors captured and displayed
   - Partial failures don't block other images

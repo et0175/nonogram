@@ -52,18 +52,18 @@ terms:
     term: Puzzle
     definition: The playable definition handed to the solver of a nonogram — clues plus grid dimensions. Distinct from the solution grid, which stays hidden from the player.
     context: shared
-    source: [US-004, docs/requirements.md#3]
+    source: [US-004, FR-005]  # CARD-071: the second entry was an anchor into the intake document, which is not in this repository; FR-005 is where clues-from-grid is stated
   - id: TERM-007
     term: Density
     definition: The approximate percentage of filled cells requested when generating a random grid.
     context: shared
-    source: [FR-004, docs/requirements.md#FR-4]
+    source: [FR-004]  # CARD-071: dropped a second entry pointing at the intake document (its "FR-4" is this FR-004)
   - id: TERM-008
     term: Pixel nudge
     definition: A bounded, automatic flip of a small number of cells in an uploaded image's converted grid, attempted when the initial conversion does not yield a unique-solution puzzle.
     context: shared
     aliases: [pixel adjustment]
-    source: [US-007, docs/requirements.md#FR-16]
+    source: [US-007, FR-013]  # CARD-071: was the intake document's FR-16, which is FR-013 here
   - id: TERM-009
     term: Distinct solution
     definition: >-

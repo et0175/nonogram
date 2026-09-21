@@ -15,7 +15,7 @@ score, and FR-010 requires regenerating or resampling a candidate puzzle
 until its estimated difficulty score falls within the requested tier's
 threshold range (Easy/Medium/Hard), bounded by a maximum retry count
 (AC-024, AC-025). Neither FR-009 nor FR-010 states where those per-tier
-threshold ranges actually sit; docs/requirements.md explicitly defers the
+threshold ranges actually sit; the intake requirements document explicitly deferred the
 numeric cutoffs as "tunable later."
 
 ADR-0013 (DEC-013) settled the shape of the scale this decision places its

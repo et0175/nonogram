@@ -731,7 +731,15 @@ functional:
         when: the three sets are compared to the ORIGINAL conversion
         then: S1 is a subset of S2, S2 is a subset of S3, and S3 differs from the original conversion in exactly 3 cells
         kind: boundary
-        test: TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion
+        # Re-pointed 2026-09-22 (CARD-071). The former name,
+        # TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion,
+        # was never written as a test — here or anywhere; CARD-075 re-amended
+        # the mask-driven mechanism it was named for before it was. The claim
+        # itself is asserted, and over a corpus rather than one conversion, by
+        # EC-014's property test, which is this AC's criterion generalised to
+        # every attempt n. Re-pointed rather than retired: AC-117 is unchanged
+        # in substance, only its witness is named correctly now.
+        test: PropertyTest_Nudge_FlippedCellsSubsetOfUndecidedMaskAndNested
       # AC-172 is a measurement, not a suite test: the owner's 25-picture
       # corpus is not in the suite's time budget (meta/ops/
       # image_abandonment_sweep.py, ~20 minutes). Recorded here because it is
@@ -1834,7 +1842,7 @@ non_functional:
       retries, on typical developer hardware
     rationale: >-
       Puzzle generation, including the regenerate loop, should stay within
-      interactive time for common sizes (docs/requirements.md NFR-1).
+      interactive time for common sizes (the intake requirements document's NFR-1).
     acceptance:
       - id: AC-037
         given: a 20x20 random-grid generation request under typical hardware
@@ -1876,7 +1884,7 @@ non_functional:
       generation request
     rationale: >-
       Without a hard bound, an infeasible request (e.g. an unreachable
-      difficulty at a given size) would loop forever (docs/requirements.md
+      difficulty at a given size) would loop forever (the intake requirements document's
       NFR-2).
     acceptance:
       - id: AC-039
@@ -2390,7 +2398,7 @@ constraints:
     type: technical
     statement: >-
       Target interface is a CLI tool; no web/GUI in v1.
-    source: docs/requirements.md Section 2, Decisions Log #5
+    source: intake requirements document, Section 2, Decisions Log #5
     status: superseded  # superseded 2026-08-30 by CON-007: the tool now also ships a local web UI alongside the CLI (an addition, not a CLI deprecation)
     superseded_by: CON-007
   - id: CON-002
@@ -2399,7 +2407,7 @@ constraints:
       No playable/interactive puzzle output in v1 — only the static PNG/SVG,
       JSON/CSV, and PDF exports (FR-011, FR-012, FR-016). Deferred; see
       meta/kanban/backlog.md.
-    source: docs/requirements.md FR-14, Decisions Log #1
+    source: intake requirements document, FR-14, Decisions Log #1
   - id: CON-003
     type: organizational
     statement: >-
@@ -2413,7 +2421,7 @@ constraints:
       score-threshold bucket, not a construction guarantee — an "Easy"
       puzzle is not strictly guaranteed to be solvable without any
       backtracking, only scored as likely easy.
-    source: docs/requirements.md FR-8, Decisions Log #2
+    source: intake requirements document, FR-8, Decisions Log #2
   - id: CON-005
     type: technical
     statement: >-
@@ -2421,7 +2429,7 @@ constraints:
       accepted as unique must never actually have 0 or more than 1
       solutions. This is the mandatory correctness property the whole
       tool depends on.
-    source: docs/requirements.md NFR-3
+    source: intake requirements document, NFR-3
     check:
       kind: test
       ref: PropertyTest_Solver_NeverFalsePositiveUniqueness
@@ -2445,7 +2453,7 @@ constraints:
       not a replacement for, or a deprecation of, the CLI.
     source: >-
       user request + brainstorm delta, 2026-08-30; replaces CON-001
-      (docs/requirements.md Section 2, Decisions Log #5)
+      (intake requirements document, Section 2, Decisions Log #5)
   - id: CON-008
     type: technical
     statement: >-
@@ -2509,7 +2517,7 @@ constraints:
       FR-019 restates the behaviour over the narrowed range.
     source: >-
       US-016, raw-requirements.md line 84, 2026-08-30; supersedes the range
-      in FR-001 (docs/requirements.md FR-1)
+      in FR-001 (intake requirements document, FR-1)
     rationale: >-
       Beyond about 30 cells per side the printed cell drops under ~6 mm
       (docs/cell_size.md, NFR-005) and stops being comfortable to mark by

@@ -54,16 +54,25 @@ This folder now contains three complementary requirements documents that collect
 ---
 
 ### 2. 🔬 Nonogram Generation Algorithm
-**File**: `docs/NONOGRAM_GENERATION_REQUIREMENTS.md`  
+**File**: `docs/REQUIREMENTS/NONOGRAM_GENERATION_REQUIREMENTS.md`  
 **Focus**: Core puzzle generation algorithm and technical implementation  
 **Length**: ~900 lines, 13 sections
+
+> **Not what ships (CARD-071, 2026-09-22).** That document's pipeline was never
+> implemented; [`docs/GENERATION_ALGORITHM.md`](../GENERATION_ALGORITHM.md) §4.3
+> describes the real one. The shipped image path is trim to the ink box → crop
+> to the grid's ratio → **LANCZOS resize → Floyd–Steinberg dither** (or, since
+> CARD-079/ADR-0026, a 50%-ink-coverage threshold when the classifier picks it),
+> with **no Otsu threshold and no majority voting** anywhere — stages 3 and 4
+> below, and the "Otsu threshold calculation" under *Mathematical Algorithms*,
+> describe an algorithm that does not exist in this repository.
 
 #### Coverage:
 - **Processing Pipeline** (6 stages)
   1. **Preprocessing**: Image loading, color space conversion, validation
   2. **Resizing**: Aspect ratio preservation, resampling (LANCZOS)
-  3. **Binarization**: Otsu threshold, binary conversion, validation
-  4. **Grid Generation**: Cell aggregation via majority voting
+  3. **Binarization**: Otsu threshold, binary conversion, validation *(not shipped — see the note above)*
+  4. **Grid Generation**: Cell aggregation via majority voting *(not shipped — the dither settles each cell)*
   5. **Clue Encoding**: Run-length encoding of rows/columns
   6. **Quality Assessment**: Multi-factor scoring and classification
 
@@ -76,7 +85,7 @@ This folder now contains three complementary requirements documents that collect
   - Grid range: 10×10 to 30×30 cells
 
 - **Mathematical Algorithms**
-  - Otsu threshold calculation (formula & implementation)
+  - Otsu threshold calculation (formula & implementation) *(not shipped — see the note above)*
   - Run-length encoding algorithm (with examples)
   - Quality score formula (composite of 4 factors)
   - Solvability calculation (clue complexity)

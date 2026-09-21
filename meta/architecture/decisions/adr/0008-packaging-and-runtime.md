@@ -17,7 +17,7 @@ and/or CSV for exact reconstruction of the solution grid and clues), which means
 the packaged tool must run reliably as an installed command that a user invokes
 repeatedly against different inputs, not as a one-shot script. The repository
 currently holds only the bare `main.py` boilerplate left over from project
-scaffolding — the CLI that docs/requirements.md Section 2 describes has not yet
+scaffolding — the CLI that the intake requirements document's Section 2 describes has not yet
 been given a package shape, an entry point, or a declared dependency mechanism.
 
 The module boundaries this package must expose internally — image conversion,
