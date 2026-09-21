@@ -1,6 +1,6 @@
 # CARD-103: Constrain puzzles.book_id — after the backfill has run
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-100 (the backfill) — and on the backfill having **actually been run** against the target database; CARD-102 (the tests enforce foreign keys at all)
 **Touches:** src/nonogram/db/models.py (`Puzzle.book_id`), a new alembic migration, tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** — _(unblocked 2026-09-21: the owner deployed to Render, ran the backfill against production, and resolved the puzzles it reported as claimed by two books)_
 
