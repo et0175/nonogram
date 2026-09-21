@@ -53,6 +53,55 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
+class OrphanOutcome:
+    """Puzzles whose book is gone, and what was done about them (CARD-107).
+
+    The state :func:`backfill` cannot see. It walks books and their
+    ``puzzle_ids``, so a puzzle whose book has been deleted is never visited —
+    the book is not there to iterate — and the report comes back clean. A
+    production deploy on 2026-09-21 found it the other way, when migration 009
+    refused to add the foreign key because of exactly these rows.
+    """
+
+    dry_run: bool
+    #: Puzzles whose ``book_id`` was cleared (or would be, on a dry run).
+    released: int = 0
+    #: The missing book ids, each named once however many puzzles point at it.
+    books: tuple[str, ...] = ()
+
+    def __str__(self) -> str:
+        verb = "would release" if self.dry_run else "released"
+        if not self.released:
+            return "No puzzle points at a book that is gone."
+        return (
+            f"{verb} {self.released} puzzle(s) from "
+            f"{len(self.books)} book(s) that no longer exist."
+        )
+
+
+def release_orphans(book_manager, puzzle_store, *, dry_run: bool) -> OrphanOutcome:
+    """Clear ``book_id`` where it names a book that is not there (CARD-107).
+
+    NULL is not a choice made here. ``puzzles.book_id`` carries
+    ``ON DELETE SET NULL`` as of migration 009, so NULL is what these rows
+    would already hold if the constraint had existed when their book was
+    deleted. This applies that rule to rows that predate it.
+
+    Writes nothing but ``book_id``, and never touches a book or a puzzle whose
+    book is present.
+    """
+    known = [book.book_id for book in book_manager.get_all_books()]
+    orphans = puzzle_store.puzzles_with_missing_books(known)
+    if not dry_run and orphans:
+        puzzle_store.release_from_book([puzzle_id for puzzle_id, _ in orphans])
+    books: list[str] = []
+    for _puzzle_id, book_id in orphans:
+        if book_id not in books:
+            books.append(book_id)
+    return OrphanOutcome(dry_run=dry_run, released=len(orphans), books=tuple(books))
+
+
+@dataclass(frozen=True)
 class BackfillOutcome:
     """What a run found, and what it did about it."""
 
@@ -198,12 +247,21 @@ def main(argv=None) -> int:
     outcome = backfill(book_manager, store, dry_run=not args.write)
     print(outcome)
 
+    # CARD-107: the other direction, which `backfill` cannot see because it
+    # walks books — a puzzle whose book has been deleted is not reachable that
+    # way. Migration 009 refuses to add the foreign key while one exists, which
+    # is how a production deploy found them on 2026-09-21.
+    orphans = release_orphans(book_manager, store, dry_run=not args.write)
+    print(orphans)
+    for book_id in orphans.books:
+        print(f"  book no longer in the store: {book_id}")
+
     for puzzle_id, (one, other) in outcome.contested:
         print(f"  claimed by two books, not repaired: {puzzle_id} ({one}, {other})")
     for puzzle_id in outcome.missing:
         print(f"  listed by a book but not in the store: {puzzle_id}")
 
-    if outcome.dry_run and outcome.repaired:
+    if outcome.dry_run and (outcome.repaired or orphans.released):
         print("\nNothing was written. Re-run with --write to apply this.")
     if outcome.needs_an_operator:
         print(

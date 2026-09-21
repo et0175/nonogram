@@ -1229,6 +1229,47 @@ class PuzzleReviewService:
                     changed += 1
         return BulkOutcome(changed, unchanged, in_book)
 
+    def puzzles_with_missing_books(self, known_book_ids=None) -> List[Tuple[str, str]]:
+        """``(puzzle_id, book_id)`` for every puzzle naming a book that is gone.
+
+        The state no other query here can reach: :func:`book_membership.backfill`
+        walks books, so a puzzle whose book has been deleted is invisible to it
+        (CARD-107). This walks the puzzles instead and asks the other way round.
+
+        Ordered by puzzle id so two runs report the same list in the same
+        order, which matters for a repair an operator reads before running.
+
+        Args:
+            known_book_ids: the ids that exist, used in in-memory mode only.
+                The DB branch joins against ``books`` itself, which is
+                authoritative whatever the caller believes.
+        """
+        if self._session_factory is None:
+            # In-memory mode has no books table to join against, so the caller
+            # supplies the ids — the book manager it is actually working with,
+            # not a module singleton that may hold someone else's books. That
+            # mistake made every booked puzzle look orphaned, and CARD-100's
+            # command test caught it.
+            known = {str(b) for b in (known_book_ids or ())}
+            found = [
+                (puzzle_id, str(puzzle["book_id"]))
+                for puzzle_id, puzzle in self.puzzles.items()
+                if puzzle.get("book_id") and str(puzzle["book_id"]) not in known
+            ]
+            return sorted(found)
+
+        from nonogram.db.models import Book, Puzzle
+
+        with self._session_factory() as db:
+            rows = (
+                db.query(Puzzle.id, Puzzle.book_id)
+                .outerjoin(Book, Book.id == Puzzle.book_id)
+                .filter(Puzzle.book_id.isnot(None), Book.id.is_(None))
+                .order_by(Puzzle.id)
+                .all()
+            )
+            return [(str(pid), str(bid)) for pid, bid in rows]
+
     def batch_action_counts(self, batch_id: str) -> Dict[str, int]:
         """How many puzzles each bulk action would touch, without touching any.
 
