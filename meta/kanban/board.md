@@ -28,15 +28,13 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-104** P2 · Ten acceptance tests that were never written — CARD-030, 031 and 033 all shipped, and not one of their named test classes exists on `main` or on the branch that built the feature  _(wave 1)_ — one of those cards was closed at review score 9.0
 - **CARD-103** P2 · Constrain `puzzles.book_id` with a foreign key — **blocked** until the membership backfill has run against production, since a constraint cannot be added while rows violate it  _(wave 1)_ — CARD-102's deferred decision, recommendation `ON DELETE SET NULL`
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
-- **CARD-030** P2 · Display inline success/error messages on form page  _(wave 4)_
-- **CARD-031** P2 · Show image metadata and suggested puzzle dimensions after upload  _(wave 4)_
-- **CARD-033** P2 · Add output directory selector and improve form styling  _(wave 5)_
 - **CARD-034** P2 · Calculate image metadata on file upload (client-side)  _(wave 5)_
 - **CARD-037** P2 · Persist uploaded image for retry without re-upload  _(wave 5)_ — not on `main`, but its orphaned worktree holds real uncommitted implementation work; preserved as a patch, see card notes
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
