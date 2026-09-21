@@ -22,8 +22,8 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 49 f-string interpolations, of which 16 call :func:`html.escape` at
-the point of interpolation. The other 33 are each one of five kinds:
+there are 53 f-string interpolations, of which 16 call :func:`html.escape` at
+the point of interpolation. The other 37 are each one of five kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
 * **8+ fragments built here**, by a function that escaped as it built them —
@@ -769,6 +769,19 @@ def form_with_result(
         if token_val
         else ""
     )
+    # CARD-044: the page a submission renders had no preview markup at all —
+    # `#image-preview-container` lived in FORM_PAGE only, so `metadata.js` was
+    # looking up an element that was not there. It carries the same block now,
+    # and when an upload is retained the image is already pointed at it, so the
+    # picture is on screen before any script runs.
+    preview_src = f' src="/upload/{token_val}"' if token_val else ""
+    preview_visible = " visible" if token_val else ""
+    preview_block = (
+        f'<div id="image-preview-container" class="{preview_visible.strip()}">\n'
+        f'      <img id="image-preview" alt="Preview of uploaded image"{preview_src}>\n'
+        f'      <div id="image-dimensions"></div>\n'
+        f"    </div>"
+    )
 
     # Re-populate checkboxes for export_formats
     export_values = set(fields.get("export_formats", []))
@@ -809,6 +822,7 @@ the same pipeline behind them.</p>
     <label><span>Image <small>&mdash; select the picture to convert</small></span>
       <input type="file" name="image">
     </label>
+    {preview_block}
     <label><span>Size <small>&mdash; optional. One number for the grid's longer side (the
       other side follows the image's own shape), or <code>WxH</code> for an
       exact width and height, e.g. <code>20x30</code></small></span>

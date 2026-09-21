@@ -1,22 +1,22 @@
 # CARD-044: Fix image preview with persisted uploads (bridges CARD-037, 042, 043)
 
-**Status:** ready
+**Status:** review
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
-**Branch:** card/044-preview-with-persistence
-**Worktree:** —
+**TDD:** red -> green
+**Branch:** card/044-preview-with-persistence _(the 2026-09-04 branch of that name is retired as `card/044-superseded-2026-09-04`)_
+**Worktree:** ../PythonProject4-CARD-044
 **Source:** User testing feedback (wave 3 integration issue)
 **Idea:** —
 **Wave:** 3
 **Depends on:** CARD-037, CARD-042
 **Touches:** src/nonogram/web/pages.py (the result page has no preview markup), src/nonogram/web/static/metadata.js, possibly src/nonogram/web/handler.py (a route to serve a retained upload), tests
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -176,3 +176,65 @@ Refactored metadata.js preview display logic:
 - Added 7 new tests in TestWebUI_PreviewWithPersistence class verifying all ACs
 - All 160 tests pass including new functionality
 - Updated existing test to account for persisted_image_path field in form options
+
+### Delivered 2026-09-21
+
+**The result page carries the preview block.** That was the half the card
+missed: `#image-preview-container` and its siblings were in `FORM_PAGE` only,
+so after any submission `metadata.js` was looking up an element that did not
+exist. `form_with_result` now emits the same block, and when an upload is
+retained the `<img>` already has its `src` — **the picture is on screen before
+any script runs**, which is a better answer than the card's "no change event
+fires" framing suggested.
+
+**`GET /upload/<token>`** serves the retained picture. It resolves through
+`nonogram.web.uploads`, so it answers for nothing this process minted: a token
+that never existed, one whose submission has since succeeded, and a filesystem
+path handed in a token's place are all 404. There is no path arithmetic to get
+wrong — the token is a dict key, not a name — which is why `../../etc/passwd`
+and its percent-encoded twin are uninteresting rather than dangerous, and are
+tested as such.
+
+**The media type is read from the file's own first bytes.** A retained upload
+has no extension (`tempfile.mkstemp` names it `nonogram-upload-XXXXXX`), so the
+file is the only thing that knows; anything unrecognised is served as
+`application/octet-stream`, which a browser declines to render. Nothing the
+client said about the file is consulted, for the same reason the retry trusts a
+token over a name.
+
+### AC-165 is inverted, and the card explains why
+
+It asked that the preview **clear** when generation fails. That was right when
+a failed submit destroyed the upload — the preview would have been showing a
+picture the server no longer had. CARD-037 keeps it, so clearing it would now
+show an error and no picture while the file waits in the store to be reused.
+
+The tests pin the inversion: a second failure still shows the picture, a
+success shows none (the retention ended and the route 404s), and an
+**undecodable** upload shows none either — CARD-037 releases a picture that can
+never work, and the preview goes with it.
+
+### AC-163's decision
+
+Option (a), the owner's pick: serve the retained upload by token, rather than
+retiring the criterion or naming the file in text. The retry is worth little if
+you cannot see what you are retrying with.
+
+### Tests
+
+`tests/test_card_044_preview_after_submit.py`, 12 tests: the markup's presence,
+the `src` pointing at the token, the bytes coming back intact with
+`Content-Type: image/png`, a fresh `GET /` still starting empty, the three
+survives/does-not-survive cases above, and five on the route refusing what it
+never minted.
+
+**Full suite: 3,644 passed, 0 failed.**
+
+### The escaping guard, a third time
+
+53 interpolations now — the same number it held before CARD-104, reached by a
+different route, which the test's docstring says plainly so nobody reads it as
+a restoration. Three new unescaped names classified: `preview_src` (built from
+the already-escaped `token_val`), `preview_visible.strip()` (a class literal or
+empty), and `preview_block` (the fragment built from both). That guard has now
+caught three consecutive cards' changes to this module.
