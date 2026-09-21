@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-108** P2 · Deleting a book strands its puzzles in in-memory mode — they keep pointing at it, and CARD-100's guard then refuses to reject or delete them ever  _(wave 1)_ — DB mode is saved by `ON DELETE SET NULL`; the two modes disagree
 - **CARD-106** P2 · AC-122 through AC-143 each mean two different things — two complete numbering runs over the same 22 values, registry vs the wave-0 web cards  _(wave 1)_ — the fix is a note on each side, not a renumbering; it misled the same reader twice in one session
 - **CARD-105** P3 · Check the two metadata algorithms agree by running both — `node --check` already runs opportunistically, so AC-137 can be verified rather than grepped  _(wave 1)_ — needs a way to reach functions closed inside an IIFE
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
@@ -45,6 +44,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-108** P2 · Deleting a book lets go of its puzzles in both storage modes — memory mode stranded them, and CARD-100's guard then refused to curate them ever · five failures before the fix, all five in memory mode · 3 of 4 mutants, the fourth confirming the design · merged without a review cycle, at the owner's call · merged 1a94ccd
 - **CARD-107** P1 · A puzzle pointing at a book that is gone — the state `backfill` cannot see, because it walks books · found by a failed Render deploy; the migration refused safely and named the row · `release_orphans` clears the column the constraint would have cleared on delete · reproduced and fixed against real Postgres · merged without a review cycle, at the owner's call · merged df549ae
 - **CARD-034** P2 · Client-side image metadata — the feature shipped; AC-138's fallback clause retired (it named CARD-031's server-side path, which never ran and CARD-104 deleted) · three unfailable assertions deleted, including `assert "if" in content` · the card's own claim that nothing can run the JS corrected — `node --check` does · parity deferred to CARD-105 · merged without a review cycle, at the owner's call · merged 989cad0
 - **CARD-044** P1 · The picture a retry is holding is on screen — the result page had no preview markup at all, which the card had not noticed; `GET /upload/<token>` serves the retained upload and 404s everything it did not mint · AC-165 inverted, because CARD-037 keeps the picture that criterion assumed was gone · merged without a review cycle, at the owner's call · merged 666f685
