@@ -1,6 +1,6 @@
 # CARD-043: Clear error/success message when new image is uploaded
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** ux-polish
 **Estimate:** 0.25d
@@ -15,10 +15,10 @@
 **Wave:** 3
 **Depends on:** CARD-038, CARD-041
 **Touches:** src/nonogram/web/static/metadata.js
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
