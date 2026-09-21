@@ -32,39 +32,23 @@ correct.
 
 from __future__ import annotations
 
-import os
-from contextlib import contextmanager
 
 import pytest
 
 from nonogram.admin.book_manager import BookManager
 from nonogram.admin.puzzle_review import PuzzleReviewService
+from tests.helpers.db import make_batch, sqlite_session_scope
 
 
 @pytest.fixture
 def session_factory(tmp_path):
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
+    return sqlite_session_scope(tmp_path, "books.db")
 
-    from nonogram.db.models import Base
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'books.db'}")
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine)
-
-    @contextmanager
-    def scope():
-        db = factory()
-        try:
-            yield db
-            db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            db.close()
-
-    return scope
+@pytest.fixture
+def batch_id(session_factory):
+    """A real ``batches`` row — ``puzzles.batch_id`` is a foreign key to it."""
+    return make_batch(session_factory, source="random", total_count=3)
 
 
 @pytest.fixture
@@ -75,7 +59,7 @@ def books(session_factory):
 
 
 @pytest.fixture
-def book(books):
+def book(books, batch_id):
     """A book of three puzzles, in a known order."""
     store = books.puzzle_store
     ids = [
@@ -91,7 +75,7 @@ def book(books):
             quality_score=50,
             recognizability="medium",
             strategies_used=[],
-            batch_id="7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            batch_id=batch_id,
             source_image=f"{name}.png",
         )
         for name in ("a", "b", "c")
@@ -208,7 +192,7 @@ def test_removing_a_puzzle_still_works(books, book):
     assert _order(books, book_id) == [a, c]
 
 
-def test_the_page_count_follows_the_puzzles(books, book):
+def test_the_page_count_follows_the_puzzles(books, book, batch_id):
     """``book_metadata['page_count']`` was assigned into in place too."""
     book_id, _ids = book
     store = books.puzzle_store
@@ -225,7 +209,7 @@ def test_the_page_count_follows_the_puzzles(books, book):
             quality_score=50,
             recognizability="medium",
             strategies_used=[],
-            batch_id="7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            batch_id=batch_id,
             source_image=f"extra{n}.png",
         )
         for n in range(3)
@@ -297,7 +281,7 @@ def test_the_book_columns_hand_back_tracked_containers(books, book, session_fact
         assert isinstance(row.book_metadata, MutableDict)
 
 
-def test_two_books_do_not_share_one_container(books):
+def test_two_books_do_not_share_one_container(books, batch_id):
     """Each book's containers are its own, now that they are tracked.
 
     The obvious worry when wrapping these columns is that ``default=[]`` hands
@@ -327,7 +311,7 @@ def test_two_books_do_not_share_one_container(books):
         quality_score=50,
         recognizability="medium",
         strategies_used=[],
-        batch_id="7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        batch_id=batch_id,
         source_image="p.png",
     )
     books.add_puzzles_to_book(first, [puzzle_id])

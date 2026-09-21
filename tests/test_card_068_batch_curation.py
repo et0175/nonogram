@@ -30,6 +30,7 @@ import pytest
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
 from nonogram.admin.puzzle_review import PuzzleReviewService, PuzzleStatus
+from tests.helpers.db import make_batch, sqlite_session_scope
 
 
 # --------------------------------------------------------------------------
@@ -57,37 +58,21 @@ def admin_app(monkeypatch):
     image_manager_module._image_manager = None
 
 
-def _sqlite_session_scope(tmp_path):
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    from nonogram.db.models import Base
-
-    engine = create_engine(f"sqlite:///{tmp_path / 'admin.db'}")
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine)
-
-    @contextmanager
-    def scope():
-        db = factory()
-        try:
-            yield db
-            db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            db.close()
-
-    return scope
-
-
 @pytest.fixture(params=["memory", "db"])
 def store(request, tmp_path):
-    """AC-5: the two branches of every bulk operation, run side by side."""
+    """AC-5: the two branches of every bulk operation, run side by side.
+
+    In DB mode the store carries the session factory its batches live in, so
+    a test can make one: ``puzzles.batch_id`` is a foreign key (CARD-102).
+    """
     if request.param == "memory":
-        return PuzzleReviewService()
-    return PuzzleReviewService(session_factory=_sqlite_session_scope(tmp_path))
+        store = PuzzleReviewService()
+        store.session_factory_for_tests = None
+        return store
+    scope = sqlite_session_scope(tmp_path)
+    store = PuzzleReviewService(session_factory=scope)
+    store.session_factory_for_tests = scope
+    return store
 
 
 def _add(store, status="draft", batch_id=None, name="p.png"):
@@ -141,9 +126,17 @@ def _rejected_in_book(store, puzzle_id):
     return puzzle_id
 
 
-def _batch_id():
-    """A batch id the store knows nothing about — enough for store-level tests."""
-    return str(uuid.uuid4())
+def _batch_id(store=None):
+    """A batch id, backed by a real row whenever there is a database.
+
+    In-memory mode has no ``batches`` table and needs none. In DB mode the row
+    has to exist, because ``puzzles.batch_id`` is a foreign key — the suite
+    only ever got away without it while SQLite had enforcement off (CARD-102).
+    """
+    scope = getattr(store, "session_factory_for_tests", None)
+    if scope is None:
+        return str(uuid.uuid4())
+    return make_batch(scope)
 
 
 def _real_batch(app):
@@ -414,11 +407,11 @@ def test_a_clean_bulk_action_says_only_what_it_did(admin_app):
 
 
 def test_set_batch_status_counts_changed_unchanged_and_held_back(store):
-    batch_id = _batch_id()
+    batch_id = _batch_id(store)
     _add(store, "draft", batch_id)
     _add(store, "approved", batch_id)
     _in_book(store, _add(store, "draft", batch_id))
-    _add(store, "draft", _batch_id())
+    _add(store, "draft", _batch_id(store))
 
     outcome = store.set_batch_status(batch_id, PuzzleStatus.APPROVED)
 
@@ -426,11 +419,11 @@ def test_set_batch_status_counts_changed_unchanged_and_held_back(store):
 
 
 def test_delete_rejected_counts_deleted_and_held_back(store):
-    batch_id = _batch_id()
+    batch_id = _batch_id(store)
     _add(store, "rejected", batch_id)
     _rejected_in_book(store, _add(store, "draft", batch_id))
     _add(store, "draft", batch_id)
-    other = _add(store, "rejected", _batch_id())
+    other = _add(store, "rejected", _batch_id(store))
 
     outcome = store.delete_rejected_in_batch(batch_id)
 
@@ -439,7 +432,7 @@ def test_delete_rejected_counts_deleted_and_held_back(store):
 
 
 def test_batch_action_counts_predict_each_action(store):
-    batch_id = _batch_id()
+    batch_id = _batch_id(store)
     _add(store, "draft", batch_id)
     _add(store, "draft", batch_id)
     _add(store, "approved", batch_id)

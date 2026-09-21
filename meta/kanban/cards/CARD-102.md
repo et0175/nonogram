@@ -1,22 +1,22 @@
 # CARD-102: The tests run without foreign keys; production runs with them
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (3 mutants, all caught)
 **Branch:** card/102-tests-enforce-foreign-keys
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-102
 **Source:** found 2026-09-21 while creating the development Postgres database and re-verifying CARD-100 and CARD-101 against it
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/conftest.py (enforce FKs on every SQLite engine), tests/test_card_068_batch_curation.py, tests/test_card_100_book_membership.py, tests/test_card_101_mutable_json_columns.py (create the batch rows they reference), possibly src/nonogram/db/models.py + a migration (the `book_id` decision below)
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -154,3 +154,49 @@ about tests.
 - **FR:** — (test fidelity)
 - **Components:** the test suite; `nonogram.db.models`
 - **Trace:** none
+
+### Delivered 2026-09-21
+
+**The `PRAGMA` is registered once**, in `tests/conftest.py`, against
+SQLAlchemy's `Engine` class rather than any one engine — so it covers every
+SQLite engine any test builds, including ones written after this card. That
+was the point of item 1: per-file registration would have left the next
+DB-mode test file running the old way and passing for it.
+
+**The 43 were fixed by making them true.** `tests/helpers/db.py` holds
+`sqlite_session_scope` and `make_batch`, and the three DB-mode files now use
+them instead of each rolling its own engine and inventing a batch id. One
+helper rather than 43 local repairs, because the fabricated-uuid habit was the
+defect (item 2, G-1: no constraint was weakened to make anything pass).
+
+The shapes differed, so the fix did too: CARD-101 gained a `batch_id` fixture,
+CARD-100's `Panel` makes its batch in `__init__` when it has a database to
+make it in, and CARD-068's `_batch_id` takes the store and mints a real row
+only in DB mode. Its `test_batch_action_counts_of_an_unknown_batch_are_zero`
+deliberately still passes an id no row backs — that test is *about* a batch
+that does not exist, and it reads rather than inserts.
+
+**AC-3 is `tests/test_card_102_foreign_keys_are_enforced.py`**: the exact
+insert that passed 43 times over, now refused, plus a control that a puzzle in
+a real batch still stores, plus a direct assertion that `PRAGMA foreign_keys`
+reads 1 on a connection. Without that file the conftest line is one nobody
+would miss if it were deleted.
+
+**Full suite: 3,609 passed, 0 failed**, 26 skipped, one deselection — with
+enforcement on. Measured before the fix: 29 failed, 14 errors.
+
+**Mutation check** — three mutants: the `PRAGMA` never issued, the `PRAGMA`
+set to `OFF`, and the foreign key removed from the model outright. All caught.
+
+### AC-4: the decision, and where it went
+
+**Recorded, and deferred to CARD-103** — `ON DELETE SET NULL` on
+`puzzles.book_id`, matching what `remove_puzzle_from_book` already does one
+puzzle at a time. CARD-103 is **blocked**, deliberately and in writing: a
+foreign key cannot be added while rows violate it, the backfill is what makes
+the data clean, and the backfill has not been run against production. Adding
+the constraint first means a migration that fails on deploy.
+
+So this card changed no schema (G-2) and no production code (G-3). It is
+entirely test fidelity, which is why it could land today while CARD-103 waits
+on an operational step.
