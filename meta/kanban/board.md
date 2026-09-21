@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-102** P2 · The tests run without foreign keys and production runs with them — 29 failures and 14 errors appear the moment SQLite enforces them, all from fabricated batch ids  _(wave 1)_ — and `puzzles.book_id`, which CARD-100 made load-bearing, has no constraint at all
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
