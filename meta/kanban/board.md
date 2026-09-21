@@ -29,7 +29,6 @@ _(none)_
 
 ## Ready
 - **CARD-103** P2 · Constrain `puzzles.book_id` with a foreign key — **blocked** until the membership backfill has run against production, since a constraint cannot be added while rows violate it  _(wave 1)_ — CARD-102's deferred decision, recommendation `ON DELETE SET NULL`
-- **CARD-102** P2 · The tests run without foreign keys and production runs with them — 29 failures and 14 errors appear the moment SQLite enforces them, all from fabricated batch ids  _(wave 1)_ — and `puzzles.book_id`, which CARD-100 made load-bearing, has no constraint at all
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
@@ -51,6 +50,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-102** P2 · The test database enforces foreign keys, as production does — 29 failures and 14 errors were hiding behind SQLite's default; fixed by creating the batches the tests referenced, through one shared helper · the `book_id` constraint deferred to CARD-103 · no schema and no production code changed · merged without a review cycle, at the owner's call · merged a05e500
 - **CARD-078** P3 · Density 0 and 100 refused — valid range 1..99, the verdict made once at `validate_density` and the docstring that promised a later stage would reject them deleted · the adapter audit changed nothing and says why · AC-B re-asked, since the web form has had no density field since CARD-032 · merged without a review cycle, at the owner's call · merged 4fda006
 - **CARD-060** P3 · `grid_to_svg_bytes` and `get_svg_filename` removed from grid_renderer — zero callers re-confirmed before deleting; two imports went with them that this card did not make dead · AC-2's grep is a test now · merged without a review cycle, at the owner's call · merged 9d0ab5a
 - **CARD-101** P1 · The book's JSON columns are mutation-tracked — "move up", "move down" and every title after a book's first were silently discarded in DB mode; the page count too · fixed in three column declarations, no call site changed · measured before and after through fresh sessions · one mutant survived and is reported, not papered over · merged without a review cycle, at the owner's call · merged 3bc8fa6
