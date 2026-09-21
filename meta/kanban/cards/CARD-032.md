@@ -1,6 +1,6 @@
 # CARD-032: Restrict web form to image-only mode
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d _(the feature shipped outside the board; what is left is two tests and a naming repair)_
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** CARD-021
 **Touches:** tests/test_web_server.py (the two missing tests), tests/test_export_pdf.py (the citation repair), meta/kanban/cards/CARD-032.md
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
