@@ -102,6 +102,16 @@ Instead, keep the uploaded temp file available across retry attempts, allowing t
 - Clean up after success OR after max retry attempts exceeded
 - Validate temp file still exists before reuse
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-143` | a stored puzzle whose list is [line_dp, probe_contradiction]… | FR-029 |
+
 ## Acceptance criteria
 
 - **AC-143** (persist) — given an uploaded image and a generation error, when the form is re-rendered with inline error, then the temp file is retained and available for retry.

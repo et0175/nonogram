@@ -28,6 +28,18 @@ Currently, after a form submission, users are redirected to either a success pag
 
 The POST handler (`handler._generate`) already computes success and failure payloads; the change is purely UI — render them inline as collapsible sections on the form page itself, preserving form inputs so users can modify and resubmit.
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-122` | two solver signal records identical in every field except elapse… | FR-029 |
+> | `AC-123` | a random-mode request with seed 42, 20x20, density 40 and --diff… | FR-029 |
+> | `AC-124` | a resized cell whose ink coverage is 80% (grey value 51 of 255 a… | FR-027 |
+
 ## Acceptance criteria
 
 - **AC-122** (happy) — given a successful puzzle generation, when the user submits the form, then the page displays the result (name, seed, written files) in a collapsible "Success" section on the same page, form remains visible and editable.

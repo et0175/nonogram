@@ -1315,6 +1315,7 @@ functional:
         then: the result reports MANY and carries two witness grids that differ from each other in exactly those 4 cells
         kind: happy
         test: TestSolver_ReportsSecondWitnessWhenMany
+      # NB CARD-033 uses AC-131 for a different criterion of its own (CARD-106)
       - id: AC-131
         given: the two witness grids returned for the 10x10 switching-block clues
         when: each witness is run-length encoded row by row and column by column
@@ -1407,6 +1408,7 @@ functional:
         policy: POL-006
         test: TestRecovery_RepairFlipsOnePairInsideUndecidedMask
       # alternative: pure_repair / redraw_then_repair
+      # NB CARD-033 uses AC-132 for a different criterion of its own (CARD-106)
       - id: AC-132
         given: the same 20x20 candidate and its 6-cell undecided mask
         when: the repair step runs once
@@ -1569,6 +1571,7 @@ functional:
         holds_under_every_alternative: [AC-127]
     acceptance:
       # alternative: ink_coverage_threshold_50pct
+      # NB CARD-030 uses AC-124 for a different criterion of its own (CARD-106)
       - id: AC-124
         given: a resized cell whose ink coverage is 80% (grey value 51 of 255 after the LANCZOS resize)
         when: the cell is binarised under the threshold path
@@ -1576,6 +1579,7 @@ functional:
         kind: happy
         test: TestBinarize_ThresholdFillsCellAtOrAboveHalfInkCoverage
       # alternative: ink_coverage_threshold_50pct
+      # NB CARD-031 uses AC-125 for a different criterion of its own (CARD-106)
       - id: AC-125
         given: a resized cell whose ink coverage is 49%
         when: the cell is binarised under the threshold path
@@ -1583,6 +1587,7 @@ functional:
         kind: negative
         test: TestBinarize_ThresholdLeavesCellEmptyBelowHalfInkCoverage
       # alternative: ink_coverage_threshold_50pct
+      # NB CARD-031 uses AC-126 for a different criterion of its own (CARD-106)
       - id: AC-126
         given: a resized cell whose ink coverage is exactly 50%
         when: the cell is binarised under the threshold path
@@ -1594,6 +1599,7 @@ functional:
       # regressions counted case by case. (a) is the suite test at 25x25; (b)
       # and (c) are meta/ops/binarisation_review.py over sizes 10..30, because
       # driving both through generate costs ~30 s of one picture's deadline.
+      # NB CARD-031 uses AC-127 for a different criterion of its own (CARD-106)
       - id: AC-127
         given: the committed picture corpus under pictures/, converted by the shipped binarisation (classifier plus degenerate-ink guard) and, separately, with every picture on the dither path
         when: first-solve uniqueness, nudge counts and outcomes are compared over the corpus
@@ -1640,6 +1646,7 @@ functional:
         holds_under_every_alternative: [AC-130]
     acceptance:
       # alternative: refuse_degenerate_density
+      # NB CARD-032 uses AC-128 for a different criterion of its own (CARD-106)
       - id: AC-128
         given: two random-mode requests at 20x20, one with density 0 and one with density 100
         when: each is generated
@@ -1647,6 +1654,7 @@ functional:
         kind: negative
         test: TestGenerateRandom_RefusesDensityZeroAndHundred
       # alternative: refuse_degenerate_density
+      # NB CARD-033 uses AC-133 for a different criterion of its own (CARD-106)
       - id: AC-133
         given: two random-mode requests at 20x20, one with density 1 and one with density 99
         when: each is generated
@@ -1654,6 +1662,7 @@ functional:
         kind: boundary
         test: TestGenerateRandom_AcceptsDensityOneAndNinetyNine
       # alternative: allow_degenerate_grids
+      # NB CARD-032 uses AC-129 for a different criterion of its own (CARD-106)
       - id: AC-129
         given: a random-mode request at 20x20 with density 100
         when: it is generated with no difficulty requested
@@ -1661,6 +1670,7 @@ functional:
         kind: boundary
         test: TestGenerateRandom_AcceptsDegenerateDensityAsUniqueEasyPuzzle
       # alternative: allow_degenerate_grids
+      # NB CARD-033 uses AC-134 for a different criterion of its own (CARD-106)
       - id: AC-134
         given: the all-filled 20x20 grid accepted for density 100
         when: it is scored
@@ -1668,6 +1678,7 @@ functional:
         kind: boundary
         test: TestGenerateRandom_DegenerateGridScoresEasy
       # holds under every alternative
+      # NB CARD-032 uses AC-130 for a different criterion of its own (CARD-106)
       - id: AC-130
         given: a random-mode request at 20x20 with density 0
         when: it is generated
@@ -1720,54 +1731,63 @@ functional:
       delivery: CARD-072
       evidence: ["src/nonogram/db/models.py:63", "src/nonogram/admin/batch_generator.py:346", "src/nonogram/admin/app.py:476", "src/nonogram/admin/puzzle_review.py:730", "src/nonogram/export/json_export.py", "docs/GENERATION_ALGORITHM.md#6", "docs/GENERATION_ALGORITHM.md#7"]
     acceptance:
+      # NB CARD-034 uses AC-135 for a different criterion of its own (CARD-106)
       - id: AC-135
         given: a random-mode request at 20x20, density 40, seed 42, with the solver wrapped by a call counter
         when: the puzzle is generated
         then: the Puzzle carries a non-empty ordered strategies list whose every member is in the enum, recorded off the verifying solve's signals, and the solver was entered exactly once for the accepted candidate
         kind: happy
         test: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve
+      # NB CARD-034 uses AC-136 for a different criterion of its own (CARD-106)
       - id: AC-136
         given: one fixed 20x20 clue set solved twice, with an injected clock reporting 1x and 50x elapsed time
         when: both solves complete
         then: the two strategies lists are identical element for element
         kind: boundary
         test: TestSolveStrategies_SameCluesSameListUnderDilatedClock
+      # NB CARD-034 uses AC-137 for a different criterion of its own (CARD-106)
       - id: AC-137
         given: a uniquely solvable puzzle whose solve branched (branch_nodes >= 1)
         when: its strategies list is read
         then: the list contains `guess`
         kind: boundary
         test: TestSolveStrategies_GuessPresentWhenSearchBranched
+      # NB CARD-034 uses AC-138 for a different criterion of its own (CARD-106)
       - id: AC-138
         given: a uniquely solvable puzzle whose solve reached the solution with branch_nodes 0
         when: its strategies list is read
         then: the list does not contain `guess`
         kind: negative
         test: TestSolveStrategies_GuessAbsentForLineSolvable
+      # NB CARD-035 uses AC-139 for a different criterion of its own (CARD-106)
       - id: AC-139
         given: an admin random batch of 5 puzzles at 15x15, and an admin image batch of 1 puzzle
         when: the batches are stored
         then: every stored row's `strategies_used` column holds that puzzle's real non-empty list — never `[]` and never the sample ['LineLogic', 'ConstraintProp']
         kind: happy
         test: TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage
+      # NB CARD-035 uses AC-140 for a different criterion of its own (CARD-106)
       - id: AC-140
         given: a finalized, uniqueness-confirmed puzzle whose strategies list is [simple_overlap, line_dp, guess]
         when: it is exported as JSON and that JSON is decoded back
         then: the payload's `strategies` array equals the list in the same order
         kind: boundary
         test: TestExport_JSONCarriesStrategiesInOrder
+      # NB CARD-035 uses AC-141 for a different criterion of its own (CARD-106)
       - id: AC-141
         given: an admin review holding 3 puzzles whose lists contain `guess` and 4 whose lists do not
         when: the puzzle list is filtered by strategy `guess`
         then: exactly the 3 puzzles are listed
         kind: happy
         test: TestPuzzleReview_FiltersListByStrategy
+      # NB CARD-035 uses AC-142 for a different criterion of its own (CARD-106)
       - id: AC-142
         given: an admin review puzzle list
         when: it is filtered by a strategy value outside the enum
         then: the request is refused on the CARD-066 error branch and no puzzles are listed
         kind: negative
         test: TestPuzzleReview_RejectsUnknownStrategyFilter
+      # NB CARD-037 uses AC-143 for a different criterion of its own (CARD-106)
       - id: AC-143
         given: a stored puzzle whose list is [line_dp, probe_contradiction]
         when: its admin review detail page is rendered
@@ -2316,12 +2336,36 @@ non_functional:
       Solver elapsed time is a fact about the host, not about the puzzle.
       Source: docs/GENERATION_ALGORITHM.md §10.2 finding 3, 2026-09-12.
     acceptance:
+      # ---------------------------------------------------------------
+      # AC-122 .. AC-143 ARE USED TWICE IN THIS REPOSITORY (CARD-106).
+      #
+      # Every number in that range names a criterion here AND a different
+      # criterion in one of the wave-0 web-UI cards: CARD-030 (122-124),
+      # 031 (125-127), 032 (128-130), 033 (131-134), 034 (135-138),
+      # 035 (139-142) and 037 (143). Two complete numbering runs over the
+      # same 22 values.
+      #
+      # THESE are authoritative. A criterion here carries given/when/then
+      # /test and is traced to an FR; the cards' carry prose and trace to
+      # nothing. Neither set is renumbered, because both are cited by
+      # tests and by closed cards, and rewriting either would break the
+      # other's trail through merged history for no functional gain.
+      #
+      # So a bare "AC-131" is ambiguous. In requirements.yml, in
+      # meta/architecture/** and in a test that cites an FR, it means the
+      # entry below. In CARD-030..037 it means that card's own prose.
+      # It has misread twice: a grep for AC-125 returns a real hit in
+      # tests/test_sourcing_image.py for the binarisation criterion, which
+      # is nothing to do with the aspect ratio CARD-031 calls AC-125.
+      # ---------------------------------------------------------------
+      # NB CARD-030 uses AC-122 for a different criterion of its own (CARD-106)
       - id: AC-122
         given: two solver signal records identical in every field except elapsed_seconds — 0.001s and 4.9s (the latter at the size-relative budget)
         when: both are scored
         then: the two scores are equal to the last digit
         kind: boundary
         test: TestScoreDifficulty_IgnoresElapsedSeconds
+      # NB CARD-030 uses AC-123 for a different criterion of its own (CARD-106)
       - id: AC-123
         given: a random-mode request with seed 42, 20x20, density 40 and --difficulty Medium, run twice with an injected clock that reports 1x and 50x elapsed time
         when: both runs complete

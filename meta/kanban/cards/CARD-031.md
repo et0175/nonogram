@@ -30,6 +30,18 @@ After a user uploads an image, display:
 
 This helps users make informed choices about the grid size before generation, reducing trial-and-error.
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-125` | a resized cell whose ink coverage is 49%… | FR-027 |
+> | `AC-126` | a resized cell whose ink coverage is exactly 50%… | FR-027 |
+> | `AC-127` | the committed picture corpus under pictures/, converted by the s… | FR-027 |
+
 ## Acceptance criteria
 
 - **AC-125** (metadata) — given an uploaded image, when the form displays after upload, then the page shows the image's aspect ratio (as a ratio like "4:3" and as decimal like "1.33") below the file input.

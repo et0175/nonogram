@@ -37,6 +37,19 @@ Enhance traceability by incorporating the source image filename into the export 
 3. Use it in puzzle name generation (FR-015) as a hint/prefix
 4. Fallback to current behavior if no image source or filename unavailable
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-139` | an admin random batch of 5 puzzles at 15x15, and an admin image … | FR-029 |
+> | `AC-140` | a finalized, uniqueness-confirmed puzzle whose strategies list i… | FR-029 |
+> | `AC-141` | an admin review holding 3 puzzles whose lists contain `guess` an… | FR-029 |
+> | `AC-142` | an admin review puzzle list… | FR-029 |
+
 ## Acceptance criteria
 
 - **AC-139** (capture filename) — given an uploaded image file, when the form is submitted, then the original filename is captured and passed through to the puzzle generation.
