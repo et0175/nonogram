@@ -1,6 +1,6 @@
 # CARD-060: Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/grid_renderer.py, tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
