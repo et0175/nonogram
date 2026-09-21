@@ -34,9 +34,8 @@ _(none)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 - **CARD-034** P2 · Client-side image metadata — **the feature shipped**; AC-138 names a fallback that has never existed (CARD-104 deleted the dead code behind it), and its tests include `assert "if" in content`  _(wave 5)_ — owner's pick: retire the clause or build the fallback
-- **CARD-037** P2 · Persist an uploaded image for retry — re-cut 2026-09-21: still absent from `main`, the 70 lines of real work salvaged to `meta/ops/` (the patch the card pointed at had evaporated), branch retired · **the salvaged design accepts a filesystem path from the client and must be rebuilt around an opaque token**  _(wave 5)_
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
-- **CARD-044** P1 · Fix image preview with persisted uploads — **blocked by CARD-037**, whose persistence does not exist on `main`  _(wave 6)_
+- **CARD-044** P1 · Fix image preview with persisted uploads — **unblocked by CARD-037, and needs re-cutting**: it expects `persisted_image_path` and there is deliberately no path, so AC-163's preview-on-load cannot work as written  _(wave 6)_
 
 ## In Progress
 _(none)_
@@ -45,6 +44,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-037** P2 · A rejected submission keeps its picture — by opaque token, never a path: the salvaged design accepted a filesystem path from the client and opened it as the picture · retention ends when the *picture* was what was refused, which the suite caught · 4 of 5 mutants, the fifth reported rather than dressed up · merged without a review cycle, at the owner's call · merged e531cc7
 - **CARD-103** P2 · `puzzles.book_id` constrained — `ON DELETE SET NULL`, migration 009 · unblocked by the owner's deploy and backfill · verified against real Postgres including its failure mode (a violating row leaves the upgrade refusing at 008, untouched) · five tests that fabricated book ids fixed with a new `make_book` helper · merged without a review cycle, at the owner's call · merged 9dd1480
 - **CARD-104** P2 · Opened on a false premise and says so — CARD-030 and CARD-033 were tested all along under names their cards did not predict; the broken `*test:*` trail was the whole defect · the real find was CARD-031's server-rendered metadata, which no page ever produced: computed on every upload and discarded inside a catch-all except, now deleted · CARD-030/031/033 closed, six review files recovered · suite unchanged at 3,613 · merged without a review cycle, at the owner's call · merged 2780ef0
 - **CARD-032** P2 · Web form image-only — the feature had shipped; AC-129 and AC-130's tests were **recovered** from the never-merged 2026-09-03 branch (retired as `card/032-superseded-2026-09-03`) and each given a stronger sibling · the PDF font citations re-pointed at ADR-0006/DEC-027, whose implementing card is missing rather than misnamed · AC-number collision with FR-028 recorded · merged without a review cycle, at the owner's call · merged be91cff
