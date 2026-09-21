@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-106** P2 · AC-122 through AC-143 each mean two different things — two complete numbering runs over the same 22 values, registry vs the wave-0 web cards  _(wave 1)_ — the fix is a note on each side, not a renumbering; it misled the same reader twice in one session
 - **CARD-105** P3 · Check the two metadata algorithms agree by running both — `node --check` already runs opportunistically, so AC-137 can be verified rather than grepped  _(wave 1)_ — needs a way to reach functions closed inside an IIFE
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -43,6 +42,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-106** P2 · The AC-122..AC-143 collision is visible where it is read — a marker above each of the 22 registry entries (what a grep actually hits), a header note, and a banner per card naming the registry's meaning · nothing renumbered, verified by hashing the id set against main · merged without a review cycle, at the owner's call · merged 72370a3
 - **CARD-043** P2 · The last result clears when a different picture is chosen — the one card of the wave-0 web family with work actually left · the mutation check found two flaws in the *tests*, not the code: an assertion satisfied by selector text in the page's own script, and a regex that matched both change listeners as one span · merged without a review cycle, at the owner's call · merged 2530c32
 - **CARD-108** P2 · Deleting a book lets go of its puzzles in both storage modes — memory mode stranded them, and CARD-100's guard then refused to curate them ever · five failures before the fix, all five in memory mode · 3 of 4 mutants, the fourth confirming the design · merged without a review cycle, at the owner's call · merged 1a94ccd
 - **CARD-107** P1 · A puzzle pointing at a book that is gone — the state `backfill` cannot see, because it walks books · found by a failed Render deploy; the migration refused safely and named the row · `release_orphans` clears the column the constraint would have cleared on delete · reproduced and fixed against real Postgres · merged without a review cycle, at the owner's call · merged df549ae
