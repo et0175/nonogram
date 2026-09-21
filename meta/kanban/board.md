@@ -34,7 +34,7 @@ _(none)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
-- **CARD-034** P2 · Calculate image metadata on file upload (client-side)  _(wave 5)_
+- **CARD-034** P2 · Client-side image metadata — **the feature shipped**; AC-138 names a fallback that has never existed (CARD-104 deleted the dead code behind it), and its tests include `assert "if" in content`  _(wave 5)_ — owner's pick: retire the clause or build the fallback
 - **CARD-037** P2 · Persist uploaded image for retry without re-upload  _(wave 5)_ — not on `main`, but its orphaned worktree holds real uncommitted implementation work; preserved as a patch, see card notes
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
 - **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
