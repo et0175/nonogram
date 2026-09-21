@@ -1,6 +1,6 @@
 # CARD-101: Reordering a book's puzzles and naming them do nothing in DB mode
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** CARD-100 (the same bug, in the one method that card had to fix)
 **Touches:** src/nonogram/admin/book_manager.py (`move_puzzle_up`, `move_puzzle_down`, `set_puzzle_title`), possibly src/nonogram/db/models.py (the JSON columns), tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
