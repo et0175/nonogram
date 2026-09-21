@@ -74,7 +74,13 @@ def _unreachable_reason(database_url: str):
 
 
 def pytest_configure(config):
-    """Register custom pytest markers, and start CARD-097's hang guard."""
+    """Register custom markers; start the hang guard; check the database.
+
+    The database check is first and raises: CARD-109's whole point is that the
+    run must not begin against a database nobody chose, and beginning includes
+    collection.
+    """
+    _database_guard.pytest_configure(config)
     _hang_guard_configure(config)
     config.addinivalue_line("markers", "unit: isolated component tests")
     config.addinivalue_line("markers", "integration: multi-component tests")
@@ -110,9 +116,26 @@ def pytest_collection_modifyitems(config, items):
 # fire, which a hook defined here could not do.
 from tests.hang_guard import (  # noqa: F401
     pytest_configure as _hang_guard_configure,
-    pytest_report_header,
+    pytest_report_header as _hang_guard_report_header,
     pytest_runtest_protocol,
 )
+
+# CARD-109's database guard, in its own module for the same reason as the hang
+# guard: its own test loads it into a subprocess and watches it refuse a run,
+# which a hook defined here could not do.
+from tests import database_guard as _database_guard
+
+
+def pytest_report_header(config):
+    """Compose the two guards' header lines.
+
+    Defined here rather than imported, because importing one name and then
+    defining another of the same name would silently drop the first — and the
+    hang guard's line is how a killed run's stack dump is findable.
+    """
+    lines = [_hang_guard_report_header(config), _database_guard.report_line()]
+    said = [line for line in lines if line]
+    return said or None
 
 
 @pytest.fixture(scope="session")
