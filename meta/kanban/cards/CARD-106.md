@@ -1,6 +1,6 @@
 # CARD-106: AC-122 through AC-143 each mean two different things
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml (a note at the band), meta/kanban/cards/CARD-030.md, 031, 032, 033, 034, 035, 037 (a banner each)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
