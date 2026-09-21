@@ -28,12 +28,12 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-105** P3 · Check the two metadata algorithms agree by running both — `node --check` already runs opportunistically, so AC-137 can be verified rather than grepped  _(wave 1)_ — needs a way to reach functions closed inside an IIFE
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
-- **CARD-034** P2 · Client-side image metadata — **the feature shipped**; AC-138 names a fallback that has never existed (CARD-104 deleted the dead code behind it), and its tests include `assert "if" in content`  _(wave 5)_ — owner's pick: retire the clause or build the fallback
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
 
 ## In Progress
@@ -43,6 +43,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-034** P2 · Client-side image metadata — the feature shipped; AC-138's fallback clause retired (it named CARD-031's server-side path, which never ran and CARD-104 deleted) · three unfailable assertions deleted, including `assert "if" in content` · the card's own claim that nothing can run the JS corrected — `node --check` does · parity deferred to CARD-105 · merged without a review cycle, at the owner's call
 - **CARD-044** P1 · The picture a retry is holding is on screen — the result page had no preview markup at all, which the card had not noticed; `GET /upload/<token>` serves the retained upload and 404s everything it did not mint · AC-165 inverted, because CARD-037 keeps the picture that criterion assumed was gone · merged without a review cycle, at the owner's call · merged 666f685
 - **CARD-037** P2 · A rejected submission keeps its picture — by opaque token, never a path: the salvaged design accepted a filesystem path from the client and opened it as the picture · retention ends when the *picture* was what was refused, which the suite caught · 4 of 5 mutants, the fifth reported rather than dressed up · merged without a review cycle, at the owner's call · merged e531cc7
 - **CARD-103** P2 · `puzzles.book_id` constrained — `ON DELETE SET NULL`, migration 009 · unblocked by the owner's deploy and backfill · verified against real Postgres including its failure mode (a violating row leaves the upgrade refusing at 008, untouched) · five tests that fabricated book ids fixed with a new `make_book` helper · merged without a review cycle, at the owner's call · merged 9dd1480
