@@ -31,7 +31,6 @@ _(none)_
 - **CARD-105** P3 · Check the two metadata algorithms agree by running both — `node --check` already runs opportunistically, so AC-137 can be verified rather than grepped  _(wave 1)_ — needs a way to reach functions closed inside an IIFE
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
-- **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 
@@ -42,6 +41,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-052** P2 · The Minimum Quality Score filter is exercised at its boundary — two of three criteria had landed with CARD-050; AC-3 was genuinely uncovered, and the filter's failure mode is an empty batch that reads as "no good pictures" rather than a bug · threshold derived from the picture, not guessed · 4 mutants all caught · merged without a review cycle, at the owner's call · merged 43385ec
 - **CARD-109** P1 · The suite refuses a database nobody chose — stops before collection unless `DATABASE_URL` is unset, names a test database, or the opt-out is set; never connects, never echoes the credential · the card's own "four exposed files" was wrong and is corrected in place: one was · merged without a review cycle, at the owner's call · merged 8135200
 - **CARD-106** P2 · The AC-122..AC-143 collision is visible where it is read — a marker above each of the 22 registry entries (what a grep actually hits), a header note, and a banner per card naming the registry's meaning · nothing renumbered, verified by hashing the id set against main · merged without a review cycle, at the owner's call · merged 72370a3
 - **CARD-043** P2 · The last result clears when a different picture is chosen — the one card of the wave-0 web family with work actually left · the mutation check found two flaws in the *tests*, not the code: an assertion satisfied by selector text in the page's own script, and a regex that matched both change listeners as one span · merged without a review cycle, at the owner's call · merged 2530c32
