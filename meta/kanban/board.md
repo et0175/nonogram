@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-060** P3 · Remove dead code in grid_renderer.py — grid_to_svg_bytes and get_svg_filename  _(wave 1)_
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
 - **CARD-078** P3 · Refuse density 0 and 100 — valid range 1..99  _(wave 1)_
@@ -51,6 +50,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-060** P3 · `grid_to_svg_bytes` and `get_svg_filename` removed from grid_renderer — zero callers re-confirmed before deleting; two imports went with them that this card did not make dead · AC-2's grep is a test now · merged without a review cycle, at the owner's call · merged 9d0ab5a
 - **CARD-101** P1 · The book's JSON columns are mutation-tracked — "move up", "move down" and every title after a book's first were silently discarded in DB mode; the page count too · fixed in three column declarations, no call site changed · measured before and after through fresh sessions · one mutant survived and is reported, not papered over · merged without a review cycle, at the owner's call · merged 3bc8fa6
 - **CARD-100** P1 · A puzzle in a book is protected again — membership written to both `Book.puzzle_ids` and `Puzzle.book_id` in one gesture; the three per-puzzle status changes became one rule, so a booked puzzle cannot even be rejected · the book builder stops offering a puzzle another book holds · backfill ships with a dry run, owner runs it (G-2) · `remove_puzzle_from_book` did nothing in DB mode and is fixed — the four with the same bug are CARD-101 · merged without a review cycle, at the owner's call · merged 0360c05
 - **CARD-068** P2 · Batch results — the per-puzzle Delete (rejected only, option (a)), confirmations that name their count, and reports that say what needed nothing · re-cut first: `db4e0dc` had shipped the three bulk actions outside the board, and AC-2's >100 clause was retired (MAX_BATCH_COUNT is 50) · the in-book clause left unbuilt and the sidebar's untrue reassurance removed — see CARD-100 · verified on the rendered page · merged without a review cycle, at the owner's call · merged 3223753
