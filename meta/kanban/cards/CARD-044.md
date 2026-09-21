@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** CARD-037 — the persistence this card bridges into does not exist on `main` (re-confirmed 2026-09-21)
 
 ## What to implement
 

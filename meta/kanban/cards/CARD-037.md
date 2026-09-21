@@ -22,6 +22,69 @@
 **Merge commit:** —
 **Blocked by:** —
 
+## Re-cut 2026-09-21 — the work is salvaged, and it must not be re-applied as written
+
+**The feature is still not on `main`.** `persisted_image_path` appears nowhere
+in `src/`. Confirmed again today, not inherited from the 2026-09-10 note.
+
+**The patch this card pointed at had evaporated.** The note below names
+`/private/tmp/claude-501/…/7153fc65-…/scratchpad/CARD-037-uncommitted-work.patch`
+as the preserved copy and says "do not force-remove until the patch is
+confirmed". That file no longer exists — the scratchpad belonged to a session
+that has since been cleaned up — so for some time the only copy of this work
+was the uncommitted diff in a worktree everyone kept meaning to tidy away.
+
+It is now saved as **`meta/ops/CARD-037-uncommitted-work-20260921.patch`**, in
+git, where it cannot evaporate. 70 lines: `handler.py` (+22), `pages.py` (+1),
+`tests/test_web_server.py` (+48, four tests including
+`test_persisted_image_path_preserved_on_resubmit` and
+`test_persisted_field_clears_after_success`).
+
+### The salvaged design has a hole, and that is why it is a rebuild
+
+```python
+if image_path is None and "persisted_image_path" in fields:
+    persisted_list = fields.get("persisted_image_path", [])
+    if persisted_list and persisted_list[0]:
+        persisted_path = Path(persisted_list[0])
+        if persisted_path.exists() and persisted_path.is_file():
+            image_path = persisted_path
+```
+
+`fields` is the submitted body — `multipart.read`'s text parts, or `parse_qs`
+of a urlencoded body. Every one of its values is chosen by whoever sent the
+request. So this accepts **a filesystem path from the client** and, if the file
+exists, opens it as the picture to convert.
+
+That is an arbitrary-file-read primitive: a crafted POST naming any readable
+path on the server is accepted, and any readable *image* is converted into a
+puzzle and handed back. The failure is also a disclosure — "this path exists
+and is an image" is distinguishable from "it does not".
+
+The same hazard was rejected deliberately elsewhere in this adapter: a
+urlencoded `image=<path>` field is **not** read as a picture, precisely so a
+form cannot name a server-side path (recorded in CARD-032's AC-130 test). This
+patch reintroduces it under a different field name.
+
+**So the retry mechanism must not round-trip a path.** The rebuild should hand
+the browser an **opaque token** — a random id the server maps to the temp file
+it already holds — so a returned value can only ever name a file this session
+uploaded. The client never learns or supplies a path.
+
+### The branch is retired
+
+`card/037-persist-upload-retry` was 499 commits behind `main`, last commit
+`feat(CARD-039)` from early September, on the same orphaned line as every other
+superseded branch. Retired as `card/037-superseded-2026-09-04`; the worktree is
+removed. The salvaged patch is the inheritance, not the branch.
+
+### What the salvaged tests are worth
+
+More than the implementation. They state what the feature has to do — the path
+survives a failed submit, and is cleared after a success — and those statements
+are design-independent. Read them, keep their intent, and write them against
+whatever the token mechanism turns out to be.
+
 ## What to implement
 
 When a user uploads an image and encounters an error (invalid ratio, too many retry attempts, etc.) or wants to regenerate with different settings (size, difficulty, name), they currently must re-upload the image. This creates friction and a poor UX.

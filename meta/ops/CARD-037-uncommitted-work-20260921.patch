@@ -1,0 +1,124 @@
+diff --git a/src/nonogram/web/handler.py b/src/nonogram/web/handler.py
+index 3f36d03..1b26a94 100644
+--- a/src/nonogram/web/handler.py
++++ b/src/nonogram/web/handler.py
+@@ -720,6 +720,7 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
+         fields: _TYPE_CHECKED = {}
+ 
+         # Parse the body to extract submission and fields
++        persisted_path: Path | None = None
+         if media_type == "multipart/form-data":
+             parsed = multipart.read(content_type, raw)
+             posted = parsed.submission
+@@ -730,6 +731,19 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
+             # For urlencoded, re-parse to extract fields for form re-population
+             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
+ 
++        # CARD-037: Handle temp file persistence for retries
++        if image_path is None and "persisted_image_path" in fields:
++            # No new image uploaded, check if persisted path is valid
++            persisted_list = fields.get("persisted_image_path", [])
++            if persisted_list and persisted_list[0]:
++                persisted_path = Path(persisted_list[0])
++                if persisted_path.exists() and persisted_path.is_file():
++                    image_path = persisted_path
++
++        # Store image path for next retry (even if error)
++        if image_path is not None:
++            fields["persisted_image_path"] = [str(image_path)]
++
+         # Extract image metadata for form display (CARD-031)
+         image_metadata_str = ""
+         suggestions: list[tuple[int, int]] = []
+@@ -775,6 +789,8 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
+                 )
+                 return
+             # CARD-030: Render form with success result inline instead of redirect
++            # CARD-037: Clear persisted path on success to trigger cleanup
++            fields["persisted_image_path"] = [""]
+             self._respond(
+                 HTTPStatus.OK,
+                 _HTML,
+@@ -788,9 +804,13 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
+                     suggestions=suggestions,
+                 ),
+             )
+-        finally:
++            # Cleanup temp files on success
+             if image_path is not None:
+                 image_path.unlink(missing_ok=True)
++        finally:
++            # On error/exception, only cleanup newly uploaded files, not persisted ones
++            if image_path is not None and persisted_path is None:
++                image_path.unlink(missing_ok=True)
+ 
+     def _fail(self, summary: str, reasons: Sequence[str]) -> None:
+         """Render one failure page (EC-003).
+diff --git a/src/nonogram/web/pages.py b/src/nonogram/web/pages.py
+index fc17190..716d161 100644
+--- a/src/nonogram/web/pages.py
++++ b/src/nonogram/web/pages.py
+@@ -464,6 +464,7 @@ The same options the <code>nonogram generate --mode image</code> command takes;
+ the same pipeline behind them.</p>
+ <div data-result-container="true"></div>
+ <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
++  <input type="hidden" name="persisted_image_path" value="">
+   <div class="form-section">
+     <h3>Image</h3>
+     <label><span>Image <small>&mdash; select the picture to convert</small></span>
+diff --git a/tests/test_web_server.py b/tests/test_web_server.py
+index d6d691b..2932e66 100644
+--- a/tests/test_web_server.py
++++ b/tests/test_web_server.py
+@@ -2935,3 +2935,51 @@ class TestWebForm_SizeFieldClearing:
+         # Should have the JavaScript that calculates suggestions
+         assert 'suggestDimensions' in body or 'suggestions' in body
+ 
++
++
++class TestWebForm_ImagePersistence:
++    """CARD-037: Persist uploaded image for retry without re-upload."""
++
++    def test_form_has_persisted_image_path_field(self, running_server: server.LoopbackHTTPServer) -> None:
++        """AC-143: Form includes hidden field to carry persisted temp file path."""
++        response = _request(running_server.server_port)
++        assert response.status == 200
++        body = response.body.decode()
++
++        # Form should have hidden field to store temp file path
++        assert 'name="persisted_image_path"' in body
++        assert 'type="hidden"' in body
++
++    def test_persisted_image_path_preserved_on_resubmit(
++        self, running_server: server.LoopbackHTTPServer
++    ) -> None:
++        """AC-144: Persisted image path preserved when form re-rendered after error."""
++        response = _request(running_server.server_port)
++        assert response.status == 200
++        body = response.body.decode()
++
++        # Form structure allows persisted path to be carried forward
++        assert 'persisted_image_path' in body
++
++    def test_persisted_field_clears_after_success(
++        self, running_server: server.LoopbackHTTPServer
++    ) -> None:
++        """AC-145: Persisted image path clears after successful generation."""
++        response = _request(running_server.server_port)
++        assert response.status == 200
++        body = response.body.decode()
++
++        # Form should support clearing the persisted path (value="")
++        assert 'persisted_image_path' in body
++        # When cleared, it should be an empty string to reset retry state
++        assert 'value=""' in body
++
++    def test_form_includes_file_input(self, running_server: server.LoopbackHTTPServer) -> None:
++        """AC-146: Form still has file input for new uploads (validates persistence logic)."""
++        response = _request(running_server.server_port)
++        assert response.status == 200
++        body = response.body.decode()
++
++        # File input must exist for new uploads
++        assert 'type="file"' in body
++        assert 'name="image"' in body

@@ -34,9 +34,9 @@ _(none)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 - **CARD-034** P2 · Client-side image metadata — **the feature shipped**; AC-138 names a fallback that has never existed (CARD-104 deleted the dead code behind it), and its tests include `assert "if" in content`  _(wave 5)_ — owner's pick: retire the clause or build the fallback
-- **CARD-037** P2 · Persist uploaded image for retry without re-upload  _(wave 5)_ — not on `main`, but its orphaned worktree holds real uncommitted implementation work; preserved as a patch, see card notes
+- **CARD-037** P2 · Persist an uploaded image for retry — re-cut 2026-09-21: still absent from `main`, the 70 lines of real work salvaged to `meta/ops/` (the patch the card pointed at had evaporated), branch retired · **the salvaged design accepts a filesystem path from the client and must be rebuilt around an opaque token**  _(wave 5)_
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
-- **CARD-044** P1 · Fix image preview with persisted uploads (bridges CARD-037, 042, 043)  _(wave 6)_ — reverted from a false "done" state; genuinely unimplemented on `main`, see card notes
+- **CARD-044** P1 · Fix image preview with persisted uploads — **blocked by CARD-037**, whose persistence does not exist on `main`  _(wave 6)_
 
 ## In Progress
 _(none)_
