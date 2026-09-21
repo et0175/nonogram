@@ -1,24 +1,24 @@
 # CARD-106: AC-122 through AC-143 each mean two different things
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** business-analyst
-**TDD:** —
+**TDD:** n/a — documentation only; the suite is unchanged at 3,672
 **Branch:** card/106-ac-number-collision
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-106
 **Source:** measured 2026-09-21 after the collision misled the same reader twice in one session
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml (a note at the band), meta/kanban/cards/CARD-030.md, 031, 032, 033, 034, 035, 037 (a banner each)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-21
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -104,3 +104,47 @@ naming repair, and it wants an ADR rather than this card.
 - **FR:** FR-024, FR-025, FR-027, FR-028, FR-029 (the registry's side of the band)
 - **Components:** the requirements registry and the kanban cards
 - **Trace:** none
+
+### Delivered 2026-09-21
+
+**A header note in `requirements.yml`** at the top of the band: the extent
+(AC-122..AC-143), which cards claim the same numbers, that the registry's are
+authoritative and why, and that neither set is renumbered. It names the
+concrete case that caused this — a grep for `AC-125` returning a real hit in
+`tests/test_sourcing_image.py` for the binarisation criterion, nothing to do
+with the aspect ratio CARD-031 calls AC-125.
+
+**A one-line marker above each of the 22 entries**, which is the part that
+actually works. The first cut put the note in one place and stopped, and AC-4
+was not met: the band is **not contiguous in the file** — it is scattered
+across FR-024, FR-025, FR-027, FR-028 and FR-029 — so a reader who greps
+`AC-125` lands hundreds of lines from a note above `AC-122` and never sees it.
+Now the matching line has the warning directly above it:
+
+```
+      # NB CARD-031 uses AC-125 for a different criterion of its own (CARD-106)
+      - id: AC-125
+```
+
+**A banner on each of the seven cards**, above its `## Acceptance criteria`,
+with a table naming what the registry means by each number and which FR owns
+it — so a reader does not have to go and look. CARD-033's, for instance, says
+its `AC-133` is FR-028's "two random-mode requests at 20x20, one with density
+1…".
+
+### Checked rather than asserted
+
+* `requirements.yml` still parses as YAML after 23 insertions.
+* The **set of AC ids is byte-identical to `main`** — compared by hash, so
+  AC-3 ("no AC number is changed anywhere") is measured, not hoped.
+* `tests/` is untouched: `git diff --name-only main -- tests/` is empty (G-2).
+* Full suite 3,672 passed — the same number as before, which is what a
+  documentation card should do to it.
+
+### What is deliberately still true
+
+The two schemes still exist and still collide. This card makes the collision
+**visible at the point of use**; it does not resolve it. Whether the web-UI
+cards' criteria should ever get registry entries of their own is the
+architecture question the card scoped out, and it still wants an ADR rather
+than a naming repair.

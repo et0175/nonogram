@@ -105,6 +105,18 @@ The web UI form currently offers three sourcing modes: random, library, and imag
 
 This reduces cognitive load and signals to users what the web UI is for. The CLI remains the way to generate via random or library sourcing.
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-128` | two random-mode requests at 20x20, one with density 0 and one wi… | FR-028 |
+> | `AC-129` | a random-mode request at 20x20 with density 100… | FR-028 |
+> | `AC-130` | a random-mode request at 20x20 with density 0… | FR-028 |
+
 ## Acceptance criteria
 
 - **AC-128** (scope) — given the form page, when it loads, then the "Source" dropdown is gone and the form assumes image mode implicitly (file upload required, image metadata displayed, no size/density/library-key fields relevant to random/library).

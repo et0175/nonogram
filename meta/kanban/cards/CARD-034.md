@@ -132,6 +132,19 @@ Calculate image metadata and suggestions **client-side** on file selection (not 
 - Suggestions are actionable (file stays selected)
 - Better UX flow (one form submission, not two)
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-135` | a random-mode request at 20x20, density 40, seed 42, with the so… | FR-029 |
+> | `AC-136` | one fixed 20x20 clue set solved twice, with an injected clock re… | FR-029 |
+> | `AC-137` | a uniquely solvable puzzle whose solve branched (branch_nodes >=… | FR-029 |
+> | `AC-138` | a uniquely solvable puzzle whose solve reached the solution with… | FR-029 |
+
 ## Acceptance criteria
 
 - **AC-135** (instant preview) — metadata and suggestions appear instantly when file is selected (within 1s), without form submission.

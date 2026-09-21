@@ -35,6 +35,19 @@
 
 This gives users control over file placement and makes the form feel more polished and intentional.
 
+> **These AC numbers are local to this card (CARD-106).** The requirements
+> registry uses the same numbers for entirely different criteria, and the
+> registry's are authoritative — they carry given/when/then/test and trace to
+> an FR, while these are prose. Neither set is renumbered; both are cited by
+> tests and by closed cards.
+>
+> | number | means, in `requirements.yml` | owned by |
+> |---|---|---|
+> | `AC-131` | the two witness grids returned for the 10x10 switching-block clu… | FR-024 |
+> | `AC-132` | the same 20x20 candidate and its 6-cell undecided mask… | FR-025 |
+> | `AC-133` | two random-mode requests at 20x20, one with density 1 and one wi… | FR-028 |
+> | `AC-134` | the all-filled 20x20 grid accepted for density 100… | FR-028 |
+
 ## Acceptance criteria
 
 - **AC-131** (directory input) — given the form page, when it loads, then there is an "Output directory" input field with placeholder text explaining it defaults to the working directory.
