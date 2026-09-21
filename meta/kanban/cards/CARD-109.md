@@ -1,6 +1,6 @@
 # CARD-109: The suite writes to whatever DATABASE_URL points at
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/conftest.py (the guard), tests/e2e/test_admin_workflow.py, tests/test_admin_image_uniqueness.py, tests/test_admin_regrade.py, tests/test_card_050_quality_recognizability.py
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
