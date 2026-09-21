@@ -697,6 +697,15 @@ class BookManager:
             if book.status != BookStatus.DRAFT.value:
                 raise ValueError(f"Cannot delete {book.status} book. Only draft books can be deleted.")
 
+            # CARD-108: let go of the puzzles before the book that held them
+            # disappears. In DB mode the foreign key does this on its own
+            # (`ON DELETE SET NULL`, CARD-103); in memory mode nothing did, so
+            # a deleted book left its puzzles naming it for ever — and since
+            # CARD-100 every in-book guard reads that column, they could no
+            # longer be rejected, restored, approved or deleted by anything.
+            # Done explicitly in both branches so the two modes cannot disagree
+            # about what deleting a book means.
+            self._mirror_onto_puzzles(list(book.puzzle_ids or []), None)
             del self.books[book_id]
             return True
         else:
@@ -711,9 +720,16 @@ class BookManager:
                 if book_row.status != BookStatus.DRAFT.value:
                     raise ValueError(f"Cannot delete {book_row.status} book. Only draft books can be deleted.")
 
+                held = list(book_row.puzzle_ids or [])
                 db.delete(book_row)
                 db.commit()
-                return True
+
+            # CARD-108: belt to the foreign key's braces. `ON DELETE SET NULL`
+            # has already cleared these; saying so here keeps the two storage
+            # modes doing the same thing for the same stated reason, rather
+            # than one relying on a constraint the other does not have.
+            self._mirror_onto_puzzles(held, None)
+            return True
 
     def set_cover_image(self, book_id: str, cover_url: str) -> bool:
         """Set cover image URL.

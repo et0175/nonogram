@@ -1,22 +1,22 @@
 # CARD-108: Deleting a book strands its puzzles in in-memory mode
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** bugfix
 **Estimate:** 0.25d
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (4 mutants, 3 caught, 1 reported)
 **Branch:** card/108-delete-book-releases-its-puzzles
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-108
 **Source:** found 2026-09-21 while confirming CARD-107's repair holds in both modes
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_manager.py (`delete_book`), tests
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -88,3 +88,44 @@ history, while in memory mode it is cleaning up something still being created.
 - **FR:** — (admin books)
 - **Components:** the admin panel's book manager
 - **Trace:** none
+
+### Delivered 2026-09-21
+
+**`delete_book` releases its puzzles before the book goes**, in both branches.
+In DB mode `ON DELETE SET NULL` had been doing it since CARD-103; in memory
+mode nothing did. Both say it explicitly now, so the two modes cannot disagree
+about what deleting a book means — which was the actual defect, more than
+either branch's behaviour on its own.
+
+**The red/green split was the card's own argument.** Before the fix: five tests
+failed, **all of them in memory mode**, and every DB-mode test passed. A test
+written against DB mode alone would have passed throughout and proved nothing.
+That is why the file is parametrised over both.
+
+**The damage, stated as the thing that must work:**
+`test_a_released_puzzle_is_curatable_again` asserts that a puzzle is guarded
+while its book holds it, and rejectable and deletable once the book is gone.
+Before this card the guard outlived the book, so the puzzle could not be
+rejected, restored, approved or deleted by anything — and no book existed to
+remove it from.
+
+**Also checked:** a released puzzle returns to the book builder's "unassigned"
+list, a published book is still refused (and its puzzles are **not** released
+when the refusal happens), deleting an unknown id changes nothing, and a
+manager with no puzzle store still deletes the book and warns — the same
+arrangement `_mirror_onto_puzzles` already had for add and remove.
+
+### Mutation check — 3 of 4, and the fourth is the point of the design
+
+Caught: the memory branch not releasing (5 tests — the original bug), the book
+not actually being deleted, and a published book becoming deletable.
+
+**Survived:** removing the explicit release from the **DB** branch. The foreign
+key still clears the column, so the outcome is identical and no test can
+distinguish them. That is precisely what the code comment claims — "belt to the
+foreign key's braces" — so the surviving mutant confirms the reasoning rather
+than exposing a gap. The call stays because it makes both modes state the same
+intent, and because a database whose constraint is ever dropped (a `009`
+downgrade) would otherwise silently revert to stranding puzzles.
+
+**Full suite: 3,667 passed, 0 failed.**
