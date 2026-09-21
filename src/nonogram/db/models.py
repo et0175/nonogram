@@ -69,7 +69,19 @@ class Puzzle(Base):
     status = Column(String, nullable=False, default='draft')  # 'draft', 'approved', 'rejected', 'in_book'
     source_image = Column(String, nullable=True)
     puzzle_name = Column(String, nullable=True)  # human-readable name for filtering/sorting
-    book_id = Column(UUID(as_uuid=True), nullable=True)
+    # CARD-103: constrained at last. CARD-100 made this column the record of
+    # book membership that every in-book guard in the panel reads, and until
+    # now nothing checked it — a puzzle could name a book that did not exist,
+    # which is what `book_membership.backfill`'s `missing` verdict is for.
+    #
+    # SET NULL rather than RESTRICT: deleting a book releases its puzzles,
+    # which is what `remove_puzzle_from_book` already does one at a time.
+    # RESTRICT would turn "delete this book" into an error the panel has no
+    # wording for, and would leave a deleted book's puzzles permanently
+    # unrejectable — a worse hole than the one this closes.
+    book_id = Column(
+        UUID(as_uuid=True), ForeignKey('books.id', ondelete='SET NULL'), nullable=True
+    )
     created_at = Column(DateTime, default=func.now())
 
     batch = relationship("Batch", back_populates="puzzles")

@@ -1,26 +1,26 @@
 # CARD-103: Constrain puzzles.book_id — after the backfill has run
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green, then verified against real Postgres
 **Branch:** card/103-constrain-puzzle-book-id
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-103
 **Source:** CARD-102's open decision, recorded there and deferred here
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-100 (the backfill) — and on the backfill having **actually been run** against the target database; CARD-102 (the tests enforce foreign keys at all)
 **Touches:** src/nonogram/db/models.py (`Puzzle.book_id`), a new alembic migration, tests
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-21
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** the membership backfill has not been run against production (2026-09-21)
+**Blocked by:** — _(unblocked 2026-09-21: the owner deployed to Render, ran the backfill against production, and resolved the puzzles it reported as claimed by two books)_
 
 ## Why
 
@@ -105,3 +105,68 @@ such path today. If RESTRICT is chosen, that wording is part of this card.
 - **FR:** — (admin curation; data integrity)
 - **Components:** `nonogram.db.models`, the admin panel's book manager
 - **Trace:** none
+
+### Delivered 2026-09-21
+
+**`ForeignKey('books.id', ondelete='SET NULL')`** on `Puzzle.book_id`, plus
+migration `009_constrain_puzzle_book_id`. `SET NULL` as recommended: deleting a
+book releases its puzzles, which is what `remove_puzzle_from_book` already does
+one at a time. `RESTRICT` would have turned "delete this book" into an error
+the panel has no wording for — and worse, would have left a deleted book's
+puzzles permanently unrejectable, a bigger hole than the one this closes.
+
+**Verified against real Postgres**, not only SQLite — the development database
+created on 2026-09-21 is what made that possible, and it is the first card that
+could do it:
+
+* `alembic upgrade head` applies `009`; Postgres reports the constraint as
+  `fk_puzzles_book_id_books … options={'ondelete': 'SET NULL'}`.
+* Assigning a puzzle to a book id that names nothing raises `IntegrityError`.
+* Deleting a book leaves its puzzles in the store with `book_id` NULL — the
+  `SET NULL` actually fires, rather than being a declaration nobody checks.
+* `alembic downgrade -1` removes the constraint and leaves the column; the
+  re-upgrade reapplies it.
+
+**The failure mode is tested too**, because it is the one the owner might hit.
+With a violating row planted while the schema was at `008`:
+
+```
+ForeignKeyViolation: insert or update on table "puzzles"
+violates foreign key constraint "fk_puzzles_book_id_books"
+  revision is now: 008
+  the violating row is still there, untouched: True
+```
+
+It refuses, stays at `008`, and changes nothing — which is what the migration's
+docstring promises and now what it has been watched doing. G-2 holds: nothing
+was deleted or NULLed to make the migration apply.
+
+### Five tests broke, and that was the constraint working
+
+All five were DB-mode tests that handed `mark_in_book` or `assign_to_book` a
+**fabricated book uuid** — the exact habit CARD-102 found for batches, one
+table over. They passed because nothing checked, which is the whole subject of
+this card.
+
+Fixed the same way: `tests/helpers/db.py` gains `make_book`, the companion to
+`make_batch`, and the tests create the book they name. No constraint was
+weakened and no test was deleted (G-1).
+
+### Tests
+
+`tests/test_card_103_book_id_constraint.py`, 7 tests: the refusal and its
+control, `SET NULL` on delete, that a released puzzle becomes rejectable and
+deletable again (so the guard does not outlive the book), that deleting one
+book leaves another's puzzles alone, and two that name the arrangement itself —
+the model's `ondelete` rule, and that migration `009` exists, since a model
+change alone would protect every test database and leave production untouched.
+
+**Full suite: 3,620 passed, 0 failed.**
+
+### For the owner
+
+The migration ships; running it against production is yours (G-1). `alembic
+upgrade head` runs in Render's build command, so it will apply on the next
+deploy. If a book is deleted between now and then, re-run
+`python -m nonogram.admin.book_membership` first — the migration refuses
+rather than repairs, and it refuses safely.
