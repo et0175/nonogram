@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 1
 **Depends on:** CARD-073
-**Touches:** src/nonogram/orchestrator.py (run_bounded branch, MAX_CONSECUTIVE_REPAIRS, repair step beside POL-001, run summary counts), tests/test_orchestrator.py, tests/test_resample.py, tests/property/test_recovery_bound.py (new), meta/architecture/decisions/adr/0002-*.md (History entry only)
+**Touches:** src/nonogram/orchestrator.py (run_bounded branch, MAX_CONSECUTIVE_REPAIRS, repair step beside POL-001, run summary counts), tests/test_orchestrator.py, tests/test_resample.py, tests/property/test_recovery_bound.py (new), meta/architecture/decisions/adr/0002-*.md (History entry only), tests/test_naming.py and tests/test_sourcing_image.py (one `MAX_CONSECUTIVE_REPAIRS = 0` monkeypatch each — both are scripted random-mode tests counting *source* calls, which a repair does not make; added 2026-09-22 by CARD-071, closing review finding F-002)
 **Review score:** 8.5 (cycle 1, one finding fixed)
 **Started:** 2026-09-12T23:57Z
 **Closed:** 2026-09-13T18:10Z
@@ -130,10 +130,19 @@ by a fresh CMD-005 solve):
   twice (same accepted grid, same attempt counts, same repair/redraw
   sequence).
   *test:* `TestRecovery_SameSeedReplaysSameRepairLineage`
-- **AC-D** (calibration, handoff checkpoint) — on the 100-request 20x20
-  density-20 seeded corpus the abandonment rate is not worse than pure
-  redraw on the same seeds; both numbers recorded in Worktree notes.
+- **AC-D** (calibration, handoff checkpoint) — on a **36-seed 10x10
+  density-30 corpus** the abandonment rate is not worse than pure redraw on
+  the same seeds (18 with repair against 26 without, when written), and the
+  20x20 calibration sweep ADR-0024 asks for is recorded in Worktree notes.
   *test:* `TestRecovery_AbandonmentRateNotWorseThanPureRedraw`
+  *(Re-worded 2026-09-22 by CARD-071, closing review finding F-001. This AC
+  named "the 100-request 20x20 density-20 seeded corpus" until then, while its
+  test ran 36 seeds at 10x10 density 30. The test is the right artefact: on the
+  corpus originally named the assertion is **vacuous** — all 60 sampled
+  requests abandon at both `MAX_CONSECUTIVE_REPAIRS = 0` and `= 3`, so
+  `with_repair <= pure_redraw` holds trivially — and the 20x20 sweep takes
+  minutes, which is why it is a recorded measurement rather than suite work.
+  The id and the test name are unchanged, per the FR-003/AC-009 convention.)*
 
 ## Engineering constraints
 

@@ -250,7 +250,11 @@ links:
   - TestNudge_AddsACellWhereTheWitnessesDisagree
   - TestNudge_FallsBackToTheMaskThenStops
   - TestNudge_PrefersCellsNearestInkBoundary
-  - TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginalConversion
+  # AC-117 named TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginal-
+  # Conversion here until 2026-09-22 (CARD-071). No test was ever written
+  # under that name, and the property test below is what asserts the claim —
+  # so the entry is dropped rather than re-pointed, which would only have
+  # duplicated the next line.
   - PropertyTest_Nudge_FlippedCellsSubsetOfUndecidedMaskAndNested
   notes: >-
     POL-002 / POL-003 in COMP-002; the nudge itself is applied by
@@ -276,7 +280,7 @@ links:
     are still owed by the adr-writer (open.yml 2026-09-12 note). The
     2026-09-12 open gap (what attempt n does when |mask| < n) is dissolved
     rather than answered — attempts no longer draw n cells from one fixed set.
-  status: done
+  status: covered
 
   # ---------------------------------------------------------------- CAP-004
 - req: FR-008
@@ -1337,7 +1341,7 @@ links:
     took the threshold path. The flip moved FR-022's trim criteria by one
     picture (duck2.png joins the residual violators); recorded in those
     tests' docstrings rather than absorbed.
-  status: done
+  status: covered
 
 - req: FR-028
   description: "Density 0 and 100 refused as InvalidDensity at the

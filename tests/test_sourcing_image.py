@@ -37,6 +37,27 @@ Acceptance criteria, by the card's test names:
     ADR-0022/R3  TestFitImage_RefusesRatioMismatchBeyondTwice
                                                          -> test_fit_image_refuses_a_ratio_mismatch_beyond_twice
 
+FR-027's binarisation names (CARD-079; rows added by CARD-071, which found the
+labels cited in trace.yml and requirements.yml with nothing of that name in the
+suite — the tests were here all along under their pytest spellings):
+
+    AC-124  TestBinarize_ThresholdFillsCellAtOrAboveHalfInkCoverage
+                                                         -> test_binarize_threshold_fills_cell_at_or_above_half_ink_coverage
+    AC-125  TestBinarize_ThresholdLeavesCellEmptyBelowHalfInkCoverage
+                                                         -> test_binarize_threshold_leaves_cell_empty_below_half_ink_coverage
+    AC-126  TestBinarize_ExactlyHalfCoverageIsFilled
+                                                         -> test_binarize_exactly_half_coverage_is_filled
+    AC-127  TestBinarize_ThresholdCorpusNeedsNoMoreNudgesThanDither
+                                                         -> test_binarize_threshold_corpus_needs_no_more_nudges_than_dither
+    AC-173  TestBinarize_GuardSendsDegenerateThresholdConversionToDither
+                                                         -> test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_*
+                                                            (four cases: an inkless picture, line art, a sparse picture left
+                                                            alone, and only the threshold path rescued)
+    trace   TestBinarize_ClassifierIsDeterministicAndReadsSourceHistogram
+                                                         -> test_binarize_classifier_is_deterministic_and_reads_source_histogram
+    trace   TestBinarize_RecordsBinarisationPathOnPuzzle
+                                                         -> test_binarize_records_binarisation_path_on_puzzle
+
 AC-009 is **superseded** by AC-059 (FR-021). Its unqualified "a source image
 whose aspect ratio differs from the target grid ... the output grid has exactly
 the requested target dimensions" became false the moment a >2x difference became

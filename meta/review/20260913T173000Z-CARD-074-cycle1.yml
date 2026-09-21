@@ -76,8 +76,8 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "CARD-071 — AC-D re-worded in meta/kanban/cards/CARD-074.md to name the 36-seed 10x10 density-30 corpus the test uses, and why the corpus originally named makes the assertion vacuous. No test changed."
     dismissed_reason: null
     learned_pattern: null
 
@@ -105,8 +105,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "CARD-071 — tests/test_naming.py and tests/test_sourcing_image.py added to CARD-074 Touches, with the one-clause reason. Scope record only; no code or test changed."
     dismissed_reason: null
     learned_pattern: null
 

@@ -9,6 +9,21 @@ pytest-idiomatic function names:
                 -> test_nudge_reports_failure_at_cap*
     AC-036  TestNudge_FailureMessageSuggestsRetry
                 -> test_nudge_failure_message_suggests_retry*
+    AC-115  TestNudge_AddsACellWhereTheWitnessesDisagree
+                -> test_nudge_adds_a_cell_where_the_witnesses_disagree
+    AC-116  TestNudge_FallsBackToTheMaskThenStops
+                -> test_nudge_falls_back_to_the_mask_then_stops
+    AC-116  TestNudge_PrefersCellsNearestInkBoundary
+                -> test_nudge_prefers_cells_nearest_the_ink_boundary
+
+AC-117's label, ``TestNudge_MaskDrivenAttemptsRemainCumulativeFromOriginal-
+Conversion``, is deliberately not in that table: no test was ever written under
+it, here or anywhere (CARD-075 re-amended the mechanism it was named for). The
+claim it stands for — the attempts nest, and attempt *n* differs from the
+ORIGINAL conversion in exactly *n* cells — is asserted over a whole corpus by
+``PropertyTest_Nudge_FlippedCellsSubsetOfUndecidedMaskAndNested`` in
+``tests/property/test_nudge_mask.py``, so CARD-071 repointed AC-117 there
+rather than leave a name with nothing behind it.
 
 What this file is about, and where the line between the two components falls
 --------------------------------------------------------------------------
