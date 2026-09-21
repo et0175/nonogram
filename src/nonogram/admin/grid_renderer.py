@@ -1,7 +1,6 @@
 """Render puzzle grids as SVG for preview and download."""
 
-from typing import List, Tuple
-from io import BytesIO
+from typing import List
 
 
 def grid_to_svg(
@@ -52,34 +51,3 @@ def grid_to_svg(
 
     svg_parts.append("</svg>")
     return "\n".join(svg_parts)
-
-
-def grid_to_svg_bytes(
-    grid: List[List[bool]],
-    cell_size: int = 20,
-) -> bytes:
-    """Convert grid to SVG bytes for serving as file download.
-
-    Args:
-        grid: List[List[bool]] puzzle grid
-        cell_size: Cell size in pixels
-
-    Returns:
-        SVG as bytes
-    """
-    svg_string = grid_to_svg(grid, cell_size=cell_size)
-    return svg_string.encode("utf-8")
-
-
-def get_svg_filename(image_name: str) -> str:
-    """Generate SVG filename from image name.
-
-    Args:
-        image_name: Original image filename (e.g., "landscape.png")
-
-    Returns:
-        SVG filename (e.g., "landscape.svg")
-    """
-    # Remove extension and add .svg
-    base_name = image_name.rsplit(".", 1)[0] if "." in image_name else image_name
-    return f"{base_name}.svg"
