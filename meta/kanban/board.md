@@ -35,7 +35,6 @@ _(none)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
-- **CARD-043** P2 · Clear the result message when a new image is chosen — **genuinely undone**, unlike the rest of its family: `metadata.js` never touches the result container · CARD-038 clears it on *submit*; this is the moment before  _(wave 6)_
 
 ## In Progress
 _(none)_
@@ -44,6 +43,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-043** P2 · The last result clears when a different picture is chosen — the one card of the wave-0 web family with work actually left · the mutation check found two flaws in the *tests*, not the code: an assertion satisfied by selector text in the page's own script, and a regex that matched both change listeners as one span · merged without a review cycle, at the owner's call · merged 2530c32
 - **CARD-108** P2 · Deleting a book lets go of its puzzles in both storage modes — memory mode stranded them, and CARD-100's guard then refused to curate them ever · five failures before the fix, all five in memory mode · 3 of 4 mutants, the fourth confirming the design · merged without a review cycle, at the owner's call · merged 1a94ccd
 - **CARD-107** P1 · A puzzle pointing at a book that is gone — the state `backfill` cannot see, because it walks books · found by a failed Render deploy; the migration refused safely and named the row · `release_orphans` clears the column the constraint would have cleared on delete · reproduced and fixed against real Postgres · merged without a review cycle, at the owner's call · merged df549ae
 - **CARD-034** P2 · Client-side image metadata — the feature shipped; AC-138's fallback clause retired (it named CARD-031's server-side path, which never ran and CARD-104 deleted) · three unfailable assertions deleted, including `assert "if" in content` · the card's own claim that nothing can run the JS corrected — `node --check` does · parity deferred to CARD-105 · merged without a review cycle, at the owner's call · merged 989cad0
