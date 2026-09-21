@@ -1,6 +1,6 @@
 # CARD-104: Three shipped web-form cards — two were tested all along, one described a page that never existed
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/web/pages.py, src/nonogram/web/handler.py (the unreachable metadata path), tests/test_web_server.py (the escaping guard's table and counts), meta/kanban/cards/CARD-030.md, CARD-031.md, CARD-033.md, meta/review/ (six recovered files)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
