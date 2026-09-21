@@ -44,12 +44,14 @@ import html
 import mimetypes
 import urllib.parse
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from nonogram import orchestrator
-from nonogram.errors import NonogramError
+from nonogram.errors import NonogramError, UnreadableImage
+from nonogram.web import uploads
 from nonogram.web import multipart, pages, submission
 
 # For re-populating form fields after submission (CARD-030)
@@ -730,6 +732,27 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             # For urlencoded, re-parse to extract fields for form re-population
             fields = urllib.parse.parse_qs(raw.decode("utf-8", "replace"))
 
+        # CARD-037: a submission that failed keeps its picture, so "fix the size
+        # and try again" does not mean choosing the file again. The browser is
+        # handed an opaque token, never a path — see nonogram.web.uploads for
+        # why that distinction is the whole design.
+        posted_token = (fields.get("upload_token") or [""])[0]
+        retained_path = uploads.resolve(posted_token) if image_path is None else None
+        if retained_path is not None:
+            # A retry: no new file, and a token this server minted. The request
+            # was built from a body that named no picture, so give it this one.
+            image_path = retained_path
+            upload_token = posted_token
+            if posted.request is not None:
+                posted = replace(posted, request=replace(posted.request, image=image_path))
+        elif image_path is not None:
+            upload_token = uploads.retain(image_path)
+        else:
+            upload_token = ""
+        # Carried back to the browser by the ordinary form re-population, as a
+        # hidden field. Empty means "nothing held", and renders nothing.
+        fields["upload_token"] = [upload_token]
+
         try:
             if posted.request is None:
                 self._fail_inline(
@@ -742,6 +765,15 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 puzzle = orchestrator.generate(posted.request)
                 written = orchestrator.export_puzzle(puzzle)
             except NonogramError as error:
+                # CARD-037: keep the picture for a retry, unless the picture is
+                # what was wrong with the request. A size the domain refuses is
+                # worth trying again with the same file; a file that cannot be
+                # decoded will fail identically however often it is resubmitted,
+                # so retaining it only leaves a temp file behind for a retry
+                # that cannot work (and CARD-021's step 5 says it must not).
+                if isinstance(error, UnreadableImage):
+                    uploads.release(upload_token)
+                    fields["upload_token"] = [""]
                 self._fail_inline(
                     fields,
                     "nonogram refused this request.",
@@ -755,6 +787,11 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                     [str(error)],
                 )
                 return
+            # CARD-037: the picture has done its job; the retention ends here
+            # and takes the temp file with it.
+            uploads.release(upload_token)
+            upload_token = ""
+            fields["upload_token"] = [""]
             # CARD-030: Render form with success result inline instead of redirect
             self._respond(
                 HTTPStatus.OK,
@@ -768,7 +805,10 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
                 ),
             )
         finally:
-            if image_path is not None:
+            # CARD-037: a retained file belongs to the store now — deleting it
+            # here would defeat the retry the token was minted for. The store
+            # deletes it on success, on eviction, or on clear().
+            if image_path is not None and uploads.resolve(upload_token) is None:
                 image_path.unlink(missing_ok=True)
 
     def _fail(self, summary: str, reasons: Sequence[str]) -> None:

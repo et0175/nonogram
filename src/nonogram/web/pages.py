@@ -22,8 +22,8 @@ here are not that, and the split is asserted rather than remembered:
 ``TestWebPages_EscapingRuleIsTheOneTheDocstringStates`` in
 ``tests/test_web_server.py`` walks this module's AST and fails on any unescaped
 interpolation whose expression is not one of the ones named below. As shipped
-there are 47 f-string interpolations, of which 16 call :func:`html.escape` at
-the point of interpolation. The other 31 are each one of five kinds:
+there are 49 f-string interpolations, of which 16 call :func:`html.escape` at
+the point of interpolation. The other 33 are each one of five kinds:
 
 * **4 module constants** — ``_STYLE`` (twice), ``SUCCESS``, ``FAILURE``;
 * **8+ fragments built here**, by a function that escaped as it built them —
@@ -760,6 +760,15 @@ def form_with_result(
     name_val = _form_field_value(fields, "name")
     seed_val = _form_field_value(fields, "seed")
     out_val = _form_field_value(fields, "out")
+    # CARD-037: the token for a retained upload, or "" when nothing is held.
+    # Rendered as a hidden field so a retry can say "the same picture" without
+    # the page ever carrying a filesystem path (see nonogram.web.uploads).
+    token_val = _form_field_value(fields, "upload_token")
+    token_field = (
+        f'<input type="hidden" name="upload_token" value="{token_val}">'
+        if token_val
+        else ""
+    )
 
     # Re-populate checkboxes for export_formats
     export_values = set(fields.get("export_formats", []))
@@ -794,6 +803,7 @@ the same pipeline behind them.</p>
 {result_html}
 </div>
 <form method="post" action="{html.escape(FORM_ACTION)}" enctype="multipart/form-data">
+{token_field}
   <div class="form-section">
     <h3>Image</h3>
     <label><span>Image <small>&mdash; select the picture to convert</small></span>
