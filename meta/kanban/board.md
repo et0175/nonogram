@@ -36,7 +36,7 @@ _(none)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 - **CARD-030** P2 · Display inline success/error messages on form page  _(wave 4)_
 - **CARD-031** P2 · Show image metadata and suggested puzzle dimensions after upload  _(wave 4)_
-- **CARD-032** P2 · Restrict web form to image-only mode  _(wave 4)_
+- **CARD-032** P2 · Web form image-only — **the feature is on main**; what is left is AC-129 and AC-130's missing tests and a naming repair  _(wave 4)_ — re-cut 2026-09-21: `test_export_pdf.py` credits a bundled font to CARD-032 too, so one number names two bodies of work
 - **CARD-033** P2 · Add output directory selector and improve form styling  _(wave 5)_
 - **CARD-034** P2 · Calculate image metadata on file upload (client-side)  _(wave 5)_
 - **CARD-037** P2 · Persist uploaded image for retry without re-upload  _(wave 5)_ — not on `main`, but its orphaned worktree holds real uncommitted implementation work; preserved as a patch, see card notes
