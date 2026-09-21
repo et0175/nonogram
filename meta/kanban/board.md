@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-104** P2 · Ten acceptance tests that were never written — CARD-030, 031 and 033 all shipped, and not one of their named test classes exists on `main` or on the branch that built the feature  _(wave 1)_ — one of those cards was closed at review score 9.0
 - **CARD-103** P2 · Constrain `puzzles.book_id` with a foreign key — **blocked** until the membership backfill has run against production, since a constraint cannot be added while rows violate it  _(wave 1)_ — CARD-102's deferred decision, recommendation `ON DELETE SET NULL`
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
@@ -47,6 +46,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-104** P2 · Opened on a false premise and says so — CARD-030 and CARD-033 were tested all along under names their cards did not predict; the broken `*test:*` trail was the whole defect · the real find was CARD-031's server-rendered metadata, which no page ever produced: computed on every upload and discarded inside a catch-all except, now deleted · CARD-030/031/033 closed, six review files recovered · suite unchanged at 3,613 · merged without a review cycle, at the owner's call · merged 2780ef0
 - **CARD-032** P2 · Web form image-only — the feature had shipped; AC-129 and AC-130's tests were **recovered** from the never-merged 2026-09-03 branch (retired as `card/032-superseded-2026-09-03`) and each given a stronger sibling · the PDF font citations re-pointed at ADR-0006/DEC-027, whose implementing card is missing rather than misnamed · AC-number collision with FR-028 recorded · merged without a review cycle, at the owner's call · merged be91cff
 - **CARD-102** P2 · The test database enforces foreign keys, as production does — 29 failures and 14 errors were hiding behind SQLite's default; fixed by creating the batches the tests referenced, through one shared helper · the `book_id` constraint deferred to CARD-103 · no schema and no production code changed · merged without a review cycle, at the owner's call · merged a05e500
 - **CARD-078** P3 · Density 0 and 100 refused — valid range 1..99, the verdict made once at `validate_density` and the docstring that promised a later stage would reject them deleted · the adapter audit changed nothing and says why · AC-B re-asked, since the web form has had no density field since CARD-032 · merged without a review cycle, at the owner's call · merged 4fda006
