@@ -1,6 +1,6 @@
 # CARD-078: Refuse density 0 and 100 — valid range 1..99
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** bugfix
 **Estimate:** 0.25d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/sourcing/random_grid.py (MIN_DENSITY/MAX_DENSITY, validate_density message, the :78-84 docstring), src/nonogram/cli.py (--density help text only), src/nonogram/web/pages.py (numeric bounds on the density field, if any), src/nonogram/admin/batch_generator.py and src/nonogram/admin/templates/batch_create.html (density presets audited for 0/100), tests/test_sourcing_random.py, tests/test_cli.py, tests/test_web_server.py, meta/architecture/requirements.yml (FR-004 amendment note), meta/architecture/decisions/adr/0003-*.md (History note)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
