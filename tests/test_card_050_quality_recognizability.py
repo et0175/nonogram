@@ -114,11 +114,14 @@ def test_ac1a_faithful_and_degraded_conversions_of_same_image_score_differently(
 
 
 @pytest.fixture
-def admin_app():
+def admin_app(monkeypatch):
     """Real Flask admin app, in-memory mode (no DATABASE_URL) — mirrors the
     fixture ``tests/test_admin_image_uniqueness.py`` (CARD-049) uses."""
-    os.environ.pop("DATABASE_URL", None)
-    os.environ["TESTING"] = "true"
+    # CARD-109: monkeypatch rather than os.environ.pop — popping cleared the
+    # variable for the rest of the session too, so whether a later test saw a
+    # database depended on whether this one had run first.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("TESTING", "true")
     from nonogram.admin.app import create_app
 
     app = create_app()

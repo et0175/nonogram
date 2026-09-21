@@ -1,24 +1,24 @@
 # CARD-109: The suite writes to whatever DATABASE_URL points at
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green; the guard is watched in a subprocess
 **Branch:** card/109-suite-refuses-a-foreign-database
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-109
 **Source:** observed twice on 2026-09-21 while working on CARD-107
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/conftest.py (the guard), tests/e2e/test_admin_workflow.py, tests/test_admin_image_uniqueness.py, tests/test_admin_regrade.py, tests/test_card_050_quality_recognizability.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-21
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -128,3 +128,62 @@ invisible.
 - **FR:** — (test infrastructure)
 - **Components:** the test suite
 - **Trace:** none
+
+### Correction, 2026-09-21 — this card overstated the scope fourfold
+
+The Why above says **four** files pick up `DATABASE_URL` silently. **One does.**
+The count came from grepping for `delenv("DATABASE_URL"` and treating its
+absence as exposure, which is the same error this suite made about class names
+twice today. Looked at properly:
+
+| file | what it actually does |
+|---|---|
+| `tests/e2e/test_admin_workflow.py` | **nothing** — genuinely exposed |
+| `tests/test_admin_image_uniqueness.py` | cleared it with `os.environ.pop` |
+| `tests/test_card_050_quality_recognizability.py` | cleared it with `os.environ.pop` |
+| `tests/test_admin_regrade.py` | **sets** its own SQLite URL via monkeypatch |
+
+The evidence agreed all along and I did not read it: every one of the four
+failures on 2026-09-21 was in `test_admin_workflow.py`. Had the other three
+been exposed, the damage would have been wider.
+
+The Why is left as written, with this correction beneath it, because a card
+that quietly restates its own reasoning is worth less than one that shows where
+it was wrong.
+
+### Delivered
+
+**The guard** — `tests/database_guard.py`, wired into `conftest.py`'s
+`pytest_configure` so it stops the run before collection. It refuses unless
+`DATABASE_URL` is unset, or names a database whose name contains `test`, or
+`NONOGRAM_ALLOW_FOREIGN_DATABASE` is set. Option (a) with (c), as the card
+recommended: it refuses, and the run header says what it decided when there is
+anything to say.
+
+It **never connects** (G-3) — the name is enough, and a connection is what
+CARD-097 spent a card making safe to avoid. It **never echoes the credential**:
+a refusal is printed and printed things get pasted, so only the database name
+appears. A test asserts that with a distinctive username and password, after an
+earlier version of it used "admin" and failed on the refusal's own prose.
+
+**The one exposed fixture now clears the variable**, and the two that used
+`os.environ.pop` use `monkeypatch` instead — popping cleared it for the rest of
+the session rather than the test, so whether a later test saw a database
+depended on whether an earlier one had run. That is order-dependence hiding
+inside a fix, and it has its own test now.
+
+**`pytest_report_header` is composed, not replaced.** The conftest imported
+that name from the hang guard; defining another would have silently dropped it,
+and the hang guard's line is how a killed run's stack dump is findable. Both
+lines are emitted.
+
+### Tests
+
+`tests/test_card_109_database_guard.py`, 19 tests. The rule itself over
+realistic URLs — including the Render-style host and the neighbouring
+`mealplanner` database on the same server — and three that **run pytest in a
+subprocess** and watch it refuse, succeed under the opt-out, and print the
+header. AC-5 asked for the guard to be watched rather than asserted, and a
+function returning `False` is not the same as a run stopping.
+
+**Full suite: 3,691 passed, 0 failed.**

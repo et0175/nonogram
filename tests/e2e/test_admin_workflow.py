@@ -15,9 +15,18 @@ from PIL import Image
 
 
 @pytest.fixture
-def admin_app():
-    """Create test Flask app."""
-    os.environ['TESTING'] = 'true'
+def admin_app(monkeypatch):
+    """Create test Flask app, in-memory mode.
+
+    CARD-109: `create_app` connects to whatever `DATABASE_URL` names, and this
+    fixture did not touch it — so with the variable exported these tests read
+    and wrote that database. They did, on 2026-09-21: four of them failed the
+    moment a development database was emptied mid-session, having been reading
+    it. `monkeypatch` rather than `os.environ.pop` so the value is restored
+    for whatever runs next.
+    """
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("TESTING", "true")
     from src.nonogram.admin.app import create_app
 
     app = create_app()
