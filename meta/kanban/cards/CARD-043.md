@@ -22,6 +22,46 @@
 **Merge commit:** —
 **Blocked by:** —
 
+## Re-cut 2026-09-21 — and unlike its siblings, this one is genuinely undone
+
+Checked against `main` at `77c15bf`. Every other card of this family turned out
+to have shipped while sitting in Ready. **This one has not.**
+`src/nonogram/web/static/metadata.js` contains no `clearResultMessage`, and
+never mentions `data-result-container`. Its file-change listener clears the
+metadata area and the size field (CARD-149) and nothing else.
+
+### What already exists, and why it is not this
+
+`pages.py` carries a script — CARD-038's — that empties
+`[data-result-container]` when the form is **submitted**:
+
+```js
+form.addEventListener('submit', function() {
+  const resultContainer = document.querySelector('[data-result-container]');
+  if (resultContainer) resultContainer.innerHTML = '';
+});
+```
+
+That fires at submit. This card is about the moment **before** it: the user has
+an error on screen, picks a different picture, and the stale message should go
+then — while they are still deciding what to change — not when they finally
+press Generate.
+
+### What changed underneath it since it was written
+
+CARD-037 and CARD-044 landed after this card was drafted, and the page it
+describes is no longer the page it was:
+
+* A failed submission now **keeps its picture**, and the result page shows it
+  (`GET /upload/<token>`).
+* Selecting a new file must therefore leave the two in step: the message goes,
+  and CARD-044's change-listener preview replaces the old picture. It would be
+  wrong to clear the message and leave the previous picture on screen.
+* The stale `upload_token` in the hidden field is **not** a problem — the
+  handler prefers a newly uploaded file and only resolves the token when no
+  file arrived (`handler.py:772`). Verified, so the card does not need to clear
+  it, and should not pretend otherwise.
+
 ## What to implement
 
 When a user uploads a new image, clear any previous error/success messages from the form. This prevents confusing the user with stale result messages from a previous generation attempt when they're about to try again with a new image.

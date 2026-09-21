@@ -35,7 +35,7 @@ _(none)_
 - **CARD-052** P2 · Regression tests for real quality_score/recognizability values  _(wave 2)_
 - **CARD-053** P3 · Document or remove the orphaned generation/ and analysis/ packages  _(wave 2)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
-- **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
+- **CARD-043** P2 · Clear the result message when a new image is chosen — **genuinely undone**, unlike the rest of its family: `metadata.js` never touches the result container · CARD-038 clears it on *submit*; this is the moment before  _(wave 6)_
 
 ## In Progress
 _(none)_
