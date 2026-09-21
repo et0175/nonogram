@@ -1,6 +1,6 @@
 # CARD-102: The tests run without foreign keys; production runs with them
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 1
 **Depends on:** —
 **Touches:** tests/conftest.py (enforce FKs on every SQLite engine), tests/test_card_068_batch_curation.py, tests/test_card_100_book_membership.py, tests/test_card_101_mutable_json_columns.py (create the batch rows they reference), possibly src/nonogram/db/models.py + a migration (the `book_id` decision below)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** —
 
