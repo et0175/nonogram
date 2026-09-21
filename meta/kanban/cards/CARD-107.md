@@ -1,6 +1,6 @@
 # CARD-107: A puzzle pointing at a book that is gone — the state the backfill cannot see
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
