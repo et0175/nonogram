@@ -15,6 +15,9 @@ AC-069       TestGenerateRandom_RejectsSideAbove30           test_generate_rando
 AC-070       TestGenerateRandom_RejectsSideBelow10           test_generate_random_rejects_side_below_10
 AC-010       TestGenerateRandom_RespectsDensityParameter     test_generate_random_respects_density_parameter
 AC-011       TestGenerateRandom_RejectsInvalidDensity        test_generate_random_rejects_invalid_density
+AC-128       TestGenerateRandom_RefusesDensityZeroAndHundred  test_generate_random_refuses_density_zero_and_hundred
+AC-133       TestGenerateRandom_AcceptsDensityOneAndNinetyNine  test_generate_random_accepts_density_one_and_ninety_nine
+AC-130       TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam  test_the_degenerate_density_verdict_is_made_at_the_validate_density_seam
 —            TestValidateExtent_RejectsSideAboveThirty       test_validate_extent_rejects_side_above_thirty
 ===========  ==============================================  ==================================================
 
@@ -221,6 +224,59 @@ def test_generate_random_rejects_invalid_density() -> None:
     assert "150" in str(excinfo.value)
 
 
+@pytest.mark.parametrize("density", [0, 100])
+def test_generate_random_refuses_density_zero_and_hundred(density: int) -> None:
+    """AC-128 / TestGenerateRandom_RefusesDensityZeroAndHundred (negative).
+
+    Both ends yield a grid with no puzzle in it — every cell empty, or every
+    cell filled — which the solver then certifies as uniquely solvable, quite
+    correctly and to no purpose. They are refused as invalid input, before any
+    grid is drawn, rather than left for a later stage: no later stage judges
+    density (ADR-0027/R2).
+    """
+    with pytest.raises(errors.InvalidDensity) as excinfo:
+        random_grid.generate(20, 20, density, _rng())
+
+    message = str(excinfo.value)
+    assert str(density) in message
+    assert f"{random_grid.MIN_DENSITY}" in message and f"{random_grid.MAX_DENSITY}" in message
+
+
+@pytest.mark.parametrize("density", [1, 99])
+def test_generate_random_accepts_density_one_and_ninety_nine(density: int) -> None:
+    """AC-133 / TestGenerateRandom_AcceptsDensityOneAndNinetyNine.
+
+    The new bounds are inclusive, and a grid at each of them is a real grid:
+    one that has both filled and empty cells, which is what makes 0 and 100
+    the only two values worth refusing.
+    """
+    grid = random_grid.generate(20, 20, density, _rng())
+
+    cells = [cell for row in grid for cell in row]
+    assert any(cells) and not all(cells)
+    assert abs(random_grid.density_of(grid) - density) <= random_grid.DENSITY_TOLERANCE_POINTS
+
+
+def test_the_degenerate_density_verdict_is_made_at_the_validate_density_seam() -> None:
+    """AC-130 / TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam.
+
+    One seam owns the answer. Asserted by taking the seam away: with
+    ``validate_density`` stubbed out, density 0 sails through the sampler and
+    produces a grid, which is the proof that nothing downstream was ever going
+    to stop it — the docstring this card replaced claimed otherwise for a year.
+    """
+    original = random_grid.validate_density
+    try:
+        random_grid.validate_density = lambda density: density
+        grid = random_grid.generate(20, 20, 0, _rng())
+    finally:
+        random_grid.validate_density = original
+
+    assert not any(cell for row in grid for cell in row), "the sampler judges nothing"
+    with pytest.raises(errors.InvalidDensity):
+        random_grid.generate(20, 20, 0, _rng())
+
+
 # --------------------------------------------------------------------------
 # Validation, beyond the two values the ACs name
 # --------------------------------------------------------------------------
@@ -263,13 +319,15 @@ def test_densities_outside_the_valid_percentage_range_are_rejected(
         random_grid.generate(20, 20, density, _rng())
 
 
-@pytest.mark.parametrize("density", [0, 1, 30, 50, 99, 100])
+@pytest.mark.parametrize("density", [1, 2, 30, 50, 98, 99])
 def test_the_percentage_range_is_inclusive_at_both_ends(density: int) -> None:
-    """0% and 100% are valid input, not nonsense.
+    """Both bounds are valid input, and so is everything between them.
 
-    They produce degenerate grids — empty and full — which later stages judge
-    on their own terms (uniqueness, difficulty); this module only rules on
-    whether the *request* is a valid percentage.
+    Written when the range was 0..100 and both ends produced a degenerate
+    grid this module declined to judge — "later stages judge them on their own
+    terms", which no later stage ever did. CARD-078 moved the ends to 1 and
+    99 and put the verdict here (ADR-0027); the test keeps its shape, and now
+    exercises bounds that are real.
     """
     grid = random_grid.generate(20, 20, density, _rng())
 
@@ -297,7 +355,8 @@ def test_a_rejected_request_draws_no_randomness() -> None:
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("density", [0, 5, 25, 30, 50, 75, 95, 100])
+# 1 and 99 are the bounds since CARD-078; the band applies over 1..99.
+@pytest.mark.parametrize("density", [1, 5, 25, 30, 50, 75, 95, 99])
 @pytest.mark.parametrize("extent", [(10, 10), (20, 20), (30, 30), (30, 10), (10, 30)])
 def test_density_holds_across_the_extent_and_density_space(
     extent: tuple[int, int], density: int
@@ -326,7 +385,7 @@ def test_the_filled_count_is_exact_not_merely_within_tolerance() -> None:
     squared — a square-only corpus cannot tell the two apart.
     """
     for width, height in ((10, 10), (20, 20), (30, 30), (30, 12), (12, 30)):
-        for density in (0, 3, 30, 67, 100):
+        for density in (1, 3, 30, 67, 99):
             grid = random_grid.generate(width, height, density, _rng())
             filled = sum(cell for row in grid for cell in row)
             assert filled == random_grid.filled_target(width, height, density)

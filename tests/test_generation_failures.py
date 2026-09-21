@@ -60,20 +60,29 @@ class TestGenerationFailures:
         with pytest.raises(errors.InvalidDensity):
             orchestrator.generate(req)
 
-    def test_zero_density_valid(self):
-        """Test that 0% density (all-empty) is valid."""
+    def test_zero_density_is_refused(self):
+        """0% density is refused, and 1% is the lowest that is not (CARD-078).
+
+        This test asserted the opposite until 2026-09-21: an all-empty grid was
+        generated and every cell checked False. It was a true description of
+        what the code did, and of a puzzle with nothing in it — the solver
+        certifies it as uniquely solvable, quite correctly, because there is
+        one way to fill in nothing. ADR-0027 makes the request invalid instead,
+        so the case is kept and its expectation inverted.
+        """
         req = orchestrator.GenerationRequest(
             mode="random",
             width=15,
             height=15,
             density=0
         )
-        puzzle = orchestrator.generate(req)
-        assert puzzle is not None
-        # All cells should be empty (False)
-        for row in puzzle.grid:
-            for cell in row:
-                assert cell is False
+        with pytest.raises(errors.InvalidDensity):
+            orchestrator.generate(req)
+
+        lowest = orchestrator.generate(
+            orchestrator.GenerationRequest(mode="random", width=15, height=15, density=1)
+        )
+        assert any(cell for row in lowest.grid for cell in row)
 
     def test_high_density_valid(self):
         """Test that high density puzzles can generate successfully."""

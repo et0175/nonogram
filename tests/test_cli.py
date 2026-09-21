@@ -548,6 +548,44 @@ def test_cli_out_of_range_height_is_refused_by_the_domain_too() -> None:
     assert cli.main(["generate", "--size", "30x9"]) == cli.ExitCode.INVALID_INPUT
 
 
+@pytest.mark.parametrize("density", ["0", "100"])
+def test_cli_degenerate_density_exits_like_any_out_of_range_density(
+    density: str, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC-A (CARD-078): the handoff checkpoint, verbatim.
+
+    ``--density 0`` must exit in the same code family as ``--density 150`` and
+    write nothing. The "writes nothing" half is asked with ``--export json``,
+    because without it *no* run writes a file and the assertion would pass for
+    a reason that has nothing to do with this card — the control below is what
+    gives it meaning.
+    """
+    monkeypatch.chdir(tmp_path)
+    export = ["--export", "json", "--out", str(tmp_path)]
+
+    code = cli.main(["generate", "--mode", "random", "--size", "10", "--density", density, *export])
+
+    assert code == cli.main(
+        ["generate", "--mode", "random", "--size", "10", "--density", "150", *export]
+    )
+    assert code == cli.ExitCode.INVALID_INPUT
+    assert list(tmp_path.iterdir()) == []
+
+    # The control: the same command at a legal density does write one.
+    assert cli.main(["generate", "--mode", "random", "--size", "10", "--density", "50", *export]) == cli.ExitCode.OK
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+@pytest.mark.parametrize("density", ["1", "99"])
+def test_cli_accepts_the_new_bounds(density: str, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The other half of the checkpoint: 1 and 99 still generate."""
+    monkeypatch.chdir(tmp_path)
+
+    code = cli.main(["generate", "--mode", "random", "--size", "10", "--density", density])
+
+    assert code == cli.ExitCode.OK
+
+
 def test_the_size_help_documents_both_forms(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

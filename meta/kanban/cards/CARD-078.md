@@ -1,24 +1,24 @@
 # CARD-078: Refuse density 0 and 100 — valid range 1..99
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** bugfix
 **Estimate:** 0.25d
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** red -> green -> mutation check (5 mutants, all caught)
 **Branch:** card/078-refuse-degenerate-density
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-078
 **Source:** meta/architecture/handoff.md#increment-11
 **Idea:** —
 **Wave:** 1
 **Depends on:** —
 **Touches:** src/nonogram/sourcing/random_grid.py (MIN_DENSITY/MAX_DENSITY, validate_density message, the :78-84 docstring), src/nonogram/cli.py (--density help text only), src/nonogram/web/pages.py (numeric bounds on the density field, if any), src/nonogram/admin/batch_generator.py and src/nonogram/admin/templates/batch_create.html (density presets audited for 0/100), tests/test_sourcing_random.py, tests/test_cli.py, tests/test_web_server.py, meta/architecture/requirements.yml (FR-004 amendment note), meta/architecture/decisions/adr/0003-*.md (History note)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-21
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -128,4 +128,76 @@ the 2026-09-12 review).
 
 ## Worktree notes
 
-—
+### Delivered 2026-09-21
+
+**The range is `MIN_DENSITY = 1`, `MAX_DENSITY = 99`**, and that pair is the
+only statement of it (ADR-0027/R1). `validate_density`'s existing f-string
+already read the constants, so the message moved with them —
+`"density must be a percentage between 1 and 99 inclusive, got 0"`.
+
+**The docstring that lied is gone (item 2).** It said 0 and 100 "are degenerate
+puzzles that later pipeline stages (uniqueness, difficulty) will reject on
+their own terms". No stage ever did. Its replacement says why the verdict lives
+at one seam: a rule stated in one place cannot rot into a promise nobody keeps.
+
+**The adapter audit (item 3) found nothing to change, which is the result.**
+Each is recorded rather than adjusted, since inventing an edit to match the
+card's `Touches` would be worse than reporting the truth:
+
+- **CLI** — `--density` has no `choices=`/`type=` bound, and its help
+  deliberately names no range: *"The valid range is a domain rule and is
+  checked after parsing, not here."* Adding "1..99" would put a second
+  statement of the range outside the constants, against ADR-0027/R1. Left
+  exactly as it was.
+- **Web** — `submission.py` parses `density` as a number and passes it inward
+  untouched; there is no bound to remove (ADR-0019/R1 already held).
+- **Admin** — `generate_batch` hardcodes density 50, which is inside the new
+  range. No preset emits 0 or 100.
+
+**AC-B could not be asked as written.** It says "the web form refuses density 0
+and 100". CARD-032 made the form image-only, and `test_the_form_page_has_no_
+density_field` pins that it has no density field at all. The criterion's real
+content is the adapter contract beside it, so the test asserts `submission`
+hands 0 and 100 inward unchanged — the web mirror of `test_cli.py`'s
+`test_out_of_domain_range_values_pass_the_parser_untouched`. The refusal itself
+is AC-128's.
+
+**Registry (item 4).** FR-004's amendment note is marked RESOLVED with the
+decision, and the original note is kept below it as the record of what was
+open. ADR-0003 gains a History entry: the ±3-point band now applies over
+1..99, and nothing about the tolerance changes — it held by construction over
+the wider range and still does. `DENSITY_TOLERANCE_POINTS` untouched (G-2).
+
+### Two tests were updated, and both were right before
+
+- `test_zero_density_valid` asserted that density 0 generates an all-empty
+  grid and checked every cell was `False`. A true description of what the code
+  did. It is now `test_zero_density_is_refused`, and also pins that 1 is the
+  lowest density that is not refused — the case is kept and its expectation
+  inverted, not deleted.
+- `tests/test_image_batch_clock.py`'s test double generated its stand-in
+  puzzle at **density 100** — an all-filled grid is the fastest certainly
+  unique answer there is. This card made that an invalid request, so the
+  double uses 99: one empty cell, just as instant, just as certainly unique,
+  and legal. Three tests failed on this and none of them was about density.
+
+### Checkpoint, run as the CLI rather than through pytest
+
+```
+--density 0   -> exit 3 | density must be a percentage between 1 and 99 inclusive
+--density 100 -> exit 3 | (same message)
+--density 150 -> exit 3 | (same message)
+--density 1   -> exit 0
+--density 99  -> exit 0
+```
+
+The `--export json --out` control confirms the other half: a refusal leaves
+the directory empty, while density 50 with the same flags writes one file. The
+first version of that assertion would have passed without the export flags,
+for the unrelated reason that nothing writes a file without them.
+
+**Mutation check** — five mutants: each bound moved outward (0 and 100 legal
+again), each moved inward (1 and 99 wrongly refused), and the range restated
+inline in `validate_density` instead of read from the constants. All caught.
+
+**Full suite: 3,606 passed, 0 failed**, 26 skipped, one deselection.

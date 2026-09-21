@@ -105,3 +105,9 @@ and test, where the chosen fixed-point band needs only one constant.
 - 2026-08-27: Created — accepted ±3 percentage points as the random-generation
   density tolerance, in favor of a relative-percentage band, to keep the
   requested density meaningful across the 10x10–50x50 size range.
+- 2026-09-21 (CARD-078): the band now applies over a requested density of
+  1..99, not 0..100 — ADR-0027 refuses both old ends as invalid input. Nothing
+  about the tolerance itself changes: it held by construction over the wider
+  range and still does, since the sampler places an exact rounded count and the
+  two values removed were the two where that count was the whole grid or none
+  of it. `DENSITY_TOLERANCE_POINTS` is unchanged in name and value.
