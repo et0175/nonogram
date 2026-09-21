@@ -1,24 +1,24 @@
 # CARD-034: Calculate image metadata on file upload (client-side)
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d _(the feature shipped; what is left is one false criterion and a row of assertions that cannot fail)_
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** n/a — deletions and a criterion retirement; no behaviour changed
 **Branch:** card/034-client-metadata
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-034
 **Source:** User feedback during wave 0 testing
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-031 _(closed 2026-09-21 — and its server-side path, which AC-138 names as this card's fallback, was deleted by CARD-104)_
 **Touches:** tests/test_web_metadata.py (the vacuous assertions), meta/kanban/cards/CARD-034.md (AC-138)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-21
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -135,16 +135,16 @@ Calculate image metadata and suggestions **client-side** on file selection (not 
 ## Acceptance criteria
 
 - **AC-135** (instant preview) — metadata and suggestions appear instantly when file is selected (within 1s), without form submission.
-  *test:* `TestWebUI_InstantMetadataOnFileSelect`
+  *test:* `TestAC135_InstantDisplay` and `TestFormIntegration` in `tests/test_web_metadata.py`
 
 - **AC-136** (suggestion click) — clicking suggestion populates size field, file input retains selection, user can submit immediately.
-  *test:* `TestWebUI_ClickSuggestionPreserveFile`
+  *test:* `TestAC136_SuggestionInteraction` in `tests/test_web_metadata.py`
 
 - **AC-137** (algorithm parity) — client-side and server-side metadata calculations are identical for same image.
-  *test:* `TestWebUI_ClientServerMetadataMatch`
+  *test:* `TestAlgorithmParity` in `tests/test_web_metadata.py` — **the Python side only**; see the note below
 
 - **AC-138** (fallback) — no error if File API unavailable; suggestions shown after submission as before (CARD-031 fallback).
-  *test:* `TestWebUI_FileAPIFallback`
+  *test:* `TestAC138_GracefulFallback` in `tests/test_web_metadata.py` — first clause only; the second is retired
 
 ## Guardrails
 
@@ -164,3 +164,55 @@ Calculate image metadata and suggestions **client-side** on file selection (not 
 ## Worktree notes
 
 —
+
+### Delivered 2026-09-21
+
+**AC-138's fallback clause is retired.** "Suggestions shown after submission as
+before (CARD-031 fallback)" described something that never ran: CARD-031's
+server-side rendering had zero call sites from the day it was written, and
+CARD-104 deleted it. A browser without the File API gets no metadata, before
+and after. The first clause — no error — stands, and is what the class now
+tests.
+
+Taken as the card's own recommendation rather than asked a third time. It is a
+docs change and reversible: if a fallback is ever wanted, it is a feature to
+build, not a regression to fix.
+
+**Three assertions deleted for being unfailable**, named here so the deletion
+is auditable:
+
+* `assert "if" in content` — true of every JavaScript file ever written.
+* `assert "Image" in content` — satisfied by the word inside
+  `extractImageMetadata`.
+* `test_metadata_js_has_algorithm_comments` in full — four assertions that the
+  file mentions "AC-135".."AC-138" in its comments. A test that the code is
+  annotated, not that it works.
+
+What is left in their place is still a grep (`"FileReader" in content`) but a
+grep for something that would genuinely be absent if the feature detection
+were removed. No cleverer greps were substituted, as the card asked.
+
+**The four `*test:*` lines now point at the classes that exist.**
+
+### A correction to this card's own re-cut
+
+The re-cut said AC-137 "cannot be tested as written… Nothing runs the
+JavaScript. Nothing can: the dependency baseline is stdlib + Pillow + NumPy,
+which admits no JS engine."
+
+That overstated it. `test_metadata_js_has_no_syntax_errors` shells out to
+`node --check` and **skips** when node is absent — an opportunistic check that
+costs the baseline nothing, because nothing requires node to be there. On this
+machine node v24.15.0 is present, so the file is really parsed on every run.
+
+Parsing is not executing, so AC-137's claim — that the two implementations
+agree — is still checked by testing the Python side and reading the JavaScript.
+But the route to checking it properly is open, and cheaper than the ADR
+question I invented: the same opportunistic-node pattern could run
+`suggestDimensions` and compare. That needs a way to reach the functions, which
+are closed inside an IIFE, so it is a real design choice (an export hook in the
+script, or a harness that evaluates it with a stubbed `document`) and belongs
+in its own card rather than smuggled into a cleanup. **CARD-105.**
+
+**Full suite: unchanged.** Nothing here alters behaviour; `tests/test_web_metadata.py`
+goes from 27 assertions to 23 tests passing with the dead weight gone.

@@ -48,16 +48,6 @@ class TestStaticFileServing:
         assert "function suggestDimensions(" in content, "suggestDimensions function should be defined"
         assert "function updateFormWithMetadata(" in content, "updateFormWithMetadata function should be defined"
 
-    def test_metadata_js_has_algorithm_comments(self) -> None:
-        """Verify metadata.js documents the algorithm correctly."""
-        js_file = Path(__file__).parent.parent / "src" / "nonogram" / "web" / "static" / "metadata.js"
-        content = js_file.read_text()
-
-        # Check for AC references
-        assert "AC-135" in content, "AC-135 should be documented"
-        assert "AC-136" in content, "AC-136 should be documented"
-        assert "AC-137" in content, "AC-137 should be documented (algorithm parity)"
-        assert "AC-138" in content, "AC-138 should be documented (graceful fallback)"
 
 
 class TestAlgorithmParity:
@@ -355,17 +345,31 @@ class TestAC136_SuggestionInteraction:
 
 
 class TestAC138_GracefulFallback:
-    """Test AC-138: Graceful fallback if File API unavailable."""
+    """AC-138, minus the half that was never true.
+
+    The criterion read "no error if File API unavailable; suggestions shown
+    after submission as before (CARD-031 fallback)". There has never been such
+    a fallback: CARD-031's server-side rendering had zero call sites from the
+    day it was written, and CARD-104 deleted it. A browser without the File API
+    gets no metadata at all — before that deletion and after it.
+
+    The second clause is retired in the card. What is tested here is the first:
+    the script looks before it leaps, and says so in the console rather than
+    throwing.
+    """
 
     def test_file_api_availability_check(self) -> None:
         """Verify code checks for File API availability."""
         js_file = Path(__file__).parent.parent / "src" / "nonogram" / "web" / "static" / "metadata.js"
         content = js_file.read_text()
 
-        # Check for File API feature detection
+        # CARD-034 deleted two assertions from here that could not fail:
+        # `"Image" in content` is satisfied by the word inside
+        # `extractImageMetadata`, and `"if" in content` is true of every
+        # JavaScript file ever written. What is left is a grep too, but a
+        # grep for something that would genuinely be absent if the feature
+        # detection were removed.
         assert "FileReader" in content, "Should check for FileReader availability"
-        assert "Image" in content, "Should check for Image API availability"
-        assert "if" in content, "Should have conditional checks for availability"
 
     def test_error_logging_for_graceful_degradation(self) -> None:
         """Verify errors are logged gracefully (AC-138)."""
