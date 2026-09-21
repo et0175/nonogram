@@ -206,6 +206,29 @@ def _origin_is_local(origin: str) -> bool:
     return _host_is_local(split.netloc)
 
 
+def _image_media_type(data: bytes) -> str:
+    """The media type of an uploaded picture, from its own first bytes.
+
+    A retained upload has no extension — ``tempfile.mkstemp`` names it
+    ``nonogram-upload-XXXXXX`` — so the file itself is the only thing that
+    knows. Read from the signature rather than from anything the client said,
+    which is the same reason the rest of this feature trusts a token over a
+    name. Anything unrecognised is served as bytes: the browser will decline to
+    render it, which is the right outcome for a file that is not a picture.
+    """
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "image/gif"
+    if data.startswith(b"BM"):
+        return "image/bmp"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "application/octet-stream"
+
+
 class WebUIRequestHandler(BaseHTTPRequestHandler):
     """COMP-008's request handler.
 
@@ -395,6 +418,15 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             self._respond(HTTPStatus.BAD_REQUEST, _TEXT, f"{html.escape(refusal)}\n")
             return
         path = urllib.parse.urlsplit(self.path).path
+
+        # CARD-044: the picture a retained upload stands for, so the page a
+        # submission renders can show what the retry is holding. The token is
+        # the only key — this resolves through nonogram.web.uploads and so
+        # answers for nothing this process did not mint, which is why a path
+        # handed in its place is simply a token nobody has.
+        if method == "GET" and path.startswith("/upload/"):
+            self._serve_upload(path[len("/upload/"):])
+            return
 
         # Handle /static/ prefix for static assets (CARD-034)
         if method == "GET" and path.startswith("/static/"):
@@ -810,6 +842,40 @@ class WebUIRequestHandler(BaseHTTPRequestHandler):
             # deletes it on success, on eviction, or on clear().
             if image_path is not None and uploads.resolve(upload_token) is None:
                 image_path.unlink(missing_ok=True)
+
+    def _serve_upload(self, token: str) -> None:
+        """Serve a retained upload by its token (CARD-044).
+
+        404 for anything the store does not hold, which covers a token that was
+        never minted, one whose submission has since succeeded, and a
+        filesystem path submitted where a token belongs. There is no path
+        arithmetic here to get wrong: the token is a dict key, not a name.
+        """
+        path = uploads.resolve(urllib.parse.unquote(token))
+        if path is None:
+            self._respond(
+                HTTPStatus.NOT_FOUND,
+                "text/plain; charset=utf-8",
+                "no such upload\n",
+            )
+            return
+        try:
+            data = path.read_bytes()
+        except OSError:
+            self._respond(
+                HTTPStatus.NOT_FOUND,
+                "text/plain; charset=utf-8",
+                "no such upload\n",
+            )
+            return
+        # Bytes, so written the way `_serve_static` writes a file rather than
+        # through `_respond`, which takes str.
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", _image_media_type(data))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _fail(self, summary: str, reasons: Sequence[str]) -> None:
         """Render one failure page (EC-003).

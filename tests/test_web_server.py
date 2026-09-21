@@ -2441,6 +2441,9 @@ _UNESCAPED_PAGE_INTERPOLATIONS: dict[str, str] = {
     "export_checkboxes": "CARD-030: checkbox HTML (escaped by _checkboxes)",
     "token_val": "CARD-037: form field value (escaped by _form_field_value)",
     "token_field": "CARD-037: hidden-input HTML built above from token_val",
+    "preview_src": "CARD-044: src attribute built from token_val (escaped by _form_field_value)",
+    "preview_visible.strip()": "CARD-044: HTML class literal or empty",
+    "preview_block": "CARD-044: preview HTML built above from the two names above",
     "MIN_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
     "MAX_SIZE": "CARD-063: shared constant from nonogram.limits (int), guarded by ``:d``",
 }
@@ -2462,17 +2465,19 @@ class TestWebPages_EscapingRuleIsTheOneTheDocstringStates:
     """
 
     def test_the_split_is_the_one_the_docstring_states(self) -> None:
-        """49 interpolations, 16 escaped at the point of interpolation, 33 not.
+        """53 interpolations, 16 escaped at the point of interpolation, 37 not.
 
         53/19/34 until CARD-104 deleted ``_suggestions_section`` and
         ``_metadata_section``, which nothing ever called; 47/16/31 until
-        CARD-037 added the upload token's hidden field.
+        CARD-037 added the upload token's hidden field; 49/16/33 until CARD-044
+        gave the result page the preview block it never had. Back at 53 by a
+        different route, which is a coincidence and not a restoration.
         """
         found = _page_interpolations()
 
-        assert len(found) == 49, [(i.line, i.expression) for i in found]
+        assert len(found) == 53, [(i.line, i.expression) for i in found]
         assert sum(1 for i in found if i.escaped) == 16
-        assert sum(1 for i in found if not i.escaped) == 33
+        assert sum(1 for i in found if not i.escaped) == 37
 
     def test_every_unescaped_interpolation_is_one_the_docstring_classifies(self) -> None:
         """A thirteenth fails here, by name, rather than passing unnoticed.
