@@ -35,7 +35,6 @@ _(none)_
 - **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 - **CARD-034** P2 · Client-side image metadata — **the feature shipped**; AC-138 names a fallback that has never existed (CARD-104 deleted the dead code behind it), and its tests include `assert "if" in content`  _(wave 5)_ — owner's pick: retire the clause or build the fallback
 - **CARD-043** P2 · Clear error/success message when new image is uploaded  _(wave 6)_
-- **CARD-044** P1 · Image preview after a submission — re-cut 2026-09-21: the result page carries no preview markup at all, and AC-165 ("clear the preview on error") now contradicts CARD-037, which keeps the picture · owner's pick on AC-163: serve the retained upload by token, or retire it  _(wave 6)_
 
 ## In Progress
 _(none)_
@@ -44,6 +43,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-044** P1 · The picture a retry is holding is on screen — the result page had no preview markup at all, which the card had not noticed; `GET /upload/<token>` serves the retained upload and 404s everything it did not mint · AC-165 inverted, because CARD-037 keeps the picture that criterion assumed was gone · merged without a review cycle, at the owner's call · merged 666f685
 - **CARD-037** P2 · A rejected submission keeps its picture — by opaque token, never a path: the salvaged design accepted a filesystem path from the client and opened it as the picture · retention ends when the *picture* was what was refused, which the suite caught · 4 of 5 mutants, the fifth reported rather than dressed up · merged without a review cycle, at the owner's call · merged e531cc7
 - **CARD-103** P2 · `puzzles.book_id` constrained — `ON DELETE SET NULL`, migration 009 · unblocked by the owner's deploy and backfill · verified against real Postgres including its failure mode (a violating row leaves the upgrade refusing at 008, untouched) · five tests that fabricated book ids fixed with a new `make_book` helper · merged without a review cycle, at the owner's call · merged 9dd1480
 - **CARD-104** P2 · Opened on a false premise and says so — CARD-030 and CARD-033 were tested all along under names their cards did not predict; the broken `*test:*` trail was the whole defect · the real find was CARD-031's server-rendered metadata, which no page ever produced: computed on every upload and discarded inside a catch-all except, now deleted · CARD-030/031/033 closed, six review files recovered · suite unchanged at 3,613 · merged without a review cycle, at the owner's call · merged 2780ef0
