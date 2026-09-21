@@ -245,6 +245,25 @@
   /**
    * Clear metadata and suggestions from the form.
    */
+  /**
+   * Clear the result of the previous submission (CARD-043, AC-161).
+   *
+   * Called when a different picture is chosen, not when the form is submitted
+   * — CARD-038's script in pages.py already does that, and by then the user
+   * has finished deciding. The message this removes is the one still sitting
+   * on screen while they choose, describing an attempt they have moved on
+   * from.
+   *
+   * Guarded: this script loads on every page that includes it, and a page
+   * without the container must not throw.
+   */
+  function clearResultMessage() {
+    const resultContainer = document.querySelector("[data-result-container]");
+    if (resultContainer) {
+      resultContainer.innerHTML = "";
+    }
+  }
+
   function clearMetadata() {
     const container = document.getElementById("metadata-suggestions-area");
     if (container) {
@@ -289,6 +308,7 @@
         console.log("File API not available - metadata calculation unavailable");
         fileInput.addEventListener("change", function() {
           clearMetadata();
+          clearResultMessage();
         });
         return;
       }
@@ -296,6 +316,13 @@
       // AC-135: Handle file selection and calculate metadata
       fileInput.addEventListener("change", function() {
         try {
+          // CARD-043: the previous result goes as soon as a different picture
+          // is chosen, whatever happens next. Paired with clearMetadata so the
+          // message and the picture never fall out of step — since CARD-037 a
+          // failed submission keeps its picture and CARD-044 shows it, so
+          // removing the text alone would leave the old preview stranded
+          // beside a form that claims nothing has happened.
+          clearResultMessage();
           if (this.files.length === 0) {
             clearMetadata();
             clearSizeField(); // AC-149: Clear size field when no image selected
