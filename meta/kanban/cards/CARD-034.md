@@ -1,6 +1,6 @@
 # CARD-034: Calculate image metadata on file upload (client-side)
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d _(the feature shipped; what is left is one false criterion and a row of assertions that cannot fail)_
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** CARD-031 _(closed 2026-09-21 — and its server-side path, which AC-138 names as this card's fallback, was deleted by CARD-104)_
 **Touches:** tests/test_web_metadata.py (the vacuous assertions), meta/kanban/cards/CARD-034.md (AC-138)
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
