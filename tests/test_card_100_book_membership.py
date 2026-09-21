@@ -32,6 +32,7 @@ import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
 from nonogram.admin.book_manager import BookManager
 from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService, PuzzleStatus
+from tests.helpers.db import make_batch, sqlite_session_scope
 
 
 # --------------------------------------------------------------------------
@@ -39,40 +40,20 @@ from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService, Puzz
 # --------------------------------------------------------------------------
 
 
-def _sqlite_session_scope(tmp_path):
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    from nonogram.db.models import Base
-
-    engine = create_engine(f"sqlite:///{tmp_path / 'admin.db'}")
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine)
-
-    @contextmanager
-    def scope():
-        db = factory()
-        try:
-            yield db
-            db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            db.close()
-
-    return scope
-
-
 class Panel:
     """A store and a book manager wired together the way ``create_app`` does."""
+
+    #: The batch every puzzle here belongs to. In DB mode it is a row that
+    #: really exists: ``puzzles.batch_id`` is a foreign key, and a fabricated
+    #: id was accepted only while SQLite had foreign keys switched off
+    #: (CARD-102).
+    BATCH = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
     def __init__(self, session_factory=None):
         self.store = PuzzleReviewService(session_factory=session_factory)
         self.books = BookManager(session_factory=session_factory, puzzle_store=self.store)
-
-    #: DB mode parses a batch id as a UUID, so the tests use a real one.
-    BATCH = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        if session_factory is not None:
+            make_batch(session_factory, self.BATCH, source="random", total_count=0)
 
     def add(self, status="approved", batch_id=BATCH, name="p.png"):
         puzzle_id = self.store.add_puzzle(
@@ -111,7 +92,7 @@ def panel(request, tmp_path):
     """AC-1/AC-5: both storage modes, side by side, for every rule."""
     if request.param == "memory":
         return Panel()
-    return Panel(session_factory=_sqlite_session_scope(tmp_path))
+    return Panel(session_factory=sqlite_session_scope(tmp_path))
 
 
 @pytest.fixture

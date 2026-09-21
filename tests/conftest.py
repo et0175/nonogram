@@ -2,13 +2,32 @@
 
 import pytest
 import os
+import sqlite3 as _sqlite3
 from pathlib import Path
-from sqlalchemy import text
+from sqlalchemy import event as _sqlalchemy_event, text
+from sqlalchemy.engine import Engine as _SQLAlchemyEngine
 
 # Local imports
 from nonogram.admin.app import create_app
 from nonogram.admin.puzzle_review import get_puzzle_review_service, MockGenerator, PuzzleReviewService
 from nonogram.admin.batch_generator import get_batch_generator, BatchGenerator
+
+
+# CARD-102: SQLite enforces foreign keys only when each connection asks it to;
+# Postgres always does. Registered here, against the Engine class rather than
+# any one engine, so that it covers every SQLite engine any test builds —
+# including ones written after this card, which is the point. Per-file
+# registration would leave the next DB-mode test file running the old way and
+# passing for it.
+#
+# What it was hiding: every DB-mode test passed a fabricated batch uuid to
+# add_puzzle. SQLite accepted the rows, Postgres refused all 43 of them, and
+# the suite was green either way — so "the tests pass" said nothing about the
+# engine production runs on.
+@_sqlalchemy_event.listens_for(_SQLAlchemyEngine, "connect")
+def _enforce_foreign_keys_on_sqlite(dbapi_connection, _connection_record):
+    if isinstance(dbapi_connection, _sqlite3.Connection):
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
 
 #: Reachability verdicts, one per database URL, for the life of the session:
