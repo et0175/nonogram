@@ -50,9 +50,12 @@ class _World:
         self.now += self.costs[index] if index < len(self.costs) else self.costs[-1]
         if index in self.abandon:
             raise GenerationAbandoned("the picture could not be made uniquely solvable")
-        # A real, uniquely solvable 10x10 puzzle, made instantly.
+        # A real, uniquely solvable 10x10 puzzle, made instantly. 99% rather
+        # than 100%: an all-filled grid is the fastest certain answer there is,
+        # but CARD-078 made it an invalid *request*. One empty cell is just as
+        # instant, just as certainly unique, and legal.
         return _real_generate(
-            orchestrator.GenerationRequest(mode="random", width=10, height=10, density=100, seed=1)
+            orchestrator.GenerationRequest(mode="random", width=10, height=10, density=99, seed=1)
         )
 
 

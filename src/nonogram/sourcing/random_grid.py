@@ -75,13 +75,22 @@ __all__ = [
 # NFR-001), are defined once in nonogram.limits and re-exported here, where
 # the range is enforced (CARD-063).
 
-#: Valid requested density, in percent, inclusive on both ends (FR-004): 0
-#: yields an all-empty grid and 100 an all-filled one. Both are degenerate
-#: puzzles that later pipeline stages (uniqueness, difficulty) will reject on
-#: their own terms — they are not *invalid input*, which is all this module
-#: judges.
-MIN_DENSITY = 0
-MAX_DENSITY = 100
+#: Valid requested density, in percent, inclusive on both ends (FR-004,
+#: ADR-0027/R1). This pair is the *only* statement of the range: the CLI's
+#: ``--density`` help deliberately does not repeat it, and no adapter bounds
+#: the field (ADR-0010, ADR-0019/R1).
+#:
+#: 0 and 100 are excluded because they are not puzzles. An all-empty or
+#: all-filled grid passes the uniqueness check perfectly — there is exactly
+#: one way to fill in nothing — and scores 0.000 / 0.001, Easy. Nothing
+#: downstream refuses them, and this comment used to claim otherwise: it said
+#: "later pipeline stages (uniqueness, difficulty) will reject them on their
+#: own terms", which was never true of any stage and was still here a year
+#: later. That is why the verdict is made at :func:`validate_density` and
+#: nowhere else (ADR-0027/R2) — a rule stated in one place cannot rot into a
+#: promise nobody keeps.
+MIN_DENSITY = 1
+MAX_DENSITY = 99
 
 #: ADR-0003: a generated grid honours the requested density when its filled
 #: fraction is within this many percentage points of the request.

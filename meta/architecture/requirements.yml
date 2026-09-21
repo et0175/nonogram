@@ -251,6 +251,14 @@ functional:
         test: TestConvertImage_ProducesExactTargetDimensionsWithinAcceptedRatioBand
 
   - id: FR-004
+    # AMENDMENT NOTE 2026-09-12, RESOLVED 2026-09-21 (CARD-078): the valid
+    # requested density is 1..99 inclusive. ADR-0027 took the review's
+    # recommendation — 0 and 100 are refused as InvalidDensity at
+    # validate_density, before any grid is drawn — and the alternative of
+    # explicitly allowing degenerate grids (AC-129/AC-134) is retired
+    # unimplemented. The note below is kept as written, because it is the
+    # record of what was open.
+    #
     # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
     # entry 7): the ends of the density range are under decision. Today 0 and
     # 100 are accepted and yield an all-empty / all-filled grid that passes

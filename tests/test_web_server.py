@@ -2115,6 +2115,27 @@ class TestWebForm_OnlyOffersImageMode:
         assert b'name="density"' not in response.body
         assert b"Density" not in response.body
 
+    def test_the_adapter_hands_a_degenerate_density_inward_untouched(
+        self, running_server: server.LoopbackHTTPServer
+    ) -> None:
+        """AC-B (CARD-078), as the code actually permits it to be asked.
+
+        The card's wording — "the web form refuses density 0 and 100" — was
+        written before CARD-032 made the form image-only. There is no density
+        field to refuse anything with (see the test above), so the criterion's
+        real content is the adapter contract beside it: ``submission`` carries
+        a density inward *unchanged*, because ADR-0019/R1 puts no domain
+        validation in the web adapter, and ``validate_density`` is the one
+        seam that judges (ADR-0027/R2). The refusal itself is AC-128's.
+
+        This is the web mirror of ``test_cli.py``'s
+        ``test_out_of_domain_range_values_pass_the_parser_untouched``.
+        """
+        for density in (0, 100):
+            built = submission.read(f"mode=random&size=20&density={density}").request
+
+            assert built.density == density
+
     def test_the_form_page_has_image_field_and_size_field(
         self, running_server: server.LoopbackHTTPServer
     ) -> None:
