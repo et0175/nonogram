@@ -1,6 +1,6 @@
 # CARD-044: Fix image preview with persisted uploads (bridges CARD-037, 042, 043)
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bugfix
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** 3
 **Depends on:** CARD-037, CARD-042
 **Touches:** src/nonogram/web/pages.py (the result page has no preview markup), src/nonogram/web/static/metadata.js, possibly src/nonogram/web/handler.py (a route to serve a retained upload), tests
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.5d
 **Merge commit:** —
 **Blocked by:** — _(unblocked 2026-09-21 by CARD-037, which built the persistence differently — see the re-cut)_
 
