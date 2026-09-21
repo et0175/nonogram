@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-109** P1 · The suite writes to whatever `DATABASE_URL` points at — 4 of 28 app-building test files never clear it and do not mean to use a database  _(wave 1)_ — seen twice on 2026-09-21: a stray row left behind, and four e2e tests whose result depended on a database nobody told them about
 - **CARD-105** P3 · Check the two metadata algorithms agree by running both — `node --check` already runs opportunistically, so AC-137 can be verified rather than grepped  _(wave 1)_ — needs a way to reach functions closed inside an IIFE
 - **CARD-055** P3 · Confine MockGenerator's random metrics to test-only reach  _(wave 1)_
 - **CARD-071** P3 · Architecture and docs hygiene — land the requirements registry on main, fix dangling references  _(wave 1)_ — also carries CARD-074's open findings F-001/F-002
