@@ -1,6 +1,6 @@
 # CARD-052: Regression tests for real quality_score/recognizability values
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** CARD-050
 **Touches:** tests/test_card_052_quality_filter_discriminates.py (new); none of the three files the card originally named — see the re-cut
-**Review score:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
 **Started:** 2026-09-21
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-09-21
+**Actual:** 0.25d
 **Merge commit:** —
 **Blocked by:** —
 
