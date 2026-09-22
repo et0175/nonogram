@@ -7,10 +7,21 @@
 {% block section %}Books · {{ book.metadata.title }} · step 2{% endblock %}
 
 {% block content %}
+{#- One planned-vs-selected cell, and the row of them a summary is (BK-UI-5).
+    Over-plan cells are marked, never hidden. -#}
+{% macro figure_cell(figure) -%}
+<span class="stat-cell"{% if figure.over %} data-over="true"{% endif %}>{{ figure.label }} {{ figure.selected }}{% if figure.planned is not none %} / {{ figure.planned }}{% endif %}{% if figure.over %} over{% endif %}</span>
+{%- endmacro %}
+
+{% macro figure_row(caption, tiers, total) -%}
+<span class="stat-caption">{{ caption }}:</span>
+{% for figure in tiers %}{{ figure_cell(figure) }} <span class="stat-sep" aria-hidden="true">·</span> {% endfor %}{{ figure_cell(total) }}
+{%- endmacro %}
+
 <div class="page-head">
     <div>
         <h1>Puzzle selection</h1>
-        <p class="lede">Step 2 of 4 for <strong>{{ book.metadata.title }}</strong>: pick the approved grids that go in. Click a tile to select it.</p>
+        <p class="lede">Step 2 of 4 for <strong>{{ book.metadata.title }}</strong>: pick the approved grids that go in, one longest-side tab at a time. Click a tile to select it.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
@@ -18,34 +29,42 @@
 </div>
 
 <div class="card">
+    <div class="card-header"><h2 class="card-title mb-0">Whole book</h2></div>
+    <div class="card-body">
+        <p class="stat-line" id="bookSummary">{{ figure_row('whole book', book_progress.tiers, book_progress.total) }}</p>
+        {% if not plan_present %}
+        <div class="alert alert-info">This book has no distribution plan yet, so only the selected counts are shown.
+            <a href="{{ url_for('setup_print', book_id=book.book_id) }}">Set the plan in Print setup</a> to see planned vs selected.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
     <div class="card-header"><h2 class="card-title mb-0">Filters</h2></div>
     <div class="card-body">
-        <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label for="size_from" class="form-label">Size (cells), either side</label>
-                <div class="input-group">
-                    <input type="number" class="form-control" id="size_from" name="size_from" aria-label="Side from"
-                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size_from if size_from is not none else '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
-                    <span class="input-group-text">to</span>
-                    <input type="number" class="form-control" id="size_to" name="size_to" aria-label="Side to"
-                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size_to if size_to is not none else '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
-                </div>
-            </div>
+        {#- The filter controls belong to the step's own form (HTML5 `form=`),
+            not to a GET form of their own: pressing Apply used to navigate
+            away without submitting the step, so the tiles ticked since the
+            page loaded were dropped in silence while the pagination footer
+            promised "Ticks are kept as you move" (review cycle 2, F-002).
+            Apply is now `go_filter` — the same fold-then-redirect path as
+            go_bucket and go_offset, landing on page 1 of the same tab. -#}
+        <div class="row g-3 align-items-end">
             <div class="col-md-2">
                 <label for="difficulty" class="form-label">Difficulty</label>
-                <select class="form-select" id="difficulty" name="difficulty">
+                <select class="form-select" id="difficulty" name="difficulty" form="puzzleForm">
                     <option value="">Any</option>
 {{ tier.options(difficulty or '') }}
                 </select>
             </div>
             <div class="col-md-2">
                 <label for="quality_min" class="form-label">Min quality</label>
-                <input type="number" class="form-control" id="quality_min" name="quality_min"
-                       min="0" max="100" value="{{ quality_min or '' }}" placeholder="0-100">
+                <input type="number" class="form-control" id="quality_min" name="quality_min" form="puzzleForm"
+                       min="0" max="100" value="{{ quality_min if quality_min is not none else '' }}" placeholder="0-100">
             </div>
             <div class="col-md-2">
                 <label for="theme" class="form-label">Theme</label>
-                <select class="form-select" id="theme" name="theme">
+                <select class="form-select" id="theme" name="theme" form="puzzleForm">
                     <option value="">Any</option>
                     <option value="christmas" {% if theme == 'christmas' %}selected{% endif %}>Christmas</option>
                     <option value="halloween" {% if theme == 'halloween' %}selected{% endif %}>Halloween</option>
@@ -54,41 +73,87 @@
                     <option value="generic" {% if theme == 'generic' %}selected{% endif %}>Generic</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label for="puzzle_name" class="form-label">Puzzle name</label>
-                <input type="text" class="form-control" id="puzzle_name" name="puzzle_name"
+                <input type="text" class="form-control" id="puzzle_name" name="puzzle_name" form="puzzleForm"
                        value="{{ puzzle_name or '' }}" placeholder="Search…">
             </div>
             <div class="col-md-2">
-                <button type="submit" class="btn btn-primary">{{ icons.icon('search') }} Apply</button>
+                <button type="submit" class="btn btn-primary" form="puzzleForm" name="go_filter" value="1">{{ icons.icon('search') }} Apply</button>
             </div>
-        </form>
+            <p class="form-text mb-0">Applying a filter keeps the tiles you have ticked on this page.</p>
+        </div>
     </div>
 </div>
 
 <form method="POST" id="puzzleForm">
-    <div class="card">
+    {#- difficulty, quality_min, theme and puzzle_name are NOT repeated here:
+        the Filters card's own controls carry them into this form (F-002), and
+        a hidden twin would submit each name twice. `status` has no visible
+        control, so it still travels as one. -#}
+    <input type="hidden" name="bucket" value="{{ current_bucket.label }}">
+    <input type="hidden" name="status" value="{{ status or '' }}">
+    <input type="hidden" name="limit" value="{{ limit }}">
+    <input type="hidden" name="offset" value="{{ offset }}">
+
+    {#- Roving tabindex: only the tab in force is in the page's tab order, and
+        Left/Right/Home/End move focus along the strip (the WAI-ARIA tabs
+        pattern, manual activation — a tab is a submit button, so focus must
+        not activate it). Declaring role="tablist" without this promised an
+        interaction model the widget did not have (review cycle 2, F-004). -#}
+    <div class="tabs" role="tablist" aria-label="Longest side">
+        {% for entry in tab_progress %}
+        <button type="submit" name="go_bucket" value="{{ entry.label }}"
+                class="tab{% if entry.bucket == current_bucket %} is-current{% endif %}"
+                role="tab" id="tab_{{ loop.index }}" aria-controls="tabpanel_current"
+                aria-selected="{{ 'true' if entry.bucket == current_bucket else 'false' }}"
+                tabindex="{{ '0' if entry.bucket == current_bucket else '-1' }}"
+                {% if entry.over %}data-over="true"{% endif %}>
+            <span class="tab-label">{{ entry.label }}</span>
+            {#- The over-plan marker is never colour alone: the word rides in
+                the count the way figure_cell's does (review cycle 1, F-005). -#}
+            <span class="tab-count">{{ entry.total.selected }}{% if entry.total.planned is not none %} / {{ entry.total.planned }}{% endif %}{% if entry.over %} <span class="tab-over">over</span>{% endif %}</span>
+        </button>
+        {% endfor %}
+    </div>
+
+    {#- The panel is named by the tab in force rather than by a label of its
+        own, so a screen reader reads the pair as one widget (F-004). -#}
+    {% set current_tab_id = 'tab_' ~ ((tab_progress | map(attribute='bucket') | list).index(current_bucket) + 1) %}
+    <div class="card tabpanel" id="tabpanel_current" role="tabpanel" aria-labelledby="{{ current_tab_id }}">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h2 class="card-title mb-0">
-                Available puzzles
-                <small class="text-muted fw-normal fs-6">({{ total_count }} found)</small>
+                Longest side {{ current_bucket.label }}
+                <small class="text-muted fw-normal fs-6">({{ total_count }} available)</small>
             </h2>
+            {#- "Clear" used to untick this page's boxes while the counter kept
+                reporting the whole kept set, and nothing anywhere dropped that
+                set (review cycle 2, F-003). The two acts are now two controls
+                and each says which one it is. -#}
             <div class="actions">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAll()">Select all</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAll()">Clear</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAll()">Select all on this page</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAll()">Clear this page</button>
+                <button type="submit" class="btn btn-sm btn-outline-secondary" name="go_clear" value="1"
+                        {% if not kept_count %}disabled{% endif %}>Clear all selected</button>
             </div>
         </div>
         <div class="card-body">
+            <p class="stat-line" id="tabSummary" data-bucket="{{ current_bucket.label }}">
+                {%- for entry in tab_progress %}{% if entry.bucket == current_bucket %}{{ figure_row(entry.label, entry.tiers, entry.total) }}{% endif %}{% endfor -%}
+            </p>
+
             {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
             {% elif puzzles %}
             <div class="puzzle-grid">
                 {% for puzzle in puzzles %}
                 <div class="puzzle-tile">
+                    <input type="hidden" name="shown_ids" value="{{ puzzle.id }}">
                     <div class="puzzle-tile-header">
                         <input type="checkbox" class="form-check-input puzzle-checkbox"
                                name="puzzle_ids" value="{{ puzzle.id }}"
                                id="pick_{{ puzzle.id }}"
+                               {% if puzzle.id in selected_ids %}checked{% endif %}
                                data-puzzle-size="{{ puzzle.width }}x{{ puzzle.height }}"
                                data-puzzle-difficulty="{{ puzzle.difficulty_tier or 'N/A' }}">
                         <label class="puzzle-tile-id" for="pick_{{ puzzle.id }}">{{ puzzle.puzzle_name or puzzle.id|first_n(8) }}</label>
@@ -115,8 +180,46 @@
                 </div>
                 {% endfor %}
             </div>
+            {% elif total_count %}
+            {#- The tab has members; this page of it does not. Only a hand-typed
+                offset past the end gets here, and it is not an empty tab. -#}
+            <p class="empty">This page is past the end of the {{ current_bucket.label }} tab's {{ total_count }} puzzle{{ '' if total_count == 1 else 's' }}. Go back to the first page below.</p>
             {% else %}
-            <p class="empty">No approved puzzles match these filters. Approve some in <a href="/puzzles?status=draft">puzzle review</a> first.</p>
+            <p class="empty">No approved puzzles with a longest side of {{ current_bucket.label }} match these filters. Try another tab, or approve some in <a href="/puzzles?status=draft">puzzle review</a> first.</p>
+            {% endif %}
+
+            {#- Pages of one tab. Submit buttons, not links: the tiles ticked on
+                this page are still only in this form, and a page move folds
+                them into the kept selection exactly as a tab switch does
+                (review cycle 1, F-001/F-003). -#}
+            {% if pagination and pagination.pages > 1 %}
+            {% macro page_button(label, page_offset, disabled, aria) -%}
+            <li class="page-item{% if disabled %} disabled{% endif %}">
+                {%- if disabled %}
+                <span class="page-link" aria-disabled="true">{{ label }}</span>
+                {%- else %}
+                <button type="submit" class="page-link" name="go_offset" value="{{ page_offset }}" aria-label="{{ aria }}">{{ label }}</button>
+                {%- endif %}
+            </li>
+            {%- endmacro %}
+            {% set on_first = pagination.current == 1 %}
+            {% set on_last = pagination.current == pagination.pages %}
+            <nav aria-label="Pages of the {{ current_bucket.label }} tab" class="mt-4">
+                <ul class="pagination justify-content-center flex-wrap">
+                    {{ page_button("« First", pagination.first_offset, on_first, "First page") }}
+                    {{ page_button("‹ Previous", pagination.prev_offset, on_first, "Previous page") }}
+                    {% for number, page_offset in pagination.numbers %}
+                    {% if number == pagination.current %}
+                    <li class="page-item active"><span class="page-link" aria-current="true">{{ number }}</span></li>
+                    {% else %}
+                    {{ page_button(number, page_offset, false, "Page " ~ number) }}
+                    {% endif %}
+                    {% endfor %}
+                    {{ page_button("Next ›", pagination.next_offset, on_last, "Next page") }}
+                    {{ page_button("Last »", pagination.last_offset, on_last, "Last page") }}
+                </ul>
+                <p class="text-center text-muted small mb-0">Page {{ pagination.current }} of {{ pagination.pages }} — {{ puzzles|length }} of the {{ current_bucket.label }} tab's {{ total_count }} puzzles on this page. Ticks are kept as you move.</p>
+            </nav>
             {% endif %}
         </div>
     </div>
@@ -125,17 +228,21 @@
         <button type="submit" class="btn btn-primary" id="addSelectedBtn">Add selected puzzles {{ icons.icon('arrow-right') }}</button>
         <a href="/book/{{ book.book_id }}/arrange-puzzles" class="btn btn-outline-secondary">Skip — continue without puzzles</a>
         <a href="/books" class="btn btn-outline-secondary">Cancel</a>
-        <small class="text-muted ms-auto" id="selectionCount" aria-live="polite">0 puzzles selected</small>
+        <small class="text-muted ms-auto" id="selectionCount" aria-live="polite">{{ kept_count }} puzzle{{ '' if kept_count == 1 else 's' }} selected</small>
     </div>
 </form>
 
 <script>
+// Tiles ticked on the other tabs are kept server-side, so the counter starts
+// from them and adds whatever this tab shows (CARD-122, AC-211).
+const keptElsewhere = {{ kept_count }} - document.querySelectorAll('.puzzle-checkbox:checked').length;
+
 document.querySelectorAll('.puzzle-checkbox').forEach(checkbox => {
     checkbox.addEventListener('change', updateSelectionCount);
 });
 
 function updateSelectionCount() {
-    const selected = document.querySelectorAll('.puzzle-checkbox:checked').length;
+    const selected = keptElsewhere + document.querySelectorAll('.puzzle-checkbox:checked').length;
     document.getElementById('selectionCount').textContent =
         selected + ' puzzle' + (selected !== 1 ? 's' : '') + ' selected';
 
@@ -163,8 +270,37 @@ document.querySelectorAll('.puzzle-tile').forEach(tile => {
     });
 });
 
+// The tabs pattern the role="tablist" promises: Left/Right/Home/End move
+// focus along the strip and only the focused tab is tabbable. Focus does not
+// activate — these are submit buttons, so activation is Enter or Space.
+const tabStrip = Array.from(document.querySelectorAll('.tabs [role="tab"]'));
+
+function focusTab(index) {
+    const target = tabStrip[(index + tabStrip.length) % tabStrip.length];
+    tabStrip.forEach(tab => { tab.tabIndex = tab === target ? 0 : -1; });
+    target.focus();
+}
+
+tabStrip.forEach((tab, index) => {
+    tab.addEventListener('keydown', function(e) {
+        const moves = {
+            ArrowRight: index + 1,
+            ArrowLeft: index - 1,
+            Home: 0,
+            End: tabStrip.length - 1,
+        };
+        if (!(e.key in moves)) return;
+        e.preventDefault();
+        focusTab(moves[e.key]);
+    });
+});
+
 document.getElementById('puzzleForm').addEventListener('submit', function(e) {
-    const selected = document.querySelectorAll('.puzzle-checkbox:checked').length;
+    // A tab switch, a page move, an applied filter and "Clear all selected"
+    // all keep (or deliberately drop) the ticks rather than committing them,
+    // so none of them needs a selection to be present.
+    if (e.submitter && ['go_bucket', 'go_offset', 'go_filter', 'go_clear'].includes(e.submitter.name)) return;
+    const selected = keptElsewhere + document.querySelectorAll('.puzzle-checkbox:checked').length;
     if (selected === 0) {
         e.preventDefault();
         alert('Select at least one puzzle, or use "Skip" to continue without any.');

@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from datetime import datetime, date, timezone
 
+from nonogram.admin.book_plan import TIERS as PLAN_TIERS
 from nonogram.clues import compute_clues
 from nonogram.difficulty import Tier, classify, score_difficulty, tier_of_record
 from nonogram.errors import NotUniquelySolvable, SolverTimeout
@@ -27,6 +28,65 @@ STRATEGY_NAMES: Tuple[str, ...] = (*RUNG_ORDER, STRATEGY_GUESS)
 
 #: The longest name a puzzle can be given from the review list.
 MAX_PUZZLE_NAME_LENGTH = 120
+
+
+#: CARD-122 / AC-215: the order a book's longest-side tab is listed in — tier
+#: (easy, medium, hard, ungraded last), then the shorter side ascending, then
+#: the longer side, then the id so two renders of the same tab agree.
+#:
+#: It is a ``sort_by`` value and not a Python ``sorted()`` at the route because
+#: LIMIT/OFFSET *page* a tab: an order applied to
+#: :attr:`PuzzleListResponse.puzzles` re-sorts one page in isolation, so the
+#: tier sequence restarts at easy on page 2 and the tab as a whole is not in
+#: the declared order at all (review cycle 2, F-001 — the same defect class as
+#: cycle 1's filter-after-the-slice). Anything that decides *which* rows the
+#: owner sees, or *in what order*, has to be inside the query.
+#:
+#: The four names below are tokens of :meth:`PuzzleReviewService._parse_sort_string`'s
+#: existing grammar (comma-separated, ``-`` for descending); they are additive
+#: and no previously accepted token changed meaning.
+BOOK_TAB_SORT = "tier_rank,shorter_side,longer_side,id"
+
+
+def _tier_rank(value: object) -> int:
+    """Where a stored ``difficulty_tier`` sits in :data:`book_plan.TIERS`.
+
+    The ladder is ``book_plan``'s and only ``book_plan``'s (G-1: one tier
+    order), and how the stored text is *read* is
+    :func:`nonogram.difficulty.tier_of_record`'s job — a row carries either
+    spelling in any casing, and ADR-0025's retired ``"guess"`` reads as Hard.
+    A value that is no tier at all ranks after every value that is.
+    """
+    tier = tier_of_record(value)
+    return PLAN_TIERS.index(tier) if tier in PLAN_TIERS else len(PLAN_TIERS)
+
+
+#: ADR-0025's retired fourth tier, still readable off old rows. Named here only
+#: as a *spelling* to feed :func:`_tier_rank` — the verdict on it is
+#: ``tier_of_record``'s, not this module's.
+_RETIRED_TIER_SPELLING = "guess"
+
+#: Every tier spelling a stored row can carry, trimmed and lower-cased, mapped
+#: to its rank. SQL cannot call :func:`_tier_rank`, so the DB branch needs the
+#: table — but the table is *derived* by calling that same function, so the two
+#: backends cannot drift apart and neither restates the tier ladder.
+_TIER_RANK_BY_SPELLING: Dict[str, int] = {
+    spelling: _tier_rank(spelling)
+    for spelling in sorted(
+        {s.strip().lower() for tier in Tier for s in (tier.value, tier.label)}
+        | {_RETIRED_TIER_SPELLING}
+    )
+}
+
+#: The in-memory half of the tokens above: a sort key per computed column.
+#: ``min``/``max`` rather than a stored column, because "shorter side" is a
+#: fact about the extent pair and not a scalar the row carries (ADR-0022/R1).
+_COMPUTED_SORT_KEYS = {
+    "tier_rank": lambda p: _tier_rank(p.get("difficulty_tier")),
+    "shorter_side": lambda p: min(p.get("width") or 0, p.get("height") or 0),
+    "longer_side": lambda p: max(p.get("width") or 0, p.get("height") or 0),
+    "id": lambda p: str(p.get("id") or ""),
+}
 
 
 class PuzzleStatus(Enum):
@@ -67,9 +127,40 @@ class PuzzleFilter:
     date_to: Optional[str] = None    # Filter by created_at <= date (YYYY-MM-DD)
     book_id: Optional[str] = None    # Filter by book_id (or special values: "unassigned")
     puzzle_name: Optional[str] = None  # Free-text search on puzzle_name field
+    #: Comma-separated sort tokens, ``-`` prefixing a descending one, applied
+    #: left to right **inside the query** — so LIMIT/OFFSET page the result in
+    #: this order rather than slicing some other one (review cycle 2, F-001).
+    #:
+    #: Stored columns: ``batch_id``, ``size`` (= ``width``), ``width``,
+    #: ``height``, ``quality`` (= ``quality_score``), ``difficulty``
+    #: (= ``difficulty_tier``, the stored *string*), ``created_at``,
+    #: ``puzzle_name``, ``id``. Computed keys (CARD-122, additive — no existing
+    #: token changed meaning): ``tier_rank`` (the tier's position in
+    #: ``book_plan.TIERS``, ungraded last — a rank, not the string
+    #: ``difficulty`` sorts alphabetically), ``shorter_side`` =
+    #: ``min(width, height)`` and ``longer_side`` = ``max(width, height)``.
+    #: An unknown token is ignored. :data:`BOOK_TAB_SORT` is AC-215's order
+    #: spelled in this grammar.
     sort_by: str = "batch_id,-size,quality"  # Default sort: batch DESC, size ASC, quality DESC
     limit: int = 25
     offset: int = 0
+    #: CARD-122: a range on the grid's **longest** side — ``max(width, height)``
+    #: — as ``(low, high)``, either bound optional. Not the same question as
+    #: :attr:`side_range` above, which asks whether *either* side falls inside:
+    #: a 30x12 matches ``side_range=(10, 15)`` (its short side does) but never
+    #: ``longest_side_range=(10, 15)`` (its longest side is 30). The book's
+    #: longest-side tabs are this predicate, and they must be able to page:
+    #: filtering a superset in Python after the store applied LIMIT hides the
+    #: rows the tab is made of (review cycle 1, F-001).
+    #:
+    #: A row with a side outside the supported ``MIN_SIZE..MAX_SIZE`` range —
+    #: one stored under an older limit — matches no longest-side range at all.
+    #: It belongs to no bucket, which is the verdict ``book_plan.bucket_of``
+    #: makes on the same row, so the store's count and the rendered tab agree.
+    #: Both halves of that predicate are written down as a contract in
+    #: ``book_plan.bucket_of``'s own docstring; this filter is its pushdown and
+    #: follows it rather than restating it (review cycle 2, F-006).
+    longest_side_range: Optional[Tuple[Optional[int], Optional[int]]] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for API."""
@@ -88,6 +179,7 @@ class PuzzleFilter:
             "sort_by": self.sort_by,
             "limit": self.limit,
             "offset": self.offset,
+            "longest_side_range": self.longest_side_range,
         }
 
     @staticmethod
@@ -108,6 +200,7 @@ class PuzzleFilter:
             sort_by=data.get("sort_by", "batch_id,-size,quality"),
             limit=data.get("limit", 25),
             offset=data.get("offset", 0),
+            longest_side_range=data.get("longest_side_range"),
         )
 
 
@@ -613,7 +706,9 @@ class PuzzleReviewService:
         """Parse sort_by string into list of (column, direction) tuples.
 
         Format: "batch_id,-size,quality" → [("batch_id", "asc"), ("size", "desc"), ("quality", "asc")]
-        Prefix with - for descending.
+        Prefix with - for descending. The token vocabulary — stored columns
+        plus CARD-122's computed ``tier_rank`` / ``shorter_side`` /
+        ``longer_side`` — is documented on :attr:`PuzzleFilter.sort_by`.
 
         Args:
             sort_by: Sort specification string
@@ -635,6 +730,10 @@ class PuzzleReviewService:
     def _apply_sort_to_query(self, query, sort_list: List[Tuple[str, str]]):
         """Apply multi-column sort to SQLAlchemy query.
 
+        Applied before ``count()`` and before ``offset()/limit()``, which is
+        the whole point: the page the caller gets back is a slice of *this*
+        order (see :attr:`PuzzleFilter.sort_by`).
+
         Args:
             query: SQLAlchemy query object
             sort_list: List of (column_name, direction) tuples
@@ -643,7 +742,7 @@ class PuzzleReviewService:
             Query with order_by applied
         """
         from nonogram.db.models import Puzzle
-        from sqlalchemy import desc, or_
+        from sqlalchemy import case, desc, func, or_
 
         col_map = {
             "batch_id": Puzzle.batch_id,
@@ -656,6 +755,25 @@ class PuzzleReviewService:
             "difficulty_tier": Puzzle.difficulty_tier,
             "created_at": Puzzle.created_at,
             "puzzle_name": Puzzle.puzzle_name,
+            # CARD-122's computed keys, appended. A CASE rather than a
+            # two-argument min()/max() for the same reason the longest-side
+            # filter uses one: SQLite's min()/max() are scalars of two
+            # arguments while Postgres' are aggregates of one (least()/
+            # greatest() are its scalars), and the expression has to mean one
+            # thing on both. The tier table is derived from `_tier_rank`, so
+            # this branch and the in-memory one rank a row identically.
+            "id": Puzzle.id,
+            "tier_rank": case(
+                _TIER_RANK_BY_SPELLING,
+                value=func.trim(func.lower(Puzzle.difficulty_tier)),
+                else_=len(PLAN_TIERS),
+            ),
+            "shorter_side": case(
+                (Puzzle.width < Puzzle.height, Puzzle.width), else_=Puzzle.height
+            ),
+            "longer_side": case(
+                (Puzzle.width > Puzzle.height, Puzzle.width), else_=Puzzle.height
+            ),
         }
 
         for col_name, direction in sort_list:
@@ -725,6 +843,8 @@ class PuzzleReviewService:
                 raise ValueError(f"Size dimensions must be {MIN_SIZE}-{MAX_SIZE}")
         if filter_opts.side_range:
             low, high = self._side_bounds(filter_opts.side_range)
+        if filter_opts.longest_side_range:
+            self._side_bounds(filter_opts.longest_side_range)
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
             raise ValueError("Quality min must be 0-100")
 
@@ -756,6 +876,16 @@ class PuzzleReviewService:
                 if filter_opts.side_range:
                     low, high = self._side_bounds(filter_opts.side_range)
                     if not any(low <= side <= high for side in (puzzle["width"], puzzle["height"])):
+                        continue
+                # Longest-side range (CARD-122): max(width, height), not
+                # "either side". A row with a side outside the supported range
+                # matches nothing here — see the field's own note.
+                if filter_opts.longest_side_range:
+                    low, high = self._side_bounds(filter_opts.longest_side_range)
+                    sides = (puzzle["width"], puzzle["height"])
+                    if not all(MIN_SIZE <= side <= MAX_SIZE for side in sides):
+                        continue
+                    if not low <= max(sides) <= high:
                         continue
                 # Difficulty filter. Matched by tier rather than by exact
                 # string when the requested value names one: rows carry either
@@ -810,8 +940,20 @@ class PuzzleReviewService:
                             continue
                 filtered.append(puzzle)
 
-            # Apply multi-column sort (legacy: sort in Python)
+            # Apply multi-column sort (legacy: sort in Python). Applied to the
+            # whole filtered set and *before* the slice below, so `paginated`
+            # is a page of this order — the in-memory mirror of what
+            # `_apply_sort_to_query` does ahead of OFFSET/LIMIT.
             for col_name, direction in reversed(sort_list):
+                # CARD-122's computed keys first: `tier_rank`, `shorter_side`,
+                # `longer_side` and `id` are not stored columns, and `id` in
+                # particular must not fall through to the `or 0` default below
+                # (a str against an int raises).
+                if col_name in _COMPUTED_SORT_KEYS:
+                    filtered.sort(
+                        key=_COMPUTED_SORT_KEYS[col_name], reverse=(direction == "desc")
+                    )
+                    continue
                 col_map_py = {
                     "batch_id": "batch_id",
                     "size": "width",
@@ -839,7 +981,7 @@ class PuzzleReviewService:
 
         else:
             # DB mode: query database
-            from sqlalchemy import String, cast, or_
+            from sqlalchemy import String, case, cast, or_
             from nonogram.db.models import Puzzle
             import uuid as uuid_module
 
@@ -857,6 +999,20 @@ class PuzzleReviewService:
                     low, high = self._side_bounds(filter_opts.side_range)
                     query = query.filter(
                         or_(Puzzle.width.between(low, high), Puzzle.height.between(low, high))
+                    )
+                if filter_opts.longest_side_range:
+                    low, high = self._side_bounds(filter_opts.longest_side_range)
+                    # CASE rather than a two-argument max(): SQLite's max() is
+                    # a scalar of two arguments but Postgres' is an aggregate
+                    # of one (greatest() is its scalar), and this expression
+                    # has to mean the same thing on both.
+                    longest = case(
+                        (Puzzle.width > Puzzle.height, Puzzle.width), else_=Puzzle.height
+                    )
+                    query = query.filter(
+                        Puzzle.width.between(MIN_SIZE, MAX_SIZE),
+                        Puzzle.height.between(MIN_SIZE, MAX_SIZE),
+                        longest.between(low, high),
                     )
                 if filter_opts.difficulty:
                     # Both spellings, for the reason in the in-memory branch

@@ -138,10 +138,18 @@ def test_ac2_the_preset_labels_match_the_preset_table(admin_client, tmp_path):
         assert f"{value} cells on the {side} side" in body, preset
 
 
-@pytest.mark.parametrize("name", ["puzzles_list.html", "book_select_puzzles.html"])
+# book_select_puzzles.html dropped its size filter in CARD-122 (AC-216): the
+# longest-side tabs say the unit themselves ("Longest side 21-25"), so there
+# is no size field left to label. The "Size (px)" half still holds for it.
+@pytest.mark.parametrize("name", ["puzzles_list.html"])
 def test_ac3_the_filters_are_labelled_in_cells(name):
     source = (TEMPLATES / name).read_text(encoding="utf-8")
     assert "Size (cells)" in source
+    assert "Size (px)" not in source
+
+
+def test_ac3_the_book_selection_step_still_never_says_pixels():
+    source = (TEMPLATES / "book_select_puzzles.html").read_text(encoding="utf-8")
     assert "Size (px)" not in source
 
 

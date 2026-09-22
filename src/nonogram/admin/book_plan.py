@@ -117,6 +117,23 @@ def bucket_of(width: int, height: int) -> LongestSideBucket:
     Decided by ``max(width, height)`` alone. Both sides must lie in the
     supported range; a side outside it belongs to no tab.
 
+    The contract a database pushdown must mirror
+    --------------------------------------------
+    This function is the *whole* verdict, and a store that narrows to a bucket
+    in SQL (``PuzzleFilter.longest_side_range``, CARD-122) has to reproduce
+    both halves of it, not only the interesting one:
+
+    1. ``low <= max(width, height) <= high`` for the bucket's own
+       :attr:`~LongestSideBucket.low` / :attr:`~LongestSideBucket.high`, which
+       come from here and from nowhere else (G-1); **and**
+    2. *both* sides inside ``MIN_SIZE..MAX_SIZE`` — a row stored under an
+       older size limit belongs to no bucket at all rather than to the nearest
+       one, which is the same verdict :func:`selection_cells` makes on it.
+
+    Half 2 is the one a pushdown forgets, and forgetting it makes the store's
+    count and the rendered tab disagree about the same row. Changing either
+    half here is a change to that predicate too (review cycle 2, F-006).
+
     Raises:
         SizeOutOfRange: either side is outside ``MIN_SIZE..MAX_SIZE``.
     """
