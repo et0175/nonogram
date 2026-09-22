@@ -114,3 +114,58 @@ events:
     aggregate: AGG-001
     source: [US-006]
     payload_summary: retry_count, flipped_pair (one filled cell, one empty cell — both inside undecided_mask), repaired_grid
+  # New 2026-09-22 (delta — book generator, FR-030..FR-039). Events on
+  # AGG-002 Book.
+  - id: EVT-016
+    name: BookPrintSetupSaved
+    triggered_by: CMD-015
+    aggregate: AGG-002
+    source: [US-023, US-025]
+    payload_summary: book_id, trim_width_cm, trim_height_cm, gutter_margin_cm, outside_margin_cm, plan(total_count, split{easy,medium,hard}, per_bucket[<=15,16-20,21-25,26-30][easy,medium,hard], hand_edited_cells), split_changed
+  - id: EVT-017
+    name: PuzzlesAddedToBook
+    triggered_by: CMD-016
+    aggregate: AGG-002
+    source: [US-023, US-026]
+    payload_summary: book_id, puzzle_ids, below_floor_overrides{puzzle_id -> cell_mm}, confirmed_on_published
+  - id: EVT-018
+    name: PuzzleRemovedFromBook
+    triggered_by: CMD-017
+    aggregate: AGG-002
+    source: [US-027]
+    payload_summary: book_id, puzzle_id, remaining_order
+  - id: EVT-019
+    name: BookMarkedReady
+    triggered_by: CMD-018
+    aggregate: AGG-002
+    source: [US-026]
+    payload_summary: book_id, status (the ready status — which BookStatus is open, FR-037), per_cell_actual_vs_plan
+  - id: EVT-020
+    # AMENDED 2026-09-22 (b) (FR-040, FR-041): the payload also records the
+    # page composition — each puzzle page single or two-up (with its shared
+    # cell) and the divider page before each non-empty level; page_count
+    # includes the divider pages and counts a two-up page once.
+    name: BookPdfGenerated
+    triggered_by: CMD-019
+    aggregate: AGG-002
+    source: [US-023, US-024]
+    payload_summary: book_id, trim, margins_applied (gutter after the KDP page-count minimum), page_count, cell_mm per puzzle, below_floor_count, pages[](kind single|two_up|divider, puzzle numbers, shared_cell_mm for two_up, level for divider)
+  - id: EVT-021
+    name: BookPlanMatrixRederived
+    triggered_by: CMD-020
+    aggregate: AGG-002
+    source: [US-025]
+    payload_summary: book_id, split, per_bucket (re-derived prefill)
+  - id: EVT-022
+    name: BookGeneralInfoEdited
+    triggered_by: CMD-021
+    aggregate: AGG-002
+    source: [US-027]
+    payload_summary: book_id, title, theme, audience
+  # New 2026-09-22 (b) (delta — book layout, FR-041).
+  - id: EVT-023
+    name: BookPuzzlesReordered
+    triggered_by: CMD-022
+    aggregate: AGG-002
+    source: [US-024, US-027]
+    payload_summary: book_id, order (puzzle ids, grouped by tier — INV-009)

@@ -34,3 +34,58 @@ aggregates:
           random/library mode, resample attempts for difficulty matching,
           or pixel-nudge attempts for image mode) never exceeds its
           configured maximum bound (NFR-002).
+  # New 2026-09-22 (delta — book generator, FR-030..FR-039). The Book was
+  # implemented in the admin panel (admin/book_manager.py, books table,
+  # migrations 001/004/005/008/009) before this model ever named it; it is
+  # modelled now because the new requirements put rules on it that must
+  # hold across its whole lifecycle. INV-004 is referenced by
+  # requirements.yml (AC-067..AC-069) but defined nowhere in this file; the
+  # new invariants start at INV-005 so that id stays unambiguous.
+  - id: AGG-002
+    name: Book
+    description: >-
+      One printed book assembled in the admin panel: its general info
+      (title, theme, audience), its print specification (trim, margins —
+      CON-018), its distribution plan (FR-034), its ordered puzzle
+      membership with per-puzzle titles and below-floor overrides, and its
+      status (draft -> ready_for_pdf -> pdf_generated -> ready_for_kdp ->
+      published). Puzzles are referenced by id, not owned: a Puzzle (AGG-001)
+      is finalized before it can be added, and a puzzle row's book_id mirrors
+      the membership (migration 009).
+    invariants:
+      - id: INV-005
+        statement: >-
+          A book's distribution plan has an easy/medium/hard split summing
+          to exactly 100% and a per-bucket plan of non-negative integer
+          counts (FR-034).
+      - id: INV-006
+        statement: >-
+          A puzzle whose cell on the book's trim is below the 4.8 mm floor
+          is a member of the book only together with an explicit override
+          stored for that puzzle id (FR-031, NFR-008).
+      - id: INV-007
+        statement: >-
+          A book reaches the ready status only when every longest-side x
+          tier cell of its selection is within +/-3 percentage points of its
+          plan (FR-037).
+      - id: INV-008
+        statement: >-
+          A published book's puzzle membership changes only after an
+          explicit confirmation of that change (FR-038).
+      # New 2026-09-22 (b) (delta — book layout, FR-040/FR-041; owner
+      # decisions BK-6, BK-7).
+      - id: INV-009
+        statement: >-
+          A book's order is grouped by tier — every easy puzzle before every
+          medium one, every medium before every hard one; within a level the
+          order is the owner's arrangement, changed only by an explicit move
+          inside that level (FR-041).
+      - id: INV-010
+        # A rule on the page composition CMD-019 derives from the book's
+        # order, tiers, clue depths and trim — not stored state, but it
+        # must hold for every PDF the aggregate produces.
+        statement: >-
+          A book page holds two puzzles only when their tiers are equal,
+          they are adjacent in the book order and both fit at one shared cell of
+          at least 7.0 mm (capped at 7.5 mm), each under its own band;
+          pairing never changes the book order (FR-040).

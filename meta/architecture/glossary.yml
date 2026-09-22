@@ -179,3 +179,156 @@ terms:
     context: shared
     aliases: [strategies_used, technique, required technique]
     source: [FR-029, FR-026, docs/GENERATION_ALGORITHM.md#6, CARD-072]
+  # New 2026-09-22 (delta — book generator, FR-030..FR-039). context: CTX-001 (ADR-0033)
+  # until forge:architect-context-mapping re-runs (contexts.yml is stale).
+  # NB "gutter" now carries TWO meanings in this project: the clue gutter
+  # beside/above a grid (export/layout.py, NFR-005) and the binding-side page
+  # margin of a book (KDP, gutter_margin_cm). They are different concepts
+  # and are kept as two terms with qualified names (TERM-020, TERM-021);
+  # bare "gutter" should not be used in new requirements.
+  - id: TERM-018
+    # AMENDED 2026-09-22 (b): "one puzzle per page" -> "one puzzle per page,
+    # or two small ones on a two-up page (TERM-030), ordered easy -> medium
+    # -> hard" (FR-040, FR-041).
+    term: Book
+    definition: >-
+      A printed collection of uniquely solvable puzzles assembled in the
+      admin panel — one puzzle per page, or two small ones on a two-up
+      page, running easy -> medium -> hard, followed by an answer key — with a
+      trim size, margins, a distribution plan and a publishing status,
+      exported as a PDF for Amazon KDP.
+    context: CTX-001
+    aliases: [puzzle book, Book 1]
+    source: [US-023, US-025, US-026, US-027, FR-030, FR-034]
+  - id: TERM-019
+    term: Trim size
+    definition: >-
+      The finished page size of a printed book, stored as trim_width_cm x
+      trim_height_cm; 8.5 x 11 in (21.59 x 27.94 cm) by default (CON-018).
+    context: CTX-001
+    aliases: [trim, page size]
+    source: [US-023, FR-030, CON-018]
+  - id: TERM-020
+    term: Gutter margin
+    definition: >-
+      The inside, binding-side page margin of a book (gutter_margin_cm);
+      0.5 in by default, never below KDP's page-count minimum. Not the clue
+      gutter (TERM-021).
+    context: CTX-001
+    aliases: [inside margin, binding margin]
+    source: [US-023, FR-030, CON-018]
+  - id: TERM-021
+    term: Clue gutter
+    definition: >-
+      The band beside a grid holding its row clues, or above it holding its
+      column clues; its depth is the longest clue's entry count on that
+      axis (max(len(clue)), export/layout.py _gutter_depth). Not the gutter
+      margin (TERM-020).
+    context: CTX-001
+    aliases: [clue band, clue depth]
+    source: [FR-030, NFR-005, NFR-008]
+  - id: TERM-022
+    term: Book cell size
+    definition: >-
+      The printed side of one grid cell of a puzzle in a book, computed per
+      puzzle on the book's trim and margins with the puzzle's real clue
+      gutters and capped at the standard cell (FR-030, NFR-008).
+    context: CTX-001
+    aliases: [printed cell, cell_mm]
+    source: [US-023, FR-030, NFR-008]
+  - id: TERM-023
+    term: Standard cell
+    definition: >-
+      The 7.5 mm cap on the book cell size — the owner's decision, so most
+      of a book prints at one consistent cell size.
+    context: CTX-001
+    aliases: [cell cap]
+    source: [US-023, NFR-008]
+  - id: TERM-024
+    term: Cell floor
+    definition: >-
+      The 4.8 mm minimum book cell size; a puzzle whose cell would print
+      smaller is flagged and needs a floor override to enter a book.
+    context: CTX-001
+    aliases: [floor, 4.8 mm floor]
+    source: [US-023, FR-031, NFR-008]
+  - id: TERM-025
+    term: Floor override
+    definition: >-
+      An explicit, per-puzzle permission, stored with the book, to include a
+      puzzle whose book cell size is below the cell floor.
+    context: CTX-001
+    aliases: [override]
+    source: [US-023, FR-031]
+  - id: TERM-026
+    term: Distribution plan
+    definition: >-
+      A book's intended content: a total puzzle count, an easy/medium/hard
+      split summing to 100%, and a per-longest-side-bucket count for each
+      tier — stored with the book and the reference for every planned-vs-
+      actual figure.
+    context: CTX-001
+    aliases: [plan, general plan, per-bucket plan, size x difficulty matrix]
+    source: [US-025, FR-034, FR-035]
+  - id: TERM-027
+    term: Longest-side bucket
+    definition: >-
+      One of four size classes a puzzle falls into by max(width, height) —
+      <=15, 16-20, 21-25, 26-30 — used by the distribution plan, the
+      selection tabs and the readiness check.
+    context: CTX-001
+    aliases: [size bucket, longest side, tab]
+    source: [US-025, US-026, FR-034, FR-036]
+  - id: TERM-028
+    # AMENDED 2026-09-22 (b): content settled by ADR-0037 ("Puzzle N ·
+    # Tier"); one band per puzzle, so a two-up page carries two (FR-040).
+    # Previous definition's last clause: "what, if anything, it carries on
+    # the puzzle page is not stated in the source."
+    term: Title band
+    definition: >-
+      The 12 mm strip reserved above each puzzle on a book page — one per
+      puzzle, so a two-up page carries two. It shows "Puzzle N · Tier"
+      (ADR-0037), never the picture title (FR-033).
+    context: CTX-001
+    aliases: [header band]
+    source: [FR-030, FR-033, FR-040, CON-018]
+  - id: TERM-029
+    term: Plan tolerance
+    definition: >-
+      The +/-3 percentage points by which each longest-side x tier cell of
+      a book's selection may differ from its plan when the book is marked
+      ready.
+    context: CTX-001
+    aliases: [readiness tolerance, +/-3 pp]
+    source: [US-026, FR-037]
+  # New 2026-09-22 (b) (delta — book layout, FR-040/FR-041). context:
+  # CTX-001 (ADR-0033).
+  - id: TERM-030
+    term: Two-up page
+    definition: >-
+      A book page holding two puzzles of one tier, adjacent in the
+      book order, printed at one shared cell of at least 7.0 mm (capped at
+      the standard cell), each under its own title band, the earlier one
+      on top.
+    context: CTX-001
+    aliases: [two-puzzle page, paired page, two slots, shared cell]
+    source: [US-023, FR-040]
+  - id: TERM-031
+    term: Divider page
+    definition: >-
+      A short page before the first puzzle of each difficulty level in a
+      book, carrying only the level's name ("Easy", "Medium", "Hard") and
+      no puzzle number.
+    context: CTX-001
+    aliases: [level divider, section divider]
+    source: [US-024, FR-041]
+  - id: TERM-032
+    term: Book order
+    definition: >-
+      The sequence in which a book's puzzles print: grouped easy -> medium
+      -> hard, the owner's arrangement within each level. It fixes puzzle
+      numbers, which puzzles may share a two-up page, and where divider
+      pages fall.
+    context: CTX-001
+    aliases: [arrangement, puzzle order, difficulty order, level]
+    source: [US-024, FR-040, FR-041]

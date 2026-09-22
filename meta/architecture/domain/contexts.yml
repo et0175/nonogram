@@ -1,10 +1,60 @@
 # generated_by: forge:architect-context-mapping
 # generated_at: 2026-08-27
 # tier: medium
-# stale: domain model updated 2026-09-12 (POL-006, CMD-014, EVT-015, TERM-011..
-#   TERM-016 — generation algorithm review). Single-context outcome is not
-#   expected to change; re-run context mapping to fold the new terms into
-#   ubiquitous_language and confirm.
+# updated_at: 2026-09-22 (delta mode — clears both stale markers:
+#   2026-09-12 (POL-006, CMD-014, EVT-015, TERM-011..TERM-016) and
+#   2026-09-22 (book generator: AGG-002 Book, CAP-006, TERM-018..TERM-029).)
+#
+# 2026-09-12 delta: no boundary signal. The generation-algorithm review
+#   changed behavior inside CAP-001/CAP-003/CAP-004 on AGG-001 only; its
+#   terms (TERM-011..TERM-016, all context: shared) plus the earlier
+#   TERM-009/TERM-010/TERM-017 are folded into CTX-001's ubiquitous_language.
+#
+# 2026-09-22 delta — CAP-006 "Book assembly" / AGG-002 Book: KEPT IN CTX-001
+#   — DECIDED by ADR-0033 (DEC-037, 2026-09-22): stays. Original note: "Does
+#   Book assembly (CAP-006, AGG-002) stay in CTX-001 or become its own
+#   bounded context (e.g. CTX-002 Book Production)?" No ADR settles it —
+#   ADR-0019 rejected a separate context for the *web UI*, but on grounds
+#   (same aggregate, BCON-0001 no network, CON-003 no persistence) that do
+#   not carry over: AGG-002 is a second aggregate, and ADR-0030/ADR-0032
+#   already admit a deployed, DB-backed admin panel.
+#   Signals FOR a separate context:
+#     - lifecycle mismatch: Book has its own lifecycle (draft -> ready_for_pdf
+#       -> pdf_generated -> ready_for_kdp -> published) and its own invariants
+#       (INV-005..INV-008); Puzzles exist independently of any book and are
+#       referenced by id only, never modified.
+#     - language change: TERM-018..TERM-029 (trim size, gutter margin, clue
+#       gutter, book cell size, standard cell, cell floor, floor override,
+#       distribution plan, longest-side bucket, title band, plan tolerance)
+#       are a print-production vocabulary absent from the generation pipeline.
+#     - different runtime/persistence: CAP-006 lives only in the admin panel
+#       (src/nonogram/admin/, Postgres + migrations), a separately deployed
+#       container, unlike the stateless CLI pipeline (CON-017).
+#     - CON-019 already imposes a one-way rule (book geometry never feeds
+#       back into CAP-005) — the shape of an upstream/downstream boundary.
+#   Signals AGAINST (why the conservative option is to stay):
+#     - one actor/owner (ACT-001, the owner) — no team or ownership seam.
+#     - CAP-006 consumes CAP-002 (clue depth), CAP-004 (difficulty tier) and
+#       re-renders via CAP-005's page renderer in-process: src/nonogram/admin
+#       imports clues/difficulty/export.pdf/orchestrator directly and is
+#       registered in tests/test_cli.py's import guard as a rank-0 ADAPTER
+#       alongside cli/web — i.e. the code already treats it as an inbound
+#       adapter of CTX-001, and c4/containers.puml (CARD-112) labels the
+#       Admin Panel container "CTX-001".
+#     - a puzzle row's book_id mirrors membership (migration 009): the two
+#       aggregates share one database, so a split today would begin life as
+#       shared_db — the risky pattern — unless that column is retired.
+#   Most conservative model (chosen here until the DEC resolves): one
+#   context, AGG-002 added as CTX-001's second aggregate, context_map stays
+#   empty. It matches the as-built code, the import guard and the C4 views,
+#   and forecloses nothing: if the DEC picks a split, CAP-006 + AGG-002 +
+#   TERM-018..TERM-029 move out wholesale (no other capability touches
+#   AGG-002) and the context_map gains one CTX-002 -> CTX-001 entry
+#   (customer_supplier / conformist on the Puzzle read model; CON-019 as the
+#   no-feedback rule). Glossary TERM-018..TERM-029 are left at
+#   context: unknown pending that DEC.
+#
+# ----- original 2026-08-27 rationale (still valid for CAP-001..CAP-005) -----
 #
 # Single-context outcome (deliberate, not a default): all 5 capabilities
 # (CAP-001..CAP-005) act on the single aggregate AGG-001 (Puzzle), and its
@@ -56,14 +106,25 @@ contexts:
       obtaining a solution grid (random / built-in library / uploaded
       image), deriving row/column clues, verifying and recovering
       uniqueness, calibrating difficulty, and exporting the finalized
-      puzzle as images or structured data. One ubiquitous language, one
-      aggregate (Puzzle), one lifecycle, one owner (the tool itself, run
-      by its single human actor).
-    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
-    aggregates: [AGG-001]
+      puzzle as images or structured data — plus, in the admin panel,
+      assembling finalized puzzles into printed books (CAP-006, AGG-002
+      Book; placement decided by ADR-0033). Two aggregates:
+      Puzzle, and Book, which references puzzles by id and never modifies
+      them. One owner (the tool itself, run by its single human actor).
+    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005, CAP-006]
+    aggregates: [AGG-001, AGG-002]
     ubiquitous_language:
-      [TERM-001, TERM-002, TERM-003, TERM-004, TERM-005, TERM-006, TERM-007, TERM-008]
+      [TERM-001, TERM-002, TERM-003, TERM-004, TERM-005, TERM-006, TERM-007,
+       TERM-008, TERM-009, TERM-010, TERM-011, TERM-012, TERM-013, TERM-014,
+       TERM-015, TERM-016, TERM-017,
+       # print-production terms of (CTX-001 per ADR-0033)
+       # CAP-006 / AGG-002; move with them if Book assembly is split out.
+       TERM-018, TERM-019, TERM-020, TERM-021, TERM-022, TERM-023, TERM-024,
+       TERM-025, TERM-026, TERM-027, TERM-028, TERM-029]
 
 # No context_map: a single context with no other contexts and no external
 # systems (external_systems.yml: []) has nothing to integrate with.
+# Re-confirmed 2026-09-22: Book -> Puzzle is an intra-context reference
+# (by id) while CAP-006 stays in CTX-001; if the expected DEC splits it out,
+# add the CTX-002 -> CTX-001 relationship here.
 context_map: []

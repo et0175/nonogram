@@ -1,6 +1,22 @@
 # generated_by: forge:architect-capability-mapping
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-09-22 (delta mode — book generator: AGG-002 Book,
+#   CMD-015..CMD-021, EVT-016..EVT-022, POL-007, FR-030..FR-039, NFR-008,
+#   US-023..US-027 -> NEW capability CAP-006 "Book assembly". No existing
+#   capability fits: CAP-001..CAP-005 all act on AGG-001 Puzzle, and the
+#   admin panel/web UI appears only as an inbound adapter (FR-017 on
+#   CAP-001), not as behavior. CAP-005 Puzzle export was considered for the
+#   book PDF (CMD-019/EVT-020, FR-030..FR-033) and rejected: CON-019 pins
+#   that book page geometry never changes CAP-005's exports, and the book
+#   PDF is produced from the Book aggregate, not from one Puzzle. A split
+#   into "Book planning & curation" + "Book printing" was also considered
+#   and rejected: printing would hold one event (EVT-020), and US-023 spans
+#   both halves (its per-trim cell size gates membership via FR-031/INV-006
+#   and sizes the PDF via FR-030) — one Book lifecycle, one actor, 7 events.
+#   CON-018/CON-019 constrain CAP-006; per this file's convention they are
+#   not listed under `requirements:` — trace.yml carries them. POL-007 is
+#   named in CAP-006's description.)
 # updated_at: 2026-09-12 (delta mode — generation algorithm review: FR-024..
 #   FR-029, NFR-007, CON-014, POL-006, CMD-014, EVT-015 mapped onto the EXISTING
 #   capabilities; no new capability, no new story. FR-024 solver mask/witness
@@ -100,3 +116,38 @@ capabilities:
     aggregates: [AGG-001]
     stories: [US-007, US-009, US-010, US-012, US-019, US-022]
     requirements: [FR-011, FR-012, FR-014, FR-016, NFR-005, NFR-006]
+
+  - id: CAP-006
+    name: Book assembly
+    description: >-
+      Assembling finalized puzzles into one printed book in the admin panel
+      and following it through its lifecycle (draft -> ready_for_pdf ->
+      pdf_generated -> ready_for_kdp -> published): editing the book's
+      general info; setting its print specification (trim, margins — default
+      Book 1 profile, CON-018) and its distribution plan (total count,
+      easy/medium/hard split, per-longest-side bucket plan), with an
+      un-hand-edited bucket plan re-derived automatically when the split
+      changes (policy POL-007, CMD-020 -> EVT-021); selecting puzzles by
+      longest-side tab against the plan, refusing below-floor puzzles
+      without an explicit per-puzzle override and published-book changes
+      without confirmation; marking the book ready only when its mix
+      matches the plan; tracking actual-vs-plan progress in the books list;
+      and generating the book PDF with every puzzle page portrait, sized
+      for the book's own trim under the 7.5 mm standard cell and 4.8 mm
+      floor, titles only in the answer key. Puzzles are referenced, never
+      modified; book geometry never leaks into CAP-005's exports (CON-019).
+      Since 2026-09-22 (b): every puzzle prints upright (never rotated),
+      the book runs easy -> medium -> hard with a divider page per level
+      and arrangement confined to a level (CMD-022 -> EVT-023), and two
+      small same-tier neighbours share a two-up page at a shared cell of
+      at least 7.0 mm.
+    # AMENDED 2026-09-22 (b): EVT-023, CMD-022, FR-040, FR-041 appended
+    # (book layout delta).
+    events: [EVT-016, EVT-017, EVT-018, EVT-019, EVT-020, EVT-021, EVT-022,
+             EVT-023]
+    commands: [CMD-015, CMD-016, CMD-017, CMD-018, CMD-019, CMD-020, CMD-021,
+               CMD-022]
+    aggregates: [AGG-002]
+    stories: [US-023, US-024, US-025, US-026, US-027]
+    requirements: [FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-036,
+                   FR-037, FR-038, FR-039, FR-040, FR-041, NFR-008]

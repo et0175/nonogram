@@ -137,6 +137,60 @@
 #        EVT-010 / EVT-014 carry payload notes — no new event or command.
 #   No new stories: sourced from US-008 and US-010. Every other unprocessed
 #   raw-requirements.md entry is UNTOUCHED by this delta.
+# updated_at: 2026-09-22 (delta mode — ONLY the raw-requirements.md section
+#   "## 2026-09-22 — Book generator: print fit on the KDP trim, distribution
+#   plan, per-size selection" (owner docs docs/book_generation_req/*.md,
+#   BK-1..BK-5, BK-UI-1..BK-UI-11). Processed in order:
+#     1. FR-030 (new) — trim-aware book cell (BK-1); AC-175..AC-181,
+#        EC-019, EC-020.
+#     2. DECISION (where the book page geometry lives) — formalized
+#        NEUTRALLY as FR-030 _meta dec_expected + CON-019 (CLI exports
+#        byte-identical either way). DEC EXPECTED, not decided here.
+#     3. CON-018 (new) — Book 1 print profile defaults.
+#     4. NFR-008 (new) — book cell in [4.8, 7.5] mm per puzzle on its real
+#        clue depth; AC-236..AC-239.
+#     5. FR-031 (new) — below-floor flag + per-puzzle override, finalise
+#        count; AC-182..AC-188, EC-021.
+#     6. FR-032 (new) — portrait only, fixed top edge, wide-grid flag;
+#        AC-189..AC-192, EC-022.
+#     7. FR-033 (new) — titles only in the answer key, bolder 5th lines,
+#        dark lines (threshold unstated — open question); AC-193..AC-195.
+#     8. FR-034 (new) — distribution plan stored with the book, per-bucket
+#        prefill, hand-edit survival (POL-007); AC-196..AC-203, EC-023.
+#     9. FR-035 (new, DEC EXPECTED) — default split for a new book;
+#        AC-204..AC-207 tagged by alternative.
+#    10. FR-036 (new) — four longest-side tabs; AC-208..AC-217, EC-024.
+#    11. FR-037 (new) — readiness gate +/-3 points; AC-218..AC-221, EC-025.
+#    12. FR-038 (new) — re-entry step workflow, published-book
+#        confirmation (replaces today's outright refusal), no loss on the
+#        way back; AC-222..AC-229, EC-026.
+#    13. FR-039 (new) — books list plan statistics; AC-230..AC-235.
+#    14. BK-UI-8 (OPEN, owner sentence unfinished) — DEFERRED, not
+#        formalized.
+#   New stories US-023..US-027 (meta/business/stories.md). Domain: AGG-002
+#   Book (INV-005..INV-008), CMD-015..CMD-021, EVT-016..EVT-022, POL-007,
+#   TERM-018..TERM-029. No existing FR/NFR/CON rewritten; NFR-006 is scoped
+#   by FR-032's statement (book pages never turn), not amended.
+# updated_at: 2026-09-22 (b) (delta mode — ONLY the raw-requirements.md
+#   section "## 2026-09-22 (b) — Book layout: upright pictures, two small
+#   puzzles per page, difficulty order" (owner, DEC-039 session; BK-3
+#   amended, BK-6, BK-7; book rules 5, 10, 11). Lines 1-3 are owner
+#   DECISIONS, formalized as decided (consistent with ADR-0033..ADR-0037):
+#     1. FR-032 AMENDED in place (dated note) — upright, never rotated; the
+#        "longest side down the page" clause and the wide-grid flag dropped;
+#        AC-191/AC-192 RETIRED unimplemented (kept, FR-004 / ADR-0027
+#        precedent); AC-240, AC-241 added; EC-022 amended (unrotated).
+#        FR-031 and FR-036 checked: no wide-grid flag in either.
+#     2. FR-040 (new) — two-up pages at a shared cell >= 7.0 mm, same tier,
+#        adjacent, in-order walk; AC-242..AC-252, EC-027, EC-028. NFR-008
+#        annotated (7.0 sits inside 4.8..7.5), threshold unchanged.
+#     3. FR-041 (new) — easy -> medium -> hard with a divider page per
+#        non-empty level; AC-253..AC-260, EC-029.
+#     4. Solution hints — DEFERRED (future feature, not Book 1).
+#   Stories US-023 and US-024 extended in place (no new story). Domain:
+#   INV-009, INV-010 on AGG-002; CMD-022/EVT-023; CMD-016 and CMD-019
+#   preconditions and EVT-020 payload amended; TERM-030..TERM-032;
+#   TERM-018 and TERM-028 amended.
 # tier: medium
 functional:
   - id: FR-001
@@ -1826,6 +1880,1087 @@ functional:
         nfr: NFR-007
         test: PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
 
+  # ===================================================================
+  # 2026-09-22 — Book generator: print fit on the KDP trim, distribution
+  # plan, per-size selection (raw-requirements.md, last section; owner docs
+  # docs/book_generation_req/book_generation_admin_panel.md BK-1..BK-5 and
+  # book_admin_ui_requirements.md BK-UI-1..BK-UI-11). All of it lives in the
+  # admin panel (COMP-009) and its database (COMP-010); the Book aggregate
+  # (AGG-002) is modelled for the first time in this delta. Cell-size
+  # figures below reproduce the owner doc's own arithmetic: usable width
+  # 215.9 - 12.7 - 9.525 = 193.675 mm and usable puzzle height
+  # 279.4 - 2 x 9.525 - 12 = 248.35 mm on the Book 1 profile (CON-018), and
+  # cell = min(7.5, usable_w / (width + row-clue depth),
+  #            usable_h / (height + column-clue depth)).
+  # ===================================================================
+  - id: FR-030
+    # RESOLVED 2026-09-22 by ADR-0036 (DEC-035): book geometry is an optional
+    # PageSpec on COMP-007's compute_layout, defaulting to today's A4;
+    # the book passes its trim/margins, portrait-only, flat 7.5 mm cap.
+    # New 2026-09-22 (BK-1). Today admin/book_pdf_generator.py hard-codes an
+    # 8.5x11 in page at 300 DPI (page_width_px/page_height_px) but builds
+    # every puzzle page through export.pdf.render_pages -> export/layout.py,
+    # whose _fit_cell sizes the cell for A4 portrait/landscape with 12 mm
+    # margins; generate_book_pdf takes trim_width_cm/trim_height_cm as
+    # "informational, for metadata" and ignores them, and no code reads the
+    # gutter_margin_cm / outside_margin_cm columns migration 004 added. No
+    # top/bottom margin column exists (models.py:121-125): those two come
+    # from CON-018 until the schema carries them.
+    #
+    # Raw line 2 of the section (DECISION, "where the book's page geometry
+    # lives") is NOT decided here: it is recorded in _meta as a DEC
+    # EXPECTED, and the constraint that holds under both alternatives is
+    # CON-019 (+ EC-020). Every criterion below holds under either
+    # alternative.
+    statement: >-
+      The book PDF sizes each puzzle's cell for the BOOK's own trim and
+      margins, never for A4: usable width = trim width - outside margin -
+      gutter margin, usable height = trim height - top margin - bottom
+      margin - the 12 mm title band (TERM-028), with the trim read from the
+      book's stored trim_width_cm / trim_height_cm and the side margins from
+      its gutter_margin_cm / outside_margin_cm (an empty column falls back
+      to the Book 1 profile, CON-018; top and bottom come from CON-018,
+      having no column today). KDP's page-count minimum is a lower bound on
+      the gutter margin (0.375 in up to 150 pages, 0.5 in for 151-300). The
+      clue gutters entering the fit are the puzzle's REAL clue depth
+      (max(len(clue)) per axis, as export/layout.py's _gutter_depth
+      measures it), not the 1.3x estimate. The result is capped at the
+      7.5 mm standard cell (NFR-008). Every page of the book PDF is the
+      trim size at 300 DPI. Where this geometry is computed — inside
+      COMP-007's compute_layout extended to take a page size and margins,
+      or in a book-owned geometry in the admin panel reusing only the
+      drawing primitives — is an open decision; CLI output is unchanged
+      under either (CON-019).
+    source: [US-023]
+    _meta:
+      source: authored
+      dec_expected: true
+      dec_question: "Where does the book's page geometry live: extend COMP-007's export/layout.py compute_layout to take a page size + margins (today its G-1 says 'no second paper size'; ADR-0007 layering), or a book-owned geometry in the admin panel (COMP-009) that reuses only COMP-007's drawing primitives? CLI PNG/SVG/PDF must stay byte-for-byte unchanged either way (CON-019)."
+      dec_alternatives: [extend_compute_layout_with_page_and_margins, book_owned_geometry_reusing_drawing_primitives]
+      criteria_by_alternative:
+        holds_under_every_alternative: [AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-181]
+      evidence: ["src/nonogram/admin/book_pdf_generator.py:52-54", "src/nonogram/admin/book_pdf_generator.py:148-167", "src/nonogram/export/layout.py:170-183", "src/nonogram/export/layout.py:506", "src/nonogram/export/layout.py:516-526", "src/nonogram/export/layout.py:564-633", "migrations/versions/004_add_print_specs_to_books.py", "migrations/versions/008_default_trim_letter.py", "src/nonogram/db/models.py:121-125", "docs/book_generation_req/book_generation_admin_panel.md#3"]
+    acceptance:
+      - id: AC-175
+        given: a book on the Book 1 profile (trim 21.59 x 27.94 cm, gutter 1.27 cm, outside/top/bottom 0.95 cm) holding a 30x30 puzzle whose row-clue and column-clue gutters are each 9 entries deep
+        when: the book PDF is generated
+        then: that puzzle's page draws a 4.97 mm cell (+/- 0.05 mm; 193.7 mm usable width over 39 cells) — not the 4.77 mm the A4 layout gives it today
+        kind: happy
+        test: TestBookPdf_CellSizedForBookTrimNotA4
+      - id: AC-176
+        given: a 6 x 9 in book (trim 15.24 x 22.86 cm, Book 1 margins) holding a 15x15 puzzle whose row-clue gutter is 7 entries deep and column-clue gutter 7 deep
+        when: the book PDF is generated
+        then: that puzzle's page draws a 5.92 mm cell (+/- 0.05 mm; 130.2 mm usable width over 22 cells), where the same puzzle on the 8.5 x 11 trim draws 7.5 mm
+        kind: boundary
+        test: TestBookPdf_CellFollowsStoredTrim
+      - id: AC-177
+        given: a 6 x 9 in book (trim 15.24 x 22.86 cm) holding 3 puzzles
+        when: the book PDF is generated
+        then: every page of the PDF is 1800 x 2700 px at 300 DPI — not the hard-coded 2550 x 3300 px letter page
+        kind: boundary
+        test: TestBookPdf_PageSizeEqualsStoredTrim
+      - id: AC-178
+        given: a book row created before print margins were set, whose gutter_margin_cm and outside_margin_cm are empty, holding a 30x30 puzzle with 9-deep clue gutters
+        when: the book PDF is generated
+        then: the cell equals the one computed on the CON-018 margins (4.97 mm on the 8.5 x 11 trim)
+        kind: boundary
+        test: TestBookPdf_EmptyMarginsFallBackToBook1Profile
+      - id: AC-179
+        given: a book storing a 0.60 cm gutter margin whose PDF runs to 180 pages
+        when: the book PDF is generated
+        then: the gutter margin applied is 1.27 cm (KDP's 0.5 in minimum for 151-300 pages), not 0.60 cm
+        kind: negative
+        test: TestBookPdf_GutterRaisedToKdpMinimumForPageCount
+      - id: AC-180
+        given: a fixed 30x30 puzzle request (seed 42) exported by `nonogram generate` as PNG, SVG and PDF on the commit before the book geometry lands
+        when: the same request is exported after it lands
+        then: all three files are byte-identical to the earlier ones
+        kind: boundary
+        test: TestCliExports_ByteIdenticalAfterBookGeometry
+      - id: AC-181
+        given: a new book created in the admin panel with no print-setup values entered
+        when: its stored print specification is read
+        then: it holds the CON-018 profile — trim 21.59 x 27.94 cm, gutter 1.27 cm, outside 0.95 cm
+        kind: happy
+        test: TestBookCreate_StoresBook1PrintProfile
+    engineering_constraints:
+      - id: EC-019
+        statement: >-
+          For any puzzle of 10..30 cells per side, any real clue depth and
+          any stored trim and margins, the drawn puzzle (grid plus both clue
+          gutters) fits inside the usable area (trim minus margins minus the
+          title band) and its cell never exceeds the 7.5 mm standard cell —
+          and the PDF page is the trim size, for every extent, not only the
+          measured examples.
+        kind: consistency
+        instances: [AC-175, AC-176, AC-177]
+        nfr: NFR-008
+        test: PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell
+      - id: EC-020
+        statement: >-
+          For any CLI generation request, the PNG, SVG and PDF files written
+          are byte-identical whether or not the book geometry exists — the
+          book's page size and margins never reach the CLI's layout
+          (CON-019), under whichever alternative the geometry DEC selects.
+        kind: compatibility
+        instances: [AC-180]
+        test: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
+
+  - id: FR-031
+    # New 2026-09-22 (BK-2, BK-UI-7). Today there is no cell-size check
+    # anywhere in the book flow; layout.py's MIN_CELL_MM = 2.0 is a render
+    # backstop, not a print rule. Puzzles enter a book through two routes:
+    # the selection step (POST /book/<id>/select-puzzles) and the detail
+    # page's paste-IDs form (POST /book/<id>/add-puzzles), both ending in
+    # BookManager.add_puzzles_to_book — the floor holds on both (EC-021).
+    statement: >-
+      A puzzle whose cell on the book's trim (FR-030's computation, the same
+      value the PDF would print) falls below the 4.8 mm floor (TERM-024) is
+      flagged on its puzzle-selection tile with its computed cell size, and
+      cannot become a member of the book, by any add route, without an
+      explicit per-puzzle override (TERM-025) that is stored with the book.
+      Every tile shows the puzzle's computed cell on the book's trim,
+      already capped at the 7.5 mm standard cell. The finalise summary
+      counts the book's puzzles below the floor, recomputed on the book's
+      current trim and margins.
+    source: [US-023]
+    _meta:
+      source: authored
+      evidence: ["src/nonogram/admin/book_manager.py:244-309", "src/nonogram/admin/app.py:2004", "src/nonogram/admin/app.py:2330", "src/nonogram/admin/templates/book_select_puzzles.html", "src/nonogram/admin/templates/book_finalize.html", "src/nonogram/export/layout.py:230"]
+      open_note: "Where the per-puzzle override is stored has no column today (migration needed; implementation detail, not a decision)."
+    acceptance:
+      - id: AC-182
+        given: a Book 1 profile book and a 30-wide x 25-tall puzzle whose row-clue gutter is 12 entries deep and column-clue gutter 8 deep (42 cells across, 4.61 mm on the trim)
+        when: the puzzle-selection step lists it
+        then: its tile shows a 4.61 mm cell with a below-floor flag
+        kind: happy
+        test: TestBookSelect_TileShowsCellAndBelowFloorFlag
+      - id: AC-183
+        given: the same Book 1 profile book and the same 4.61 mm puzzle, with no override given
+        when: the puzzle is submitted from the selection step
+        then: the puzzle is not added — the book's puzzle list is unchanged and the response names 4.61 mm against the 4.8 mm floor
+        kind: negative
+        invariant: INV-006
+        test: TestBookAddPuzzles_RefusesBelowFloorWithoutOverride
+      - id: AC-184
+        given: the same book and puzzle, submitted with an explicit override for that puzzle id
+        when: the add is processed
+        then: the puzzle becomes a member and the override is persisted for that puzzle id
+        kind: happy
+        invariant: INV-006
+        test: TestBookAddPuzzles_AcceptsBelowFloorWithOverrideAndRecordsIt
+      - id: AC-185
+        given: the same book and puzzle, with no override
+        when: its id is pasted into the book detail page's add-puzzles form (POST /book/<id>/add-puzzles)
+        then: the puzzle is not added — the floor holds on the paste-IDs route too
+        kind: negative
+        invariant: INV-006
+        test: TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride
+      - id: AC-186
+        given: a Book 1 profile book holding a 30-wide x 20-tall puzzle whose row-clue gutter is 10 entries deep and column-clue gutter 8 deep (40 cells across, 4.84 mm)
+        when: it is submitted without an override
+        then: the puzzle is added with no flag — 4.84 mm is at or above the floor
+        kind: boundary
+        test: TestBookAddPuzzles_AcceptsCellJustAboveFloor
+      - id: AC-187
+        given: a book holding 150 puzzles, 2 of them added below the floor with overrides
+        when: the finalise step renders its summary
+        then: the summary reports 2 puzzles below the 4.8 mm floor
+        kind: happy
+        test: TestBookFinalize_SummaryCountsPuzzlesBelowFloor
+      - id: AC-188
+        given: a Book 1 profile book holding a 20x20 puzzle with 8-deep row- and column-clue gutters (6.92 mm on 8.5 x 11), no puzzle below the floor
+        when: its trim is changed to 6 x 9 in and the finalise summary is rendered
+        then: the summary reports 1 puzzle below the floor (4.65 mm on the new trim)
+        kind: boundary
+        test: TestBookFinalize_SummaryRecountsBelowFloorAfterTrimChange
+    engineering_constraints:
+      - id: EC-021
+        statement: >-
+          For any puzzle, any stored trim and margins and every add route
+          (selection step, paste-IDs form, any future route ending in the
+          book store), a puzzle whose book cell is below 4.8 mm becomes a
+          member only together with a stored override for its id; and the
+          tile's cell, the add refusal and the finalise count all come from
+          the one computation FR-030's PDF uses, so no two of them can
+          disagree about a puzzle.
+        kind: consistency
+        invariant: INV-006
+        instances: [AC-183, AC-185]
+        test: PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride
+
+  - id: FR-032
+    # AMENDED 2026-09-22 (b) (raw-requirements.md "## 2026-09-22 (b)", line 1;
+    # BK-3 amended, book rule 5; owner decision — a turned picture is harder
+    # to recognise). A book puzzle is NEVER TURNED: the page is portrait and
+    # the picture prints upright, grid columns across the page. The clause
+    # "with the puzzle's longest side running down the page" is dropped —
+    # for a wide grid it could only hold by rotating the picture, which is
+    # exactly what the owner ruled out. The wide-grid flag is dropped too:
+    # a wide grid prints at the cell its width allows (20 wide -> 7.45 mm,
+    # 25 wide -> 6.0 mm, 30 wide -> ~5.0 mm) and is covered only by the
+    # 4.8 mm floor check (FR-031). AC-191 and AC-192 are RETIRED
+    # unimplemented (FR-004 / ADR-0027 precedent), kept below as the record;
+    # AC-240/AC-241 replace them. On a two-up page (FR-040) the fixed top
+    # edge is the UPPER puzzle's. FR-031 and FR-036 were checked: neither
+    # carries a wide-grid flag. Statement as first written, verbatim:
+    #   "Every puzzle page of a book is portrait, with the puzzle's longest
+    #   side running down the page; the book never turns a page to landscape
+    #   (NFR-006 governs CLI and web exports only). The top edge of the
+    #   puzzle drawing sits at the same position on every puzzle page — below
+    #   the top margin and the title band — rather than being centred
+    #   vertically. A wide grid (width greater than height) is flagged on its
+    #   puzzle-selection tile."
+    #
+    # New 2026-09-22 (BK-1 top-edge clause, BK-3). export/layout.py's
+    # _orientation_for turns the SHEET to landscape when that prints a
+    # larger cell (NFR-006) — right for a loose A4 printout, wrong inside a
+    # bound portrait book. NFR-006 is NOT amended: it stays true of the CLI
+    # and web exports; this FR scopes the book out of it.
+    statement: >-
+      Every puzzle page of a book is portrait and every puzzle prints
+      upright — never rotated: the grid's columns run across the page and
+      its rows down it, whatever its shape. The book never turns a page to
+      landscape (NFR-006 governs CLI and web exports only). A wide grid
+      (width greater than height) prints at the cell its width allows and
+      carries no flag of its own; only the 4.8 mm floor check (FR-031)
+      applies to it. The top edge of the puzzle drawing sits at the same
+      position on every puzzle page — below the top margin and the title
+      band — rather than being centred vertically; on a two-up page
+      (FR-040) that position is the upper puzzle's.
+    source: [US-023]
+    _meta:
+      source: authored
+      amended: "2026-09-22 (b) — upright pictures, no wide-grid flag (BK-3 amended)"
+      retired_criteria: [AC-191, AC-192]
+      evidence: ["src/nonogram/export/layout.py:635-716", "docs/book_generation_req/book_generation_admin_panel.md#2", "docs/book_generation_req/book_generation_admin_panel.md#3"]
+    acceptance:
+      - id: AC-189
+        given: a Book 1 profile book holding a 30-wide x 15-tall puzzle
+        when: the book PDF is generated
+        then: that puzzle's page is portrait, 2550 px wide by 3300 px tall
+        kind: happy
+        test: TestBookPdf_WideGridPrintsOnPortraitPage
+      - id: AC-190
+        given: a Book 1 profile book holding a 15x15 puzzle and a 30x30 puzzle
+        when: the book PDF is generated
+        then: the top edge of the puzzle drawing is on the same pixel row on both pages
+        kind: boundary
+        test: TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage
+      # RETIRED 2026-09-22 (b) unimplemented — the wide-grid flag is dropped
+      # (BK-3 amended); replaced by AC-241. Kept as the record.
+      - id: AC-191
+        given: a 30-wide x 15-tall puzzle available for a book
+        when: the puzzle-selection step lists it
+        then: its tile carries a wide-grid flag
+        kind: happy
+        test: TestBookSelect_FlagsWideGrid
+      # RETIRED 2026-09-22 (b) unimplemented — no wide-grid flag exists to
+      # be absent (BK-3 amended). Kept as the record.
+      - id: AC-192
+        given: a 20x20 puzzle and a 15-wide x 30-tall puzzle available for a book
+        when: the puzzle-selection step lists them
+        then: neither tile carries a wide-grid flag
+        kind: negative
+        test: TestBookSelect_SquareAndTallGridsNotFlaggedWide
+      # New 2026-09-22 (b) — upright, never turned.
+      - id: AC-240
+        given: a Book 1 profile book holding a 30-wide x 15-tall puzzle
+        when: the book PDF is generated
+        then: the puzzle's grid is drawn with 30 columns across the page and 15 rows down it (unrotated)
+        kind: happy
+        test: TestBookPdf_WideGridPrintsUprightNeverRotated
+      - id: AC-241
+        given: a Book 1 profile book and a 25-wide x 12-tall puzzle whose book cell is 6.0 mm (above the 4.8 mm floor)
+        when: the puzzle-selection step lists it
+        then: its tile carries no flag — neither a wide-grid flag nor a below-floor flag
+        kind: negative
+        test: TestBookSelect_WideGridAboveFloorCarriesNoFlag
+    engineering_constraints:
+      # AMENDED 2026-09-22 (b): "and the grid is drawn unrotated" added and
+      # AC-240 joined the instances (BK-3 amended). Otherwise unchanged.
+      - id: EC-022
+        statement: >-
+          For any puzzle extent of 10..30 per side and any clue depth, the
+          book's puzzle page is portrait, the grid is drawn unrotated
+          (width across the page, height down it), and the drawing's top
+          edge — the upper puzzle's on a two-up page — lies at one fixed
+          offset (top margin plus title band) from the top of the trim, so
+          that offset never varies between puzzle pages of a book.
+        kind: consistency
+        instances: [AC-189, AC-190, AC-240]
+        test: PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+
+  - id: FR-033
+    # RESOLVED 2026-09-22 by ADR-0037 (DEC-039): the band shows "Puzzle N ·
+    # Tier"; under the book PageSpec thin rule >= 0.25 mm, heavy = 2 x thin,
+    # pure black; final values confirmed on printed proof pages (30x30, 15x15).
+    # New 2026-09-22 (BK-5, rules 7-8). Today the PDF header band
+    # (export/layout.py header_band, HEADER_BAND_MM = 12) prints
+    # "<name> — <tier>" on the puzzle page itself; MAJOR_RULE_EVERY = 5 in
+    # layout.py already draws a heavier rule every 5th line.
+    # "Dark grid lines" and "clearly bolder" carry NO measurable threshold in
+    # the source: no criterion is written for darkness and AC-195 asserts
+    # only "wider"; the thresholds are an open question (NFR threshold DEC
+    # expected, see _meta), not invented here.
+    statement: >-
+      In a book, a puzzle's picture title appears only on its answer-key
+      page, never on its puzzle page. The puzzle grid is printed with dark
+      grid lines, and every 5th grid line is drawn bolder than the lines
+      between.
+    source: [US-024]
+    _meta:
+      source: authored
+      open_question: "Measurable thresholds for 'dark' grid lines and 'clearly bolder' 5th lines are unstated (colour/min stroke width in mm, bold:thin ratio) — NFR threshold needed from the owner, not invented."
+      evidence: ["src/nonogram/export/layout.py:233-252", "src/nonogram/export/layout.py:406-500", "src/nonogram/admin/book_pdf_generator.py:185-210"]
+    acceptance:
+      - id: AC-193
+        given: a book holding a puzzle named "Snowflake"
+        when: the book PDF is generated
+        then: the puzzle's puzzle page carries no "Snowflake" text
+        kind: negative
+        test: TestBookPdf_PuzzlePageCarriesNoPictureTitle
+      - id: AC-194
+        given: the same book holding the puzzle named "Snowflake"
+        when: the book PDF is generated
+        then: the puzzle's answer-key page shows "Snowflake"
+        kind: happy
+        test: TestBookPdf_AnswerKeyCarriesPictureTitle
+      - id: AC-195
+        given: a Book 1 profile book holding a 30x30 puzzle printed at 4.97 mm
+        when: its puzzle page's grid rules are measured
+        then: the rules at line indices 0, 5, 10, 15, 20, 25 and 30 are each wider in pixels than every rule between them
+        kind: boundary
+        test: TestBookPdf_EveryFifthGridLineWider
+
+  - id: FR-034
+    # New 2026-09-22 (BK-UI-1..BK-UI-3). Today Print setup
+    # (book_setup_print.html, POST /book/<id>/setup-print) carries only
+    # trim width/height and a unit; no plan exists in the schema (a
+    # migration is needed — implementation, not decision). The prefill
+    # rescales the Book 1 matrix (book_generation_admin_panel.md §2) COLUMN
+    # by column — each tier's four longest-side shares rescaled to that
+    # tier's count — which is what reproduces the owner's 150 x 40/40/20
+    # table exactly (easy 10/15/5/0 of 30 -> 20/30/10/0 of 60; medium
+    # 5/20/15/5 of 45 -> 7/27/20/6 of 60; hard 0/5/10/10 of 25 -> 0/6/12/12
+    # of 30). Row totals are NOT preserved (27/63/42/18, not 15/40/30/15%).
+    # The default split for a NEW book is FR-035's open decision.
+    statement: >-
+      Print setup carries a distribution plan (TERM-026) stored with the
+      book: a total puzzle count and an easy/medium/hard split that must sum
+      to 100%, plus an editable per-longest-side plan — an easy/medium/hard
+      count for each of the buckets <=15, 16-20, 21-25, 26-30 (TERM-027) —
+      prefilled from the Book 1 size x difficulty matrix rescaled to the
+      book's count and split and rounded so each tier's column total equals
+      that tier's count in the general plan and the whole matrix sums to
+      the count; a cell whose Book 1 share is zero stays zero. When the
+      general split changes, a per-bucket plan with no hand-edited cells is
+      re-derived (POL-007); hand-edited cells keep their values and the
+      screen warns that the per-bucket plan and the general split disagree.
+      The stored plan survives leaving the workflow and is the reference for
+      every planned-vs-actual figure (FR-036, FR-037, FR-039).
+    source: [US-025]
+    _meta:
+      source: authored
+      open_question: "How the general plan's tier counts round when count x split is not whole (e.g. 137 x 40% = 54.8) is unstated; the criteria use counts where it is whole, and EC-023 states only that the matrix honours whatever tier counts the general plan holds."
+      evidence: ["src/nonogram/admin/templates/book_setup_print.html", "src/nonogram/admin/app.py:1939", "src/nonogram/db/models.py:121-125", "docs/book_generation_req/book_admin_ui_requirements.md#1", "docs/book_generation_req/book_generation_admin_panel.md#2"]
+    acceptance:
+      - id: AC-196
+        given: a draft book whose Print setup is saved with count 150 and split 40/40/20
+        when: the owner leaves the workflow and reopens Print setup
+        then: the page shows count 150 and split 40/40/20 read back from the stored book
+        kind: happy
+        test: TestBookPlan_StoredWithBookSurvivesReopen
+      - id: AC-197
+        given: a draft book with a stored plan of 150 at 40/40/20
+        when: Print setup is submitted with split 40/40/30 (110%)
+        then: the submission is rejected and the stored plan stays 150 at 40/40/20
+        kind: negative
+        invariant: INV-005
+        test: TestBookPlan_RejectsSplitNotSummingTo100
+      - id: AC-198
+        given: a general plan of 150 puzzles at 40/40/20 with no hand-edited cells
+        when: the per-bucket plan is prefilled
+        then: "the matrix is <=15: 20/7/0, 16-20: 30/27/6, 21-25: 10/20/12, 26-30: 0/6/12 (easy/medium/hard)"
+        kind: boundary
+        test: TestBookPlan_PrefillMatchesBook1MatrixAt150x40_40_20
+      - id: AC-199
+        given: a general plan of 120 puzzles at 30/45/25 (36/54/30)
+        when: the per-bucket plan is prefilled
+        then: the 12 cells sum to 120 with column totals 36, 54 and 30
+        kind: boundary
+        test: TestBookPlan_PrefillColumnTotalsMatchGeneralPlan
+      - id: AC-200
+        given: a general plan of 120 puzzles at 30/45/25
+        when: the per-bucket plan is prefilled
+        then: the <=15 x hard cell and the 26-30 x easy cell are both 0
+        kind: boundary
+        test: TestBookPlan_ZeroShareCellsStayZero
+      - id: AC-201
+        given: a stored plan of 150 at 40/40/20 whose per-bucket cells were never hand-edited
+        when: the general split is changed to 30/45/25
+        then: the per-bucket plan is re-derived from the Book 1 matrix at 30/45/25
+        kind: happy
+        policy: POL-007
+        test: TestBookPlan_UneditedMatrixRederivedOnSplitChange
+      - id: AC-202
+        given: a stored plan of 150 at 40/40/20 whose 21-25 x hard cell was hand-edited from 12 to 15
+        when: the general split is changed to 30/45/25
+        then: the 21-25 x hard cell still holds 15
+        kind: boundary
+        policy: POL-007
+        test: TestBookPlan_HandEditedCellSurvivesSplitChange
+      - id: AC-203
+        given: the same hand-edited plan after the split change to 30/45/25
+        when: Print setup is rendered
+        then: the page shows a warning that the per-bucket plan disagrees with the general split
+        kind: negative
+        test: TestBookPlan_WarnsWhenHandEditedMatrixDisagreesWithSplit
+    engineering_constraints:
+      - id: EC-023
+        statement: >-
+          For any count of at least 1 and any split summing to 100%, the
+          prefilled per-bucket plan has 12 non-negative integer cells whose
+          sum equals the count, whose per-tier column totals equal the
+          general plan's tier counts, and whose zero-share cells (<=15 x
+          hard, 26-30 x easy) are 0 — for every count and split, not only
+          the measured examples.
+        kind: consistency
+        invariant: INV-005
+        instances: [AC-198, AC-199, AC-200]
+        test: PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan
+
+  - id: FR-035
+    # RESOLVED 2026-09-22 by ADR-0034 (DEC-036): a new book starts at 150
+    # puzzles, 40/40/20, per-bucket plan prefilled from the rescaled Book 1
+    # matrix. AC-204 and AC-205 stand; AC-206 (30/45/25) and AC-207 (derived
+    # from audience) are retired unimplemented, kept below as the record of
+    # what was open (FR-004 / ADR-0027 precedent).
+    # New 2026-09-22 (raw line marked DECISION — default difficulty split for
+    # a new book). Formalized NEUTRALLY: the alternative is NOT chosen here.
+    # Three are named in the intake: 150 at 40/40/20 (owner's UI request,
+    # "beginner"), 30/45/25 (research matrix, "mixed"), or derived from the
+    # book's audience field (book_create.html already collects an
+    # audience). The owner's own doc lists the last as an open item.
+    statement: >-
+      A new book starts with a default distribution plan (FR-034) that the
+      owner can edit on Print setup; the default is a stored plan whose
+      split sums to 100% and whose per-bucket plan is the prefill of that
+      split. Which default split applies — 150 puzzles at 40/40/20, the
+      research mix 30/45/25, or a split derived from the book's audience
+      field — is the open decision.
+    source: [US-025]
+    _meta:
+      source: authored
+      dec_expected: true
+      dec_question: "Default difficulty split for a new book: 150 puzzles at 40/40/20 (owner's UI request, 'beginner') vs 30/45/25 (research matrix, 'mixed') vs derived from the book's audience field (beginner -> 40/40/20, enthusiast -> 30/45/25)?"
+      dec_alternatives: [fixed_150_at_40_40_20, fixed_research_mix_30_45_25, derived_from_audience]
+      criteria_by_alternative:
+        holds_under_every_alternative: [AC-204]
+        fixed_150_at_40_40_20_only: [AC-205]
+        fixed_research_mix_30_45_25_only: [AC-206]
+        derived_from_audience_only: [AC-207]
+      evidence: ["docs/book_generation_req/book_admin_ui_requirements.md#1", "docs/book_generation_req/book_admin_ui_requirements.md#open-items", "src/nonogram/admin/templates/book_create.html"]
+    acceptance:
+      # holds under every alternative
+      - id: AC-204
+        given: a new book created with no Print setup values entered
+        when: its stored plan is read
+        then: the split sums to 100% and the per-bucket plan equals the prefill of that split
+        kind: boundary
+        invariant: INV-005
+        test: TestBookCreate_StoresDefaultPlanThatSumsTo100
+      # alternative: fixed_150_at_40_40_20
+      - id: AC-205
+        given: a new book created with no Print setup values entered
+        when: its stored plan is read
+        then: the plan is 150 puzzles at 40/40/20 (60/60/30)
+        kind: happy
+        test: TestBookCreate_DefaultPlanIs150At40_40_20
+      # alternative: fixed_research_mix_30_45_25
+      - id: AC-206
+        given: a new book created with no Print setup values entered
+        when: its stored plan is read
+        then: the split is 30/45/25
+        kind: happy
+        test: TestBookCreate_DefaultSplitIsResearchMix30_45_25
+      # alternative: derived_from_audience
+      - id: AC-207
+        given: a new book created with audience "enthusiast" and no Print setup values entered
+        when: its stored plan is read
+        then: the split is 30/45/25
+        kind: happy
+        test: TestBookCreate_DefaultSplitDerivedFromAudience
+
+  - id: FR-036
+    # New 2026-09-22 (BK-UI-4..BK-UI-6, BK-4 display half). Today
+    # book_select_puzzles.html has one list with a size_from/size_to range
+    # filter ("either side"), theme/name/difficulty/quality filters and a
+    # selection counter. Whether the four tabs are separate routes or one
+    # page with client-side tabs is an owner open item — left open, the
+    # criteria hold either way.
+    statement: >-
+      Puzzle selection is split into four tabs (or sub-steps) by longest
+      side — <=15, 16-20, 21-25, 26-30, bucketed on max(width, height) — each
+      puzzle listed on exactly one tab. The owner moves freely between tabs
+      without losing selections. Each tab shows, per tier and in total, the
+      bucket's planned count (FR-034) against the number selected so far,
+      marking over-plan cells as over; the same summary for the whole book
+      sits above the tabs. Inside a tab puzzles sort by tier (easy, medium,
+      hard), then by shorter side ascending. The theme, name, quality and
+      difficulty filters still apply inside a tab; the size-range filter is
+      removed, replaced by the tab.
+    source: [US-026]
+    _meta:
+      source: authored
+      open_question: "Tabs as separate routes (browser back/forward) vs one page with client-side tabs — owner open item in book_admin_ui_requirements.md; not a blocker for the criteria."
+      evidence: ["src/nonogram/admin/templates/book_select_puzzles.html:25-31", "src/nonogram/admin/app.py:2004-2092", "docs/book_generation_req/book_admin_ui_requirements.md#2"]
+    acceptance:
+      - id: AC-208
+        given: a 15-wide x 30-tall puzzle available for a book
+        when: puzzle selection is rendered
+        then: the puzzle is listed on the 26-30 tab only
+        kind: happy
+        test: TestBookSelect_PuzzleListedUnderLongestSideTab
+      - id: AC-209
+        given: a 15-wide x 16-tall puzzle available for a book
+        when: puzzle selection is rendered
+        then: the puzzle is listed on the 16-20 tab, not the <=15 tab
+        kind: boundary
+        test: TestBookSelect_LongestSideSixteenGoesToSecondTab
+      - id: AC-210
+        given: a 15x15 puzzle available for a book
+        when: puzzle selection is rendered
+        then: the puzzle is listed on the <=15 tab
+        kind: boundary
+        test: TestBookSelect_LongestSideFifteenGoesToFirstTab
+      - id: AC-211
+        given: 3 puzzles selected on the <=15 tab
+        when: the owner switches to the 21-25 tab and back
+        then: the same 3 puzzles are still selected
+        kind: happy
+        test: TestBookSelect_SelectionKeptAcrossTabSwitch
+      - id: AC-212
+        given: a plan of 21-25 easy 10 / medium 20 / hard 12 and 8 easy, 20 medium, 14 hard puzzles selected in that bucket
+        when: the 21-25 tab is rendered
+        then: "its header reads 21-25: easy 8 / 10 · medium 20 / 20 · hard 14 / 12"
+        kind: happy
+        test: TestBookSelect_TabHeaderShowsPlannedVsActual
+      - id: AC-213
+        given: the same 21-25 bucket with 14 hard selected against a plan of 12
+        when: the 21-25 tab is rendered
+        then: the hard cell is marked over plan
+        kind: boundary
+        test: TestBookSelect_OverPlanCellMarked
+      - id: AC-214
+        given: a plan with 60 easy puzzles and 12 easy selected on the <=15 tab plus 30 on the 16-20 tab
+        when: puzzle selection is rendered
+        then: the whole-book summary above the tabs reads easy 42 / 60
+        kind: happy
+        test: TestBookSelect_BookSummarySumsAllTabs
+      - id: AC-215
+        given: a 21-25 bucket holding a hard 25x21, an easy 25x18, an easy 22x16 and a medium 25x25 puzzle
+        when: the 21-25 tab is rendered
+        then: the order is easy 22x16, easy 25x18, medium 25x25, hard 25x21
+        kind: happy
+        test: TestBookSelect_TabSortsByTierThenShorterSide
+      - id: AC-216
+        given: any book on the puzzle-selection step
+        when: the page is rendered
+        then: it carries no size_from or size_to field
+        kind: negative
+        test: TestBookSelect_SizeRangeFilterReplacedByTab
+      - id: AC-217
+        given: a 21-25 bucket holding 3 easy, 2 medium and 4 hard puzzles
+        when: the 21-25 tab is filtered by difficulty hard
+        then: exactly the 4 hard puzzles are listed
+        kind: boundary
+        test: TestBookSelect_ExistingFiltersApplyInsideTab
+    engineering_constraints:
+      - id: EC-024
+        statement: >-
+          For every extent of 10..30 x 10..30, the longest-side bucketing
+          assigns the puzzle to exactly one of the four buckets, chosen by
+          max(width, height) alone — the four tabs partition the supported
+          size range with no gap and no overlap, and one bucketing function
+          serves the plan (FR-034), the tabs and the readiness check
+          (FR-037).
+        kind: consistency
+        instances: [AC-208, AC-209, AC-210]
+        test: PropertyTest_LongestSideBuckets_PartitionEveryExtent
+
+  - id: FR-037
+    # RESOLVED 2026-09-22 by ADR-0035 (DEC-038): (a) every transition out of
+    # draft is gated; (b) a cell's share = its count / the PLANNED total; (c) a
+    # book with no stored plan is refused ("store a plan on Print setup
+    # first"). The open_question below is kept as the record of what was open.
+    # New 2026-09-22 (BK-4 gate half, book rule 6). Today
+    # BookManager.set_book_status only requires at least one puzzle before
+    # leaving draft. Three points are unstated in the source and left open
+    # (see _meta.open_question), so the criteria use books whose actual
+    # count equals the planned count, where every reading agrees.
+    statement: >-
+      A book can be marked ready only when every longest-side x tier cell of
+      its selection is within +/-3 percentage points (inclusive) of that
+      cell's share of the plan (FR-034); otherwise the transition is
+      refused, the status is unchanged, and the refusal names each cell
+      outside the tolerance with its actual and planned share.
+    source: [US-026]
+    _meta:
+      source: authored
+      open_question: "Unstated in the source: (a) which BookStatus is 'ready' (ready_for_pdf vs ready_for_kdp — the gate's position in the draft -> ready_for_pdf -> pdf_generated -> ready_for_kdp -> published chain); (b) the share's denominator when the actual count differs from the plan (planned total vs actual total); (c) what a book with no stored plan (created before FR-034) does at the gate."
+      evidence: ["src/nonogram/admin/book_manager.py:18-25", "src/nonogram/admin/book_manager.py:622-677", "src/nonogram/admin/app.py:2367", "docs/book_generation_req/book_admin_ui_requirements.md#5"]
+    acceptance:
+      - id: AC-218
+        given: a draft book with a plan of 100 puzzles and 100 selected, every longest-side x tier cell within 3 points of its plan
+        when: the book is marked ready
+        then: the status transitions to the ready status
+        kind: happy
+        invariant: INV-007
+        test: TestBookReady_AcceptsWhenEveryCellWithinTolerance
+      - id: AC-219
+        given: the same 100-puzzle book whose 16-20 x medium cell holds 13 against a plan of 10 (13% vs 10%), every other cell within 3 points
+        when: the book is marked ready
+        then: the status transitions to the ready status — exactly 3.0 points is inside the tolerance
+        kind: boundary
+        invariant: INV-007
+        test: TestBookReady_ExactlyThreePointsAccepted
+      - id: AC-220
+        given: the same 100-puzzle book whose 16-20 x medium cell holds 14 against a plan of 10 (14% vs 10%)
+        when: the book is marked ready
+        then: the transition is rejected with the status remaining draft
+        kind: negative
+        invariant: INV-007
+        test: TestBookReady_RefusedBeyondThreePoints
+      - id: AC-221
+        given: the same refused 100-puzzle book
+        when: the refusal is shown
+        then: it names the 16-20 x medium cell with 14% against 10%
+        kind: negative
+        test: TestBookReady_RefusalNamesOffendingCell
+    engineering_constraints:
+      - id: EC-025
+        statement: >-
+          For any plan and any selection, marking the book ready succeeds if
+          and only if every one of the 12 longest-side x tier cells is
+          within +/-3 percentage points of its planned share — no route to
+          the ready status bypasses the check, for every combination of
+          counts, not only the measured examples.
+        kind: consistency
+        invariant: INV-007
+        instances: [AC-219, AC-220]
+        test: PropertyTest_BookReady_GateIffEveryCellWithinTolerance
+
+  - id: FR-038
+    # New 2026-09-22 (BK-UI-9, BK-UI-10). Today book_detail.html links only
+    # to Print setup ("Continue scaffolding") and puzzle selection; there is
+    # no route to edit the New-book fields of an existing book; and
+    # BookManager refuses every puzzle change on a published book outright
+    # ("Cannot add puzzles to published book") — this FR REPLACES that
+    # refusal with a confirmation (INV-008).
+    statement: >-
+      Opening a book from the books list lands in the same step workflow
+      used at creation, and the book detail page links directly to every
+      step — general info (the New-book fields), Print setup, Puzzle
+      selection, Arrangement and Finalise — whatever the book's status;
+      a published book asks for confirmation before its puzzles change and
+      changes them only once confirmed. Moving to an earlier step never
+      discards later work: changing the plan keeps the selection (and
+      recomputes planned vs actual), and removing a puzzle keeps the rest of
+      the arrangement, order and titles included.
+    source: [US-027]
+    _meta:
+      source: authored
+      amends_behaviour: "BookManager.add_puzzles_to_book / remove_puzzle_from_book refuse a published book outright today; FR-038 turns the refusal into a confirmation."
+      evidence: ["src/nonogram/admin/templates/book_detail.html:16", "src/nonogram/admin/templates/book_detail.html:109", "src/nonogram/admin/templates/books_list.html", "src/nonogram/admin/book_manager.py:268", "src/nonogram/admin/book_manager.py:311-372", "src/nonogram/admin/app.py:1908-2330"]
+    acceptance:
+      - id: AC-222
+        given: a book in status pdf_generated
+        when: its detail page is rendered
+        then: the page carries a link to each of the five steps — general info, Print setup, Puzzle selection, Arrangement, Finalise
+        kind: happy
+        test: TestBookDetail_LinksToEveryStep
+      - id: AC-223
+        given: a draft book listed on /books
+        when: the owner opens it from the list
+        then: the page reached carries the same step navigation as the creation workflow
+        kind: happy
+        test: TestBooksList_OpensBookInStepWorkflow
+      - id: AC-224
+        given: an existing book titled "Winter Animals"
+        when: its general-info step is submitted with the title "Winter Birds"
+        then: the stored title is "Winter Birds"
+        kind: happy
+        test: TestBookGeneralInfo_EditsExistingBook
+      - id: AC-225
+        given: a book in status ready_for_kdp
+        when: its puzzle-selection step is requested
+        then: the step renders with HTTP 200 rather than a redirect or refusal
+        kind: boundary
+        test: TestBookSteps_ReachableWhateverStatus
+      - id: AC-226
+        given: a published book holding 120 puzzles
+        when: a puzzle is added without confirmation
+        then: the book still holds the same 120 puzzles and the response asks for confirmation
+        kind: negative
+        invariant: INV-008
+        test: TestBookPublished_PuzzleChangeRequiresConfirmation
+      - id: AC-227
+        given: the same published book holding 120 puzzles
+        when: a puzzle is added with confirmation
+        then: the book holds 121 puzzles
+        kind: happy
+        invariant: INV-008
+        test: TestBookPublished_ConfirmedPuzzleChangeApplied
+      - id: AC-228
+        given: a book with a plan of 150 and 40 puzzles selected
+        when: the plan's count is changed to 120 on Print setup
+        then: the same 40 puzzles remain selected
+        kind: boundary
+        test: TestBookPlanChange_KeepsSelection
+      - id: AC-229
+        given: a book arranged A, B, C, D with a custom title on each
+        when: puzzle B is removed
+        then: the arrangement is A, C, D with the same custom titles on A, C and D
+        kind: boundary
+        test: TestBookRemovePuzzle_KeepsRestOfArrangement
+    engineering_constraints:
+      - id: EC-026
+        statement: >-
+          For any book and any sequence of step visits and plan edits, the
+          selection set, the arrangement order and the custom titles change
+          only through an explicit add, remove, reorder or retitle — never
+          as a side effect of revisiting a step or editing the plan.
+        kind: consistency
+        instances: [AC-228, AC-229]
+        test: PropertyTest_BookWorkflow_BackNavigationNeverDiscardsLaterWork
+
+  - id: FR-039
+    # RESOLVED 2026-09-22 by ADR-0035 (DEC-038): the short/over hint uses
+    # exact counts against the plan per cell, not the gate's +/-3 pp.
+    # New 2026-09-22 (BK-UI-11). Today books_list.html shows title, theme,
+    # audience, puzzles, pages, status, created — no plan figures, no
+    # completeness sort. "Short or over" has no stated tolerance; the
+    # criteria use a clearly short bucket and an exactly-on-plan book, where
+    # an exact reading and a +/-3-point reading agree.
+    statement: >-
+      The books list shows, per book, actual puzzles against planned
+      (e.g. 132 / 150) and the easy/medium/hard actual-against-plan split,
+      with a status hint when any longest-side x tier bucket is short of or
+      over its plan; the list can be sorted by completeness (actual over
+      planned puzzle count, most complete first). A book with no stored plan
+      shows its puzzle count alone.
+    source: [US-027]
+    _meta:
+      source: authored
+      open_question: "Tolerance for the short/over hint (exact vs the FR-037 +/-3 points) is unstated."
+      evidence: ["src/nonogram/admin/templates/books_list.html:24-33", "src/nonogram/admin/app.py:1908"]
+    acceptance:
+      - id: AC-230
+        given: a book with a plan of 150 holding 132 puzzles
+        when: the books list is rendered
+        then: its row shows 132 / 150
+        kind: happy
+        test: TestBooksList_ShowsActualVsPlannedCount
+      - id: AC-231
+        given: a book planned at 60/60/30 holding 50 easy, 60 medium and 22 hard puzzles
+        when: the books list is rendered
+        then: "its row shows easy 50 / 60 · medium 60 / 60 · hard 22 / 30"
+        kind: happy
+        test: TestBooksList_ShowsPerTierActualVsPlan
+      - id: AC-232
+        given: a book whose 26-30 x hard bucket holds 5 against a plan of 12
+        when: the books list is rendered
+        then: its row carries a short-bucket hint
+        kind: boundary
+        test: TestBooksList_HintsShortBucket
+      - id: AC-233
+        given: a book whose every bucket holds exactly its planned count
+        when: the books list is rendered
+        then: its row carries no hint
+        kind: negative
+        test: TestBooksList_NoHintWhenOnPlan
+      - id: AC-234
+        given: three books at 20 / 100, 150 / 150 and 132 / 150
+        when: the list is sorted by completeness
+        then: the order is 150 / 150, 132 / 150, 20 / 100
+        kind: happy
+        test: TestBooksList_SortsByCompleteness
+      - id: AC-235
+        given: a book created before distribution plans existed, with no stored plan and 40 puzzles
+        when: the books list is rendered
+        then: its row shows 40 with no planned figure
+        kind: negative
+        test: TestBooksList_BookWithoutPlanShowsCountOnly
+
+  - id: FR-040
+    # OWNER ANSWERS 2026-09-22 to _meta.open_question (kept below as the
+    # record): (1) a pair-aware call in COMP-007 lays out the two-up page with
+    # one shared cell — recorded as an ADR-0036 clarification (History), the
+    # admin panel still fits no cells (ADR-0036/R2); (2) no fixed-point loop:
+    # the book keeps its stored gutter margin (Book 1: 0.5 in, valid up to 300
+    # pages) and finalise refuses when the actual page count needs a larger
+    # KDP gutter than the one stored.
+    # New 2026-09-22 (b) (raw-requirements.md "## 2026-09-22 (b)", line 2;
+    # BK-6, book rule 10). DECIDED by the owner in the DEC-039 session, not
+    # a DEC EXPECTED. Today every book page holds exactly one puzzle
+    # (book_pdf_generator.py loops one render_pages call per puzzle).
+    # Relations:
+    #  - NFR-008: the 7.0 mm two-up minimum sits INSIDE NFR-008's 4.8..7.5
+    #    mm range; a two-up page never uses the 4.8 mm floor or a floor
+    #    override, and the 7.5 mm standard cell still caps the shared cell.
+    #  - ADR-0036: the pair is laid out through compute_layout with the
+    #    book's PageSpec treated as two slots (ADR-0036/R2 — the admin panel
+    #    does not fit cells itself). HOW the PageSpec expresses two slots
+    #    whose split depends on both puzzles' heights is an implementation
+    #    shape not fixed by ADR-0036 (see _meta.open_question).
+    #  - ADR-0037: each slot carries its own 12 mm band "Puzzle N · Tier".
+    #  - FR-041: pairs never span a level (same-tier rule), so a pair never
+    #    straddles a divider page.
+    # Measured on the Book 1 profile (CON-018): usable width 193.7 mm
+    # (215.9 - 12.7 - 9.525), usable height 260.35 mm (279.4 - 2 x 9.525),
+    # 236.35 mm left for the two drawings after two 12 mm bands. The
+    # owner's worked cases (10+10 at 7.5, 12+12 at 7.4, 15+10 at 7.0; 15+12
+    # and 15+15 do not pair) assume ~30% clue bands; the criteria below
+    # state their clue depths explicitly and compute from them.
+    statement: >-
+      Two puzzles share one book page (a two-up page, TERM-030) when, and
+      only when, their tiers are equal, they are next to each other in the
+      book order (TERM-032), and both fit at one shared cell of at least
+      7.0 mm. The shared cell is the largest cell, capped at the 7.5 mm
+      standard cell (NFR-008), at which (a) the pair's combined drawing
+      height — grid rows plus column-clue rows of both puzzles — times the
+      cell, plus one 12 mm title band per puzzle, fits the book's usable
+      height (trim height minus top and bottom margins), and (b) each
+      puzzle's drawing width — grid columns plus row-clue columns — times
+      the cell fits the usable width; clue depths are each puzzle's real
+      clue depth (TERM-021). Both puzzles of a two-up page print at that
+      one shared cell, each under its own band ("Puzzle N · Tier",
+      ADR-0037), the earlier puzzle in the book order in the upper slot.
+      Pairing walks the book order from the first puzzle: a puzzle pairs
+      with the next one when the rule above holds, otherwise it stands
+      alone on its page and the walk moves on; a puzzle left without a
+      partner (e.g. the last of an odd run) prints alone. Pairing never
+      reorders the book: reading the pages front to back yields the book
+      order exactly, so puzzle numbers stay in sequence.
+    source: [US-023]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-09-22 (DEC-039 session) — BK-6, book_admin_ui_requirements.md rule 10"
+      relates_to: [NFR-008, FR-030, FR-032, FR-033, FR-041, ADR-0036, ADR-0037]
+      open_question: "(1) How compute_layout's PageSpec expresses a two-slot page whose split depends on both puzzles (a pair-aware call vs two per-slot calls with a shared-cell cap) is not fixed by ADR-0036 — implementation shape, possibly an ADR-0036 revision. (2) Circularity: KDP's gutter minimum depends on the page count (AC-179), and the page count depends on pairing, which depends on usable width, which depends on the gutter; it cannot bite on the Book 1 profile (stored gutter 0.5 in >= both minimums) but can for a stored 0.375 in gutter near 150 pages. The resolution order is unstated."
+      evidence: ["src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3", "docs/book_generation_req/book_admin_ui_requirements.md#5"]
+    acceptance:
+      - id: AC-242
+        given: a Book 1 profile book whose order starts with two easy 10x10 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 28 cells)
+        when: the book PDF is generated
+        then: both puzzles print on one page at a 7.5 mm shared cell (the page fit of 8.44 mm capped at the standard cell)
+        kind: happy
+        invariant: INV-010
+        test: TestBookPdf_TwoSmallSameTierNeighboursShareAPage
+      - id: AC-243
+        given: a Book 1 profile book whose order starts with two easy 12x12 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 32 cells)
+        when: the book PDF is generated
+        then: both puzzles print on one page at a 7.39 mm shared cell (+/- 0.05 mm; 236.35 mm over 32 cells)
+        kind: boundary
+        invariant: INV-010
+        test: TestBookPdf_TwelvePairSharesPageBelowStandardCell
+      - id: AC-244
+        given: a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 10x10 puzzle with a 3-deep column-clue gutter (combined drawing height 33 cells)
+        when: the book PDF is generated
+        then: both puzzles print on one page at a 7.16 mm shared cell (+/- 0.05 mm) — at or above the 7.0 mm two-up minimum
+        kind: boundary
+        invariant: INV-010
+        test: TestBookPdf_PairJustAboveTwoUpMinimumShares
+      - id: AC-245
+        given: the same book but the 15x15 puzzle's column-clue gutter is 6 deep (combined drawing height 34 cells, 6.95 mm shared cell)
+        when: the book PDF is generated
+        then: the two puzzles print on two separate pages
+        kind: boundary
+        invariant: INV-010
+        test: TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare
+      - id: AC-246
+        given: a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 12x12 puzzle with a 4-deep one (combined 36 cells, 6.57 mm)
+        when: the book PDF is generated
+        then: the two puzzles print on two separate pages
+        kind: negative
+        invariant: INV-010
+        test: TestBookPdf_FifteenPlusTwelveDoesNotPair
+      - id: AC-247
+        given: a Book 1 profile book whose order has an easy 22-wide x 10-tall puzzle with a 6-deep row-clue gutter (28 cells across, at most 6.92 mm on the 193.7 mm usable width) followed by an easy 10x10 puzzle with 3-deep gutters
+        when: the book PDF is generated
+        then: the two puzzles print on two separate pages — the pair fits the height but the wide puzzle's drawing does not fit the width at 7.0 mm
+        kind: negative
+        invariant: INV-010
+        test: TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare
+      - id: AC-248
+        given: a Book 1 profile book whose last easy puzzle and first medium puzzle are both 10x10 with 4-deep gutters and adjacent in the book order
+        when: the book PDF is generated
+        then: the two puzzles print on two separate pages
+        kind: negative
+        invariant: INV-010
+        test: TestBookPdf_DifferentTiersNeverPair
+      - id: AC-249
+        given: a Book 1 profile book ordered easy 10x10 A, easy 20x20 B (8-deep gutters), easy 10x10 C, where A and C would fit together
+        when: the book PDF is generated
+        then: A and C print on separate pages
+        kind: negative
+        invariant: INV-010
+        test: TestBookPdf_PairingNeverReordersToFindAPartner
+      - id: AC-250
+        given: a Book 1 profile book whose order has three adjacent easy 10x10 puzzles with 4-deep gutters, puzzles 1, 2 and 3
+        when: the book PDF is generated
+        then: puzzle 3 prints alone on its own page, after the page puzzles 1 and 2 share
+        kind: boundary
+        invariant: INV-010
+        test: TestBookPdf_OddPuzzleOutPrintsAlone
+      - id: AC-251
+        given: the two-up page of AC-242 holding the book's puzzles 1 and 2
+        when: its bands are read
+        then: the upper band reads "Puzzle 1 · Easy" and the lower band reads "Puzzle 2 · Easy"
+        kind: happy
+        test: TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand
+      - id: AC-252
+        given: a Book 1 profile book holding the two-up page of AC-242 and a single-puzzle page with a 20x20 puzzle
+        when: the book PDF is generated
+        then: the upper puzzle's drawing on the two-up page starts on the same pixel row as the 20x20 puzzle's drawing
+        kind: boundary
+        test: TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
+    engineering_constraints:
+      - id: EC-027
+        statement: >-
+          For any book order of any length, tiers and clue depths, the
+          pages produced hold one or two puzzles each; a page holds two
+          only when their tiers are equal, they are consecutive in the book
+          order and fit at a shared cell of at least 7.0 mm; a puzzle that
+          could pair with its successor under that rule is never left
+          alone by the in-order walk; and concatenating the pages' puzzles
+          front to back yields the book order exactly — for every order,
+          not only the measured examples.
+        kind: consistency
+        invariant: INV-010
+        instances: [AC-248, AC-249, AC-250]
+        test: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly
+      - id: EC-028
+        statement: >-
+          For any two puzzles of 10..30 cells per side, any clue depths and
+          any stored trim and margins, a two-up page's shared cell lies in
+          [7.0, 7.5] mm, both puzzles print at that one cell, and both
+          drawings with their two 12 mm bands lie inside the usable area
+          without overlapping — and a pair whose largest fitting cell is
+          below 7.0 mm is never put on one page.
+        kind: consistency
+        nfr: NFR-008
+        instances: [AC-242, AC-243, AC-244, AC-245, AC-247]
+        test: PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea
+
+  - id: FR-041
+    # OWNER ANSWERS 2026-09-22 to _meta.open_question (kept below): a puzzle
+    # added later lands at the END of its level; the answer key carries small
+    # "Easy / Medium / Hard" headings, not full divider pages. AC-260 (a book
+    # arranged before this rule prints grouped by level, keeping its stored
+    # order within each level) is confirmed by the owner.
+    # New 2026-09-22 (b) (raw-requirements.md "## 2026-09-22 (b)", line 3;
+    # BK-7, book rule 11). DECIDED by the owner in the DEC-039 session.
+    # Today the arrangement order is free (arrange-puzzles route:
+    # BookManager.reorder_puzzles / move_puzzle_up / move_puzzle_down) and
+    # the PDF has no divider pages. Complements ADR-0037: the band's
+    # "Puzzle N · Tier" now reads 1..n through Easy, then Medium, then Hard,
+    # so the tier shown climbs monotonically through the book. Relates to
+    # FR-038 (arrangement survives back-navigation; EC-026 still holds —
+    # the order changes only through an explicit add, remove or move) and
+    # FR-040 (pairs never span a level). The tier is the solver's tier
+    # (FR-009), three tiers per ADR-0031.
+    statement: >-
+      A book's order (TERM-032) runs easy -> medium -> hard: every easy
+      puzzle comes before every medium one and every medium before every
+      hard one (INV-009); within a level the order is the owner's
+      arrangement. Arrangement moves a puzzle only within its level — a
+      move that would carry it across a level boundary is refused and the
+      order is unchanged — and a puzzle added to the book is placed inside
+      its tier's level. The book PDF prints a divider page (TERM-031)
+      before the first puzzle of each level that holds at least one
+      puzzle, carrying only the level's name ("Easy", "Medium", "Hard");
+      a level with no puzzles has no divider. Divider pages carry no
+      puzzle number: puzzle numbers run 1..n in the book order across the
+      levels. A book whose stored arrangement predates this rule prints
+      in the rule's order, keeping its stored order within each level.
+    source: [US-024]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-09-22 (DEC-039 session) — BK-7, book_admin_ui_requirements.md rule 11"
+      relates_to: [FR-038, FR-040, FR-033, FR-009, ADR-0037, ADR-0031]
+      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way)."
+      evidence: ["src/nonogram/admin/book_manager.py:373-520", "src/nonogram/admin/app.py:2093-2130", "src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3"]
+    acceptance:
+      - id: AC-253
+        given: a Book 1 profile book arranged easy E1, easy E2, medium M1, medium M2, hard H1, all 20x20 (no pairs)
+        when: the book PDF is generated
+        then: the puzzle section's pages run divider "Easy", E1, E2, divider "Medium", M1, M2, divider "Hard", H1
+        kind: happy
+        invariant: INV-009
+        test: TestBookPdf_DifficultyOrderWithDividerPerLevel
+      - id: AC-254
+        given: the book of AC-253
+        when: its divider pages are read
+        then: each divider page's only content is its level's name
+        kind: happy
+        test: TestBookPdf_DividerPageCarriesLevelNameOnly
+      - id: AC-255
+        given: a book of 2 easy puzzles and 1 medium puzzle, all 20x20
+        when: the book PDF is generated
+        then: "the medium puzzle's band reads \"Puzzle 3 · Medium\" — divider pages do not consume puzzle numbers"
+        kind: boundary
+        test: TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers
+      - id: AC-256
+        given: a book of 3 easy and 2 medium puzzles and no hard puzzle
+        when: the book PDF is generated
+        then: the PDF holds no "Hard" divider page
+        kind: boundary
+        test: TestBookPdf_EmptyLevelHasNoDivider
+      - id: AC-257
+        given: a book arranged E1, E2, M1
+        when: E2 is moved up
+        then: the order is E2, E1, M1
+        kind: happy
+        invariant: INV-009
+        test: TestBookArrange_MoveWithinLevelKeepsOwnerOrder
+      - id: AC-258
+        given: a book arranged E1, E2, M1, M2
+        when: M1 is moved up
+        then: the order stays E1, E2, M1, M2 — the move would cross the easy/medium boundary
+        kind: negative
+        invariant: INV-009
+        test: TestBookArrange_MoveAcrossLevelBoundaryRefused
+      - id: AC-259
+        given: a book arranged E1, E2, M1, H1
+        when: an easy puzzle E3 is added
+        then: E3 sits before M1 in the book order (inside the easy level)
+        kind: boundary
+        invariant: INV-009
+        test: TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel
+      - id: AC-260
+        given: a book whose stored arrangement, saved before this rule, is medium M1, easy E1, hard H1, easy E2
+        when: the book PDF is generated
+        then: the puzzles print in the order E1, E2, M1, H1
+        kind: boundary
+        invariant: INV-009
+        test: TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
+    engineering_constraints:
+      - id: EC-029
+        statement: >-
+          For any book and any sequence of adds, removes and moves, the
+          book order stays grouped by tier (easy, then medium, then hard);
+          the relative order of two puzzles of one level changes only
+          through an explicit move within that level; and the book PDF
+          holds exactly one divider per non-empty level, immediately before
+          that level's first puzzle, with puzzle numbers 1..n unbroken —
+          for every sequence, not only the measured examples.
+        kind: consistency
+        invariant: INV-009
+        instances: [AC-253, AC-256, AC-258, AC-259]
+        test: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
+
 non_functional:
   - id: NFR-001
     category: performance
@@ -2392,6 +3527,60 @@ non_functional:
         nfr: NFR-007
         test: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
 
+  - id: NFR-008
+    # New 2026-09-22 (BK-1, BK-2; raw-requirements.md 2026-09-22 line 4).
+    # Owner decisions recorded in book_generation_admin_panel.md §2: the 7.5
+    # mm standard cell (commits 561694f, c193a86) and the 4.8 mm floor
+    # ("4.8-4.9 is fine, 4.6 is too small"). Book-only: NFR-005's comfort
+    # curve (9.0 mm at <=10 cells down to 6.5 at 30) still governs CLI and
+    # web exports, and inside a book the book's flat cap wins. The floor is
+    # per puzzle on its REAL clue depth, because the 1.3x bucket model hides
+    # a 12-entry band that takes a 30-wide grid to 4.61 mm.
+    # NOTE 2026-09-22 (b) (FR-040, BK-6): a two-up page's shared cell has
+    # its own 7.0 mm minimum, which sits INSIDE this range (4.8 <= 7.0 <=
+    # 7.5); the threshold below is unchanged and still caps the shared cell
+    # at 7.5 mm. EC-028 carries `nfr: NFR-008`.
+    category: usability
+    metric: book_printed_cell_mm
+    threshold: >-
+      4.8 mm <= cell <= 7.5 mm — every puzzle printed in a book has a cell
+      of at most the 7.5 mm standard cell and at least the 4.8 mm floor;
+      a puzzle below 4.8 mm is admitted only by an explicit per-puzzle
+      override (FR-031)
+    condition: >-
+      per puzzle, computed on the book's own trim and margins (FR-030) with
+      the puzzle's real row- and column-clue depth, for every grid of
+      10..30 cells per side; applies to the admin panel's book PDF only,
+      not to CLI or web exports (NFR-005)
+    rationale: >-
+      Owner decisions on the printed book: 7.5 mm keeps about 70% of Book 1
+      at one consistent cell size instead of jumping from 9.9 to 7.4 mm
+      between pages; below 4.8 mm a cell is too small to mark by hand
+      (standard squared paper is 5 mm). Source:
+      docs/book_generation_req/book_generation_admin_panel.md §2,
+      docs/research/book-format-research.md (2026-09-15).
+    acceptance:
+      - id: AC-236
+        given: a Book 1 profile book holding a 15x15 puzzle with 7-deep row- and column-clue gutters (page fit 8.8 mm)
+        when: its book cell is computed
+        then: cell == 7.5 mm
+        test: TestBookCell_CappedAtStandardCell
+      - id: AC-237
+        given: a 10x10 puzzle that the CLI layout prints at a 9.0 mm cell
+        when: it is laid out in a Book 1 profile book
+        then: cell == 7.5 mm (the book cap wins over NFR-005's curve)
+        test: TestBookCell_BookCapOverridesCliComfortCurve
+      - id: AC-238
+        given: a Book 1 profile book holding a 30x30 puzzle with 9-deep row- and column-clue gutters
+        when: its book cell is computed
+        then: cell >= 4.8 mm (4.97 mm)
+        test: TestBookCell_ThirtyByThirtyNineDeepAboveFloor
+      - id: AC-239
+        given: a Book 1 profile book holding a 30-wide x 25-tall puzzle with a 12-deep row-clue gutter
+        when: its book cell is computed
+        then: cell < 4.8 mm (4.61 mm) and the puzzle is flagged below the floor (FR-031)
+        test: TestBookCell_TwelveDeepBandFallsBelowFloor
+
 
 constraints:
   - id: CON-001
@@ -2672,3 +3861,47 @@ constraints:
       CARD-111, 2026-09-22; supersedes CON-003 (meta/business/vision.md
       Non-goals). Surface split follows ADR-0030, which retired NFR-003's
       no-authentication clause for the admin surface only.
+  - id: CON-018
+    # New 2026-09-22 (raw-requirements.md 2026-09-22 line 3, "CON / defaults";
+    # BK-1, book_generation_admin_panel.md §1). The trim half already ships
+    # (migration 008 server defaults 21.59/27.94); the margins have NO
+    # default today (migration 004 left gutter_margin_cm / outside_margin_cm
+    # nullable without one) and top/bottom have no column. FR-030 reads
+    # these values; AC-181 is the new-book criterion.
+    type: technical
+    statement: >-
+      The Book 1 print profile is the default for every book: trim 8.5 x 11
+      in (21.59 x 27.94 cm), gutter margin 0.5 in (1.27 cm), outside, top
+      and bottom margins 0.375 in (0.95 cm), no bleed, and a 12 mm title
+      band above each puzzle. The gutter is fixed at 0.5 in because KDP
+      requires 0.375 in up to 150 pages and 0.5 in for 151-300, and Book 1
+      straddles 150 pages; 0.375 in outside leaves room for trim variance
+      above KDP's 0.25 in minimum. A book may store other values; an empty
+      margin falls back to this profile.
+    source: >-
+      docs/book_generation_req/book_generation_admin_panel.md §1 (BK-1),
+      raw-requirements.md 2026-09-22; migration 008 (trim default)
+  - id: CON-019
+    # New 2026-09-22 (raw-requirements.md 2026-09-22 line 2, the DECISION on
+    # where the book's page geometry lives). The decision itself is NOT
+    # taken here (DEC EXPECTED, recorded on FR-030's _meta); this is the
+    # constraint the intake says "must hold either way", stated as a
+    # standing rule so forge:review checks it on every diff touching
+    # export/ or the book PDF, not only on the card that lands FR-030.
+    type: technical
+    statement: >-
+      Adding book-specific page geometry (a trim, margins, a title band, a
+      portrait-only rule, the 7.5 mm standard cell) never changes the CLI's
+      or the web UI's exports: for any generation request the PNG, SVG and
+      PDF files COMP-007 writes are byte-for-byte identical to those written
+      before the book geometry existed — A4, 12 mm margins, NFR-005's
+      comfort curve and NFR-006's orientation rule stay in force for them.
+    source: >-
+      raw-requirements.md 2026-09-22 (DECISION line on page geometry, BK-1);
+      FR-030
+    scope:
+      code: ["src/nonogram/export/**"]
+    check:
+      kind: test
+      ref: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
+    severity: mandatory

@@ -116,3 +116,82 @@ commands:
     preconditions: [INV-003]
     produces: [EVT-015]
     source: [US-006]
+  # New 2026-09-22 (delta — book generator, FR-030..FR-039). The first
+  # commands on AGG-002 Book. Existing admin-panel book operations
+  # (create, reorder, retitle, cover, delete) are not modelled here: only
+  # those the 2026-09-22 requirements put new rules on.
+  - id: CMD-015
+    # Print setup: trim, margins and the distribution plan (general plan +
+    # per-bucket cells, with a hand-edited marker per cell).
+    name: SaveBookPrintSetup
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: [INV-005]
+    produces: [EVT-016]
+    source: [US-023, US-025]
+  - id: CMD-016
+    # Both add routes (selection step, detail page paste-IDs form). Carries
+    # the per-puzzle below-floor overrides and, for a published book, the
+    # confirmation.
+    # AMENDED 2026-09-22 (b): INV-009 added — an added puzzle is placed
+    # inside its tier's level (FR-041).
+    name: AddPuzzlesToBook
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: [INV-006, INV-008, INV-009]
+    produces: [EVT-017]
+    source: [US-023, US-026]
+  - id: CMD-017
+    name: RemovePuzzleFromBook
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: [INV-008]
+    produces: [EVT-018]
+    source: [US-027]
+  - id: CMD-018
+    name: MarkBookReady
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: [INV-007]
+    produces: [EVT-019]
+    source: [US-026]
+  - id: CMD-019
+    # Existing (Finalise / download-pdf / generate-pdf routes); modelled now
+    # because FR-030..FR-033 change what it produces.
+    # AMENDED 2026-09-22 (b): the PDF's page composition obeys INV-010
+    # (two-up pages, FR-040) and prints in INV-009's order with a divider
+    # page per non-empty level (FR-041).
+    name: GenerateBookPdf
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: [INV-009, INV-010]
+    produces: [EVT-020]
+    source: [US-023, US-024]
+  - id: CMD-020
+    # Issued by POL-007 only.
+    name: RederiveBookPlanMatrix
+    actor: ACT-002
+    target_aggregate: AGG-002
+    preconditions: [INV-005]
+    produces: [EVT-021]
+    source: [US-025]
+  - id: CMD-021
+    # BK-UI-9 "general info" step on an existing book (today only creation
+    # sets these fields).
+    name: EditBookGeneralInfo
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: []
+    produces: [EVT-022]
+    source: [US-027]
+  # New 2026-09-22 (b) (delta — book layout, FR-041). The arrangement step's
+  # reorder (move up / move down / reorder, BookManager.reorder_puzzles and
+  # move_puzzle_up/down) existed but was left unmodelled by the first
+  # delta, having no rule on it; FR-041 now confines a move to its level.
+  - id: CMD-022
+    name: ReorderBookPuzzles
+    actor: ACT-001
+    target_aggregate: AGG-002
+    preconditions: [INV-009]
+    produces: [EVT-023]
+    source: [US-024, US-027]

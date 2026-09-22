@@ -110,3 +110,48 @@ US-021: As a Puzzle Creator, I want a bare `--size N` to derive the grid's
 US-022: As a Puzzle Creator, I want the printed page to turn to match a
         wide or tall grid, so a rectangular puzzle isn't squeezed onto the
         wrong page axis and printed with cramped cells.
+
+## Book generator: print fit, distribution plan, per-size selection (2026-09-22)
+
+<!-- Written by forge:architect-domain-extraction (delta, 2026-09-22) from the
+     owner's docs/book_generation_req/book_generation_admin_panel.md (BK-1..BK-5)
+     and book_admin_ui_requirements.md (BK-UI-1..BK-UI-11); each story restates
+     owner requirements, none adds scope. The book pipeline shipped before this
+     section, with no story of its own. -->
+
+US-023: As a Puzzle Creator assembling a book in the admin panel, I want
+        every puzzle printed at a cell sized for my book's own trim and
+        margins — portrait, capped at a 7.5 mm standard cell, and never
+        below a 4.8 mm floor unless I say so for that puzzle — so the
+        printed book is legible and consistent on the KDP trim instead of
+        being laid out for A4.
+        <!-- extended 2026-09-22 (b) (BK-3 amended, BK-6; FR-032, FR-040) -->
+        Every picture prints upright, never turned, and two small puzzles
+        of the same level that follow each other share a page when both
+        still print at 7.0 mm or more, so pictures stay recognisable and
+        small puzzles don't leave half a page empty.
+
+US-024: As a Puzzle Creator, I want picture titles to appear only in the
+        answer key and the grid printed with dark lines and a bolder line
+        every 5th cell, so a puzzle page never gives the picture away and is
+        easy to count across.
+        <!-- extended 2026-09-22 (b) (BK-7; FR-041) -->
+        I also want the book to run easy -> medium -> hard with a divider
+        page before each level, keeping my order within a level, so a
+        "beginner to expert" book shows its progression.
+
+US-025: As a Puzzle Creator, I want to plan a book's puzzle count and its
+        easy/medium/hard mix, overall and per longest-side size bucket, and
+        have that plan stored with the book, so I can see how far the book
+        is from what I intended.
+
+US-026: As a Puzzle Creator, I want puzzle selection split into tabs by
+        longest side that show planned vs actual per difficulty, and a book
+        that can only be marked ready once its mix matches the plan, so the
+        book I publish has the size and difficulty spread I designed.
+
+US-027: As a Puzzle Creator, I want to reopen any book in the same step
+        workflow I created it in, without losing later work when I step
+        back, and to see each book's progress against its plan in the books
+        list, so finishing a book across several sessions is safe and easy
+        to track.

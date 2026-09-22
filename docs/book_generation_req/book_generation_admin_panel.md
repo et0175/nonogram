@@ -11,7 +11,7 @@ Book 1: 8.5×11 in (or 8×10), 100–150 puzzles, one per page, ~120–190 pages
 | Trim | **8.5 × 11 in** (21.59 × 27.94 cm) — the admin panel's default since migration 008 | Dominant trim in the Amazon top 30; the only one that prints 25×25–30×30 at a usable cell (research §2, §4) |
 | KDP margins | Gutter **0.5 in** (1.27 cm), outside / top / bottom **0.375 in** (0.95 cm), no bleed | KDP requires 0.375 in gutter up to 150 pages and 0.5 in for 151–300; Book 1 straddles 150, so the gutter is fixed at 0.5 in and never moves the cell size. 0.375 in outside leaves room for trim variance above KDP's 0.25 in minimum |
 | Usable page | **193.7 mm wide × 260 mm tall**; **248 mm** for the puzzle once a 12 mm title band is reserved | Trim minus the margins above |
-| Puzzles | 100–150, **one per page** | Research §3, §8 |
+| Puzzles | 100–150, **one per page**; two small puzzles share a page where they fit (BK-6) | Research §3, §8 |
 | Solutions | 6 per page, in an answer section after the puzzles | Research §3 page-count model |
 | Pages | ~120–190 | Cover, guide, puzzles, solutions |
 | Price | $9.99–12.99 | 60% royalty tier starts at $9.99 (research §3) |
@@ -46,7 +46,7 @@ Totals by difficulty: 30% easy / 45% medium / 25% hard. Totals by longest side: 
 Notes:
 
 - **Standard cell: 7.5 mm** (owner's decision). Page fit alone would print a 15×15 at 9.9 mm — large-print territory, and a jump from 9.9 to 7.4 between consecutive pages reads as inconsistent. With the cap, every puzzle up to 25 long and 20 wide prints at the same ~7.4–7.5 mm (about 70% of the book); only the 21–25-wide, the 26–30-long and the 30×30 puzzles step down (6.0 / 6.4 / 5.0).
-- **Empty space.** The cap leaves white around small and narrow puzzles: a 15×15 draws 146 × 146 mm on the 194 × 248 mm usable page (~44%), and a 30-tall × 15-wide grid at 6.4 mm draws a 125 × 250 mm strip with ~35 mm of white each side. Accepted for Book 1; the puzzle's top edge sits at the same position on every page rather than being centred, so the book reads consistently. Two puzzles per page does not help 15×15 at 7.5 mm (2 × 146 mm plus two title bands exceed 248 mm) and only works for grids ≤ 12. A frame or decoration around the page is a later decision.
+- **Empty space.** The cap leaves white around small and narrow puzzles: a 15×15 draws 146 × 146 mm on the 194 × 248 mm usable page (~44%), and a 30-tall × 15-wide grid at 6.4 mm draws a 125 × 250 mm strip with ~35 mm of white each side. The puzzle's top edge sits at the same position on every page rather than being centred, so the book reads consistently. Small puzzles share a page where two fit (BK-6), which removes most of the empty space on the ≤15 pages. A frame or decoration around the page is a later decision.
 - **Floor: 4.8 mm** (owner's decision: 4.8–4.9 is fine, 4.6 is too small). Standard squared paper is 5 mm.
 - **Height binds for tall grids.** Any 26–30-tall puzzle up to 20 wide prints at 6.4 mm whatever its width; making it narrower buys nothing, making it wider than 20 starts to cost.
 - **26–30 × 26–30 is only 0.2 mm above the floor.** The 1.3× model assumes a ~9-entry row-clue band. A 30-wide puzzle with a 9-entry band draws 39 cells across → 4.97 mm ✅; with a 12-entry band it draws 42 → 4.61 mm ❌. The floor must therefore be checked **per puzzle on its real clue depth**, not per bucket (BK-1, BK-2).
@@ -56,11 +56,13 @@ Notes:
 
 ## 3. Print-fit requirements for the admin panel
 
-- **BK-1 Trim-aware cell size.** The book PDF computes each puzzle's cell for the **book's trim and margins**, not A4: usable width = trim width − outside margin − gutter margin; usable height = trim height − top − bottom − title band. Margins are read from the book's `gutter_margin_cm` / `outside_margin_cm` (Book 1 defaults 1.27 / 0.95 cm), with KDP's page-count minimum as a lower bound. The clue gutters are the puzzle's **real** clue depth (`max(len(clue))` per axis, as `export/layout.py`'s `_gutter_depth` measures it), not the 1.3× estimate. The result is capped at the **7.5 mm standard cell**, and the puzzle's top edge is placed at the same position on every page.
+- **BK-1 Trim-aware cell size.** The book PDF computes each puzzle's cell for the **book's trim and margins**, not A4: usable width = trim width − outside margin − gutter margin; usable height = trim height − top − bottom − title band. Margins are read from the book's `gutter_margin_cm` / `outside_margin_cm` (Book 1 defaults 1.27 / 0.95 cm), with KDP's page-count minimum as a lower bound: the book always lays out with its stored gutter, and finalise refuses if the actual page count needs a larger one. The clue gutters are the puzzle's **real** clue depth (`max(len(clue))` per axis, as `export/layout.py`'s `_gutter_depth` measures it), not the 1.3× estimate. The result is capped at the **7.5 mm standard cell**, and the puzzle's top edge is placed at the same position on every page.
 - **BK-2 Cell floor 4.8 mm.** A puzzle whose cell would print below 4.8 mm on the book's trim is flagged in puzzle selection (Step 2) with its computed cell size, and cannot be added to Book 1 without an explicit override. The book summary (Step 4) lists how many puzzles sit below the floor.
-- **BK-3 Orientation.** The longest side runs down the page. A wide grid (width > height) is either sourced tall or flagged: a 30-wide × 15-tall grid prints at 5.0 mm, the same picture as 15 × 30 prints at 6.4 mm.
+- **BK-3 Pictures print upright.** The page is always portrait and a puzzle is never turned: a turned picture is harder to recognise. A wide grid simply prints at the cell its width allows (20 wide → 7.45 mm, 25 wide → 6.0 mm, 30 wide → ~5.0 mm) and is covered by the floor check (BK-2); there is no separate "wide grid" flag.
 - **BK-4 Target vs actual mix.** Puzzle selection shows the matrix in §2 as target vs actual (count and % per longest-side × difficulty cell, plus the shorter-side breakdown). A book can be marked ready only when every cell is within ±3 percentage points of its target.
-- **BK-5 Print quality** (from the reviews, research §5): dark grid lines; every 5th line clearly bolder than the rest; picture titles only in the answer key, never on the puzzle page; every puzzle has exactly one solution, and the book description says so; no guess-tier puzzles.
+- **BK-5 Print quality** (from the reviews, research §5): pure black grid lines, thin rule at least **0.25 mm**, every 5th line **twice** as heavy (book only; today's code prints 0.17 mm on cells under ~6.4 mm), confirmed on printed proof pages (one 30×30, one 15×15) before a book is finalised; picture titles only in the answer key, never on the puzzle page — the band above a puzzle shows **"Puzzle N · Tier"** (e.g. "Puzzle 12 · Easy"); every puzzle has exactly one solution, and the book description says so; no guess-tier puzzles.
+- **BK-6 Two small puzzles per page.** Two puzzles share a page when both fit at one shared cell of at least **7.0 mm** (each with its own band): the pair's combined drawing height — grid rows plus column-clue rows of both — times the cell, plus two 12 mm bands, fits the 260 mm usable height. In practice: 10 + 10 tall at 7.5 mm, 12 + 12 at 7.4 mm, 15 + 10 at 7.0 mm; 15 + 12 and 15 + 15 do not pair. Only puzzles of the same tier that are next to each other in the book order are paired, so numbering stays in sequence. Roughly 27 small puzzles fit on ~14 pages instead of 27.
+- **BK-7 Ordered by difficulty.** The book runs easy → medium → hard, with a short divider page before each level ("Easy", "Medium", "Hard"), so a "beginner to expert" book shows its progression. A puzzle added later goes to the end of its level; the answer key keeps puzzle-number order with small level headings (no divider pages); a book arranged before this rule prints grouped by level, keeping its order within each level.
 
 ## 4. Gap against the current implementation
 
@@ -68,15 +70,19 @@ Notes:
 |---|---|---|
 | BK-1 | `admin/book_pdf_generator.py` hard-codes 8.5×11 pages at 300 DPI, but every puzzle page comes from `render_pages()` → `export/layout.py`, which sizes the cell for **A4** (210×297 mm, 12 mm margins). `trim_width_cm` / `trim_height_cm` are passed in as "informational, for metadata" and ignored; the margin columns from migration 004 are not read at all | Layout must take the page size and margins from the book, or the book generator must own its own page-fit computation |
 | BK-2 | No cell-size check anywhere in the book flow; `layout.py`'s floor is 2 mm and is a backstop, not a print rule | Per-puzzle cell computation and a 4.8 mm flag in Step 2 and the Step 4 summary |
-| BK-3 | `layout.py` turns the *sheet* (landscape) when that prints a larger cell — fine for a loose A4 printout, wrong inside a bound portrait book | Portrait only in the book; flag or re-source wide grids |
+| BK-3 | `layout.py` turns the *sheet* (landscape) when that prints a larger cell — fine for a loose A4 printout, wrong inside a bound portrait book | Portrait only in the book; pictures never turned |
 | BK-4 | Step 2 has a selection counter and difficulty filter, no target matrix | Matrix view with target vs actual and the ±3 pp readiness check |
-| BK-5 | Every-5th bold rule exists in `layout.py`; titles are drawn on the puzzle page by the PDF header band | Move the picture title to the answer key |
+| BK-5 | Every-5th bold rule exists in `layout.py` (proportional, 0.17 mm thin under ~6.4 mm); titles are drawn on the puzzle page by the PDF header band | Book stroke minimum; band shows "Puzzle N · Tier"; title only in the answer key |
+| BK-6 | One puzzle per page, always | Pairing of small puzzles and a two-slot page |
+| BK-7 | Arrangement order is free; no divider pages | Difficulty order and divider pages |
 
 This table is the scope of a follow-up kanban card; nothing in it is delivered by this document.
 
 ## 5. Out of scope for Book 1
 
+- Solution hints (e.g. "Hint for 12: row 7 has cells 4–11 filled", from the solver's first line-logic deductions): a future feature, not Book 1.
+
 - Grids above 30×30 (35×35–50×50): challenge book only, after the engineering steps in research §7.
-- Two small puzzles per page: only for a later big book (research §8).
+- Three or more puzzles per page (e.g. 2–4 small ones as in the research's big-book plan, §8): later big book only; Book 1 pairs at most two (BK-6).
 - Color nonograms: separate product line.
 - 6×9 / A5 pocket edition.

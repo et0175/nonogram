@@ -100,3 +100,15 @@ policies:
       the real solver (CON-005, INV-002) and every repair attempt counts
       against the same ADR-0002 bound (INV-003) — those two hold under
       every alternative the DEC can choose.
+  - id: POL-007
+    # New 2026-09-22 (FR-034, BK-UI-2). When the general split changes and
+    # at least one per-bucket cell was hand-edited, NO command fires: the
+    # hand-edited cells keep their values and Print setup shows the
+    # disagreement warning (AC-202, AC-203).
+    name: RederivePlanMatrixOnSplitChange
+    when: "EVT-016 + split_changed + no per-bucket cell hand-edited"
+    then: CMD-020
+    rationale: >-
+      BK-UI-2: the per-bucket plan is a derived default until the owner
+      edits it — an unedited matrix follows the general split, an edited
+      one is the owner's and is never overwritten.

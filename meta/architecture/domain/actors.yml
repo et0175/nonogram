@@ -10,6 +10,10 @@ actors:
       built-in library, or uploaded image), grid size, density, and
       difficulty; triggers export. The single human actor for this tool
       (see meta/business/vision.md Primary actor).
+    # NOTE 2026-09-22 (book generator delta): the same human also assembles
+    # books in the admin panel (US-023..US-027, CMD-015..CMD-019, CMD-021) —
+    # c4/context.puml already draws puzzleCreator -> admin panel. Not a
+    # second actor: one person, one role, two surfaces.
   - id: ACT-002
     name: System
     type: system

@@ -182,6 +182,56 @@
 #       re-surfaced. No pattern library present (~/.forge/decision-patterns.yml
 #       absent), so no prior_pattern fields on this run.
 
+# updated_at: 2026-09-22 (delta mode — the 2026-09-22 book generator:
+#   FR-030..FR-039, NFR-008, CON-018, CON-019, AGG-002 Book (INV-005..INV-008),
+#   CMD-015..CMD-021, EVT-016..EVT-022, POL-007, CAP-006, TERM-018..TERM-029;
+#   owner sources docs/book_generation_req/*.md). Five DECs surfaced,
+#   DEC-035..DEC-039; none decided here. Scope notes:
+#     * BLOCKS. DEC-035 (geometry placement) and DEC-037 (context boundary)
+#       DO change structure/trace — which component owns FR-030's geometry,
+#       and whether CAP-006/AGG-002 sit in CTX-001 or a CTX-002. Architecturally
+#       they should gate synthesis. They carry `blocks: [decompose]` instead,
+#       for the same reason as DEC-025: c4/ exists (CARD-112), and
+#       architect-validate's _check_synthesis_blockers turns any open
+#       synthesis-blocking DEC into a hard ERROR while c4/ is present. The
+#       effect is the same in practice: no book card is cut until they
+#       resolve, and resolving either one makes c4/ + trace.yml STALE —
+#       re-run forge:architect-synthesis after them. REVIEW: flip them back
+#       to [synthesis] if the stale C4 views should instead be treated as
+#       invalid until then (accepting the validator ERROR).
+#       DEC-036/DEC-038/DEC-039 change AC sets (criteria_by_alternative) and
+#       internal rules, not C4 elements: [decompose].
+#     * Import guard: the admin panel is a rank-0 ADAPTER in tests/test_cli.py
+#       (_ADAPTERS = {cli, web, admin}), so it may import any capability,
+#       including export/. Every DEC-035 alternative is guard-legal; the
+#       guard only forbids export/ (rank 2) importing admin/ — i.e. book
+#       geometry living in admin/ can never be reused by COMP-007.
+#     * FR-038 (published book: confirm, then apply) — settled by the owner.
+#       NOT surfaced. Likewise the 7.5 mm cap, 4.8 mm floor, KDP margins and
+#       portrait-only rule (CON-018, NFR-008, FR-032) are owner decisions
+#       already in the requirements — constraints, not DECs.
+#     * _meta open questions classified as DETAILS, not DECs (no architectural
+#       effect, or one sensible option):
+#         - FR-034 rounding when count x split is fractional: largest-remainder
+#           (Hamilton) apportionment of the tier counts so they sum to the
+#           count — the same method the per-bucket prefill already needs to
+#           make its row/column totals match; INV-005 is satisfied either way.
+#         - FR-036 tabs as routes vs client-side: a UI mechanism with no C4,
+#           NFR or AC effect (AC criteria hold either way). Suggested:
+#           server-rendered `?bucket=` query parameter on the existing
+#           select-puzzles route, selections held server-side — gives
+#           back/forward for free and keeps the admin panel JS-light.
+#         - FR-031 per-puzzle override storage: a migration (noted in its
+#           _meta already).
+#         - BK-UI-8 (the owner's unfinished "possibility to ..." when adding
+#           puzzles): an unstated requirement, not a decision — back to the
+#           owner via the business-analyst, not the DEC queue.
+#     * Category 0: stack (ADR-0006), style (ADR-0007), runtime (ADR-0008)
+#       confirmed in platform.yml; the admin panel's deployment/DB are
+#       ADR-0030/ADR-0032. Nothing in this delta moves an axis. No external
+#       system is added (KDP is a print spec, not an integration). No pattern
+#       library present, so no prior_pattern fields.
+
 open:
   # ANNOTATED 2026-09-13 (CARD-076), NOT resolved. ADR-0025 added a fourth
   # difficulty tier (`guess`), so the `<difficulty>` component of both the
@@ -246,3 +296,19 @@ open:
 
 
 
+  # ---------------------------------------------------------------------------
+  # 2026-09-22 book generator delta (DEC-035..DEC-039). See the header note
+  # for why none lists `synthesis` in `blocks`.
+  # ---------------------------------------------------------------------------
+  # DEC-035 resolved 2026-09-22 by ADR-0036 (extend_compute_layout_with_page_spec) — moved to resolved.yml.
+
+  # DEC-036 resolved 2026-09-22 by ADR-0034 (fixed_150_at_40_40_20) — moved to resolved.yml.
+
+  # DEC-037 resolved 2026-09-22 by ADR-0033 (stay_in_ctx_001) — moved to resolved.yml.
+
+  # DEC-038 resolved 2026-09-22 by ADR-0035 (gate_leaving_draft_planned_denominator) — moved to resolved.yml.
+
+  # DEC-039 resolved 2026-09-22 by ADR-0037 (number_and_tier_in_band_book_min_stroke —
+  # an owner-chosen alternative not in the surfaced list: "Puzzle N · Tier" in the
+  # band + book-only stroke minimum 0.25 mm, heavy = 2x thin, pure black, confirmed
+  # on printed proofs) — moved to resolved.yml.

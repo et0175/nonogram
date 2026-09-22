@@ -1,6 +1,6 @@
 # Book rules and admin UI requirements
 
-*Living document — the rules for assembling a book in the admin panel. Updated as books are made. Companion to [book_generation_admin_panel.md](book_generation_admin_panel.md) (Book 1 profile, size × difficulty matrix, print-fit rules BK-1…BK-5).*
+*Living document — the rules for assembling a book in the admin panel. Updated as books are made. Companion to [book_generation_admin_panel.md](book_generation_admin_panel.md) (Book 1 profile, size × difficulty matrix, print-fit rules BK-1…BK-7).*
 
 ## Current workflow (for reference)
 
@@ -55,13 +55,18 @@ Rules every book must satisfy before it is marked ready. Add to this list as new
 2. Difficulty labels come from the solver's tier, never from grid size.
 3. No puzzle prints below the 4.8 mm cell floor on the book's trim without an explicit override (BK-2).
 4. No puzzle prints above the 7.5 mm standard cell; the puzzle's top edge sits at the same position on every page (BK-1).
-5. The longest side runs down the page; wide grids are flagged (BK-3).
+5. Pictures always print upright on a portrait page; no puzzle is turned (BK-3).
 6. Actual counts are within ±3 percentage points of the plan in every longest-side × difficulty cell (BK-4).
 7. Picture titles appear only in the answer key.
-8. Print quality: dark grid lines, every 5th line clearly bolder.
+8. Print quality: pure black lines, thin ≥ 0.25 mm, every 5th line twice as heavy; confirmed on printed proof pages (BK-5).
+9. The band above a puzzle shows "Puzzle N · Tier", never the picture's title (BK-5).
+10. Two small puzzles share a page only at a shared cell ≥ 7.0 mm, only same tier and adjacent in order (BK-6).
+11. The book runs easy → medium → hard with a divider page per level (BK-7).
 
 ## Open items
 
 - BK-UI-8: the unfinished "possibility to …" when adding puzzles.
-- Whether the four tabs are separate routes (back/forward via the browser) or one page with client-side tabs.
-- Whether an audience choice (beginner 40/40/20 vs enthusiast 30/45/25) should set the default split automatically.
+- Solution hints: parked as a future feature (not Book 1).
+- ~~Tabs as routes or client-side~~ — a detail: a `?bucket=` parameter on the selection route, so browser back/forward works.
+- ~~Audience sets the default split~~ — deferred by ADR-0034; the default is 150 at 40/40/20 for now.
+- May one puzzle appear in more than one book? Open (ADR-0033); today one book per puzzle.

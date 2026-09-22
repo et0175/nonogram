@@ -175,3 +175,49 @@ Source: owner request 2026-09-12 during the algorithm review session; delivery c
 
 # processed: 2026-09-12 -> FR-029 (AC-135..AC-143, EC-017, EC-018); FR-009 amended (dated note (c)); EVT-010 payload amended, EVT-014 note; TERM-017. Enum members PROVISIONAL — fixed by the open DEC-030/DEC-031 (FR-026), recorded as a dependency in FR-029's _meta, not decided here
 - Every generated puzzle must carry the ordered list of solving strategies its solve required — derived from the one solve that verified it (no re-solve, ADR-0013 rule), from a fixed enum whose members the FR-026 decision fixes (provisionally: simple_overlap, line_dp, cross_line, probe_contradiction, guess) — and that list must be persisted with the puzzle (DB column `strategies_used`, today written as `[]`/a hardcoded sample), included in the JSON export payload, and shown/filterable in the admin review (FR, product; refines FR-009 and FR-026; touches COMP-005's SolveSignals, COMP-002's aggregate, COMP-007's export, and the admin panel). Determinism: the same clue set yields the same list on any machine (follows NFR-007).
+
+## 2026-09-22 — Book generator: print fit on the KDP trim, distribution plan, per-size selection
+
+Source: owner requirements `docs/book_generation_req/book_generation_admin_panel.md` (BK-1..BK-5) and `docs/book_generation_req/book_admin_ui_requirements.md` (BK-UI-1..BK-UI-11), committed 2026-09-22 (d2a8be2, 9e1abf0, 561694f, c193a86), grounded in `docs/research/book-format-research.md` (2026-09-15). Lines marked DECISION are expected to surface as DECs rather than be formalized silently.
+
+# processed: 2026-09-22 -> FR-030 (AC-175..AC-181, EC-019, EC-020); AGG-002 Book, CMD-019/EVT-020; TERM-018..TERM-022
+- The book PDF must size each puzzle's cell for the book's own trim and margins — usable width = trim width − outside margin − gutter margin, usable height = trim height − top − bottom − title band — read from the book's stored `trim_width_cm`/`trim_height_cm`/`gutter_margin_cm`/`outside_margin_cm`, with the real clue-gutter depth of the puzzle; today every book page is sized for A4 by `export/layout.py` and the trim is "informational" (FR, product; BK-1).
+# processed: 2026-09-22 -> CON-019 (holds either way) + FR-030 _meta dec_expected — formalized NEUTRALLY, DEC EXPECTED (not decided here)
+- DECISION — Where the book's page geometry lives: extend COMP-007's `compute_layout` to take a page size + margins (today G-1 says "no second paper size") vs a book-owned geometry in the admin panel that reuses only the drawing primitives. Constraint that must hold either way: CLI PNG/SVG/PDF output is byte-for-byte unchanged (BK-1).
+# processed: 2026-09-22 -> CON-018 (+ AC-181 on FR-030); TERM-019, TERM-020, TERM-028
+- Book 1 defaults: trim 8.5×11 in (21.59 × 27.94 cm, already the default since migration 008), gutter 0.5 in (1.27 cm), outside/top/bottom 0.375 in (0.95 cm), no bleed; a 12 mm title band above each puzzle (CON / defaults; BK-1, §1).
+# processed: 2026-09-22 -> NFR-008 (AC-236..AC-239); TERM-023, TERM-024
+- In a book, the printed cell is capped at a standard 7.5 mm and must not fall below a 4.8 mm floor; the floor is checked per puzzle on its real clue depth (NFR, measurable: cell_mm ∈ [4.8, 7.5] on the book's trim; BK-1, BK-2).
+# processed: 2026-09-22 -> FR-031 (AC-182..AC-188, EC-021); INV-006, CMD-016/EVT-017; TERM-025
+- A puzzle whose book cell would fall below 4.8 mm is flagged in puzzle selection with its computed cell size and cannot be added without an explicit per-puzzle override; the finalise summary counts puzzles below the floor (FR; BK-2, BK-UI-7).
+# processed: 2026-09-22 -> FR-032 (AC-189..AC-192, EC-022)
+- Book pages are portrait only, longest side down the page; the puzzle's top edge is at the same position on every puzzle page (not centred); wide grids (width > height) are flagged in selection (FR; BK-1, BK-3).
+# processed: 2026-09-22 -> FR-033 (AC-193..AC-195); 'dark'/'clearly bolder' thresholds unstated — open question in FR-033 _meta
+- Picture titles appear only in the answer key, never on the puzzle page; every 5th grid line clearly bolder; dark grid lines (FR; BK-5 — today the PDF header band prints the name on the puzzle page).
+# processed: 2026-09-22 -> FR-034 (AC-196..AC-203, EC-023); INV-005, CMD-015/EVT-016, POL-007 -> CMD-020/EVT-021; TERM-026, TERM-027
+- Print setup carries a distribution plan stored with the book: total puzzle count and easy/medium/hard split (must sum to 100%), plus an editable per-longest-side plan (buckets ≤15, 16–20, 21–25, 26–30 × 3 tiers) prefilled from the Book 1 size × difficulty matrix rescaled to the count and split, rounded so row and column totals match; hand-edited cells survive a change to the general split, with a warning when the two disagree (FR; BK-UI-1..BK-UI-3).
+# processed: 2026-09-22 -> FR-035 (AC-204..AC-207, tagged by alternative) — formalized NEUTRALLY, DEC EXPECTED (not decided here)
+- DECISION — Default difficulty split for a new book: 150 puzzles at 40/40/20 (owner's UI request, "beginner" profile) vs 30/45/25 (research matrix, "mixed" profile) vs derived from the book's audience field.
+# processed: 2026-09-22 -> FR-036 (AC-208..AC-217, EC-024)
+- Puzzle selection is split into four tabs by longest side (≤15, 16–20, 21–25, 26–30), free movement between them without losing selections; each tab and the whole book show planned vs actual per tier; inside a tab puzzles sort by tier (easy→medium→hard) then shorter side ascending; the size-range filter is replaced by the tab (FR; BK-UI-4..BK-UI-6).
+# processed: 2026-09-22 -> FR-037 (AC-218..AC-221, EC-025); INV-007, CMD-018/EVT-019; TERM-029
+- A book can be marked ready only when every longest-side × tier cell is within ±3 percentage points of its plan (FR; BK-4, BK-UI rule 6).
+# processed: 2026-09-22 -> FR-038 (AC-222..AC-229, EC-026); INV-008, CMD-017/EVT-018, CMD-021/EVT-022
+- Opening a book from the list lands in the same step workflow as creation; the book detail page links to every step (general info, print setup, selection, arrangement, finalise); a published book asks for confirmation before its puzzles change; moving back never discards later work (FR; BK-UI-9, BK-UI-10).
+# processed: 2026-09-22 -> FR-039 (AC-230..AC-235)
+- The books list shows, per book, actual vs planned puzzle count and the per-tier actual vs plan, with a hint when a bucket is short or over; sortable by completeness (FR; BK-UI-11).
+# deferred: 2026-09-22 — owner sentence unfinished
+- OPEN (not formalizable yet) — BK-UI-8: "When adding puzzles to book, please add a possibility to …" — owner's sentence is unfinished.
+
+## 2026-09-22 (b) — Book layout: upright pictures, two small puzzles per page, difficulty order
+
+Source: owner discussion 2026-09-22 during DEC-039, recorded in `docs/book_generation_req/book_generation_admin_panel.md` (BK-3 amended, BK-6, BK-7) and the rules list of `docs/book_generation_req/book_admin_ui_requirements.md` (rules 5, 10, 11). Decisions already taken with the owner in the same session are stated as decided, with the numbers checked on the 8.5×11 trim (260 mm usable height, 12 mm band per puzzle).
+
+# processed: 2026-09-22 -> FR-032 AMENDED (dated note; AC-191/AC-192 retired, AC-240/AC-241 added, EC-022 amended); TERM-018 amended — decided by the owner
+- A book puzzle is never turned: the page is always portrait and the picture prints upright; a wide grid prints at the cell its width allows and is covered only by the 4.8 mm floor check — the separate "wide grid" flag is dropped (amends FR-032 / BK-3; owner reason: a turned picture is harder to recognise).
+# processed: 2026-09-22 -> FR-040 (AC-242..AC-252, EC-027, EC-028); INV-010, CMD-019/EVT-020 amended; NFR-008 note; TERM-030, TERM-028 amended — decided by the owner
+- Two puzzles share a book page when both fit at one shared cell of at least 7.0 mm, each with its own 12 mm band: combined drawing height (grid rows + column-clue rows of both) × cell + 2 × 12 mm ≤ usable height. Only puzzles of the same tier that are adjacent in the book order are paired, so numbering stays in sequence; worked cases 10+10 at 7.5 mm, 12+12 at 7.4 mm, 15+10 at 7.0 mm; 15+12 and 15+15 do not pair (FR, product; BK-6; builds on ADR-0036's PageSpec as two slots).
+# processed: 2026-09-22 -> FR-041 (AC-253..AC-260, EC-029); INV-009, CMD-022/EVT-023, CMD-016 amended; TERM-031, TERM-032 — decided by the owner
+- The book is ordered easy → medium → hard, with a divider page before each level ("Easy", "Medium", "Hard"); arrangement keeps the owner's order within a level (FR; BK-7; complements ADR-0037's "Puzzle N · Tier" band).
+# deferred: 2026-09-22 — future feature, not Book 1
+- DEFERRED — Solution hints (e.g. "Hint for 12: row 7 has cells 4–11 filled", from the solver's first line-logic deductions): a future feature, not Book 1.

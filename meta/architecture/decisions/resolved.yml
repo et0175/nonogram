@@ -155,3 +155,28 @@ resolved:
     resolved_by: ADR-0029
     resolution_label: strategy_ladder_ordinal
     date: 2026-09-12
+  - id: DEC-037
+    question: "Does Book assembly stay in CTX-001 or become its own bounded context?"
+    resolved_by: ADR-0033
+    resolution_label: stay_in_ctx_001
+    date: 2026-09-22
+  - id: DEC-036
+    question: "What default distribution plan does a new book start with?"
+    resolved_by: ADR-0034
+    resolution_label: fixed_150_at_40_40_20
+    date: 2026-09-22
+  - id: DEC-038
+    question: "How is plan conformance measured (readiness gate, share denominator, plan-less books, list hint)?"
+    resolved_by: ADR-0035
+    resolution_label: gate_leaving_draft_planned_denominator
+    date: 2026-09-22
+  - id: DEC-035
+    question: "Where does the book's page geometry live?"
+    resolved_by: ADR-0036
+    resolution_label: extend_compute_layout_with_page_spec
+    date: 2026-09-22
+  - id: DEC-039
+    question: "What does a book's puzzle page print beyond the grid (band content, line thresholds)?"
+    resolved_by: ADR-0037
+    resolution_label: number_and_tier_in_band_book_min_stroke
+    date: 2026-09-22
