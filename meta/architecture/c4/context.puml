@@ -9,13 +9,13 @@
 '   ACT-002 (System — the tool's own automation: solver, scorer, retry
 '            loops; SAME local process, therefore NOT drawn as an actor
 '            or external system; it appears as internal components at L3)
-'   external_systems.yml — EMPTY: standalone CLI tool, no network,
-'            no third-party or sibling-owned system (vision.md
-'            "Context constraints", CON-001, CON-003 — both now
-'            superseded, by CON-007 and CON-017; CON-017 keeps the
-'            statelessness for the pipeline this diagram draws, while
-'            the admin panel's database is a system element this
-'            diagram does not yet show — CARD-111, 2026-09-22)
+'   external_systems.yml — EMPTY, and still correct after CARD-112
+'            (2026-09-22): no third-party or sibling-owned system. The
+'            admin panel's Postgres database is NOT an EXT-XXX — it is the
+'            system's own store, owned and migrated by this repository,
+'            so it is a ContainerDb inside the boundary (containers.puml),
+'            not an external system beside it. Constraints: CON-007 and
+'            CON-017, which superseded CON-001 and CON-003.
 '   The local filesystem is drawn below as a boundary element for
 '            readability only — per external_systems.yml it is
 '            infrastructure, NOT an EXT-XXX.
@@ -28,12 +28,13 @@ title System Context — Nonogram Generator
 
 Person(puzzleCreator, "Puzzle Creator", "ACT-001: developer/user running the CLI. Chooses mode (random / library / image), size, density, difficulty tier and seed; triggers export.")
 
-System(nonogram, "Nonogram Generator", "Local CLI tool (ADR-0008: `nonogram` console entry point). Sources a solution grid, derives clues, guarantees exactly one logical solution, calibrates difficulty, and exports print-ready or structured files.")
+System(nonogram, "Nonogram Generator", "A generation tool — CLI and loopback web UI (ADR-0008, ADR-0019) — that sources a solution grid, derives clues, guarantees exactly one logical solution, calibrates difficulty and exports print-ready or structured files; and an admin panel, deployed separately, that turns those puzzles into books.")
 
 System_Ext(filesystem, "Local Filesystem", "Infrastructure, not an EXT-XXX: source images in, PNG/SVG/JSON/CSV exports out (--out path).")
 
 Rel(puzzleCreator, nonogram, "Runs `nonogram` with mode, size, density, difficulty, --seed", "CLI / argparse (ADR-0010)")
 Rel(nonogram, puzzleCreator, "Prints seed, nudge count (FR-014), and failure reasons", "stdout/stderr")
+Rel(puzzleCreator, nonogram, "Reviews batches, curates puzzles and assembles books in the admin panel", "HTTP")
 Rel(nonogram, filesystem, "Reads uploaded source image (FR-003); writes PNG/SVG/JSON/CSV exports (FR-011, FR-012)", "local file I/O")
 
 SHOW_LEGEND()
