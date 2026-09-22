@@ -163,3 +163,5 @@ Book 1 PDF (15×15, 30×30, a 30×15 wide grid) and a 6×9 PDF in
 ## Worktree notes
 
 —
+
+- [Handover from CARD-114, 2026-09-22] F-004: the book-path `render_pages` currently prints "<name> — <tier>" in the band. ADR-0037/R1 forbids the picture name on a book puzzle page — replace it with "Puzzle N · Tier"; do not rely on the current band text.

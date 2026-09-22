@@ -129,3 +129,5 @@ Out of scope: solution hints ("Hint for 12: row 7 has cells 4–11 filled") are 
 ## Worktree notes
 
 —
+
+- [Handover from CARD-114, 2026-09-22] F-004: the book-path `render_pages` currently prints "<name> — <tier>" in the band. ADR-0037/R1 forbids the picture name on a book puzzle page — replace it with "Puzzle N · Tier"; do not rely on the current band text.

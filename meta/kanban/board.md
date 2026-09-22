@@ -38,8 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-114** P1 · PageSpec — compute_layout learns a second sheet, only when told · 1d · architectural · wave 21 · Inc 13 · after CARD-113
-- **CARD-120** P1 · The plan stored with the book — migration, default plan, Print setup matrix · 1d · wave 21 · Inc 14 · after CARD-119
 - **CARD-125** P2 · The pair-aware layout call — one shared cell in [7.0, 7.5] mm, or no pairing · 1d · architectural · wave 22 · Inc 15 · after CARD-114
 - **CARD-115** P1 · The book's PageSpec from its stored trim and margins (+ margin defaults) · 0.5d · wave 22 · Inc 13 · after CARD-114
 - **CARD-122** P1 · Puzzle selection by longest-side tab · 1d · wave 22 · Inc 14 · after CARD-119, CARD-120
@@ -60,11 +58,13 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-_(none)_
 
 ## Review
+- **CARD-120** P1 · The plan stored with the book — migration, default plan, Print setup matrix · 1d · wave 21 · Inc 14 · after CARD-119 · score 8.5
+  `worktree: ../PythonProject4-CARD-120` · `branch: card/120-book-plan-storage` · `elapsed: 0d`
 
 ## Done
+- **CARD-114** PageSpec · score 8.8 · merged e854cfc
 - **CARD-135** Interior PDF without the cover, cover separate · score 9.0 · merged 1541007
 - **CARD-119** Distribution plan as pure domain · score 9.0 · merged da6cf84
 - **CARD-113** Golden A4 tripwire · score 9.0 · merged 365a7ff

@@ -1,0 +1,210 @@
+version: 1
+generated_at: "2026-09-22T17:08:22Z"
+target: "CARD-114 cycle 1/3 — branch card/114-page-spec @ 9d0b40c, git diff main...HEAD"
+overall_score: 8.8
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/export/layout.py (full)
+    - src/nonogram/export/pdf.py (diff + _draw_header, _titled, header_parts)
+    - src/nonogram/export/png.py (diff + _draw_grid, _draw_clues, _clue_font)
+    - src/nonogram/export/__init__.py (diff)
+    - tests/test_layout_page_spec.py (full)
+    - tests/property/test_book_layout.py (full)
+    - tests/fixtures/a4_golden/golden.py, regenerate.py (field lists)
+    - main:src/nonogram/export/layout.py (old compute_layout/_rule_widths/_axis_lines/clue placement/header_band)
+    - meta/kanban/cards/CARD-114.md Worktree notes
+    - ADR-0036, ADR-0037 rules
+  not_reached:
+    - src/nonogram/export/svg.py (unchanged, never receives a spec)
+    - src/nonogram/admin/** (out of scope, untouched)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1585, removed: 132 }
+  max_fan_in: { symbol: "nonogram.export.layout.compute_layout", callers: 56 }   # 4 src + 52 test call sites
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — repo history was reset by 96da6ac (2026-09-06 restore commit); layout.py has 2 commits total, so churn/defect-density carry no signal"
+    cochange_missing: "no_eligible_fact — same shallow history; co-change set is only the restore commit and this card's commit"
+
+system_contract:
+  rules_checked: 40
+  holds: 9
+  unchecked: 31
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds only stdlib imports (fractions, enum, math, typing); TestDependencyBaseline_IsExactlyPillowAndNumpy green (tests/test_export_pdf.py, run at 9d0b40c)"
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web untouched; test_every_import_in_the_package_points_inward green at 9d0b40c"
+    - "ADR-0022/R1 ✓ holds — new/changed public signatures (compute_layout, render_image, render_pages, header_band, PageSpec) carry no scalar size; extent still len(row_clues)/len(column_clues) (layout.py:1327); PageSpec keeps width_mm/height_mm separate"
+    - "ADR-0023/R1 ✓ holds — no export-metadata writer touched (json_export/csv_export not in diff)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: export geometry only, no repair/uniqueness code in diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy in diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: export adds no density check"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver/strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: overlap masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book-assembly code in diff"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status code in diff"
+    - "ADR-0036/R1 ✓ holds — default path arithmetic re-derived against main (integer origin/pitch make _boundaries/_centre equal old origin+i*cell / +cell//2; header_band font unchanged); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (no-spec + explicit-default) and test_cli_exports_byte_identity green at 9d0b40c; tests/fixtures/a4_golden/** and tests/test_export_a4_golden.py absent from diff"
+    - "ADR-0036/R2 ✓ holds — admin/** untouched; PagePlacement (layout.py:527-574) carries cell_mm, usable box and drawing box so no caller fits cells or places lines"
+    - "ADR-0037/R1 ✓ holds — rule scope src/nonogram/admin/book_pdf_generator.py untouched and still calls render_pages(payload) without a spec; latent risk in the new placed-path header filed as F-004"
+    - "ADR-0037/R2 ✓ holds — _rule_widths layout.py:1174-1177 (thin=max(round(cell/30), ceil(min px)), heavy=2*thin); INK=(0,0,0) png.py:61; PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin (+_pixels) green; default spec min_thin_rule_mm=None keeps cell/30"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: limits untouched; new tests draw extents from MIN_SIZE/MAX_SIZE"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: image sourcing untouched"
+    - "CON-019 ✓ holds — PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry and TestCliExports_ByteIdenticalAfterBookGeometry green at 9d0b40c without golden regeneration; svg.py never receives a spec; export registry passes none"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: layout reads clues, never produces them"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export gate untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: below-floor membership is CARD-121/123; diff only computes cell_mm"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book membership untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: two-up pairing not in this card"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: parity counting is the admin's (CARD-135/116); the spec only carries the parity it is given"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/export/layout.py
+    line: 367
+    title: "numpy float measurement passes _is_real then crashes in _exact_mm with an unnamed ValueError"
+    description: |
+      _is_real (layout.py:350-356) accepts any float subclass, so np.float64(215.9) passes the
+      field check; __post_init__ then calls _exact_mm -> Fraction(repr(value)), and under NumPy 2
+      repr is 'np.float64(215.9)', so Fraction raises "Invalid literal for Fraction: 'np.float64(215.9)'".
+      Reproduced. The spec is still refused, but the failure-matrix row "ValueError naming the field"
+      is not met, and a finite real that the declared semantics say to accept is refused. NumPy is a
+      runtime dependency, so a CARD-115 builder doing arithmetic in numpy would hit this.
+    suggestion: |
+      Use Fraction(str(float(value))) (or Fraction(repr(float(value)))) in _exact_mm, or coerce each
+      measurement to a builtin float/int before validating; add np.float64 to the poison/accept table.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1397
+    title: "Floor case where only the height overflows keeps horizontal centring; failure matrix says it anchors left, and it is untested"
+    description: |
+      The left edge anchors only when spare width < 0 (layout.py:1397-1398). When page fit falls below
+      MIN_CELL_MM because of the height alone, the drawing stays centred horizontally and overflows
+      downward only. Reproduced: a 300x60 mm trim with a 30x30 grid gives drawing_left 1435 vs
+      usable_left 118, fits False. The behaviour is reasonable, but the declared row ("anchored at the
+      usable area's left edge instead of centred ... overflows right and down") and the docstrings
+      (PagePlacement.fits, test_book_layout.py module doc) describe only the width case. The floor
+      property test (test_book_layout.py:217) pins only width overflow (height fixed at 600 mm).
+    suggestion: |
+      Reword the matrix row and the fits/placement docstrings to "anchors left only when the width
+      overflows". Add height-only overflow cases to the floor property test asserting fits is False,
+      drawing_top == top+band and horizontal centring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 434
+    title: "PageSpec has no upper bound on trim; render_image allocates a trim-sized image (undeclared failure row)"
+    description: |
+      PageSpec accepts any finite positive trim, and on the placed path render_image allocates
+      Image.new at trim px (png.py:145). A mistyped stored trim (for example 2159 mm instead of
+      215.9) gives an image about 25500 x 33000 px, roughly 2.5 GB RGB, in the admin process. The
+      failure matrix covers poison specs from bad stored values, but it has no row for an oversize
+      trim. The matrix says "the renderers only allocate a Pillow image", so the allocation is the
+      failure-bearing boundary it misses.
+    suggestion: |
+      Either declare a trim ceiling in PageSpec (e.g. <= 1000 mm per side, well above any KDP trim)
+      with a ValueError, or add the row to the matrix and assign the bound to CARD-115's builder.
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/pdf.py
+    line: 452
+    title: "Placed-path render_pages sets '<name> — <tier>' in the book band, which ADR-0037/R1 forbids on a book puzzle page"
+    description: |
+      The new placed-page branch (pdf.py:447-458) draws header_parts(payload), which is
+      (payload.name, payload.difficulty), inside the spec's band. The only intended caller of a
+      parity spec is the book. ADR-0037/R1 says a book puzzle page never prints the picture's title,
+      only the puzzle number and the tier. The Worktree notes tell CARD-116/117 that render_pages
+      "already returns ... today's <name> — <tier> header set inside the band", which points the
+      next card toward a violation. No book calls it yet (admin untouched), so this is latent, not
+      a violation today.
+    suggestion: |
+      On the placed path, leave the band blank and let the book set number + tier from
+      HeaderBand/PagePlacement. Or document on render_pages that a book must pass a payload whose
+      name is None. Correct the CARD-116/117 note in the card.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 640
+    title: "Stale A4-only wording in Layout.orientation and the module intro"
+    description: |
+      Layout.orientation still reads "Which way up the A4 sheet this cell was sized against"
+      (layout.py:640), and the module intro (layout.py:15-17) says the cell is sized "so that drawing
+      plus band fits A4". Both now depend on the spec. Objective 4 asks for the A4 measurements to be
+      marked default-spec-only, and these two sentences were missed.
+    suggestion: "Say 'the spec's sheet (A4 on the default spec)' in both places."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

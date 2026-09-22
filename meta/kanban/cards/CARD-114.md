@@ -1,6 +1,6 @@
 # CARD-114: PageSpec — compute_layout learns a second sheet, only when told (book cap, portrait-only, book strokes)
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 21
 **Depends on:** CARD-113
 **Touches:** src/nonogram/export/layout.py, src/nonogram/export/png.py, src/nonogram/export/pdf.py, src/nonogram/export/__init__.py, tests/test_layout_page_spec.py, tests/property/test_book_layout.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 8.8 (cycle 1/3)
+**Started:** 2026-09-22T16:33:08Z
+**Closed:** 2026-09-22T17:24:16Z
+**Actual:** 0.1d
+**Merge commit:** e854cfc
 **Blocked by:** —
 
 ## What to implement
@@ -171,6 +171,66 @@ card carries EC-032's layout half.
 - **Components:** COMP-007
 - **Trace:** meta/architecture/trace.yml
 
+## Failure matrix
+
+No I/O, concurrency or retry boundary exists here: `PageSpec` and `compute_layout` are
+pure functions of their arguments, and the renderers only allocate a Pillow image. The
+boundaries that can fail are the value object's constructor (poison specs, for example
+ones built from bad stored trim or margin values in CARD-115) and the layout fit (a
+drawing that cannot fit). Units: 1 px = 25.4/300 mm ≈ 0.0847 mm.
+
+| Operation / boundary | Failure mode (poison input) | Declared behaviour | Numeric bound |
+|---|---|---|---|
+| `PageSpec(...)` | any size, margin, band, cap or stroke that is not a finite real number (NaN, ±inf, `bool`, `str`, `None` where a number is required) | `ValueError` naming the field; no spec is created | — |
+| `PageSpec(...)` | trim width or height ≤ 0 | `ValueError` | width, height > 0 mm |
+| `PageSpec(...)` | a negative margin or band | `ValueError` | each margin ≥ 0, band ≥ 0 |
+| `PageSpec(...)` | margins exceed the trim, or the usable area is non-positive (width − gutter − outside ≤ 0, or height − top − bottom − band ≤ 0) | `ValueError` ("usable area is non-positive") | usable width and height > 0 mm |
+| `PageSpec(...)` | flat cell cap ≤ 0 or not finite | `ValueError` | cap > 0 mm |
+| `PageSpec(...)` | stroke minimum ≤ 0 or not finite (`None` is allowed and means today's `cell/30` rule) | `ValueError` | minimum > 0 mm |
+| `PageSpec(...)` | parity that is not `PageParity.ODD`, `PageParity.EVEN` or `None` (for example the raw string `"odd"`, `1`, `True`) | `ValueError` ("invalid parity") | — |
+| `PageSpec(...)` | orientation or cap policy that is not a member of its enum (or, for the cap, a finite float) | `ValueError` | — |
+| `PageSpec(...)` | a spec with no parity whose four margins differ (a drawing-sized image has one uniform border, so unequal margins have no meaning there) | `ValueError` | — |
+| `PageSpec(...)` | a spec with parity whose orientation policy is `LARGER_CELL_WINS` (a placed trim page is never turned, FR-032) | `ValueError` | — |
+| `compute_layout(..., page_spec=x)` | `x` is neither `None` nor a `PageSpec` | `TypeError`; nothing is computed | — |
+| `compute_layout` | one clue set is empty and the other is not (unchanged) | `ValueError`, as today | — |
+| `compute_layout`, default path | page fit < `MIN_CELL_MM` (unchanged; no constructible 10..30 puzzle gets there) | the floor wins and the image grows past A4, as today | cell = 24 px |
+| `compute_layout`, placed (book) path | page fit ≥ `MIN_CELL_MM` (this includes every cell below NFR-008's 4.8 mm floor, which the layout does not flag; FR-031 does that in CARD-121/123) | the drawing fits the usable area exactly: its top-left and bottom-right grid and gutter boundaries lie inside `[usable_left, drawing_top] × [usable_right, usable_bottom]` in whole device pixels; `page.fits` is `True` | 0 px geometric overflow. Strokes are centred on their line, so ink can reach half the heavy rule beyond it (≤ 3 px = 0.25 mm on a 0.25 mm book stroke), which lands in the margin and never off the trim when the margin is ≥ 0.25 mm |
+| `compute_layout`, placed (book) path | page fit < `MIN_CELL_MM` (2.0 mm), for example a tiny stored trim | the floor still wins (it keeps a markable cell). The drawing is anchored at the usable area's left edge instead of centred, and its top stays at top + band. It overflows right and down, `page.fits` is `False`, and the caller decides (CARD-116 refuses or flags). It never raises and never shrinks below the floor | cell_mm = 2.0 exactly; overflow = drawing width (or height) at 2.0 mm minus the usable width (or height). Pillow clips any part past the trim |
+| `compute_layout`, placed path | cell cap | `cell_mm = min(cap, page fit)` computed in mm, so it never exceeds the cap, even by rounding | cell_mm ≤ cap exactly (7.5 mm on Book 1) |
+| `compute_layout`, placed path | pixel quantisation of a fractional cell | grid lines at `round(x0 + i·pitch)` | every cell is within 1 px of `cell_mm`; the span of n cells is within 1 px of n·`cell_mm` |
+| `compute_layout`, placed path | parity | the placed path computes in exact rationals (`fractions.Fraction`) and rounds each boundary once, half up. The usable width is exactly the same on both parities before rounding. The drawing's left edge on an odd page minus the one on an even page is the difference of two roundings of values exactly gutter − outside apart | shift is < 1 px (0.085 mm) from gutter − outside; horizontal centre within 0.5 px of the usable centre; the top and bottom edges and the cell are identical on both parities; reported usable and drawing widths differ by at most 1 px between parities |
+| `_rule_widths` under a stroke minimum | the rounded `cell/30` rule falls below the minimum | thin = max(ceil(minimum px), round(cell/30)), heavy = 2 × thin | thin ≥ 3 px ≥ 0.25 mm for a 0.25 mm minimum, for every cell |
+| `render_image` / `render_pages` with `page_spec` | any of the above | raises exactly what `compute_layout` raises, before any image is allocated | image size = trim px (for example 2550 × 3300 on Book 1) |
+
 ## Worktree notes
 
 —
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+- STRUCTURE: `PageSpec` is a frozen, slotted dataclass in `export/layout.py`, re-exported from `nonogram.export`, together with two `StrEnum` policies (`OrientationPolicy`, `PageParity`), a one-member `CellCapPolicy.COMFORT_CURVE` (the cap is `CellCapPolicy | float`) and `DEFAULT_PAGE_SPEC`. It checks its own invariants in `__post_init__`, so an invalid spec cannot exist and `compute_layout` never re-validates one. Why: this is DDD's value object, and it matches `Layout`/`GridLine`, the module's existing frozen-dataclass idiom. Enums rather than bare strings make an invalid parity or policy unrepresentable once validated.
+- STRUCTURE: parity selects the **layout mode**. `parity is None` means a **drawing-sized image** with one uniform border: today's code path, and every number is read from the spec (the default spec is A4, 12 mm and so on). `parity` set means a **placed page**: Layout coordinates are trim-page coordinates, the image is the trim, and the drawing is centred across the usable width with its top at top + band. Why: a page that doesn't know which side of the spread it is on cannot put its gutter margin anywhere, so "placed" and "has a parity" are the same fact. The invariants enforce the pairing (no parity ⇒ equal margins; parity ⇒ `PORTRAIT_ONLY`), so no third, half-defined mode exists.
+- STRUCTURE: on the placed path the cell is **fractional**. `cell_mm = min(cap, usable/total)` is computed exactly, in `fractions.Fraction` millimetres, from the spec's decimals (`Fraction(repr(x))`: 9.525 mm is exactly 112.5 px). Grid and gutter boundaries fall at `round_half_up(x0 + i·pitch)`, and nothing is rounded before that single step, so "fits the usable area" is exact rather than true to within a float's last bit. With float margins, Book 1's half-pixel outside margin had lost half a pixel of usable width (4.965 mm against FR-030's 4.966). Why: at 300 DPI a whole-pixel cell cannot express the ACs' numbers (4.61 mm would be 54 px = 4.57 mm; 7.5 mm would be 88 px = 7.45 mm, and 89 px exceeds the cap). A fractional pitch makes the printed average equal to the number the tile (FR-031) shows, which is what "the same value the PDF would print" requires. The same boundary arithmetic serves the default path: with an integer origin and an integer cell, `round(origin + i·cell)` is today's `origin + i·cell` exactly, and clue centres are `b_k + (b_{k+1} − b_k)//2`, which equals today's `+ cell//2`.
+- STRUCTURE: `Layout` gains **one** defaulted trailing field, `page: PagePlacement | None = None`. It is `None` on the drawing-sized path, so the default path's values and golden serialization are unchanged: `golden.serialize_layout` reads an explicit field list that deliberately excludes fields added later. `PagePlacement` (frozen) carries parity, `cell_mm`, the usable box, and the drawing box in px, plus a `fits` property. Everything a caller needs to place the band and the drawing is in one value, and the admin places nothing itself (ADR-0036/R2). On the placed path `Layout.width/height` are the trim in px, `Layout.cell` is the floored nominal cell, and `Layout.margin` is the top margin in px. The renderers need no new branch for the drawing: `png.render_image` simply returns a trim-sized page.
+- STRUCTURE: `header_band(layout, page_spec=None)` is additive. On a placed page the band is the strip `[usable_top, drawing_top)`, and it is drawn in place on the trim page instead of growing the canvas (`pdf.render_pages`). Why: the band's height is a spec field (ADR-0036 Neutral), and a trim page cannot grow.
+- STRUCTURE: the private helpers keep their existing signatures and take a trailing keyword `page_spec=DEFAULT_PAGE_SPEC` (`_fit_cell`, `_orientation_for`, `_page_size_mm`, `_rule_widths`). The existing tests call `_fit_cell` directly, and G-2's tests stay unmodified.
+- STRUCTURE: the `MIN_CELL_MM` floor interacts with EC-019 like this. On a placed page the floor still wins, as it does on A4. EC-019's fit is guaranteed and property-tested for every spec whose page fit is ≥ 2 mm, which includes every cell under NFR-008's 4.8 mm book floor (FR-031 flags those; the layout does not). Below a 2 mm page fit, which only a freakishly small stored trim reaches, the drawing anchors at the usable left edge, overflows right and down, and `page.fits` is `False`. It never raises, so the caller (CARD-116) decides. Pinned by its own property test.
+- SCOPE: no edits outside Touches. `tests/fixtures/a4_golden/**`, `tests/test_export_a4_golden.py`, `admin/`, `db/`, `migrations/` and `svg.py` are untouched (svg never receives a spec).
+- NOTE for anyone running `tests/fixtures/a4_golden/regenerate.py`: its `_check_field_lists_are_complete` now sees `Layout.page` and will refuse. That is intended: the golden's field list deliberately excludes fields added later (golden.py's own comment), and regeneration is never how this card, or any later one, fixes a red test (G-3).
+- NOTE for CARD-115: `book_cell_mm` should return `layout.page.cell_mm`. Converting `layout.cell` from px to mm would give the floored pixel (4.57 mm, not 4.61), because on a placed page `Layout.cell` is the pitch floored to a whole pixel.
+- NOTE for CARD-116/117: `pdf.render_pages(payload, page_spec=spec)` already returns two trim-sized pages with the drawing placed and today's `<name> — <tier>` header set inside the band. `Layout.page` (`PagePlacement`) gives the usable box, the band (`usable_top`..`drawing_top`) and the drawing box in trim px.
+- SUMMARY: `PageSpec` value object, three policy enums, `DEFAULT_PAGE_SPEC` and `PagePlacement` in `export/layout.py`, re-exported from `nonogram.export`. `compute_layout(row_clues, column_clues, page_spec=None)` has a drawing-sized path (today's code, reading its numbers from the spec) and a placed path (portrait only, flat cap, real clue gutters, exact fractional cell, centred across the usable width by parity, top edge fixed at top + band). The ADR-0037 stroke minimum (thin ≥ ceil(0.25 mm) = 3 px, heavy = 2 × thin). An optional `page_spec` on `png.render_image`, `pdf.render_pages` and `header_band`. `_reveal` now reads cell edges off the grid lines, which gives identical rectangles on A4. G-1 is rewritten in the module docstring, and the A4 measurements are marked default-spec-only. Tests: `tests/test_layout_page_spec.py` (AC-236..239, the explicit-default golden case, PageSpec poison rows, parity numbers, renderer threading) and `tests/property/test_book_layout.py` (EC-019 with its floor cases, the ADR-0037/R2 strokes in the layout and in pixels, EC-022 over all 441 extents × 5 specs, EC-032, and the PageSpec invariant as a property). Measured on Book 1: 15×15 at 7-deep → 7.5 mm; 10×10 → 7.5 mm (9.0 on A4); 30×30 at 9-deep → 4.966 mm; 30×25 at 12/8-deep → 4.611 mm; 15×15 left edge 27.01 mm odd / 23.88 mm even, same top row. Renders for the owner: `~/Documents/nonogram-reviews/CARD-114/` (15×15, 30×30, 30×15; odd/even; puzzle/answer).
+- [Scope] src/nonogram/export/__init__.py, src/nonogram/export/layout.py, src/nonogram/export/pdf.py, src/nonogram/export/png.py, tests/property/test_book_layout.py, tests/test_layout_page_spec.py
+- [Build gate] impact underivable (python-pro without pytest-testmon) — full suite
+- [Build gate] PASSED (full, 144s) — 3955 passed, 26 skipped; known pre-existing failure deselected: tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied
+- [Scope gate] cycle 1: IN_SCOPE — 6/6 files within Touches, no guardrail hits
+- [System contract] fresh lens == card section (40 rules)
+- [Review 1/3] Score: 8.8 — crit: 0, imp: 0
+- [Review 1/3] Score: 8.8 ✓ threshold reached + no critical/important
+- [Review sync] 1 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, CON-019 — CON-019 incl. independent branch-vs-main CLI diff over 6 requests × PNG/SVG/PDF: identical except PDF /CreationDate,/ModDate)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-236 ✓ (7.5 mm) · AC-237 ✓ (A4 9.0 → book 7.5) · AC-238 ✓ (4.97 mm) · AC-239 ✓ this card's half (4.61 mm; flag is CARD-121/123) · AC-180 ✓ · EC-019 layout half ✓ (1500-spec seeded corpus + 300 floor cases) · EC-020 ✓ · EC(ADR-0036/R1) ✓ (no-spec + explicit-default goldens, 61 ids) · EC(ADR-0037/R2) ✓ (351 caps + 12 rendered; pixel probe horizontal rules only) · EC-022 layout half ✓ (5×441) · EC-032 layout half ✓ (≥600 draws) · G-1..G-6 ✓ (goldens/admin/db/migrations untouched; G-2 tests unmodified+green; 39 signatures compared, only trailing defaulted additions). Named tests 184 passed; e2e pre-existing failure only.
+- [Docs] skipped — no per-directory README in src/nonogram/export/ or tests/property/ (module docstrings are the canonical map; G-1 docstring rewritten in-card); tests/README.md is admin-wave-1 only, unaffected
+- [Commit] /commit: working tree clean outside meta/ (0 fix cycles, nothing left to commit) — card commit is 9d0b40c on card/114-page-spec; ready for dispatcher merge
+- [Review 1/3] Minor (non-gating, for follow-up): F-001 np.float64 trim → unnamed ValueError in _exact_mm; F-002 height-only floor overflow stays centred (matrix says anchors left); F-003 no trim upper bound (huge image alloc) — CARD-115 builder; F-004 placed-path render_pages prints '<name> — <tier>' in book band, ADR-0037/R1 forbids — CARD-116/117 must not rely on it; F-005 two A4-only sentences in layout.py docstrings. OOS: O-2 7.5 cap rests on CARD-115 passing 7.5; O-3 zero margins accepted
+
+- [Done] main unchanged since branch base a9e70eb; the card's full-suite gate (3955 passed, pre-existing e2e failure excluded) ran on this exact tree. Merged e854cfc (--no-ff). Deferral scan: 0 hits. Handover notes pushed to CARD-115 (cell_mm), CARD-116/117 (band F-004).

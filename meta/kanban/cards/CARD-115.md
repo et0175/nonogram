@@ -141,3 +141,5 @@ Every later book card calls this builder: the PDF (CARD-116), the proof pages
 ## Worktree notes
 
 —
+
+- [Handover from CARD-114, 2026-09-22] The book cell is an exact fractional value: `book_cell_mm` must read `layout.page.cell_mm`, NOT convert `layout.cell` (that gives 4.57 mm instead of 4.61). Also pin here the 7.5 mm cap and a minimum margin; CARD-114 minors F-001 (np.float64 trim error names no field), F-003 (no upper bound on trim size) are yours to close if the spec builder validates trims.
