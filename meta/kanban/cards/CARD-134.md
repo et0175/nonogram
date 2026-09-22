@@ -31,35 +31,50 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 
 1. **`admin/book_answer_key.py` — the packing walk, a pure function.**
    `pack_answer_pages(answers) -> list[AnswerPage]`. `answers` holds each puzzle's
-   `(number, width, height)` in **puzzle-number order** (INV-011). It walks them in
-   order:
+   `(number, width, height, level)` in **puzzle-number order** (INV-011), `level` being
+   the puzzle's tier. It walks them in order:
    - a page's capacity is **6** while every answer on it is at most 20 on its longest
      side, and **4** once it holds one longer than 20;
    - the next answer goes on the current page when the page, **with it**, stays within
      its capacity. Otherwise it starts a new page. So 5 small answers followed by a
      25×25 close a 6-up page of 5 (AC-263), and 3 small answers + a 25×25 + a small
      one make a 4-up page of 4 followed by a new page (AC-264);
+   - **each level starts a new answer page** (decided 2026-09-22 (d), FR-042 amended):
+     an answer whose level differs from the current page's starts a new page even when
+     the page has room (AC-290). No page holds two levels (INV-011 amended). The first
+     page of each level is marked `heading = level name` ("Easy", "Medium", "Hard");
+     later pages of the level carry none (AC-291);
    - every answer appears exactly once, and the page count lies between
-     `ceil(n / 6)` and `ceil(n / 4)` (EC-030).
+     `ceil(n / 6)` and `ceil(n / 4) + (L − 1)` for L non-empty levels (EC-030
+     amended — at most 2 pages more than before).
 2. **Captions.** Each answer is captioned **"Puzzle N — Title"** (an em dash). N is
    the puzzle's number in the book, the same N the puzzle page's band shows
    (CARD-117). Title is the puzzle's **custom book title** (`puzzle_titles`, set on the
    arrangement step) when one is set, and otherwise the puzzle's name. This is the
-   **only** place the title prints (ADR-0037/R1). FR-042 records the custom-title rule
-   as an assumption to confirm with the owner. Note it in Worktree notes.
+   **only** place the title prints (ADR-0037/R1). The owner confirmed this rule on
+   2026-09-22 (d): the per-book title set in Arrangement, else the puzzle's name.
 3. **Generator.** Replace the one-answer-page-per-puzzle loop in
    `book_pdf_generator.py`. Build the pages from `pack_answer_pages`, and draw each one
-   with CARD-133's `render_answer_page(..., capacity, page_spec)`, where `page_spec`
-   is the book spec for that page's position (**mirrored margins**: pass that page's
-   parity). The admin panel fits no cell and places no grid line (ADR-0036/R2).
+   with CARD-133's `render_answer_page(..., capacity, page_spec, heading)`, where
+   `page_spec` is the book spec for that page's **interior** position (**mirrored
+   margins**: pass that page's parity, counted from interior page 1, CARD-135) and
+   `heading` is the page's level heading or None. CARD-133 reserves the heading line
+   and applies the 5 mm answer-cell cap. The admin panel fits no cell and places no
+   grid line (ADR-0036/R2).
+   **SOLUTIONS divider** (decided 2026-09-22 (d)): keep today's "SOLUTIONS" page — one
+   trim-size page carrying only that word — immediately after the last puzzle page and
+   before the first answer page (AC-292). It is not a level divider and carries no
+   heading, band or number.
 4. **Page count.** The generator's page-count report (CARD-127) includes the
-   answer-key pages. CARD-129's finalise gutter check reads that total (AC-271 is
-   CARD-129's). Report the answer-key page count separately too, for the Increment 15
+   answer-key pages and the SOLUTIONS divider. CARD-129's finalise gutter check reads
+   that total, which is the interior's (AC-271 and AC-288 are CARD-129's). Report the
+   answer-key page count separately too (divider not counted), for the Increment 15
    checkpoint.
-5. **Open, do not decide.** Where FR-041's small "Easy / Medium / Hard" headings go in
-   the answer key is unstated. They are CARD-128's, on top of these pages. Whether
-   today's "SOLUTIONS" divider page stays is also unstated. Keep it as it is, and record
-   both in Worktree notes (FR-042 `_meta.open_question` 1–2).
+5. **Decided 2026-09-22 (d)** (FR-042 `_meta.open_question` 1–3 closed by the owner):
+   level headings sit at the top of each level's first answer page, which always starts
+   a new page (this card); the SOLUTIONS divider stays (this card); answer cells are
+   capped at 5 mm (CARD-133). CARD-128 prints the puzzle section in level order and
+   asserts the three-level default plan end to end (AC-293).
 
 ## Acceptance criteria
 
@@ -73,14 +88,20 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
   *test:* `TestBookAnswerKey_LongestSideTwentyStaysSixUp`
 - **AC-268** — given a book whose puzzle 7 is named "Snowflake" and has no custom book title, when the book PDF is generated, then answer 7's caption reads "Puzzle 7 — Snowflake".
   *test:* `TestBookAnswerKey_CaptionPuzzleNumberAndTitle`
-- **AC-269** — given a book whose puzzle 7 is named "Snowflake" and carries the custom book title "Winter Star", when the book PDF is generated, then answer 7's caption reads "Puzzle 7 — Winter Star".
+- **AC-269** (reworded 2026-09-22 (d)) — given a book whose puzzle 7 is named "Snowflake" and was given the per-book title "Winter Star" in Arrangement, when the book PDF is generated, then answer 7's caption reads "Puzzle 7 — Winter Star".
   *test:* `TestBookAnswerKey_CaptionUsesCustomBookTitle`
-- **AC-270** (INV-011) — given a Book 1 profile book of 150 puzzles — the default plan's count and BK-8's 90 / 60 size split — all of one tier, puzzles 1-90 at most 20 on the longest side and puzzles 91-150 longer, when the book PDF is generated, then the answer key is 30 pages — 15 six-up pages then 15 four-up pages — where one page per answer would take 150.
+- **AC-270** (INV-011) — given a Book 1 profile book of 150 puzzles — the default plan's count and BK-8's 90 / 60 size split — all of one tier, puzzles 1-90 at most 20 on the longest side and puzzles 91-150 longer, when the book PDF is generated, then the answer key is 30 answer pages (the SOLUTIONS divider not counted) — 15 six-up pages then 15 four-up pages — where one page per answer would take 150.
   *test:* `TestBookAnswerKey_DefaultPlanTakesThirtyPages`
+- **AC-290** (INV-011, added 2026-09-22 (d)) — given a Book 1 profile book of 4 easy then 3 medium puzzles, all 15x15, numbered 1..7, when the book PDF is generated, then the answer key is 2 answer pages — answers 1-4 on the first and answers 5-7 on the second — the medium level starts a new page although the first had room for 2 more.
+  *test:* `TestBookAnswerKey_EachLevelStartsNewAnswerPage`
+- **AC-291** (added 2026-09-22 (d)) — given a Book 1 profile book of 8 easy puzzles then 1 medium puzzle, all 15x15, when its answer pages are read, then the first answer page carries the heading "Easy" above its tiles, the second answer page (answers 7-8) carries no heading, and the third carries the heading "Medium".
+  *test:* `TestBookAnswerKey_HeadingOnlyOnLevelFirstPage`
+- **AC-292** (added 2026-09-22 (d)) — given a Book 1 profile book of 3 easy 15x15 puzzles, when the book PDF is generated, then the page immediately after the last puzzle page and immediately before the first answer page carries only the word "SOLUTIONS".
+  *test:* `TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey`
 
 ## Engineering constraints
 
-- **EC-030** (consistency, INV-011) — For any book order of any length and any mix of puzzle sizes 10..30, the answer key holds every member puzzle's answer exactly once in puzzle-number order; no page holds more than 6 answers, nor more than 4 when any answer on it is longer than 20; a page is closed only when the next answer would push it past its capacity; and the answer-key page count lies between ceil(n / 6) and ceil(n / 4) for n answers — for every order, not only the measured examples.
+- **EC-030** (consistency, INV-011; amended 2026-09-22 (d)) — For any book order of any length and any mix of puzzle sizes 10..30 and tiers, the answer key holds every member puzzle's answer exactly once in puzzle-number order; no page holds more than 6 answers, nor more than 4 when any answer on it is longer than 20; no page holds answers of two levels; a page is closed only when the next answer would push it past its capacity or belongs to the next level; and the answer-key page count (the SOLUTIONS divider not counted) lies between ceil(n / 6) and ceil(n / 4) + (L - 1) for n answers over L non-empty levels — for every order, not only the measured examples.
   *test:* `PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook`
 
 ## Guardrails
@@ -90,7 +111,7 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 - G-3: CLI and web A4 output stay byte-identical (CON-019). test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry.
 - G-4: Answer pages are decided at PDF time, and nothing is stored (Increment 15 Rollback). Do not edit `src/nonogram/db/**`, `migrations/**` or `src/nonogram/admin/book_manager.py`.
 - G-5: Do not edit `src/nonogram/admin/book_proof.py`, `src/nonogram/admin/app.py`, `src/nonogram/admin/templates/book_setup_print.html`, `src/nonogram/admin/templates/book_detail.html`, `src/nonogram/admin/templates/books_list.html` or `src/nonogram/admin/templates/_stepper.html`. They are owned by CARD-118 / CARD-130 this wave.
-- G-6: Out of scope: the answer key's level headings (CARD-128) and solution hints (deferred, not Book 1).
+- G-6: Out of scope: solution hints (deferred, not Book 1). The puzzle section's level order and divider pages are CARD-128's.
 
 ## System contract
 
@@ -135,12 +156,13 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 - INV-008 — A published book's puzzle membership changes only after an explicit confirmation of that change (FR-038). (check: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus)
 - INV-009 — A book's order is grouped by tier — every easy puzzle before every medium one, every medium before every hard one; within a level the order is the owner's arrangement, changed only by an explicit move inside that level … (check: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel)
 - INV-010 — A book page holds two puzzles only when their tiers are equal, they are adjacent in the book order and both fit at one shared cell of at least 7.0 mm (capped at 7.5 mm), each under its own band; pairing never changes … (check: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair, TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare, TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner, TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage)
-- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
+- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
 - INV-012 — A book outside draft holds exactly the puzzle membership that last passed the plan check (INV-007): adding or removing a puzzle on a book that has left draft returns it to draft as part of that change (FR-037, FR-038; … (check: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership)
+- INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the book's page count is the interior's; the cover is … (check: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
 
-- **FR:** FR-042 (AC-261, AC-263, AC-264, AC-266, AC-268..AC-270, EC-030)
+- **FR:** FR-042 (AC-261, AC-263, AC-264, AC-266, AC-268..AC-270, AC-290..AC-292, EC-030); FR-041 (answer-key level headings)
 - **NFR:** —
 - **ADR:** ADR-0036, ADR-0037
 - **Components:** COMP-009, COMP-007 (consumed)

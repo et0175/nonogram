@@ -39,7 +39,10 @@ Every later book card calls this builder: the PDF (CARD-116), the proof pages
      (NFR-008) and the ADR-0037 stroke minimum.
    - **Page parity** (2026-09-22 (c), ADR-0036 clarification "Mirrored margins"):
      `book_page_spec(book, page_number)` returns the spec for that page's position.
-     Page 1 of the book PDF is right-hand (odd), so its gutter margin is on the left.
+     Page 1 of the **interior** PDF is right-hand (odd), so its gutter margin is on the
+     left. Interior page 1 is the guide page: the cover is a separate file and is never
+     numbered (2026-09-22 (d), FR-043, CARD-135). `page_number` is always the interior
+     position the generator reports.
      An even page puts the gutter on the right. Parity changes only which side each
      margin sits on, never the usable size, so `book_cell_mm` (below) needs no page
      number: build it on either parity and it gives the same cell.
@@ -67,9 +70,9 @@ Every later book card calls this builder: the PDF (CARD-116), the proof pages
   *test:* `TestBookCreate_StoresBook1PrintProfile`
 - (builder half of AC-178, the PDF half is CARD-116) — given a book row whose `gutter_margin_cm` and `outside_margin_cm` are empty, when its PageSpec is built, then it equals the one built from the CON-018 margins, and `book_cell_mm` for a 30×30 with 9-deep gutters gives 4.97 mm (±0.05).
   *test:* `TestBookPageSpec_EmptyMarginsFallBackToBook1Profile`
-- **AC-272** (FR-030, added 2026-09-22 (c)) — given a Book 1 profile book (gutter 1.27 cm, outside 0.95 cm), when the usable area of its PDF page 3 (a right-hand page) is computed, then it spans 12.7 mm to 206.375 mm from the page's left trim edge — the gutter margin on the left.
+- **AC-272** (FR-030, added 2026-09-22 (c)) — given a Book 1 profile book (gutter 1.27 cm, outside 0.95 cm), when the usable area of its interior page 3 (a right-hand page) is computed, then it spans 12.7 mm to 206.375 mm from the page's left trim edge — the gutter margin on the left.
   *test:* `TestBookPageSpec_OddPageGutterOnLeft`
-- **AC-273** (FR-030, added 2026-09-22 (c)) — given the same Book 1 profile book, when the usable area of its PDF page 4 (a left-hand page) is computed, then it spans 9.525 mm to 203.2 mm from the page's left trim edge — the gutter margin on the right.
+- **AC-273** (FR-030, added 2026-09-22 (c)) — given the same Book 1 profile book, when the usable area of its interior page 4 (a left-hand page) is computed, then it spans 9.525 mm to 203.2 mm from the page's left trim edge — the gutter margin on the right.
   *test:* `TestBookPageSpec_EvenPageGutterOnRight`
 
 ## Guardrails
@@ -122,8 +125,9 @@ Every later book card calls this builder: the PDF (CARD-116), the proof pages
 - INV-008 — A published book's puzzle membership changes only after an explicit confirmation of that change (FR-038). (check: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus)
 - INV-009 — A book's order is grouped by tier — every easy puzzle before every medium one, every medium before every hard one; within a level the order is the owner's arrangement, changed only by an explicit move inside that level … (check: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel)
 - INV-010 — A book page holds two puzzles only when their tiers are equal, they are adjacent in the book order and both fit at one shared cell of at least 7.0 mm (capped at 7.5 mm), each under its own band; pairing never changes … (check: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair, TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare, TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner, TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage)
-- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
+- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
 - INV-012 — A book outside draft holds exactly the puzzle membership that last passed the plan check (INV-007): adding or removing a puzzle on a book that has left draft returns it to draft as part of that change (FR-037, FR-038; … (check: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership)
+- INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the book's page count is the interior's; the cover is … (check: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
 

@@ -169,10 +169,15 @@ commands:
     # AMENDED 2026-09-22 (c): the answer key obeys INV-011 (6-up / 4-up
     # answer pages in puzzle-number order, FR-042), and every page is laid
     # out with mirrored margins by page parity (FR-030 / FR-032 amended).
+    # AMENDED 2026-09-22 (d): produces TWO files — the interior PDF
+    # without the cover (starting at the guide page, right-hand page 1,
+    # parity counted from it) and the cover as a separate file (INV-013,
+    # FR-043); the answer key starts a new page per level (INV-011
+    # amended, FR-042). Name kept (the interior is still "the book PDF").
     name: GenerateBookPdf
     actor: ACT-001
     target_aggregate: AGG-002
-    preconditions: [INV-009, INV-010, INV-011]
+    preconditions: [INV-009, INV-010, INV-011, INV-013]
     produces: [EVT-020]
     source: [US-023, US-024]
   - id: CMD-020

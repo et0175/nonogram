@@ -48,33 +48,47 @@ of FR-040.
      geometry gives 3.97 mm and 3.19 mm, so "about 3 mm or more" holds with margin.
    - It is valid only for a book `PageSpec` (portrait-only, flat cap). Any other spec
      raises `ValueError`: the default A4 spec has no answer tiles.
-   - FR-042 does not state whether small answers are capped (for example at the 7.5 mm
-     standard cell). Do not cap. Record this in Worktree notes, because FR-042's
-     `_meta.open_question` (3) is still with the owner.
-2. **`render_answer_page(answers, capacity, page_spec) -> Image`** in `export/png.py`.
+   - **Answer cells are capped at 5 mm** (decided 2026-09-22 (d), FR-042 amended,
+     BK-8): `cell = min(5 mm, tile width / columns, (tile height − 6 mm) / rows)`. A
+     10×10 in a 6-up tile would otherwise get 7.94 mm and a 15×15 5.30 mm; both print at
+     5.0 mm (AC-294). Name the cap as a constant beside the gap and caption line.
+   - **Level heading line** (decided 2026-09-22 (d)): an optional `heading` argument.
+     When given, the page reserves a **6 mm heading line plus the 2 mm gap** at the top
+     of its usable area, and the tile rows share the height below it:
+     `(usable height − 8 mm − (rows − 1) × 2 mm) / rows`. On the Book 1 profile a 6-up
+     tile becomes 95.85 × 83.45 mm (20×20 → 3.87 mm, AC-295). A 4-up tile becomes
+     95.85 × 126.18 mm, where a 30×30 is still width-limited at 3.19 mm. Without a
+     heading the geometry is exactly the one above. Which page carries a heading is
+     the caller's decision (CARD-128), not this card's.
+2. **`render_answer_page(answers, capacity, page_spec, heading=None) -> Image`** in `export/png.py`.
    `answers` is a list of `(grid, caption)` pairs. It draws each answer as its **filled
    grid only**: filled cells, grid rules and every-5th heavy rules under the book
    stroke minimum (ADR-0037/R2). It draws **no clue numbers and no clue gutters**. It
    prints the caption text on the tile's caption line. The caption string comes from
-   the caller. This card does not compose "Puzzle N — Title".
+   the caller. This card does not compose "Puzzle N — Title". When `heading` is given
+   it prints that text (e.g. "Easy") small, on the reserved heading line.
 3. Reuse the existing private helpers (`_axis_lines`, `_rule_widths`, the stroke
    policy). Do not write a second implementation of rules or stroke widths.
-4. Pin AC-262 and AC-265 at layout level with a Book 1 `PageSpec` literal built in the
+4. Pin AC-262, AC-265, AC-294 and AC-295 at layout level with a Book 1 `PageSpec` literal built in the
    test (no `nonogram.admin` import, as in CARD-114). CARD-134 re-asserts them on the
    PDF.
 
 ## Acceptance criteria
 
-- **AC-262** — given a Book 1 profile book whose answer key holds a 20x20 answer on a 6-up page, when the answer's grid is measured, then its cell is 3.97 mm (+/- 0.05 mm; 79.45 mm tile grid area over 20 rows).
+- **AC-262** (reworded 2026-09-22 (d)) — given a Book 1 profile book whose answer key holds a 20x20 answer on a 6-up page that is not the first answer page of its level, when the answer's grid is measured, then its cell is 3.97 mm (+/- 0.05 mm; 79.45 mm tile grid area over 20 rows).
   *test:* `TestBookAnswerKey_TwentyInSixUpTileCellSize`
 - **AC-265** — given a Book 1 profile book whose answer key holds a 30x30 answer on a 4-up page, when the answer's grid is measured, then its cell is 3.19 mm (+/- 0.05 mm; 95.85 mm tile width over 30 columns).
   *test:* `TestBookAnswerKey_ThirtyInFourUpTileCellSize`
 - **AC-267** — given a Book 1 profile book holding a 15x15 puzzle whose row and column clues are non-empty, when its answer tile is rendered, then the tile draws the 15 x 15 filled grid and no clue number.
   *test:* `TestBookAnswerKey_AnswerDrawsGridOnlyNoClues`
+- **AC-294** (added 2026-09-22 (d)) — given a Book 1 profile book whose answer key holds a 10x10 answer on a 6-up page, when the answer's grid is measured, then its cell is 5.0 mm (+/- 0.05 mm) — the 5 mm answer cap, not the 7.94 mm the tile would allow.
+  *test:* `TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm`
+- **AC-295** (added 2026-09-22 (d)) — given a Book 1 profile book whose answer key holds a 20x20 answer on the first 6-up answer page of its level (under the level heading), when the answer's grid is measured, then its cell is 3.87 mm (+/- 0.05 mm; 77.45 mm tile grid area over 20 rows).
+  *test:* `TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize`
 
 ## Engineering constraints
 
-- **EC-031** (consistency) — For any answer of 10..30 cells per side on the Book 1 profile, on either page parity, the answer's cell is at least 3.19 mm, its grid and 6 mm caption line lie inside its tile, and every tile lies inside the page's usable area without overlapping another — for every extent and position, not only the measured examples.
+- **EC-031** (consistency; amended 2026-09-22 (d)) — For any answer of 10..30 cells per side on the Book 1 profile, on either page parity and whether or not its page carries a level heading, the answer's cell lies in [3.19, 5.0] mm, its grid and 6 mm caption line lie inside its tile, and every tile and the heading line lie inside the page's usable area without overlapping one another — for every extent and position, not only the measured examples.
   *test:* `PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea`
 
 ## Guardrails
@@ -123,12 +137,13 @@ of FR-040.
 - INV-008 — A published book's puzzle membership changes only after an explicit confirmation of that change (FR-038). (check: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus)
 - INV-009 — A book's order is grouped by tier — every easy puzzle before every medium one, every medium before every hard one; within a level the order is the owner's arrangement, changed only by an explicit move inside that level … (check: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel)
 - INV-010 — A book page holds two puzzles only when their tiers are equal, they are adjacent in the book order and both fit at one shared cell of at least 7.0 mm (capped at 7.5 mm), each under its own band; pairing never changes … (check: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair, TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare, TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner, TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage)
-- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
+- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
 - INV-012 — A book outside draft holds exactly the puzzle membership that last passed the plan check (INV-007): adding or removing a puzzle on a book that has left draft returns it to draft as part of that change (FR-037, FR-038; … (check: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership)
+- INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the book's page count is the interior's; the cover is … (check: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
 
-- **FR:** FR-042 (AC-262, AC-265, AC-267, EC-031)
+- **FR:** FR-042 (AC-262, AC-265, AC-267, AC-294, AC-295, EC-031)
 - **NFR:** —
 - **CON:** CON-019
 - **ADR:** ADR-0036, ADR-0037

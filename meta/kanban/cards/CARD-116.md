@@ -13,7 +13,7 @@
 **Source:** meta/architecture/handoff.md#increment-13
 **Idea:** —
 **Wave:** 23
-**Depends on:** CARD-115
+**Depends on:** CARD-115, CARD-135
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py
 **Review score:** —
 **Started:** —
@@ -31,9 +31,10 @@ is sized for A4 inside a letter page. This card produces the book on the trim.
 1. `generate_book_pdf` takes the **book** (or its `PageSpec` from CARD-115's
    `book_page_spec`), not loose trim strings. The `/book/<id>/generate-pdf` and
    `/book/<id>/download-pdf` routes pass it through.
-2. **Every page is the trim at 300 DPI**: cover, guide, puzzle pages, the SOLUTIONS
-   divider and the answer pages. On the Book 1 profile that is 2550 × 3300 px. On
-   6×9 in it is 1800 × 2700 px.
+2. **Every page is the trim at 300 DPI**: the interior's guide, puzzle pages, the
+   SOLUTIONS divider and the answer pages, and the separate one-page cover file
+   (CARD-135). On the Book 1 profile that is 2550 × 3300 px. On 6×9 in it is
+   1800 × 2700 px.
 3. Puzzle and answer pages are drawn with `render_pages(payload, page_spec=spec)` (or
    the layout CARD-114 exposes) and placed on the trim page at the drawing origin the
    layout reports. The drawing's **top edge sits at top margin + band on every puzzle
@@ -41,14 +42,16 @@ is sized for A4 inside a letter page. This card produces the book on the trim.
    positions the finished drawing only. It fits no cell and places no grid line
    (ADR-0036/R2).
 4. **Mirrored margins** (decided 2026-09-22 (c); FR-030/FR-032 amended, ADR-0036
-   clarification). Number the PDF's pages from 1, where page 1 (the cover) is
-   right-hand, and build each page with `book_page_spec(book, page_number)`
-   (CARD-115). The gutter margin is on the left of odd pages and on the right of even
-   pages. The drawing is centred across the usable width, and its top edge never moves.
-   Every page kind takes its parity from its position: puzzle, divider and answer
-   pages alike. FR-030 counts parity from page 1 of the PDF, cover included. Whether a
-   KDP interior would exclude the cover (which flips every parity) is not stated. Note
-   it in Worktree notes for the owner's visual checkpoint.
+   clarification). Number the **interior** PDF's pages from 1 — page 1 is the guide
+   page and is right-hand (decided 2026-09-22 (d), FR-043; the cover is CARD-135's
+   separate file and is never numbered) — and build each page with
+   `book_page_spec(book, page_number)` (CARD-115). The gutter margin is on the left of
+   odd pages and on the right of even pages. The drawing is centred across the usable
+   width, and its top edge never moves. Every page kind takes its parity from its
+   interior position: guide, puzzle, divider and answer pages alike. Until level
+   dividers exist (CARD-128), the first puzzle page directly follows the guide page and
+   is therefore interior page 2, left-hand. That is expected. CARD-128 asserts the
+   divider case (AC-287).
    The answer pages stay one per puzzle here. CARD-134 replaces them with the packed
    6-up / 4-up answer key (FR-042).
 5. This card does **not** change the band's content, picture titles or line weights
@@ -75,9 +78,9 @@ Book 1 PDF (15×15, 30×30, a 30×15 wide grid) and a 6×9 PDF in
   *test:* `TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage`
 - **AC-240** — given a Book 1 profile book holding a 30-wide x 15-tall puzzle, when the book PDF is generated, then the puzzle's grid is drawn with 30 columns across the page and 15 rows down it (unrotated).
   *test:* `TestBookPdf_WideGridPrintsUprightNeverRotated`
-- **AC-274** (FR-032, added 2026-09-22 (c)) — given a Book 1 profile book whose PDF page 3 (right-hand) holds a 15x15 puzzle with 7-deep row- and column-clue gutters (22 cells x 7.5 mm = 165 mm drawing width), when the book PDF is generated, then the drawing's left edge is 27.05 mm (+/- 0.1 mm) from the page's left trim edge — 14.35 mm inside each side of the usable width.
+- **AC-274** (FR-032, added 2026-09-22 (c); reworded (d)) — given a Book 1 profile book whose interior page 3 (right-hand) holds a 15x15 puzzle with 7-deep row- and column-clue gutters (22 cells x 7.5 mm = 165 mm drawing width), when the book PDF is generated, then the drawing's left edge is 27.05 mm (+/- 0.1 mm) from the page's left trim edge — 14.35 mm inside each side of the usable width.
   *test:* `TestBookPdf_DrawingCentredOnRightHandPage`
-- **AC-275** (FR-032, added 2026-09-22 (c)) — given the same puzzle printed on PDF page 4 (left-hand) of the same book, when the book PDF is generated, then the drawing's left edge is 23.875 mm (+/- 0.1 mm) from the page's left trim edge.
+- **AC-275** (FR-032, added 2026-09-22 (c); reworded (d)) — given the same puzzle printed on interior page 4 (left-hand) of the same book, when the book PDF is generated, then the drawing's left edge is 23.875 mm (+/- 0.1 mm) from the page's left trim edge.
   *test:* `TestBookPdf_DrawingCentredOnLeftHandPage`
 - **AC-276** (FR-032, added 2026-09-22 (c)) — given the pages of AC-274 and AC-275, when the top edges of the two drawings are compared, then they lie on the same pixel row — parity moves the drawing sideways only.
   *test:* `TestBookPdf_ParityNeverMovesTopEdge`
@@ -90,6 +93,8 @@ Book 1 PDF (15×15, 30×30, a 30×15 wide grid) and a 6×9 PDF in
   *test:* `PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent`
 - **EC-032** (consistency; added 2026-09-22 (c), PDF half) — For any puzzle extent of 10..30 per side, any clue depth, any stored trim and margins and any page position, the gutter margin lies on the binding side of the page (left on odd pages, right on even pages), the drawing's horizontal centre is the centre of that page's usable width, and the drawing's left edge on an odd page minus its left edge on an even page equals gutter margin minus outside margin — while its top edge is identical on both.
   *test:* `PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity` — _extend CARD-114's layout-level property with PDF pages at both parities._
+- **EC-034** (consistency, INV-013; parity half, added 2026-09-22 (d)) — For any book (any members, levels, pairing, answer-key layout and cover or no cover) and every export route, the interior PDF holds no cover page, its page 1 is the guide page, each page's parity is its 1-based position in the interior (page 1 odd, right-hand), the page count finalise checks equals the interior's page count, and exactly one cover file of one trim-size page is produced beside it — for every book, not only the measured examples.
+  *test:* `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` — _extend CARD-135's property: every interior page's PageSpec parity equals its 1-based interior position, and the cover file is the trim size._
 
 ## Guardrails
 
@@ -142,12 +147,13 @@ Book 1 PDF (15×15, 30×30, a 30×15 wide grid) and a 6×9 PDF in
 - INV-008 — A published book's puzzle membership changes only after an explicit confirmation of that change (FR-038). (check: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus)
 - INV-009 — A book's order is grouped by tier — every easy puzzle before every medium one, every medium before every hard one; within a level the order is the owner's arrangement, changed only by an explicit move inside that level … (check: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel)
 - INV-010 — A book page holds two puzzles only when their tiers are equal, they are adjacent in the book order and both fit at one shared cell of at least 7.0 mm (capped at 7.5 mm), each under its own band; pairing never changes … (check: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair, TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare, TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner, TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage)
-- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
+- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
 - INV-012 — A book outside draft holds exactly the puzzle membership that last passed the plan check (INV-007): adding or removing a puzzle on a book that has left draft returns it to draft as part of that change (FR-037, FR-038; … (check: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership)
+- INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the book's page count is the interior's; the cover is … (check: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
 
-- **FR:** FR-030, FR-032
+- **FR:** FR-030, FR-032, FR-043 (EC-034 parity half)
 - **NFR:** NFR-008
 - **CON:** CON-018, CON-019
 - **ADR:** ADR-0036

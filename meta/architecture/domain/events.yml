@@ -152,11 +152,17 @@ events:
     # carries the answer-key pages (kind answers, layout 6_up|4_up, puzzle
     # numbers) and each page's parity (odd = right-hand); page_count
     # includes the answer-key pages.
+    # AMENDED 2026-09-22 (d) (FR-043, FR-042 amended): pages[] and
+    # page_count describe the INTERIOR PDF only — pages[0] is the guide
+    # page (parity odd), the cover is never in pages[] nor counted; a
+    # separate cover_file entry records the cover. pages[] kinds gain guide
+    # and solutions_divider; an answers page carries the level heading it
+    # opens (heading_level, first answer page of a level only).
     name: BookPdfGenerated
     triggered_by: CMD-019
     aggregate: AGG-002
     source: [US-023, US-024]
-    payload_summary: book_id, trim, margins_applied (gutter after the KDP page-count minimum), page_count, cell_mm per puzzle, below_floor_count, pages[](kind single|two_up|divider|answers, parity odd|even, puzzle numbers, shared_cell_mm for two_up, level for divider, layout 6_up|4_up for answers)
+    payload_summary: book_id, trim, margins_applied (gutter after the KDP page-count minimum), page_count (interior pages only; cover not counted), cell_mm per puzzle, below_floor_count, pages[](interior only, from the guide page; kind guide|single|two_up|divider|solutions_divider|answers, parity odd|even counted from interior page 1, puzzle numbers, shared_cell_mm for two_up, level for divider, layout 6_up|4_up and heading_level for answers), cover_file (separate, 1 trim-size page, uploaded|generated)
   - id: EVT-021
     name: BookPlanMatrixRederived
     triggered_by: CMD-020

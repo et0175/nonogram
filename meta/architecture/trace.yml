@@ -1,6 +1,16 @@
 # generated_by: forge:architect-synthesis
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-09-22 (d) (delta mode, --trace-only — interior PDF without
+#   the cover, answer-key details: row ADDED for FR-043 (CAP-006; COMP-009
+#   assembles the interior from the guide page and writes the cover file,
+#   COMP-007 lays out with the parity counted from interior page 1; ADR-0036);
+#   rows AMENDED with dated notes for FR-030 / FR-032 (parity from interior
+#   page 1; AC-179's page count is the interior's), FR-041 (answer-key
+#   headings placed by FR-042) and FR-042 (level-first answer pages with a
+#   heading, SOLUTIONS divider, per-book caption title, 5 mm answer cap;
+#   AC-290..AC-295 test names added). No component added. Every existing row
+#   and id preserved.)
 # updated_at: 2026-09-22 (c) (delta mode, --trace-only — answer key, mirrored
 #   margins, back to draft: row ADDED for FR-042 (CAP-006; COMP-007 lays out
 #   the answer tiles with the book PageSpec, COMP-009 packs pages, ADR-0036 /
@@ -1570,6 +1580,10 @@ links:
   - TestBookPageSpec_OddPageGutterOnLeft
   - TestBookPageSpec_EvenPageGutterOnRight
   notes: >-
+    Amended 2026-09-22 (d): parity counts from INTERIOR page 1 — the guide
+    page, the cover being a separate file (FR-043); AC-179's page count is the
+    interior's (cover not counted). AC-179/AC-272/AC-273 reworded, test names
+    unchanged.
     Amended 2026-09-22 (c): margins mirrored by page parity (ADR-0036
     clarification) — the book PageSpec carries parity (page 1 = right-hand,
     gutter on the left); the default A4 spec has none (ADR-0036/R1). AC-179's
@@ -1626,6 +1640,8 @@ links:
   - TestBookPdf_ParityNeverMovesTopEdge
   - PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
   notes: >-
+    Amended 2026-09-22 (d): parity counted from interior page 1 (FR-043);
+    AC-274/AC-275 reworded to "interior page", test names unchanged.
     Amended 2026-09-22 (c): the drawing is centred across the usable width of
     its page, whose position follows parity (FR-030); the top edge never moves
     (EC-032). Centring lives in COMP-007's book PageSpec path (ADR-0036/R2).
@@ -1836,6 +1852,10 @@ links:
     an added puzzle lands at the END of its level; the answer key carries small
     level headings, not divider pages; a legacy arrangement prints grouped by
     level (AC-260). Tier is the solver's three-band tier (ADR-0031).
+    Amended 2026-09-22 (d): the answer-key headings are placed by FR-042 —
+    each level starts a new answer page under a small heading; no level
+    divider pages in the answer key (the SOLUTIONS page is not a level
+    divider).
   status: partial
 
 - req: FR-042
@@ -1858,7 +1878,20 @@ links:
   - TestBookFinalise_PageCountIncludesAnswerKeyPages
   - PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
   - PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
+  - TestBookAnswerKey_EachLevelStartsNewAnswerPage
+  - TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
+  - TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
+  - TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages
+  - TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm
+  - TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize
   notes: >-
+    Amended 2026-09-22 (d) (owner, BK-8 details): a SOLUTIONS divider page
+    precedes the answer key; each level starts a new answer page under a small
+    heading (6 mm line on that page; COMP-007 lays the tiles out below it,
+    COMP-009 closes a page at a level boundary); caption title = per-book title
+    set in Arrangement, else the puzzle's name; answer cells capped at 5 mm
+    (COMP-007). Default plan now 31 answer pages + 1 divider (was 30); EC-030
+    bound ceil(n/4) + (levels - 1). AC-262/AC-269/AC-270/AC-271 reworded.
     New 2026-09-22 (c). Stories US-023, US-024; INV-011, EC-030, EC-031; owner
     decision BK-8 (not a DEC). COMP-007 lays out a tiled answer page (2 x 3 or
     2 x 2 tiles, grid only, 6 mm caption line, 2 mm gaps) with the book PageSpec
@@ -1868,6 +1901,33 @@ links:
     answer pages feed the page count AC-179's finalise check reads. Replaces
     today's one-answer-page-per-puzzle loop in book_pdf_generator.py. Planned
     test names from requirements.yml; no code yet.
+  status: partial
+
+- req: FR-043
+  description: "Book export produces the interior PDF without the cover (page 1 = the guide page, right-hand; parity and page count from it) and the front cover as a separate trim-size file, on every export route"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007]
+  adrs: [ADR-0036]
+  tests:
+  - TestBookExport_InteriorStartsAtGuidePage
+  - TestBookExport_InteriorHoldsNoCoverPage
+  - TestBookExport_CoverIsSeparateSinglePageFile
+  - TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover
+  - TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1
+  - TestBookFinalise_PageCountExcludesCoverFile
+  - TestBookExport_EveryRouteSeparatesInteriorAndCover
+  - PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
+  notes: >-
+    New 2026-09-22 (d). Story US-023; INV-013, EC-034; owner decision BK-9
+    (not a DEC). COMP-009 (book_pdf_generator.py and the three export routes)
+    stops putting the cover on page 1, starts the interior at the guide page
+    and writes the cover as its own one-page trim-size PDF; COMP-007 receives
+    each page's parity counted from interior page 1 through the book PageSpec
+    (ADR-0036 mirrored-margins clarification). The page count finalise checks
+    (FR-030 AC-179, FR-042 AC-271) is the interior's. Full KDP cover wrap
+    (spine, back) DEFERRED. Planned test names from requirements.yml; no code
+    yet.
   status: partial
 
 - req: NFR-008

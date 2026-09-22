@@ -35,15 +35,20 @@
 3. **Numbering.** Puzzle numbers run 1..n in print order across levels. Dividers do not
    consume numbers. Two-up pages (CARD-127) pair only within a level: tiers are already
    equal in a pair, and the divider sits between levels.
-4. **Answer key:** small **level headings**, not divider pages (owner answer, trace
-   FR-041 note), on CARD-134's packed 6-up / 4-up answer pages (FR-042). The answer key
-   keeps puzzle-number order. **Where a heading sits** (in a tile slot, above a tile
-   row, or forcing a new answer page at a level boundary) is unstated (FR-042
-   `_meta.open_question` 1). Ask the owner before choosing. A choice that takes a tile
-   slot or forces a page break changes the answer-key page count, and so AC-270's
-   30 pages, which are measured on a single-level book. Record the answer.
-5. The guide page's per-tier counts and the page-count report (CARD-127) stay correct
-   with dividers counted.
+4. **Answer key** (decided 2026-09-22 (d), FR-042 / FR-041 amended): small **level
+   headings**, not divider pages. Each level starts a new answer page with its heading
+   at the top. The walk and the headings are CARD-134's (AC-290..AC-292) and the heading
+   line and 5 mm cap are CARD-133's. This card feeds them the grouped print order, so
+   the answer levels follow the puzzle section's, and asserts the three-level default
+   plan end to end: 31 answer pages after one SOLUTIONS page (AC-293; 30 before
+   level-first pages).
+5. **Parity with dividers** (FR-043, decided 2026-09-22 (d)): the interior starts at the
+   guide page (CARD-135), so with the "Easy" divider the first puzzle page is interior
+   page 3, right-hand, gutter on the left (AC-287). Every divider page takes its parity
+   from its interior position like any other page (CARD-116).
+6. The guide page's per-tier counts and the page-count report (CARD-127) stay correct
+   with dividers counted. The report counts interior pages only (the cover file is
+   never counted, FR-043).
 
 ## Acceptance criteria
 
@@ -57,6 +62,10 @@
   *test:* `TestBookPdf_EmptyLevelHasNoDivider`
 - **AC-260** (INV-009) — given a book whose stored arrangement, saved before this rule, is medium M1, easy E1, hard H1, easy E2, when the book PDF is generated, then the puzzles print in the order E1, E2, M1, H1.
   *test:* `TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel`
+- **AC-287** (FR-043, INV-013, added 2026-09-22 (d)) — given a Book 1 profile book whose interior runs guide page, "Easy" divider, then its first puzzle page, when the book is exported, then the first puzzle page is interior page 3, a right-hand page, whose usable area starts 12.7 mm from its left trim edge (gutter on the left) — with the cover as page 1 it would have been a left-hand page 4.
+  *test:* `TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1`
+- **AC-293** (FR-042, INV-011, added 2026-09-22 (d)) — given a Book 1 profile book on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 50 answers at most 20 on the longest side then 10 longer, medium 34 then 26, hard 6 then 24, in that order inside each level — when the book PDF is generated, then the answer key is 31 answer pages — easy 11, medium 13, hard 7 — after 1 SOLUTIONS divider page (32 pages; 30 before level-first pages).
+  *test:* `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`
 
 ## Engineering constraints
 
@@ -68,7 +77,7 @@
 ## Guardrails
 
 - G-1: Dividers and print order are decided at PDF time, and nothing is stored (Increment 15 Rollback). Do not edit `src/nonogram/db/**`, `migrations/**` or `src/nonogram/admin/book_manager.py`.
-- G-2: Out of scope: solution hints (deferred). The answer key gains level headings only.
+- G-2: Out of scope: solution hints (deferred). Answer-key packing and headings are CARD-134's and are consumed as delivered.
 - G-3: The admin panel fits no cells itself (ADR-0036/R2). Divider pages are text on a blank trim page.
 - G-4: Do not edit `src/nonogram/admin/app.py`, `src/nonogram/admin/templates/books_list.html` or `src/nonogram/admin/book_manager.py`. They are owned by CARD-131 / CARD-132 this wave.
 
@@ -118,12 +127,13 @@
 - INV-008 — A published book's puzzle membership changes only after an explicit confirmation of that change (FR-038). (check: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus)
 - INV-009 — A book's order is grouped by tier — every easy puzzle before every medium one, every medium before every hard one; within a level the order is the owner's arrangement, changed only by an explicit move inside that level … (check: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel)
 - INV-010 — A book page holds two puzzles only when their tiers are equal, they are adjacent in the book order and both fit at one shared cell of at least 7.0 mm (capped at 7.5 mm), each under its own band; pairing never changes … (check: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair, TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare, TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner, TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage)
-- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
+- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
 - INV-012 — A book outside draft holds exactly the puzzle membership that last passed the plan check (INV-007): adding or removing a puzzle on a book that has left draft returns it to draft as part of that change (FR-037, FR-038; … (check: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership)
+- INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the book's page count is the interior's; the cover is … (check: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
 
-- **FR:** FR-041 (answer-key headings sit on FR-042's pages, CARD-134)
+- **FR:** FR-041 (answer-key headings delivered by CARD-134 on FR-042's pages), FR-042 (AC-293), FR-043 (AC-287)
 - **NFR:** —
 - **ADR:** ADR-0037, ADR-0031
 - **Components:** COMP-009

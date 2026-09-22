@@ -1,5 +1,6 @@
 <!-- decomposed: 2026-09-22 — Increments 13..16 (book generator) → CARD-113..CARD-132 (waves 20–27) -->
 <!-- decomposed: 2026-09-22 (c) — delta carded: answer key FR-042 (Increment 15) → new CARD-133 (wave 22) + CARD-134 (wave 25), CARD-128/CARD-129 now depend on CARD-134, AC-271 on CARD-129; mirrored margins FR-030/FR-032 (Increment 13) → CARD-114, CARD-115, CARD-116; back to draft FR-037/FR-038 (Increment 16) → CARD-131 (CARD-124 stance updated) -->
+<!-- decomposed: 2026-09-22 (d) — delta carded: interior PDF without the cover FR-043 (Increment 13) → new CARD-135 (wave 20, no deps; CARD-116 now depends on it, parity from interior page 1; AC-287 on CARD-128, AC-288 on CARD-129; CARD-115/CARD-118 wording); answer-key details FR-042/FR-041 (Increment 15) → CARD-133 (5 mm cap, heading line; AC-294/AC-295), CARD-134 (level-first pages, headings, SOLUTIONS divider; AC-290..AC-292), CARD-128 (AC-293 default plan 31 + 1), CARD-129 (interior page count, cover not counted) -->
 <!-- delta 2026-09-12 — Increments 8..12 added (FR-024..FR-029, NFR-007, CON-014, ADR-0024..0029); run /forge:kanban decompose for them -->
 <!-- decomposed: 2026-08-30 — Increment 4 → CARD-019, CARD-020, CARD-021 (waves 12–14) -->
 <!-- decomposed: 2026-08-31 — Increment 5 → CARD-023..CARD-029 (waves 16–19) -->
@@ -322,12 +323,20 @@ the page's parity (page 1 = right-hand), the gutter margin sits on the binding
 side, and the drawing is centred across the usable width; the top edge does
 not move (FR-030/FR-032 amended, ADR-0036 clarification; the A4 default has no
 parity and stays byte-identical).
+*Added 2026-09-22 (d):* the export produces the **interior PDF without the
+cover** — it starts at the guide page, interior page 1 is a right-hand page,
+and page parity and every page count (including the one finalise checks
+against KDP's gutter minimum) count from it — and the **front cover as a
+separate one-page trim-size file** (the uploaded image, or the generated title
+cover), on every export route (FR-043, INV-013, BK-9). This is what fixes the
+parity the mirrored margins depend on: with the cover as page 1, every page's
+parity is off by one. A full KDP cover wrap (spine, back) is deferred.
 
 Components: COMP-007 (PageSpec, the book cap and stroke policies), COMP-009
 (PageSpec builder, book PDF, proof pages), COMP-010 (margin defaults).
 Requirements: FR-030 (AC-175..AC-181, AC-272, AC-273, EC-019, EC-020), FR-032
 (AC-189, AC-190, AC-240, AC-274..AC-276, EC-022, EC-032), FR-033 (AC-193..AC-195), NFR-008 (AC-236..AC-239), CON-018,
-CON-019.
+CON-019, FR-043 (AC-283..AC-289, EC-034).
 Tests: `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`,
 `TestCliExports_ByteIdenticalAfterBookGeometry`,
 `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` (CON-019's
@@ -336,7 +345,9 @@ check ref), `PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell`,
 `TestBookPdf_CellSizedForBookTrimNotA4`, `TestBookPdf_PageSizeEqualsStoredTrim`,
 `TestBookPdf_EveryFifthGridLineWider`, `TestBookCell_*` (AC-236..AC-239),
 `TestBookCreate_StoresBook1PrintProfile`,
-`PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity`.
+`PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity`,
+`PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`,
+`TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1`.
 
 **Checkpoint:** The golden A4 test is green on both sides of the change, and a
 seeded 30×30 `nonogram generate` writes byte-identical PNG/SVG/PDF before and
@@ -346,14 +357,18 @@ book at 1800 × 2700 px. Printed on 8.5×11 paper, the proof pages measure a
 thin rules at least 0.25 mm and heavy rules visibly double; the band reads
 "Puzzle N · Tier" and no picture title is on the puzzle page. On facing pages
 the 15×15 drawing's left edge sits at 27.05 mm (odd) and 23.875 mm (even) from
-the trim edge, on the same top pixel row. The owner has
+the trim edge, on the same top pixel row. The export yields two files: an
+interior PDF whose page 1 is the guide page (no cover page anywhere in it) and
+a one-page cover PDF at the trim size; the first puzzle page after the guide
+and "Easy" divider is interior page 3, gutter on the left. The owner has
 looked at the printed proofs and confirmed the stroke values (owner-validates-
 visually), rendered into `~/Documents/nonogram-reviews/CARD-NNN`.
 **Collapses:** ADR-0036's central bet (one `compute_layout` serves A4 and the
 book without disturbing A4 — the G-1 retirement), CON-019/EC-020's
 byte-identity risk, NFR-008's 7.5 mm cap and EC-019's fit, ADR-0037's stroke
 numbers (final only after the printed proof), CON-018's missing-margin-default
-gap, and the KDP gutter check: the book lays out with its *stored* gutter and
+gap, the page parity itself (FR-043 — interior page 1 is right-hand, the cover
+is outside the count), and the KDP gutter check: the book lays out with its *stored* gutter and
 *finalise refuses* when the page count needs more (ADR-0036 clarification;
 AC-179 re-worded to match on 2026-09-22 — the gutter is never raised silently).
 **Rollback:** `PageSpec` is an optional parameter with a byte-identical
@@ -433,7 +448,13 @@ ADR-0037/R1): 6 answers a page (2 × 3) while every answer on it is ≤20 on its
 longest side, 4 (2 × 2) once one is longer; COMP-007 lays out the tiles with
 the book `PageSpec`, COMP-009 fills the pages (ADR-0036/R2). It replaces
 today's one answer page per puzzle and so changes the page count the finalise
-check reads. Finalise refuses when the actual
+check reads. *Added 2026-09-22 (d):* a "SOLUTIONS" divider page precedes the
+answer key; each level starts a new answer page under a small level heading
+(6 mm line; this is where FR-041's answer-key headings go — no level divider
+pages in the answer key); the caption title is the per-book title set in
+Arrangement, else the puzzle's name; answer cells are capped at 5 mm. The
+default plan's answer key becomes 31 answer pages + 1 divider (was 30 pages);
+EC-030's upper bound is ceil(n/4) + (levels − 1). Finalise refuses when the actual
 page count needs a larger KDP gutter than the stored one (ADR-0036
 clarification) — the circularity is broken, not iterated.
 
@@ -441,7 +462,7 @@ Components: COMP-007 (pair-aware call, answer-tile layout), COMP-009 (pairing
 walk, level order, dividers, answer-page packing, finalise gutter check),
 COMP-010 (order writes only).
 Requirements: FR-040 (AC-242..AC-252), FR-041 (AC-253..AC-260), FR-042
-(AC-261..AC-271, EC-030, EC-031).
+(AC-261..AC-271, AC-290..AC-295, EC-030, EC-031).
 Tests: `PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly`,
 `PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea`,
 `PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence`,
@@ -462,7 +483,9 @@ measures 7.39 mm (±0.05 mm) on the printed page and the upper slot's top edge
 sits on the same pixel row as a single 20×20 page's drawing. The page count
 before and after pairing is reported for that book, together with its
 answer-key page count (6-up / 4-up; a 150-answer book with 90 answers ≤20
-first takes 30 answer pages, not 150), and a book whose count — answer key
+first takes 30 answer pages, not 150; the three-level default plan takes 31
+after one SOLUTIONS page, each level opening a page under its heading, and a
+10×10 answer measures 5.0 mm), and a book whose count — answer key
 included — crosses 150 pages with a stored 0.375 in gutter is refused at
 finalise with the KDP reason. Rendered pages go to `~/Documents/nonogram-reviews/CARD-NNN` for
 the owner's eye.

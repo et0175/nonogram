@@ -1,20 +1,20 @@
-# CARD-127: Two-up pages in the book PDF — walk the order, pair same-tier fitting neighbours, never reorder
+# CARD-135: Interior PDF without the cover — the book starts at the guide page, the cover is its own file
 
 **Status:** ready
-**Priority:** P2
+**Priority:** P1
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/127-book-two-up-pages
+**Branch:** card/135-interior-pdf-cover-separate
 **Worktree:** —
-**Source:** meta/architecture/handoff.md#increment-15 (COMP-009 half of FR-040)
+**Source:** meta/architecture/handoff.md#increment-13 (FR-043 interior/cover split, added by the 2026-09-22 (d) delta; lands before CARD-116 so page parity is born counted from the guide page)
 **Idea:** —
-**Wave:** 25
-**Depends on:** CARD-117, CARD-125
-**Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pairing.py
+**Wave:** 20
+**Depends on:** —
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -24,70 +24,62 @@
 
 ## What to implement
 
-1. **The pairing walk** in `book_pdf_generator.py` goes through the book order from the
-   first puzzle. It offers puzzle *i* and puzzle *i+1* to CARD-125's
-   `compute_pair_layout` **only when their tiers are equal**. If the call returns a
-   pair, both go on one page and the walk moves to *i+2*. Otherwise *i* prints alone and
-   the walk moves to *i+1*. The last puzzle of an odd run prints alone. The walk
-   **never reorders**: concatenating the pages front to back yields the book order
-   exactly. The walk decides only **which neighbours to offer**. The shared cell and the
-   slot positions come from COMP-007 (ADR-0036/R2).
-2. **Two-up page composition.** Each slot sits under its own band, "Puzzle N · Tier"
-   (CARD-117's band renderer). The upper slot is the earlier puzzle, and its drawing top
-   edge is on the same pixel row as a single page's (EC-022). Puzzle numbers stay
-   1..n in print order.
-3. **Answer key.** Not this card. Since 2026-09-22 (c) the answer key is FR-042's packed
-   6-up / 4-up pages, which CARD-134 builds in the same wave (and in the same file,
-   `book_pdf_generator.py`, so `run` serializes the two). Leave the answer-page code
-   path as you find it. Answer-key level headings are CARD-128.
-4. **Page-count saving.** Report the page count before and after pairing (the number
-   the owner's "big books" research asks for) as a value returned by the generator, so
-   CARD-128/129 and the checkpoint can print it. Both counts are **interior** page
-   counts: the cover is a separate file and never counted (FR-043, CARD-135; 2026-09-22
-   (d)). Each page's parity comes from its interior position, so a pair that saves a
-   page flips the parity of every later page — expected, not a defect.
-5. Order input: this card consumes the stored order as CARD-126 leaves it. Level
-   grouping at print time and dividers are CARD-128. Until then pairing works on
-   whatever order is stored, and the tier-equality rule already holds.
+Today `BookPDFGenerator.generate_book_pdf` appends the cover (`create_cover_page`: the
+uploaded image resized to the page, or a generated title page) as **page 1 of the one
+book PDF**, then the guide page, puzzles, the SOLUTIONS divider and the answers. KDP
+does not accept that file as an interior (owner decision BK-9, book rule 15; FR-043).
+This card splits the export into two files **before** CARD-116 introduces page parity,
+so parity is counted from the right page from the start.
+
+1. **Two outputs.** The book export returns an **interior PDF** and a **cover file**
+   (a small result type, e.g. `BookExport(interior: BytesIO, cover: BytesIO,
+   interior_page_count: int)`). The interior holds **no cover page**: its page 1 is
+   the guide page. Every other page keeps today's content and order.
+2. **Cover file.** One page, at the book's page size (today's hard-coded
+   2550 × 3300 px letter page; CARD-116 moves every page, the cover file included, to
+   the stored trim). It holds the uploaded cover image when one is set, otherwise
+   today's generated title cover (`create_cover_page`, unchanged). Front cover only.
+3. **Page numbering starts at the guide page.** Expose each interior page's 1-based
+   position (page 1 = guide page = right-hand, odd) so CARD-116 can build
+   `book_page_spec(book, page_number)` from it. The interior page count is the book's
+   page count; the cover is never counted (FR-030 as amended; CARD-129 reads it).
+4. **Every export route produces the same pair.** The Finalise step's
+   `download_pdf` action, `POST /book/<id>/download-pdf` and
+   `POST /book/<id>/generate-pdf`. Offer the two files as two downloads (e.g. an
+   interior and a cover button on Finalise; `?part=interior|cover` on the routes).
+   Note: `generate-pdf` today goes through `admin/pdf_generator.get_pdf_generator()`,
+   a different generator from `BookPDFGenerator`, and the Finalise download does not
+   pass the session's uploaded cover (`book_{id}_cover_path`) to the generator at all.
+   Route both through `BookPDFGenerator` and pass the uploaded cover, and record what
+   you found in Worktree notes.
+5. **Out of scope:** a full KDP cover wrap (spine width from page count, back cover,
+   bleed) — deferred by the owner (raw-requirements (d) line 3).
 
 ## Acceptance criteria
 
-- **AC-242** (INV-010) — given a Book 1 profile book whose order starts with two easy 10x10 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 28 cells), when the book PDF is generated, then both puzzles print on one page at a 7.5 mm shared cell (the page fit of 8.44 mm capped at the standard cell).
-  *test:* `TestBookPdf_TwoSmallSameTierNeighboursShareAPage`
-- **AC-243** (INV-010) — given a Book 1 profile book whose order starts with two easy 12x12 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 32 cells), when the book PDF is generated, then both puzzles print on one page at a 7.39 mm shared cell (+/- 0.05 mm; 236.35 mm over 32 cells).
-  *test:* `TestBookPdf_TwelvePairSharesPageBelowStandardCell`
-- **AC-244** (INV-010) — given a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 10x10 puzzle with a 3-deep column-clue gutter (combined drawing height 33 cells), when the book PDF is generated, then both puzzles print on one page at a 7.16 mm shared cell (+/- 0.05 mm) — at or above the 7.0 mm two-up minimum.
-  *test:* `TestBookPdf_PairJustAboveTwoUpMinimumShares`
-- **AC-245** (INV-010) — given the same book but the 15x15 puzzle's column-clue gutter is 6 deep (combined drawing height 34 cells, 6.95 mm shared cell), when the book PDF is generated, then the two puzzles print on two separate pages.
-  *test:* `TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare`
-- **AC-246** (INV-010) — given a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 12x12 puzzle with a 4-deep one (combined 36 cells, 6.57 mm), when the book PDF is generated, then the two puzzles print on two separate pages.
-  *test:* `TestBookPdf_FifteenPlusTwelveDoesNotPair`
-- **AC-247** (INV-010) — given a Book 1 profile book whose order has an easy 22-wide x 10-tall puzzle with a 6-deep row-clue gutter (28 cells across, at most 6.92 mm on the 193.7 mm usable width) followed by an easy 10x10 puzzle with 3-deep gutters, when the book PDF is generated, then the two puzzles print on two separate pages — the pair fits the height but the wide puzzle's drawing does not fit the width at 7.0 mm.
-  *test:* `TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare`
-- **AC-248** (INV-010) — given a Book 1 profile book whose last easy puzzle and first medium puzzle are both 10x10 with 4-deep gutters and adjacent in the book order, when the book PDF is generated, then the two puzzles print on two separate pages.
-  *test:* `TestBookPdf_DifferentTiersNeverPair`
-- **AC-249** (INV-010) — given a Book 1 profile book ordered easy 10x10 A, easy 20x20 B (8-deep gutters), easy 10x10 C, where A and C would fit together, when the book PDF is generated, then A and C print on separate pages.
-  *test:* `TestBookPdf_PairingNeverReordersToFindAPartner`
-- **AC-250** (INV-010) — given a Book 1 profile book whose order has three adjacent easy 10x10 puzzles with 4-deep gutters, puzzles 1, 2 and 3, when the book PDF is generated, then puzzle 3 prints alone on its own page, after the page puzzles 1 and 2 share.
-  *test:* `TestBookPdf_OddPuzzleOutPrintsAlone`
-- **AC-251** — given the two-up page of AC-242 holding the book's puzzles 1 and 2, when its bands are read, then the upper band reads "Puzzle 1 · Easy" and the lower band reads "Puzzle 2 · Easy".
-  *test:* `TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand`
-- **AC-252** — given a Book 1 profile book holding the two-up page of AC-242 and a single-puzzle page with a 20x20 puzzle, when the book PDF is generated, then the upper puzzle's drawing on the two-up page starts on the same pixel row as the 20x20 puzzle's drawing.
-  *test:* `TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge`
+- **AC-283** (INV-013) — given a Book 1 profile book with an uploaded cover image and 3 easy 20x20 puzzles, when the book is exported, then the interior PDF's page 1 is the guide page.
+  *test:* `TestBookExport_InteriorStartsAtGuidePage`
+- **AC-284** (INV-013) — given the book of AC-283, when every page of its interior PDF is inspected, then no page holds the cover image or the generated title cover — the interior has no cover page.
+  *test:* `TestBookExport_InteriorHoldsNoCoverPage`
+- **AC-285** — given the book of AC-283, when the book is exported, then a separate cover file is produced — a 1-page PDF of 2550 x 3300 px (the 8.5 x 11 in trim at 300 DPI) holding the uploaded cover image.
+  *test:* `TestBookExport_CoverIsSeparateSinglePageFile`
+- **AC-286** (INV-013) — given a Book 1 profile book with no uploaded cover image, when the book is exported, then the cover file holds the generated title cover and the interior PDF's page 1 is still the guide page.
+  *test:* `TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover`
+- **AC-289** (INV-013) — given the book of AC-283 exported through each of the Finalise download, POST /book/<id>/download-pdf and POST /book/<id>/generate-pdf, when the three exports are compared, then each yields an interior PDF whose page 1 is the guide page plus a separate cover file.
+  *test:* `TestBookExport_EveryRouteSeparatesInteriorAndCover`
 
 ## Engineering constraints
 
-- **EC-027** (consistency, INV-010) — For any book order of any length, tiers and clue depths, the pages produced hold one or two puzzles each; a page holds two only when their tiers are equal, they are consecutive in the book order and fit at a shared cell of at least 7.0 mm; a puzzle that could pair with its successor under that rule is never left alone by the in-order walk; and concatenating the pages' puzzles front to back yields the book order exactly — for every order, not only the measured examples.
-  *test:* `PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly`
-- **EC-022** (consistency) — For any puzzle extent of 10..30 per side and any clue depth, the book's puzzle page is portrait, the grid is drawn unrotated (width across the page, height down it), and the drawing's top edge — the upper puzzle's on a two-up page — lies at one fixed offset (top margin plus title band) from the top of the trim, so that offset never varies between puzzle pages of a book.
-  *test:* `PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent` (CARD-116 — add two-up pages to its corpus)
+- **EC-034** (consistency, INV-013; interior/cover half — CARD-116 adds the parity half, CARD-128 asserts it with dividers in AC-287, CARD-129 adds the finalise page-count half, AC-288) — For any book (any members, levels, pairing, answer-key layout and cover or no cover) and every export route, the interior PDF holds no cover page, its page 1 is the guide page, each page's parity is its 1-based position in the interior (page 1 odd, right-hand), the page count finalise checks equals the interior's page count, and exactly one cover file of one trim-size page is produced beside it — for every book, not only the measured examples.
+  *test:* `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` — _this card: no cover page in the interior, page 1 = guide page, exactly one 1-page cover file, reported interior page count == PDF page count, over a seeded corpus of books with and without covers and on every route._
 
 ## Guardrails
 
-- G-1: The admin panel decides only which neighbours to offer. It fits no shared cell and places no slot geometry itself (ADR-0036/R2).
-- G-2: Pairing is decided at PDF time and nothing is stored (Increment 15 Rollback). Do not edit `src/nonogram/db/**`, `migrations/**` or `src/nonogram/admin/book_manager.py`.
-- G-3: CLI and web A4 output stay byte-identical (CON-019). Do not edit `src/nonogram/export/**`; CARD-125's call is consumed as delivered.
-- G-4: Do not edit `src/nonogram/admin/book_proof.py`, `src/nonogram/admin/templates/book_setup_print.html`, `src/nonogram/admin/templates/book_detail.html`, `src/nonogram/admin/templates/books_list.html` or `src/nonogram/admin/templates/_stepper.html`. They are owned by CARD-118 / CARD-130 this wave.
+- G-1: Page content is unchanged apart from where the cover goes: guide, puzzle, SOLUTIONS divider and answer pages render exactly as today. The admin panel fits no cells (ADR-0036/R2). Do not edit `src/nonogram/export/**`.
+- G-2: CLI and web A4 output stay byte-identical (CON-019). test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry (CARD-113, same wave — green at wave end).
+- G-3: Do not edit `tests/test_export_a4_golden.py`, `tests/fixtures/a4_golden/**`, `tests/property/test_cli_exports_byte_identity.py` (CARD-113) or `src/nonogram/admin/book_plan.py` (CARD-119) — owned this wave.
+- G-4: Out of scope: full KDP cover wrap — spine, back cover, bleed (deferred 2026-09-22 (d)).
+- G-5: No schema change. Do not edit `src/nonogram/db/**` or `migrations/**`; the uploaded cover keeps its current (session) storage.
 
 ## System contract
 
@@ -138,11 +130,19 @@
 
 ## Architecture context
 
-- **FR:** FR-040
-- **NFR:** NFR-008
-- **ADR:** ADR-0036, ADR-0037
-- **Components:** COMP-009, COMP-007 (consumed)
+- **FR:** FR-043 (AC-283..AC-286, AC-289, EC-034 interior/cover half); FR-030 (page count is the interior's)
+- **NFR:** —
+- **CON:** CON-019
+- **ADR:** ADR-0036
+- **Components:** COMP-009
 - **Trace:** meta/architecture/trace.yml
+
+## Design context
+
+- **Design system:** meta/design/ — brief.md, tokens.css, components.md
+- **UI components:** Button (reuse — two download actions: interior PDF, cover)
+- **Screens:** /book/<id>/finalize
+- **Standards:** forge:engineering-standards §11
 
 ## Worktree notes
 

@@ -32,15 +32,17 @@ and finalise checks the result.
    up to 150 pages and 0.5 in (1.27 cm) for 151–300 (FR-030, CON-018). Above 300 pages
    the requirements are silent. Refuse with "KDP gutter table not modelled above 300
    pages" rather than guess, and record it.
-2. **Finalise** (`/book/<id>/finalize`): take the **actual** page count from the
-   generated book (cover, guide, dividers, one- and two-up pages, SOLUTIONS divider,
-   and the **packed answer-key pages** of FR-042; the count CARD-127/128/134 report).
+2. **Finalise** (`/book/<id>/finalize`): take the **actual** page count of the
+   generated **interior PDF** (guide, dividers, one- and two-up pages, SOLUTIONS
+   divider, and the **packed answer-key pages** of FR-042; the count CARD-127/128/134
+   report). The cover is a separate file and is **never counted** (FR-043, decided
+   2026-09-22 (d); AC-288).
    The answer key is part of the count (AC-271). It is what brings a 150-puzzle book
    back from 300+ pages to the ~120–190-page model. If the stored gutter is below
    `kdp_min_gutter_cm(count)`, **refuse**, and name KDP's minimum for that page band
    against the stored value. **The stored gutter is never changed** (no silent raise).
-   Whether "page count" means PDF pages or KDP's printed-page count (which may exclude
-   the cover) is not stated. Use the PDF page count, record it, and ask the owner.
+   (The (c) open question — PDF pages vs KDP's count without the cover — is closed:
+   the interior PDF's page count, cover excluded.)
 3. The finalise summary shows the page count, the page count before pairing, and the
    answer-key page count, for the checkpoint.
 
@@ -52,18 +54,26 @@ the first shared page. A 12+12 pair measures 7.39 mm (±0.05 mm) on the printed 
 the upper slot's top edge sits on the same pixel row as a single 20×20 page's drawing.
 The page count before and after pairing is reported for that book, together with its
 answer-key page count (6-up / 4-up; a 150-answer book with 90 answers ≤20 first takes
-30 answer pages, not 150). A book whose count, answer key included, crosses 150 pages
+30 answer pages, not 150; the three-level default plan takes 31 after one SOLUTIONS
+page). The page count is the interior's; the cover file is not counted. A book whose count, answer key included, crosses 150 pages
 with a stored 0.375 in gutter is refused at finalise with the KDP reason. Rendered pages go to `~/Documents/nonogram-reviews/CARD-129/` for the owner's
 eye.
 
 ## Acceptance criteria
 
-- **AC-179** — given a book storing a 0.60 cm gutter margin whose PDF runs to 180 pages, when the book is finalised, then finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages against the stored 0.60 cm; the stored gutter is not changed.
+- **AC-179** (reworded 2026-09-22 (d)) — given a book storing a 0.60 cm gutter margin whose interior PDF runs to 180 pages, when the book is finalised, then finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages against the stored 0.60 cm; the stored gutter is not changed.
   *test:* `TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount`
-- **AC-271** (FR-042, added 2026-09-22 (c)) — given a book storing a 0.95 cm (0.375 in) gutter margin whose pages before the answer key number 125 and whose 150 answers lay out on 30 answer pages (155 pages in all), when the book is finalised, then finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages — the answer-key pages are counted.
+- **AC-271** (FR-042, added 2026-09-22 (c); reworded (d)) — given a book storing a 0.95 cm (0.375 in) gutter margin whose interior pages before the answer key (guide page through the SOLUTIONS divider) number 125 and whose 150 answers lay out on 30 answer pages (155 interior pages; the separate cover file not counted), when the book is finalised, then finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages — the answer-key pages are counted.
   *test:* `TestBookFinalise_PageCountIncludesAnswerKeyPages`
+- **AC-288** (FR-043, added 2026-09-22 (d)) — given a book storing a 0.95 cm (0.375 in) gutter margin whose interior PDF is exactly 150 pages, when the book is finalised, then finalise is not refused on the gutter — 150 interior pages is within KDP's 0.375 in range; the cover file does not make it 151.
+  *test:* `TestBookFinalise_PageCountExcludesCoverFile`
 - CK-1 (Increment 15 checkpoint) — given a book with a stored 0.375 in gutter whose page count crosses 150, when it is finalised, then it is refused with the KDP reason; at ≤ 150 pages it is accepted.
   *test:* `TestBookFinalise_GutterCheckAtHundredFiftyPageBoundary`
+
+## Engineering constraints
+
+- **EC-034** (consistency, INV-013; finalise page-count half, added 2026-09-22 (d)) — For any book (any members, levels, pairing, answer-key layout and cover or no cover) and every export route, the interior PDF holds no cover page, its page 1 is the guide page, each page's parity is its 1-based position in the interior (page 1 odd, right-hand), the page count finalise checks equals the interior's page count, and exactly one cover file of one trim-size page is produced beside it — for every book, not only the measured examples.
+  *test:* `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` — _extend CARD-135's property: the page count finalise reads equals the interior PDF's page count for every generated book, and the cover never changes it._
 
 ## Guardrails
 
@@ -115,12 +125,13 @@ eye.
 - INV-008 — A published book's puzzle membership changes only after an explicit confirmation of that change (FR-038). (check: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus)
 - INV-009 — A book's order is grouped by tier — every easy puzzle before every medium one, every medium before every hard one; within a level the order is the owner's arrangement, changed only by an explicit move inside that level … (check: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel)
 - INV-010 — A book page holds two puzzles only when their tiers are equal, they are adjacent in the book order and both fit at one shared cell of at least 7.0 mm (capped at 7.5 mm), each under its own band; pairing never changes … (check: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair, TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare, TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner, TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage)
-- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
+- INV-011 — The book's answer key holds every member puzzle's answer exactly once, in puzzle-number order; an answer-key page holds at most 6 answers while every answer on it is at most 20 cells on its longest side, and at most 4 … (check: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages, TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage, TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp, TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder)
 - INV-012 — A book outside draft holds exactly the puzzle membership that last passed the plan check (INV-007): adding or removing a puzzle on a book that has left draft returns it to draft as part of that change (FR-037, FR-038; … (check: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership)
+- INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the book's page count is the interior's; the cover is … (check: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
 
-- **FR:** FR-030 (AC-179), FR-042 (AC-271)
+- **FR:** FR-030 (AC-179), FR-042 (AC-271), FR-043 (AC-288, EC-034 page-count half)
 - **NFR:** —
 - **CON:** CON-018
 - **ADR:** ADR-0036

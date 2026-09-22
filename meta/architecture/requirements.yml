@@ -209,6 +209,30 @@
 #   Domain: INV-011, INV-012 on AGG-002; CMD-016, CMD-017, CMD-019
 #   preconditions and EVT-017, EVT-018, EVT-020 payloads amended;
 #   TERM-033, TERM-034. No new command, event, actor or policy.
+# updated_at: 2026-09-22 (d) (delta mode — ONLY the raw-requirements.md
+#   section "## 2026-09-22 (d) — Interior PDF without the cover;
+#   answer-key details" (owner answers after carding (c); BK-8 details,
+#   BK-9; book rules 12 and 15). Lines 1-2 DECIDED by the owner:
+#     1. FR-043 (new) — interior PDF without the cover, starting at the
+#        guide page on a right-hand page 1; cover as a separate file;
+#        parity and every page count are the interior's; AC-283..AC-289,
+#        EC-034. FR-030 and FR-032 AMENDED (dated notes) — parity counts
+#        from interior page 1; AC-179, AC-272..AC-275 reworded to "interior
+#        page" (numbers unchanged). FR-042's AC-271 reworded likewise.
+#     2. FR-042 AMENDED in place (dated note) — a new answer page per level
+#        with a small heading, a "SOLUTIONS" divider page before the answer
+#        key, caption title = per-book title set in Arrangement else the
+#        puzzle's name, answer cell capped at 5 mm; its three open
+#        questions closed; default-plan answer key recomputed (31 answer
+#        pages + 1 divider, was 30); AC-290..AC-295; EC-030 and EC-031
+#        amended (bounds + (levels - 1); cell in [3.19, 5.0] mm); AC-262
+#        and AC-269 reworded. FR-041 AMENDED (dated note) — its answer-key
+#        open question is closed by FR-042 (no level divider pages in the
+#        answer key).
+#     3. Full KDP cover wrap (spine, back cover) — DEFERRED.
+#   Domain: INV-013 (new) on AGG-002, INV-011 amended; CMD-019
+#   preconditions and EVT-020 payload amended; TERM-035, TERM-036 (new),
+#   TERM-033 and TERM-034 amended. No new command, event, actor or policy.
 # tier: medium
 functional:
   - id: FR-001
@@ -1912,6 +1936,16 @@ functional:
   #            usable_h / (height + column-clue depth)).
   # ===================================================================
   - id: FR-030
+    # AMENDED 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line
+    # 1; BK-9, book rule 15; owner decision). The book PDF this FR sizes is
+    # the INTERIOR PDF (TERM-035, FR-043): it holds no cover page, its page
+    # 1 is the guide page and is a right-hand page. Parity therefore counts
+    # from interior page 1 — the (c) wording "the page's 1-based position
+    # in the book PDF" meant a PDF whose page 1 was the cover; it now reads
+    # "in the interior PDF". The page count checked against KDP's gutter
+    # minimum (AC-179) is the interior's page count; the cover file is not
+    # counted. AC-179, AC-272 and AC-273 reworded accordingly (numbers
+    # unchanged); the statement's last sentence edited in place.
     # AMENDED 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line
     # 2; BK-1 placement, book rule 13; ADR-0036 clarification "Mirrored
     # margins"; owner decision). Book margins are MIRRORED by page parity:
@@ -1950,7 +1984,8 @@ functional:
       its gutter_margin_cm / outside_margin_cm (an empty column falls back
       to the Book 1 profile, CON-018; top and bottom come from CON-018,
       having no column today). KDP's page-count minimum is a lower bound on
-      the gutter margin (0.375 in up to 150 pages, 0.5 in for 151-300). The
+      the gutter margin (0.375 in up to 150 pages, 0.5 in for 151-300),
+      counted over the interior PDF's pages only (FR-043). The
       clue gutters entering the fit are the puzzle's REAL clue depth
       (max(len(clue)) per axis, as export/layout.py's _gutter_depth
       measures it), not the 1.3x estimate. The result is capped at the
@@ -1962,8 +1997,10 @@ functional:
       under either (CON-019). Margins are mirrored by page parity: on a
       right-hand (odd) page the gutter margin is on the left and the
       outside margin on the right; on a left-hand (even) page the other
-      way round; parity is the page's 1-based position in the book PDF,
-      and the usable area moves with it (its size does not).
+      way round; parity is the page's 1-based position in the interior
+      PDF (FR-043: page 1 is the guide page, a right-hand page; the cover
+      is a separate file and never counted), and the usable area moves
+      with it (its size does not).
     source: [US-023]
     _meta:
       source: authored
@@ -2003,8 +2040,10 @@ functional:
       # refuses when the page count needs more — the gutter is never raised
       # silently. Previous wording: "the gutter margin applied is 1.27 cm ...
       # not 0.60 cm" (test TestBookPdf_GutterRaisedToKdpMinimumForPageCount).
+      # REWORDED 2026-09-22 (d): "whose PDF runs to 180 pages" -> "whose
+      # interior PDF runs to 180 pages" (FR-043; the cover is not counted).
       - id: AC-179
-        given: a book storing a 0.60 cm gutter margin whose PDF runs to 180 pages
+        given: a book storing a 0.60 cm gutter margin whose interior PDF runs to 180 pages
         when: the book is finalised
         then: finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages against the stored 0.60 cm; the stored gutter is not changed
         kind: negative
@@ -2022,15 +2061,17 @@ functional:
         kind: happy
         test: TestBookCreate_StoresBook1PrintProfile
       # New 2026-09-22 (c) — mirrored margins (BK-1 placement).
+      # REWORDED 2026-09-22 (d): "PDF page 3/4" -> "interior page 3/4"
+      # (FR-043: parity counts from interior page 1, the guide page).
       - id: AC-272
         given: a Book 1 profile book (gutter 1.27 cm, outside 0.95 cm)
-        when: the usable area of its PDF page 3 (a right-hand page) is computed
+        when: the usable area of its interior page 3 (a right-hand page) is computed
         then: it spans 12.7 mm to 206.375 mm from the page's left trim edge — the gutter margin on the left
         kind: happy
         test: TestBookPageSpec_OddPageGutterOnLeft
       - id: AC-273
         given: the same Book 1 profile book
-        when: the usable area of its PDF page 4 (a left-hand page) is computed
+        when: the usable area of its interior page 4 (a left-hand page) is computed
         then: it spans 9.525 mm to 203.2 mm from the page's left trim edge — the gutter margin on the right
         kind: boundary
         test: TestBookPageSpec_EvenPageGutterOnRight
@@ -2141,6 +2182,13 @@ functional:
         test: PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride
 
   - id: FR-032
+    # AMENDED 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line
+    # 1; BK-9, book rule 15; owner decision). A page's parity is its 1-based
+    # position in the INTERIOR PDF (FR-043; interior page 1 is the guide
+    # page, a right-hand page; the cover is a separate file). AC-274 and
+    # AC-275 reworded from "PDF page 3/4" to "interior page 3/4"; the
+    # measurements are unchanged. Statement edited in place (", counted
+    # from interior page 1 (FR-043)" inserted after "(FR-030)").
     # AMENDED 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line
     # 2; BK-1 placement, book rule 13; ADR-0036 clarification; owner
     # decision). The drawing is CENTRED HORIZONTALLY across the usable width
@@ -2190,8 +2238,8 @@ functional:
       (FR-040) that position is the upper puzzle's. Horizontally the
       drawing is centred across the usable width of its page — between
       the gutter and outside margins as mirrored for the page's parity
-      (FR-030) — so its left edge moves with the parity and its top edge
-      does not.
+      (FR-030), counted from interior page 1 (FR-043) — so its left edge
+      moves with the parity and its top edge does not.
     source: [US-023]
     _meta:
       source: authored
@@ -2241,14 +2289,15 @@ functional:
         kind: negative
         test: TestBookSelect_WideGridAboveFloorCarriesNoFlag
       # New 2026-09-22 (c) — horizontal centring by parity (BK-1 placement).
+      # REWORDED 2026-09-22 (d): "PDF page" -> "interior page" (FR-043).
       - id: AC-274
-        given: a Book 1 profile book whose PDF page 3 (right-hand) holds a 15x15 puzzle with 7-deep row- and column-clue gutters (22 cells x 7.5 mm = 165 mm drawing width)
+        given: a Book 1 profile book whose interior page 3 (right-hand) holds a 15x15 puzzle with 7-deep row- and column-clue gutters (22 cells x 7.5 mm = 165 mm drawing width)
         when: the book PDF is generated
         then: the drawing's left edge is 27.05 mm (+/- 0.1 mm) from the page's left trim edge — 14.35 mm inside each side of the usable width
         kind: happy
         test: TestBookPdf_DrawingCentredOnRightHandPage
       - id: AC-275
-        given: the same puzzle printed on PDF page 4 (left-hand) of the same book
+        given: the same puzzle printed on interior page 4 (left-hand) of the same book
         when: the book PDF is generated
         then: the drawing's left edge is 23.875 mm (+/- 0.1 mm) from the page's left trim edge
         kind: boundary
@@ -3031,6 +3080,15 @@ functional:
         test: PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea
 
   - id: FR-041
+    # AMENDED 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line
+    # 2; BK-8 details, book rule 12; owner decision). The answer-key half of
+    # _meta.open_question is CLOSED: the answer key carries NO level divider
+    # pages; each level instead starts a new answer page with a small level
+    # heading — placement and page-count effect are FR-042's (AC-290,
+    # AC-291). The one full-page divider in the answer key is FR-042's
+    # "SOLUTIONS" page, which is not a level divider (TERM-031) and does
+    # not count toward EC-029's "one divider per non-empty level", which
+    # speaks of the puzzle section. Statement: last sentence appended.
     # OWNER ANSWERS 2026-09-22 to _meta.open_question (kept below): a puzzle
     # added later lands at the END of its level; the answer key carries small
     # "Easy / Medium / Hard" headings, not full divider pages. AC-260 (a book
@@ -3061,12 +3119,15 @@ functional:
       puzzle number: puzzle numbers run 1..n in the book order across the
       levels. A book whose stored arrangement predates this rule prints
       in the rule's order, keeping its stored order within each level.
+      The answer key has no level divider pages: its levels are marked by
+      a small heading at the top of each level's first answer page
+      (FR-042).
     source: [US-024]
     _meta:
       source: authored
       decided_by: "owner, 2026-09-22 (DEC-039 session) — BK-7, book_admin_ui_requirements.md rule 11"
       relates_to: [FR-038, FR-040, FR-033, FR-009, ADR-0037, ADR-0031]
-      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way)."
+      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way). [CLOSED 2026-09-22 (d) — both halves answered by the owner: end of its level (owner answer above); the answer key has no level dividers, each level starts a new answer page with a small heading (FR-042, AC-290/AC-291).]"
       evidence: ["src/nonogram/admin/book_manager.py:373-520", "src/nonogram/admin/app.py:2093-2130", "src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3"]
     acceptance:
       - id: AC-253
@@ -3138,6 +3199,41 @@ functional:
         test: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
 
   - id: FR-042
+    # AMENDED 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line
+    # 2; BK-8 details, book rule 12; owner decision). Closes all three
+    # _meta.open_question items and confirms the caption assumption:
+    #  (1) Level headings: each level (Easy / Medium / Hard) STARTS A NEW
+    #      answer page, which carries a small heading with the level's name
+    #      at the top of its usable area; later pages of the level carry
+    #      none. Resolves FR-041's answer-key heading placement. GEOMETRY
+    #      ASSUMED (this FR, not the owner): the heading takes a 6 mm line
+    #      plus the 2 mm gap on that page only, so a level-first page's
+    #      tiles are 6 mm shorter in total: 6-up tile 95.85 x 83.45 mm
+    #      ((260.35 - 6 - 2 x 2) / 3) -> 20x20: min(4.79, 3.87) = 3.87 mm;
+    #      4-up tile 95.85 x 126.18 mm -> 30x30 still 3.19 mm
+    #      (width-limited). EC-031's 3.19 mm floor is unchanged.
+    #  (2) A "SOLUTIONS" divider page precedes the answer key: one page
+    #      carrying only the word, after the last puzzle page and before
+    #      the first answer page (today's generator already prints one; it
+    #      is kept). It is not a level divider (TERM-031, FR-041/EC-029).
+    #  (3) Answer cells are capped at 5 mm, so small answers don't balloon
+    #      (a 10x10 in a 6-up tile would otherwise get 7.94 mm; a 15x15
+    #      5.30 mm). The cap bites for answers up to 15 rows in a 6-up tile.
+    #  Caption: the Title is the per-book title set in Arrangement, else the
+    #  puzzle's stored name — what the (c) assumption said; now owner-
+    #  confirmed, AC-269 reworded to name Arrangement.
+    # PAGE COUNT RECOMPUTED. Starting each level on a new page adds at most
+    # (non-empty levels - 1) <= 2 answer pages; the divider adds 1 page to
+    # the book. Default plan (ADR-0034: 150 at 40/40/20, FR-034 prefill
+    # AC-198 -> easy 50 answers <= 20 + 10 longer, medium 34 + 26, hard
+    # 6 + 24; small answers before large inside each level): easy 11 pages
+    # (8 six-up, 1 page of 2 small + 2 large, 2 four-up), medium 13 (5 + 1
+    # six-up, 7 four-up), hard 7 (1 six-up, 6 four-up) = 31 answer pages
+    # (was 30) + 1 SOLUTIONS divider = 32 pages. Worst case (small and large
+    # alternating) is sum of ceil(n_level / 4) = 15 + 15 + 8 = 38, unchanged.
+    # EC-030's bounds become [ceil(n / 6), ceil(n / 4) + (levels - 1)].
+    # AC-262 and AC-271 reworded; AC-290..AC-295 added; EC-030 and EC-031
+    # amended. Nothing retired.
     # New 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line 1;
     # BK-8, book rule 12). DECIDED by the owner during /forge:kanban
     # decompose of Increments 13-16 — not a DEC EXPECTED. Today
@@ -3203,14 +3299,24 @@ functional:
       The tiles are laid out by COMP-007's layout functions with the book's
       PageSpec (ADR-0036/R2). The answer key's pages count toward the
       book's page count, including the count finalise checks against KDP's
-      gutter minimum (FR-030, AC-179).
+      gutter minimum (FR-030, AC-179). A "SOLUTIONS" divider page, carrying
+      only that word, precedes the first answer page. Each level (Easy,
+      Medium, Hard) that holds a puzzle starts a new answer page, even when
+      the previous page has room, and that page carries the level's name
+      as a small heading on a 6 mm line (plus a 2 mm gap) at the top of its
+      usable area, the tiles filling the height below it; the level's later
+      pages carry no heading and the answer key has no level divider pages.
+      The caption's Title is the per-book title set for the puzzle in
+      Arrangement, else the puzzle's stored name. An answer's cell never
+      exceeds 5 mm.
     source: [US-023, US-024]
     _meta:
       source: authored
-      decided_by: "owner, 2026-09-22 (answers during /forge:kanban decompose of Increments 13-16) — BK-8, book_admin_ui_requirements.md rule 12"
-      relates_to: [FR-030, FR-032, FR-033, FR-040, FR-041, NFR-008, ADR-0036, ADR-0037, ADR-0034]
-      assumptions: "Geometry (2 mm gap, 6 mm caption line, no title band on answer pages) is stated by this FR, not by the owner; the owner's figures (3.7 / 3.1 mm) are conservative against it. The caption's Title as 'custom book title, else puzzle name' follows the arrangement step's per-puzzle titles (FR-038) — confirm with the owner."
-      open_question: "(1) Where FR-041's owner-confirmed 'small Easy / Medium / Hard headings' sit in the answer key (in a tile slot, above a row, or forcing a new page at a level boundary) is unstated; the criteria below use single-level books where it cannot bite, and the page-count example ignores headings. (2) Whether today's 'SOLUTIONS' divider page before the answer key is kept is unstated (it adds one page if kept). (3) Whether an answer cell is capped (e.g. at the 7.5 mm standard cell) for small answers is unstated; no criterion uses an answer small enough for it to bite."
+      decided_by: "owner, 2026-09-22 (answers during /forge:kanban decompose of Increments 13-16) — BK-8, book_admin_ui_requirements.md rule 12; details 2026-09-22 (d) — BK-8 details, rule 12 amended"
+      amended: "2026-09-22 (d) — level-first answer pages with a heading, SOLUTIONS divider, caption title per-book else name, 5 mm answer-cell cap"
+      relates_to: [FR-030, FR-032, FR-033, FR-040, FR-041, FR-043, NFR-008, ADR-0036, ADR-0037, ADR-0034]
+      assumptions: "Geometry (2 mm gap, 6 mm caption line, no title band on answer pages; 2026-09-22 (d): a 6 mm heading line + 2 mm gap on each level's first answer page) is stated by this FR, not by the owner; the owner's figures (3.7 / 3.1 mm) are conservative against it. The caption's Title as 'per-book title set in Arrangement, else puzzle name' is owner-confirmed 2026-09-22 (d) (BK-8, rule 12)."
+      open_question: "[CLOSED 2026-09-22 (d) — owner: (1) each level starts a new answer page with a small heading; (2) the SOLUTIONS divider page is kept, before the answer key; (3) answer cells are capped at 5 mm.] As first written: (1) Where FR-041's owner-confirmed 'small Easy / Medium / Hard headings' sit in the answer key (in a tile slot, above a row, or forcing a new page at a level boundary) is unstated; the criteria below use single-level books where it cannot bite, and the page-count example ignores headings. (2) Whether today's 'SOLUTIONS' divider page before the answer key is kept is unstated (it adds one page if kept). (3) Whether an answer cell is capped (e.g. at the 7.5 mm standard cell) for small answers is unstated; no criterion uses an answer small enough for it to bite."
       evidence: ["src/nonogram/admin/book_pdf_generator.py:186-236", "src/nonogram/export/pdf.py", "docs/book_generation_req/book_generation_admin_panel.md#3", "docs/book_generation_req/book_admin_ui_requirements.md#5"]
     acceptance:
       - id: AC-261
@@ -3220,8 +3326,11 @@ functional:
         kind: happy
         invariant: INV-011
         test: TestBookAnswerKey_SixUpInPuzzleNumberOrder
+      # REWORDED 2026-09-22 (d): "on a 6-up page" -> "on a 6-up page that is
+      # not the first answer page of its level" (a level-first page carries
+      # the heading line; that case is AC-295).
       - id: AC-262
-        given: a Book 1 profile book whose answer key holds a 20x20 answer on a 6-up page
+        given: a Book 1 profile book whose answer key holds a 20x20 answer on a 6-up page that is not the first answer page of its level
         when: the answer's grid is measured
         then: its cell is 3.97 mm (+/- 0.05 mm; 79.45 mm tile grid area over 20 rows)
         kind: boundary
@@ -3265,50 +3374,220 @@ functional:
         then: answer 7's caption reads "Puzzle 7 — Snowflake"
         kind: happy
         test: TestBookAnswerKey_CaptionPuzzleNumberAndTitle
+      # REWORDED 2026-09-22 (d): "carries the custom book title" -> "was
+      # given the per-book title ... in Arrangement" (owner-confirmed source
+      # of the title; outcome unchanged).
       - id: AC-269
-        given: a book whose puzzle 7 is named "Snowflake" and carries the custom book title "Winter Star"
+        given: a book whose puzzle 7 is named "Snowflake" and was given the per-book title "Winter Star" in Arrangement
         when: the book PDF is generated
         then: answer 7's caption reads "Puzzle 7 — Winter Star"
         kind: boundary
         test: TestBookAnswerKey_CaptionUsesCustomBookTitle
+      # REWORDED 2026-09-22 (d): "30 pages" -> "30 answer pages (the
+      # SOLUTIONS divider not counted)". A one-tier book, so the level
+      # restart cannot bite; the three-level default plan is AC-293.
       - id: AC-270
         given: a Book 1 profile book of 150 puzzles — the default plan's count and BK-8's 90 / 60 size split — all of one tier, puzzles 1-90 at most 20 on the longest side and puzzles 91-150 longer
         when: the book PDF is generated
-        then: the answer key is 30 pages — 15 six-up pages then 15 four-up pages — where one page per answer would take 150
+        then: the answer key is 30 answer pages (the SOLUTIONS divider not counted) — 15 six-up pages then 15 four-up pages — where one page per answer would take 150
         kind: happy
         invariant: INV-011
         test: TestBookAnswerKey_DefaultPlanTakesThirtyPages
+      # REWORDED 2026-09-22 (d): the page count is the INTERIOR PDF's
+      # (FR-043) — "pages before the answer key" now reads from the guide
+      # page through the SOLUTIONS divider, and the cover file is not
+      # counted. Numbers unchanged.
       - id: AC-271
-        given: a book storing a 0.95 cm (0.375 in) gutter margin whose pages before the answer key number 125 and whose 150 answers lay out on 30 answer pages (155 pages in all)
+        given: a book storing a 0.95 cm (0.375 in) gutter margin whose interior pages before the answer key (guide page through the SOLUTIONS divider) number 125 and whose 150 answers lay out on 30 answer pages (155 interior pages; the separate cover file not counted)
         when: the book is finalised
         then: finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages — the answer-key pages are counted
         kind: negative
         test: TestBookFinalise_PageCountIncludesAnswerKeyPages
+      # New 2026-09-22 (d) — answer-key details (BK-8 details, rule 12).
+      - id: AC-290
+        given: a Book 1 profile book of 4 easy then 3 medium puzzles, all 15x15, numbered 1..7
+        when: the book PDF is generated
+        then: the answer key is 2 answer pages — answers 1-4 on the first and answers 5-7 on the second — the medium level starts a new page although the first had room for 2 more
+        kind: happy
+        invariant: INV-011
+        test: TestBookAnswerKey_EachLevelStartsNewAnswerPage
+      - id: AC-291
+        given: a Book 1 profile book of 8 easy puzzles then 1 medium puzzle, all 15x15
+        when: its answer pages are read
+        then: the first answer page carries the heading "Easy" above its tiles, the second answer page (answers 7-8) carries no heading, and the third carries the heading "Medium"
+        kind: boundary
+        test: TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
+      - id: AC-292
+        given: a Book 1 profile book of 3 easy 15x15 puzzles
+        when: the book PDF is generated
+        then: the page immediately after the last puzzle page and immediately before the first answer page carries only the word "SOLUTIONS"
+        kind: happy
+        test: TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
+      - id: AC-293
+        given: a Book 1 profile book on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 50 answers at most 20 on the longest side then 10 longer, medium 34 then 26, hard 6 then 24, in that order inside each level
+        when: the book PDF is generated
+        then: the answer key is 31 answer pages — easy 11, medium 13, hard 7 — after 1 SOLUTIONS divider page (32 pages; 30 before level-first pages)
+        kind: boundary
+        invariant: INV-011
+        test: TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages
+      - id: AC-294
+        given: a Book 1 profile book whose answer key holds a 10x10 answer on a 6-up page
+        when: the answer's grid is measured
+        then: its cell is 5.0 mm (+/- 0.05 mm) — the 5 mm answer cap, not the 7.94 mm the tile would allow
+        kind: boundary
+        test: TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm
+      - id: AC-295
+        given: a Book 1 profile book whose answer key holds a 20x20 answer on the first 6-up answer page of its level (under the level heading)
+        when: the answer's grid is measured
+        then: its cell is 3.87 mm (+/- 0.05 mm; 77.45 mm tile grid area over 20 rows)
+        kind: boundary
+        test: TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize
     engineering_constraints:
+      # AMENDED 2026-09-22 (d): a page is also closed at a level boundary;
+      # the upper bound gains (L - 1); AC-290 and AC-293 joined the
+      # instances. Previous upper bound: ceil(n / 4).
       - id: EC-030
         statement: >-
           For any book order of any length and any mix of puzzle sizes
-          10..30, the answer key holds every member puzzle's answer exactly
-          once in puzzle-number order; no page holds more than 6 answers,
-          nor more than 4 when any answer on it is longer than 20; a page is
-          closed only when the next answer would push it past its capacity;
-          and the answer-key page count lies between ceil(n / 6) and
-          ceil(n / 4) for n answers — for every order, not only the
-          measured examples.
+          10..30 and tiers, the answer key holds every member puzzle's
+          answer exactly once in puzzle-number order; no page holds more
+          than 6 answers, nor more than 4 when any answer on it is longer
+          than 20; no page holds answers of two levels; a page is closed
+          only when the next answer would push it past its capacity or
+          belongs to the next level; and the answer-key page count (the
+          SOLUTIONS divider not counted) lies between ceil(n / 6) and
+          ceil(n / 4) + (L - 1) for n answers over L non-empty levels —
+          for every order, not only the measured examples.
         kind: consistency
         invariant: INV-011
-        instances: [AC-261, AC-263, AC-264, AC-266, AC-270]
+        instances: [AC-261, AC-263, AC-264, AC-266, AC-270, AC-290, AC-293]
         test: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
+      # AMENDED 2026-09-22 (d): the 5 mm answer-cell cap is an upper bound;
+      # the level heading line lies inside the usable area above the tiles;
+      # AC-294 and AC-295 joined the instances. Test name kept.
       - id: EC-031
         statement: >-
           For any answer of 10..30 cells per side on the Book 1 profile, on
-          either page parity, the answer's cell is at least 3.19 mm, its
-          grid and 6 mm caption line lie inside its tile, and every tile
-          lies inside the page's usable area without overlapping another —
-          for every extent and position, not only the measured examples.
+          either page parity and whether or not its page carries a level
+          heading, the answer's cell lies in [3.19, 5.0] mm, its grid and
+          6 mm caption line lie inside its tile, and every tile and the
+          heading line lie inside the page's usable area without
+          overlapping one another — for every extent and position, not
+          only the measured examples.
         kind: consistency
-        instances: [AC-262, AC-265]
+        instances: [AC-262, AC-265, AC-294, AC-295]
         test: PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
+
+  - id: FR-043
+    # OWNER ANSWER 2026-09-22: sections (level dividers, the SOLUTIONS page)
+    # flow on — no blank page is ever inserted to force a right-hand start.
+    # New 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line 1;
+    # BK-9, book rule 15). DECIDED by the owner after carding (c) — not a
+    # DEC EXPECTED. Today admin/book_pdf_generator.py's generate_book_pdf
+    # appends the cover (create_cover_page: the uploaded image resized to
+    # the page, or a generated title page when none is given) as page 1 of
+    # the ONE book PDF, then the guide page, puzzles, SOLUTIONS divider and
+    # answers; KDP does not accept that file as an interior. Three routes
+    # produce the book PDF today (Finalise download, POST
+    # /book/<id>/download-pdf, POST /book/<id>/generate-pdf).
+    # Relations:
+    #  - FR-030 / FR-032 (amended (c) and (d)): mirrored-margin parity is
+    #    the page's 1-based position in the INTERIOR PDF; interior page 1
+    #    (the guide page) is right-hand. With the cover gone, today's page
+    #    numbering shifts by one, which flips every page's parity — this FR
+    #    is what fixes the parity FR-030/FR-032 rely on.
+    #  - FR-030 AC-179 and FR-042 AC-271: the page count finalise checks
+    #    against KDP's gutter minimum is the interior's; the cover is never
+    #    counted.
+    #  - FR-041 / FR-042: the interior's sections are guide page, puzzle
+    #    section (level dividers, single and two-up pages), SOLUTIONS
+    #    divider, answer pages.
+    #  - DEFERRED (raw-requirements (d) line 3): a full KDP cover wrap with
+    #    spine and back cover. The cover file here is the FRONT cover only.
+    statement: >-
+      The book export produces two separate files: the interior PDF
+      (TERM-035) and the cover file (TERM-036). The interior PDF holds no
+      cover page: its page 1 is the guide page, and it is a right-hand
+      page; every later page's parity (odd = right-hand, even = left-hand)
+      is its 1-based position in the interior PDF, which is the parity the
+      mirrored margins use (FR-030, FR-032). Every page count of the book —
+      including the one finalise checks against KDP's gutter minimum
+      (FR-030, AC-179) — is the interior PDF's page count; the cover file
+      is not counted. The cover file is a single-page PDF at the book's
+      trim size holding the front cover — the uploaded cover image when
+      one is set, otherwise the generated title cover. Every route that
+      exports the book produces the same pair of files, and both are
+      offered for download. A full KDP cover wrap (spine, back cover) is
+      out of scope.
+    source: [US-023]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-09-22 (answers after carding (c)) — BK-9, book_admin_ui_requirements.md rule 15"
+      relates_to: [FR-030, FR-032, FR-041, FR-042, ADR-0036]
+      assumptions: "The cover file's format (a single-page PDF at the trim size, front cover only, the generated title cover when no image is uploaded) and 'both files offered for download' are stated by this FR; the owner said only 'the cover as a separate file'. The KDP cover-wrap sizing (spine width from page count, bleed) belongs to the deferred cover-wrap feature."
+      evidence: ["src/nonogram/admin/book_pdf_generator.py:56-89", "src/nonogram/admin/book_pdf_generator.py:148-236", "src/nonogram/admin/app.py:2185", "src/nonogram/admin/app.py:2238-2297", "src/nonogram/admin/app.py:2384-2420", "docs/book_generation_req/book_generation_admin_panel.md#3"]
+    acceptance:
+      - id: AC-283
+        given: a Book 1 profile book with an uploaded cover image and 3 easy 20x20 puzzles
+        when: the book is exported
+        then: the interior PDF's page 1 is the guide page
+        kind: happy
+        invariant: INV-013
+        test: TestBookExport_InteriorStartsAtGuidePage
+      - id: AC-284
+        given: the book of AC-283
+        when: every page of its interior PDF is inspected
+        then: no page holds the cover image or the generated title cover — the interior has no cover page
+        kind: negative
+        invariant: INV-013
+        test: TestBookExport_InteriorHoldsNoCoverPage
+      - id: AC-285
+        given: the book of AC-283
+        when: the book is exported
+        then: a separate cover file is produced — a 1-page PDF of 2550 x 3300 px (the 8.5 x 11 in trim at 300 DPI) holding the uploaded cover image
+        kind: happy
+        test: TestBookExport_CoverIsSeparateSinglePageFile
+      - id: AC-286
+        given: a Book 1 profile book with no uploaded cover image
+        when: the book is exported
+        then: the cover file holds the generated title cover and the interior PDF's page 1 is still the guide page
+        kind: boundary
+        invariant: INV-013
+        test: TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover
+      - id: AC-287
+        given: a Book 1 profile book whose interior runs guide page, "Easy" divider, then its first puzzle page
+        when: the book is exported
+        then: the first puzzle page is interior page 3, a right-hand page, whose usable area starts 12.7 mm from its left trim edge (gutter on the left) — with the cover as page 1 it would have been a left-hand page 4
+        kind: boundary
+        invariant: INV-013
+        test: TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1
+      - id: AC-288
+        given: a book storing a 0.95 cm (0.375 in) gutter margin whose interior PDF is exactly 150 pages
+        when: the book is finalised
+        then: finalise is not refused on the gutter — 150 interior pages is within KDP's 0.375 in range; the cover file does not make it 151
+        kind: boundary
+        test: TestBookFinalise_PageCountExcludesCoverFile
+      - id: AC-289
+        given: the book of AC-283 exported through each of the Finalise download, POST /book/<id>/download-pdf and POST /book/<id>/generate-pdf
+        when: the three exports are compared
+        then: each yields an interior PDF whose page 1 is the guide page plus a separate cover file
+        kind: negative
+        invariant: INV-013
+        test: TestBookExport_EveryRouteSeparatesInteriorAndCover
+    engineering_constraints:
+      - id: EC-034
+        statement: >-
+          For any book (any members, levels, pairing, answer-key layout and
+          cover or no cover) and every export route, the interior PDF holds
+          no cover page, its page 1 is the guide page, each page's parity is
+          its 1-based position in the interior (page 1 odd, right-hand),
+          the page count finalise checks equals the interior's page count,
+          and exactly one cover file of one trim-size page is produced
+          beside it — for every book, not only the measured examples.
+        kind: consistency
+        invariant: INV-013
+        instances: [AC-283, AC-284, AC-287, AC-288, AC-289]
+        test: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
 
 non_functional:
   - id: NFR-001

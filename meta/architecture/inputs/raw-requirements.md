@@ -232,3 +232,14 @@ Source: owner answers 2026-09-22 during `/forge:kanban decompose` of Increments 
 - Book pages use mirrored margins: the gutter margin is on the left of right-hand (odd) pages and on the right of left-hand (even) pages, and the drawing is centred across the usable width; the top edge stays fixed (amends FR-030 / FR-032; ADR-0036 clarification — the book PageSpec carries page parity; A4 default unchanged).
 # processed: 2026-09-22 -> FR-038 AMENDED (AC-277..AC-281, EC-033), FR-037 AMENDED (AC-282); INV-012, CMD-016/CMD-017, EVT-017/EVT-018 amended — decided by the owner
 - Adding or removing puzzles in a book that has left draft (after FR-038's confirmation for a published book) returns it to draft, so it must pass the plan check again before a new PDF (amends FR-037 / FR-038; ADR-0035 clarification).
+
+## 2026-09-22 (d) — Interior PDF without the cover; answer-key details
+
+Source: owner answers 2026-09-22 after carding (c), recorded in `docs/book_generation_req/book_generation_admin_panel.md` (BK-8 details, BK-9) and rules 12 and 15 of `docs/book_generation_req/book_admin_ui_requirements.md`. All DECIDED by the owner.
+
+# processed: 2026-09-22 -> FR-043 (AC-283..AC-289, EC-034); FR-030 AMENDED (AC-179, AC-272, AC-273 reworded), FR-032 AMENDED (AC-274, AC-275 reworded), FR-042 AC-271 reworded; INV-013, CMD-019/EVT-020 amended; TERM-035, TERM-036, TERM-034 amended — decided by the owner
+- The book export produces an interior PDF WITHOUT the cover, starting at the guide page, and the cover as a separate file; interior page 1 is a right-hand page, and the mirrored-margin parity (FR-030/FR-032 as amended) counts from it. Today `book_pdf_generator.py` puts the cover as page 1 of one PDF, which KDP does not accept as an interior. A full KDP cover wrap (spine, back cover) is out of scope (FR, product; BK-9; amends FR-030/FR-032 parity and the page count behind AC-179/AC-271).
+# processed: 2026-09-22 -> FR-042 AMENDED (AC-290..AC-295; AC-262, AC-269, AC-270 reworded; EC-030, EC-031 amended; default-plan answer key 31 pages + SOLUTIONS divider), FR-041 AMENDED (answer-key open question closed); INV-011 amended; TERM-033 amended — decided by the owner
+- Answer-key details (amend FR-042): each level (Easy / Medium / Hard) starts a new answer page with a small heading (resolves where FR-041's answer-key headings go; answer page count grows by at most 2); a "SOLUTIONS" divider page precedes the answer key; the caption title is the per-book title set in Arrangement, else the puzzle's stored name; answer cells are capped at 5 mm.
+# deferred: 2026-09-22 — full KDP cover wrap, later
+- DEFERRED — full KDP cover wrap with spine and back cover.

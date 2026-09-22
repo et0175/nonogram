@@ -17,12 +17,19 @@
 # mirrored margins FR-030/FR-032, back to draft FR-037/FR-038): CARD-133 joins wave
 # 22 and CARD-134 joins wave 25 (Increment 15); the Increment 13, 15 and 16
 # checkpoints gain the new observables. No wave was renumbered.
+#
+# Updated 2026-09-22 (d) by a decompose DELTA (owner answers: interior PDF without
+# the cover FR-043, answer-key details FR-042): CARD-135 joins wave 20 (Increment 13,
+# no dependency; CARD-116 now waits on it so page parity is counted from interior
+# page 1); the Increment 13 and 15 checkpoints gain the two-file export, the
+# level-first answer pages and the recomputed default-plan answer key. No wave was
+# renumbered.
 
 waves:
   - wave: 20
-    cards: [CARD-113, CARD-119]
+    cards: [CARD-113, CARD-135, CARD-119]
     increment: [13, 14]
-    checkpoint: "golden A4 tripwire green on main before any src/ change (CARD-113); plan arithmetic green (CARD-119)"
+    checkpoint: "golden A4 tripwire green on main before any geometry change (CARD-113); the book export yields an interior PDF starting at the guide page and a separate one-page cover file (CARD-135); plan arithmetic green (CARD-119)"
     status: pending
 
   - wave: 21
@@ -75,7 +82,9 @@ waves:
       1800 x 2700 px. The band reads "Puzzle N · Tier" and no picture title is on
       the puzzle page. Margins are mirrored: on facing pages the 15x15 drawing's
       left edge sits at 27.05 mm (odd page) and 23.875 mm (even page) from the trim
-      edge, on the same top pixel row.
+      edge, on the same top pixel row. The export yields two files: an interior PDF
+      whose page 1 is the guide page (no cover page anywhere in it) and a one-page
+      cover PDF at the trim size; parity counts from interior page 1.
     owner_confirmed_checkpoint:
       automatable: false
       statement: >-
@@ -87,7 +96,7 @@ waves:
       evidence_path: "~/Documents/nonogram-reviews/CARD-118/"
       recorded_on: CARD-118 Worktree notes
       on_reject: "back to ADR-0037 (architect station), not a code tweak"
-    collapses: [ADR-0036 central bet (G-1 retirement), CON-019, EC-020, NFR-008 7.5 mm cap, EC-019, EC-032, ADR-0037 stroke numbers, CON-018 margin-default gap]
+    collapses: [ADR-0036 central bet (G-1 retirement), CON-019, EC-020, NFR-008 7.5 mm cap, EC-019, EC-032, ADR-0037 stroke numbers, CON-018 margin-default gap, INV-013, "page parity origin (FR-043)"]
     rollback: >-
       PageSpec is an optional parameter with a byte-identical default; revert the
       branch and the CLI/web path is untouched. The only non-additive edit is the
@@ -124,14 +133,19 @@ waves:
       after pairing is reported for that book, together with its answer-key page
       count (6-up / 4-up answer pages in puzzle-number order, captioned "Puzzle N —
       Title"; a 150-answer book with 90 answers <=20 first takes 30 answer pages,
-      not 150), and a book whose count, answer key included, crosses 150 pages with
-      a stored 0.375 in gutter is refused at finalise with the KDP reason. Rendered pages go to ~/Documents/nonogram-reviews/CARD-129/ for the
+      not 150; the three-level default plan takes 31 answer pages after one
+      SOLUTIONS page, each level opening a new page under its heading, and a 10x10
+      answer measures 5.0 mm), and a book whose interior page count, answer key
+      included and the separate cover file not counted, crosses 150 pages with a
+      stored 0.375 in gutter is refused at finalise with the KDP reason; the first
+      puzzle page after the guide page and the "Easy" divider is interior page 3,
+      gutter on the left. Rendered pages go to ~/Documents/nonogram-reviews/CARD-129/ for the
       owner's eye.
     owner_confirmed_checkpoint:
       automatable: false
       statement: "owner eyes the rendered real-book pages (dividers, two-up, bands, answer-key pages) and the measured 7.39 mm pair"
       evidence_path: "~/Documents/nonogram-reviews/CARD-129/"
-    collapses: [INV-009, INV-010, INV-011, EC-027, EC-028, EC-029, EC-030, EC-031, "ADR-0036 two-up API shape", "gutter/page-count circularity", "answer key's share of the ~120-190-page Book 1 model"]
+    collapses: [INV-009, INV-010, INV-011, EC-027, EC-028, EC-029, EC-030, EC-031, EC-034, "ADR-0036 two-up API shape", "gutter/page-count circularity", "answer key's share of the ~120-190-page Book 1 model"]
     rollback: >-
       Pairing, dividers and answer pages are decided at PDF time; nothing is stored. The
       level-confined move and end-of-level insert write the stored order; a revert

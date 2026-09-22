@@ -94,12 +94,24 @@ aggregates:
       - id: INV-011
         # Like INV-010, a rule on the page composition CMD-019 derives, not
         # stored state; it must hold for every PDF the aggregate produces.
+        # AMENDED 2026-09-22 (d) (FR-042 amended): "no answer-key page holds
+        # answers of two levels" appended.
         statement: >-
           The book's answer key holds every member puzzle's answer exactly
           once, in puzzle-number order; an answer-key page holds at most 6
           answers while every answer on it is at most 20 cells on its
-          longest side, and at most 4 once it holds one longer than 20
-          (FR-042).
+          longest side, and at most 4 once it holds one longer than 20;
+          no answer-key page holds answers of two levels (FR-042).
+      # New 2026-09-22 (d) (delta — interior PDF without the cover; owner
+      # decision BK-9). A rule on the files CMD-019 produces, not stored
+      # state.
+      - id: INV-013
+        statement: >-
+          The book's interior PDF holds no cover page and starts at the
+          guide page as a right-hand page 1; each page's parity is its
+          1-based position in the interior, and the book's page count is
+          the interior's; the cover is produced as a separate file
+          (FR-043).
       - id: INV-012
         statement: >-
           A book outside draft holds exactly the puzzle membership that last

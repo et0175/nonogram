@@ -144,12 +144,21 @@ capabilities:
       6-up / 4-up in puzzle-number order, captioned with the title
       (FR-042); book margins are mirrored by page parity with the drawing
       centred; and a membership change on a book that has left draft
-      returns it to draft.
+      returns it to draft. Since 2026-09-22 (d): the export produces the
+      interior PDF without the cover (starting at the guide page, a
+      right-hand page 1 from which page parity counts) and the cover as a
+      separate file (FR-043); the answer key follows a SOLUTIONS divider,
+      starts a new page per level under a small heading and caps answer
+      cells at 5 mm.
     # AMENDED 2026-09-22 (b): EVT-023, CMD-022, FR-040, FR-041 appended
     # (book layout delta).
     # AMENDED 2026-09-22 (c): FR-042 appended (answer key). FR-030/FR-032/
     # FR-037/FR-038 amended in place — already listed; no new event or
     # command (INV-011/INV-012 ride on CMD-016/017/019).
+    # AMENDED 2026-09-22 (d): FR-043 appended (interior PDF without the
+    # cover, cover file separate). FR-030/FR-032/FR-041/FR-042 amended in
+    # place — already listed; no new event or command (INV-013 rides on
+    # CMD-019 -> EVT-020).
     events: [EVT-016, EVT-017, EVT-018, EVT-019, EVT-020, EVT-021, EVT-022,
              EVT-023]
     commands: [CMD-015, CMD-016, CMD-017, CMD-018, CMD-019, CMD-020, CMD-021,
@@ -158,4 +167,4 @@ capabilities:
     stories: [US-023, US-024, US-025, US-026, US-027]
     requirements: [FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-036,
                    FR-037, FR-038, FR-039, FR-040, FR-041, FR-042,
-                   NFR-008]
+                   FR-043, NFR-008]

@@ -341,9 +341,14 @@ terms:
       only (no clues), in puzzle-number order, each captioned "Puzzle N —
       Title" — the only place the picture's title appears; up to 6 answers
       a page (2 x 3) while every answer on the page is at most 20 cells on
-      its longest side, 4 a page (2 x 2) once one is longer.
+      its longest side, 4 a page (2 x 2) once one is longer. It follows a
+      "SOLUTIONS" divider page; each level starts a new answer page under a
+      small level heading; the Title is the per-book title set in
+      Arrangement, else the puzzle's name; an answer cell is at most 5 mm.
+    # AMENDED 2026-09-22 (d) (FR-042 amended): the last sentence of the
+    # definition added; aliases "SOLUTIONS divider", "level heading" added.
     context: CTX-001
-    aliases: [answer section, answer page, 6-up page, 4-up page, answer tile]
+    aliases: [answer section, answer page, 6-up page, 4-up page, answer tile, SOLUTIONS divider, level heading]
     source: [US-023, US-024, FR-042, FR-033]
   - id: TERM-034
     term: Mirrored margins
@@ -352,7 +357,32 @@ terms:
       (TERM-020) is always on the binding side: on the left of a right-hand
       (odd) page, on the right of a left-hand (even) page; the drawing is
       centred across the usable width between them, and the top edge does
-      not move.
+      not move. Parity is the page's 1-based position in the interior PDF
+      (TERM-035), whose page 1 is right-hand.
+    # AMENDED 2026-09-22 (d) (FR-043): the parity sentence added.
     context: CTX-001
     aliases: [page parity, facing pages, recto/verso margins]
-    source: [US-023, FR-030, FR-032]
+    source: [US-023, FR-030, FR-032, FR-043]
+  # New 2026-09-22 (d) (delta — interior PDF without the cover; owner
+  # decision BK-9). context: CTX-001 (ADR-0033).
+  - id: TERM-035
+    term: Interior PDF
+    definition: >-
+      The book's printable inside pages as one PDF, without the cover: it
+      starts at the guide page as a right-hand page 1 and runs through the
+      puzzle section, the SOLUTIONS divider and the answer key; its page
+      count is the book's page count and page parity counts from its page 1.
+    context: CTX-001
+    aliases: [interior, manuscript, book interior, interior file]
+    source: [US-023, FR-043]
+  - id: TERM-036
+    term: Cover file
+    definition: >-
+      The book's front cover exported as its own file beside the interior
+      PDF — one page at the book's trim size holding the uploaded cover
+      image, or the generated title cover when none is uploaded; not part
+      of the interior and not counted in the book's page count. A full KDP
+      cover wrap (spine, back cover) is deferred.
+    context: CTX-001
+    aliases: [cover, front cover, cover PDF]
+    source: [US-023, FR-043]

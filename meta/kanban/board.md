@@ -16,7 +16,7 @@ _Updated: 2026-09-22 UTC_
 | 9 | CARD-015 P2 | ✅ done |
 | 10 | CARD-016 P2 | ✅ done |
 | 11 | CARD-017 P3 | ✅ done |
-| 20 | CARD-113 P1, CARD-119 P1 | ▶ next |
+| 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ▶ next |
 | 21 | CARD-114 P1, CARD-120 P1 | ⏳ blocked (→ wave 20) |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ⏳ blocked (→ wave 21) |
 | 23 | CARD-116 P1, CARD-121 P1 | ⏳ blocked (→ wave 22) |
@@ -25,7 +25,7 @@ _Updated: 2026-09-22 UTC_
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
 | 27 | CARD-129 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
-_Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-134; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
+_Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -37,6 +37,7 @@ _(none)_
 
 ## Ready
 - **CARD-113** P1 · Pin today's A4 output byte for byte before any PageSpec change (golden A4 tripwire) · 0.5d · wave 20 · Inc 13
+- **CARD-135** P1 · Interior PDF without the cover — starts at the guide page; the cover is its own file · 1d · wave 20 · Inc 13
 - **CARD-119** P1 · The distribution plan as pure domain — longest-side buckets, Book 1 prefill, POL-007 re-derive · 1d · wave 20 · Inc 14
 - **CARD-114** P1 · PageSpec — compute_layout learns a second sheet, only when told · 1d · architectural · wave 21 · Inc 13 · after CARD-113
 - **CARD-120** P1 · The plan stored with the book — migration, default plan, Print setup matrix · 1d · wave 21 · Inc 14 · after CARD-119
@@ -45,7 +46,7 @@ _(none)_
 - **CARD-122** P1 · Puzzle selection by longest-side tab · 1d · wave 22 · Inc 14 · after CARD-119, CARD-120
 - **CARD-124** P1 · The readiness gate — no book leaves draft unless it matches its plan · 0.5d · wave 22 · Inc 14 · after CARD-119, CARD-120
 - **CARD-133** P2 · Answer tiles in COMP-007 — grid-only answers on a 2 × 3 / 2 × 2 tiled page · 1d · wave 22 · Inc 15 · after CARD-114
-- **CARD-116** P1 · The book PDF on its own trim · 1d · wave 23 · Inc 13 · after CARD-115
+- **CARD-116** P1 · The book PDF on its own trim (parity from interior page 1) · 1d · wave 23 · Inc 13 · after CARD-115, CARD-135
 - **CARD-121** P1 · The 4.8 mm floor at the book store — override on every add route · 1d · wave 23 · Inc 14 · after CARD-115, CARD-120
 - **CARD-117** P1 · "Puzzle N · Tier" band, title only in the answer key, print-weight rules · 0.5d · wave 24 · Inc 13 · after CARD-116
 - **CARD-123** P1 · Tile cell + below-floor flag + override control; finalise below-floor count · 0.5d · wave 24 · Inc 14 · after CARD-121, CARD-122
@@ -53,11 +54,11 @@ _(none)_
 - **CARD-118** P1 · Proof pages (30×30 + 15×15) — owner-confirmed print checkpoint · 0.5d · wave 25 · Inc 13 · after CARD-117
 - **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125
 - **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124
-- **CARD-134** P2 · The answer key in the book PDF — number order, 6-up / 4-up, "Puzzle N — Title" · 1d · wave 25 · Inc 15 · after CARD-117, CARD-133
-- **CARD-128** P2 · Level dividers and the difficulty order in print · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
+- **CARD-134** P2 · The answer key in the book PDF — number order, 6-up / 4-up, a new page per level with its heading, SOLUTIONS divider, "Puzzle N — Title" · 1d · wave 25 · Inc 15 · after CARD-117, CARD-133
+- **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
-- **CARD-129** P2 · Finalise refuses when the page count needs a larger KDP gutter · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
+- **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
 _(none)_
