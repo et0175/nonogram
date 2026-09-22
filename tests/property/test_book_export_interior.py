@@ -9,7 +9,9 @@ the Finalise download, ``POST /book/<id>/download-pdf`` and
 
 * the interior PDF holds no cover page — no interior page is the cover file's
   page;
-* its page 1 is the guide page, and parity counts from it (page 1 right-hand);
+* its page 1 is the guide page — the page parity counts from (FR-043). The
+  parity itself is not observable on a page until CARD-116's mirrored
+  margins, so this test does not claim to verify it;
 * its page count is today's content without the cover — guide, puzzles,
   SOLUTIONS divider and answers — and equals the count the export reports;
 * exactly one cover file of one 2550 x 3300 px page is produced beside it,
@@ -207,11 +209,11 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         for page_number, page in enumerate(interior, start=1):
             assert not same_page(page, cover_page), f"{label}: page {page_number} is the cover"
 
-        # Parity counts from the guide page: page 1 right-hand, then alternating.
-        assert page_is_right_hand(1), label
-        assert [page_is_right_hand(k) for k in range(1, expected_count + 1)] == [
-            k % 2 == 1 for k in range(1, expected_count + 1)
-        ], label
+        # Parity is *not* observed here: nothing on a page carries it until
+        # CARD-116's mirrored margins, so all this card can check is that the
+        # page parity counts from — interior page 1 — is the guide page
+        # (asserted above), not a cover. The observable parity half is
+        # CARD-116's TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1.
 
         seen[case["route"]] += 1
         seen["with cover" if case["cover"] is not None else "without cover"] += 1

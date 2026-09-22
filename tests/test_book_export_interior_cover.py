@@ -334,3 +334,232 @@ class TestBookFinalise_OffersBothDownloads:
         # The cover is no longer listed as a page of the book.
         assert "Cover page (" not in body
         assert "~8</dd>" in body  # 1 guide + 3 puzzles + divider + 3 answers
+
+
+# --- CARD-135 review cycle 1 --------------------------------------------------
+
+
+def _stored_cover(app, book_id):
+    """The one cover file the upload stored for ``book_id``."""
+    from pathlib import Path
+
+    (path,) = Path(app.config["BOOK_COVER_DIR"]).glob(f"{book_id}_cover.png")
+    return path
+
+
+def _flashes(client):
+    with client.session_transaction() as sess:
+        return [message for _, message in sess.get("_flashes", [])]
+
+
+class TestBookFinalise_LostCoverFileIsNotPassedOffAsUploaded:
+    """F-001 — "cover uploaded" means the stored file exists, not a session flag.
+
+    The stored cover lives in a temp dir the OS may purge while the signed
+    session cookie outlives it. The screen must stop promising the owner's
+    art, and a cover download must not quietly print the title cover.
+    """
+
+    @pytest.fixture
+    def lost_cover(self, admin_app):
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        _upload_cover(client, book_id, _cover_art())
+        _stored_cover(admin_app, book_id).unlink()
+        return client, book_id
+
+    def test_finalise_stops_claiming_the_cover_and_says_why(self, lost_cover):
+        client, book_id = lost_cover
+        body = client.get(f"/book/{book_id}/finalize").get_data(as_text=True)
+
+        assert "Cover image uploaded" not in body
+        assert "your cover image" not in body
+        assert "a generated title cover" in body
+        assert "no longer on disk" in body
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_a_cover_download_is_refused_not_silently_swapped(self, lost_cover, route):
+        client, book_id = lost_cover
+        if route == "finalise":
+            response = client.post(
+                f"/book/{book_id}/finalize", data={"action": "download_pdf", "part": "cover"}
+            )
+        else:
+            response = client.post(f"/book/{book_id}/{route}?part=cover")
+
+        assert response.status_code == 302
+        assert response.mimetype != "application/pdf"
+        assert any("no longer on disk" in m for m in _flashes(client))
+
+    def test_the_interior_is_still_downloadable(self, lost_cover):
+        client, book_id = lost_cover
+        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+
+        assert same_page(interior[0], _guide_page(3, 3))
+
+    def test_once_the_screen_has_said_so_the_cover_is_the_title_cover(self, lost_cover):
+        """After Finalise has shown the loss, screen and export agree again."""
+        client, book_id = lost_cover
+        client.get(f"/book/{book_id}/finalize")
+
+        (page,) = pdf_pages(_download(client, "finalise", book_id, "cover"))
+        assert same_page(page, _generated_title_cover())
+
+
+class TestBookFinalise_CoverPathOutsideTheCoverDirIsIgnored:
+    """F-006 — a session path outside BOOK_COVER_DIR is never read or deleted."""
+
+    @pytest.fixture
+    def foreign_path(self, admin_app, tmp_path):
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        outside = tmp_path / "not_a_cover.png"
+        _cover_art().save(outside, format="PNG")
+        with client.session_transaction() as sess:
+            sess[f"book_{book_id}_cover_path"] = str(outside)
+            sess[f"book_{book_id}_cover_data"] = True
+        return client, book_id, outside
+
+    def test_clear_cover_leaves_the_outside_file_in_place(self, foreign_path):
+        client, book_id, outside = foreign_path
+        client.post(f"/book/{book_id}/finalize", data={"action": "clear_cover"})
+
+        assert outside.is_file()
+
+    def test_finalise_does_not_claim_it_and_leaves_it_in_place(self, foreign_path):
+        client, book_id, outside = foreign_path
+        body = client.get(f"/book/{book_id}/finalize").get_data(as_text=True)
+
+        assert "Cover image uploaded" not in body
+        assert outside.is_file()
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_no_export_prints_the_outside_file(self, foreign_path, route):
+        client, book_id, outside = foreign_path
+        if route == "finalise":
+            response = client.post(
+                f"/book/{book_id}/finalize", data={"action": "download_pdf", "part": "cover"}
+            )
+        else:
+            response = client.post(f"/book/{book_id}/{route}?part=cover")
+
+        if response.status_code == 200:
+            (page,) = pdf_pages(response.get_data())
+            assert not same_page(page, _cover_art().resize(TRIM_PX))
+        else:
+            assert response.status_code == 302
+        assert outside.is_file()
+
+
+class TestBookCover_StoredFileLifecycle:
+    """F-002 — the stored cover is upright and leaves with its book."""
+
+    def test_a_phone_photo_is_stored_upright(self, admin_app):
+        """EXIF orientation 6 (rotate 90 CW) is applied before re-encoding."""
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        sideways = Image.new("RGB", (1800, 1200), (20, 30, 90))  # stored landscape
+        exif = Image.Exif()
+        exif[0x0112] = 6  # Orientation: rotate 90 CW to display
+        jpeg = BytesIO()
+        sideways.save(jpeg, format="JPEG", exif=exif.tobytes())
+        jpeg.seek(0)
+        client.post(
+            f"/book/{book_id}/finalize",
+            data={"cover": (jpeg, "phone.jpg")},
+            content_type="multipart/form-data",
+        )
+
+        with Image.open(_stored_cover(admin_app, book_id)) as stored:
+            assert stored.size == (1200, 1800)  # portrait, as the phone showed it
+
+    def test_deleting_the_book_removes_its_cover_file(self, admin_app):
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        _upload_cover(client, book_id, _cover_art())
+        stored = _stored_cover(admin_app, book_id)
+
+        client.post(f"/book/{book_id}/delete")
+
+        assert admin_app.book_manager.get_book(book_id) is None
+        assert not stored.exists()
+
+
+class TestBookExport_RoutesRenderOnlyTheRequestedPart:
+    """F-004 — a cover download renders no interior page, and vice versa."""
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_a_cover_download_renders_no_interior(self, covered_book, route, monkeypatch):
+        client, book_id = covered_book
+
+        def no_interior(*args, **kwargs):
+            raise AssertionError("the interior was rendered for a cover download")
+
+        monkeypatch.setattr(BookPDFGenerator, "interior_pages", no_interior)
+        (page,) = pdf_pages(_download(client, route, book_id, "cover"))
+
+        assert same_page(page, _cover_art().resize(TRIM_PX))
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_an_interior_download_renders_no_cover(self, covered_book, route, monkeypatch):
+        client, book_id = covered_book
+
+        def no_cover(*args, **kwargs):
+            raise AssertionError("a cover was rendered for an interior download")
+
+        monkeypatch.setattr(BookPDFGenerator, "create_cover_page", no_cover)
+        interior = pdf_pages(_download(client, route, book_id, "interior"))
+
+        assert same_page(interior[0], _guide_page(3, 3))
+
+
+class TestBookExport_GeneratePdfRecordsOnlyTheInterior:
+    """F-007 — a cover-only download on generate-pdf records no book PDF."""
+
+    def test_a_cover_download_leaves_pdf_url_unset(self, covered_book, admin_app):
+        client, book_id = covered_book
+        _download(client, "generate-pdf", book_id, "cover")
+
+        assert admin_app.book_manager.get_book(book_id).metadata.pdf_url is None
+        assert "PDF generated successfully!" not in _flashes(client)
+
+    def test_an_interior_download_records_it(self, covered_book, admin_app):
+        client, book_id = covered_book
+        _download(client, "generate-pdf", book_id, "interior")
+
+        assert admin_app.book_manager.get_book(book_id).metadata.pdf_url is not None
+
+
+class TestBookFinalise_PageCountIsTheExportsPagePlan:
+    """F-005 — the count Finalise shows is the export's own page plan.
+
+    Cross-checked against the page tree of the PDF the export writes, not
+    against the plan function's own arithmetic.
+    """
+
+    @pytest.mark.parametrize("puzzle_count", (0, 1, 3))
+    def test_the_plan_matches_the_written_interior(self, puzzle_count):
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        found = clues.compute_clues(grid)
+        puzzle = {
+            "grid": grid,
+            "clues_rows": found.rows,
+            "clues_cols": found.columns,
+            "width": 20,
+            "height": 20,
+            "difficulty_tier": "easy",
+        }
+        interior = BookPDFGenerator().export_interior([puzzle] * puzzle_count)
+
+        assert interior_page_count(puzzle_count) == pdf_page_count(interior.getvalue())
+
+    @pytest.mark.parametrize("puzzle_count", (1, 3))
+    def test_finalise_shows_the_downloaded_interiors_page_count(self, admin_app, puzzle_count):
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app, puzzle_count)
+        body = client.get(f"/book/{book_id}/finalize").get_data(as_text=True)
+        pages = pdf_page_count(_download(client, "finalise", book_id, "interior"))
+
+        assert f"~{pages}</dd>" in body
