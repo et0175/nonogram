@@ -179,7 +179,7 @@ class TestWave3ImageGeneration:
 
     def test_mock_generator_handles_tuple_sizes(self):
         """Test that MockGenerator accepts (width, height) tuples."""
-        from nonogram.admin.puzzle_review import MockGenerator
+        from tests.helpers.mock_generator import MockGenerator
 
         generator = MockGenerator(seed=42)
 
@@ -198,7 +198,7 @@ class TestWave3ImageGeneration:
 
     def test_mock_generator_backwards_compatible_with_ints(self):
         """Test that MockGenerator still accepts int sizes."""
-        from nonogram.admin.puzzle_review import MockGenerator
+        from tests.helpers.mock_generator import MockGenerator
 
         generator = MockGenerator(seed=42)
 

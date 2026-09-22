@@ -29,11 +29,13 @@ import pytest
 from nonogram import clues, difficulty, export, solver
 from nonogram.admin import puzzle_review
 from nonogram.admin.batch_generator import BatchGenerator
-from nonogram.admin.puzzle_review import MockGenerator, PuzzleReviewService
+from nonogram.admin.puzzle_review import PuzzleReviewService
 from nonogram.export import csv_export, json_export
 from nonogram.errors import GenerationAbandoned
 from nonogram import orchestrator
 from nonogram.orchestrator import GenerationRequest, generate
+
+from tests.helpers.mock_generator import MockGenerator
 
 GUESS = "guess"
 
