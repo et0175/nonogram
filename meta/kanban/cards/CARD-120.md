@@ -1,6 +1,6 @@
 # CARD-120: The plan stored with the book — migration, default plan on creation, Print setup form with the matrix
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 21
 **Depends on:** CARD-119
 **Touches:** src/nonogram/db/models.py, migrations/versions/010_book_distribution_plan.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_plan_storage.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 8.5 (cycle 2/3)
+**Started:** 2026-09-22T16:33:08Z
+**Closed:** 2026-09-22T17:33:44Z
+**Actual:** 0.1d
+**Merge commit:** bc799f2
 **Blocked by:** —
 
 ## What to implement
@@ -140,3 +140,54 @@
 ## Worktree notes
 
 —
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+- **Storage:** one nullable column `books.distribution_plan` = `MutableDict.as_mutable(JSON)` (CARD-101 precedent). Document shape `{"count", "split": {easy, medium, hard}, "cells": 4x3, "edited": [["21-25","hard"], ...]}` — edited cells stored by bucket label / tier value, not index. Encode/decode are `plan_to_json` / `plan_from_json` in `book_manager.py`; decoding goes back through `DistributionPlan`, so a malformed stored document raises `InvalidPlan` instead of loading.
+- **Migration `010_book_distribution_plan.py`** (down_revision `009`): add column / drop column in batch mode, **no backfill**. Verified with `alembic upgrade head` on a scratch copy of the owner's `nonogram_admin.db` (it is at 007: 007→008→009→010 applied, 0 books, plan NULL) plus downgrade to 009, and from an empty SQLite 001→010. The live DB was never touched. The app does **not** auto-upgrade at startup (no alembic call under `src/`): the owner has to run `alembic upgrade head` before starting the panel against that DB. This is true of every column migration, and the DB is currently at 007, so it needs 008/009 anyway. `TestMigration010` checks upgrade and downgrade against a temp SQLite: a legacy row stays NULL and is readable and saveable through `BookManager`.
+- **BookManager:** `get_plan(book_id)` returns a `DistributionPlan`, or `None` for a plan-less or unknown book. `save_plan(book_id, plan)` returns True, or False when the book is not found. It accepts only a `DistributionPlan`, so the 100% rule is the aggregate's own (`Split`), not the route's. It writes the plan column plus `updated_at` only: no puzzle_ids, titles, order or status (G-2, G-5). In-memory mode keeps plans in `BookManager._plans` beside the books, not on the `Book` dataclass, and `delete_book` drops the plan too. `create_book` stores `DEFAULT_PLAN` in both modes and never reads `target_audience` (G-1).
+- **`revise_plan(current, count, split, submitted_cells)`** (module function in `book_manager.py`) turns a form submission into a plan. A cell whose submitted value differs from the prefill of the plan the page showed (the stored plan, or `DEFAULT_PLAN` for a plan-less book) counts as hand-edited. Every other cell is re-derived through CARD-119's `with_split` at the new count and split. This means a split change re-derives an un-edited matrix, an edited cell keeps its value, and typing a cell back to its prefill value clears the edit. No apportionment was reimplemented.
+- **Route / template:** `/book/<id>/setup-print` adds the count, 3 split fields (with a % suffix) and a 4x3 `table` of 12 integer inputs. Each input has a visually-hidden `<label>` "Longest side 21-25, hard (hand-edited)". Edited cells also carry `data-edited` and a visible "edited" hint, and a tfoot row shows the planned tier counts. Styling uses only existing token-themed Bootstrap classes (no new CSS, no literals). AC-197: the plan is validated before anything is stored. On refusal the page re-renders (200) with a danger alert naming the rejected sum (e.g. 110%) and the split fields marked `is-invalid`. Neither the plan nor the trim is saved. AC-203: a warning alert appears when `plan.disagrees_with_split`. A POST without the plan fields still saves the trim only, as before. A trim error also saves nothing.
+- **[AC-DEFECT] AC-203's literal example cannot warn.** AC-203 says "the same hand-edited plan" as AC-202 (21-25 x hard edited 12→15, then split 30/45/25). With the owner's harder-tier tie rule, hard = 38 → prefill 0/8/15/15, so 15 *is* the new prefill and the column agrees: no warning is due (CARD-119 noted the same). `TestBookPlan_WarnsWhenHandEditedMatrixDisagreesWithSplit` drives the same steps with an edit to 20, which does break the column, and asserts the warning. It also asserts the literal 15 case stays silent. The AC's example value should be revised (e.g. 12→20) by the architect.
+- **EC-023 round-trip:** `test_PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan_StoreReloadRoundTrip[memory|db]` is in `tests/test_book_plan_storage.py`, not the CARD-119 file, so it stays next to the storage fixtures. It uses a seeded corpus of ≥300 plans (boundaries, 150 prefilled, 150 hand-edited/split-changed) and asserts reload == saved, including the edited set, in both modes. It also re-checks EC-023's totals against CARD-119's independent Fraction oracle (imported from `tests/property/test_book_plan.py`). It asserts a minimum case count and ≥100 edited plans.
+- **Tests:** `tests/test_book_plan_storage.py` has 52 tests. DB mode runs against a real temp SQLite, and routes run through the Flask test client in both modes: DB-mode apps are built by pointing `nonogram.db.session_scope` at the test's SQLite scope. Mutation check: dropping `edited` from the stored document fails 5 tests. The page was also served live via werkzeug on loopback (GET 200 with 12 labelled inputs; refused POST shows the danger alert).
+- **Gotcha:** running alembic in a test with `Config("alembic.ini")` makes `migrations/env.py` call `logging.config.fileConfig`, which disables every existing logger. That broke a later caplog test (`test_card_100...no_store_says_so`) in the full run. `TestMigration010` builds `Config()` without an ini file for this reason.
+- Full suite: 3895 passed, 26 skipped, 0 failed (the known `test_size_configuration_applied` failure was deselected).
+- No SCOPE+ edits. `src/nonogram/export/**` untouched (G-4), `set_book_status` untouched (G-5).
+- [Scope] migrations/versions/010_book_distribution_plan.py, src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/db/models.py, tests/test_book_plan_storage.py
+- [System contract] fresh lens set (44 rules) == card section — no refresh
+- [Build gate] PASSED (full, 142s; 3895 passed, 26 skipped; known-red test_size_configuration_applied deselected; impact underivable — no pytest-testmon — full suite)
+- [Scope gate] cycle 1: IN_SCOPE (6/6 files within Touches, no guardrail hits)
+- [Visual] capture skipped: no Makefile run target — review runs static-only (tooling gap, not a boot failure; implementer served the page live on loopback: GET 200)
+- [Review 1/3] Score: 7.0 — crit: 0, imp: 1 (pre-adversarial)
+- [Review sync] CARD-120 cycle1 report → meta/review/20260922T165508Z-CARD-120-cycle1.yml
+- [Adversarial] F-001 CONFIRMED — revise_plan rebuilds edited set from prefill only; no-op resubmit drops an edit equal to the new prefill, later split change reverts it (repro via revise_plan + JSON round-trip; every Print setup visit submits the matrix)
+- [Review 1/3] Step 8h coverage: 44/44 card rules have verdict lines
+- [Review 1/3] gate: score 7.0 < 8 and 1 confirmed important (F-001) — fix cycle
+- **`revise_plan(current, count, split, submitted_cells)`** (module function in `book_manager.py`) turns a form submission into a plan. Each cell is judged against the plan the page showed (the stored plan, or `DEFAULT_PLAN` for a plan-less or unreadable book): a submitted value **equal to the shown value** keeps the stored mark (a stored hand edit stays edited even when its value coincides with a prefill); a value **different from the shown value** is hand-edited, unless it equals the shown plan's prefill for that cell, which clears the mark. Every unedited cell is re-derived through CARD-119's `with_split` at the new count and split. So a split change re-derives an un-edited matrix, an edited cell keeps its value through any number of unchanged resubmissions and split changes, and deliberately typing a cell back to its prefill value clears the edit. (Fix 1 / F-001: the first version compared only with the prefill and ignored the stored `edited` set, so an unchanged Continue dropped an edit equal to the current prefill.) No apportionment was reimplemented.
+- **Route / template:** `/book/<id>/setup-print` adds the count, 3 split fields (with a % suffix) and a 4x3 `table` of 12 integer inputs. Each input has a visually-hidden `<label>` "Longest side 21-25, hard (hand-edited)". Edited cells also carry `data-edited` and a visible "edited" hint, and a tfoot row shows the planned tier counts. Styling uses only existing token-themed Bootstrap classes (no new CSS, no literals). AC-197: the plan is validated before anything is stored. On refusal the page re-renders (200) with a danger alert naming the rejected sum (e.g. 110%) and only the failing field(s) marked `is-invalid`/`aria-invalid` (the three split fields for a split refusal, else the count or the offending cell); everything submitted — count, split, all 12 cells and the trim — is carried back. Neither the plan nor the trim is saved. AC-203: a warning alert appears when `plan.disagrees_with_split`, and a successful save of a disagreeing plan also flashes that warning on the redirect. A POST without the plan fields still saves the trim only, as before. A trim error also saves nothing and carries the plan input back. A stored document that fails decoding (`InvalidPlan`) is logged; Print setup shows `DEFAULT_PLAN` with a danger alert and a submit overwrites the damaged document (no 500).
+- [Fix 1] Review cycle 1: F-001 `revise_plan` now carries the stored `edited` set forward for cells submitted unchanged (regression `TestRevisePlan_StoredEditSurvivesUnchangedResubmit`, both modes + route; fails on the old code with 12 != 15). F-002 warning flash on saving a disagreeing plan. F-003 refused/trim-failed submissions carry the whole form back and mark only the failing field(s). F-004 unreadable stored plan -> logged, DEFAULT_PLAN + danger alert, overwritable. F-005 AC-197 test asserts the trim is untouched. F-006 column comment: MutableDict tracks top-level keys only, replace the document whole. `test_saved_plan_is_shown_on_reopen` now posts the matrix as shown (it had typed 12 new values, which are hand edits under F-001). 72 tests in the card file; full suite 3915 passed, 26 skipped (known e2e trim test deselected).
+- [Fix 1] pre-gate: 22/22 named tests green (F-001..F-005; F-006 n/a comment-only); declarations: 4 updated (doc revise_plan/setup_print/_plan_context/_plan_from_form + template + card note + column comment), 0 confirmed, 1 none (F-005 test-only)
+- [Build gate] PASSED (full, 138s; 3915 passed, 26 skipped; known-red test_size_configuration_applied deselected)
+- [Review 2/3] Score: 8.5 — crit: 0, imp: 0 (F-001..F-006 all ✓ resolved; new Minor F-007..F-009; O-1..O-5 out-of-scope)
+- [Review 2/3] Step 8h coverage: 44/44 card rules addressed (33 in one compressed line naming every id)
+- [Review 2/3] Score: 8.5 ✓ threshold reached + no critical/important
+- [Review sync] cycle2 report → meta/review/20260922T171319Z-CARD-120-cycle2.yml
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, CON-015)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-196 ✓ demonstrated — TestBookPlan_StoredWithBookSurvivesReopen::test_saved_plan_is_shown_on_reopen[memory|db] PASSED (Flask test client, real storage; no browser e2e harness in project)
+  AC-197 ✓ demonstrated — TestBookPlan_RejectsSplitNotSummingTo100::test_route_refuses_110_percent_and_keeps_the_stored_plan[memory|db] PASSED (200 + alert-danger '110%'; stored plan and trim unchanged)
+  AC-203 ✓ demonstrated — TestBookPlan_WarnsWhenHandEditedMatrixDisagreesWithSplit::test_warning_shown_when_the_kept_edit_breaks_the_column[memory|db] PASSED (edit to 20; AC's literal 12→15 example is an AC-text defect, literal case asserted silent — O-1 for architect)
+  AC-204 ✓ demonstrated — TestBookCreate_StoresDefaultPlanThatSumsTo100[memory|db] PASSED
+  AC-205 ✓ demonstrated — TestBookCreate_DefaultPlanIs150At40_40_20 (storage + create form)[memory|db] PASSED
+  EC-023 ✓ demonstrated — tests/property/test_book_plan.py::test_PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan (≥15000 seeded) + test_PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan_StoreReloadRoundTrip[memory|db] (≥300 asserted, ≥100 edited) PASSED
+  G-1 ✓ demonstrated — test_the_default_does_not_depend_on_the_audience PASSED; no 'audience' in src/migrations diff
+  G-2 ✓ demonstrated — TestSavePlan_NeverTouchesTheSelection[memory|db] PASSED
+  G-3 ✓ demonstrated — TestPlanLessBook_StaysReadableAndEditable, TestMigration010 (no backfill, downgrade) PASSED
+  G-4 ✓ demonstrated — changed files (diff + porcelain) grep '^src/nonogram/export/' → no hits
+  G-5 ✓ demonstrated — no hunk in set_book_status; tests/test_book_manager.py::TestBookStatus PASSED; tests only added (A tests/test_book_plan_storage.py)
+- [Docs] skipped — changed dirs (src/nonogram/admin, admin/templates, db, migrations/versions) carry no per-directory README; tests/README.md is generic (no per-file index), structure/purpose unchanged
+- [Inline fallback] none — all nested agents spawned (runtime ran them async; orchestrator waited on each before proceeding)
+- [Commit] 3275b92 fix(book-plan): address CARD-120 review findings (on top of 5707cab) — pipeline success; awaiting dispatcher merge
+- [Review sync] 2 CARD-120 report(s) → meta/review/ (cycle1 now carries fixed_in: 3275b92)
+
+- [Done] rebased onto main 4b40474 (after CARD-114), full suite on the rebased tree: only the pre-existing e2e failure. Merged bc799f2 (--no-ff). Deferral scan: 0 hits. AC-203 example defect queued to raw-requirements; O-4 handed to CARD-124; F-007/F-008/F-009/O-2 captured to backlog.

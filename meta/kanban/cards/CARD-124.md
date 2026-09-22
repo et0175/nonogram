@@ -152,3 +152,5 @@ _ADR-0035 Neutral: "the card adds criteria for the under-filled and plan-less ca
 ## Worktree notes
 
 —
+
+- [Handover from CARD-120, 2026-09-22] O-4: Print setup currently lets the plan be edited on a book that has left draft. Decide here whether a plan edit on a non-draft book returns it to draft (as a membership change does, ADR-0035 clarification) or is refused.

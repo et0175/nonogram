@@ -248,3 +248,4 @@ Source: owner answers 2026-09-22 after carding (c), recorded in `docs/book_gener
 
 - CON-019 / AC-180 "byte-for-byte unchanged" means: PNG and SVG byte-identical; PDF byte-identical except its two wall-clock timestamps (/CreationDate, /ModDate), which Pillow writes on every run. Source: owner, 2026-09-22 (CARD-113 review O-002).
 - Tier-count rounding (FR-034 / EC-023): when two tiers have equal remainders, the spare puzzle goes to the HARDER tier (150 at 30/45/25 -> 45/67/38). Bucket ties inside a tier column still go to the earlier bucket (AC-198). Source: owner, 2026-09-22 (CARD-119 review F-002).
+- AC-203 example defect: the literal hand edit 12 -> 15 cannot trigger the "plan and split disagree" warning, because 15 is the 30/45/25 prefill value for that cell; reword the example (the test uses 20). Source: CARD-120 review, 2026-09-22.

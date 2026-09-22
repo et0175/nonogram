@@ -36,7 +36,7 @@ waves:
     cards: [CARD-114, CARD-120]
     increment: [13, 14]
     checkpoint: "golden A4 test green on both sides of the PageSpec change (ADR-0036/R1, CON-019)"
-    status: pending
+    status: passed   # 2026-09-22: goldens, PageSpec and plan-storage tests green on main bc799f2
 
   - wave: 22
     cards: [CARD-115, CARD-122, CARD-124, CARD-125, CARD-133]

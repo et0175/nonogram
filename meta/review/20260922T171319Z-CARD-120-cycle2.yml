@@ -1,0 +1,160 @@
+version: 1
+generated_at: "2026-09-22T17:18:05Z"
+target: "card/120-book-plan-storage @ 5707cab + working tree vs main (excluding meta/) — CARD-120 cycle 2/3 FULL"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+prior_findings:
+  F-001: resolved   # revise_plan carries stored edited set; TestRevisePlan_StoredEditSurvivesUnchangedResubmit (storage + route) green; reproduced by script: 4-step scenario keeps 15/edited
+  F-002: resolved   # app.py setup_print flashes "warning" on saving a disagreeing plan; TestPrintSetup_WarnsWhenADisagreeingPlanIsSaved green
+  F-003: resolved   # submitted form carried back; _PlanFormError.fields marks only failing inputs; TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField green
+  F-004: resolved   # _readable_plan catches InvalidPlan, logs, shows DEFAULT_PLAN + danger alert; TestPrintSetup_UnreadableStoredPlanCanBeOverwritten green
+  F-005: resolved   # AC-197 test asserts metadata.size unchanged (meaningful in memory mode; see F-009 for DB mode)
+  F-006: resolved   # models.py comment now states MutableDict tracks top-level keys only
+  test_saved_plan_is_shown_on_reopen_change: "not weakened — still stores a different plan (120 @ 30/45/25) first, asserts it is shown, then saves 150 @ 40/40/20 and reads count+split back after leaving the workflow (new client; new app in DB mode)"
+
+coverage:
+  read:
+    - migrations/versions/010_book_distribution_plan.py
+    - src/nonogram/admin/app.py (setup_print + plan helpers)
+    - src/nonogram/admin/book_manager.py (diff + get_book)
+    - src/nonogram/admin/book_plan.py (dependency, CARD-119)
+    - src/nonogram/admin/templates/book_setup_print.html
+    - src/nonogram/admin/templates/base.html (flash rendering)
+    - src/nonogram/db/models.py
+    - src/nonogram/db/session.py (session_scope)
+    - tests/test_book_plan_storage.py (structure + changed tests)
+    - meta/design/components.md, brief.md (static)
+  not_reached:
+    - rendered page (no screenshots; static visual check only)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1410, removed: 5 }
+  max_fan_in: { symbol: "BookManager.get_book (unchanged); new symbols revise_plan/get_plan/save_plan", callers: 1 }
+  tests_cover_change: true
+  tests_run: "535 passed (book/admin/cli/export_pdf suites incl. import guard, dependency baseline, admin binding) on 5707cab + working tree"
+  hotspots: ["src/nonogram/admin/app.py", "src/nonogram/admin/book_manager.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — co-change mining on book_manager.py returned only the file itself; not separable into a peer list"
+    mutation_check: "not_applicable — review.mutation_check not configured (no meta/kanban/config.yml); default off"
+
+system_contract:
+  rules_checked: 44
+  holds: 6
+  unchecked: 38
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green on 5707cab+wt; diff adds no dependency (only book_plan/difficulty package imports)"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward (tests/test_cli.py) green; diff touches nothing under src/nonogram/web/"
+    - "ADR-0033/R1 ✓ holds — review-lens: book_manager.py save_plan writes only books.distribution_plan + updated_at (both modes); no puzzle row/field written anywhere in the diff"
+    - "ADR-0035/R1 ⚠ unchecked — check_ref_missing: TestBookStatus_EveryExitFromDraftIsGatedOnThePlan; manual read: set_book_status untouched by this diff (G-5), no violation"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) green; diff changes no bind/run code"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green; diff adds no route and no before_request change (setup_print extended in place)"
+    - "INV-005 ✓ holds — Split/DistributionPlan enforce sum==100 and non-negative int cells; save_plan accepts only DistributionPlan; plan_from_json re-validates on read; TestBookPlan_RejectsSplitNotSummingTo100, TestBookCreate_StoresDefaultPlanThatSumsTo100, PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan(+StoreReloadRoundTrip[memory|db]) green"
+    - "INV-007 ⚠ unchecked — check_ref_missing: PropertyTest_BookReady_GateIffEveryCellWithinTolerance, TestBookReady_*; manual read: diff sets no status"
+    - "INV-008 ⚠ unchecked — check_ref_missing: TestBookPublished_*; manual read: diff changes no membership"
+    - "INV-009 ⚠ unchecked — check_ref_missing: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, TestBookArrange_*, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel; manual read: save_plan never writes puzzle_ids/order (TestSavePlan_NeverTouchesTheSelection green)"
+    - "INV-012 ⚠ unchecked — check_ref_missing: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookMembership_*, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft; manual read: diff changes no membership"
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-006, INV-010, INV-011, INV-013 ⚠ unchecked — no_eligible_fact: the diff touches only book-plan storage, the Print setup route/template, one model column and one migration; no generation, solver, difficulty, image, web-UI, layout/export or membership code"
+  note: "holds =ADR-0006/R1, ADR-0019/R1, ADR-0033/R1, CON-015, CON-016, INV-005 (6); unchecked = 5 check_ref_missing + 33 no_eligible_fact (38)."
+
+root_causes:
+  - id: RC-1
+    title: "revise_plan judges 'back to prefill' against the SHOWN plan's prefill, not the submitted count/split, and has no way to release an edit already equal to the prefill"
+    finding_ids: [F-007]
+
+findings:
+  - id: F-007
+    severity: medium
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_manager.py
+    line: 1091
+    title: "An edit that equals the current prefill cannot be released; count/split changes judge typed values against the old prefill"
+    description: |
+      revise_plan's reference is prefill(shown.count, shown.split). Reproduced:
+      (a) stored 21-25 x hard = 15, edited, at 30/45/25 (prefill there is also 15): the
+      owner cannot clear the mark in one submit — typing 15 equals the shown value, so the
+      mark is kept; the page caption ("kept as hand-edited ... until you change it back to
+      the value the split gives", book_setup_print.html:125) promises a release that is
+      impossible in this state (needs a two-submit dance via another value).
+      (b) count 150->200 and the owner types the NEW prefill into an unedited cell: it is
+      marked hand-edited (it differs from the 150 prefill), then pinned through later split
+      changes, contradicting the card text "a cell whose value differs from the prefill is
+      recorded as hand-edited".
+      (c) edited 20, split changed to 30/45/25 and the owner types 12 (the OLD prefill) in
+      the same submit: mark cleared, cell silently becomes 15 — the typed value is replaced.
+      No data is lost from storage and no invariant breaks (INV-005 holds); it is a POL-007
+      semantics gap at the edges of the F-001 fix.
+    suggestion: |
+      Compare "back to prefill" against prefill(count, submitted split) (the plan the
+      submission will derive), keeping the stored-mark carry-forward for unchanged cells;
+      and/or give each edited cell an explicit "follow the split" control (checkbox) so a
+      coinciding edit can be released. Align the caption with whichever rule is chosen and
+      add a revise_plan test for cases (a)-(c).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2070
+    title: "Refusal re-render mixes submitted inputs with the stored plan's Planned row, warning and edited hints"
+    description: |
+      On a refused submission _plan_context carries the submitted count/split/cells into the
+      inputs, but plan_column_totals, plan_tier_counts (tfoot "Planned"), plan_disagrees and
+      the per-cell "edited" hints/labels are still computed from the stored plan. After
+      refusing 40/40/30 the page shows split 40/40/30 above a Planned row for 40/40/20 and
+      may show (or hide) the disagreement warning for a plan that is not the one on screen.
+    suggestion: |
+      On a re-render, either compute the derived rows from the submitted values when they
+      parse, or label them explicitly as the stored plan ("Stored plan: ...").
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_plan_storage.py
+    line: 311
+    title: "F-005's trim-untouched assertion cannot fail in DB mode"
+    description: |
+      In DB mode get_book returns a fresh transient Book from _row_to_book and setup_print's
+      trim write (book.metadata.size) is never persisted (O-2), so
+      `get_book(book_id).metadata.size == size_before` holds whether or not the route wrote
+      the trim. The assertion is meaningful only in the memory-mode parametrisation.
+    suggestion: |
+      Note the limitation in the test (or assert only in memory mode) until DB mode stores
+      the trim; when O-2 is fixed this assertion becomes real in both modes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "O-1 (carried): AC-203 literal example (12->15) cannot warn at 30/45/25; architect to revise the AC value."
+  - "O-2 (carried): DB mode never persists the trim size (setup_print writes a transient Book)."
+  - "O-3 (carried): check refs for ADR-0035/R1, INV-007, INV-008, INV-009, INV-012 do not exist in the repo (later cards)."
+  - "O-4: Print setup accepts plan edits on a non-draft book without returning it to draft; once CARD-124's gate exists, a ready book could hold a plan its selection no longer matches. Decide in CARD-124."
+  - "O-5: components.md registers no editable-matrix state ('edited', invalid cell) for the Print setup table (card's Design context suggested DataTable reuse or a PlanMatrix entry); components.md is outside this card's file scope."

@@ -17,8 +17,8 @@ _Updated: 2026-09-22 UTC_
 | 10 | CARD-016 P2 | ✅ done |
 | 11 | CARD-017 P3 | ✅ done |
 | 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ✓ done |
-| 21 | CARD-114 P1, CARD-120 P1 | ▶ active |
-| 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ⏳ blocked (→ wave 21) |
+| 21 | CARD-114 P1, CARD-120 P1 | ✓ done |
+| 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ▶ active |
 | 23 | CARD-116 P1, CARD-121 P1 | ⏳ blocked (→ wave 22) |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2 | ⏳ blocked (→ wave 23) · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ⏳ blocked (→ wave 24) · closes Increment 13 (owner-confirmed proof print) |
@@ -58,12 +58,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+_(none)_
 
 ## Review
-- **CARD-120** P1 · The plan stored with the book — migration, default plan, Print setup matrix · 1d · wave 21 · Inc 14 · after CARD-119 · score 8.5
-  `worktree: ../PythonProject4-CARD-120` · `branch: card/120-book-plan-storage` · `elapsed: 0d`
 
 ## Done
+- **CARD-120** Plan stored with the book · score 8.5 · merged bc799f2
 - **CARD-114** PageSpec · score 8.8 · merged e854cfc
 - **CARD-135** Interior PDF without the cover, cover separate · score 9.0 · merged 1541007
 - **CARD-119** Distribution plan as pure domain · score 9.0 · merged da6cf84

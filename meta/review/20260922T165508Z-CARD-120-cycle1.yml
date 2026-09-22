@@ -1,0 +1,236 @@
+version: 1
+generated_at: "2026-09-22T16:58:35Z"
+target: "card/120-book-plan-storage @ 5707cab vs main (CARD-120 cycle 1/3)"
+overall_score: 7.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - migrations/versions/010_book_distribution_plan.py
+    - src/nonogram/admin/app.py (setup_print route + helpers, lines 1946-2097)
+    - src/nonogram/admin/book_manager.py (diff hunks, revise_plan, plan_to_json/plan_from_json)
+    - src/nonogram/admin/book_plan.py (CARD-119 aggregate, read for arithmetic; not in scope)
+    - src/nonogram/admin/templates/book_setup_print.html
+    - src/nonogram/db/models.py
+    - tests/test_book_plan_storage.py
+    - meta/design/components.md (Flash / Alert)
+    - meta/architecture/requirements.yml (FR-034 text)
+  not_reached:
+    - rendered page (no screenshots; static 8g only)
+    - full test suite (ran card file + neighbouring book/guard/binding tests only)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1070, removed: 5 }
+  max_fan_in: { symbol: "BookManager.get_plan", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # churn 105 / 52 fix commits in 12 months
+  cochange_missing: []                        # book_manager peers app.py, models.py both present
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no pyproject change in diff; new imports are stdlib/nonogram-internal/sqlalchemy+alembic (existing); TestDependencyBaseline_IsExactlyPillowAndNumpy green on 5707cab"
+    - "ADR-0019/R1 ✓ holds — diff touches admin adapter not src/nonogram/web/; admin->book_plan/difficulty imports are inward; test_every_import_in_the_package_points_inward (tests/test_cli.py) green on 5707cab"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/recovery untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density seam untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — check_ref_missing: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve; diff touches no solver/difficulty code"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: overlap masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — save_plan (book_manager.py) writes only books.distribution_plan + updated_at; no puzzle row read/written; TestSavePlan_NeverTouchesTheSelection[db] asserts puzzles.book_id mirror unchanged"
+    - "ADR-0035/R1 ✓ holds (not weakened) — set_book_status not in diff (G-5); create_book now stores DEFAULT_PLAN so new books have the plan the gate will need; gate itself is CARD-124 and its check TestBookStatus_EveryExitFromDraftIsGatedOnThePlan does not exist yet (check_ref_missing noted)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: page band untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: stroke widths untouched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — no change to admin entry/bind; TestAdminPanel_BindsLoopbackOnlyByDefault green on 5707cab"
+    - "CON-016 ✓ holds — existing route extended, no new route or before_request change; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on 5707cab"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ✓ holds — every write path goes through DistributionPlan/Split (save_plan isinstance guard, plan_from_json re-validates); TestBookPlan_RejectsSplitNotSummingTo100, TestBookCreate_StoresDefaultPlanThatSumsTo100, round-trip property test (>=300 seeded plans, both modes) green on 5707cab"
+    - "INV-006 ⚠ unchecked — check_ref_missing: PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride; diff does not touch membership"
+    - "INV-007 ✓ holds (not weakened) — status transitions not in diff; check refs (TestBookReady_*) missing — gate is CARD-124"
+    - "INV-008 ✓ holds — save_plan never writes puzzle_ids/status; TestSavePlan_NeverTouchesTheSelection both modes; own check refs (TestBookPublished_*) missing"
+    - "INV-009 ✓ holds — save_plan never writes order; TestSavePlan_NeverTouchesTheSelection asserts reordered ids unchanged; own check refs (PropertyTest_BookOrder_*) missing"
+    - "INV-010 ⚠ unchecked — check_ref_missing: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly; pairing untouched"
+    - "INV-011 ⚠ unchecked — check_ref_missing: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook; answer key untouched"
+    - "INV-012 ✓ holds — save_plan writes neither membership nor status; own check refs (PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists etc.) missing"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: export untouched (G-4)"
+
+root_causes:
+  - id: RC-1
+    title: "Print setup re-render shows the stored plan, not the owner's submission"
+    finding_ids: [F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/book_manager.py
+    line: 1078
+    title: "revise_plan ignores the stored edited set: a hand-edited cell equal to the current prefill silently loses its edit and is later re-derived"
+    description: |
+      revise_plan decides which cells are hand-edited only by comparing the submitted value
+      with prefill(shown.count, shown.split); current.edited is never read. After with_split
+      keeps an edited cell whose value happens to equal the new split's prefill (exactly
+      AC-202/AC-203's 21-25 x hard = 15 at 30/45/25), the next submission of Print setup -
+      even an untouched "Continue" - drops the edit mark, and any later split/count change
+      re-derives the cell. Reproduced: edit 12->15 at 40/40/20 (edited kept), change split to
+      30/45/25 (edited kept, value 15), resubmit unchanged -> edited == frozenset(); change split
+      back to 40/40/20 -> cell reverts to 12. Violates objective 3 / FR-034 / POL-007
+      ("hand-edited cells keep their values"). The page even labels the cell "(hand-edited)"
+      right before the submit that discards it. Every pass through Print setup is a submit
+      (the only button is "Continue"), so this is reachable in normal use.
+    suggestion: |
+      Carry the stored edit set forward: a cell is edited if its submitted value differs from
+      the value the page showed (shown.cell), OR it was in shown.edited and was left unchanged,
+      OR it differs from prefill(shown). Only a deliberate change back to the prefill value
+      clears it. Add a regression test for the three-submission sequence
+      (edit -> split change -> unchanged resubmit -> split change back) in both modes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 3275b92
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2063
+    title: "The disagreement warning is never shown at the moment a disagreeing plan is saved"
+    description: |
+      A successful POST whose resulting plan disagrees with the split redirects to puzzle
+      selection with a success flash; the AC-203 warning only appears if the owner reopens
+      Print setup. AC-203 ("when Print setup is rendered") is met literally, but FR-034's
+      "the screen warns" is missed at the one moment the owner is making the choice.
+    suggestion: |
+      When new_plan.disagrees_with_split, add a warning flash on redirect (or re-render the
+      page with the warning instead of redirecting).
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 3275b92
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2045
+    title: "Refused or trim-failed submissions re-render the stored matrix and mark split fields invalid regardless of which field failed"
+    description: |
+      On a refused plan only count/split are carried back; the 12 submitted cells are replaced
+      by the stored ones, so the owner's other matrix edits are lost. When the trim fails
+      (line 2062) `submitted` stays None and the whole plan input is discarded. The template
+      (book_setup_print.html:104) sets is-invalid/aria-describedby on the three split fields
+      even when the error was the count or a cell, pointing assistive tech at the wrong field.
+    suggestion: |
+      Carry the whole submitted form back on any refusal, and mark invalid only the field(s)
+      named by the error (e.g. return the offending field name with InvalidPlan from
+      _plan_from_form).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 3275b92
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 1985
+    title: "A stored plan that fails decoding makes Print setup a 500 with no way to overwrite it"
+    description: |
+      plan_from_json raises InvalidPlan for a malformed document; _plan_context calls get_plan
+      unguarded on both GET and POST, so a corrupted row turns /setup-print into an error page,
+      the only screen that could repair it.
+    suggestion: |
+      In _plan_context (and the POST current-plan read), catch InvalidPlan, log it, show
+      DEFAULT_PLAN with a danger alert, and let a submission overwrite the stored document.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 3275b92
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_plan_storage.py
+    line: 285
+    title: "AC-197 test does not assert the trim is left untouched on a refused plan"
+    description: |
+      The route saves the trim only when plan_error is None, but no test asserts
+      book.metadata.size is unchanged after the 110% refusal (memory mode, where the trim is
+      actually stored). A regression that saved the trim before the plan check would go green.
+    suggestion: |
+      In test_route_refuses_110_percent_and_keeps_the_stored_plan, post a non-default width and
+      assert get_book(book_id).metadata.size is unchanged.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 3275b92
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/db/models.py
+    line: 126
+    title: "MutableDict tracks top-level keys only; the plan's data is in nested lists"
+    description: |
+      The comment says the column is mutation-tracked, but MutableDict only notices top-level
+      key assignment. An in-place edit such as row.distribution_plan["cells"][2][2] = 20 is not
+      flagged dirty and would be silently lost. Today's code always assigns a whole new document,
+      so nothing is broken; the comment overstates the guarantee.
+    suggestion: |
+      Say in the comment that the document must be replaced whole (plan_to_json), or use a
+      nested-mutable type. No code change needed while save_plan keeps replacing the document.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 3275b92
+    dismissed_reason: null
+    learned_pattern: null

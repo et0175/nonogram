@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-22
+- CARD-120 (feature): Each book stores its distribution plan (migration 010): new books get the default 150 puzzles at 40/40/20, and Print setup shows the 4 × 3 plan matrix, editable, re-derived when the split changes unless cells were edited by hand, with a warning when the two disagree.
 - CARD-114 (feature): Export layout takes an optional PageSpec (trim, mirrored margins by page parity, title band, portrait-only, flat 7.5 mm cap, 0.25 mm minimum strokes); without one it produces exactly today's A4 geometry, pinned by the CARD-113 goldens.
 - CARD-135 (feature): The book export now produces two files for KDP — an interior PDF that starts at the guide page (interior page 1, right-hand) with no cover inside, and the cover as its own file; Finalise passes the uploaded cover through, and a missing stored cover is reported instead of silently falling back to the title cover.
 - CARD-119 (feature): The book distribution plan exists as pure domain code — longest-side buckets (≤15, 16–20, 21–25, 26–30), the Book 1 default of 150 puzzles at 40/40/20 prefilled from the research matrix with row and column totals matching, and the re-derive rule when the general split changes.
