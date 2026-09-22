@@ -35,7 +35,7 @@
 - **BK-UI-4 One tab per longest side.** Puzzle selection is split into four tabs (or sub-steps) by longest side: **≤15 · 16–20 · 21–25 · 26–30**. The owner can move back and forth between them freely; selections made in one tab are kept when switching.
 - **BK-UI-5 Planned vs actual on every tab.** Each tab header and its body show the plan for that bucket and the number selected so far, per difficulty and in total — e.g. `21–25: easy 8 / 10 · medium 20 / 20 · hard 14 / 12`. Over-plan cells are shown as such, not hidden. The same summary for the whole book sits above the tabs.
 - **BK-UI-6 Sort order inside a tab.** Puzzles are sorted by **difficulty (easy → medium → hard), then by shorter side ascending** within each difficulty, so the narrow (large-cell) puzzles of a bucket come first. The existing filters (theme, name, quality, difficulty) still apply inside the tab; the size-range filter is replaced by the tab.
-- **BK-UI-7 Cell size and floor.** Each tile shows the puzzle's printed cell size on the book's trim (BK-1) and is flagged when below the 4.8 mm floor (BK-2).
+- **BK-UI-7 Cell size and floor.** Each tile shows the puzzle's printed cell size on the book's trim, already capped at the 7.5 mm standard cell (BK-1), and is flagged when below the 4.8 mm floor (BK-2).
 - **BK-UI-8 Adding puzzles — to be completed.** *(The owner's note ends "When adding puzzles to book, please add a possibility to …" — fill in when known.)*
 
 ## 3. Re-entering a book
@@ -54,10 +54,11 @@ Rules every book must satisfy before it is marked ready. Add to this list as new
 1. Every puzzle has exactly one solution and is not guess-tier (BK-5).
 2. Difficulty labels come from the solver's tier, never from grid size.
 3. No puzzle prints below the 4.8 mm cell floor on the book's trim without an explicit override (BK-2).
-4. The longest side runs down the page; wide grids are flagged (BK-3).
-5. Actual counts are within ±3 percentage points of the plan in every longest-side × difficulty cell (BK-4).
-6. Picture titles appear only in the answer key.
-7. Print quality: dark grid lines, every 5th line clearly bolder.
+4. No puzzle prints above the 7.5 mm standard cell; the puzzle's top edge sits at the same position on every page (BK-1).
+5. The longest side runs down the page; wide grids are flagged (BK-3).
+6. Actual counts are within ±3 percentage points of the plan in every longest-side × difficulty cell (BK-4).
+7. Picture titles appear only in the answer key.
+8. Print quality: dark grid lines, every 5th line clearly bolder.
 
 ## Open items
 
