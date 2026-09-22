@@ -247,3 +247,4 @@ Source: owner answers 2026-09-22 after carding (c), recorded in `docs/book_gener
 ## Delta 2026-09-22 (e) — CON-019 reading (owner, after CARD-113)
 
 - CON-019 / AC-180 "byte-for-byte unchanged" means: PNG and SVG byte-identical; PDF byte-identical except its two wall-clock timestamps (/CreationDate, /ModDate), which Pillow writes on every run. Source: owner, 2026-09-22 (CARD-113 review O-002).
+- Tier-count rounding (FR-034 / EC-023): when two tiers have equal remainders, the spare puzzle goes to the HARDER tier (150 at 30/45/25 -> 45/67/38). Bucket ties inside a tier column still go to the earlier bucket (AC-198). Source: owner, 2026-09-22 (CARD-119 review F-002).

@@ -27,11 +27,11 @@ All apportionment is exact integer largest-remainder arithmetic: each share's
 quota is ``total * weight / weight_sum``, its floor is the integer quotient and
 its remainder the integer ``total * weight % weight_sum``, so two remainders
 that are mathematically equal compare equal (no float can split a tie). Units
-left over after the floors go to the largest remainders; **ties go to the
-earlier share** — the earlier tier (easy, medium, hard) for the general plan's
-tier counts, the earlier bucket (<=15 first) inside a tier column. The bucket
-rule is the one AC-198's worked table implies (medium 60 -> 7/27/20/6); the tier
-rule is the same choice made for the same reason, for consistency.
+left over after the floors go to the largest remainders. Ties go to the
+**harder tier** for the general plan's tier counts (hard, then medium, then
+easy — the owner's choice, 2026-09-22: 150 at 30/45/25 is 45/67/38), and to the
+**earlier bucket** (<=15 first) inside a tier column, which is the rule AC-198's
+worked table implies (medium 60 -> 7/27/20/6).
 
 A share with zero weight has zero remainder and can never receive a leftover
 unit (every leftover unit needs a *positive* remainder to claim it, and there
@@ -225,16 +225,20 @@ class DistributionPlan:
         return columns != self.tier_counts
 
 
-def _largest_remainder(total: int, weights: tuple[int, ...]) -> tuple[int, ...]:
-    """Apportion ``total`` over ``weights`` by largest remainder; ties to the earlier index.
+def _largest_remainder(
+    total: int, weights: tuple[int, ...], *, ties_to_later: bool = False
+) -> tuple[int, ...]:
+    """Apportion ``total`` over ``weights`` by largest remainder.
 
-    Exact integers throughout. ``weights`` must have a positive sum.
+    Equal remainders go to the earlier index, or to the later one when
+    ``ties_to_later``. Exact integers throughout. ``weights`` must have a
+    positive sum.
     """
     weight_sum = sum(weights)
     floors = [total * w // weight_sum for w in weights]
     remainders = [total * w % weight_sum for w in weights]
     leftover = total - sum(floors)
-    order = sorted(range(len(weights)), key=lambda i: (-remainders[i], i))
+    order = sorted(range(len(weights)), key=lambda i: (-remainders[i], -i if ties_to_later else i))
     for i in order[:leftover]:
         floors[i] += 1
     return tuple(floors)
@@ -244,9 +248,12 @@ def tier_counts(count: int, split: Split) -> tuple[int, int, int]:
     """The general plan's easy/medium/hard counts: ``count x split``, summing to ``count``.
 
     When ``count x split`` is not whole (137 x 40% = 54.8) the three counts are
-    rounded by largest remainder, ties to the earlier tier (EC-023).
+    rounded by largest remainder, ties to the harder tier (EC-023; owner's
+    choice 2026-09-22).
     """
-    easy, medium, hard = _largest_remainder(count, (split.easy, split.medium, split.hard))
+    easy, medium, hard = _largest_remainder(
+        count, (split.easy, split.medium, split.hard), ties_to_later=True
+    )
     return easy, medium, hard
 
 

@@ -182,3 +182,4 @@ Implemented `src/nonogram/admin/book_plan.py` (pure domain; imports only `nonogr
 - [Commit] /commit auto: nothing further to commit (worktree clean outside meta/); card commit is 3cd891d feat(book-plan) — 4 files, +834. Status stays review until done merges.
 
 - [Done] rebased onto main e1b5a12 (clean), full suite on the rebased tree: 1 failure only, test_size_configuration_applied — confirmed pre-existing by running it on 89ed292. Merged da6cf84 (--no-ff). Deferral scan: 0 hits. Trace: evidence tests already listed; FR-034 stays partial (CARD-120 open).
+- [Owner] 2026-09-22 — tier ties go to the harder tier (F-002). Applied on main after merge: book_plan._largest_remainder(ties_to_later=True) for tier_counts; tests/oracle updated (45/67/38). Queued as raw-requirements delta (e).

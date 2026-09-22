@@ -11,7 +11,8 @@ How this avoids asserting the implementation against itself: the expected
 apportionment is computed by an *independent* method — :func:`_oracle_apportion`
 hands out units one at a time to the share whose current count lags its exact
 quota the most (a Hamilton/largest-remainder method phrased as sequential
-allocation over :class:`fractions.Fraction`), ties to the earlier share. It
+allocation over :class:`fractions.Fraction`), ties to the earlier share (or to
+the later one for tier counts, which break ties toward the harder tier). It
 shares no code with ``book_plan._largest_remainder`` (floors + sorted
 remainders), so a bug in either shows as a disagreement.
 """
@@ -35,7 +36,9 @@ from nonogram.admin.book_plan import (
 _SEED = 20260922
 
 
-def _oracle_apportion(total: int, weights: tuple[int, ...]) -> tuple[int, ...]:
+def _oracle_apportion(
+    total: int, weights: tuple[int, ...], *, ties_to_later: bool = False
+) -> tuple[int, ...]:
     """Independent largest-remainder: floors, then one unit at a time to the biggest lag."""
     quotas = [Fraction(total * w, sum(weights)) for w in weights]
     counts = [q.numerator // q.denominator for q in quotas]
@@ -43,8 +46,9 @@ def _oracle_apportion(total: int, weights: tuple[int, ...]) -> tuple[int, ...]:
         best = None
         for i, q in enumerate(quotas):
             lag = q - counts[i]
-            if best is None or lag > quotas[best] - counts[best]:  # strict: ties keep the earlier
-                best = i
+            best_lag = None if best is None else quotas[best] - counts[best]
+            if best_lag is None or lag > best_lag or (ties_to_later and lag == best_lag):
+                best = i  # strict ">" keeps the earlier on a tie; ">=" moves to the later
         assert best is not None
         counts[best] += 1
         quotas[best] = Fraction(counts[best])  # consumed: this share takes no second unit
@@ -83,7 +87,9 @@ def test_PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan() -> None:
     ties_seen = 0
     for count, split in cases:
         counts = tier_counts(count, split)
-        expected_counts = _oracle_apportion(count, (split.easy, split.medium, split.hard))
+        expected_counts = _oracle_apportion(
+            count, (split.easy, split.medium, split.hard), ties_to_later=True
+        )
         assert counts == expected_counts, (count, split)
         assert sum(counts) == count
 

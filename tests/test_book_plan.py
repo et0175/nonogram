@@ -131,13 +131,15 @@ class TestBookPlan_TierCounts:
         # 54.8 / 54.8 / 27.4 -> floors 54/54/27 (135), remainders .8/.8/.4 -> 55/55/27
         assert tier_counts(137, Split(40, 40, 20)) == (55, 55, 27)
 
-    def test_equal_remainders_go_to_the_earlier_tier(self) -> None:
-        # 150 at 30/45/25 = 45 / 67.5 / 37.5: one spare unit, tie -> medium
-        assert tier_counts(150, Split(30, 45, 25)) == (45, 68, 37)
+    def test_equal_remainders_go_to_the_harder_tier(self) -> None:
+        # 150 at 30/45/25 = 45 / 67.5 / 37.5: one spare unit, tie -> hard (owner, 2026-09-22)
+        assert tier_counts(150, Split(30, 45, 25)) == (45, 67, 38)
         # 1 at 34/33/33: 0.34/0.33/0.33 -> easy
         assert tier_counts(1, Split(34, 33, 33)) == (1, 0, 0)
-        # 1 at 0/50/50: tie between medium and hard -> medium
-        assert tier_counts(1, Split(0, 50, 50)) == (0, 1, 0)
+        # 1 at 0/50/50: tie between medium and hard -> hard
+        assert tier_counts(1, Split(0, 50, 50)) == (0, 0, 1)
+        # 1 at 50/50/0: tie between easy and medium -> medium
+        assert tier_counts(1, Split(50, 50, 0)) == (0, 1, 0)
 
 
 class TestBookPlan_PrefillColumnTotalsMatchGeneralPlan:
@@ -171,7 +173,7 @@ class TestBookPlan_UneditedMatrixRederivedOnSplitChange:
         changed = with_split(stored, Split(30, 45, 25))
         assert changed == prefill(150, Split(30, 45, 25))
         assert changed.split == Split(30, 45, 25)
-        assert _columns(changed) == (45, 68, 37)
+        assert _columns(changed) == (45, 67, 38)
         assert not changed.disagrees_with_split
 
 
