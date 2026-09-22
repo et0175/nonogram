@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-056** P3 · Formalize an ADR/invariant for admin puzzle uniqueness and quality metrics  _(wave 2)_
 
 ## In Progress
 _(none)_
@@ -37,6 +36,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-056** P3 · ADR-0032, and the two consumers that disagreed with it — the admin's storage path had no recorded guarantee, so `quality_score`'s `None` was answered three different ways · R1 writes down CARD-080's uniqueness guard; R2 defines the metric and fixes the `TypeError` two live routes could reach plus the book printing `Quality: None/100` · deployed Postgres behaviour unchanged — the in-memory path now agrees with it · printed wording chosen by the owner on a rendered page · 7 of 8 tests red first, 4 mutants all caught · merged without a review cycle, at the owner's call · merged 4158e4b
 - **CARD-105** P3 · AC-137 checked by running both implementations — the old parity test asserted `math.gcd` against hardcoded numbers and grepped the JS for function names · node now runs metadata.js's own functions, cut from the shipped file, against metadata.py over 16 ratios; they agree, 1:1's 21-way tie included, because both sorts are stable (ES2019) · no production change: the card's own export-hook plan would have had to touch CARD-063's bounds path · 5 of 6 mutants caught, the sixth proven equivalent rather than chased · merged without a review cycle, at the owner's call · merged 5344de8
 - **CARD-055** P3 · MockGenerator moves to the test tree — never reachable from a production route, but it sat in src/ under a name that reads as a real generator option, one mistaken import from writing invented metrics into a batch · copied verbatim, output byte-identical at four seeds · two tests patched the module it used to live in and failed correctly; the target follows the class, and both were mutation-checked in their new position · the two invented fields stay invented (option 1) · merged without a review cycle, at the owner's call · merged df192c1
 - **CARD-053** P3 · The unreachable second generator is gone — generation/ had no production caller and never had one, so it went with its 21 tests and the three CARD-050 AC-3 tests that parsed it by path · analysis/strategy_counter.py kept deliberately as DIFFICULTY_ENGINE.md's prototype while the rescoring question is open, at the stated cost of having no importer left · the architecture docstring stops being silent about admin/, db/ and analysis/, and stops claiming "exactly two adapters" without saying it means the pipeline's · admin//db/ component ids left for the owner (trace.yml:1414) · option B of three · merged without a review cycle, at the owner's call · merged 8bc5e52

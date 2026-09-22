@@ -19,7 +19,7 @@
 **Started:** 2026-09-22
 **Closed:** 2026-09-22
 **Actual:** 0.5d
-**Merge commit:** —
+**Merge commit:** 4158e4b
 **Blocked by:** —
 
 ## What to implement
