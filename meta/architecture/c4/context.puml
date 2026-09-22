@@ -19,6 +19,10 @@
 '   The local filesystem is drawn below as a boundary element for
 '            readability only — per external_systems.yml it is
 '            infrastructure, NOT an EXT-XXX.
+' DELTA 2026-09-22 (book generator, FR-030..FR-041): no actor or external
+'   system added — Amazon KDP is a print specification the book PDF meets
+'   (CON-018), not an integration; ADR-0033 keeps Book in this system's one
+'   context. Only the admin relationship's label changes.
 ' ADR references:
 '   ADR-0008 (installable package, `nonogram` console entry point)
 '   ADR-0010 (stdlib argparse CLI surface)
@@ -34,7 +38,7 @@ System_Ext(filesystem, "Local Filesystem", "Infrastructure, not an EXT-XXX: sour
 
 Rel(puzzleCreator, nonogram, "Runs `nonogram` with mode, size, density, difficulty, --seed", "CLI / argparse (ADR-0010)")
 Rel(nonogram, puzzleCreator, "Prints seed, nudge count (FR-014), and failure reasons", "stdout/stderr")
-Rel(puzzleCreator, nonogram, "Reviews batches, curates puzzles and assembles books in the admin panel", "HTTP")
+Rel(puzzleCreator, nonogram, "Reviews batches, curates puzzles, plans and assembles books, and downloads trim-sized book PDFs in the admin panel", "HTTP")
 Rel(nonogram, filesystem, "Reads uploaded source image (FR-003); writes PNG/SVG/JSON/CSV exports (FR-011, FR-012)", "local file I/O")
 
 SHOW_LEGEND()

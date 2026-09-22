@@ -1,3 +1,4 @@
+<!-- delta 2026-09-22 — Increments 13..16 added (book generator: FR-030..FR-041, NFR-008, CON-018, CON-019, AGG-002, CAP-006, ADR-0033..0037); run /forge:kanban decompose for them -->
 <!-- delta 2026-09-12 — Increments 8..12 added (FR-024..FR-029, NFR-007, CON-014, ADR-0024..0029); run /forge:kanban decompose for them -->
 <!-- decomposed: 2026-08-30 — Increment 4 → CARD-019, CARD-020, CARD-021 (waves 12–14) -->
 <!-- decomposed: 2026-08-31 — Increment 5 → CARD-023..CARD-029 (waves 16–19) -->
@@ -284,6 +285,223 @@ Tests: `tests/test_sourcing_image.py` — exactly-half coverage fills (ADR-0026/
 
 **Ordering note (2026-09-12 delta).** 8 first (everything reads its output), then 9 and 10 in either order (10 also unblocks CARD-072 item 1 and re-grades the DB, so schedule its point of no return last within it), 11 anywhere, 12 last because it ends at the owner's desk rather than in CI. Cards CARD-070 (quick fixes), CARD-071 (registry landing, docs hygiene) and CARD-072 (strategies persistence) already exist on the board and are not re-cut by this decompose; CARD-072 is the delivery card for Increment 10's persistence/export/admin half.
 
+### Book generator increments (2026-09-22 delta)
+
+_Added 2026-09-22 by the book generator delta (US-023..US-027; FR-030..FR-041,
+NFR-008, CON-018, CON-019; AGG-002 Book with INV-005..INV-010; CAP-006 Book
+assembly; ADR-0033..ADR-0037). No component, container or context is added
+(ADR-0033 keeps Book in CTX-001): the work lands in COMP-009 (Admin Panel),
+COMP-007 (Export Renderers — `PageSpec` and the pair-aware two-up call) and
+COMP-010 (Persistence — plan, override and margin-default migrations). The
+dependency rule is unchanged: `admin/` may import `export/`, never the
+reverse, and no capability module imports another. Ordered by uncertainty
+collapsed: the geometry bet first, because FR-031's floor, FR-040's pairing and
+every cell figure in the ACs are computed by it._
+
+### Increment 13: Walking skeleton — the book PDF on its own trim (PageSpec, golden A4, band and strokes, proof pages)
+
+COMP-007 gains the `PageSpec` value object as an optional parameter of
+`compute_layout` (ADR-0036): page size, four margins, title band, orientation
+policy (NFR-006's "larger cell wins", or portrait only) and cell-cap policy
+(NFR-005's curve, or the flat 7.5 mm cap), plus the book-only stroke minimum
+(thin ≥ 0.25 mm, heavy = 2 × thin, pure black; ADR-0037/R2). **The golden-byte
+test lands first**, on the commit before any geometry change, so CON-019 is a
+tripwire from day one: `compute_layout` without a `PageSpec` stays today's A4
+exactly (ADR-0036/R1). COMP-009 builds the book's `PageSpec` from its stored
+trim and margins, falling back to the Book 1 profile (CON-018) for an empty
+margin; a COMP-010 migration gives the margins their defaults. The book PDF is
+then produced on the trim at 300 DPI: every page portrait, every puzzle upright,
+the drawing's top edge fixed below the top margin and band (FR-032); the band
+reads "Puzzle N · Tier" and the picture title appears only on the answer key
+(FR-033, ADR-0037/R1). The admin panel fits no cells itself (ADR-0036/R2). A
+"proof pages" export renders the ADR-0037 proof set — one 30×30 and one 15×15
+on the book's `PageSpec` — for the owner to print.
+
+Components: COMP-007 (PageSpec, the book cap and stroke policies), COMP-009
+(PageSpec builder, book PDF, proof pages), COMP-010 (margin defaults).
+Requirements: FR-030 (AC-175..AC-181, EC-019, EC-020), FR-032 (AC-189, AC-190,
+AC-240, EC-022), FR-033 (AC-193..AC-195), NFR-008 (AC-236..AC-239), CON-018,
+CON-019.
+Tests: `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`,
+`TestCliExports_ByteIdenticalAfterBookGeometry`,
+`PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` (CON-019's
+check ref), `PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell`,
+`PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent`,
+`TestBookPdf_CellSizedForBookTrimNotA4`, `TestBookPdf_PageSizeEqualsStoredTrim`,
+`TestBookPdf_EveryFifthGridLineWider`, `TestBookCell_*` (AC-236..AC-239),
+`TestBookCreate_StoresBook1PrintProfile`.
+
+**Checkpoint:** The golden A4 test is green on both sides of the change, and a
+seeded 30×30 `nonogram generate` writes byte-identical PNG/SVG/PDF before and
+after. A Book 1 profile book PDF opens at 2550 × 3300 px per page, and a 6×9
+book at 1800 × 2700 px. Printed on 8.5×11 paper, the proof pages measure a
+4.97 mm cell (±0.05 mm) on the 30×30 with 9-deep clues and 7.5 mm on the 15×15,
+thin rules at least 0.25 mm and heavy rules visibly double; the band reads
+"Puzzle N · Tier" and no picture title is on the puzzle page. The owner has
+looked at the printed proofs and confirmed the stroke values (owner-validates-
+visually), rendered into `~/Documents/nonogram-reviews/CARD-NNN`.
+**Collapses:** ADR-0036's central bet (one `compute_layout` serves A4 and the
+book without disturbing A4 — the G-1 retirement), CON-019/EC-020's
+byte-identity risk, NFR-008's 7.5 mm cap and EC-019's fit, ADR-0037's stroke
+numbers (final only after the printed proof), CON-018's missing-margin-default
+gap, and the KDP gutter check: the book lays out with its *stored* gutter and
+*finalise refuses* when the page count needs more (ADR-0036 clarification;
+AC-179 re-worded to match on 2026-09-22 — the gutter is never raised silently).
+**Rollback:** `PageSpec` is an optional parameter with a byte-identical
+default — revert the branch and the CLI/web path is untouched. The only
+non-additive edit is the margin-default migration, which has a downgrade;
+book rows written in the meantime keep valid values under the old code, which
+ignored them.
+
+### Increment 14: The plan, selection by longest-side tab, the 4.8 mm floor, and the readiness gate
+
+Print setup stores a distribution plan with the book (FR-034): count, an
+easy/medium/hard split summing to 100% (INV-005), and a per-bucket plan
+prefilled from the Book 1 matrix rescaled column by column; an un-edited plan is
+re-derived when the split changes (POL-007, CMD-020 → EVT-021), hand-edited
+cells survive with a disagreement warning. A new book starts at 150 at 40/40/20
+(FR-035, ADR-0034). Puzzle selection splits into the four longest-side tabs
+with planned-vs-selected headers and a whole-book summary (FR-036); one
+bucketing function serves the plan, the tabs and the gate (EC-024). Every tile
+shows the puzzle's cell on the book's trim from Increment 13's call, and a
+puzzle below 4.8 mm joins the book only with a stored per-puzzle override, on
+both add routes (FR-031, INV-006, EC-021). Leaving draft — to *any* status — is
+refused unless a plan is stored and every longest-side × tier cell's count over
+the **planned** total is within ±3 pp of its planned share (FR-037, INV-007,
+ADR-0035/R1). COMP-010 gains the plan and override columns.
+
+Components: COMP-009 (plan, tabs, floor, gate), COMP-010 (plan and override
+migrations), COMP-007 (consumed unchanged — the tile cell is the Increment 13
+call).
+Requirements: FR-031 (AC-182..AC-188), FR-034 (AC-196..AC-203), FR-035
+(AC-204, AC-205), FR-036 (AC-208..AC-217), FR-037 (AC-218..AC-221).
+Tests: `PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan`,
+`PropertyTest_LongestSideBuckets_PartitionEveryExtent`,
+`PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride`,
+`PropertyTest_BookReady_GateIffEveryCellWithinTolerance`,
+`TestBookStatus_EveryExitFromDraftIsGatedOnThePlan` (ADR-0035/R1),
+`TestBookPlan_PrefillMatchesBook1MatrixAt150x40_40_20`,
+`TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride`,
+`TestBookSelect_TabHeaderShowsPlannedVsActual`,
+`TestBookReady_RefusalNamesOffendingCell`, and the rest named on the ACs.
+
+**Checkpoint:** A new book's Print setup shows 150 at 40/40/20 and the AC-198
+matrix (≤15: 20/7/0, 16-20: 30/27/6, 21-25: 10/20/12, 26-30: 0/6/12); the plan
+survives leaving and reopening. On the selection step a 30×25 puzzle with a
+12-deep row clue shows 4.61 mm with a below-floor flag and is refused on both
+the tab and the paste-IDs route, then accepted with an override that the
+finalise summary counts. A 100-puzzle book with one cell at 14% against 10% is
+refused with that cell named, and a `draft → ready_for_kdp` jump is refused the
+same way; at 13% it passes.
+**Collapses:** INV-005..INV-007, EC-021 (tile, refusal, finalise count and PDF
+cannot disagree — proved against Increment 13's one computation), EC-023
+(prefill arithmetic for every count and split, including fractional tier
+counts under largest-remainder rounding), EC-024, EC-025 and ADR-0035's
+status-jump bypass.
+**Rollback:** Two migrations (plan, override), each with a downgrade. ⚑ The
+gate is a behaviour change on the live DB: a plan-less draft book can no longer
+leave draft until a plan is stored (ADR-0034's default makes that one save).
+Reverting the branch restores the old one-puzzle rule; stored plans and
+overrides are simply ignored by the old code.
+
+### Increment 15: Two-up pages, the difficulty order, and level dividers
+
+COMP-007 gains the pair-aware call (ADR-0036 clarification): it takes both
+puzzles' clue sets and the book `PageSpec` and returns both slot layouts at
+one shared cell, capped at 7.5 mm, or no pairing when that cell is below
+7.0 mm (FR-040, EC-028). COMP-009 walks the book order and offers each
+same-tier neighbour pair to it; pairing never reorders (INV-010, EC-027). The
+book order runs easy → medium → hard (FR-041, INV-009): moves stay within a
+level (CMD-022 → EVT-023), a newly added puzzle lands at the END of its level,
+a legacy arrangement prints grouped by level keeping its within-level order
+(AC-260), and a divider page carrying only the level name precedes each
+non-empty level; puzzle numbers run 1..n unbroken, each two-up slot under its
+own "Puzzle N · Tier" band (ADR-0037). The answer key carries small level
+headings, not divider pages (owner answer). Finalise refuses when the actual
+page count needs a larger KDP gutter than the stored one (ADR-0036
+clarification) — the circularity is broken, not iterated.
+
+Components: COMP-007 (pair-aware call), COMP-009 (pairing walk, level order,
+dividers, finalise gutter check), COMP-010 (order writes only).
+Requirements: FR-040 (AC-242..AC-252), FR-041 (AC-253..AC-260).
+Tests: `PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly`,
+`PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea`,
+`PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence`,
+`TestBookPdf_TwelvePairSharesPageBelowStandardCell`,
+`TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare`,
+`TestBookPdf_PairingNeverReordersToFindAPartner`,
+`TestBookArrange_MoveAcrossLevelBoundaryRefused`,
+`TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel`, and the rest named on
+the ACs.
+
+**Checkpoint:** The PDF of a real curated book on the Book 1 profile runs
+divider "Easy", two-up and single pages, divider "Medium", … with bands
+"Puzzle 1 · Easy" / "Puzzle 2 · Easy" on the first shared page; a 12+12 pair
+measures 7.39 mm (±0.05 mm) on the printed page and the upper slot's top edge
+sits on the same pixel row as a single 20×20 page's drawing. The page count
+before and after pairing is reported for that book, and a book whose count
+crosses 150 pages with a stored 0.375 in gutter is refused at finalise with the
+KDP reason. Rendered pages go to `~/Documents/nonogram-reviews/CARD-NNN` for
+the owner's eye.
+**Collapses:** INV-009, INV-010, EC-027..EC-029, ADR-0036's two-up API shape
+(the open implementation question on FR-040's _meta), the gutter / page-count
+circularity, and the size of the page saving pairing actually buys on a real
+book (the number the "big books" market read in the owner's research wants).
+**Rollback:** Pairing and dividers are decided at PDF time — nothing is stored,
+so reverting restores one puzzle per page. The level-confined move and
+end-of-level insert write the stored order; a revert leaves any order written
+meanwhile valid (it is still a permutation) and simply stops enforcing it.
+
+### Increment 16: Re-entry into the step workflow, and books-list plan stats
+
+Opening a book from `/books` lands in the creation step workflow; the detail
+page links to all five steps (general info, Print setup, Puzzle selection,
+Arrangement, Finalise) whatever the status; the general-info step edits an
+existing book (FR-038). A published book asks for confirmation before its
+puzzles change, replacing today's outright refusal (INV-008). Revisiting a
+step or editing the plan never discards selection, order or custom titles
+(EC-026). The books list shows actual vs planned count and per-tier split, an
+exact-count short/over hint per longest-side × tier cell (ADR-0035), and sorts
+by completeness; a plan-less book shows its count alone (FR-039).
+
+Components: COMP-009 (routes, templates, BookManager confirmation path),
+COMP-010 (reads only).
+Requirements: FR-038 (AC-222..AC-229), FR-039 (AC-230..AC-235).
+Tests: `PropertyTest_BookWorkflow_BackNavigationNeverDiscardsLaterWork`,
+`TestBookPublished_PuzzleChangeRequiresConfirmation`,
+`TestBookSteps_ReachableWhateverStatus`, `TestBooksList_SortsByCompleteness`,
+`TestBooksList_BookWithoutPlanShowsCountOnly`, and the rest named on the ACs.
+
+**Checkpoint:** From `/books`, a `pdf_generated` book opens into the step
+workflow with all five steps linked; its title is edited in place. Adding a
+puzzle to a published 120-puzzle book without confirming leaves 120 and asks;
+confirming makes 121. The list shows "132 / 150" and "easy 50 / 60 · medium
+60 / 60 · hard 22 / 30" for the seeded fixtures, hints a short 26-30 × hard
+bucket, and sorts 150/150, 132/150, 20/100.
+**Collapses:** INV-008 (the published-book refusal turned confirmation — the
+one behaviour this increment removes), EC-026, FR-039's hint semantics
+(exact counts, per ADR-0035).
+**Rollback:** Additive routes and template changes; reverting restores the
+outright refusal on published books. No schema change.
+
+**Ordering note (2026-09-22 book delta).** 13 first — its computation is
+what 14's floor and tiles, 15's pairing and every millimetre in the ACs call.
+14 before 15: the tier order and pairing are testable without the plan, but a
+curated book for 15's real-book checkpoint is easiest assembled under 14's tabs
+and gate. 16 last: lowest uncertainty, and its stats read 14's stored plan.
+15 and 16 may run in parallel once 14 has merged.
+
+**Not in scope (deferred, do not cut cards for these):**
+- BK-UI-8 — the owner's unfinished sentence "When adding puzzles to book,
+  please add a possibility to …": an unstated requirement, back to the owner
+  via the business-analyst (open.yml note), not a card.
+- Solution hints ("Hint for 12: row 7 has cells 4–11 filled") — deferred in
+  raw-requirements.md as a future feature, not Book 1.
+- One puzzle in several books — ADR-0033 leaves it open; today's
+  single-valued `puzzles.book_id` rule stays in force.
+- An audience-derived default split — ADR-0034's rejected alternative
+  (AC-207 retired); it can layer on later with 40/40/20 as the "beginner" entry.
+
 ## Next steps
 
 Architecture complete. Consider `/forge:roadmap` before the next wave:
@@ -292,3 +510,5 @@ Architecture complete. Consider `/forge:roadmap` before the next wave:
 - ADR-0019 establishes that a second inbound adapter is a cheap, expected extension of ADR-0007's shape — relevant if any future interface is scored
 
 Run `/forge:kanban decompose` to turn **Increment 5** into cards. Increments 1–3 shipped as CARD-001..CARD-017; Increment 4 is decomposed and in flight as CARD-019..CARD-022. Decompose must leave all of those alone and cut new cards for Increment 5 only.
+
+Book generator delta (2026-09-22): run `/forge:kanban decompose` for **Increments 13..16** only; everything above them is delivered or already on the board and must be left alone.

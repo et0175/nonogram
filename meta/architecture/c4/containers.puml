@@ -25,6 +25,10 @@
 '     (Procfile), deployed on Render;
 '   - its database, which only the admin panel reaches.
 ' Their internal seams are C4 Level 3 — see components-CTX-001.puml.
+' DELTA 2026-09-22 (book generator, ADR-0033): Book assembly (CAP-006,
+'   AGG-002) stays in CTX-001 inside the admin panel — no container added, the
+'   context map stays empty. Only the admin panel's and database's
+'   descriptions change.
 ' ============================================================
 title Containers — Nonogram Generator
 
@@ -33,9 +37,9 @@ Person(puzzleCreator, "Puzzle Creator", "ACT-001")
 System_Boundary(nonogram, "Nonogram Generator") {
   Container(cliTool, "Puzzle Creation Tool", "Python 3.14 package (Pillow, NumPy)", "CTX-001: the entire generation pipeline in a single local process — sourcing, clue derivation, uniqueness verification and recovery, difficulty calibration, export. Two first-class inbound adapters in that one process (CON-007): the `nonogram` console entry point (ADR-0008) and a loopback-only web UI launched by `nonogram serve` (ADR-0019). Keeps no state beyond the files it exports (CON-017).")
 
-  Container(adminPanel, "Admin Panel", "Python 3.14, Flask", "CTX-001: a separate process (Procfile; deployed on Render) for producing books — batch generation through the same pipeline, review and curation, re-grading, book assembly and PDF download. Stores a puzzle only after proving it unique itself (ADR-0032). Loopback-only by default; one credentialed door when ADMIN_ALLOWED_HOST is set (ADR-0030).")
+  Container(adminPanel, "Admin Panel", "Python 3.14, Flask", "CTX-001: a separate process (Procfile; deployed on Render) for producing books — batch generation through the same pipeline, review and curation, re-grading, and CAP-006 Book assembly (ADR-0033) — print setup and distribution plan, longest-side selection against the plan, readiness gate, and the trim-sized book PDF laid out through the same package's export layout with the book's PageSpec (ADR-0036); CLI/web exports stay byte-identical (CON-019). Stores a puzzle only after proving it unique itself (ADR-0032). Loopback-only by default; one credentialed door when ADMIN_ALLOWED_HOST is set (ADR-0030).")
 
-  ContainerDb(database, "Admin Database", "PostgreSQL via SQLAlchemy + Alembic", "Batches, puzzles, books and generation history — the only persistent state in the system (CON-017). Reached by the admin panel alone.")
+  ContainerDb(database, "Admin Database", "PostgreSQL via SQLAlchemy + Alembic", "Batches, puzzles, books (print spec, distribution plan, floor overrides, order) and generation history — the only persistent state in the system (CON-017). Reached by the admin panel alone.")
 }
 
 System_Ext(filesystem, "Local Filesystem", "Source images in; PNG/SVG/JSON/CSV exports out. Infrastructure, not an EXT-XXX.")
@@ -49,7 +53,7 @@ Rel(cliTool, filesystem, "Writes PNG/SVG (FR-011) and JSON/CSV (FR-012)", "local
 ' No Rel between adminPanel and cliTool, deliberately: the admin panel imports
 ' the same generation package into its OWN process; it never calls the other
 ' container. An arrow here would claim an inter-process call that does not exist.
-Rel(puzzleCreator, adminPanel, "Reviews batches, curates puzzles, assembles and downloads books", "HTTP; credential when remote (ADR-0030)")
+Rel(puzzleCreator, adminPanel, "Reviews batches, curates puzzles, plans, assembles and downloads books and proof pages", "HTTP; credential when remote (ADR-0030)")
 Rel(adminPanel, database, "Reads and writes batches, puzzles, books", "SQLAlchemy")
 Rel(adminPanel, filesystem, "Stores uploaded pictures and reads them back", "local file I/O")
 

@@ -22,12 +22,32 @@
 '   three-band tier and the strategies list (FR-029) — the fourth `guess`
 '   tier was retired by ADR-0031/CARD-098,
 '   with no clock term (NFR-007/CON-014). Everything else is left as found.
-'   COMP-007  Export Renderers        CTX-001  CAP-005  ADR-0006, ADR-0016, ADR-0017
+'   COMP-007  Export Renderers        CTX-001  CAP-005  ADR-0006, ADR-0016, ADR-0017, ADR-0036, ADR-0037
+'                                                       (serves CAP-006's page layout via PageSpec; CON-019)
 '   COMP-008  Web UI Adapter          CTX-001  —        ADR-0019, ADR-0020, ADR-0021, CON-007
-'   COMP-009  Admin Panel             CTX-001  —        ADR-0030, ADR-0032, CON-015, CON-016, CON-017
+'   COMP-009  Admin Panel             CTX-001  CAP-006  ADR-0030, ADR-0032, ADR-0033..ADR-0037,
+'                                                       CON-015, CON-016, CON-017, CON-018 (owns AGG-002
+'                                                       Book, INV-005..INV-010, POL-007)
 '   COMP-010  Persistence             CTX-001  —        ADR-0032, CON-017
 '   (COMP-008 drawn for the first time, and COMP-009/COMP-010 added, by
 '   CARD-112 on 2026-09-22 — the diagram predated all three.)
+'
+' DELTA 2026-09-22 (book generator: FR-030..FR-041, NFR-008, CON-018,
+'   CON-019, AGG-002, CAP-006, ADR-0033..ADR-0037): no component added or
+'   removed; ADR-0033 keeps Book in CTX-001, so no container or context
+'   changes either. Two labels rewritten and one arrow relabelled:
+'   COMP-007 gains an optional PageSpec on compute_layout (A4 default,
+'   byte-identical — CON-019, ADR-0036/R1), a pair-aware two-up call with one
+'   shared cell (ADR-0036 clarification, FR-040) and the book stroke minimum
+'   (ADR-0037/R2); COMP-009 gains CAP-006 Book assembly — AGG-002 with
+'   INV-005..INV-010, the plan (FR-034/FR-035, POL-007), longest-side
+'   selection tabs and the 4.8 mm floor (FR-031, FR-036), the readiness gate
+'   (FR-037, ADR-0035), re-entry and books-list stats (FR-038, FR-039), the
+'   difficulty order and dividers (FR-041) and the book PDF itself.
+'   The admin -> export arrow now names what crosses it: a PageSpec in,
+'   layouts out; the admin panel fits no cells itself (ADR-0036/R2).
+'   PageSpec is a COMP-007 value object: no other capability module imports
+'   it, so the no-lateral-arrow property below is unchanged.
 '
 ' Generated from: CTX-001 capabilities [CAP-001..CAP-005], aggregates
 '   [AGG-001], policies [POL-001..POL-005], and the module layout fixed by
@@ -72,12 +92,12 @@ Container_Boundary(cliTool, "Puzzle Creation — CLI and web UI, one process (CT
 
   Component(difficulty, "COMP-006 Difficulty Scoring", "Python — difficulty.py", "CAP-004: derives the 0..100 score of a line-solvable puzzle from the solver's rung tags — the hardest rung required, then the share of cells settled at it (ADR-0029, replacing ADR-0013's weighted sum; FR-026) — and classifies with ONE function taking the score alone: the three bands Easy/Medium/Hard tile the whole scale (FR-008, FR-010, ADR-0005 cutoffs). ADR-0031 retired the fourth `guess` tier and EC-015 with it — branching is reported as a strategy, never as a difficulty. Emits the ordered strategies list — the rungs present, `guess` appended iff the search branched (FR-029, EC-017). No clock reading and no size/density term enters score, tier or list (NFR-007, CON-014, ADR-0029/R3). Heuristic bands, not a construction guarantee (CON-004).")
 
-  Component(export, "COMP-007 Export Renderers", "Python — export/", "CAP-005: renders a finalized, uniqueness-confirmed puzzle as print-ready PNG/SVG (FR-011, Pillow per ADR-0006) or as JSON/CSV carrying the full solution grid, clues and seed (FR-012, ADR-0015), exactly round-trippable per EC-002. Also renders the FR-016 two-page PDF (page 1 blank puzzle + clues, page 2 answer key, both headered with the FR-015 name and difficulty tier) by reusing that same PNG raster path through Pillow's built-in multi-page PDF save — no new dependency (CON-006, ADR-0006). Resolves the export path as <name>-<difficulty>.pdf (ADR-0016), auto-suffixing on collision (ADR-0017). Static output only (CON-002). Invoked only after the orchestrator's INV-002 gate passes.")
+  Component(export, "COMP-007 Export Renderers", "Python — export/", "CAP-005: renders a finalized, uniqueness-confirmed puzzle as print-ready PNG/SVG (FR-011, Pillow per ADR-0006) or as JSON/CSV carrying the full solution grid, clues and seed (FR-012, ADR-0015), exactly round-trippable per EC-002. Also renders the FR-016 two-page PDF (page 1 blank puzzle + clues, page 2 answer key, both headered with the FR-015 name and difficulty tier) by reusing that same PNG raster path through Pillow's built-in multi-page PDF save — no new dependency (CON-006, ADR-0006). Resolves the export path as <name>-<difficulty>.pdf (ADR-0016), auto-suffixing on collision (ADR-0017). Static output only (CON-002). Invoked only after the orchestrator's INV-002 gate passes. Page geometry (ADR-0036): compute_layout takes an optional PageSpec — page size, four margins, title band, orientation policy (NFR-006 or portrait-only), cell-cap policy (NFR-005 curve or flat 7.5 mm cap, NFR-008) and, for the book spec only, the stroke minimum (thin >= 0.25 mm, heavy = 2x thin, pure black; ADR-0037/R2). No PageSpec = today's A4, byte-identical (CON-019, ADR-0036/R1). A pair-aware call lays out a two-up book page at one shared cell in [7.0, 7.5] mm (FR-040). The CLI and web UI never pass a PageSpec.")
 }
 
 Container_Boundary(adminPanel, "Admin Panel — separate process (CTX-001)") {
 
-  Component(admin, "COMP-009 Admin Panel", "Python — admin/ (Flask)", "Third inbound adapter, deployed as its own process (Procfile; Render). Batch generation through COMP-002, human review and curation, re-grading, and book assembly and PDF export. Stores a puzzle only after its storage guard has re-derived the clues and had the solver prove it unique (ADR-0032/R1); an unmeasured quality score is unknown, never zero (ADR-0032/R2). Loopback-only by default, one credentialed door when ADMIN_ALLOWED_HOST is set (CON-015, CON-016, ADR-0030).")
+  Component(admin, "COMP-009 Admin Panel", "Python — admin/ (Flask)", "Third inbound adapter, deployed as its own process (Procfile; Render). Batch generation through COMP-002, human review and curation, re-grading, and CAP-006 Book assembly (ADR-0033: Book is CTX-001's second aggregate, AGG-002, INV-005..INV-010): print setup on the Book 1 profile (CON-018) and the distribution plan, default 150 at 40/40/20 (FR-034, FR-035, ADR-0034, POL-007); selection by longest-side tab with the 4.8 mm floor and per-puzzle override (FR-031, FR-036); the readiness gate on every exit from draft (FR-037, ADR-0035); re-entry into any step and books-list plan stats (FR-038, FR-039); the easy -> medium -> hard order with level dividers (FR-041); and the book PDF — portrait, upright, trim-sized, band 'Puzzle N · Tier', two-up pairing, proof pages (FR-030, FR-032, FR-033, FR-040, ADR-0037) — laid out only through COMP-007 with the book's PageSpec (ADR-0036/R2); finalise refuses when the page count needs a larger KDP gutter than the one stored. Books reference puzzles and never change them (ADR-0033/R1). Stores a puzzle only after its storage guard has re-derived the clues and had the solver prove it unique (ADR-0032/R1); an unmeasured quality score is unknown, never zero (ADR-0032/R2). Loopback-only by default, one credentialed door when ADMIN_ALLOWED_HOST is set (CON-015, CON-016, ADR-0030).")
 
   ComponentDb(persistence, "COMP-010 Persistence", "Python — db/ (SQLAlchemy, Alembic; Postgres)", "Batches, puzzles, books and generation history for the admin panel — the only persistent state in the system (CON-017). Its only caller is COMP-009. The schema also carries `users` and `user_selected_books`, which no code path reads or writes (CON-017; CARD-111 option B, undecided).")
 }
@@ -105,10 +125,10 @@ Rel(admin, sourcing, "Fits uploaded pictures: ink box, crop, extent prediction",
 Rel(admin, clues, "Re-derives clues at the storage boundary (ADR-0032/R1)", "in-process call")
 Rel(admin, solver, "Proves uniqueness before storing; re-grades stored puzzles (ADR-0032/R1)", "in-process call")
 Rel(admin, difficulty, "Scores and classifies on re-grade", "in-process call")
-Rel(admin, export, "Renders puzzle pages for book PDFs", "in-process call")
-Rel(admin, persistence, "Reads and writes batches, puzzles, books", "SQLAlchemy session")
+Rel(admin, export, "Lays out book pages: compute_layout(PageSpec from the stored trim/margins), pair-aware two-up call; renders the drawings (ADR-0036)", "in-process call")
+Rel(admin, persistence, "Reads and writes batches, puzzles, books (print spec, plan, floor overrides, order)", "SQLAlchemy session")
 Rel(admin, filesystem, "Stores uploaded pictures, and reads them back to generate", "local file I/O")
-Rel(admin, puzzleCreator, "Book PDFs, streamed as downloads — never written to disk", "HTTP (send_file)")
+Rel(admin, puzzleCreator, "Book PDFs and printed-proof pages, streamed as downloads — never written to disk", "HTTP (send_file)")
 
 Rel(sourcing, filesystem, "Reads uploaded source image (FR-003)", "Pillow")
 Rel(export, filesystem, "Writes PNG/SVG/JSON/CSV/PDF", "local file I/O")

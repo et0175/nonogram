@@ -1965,12 +1965,17 @@ functional:
         then: the cell equals the one computed on the CON-018 margins (4.97 mm on the 8.5 x 11 trim)
         kind: boundary
         test: TestBookPdf_EmptyMarginsFallBackToBook1Profile
+      # AMENDED 2026-09-22 (owner answer, recorded in FR-040 and the ADR-0036
+      # clarification): the book lays out with its STORED gutter and finalise
+      # refuses when the page count needs more — the gutter is never raised
+      # silently. Previous wording: "the gutter margin applied is 1.27 cm ...
+      # not 0.60 cm" (test TestBookPdf_GutterRaisedToKdpMinimumForPageCount).
       - id: AC-179
         given: a book storing a 0.60 cm gutter margin whose PDF runs to 180 pages
-        when: the book PDF is generated
-        then: the gutter margin applied is 1.27 cm (KDP's 0.5 in minimum for 151-300 pages), not 0.60 cm
+        when: the book is finalised
+        then: finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages against the stored 0.60 cm; the stored gutter is not changed
         kind: negative
-        test: TestBookPdf_GutterRaisedToKdpMinimumForPageCount
+        test: TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount
       - id: AC-180
         given: a fixed 30x30 puzzle request (seed 42) exported by `nonogram generate` as PNG, SVG and PDF on the commit before the book geometry lands
         when: the same request is exported after it lands

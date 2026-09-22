@@ -1,6 +1,12 @@
 # generated_by: forge:architect-synthesis
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-09-22 (delta mode — the book generator: rows ADDED for
+#   FR-030..FR-041, NFR-008, CON-018 and CON-019, all on CAP-006 Book assembly
+#   and mapped to COMP-009 (Admin Panel), COMP-007 (Export Renderers — PageSpec
+#   and the pair-aware two-up call, ADR-0036) and COMP-010 (Persistence) as
+#   drawn; ADR-0033..ADR-0037 referenced. No component added. Every existing
+#   row and id preserved.)
 # updated_at: 2026-09-12 (delta mode, --trace-only — the generation-algorithm
 #   review delta: rows ADDED for FR-024..FR-029, NFR-007 and CON-014 (tests are
 #   the names requirements.yml declares on AC-107..AC-143 / EC-011..EC-018);
@@ -1530,6 +1536,326 @@ links:
     clues do not reach the scorer either (density left the formula with size);
     the rule is only narrower for it.
   status: covered
+
+# ---- Book generator delta (2026-09-22): FR-030..FR-041, NFR-008, CON-018,
+# CON-019 -> CAP-006 Book assembly (COMP-009, laying out through COMP-007).
+# Tests are the planned names requirements.yml declares on AC-175..AC-260 /
+# EC-019..EC-029 (retired AC-191/192/206/207 excluded), plus the ADR rule
+# check refs. No code yet: every row partial.
+
+- req: FR-030
+  description: "Book PDF sizes each puzzle's cell for the book's own trim and margins (not A4), real clue depth, 7.5 mm cap; every page is the trim at 300 DPI"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-009, COMP-010]
+  adrs: [ADR-0036, ADR-0033]
+  tests:
+  - TestBookPdf_CellSizedForBookTrimNotA4
+  - TestBookPdf_CellFollowsStoredTrim
+  - TestBookPdf_PageSizeEqualsStoredTrim
+  - TestBookPdf_EmptyMarginsFallBackToBook1Profile
+  - TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount
+  - TestCliExports_ByteIdenticalAfterBookGeometry
+  - TestBookCreate_StoresBook1PrintProfile
+  - PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell
+  - PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
+  - TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden
+  notes: >-
+    Story US-023. DEC-035 resolved by ADR-0036: COMP-007's compute_layout takes
+    an optional PageSpec (page size, margins, band, orientation and cap
+    policies); the book builds one from its stored trim/margins (COMP-010,
+    CON-018 fallback for empty margins) and COMP-009 fits no cells itself
+    (ADR-0036/R2). The KDP gutter check (AC-179) is realised as ADR-0036's
+    clarification — the book lays out with its STORED gutter and finalise
+    refuses when the page count needs a larger one; AC-179 was re-worded to
+    that refusal on 2026-09-22. ADR-0036/R1's golden A4 test is listed here as the CLI half's
+    guard. Planned test names from requirements.yml; no code yet.
+  status: partial
+
+- req: FR-031
+  description: "A puzzle whose book cell is below the 4.8 mm floor is flagged on its tile and joins a book only with a stored per-puzzle override, on every add route; finalise counts below-floor puzzles on the current trim"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007, COMP-010]
+  adrs: [ADR-0036]
+  tests:
+  - TestBookSelect_TileShowsCellAndBelowFloorFlag
+  - TestBookAddPuzzles_RefusesBelowFloorWithoutOverride
+  - TestBookAddPuzzles_AcceptsBelowFloorWithOverrideAndRecordsIt
+  - TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride
+  - TestBookAddPuzzles_AcceptsCellJustAboveFloor
+  - TestBookFinalize_SummaryCountsPuzzlesBelowFloor
+  - TestBookFinalize_SummaryRecountsBelowFloorAfterTrimChange
+  - PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride
+  notes: >-
+    Story US-023, INV-006, EC-021. The tile cell, the add refusal and the
+    finalise count all call COMP-007's compute_layout with the book's PageSpec —
+    the same call FR-030's PDF makes (ADR-0036: 'the tile's cell size and the
+    PDF's cell size cannot disagree'). Override storage needs a migration in
+    COMP-010 (FR-031 _meta; detail, not a DEC). Both add routes end in
+    BookManager.add_puzzles_to_book.
+  status: partial
+
+- req: FR-032
+  description: "Every book puzzle page is portrait and every puzzle prints upright (never rotated); the drawing's top edge is fixed below the top margin and band (upper slot on a two-up page)"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-009]
+  adrs: [ADR-0036]
+  tests:
+  - TestBookPdf_WideGridPrintsOnPortraitPage
+  - TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage
+  - TestBookPdf_WideGridPrintsUprightNeverRotated
+  - TestBookSelect_WideGridAboveFloorCarriesNoFlag
+  - PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+  notes: >-
+    Story US-023; amended 2026-09-22 (b): AC-191/AC-192 retired unimplemented
+    (no wide-grid flag), AC-240/AC-241 replace them. Portrait-only is the book
+    PageSpec's orientation policy in COMP-007; NFR-006 still governs CLI/web
+    (CON-019). EC-022.
+  status: partial
+
+- req: FR-033
+  description: "In a book the picture title appears only on the answer-key page; the grid prints with dark lines and every 5th line bolder"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007]
+  adrs: [ADR-0037, ADR-0036]
+  tests:
+  - TestBookPdf_PuzzlePageCarriesNoPictureTitle
+  - TestBookPdf_AnswerKeyCarriesPictureTitle
+  - TestBookPdf_EveryFifthGridLineWider
+  notes: >-
+    Story US-024. DEC-039 resolved by ADR-0037: the band reads 'Puzzle N · Tier'
+    (R1, review-lens on book_pdf_generator.py); under the book PageSpec thin >=
+    0.25 mm, heavy = 2x thin, pure black (R2, review-lens on layout.py) — the
+    default A4 strokes unchanged (CON-019). Final values confirmed by the owner
+    on printed proof pages (30x30, 15x15) — an owner checkpoint, not a test.
+  status: partial
+
+- req: FR-034
+  description: "Print setup stores a distribution plan (count, easy/medium/hard split summing to 100%, per-longest-side bucket plan prefilled from the rescaled Book 1 matrix; un-edited plan re-derived on split change)"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-010]
+  adrs: [ADR-0034, ADR-0033]
+  tests:
+  - TestBookPlan_StoredWithBookSurvivesReopen
+  - TestBookPlan_RejectsSplitNotSummingTo100
+  - TestBookPlan_PrefillMatchesBook1MatrixAt150x40_40_20
+  - TestBookPlan_PrefillColumnTotalsMatchGeneralPlan
+  - TestBookPlan_ZeroShareCellsStayZero
+  - TestBookPlan_UneditedMatrixRederivedOnSplitChange
+  - TestBookPlan_HandEditedCellSurvivesSplitChange
+  - TestBookPlan_WarnsWhenHandEditedMatrixDisagreesWithSplit
+  - PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan
+  notes: >-
+    Story US-025, INV-005, POL-007 (CMD-020 -> EVT-021), EC-023. Plan columns
+    need a migration in COMP-010. Rounding of fractional tier counts: largest-
+    remainder apportionment (open.yml note — a detail, not a DEC).
+  status: partial
+
+- req: FR-035
+  description: "A new book starts with the default plan: 150 puzzles at 40/40/20, per-bucket plan prefilled"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-010]
+  adrs: [ADR-0034]
+  tests:
+  - TestBookCreate_StoresDefaultPlanThatSumsTo100
+  - TestBookCreate_DefaultPlanIs150At40_40_20
+  notes: >-
+    Story US-025. DEC-036 resolved by ADR-0034: fixed 150 at 40/40/20. AC-206
+    and AC-207 retired unimplemented (not listed); the audience-derived default
+    is deferred and can layer on later without undoing ADR-0034.
+  status: partial
+
+- req: FR-036
+  description: "Puzzle selection split into four longest-side tabs (<=15, 16-20, 21-25, 26-30) with per-tab and whole-book planned-vs-selected counts; tier-then-shorter-side sort; size-range filter removed"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009]
+  adrs: [ADR-0033]
+  tests:
+  - TestBookSelect_PuzzleListedUnderLongestSideTab
+  - TestBookSelect_LongestSideSixteenGoesToSecondTab
+  - TestBookSelect_LongestSideFifteenGoesToFirstTab
+  - TestBookSelect_SelectionKeptAcrossTabSwitch
+  - TestBookSelect_TabHeaderShowsPlannedVsActual
+  - TestBookSelect_OverPlanCellMarked
+  - TestBookSelect_BookSummarySumsAllTabs
+  - TestBookSelect_TabSortsByTierThenShorterSide
+  - TestBookSelect_SizeRangeFilterReplacedByTab
+  - TestBookSelect_ExistingFiltersApplyInsideTab
+  - PropertyTest_LongestSideBuckets_PartitionEveryExtent
+  notes: >-
+    Story US-026, EC-024: one bucketing function serves the plan (FR-034), the
+    tabs and the gate (FR-037). Tabs as a server-rendered ?bucket= parameter on
+    the existing route is the suggested mechanism (open.yml note, not a DEC).
+  status: partial
+
+- req: FR-037
+  description: "A book leaves draft only when every longest-side x tier cell is within +/-3 pp of its planned share; refusals name the offending cells"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009]
+  adrs: [ADR-0035]
+  tests:
+  - TestBookReady_AcceptsWhenEveryCellWithinTolerance
+  - TestBookReady_ExactlyThreePointsAccepted
+  - TestBookReady_RefusedBeyondThreePoints
+  - TestBookReady_RefusalNamesOffendingCell
+  - PropertyTest_BookReady_GateIffEveryCellWithinTolerance
+  - TestBookStatus_EveryExitFromDraftIsGatedOnThePlan
+  notes: >-
+    Story US-026, INV-007, EC-025. DEC-038 resolved by ADR-0035: every exit from
+    draft is gated, share = count / PLANNED total, a plan-less book is refused.
+    ADR-0035/R1's check ref is listed with the AC tests.
+  status: partial
+
+- req: FR-038
+  description: "Books reopen into the step workflow; every step reachable whatever the status; a published book confirms before puzzle changes; back-navigation never discards later work"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-010]
+  adrs: [ADR-0033]
+  tests:
+  - TestBookDetail_LinksToEveryStep
+  - TestBooksList_OpensBookInStepWorkflow
+  - TestBookGeneralInfo_EditsExistingBook
+  - TestBookSteps_ReachableWhateverStatus
+  - TestBookPublished_PuzzleChangeRequiresConfirmation
+  - TestBookPublished_ConfirmedPuzzleChangeApplied
+  - TestBookPlanChange_KeepsSelection
+  - TestBookRemovePuzzle_KeepsRestOfArrangement
+  - PropertyTest_BookWorkflow_BackNavigationNeverDiscardsLaterWork
+  notes: >-
+    Story US-027, INV-008, EC-026. Replaces BookManager's outright refusal on
+    published books with a confirmation.
+  status: partial
+
+- req: FR-039
+  description: "Books list shows actual vs planned count and per-tier split, a short/over bucket hint, and sorts by completeness; a plan-less book shows its count only"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009]
+  adrs: [ADR-0035]
+  tests:
+  - TestBooksList_ShowsActualVsPlannedCount
+  - TestBooksList_ShowsPerTierActualVsPlan
+  - TestBooksList_HintsShortBucket
+  - TestBooksList_NoHintWhenOnPlan
+  - TestBooksList_SortsByCompleteness
+  - TestBooksList_BookWithoutPlanShowsCountOnly
+  notes: >-
+    Story US-027. ADR-0035: the hint uses exact counts per cell against the
+    plan, not the gate's +/-3 pp.
+  status: partial
+
+- req: FR-040
+  description: "Two same-tier neighbours in the book order share a two-up page when both fit at one shared cell >= 7.0 mm (capped 7.5 mm); pairing walks the order and never reorders"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-009]
+  adrs: [ADR-0036, ADR-0037]
+  tests:
+  - TestBookPdf_TwoSmallSameTierNeighboursShareAPage
+  - TestBookPdf_TwelvePairSharesPageBelowStandardCell
+  - TestBookPdf_PairJustAboveTwoUpMinimumShares
+  - TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare
+  - TestBookPdf_FifteenPlusTwelveDoesNotPair
+  - TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare
+  - TestBookPdf_DifferentTiersNeverPair
+  - TestBookPdf_PairingNeverReordersToFindAPartner
+  - TestBookPdf_OddPuzzleOutPrintsAlone
+  - TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand
+  - TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
+  - PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly
+  - PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea
+  notes: >-
+    Story US-023, INV-010, EC-027, EC-028. ADR-0036 clarification: a pair-aware
+    COMP-007 call takes both clue sets and the book PageSpec and returns both
+    slot layouts at one shared cell; COMP-009 only walks the order and decides
+    which neighbours to offer it (ADR-0036/R2). Each slot carries its own
+    'Puzzle N · Tier' band (ADR-0037). Gutter/page-count circularity broken by
+    the stored gutter + finalise check (ADR-0036).
+  status: partial
+
+- req: FR-041
+  description: "Book order runs easy -> medium -> hard; moves stay within a level; added puzzles land at the end of their level; a divider page per non-empty level; puzzle numbers 1..n unbroken"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-010]
+  adrs: [ADR-0037, ADR-0031]
+  tests:
+  - TestBookPdf_DifficultyOrderWithDividerPerLevel
+  - TestBookPdf_DividerPageCarriesLevelNameOnly
+  - TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers
+  - TestBookPdf_EmptyLevelHasNoDivider
+  - TestBookArrange_MoveWithinLevelKeepsOwnerOrder
+  - TestBookArrange_MoveAcrossLevelBoundaryRefused
+  - TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel
+  - TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
+  - PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
+  notes: >-
+    Story US-024, INV-009, CMD-022 -> EVT-023, EC-029. Owner answers 2026-09-22:
+    an added puzzle lands at the END of its level; the answer key carries small
+    level headings, not divider pages; a legacy arrangement prints grouped by
+    level (AC-260). Tier is the solver's three-band tier (ADR-0031).
+  status: partial
+
+- req: NFR-008
+  description: "Every puzzle printed in a book has 4.8 mm <= cell <= 7.5 mm on the book's own trim and real clue depth; below 4.8 mm only by explicit override"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-009]
+  adrs: [ADR-0036]
+  tests:
+  - TestBookCell_CappedAtStandardCell
+  - TestBookCell_BookCapOverridesCliComfortCurve
+  - TestBookCell_ThirtyByThirtyNineDeepAboveFloor
+  - TestBookCell_TwelveDeepBandFallsBelowFloor
+  notes: >-
+    Book-only (NFR-005 still governs CLI/web). The 7.5 mm flat cap is the book
+    PageSpec's cell-cap policy in COMP-007; the floor is enforced at membership
+    by COMP-009 (FR-031). The two-up 7.0 mm minimum (FR-040) sits inside this
+    range (EC-028 carries nfr: NFR-008).
+  status: partial
+
+- req: CON-018
+  description: "The Book 1 print profile is every book's default: trim 8.5x11 in, gutter 0.5 in, outside/top/bottom 0.375 in, no bleed, 12 mm title band; an empty margin falls back to it"
+  capabilities: [CAP-006, CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-010, COMP-007]
+  adrs: [ADR-0036]
+  tests:
+  - TestBookCreate_StoresBook1PrintProfile
+  - TestBookPdf_EmptyMarginsFallBackToBook1Profile
+  notes: >-
+    NOT covered by design yet: migration 008 ships the trim default but
+    gutter/outside margins have no default and top/bottom have no column
+    (models.py:121-125), so the profile lives partly in COMP-009's PageSpec
+    builder until the schema carries it. Partial until AC-181 and AC-178 are
+    green (CON-011/CON-014 precedent).
+  status: partial
+
+- req: CON-019
+  description: "Book page geometry never changes CLI or web exports: PNG/SVG/PDF byte-identical to before the book geometry existed"
+  capabilities: [CAP-005, CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-007]
+  adrs: [ADR-0036]
+  tests:
+  - PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
+  - TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden
+  - TestCliExports_ByteIdenticalAfterBookGeometry
+  notes: >-
+    Checked constraint (check: test, ref
+    PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry; scope
+    src/nonogram/export/**). Realised by ADR-0036/R1: compute_layout with no
+    PageSpec is today's A4 exactly, pinned by a golden-byte test. Partial until
+    the check ref exists (CON-014 precedent).
+  status: partial
 
 components:
 - id: COMP-001
