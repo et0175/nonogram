@@ -57,6 +57,9 @@ from .book_plan import (
     TIERS as PLAN_TIERS,
     InvalidPlan,
     Split as PlanSplit,
+    bucket_of,
+    planned_cells,
+    selection_cells,
 )
 from .image_manager import (
     CANNOT_FIT,
@@ -73,8 +76,13 @@ from .book_pdf_generator import BookPDFGenerator, interior_page_count, tier_brea
 from nonogram.export.pdf import render_pages
 from nonogram.export import ExportPayload
 from nonogram import clues, orchestrator
-from nonogram.difficulty import Tier
-from nonogram.errors import GenerationAbandoned, NonogramError, NotUniquelySolvable
+from nonogram.difficulty import Tier, tier_of_record
+from nonogram.errors import (
+    GenerationAbandoned,
+    NonogramError,
+    NotUniquelySolvable,
+    SizeOutOfRange,
+)
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.orchestrator import BATCH_BUDGET_SECONDS, MAX_BATCH_COUNT
 
@@ -2191,48 +2199,245 @@ def create_app(debug=None):
 
         return render_template("book_setup_print.html", **context)
 
+    # ------------------------------------------------------------------
+    # CARD-122: puzzle selection in four longest-side tabs (FR-036,
+    # BK-UI-4/5/6). Everything below reads book_plan — the one bucketing
+    # function (EC-024) and the two halves of every planned-vs-selected
+    # figure — and never re-derives a threshold of its own.
+    # ------------------------------------------------------------------
+
+    #: The tab a ``bucket=`` value names, by its label ("<=15", "16-20", ...).
+    _TABS_BY_LABEL = {bucket.label: bucket for bucket in PLAN_BUCKETS}
+
+    #: The filter inputs the selection screen carries across a tab switch.
+    _SELECT_FILTERS = ("difficulty", "quality_min", "theme", "status", "puzzle_name", "limit", "offset")
+
+    def _selected_tab():
+        """The longest-side tab in force, defaulting to the first one.
+
+        Read from ``request.values`` so it survives both a ``?bucket=`` link
+        and the hidden field a submission of the step carries back.
+        """
+        return _TABS_BY_LABEL.get((request.values.get("bucket") or "").strip(), PLAN_BUCKETS[0])
+
+    def _tab_query(label):
+        """The query a tab switch lands on: the tab plus the filters in force.
+
+        The switch is a POST followed by this redirect, so every tab is a real
+        URL and the browser's back/forward buttons walk them.
+        """
+        query = {"bucket": label}
+        for field in _SELECT_FILTERS:
+            value = (request.form.get(field) or "").strip()
+            if value:
+                query[field] = value
+        return query
+
+    def _kept_selection(book_id):
+        """The puzzle ids ticked so far for this book (AC-211).
+
+        Kept in the owner's session, not written to the book: a tab switch
+        commits nothing, and the step still joins the puzzles to the book once,
+        when "Add selected" is pressed.
+        """
+        return [str(pid) for pid in (session.get("book_selection") or {}).get(book_id, [])]
+
+    def _keep_selection(book_id, puzzle_ids):
+        store = dict(session.get("book_selection") or {})
+        store[book_id] = list(dict.fromkeys(str(pid) for pid in puzzle_ids))
+        session["book_selection"] = store
+
+    def _drop_selection(book_id):
+        store = dict(session.get("book_selection") or {})
+        if store.pop(book_id, None) is not None:
+            session["book_selection"] = store
+
+    def _fold_tab_into_selection(book_id):
+        """Fold the tab just submitted into the kept selection and return it.
+
+        ``puzzle_ids`` are the tiles ticked on that tab and ``shown_ids`` every
+        tile it offered, so a tile the owner unticked is dropped while every
+        other tab's choice is left alone (AC-211).
+        """
+        ticked = request.form.getlist("puzzle_ids")
+        shown = set(request.form.getlist("shown_ids"))
+        kept = [pid for pid in _kept_selection(book_id) if pid not in shown]
+        _keep_selection(book_id, kept + ticked)
+        return _kept_selection(book_id)
+
+    def _selected_cells(book, kept_ids):
+        """``selection_cells`` over what the book holds plus what is ticked."""
+        records = {}
+        for puzzle_id in list(book.puzzle_ids) + list(kept_ids):
+            if puzzle_id in records:
+                continue
+            record = puzzle_review.get_puzzle(puzzle_id)
+            if record:
+                records[puzzle_id] = record
+        return selection_cells(records.values())
+
+    def _tier_figures(selected, planned, keys_of_tier):
+        """``(per-tier figures, total figure)`` for one row of the summary.
+
+        ``keys_of_tier`` maps each tier to the ``(bucket, tier)`` cells that
+        feed it — one bucket's row for a tab, all four for the whole book.
+        ``planned`` is None for a book with no stored plan, and then every
+        planned figure is None too: the screen shows the selected counts alone
+        and points at Print setup (ADR-0035's remedy).
+        """
+        def figure(label, got, want):
+            return {
+                "label": label,
+                "selected": got,
+                "planned": want,
+                "over": want is not None and got > want,
+            }
+
+        rows = [
+            figure(
+                tier.value,
+                sum(selected[key] for key in keys_of_tier[tier]),
+                None if planned is None else sum(planned[key] for key in keys_of_tier[tier]),
+            )
+            for tier in PLAN_TIERS
+        ]
+        total = figure(
+            "total",
+            sum(row["selected"] for row in rows),
+            None if planned is None else sum(row["planned"] for row in rows),
+        )
+        return rows, total
+
+    def _plan_progress(book, kept_ids):
+        """Planned vs selected per tab and for the whole book (BK-UI-5)."""
+        selected = _selected_cells(book, kept_ids)
+        plan, _damaged = _readable_plan(book.book_id)
+        planned = planned_cells(plan) if plan is not None else None
+
+        tabs = []
+        for bucket in PLAN_BUCKETS:
+            rows, total = _tier_figures(
+                selected, planned, {tier: ((bucket, tier),) for tier in PLAN_TIERS}
+            )
+            tabs.append(
+                {
+                    "bucket": bucket,
+                    "label": bucket.label,
+                    "tiers": rows,
+                    "total": total,
+                    "over": any(row["over"] for row in rows),
+                }
+            )
+        book_rows, book_total = _tier_figures(
+            selected,
+            planned,
+            {tier: tuple((bucket, tier) for bucket in PLAN_BUCKETS) for tier in PLAN_TIERS},
+        )
+        return {
+            "plan_present": planned is not None,
+            "tab_progress": tabs,
+            "book_progress": {"tiers": book_rows, "total": book_total},
+        }
+
+    def _is_in_tab(puzzle, bucket):
+        """Does this puzzle belong on that tab? ``bucket_of`` alone decides.
+
+        A row stored under an older size limit belongs to no tab rather than
+        to the nearest one — the same verdict ``selection_cells`` makes.
+        """
+        try:
+            return bucket_of(puzzle.get("width"), puzzle.get("height")) is bucket
+        except SizeOutOfRange:
+            return False
+
+    def _tab_order(puzzle):
+        """BK-UI-6: tier (easy, medium, hard), then shorter side ascending.
+
+        An ungraded row sorts after every graded one; the id breaks the last
+        tie so the order is stable between renders.
+        """
+        tier = tier_of_record(puzzle.get("difficulty_tier"))
+        rank = PLAN_TIERS.index(tier) if tier in PLAN_TIERS else len(PLAN_TIERS)
+        width, height = puzzle.get("width") or 0, puzzle.get("height") or 0
+        return (rank, min(width, height), max(width, height), str(puzzle.get("id")))
+
     @app.route("/book/<book_id>/select-puzzles", methods=["GET", "POST"])
     def select_puzzles_for_book(book_id):
-        """Select and add puzzles to a book (Step 2 of scaffolding)."""
+        """Select and add puzzles to a book (Step 2 of scaffolding).
+
+        CARD-122: one tab per longest-side bucket (FR-036). The tab in force is
+        ``?bucket=<label>``, the ticked ids are kept in the session so that
+        switching tabs never drops them, and both the tab's header and the
+        whole-book summary above the tabs read planned vs selected from the
+        book's stored plan.
+        """
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
         if request.method == "POST":
-            # Get selected puzzle IDs from form
-            selected_ids = request.form.getlist("puzzle_ids")
+            kept_ids = _fold_tab_into_selection(book_id)
+            switch_to = request.form.get("go_bucket")
+            if switch_to is not None:
+                # A tab switch: the selection is now kept, nothing is committed.
+                target = _TABS_BY_LABEL.get(switch_to.strip(), PLAN_BUCKETS[0])
+                return redirect(
+                    url_for("select_puzzles_for_book", book_id=book_id, **_tab_query(target.label))
+                )
 
-            if not selected_ids:
+            if not kept_ids:
                 flash("No puzzles selected. Please select at least one puzzle.", "info")
             else:
                 try:
                     # Add puzzles to the book
-                    if book_mgr.add_puzzles_to_book(book_id, selected_ids):
-                        flash(f"Added {len(selected_ids)} puzzle(s) to book", "success")
+                    if book_mgr.add_puzzles_to_book(book_id, kept_ids):
+                        _drop_selection(book_id)
+                        flash(f"Added {len(kept_ids)} puzzle(s) to book", "success")
                         # Proceed to Step 3: Puzzle Arrangement
                         return redirect(url_for("arrange_puzzles_in_book", book_id=book_id))
                     else:
                         flash("Book not found", "error")
                 except ValueError as e:
                     flash(f"Error: {str(e)}", "error")
+            book = book_mgr.get_book(book_id) or book
 
-        # Get filter parameters from query string
-        size = request.args.get("size", type=int)
-        side_range = _side_range_from_args()
-        difficulty = request.args.get("difficulty")
-        quality_min = request.args.get("quality_min", type=int)
-        theme = request.args.get("theme")
-        status = request.args.get("status", "approved")  # Default to approved only
-        puzzle_name = request.args.get("puzzle_name")
-        limit = request.args.get("limit", 50, type=int)
-        offset = request.args.get("offset", 0, type=int)
+        # The tab replaces the size-range filter (BK-UI-6); the rest still
+        # apply inside it. Read from request.values so a submission that was
+        # not committed comes back on the same tab under the same filters.
+        bucket = _selected_tab()
+        difficulty = request.values.get("difficulty")
+        quality_min = request.values.get("quality_min", type=int)
+        theme = request.values.get("theme")
+        status = request.values.get("status", "approved")  # Default to approved only
+        puzzle_name = request.values.get("puzzle_name")
+        limit = request.values.get("limit", 50, type=int)
+        offset = request.values.get("offset", 0, type=int)
+
+        kept_ids = _kept_selection(book_id)
+        context = {
+            "book": book,
+            "buckets": PLAN_BUCKETS,
+            "current_bucket": bucket,
+            "selected_ids": set(kept_ids),
+            "kept_count": len(kept_ids),
+            "difficulty": difficulty,
+            "quality_min": quality_min,
+            "theme": theme,
+            "status": status,
+            "puzzle_name": puzzle_name,
+            "limit": limit,
+            "offset": offset,
+            **_plan_progress(book, kept_ids),
+        }
 
         # Build filter: exclude puzzles already in this book
         try:
             filter_opts = PuzzleFilter(
-                size=(size, size) if size is not None else None,
-                side_range=side_range,
+                # The store narrows to the rows with a side in the tab's range —
+                # a superset of the tab, since a puzzle's longest side is one of
+                # its sides — and bucket_of below decides the tab itself.
+                side_range=(bucket.low, bucket.high),
                 difficulty=difficulty,
                 quality_min=quality_min,
                 theme=theme,
@@ -2244,41 +2449,28 @@ def create_app(debug=None):
             )
             result = puzzle_review.filter_puzzles(filter_opts)
 
-            # Additional filter: exclude puzzles already in this book
-            filtered_puzzles = [
-                p for p in result.puzzles
-                if p.get("book_id") is None
-            ]
+            # Additional filter: exclude puzzles already in this book, and
+            # everything the tab's own bucket does not hold.
+            filtered_puzzles = sorted(
+                (
+                    p for p in result.puzzles
+                    if p.get("book_id") is None and _is_in_tab(p, bucket)
+                ),
+                key=_tab_order,
+            )
 
-            context = {
-                "book": book,
-                "puzzles": filtered_puzzles,
-                "total_count": len(filtered_puzzles),
-                "has_more": result.has_more,
-                "size": size,
-                "size_from": side_range[0] if side_range else None,
-                "size_to": side_range[1] if side_range else None,
-                "difficulty": difficulty,
-                "quality_min": quality_min,
-                "theme": theme,
-                "status": status,
-                "puzzle_name": puzzle_name,
-                "limit": limit,
-                "offset": offset,
-            }
+            context.update(
+                puzzles=filtered_puzzles,
+                total_count=len(filtered_puzzles),
+                has_more=result.has_more,
+            )
 
             return render_template("book_select_puzzles.html", **context)
 
         except ValueError as e:
             flash(f"Filter error: {str(e)}", "error")
-            return render_template(
-                "book_select_puzzles.html",
-                book=book,
-                puzzles=[],
-                total_count=0,
-                has_more=False,
-                error=str(e),
-            )
+            context.update(puzzles=[], total_count=0, has_more=False, error=str(e))
+            return render_template("book_select_puzzles.html", **context)
 
     @app.route("/book/<book_id>/arrange-puzzles", methods=["GET", "POST"])
     def arrange_puzzles_in_book(book_id):

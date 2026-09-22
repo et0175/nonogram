@@ -7,10 +7,21 @@
 {% block section %}Books · {{ book.metadata.title }} · step 2{% endblock %}
 
 {% block content %}
+{#- One planned-vs-selected cell, and the row of them a summary is (BK-UI-5).
+    Over-plan cells are marked, never hidden. -#}
+{% macro figure_cell(figure) -%}
+<span class="stat-cell"{% if figure.over %} data-over="true"{% endif %}>{{ figure.label }} {{ figure.selected }}{% if figure.planned is not none %} / {{ figure.planned }}{% endif %}{% if figure.over %} over{% endif %}</span>
+{%- endmacro %}
+
+{% macro figure_row(caption, tiers, total) -%}
+<span class="stat-caption">{{ caption }}:</span>
+{% for figure in tiers %}{{ figure_cell(figure) }} <span class="stat-sep" aria-hidden="true">·</span> {% endfor %}{{ figure_cell(total) }}
+{%- endmacro %}
+
 <div class="page-head">
     <div>
         <h1>Puzzle selection</h1>
-        <p class="lede">Step 2 of 4 for <strong>{{ book.metadata.title }}</strong>: pick the approved grids that go in. Click a tile to select it.</p>
+        <p class="lede">Step 2 of 4 for <strong>{{ book.metadata.title }}</strong>: pick the approved grids that go in, one longest-side tab at a time. Click a tile to select it.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
@@ -18,19 +29,21 @@
 </div>
 
 <div class="card">
+    <div class="card-header"><h2 class="card-title mb-0">Whole book</h2></div>
+    <div class="card-body">
+        <p class="stat-line" id="bookSummary">{{ figure_row('whole book', book_progress.tiers, book_progress.total) }}</p>
+        {% if not plan_present %}
+        <div class="alert alert-info">This book has no distribution plan yet, so only the selected counts are shown.
+            <a href="{{ url_for('setup_print', book_id=book.book_id) }}">Set the plan in Print setup</a> to see planned vs selected.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
     <div class="card-header"><h2 class="card-title mb-0">Filters</h2></div>
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label for="size_from" class="form-label">Size (cells), either side</label>
-                <div class="input-group">
-                    <input type="number" class="form-control" id="size_from" name="size_from" aria-label="Side from"
-                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size_from if size_from is not none else '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
-                    <span class="input-group-text">to</span>
-                    <input type="number" class="form-control" id="size_to" name="size_to" aria-label="Side to"
-                           min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ size_to if size_to is not none else '' }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
-                </div>
-            </div>
+            <input type="hidden" name="bucket" value="{{ current_bucket.label }}">
             <div class="col-md-2">
                 <label for="difficulty" class="form-label">Difficulty</label>
                 <select class="form-select" id="difficulty" name="difficulty">
@@ -41,7 +54,7 @@
             <div class="col-md-2">
                 <label for="quality_min" class="form-label">Min quality</label>
                 <input type="number" class="form-control" id="quality_min" name="quality_min"
-                       min="0" max="100" value="{{ quality_min or '' }}" placeholder="0-100">
+                       min="0" max="100" value="{{ quality_min if quality_min is not none else '' }}" placeholder="0-100">
             </div>
             <div class="col-md-2">
                 <label for="theme" class="form-label">Theme</label>
@@ -54,7 +67,7 @@
                     <option value="generic" {% if theme == 'generic' %}selected{% endif %}>Generic</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label for="puzzle_name" class="form-label">Puzzle name</label>
                 <input type="text" class="form-control" id="puzzle_name" name="puzzle_name"
                        value="{{ puzzle_name or '' }}" placeholder="Search…">
@@ -67,11 +80,32 @@
 </div>
 
 <form method="POST" id="puzzleForm">
-    <div class="card">
+    <input type="hidden" name="bucket" value="{{ current_bucket.label }}">
+    <input type="hidden" name="difficulty" value="{{ difficulty or '' }}">
+    <input type="hidden" name="quality_min" value="{{ quality_min if quality_min is not none else '' }}">
+    <input type="hidden" name="theme" value="{{ theme or '' }}">
+    <input type="hidden" name="status" value="{{ status or '' }}">
+    <input type="hidden" name="puzzle_name" value="{{ puzzle_name or '' }}">
+
+    <div class="tabs" role="tablist" aria-label="Longest side">
+        {% for entry in tab_progress %}
+        <button type="submit" name="go_bucket" value="{{ entry.label }}"
+                class="tab{% if entry.bucket == current_bucket %} is-current{% endif %}"
+                role="tab" id="tab_{{ loop.index }}"
+                aria-selected="{{ 'true' if entry.bucket == current_bucket else 'false' }}"
+                {% if entry.bucket == current_bucket %}aria-current="page"{% endif %}
+                {% if entry.over %}data-over="true"{% endif %}>
+            <span class="tab-label">{{ entry.label }}</span>
+            <span class="tab-count">{{ entry.total.selected }}{% if entry.total.planned is not none %} / {{ entry.total.planned }}{% endif %}</span>
+        </button>
+        {% endfor %}
+    </div>
+
+    <div class="card tabpanel" role="tabpanel" aria-label="Longest side {{ current_bucket.label }}">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h2 class="card-title mb-0">
-                Available puzzles
-                <small class="text-muted fw-normal fs-6">({{ total_count }} found)</small>
+                Longest side {{ current_bucket.label }}
+                <small class="text-muted fw-normal fs-6">({{ total_count }} available)</small>
             </h2>
             <div class="actions">
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAll()">Select all</button>
@@ -79,16 +113,22 @@
             </div>
         </div>
         <div class="card-body">
+            <p class="stat-line" id="tabSummary" data-bucket="{{ current_bucket.label }}">
+                {%- for entry in tab_progress %}{% if entry.bucket == current_bucket %}{{ figure_row(entry.label, entry.tiers, entry.total) }}{% endif %}{% endfor -%}
+            </p>
+
             {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
             {% elif puzzles %}
             <div class="puzzle-grid">
                 {% for puzzle in puzzles %}
                 <div class="puzzle-tile">
+                    <input type="hidden" name="shown_ids" value="{{ puzzle.id }}">
                     <div class="puzzle-tile-header">
                         <input type="checkbox" class="form-check-input puzzle-checkbox"
                                name="puzzle_ids" value="{{ puzzle.id }}"
                                id="pick_{{ puzzle.id }}"
+                               {% if puzzle.id in selected_ids %}checked{% endif %}
                                data-puzzle-size="{{ puzzle.width }}x{{ puzzle.height }}"
                                data-puzzle-difficulty="{{ puzzle.difficulty_tier or 'N/A' }}">
                         <label class="puzzle-tile-id" for="pick_{{ puzzle.id }}">{{ puzzle.puzzle_name or puzzle.id|first_n(8) }}</label>
@@ -116,7 +156,7 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty">No approved puzzles match these filters. Approve some in <a href="/puzzles?status=draft">puzzle review</a> first.</p>
+            <p class="empty">No approved puzzles with a longest side of {{ current_bucket.label }} match these filters. Try another tab, or approve some in <a href="/puzzles?status=draft">puzzle review</a> first.</p>
             {% endif %}
         </div>
     </div>
@@ -125,17 +165,21 @@
         <button type="submit" class="btn btn-primary" id="addSelectedBtn">Add selected puzzles {{ icons.icon('arrow-right') }}</button>
         <a href="/book/{{ book.book_id }}/arrange-puzzles" class="btn btn-outline-secondary">Skip — continue without puzzles</a>
         <a href="/books" class="btn btn-outline-secondary">Cancel</a>
-        <small class="text-muted ms-auto" id="selectionCount" aria-live="polite">0 puzzles selected</small>
+        <small class="text-muted ms-auto" id="selectionCount" aria-live="polite">{{ kept_count }} puzzle{{ '' if kept_count == 1 else 's' }} selected</small>
     </div>
 </form>
 
 <script>
+// Tiles ticked on the other tabs are kept server-side, so the counter starts
+// from them and adds whatever this tab shows (CARD-122, AC-211).
+const keptElsewhere = {{ kept_count }} - document.querySelectorAll('.puzzle-checkbox:checked').length;
+
 document.querySelectorAll('.puzzle-checkbox').forEach(checkbox => {
     checkbox.addEventListener('change', updateSelectionCount);
 });
 
 function updateSelectionCount() {
-    const selected = document.querySelectorAll('.puzzle-checkbox:checked').length;
+    const selected = keptElsewhere + document.querySelectorAll('.puzzle-checkbox:checked').length;
     document.getElementById('selectionCount').textContent =
         selected + ' puzzle' + (selected !== 1 ? 's' : '') + ' selected';
 
@@ -164,7 +208,9 @@ document.querySelectorAll('.puzzle-tile').forEach(tile => {
 });
 
 document.getElementById('puzzleForm').addEventListener('submit', function(e) {
-    const selected = document.querySelectorAll('.puzzle-checkbox:checked').length;
+    // A tab switch carries the tab along and never needs a selection.
+    if (e.submitter && e.submitter.name === 'go_bucket') return;
+    const selected = keptElsewhere + document.querySelectorAll('.puzzle-checkbox:checked').length;
     if (selected === 0) {
         e.preventDefault();
         alert('Select at least one puzzle, or use "Skip" to continue without any.');

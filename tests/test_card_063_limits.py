@@ -13,6 +13,7 @@ from PIL import Image as PILImage
 
 from nonogram import difficulty, limits
 from nonogram.admin.batch_generator import BatchGenerator
+from nonogram.admin.book_plan import BUCKETS
 from nonogram.admin.image_manager import ImageManager
 from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService
 from nonogram.export import layout
@@ -119,9 +120,10 @@ def test_admin_image_size_follows_the_range(tmp_path, side, accepted):
 TEMPLATES = SRC / "admin" / "templates"
 
 
-@pytest.mark.parametrize(
-    "name", ["image_preview.html", "puzzles_list.html", "book_select_puzzles.html"]
-)
+# book_select_puzzles.html has no size input since CARD-122 replaced its
+# size-range filter with the four longest-side tabs (AC-216); the tabs read
+# their bounds from book_plan, which reads nonogram.limits.
+@pytest.mark.parametrize("name", ["image_preview.html", "puzzles_list.html"])
 def test_admin_templates_take_the_range_from_jinja_globals(name):
     source = (TEMPLATES / name).read_text(encoding="utf-8")
     assert 'min="{{ MIN_SIZE }}"' in source and 'max="{{ MAX_SIZE }}"' in source
@@ -188,13 +190,19 @@ def test_the_puzzle_list_filter_renders_the_range(admin_app):
         assert _input_bounds(body, input_id) == (str(LOW), str(HIGH), f"{LOW}-{HIGH}")
 
 
-def test_the_book_puzzle_filter_renders_the_range(admin_app):
+def test_the_book_puzzle_step_spans_the_range_in_tabs(admin_app):
+    """CARD-122 replaced this step's size-range inputs with the four
+    longest-side tabs (AC-216), so the range is now shown as the tabs that
+    tile it end to end rather than as two bounded number fields."""
     book_id = admin_app.book_manager.create_book(
         title="Range check", description="d", theme="christmas", target_audience="kids"
     )
     body = admin_app.test_client().get(f"/book/{book_id}/select-puzzles").get_data(as_text=True)
+
     for input_id in ("size_from", "size_to"):
-        assert _input_bounds(body, input_id) == (str(LOW), str(HIGH), f"{LOW}-{HIGH}")
+        assert f'id="{input_id}"' not in body
+    assert f"&lt;={BUCKETS[0].high}" in body and str(BUCKETS[-1].high) == str(HIGH)
+    assert BUCKETS[0].low == LOW and BUCKETS[-1].high == HIGH
 
 
 def test_the_admin_app_exposes_the_range_to_templates(monkeypatch):
