@@ -42,17 +42,33 @@ before the payload is even built.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from nonogram.export.layout import DPI, GridLine, Layout, PageSpec, compute_layout
+from nonogram.export.layout import (
+    DPI,
+    AnswerTile,
+    GridLine,
+    Layout,
+    PageSpec,
+    compute_answer_page_layout,
+    compute_layout,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
     from nonogram.export import ExportPayload
 
-__all__ = ["BACKGROUND", "INK", "render", "render_image", "write_png"]
+__all__ = [
+    "BACKGROUND",
+    "INK",
+    "render",
+    "render_answer_page",
+    "render_image",
+    "write_png",
+]
 
 #: Pure black on pure white. A puzzle is printed and then written on in pencil,
 #: so maximum contrast and no anti-aliased grey in the paper: a laser printer
@@ -81,12 +97,16 @@ def _clue_font(layout: Layout) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default(size=layout.clue_font_size)
 
 
-def _draw_grid(draw: ImageDraw.ImageDraw, layout: Layout) -> None:
+def _draw_grid(draw: ImageDraw.ImageDraw, layout: Layout | AnswerTile) -> None:
     """Stroke every ruled line, thin ones first.
 
     Order matters: the every-5th and border rules are drawn last so that where
     a heavy line crosses a thin one, the heavy line is the one that survives
     the overlap and stays visually continuous across the page.
+
+    A puzzle page and an answer tile (FR-042) are both ruled by this, because
+    both carry the same two tuples of placed :class:`GridLine`s: the answer key
+    is ruled by the drawing code the puzzle is ruled by, not by a second one.
     """
     oriented: list[tuple[GridLine, bool]] = [
         *((line, True) for line in layout.vertical_lines),
@@ -146,6 +166,118 @@ def render_image(payload: ExportPayload, page_spec: PageSpec | None = None) -> I
     draw = ImageDraw.Draw(image)
     _draw_grid(draw, layout)
     _draw_clues(draw, layout)
+    return image
+
+
+#: One answer of the key: its solved grid and the caption printed above it.
+#: The caption's *text* is composed by the book (COMP-009, CARD-134) — "Puzzle
+#: 7", with or without a title — and this module only prints the string it is
+#: handed. An empty string prints nothing and still occupies its line.
+type Answer = tuple[Sequence[Sequence[bool]], str]
+
+
+def _answer_extent(grid: Sequence[Sequence[bool]], index: int) -> tuple[int, int]:
+    """One answer's ``(width, height)`` in cells, from the grid itself.
+
+    Raises:
+        ValueError: the grid is empty or its rows are not all the same length —
+            not a rectangle, so not a nonogram's solution.
+    """
+    rows = len(grid)
+    columns = len(grid[0]) if rows else 0
+    if not rows or not columns or any(len(row) != columns for row in grid):
+        raise ValueError(
+            f"answer {index} must be a non-empty rectangular grid, not "
+            f"{rows} row(s) of {sorted({len(row) for row in grid})} cell(s)"
+        )
+    return columns, rows
+
+
+def _draw_answer(draw: ImageDraw.ImageDraw, tile: AnswerTile, grid: Sequence[Sequence[bool]]) -> None:
+    """Fill one answer's cells, then rule it (FR-042, AC-267).
+
+    Filled cells first and the rules over them, so a heavy every-5th rule stays
+    continuous across the white of the picture instead of being cut by the next
+    filled block. Each cell is the rectangle between its own boundaries, which
+    the tile reads off its placed rules — so a filled cell and the rule framing
+    it cannot be half a pixel apart.
+
+    No clue number and no clue gutter is drawn, and none *could* be: an
+    :class:`AnswerTile` carries neither, the same structural reason
+    :func:`render_image` cannot leak a solution onto a puzzle page.
+    """
+    xs = tile.column_boundaries
+    ys = tile.row_boundaries
+    for row, cells in enumerate(grid):
+        for column, filled in enumerate(cells):
+            if filled:
+                draw.rectangle(
+                    (xs[column], ys[row], xs[column + 1], ys[row + 1]), fill=INK
+                )
+    _draw_grid(draw, tile)
+
+
+def render_answer_page(
+    answers: Sequence[Answer],
+    capacity: int,
+    page_spec: PageSpec,
+    heading: str | None = None,
+) -> Image.Image:
+    """Draw one page of the book's packed answer key and return the raster (FR-042).
+
+    The rendering half of CARD-133: the geometry is
+    :func:`~nonogram.export.layout.compute_answer_page_layout`'s, and this
+    draws what it measured — each answer as its filled grid alone, its caption
+    on the tile's reserved line, and the level heading on the page's own line
+    when there is one. Which answers share a page, which page carries a
+    heading, and what a caption says are the book's decisions (COMP-009,
+    CARD-134); this call draws the page it is given.
+
+    Args:
+        answers: Up to ``capacity`` ``(grid, caption)`` pairs in fill order,
+            left to right then top to bottom. Each ``grid`` is the solution in
+            the project's boundary form — rows of booleans, ``True`` for a
+            filled cell.
+        capacity: 6 (2 x 3) or 4 (2 x 2), INV-011's rule for this page.
+        page_spec: The book page — a placed page with a flat cell cap. Its
+            title band is ignored: an answer page has none.
+        heading: The level heading ("Easy"), or ``None`` for a page without
+            one. The same value goes to the layout call, which reserves the
+            line, and to this one, which prints it.
+
+    Returns:
+        A fresh ``RGB`` image the size of the trim at
+        :data:`~nonogram.export.layout.DPI`.
+
+    Raises:
+        ValueError: an answer's grid is not a non-empty rectangle, or the
+            layout call refuses the page (see
+            :func:`~nonogram.export.layout.compute_answer_page_layout`).
+        TypeError: ``page_spec`` is not a
+            :class:`~nonogram.export.layout.PageSpec`.
+    """
+    extents = [_answer_extent(grid, index) for index, (grid, _) in enumerate(answers)]
+    layout = compute_answer_page_layout(extents, capacity, page_spec, heading)
+    image = Image.new(_MODE, (layout.width, layout.height), BACKGROUND)
+    draw = ImageDraw.Draw(image)
+    if layout.heading is not None and heading:
+        draw.text(
+            (layout.heading.center_x, layout.heading.center_y),
+            heading,
+            font=ImageFont.load_default(size=layout.heading.font_size),
+            fill=INK,
+            anchor="mm",
+        )
+    for tile, (grid, caption) in zip(layout.tiles, answers, strict=True):
+        _draw_answer(draw, tile, grid)
+        if caption:
+            draw.text(
+                (tile.caption_center_x, tile.caption_center_y),
+                caption,
+                font=ImageFont.load_default(size=tile.caption_font_size),
+                fill=INK,
+                anchor="mm",
+            )
     return image
 
 
