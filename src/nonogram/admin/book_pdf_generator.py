@@ -1,9 +1,12 @@
 """PDF generation service for book scaffolding.
 
-Generates complete PDF books with cover, guide, and puzzles.
+Exports a book as two files (FR-043, INV-013): the interior PDF — guide page,
+puzzles, SOLUTIONS divider and answers, with no cover page — and the cover
+file, a single front-cover page.
 """
 
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple
 from datetime import datetime
@@ -44,8 +47,53 @@ def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
     )
 
 
+@dataclass(frozen=True)
+class BookExport:
+    """A book's export: the interior PDF and, beside it, the cover file.
+
+    ``interior_page_count`` is the book's page count (FR-030 as amended by
+    FR-043) — the interior's pages only; the cover file is never counted.
+    """
+
+    interior: BytesIO
+    cover: BytesIO
+    interior_page_count: int
+
+
+def page_is_right_hand(page_number: int) -> bool:
+    """Whether interior page ``page_number`` (1-based) is a right-hand page.
+
+    Parity counts from the interior's page 1, the guide page, which is
+    right-hand: odd pages are right-hand, even pages left-hand (FR-043).
+    """
+    if page_number < 1:
+        raise ValueError(f"interior pages are numbered from 1, got {page_number}")
+    return page_number % 2 == 1
+
+
+def interior_page_count(puzzle_count: int) -> int:
+    """The interior's page count for ``puzzle_count`` rendered puzzles.
+
+    The page plan :meth:`BookPDFGenerator.interior_pages` builds — one guide
+    page, one page per puzzle, then (only when there are puzzles) the
+    SOLUTIONS divider and one answer page per puzzle; never the cover
+    (FR-030 as amended by FR-043). ``interior_pages`` checks its own output
+    against this, so the Finalise screen, which shows this number before
+    anything is rendered, cannot drift from the export's layout rules.
+
+    ``puzzle_count`` counts puzzles that *render*: ``interior_pages`` skips
+    a puzzle that fails to render, so a count taken from the book's members
+    is an upper bound when one of them is broken. CARD-129 owns the finalise
+    count's exact equality (EC-034); CARD-116's pairing and 6-up answers
+    change this plan, and must change it here.
+    """
+    if puzzle_count < 0:
+        raise ValueError(f"puzzle count cannot be negative, got {puzzle_count}")
+    return 1 + puzzle_count + (puzzle_count + 1 if puzzle_count else 0)
+
+
 class BookPDFGenerator:
-    """Generates PDF books with cover, guide, and puzzle pages."""
+    """Generates a book's interior PDF (guide, puzzles, answers) and cover file."""
 
     def __init__(self):
         """Initialize PDF generator."""
@@ -145,31 +193,82 @@ class BookPDFGenerator:
 
         return guide
 
-    def generate_book_pdf(
+    def export_book(
         self,
         puzzles: List[dict],
         book_title: str,
         trim_width_cm: Optional[str] = None,
         trim_height_cm: Optional[str] = None,
         cover_image: Optional[Image.Image] = None,
-    ) -> BytesIO:
-        """Generate complete book PDF.
+    ) -> BookExport:
+        """Export a book as its two files: the interior PDF and the cover file.
+
+        The one entry point every export route goes through (FR-043, INV-013).
+        The interior holds no cover page — its page 1 is the guide page — and
+        the cover file is a single page at the book's page size holding the
+        uploaded ``cover_image`` when one is given, otherwise the generated
+        title cover. Front cover only: the KDP cover wrap (spine, back cover,
+        bleed) is deferred.
 
         Args:
-            puzzles: List of puzzle dicts (from puzzle_review service)
-            book_title: Title for the book
+            puzzles: List of puzzle dicts (from puzzle_review service), in
+                book order
+            book_title: Title for the book (the generated cover's text)
             trim_width_cm: Trim width (informational, for metadata)
             trim_height_cm: Trim height (informational, for metadata)
-            cover_image: Optional cover image
+            cover_image: The uploaded front-cover image, if one is set
 
         Returns:
-            PDF as BytesIO object
+            :class:`BookExport` — both files and the interior's page count.
+        """
+        pages = self.interior_pages(puzzles)
+        return BookExport(
+            interior=self._save_pdf(pages),
+            cover=self.export_cover(book_title, cover_image),
+            interior_page_count=len(pages),
+        )
+
+    def export_interior(self, puzzles: List[dict]) -> BytesIO:
+        """The interior PDF alone — :meth:`export_book`'s ``interior``.
+
+        For a route that serves only the interior: it renders no cover page.
+        """
+        return self._save_pdf(self.interior_pages(puzzles))
+
+    def export_cover(
+        self, book_title: str, cover_image: Optional[Image.Image] = None
+    ) -> BytesIO:
+        """The cover file alone — :meth:`export_book`'s ``cover``.
+
+        One page: ``cover_image`` when given, else the generated title cover.
+        It renders no interior page, so a cover download costs one page.
+        """
+        return self._save_pdf([self.create_cover_page(book_title, cover_image)])
+
+    def generate_book_pdf(
+        self,
+        puzzles: List[dict],
+        book_title: str,
+        trim_width_cm: Optional[str] = None,
+        trim_height_cm: Optional[str] = None,
+    ) -> BytesIO:
+        """The book's interior PDF alone — :meth:`export_book`'s ``interior``.
+
+        Kept for callers that want only the interior. It carries no cover
+        page, so there is no way left to produce the old single file whose
+        page 1 was the cover (FR-043).
+        """
+        return self.export_interior(puzzles)
+
+    def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
+        """Every page of the interior, in print order; no cover page.
+
+        ``pages[n - 1]`` is interior page ``n``: page 1 is the guide page,
+        a right-hand page (:func:`page_is_right_hand`), followed by the
+        puzzle pages, the SOLUTIONS divider and the answer pages. The list's
+        length is the book's page count (FR-030); the cover is never counted.
         """
         pages: List[Image.Image] = []
-
-        # Add cover page
-        cover = self.create_cover_page(book_title, cover_image)
-        pages.append(cover)
 
         # Calculate difficulty counts for guide
         counts = tier_breakdown(puzzles)
@@ -235,7 +334,17 @@ class BookPDFGenerator:
             # Add all solution pages
             pages.extend(answer_pages)
 
-        # Combine all pages into PDF
+        # The page plan the Finalise screen shows is this function's own
+        # make-up; fail loudly rather than let the two drift apart.
+        if len(pages) != interior_page_count(len(answer_pages)):
+            raise RuntimeError(
+                f"interior has {len(pages)} pages, its page plan says "
+                f"{interior_page_count(len(answer_pages))}"
+            )
+        return pages
+
+    def _save_pdf(self, pages: List[Image.Image]) -> BytesIO:
+        """Write ``pages`` as one PDF, one image per page, rewound to 0."""
         # PIL's save_all only works with images in same format
         # Convert all to RGB if needed
         rgb_pages = []
