@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-110** P2 · Give `admin/` and `db/` a place in the architecture model — `trace.yml:1414`'s "KNOWN MAPPING GAP for the owner": no component owns 38% of the package, so three rows point at COMP-008 (the web UI) for admin behaviour · CARD-053 and CARD-056 both stopped here · needs an owner decision on how far to extend the model (ids only / + capabilities / + the `Book` aggregate)
 
 ## In Progress
 _(none)_
