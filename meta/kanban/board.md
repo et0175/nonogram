@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-111** P1 · CON-003 says "no persistence, ever" and the admin panel runs on Postgres — a live, unsuperseded constraint contradicted by six tables, ten migrations and a deployment; it is cited as the premise for three C4 diagrams and for two decisions that were *collapsed rather than taken* · the `users` table exists in the schema and is dead in the code, which is a second, different question · CON-001→CON-007 is the supersession shape, ADR-0030 the surface-by-surface precedent · blocks CARD-110's AC-3
 
 ## In Progress
 _(none)_
@@ -37,6 +36,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-111** P1 · CON-017 supersedes CON-003 — "no persistence, ever" had been contradicted by six tables, ten migrations and a deployment, while still serving as the premise for three C4 diagrams and two decisions collapsed rather than taken · split by surface (the pipeline is still stateless, the admin panel is the one exception) following ADR-0030, with the vision's Non-goals amended in the same change · the dead `users` tables are stated, not quietly narrowed away · both collapsed decisions annotated, neither reopened · unblocks CARD-110's AC-3 · merged without a review cycle, at the owner's call · merged ccedcc8
 - **CARD-110** P2 · `admin/` and `db/` get component ids — COMP-009 and COMP-010 now own 38% of the package that no component did, so rows about admin behaviour stop naming COMP-008 (the web UI) · three rows repointed, though not the three the card named · **AC-3 deliberately not done**: both C4 diagrams assert the tool has no database, and CON-003 still says "no persistence beyond local file export, ever" while the admin ships Postgres — CON-001→CON-007 is the precedent for fixing it, and it is the owner's call · merged without a review cycle, at the owner's call · merged 353d83a
 - **CARD-056** P3 · ADR-0032, and the two consumers that disagreed with it — the admin's storage path had no recorded guarantee, so `quality_score`'s `None` was answered three different ways · R1 writes down CARD-080's uniqueness guard; R2 defines the metric and fixes the `TypeError` two live routes could reach plus the book printing `Quality: None/100` · deployed Postgres behaviour unchanged — the in-memory path now agrees with it · printed wording chosen by the owner on a rendered page · 7 of 8 tests red first, 4 mutants all caught · merged without a review cycle, at the owner's call · merged 4158e4b
 - **CARD-105** P3 · AC-137 checked by running both implementations — the old parity test asserted `math.gcd` against hardcoded numbers and grepped the JS for function names · node now runs metadata.js's own functions, cut from the shipped file, against metadata.py over 16 ratios; they agree, 1:1's 21-way tie included, because both sorts are stable (ES2019) · no production change: the card's own export-hook plan would have had to touch CARD-063's bounds path · 5 of 6 mutants caught, the sixth proven equivalent rather than chased · merged without a review cycle, at the owner's call · merged 5344de8
