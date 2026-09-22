@@ -51,7 +51,6 @@ from .puzzle_review import (
     STRATEGY_NAMES,
 )
 from .book_manager import get_book_manager, BookStatus
-from .pdf_generator import get_pdf_generator
 from .image_manager import (
     CANNOT_FIT,
     MOVED_TO_LARGE,
@@ -2170,8 +2169,14 @@ def create_app(debug=None):
 
             try:
                 if action == "clear_cover":
-                    # Clear cover image (stored in session)
+                    # Clear cover image (stored in session). Both keys: popping
+                    # only the path left the "uploaded" flag set, so the screen
+                    # kept saying a cover was uploaded after it was removed.
+                    stored = _stored_cover_path(book_id)
                     session.pop(f"book_{book_id}_cover_path", None)
+                    session.pop(f"book_{book_id}_cover_data", None)
+                    if stored is not None:
+                        stored.unlink(missing_ok=True)
                     flash("Cover image cleared", "success")
 
                 elif action == "save_and_finish":
@@ -2181,24 +2186,24 @@ def create_app(debug=None):
                     return redirect(url_for("books_list"))
 
                 elif action == "download_pdf":
-                    # Generate and download PDF
-                    return generate_book_pdf_download(book, puzzle_review)
+                    # Download one of the export's two files (FR-043): the
+                    # form's ``part`` names which, interior by default.
+                    return generate_book_pdf_download(
+                        book, puzzle_review, request.form.get("part")
+                    )
 
             except Exception as e:
                 flash(f"Error: {str(e)}", "error")
 
         # Handle cover upload
-        cover_image = None
-        cover_path = session.get(f"book_{book_id}_cover_path")
-
         if "cover" in request.files:
             file = request.files["cover"]
             if file and file.filename:
                 try:
-                    from PIL import Image as PILImage
-                    cover_image = PILImage.open(file.stream)
-                    # Store filename in session (Pillow Image can't be serialized)
-                    session[f"book_{book_id}_cover_path"] = file.filename
+                    cover_path = _store_uploaded_cover(book_id, file.stream)
+                    # The session keeps the stored file's path (a Pillow Image
+                    # can't be serialized); every export route reads it back.
+                    session[f"book_{book_id}_cover_path"] = str(cover_path)
                     session[f"book_{book_id}_cover_data"] = True  # Flag it exists
                     flash("Cover image uploaded", "success")
                 except Exception as e:
@@ -2227,7 +2232,11 @@ def create_app(debug=None):
             "easy_count": easy_count,
             "medium_count": medium_count,
             "hard_count": hard_count,
-            "page_count": max(1, len(puzzles_in_book) + 2),  # Cover + guide + puzzles
+            # The interior's pages only — guide, puzzles, SOLUTIONS divider and
+            # answers; the cover file is never counted (FR-043, FR-030).
+            "page_count": 1 + len(puzzles_in_book) + (
+                len(puzzles_in_book) + 1 if puzzles_in_book else 0
+            ),
             "cover_uploaded": bool(session.get(f"book_{book_id}_cover_data")),
             "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM,
             "trim_height_cm": book.metadata.size.split("×")[1] if book.metadata.size and "×" in book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM,
@@ -2235,52 +2244,104 @@ def create_app(debug=None):
 
         return render_template("book_finalize.html", **context)
 
-    def generate_book_pdf_download(book, puzzle_review):
-        """Generate PDF and return as download response."""
-        from io import BytesIO
-        from werkzeug.wsgi import wrap_file
+    def _cover_dir() -> Path:
+        """Where uploaded book covers are kept between upload and export."""
+        return Path(
+            app.config.get("BOOK_COVER_DIR")
+            or Path(tempfile.gettempdir()) / "nonogram_book_covers"
+        )
+
+    def _store_uploaded_cover(book_id, stream) -> Path:
+        """Decode an uploaded cover and keep it for the book's exports.
+
+        Until CARD-135 the upload was decoded, its *filename* put in the
+        session, and the image itself dropped — so no export could ever print
+        it. The decoded image is re-encoded as PNG under a name built from the
+        book id (never the client's filename) and the session holds that path.
+        """
+        image = PILImage.open(stream)
+        image.load()
+        safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(book_id))
+        path = _cover_dir() / f"{safe_id}_cover.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        image.convert("RGB").save(path, format="PNG")
+        return path
+
+    def _stored_cover_path(book_id):
+        """The session's stored cover file for this book, if it is one of ours.
+
+        Only a file inside :func:`_cover_dir` is honoured, so a session value
+        can never make an export read, or a clear delete, anything else.
+        """
+        stored = session.get(f"book_{book_id}_cover_path")
+        if not stored:
+            return None
+        path = Path(stored).resolve()
+        if path.parent != _cover_dir().resolve():
+            return None
+        return path
+
+    def _uploaded_cover(book_id):
+        """The cover uploaded on Finalise for this book, or None if none is set."""
+        path = _stored_cover_path(book_id)
+        if path is None or not path.is_file():
+            return None
+        with PILImage.open(path) as image:
+            return image.convert("RGB")
+
+    def _export_book(book):
+        """Run the one book export (FR-043) for ``book`` — every route's path.
+
+        Puzzles in book order, the session's uploaded cover when one is set.
+        """
+        puzzles = []
+        for puzzle_id in book.puzzle_ids:
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+            if puzzle:
+                puzzles.append(puzzle)
+            else:
+                app.logger.warning("Could not find puzzle %s for PDF generation", puzzle_id)
+        app.logger.debug(
+            "Total puzzles retrieved: %d/%d", len(puzzles), len(book.puzzle_ids)
+        )
+        return BookPDFGenerator().export_book(
+            puzzles=puzzles,
+            book_title=book.metadata.title,
+            trim_width_cm=None,  # Could extract from book.metadata.size
+            trim_height_cm=None,
+            cover_image=_uploaded_cover(book.book_id),
+        )
+
+    #: The two files of a book export a download may ask for (FR-043).
+    _EXPORT_PARTS = ("interior", "cover")
+
+    def _requested_part(part):
+        """The export part asked for — interior when unspecified, None if unknown."""
+        part = (part or "interior").strip().lower()
+        return part if part in _EXPORT_PARTS else None
+
+    def _send_export_part(export, part, stem):
+        """One file of ``export`` as a PDF attachment named ``<stem>_<part>.pdf``."""
+        pdf_bytes = export.interior if part == "interior" else export.cover
+        pdf_bytes.seek(0)
+        return send_file(
+            pdf_bytes,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"{stem}_{part}.pdf",
+        )
+
+    def generate_book_pdf_download(book, puzzle_review, part=None):
+        """Export the book and return the requested part as a download."""
+        requested = _requested_part(part)
+        if requested is None:
+            flash(f"Unknown export part {part!r}: choose interior or cover", "error")
+            return redirect(request.referrer or url_for("book_detail", book_id=book.book_id))
 
         try:
-            # Get puzzles
-            puzzles = []
-            app.logger.debug(
-                "Book '%s' has %d puzzle IDs: %s",
-                book.metadata.title, len(book.puzzle_ids), book.puzzle_ids,
-            )
-
-            for puzzle_id in book.puzzle_ids:
-                puzzle = puzzle_review.get_puzzle(puzzle_id)
-                if puzzle:
-                    app.logger.debug("Retrieved puzzle %s", puzzle_id)
-                    puzzles.append(puzzle)
-                else:
-                    app.logger.warning("Could not find puzzle %s for PDF generation", puzzle_id)
-
-            app.logger.debug(
-                "Total puzzles retrieved: %d/%d", len(puzzles), len(book.puzzle_ids)
-            )
-
-            # Generate PDF
-            pdf_generator = BookPDFGenerator()
-            pdf_bytes = pdf_generator.generate_book_pdf(
-                puzzles=puzzles,
-                book_title=book.metadata.title,
-                trim_width_cm=None,  # Could extract from book.metadata.size
-                trim_height_cm=None,
-            )
-            app.logger.debug("PDF generated successfully, size: %d bytes", len(pdf_bytes.getvalue()))
-
-            # Create response
-            pdf_bytes.seek(0)
+            export = _export_book(book)
             timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
-            filename = f"book_{timestamp}.pdf"
-
-            return send_file(
-                pdf_bytes,
-                mimetype="application/pdf",
-                as_attachment=True,
-                download_name=filename,
-            )
+            return _send_export_part(export, requested, f"book_{timestamp}")
 
         except Exception as e:
             flash(f"Failed to generate PDF: {str(e)}", "error")
@@ -2288,13 +2349,15 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/download-pdf", methods=["POST"])
     def download_book_pdf(book_id):
-        """Download book as PDF (from books list)."""
+        """Download the book's interior PDF, or its cover with ``?part=cover``."""
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
-        return generate_book_pdf_download(book, puzzle_review)
+        return generate_book_pdf_download(
+            book, puzzle_review, request.values.get("part")
+        )
 
     @app.route("/book/<book_id>/delete", methods=["POST"])
     def delete_book(book_id):
@@ -2382,7 +2445,15 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/generate-pdf", methods=["POST"])
     def generate_book_pdf(book_id):
-        """Generate PDF for a book."""
+        """Generate the book's export and download one part of it.
+
+        The interior PDF by default, the cover file with ``?part=cover``.
+        Until CARD-135 this route went through ``admin/pdf_generator``'s
+        reportlab generator — a different book altogether (title page, table
+        of contents, no guide or answer pages) — so the same book exported
+        differently depending on the button pressed. It now runs the same
+        :class:`BookPDFGenerator` export as the other two routes (FR-043).
+        """
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")
@@ -2392,42 +2463,25 @@ def create_app(debug=None):
             flash("Cannot generate PDF for book with no puzzles", "error")
             return redirect(url_for("book_detail", book_id=book_id))
 
-        try:
-            # Get puzzles for the book
-            puzzle_data = []
-            for puzzle_id in book.puzzle_ids:
-                puzzle = puzzle_review.get_puzzle(puzzle_id)
-                if puzzle:
-                    puzzle_data.append(puzzle)
+        part = _requested_part(request.values.get("part"))
+        if part is None:
+            flash("Unknown export part: choose interior or cover", "error")
+            return redirect(url_for("book_detail", book_id=book_id))
 
-            if not puzzle_data:
+        try:
+            if not any(puzzle_review.get_puzzle(pid) for pid in book.puzzle_ids):
                 flash("No valid puzzles found for book", "error")
                 return redirect(url_for("book_detail", book_id=book_id))
 
-            # Generate PDF
-            pdf_gen = get_pdf_generator()
-            pdf_bytes = pdf_gen.generate_book_pdf(
-                {
-                    "title": book.metadata.title,
-                    "description": book.metadata.description,
-                    "theme": book.metadata.theme,
-                    "target_audience": book.metadata.target_audience,
-                    "page_count": len(puzzle_data),
-                },
-                puzzle_data
-            )
+            export = _export_book(book)
 
             # Store PDF URL (in production, save to S3 or similar)
             book_mgr.set_pdf_url(book_id, f"PDF generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
             flash("PDF generated successfully!", "success")
 
-            # Return PDF for download
-            return send_file(
-                pdf_bytes,
-                mimetype="application/pdf",
-                as_attachment=True,
-                download_name=f"{book.metadata.title.replace(' ', '_')}.pdf"
+            return _send_export_part(
+                export, part, book.metadata.title.replace(" ", "_")
             )
 
         except Exception as e:

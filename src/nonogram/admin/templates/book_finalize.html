@@ -9,7 +9,7 @@
 <div class="page-head">
     <div>
         <h1>Finalise &amp; export</h1>
-        <p class="lede">Step 4 of 4 for <strong>{{ book.metadata.title }}</strong>: cover, guide page, and the PDF.</p>
+        <p class="lede">Step 4 of 4 for <strong>{{ book.metadata.title }}</strong>: cover, guide page, and the two files KDP takes — the interior PDF and the cover.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
@@ -35,7 +35,7 @@
                         <label for="cover" class="form-label">Cover image</label>
                         <input type="file" class="form-control" id="cover" name="cover"
                                accept="image/png,image/jpeg" maxlength="10485760">
-                        <small class="form-text text-muted">PNG or JPG, max 10 MB, in the trim size's aspect ratio (6 × 9 for the KDP default). Leave empty for a plain title page.</small>
+                        <small class="form-text text-muted">PNG or JPG, max 10 MB, in the trim size's aspect ratio (6 × 9 for the KDP default). Leave empty for a plain title page. The cover is exported as its own file, never inside the interior PDF.</small>
                     </div>
                     <button type="submit" class="btn btn-outline-secondary">Upload cover</button>
                 </form>
@@ -66,19 +66,22 @@
                         <li>Have fun!</li>
                     </ol>
                 </div>
-                <small class="text-muted d-block mt-2">Appears after the cover and before the first puzzle.</small>
+                <small class="text-muted d-block mt-2">Page 1 of the interior PDF — a right-hand page — before the first puzzle.</small>
             </div>
         </div>
 
         <div class="card">
             <div class="card-header"><h2 class="card-title mb-0">Contents</h2></div>
             <div class="card-body">
+                <h3 class="h6">Interior PDF</h3>
                 <ol class="mb-2">
-                    <li>Cover page{% if cover_uploaded %} (your cover image){% else %} (title page){% endif %}</li>
                     <li>Guide page (instructions and difficulty summary)</li>
                     <li>{{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}, in your order, with their titles</li>
+                    {% if puzzle_count %}<li>Solutions divider and answer pages</li>{% endif %}
                 </ol>
-                <small class="text-muted">About {{ page_count }} pages at {{ trim_width_cm }} × {{ trim_height_cm }} cm.</small>
+                <small class="text-muted d-block mb-3">About {{ page_count }} interior pages at {{ trim_width_cm }} × {{ trim_height_cm }} cm. The cover is not counted.</small>
+                <h3 class="h6">Cover file</h3>
+                <p class="mb-0">One page: {% if cover_uploaded %}your cover image{% else %}a generated title cover{% endif %}. Front cover only.</p>
             </div>
         </div>
     </div>
@@ -89,15 +92,21 @@
             <div class="card-body">
                 <dl class="kv mb-3">
                     <dt>Puzzles</dt><dd class="num">{{ puzzle_count }}</dd>
-                    <dt>Pages</dt><dd class="num">~{{ page_count }}</dd>
+                    <dt>Interior pages</dt><dd class="num">~{{ page_count }}</dd>
                     <dt>Trim size</dt><dd class="num">{{ trim_width_cm }} × {{ trim_height_cm }} cm</dd>
                     <dt>Easy</dt><dd class="num">{{ easy_count }}</dd>
                     <dt>Medium</dt><dd class="num">{{ medium_count }}</dd>
                     <dt>Hard</dt><dd class="num">{{ hard_count }}</dd>
                 </dl>
+                <form method="POST" class="mb-2">
+                    <input type="hidden" name="action" value="download_pdf">
+                    <input type="hidden" name="part" value="interior">
+                    <button type="submit" class="btn btn-primary w-100" data-export-part="interior">{{ icons.icon('download') }} Download interior PDF</button>
+                </form>
                 <form method="POST">
                     <input type="hidden" name="action" value="download_pdf">
-                    <button type="submit" class="btn btn-primary w-100">{{ icons.icon('download') }} Download PDF</button>
+                    <input type="hidden" name="part" value="cover">
+                    <button type="submit" class="btn btn-outline-secondary w-100" data-export-part="cover">{{ icons.icon('download') }} Download cover</button>
                 </form>
             </div>
         </div>
