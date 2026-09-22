@@ -1,6 +1,6 @@
 # CARD-098: Retire the Guess tier — three score bands, and branching stays a strategy
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -16,7 +16,7 @@
 **Depends on:** CARD-072 (merged 50996b6) — `strategies` must already be recorded, since `guess` survives there
 **Touches:** src/nonogram/difficulty.py (Tier, classify, bands), src/nonogram/solver/__init__.py (a home for the `guess` strategy name), src/nonogram/orchestrator.py (GUESS_STRATEGY, the classify call, Puzzle.difficulty_tier), src/nonogram/admin/regrade.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py (label map, tier counts, filter), src/nonogram/admin/templates/** + static/*.css (the fourth badge), src/nonogram/cli.py and src/nonogram/web/handler.py (the `--difficulty` vocabulary), meta/architecture/decisions/adr/0025-*.md (superseded) and a new ADR, meta/architecture/requirements.yml (EC-015 and the tier ACs), meta/architecture/trace.yml, docs/GENERATION_ALGORITHM.md §7
 **Review score:** — _(merged without a review cycle, at the owner's call)_
-**Started:** —
+**Started:** 2026-09-18
 **Closed:** 2026-09-18
 **Actual:** 1d
 **Merge commit:** 0df8d63
