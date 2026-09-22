@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-112** P3 · Draw the admin panel and its database into the C4 diagrams — CARD-110's AC-3, unblocked by CON-017 · the admin is a second container (its own Procfile process on Render), COMP-010's only inbound edge is COMP-009, and admin → clues/solver is direct by ADR-0032/R1 rather than routed through the orchestrator · **COMP-008 has never been drawn either** — the card asks whether to fix that in the same pass
 
 ## In Progress
 _(none)_
