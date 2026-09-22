@@ -9,8 +9,10 @@ from sqlalchemy.engine import Engine as _SQLAlchemyEngine
 
 # Local imports
 from nonogram.admin.app import create_app
-from nonogram.admin.puzzle_review import get_puzzle_review_service, MockGenerator, PuzzleReviewService
+from nonogram.admin.puzzle_review import get_puzzle_review_service, PuzzleReviewService
 from nonogram.admin.batch_generator import get_batch_generator, BatchGenerator
+
+from tests.helpers.mock_generator import MockGenerator
 
 
 # CARD-102: SQLite enforces foreign keys only when each connection asks it to;

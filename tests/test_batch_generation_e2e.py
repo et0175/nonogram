@@ -1,8 +1,10 @@
 """End-to-end tests for batch generation and puzzle storage."""
 
 import pytest
-from nonogram.admin.puzzle_review import get_puzzle_review_service, MockGenerator
+from nonogram.admin.puzzle_review import get_puzzle_review_service
 from nonogram.difficulty import tier_of_record
+
+from tests.helpers.mock_generator import MockGenerator
 
 
 class TestBatchGenerationE2E:

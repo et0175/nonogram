@@ -25,11 +25,13 @@ from types import SimpleNamespace
 import pytest
 
 from nonogram.admin.batch_generator import BatchStatus
-from nonogram.admin.puzzle_review import MockGenerator, PuzzleReviewService
+from nonogram.admin.puzzle_review import PuzzleReviewService
 from nonogram.clues import compute_clues
 from nonogram.errors import NotUniquelySolvable, SolverTimeout
 from nonogram.orchestrator import GENERATION_BUDGET_SECONDS
 from nonogram.solver import solve
+
+from tests.helpers.mock_generator import MockGenerator
 
 #: One filled cell per row and per column on a 2x2 — which BOTH diagonals
 #: satisfy. Exactly 2 of the 16 possible 2x2 grids are ambiguous and these are
@@ -1009,7 +1011,7 @@ class TestMockGenerator_ProducesPuzzlesAndNotJustGrids:
         are forced to report an ambiguous grid, and what is asserted is that
         the generator drew again instead of returning one of them.
         """
-        import nonogram.admin.puzzle_review as module
+        import tests.helpers.mock_generator as module
 
         real_solve = module.solve
         calls = []
@@ -1036,7 +1038,7 @@ class TestMockGenerator_ProducesPuzzlesAndNotJustGrids:
         Returning the last draw would be the whole failure this card exists to
         prevent, one layer up from the store.
         """
-        import nonogram.admin.puzzle_review as module
+        import tests.helpers.mock_generator as module
 
         real_solve = module.solve
         monkeypatch.setattr(
