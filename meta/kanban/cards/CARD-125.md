@@ -1,6 +1,6 @@
 # CARD-125: The pair-aware layout call — two puzzles, one shared cell in [7.0, 7.5] mm, or no pairing
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 22
 **Depends on:** CARD-114
 **Touches:** src/nonogram/export/layout.py, src/nonogram/export/__init__.py, tests/test_layout_two_up.py, tests/property/test_book_two_up.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 2/3)
+**Started:** 2026-09-22T17:35:05Z
+**Closed:** 2026-09-22T19:16:59Z
+**Actual:** 0.2d
+**Merge commit:** b106796
 **Blocked by:** —
 
 ## What to implement
@@ -141,6 +141,160 @@ _Layout-level halves of FR-040's criteria (the PDF-level tests are CARD-127):_
 - **Components:** COMP-007
 - **Trace:** meta/architecture/trace.yml
 
+## Failure matrix
+
+No failure-bearing boundaries: `compute_pair_layout` is a pure, total geometry
+function (no I/O, no clock, no concurrency, no retries, no shared state), so
+there is no dependency to time out, retry or degrade. The poison-input rows
+that do apply, with their declared behaviour:
+
+| Input | Behaviour |
+|---|---|
+| `page_spec` not a `PageSpec` | `TypeError` (same as `compute_layout`) |
+| `page_spec` without a parity (a drawing-sized spec, e.g. `DEFAULT_PAGE_SPEC`), or with the comfort-curve cap | `ValueError` — the default A4 spec never pairs; a spec with parity is portrait-only by `PageSpec`'s own invariant |
+| `first`/`second` not a `(row_clues, column_clues)` pair | `ValueError` |
+| a clue set pair with rows but no columns (or the reverse) | `ValueError`, the same rule and message shape as `compute_layout` |
+| valid inputs, largest fitting cell < 7.0 mm (height or width) | `None` — no pairing; never an exception |
+| valid inputs, the spec's usable height cannot hold even the two bands | `None` — no cell fits at all, so no pairing |
+| valid inputs, cell in [7.0, cap] | a `PairLayout` whose own `__post_init__` re-checks one shared cell, both slots placed, slots disjoint and each drawing inside its slot |
+
+Contract: `None` is a *verdict* about a valid pair (they do not fit two-up);
+an exception is a *caller bug* (wrong spec kind or malformed clues). CARD-127's
+walk treats `None` as "print alone" and never catches the exceptions.
+
 ## Worktree notes
 
 —
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+**Summary (2026-09-22).** `compute_pair_layout(first, second, page_spec) -> PairLayout | None`
+added to `export/layout.py` as one contiguous block appended after `compute_layout`
+(plus three `__all__` entries and `replace` added to the `dataclasses` import);
+`PairLayout` and `TWO_UP_MIN_CELL_MM` re-exported from `export/__init__.py`.
+`compute_layout` is byte-for-byte untouched (G-1/G-2; golden and CLI-identity tests green).
+Commit f9ace15 on card/125-pair-aware-layout. The ADR clarification was met as worded,
+with no blocker: the fixed top edge (upper drawing at top + band) and the combined-height
+rule are consistent, because (rows1 + rows2) × cell + 2 × band ≤ trim − top − bottom
+leaves the lower slot room above the bottom margin.
+Measured at layout level on Book 1 (odd and even give the same values):
+AC-242 7.5 mm (fit 8.44), AC-243 7.3859 mm, AC-244 7.1621 mm, AC-245 None (6.95),
+AC-246 None (6.57), AC-247 None (width: 193.675 / 28 = 6.917; height alone 9.09).
+- STRUCTURE: `PairLayout(upper: Layout, lower: Layout, cell_mm: float)`, a frozen value
+  object whose `__post_init__` refuses a pair unless both slots are placed pages at one
+  shared cell, on the same trim and parity, with cell ≥ 7.0, slots disjoint
+  (`upper.page.usable_bottom <= lower.page.usable_top`) and each `page.fits`. Why: the
+  caller never re-checks EC-028, and a hand-built invalid pair can't exist.
+- STRUCTURE: slot positions are expressed through each slot's own `PagePlacement`, and no
+  new placement type was added. Across, it is the page's usable width (each drawing is
+  centred on it, FR-032). Down, `usable_top` is where the slot's band starts and
+  `usable_bottom` is where the slot ends. Why: the renderers draw each slot exactly like
+  a single placed page, and `header_band(slot)` returns each slot's own 12 mm band
+  unchanged, so CARD-127 places neither bands nor lines itself (ADR-0036/R2).
+- STRUCTURE: the upper slot's band starts at the top margin, so its drawing sits on the
+  single page's fixed row (EC-022, AC-252). The lower drawing ends at the bottom margin,
+  so the spare height falls between the slots. Why: if the slots were stacked flush, the
+  lower band's text would sit midway between two drawings and read as belonging to either
+  one. With the spare between the slots, each band hugs its own puzzle. For the tight
+  pairs (7.39 / 7.16) the spare is about 0 anyway. [Owner eyeball: see the proofs.]
+- STRUCTURE: the pair is fitted with no second fitting implementation. The shared cell is
+  `_placed_cell_mm(max(across1, across2), down1 + down2, page_spec=replace(spec,
+  band_mm=2 × band))`: the single page's exact fit of one combined drawing on the same
+  spec with a second band reserved. Slots are built by `_slot_layout` from
+  `_gutter_depth`, `_boundaries`, `_rule_widths`, `_axis_lines` and
+  `_place_row_clues`/`_place_column_clues`. At the same cell, the upper slot's lines,
+  clues and strokes equal `compute_layout`'s (pinned by a test).
+- STRUCTURE: the 7.0 mm constant is `TWO_UP_MIN_CELL_MM = 7.0`. It is a module constant,
+  not a `PageSpec` field, because it is the owner's rule for every book and not a property
+  of a trim. It is compared exactly (as a Fraction).
+- STRUCTURE: the flat-cap / portrait-only validation is phrased as "a placed page (parity
+  set, which `PageSpec` already forces to be PORTRAIT_ONLY) with a flat cap". Any other
+  spec raises ValueError ("... never pairs"), and a non-PageSpec raises TypeError. The
+  default A4 spec raises. A portrait-only spec with no parity also raises, because a pair
+  has page positions and so needs a placed page.
+- STRUCTURE: `None` means valid inputs that don't fit two-up (cell < 7.0 mm, or the usable
+  height can't hold two bands). An exception means a caller bug. See the Failure matrix.
+- SCOPE: `tests/property/test_book_layout.py` was not edited. The ADR-0037/R2 two-up
+  cases are a sibling test,
+  `test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up`
+  in `tests/property/test_book_two_up.py`.
+- Tests: `tests/test_layout_two_up.py` (29 tests) and `tests/property/test_book_two_up.py`
+  (3 property tests: EC-028 over 3000 seeded pairs with ≥500 paired, ≥500 declined and
+  ≥100 at the cap; a swap-symmetry verdict test; the two-up strokes test). The full suite
+  (4086 collected) is green except the known deselect.
+- Proofs (not committed): `~/Documents/nonogram-reviews/CARD-125/`, with
+  `two-up_{10x10+10x10,12x12+12x12,15x15+10x10}_p{3-odd,4-even}_*.png` and all six pages
+  in `two-up_proofs.pdf`. They are drawn with `png._draw_grid`/`_draw_clues` per slot,
+  with the band text from `header_band(slot)`. The faint blue frame is the usable area, a
+  proof guide only. Script:
+  `/private/tmp/claude-501/.../scratchpad/card125_proofs.py`.
+- [Handover] CARD-127: call `layout.compute_pair_layout((rows_a, cols_a), (rows_b,
+  cols_b), book_spec_for_this_page_parity)`, with the earlier puzzle first. `None` means
+  print them on separate pages (use `compute_layout` for each). A `PairLayout` gives you
+  `.upper` / `.lower` as full-trim `Layout`s. Draw both onto one trim-sized page exactly
+  as a single placed page is drawn (grid and clues), and draw each band from
+  `header_band(slot)` ("Puzzle N · Tier"). The call does NOT decide: tier equality,
+  adjacency, the in-order walk (EC-027/INV-010), puzzle numbers, band text, the page's
+  parity (pass the spec for the page's actual parity), or any PDF composition. It never
+  reorders. The current `png.render_image` draws only one layout, so the two-slot page
+  composition is yours.
+- [Handover] CARD-133: added in `layout.py` `"TWO_UP_MIN_CELL_MM"`, `"PairLayout"`,
+  `"compute_pair_layout"` to `__all__`, `replace` to the `from dataclasses import` line,
+  and one block at the end of the file (after `compute_layout`) headed "# Two-up pages
+  (FR-040 ...)": `TWO_UP_MIN_CELL_MM`, `PairLayout`, `compute_pair_layout`,
+  `_pair_member`, `_slot_layout`. No existing line was reordered or reformatted. Put
+  the answer-tile block after it, or reuse `_slot_layout`'s pattern for placing a
+  Layout at a given cell and origin.
+- [Scope] src/nonogram/export/__init__.py, src/nonogram/export/layout.py, tests/property/test_book_two_up.py, tests/test_layout_two_up.py
+- [Build gate] impact underivable (python-pro without pytest-testmon) — full suite
+- [Build gate] PASSED (full, 146s) — 4059 passed, 26 skipped, 1 deselected (known pre-existing e2e TestFlow2BatchImageUpload::test_size_configuration_applied)
+- [Visual] not a UI card (no Design context, Skill python-pro); no Makefile run target — review static-only
+- [Scope gate] in_scope — 4/4 changed files within Touches; no guarded-glob hits (G-3 admin/db/migrations, G-4 a4_golden)
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0
+- [Review 1/3] Score: 9.0 ✓ threshold reached + no critical/important (Minor: F-001 _slot_layout duplicates compute_layout placed-branch assembly; F-002 lower slot anchored to bottom margin — unspecified by FR-040/ADR-0036, heavy bottom rule half-stroke into margin; OOS F-003)
+- [Review sync] 1 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0036/R1, ADR-0037/R2, CON-019)
+- [AC/EC check] Failed: EC(ADR-0037/R2) ⚠ partial — widths hold on both slots (102-case sibling test) but 'black' not observed for two-up slots and height-fit cells not checked against the 0.25 mm floor; AC-242..247, EC-028, EC(ADR-0036/R1), G-1..G-4 ✓ demonstrated
+- [Fix 1] FIXED F-EC037 (two-up stroke width at height-fit cells + black measured off rendered pixels), FIXED F-001 (upper slot == compute_layout at the shared cell); pre-gate: 3/3 named tests pass
+- [Fix 1] declarations: 0 updated, 1 confirmed (Failure matrix re-read against compute_pair_layout), 2 doc (card EC test pointer + Worktree notes tests inventory)
+- [Build gate] PASSED (full, 146s) — 4062 passed, 26 skipped, 1 deselected (post-fix)
+  cases are sibling tests in `tests/property/test_book_two_up.py`:
+  `..._StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up` (the cap sets the cell),
+  `..._two_up_fitted` (the height fit sets it: cells strictly below the cap, varied
+  shapes, margins, bands and both parities, ≥350 fitted and ≥100 at-cap cases) and
+  `..._two_up_pixels` (the "black" clause: both slots of 8 pairs drawn on a trim-sized
+  canvas with `png._draw_grid`/`_draw_clues` — `render_image`'s own body, which cannot be
+  called for a slot because it re-fits its layout from clues + spec — then probed for runs
+  of ink exactly as CARD-114's `..._pixels` probes a single page).
+  (6 property tests: EC-028 over 3000 seeded pairs with ≥500 paired, ≥500 declined and
+  ≥100 at the cap; a swap-symmetry verdict test; the three two-up strokes tests above;
+  and `PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell`, which holds
+  `_slot_layout`'s upper slot against `compute_layout(*first, spec with cap = the shared
+  cell)` — lines, clues, strokes and drawing edges — over ≥400 seeded pairs, exactly when
+  the cell is the cap and within one pixel when the height fit set it, since only then is
+  the re-fitted pitch a `float` round-trip of the pair's exact fraction). The full suite
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0 (confirmation mode; F-001 resolved & mutation-confirmed, F-EC037 resolved; F-002/F-003 carried non-gating; new Minor F-004 clue_font_size uncompared, F-005 pixel probe can index past canvas on a near-zero bottom margin)
+- [Review 2/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [Review sync] 2 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, CON-011, ADR-0037/R2 — the last re-derived at full depth with killed INK and heavy-factor mutants)
+- [8h spot-check] noted: the 0.25 mm thin floor is never the binding term at a >= 7.0 mm cell, so two-up cases cannot distinguish floor from ratio; CARD-114's 4.0 mm-cap case pins that mechanism
+- [Fix 2] FIXED F-004 (clue_font_size now compared upper-vs-single; mutant killed), FIXED F-005 (fitted-corpus bottom margin floored at 2.0 mm + canvas-bounds assertions); pre-gate: 2/2 named tests pass
+- [Fix 2] declarations: 0 updated, 0 confirmed, 2 doc (test docstrings re-derived from the code); src/ untouched
+- [Build gate] PASSED (full, 145s) — 4062 passed, 26 skipped, 1 deselected (post-minor-fix)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+- AC-242 ✓ demonstrated — TestPairLayout_TwoTenByTensShareAtStandardCell::test_the_shared_cell_is_the_standard_cell PASSED; cell_mm == 7.5 on both slots (8.44 page fit capped)
+- AC-243 ✓ demonstrated — TestPairLayout_TwelvePairAtSevenThirtyNine PASSED; == 236.35/32 (7.39 ±0.05)
+- AC-244 ✓ demonstrated — TestPairLayout_JustAboveTwoUpMinimum PASSED; == 236.35/33 (7.16), >= TWO_UP_MIN_CELL_MM
+- AC-245 ✓ demonstrated — TestPairLayout_JustBelowTwoUpMinimumIsNone PASSED; None on both parities (236.35/34 ≈ 6.95)
+- AC-246 ✓ demonstrated — TestPairLayout_FifteenPlusTwelveIsNone PASSED; None (236.35/36 ≈ 6.57)
+- AC-247 ✓ demonstrated — TestPairLayout_WidthFailureAtTwoUpMinimumIsNone PASSED; None in both orders on width (193.675/28 ≈ 6.92) with a passing control case
+- EC-028 ✓ demonstrated — PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea PASSED; 3000 seeded cases, in-test minimums paired>=500 / declined>=500 / at_cap>=100, independent mm oracle
+- EC(ADR-0036/R1) ✓ demonstrated — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden + a4_golden suite PASSED (130); tripwire files unmodified
+- EC(ADR-0037/R2) ✓ demonstrated — ..._two_up (102 cap-bound) + ..._two_up_fitted (600 cases, 444 below cap, both parities) + ..._two_up_pixels (16 slot probes, black asserted against literal (0,0,0)) + CARD-114's original PASSED. Stated limitation: at a cell >= 7.0 mm the 1/30 ratio already yields 3 px, so the 0.25 mm floor is never the binding term in two-up cases; its mechanism stays pinned by CARD-114's small-cap cases
+- G-1 ✓ demonstrated — golden + CLI/web byte-identity tests green; neither test file in the diff
+- G-2 ✓ demonstrated — compute_layout AST source sha256 identical between main and worktree (644fc010...); layout.py diff purely additive after it
+- G-3 ✓ demonstrated — changed non-meta files (4) grep clean against admin/, db/, migrations/
+- G-4 ✓ demonstrated — same set grep clean against tests/fixtures/a4_golden/
+- [Docs] src/nonogram/export has no README — its package docstring is the directory doc and the implementation updated it (PageSpec/PairLayout paragraph); tests/README.md is a wave-1 document that indexes neither layout nor property tests, so nothing there went stale. No README change needed.
+- [Commit] 5a8d0f6 test(export): property-test the two-up stroke gate on both slots (CARD-125) — 1 file, tests/property/test_book_two_up.py; parent f9ace15 (implementation). Nothing under meta/ committed.
+
+- [Done] rebased onto main 2dd96af (after CARD-115), full suite on the rebased tree: only the pre-existing e2e failure. Merged b106796 (--no-ff). Deferral scan: 0 hits. Handover notes pushed to CARD-127 and CARD-133; F-002 (bottom-anchored lower slot, unrecorded in FR-040/ADR-0036) queued to raw-requirements for the architect.

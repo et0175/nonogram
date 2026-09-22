@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-22
+- CARD-125 (feature): Export can lay out two small puzzles on one book page at a single shared cell of at least 7.0 mm (capped at 7.5 mm), each slot with its own title band and the page's mirrored margins; when no shared cell reaches 7.0 mm it reports no pairing, so the two puzzles print alone.
 - CARD-115 (feature): A book's PageSpec is built from its stored trim and margins, falling back to the Book 1 profile (migration 011 adds the KDP margin defaults: gutter 1.27 cm, outside/top/bottom 0.95 cm); the printed cell size for a puzzle on that book comes from the same call the PDF will make.
 - CARD-120 (feature): Each book stores its distribution plan (migration 010): new books get the default 150 puzzles at 40/40/20, and Print setup shows the 4 × 3 plan matrix, editable, re-derived when the split changes unless cells were edited by hand, with a warning when the two disagree.
 - CARD-114 (feature): Export layout takes an optional PageSpec (trim, mirrored margins by page parity, title band, portrait-only, flat 7.5 mm cap, 0.25 mm minimum strokes); without one it produces exactly today's A4 geometry, pinned by the CARD-113 goldens.

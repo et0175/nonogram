@@ -1,0 +1,228 @@
+version: 1
+generated_at: "2026-09-22T18:22:54Z"
+target: "card/125-pair-aware-layout vs main (commit f9ace15 + an uncommitted test-only delta: tests/property/test_book_two_up.py +271) — CARD-125 cycle 2 of 3, CONFIRMATION MODE"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/property/test_book_two_up.py (whole file, incl. the +271-line delta: _spec_fitting_cell, _assert_book_strokes, ..._two_up_fitted, ..._two_up_pixels, ..._UpperSlotIsTheSinglePageAtTheSharedCell)"
+    - "tests/test_layout_two_up.py (whole file, for overlap with the new drift test)"
+    - "src/nonogram/export/layout.py (compute_layout placed branch 1377-1469, _placed_cell_mm, _exact_mm/_exact_px/_round_px, _boundaries, _axis_lines, _rule_widths, _gutter_depth, compute_pair_layout, _pair_member, _slot_layout) — unchanged since cycle 1, re-read for the drift judgement"
+    - "src/nonogram/export/png.py:INK/BACKGROUND/_draw_grid/_draw_clues/render_image"
+    - "tests/property/test_book_layout.py::..._pixels (CARD-114, the technique the new pixels test mirrors)"
+    - "meta/review/20260922T175734Z-CARD-125-cycle1.yml"
+    - "meta/kanban/cards/CARD-125.md (live, incl. the EC(ADR-0037/R2) test pointer and the new Worktree notes)"
+  not_reached:
+    - "renderers composing a two-slot page (CARD-127, not yet written)"
+    - "ADR-0037 full text (rules taken from the injected SYSTEM CONTRACT)"
+    - "the rendered result was not verified: not a UI card, no screenshots; owner proofs at ~/Documents/nonogram-reviews/CARD-125/ were not opened this cycle"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 271, removed: 0 }
+  max_fan_in: { symbol: "layout.compute_pair_layout", callers: 0 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — compute_pair_layout/PairLayout have no runtime caller yet; only the export/__init__ re-export (6 name hits, 0 call sites). First consumer is CARD-127."
+    cochange_missing: "no_eligible_fact — layout.py has 3 commits in 12 months and the only co-change peer is itself; no signal to mine"
+    hotspots: "no_eligible_fact — 3 commits on layout.py, 0 fix/bug/hotfix commits; too little history to rank"
+
+system_contract:
+  rules_checked: 40
+  holds: 7
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the delta's only new third-party import is `from PIL import Image, ImageDraw` (test_book_two_up.py:415), Pillow, already in the baseline; no runtime dependency and no pyproject.toml change. Re-verified fresh (not carried): the delta adds an import, so its scope intersects this rule."
+    - "ADR-0019/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, src/nonogram/web/ not touched"
+    - "ADR-0022/R1 ✓ holds — the delta's new helper derives extent as len(rows)/len(columns) and clue depth separately (_spec_fitting_cell, test_book_two_up.py:149-150); `cell_mm` is a cell size, not a grid extent; no scalar grid \"size\" introduced"
+    - "ADR-0023/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, no export metadata format touched"
+    - "ADR-0024/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, orchestrator/recovery not touched"
+    - "ADR-0024/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, retry counter not touched"
+    - "ADR-0024/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, repair policy not touched"
+    - "ADR-0024/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, repair policy not touched"
+    - "ADR-0024/R5 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, repair policy not touched"
+    - "ADR-0027/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, density validation not touched"
+    - "ADR-0027/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, density validation not touched"
+    - "ADR-0029/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, difficulty scoring not touched"
+    - "ADR-0029/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, difficulty scoring not touched"
+    - "ADR-0029/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, difficulty scoring not touched"
+    - "ADR-0029/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, solver not touched"
+    - "ADR-0029/R5 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, solver not touched"
+    - "ADR-0033/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, book assembly not touched"
+    - "ADR-0035/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, book status transitions not touched"
+    - "ADR-0036/R1 ✓ holds — src/ is byte-unchanged since cycle 1 (git diff --name-only shows only tests/property/test_book_two_up.py + the card file); tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py + tests/test_cli.py + tests/property/test_book_layout.py re-run green on this head (167 passed)"
+    - "ADR-0036/R2 ⚠ unchecked — carried(cycle 1, delta-clean): the rule holds per cycle 1 (pair geometry lives in COMP-007 layout.py; src/nonogram/admin/** not in the diff); src/ unchanged since"
+    - "ADR-0037/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, band text is composed by CARD-127"
+    - "ADR-0037/R2 ✓ holds — re-verified fresh at full depth (the delta IS its evidence). thin >= 0.25 mm and heavy == 2 x thin on every line of both slots over 102 cap-bound cases, 600 height-fit cases (444 strictly below the cap, cells 7.0018..7.4982 mm, both parities 297/303) and 16 rendered slot probes; \"black\" measured off pixels against the literal (0,0,0), not png.INK — mutation png.INK=(1,1,1) KILLS ..._two_up_pixels (\"every rule is pure black\"). Cycle 1's AC/EC-gate finding F-EC037 is resolved."
+    - "CON-005 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, solver not touched"
+    - "CON-009 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, web server not touched"
+    - "CON-010 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, web server not touched"
+    - "CON-011 ✓ holds — the delta adds no size literal; its corpus still draws sides from limits.MIN_SIZE..MAX_SIZE via the pre-existing _puzzle helper (test_book_two_up.py:89). Re-verified fresh: the delta's helpers consume that corpus."
+    - "CON-012 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, aspect guard not touched"
+    - "CON-019 ✓ holds — PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry green on this head (part of the 167-passed run); the pair call stays unreachable without a parity PageSpec and src/ is unchanged"
+    - "INV-001 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, clue derivation not touched"
+    - "INV-002 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, export readiness gate not touched"
+    - "INV-003 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, retry loops not touched"
+    - "INV-005 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, book plan not touched"
+    - "INV-006 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, book membership/floor not touched"
+    - "INV-007 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, ready gate not touched"
+    - "INV-008 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, published-book membership not touched"
+    - "INV-009 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, book order not touched"
+    - "INV-010 ⚠ unchecked — check_ref_missing: its named checks (PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_*) still do not exist in tests/ (grep -rl, 0 hits); they belong to CARD-127. Re-verified fresh (the delta bears on the layout half): the shared cell in [7.0, 7.5], None below 7.0, the earlier puzzle upper and no reordering inside the call are verified by tests/test_layout_two_up.py and tests/property/test_book_two_up.py, and the delta strengthens the stroke half. Tier equality and adjacency remain out of this card's scope."
+    - "INV-011 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, answer key not touched"
+    - "INV-012 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, book membership not touched"
+    - "INV-013 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, interior PDF composition not touched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 1686
+    title: "_slot_layout re-states compute_layout's placed-page assembly; drift guarded by one example"
+    description: |
+      RESOLVED at cycle 2. test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell
+      (test_book_two_up.py:472-546) holds pair.upper against
+      compute_layout(*first, replace(spec, cell_cap=pair.cell_mm)) over a seeded
+      corpus. Measured on this head: 554 compared cases (assert >= 400), 391 in
+      the at-cap regime compared with tolerance 0 (assert >= 100) and 163 in the
+      height-fit regime (assert >= 100). Verified live, not taken on the fix
+      agent's word: an in-memory mutant that drops _slot_layout's centring
+      (left = usable_left_px instead of usable_left_px + max(spare,0)/2) is
+      KILLED by this test.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted test delta on card/125-pair-aware-layout"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/export/layout.py
+    line: 1631
+    title: "Lower slot is anchored to the bottom margin; not fixed by FR-040/ADR-0036, and its heavy bottom rule always straddles the margin"
+    description: |
+      STILL PRESENT (unchanged). A model/escalation question for the architect
+      station, not addressable by a test-only delta; src/ is byte-unchanged
+      since cycle 1. Re-derived: _slot_layout's lower slot still sets
+      lower_band_top = page_bottom - lower_down * pitch - band, so
+      lower.page.drawing_bottom == usable_bottom on every two-up page and
+      png._draw_grid centres the heavy bottom rule on it (about 3 px into the
+      bottom margin). Non-gating.
+    suggestion: |
+      Have the architect station record the bottom-anchored choice in FR-040 (or
+      the ADR-0036 clarification) so CARD-127's PDF criteria pin it.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 1622
+    title: "Two-band height doubled in float before exact conversion"
+    description: |
+      STILL PRESENT (unchanged, informational). src/ is byte-unchanged since
+      cycle 1; two_bands_mm = 2 * page_spec.band_mm is still converted with
+      _exact_mm(repr) for the fit while placement uses 2 x _exact_px(band).
+      Not gating; a real band is 12.0 mm.
+    suggestion: |
+      Leave it unless PageSpec ever accepts a Fraction band.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_two_up.py
+    line: 537
+    title: "The new drift test compares every placed-page field but clue_font_size — the one F-001 named that is still unpinned"
+    description: |
+      test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell
+      compares grid_lines (index/major/width/position/start/end), clue_entries
+      (value/center_x/center_y), thin_rule, thick_rule, drawing_left and
+      drawing_top. It does not compare clue_font_size, and no other test does
+      either for a slot (tests/test_layout_two_up.py:211 compares
+      width/height/margin but not the font size; the a4_golden fixture pins it
+      only on the default drawing-sized path). Cycle 1's F-001 named "clue font
+      ratio" as one of the three drift risks; centring and the margin field are
+      now covered, the font size is not.
+      Mutation-verified, not asserted: an in-memory mutant changing
+      _slot_layout's clue_font_size to max(1, round(pitch * 0.5)) SURVIVES the
+      whole two-up suite (all 6 property tests and tests/test_layout_two_up.py
+      pass under it). A future change to _CLUE_FONT_RATIO or to how
+      compute_layout sizes clue glyphs would silently leave the two-up slots
+      behind, and clue digits are drawn from that number (png._clue_font).
+    suggestion: |
+      Add `assert pair.upper.clue_font_size == single.clue_font_size` (exact in
+      both regimes — it is a function of pitch only) to the same comparison
+      block, beside the thin_rule/thick_rule assertion at line 537.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_book_two_up.py
+    line: 445
+    title: "The pixel probe can index past the canvas when _spec_fitting_cell draws a near-zero bottom margin"
+    description: |
+      The lower slot's grid_bottom is by construction the bottom margin line
+      (_slot_layout: lower_band_top = page_bottom - lower_down * pitch - band),
+      so page.getpixel is called up to grid_bottom + thick_rule - 1, which
+      exceeds the canvas whenever bottom_mm is smaller than the heavy rule
+      (about 0.5 mm). _spec_fitting_cell draws bottom from
+      round(rng.uniform(0.0, 20.0), 3) (line 151), so roughly 2.5% of draws land
+      there. Verified on this head: with bottom_mm forced to 0.0 the same probe
+      loop raises `IndexError: image index out of range` instead of asserting
+      anything; on the shipped seed (370125) the tightest of the 8 cases clears
+      the canvas edge by 11 px (bottom_mm = 1.423).
+      Deterministic, so not flaky today, and it fails loudly rather than passing
+      silently — but adding a case, reordering the `wanted` tuple, or reseeding
+      turns a property test into a crash whose message says nothing about the
+      property.
+    suggestion: |
+      Either clamp the probe (`for y in range(max(0, slot.grid_top -
+      slot.thick_rule), min(page.height, slot.grid_bottom + slot.thick_rule))`),
+      or give _spec_fitting_cell a bottom margin floor (e.g.
+      rng.uniform(2.0, 20.0)) so the last heavy rule always has canvas under it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

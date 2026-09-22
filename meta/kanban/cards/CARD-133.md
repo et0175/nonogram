@@ -153,3 +153,5 @@ of FR-040.
 ## Worktree notes
 
 —
+
+- [Handover from CARD-125, 2026-09-22] The two-up code is one contiguous block at the end of src/nonogram/export/layout.py plus 3 __all__ entries — append the answer-tile code after it to keep the diff clean.

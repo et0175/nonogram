@@ -147,3 +147,5 @@
 ## Worktree notes
 
 —
+
+- [Handover from CARD-125, 2026-09-22] Call compute_pair_layout(earlier, later, spec for THAT page's parity). None = print each alone with compute_layout; otherwise draw .upper/.lower and call header_band(slot) for each. It does NOT decide pairing (tier, adjacency, the walk), puzzle numbers, band text or PDF composition. A slot's usable_bottom is where the NEXT band starts, not the page margin. Open: the lower slot is anchored to the bottom margin, so spare height falls BETWEEN the puzzles (F-002, queued to the architect) — settle before pinning PDF geometry.

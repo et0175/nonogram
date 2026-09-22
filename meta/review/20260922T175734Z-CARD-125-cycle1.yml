@@ -1,0 +1,174 @@
+version: 1
+generated_at: "2026-09-22T17:57:34Z"
+target: "card/125-pair-aware-layout vs main (git diff main...HEAD, commit f9ace15) — CARD-125 cycle 1 of 3"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/layout.py (PageSpec, PagePlacement, header_band, _placed_cell_mm, _rule_widths, _boundaries, _axis_lines, clue placers, compute_layout, whole new block)"
+    - "src/nonogram/export/__init__.py (diff)"
+    - "src/nonogram/export/png.py:_draw_grid (stroke centring)"
+    - "tests/test_layout_two_up.py"
+    - "tests/property/test_book_two_up.py"
+    - "ADR-0036 (incl. Two-up pages clarification), FR-040 statement/_meta/AC-242..252, EC-028"
+    - "meta/kanban/cards/CARD-125.md Worktree notes, CARD-133.md header"
+    - "owner proof two-up_10x10+10x10_p3-odd_7.50mm.png"
+  not_reached:
+    - "renderers composing a two-slot page (CARD-127, not yet written)"
+    - "ADR-0037 full text (rules taken from injected SYSTEM CONTRACT)"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 934, removed: 1 }
+  max_fan_in: { symbol: "layout.compute_pair_layout", callers: 0 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — compute_pair_layout/PairLayout are new; first consumer is CARD-127 (not yet written)"
+    cochange_missing: "no_eligible_fact — layout.py has 3 commits in history (repo history restored/squashed), no co-change signal to mine"
+    hotspots: "no_eligible_fact — 3 commits on layout.py, 0 fix commits; too little history to rank"
+
+system_contract:
+  rules_checked: 40
+  holds: 7
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff imports only stdlib (dataclasses.replace) and nonogram.*; tests/test_export_pdf.py TestDependencyBaseline_IsExactlyPillowAndNumpy untouched; pyproject.toml not in diff"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not touched (test_every_import_in_the_package_points_inward green on this head)"
+    - "ADR-0022/R1 ✓ holds — compute_pair_layout takes clue sets; extent derived as len(rows)/len(columns) separately (layout.py _slot_layout, compute_pair_layout); no scalar size introduced"
+    - "ADR-0023/R1 ⚠ unchecked — no_eligible_fact: no export metadata format touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: orchestrator/recovery not touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter not touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair policy not touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair policy not touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy not touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver not touched (import guard green on this head)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly not touched; compute_pair_layout reads clues only"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status transitions not touched"
+    - "ADR-0036/R1 ✓ holds — git diff main...HEAD -- layout.py removes exactly 1 line (the dataclasses import, widened); compute_layout body byte-unchanged; tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py + tests/test_layout_page_spec.py green on f9ace15 (178 passed incl. test_book_layout.py)"
+    - "ADR-0036/R2 ✓ holds — pair geometry (cell fit, slot placement, lines, clues) computed in COMP-007 layout.py:compute_pair_layout/_slot_layout; src/nonogram/admin/** not in diff"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: band text is composed by the caller (CARD-127); this card measures band geometry only"
+    - "ADR-0037/R2 ✓ holds — both slots use _rule_widths(pitch, page_spec); tests/property/test_book_two_up.py::test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up (102 cases, cap 7.00..7.50, both parities) green"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server not touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server not touched"
+    - "CON-011 ✓ holds — no size limit changed; property corpus draws sides from limits.MIN_SIZE..MAX_SIZE (tests/property/test_book_two_up.py:41,71), no literal 10/30"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not touched"
+    - "CON-019 ✓ holds — the pair call is additive and reachable only with a parity PageSpec (DEFAULT_PAGE_SPEC raises ValueError, test_layout_two_up.py::TestPairLayout_RefusesSpecsThatNeverPair); PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry green on f9ace15"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue derivation not touched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness gate not touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry loops not touched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan not touched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership/floor not touched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate not touched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book membership not touched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order not touched"
+    - "INV-010 ⚠ unchecked — check_ref_missing: its named checks are the TestBookPdf_* / PropertyTest_BookPairing_* tests owned by CARD-127 (not yet written); the layout half (shared cell in [7.0, 7.5], None below 7.0, earlier puzzle upper, never reorders inside the call) is verified by test_layout_two_up.py and test_book_two_up.py; tier/adjacency are out of this card's scope"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key not touched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership not touched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF composition not touched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 1686
+    title: "_slot_layout re-states compute_layout's placed-page assembly; drift guarded by one example"
+    description: |
+      Cell fitting is not duplicated (compute_pair_layout calls _placed_cell_mm with a
+      combined drawing and a doubled band, which satisfies objective 3). But _slot_layout
+      (layout.py:1686-1762) copies the placed-page branch of compute_layout
+      (layout.py:1393-1469): usable-width centring, the max(spare, 0)/2 rule, _boundaries,
+      gutter slicing, _rule_widths, clue font size and the full Layout/PagePlacement build.
+      A later change to the single placed page (clue font ratio, centring, margin field)
+      must be made in both places. The only cross-check is
+      TestPairLayout_UpperSlotSharesSinglePageTopRow::test_at_the_same_cell_the_upper_slot_is_the_single_page,
+      a single 10x10 at the cap.
+    suggestion: |
+      Add a seeded property: for paired corpora where the cap binds (or with a spec whose
+      cell_cap equals the pair's cell), assert pair.upper's grid_lines, clue_entries,
+      strokes and drawing_left equal compute_layout(*first, spec_with_that_cap). Optionally,
+      in a later card, route compute_layout's placed branch through _slot_layout (G-2
+      permits a behaviour-preserving refactor; the golden test only covers the default path,
+      so the page-spec tests would be the guard).
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/export/layout.py
+    line: 1631
+    title: "Lower slot is anchored to the bottom margin; not fixed by FR-040/ADR-0036, and its heavy bottom rule always straddles the margin"
+    description: |
+      FR-040 and the ADR-0036 "Two-up pages" clarification fix only the shared cell,
+      "each under its own band" and the earlier puzzle in the upper slot. The card adds that
+      the upper drawing's top edge is at top + band and that the lower slot sits "below its
+      own band". Neither text says where the lower slot sits vertically. Bottom-anchoring
+      (lower_band_top = page_bottom - lower_down*pitch - band) is a valid reading. It keeps
+      each band against its own drawing and puts the spare height between the puzzles, and
+      the owner proof (10x10+10x10, 26.35 mm spare) reads well. The alternative reading,
+      flush under the upper drawing with the spare at the bottom, is equally compliant, so
+      CARD-127's PDF tests could assume either. A side effect is that the lower drawing's
+      bottom boundary always equals usable_bottom, and png._draw_grid strokes lines centred
+      on their position. So the 6 px heavy bottom rule extends about 3 px (0.25 mm) into the
+      bottom margin on every two-up page. On a single page that only happens when the height
+      term binds. PagePlacement.fits ignores stroke width, as before.
+    suggestion: |
+      Have the architect station record the bottom-anchored choice in FR-040 (or the
+      ADR-0036 clarification) so CARD-127's PDF criteria pin it. Keep the stroke
+      half-width intrusion as an accepted, pre-existing convention, or inset
+      lower_band_top by half a heavy rule if the owner wants strokes strictly inside the
+      margin.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 1622
+    title: "Two-band height doubled in float before exact conversion"
+    description: |
+      two_bands_mm = 2 * page_spec.band_mm is converted with _exact_mm(repr) for the fit,
+      while placement uses 2 x _exact_px(band). For about 6% of arbitrary-precision band
+      floats, Fraction(repr(2*b)) != 2*Fraction(repr(b)) (sampled). A 2586-case fuzz of such
+      bands produced 0 exceptions or bad pairs, and a real band is 12.0 mm. Not gating.
+    suggestion: |
+      Pass the band exactly (for example, derive the fit's two-band spec from
+      2 * _exact_mm(band)) if PageSpec ever accepts a Fraction band. Otherwise leave it.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
