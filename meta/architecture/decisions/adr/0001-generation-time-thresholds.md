@@ -10,7 +10,7 @@
 
 ## Context
 
-NFR-001 requires random puzzle generation to feel interactive for common grid sizes, and NFR-002 already bounds the regenerate/resample retry loop's iteration count — but neither NFR pins down the actual wall-clock numbers a generation run must meet. docs/requirements.md's NFR-1 only says generation should complete in "a few seconds" for typical sizes, and NFR-2/AC-038 (the 50x50 case) only says the largest supported size must complete "within the configured timeout bound or fail clearly with a timeout error — it never hangs indefinitely," without stating what that bound is.
+NFR-001 requires random puzzle generation to feel interactive for common grid sizes, and NFR-002 already bounds the regenerate/resample retry loop's iteration count — but neither NFR pins down the actual wall-clock numbers a generation run must meet. The intake requirements document — not in this repository, formalized here as NFR-001 — only said generation should complete in "a few seconds" for typical sizes, and NFR-2/AC-038 (the 50x50 case) only says the largest supported size must complete "within the configured timeout bound or fail clearly with a timeout error — it never hangs indefinitely," without stating what that bound is.
 
 This leaves two numbers open: (a) the p95 generation-time cap for grids up to 20x20, the size range NFR-001's "typical hardware" condition and AC-037 target, and (b) the hard timeout bound for larger grids (up to the 50x50 maximum size AC-038 exercises), where the regenerate loop's own retry cap (NFR-002) does not guarantee an overall time bound because a single unlucky solve can itself run long.
 
@@ -26,7 +26,7 @@ We reaffirm the original numbers unchanged: a 5-second p95 generation-time cap f
 
 ### 10s_cap_60s_timeout
 
-(Original alternative, unchanged from this ADR's first version.) Doubles both numbers: a 10s p95 cap for grids up to 20x20 and a 60s hard timeout for larger sizes. Rejected because it gives up the direct match to docs/requirements.md's "a few seconds" phrasing in exchange for headroom not shown to be necessary at the time, and — now that it has been profiled — headroom that would not even close the 20x20/30-40% gap (that gap is unbounded within a single 30s attempt, not a near-miss a few extra seconds would fix).
+(Original alternative, unchanged from this ADR's first version.) Doubles both numbers: a 10s p95 cap for grids up to 20x20 and a 60s hard timeout for larger sizes. Rejected because it gives up the direct match to the intake document's "a few seconds" phrasing in exchange for headroom not shown to be necessary at the time, and — now that it has been profiled — headroom that would not even close the 20x20/30-40% gap (that gap is unbounded within a single 30s attempt, not a near-miss a few extra seconds would fix).
 
 ### scope_by_density (DEC-019)
 
@@ -34,7 +34,7 @@ Redefine NFR-001/AC-037 to apply only at density >=50%, where the target is alre
 
 ### raise_cap_uniformly (DEC-019)
 
-Keep NFR-001/AC-037 density-agnostic but raise the numeric p95 cap toward AC-038's 30s hard bound, so the current solver already satisfies it everywhere. Rejected: this defeats NFR-001's actual purpose (the reason 5s was chosen was to match docs/requirements.md's "a few seconds," i.e. to keep the CLI feeling interactive) rather than genuinely meeting it, and would make AC-037 and AC-038 nearly redundant as acceptance criteria.
+Keep NFR-001/AC-037 density-agnostic but raise the numeric p95 cap toward AC-038's 30s hard bound, so the current solver already satisfies it everywhere. Rejected: this defeats NFR-001's actual purpose (the reason 5s was chosen was to match the intake document's "a few seconds," i.e. to keep the CLI feeling interactive) rather than genuinely meeting it, and would make AC-037 and AC-038 nearly redundant as acceptance criteria.
 
 ## Consequences
 
@@ -62,5 +62,5 @@ Keep NFR-001/AC-037 density-agnostic but raise the numeric p95 cap toward AC-038
 
 ## History
 
-- 2026-08-27: Created — fixed the 5s p95 cap for grids <=20x20 and the 30s hard timeout for larger sizes, matching docs/requirements.md's "a few seconds" language over the more conservative 10s/60s alternative.
+- 2026-08-27: Created — fixed the 5s p95 cap for grids <=20x20 and the 30s hard timeout for larger sizes, matching the intake document's "a few seconds" language over the more conservative 10s/60s alternative.
 - 2026-08-28: Revised — resolves DEC-019. Previous decision: 5s_cap_30s_timeout (numbers unchanged by this revision). Reason: CARD-006's benchmark empirically confirmed the anticipated need to revisit this ADR — the 5s/20x20 cap is unbounded (not merely missed) at 30-40% density. Reaffirmed the original numbers rather than narrowing scope (`scope_by_density`) or raising the cap (`raise_cap_uniformly`), because CARD-004 already established the solver's propagation is sound and the gap is specifically in search strength — a tractable, scoped engineering task. The shortfall is tracked via an `xfail`-marked benchmark test and a follow-up card, not by redefining the requirement.

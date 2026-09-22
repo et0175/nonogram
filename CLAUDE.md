@@ -37,7 +37,7 @@ There is no lint/format/type-check tooling configured yet (no ruff/mypy in `pypr
 
 ## Architecture
 
-This is a CLI tool that generates uniquely-solvable black-and-white nonogram puzzles. The full spec lives in `docs/requirements.md`; the formal architecture (ADRs, domain model, requirements with acceptance criteria, C4 diagrams) lives under `meta/architecture/`, and delivery is tracked as kanban cards under `meta/kanban/cards/` — a card's `## Worktree notes` section is often the best source of *why* a piece of code looks the way it does.
+This is a CLI tool that generates uniquely-solvable black-and-white nonogram puzzles. The spec is `meta/architecture/requirements.yml` — the FR/NFR registry with acceptance criteria, each naming the test that verifies it — and `docs/GENERATION_ALGORITHM.md` describes the generation pipeline as the code actually implements it. The rest of the formal architecture (ADRs, domain model, C4 diagrams) lives under `meta/architecture/`, and delivery is tracked as kanban cards under `meta/kanban/cards/` — a card's `## Worktree notes` section is often the best source of *why* a piece of code looks the way it does.
 
 **Layered pipeline, one bounded context (CTX-001), one dependency direction.** Package layout (`src/nonogram/__init__.py` docstring is the canonical map):
 

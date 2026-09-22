@@ -1,54 +1,54 @@
 # Requirements Documentation Framework
 
 **Purpose**: Central index for all requirements, user stories, and test cases  
-**Last Updated**: 2026-09-08  
-**Status**: Reorganization in progress
+**Last Updated**: 2026-09-22  
+**Status**: Reorganization abandoned — this framework was never populated
+
+> **Status (2026-09-22, CARD-071): this is not the project's requirements
+> system.** The live registry is
+> [`meta/architecture/requirements.yml`](../../meta/architecture/requirements.yml)
+> — FR/NFR/CON entries, each with acceptance criteria that name the test
+> verifying them — with traceability in
+> [`meta/architecture/trace.yml`](../../meta/architecture/trace.yml) and the
+> generation pipeline described as implemented in
+> [`docs/GENERATION_ALGORITHM.md`](../GENERATION_ALGORITHM.md). The `REQ-xxx` /
+> `AS-xxx` / `GS-xxx` / `TC-xxx` scheme below belongs to a 2026-09-08 plan for
+> a parallel framework that was never built: of the ~20 files its tree listed,
+> three existed. The tree now shows what is actually on disk; the conventions,
+> checklists and metrics further down are kept as the plan they were, not
+> deleted, and describe nothing that ships.
 
 ## 📋 Document Organization
+
+What is actually here (verified 2026-09-22):
 
 ```
 REQUIREMENTS/
 ├─ README.md (this file)
-├─ FEATURES/
-│  ├─ ADMIN_CONSOLE_FEATURES.md        (functional requirements)
-│  └─ NONOGRAM_GENERATION_FEATURES.md  (algorithm requirements)
+├─ REQUIREMENTS_OVERVIEW.md            (2026-09-08 overview; parts stale — see its banner)
+├─ SUMMARY.md                          (2026-09-08 summary of the same)
+├─ ADMIN_CONSOLE_REQUIREMENTS.md       (admin panel REQ-x.y.z, partly stale)
+├─ NONOGRAM_GENERATION_REQUIREMENTS.md (superseded for algorithm questions)
+├─ DIFFICULTY_ENGINE.md                (superseded — the shipped formula is ADR-0013's)
 ├─ USER_STORIES/
-│  ├─ ADMIN_PANEL_STORIES.md           (AS-001 through AS-020)
-│  └─ GENERATION_STORIES.md            (GS-001 through GS-015)
-├─ ACCEPTANCE_CRITERIA/
-│  ├─ ADMIN_PANEL_AC.md                (AC-101 through AC-199)
-│  └─ GENERATION_AC.md                 (AC-201 through AC-299)
+│  └─ ADMIN_PANEL_STORIES.md           (AS-001 onwards)
 ├─ TEST_CASES/
-│  ├─ ADMIN_PANEL_TC.md                (TC-101 through TC-199)
-│  └─ GENERATION_TC.md                 (TC-201 through TC-299)
-├─ TRACEABILITY/
-│  ├─ REQUIREMENTS_MATRIX.md           (REQ → User Story → Test Case)
-│  └─ COVERAGE_REPORT.md               (Coverage analysis)
-├─ NON_FUNCTIONAL/
-│  ├─ PERFORMANCE_REQUIREMENTS.md
-│  ├─ SECURITY_REQUIREMENTS.md
-│  ├─ ACCESSIBILITY_REQUIREMENTS.md
-│  └─ SCALABILITY_REQUIREMENTS.md
-└─ FINDINGS/
-   ├─ AUDIT_REPORT.md                  (Gap analysis)
-   ├─ INCONSISTENCIES.md               (Issues found)
-   └─ RECOMMENDATIONS.md               (How to fix)
-
-TESTING/
-├─ README.md
-├─ TEST_PLANS/
-│  ├─ ADMIN_PANEL_TEST_PLAN.md
-│  ├─ GENERATION_TEST_PLAN.md
-│  └─ INTEGRATION_TEST_PLAN.md
-├─ TEST_REPORTS/
-│  ├─ E2E_TEST_REPORT.md
-│  ├─ UNIT_TEST_REPORT.md
-│  └─ PERFORMANCE_TEST_REPORT.md
-└─ TEST_EVIDENCE/
-   ├─ SCREENSHOTS.md
-   ├─ TEST_LOGS.md
-   └─ METRICS.md
+│  └─ ADMIN_PANEL_TC.md                (TC-101 onwards)
+└─ TRACEABILITY/
+   └─ TRACEABILITY_MATRIX.md           (REQ → story → test case, for the above)
 ```
+
+The live equivalents of the directories this tree used to promise:
+
+| Planned here | What actually holds it |
+|---|---|
+| `FEATURES/` | `meta/architecture/requirements.yml` (FR/NFR/CON) |
+| `ACCEPTANCE_CRITERIA/` | the `acceptance:` block on each entry in that file |
+| `TEST_CASES/` | the suite under `tests/`, named by each AC's `test:` field |
+| `TRACEABILITY/COVERAGE_REPORT.md` | `meta/architecture/trace.yml` + the forge validator |
+| `NON_FUNCTIONAL/` | the `NFR-*` entries in `requirements.yml` |
+| `FINDINGS/` | `meta/review/*.yml` (per-card review cycles) |
+| `TESTING/` | `tests/`, plus each card's `## Worktree notes` |
 
 ## 📑 Key Documents
 

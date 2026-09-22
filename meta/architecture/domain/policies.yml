@@ -38,10 +38,16 @@ policies:
     when: "EVT-006 + mode == image + nudge_count >= max_nudge_cap"
     then: CMD-008
     rationale: >-
-      FR-016 (Decisions Log #4 in docs/requirements.md): once the bounded
-      nudge attempts are exhausted, the tool must stop altering the user's
-      image silently and report failure instead, letting the user retry
-      with a different image or size.
+      FR-013 in meta/architecture/requirements.yml: once the bounded nudge
+      attempts are exhausted, the tool must stop altering the user's image
+      silently and report failure instead, letting the user retry with a
+      different image or size.
+      (Cited here as "FR-016, Decisions Log #4" until 2026-09-22, against the
+      numbering of the intake requirements document — which is not in this
+      repository. FR-016 in the live registry is the two-page PDF export,
+      so the citation resolved to an unrelated requirement. CARD-071 repointed
+      it at FR-013, which is the one that bounds the nudge and reports at the
+      cap — see AC-035/AC-036.)
   - id: POL-004
     # NOTE 2026-09-12: the "score outside requested tier's threshold range"
     # condition is amended twice without changing the reaction. NFR-007/

@@ -4,7 +4,7 @@
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
 **Revised:** 2026-09-01
-**Migration:** rewrite (DISCHARGED 2026-09-01 by CARD-032, merge 5bd126a)
+**Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
 
@@ -131,7 +131,10 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
   reopening the baseline. Rejected alternatives recorded above: mangling or
   rejecting the name, and taking a font through a pip dependency. Migration is
   `rewrite` rather than `on-touch` because no FR obliges this work — without an
-  audit-proposed card the tofu simply persists.
+  audit-proposed card the tofu simply persists. **The rewrite was discharged
+  the same day, 2026-09-01, by CARD-032 (merge `5bd126a`)**; that note lived in
+  the `**Migration:**` header field until CARD-071 moved it here, the field
+  taking only `rewrite | on-touch | grandfather | —`.
 
 - 2026-09-11 — Packaging fix (CARD-057), not a decision revision: R1's
   statement is unchanged and was correct throughout. `pyproject.toml`'s core

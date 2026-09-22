@@ -4,6 +4,15 @@ One line per requirement. Formalized into `requirements.yml` by
 `forge:architect-domain-extraction`; processed lines get a
 `# processed: YYYY-MM-DD → FR/NFR/CON-XXX` marker — never edit them by hand.
 
+**About the `Source:` paths below (CARD-071, 2026-09-22).** The 2026-08-27
+entries cite an intake requirements document under `docs/` with its own FR/NFR
+numbering. That document is **not in this repository** and, as far as `main`'s
+history shows, never was — and its numbering is not this registry's either
+(its FR-16, for one, is FR-013 here). The lines are left exactly as written,
+because they are the intake record and the rule above forbids editing them:
+read them as provenance, not as a path to open. The live registry is
+`../requirements.yml`.
+
 # processed: 2026-08-27 → FR-001
 - Generate a random black/white grid, configurable size 10x10 to 50x50 (FR). Source: docs/requirements.md FR-1, 2026-08-27.
 # processed: 2026-08-27 → FR-002

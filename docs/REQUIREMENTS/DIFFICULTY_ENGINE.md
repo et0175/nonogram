@@ -1,5 +1,29 @@
 # Strategy-Based Difficulty Engine
 
+> **Status (2026-09-22, CARD-071): superseded — this is not the engine that
+> ships.** The shipped one is `src/nonogram/difficulty.py`, specified by
+> **ADR-0029** (the strategy *ladder*) with band edges from **ADR-0005**: a
+> puzzle's grade is the hardest of three rungs its one verifying solve needed —
+> `simple_overlap` < `line_dp` < `probe_contradiction` — and the 0..100 number
+> is a presentation of `(rung, share of the grid that rung settled)`, not a
+> weighted sum. Tiers are **Easy 0–33, Medium 33–66, Hard 66–100**, not the
+> 0–29 / 30–69 / 70–100 of the table below. See
+> [`docs/GENERATION_ALGORITHM.md`](../GENERATION_ALGORITHM.md) §7 and that
+> module's docstring, which explains why the bands are not idealised thirds.
+>
+> The six-strategy taxonomy and the 0–40 / 0–30 / 0–30 weighting below were
+> never built into the generator. The code that implements them,
+> `src/nonogram/analysis/strategy_counter.py`, is still in the tree and still
+> orphaned — its only importers are its own test file and
+> `src/nonogram/generation/random_generator.py`, itself unreachable from the
+> CLI, the web UI and the admin panel. What becomes of both packages is
+> **CARD-053**, which is where that decision belongs; this banner does not
+> pre-empt it. (Its sibling `analysis/quality_metric.py` is *not* orphaned —
+> CARD-050 wired it into image-mode quality scoring.)
+>
+> Kept rather than deleted, and a rescoring decision is open: nothing here has
+> been shown wrong, only unbuilt.
+
 **Purpose:** Estimate puzzle difficulty based on solving strategies required  
 **Status:** MVP Implementation Complete  
 **Version:** 1.0 (POC)

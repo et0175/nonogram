@@ -6,6 +6,19 @@ pytest-idiomatic function names:
     AC-020  TestSelectDifficulty_AcceptsValidTier  -> test_accepts_valid_tier*
     AC-021  TestSelectDifficulty_RejectsUnknownTier -> test_rejects_unknown_tier*
 
+CARD-098's four (the Guess tier retired) — same convention, added by CARD-071
+because the labels were cited in the registry without ever being written down
+beside the functions, which reads to the validator as a dead link:
+
+    ADR-0031/R1  TestTiers_ThreeBandsAndNoFourthTier
+                 -> test_tiers_three_bands_and_no_fourth_tier
+    AC-174 (FR-026), ADR-0031/R2  TestTiers_BranchingIsAStrategyNotATier
+                 -> test_tiers_branching_is_a_strategy_not_a_tier
+    ADR-0031/R3  TestTiers_LegacyGuessRowReadsAsHard
+                 -> test_tiers_legacy_guess_row_reads_as_hard
+    CARD-098 AC-4  TestTiers_GuessIsNoLongerARequestableTier
+                 -> test_tiers_guess_is_no_longer_a_requestable_tier
+
 Two halves, matching the two things "a tier" has to be.
 
 *The bands* (``nonogram.difficulty``): ADR-0005 splits the 0..100 scale into
