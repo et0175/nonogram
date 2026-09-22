@@ -117,6 +117,13 @@ class Book(Base):
     puzzle_titles = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)  # {puzzle_id: "custom title"}
     book_metadata = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)  # Stores: size, cover_image_url, pdf_url, kdp_asin
     status = Column(String, default='draft')  # 'draft', 'ready_for_pdf', 'pdf_generated', 'ready_for_kdp', 'published'
+    # CARD-120 (FR-034, ADR-0034): the book's distribution plan — count, split,
+    # the 4 x 3 per-bucket matrix and the hand-edited cells, as one JSON
+    # document (see BookManager for its shape). NULL for a book created before
+    # migration 010: no backfill, a plan-less book stays readable and editable
+    # (ADR-0035 refuses it at the gate, CARD-124). Mutation-tracked for the
+    # reason CARD-101 gives above.
+    distribution_plan = Column(MutableDict.as_mutable(JSON), nullable=True)
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
     trim_height_cm = Column(String, nullable=True, default='27.94')

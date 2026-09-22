@@ -9,7 +9,7 @@
 <div class="page-head">
     <div>
         <h1>Print setup</h1>
-        <p class="lede">Step 1 of 4 for <strong>{{ book.metadata.title }}</strong>: the trim size every page will be laid out for.</p>
+        <p class="lede">Step 1 of 4 for <strong>{{ book.metadata.title }}</strong>: the trim size every page will be laid out for, and the book's distribution plan.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
@@ -19,7 +19,7 @@
 <div class="row">
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header"><h2 class="card-title mb-0">Trim size</h2></div>
+            <div class="card-header"><h2 class="card-title mb-0">Trim size and plan</h2></div>
             <div class="card-body">
                 <form method="POST">
                     <div class="mb-4">
@@ -70,6 +70,80 @@
                             <li>Maximum height 48 cm (18.90 in) — Amazon KDP limit</li>
                         </ul>
                     </div>
+
+                    <h3 class="h5 mt-4" id="plan-heading">Distribution plan</h3>
+                    <p class="small text-muted">How many puzzles the book holds, the easy/medium/hard split, and how each tier spreads over the four longest-side buckets.{% if not plan_stored %} This book has no stored plan yet: the default is shown and is stored when you continue.{% endif %}</p>
+
+                    {% if plan_error %}
+                    <div class="alert alert-danger" role="alert" id="plan-error">
+                        <strong>Plan not saved:</strong> {{ plan_error }}. The stored plan was not changed.
+                    </div>
+                    {% endif %}
+
+                    {% if plan_disagrees %}
+                    <div class="alert alert-warning" role="status" id="plan-warning">
+                        <strong>The per-bucket plan disagrees with the general split.</strong>
+                        Hand-edited cells give column totals of
+                        <span class="num">{{ plan_column_totals|join(' / ') }}</span> (easy / medium / hard),
+                        but {{ plan.count }} puzzles at
+                        <span class="num">{{ plan.split.easy }}/{{ plan.split.medium }}/{{ plan.split.hard }}</span>
+                        plan <span class="num">{{ plan_tier_counts|join(' / ') }}</span>.
+                    </div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label for="plan_count" class="form-label">Puzzles</label>
+                            <input type="number" class="form-control num" id="plan_count" name="plan_count"
+                                   value="{{ plan_count_value }}" min="1" step="1" required>
+                        </div>
+                        {% for tier in plan_tiers %}
+                        <div class="col-md-3">
+                            <label for="split_{{ tier.value }}" class="form-label">{{ tier.value|capitalize }} share</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control num{% if plan_error %} is-invalid{% endif %}"
+                                       id="split_{{ tier.value }}" name="split_{{ tier.value }}"
+                                       value="{{ plan_split_values[tier.value] }}" min="0" max="100" step="1" required
+                                       {% if plan_error %}aria-describedby="plan-error"{% endif %}>
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="small text-muted">The three shares must add up to exactly 100%.</p>
+
+                    <table class="table table-sm mb-2">
+                        <caption class="small text-muted" id="plan-matrix-note">Puzzles per longest-side bucket and tier. A value you change is kept as hand-edited when the split changes; the others follow the split.</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Longest side</th>
+                                {% for tier in plan_tiers %}<th scope="col" class="text-end">{{ tier.value|capitalize }}</th>{% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b, bucket, cells in plan_rows %}
+                            <tr>
+                                <th scope="row" class="num">{{ bucket.label }}</th>
+                                {% for tier, value, edited in cells %}
+                                <td>
+                                    <label for="cell_{{ b }}_{{ tier.value }}" class="visually-hidden">Longest side {{ bucket.label }}, {{ tier.value }}{% if edited %} (hand-edited){% endif %}</label>
+                                    <input type="number" class="form-control form-control-sm num text-end"
+                                           id="cell_{{ b }}_{{ tier.value }}" name="cell_{{ b }}_{{ tier.value }}"
+                                           value="{{ value }}" min="0" step="1" required
+                                           {% if edited %}data-edited="true"{% endif %}>
+                                    {% if edited %}<small class="text-muted" aria-hidden="true">edited</small>{% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Planned</th>
+                                {% for n in plan_tier_counts %}<td class="num text-end">{{ n }}</td>{% endfor %}
+                            </tr>
+                        </tfoot>
+                    </table>
 
                     <div class="actions">
                         <button type="submit" class="btn btn-primary">Continue to puzzle selection {{ icons.icon('arrow-right') }}</button>

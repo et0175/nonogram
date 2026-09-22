@@ -50,7 +50,14 @@ from .puzzle_review import (
     PuzzleStatus,
     STRATEGY_NAMES,
 )
-from .book_manager import get_book_manager, BookStatus
+from .book_manager import get_book_manager, BookStatus, revise_plan
+from .book_plan import (
+    BUCKETS as PLAN_BUCKETS,
+    DEFAULT_PLAN,
+    TIERS as PLAN_TIERS,
+    InvalidPlan,
+    Split as PlanSplit,
+)
 from .image_manager import (
     CANNOT_FIT,
     MOVED_TO_LARGE,
@@ -1936,13 +1943,87 @@ def create_app(debug=None):
 
         return render_template("book_create.html")
 
+    def _plan_from_form(form, current):
+        """The plan a Print setup submission asks for (CARD-120).
+
+        HTTP concerns only: read the count, the split and the 12 matrix cells
+        as whole numbers and hand them to the domain. The split-sums-to-100
+        refusal is ``Split``'s own (INV-005); which cells are hand-edited is
+        ``book_manager.revise_plan``'s (POL-007).
+
+        Raises:
+            InvalidPlan: a value is not a whole number, or the domain refuses it.
+        """
+        def whole(name, label):
+            raw = (form.get(name) or "").strip()
+            try:
+                return int(raw)
+            except ValueError:
+                raise InvalidPlan(f"{label} must be a whole number, got {raw!r}") from None
+
+        count = whole("plan_count", "The puzzle count")
+        shares = [whole(f"split_{tier.value}", f"The {tier.value} share") for tier in PLAN_TIERS]
+        split = PlanSplit(*shares)
+        cells = tuple(
+            tuple(
+                whole(f"cell_{b}_{tier.value}", f"The {bucket.label} x {tier.value} cell")
+                for tier in PLAN_TIERS
+            )
+            for b, bucket in enumerate(PLAN_BUCKETS)
+        )
+        return revise_plan(current, count, split, cells)
+
+    def _plan_context(book_id, submitted=None):
+        """What the plan half of Print setup shows (CARD-120).
+
+        The stored plan, or — for a plan-less book created before migration
+        010 (G-3) — the default plan, marked as not yet stored. ``submitted``
+        carries a refused submission's raw count and split back into the
+        fields so the owner can correct them; the matrix always shows what is
+        stored.
+        """
+        stored = book_mgr.get_plan(book_id)
+        plan = stored if stored is not None else DEFAULT_PLAN
+        split_values = {tier.value: plan.split.percent(tier) for tier in PLAN_TIERS}
+        count_value = plan.count
+        if submitted is not None:
+            count_value = submitted.get("plan_count", count_value)
+            split_values = {
+                tier.value: submitted.get(f"split_{tier.value}", split_values[tier.value])
+                for tier in PLAN_TIERS
+            }
+        return {
+            "plan": plan,
+            "plan_stored": stored is not None,
+            "plan_count_value": count_value,
+            "plan_split_values": split_values,
+            "plan_tiers": PLAN_TIERS,
+            "plan_rows": [
+                (b, bucket, [(tier, plan.cell(bucket, tier), (bucket, tier) in plan.edited) for tier in PLAN_TIERS])
+                for b, bucket in enumerate(PLAN_BUCKETS)
+            ],
+            "plan_column_totals": [sum(plan.cell(bucket, tier) for bucket in PLAN_BUCKETS) for tier in PLAN_TIERS],
+            "plan_tier_counts": plan.tier_counts,
+            "plan_disagrees": plan.disagrees_with_split,
+        }
+
     @app.route("/book/<book_id>/setup-print", methods=["GET", "POST"])
     def setup_print(book_id):
-        """Configure print specifications for a book (Step 1 of scaffolding)."""
+        """Configure print specifications for a book (Step 1 of scaffolding).
+
+        CARD-120: also the book's distribution plan — count, split and the
+        4 x 3 per-bucket matrix. A submission the plan refuses (a split not
+        summing to 100, a non-whole value) is rejected as a whole and leaves
+        the stored plan unchanged (AC-197). A form without the plan fields
+        saves the trim size only, as before.
+        """
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
+
+        plan_error = None
+        submitted = None
 
         if request.method == "POST":
             try:
@@ -1952,6 +2033,16 @@ def create_app(debug=None):
                 height_input = request.form.get("height")
 
                 session["unit_preference"] = unit  # Persist unit preference in session
+
+                # The plan is checked before anything is stored, so a refused
+                # plan stores nothing — neither the plan nor the trim (AC-197).
+                new_plan = None
+                if "split_easy" in request.form:
+                    try:
+                        new_plan = _plan_from_form(request.form, book_mgr.get_plan(book_id))
+                    except InvalidPlan as e:
+                        plan_error = str(e)
+                        submitted = request.form
 
                 # Convert to cm if input was in inches
                 if unit == "inches":
@@ -1969,7 +2060,9 @@ def create_app(debug=None):
 
                 if error:
                     flash(f"Error: {error}", "error")
-                else:
+                elif plan_error is None:
+                    if new_plan is not None:
+                        book_mgr.save_plan(book_id, new_plan)
                     # Store in book metadata (for now, using the in-memory manager)
                     # In production, this would update the Book row in the database
                     book.metadata.size = f"{spec.trim_width_cm}×{spec.trim_height_cm} cm"
@@ -1997,6 +2090,8 @@ def create_app(debug=None):
             "default_width": default_width,
             "default_height": default_height,
             "unit_preference": unit_preference,
+            "plan_error": plan_error,
+            **_plan_context(book_id, submitted),
         }
 
         return render_template("book_setup_print.html", **context)

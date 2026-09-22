@@ -12,6 +12,19 @@ import json
 import logging
 import uuid as uuid_module
 
+from nonogram.admin.book_plan import (
+    BUCKETS,
+    DEFAULT_PLAN,
+    TIERS,
+    DistributionPlan,
+    InvalidPlan,
+    LongestSideBucket,
+    Split,
+    prefill,
+    with_split,
+)
+from nonogram.difficulty import Tier
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,6 +114,11 @@ class BookManager:
         self.puzzle_store = puzzle_store
         # In-memory book storage (used only in legacy mode when session_factory is None)
         self.books: Dict[str, Book] = {}
+        # In-memory plans, keyed by book id (CARD-120). Kept beside the books
+        # rather than on the Book dataclass so that saving a plan has nothing
+        # of the selection within reach (G-2), exactly as in DB mode where
+        # save_plan writes one column.
+        self._plans: Dict[str, DistributionPlan] = {}
         self._next_id = 1
 
     def create_book(
@@ -154,6 +172,8 @@ class BookManager:
 
             book = Book(book_id=book_id, metadata=metadata)
             self.books[book_id] = book
+            # ADR-0034: every new book starts on the default plan.
+            self._plans[book_id] = DEFAULT_PLAN
 
             return book_id
         else:
@@ -177,6 +197,8 @@ class BookManager:
                     puzzle_titles={},
                     book_metadata=metadata,
                     status=BookStatus.DRAFT.value,
+                    # ADR-0034: every new book starts on the default plan.
+                    distribution_plan=plan_to_json(DEFAULT_PLAN),
                 )
                 db.add(book)
                 db.flush()  # get the auto-generated UUID
@@ -240,6 +262,62 @@ class BookManager:
                 if book_row:
                     return self._row_to_book(book_row)
                 return None
+
+    def get_plan(self, book_id: str) -> Optional[DistributionPlan]:
+        """The book's stored distribution plan (FR-034), read back from storage.
+
+        ``None`` for a book that has no plan — one created before migration 010
+        and never set up since (no backfill, G-3) — and for an unknown book.
+        """
+        if self._session_factory is None:
+            return self._plans.get(book_id)
+
+        from nonogram.db.models import Book as DBBook
+
+        with self._session_factory() as db:
+            book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+            if book_row is None or book_row.distribution_plan is None:
+                return None
+            return plan_from_json(book_row.distribution_plan)
+
+    def save_plan(self, book_id: str, plan: DistributionPlan) -> bool:
+        """Store ``plan`` as the book's distribution plan (FR-034, FR-035).
+
+        ``plan`` must be a :class:`DistributionPlan`: the aggregate has already
+        refused a split that does not sum to 100 and any negative or fractional
+        cell (INV-005), so nothing reaches storage that it would not accept.
+
+        Writes the plan and nothing else — never the selection, its order or
+        its custom titles (G-2, FR-038). Does not touch the status either: the
+        gate is CARD-124's.
+
+        Returns:
+            True if stored, False if the book does not exist.
+
+        Raises:
+            InvalidPlan: ``plan`` is not a DistributionPlan.
+        """
+        if not isinstance(plan, DistributionPlan):
+            raise InvalidPlan(f"a book's plan must be a DistributionPlan, got {type(plan).__name__}")
+
+        if self._session_factory is None:
+            book = self.books.get(book_id)
+            if not book:
+                return False
+            self._plans[book_id] = plan
+            book.updated_at = datetime.utcnow()
+            return True
+
+        from nonogram.db.models import Book as DBBook
+
+        with self._session_factory() as db:
+            book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+            if not book_row:
+                return False
+            book_row.distribution_plan = plan_to_json(plan)
+            book_row.updated_at = datetime.utcnow()
+            db.commit()
+            return True
 
     def add_puzzles_to_book(
         self, book_id: str, puzzle_ids: List[str]
@@ -707,6 +785,7 @@ class BookManager:
             # about what deleting a book means.
             self._mirror_onto_puzzles(list(book.puzzle_ids or []), None)
             del self.books[book_id]
+            self._plans.pop(book_id, None)
             return True
         else:
             # DB mode: delete Book row
@@ -926,6 +1005,87 @@ class BookManager:
             if puzzle_id in (book.puzzle_ids or []):
                 return book.book_id
         return None
+
+
+# --------------------------------------------------------------------------
+# The stored shape of a distribution plan (CARD-120)
+# --------------------------------------------------------------------------
+#
+#     {"count": 150,
+#      "split": {"easy": 40, "medium": 40, "hard": 20},
+#      "cells": [[e, m, h], ...4 rows, one per bucket in BUCKETS order],
+#      "edited": [["<=15", "easy"], ...]}
+#
+# Buckets and tiers are stored by their labels/values, not by position in
+# BUCKETS/TIERS, so reordering either tuple can never silently move an edited
+# mark to a different cell. Decoding goes back through DistributionPlan, so a
+# stored document the aggregate would not accept is refused on the way out too.
+
+
+def plan_to_json(plan: DistributionPlan) -> dict:
+    """The JSON document ``books.distribution_plan`` holds for ``plan``."""
+    return {
+        "count": plan.count,
+        "split": {"easy": plan.split.easy, "medium": plan.split.medium, "hard": plan.split.hard},
+        "cells": [list(row) for row in plan.cells],
+        "edited": sorted([bucket.value, tier.value] for bucket, tier in plan.edited),
+    }
+
+
+def plan_from_json(document: Dict[str, Any]) -> DistributionPlan:
+    """The :class:`DistributionPlan` a stored document describes.
+
+    Raises:
+        InvalidPlan: the document is not a plan INV-005 allows.
+    """
+    try:
+        split = document["split"]
+        return DistributionPlan(
+            count=document["count"],
+            split=Split(split["easy"], split["medium"], split["hard"]),
+            cells=tuple(tuple(row) for row in document["cells"]),
+            edited=frozenset(
+                (LongestSideBucket(bucket), Tier(tier)) for bucket, tier in document.get("edited", [])
+            ),
+        )
+    except InvalidPlan:
+        raise
+    except (KeyError, TypeError, ValueError) as error:
+        raise InvalidPlan(f"stored distribution plan is malformed: {error}") from error
+
+
+def revise_plan(
+    current: Optional[DistributionPlan],
+    count: int,
+    split: Split,
+    submitted_cells,
+) -> DistributionPlan:
+    """The plan a Print setup submission asks for (FR-034, POL-007).
+
+    ``current`` is the stored plan (``None`` for a plan-less book, which the
+    form shows as :data:`DEFAULT_PLAN`). ``submitted_cells`` is the 4 x 3
+    matrix as the owner submitted it.
+
+    A cell whose submitted value differs from the prefill of the plan the page
+    showed is hand-edited and keeps its value; every other cell is re-derived
+    from ``count`` and ``split`` — so a changed split re-derives an un-edited
+    matrix, and a cell typed back to its prefill value stops being edited.
+
+    Raises:
+        InvalidPlan: ``count`` or a submitted cell is not one INV-005 allows.
+    """
+    shown = current if current is not None else DEFAULT_PLAN
+    reference = prefill(shown.count, shown.split)
+    typed = DistributionPlan(count=count, split=shown.split, cells=submitted_cells)
+    edited = frozenset(
+        (bucket, tier)
+        for bucket in BUCKETS
+        for tier in TIERS
+        if typed.cell(bucket, tier) != reference.cell(bucket, tier)
+    )
+    return with_split(
+        DistributionPlan(count=count, split=shown.split, cells=typed.cells, edited=edited), split
+    )
 
 
 # Global book manager instance (legacy in-memory mode)
