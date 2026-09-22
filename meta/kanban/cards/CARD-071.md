@@ -19,7 +19,7 @@
 **Started:** 2026-09-22
 **Closed:** 2026-09-22
 **Actual:** 0.4d
-**Merge commit:** —
+**Merge commit:** 19eca81
 **Blocked by:** —
 
 ## Re-cut 2026-09-22 — item 1 is already done, and AC-1 can no longer be met as written
