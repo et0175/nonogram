@@ -97,7 +97,14 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from nonogram.export.layout import DPI, HeaderBand, Layout, compute_layout, header_band
+from nonogram.export.layout import (
+    DPI,
+    HeaderBand,
+    Layout,
+    PageSpec,
+    compute_layout,
+    header_band,
+)
 from nonogram.export.png import BACKGROUND, INK, render_image
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
@@ -248,16 +255,28 @@ def _reveal(image: Image.Image, layout: Layout, grid: list[list[bool]]) -> Image
     only the cells the layout actually measured are drawn: a payload whose grid
     disagrees with its clue sets marks the page it can and never paints outside
     the drawing.
+
+    Each cell runs from its own grid line to the next one, read off the
+    layout's lines rather than recomputed as ``origin + index * cell``. On
+    the default spec those are the same numbers. On a placed book page
+    (ADR-0036) the pitch is fractional and the lines are where the cells
+    actually are.
     """
+    xs = [line.position for line in layout.vertical_lines]
+    ys = [line.position for line in layout.horizontal_lines]
     draw = ImageDraw.Draw(image)
     for row_index, row in enumerate(grid[: layout.rows]):
-        top = layout.grid_top + row_index * layout.cell
         for column_index, filled in enumerate(row[: layout.columns]):
             if not filled:
                 continue
-            left = layout.grid_left + column_index * layout.cell
             draw.rectangle(
-                (left, top, left + layout.cell, top + layout.cell), fill=INK
+                (
+                    xs[column_index],
+                    ys[row_index],
+                    xs[column_index + 1],
+                    ys[row_index + 1],
+                ),
+                fill=INK,
             )
     return image
 
@@ -392,7 +411,9 @@ def _titled(
     return page
 
 
-def render_pages(payload: ExportPayload) -> tuple[Image.Image, Image.Image]:
+def render_pages(
+    payload: ExportPayload, page_spec: PageSpec | None = None
+) -> tuple[Image.Image, Image.Image]:
     """Draw ``payload``'s two pages and return them, puzzle first.
 
     The in-memory form of the PDF export, exposed for the same reason CARD-012
@@ -402,6 +423,11 @@ def render_pages(payload: ExportPayload) -> tuple[Image.Image, Image.Image]:
     Args:
         payload: The finalized puzzle. That it *is* finalized was settled by
             COMP-002's INV-002 gate before this call (guardrail G-4).
+        page_spec: The sheet (ADR-0036). ``None`` (every CLI and web export)
+            gives today's pages byte for byte: the drawing with the band laid
+            above it. A book spec with a parity gives two trim-sized pages with
+            the drawing placed by the layout, and the header set inside the
+            spec's band rather than on a taller canvas.
 
     Returns:
         ``(puzzle_page, answer_page)`` — the blank grid with its clues, and the
@@ -409,16 +435,27 @@ def render_pages(payload: ExportPayload) -> tuple[Image.Image, Image.Image]:
         :func:`header_text`, and both are the same size, so the two sheets
         print alike.
     """
-    layout = compute_layout(payload.row_clues, payload.column_clues)
-    blank = render_image(payload)
+    layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
+    blank = render_image(payload, page_spec=page_spec)
     answer = _reveal(blank.copy(), layout, payload.grid)
 
     parts = header_parts(payload)
     if not parts:
         return blank, answer
 
-    band = header_band(layout)
-    return _titled(blank, band, parts), _titled(answer, band, parts)
+    band = header_band(layout, page_spec)
+    placement = layout.page
+    if placement is None:
+        return _titled(blank, band, parts), _titled(answer, band, parts)
+
+    # A placed page is the trim and cannot grow: the band is already reserved
+    # on it, between the top margin and the drawing. A spec with no band has
+    # nowhere to set a header, so it gets none.
+    if band.height > 0:
+        room = placement.usable_right - placement.usable_left
+        for page in (blank, answer):
+            _draw_header(ImageDraw.Draw(page), band, parts, room)
+    return blank, answer
 
 
 def write_pdf(payload: ExportPayload, path: Path) -> Path:
