@@ -28,7 +28,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-112** P3 · Draw the admin panel and its database into the C4 diagrams — CARD-110's AC-3, unblocked by CON-017 · the admin is a second container (its own Procfile process on Render), COMP-010's only inbound edge is COMP-009, and admin → clues/solver is direct by ADR-0032/R1 rather than routed through the orchestrator · **COMP-008 has never been drawn either** — the card asks whether to fix that in the same pass
 
 ## In Progress
 _(none)_
@@ -37,6 +36,7 @@ _(none)_
 _(none)_
 
 ## Done
+- **CARD-112** P3 · The C4 diagrams show the system that ships — COMP-008 drawn for the first time, COMP-009/010 added, containers go from one to three · every arrow backed by a cited call or import; one label corrected before commit (book PDFs stream, never touch disk) · two arrows absent on purpose and explained in the diagram · not rendered — PlantUML unavailable — but a mutation-tested structural check passes · closes the CARD-110 → 111 → 112 thread · merged without a review cycle, at the owner's call · merged e6d93f0
 - **CARD-111** P1 · CON-017 supersedes CON-003 — "no persistence, ever" had been contradicted by six tables, ten migrations and a deployment, while still serving as the premise for three C4 diagrams and two decisions collapsed rather than taken · split by surface (the pipeline is still stateless, the admin panel is the one exception) following ADR-0030, with the vision's Non-goals amended in the same change · the dead `users` tables are stated, not quietly narrowed away · both collapsed decisions annotated, neither reopened · unblocks CARD-110's AC-3 · merged without a review cycle, at the owner's call · merged ccedcc8
 - **CARD-110** P2 · `admin/` and `db/` get component ids — COMP-009 and COMP-010 now own 38% of the package that no component did, so rows about admin behaviour stop naming COMP-008 (the web UI) · three rows repointed, though not the three the card named · **AC-3 deliberately not done**: both C4 diagrams assert the tool has no database, and CON-003 still says "no persistence beyond local file export, ever" while the admin ships Postgres — CON-001→CON-007 is the precedent for fixing it, and it is the owner's call · merged without a review cycle, at the owner's call · merged 353d83a
 - **CARD-056** P3 · ADR-0032, and the two consumers that disagreed with it — the admin's storage path had no recorded guarantee, so `quality_score`'s `None` was answered three different ways · R1 writes down CARD-080's uniqueness guard; R2 defines the metric and fixes the `TypeError` two live routes could reach plus the book printing `Quality: None/100` · deployed Postgres behaviour unchanged — the in-memory path now agrees with it · printed wording chosen by the owner on a rendered page · 7 of 8 tests red first, 4 mutants all caught · merged without a review cycle, at the owner's call · merged 4158e4b

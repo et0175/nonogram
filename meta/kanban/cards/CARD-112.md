@@ -18,7 +18,7 @@
 **Started:** 2026-09-22
 **Closed:** 2026-09-22
 **Actual:** 0.4d
-**Merge commit:** —
+**Merge commit:** e6d93f0
 **Blocked by:** —
 
 ## Why
