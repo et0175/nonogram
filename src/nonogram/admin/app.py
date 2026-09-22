@@ -50,7 +50,14 @@ from .puzzle_review import (
     PuzzleStatus,
     STRATEGY_NAMES,
 )
-from .book_manager import get_book_manager, BookStatus
+from .book_manager import get_book_manager, BookStatus, revise_plan
+from .book_plan import (
+    BUCKETS as PLAN_BUCKETS,
+    DEFAULT_PLAN,
+    TIERS as PLAN_TIERS,
+    InvalidPlan,
+    Split as PlanSplit,
+)
 from .image_manager import (
     CANNOT_FIT,
     MOVED_TO_LARGE,
@@ -1936,13 +1943,157 @@ def create_app(debug=None):
 
         return render_template("book_create.html")
 
+    class _PlanFormError(InvalidPlan):
+        """A refused Print setup plan, naming the form field(s) that caused it.
+
+        ``fields`` holds the input names the page marks invalid (CARD-120
+        review F-003) — only the failing ones, never all of them.
+        """
+
+        def __init__(self, message, fields):
+            super().__init__(message)
+            self.fields = frozenset(fields)
+
+    _SPLIT_FIELDS = tuple(f"split_{tier.value}" for tier in PLAN_TIERS)
+
+    def _plan_from_form(form, current):
+        """The plan a Print setup submission asks for (CARD-120).
+
+        HTTP concerns only: read the count, the split and the 12 matrix cells
+        as whole numbers and hand them to the domain. The split-sums-to-100
+        refusal is ``Split``'s own (INV-005); which cells are hand-edited is
+        ``book_manager.revise_plan``'s (POL-007).
+
+        Raises:
+            _PlanFormError: a value is not a whole number, or the domain
+                refuses it; ``fields`` names the offending input(s).
+        """
+        def whole(name, label):
+            raw = (form.get(name) or "").strip()
+            try:
+                return int(raw)
+            except ValueError:
+                raise _PlanFormError(f"{label} must be a whole number, got {raw!r}", {name}) from None
+
+        count = whole("plan_count", "The puzzle count")
+        shares = [whole(name, f"The {tier.value} share") for name, tier in zip(_SPLIT_FIELDS, PLAN_TIERS)]
+        cell_names = [[f"cell_{b}_{tier.value}" for tier in PLAN_TIERS] for b in range(len(PLAN_BUCKETS))]
+        cells = tuple(
+            tuple(
+                whole(cell_names[b][t], f"The {bucket.label} x {tier.value} cell")
+                for t, tier in enumerate(PLAN_TIERS)
+            )
+            for b, bucket in enumerate(PLAN_BUCKETS)
+        )
+        try:
+            split = PlanSplit(*shares)
+        except InvalidPlan as e:
+            raise _PlanFormError(str(e), _SPLIT_FIELDS) from None
+        try:
+            return revise_plan(current, count, split, cells)
+        except InvalidPlan as e:
+            # The aggregate refused the count or a cell: name whichever it was.
+            if count < 1:
+                fields = {"plan_count"}
+            else:
+                fields = {
+                    cell_names[b][t]
+                    for b, row in enumerate(cells)
+                    for t, value in enumerate(row)
+                    if value < 0
+                }
+            raise _PlanFormError(str(e), fields) from None
+
+    def _readable_plan(book_id):
+        """``(stored plan or None, damaged)`` for ``book_id`` (CARD-120).
+
+        A stored document the aggregate refuses to decode (``InvalidPlan``)
+        is logged and treated as no plan, flagged ``damaged``: Print setup is
+        the one screen that can repair it, so it must not fail on it (review
+        F-004). The page then shows — and a submission is revised from —
+        ``DEFAULT_PLAN``, and saving overwrites the damaged document.
+        """
+        try:
+            return book_mgr.get_plan(book_id), False
+        except InvalidPlan as e:
+            app.logger.error("Stored distribution plan of book %s is unreadable: %s", book_id, e)
+            return None, True
+
+    def _plan_context(book_id, submitted=None, error_fields=frozenset()):
+        """What the plan half of Print setup shows (CARD-120).
+
+        The stored plan, or — for a plan-less book created before migration
+        010 (G-3), or one whose stored plan cannot be read (``plan_damaged``)
+        — the default plan, marked as not yet stored. ``submitted`` is a
+        submission that was not saved (plan refused, or trim refused): its raw
+        count, split and all 12 cells are carried back into the fields so the
+        owner's input is not lost (F-003); the edited marks stay the stored
+        plan's, since nothing was stored. ``error_fields`` names the inputs
+        to mark invalid.
+        """
+        stored, damaged = _readable_plan(book_id)
+        plan = stored if stored is not None else DEFAULT_PLAN
+        split_values = {tier.value: plan.split.percent(tier) for tier in PLAN_TIERS}
+        count_value = plan.count
+
+        def cell_value(b, bucket, tier):
+            value = plan.cell(bucket, tier)
+            if submitted is not None:
+                return submitted.get(f"cell_{b}_{tier.value}", value)
+            return value
+
+        if submitted is not None:
+            count_value = submitted.get("plan_count", count_value)
+            split_values = {
+                tier.value: submitted.get(f"split_{tier.value}", split_values[tier.value])
+                for tier in PLAN_TIERS
+            }
+        return {
+            "plan": plan,
+            "plan_stored": stored is not None,
+            "plan_damaged": damaged,
+            "plan_error_fields": frozenset(error_fields),
+            "plan_count_value": count_value,
+            "plan_split_values": split_values,
+            "plan_tiers": PLAN_TIERS,
+            "plan_rows": [
+                (
+                    b,
+                    bucket,
+                    [
+                        (tier, cell_value(b, bucket, tier), (bucket, tier) in plan.edited)
+                        for tier in PLAN_TIERS
+                    ],
+                )
+                for b, bucket in enumerate(PLAN_BUCKETS)
+            ],
+            "plan_column_totals": [sum(plan.cell(bucket, tier) for bucket in PLAN_BUCKETS) for tier in PLAN_TIERS],
+            "plan_tier_counts": plan.tier_counts,
+            "plan_disagrees": plan.disagrees_with_split,
+        }
+
     @app.route("/book/<book_id>/setup-print", methods=["GET", "POST"])
     def setup_print(book_id):
-        """Configure print specifications for a book (Step 1 of scaffolding)."""
+        """Configure print specifications for a book (Step 1 of scaffolding).
+
+        CARD-120: also the book's distribution plan — count, split and the
+        4 x 3 per-bucket matrix. A submission the plan refuses (a split not
+        summing to 100, a non-whole value) is rejected as a whole and leaves
+        the stored plan unchanged (AC-197); the page re-renders with everything
+        the owner submitted and only the failing field(s) marked invalid. A
+        trim refusal likewise stores nothing and carries the input back. A
+        saved plan that disagrees with its split is reported with a warning
+        flash on the way on (AC-203/FR-034), not only on reopening. A form
+        without the plan fields saves the trim size only, as before.
+        """
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
+
+        plan_error = None
+        plan_error_fields = frozenset()
+        submitted = None
 
         if request.method == "POST":
             try:
@@ -1952,6 +2103,19 @@ def create_app(debug=None):
                 height_input = request.form.get("height")
 
                 session["unit_preference"] = unit  # Persist unit preference in session
+
+                # The plan is checked before anything is stored, so a refused
+                # plan stores nothing — neither the plan nor the trim (AC-197).
+                new_plan = None
+                if "split_easy" in request.form:
+                    # Revised from the plan the page showed: the stored one,
+                    # or DEFAULT_PLAN for a plan-less or unreadable one (F-004).
+                    current, _ = _readable_plan(book_id)
+                    try:
+                        new_plan = _plan_from_form(request.form, current)
+                    except _PlanFormError as e:
+                        plan_error = str(e)
+                        plan_error_fields = e.fields
 
                 # Convert to cm if input was in inches
                 if unit == "inches":
@@ -1969,7 +2133,23 @@ def create_app(debug=None):
 
                 if error:
                     flash(f"Error: {error}", "error")
-                else:
+                elif plan_error is None:
+                    if new_plan is not None:
+                        book_mgr.save_plan(book_id, new_plan)
+                        if new_plan.disagrees_with_split:
+                            # FR-034: warn at the moment the choice is made,
+                            # not only when Print setup is reopened (F-002).
+                            columns = " / ".join(
+                                str(sum(new_plan.cell(bucket, tier) for bucket in PLAN_BUCKETS))
+                                for tier in PLAN_TIERS
+                            )
+                            planned = " / ".join(str(n) for n in new_plan.tier_counts)
+                            flash(
+                                "The per-bucket plan disagrees with the general split: hand-edited"
+                                f" cells give {columns} (easy / medium / hard), the split plans"
+                                f" {planned}. The plan was saved as entered.",
+                                "warning",
+                            )
                     # Store in book metadata (for now, using the in-memory manager)
                     # In production, this would update the Book row in the database
                     book.metadata.size = f"{spec.trim_width_cm}×{spec.trim_height_cm} cm"
@@ -1982,6 +2162,10 @@ def create_app(debug=None):
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")
 
+            # Reaching here, nothing was stored (a success redirects above):
+            # carry the whole submission back so no input is lost (F-003).
+            submitted = request.form
+
         # Prepare default trim size
         default_width = PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM
         default_height = PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM
@@ -1992,11 +2176,17 @@ def create_app(debug=None):
             default_width = PrintSpecValidator.cm_to_inches(default_width)
             default_height = PrintSpecValidator.cm_to_inches(default_height)
 
+        if submitted is not None:
+            default_width = submitted.get("width", default_width)
+            default_height = submitted.get("height", default_height)
+
         context = {
             "book": book,
             "default_width": default_width,
             "default_height": default_height,
             "unit_preference": unit_preference,
+            "plan_error": plan_error,
+            **_plan_context(book_id, submitted, plan_error_fields),
         }
 
         return render_template("book_setup_print.html", **context)

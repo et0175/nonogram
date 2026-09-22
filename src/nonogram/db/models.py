@@ -117,6 +117,18 @@ class Book(Base):
     puzzle_titles = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)  # {puzzle_id: "custom title"}
     book_metadata = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)  # Stores: size, cover_image_url, pdf_url, kdp_asin
     status = Column(String, default='draft')  # 'draft', 'ready_for_pdf', 'pdf_generated', 'ready_for_kdp', 'published'
+    # CARD-120 (FR-034, ADR-0034): the book's distribution plan — count, split,
+    # the 4 x 3 per-bucket matrix and the hand-edited cells, as one JSON
+    # document (see BookManager for its shape). NULL for a book created before
+    # migration 010: no backfill, a plan-less book stays readable and editable
+    # (ADR-0035 refuses it at the gate, CARD-124). MutableDict follows the
+    # CARD-101 precedent above, but it tracks only TOP-LEVEL key assignment
+    # (doc["count"] = ...); the plan's data sits in nested lists ("cells",
+    # "edited", the "split" dict), and an in-place edit there such as
+    # doc["cells"][2][2] = 20 is NOT flagged dirty and is silently lost.
+    # The document must therefore always be replaced whole — assign
+    # plan_to_json(plan), as BookManager.save_plan does.
+    distribution_plan = Column(MutableDict.as_mutable(JSON), nullable=True)
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
     trim_height_cm = Column(String, nullable=True, default='27.94')
