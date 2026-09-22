@@ -28,6 +28,10 @@ AC-3 — ``src/nonogram/generation/random_generator.py`` no longer carries the
        ``tests/test_cli.py``'s structural guard, so the actual fix removes
        the cross-capability import entirely; see the AC-3 section below and
        the module's own docstring for the full reasoning.)
+       **AC-3's three tests were deleted by CARD-053 (2026-09-22) along with
+       their subject — ``src/nonogram/generation/`` is gone from the tree.
+       The criterion stays discharged; see the note at the foot of this
+       file.**
 """
 
 import ast
@@ -289,135 +293,24 @@ def test_ac2_batch_status_and_generated_puzzles_pages_render_none_quality_as_na(
 
 
 # ---------------------------------------------------------------------------
-# AC-3: random_generator.py no longer carries the "from src.nonogram..."
-# import whose accidental resolution AC-3 flags.
+# AC-3's three tests were DELETED by CARD-053 (2026-09-22) together with their
+# subject, ``src/nonogram/generation/random_generator.py``.
 #
-# The fix that satisfies AC-3's literal wording exactly as stated in the
-# card — "from src.nonogram.analysis..." becomes "from nonogram.analysis..."
-# — turned out to have a real, previously-undetected consequence:
-# ``tests/test_cli.py::test_every_import_in_the_package_points_inward``
-# (ADR-0007's structural guard) immediately flags the corrected import as a
-# lateral capability-to-capability dependency (``nonogram.generation``
-# importing ``nonogram.analysis`` — both rank as capability modules, and one
-# capability may not import another). The "src."-prefixed form had been
-# silently exempting this file from that check all along, by resolving to a
-# module name the checker's component-walk doesn't recognize.
+# They were: ``test_ac3_random_generator_has_no_src_prefixed_import_statement``
+# (the file carries no ``from src.nonogram...`` import),
+# ``test_ac3_random_generator_no_longer_laterally_imports_analysis`` (nor any
+# ``nonogram.analysis`` import, which is what kept ADR-0007's structural guard
+# green), and
+# ``test_ac3_reimplemented_difficulty_formula_matches_the_original_independently``
+# (``_difficulty_from_strategy_flags`` cross-checked against
+# ``analysis.strategy_counter.calculate_difficulty_from_strategies``, in the
+# shape ``mask_runs`` is cross-checked against ``clues.encode_line``).
 #
-# Rather than leave that structural guard broken (a real regression, not an
-# acceptable side effect), this module now carries no ``nonogram.analysis``
-# import of any kind: the one piece of
-# ``strategy_counter.calculate_difficulty_from_strategies`` it used is
-# reimplemented natively as ``_difficulty_from_strategy_flags`` — this
-# project's own established precedent for exactly this situation (see
-# ``solver/propagate.py``'s ``mask_runs``, cross-checked against
-# ``clues.encode_line`` from the test tree the same way this file
-# cross-checks the reimplementation below). The dead, never-called
-# ``measure_quality`` import is simply dropped.
+# All three parsed or imported a file that no longer exists, so they could only
+# be deleted or rewritten into assertions about absence. CARD-050's AC-3 stays
+# discharged on its own record: the import it was about was fixed in
+# CARD-050 (merge 62f8c62), and the file it was about is gone. The guard those
+# tests protected is not weakened — ``tests/test_cli.py::
+# test_every_import_in_the_package_points_inward`` walks the whole package on
+# disk, so it covers what is left without naming any file.
 # ---------------------------------------------------------------------------
-
-
-def _random_generator_import_statements():
-    """Every ``ast.Import``/``ast.ImportFrom`` node in random_generator.py."""
-    source_path = (
-        Path(__file__).parent.parent
-        / "src"
-        / "nonogram"
-        / "generation"
-        / "random_generator.py"
-    )
-    tree = ast.parse(source_path.read_text())
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.Import, ast.ImportFrom))
-    ]
-
-
-def test_ac3_random_generator_has_no_src_prefixed_import_statement():
-    for node in _random_generator_import_statements():
-        if isinstance(node, ast.ImportFrom):
-            assert node.module != "src" and not (node.module or "").startswith(
-                "src."
-            ), ast.dump(node)
-        else:
-            assert not any(
-                alias.name == "src" or alias.name.startswith("src.")
-                for alias in node.names
-            ), ast.dump(node)
-
-
-def test_ac3_random_generator_no_longer_laterally_imports_analysis():
-    """The concrete resolution of the ADR-0007 conflict AC-3's fix surfaced:
-    no import in this file resolves to the ``nonogram.analysis`` capability
-    at all (in either the correct or the "src."-prefixed accidental form),
-    which is what keeps
-    ``test_cli.py::test_every_import_in_the_package_points_inward`` green.
-    """
-    for node in _random_generator_import_statements():
-        module = node.module if isinstance(node, ast.ImportFrom) else None
-        names = [module] if module else [alias.name for alias in node.names]
-        for name in names:
-            assert not (name or "").replace("src.", "").startswith(
-                "nonogram.analysis"
-            ), ast.dump(node)
-
-    # Confirm this directly against the real module object too, not just
-    # the source text: neither of the two analysis symbols this file used
-    # to import is present on it any more.
-    import nonogram.generation.random_generator as rg
-
-    assert not hasattr(rg, "measure_quality")
-    assert not hasattr(rg, "StrategyCounter")
-
-
-def test_ac3_reimplemented_difficulty_formula_matches_the_original_independently():
-    """Cross-check ``_difficulty_from_strategy_flags`` (native, no import)
-    against ``nonogram.analysis.strategy_counter.calculate_difficulty_from_
-    strategies`` (the original it replaces) via an independent second
-    construction — not a re-derivation through the same code path — for
-    every strategy combination ``generate_puzzle`` can actually produce.
-    Importing ``nonogram.analysis`` here, from the test tree, is legal
-    (ADR-0007 only constrains ``src/nonogram/**/*.py``); this is the same
-    cross-check shape ``mask_runs`` uses against ``clues.encode_line``.
-    """
-    from nonogram.analysis.strategy_counter import (
-        Strategy,
-        StrategyCounter,
-        calculate_difficulty_from_strategies,
-    )
-    from nonogram.generation.random_generator import _difficulty_from_strategy_flags
-
-    scenarios = [
-        # (strategies, backtracking_depth)
-        ([Strategy.LINE_LOGIC], 0),
-        ([Strategy.LINE_LOGIC, Strategy.CONSTRAINT_PROPAGATION], 0),
-        ([Strategy.LINE_LOGIC, Strategy.BLOCK_ELIMINATION], 0),
-        (
-            [Strategy.LINE_LOGIC, Strategy.CONSTRAINT_PROPAGATION, Strategy.BACKTRACKING],
-            0,
-        ),
-        (
-            [Strategy.LINE_LOGIC, Strategy.CONSTRAINT_PROPAGATION, Strategy.BACKTRACKING],
-            1,
-        ),
-        (
-            [Strategy.LINE_LOGIC, Strategy.BLOCK_ELIMINATION, Strategy.BACKTRACKING],
-            3,
-        ),
-    ]
-
-    for strategies, backtracking_depth in scenarios:
-        counter = StrategyCounter()
-        for strategy in strategies:
-            counter.add_strategy(strategy, 1)
-        counter.backtracking_depth = backtracking_depth
-
-        expected_score, expected_tier = calculate_difficulty_from_strategies(counter)
-        actual_score, actual_tier = _difficulty_from_strategy_flags(
-            len(strategies), len(strategies), backtracking_depth
-        )
-
-        assert (actual_score, actual_tier) == (expected_score, expected_tier), (
-            strategies,
-            backtracking_depth,
-        )

@@ -13,13 +13,18 @@
 >
 > The six-strategy taxonomy and the 0–40 / 0–30 / 0–30 weighting below were
 > never built into the generator. The code that implements them,
-> `src/nonogram/analysis/strategy_counter.py`, is still in the tree and still
-> orphaned — its only importers are its own test file and
-> `src/nonogram/generation/random_generator.py`, itself unreachable from the
-> CLI, the web UI and the admin panel. What becomes of both packages is
-> **CARD-053**, which is where that decision belongs; this banner does not
-> pre-empt it. (Its sibling `analysis/quality_metric.py` is *not* orphaned —
-> CARD-050 wired it into image-mode quality scoring.)
+> `src/nonogram/analysis/strategy_counter.py`, **is still in the tree** and is
+> called by nothing on the shipping path — its only importer is its own test
+> file. **CARD-053 kept it deliberately** (2026-09-22): it is the prototype of
+> the design described here, and the rescoring question is open, so deleting it
+> would throw away the implementation while the decision is still live. The
+> same card deleted its former neighbour
+> `src/nonogram/generation/random_generator.py` — a second, unreachable puzzle
+> generator with its own seeding and difficulty story, which had no defender
+> and was the kind of thing that gets found later and mistaken for the real
+> one. It is recoverable from git history at CARD-053's merge.
+> (`analysis/quality_metric.py` is *not* orphaned — CARD-050 wired it into
+> image-mode quality scoring.)
 >
 > Kept rather than deleted, and a rescoring decision is open: nothing here has
 > been shown wrong, only unbuilt.
