@@ -31,7 +31,30 @@ skipped by explicit user decision (single actor, nothing to monetize).
 
 ## Non-goals
 
-- Multiplayer, user accounts, or persistence beyond local file export.
+- Multiplayer.
+- User accounts. *(The `users` and `user_selected_books` tables in the admin
+  database are unused scaffolding — see below.)*
+- Persistence beyond local file export **in the generation pipeline**: the CLI,
+  the web UI and everything inward of them keep no database and no state
+  surviving the process.
+
+**Amended 2026-09-22 (CARD-111).** This list read *"Multiplayer, user accounts,
+or persistence beyond local file export"* until the admin panel shipped a
+Postgres database — six tables, ten migrations, deployed — which made the
+persistence clause false of the product while it was still being cited as the
+reason the architecture has no database (three C4 diagrams, ADR-0021, and two
+decisions in `decisions/open.yml` that were collapsed rather than taken on its
+authority). The clause now says which surface it governs. The admin panel keeps
+a database of batches, puzzles, books and generation history, and that is the
+only exception.
+
+The user-accounts clause stands, and is **contradicted by the schema rather
+than by any behaviour**: `users` (with `email`, `subscription_tier`,
+`puzzles_generated_month`) and `user_selected_books` are created by migration
+`001` and referenced nowhere in the code. They describe a subscription website
+that does not exist. Whether that is a direction to keep or scaffolding to drop
+is an open product question, not a modelling one; until it is answered, no code
+path may read or write them. Formalized as CON-017, superseding CON-003.
 
 (Color/multi-value nonograms and an interactive/playable puzzle output are
 **not** non-goals — they were deliberately deferred as "later" candidates;

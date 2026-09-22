@@ -1,6 +1,6 @@
 # CARD-111: CON-003 says "no persistence, ever" and the admin panel runs on Postgres
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d (option A) / 1d (option B)
@@ -8,16 +8,16 @@
 **Skill:** business-analyst
 **TDD:** false — model and documentation only; **no schema change, no migration**
 **Branch:** card/111-con-003-persistence
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-111
 **Source:** CARD-110, which stopped on AC-3 for this reason (G-2); the contradiction is recorded in that card's Worktree notes and in `trace.yml`'s replacement for the old mapping-gap note
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml (CON-003, and a superseding CON), meta/business/vision.md (the Non-goals line CON-003 is sourced from), meta/architecture/c4/containers.puml + context.puml + components-CTX-001.puml (three comments asserting there is no database), meta/architecture/decisions/open.yml (two collapsed decisions that leaned on CON-003) — and, under option B, a decision about `db/models.py`'s unused `User` tables
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-22
+**Closed:** 2026-09-22
+**Actual:** 0.4d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -163,3 +163,86 @@ constraint has to state the schema's actual contents, even if the answer is
   surface-by-surface precedent), ADR-0032 (states what the admin's storage
   guarantees are, and so assumes storage)
 - **Components:** COMP-009, COMP-010 (CARD-110), whose C4 drawing this unblocks
+
+## Worktree notes
+
+### Delivered 2026-09-22 — option A
+
+**CON-003 is superseded by CON-017**, in the CON-001/CON-007 shape: both
+directions of the link present, the old statement preserved verbatim, the
+replacement carrying the full rule rather than a stub. `meta/business/vision.md`
+— the document CON-003 cites as its source — is amended in the same change,
+because a constraint cannot honestly be superseded while the document it comes
+from still asserts it (AC-2).
+
+**Suite: 3,681 passed, 26 skipped, 1 deselected** — identical. No `src/` file,
+no schema, no migration (AC-6, G-1, G-2).
+
+### CON-017 splits by surface rather than dropping the clause
+
+The pipeline half of CON-003 is a **real property**, not an obsolete one: the
+CLI, the web UI and everything inward of them still persist nothing beyond the
+files they export, and ADR-0021 and the C4 component view both depend on that.
+Only the admin panel persists. Dropping CON-003 wholesale would have discarded
+a true and load-bearing statement along with a false one.
+
+That split follows **ADR-0030**, which retired NFR-003's no-authentication
+clause *for the admin surface only* and left the web UI's standing — the same
+problem one layer down, answered the same way. **CON-016** is the other
+precedent, and its own comment states the choice plainly: a constraint facing a
+deployment it did not anticipate must "either forbid the deployment or describe
+it".
+
+### The user-accounts clause is stated, not quietly dropped (AC-5)
+
+`users` (with `email`, `subscription_tier` in `free|premium`,
+`puzzles_generated_month`) and `user_selected_books` are created by migration
+`001` and referenced **nowhere in `src/`** — grep-verified. So that clause is
+contradicted by the *schema* and upheld by the *behaviour*.
+
+CON-017 says so in as many words: no user accounts are implemented or served on
+either surface, the two tables are unused by any code path, and their presence
+"is not a licence to add accounts without a decision that says so". Narrowing
+CON-003 to persistence and leaving "no user accounts, ever" standing over a
+`users` table would have replaced one false record with another. Whether those
+tables stay is a product question — option B, still open, and G-4 kept this
+card from deciding it.
+
+### What the old constraint had been holding up
+
+Recorded because it is the reason this was P1 rather than a documentation fix.
+CON-003 was not merely stale; it was cited as a premise:
+
+- **three C4 diagrams** assert there is no database *because* CON-003 forbids
+  one — all three comments now say which surface is meant and name what is
+  missing;
+- **`decisions/open.yml`** collapsed two decisions rather than taking them, on
+  its authority. Both now carry a `PREMISE CHANGED` note (AC-4) and **neither
+  is reopened** (G-3):
+  - the *no-authentication* collapse rested on CON-003 **and** BCON-0001, and
+    ADR-0030 has since recorded that BCON-0001's "one user on one machine" no
+    longer describes the deployment — so both of its two supports have moved;
+  - the *concurrency* collapse rested on "CON-003 forbids shared state", which
+    a shared database plainly is. Concurrency on the admin surface has never
+    been assessed.
+
+### Left as it stands, deliberately
+
+- **`ADR-0021`'s consequence** — "No new state is introduced anywhere in the
+  system — CON-003's 'no persistence beyond local file export' holds" — is
+  **not edited**. It is a statement about the change that ADR made, and it is
+  still true of that change: the web adapter introduced no state. Only its
+  "anywhere in the system" reach has been overtaken, and rewriting a decision
+  record's Consequences to reflect later events is what History sections are
+  for. Noted rather than touched.
+- **CON-017 has no test, and the validator now warns so.** The obvious guard —
+  nothing in `cli.py`, `web/**` or `orchestrator.py` imports `nonogram.db` — is
+  exactly the shape `tests/test_cli.py`'s structural import walk already has,
+  and it would make the new constraint checkable rather than declared. AC-6
+  pins the suite's pass/fail set, so writing it here was out of scope. It is
+  named in CON-017's own trace notes as a gap rather than left to be
+  rediscovered, and it is a small card.
+- **CARD-110's AC-3 is unblocked, not done.** The C4 comments no longer forbid
+  drawing COMP-009/COMP-010 and a ContainerDb; drawing them is still that
+  card's work, and each diagram now says so at the point where the reader will
+  ask.

@@ -94,6 +94,14 @@
 #     - the "no auth" half is already a hard business constraint (BCON-0001,
 #       severity: hard) and a technical constraint (CON-003: no user accounts,
 #       ever). One option only => constraint, not decision.
+#       PREMISE CHANGED 2026-09-22 (CARD-111): CON-003 is superseded by
+#       CON-017, and ADR-0030 has since recorded that BCON-0001's "one user on
+#       one machine" no longer describes the deployment — the admin panel is
+#       reachable at a public hostname behind a credential. So the collapse
+#       above rests on two statements that have both moved. NOT reopened here:
+#       whether the panel needs more than a shared secret is a security
+#       decision, and CARD-111 was a constraint edit. Recorded so the next
+#       reader does not inherit "one option only" as still-true.
 #     - the "loopback only" half is a one-line consequence of whichever option
 #       DEC-020 picks (HTTPServer(("127.0.0.1", port), ...) for the stdlib
 #       options; host="127.0.0.1" — already the default — for a micro-framework).
@@ -113,6 +121,12 @@
 # * Concurrency (two submissions at once): BCON-0001 forbids multiple concurrent
 #   users outright and CON-003 forbids shared state. Constraint, not decision.
 #   Noted inside DEC-022 rather than surfaced.
+#   PREMISE CHANGED 2026-09-22 (CARD-111): "CON-003 forbids shared state" no
+#   longer holds — CON-017 permits the admin panel a database, which is shared
+#   state by definition, and several admin routes write to it. The web UI half
+#   of the original reasoning still stands (CON-017 keeps the pipeline
+#   stateless). NOT reopened here; concurrency on the admin surface has never
+#   been assessed, and that assessment is its own card.
 #
 # * No pattern library present (~/.forge/decision-patterns.yml absent), so no
 #   prior_pattern fields are injected on this run.
