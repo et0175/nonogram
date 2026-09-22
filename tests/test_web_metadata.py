@@ -10,11 +10,14 @@ Verifies that:
 from __future__ import annotations
 
 import json
+import math
 import re
 from http import HTTPStatus
 from pathlib import Path
 
 import pytest
+
+from nonogram.limits import MAX_SIZE, MIN_SIZE
 
 
 @pytest.fixture
@@ -387,3 +390,254 @@ class TestAC138_GracefulFallback:
         assert "function clearMetadata(" in content, "Should have clearMetadata function"
         assert "innerHTML = " in content or ".remove()" in content, \
             "Should clear metadata display on errors"
+
+
+# ---------------------------------------------------------------------------
+# CARD-105 — AC-137 checked by running both implementations, not by reading them
+#
+# ``TestAlgorithmParity`` above asserts Python against Python: its "gcd matches"
+# test calls ``math.gcd`` and compares it to hardcoded numbers, and the rest
+# greps metadata.js for function names. That keeps two implementations of one
+# algorithm in step by review, which is where every other drift in this
+# repository started.
+#
+# These run the JavaScript. ``node`` is opportunistic and stays undeclared —
+# ADR-0006's baseline is stdlib + Pillow + NumPy and this does not change it —
+# so its absence skips, exactly as test_metadata_js_has_no_syntax_errors does.
+# ---------------------------------------------------------------------------
+
+#: The three functions the suggestion algorithm is made of, in metadata.js.
+_PARITY_FUNCTIONS = ("gcd", "simplifyRatio", "suggestDimensions")
+
+#: Source (width, height) pairs to compare over. Ties, extremes and the
+#: project's own fixture ratios; the count is asserted in the test so the
+#: corpus cannot silently shrink to nothing and leave a green test behind.
+_RATIO_CORPUS = [
+    (1000, 1000),   # 1:1 — every square 10x10..30x30 ties at error 0.0
+    (1024, 768),    # 4:3
+    (1920, 1080),   # 16:9
+    (768, 1024),    # 3:4
+    (1080, 1920),   # 9:16
+    (2560, 1440),   # 16:9 again, reached through a different gcd
+    (3000, 1000),   # 3:1 — past the widest grid the range allows
+    (1000, 3000),   # 1:3
+    (640, 480),     # 4:3, small
+    (563, 980),     # the ratio FR-021's own test fixture uses
+    (1234, 4321),   # coprime, extreme
+    (100, 101),     # near-square, ties broken by a hair
+    (999, 1000),    # near-square the other way
+    (16, 9),        # already simplified on the way in
+    (7, 3),         # coprime, inside the range
+    (30, 10),       # exactly representable as a grid
+]
+
+
+def _extract_js_function(source: str, name: str) -> str:
+    """Cut ``function <name>(...) {...}`` out of *source* by brace matching.
+
+    The point of reading the shipped file rather than restating the algorithm
+    is that a copy in this test would agree with itself forever (G-3). The cost
+    is that this depends on the file's shape, so it fails loudly — a missing
+    function or an unbalanced body raises here rather than quietly comparing
+    nothing.
+    """
+    marker = f"function {name}("
+    start = source.find(marker)
+    if start == -1:
+        raise AssertionError(
+            f"metadata.js no longer defines `{marker}` — the parity harness "
+            "reads the shipped source, so it has to be updated with it"
+        )
+
+    depth = 0
+    for index in range(source.index("{", start), len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start : index + 1]
+    raise AssertionError(f"unbalanced braces in metadata.js's `{name}`")
+
+
+def _parity_harness(js_source: str) -> str:
+    """The extracted functions plus a driver that prints JSON on stdout.
+
+    The driver builds its argument the way ``extractImageMetadata`` does —
+    ``simplifyRatio`` returns an **array** while ``suggestDimensions`` reads
+    ``.width``/``.height``, and production reconciles the two. A harness that
+    passes the array straight through gets ``undefined``, so every ratio error
+    is ``NaN``, so the comparator returns ``NaN``, so ``sort`` leaves insertion
+    order alone — and every ratio then "returns" the first three candidates,
+    [10,10], [10,11], [10,12]. That failure looks like a total disagreement
+    between the two implementations and is entirely the harness's fault.
+    """
+    functions = "\n\n".join(
+        _extract_js_function(js_source, name) for name in _PARITY_FUNCTIONS
+    )
+    return functions + """
+
+const cases = JSON.parse(process.argv[2]);
+const results = cases.map(function (pair) {
+  const width = pair[0];
+  const height = pair[1];
+  const simplified = simplifyRatio(width, height);
+  const decimal = Math.round((width / height) * 100) / 100;
+  const metadata = {
+    width: width,
+    height: height,
+    aspectRatio: {
+      width: simplified[0],
+      height: simplified[1],
+      decimal: decimal,
+    },
+  };
+  return suggestDimensions(metadata, MIN_SIZE, MAX_SIZE);
+});
+console.log(JSON.stringify(results));
+"""
+
+
+class TestAlgorithmParity_ByExecution:
+    """AC-137, by running both implementations over the same ratios.
+
+    **Why the tie-break agrees.** At 1:1 every square from 10x10 to 30x30 has a
+    ratio error of exactly 0.0 — a 21-way tie — so the answer is decided
+    entirely by what each sort does with equal keys. Both keep insertion order:
+    Python's ``list.sort`` is stable by guarantee, and ``Array.prototype.sort``
+    has been stable **since ES2019**. Before that V8 used an unstable sort for
+    arrays longer than 10 elements and this exact case would have diverged. The
+    agreement is a property of both languages' sorts, not a coincidence of the
+    numbers, and it is worth stating because nothing in either file says it.
+
+    ``node`` is opportunistic: absent, these skip (G-1).
+    """
+
+    @staticmethod
+    def _js_suggestions(tmp_path, cases):
+        """Run metadata.js's algorithm over *cases*; skip if node is absent."""
+        import subprocess
+
+        js_file = (
+            Path(__file__).parent.parent
+            / "src"
+            / "nonogram"
+            / "web"
+            / "static"
+            / "metadata.js"
+        )
+        harness = tmp_path / "parity_harness.js"
+        harness.write_text(
+            f"const MIN_SIZE = {MIN_SIZE};\nconst MAX_SIZE = {MAX_SIZE};\n\n"
+            + _parity_harness(js_file.read_text())
+        )
+
+        try:
+            completed = subprocess.run(
+                ["node", str(harness), json.dumps(cases)],
+                capture_output=True,
+                timeout=30,
+                text=True,
+            )
+        except FileNotFoundError:
+            pytest.skip("Node.js not available — the parity check needs it to run metadata.js")
+        except subprocess.TimeoutExpired:
+            pytest.fail("the JavaScript parity harness timed out")
+
+        if completed.returncode != 0:
+            pytest.fail(f"the parity harness failed to run:\n{completed.stderr}")
+        return json.loads(completed.stdout)
+
+    def test_the_harness_extracts_all_three_functions_with_real_bodies(self) -> None:
+        """AC-5: an extractor that found nothing must not pass by comparing nothing."""
+        js_file = (
+            Path(__file__).parent.parent
+            / "src"
+            / "nonogram"
+            / "web"
+            / "static"
+            / "metadata.js"
+        )
+        source = js_file.read_text()
+
+        for name in _PARITY_FUNCTIONS:
+            extracted = _extract_js_function(source, name)
+            assert extracted.startswith(f"function {name}(")
+            assert extracted.endswith("}")
+            assert "return" in extracted, f"`{name}` came out without a body"
+            assert extracted.count("{") == extracted.count("}"), name
+
+        assert len(_RATIO_CORPUS) >= 12, "the parity corpus has shrunk"
+        assert (1000, 1000) in _RATIO_CORPUS, "the 21-way tie case must stay in the corpus"
+
+    def test_the_two_implementations_suggest_the_same_dimensions(self, tmp_path) -> None:
+        """AC-1, AC-2, AC-4 — same three pairs, in the same order, per ratio."""
+        from nonogram.web.metadata import (
+            AspectRatio,
+            ImageMetadata,
+            suggest_dimensions,
+        )
+
+        cases = [list(pair) for pair in _RATIO_CORPUS]
+        js_results = self._js_suggestions(tmp_path, cases)
+        assert len(js_results) == len(_RATIO_CORPUS)
+
+        disagreements = []
+        for (width, height), from_js in zip(_RATIO_CORPUS, js_results):
+            divisor = math.gcd(width, height)
+            aspect = AspectRatio(
+                width=width // divisor,
+                height=height // divisor,
+                decimal=round((width / height), 2),
+            )
+            from_python = [
+                list(pair)
+                for pair in suggest_dimensions(
+                    ImageMetadata(width=width, height=height, aspect_ratio=aspect)
+                )
+            ]
+            if from_python != from_js:
+                disagreements.append(
+                    f"  {width}x{height} (={aspect.width}:{aspect.height}): "
+                    f"python={from_python} javascript={from_js}"
+                )
+
+        assert not disagreements, (
+            "metadata.py and metadata.js suggest different dimensions (AC-137):\n"
+            + "\n".join(disagreements)
+        )
+
+    def test_the_tie_break_agrees_where_every_candidate_ties(self, tmp_path) -> None:
+        """AC-2, AC-6 — 1:1, where all 21 squares have ratio error exactly 0.0.
+
+        Asserted separately from the corpus sweep because this is the case that
+        distinguishes a stable sort from an unstable one: with an unstable sort
+        the three returned squares would be whatever the sort happened to leave
+        in front, and the two languages would not have to agree.
+        """
+        from nonogram.web.metadata import (
+            AspectRatio,
+            ImageMetadata,
+            suggest_dimensions,
+        )
+
+        from_js = self._js_suggestions(tmp_path, [[1000, 1000]])[0]
+        from_python = [
+            list(pair)
+            for pair in suggest_dimensions(
+                ImageMetadata(
+                    width=1000,
+                    height=1000,
+                    aspect_ratio=AspectRatio(width=1, height=1, decimal=1.0),
+                )
+            )
+        ]
+
+        assert from_python == from_js, (
+            f"the 1:1 tie-break differs: python={from_python} javascript={from_js}"
+        )
+        assert from_python == [[MIN_SIZE, MIN_SIZE], [MIN_SIZE + 1, MIN_SIZE + 1],
+                               [MIN_SIZE + 2, MIN_SIZE + 2]], (
+            "both kept insertion order on a 21-way tie; if this changed, one of "
+            f"the two sorts stopped being stable: {from_python}"
+        )
