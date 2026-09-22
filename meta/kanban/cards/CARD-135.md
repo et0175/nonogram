@@ -1,6 +1,6 @@
 # CARD-135: Interior PDF without the cover — the book starts at the guide page, the cover is its own file
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 20
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 2/3)
+**Started:** 2026-09-22T15:26:35Z
+**Closed:** 2026-09-22T16:27:26Z
+**Actual:** 0.1d
+**Merge commit:** 1541007
 **Blocked by:** —
 
 ## What to implement
@@ -147,3 +147,102 @@ so parity is counted from the right page from the start.
 ## Worktree notes
 
 —
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+**Implementation (2026-09-22).**
+- `book_pdf_generator.py`: new `BookExport(interior, cover, interior_page_count)` and
+  `BookPDFGenerator.export_book(...)` — the one export every route runs. `interior_pages(puzzles)`
+  returns the interior in print order (`pages[n-1]` is interior page n; page 1 = guide page);
+  `page_is_right_hand(n)` states the parity rule (odd = right-hand, n >= 1) for CARD-116's
+  `book_page_spec(book, page_number)`. The cover file is `create_cover_page` (unchanged) saved as a
+  1-page PDF at 2550 x 3300 px. `generate_book_pdf` is kept as an interior-only wrapper
+  (`export_book(...).interior`, its unused `cover_image` kwarg dropped) so no caller can produce the old
+  cover-first file. Page content is untouched (G-1): the page images are the same objects as before,
+  only the cover left the list.
+- `app.py`: all three routes go through `_export_book(book)` -> `BookPDFGenerator.export_book` with the
+  session's uploaded cover; each takes `part=interior|cover` (form field on Finalise, `?part=` on the
+  routes; default interior; unknown part -> flash + 302). Downloads are named `<stem>_interior.pdf` /
+  `<stem>_cover.pdf`. Finalise's page count now counts interior pages only (guide + puzzles + divider +
+  answers); CARD-129 owns the real finalise count/gate. Removed the now-unused
+  `from .pdf_generator import get_pdf_generator` import (module itself untouched).
+- `book_finalize.html`: two download buttons (interior = `btn btn-primary`, cover =
+  `btn btn-outline-secondary`, both existing styles), Contents card split into "Interior PDF" /
+  "Cover file", guide note now says "Page 1 of the interior PDF — a right-hand page".
+**Bug findings.**
+1. *Finalise download dropped the uploaded cover.* Worse than "not passed": the upload handler decoded
+   the image, stored only `file.filename` in `session["book_{id}_cover_path"]` and a flag, and discarded
+   the pixels — no code path could ever print an uploaded cover. Fix: the upload is re-encoded as PNG to
+   `BOOK_COVER_DIR` (app config; default `$TMPDIR/nonogram_book_covers`), named from the book id (never
+   the client filename), and the session key now holds that path (session storage kept, G-5; no schema
+   change). `_stored_cover_path` honours only files inside the cover dir, so a session value cannot make
+   an export read, or a clear delete, anything else. Also fixed: `clear_cover` popped the path but not
+   the `_cover_data` flag, so the screen kept saying "Cover image uploaded" after removal; it now pops
+   both and deletes the stored file.
+2. *`POST /book/<id>/generate-pdf` used a different generator.* It called
+   `admin/pdf_generator.get_pdf_generator()` — the reportlab `BookPDFGenerator` (title page, table of
+   contents, reportlab puzzle tables, back matter; no guide page, no SOLUTIONS/answer pages), so the same
+   book exported as a different document depending on which button was pressed (book detail vs books
+   list / Finalise). It now runs the same `export_book` as the other two routes (still refuses an empty
+   book and still records `pdf_url`). `admin/pdf_generator.py` is no longer used by `app.py`; left in
+   place (its own tests still use it) — candidate for removal in a later card.
+**Follow-up (not in scope):** `books_list.html` (download-pdf) and `book_detail.html` (generate-pdf)
+still show one button each, which now downloads the interior; adding a cover button there needs a
+template edit outside this card's Touches. The cover is reachable from those routes with `?part=cover`
+and from Finalise's second button.
+**Tests.** `tests/test_book_export_interior_cover.py` (AC-283..AC-286, AC-289 classes + Finalise
+two-button render test), `tests/property/test_book_export_interior.py`
+(`test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`: 28 seeded books, every
+route evenly, with/without cover, incl. an empty book; min counts asserted). New helper
+`tests/helpers/pdf_pages.py` reads PDFs back with Pillow's own `PIL.PdfParser` (no new dependency) and
+compares pages by ink-mask overlap + mean grey difference. Mutation check: putting the cover back as
+interior page 1 fails the AC tests and the property test. Test fixtures swap in a fresh in-memory
+`BookManager` via `monkeypatch` (the module singleton otherwise leaked this card's books into
+`test_admin_review_actions.py::test_delete_works_without_a_database`).
+**Full suite:** 3702 passed, 26 skipped, 1 failed — `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`,
+which fails identically on a clean checkout of the base commit 89ed292 (pre-existing, unrelated).
+Commit: 3fd7b43.
+**SCOPE+** tests/helpers/pdf_pages.py — new file (test helper), no existing file outside Touches edited.
+No existing test needed updating (`test_generate_book_pdf_empty` still passes against the wrapper).
+**Rendered for review** (~/Documents/nonogram-reviews/CARD-135/):
+- with-uploaded-cover_interior.pdf, with-uploaded-cover_cover.pdf (+ `_page1.png` previews)
+- no-uploaded-cover_interior.pdf, no-uploaded-cover_cover.pdf (+ `_page1.png` previews)
+- finalize-screen.html (the Finalise screen's HTML with both buttons)
+
+- [Touches drift] tests/helpers/pdf_pages.py — new test helper outside Touches (not SCOPE+; no existing out-of-scope file edited)
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/templates/book_finalize.html, tests/helpers/pdf_pages.py, tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py
+- [Build gate] impact underivable (python-pro without pytest-testmon) — full suite
+- [Build gate] PASSED (full, 139s; narrowed: 1 pre-existing failure deselected — tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied fails identically on main/89ed292; 3702 passed, 26 skipped)
+- [Scope gate] in_scope — 1/6 files outside Touches (new test helper tests/helpers/pdf_pages.py, 17%), no guardrail hits (export/**, a4_golden, byte_identity, book_plan.py, db/**, migrations/** untouched), no sibling poaching
+- [Visual] no harness run target (no Makefile) — review runs static-only; rendered result not verified by capture (owner eyeballs ~/Documents/nonogram-reviews/CARD-135/)
+- [Inline fallback] none so far — nested agents spawnable
+- [Review 1/3] Score: 7.5 — crit: 0, imp: 1 (pre-adversarial; F-001)
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h: 44/44 card rules have a verdict line (11 ✓, 33 ⚠, 0 ✗)
+- [Adversarial] F-001 CONFIRMED — screen flag vs missing stored file diverges (app.py:2240/2284); skeptic notes it narrows a worse main-branch gap and would rate it Minor, kept gating as reported
+- [Review 1/3] Score 7.5 < 8, 1 confirmed important — fix loop
+**Review cycle 1 fixes** (forge:fix auto): "cover uploaded" is now *the stored file exists inside BOOK_COVER_DIR* (`_uploaded_cover_file`), never the session flag — Finalise drops a stale claim with a warning, and a `part=cover` download is refused (302 + flash) while the session claims a cover whose file is gone (F-001); upload applies EXIF orientation, `delete_book` unlinks `<id>_cover.png` (F-002; per-book name kept — single-owner panel); routes render only the requested part via `export_interior`/`export_cover` (F-004); Finalise's count comes from `book_pdf_generator.interior_page_count`, which `interior_pages` checks its own output against — still an upper bound when a puzzle fails to render, exact equality stays CARD-129's (F-005); generate-pdf records `pdf_url`/success only for the interior and fetches puzzles once (F-007); containment guard now tested (F-006); the property test no longer claims to verify parity (F-003, CARD-116's half).
+- [Fix 1] pre-gate: 6 named tests + property test green; declarations: 5 updated (doc/comments/flash text), 1 confirmed-template, 1 none (F-006)
+- [Build gate] PASSED (full, 137s; narrowed: same pre-existing e2e failure deselected; 3728 passed, 26 skipped)
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0 (confirmation mode; F-001..F-007 ✓ resolved; new Minor F-008, F-009)
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h: 44/44 card rules have a verdict line (11 ✓, 33 ⚠, 0 ✗)
+- [Review 2/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, CON-005)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-283 ✓ demonstrated — evidence: tests/test_book_export_interior_cover.py::TestBookExport_InteriorStartsAtGuidePage (3 tests) PASSED in "47 passed"; setup = Book 1 profile (size 21.59×27.94), cover uploaded via real POST /book/<id>/finalize, 3 easy 20x20 puzzles; the interior's page 1 is pixel-compared to create_guide_page(3,3,0,0), and the page count is 8.
+  AC-284 ✓ demonstrated — evidence: ::TestBookExport_InteriorHoldsNoCoverPage::test_no_interior_page_is_the_uploaded_cover_or_a_title_cover PASSED; every interior page is compared against both the uploaded cover and the generated title cover; a companion test shows the comparison does recognise a real cover page.
+  AC-285 ✓ demonstrated — evidence: ::TestBookExport_CoverIsSeparateSinglePageFile (2 tests) PASSED; checks len(pages)==1, size==(2550,3300), that the page matches the uploaded art, and MediaBox == 612x792 pt.
+  AC-286 ✓ demonstrated — evidence: ::TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover (3 tests) PASSED; with no upload the cover file == create_cover_page(title), the interior's page 1 == guide page, and no interior page is the title cover.
+  AC-289 ✓ demonstrated — evidence: ::TestBookExport_EveryRouteSeparatesInteriorAndCover (parametrized finalise / download-pdf / generate-pdf, plus a cross-route equality test) PASSED; this repo has no browser e2e harness, so the evidence is a Flask test client driving the three real routes.
+  EC-034 ✓ demonstrated — evidence: tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage PASSED; seeded corpus (SEED=135, CASES=28) over 4 routes (the generator plus 3 HTTP routes), 0..3 puzzles, mixed tiers and extents 10..30, with and without covers; minimum-count assertions per route, with/without cover (>=5 each) and empty/non-empty. It checks no cover page in the interior, page 1 == guide, exactly one 2550x3300 cover page, and PDF page count == expected. The reported count == PDF count is asserted only on the generator route, because the HTTP routes report no count; the finalise-count half is CARD-129's. Parity is explicitly deferred to CARD-116, as the card states.
+  G-1 ✓ demonstrated — evidence: changed files = src/nonogram/admin/{app.py,book_pdf_generator.py,templates/book_finalize.html}, tests/helpers/pdf_pages.py and 2 new test files (+meta); none is under src/nonogram/export/**. The generator diff only splits the cover off (create_guide_page, the puzzle pages, the divider and the answer pages are unedited). No pre-existing test file is modified (git diff --name-status main...HEAD shows the tests as A only; uncommitted changes touch only those new files). Existing tests: test_book_scaffolding, test_book_manager, test_pdf_generator, test_admin_tier_surfaces, test_card_056, test_export_pdf, test_cli and property/test_export_roundtrip → "274 passed". "Admin fits no cells" was checked only as a bounded check that the diff adds no layout code.
+  G-2 ✓ demonstrated — evidence: the named tests TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry do NOT exist in this worktree (CARD-113); instead the check is structural: the diff touches only src/nonogram/admin/**, and grep finds no module outside admin/ that imports nonogram.admin, so CLI/web output cannot be affected. src/nonogram/export/**, cli.py and web/ are untouched. tests/test_export_pdf.py, tests/test_cli.py and property/test_export_roundtrip.py pass (in the 274 passed). The byte-identity golden itself was not run because it is absent.
+  G-3 ✓ demonstrated — evidence: the union of committed, uncommitted and untracked changed files was grepped for ^(tests/test_export_a4_golden.py|tests/fixtures/a4_golden/|tests/property/test_cli_exports_byte_identity.py|src/nonogram/admin/book_plan.py) → no match (grep exit=1).
+  G-4 ✓ demonstrated — evidence: the added src lines (main...HEAD + uncommitted) were grepped for spine|bleed|back.?cover|wrap; the only hit is the export_book docstring "Front cover only: the KDP cover wrap (spine, back cover, bleed) is deferred." No spine/back-cover/bleed code was added, and the cover is one trim-size page (2550x3300) per AC-285.
+  G-5 ✓ demonstrated — evidence: the same changed-file union was grepped for ^(src/nonogram/db/|migrations/) → no match. The cover upload stays session/BOOK_COVER_DIR based (the tests set app.config BOOK_COVER_DIR, and no DB module was touched).
+- [Docs] forge:readme: no update — src/nonogram/admin/, templates/, tests/property/, tests/helpers/ have no README; tests/README.md is a stale Wave-1 guide with no per-file index; no directory's structure/purpose changed
+- [Review sync] 2 report(s) → meta/review/ (cycle1 findings fixed_in: 4d68b8e)
+- [Commit] 4d68b8e fix(admin): harden interior/cover export after review (on top of 3fd7b43); open Minor F-008 (export_book docstring vs routes), F-009 (double flash on refused cover download) — non-blocking follow-ups
+
+- [Done] rebased onto main 33e2102, full suite on the rebased tree: only the pre-existing test_size_configuration_applied failure; CARD-113 byte-identity tests now in-tree and green, closing the indirect G-2 evidence. Merged 1541007 (--no-ff). Deferral scan: 1 hit ("full cover wrap with bleed is deferred") — already tracked as DEFERRED in raw-requirements. Follow-up captured to backlog: books list / book detail download buttons now fetch only the interior.

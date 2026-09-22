@@ -1,0 +1,250 @@
+version: 1
+generated_at: "2026-09-22T16:01:08Z"
+target: "card/135-interior-pdf-cover-separate (3fd7b43) vs main — git diff main...HEAD"
+overall_score: 7.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py (finalize_book, _cover_dir, _store_uploaded_cover, _stored_cover_path, _uploaded_cover, _export_book, generate_book_pdf_download, download_book_pdf, generate_book_pdf; imports; before_request door location)
+    - src/nonogram/admin/book_pdf_generator.py (BookExport, page_is_right_hand, export_book, generate_book_pdf, interior_pages, _save_pdf)
+    - src/nonogram/admin/templates/book_finalize.html
+    - tests/helpers/pdf_pages.py
+    - tests/property/test_book_export_interior.py
+    - tests/test_book_export_interior_cover.py
+    - meta/design/components.md (Button), meta/design/brief.md (anti-patterns), admin.css
+  not_reached:
+    - rendered Finalise screen (no screenshots; static check only)
+    - ~/Documents/nonogram-reviews/CARD-135 renders
+  confidence: high
+metrics:
+  diff: { files: 6, added: 874, removed: 102 }
+  max_fan_in: { symbol: "BookPDFGenerator.generate_book_pdf", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — git log --name-only with a pathspec lists only the pathspec's own files, so peers could not be separated; no co-change set derived"
+    max_fan_in: "export_book/interior_pages/page_is_right_hand are new (callers only in this diff); generate_book_pdf name also matches admin/pdf_generator.py's unrelated method — count is BookPDFGenerator's only (tests/test_book_scaffolding.py:373)"
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green on 3fd7b43; diff adds only stdlib dataclasses import (book_pdf_generator.py:9); numpy/PIL.PdfParser in tests/helpers/pdf_pages.py are baseline"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward (tests/test_cli.py) green on 3fd7b43; diff only removes an import (app.py:54 get_pdf_generator), touches no src/nonogram/web/"
+    - "ADR-0022/R1 ✓ holds — review-lens: new public signatures (BookExport book_pdf_generator.py:51-60, export_book :175-182, interior_pages :228, page_is_right_hand :63) carry no scalar grid size"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-to-grid fitting in diff (cover upload is re-encoded, not fitted to a grid)"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling in diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/retry code in diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no repair/retry code in diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair/retry code in diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair/retry code in diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair/retry code in diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density handling in diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density handling in diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no difficulty scoring in diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring in diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code in diff (import guard nonetheless green)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in diff"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle untouched (TestStorageBoundary_AsksTheSolverNotTheCaller green on 3fd7b43)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — review-lens: _export_book (app.py:2292-2313) only reads puzzle_review.get_puzzle; the only write on an export route is book_mgr.set_pdf_url (app.py:2479, book metadata, pre-existing); no puzzle field written"
+    - "ADR-0035/R1 ⚠ unchecked — check_ref_missing: TestBookStatus_EveryExitFromDraftIsGatedOnThePlan; manual read of this diff found no status transition change (save_and_finish branch untouched)"
+    - "ADR-0036/R1 ⚠ unchecked — check_ref_missing: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (CARD-113, same wave); manual: git diff --stat shows src/nonogram/export/** untouched"
+    - "ADR-0036/R2 ✓ holds — review-lens: interior_pages (book_pdf_generator.py:228-302) still renders puzzles only via nonogram.export.pdf.render_pages; the diff adds no cell fitting or grid-line placement (code moved, not changed)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: puzzle page band content unchanged by the diff (ExportPayload construction moved verbatim)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke/PageSpec change"
+    - "CON-005 ✓ holds — PropertyTest_Solver_NeverFalsePositiveUniqueness (tests/property/test_solver_uniqueness.py) green on 3fd7b43; solver untouched"
+    - "CON-009 ✓ holds — TestWebServer_BindsLoopbackOnlyByDefault green on 3fd7b43; web server untouched"
+    - "CON-010 ✓ holds — PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest (tests/test_web_server.py) green on 3fd7b43"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size bounds in diff"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in diff"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) green on 3fd7b43; entry point untouched"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on 3fd7b43; no route added (?part= rides the three existing POST routes behind the untouched @app.before_request door, app.py:813)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no readiness marking in diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counters in diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan code in diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership code in diff"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in diff"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book membership code in diff"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: export keeps book.puzzle_ids order (app.py:2300); ordering logic untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing code in diff"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer pages appended unchanged (book_pdf_generator.py:283-300)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership code in diff"
+    - "INV-013 ✓ holds (interior/cover half) — TestBookExport_InteriorStartsAtGuidePage, _InteriorHoldsNoCoverPage, _NoUploadedCoverStillSeparatesGeneratedCover, _EveryRouteSeparatesInteriorAndCover and test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green on 3fd7b43 (821 passed in the contract run); parity-half ref TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1 does not exist yet (CARD-116's half)"
+
+root_causes:
+  - id: RC-1
+    title: "Uploaded cover lives in a process-temp file keyed only by book id, while the screen trusts a separate session flag"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2284
+    title: "Stale 'cover uploaded' flag silently exports the generated title cover"
+    description: |
+      _uploaded_cover (app.py:2284-2290) returns None when the stored file is missing, and the export
+      then falls back to the generated title cover without any signal. The Finalise screen's
+      cover_uploaded (app.py:2240) reads only the session flag book_<id>_cover_data, so it keeps saying
+      "your cover image" (book_finalize.html Cover file card). The file defaults to
+      $TMPDIR/nonogram_book_covers (app.py:2249-2252), which macOS purges and which does not survive a
+      host change, while the signed session cookie outlives it. Result: the owner downloads a cover file
+      for KDP that is not the one the screen promises.
+    suggestion: |
+      Derive cover_uploaded from _uploaded_cover/_stored_cover_path file existence (and clear the stale
+      session keys when the file is gone), or refuse part=cover with a flash when the flag is set but
+      the file is missing. Add a test: upload, delete the stored file, assert the screen no longer says
+      the cover is uploaded / the download warns.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2262
+    title: "Cover file keyed by book id only: sessions overwrite each other; never cleaned on book delete; EXIF orientation dropped"
+    description: |
+      path = <cover_dir>/<book_id>_cover.png is shared by every session; a second browser uploading for the
+      same book replaces the first's cover. delete_book never removes it. The JPEG EXIF orientation is not
+      applied before re-encoding to PNG, so a phone-photo cover can print rotated.
+    suggestion: |
+      Apply PIL.ImageOps.exif_transpose before save; unlink the cover in delete_book; accept the shared
+      name as intended for the single-owner panel or add the session id to the name.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 212
+    title: "Parity assertion is tautological"
+    description: |
+      The property test checks page_is_right_hand(k) == (k % 2 == 1), which is the function's own body
+      (book_pdf_generator.py:72). It observes nothing about the PDF. Harmless now (no parity-bearing
+      content exists before CARD-116) but the test name claims parity is verified.
+    suggestion: |
+      Drop the list comparison (keep page_is_right_hand(0) raising and page 1 being the guide), or note
+      explicitly that parity observation lands with CARD-116's mirrored margins.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2342
+    title: "Every download renders both files"
+    description: |
+      _export_book always runs export_book, which renders every interior page (render_pages per puzzle,
+      book_pdf_generator.py:248-270) and the cover. A "Download cover" click therefore renders the whole
+      interior only to discard it, and an interior download encodes a 2550x3300 cover page it throws away.
+      For a ~120-page book the cover button costs a full interior render.
+    suggestion: |
+      Let the route render only the requested part (e.g. export_cover()/export_interior() helpers beside
+      export_book, both reused by export_book), or cache per request.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2237
+    title: "Finalise page count re-derives the interior layout instead of using the export's count"
+    description: |
+      page_count = 1 + n + (n + 1 if n else 0) duplicates interior_pages' make-up. It already diverges
+      when a puzzle fails to render (interior_pages skips it silently, book_pdf_generator.py:267-270) and
+      will diverge once CARD-116/INV-010/INV-011 pair puzzles or pack answers 6-up. EC-034 requires the
+      finalise count to equal the interior's (CARD-129's half), so this formula is a trap for that card.
+    suggestion: |
+      Leave a pointer comment naming CARD-129, or derive the number from a shared page-plan function
+      that interior_pages also uses.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: compliance
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2270
+    title: "Cover-path containment guard has no test"
+    description: |
+      _stored_cover_path's parent == cover_dir check is the only thing stopping a session value from
+      making an export read, or clear_cover unlink, an arbitrary file. No test exercises a path outside
+      the cover dir (session is signed, so exploitation needs the secret key — low risk).
+    suggestion: |
+      Add a test using client.session_transaction() to set book_<id>_cover_path to a tmp file outside
+      BOOK_COVER_DIR, then assert clear_cover leaves it in place and the cover download is the title cover.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2472
+    title: "generate-pdf: pdf_url and success flash recorded on a cover-only download; puzzles fetched twice"
+    description: |
+      set_pdf_url and "PDF generated successfully!" fire for part=cover too; the any(get_puzzle(...))
+      pre-check fetches every puzzle again before _export_book fetches them all a second time.
+    suggestion: |
+      Record pdf_url only for part=interior; let _export_book return the puzzle list (or count) so the
+      empty check reuses it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 4d68b8e
+    dismissed_reason: null
+    learned_pattern: null

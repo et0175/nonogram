@@ -16,8 +16,8 @@ _Updated: 2026-09-22 UTC_
 | 9 | CARD-015 P2 | ✅ done |
 | 10 | CARD-016 P2 | ✅ done |
 | 11 | CARD-017 P3 | ✅ done |
-| 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ▶ active |
-| 21 | CARD-114 P1, CARD-120 P1 | ⏳ blocked (→ wave 20) |
+| 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ✓ done |
+| 21 | CARD-114 P1, CARD-120 P1 | ▶ active |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ⏳ blocked (→ wave 21) |
 | 23 | CARD-116 P1, CARD-121 P1 | ⏳ blocked (→ wave 22) |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2 | ⏳ blocked (→ wave 23) · closes Increment 14 |
@@ -30,7 +30,9 @@ _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
 ## Backlog
-_(none — meta/kanban/backlog.md not found)_
+- CARD-135 follow-up: cover download on books list / book detail
+- CARD-135 F-008 export_book docstring
+- Pre-existing failure: test_size_configuration_applied
 
 ## Architecture
 _(none)_
@@ -58,12 +60,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+_(none)_
 
 ## Review
-- **CARD-135** P1 · Interior PDF without the cover — starts at the guide page; the cover is its own file · 1d · wave 20 · Inc 13
-  `worktree: ../PythonProject4-CARD-135` · `branch: card/135-interior-pdf-cover-separate` · `elapsed: 0d`
 
 ## Done
+- **CARD-135** Interior PDF without the cover, cover separate · score 9.0 · merged 1541007
 - **CARD-119** Distribution plan as pure domain · score 9.0 · merged da6cf84
 - **CARD-113** Golden A4 tripwire · score 9.0 · merged 365a7ff
 - **CARD-112** P3 · The C4 diagrams show the system that ships — COMP-008 drawn for the first time, COMP-009/010 added, containers go from one to three · every arrow backed by a cited call or import; one label corrected before commit (book PDFs stream, never touch disk) · two arrows absent on purpose and explained in the diagram · not rendered — PlantUML unavailable — but a mutation-tested structural check passes · closes the CARD-110 → 111 → 112 thread · merged without a review cycle, at the owner's call · merged e6d93f0

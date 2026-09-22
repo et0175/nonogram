@@ -30,7 +30,7 @@ waves:
     cards: [CARD-113, CARD-135, CARD-119]
     increment: [13, 14]
     checkpoint: "golden A4 tripwire green on main before any geometry change (CARD-113); the book export yields an interior PDF starting at the guide page and a separate one-page cover file (CARD-135); plan arithmetic green (CARD-119)"
-    status: pending
+    status: passed   # 2026-09-22: golden, interior/cover and plan tests green on main 1541007
 
   - wave: 21
     cards: [CARD-114, CARD-120]

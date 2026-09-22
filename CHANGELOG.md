@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-22
+- CARD-135 (feature): The book export now produces two files for KDP — an interior PDF that starts at the guide page (interior page 1, right-hand) with no cover inside, and the cover as its own file; Finalise passes the uploaded cover through, and a missing stored cover is reported instead of silently falling back to the title cover.
 - CARD-119 (feature): The book distribution plan exists as pure domain code — longest-side buckets (≤15, 16–20, 21–25, 26–30), the Book 1 default of 150 puzzles at 40/40/20 prefilled from the research matrix with row and column totals matching, and the re-derive rule when the general split changes.
 - CARD-113 (feature): A golden-byte tripwire now pins today's A4 output — the layout of every supported size, and the CLI's PNG/SVG/PDF for 72 seeded requests (PDF compared with its two wall-clock timestamps blanked) — so the coming book page geometry cannot silently change CLI or web exports (CON-019).
 

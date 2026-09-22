@@ -1,0 +1,257 @@
+version: 1
+generated_at: "2026-09-22T16:17:48Z"
+target: "card/135-interior-pdf-cover-separate @ 3fd7b43 + uncommitted cycle-1 fix delta (app.py, book_pdf_generator.py, 2 test files) vs main — CARD-135 cycle 2 (confirmation mode)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py (finalize_book, cover helpers, _export_part, 3 export routes, delete_book — lines 2160-2579)
+    - src/nonogram/admin/book_pdf_generator.py (export_book/export_interior/export_cover/interior_pages/interior_page_count)
+    - src/nonogram/admin/templates/book_finalize.html (diff)
+    - tests/test_book_export_interior_cover.py (fix delta)
+    - tests/property/test_book_export_interior.py (lines 100-233)
+    - src/nonogram/admin/book_manager.py (id generation)
+    - src/nonogram/admin/templates/base.html (flash rendering)
+  not_reached:
+    - rendered Finalise screen (no screenshots; static check only)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1243, removed: 109 }
+  fix_delta: { files: 4, added: 410, removed: 48 }
+  max_fan_in: { symbol: "BookPDFGenerator.generate_book_pdf", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — carried from cycle 1 (co-change mining not re-derived for a fix delta confined to already-touched files)"
+    mutation_check: "not_applicable — review.mutation_check is off (no meta/kanban/config.yml) and the caller forbade code edits; fix agent reports revert-verification of every new test"
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green on the working tree over 3fd7b43; the fix delta adds only `from PIL import ImageOps` (app.py:77), Pillow is in the baseline"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward (tests/test_cli.py) green on the working tree; nothing under src/nonogram/web/ touched"
+    - "ADR-0022/R1 ✓ holds — review-lens: new public signatures export_interior(puzzles), export_cover(book_title, cover_image), interior_page_count(puzzle_count) (book_pdf_generator.py:74,231,238) carry no scalar grid size"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the cover is EXIF-transposed and re-encoded, not fitted to a grid"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/retry code"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no repair/retry code"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair/retry code"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair/retry code"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair/retry code"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no difficulty scoring"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code (import guard green anyway)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle untouched (TestStorageBoundary_AsksTheSolverNotTheCaller green on the working tree)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — review-lens: _book_puzzles (app.py:2349-2361) only calls puzzle_review.get_puzzle; the only write on an export route is book_mgr.set_pdf_url (app.py:2569, book metadata), now interior-only"
+    - "ADR-0035/R1 ⚠ unchecked — check_ref_missing: TestBookStatus_EveryExitFromDraftIsGatedOnThePlan (absent in worktree and main); manual read of the delta found no status-transition change"
+    - "ADR-0036/R1 ⚠ unchecked — check_ref_missing: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden absent in this worktree (exists on main tests/test_export_a4_golden.py after the CARD-113 merge; branch predates it); manual: src/nonogram/export/** untouched per git diff --stat"
+    - "ADR-0036/R2 ✓ holds — review-lens: interior_pages (book_pdf_generator.py:263-344) still renders puzzles only via nonogram.export.pdf.render_pages; the delta adds only a post-build page-count check"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: band content unchanged"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke or PageSpec change"
+    - "CON-005 ✓ holds — tests/property/test_solver_uniqueness.py::test_never_false_positive_uniqueness green on the working tree (417-test run); solver untouched"
+    - "CON-009 ✓ holds — TestWebServer_BindsLoopbackOnlyByDefault (tests/test_web_server.py) green on the working tree; web server untouched"
+    - "CON-010 ✓ holds — PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest (tests/test_web_server.py) green on the working tree"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size bounds"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) green on the working tree; entry point untouched"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on the working tree; the delta adds no route, only refusal branches inside the three existing POST routes behind the untouched before_request door"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no readiness marking"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counters"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan code"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership code"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book membership code"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: _book_puzzles keeps book.puzzle_ids order (app.py:2352)"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing code"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer pages appended unchanged (book_pdf_generator.py:334-335)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership code"
+    - "INV-013 ✓ holds (interior/cover half) — TestBookExport_InteriorStartsAtGuidePage / _InteriorHoldsNoCoverPage / _CoverIsSeparateSinglePageFile / _NoUploadedCoverStillSeparatesGeneratedCover / _EveryRouteSeparatesInteriorAndCover, TestBookExport_RoutesRenderOnlyTheRequestedPart and test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage all green on the working tree (417 passed); parity-half ref TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1 is CARD-116's and does not exist yet"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2254
+    title: "Stale 'cover uploaded' flag silently exports the generated title cover"
+    description: "Cycle 1. Re-derived: cover_uploaded now = _uploaded_cover_file(book_id) is not None (file existence inside BOOK_COVER_DIR); Finalise drops a stale claim with a warning (app.py:2234); part=cover is refused on all three routes while the claim is lost (app.py:2412, 2554). TestBookFinalise_LostCoverFileIsNotPassedOffAsUploaded (6 cases) green."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2289
+    title: "Cover file keyed by book id only; no cleanup on delete; EXIF orientation dropped"
+    description: "Cycle 1. Re-derived: exif_transpose applied (app.py:2289), delete_book unlinks _cover_file_for(book_id) and pops session keys (app.py:2454-2459); per-book naming kept deliberately and documented (app.py:2268-2275). TestBookCover_StoredFileLifecycle green."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 212
+    title: "Parity assertion is tautological"
+    description: "Cycle 1. Re-derived: the self-referential assertion is removed; the module docstring and an inline comment now state parity is CARD-116's observable half."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2363
+    title: "Every download renders both files"
+    description: "Cycle 1. Re-derived: _export_part renders only export_interior or export_cover; TestBookExport_RoutesRenderOnlyTheRequestedPart monkeypatches the other renderer to raise, 6 cases green."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2253
+    title: "Finalise page count re-derives the interior layout"
+    description: "Cycle 1. Re-derived: Finalise uses interior_page_count (book_pdf_generator.py:74), interior_pages asserts against it, TestBookFinalise_PageCountIsTheExportsPagePlan cross-checks against the written PDF's page tree; the upper-bound case (unrenderable puzzle) is documented and left to CARD-129."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: compliance
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2305
+    title: "Cover-path containment guard has no test"
+    description: "Cycle 1. Re-derived: TestBookFinalise_CoverPathOutsideTheCoverDirIsIgnored (5 cases) plants an outside path via session_transaction; removing the guard would make _uploaded_cover_file return the outside file and the export print it (200 + same_page) — the test discriminates."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2566
+    title: "generate-pdf records pdf_url and flashes success on a cover-only download; puzzles fetched twice"
+    description: "Cycle 1. Re-derived: set_pdf_url and the success flash only for part == interior; puzzles fetched once via _book_puzzles and passed into _export_part. TestBookExport_GeneratePdfRecordsOnlyTheInterior green."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted (cycle-1 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 206
+    title: "export_book docstring still claims to be the one entry point every route goes through"
+    description: |
+      After the F-004 fix, no route calls export_book: every route goes through app._export_part ->
+      export_interior / export_cover (app.py:2363-2378); grep finds export_book called only from the two
+      test files. Its docstring (book_pdf_generator.py:206, "The one entry point every export route goes
+      through (FR-043, INV-013)") and BookExport.interior_page_count ("the book's page count", which CARD-129
+      is meant to read per objective 3) now describe a path production never takes. The behaviour is
+      equivalent today (both compose interior_pages + create_cover_page), so this is intent-vs-reality drift
+      without a behavioural gap yet. A follow-on card (CARD-116 trim pages, CARD-129 page count) that
+      changes export_book alone would pass the generator-level tests while the routes stay unchanged.
+    suggestion: |
+      Reword the export_book docstring: it composes export_interior + export_cover and reports the count.
+      Say the routes serve one part each via export_interior/export_cover. Alternatively, have export_book
+      call export_interior's page list so there is a single composition point. Point CARD-129 at
+      interior_page_count / interior_pages, not BookExport.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2412
+    title: "A refused cover download from Finalise shows the same loss twice"
+    description: |
+      On Finalise, "Download cover" with a lost file posts download_pdf and is refused with _LOST_COVER_MESSAGE
+      (an error flash), then redirected to the referrer, which is Finalise. That GET runs _forget_stale_cover
+      (app.py:2234), which flashes a second, warning-level "no longer on disk" message and drops the claim. The
+      owner sees two alerts for one event. Separately, the refusal text says "no longer on disk" even when
+      the session path is outside BOOK_COVER_DIR (tampered session; the file exists). That case only arises
+      from a tampered session, so the impact is negligible.
+    suggestion: "Skip the Finalise warning when a lost-cover error was just flashed, or have the refusal only drop the claim and let Finalise's warning speak."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
