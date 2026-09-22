@@ -154,3 +154,5 @@ _ADR-0035 Neutral: "the card adds criteria for the under-filled and plan-less ca
 —
 
 - [Handover from CARD-120, 2026-09-22] O-4: Print setup currently lets the plan be edited on a book that has left draft. Decide here whether a plan edit on a non-draft book returns it to draft (as a membership change does, ADR-0035 clarification) or is refused.
+
+- [Handover from CARD-122, 2026-09-23] app.py edits are confined to the imports and create_app's ~2203-2645 region, nothing reordered. Reuse puzzle_review.PuzzleFilter.longest_side_range and BOOK_TAB_SORT instead of filtering in Python. INV-012's "returns it to draft" half is implemented nowhere and its six named tests do not exist — that is CARD-131's scope, but the gate you build must not assume it.

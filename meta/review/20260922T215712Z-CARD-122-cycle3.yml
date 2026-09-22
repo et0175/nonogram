@@ -1,0 +1,310 @@
+version: 1
+generated_at: "2026-09-22T21:57:12Z"
+target: "card/122-select-by-longest-side-tab — git diff 2dd96af (commit 9d556e6 + uncommitted cycle-1 and cycle-2 fix rounds)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py (imports + the whole CARD-122 helper block and route, 2203-2645)
+    - src/nonogram/admin/puzzle_review.py (BOOK_TAB_SORT, _tier_rank, _TIER_RANK_BY_SPELLING, _COMPUTED_SORT_KEYS, PuzzleFilter, _apply_sort_to_query, _side_bounds, both filter_puzzles branches, _row_to_dict)
+    - src/nonogram/admin/book_plan.py (LongestSideBucket, _BOUNDS, BUCKETS, TIERS, bucket_of)
+    - src/nonogram/admin/static/admin.css (diff) + src/nonogram/admin/static/tokens.css (token existence)
+    - src/nonogram/admin/templates/book_select_puzzles.html (whole file)
+    - src/nonogram/admin/templates/base.html, _puzzle_table.html (sort-token call sites)
+    - src/nonogram/difficulty.py (tier_of_record, parse_tier, Tier)
+    - tests/test_book_select_tabs.py, tests/test_admin_filter_side_range_and_name.py,
+      tests/test_card_063_limits.py, tests/test_card_065_follow_ups.py
+    - meta/review/20260922T203910Z-CARD-122-cycle2.yml (prior findings, re-derived not copied)
+  not_reached:
+    - "rendered screens — this project has no Makefile run target and no browser/e2e harness; Step 8g ran STATIC only, so the rendered result was NOT verified"
+    - "a real PostgreSQL engine — the DB branch was exercised against real SQLite (tests/helpers/db.sqlite_session_scope) and read for Postgres"
+    - "src/nonogram/admin/book_manager.py, book_page_spec.py, src/nonogram/export/** — read-only guardrail check that they are absent from the diff (G-4/G-5); not reviewed"
+  confidence: high
+metrics:
+  diff: { files: 11, added: 2488, removed: 92 }
+  max_fan_in: { symbol: "PuzzleReviewService.filter_puzzles", callers: 53 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (125 commits in 12 months across app.py + puzzle_review.py + book_select_puzzles.html; 51 of app.py's own commits are fix-shaped)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "measured as empty — the top co-change peers of app.py over 12 months are puzzle_review.py (10), image_manager.py (10), puzzles_list.html (9), book_select_puzzles.html (5), db/models.py (5), test_card_063_limits.py (4). The ones in this card's territory are all present in the diff; db/models.py is genuinely not needed (the new filter and the four new sort tokens are computed over existing columns width/height/difficulty_tier/id — no schema change); image_manager.py/puzzles_list.html belong to other features."
+
+system_contract:
+  rules_checked: 44
+  holds: 16
+  unchecked: 28
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml has 0 lines in `git diff 2dd96af --stat`; the diff's only new imports are stdlib (`collections.OrderedDict`, `secrets`, `threading`) plus `case`/`func` appended to puzzle_review's already-present `from sqlalchemy import ...`. TestDependencyBaseline_IsExactlyPillowAndNumpy green in the build gate (4140 passed)."
+    - "ADR-0019/R1 ✓ holds — the AST import-direction guard test_every_import_in_the_package_points_inward (tests/test_cli.py) re-run green on this head in my own run (209 passed over the card's files + test_cli.py). New imports (`nonogram.difficulty.tier_of_record`, `nonogram.errors.SizeOutOfRange`, `.book_plan`) all point inward or intra-package."
+    - "ADR-0022/R1 ✓ holds — `longest_side_range` is a predicate over max(width, height), and `shorter_side`/`longer_side` are sort keys computed from the extent PAIR (puzzle_review.py:83-85 `min`/`max`, and the two CASEs at :766-772); no public signature, request field or export field reduces an extent to a scalar. The diff REMOVES this route's `size`/`size_from`/`size_to` scalars (AC-216)."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff touches no image-fitting path"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff touches no --size token parsing"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry-counter code in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery-policy code in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict seam in the diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no technique classification in the diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring inputs in the diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff"
+    - "ADR-0032/R1 ✓ holds — `git diff 2dd96af` adds no line to add_puzzle or its solver call; the new store code is filter/sort only. tests/test_book_select_tabs.py builds every fixture through the real `store.add_puzzle`, so the boundary proof runs 441 times in the EC-024 property test alone."
+    - "ADR-0032/R2 ✓ holds — the `quality_min` branch of filter_puzzles has no added or removed line in the diff (puzzle_review.py:848 unchanged); the template's `quality_min if quality_min is not none else ''` only changes how the literal 0 renders, and the store still treats 0 as \"no minimum\"."
+    - "ADR-0033/R1 ✓ holds — reading every added line of the route: the only book write is `book_mgr.add_puzzles_to_book(book_id, kept_ids)` (app.py:2524); no assignment to grid/clues/difficulty_tier/strategies/status/quality_score anywhere in the diff, and book_manager.py is absent from the diffstat (G-4)."
+    - "ADR-0035/R1 ✓ holds — the diff contains no book-status transition: the only `status` in the route is the puzzle-status query filter (app.py:2542). No `update_book_status`/`set_status`/`book.status =` in the added lines."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** and tests/fixtures/a4_golden/** are both absent from `git diff 2dd96af --stat` (G-5); the golden tripwire is untouched."
+    - "ADR-0036/R2 ✓ holds — the diff adds no cell fitting and no grid-line placement to the panel; the new geometry is CSS tab/stat-line layout (admin.css:213-239) only."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: the diff touches no book page band"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: the diff touches no PDF stroke widths"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff touches no solver code"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the diff touches no src/nonogram/web/ server"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: the diff touches no src/nonogram/web/ request door"
+    - "CON-011 ✓ holds — no literal 10 or 30 in the added code: `_BOUNDS` takes its outer ends from nonogram.limits (book_plan.py:98-103), `_side_bounds` defaults and validates against MIN_SIZE/MAX_SIZE (puzzle_review.py:799-802), and both filter branches gate on `MIN_SIZE <= side <= MAX_SIZE`. tests/test_card_063_limits.py re-run green on this head."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the diff touches no aspect guard"
+    - "CON-015 ✓ holds — the app.py hunk headers are imports + create_app's 2203-2645 region only; the panel entry point and its bind address have no line in the diff."
+    - "CON-016 ✓ holds — no before_request or door code in the diff (same hunk-header evidence); the new route is an ordinary @app.route behind the existing door."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the diff derives no clues"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the diff gates no export"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the diff has no retry counter"
+    - "INV-005 ✓ holds — the route reads the plan only, through `_readable_plan` -> `book_mgr.get_plan` (app.py:2398); `planned_cells(plan)` is a pure read. No plan write in the diff."
+    - "INV-006 ✓ holds — the below-floor/override guard is in book_manager.add_puzzles_to_book, absent from the diff (G-4). The route catches its ValueError as a flash (app.py:2531-2532) and deliberately does NOT drop the pending ticks, so a refused add leaves the owner able to add the override and retry."
+    - "INV-008 ✓ holds — the route's only membership call is the unchanged `add_puzzles_to_book`; no path in the diff edits a published book's membership without it."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the diff contains no readiness transition; `selection_cells`/`planned_cells` are read, never written"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: `BOOK_TAB_SORT`/`_tab_order` order the *selection list*, not the book order; book arrangement code is untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: the diff touches no pairing code"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the diff touches no answer key"
+    - "INV-012 ✓ holds — one commit point, verified by reading the whole POST branch (app.py:2476-2533): go_clear returns before the fold, and go_bucket/go_offset/go_filter all return a redirect before line 2524; `_drop_selection` runs only on add_puzzles_to_book's success. A tab switch, a page move, a filter change and Clear-all therefore commit nothing and cannot bounce a non-draft book back to draft."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: the diff touches no interior/cover split"
+
+root_causes: []
+
+findings:
+  - id: F-017
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 768
+    title: "tier_rank's SQL trim() and Python .strip() are not the same trim, so one stored spelling can rank differently in the two backends"
+    description: |
+      The tier rank is derived two ways and the claim (puzzle_review.py:57-62) is
+      that they cannot drift because the SQL CASE table is *built by calling* the
+      Python `_tier_rank`. The table's keys agree, but the normalisation applied
+      before the lookup does not:
+
+        * SQL   — `case(_TIER_RANK_BY_SPELLING, value=func.trim(func.lower(Puzzle.difficulty_tier)), ...)`
+                  ANSI `TRIM()` removes spaces only.
+        * Python — `_tier_rank` -> `difficulty.tier_of_record` -> `parse_tier`,
+                  which does `text.strip().lower()`; `str.strip()` removes every
+                  whitespace character.
+
+      So a row stored as `"easy\t"` ranks 3 (ungraded, else_) in the DB branch and
+      0 in the in-memory branch and in the route's `_tab_order` cross-check. The
+      blast radius is bounded and is NOT the cycle-1/cycle-2 defect class: the set
+      of rows is unchanged (the tier plays no part in `longest_side_range`), so no
+      row can be hidden — only misplaced within the page the store handed over,
+      because the route's `sorted(..., key=_tab_order)` would then genuinely move
+      it. `func.lower` vs `.casefold()` is the same shape of gap and is a no-op for
+      ASCII tier spellings.
+
+      Probability is low: the pipeline writes the `Tier` enum value, and no path in
+      the diff lets a user type a tier with a tab or newline in it.
+    suggestion: |
+      Normalise identically on both sides — either `func.trim(func.lower(col))`
+      against a Python key built with `" ".join(value.split())`-style
+      normalisation, or feed the CASE `value=` through the same replace/trim chain.
+      Cheapest honest alternative: add a row carrying a non-space whitespace tier
+      to `test_both_backends_spell_the_same_book_tab_order`'s corpus and let the
+      test say which answer is correct.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-018
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2339
+    title: "The lock guards each dict operation but not the fold's read-modify-write, and _keep_selection can write into an already-evicted store"
+    description: |
+      Cycle-2's F-015 asked for the mutations of `_pending_selections` to be
+      guarded, and they are: `_selection_store`, `_kept_selection`,
+      `_keep_selection` and `_drop_selection` each take
+      `_pending_selections_lock` for one dict operation, none of them holds it
+      across a call that takes it again, and there is no lock-ordering cycle — the
+      finding as filed is resolved and the docstring's claim (app.py:2247-2252) is
+      literally true.
+
+      Two residuals the claim does not cover, both requiring concurrency:
+      (1) `_fold_tab_into_selection` (app.py:2346-2350) is a read-modify-write
+          across THREE separate acquisitions — `_kept_selection`, then
+          `_keep_selection`, then `_kept_selection` again. Two interleaved POSTs
+          for the same session and book (two browser tabs, or a double submit)
+          can have the second overwrite the first's fold with a list computed
+          before it.
+      (2) `_keep_selection` calls `_selection_store(create=True)`, releases the
+          lock, then re-acquires it to assign `store[book_id]`. If the map evicted
+          that token in between (33rd session), the assignment lands in an
+          orphaned dict and the tick is lost in silence.
+
+      Nothing committed is at risk in either case — `add_puzzles_to_book` is the
+      only commit point and does not read this map — and the panel is a
+      single-user loopback tool (CON-015), which is why this is Minor rather than
+      Important.
+    suggestion: |
+      Give the fold one critical section: acquire the lock once and do
+      read-filter-write inside it (a private `_fold_locked(store, book_id, shown,
+      ticked)`), and have `_selection_store` return the token with the store so
+      `_keep_selection` can re-check membership under the same acquisition. Or
+      state in the docstring that the guarantee is per-operation, not per-fold.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-019
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_filter_side_range_and_name.py
+    line: 261
+    title: "The cross-backend order test deliberately builds a tie-free corpus, so BOOK_TAB_SORT's id tie-break is never compared across backends"
+    description: |
+      `test_both_backends_spell_the_same_book_tab_order` says so itself: "the
+      corpus has no tie for the id to break", because the two stores mint
+      different ids (UUID vs `puzzle_NNNNNN`) and rows are compared by
+      `source_image`. That is the right call for THAT test, but it leaves the
+      fourth sort term — the one that decides the order for every real tab, where
+      many easy 20x20s tie on (tier_rank, shorter_side, longer_side) — compared in
+      neither direction.
+
+      I derived by hand that the two agree: `_row_to_dict` yields `str(uuid)`, the
+      route and the in-memory branch both compare that string, and a canonical
+      UUID's dashes sit at identical indices in every representation, so hex-order,
+      byte-order and lexicographic order coincide. That is reasoning, not a run —
+      and reasoning about "the two backends agree" is exactly what cycles 1 and 2
+      cost this card.
+    suggestion: |
+      Add one case to the DB-backed test that stores two rows tying on
+      (tier_rank, shorter_side, longer_side) and asserts the rendered order equals
+      `sorted(ids)` — the ids differ between backends, but each backend can be
+      checked against its OWN sorted id list, which is the property that matters.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-020
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 135
+    title: "\"Clear this page\" moves the live counter to a number that does not stick unless the owner then submits"
+    description: |
+      `clearAll()` unticks this page's checkboxes and calls
+      `updateSelectionCount()`, which immediately rewrites the aria-live counter
+      (e.g. "37 puzzles selected" -> "7 puzzles selected"). Nothing is sent to the
+      server until the owner presses a tab, a page, Apply, Clear-all or Add. If
+      they instead leave by "Skip", "Cancel" or the browser's back button, the
+      server-side kept set still holds those ids and the next render says 37 again.
+      Symmetrically for "Select all on this page".
+
+      This is inherent to "ticks are folded on submit" and is the same for an
+      ordinary manual untick, so it is not a defect introduced by the fix — but
+      the two named bulk controls make it look like a committed action in a way a
+      single checkbox does not.
+    suggestion: |
+      Either say it in the footer text the page already carries ("changes on this
+      page are kept when you move or add"), or make the two bulk controls submit
+      buttons that fold and redirect like every other control on the screen.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-021
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2542
+    title: "[pre-existing, not this card] a hand-typed empty ?status= turns the approved-only default off"
+    description: |
+      `status = request.values.get("status", "approved")` returns the default only
+      when the key is ABSENT. `?status=` (present, empty) yields `""`, the store's
+      `if filter_opts.status:` is then falsy, and the step offers draft and
+      rejected puzzles as if they were approved — and the hidden `status` field
+      then carries `""` through every subsequent tab switch and page move.
+
+      Identical code is in the base at 2dd96af (`request.args.get("status",
+      "approved")`), so this card neither introduced nor widened it; the only
+      change is `args` -> `values`, which is what makes the filters survive a fold.
+      Noted for a follow-up card, not for this one.
+    suggestion: |
+      `status = request.values.get("status") or "approved"` on this route and on
+      the puzzle-list route that shares the pattern.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-022
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 2352
+    title: "[carried from cycle 2 F-007] N+1 in _selected_cells — the skip argument is still legitimate"
+    description: |
+      `_selected_cells` resolves every book member and every kept tick with one
+      `puzzle_review.get_puzzle` call, which is one DB session each in DB mode —
+      up to ~300 per render on a DEFAULT_PLAN book with a full pending selection,
+      and it runs on every GET of the step. The card's refusal to replace it with
+      `filter_puzzles(PuzzleFilter(book_id=...))` is correct and unchanged since
+      cycle 2: that query reads the `puzzles.book_id` mirror, which
+      `BookManager._mirror_onto_puzzles` writes only when the manager was given a
+      puzzle store, so the planned-vs-selected figures would silently depend on
+      whether the mirror exists. Re-confirmed this cycle, still a follow-up card.
+    suggestion: |
+      Follow-up card: add a bulk `PuzzleReviewService.get_puzzles(ids)` to the
+      store and switch `_selected_cells` to it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

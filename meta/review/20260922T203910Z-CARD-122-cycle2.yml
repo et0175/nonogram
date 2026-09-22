@@ -1,0 +1,312 @@
+version: 1
+generated_at: "2026-09-22T20:39:10Z"
+target: "card/122-select-by-longest-side-tab — git diff 2dd96af (commit 9d556e6 + uncommitted cycle-1 fix round)"
+overall_score: 6.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/puzzle_review.py
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/tokens.css
+    - src/nonogram/admin/templates/book_select_puzzles.html
+    - src/nonogram/admin/book_plan.py
+    - src/nonogram/admin/book_manager.py (read-only, guardrailed)
+    - tests/test_book_select_tabs.py
+    - tests/test_admin_filter_side_range_and_name.py
+    - tests/test_card_063_limits.py
+    - tests/test_card_065_follow_ups.py
+  not_reached:
+    - "rendered screens (no browser/e2e harness, no screenshots — Step 8g static only)"
+    - "the DB (SQLAlchemy) branch of longest_side_range executed against a real Postgres/SQLite engine — read and reasoned, not run"
+  confidence: high
+metrics:
+  diff: { files: 10, added: 1691, removed: 77 }
+  max_fan_in: { symbol: "PuzzleFilter", callers: 49 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (125 commits in 12 months across the three main touched files; 51 of app.py's own commits are fix-shaped)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the top co-change peers of app.py (puzzle_review.py, book_select_puzzles.html) are both in the diff; book_manager.py is excluded by guardrail G-4 and db/models.py needs no schema change (the new filter uses existing columns)"
+
+system_contract:
+  rules_checked: 44
+  holds: 16
+  unchecked: 28
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml has 0 lines in `git diff 2dd96af`; the diff's new imports are stdlib (`collections.OrderedDict`, `secrets`) plus `sqlalchemy.case` beside the already-imported `String, cast, or_`"
+    - "ADR-0019/R1 ✓ holds — the AST import-direction guard `test_every_import_in_the_package_points_inward` (tests/test_cli.py) is green on this head; new app.py imports (`nonogram.difficulty.tier_of_record`, `nonogram.errors.SizeOutOfRange`, `.book_plan`) all point inward/intra-package"
+    - "ADR-0022/R1 ✓ holds — `longest_side_range` is a filter predicate over `max(width, height)`, not a grid extent reduced to a scalar; no public signature, request field or export field gained a scalar \"size\", and the diff REMOVES this route's `size`/`size_from`/`size_to` scalars (AC-216)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff touches no image-fitting path"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff touches no --size parsing"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry-counter code in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy code in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict seam in the diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no technique classification in the diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring inputs in the diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff"
+    - "ADR-0032/R1 ✓ holds — the diff adds no add_puzzle path; tests/test_admin_uniqueness_boundary.py green on this head (85 passed in the binding/boundary/quality run)"
+    - "ADR-0032/R2 ✓ holds — the `quality_min` branch of `filter_puzzles` has no added/removed line in the diff; tests/test_card_056_unmeasured_quality.py green on this head. (The template now renders `quality_min if quality_min is not none else ''` instead of `quality_min or ''`, which only affects the literal 0, and the store treats 0 as \"no minimum\" exactly as before.)"
+    - "ADR-0033/R1 ✓ holds — grepping the added lines of app.py + puzzle_review.py for writes to grid/clues/difficulty/strategies/status/quality returns nothing; the diff's only membership write is `book_mgr.add_puzzles_to_book(book_id, kept_ids)`, and book_manager.py is untouched (G-4)"
+    - "ADR-0035/R1 ✓ holds — the diff contains no book-status transition; grepping the added lines for `update_book_status`/`set_status`/`status =` returns only the query-string puzzle-status filter (`status = request.values.get(\"status\", \"approved\")`)"
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** is absent from `git diff 2dd96af --stat` (G-5); the golden tripwire files tests/fixtures/a4_golden/** are unchanged"
+    - "ADR-0036/R2 ✓ holds — the diff adds no cell fitting and no grid-line placement to the admin panel; the new geometry is CSS tab/stat-line layout only"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: the diff touches no book page band"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: the diff touches no PDF stroke widths"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff touches no solver code"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the diff touches no src/nonogram/web/ server"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: the diff touches no src/nonogram/web/ request door"
+    - "CON-011 ✓ holds — the new store predicate takes its bounds from `book_plan`'s bucket (`bucket.low`/`bucket.high`) and from `nonogram.limits.MIN_SIZE`/`MAX_SIZE`, never a literal 10/30; a row with a side outside MIN..MAX is excluded by both the in-memory and the DB branch; tests/test_card_063_limits.py green on this head"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the diff touches no aspect guard"
+    - "CON-015 ✓ holds — the panel entry point is untouched; tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault green on this head"
+    - "CON-016 ✓ holds — no before_request/door code changed; tests/test_admin_binding.py::TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on this head"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the diff derives no clues"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the diff gates no export"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the diff has no retry counter"
+    - "INV-005 ✓ holds — the route only reads the plan (`_readable_plan` -> `book_mgr.get_plan`) and never writes one; tests/test_book_plan.py + tests/test_book_plan_storage.py green on this head"
+    - "INV-006 ✓ holds — the below-floor/override guard lives in book_manager.add_puzzles_to_book (untouched, G-4); the route passes its ValueError through as a flash and deliberately does NOT drop the pending ticks, so a refused add leaves the owner able to retry"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the diff contains no readiness transition; `selection_cells`/`planned_cells` are read, not changed"
+    - "INV-008 ✓ holds — the route's only membership call is the unchanged `add_puzzles_to_book`; the diff adds no path that edits a published book's membership without it"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: `_tab_order` orders the *selection list*, not the book order; book arrangement code is untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: the diff touches no pairing code"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the diff touches no answer key"
+    - "INV-012 ✓ holds — `add_puzzles_to_book` is the only membership write in the diff (grep of the added app.py lines), called once, with `_drop_selection` only on its success; a tab switch and a page move redirect before reaching it; TestBookSelect_PendingSelectionDoesNotRideInTheCookie::test_the_kept_selection_still_commits_once_through_the_book_manager green on this head"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: the diff touches no interior/cover split"
+
+root_causes:
+  - id: RC-1
+    title: "An ordering/narrowing step applied in Python AFTER the store's LIMIT/OFFSET (the F-001 defect class, now on the sort instead of the filter)"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: feature
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2556
+    title: "Tier-then-shorter-side sort is applied per page, not per tab — the tab's order restarts at easy on every page"
+    description: |
+      The card's "What to implement" item 4 and AC-215 declare one order for a tab:
+      tier (easy, medium, hard), then shorter side ascending. The route gets that order
+      from `sorted(..., key=_tab_order)` in Python, applied to `result.puzzles` — the
+      rows the store already sliced with LIMIT/OFFSET. The slice itself is taken in the
+      store's default order (`sort_by="batch_id,-size,quality"`), so each page is an
+      arbitrary subset of the tab re-sorted in isolation.
+
+      Measured on this head (60 members of the 21-25 tab, page size _SELECT_PAGE=50):
+        page 1 tiers: easy x17, medium x16, hard x17
+        page 2 tiers: easy x3,  medium x4,  hard x3
+        globally sorted by tier? False
+      Page 2 restarts at easy. On the owner's real corpus, F-001 of cycle 1 measured
+      36 / 85 / 135 / 185 available puzzles per bucket, so three of the four tabs are
+      multi-page at 50/page and the declared order is wrong on all three.
+
+      This is the same root cause as cycle-1's F-001 (an operation applied after the
+      store's slice), moved from the filter to the sort — and it is invisible to the
+      tests for the same reason F-003 named: TestBookSelect_TabSortsByTierThenShorterSide
+      builds 4 puzzles, which fit on one page, and
+      test_PropertyTest_LongestSideBuckets_PartitionEveryExtent asserts membership only,
+      never order.
+    suggestion: |
+      Push the order into the store query so LIMIT/OFFSET page the tab in the card's
+      order — e.g. a named `sort_by` value the store maps to a tier-rank CASE
+      (easy < medium < hard, ungraded last), then `min(width, height)` (a CASE mirroring
+      the existing `longest` CASE), then id. That is the same additive change to
+      puzzle_review.py the card already took a scope exception for, and it lets
+      `_tab_order` stay as the route-level cross-check the way `_is_in_tab` does.
+      Add a case whose corpus outgrows one page (MORE_THAN_A_PAGE is already in the
+      test file) asserting the order across `panel.pages_of(...)`, not within a page.
+    confidence: high
+    source: static
+    violates: AC-215
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 30
+    title: "Applying a filter is a GET and silently drops the ticks made on the current page"
+    description: |
+      The Filters card is a separate `method="GET"` form. Pressing Apply navigates away
+      without POSTing the step's own form, so the tiles ticked since the page loaded are
+      never folded into the kept selection and are lost with no message — while the page
+      itself tells the owner "Ticks are kept as you move" under the pagination control.
+      The already-kept set survives (it is server-side), so the loss is bounded to the
+      current page's unsaved ticks, and it is not a regression: before this card a filter
+      change lost the whole selection. Noted, not gating.
+    suggestion: |
+      Either make the filter controls submit the step's own form with a
+      `name="go_filter"` submit button (the same fold-then-redirect path as go_bucket /
+      go_offset), or state on the filter card that ticks are applied when a tab or page
+      control is pressed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 106
+    title: "\"Clear\" clears only this page, and there is no control that clears the kept selection"
+    description: |
+      `selectAll()` was correctly relabelled "Select all on this page", but `clearAll()`
+      still reads "Clear" while it unticks only the checkboxes this page rendered. With
+      ticks kept on other tabs/pages the counter afterwards reads e.g. "37 puzzles
+      selected" immediately after pressing Clear. There is no control anywhere that drops
+      the whole pending selection — the only ways out are committing it or restarting the
+      process (`_pending_selections` is process-local).
+    suggestion: |
+      Relabel to "Clear this page" and add a "Clear all selected" control that posts to
+      the step and calls `_drop_selection(book_id)`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 92
+    title: "role=\"tab\" tablist without roving tabindex or arrow-key navigation"
+    description: |
+      The tab strip declares `role="tablist"` with four `role="tab"` submit buttons,
+      `aria-selected` and `aria-controls`. That satisfies axe's required-attr/required-parent
+      rules and every tab is keyboard-reachable (they are real buttons), so the card's
+      stated a11y minimum is met. But the WAI-ARIA tabs pattern a screen-reader user is
+      told to expect from `role="tablist"` also includes roving `tabindex` and Left/Right
+      arrow navigation, neither of which is implemented — declaring the role promises an
+      interaction model the widget does not have. The `role="tabpanel"` element carries
+      `aria-label` rather than `aria-labelledby` pointing at the current tab.
+    suggestion: |
+      Either implement roving tabindex + arrow keys, or drop `role="tablist"`/`role="tab"`
+      and keep the strip as a plain group of buttons with `aria-pressed`/`aria-current`
+      semantics that match what the controls actually do.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2246
+    title: "_pending_selections is mutated without a lock under Flask's threaded dev server"
+    description: |
+      `_pending_selections` is a plain `OrderedDict` read and written on the request path
+      (`move_to_end`, `__setitem__`, `popitem(last=False)`, `pop`). Werkzeug's dev server
+      is threaded by default, so two concurrent requests (two browser tabs, or a page that
+      fires a second request while the first is in flight) interleave these. The blast
+      radius is small — the worst realistic outcome is one session's pending ticks being
+      evicted a request early — and nothing committed is at risk, but the map is shared
+      mutable state with no guard and the card's note does not mention it.
+    suggestion: |
+      Wrap the three mutating operations in a module-level `threading.Lock()`, or note in
+      the docstring that single-threaded loopback use is the assumption.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/puzzle_review.py
+    line: 775
+    title: "bucket_of's \"both sides inside MIN..MAX\" clause is now restated in three places"
+    description: |
+      G-1 holds — the (low, high) thresholds come only from `book_plan`'s bucket and
+      nowhere else, and there is no second threshold table. But the *other* half of
+      `bucket_of`'s contract (a row with a side outside MIN_SIZE..MAX_SIZE belongs to no
+      bucket) is now written three times: in `book_plan.bucket_of`, in the in-memory
+      branch of `filter_puzzles`, and in the DB branch's
+      `Puzzle.width.between(MIN_SIZE, MAX_SIZE), Puzzle.height.between(...)`. They agree
+      today — verified by reading and by test_PropertyTest_LongestSideBuckets_PartitionEveryExtent
+      over all 441 extents plus `_is_in_tab`'s render-time re-check — but a change to that
+      clause in book_plan would now have to be made in three files to stay true.
+    suggestion: |
+      Note it in book_plan's docstring as the contract the store's pushdown must mirror, or
+      expose the (low, high, in-range) triple from book_plan so the store takes all of it
+      from one place.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 2340
+    title: "[deferred from cycle 1] N+1 in _selected_cells — the skip argument is legitimate"
+    description: |
+      Judged as asked: the skip is legitimate. `_selected_cells` reads the authoritative
+      `book.puzzle_ids` and resolves each id with `puzzle_review.get_puzzle`, one store
+      call (one DB session in DB mode) per member. Replacing it with
+      `filter_puzzles(PuzzleFilter(book_id=...))` would move the figures onto the
+      `puzzles.book_id` mirror, which `BookManager._mirror_onto_puzzles` writes only when
+      the manager was given a puzzle store (book_manager.py:994 logs and returns when it
+      was not) — so planned-vs-selected would silently depend on whether the mirror exists.
+      That is a correctness change dressed as a performance one, and the card is right to
+      refuse it.
+      The cost is real but bounded: 150 lookups per render at DEFAULT_PLAN, on a
+      single-user loopback tool. The proper fix is a bulk `get_puzzles(ids)` on the store;
+      a follow-up card, not this one.
+    suggestion: |
+      Open a follow-up card for a bulk `PuzzleReviewService.get_puzzles(ids)` and switch
+      `_selected_cells` to it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

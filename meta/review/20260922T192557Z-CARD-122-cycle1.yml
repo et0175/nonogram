@@ -1,0 +1,433 @@
+version: 1
+generated_at: "2026-09-22T19:25:57Z"
+target: "CARD-122 — branch card/122-select-by-longest-side-tab, commit 9d556e6, worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-122"
+overall_score: 5.0
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/tokens.css
+    - src/nonogram/admin/templates/book_select_puzzles.html
+    - src/nonogram/admin/book_plan.py
+    - src/nonogram/admin/puzzle_review.py
+    - tests/test_book_select_tabs.py
+    - tests/test_card_063_limits.py
+    - tests/test_card_065_follow_ups.py
+    - meta/kanban/cards/CARD-122.md
+    - meta/design/brief.md
+    - meta/design/components.md
+  not_reached:
+    - "rendered browser result (no Makefile run target, no browser/e2e harness in this project)"
+    - "src/nonogram/admin/book_manager.py internals beyond add_puzzles_to_book's contract (G-4: not editable, read only at the seam)"
+  confidence: high
+metrics:
+  diff: { files: 6, added: 883, removed: 76 }
+  max_fan_in:
+    symbol: "select_puzzles_for_book (route endpoint)"
+    callers: 3
+  tests_cover_change: true
+  hotspots:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/templates/book_select_puzzles.html
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the template's 12-month co-change peers (puzzles_list.html x7, book_arrange_puzzles.html x4, app.py x7) are all either deliberately unchanged by this card's AC (puzzles_list keeps its size filter; CARD-063/065 still assert it) or owned by another card this wave (book_arrange = CARD-124). No absent peer is a missing-change candidate."
+    max_fan_in: "tooling_failure — every symbol this diff adds to app.py is a closure inside create_app (_selected_tab, _tab_query, _kept_selection, _keep_selection, _drop_selection, _fold_tab_into_selection, _selected_cells, _tier_figures, _plan_progress, _is_in_tab, _tab_order); a repo-wide grep cannot separate them from same-named locals, so the fan-in reported is the route endpoint's url_for/test references only."
+
+system_contract:
+  rules_checked: 44
+  holds: 14
+  unchecked: 30
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff adds no dependency: every new import in app.py is intra-package (book_plan.bucket_of/planned_cells/selection_cells, difficulty.tier_of_record, errors.SizeOutOfRange). pyproject.toml untouched."
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green on 9d556e6 (ran: 9 passed with test_admin_design_tokens.py and property/test_longest_side_buckets.py); no new outward/lateral import."
+    - "ADR-0022/R1 ✓ holds — the diff REMOVES this route's single-scalar path (size=(size,size) from ?size=) and passes extent as a pair throughout: side_range=(bucket.low, bucket.high), bucket_of(width, height), _tab_order's (min, max) key."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in this diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token handling in this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no grid repair/recovery code in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair policy code in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict seam in this diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in this diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve/strategy attribution in this diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty score computation in this diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the storage boundary (add_puzzle) is not touched; the route only reads stored rows."
+    - "ADR-0032/R2 ✓ holds — quality_min stays Optional[int] end to end: the route reads request.values.get('quality_min', type=int) (None when absent/unparseable) and the template's hidden+visible fields changed from `quality_min or ''` to `quality_min if quality_min is not none else ''`, so 0 round-trips instead of collapsing to blank. No None-as-zero comparison added."
+    - "ADR-0033/R1 ✓ holds — the route writes no puzzle field. The only mutation is the unchanged single call book_mgr.add_puzzles_to_book(book_id, kept_ids); the tab switch path returns a redirect before any write, asserted by tests/test_book_select_tabs.py::TestBookSelect_BookSummarySumsAllTabs::test_a_tile_ticked_but_not_yet_committed_counts_towards_the_summary."
+    - "ADR-0035/R1 ✓ holds — no status transition in the diff; the plan is read through the existing _readable_plan(book_id) and never written. The plan-less branch renders ADR-0035's remedy (counts alone + a Print-setup link), verified by test_a_book_with_no_plan_shows_the_counts_and_points_at_print_setup."
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout is not called from this diff (G-5, export/** untouched)."
+    - "ADR-0036/R2 ✓ holds — the diff computes no page geometry: no cell size, no mm, no grid-line placement anywhere in app.py's CARD-122 block, the template or admin.css. Scan of the diff for 'mm'/'cell'/'stroke' geometry returns only CSS layout tokens."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book page band rendering in this diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no PDF stroke widths in this diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by this diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is not touched; no bind address in this diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ cross-origin gate not touched."
+    - "CON-011 ✓ holds — every side bound in the diff comes from nonogram.limits via book_plan: _BOUNDS ties BUCKETS[0].low to MIN_SIZE and BUCKETS[-1].high to MAX_SIZE, _is_in_tab refuses an out-of-range row through SizeOutOfRange, and the store narrowing uses bucket.low/high. No literal 10 or 30 appears in the diff. tests/property/test_longest_side_buckets.py green on this head."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff."
+    - "CON-015 ✓ holds — the diff contains no app.run/host/bind/debug statement; create_app's bind block (app.py L745-800) is unmodified by 9d556e6."
+    - "CON-016 ✓ holds — the diff adds no before_request hook and no route-level door bypass; the new route keeps its existing @app.route decorator and the door hook is untouched."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue encoding in this diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness marking in this diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "INV-005 ✓ holds — the plan is read-only here: _plan_progress calls _readable_plan then planned_cells(plan); no Split or DistributionPlan is constructed in the diff, so no path can store a split that does not sum to 100."
+    - "INV-006 ✓ holds — the below-floor gate lives in add_puzzles_to_book (G-4, untouched); the route still routes every commit through that one call and, when it raises ValueError, catches it, flashes and does NOT call _drop_selection, so a refused membership leaves the kept ticks intact rather than half-committing."
+    - "INV-007 ✓ holds — the readiness gate is not called here, and the requirement it shares with this card (one bucketing function, EC-024) is met: the route imports and calls book_plan.bucket_of; scan of the diff for a second max(w,h) threshold table finds only _tab_order's max(width,height) used as a sort tie-break, not as a bucket decision."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book confirmation path in this diff."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order/arrangement is CARD-124's file, untouched."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing lives in export/**, untouched (G-5)."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer-key layout not touched."
+    - "INV-012 ✓ holds — the design explicitly avoids the violation: a tab switch keeps ticks in session['book_selection'] and returns a redirect before add_puzzles_to_book, so no membership change (and therefore no non-draft -> draft bounce) happens on a switch. Verified by test_a_tile_ticked_but_not_yet_committed_counts_towards_the_summary asserting get_book(book_id).puzzle_ids == [] after a switch."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior/cover PDF assembly not touched."
+
+root_causes:
+  - id: RC-1
+    title: "The bucket membership test runs in Python AFTER the store applied LIMIT/OFFSET to a much wider side_range superset, and the page exposes no pagination control"
+    finding_ids: [F-001, F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: feature
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2440
+    title: "Tabs drop most of their own puzzles: 371 of 441 available puzzles are unreachable on the rendered page"
+    description: |
+      The store query is narrowed with side_range=(bucket.low, bucket.high), which
+      puzzle_review matches as "EITHER side in [low, high]" (puzzle_review.py L758 /
+      L856-860). That is a superset of the tab, as the worktree notes say — but the
+      store applies ORDER BY + LIMIT/OFFSET to the superset (L925-927), and only then
+      does the route drop the non-members with _is_in_tab. The page has no pagination
+      control at all (grep for has_more/offset/limit in book_select_puzzles.html and
+      base.html: no hits), so a browser always loads offset=0, limit=50.
+
+      Measured against the real route (441 approved puzzles, one per supported
+      extent, in-memory store, default sort batch_id,-size,quality):
+
+        tab   <=15: members= 36  rendered=  0   header says "(0 available)"
+        tab  16-20: members= 85  rendered=  0   header says "(0 available)"
+        tab  21-25: members=135  rendered= 20   header says "(20 available)"
+        tab  26-30: members=185  rendered= 50   header says "(50 available)"
+        TOTAL available=441  reachable across all four tabs=70  UNREACHABLE=371
+
+      The default sort is width-descending, so the first 50 rows of the <=15 tab's
+      superset are all 26..30-wide rows that _is_in_tab then discards — the tab renders
+      empty while 36 puzzles belong on it.
+
+      This fails the card's objective 1 ("Each puzzle is listed on exactly one tab") and
+      EC-024's route-level clause ("every available puzzle appears on exactly one
+      rendered tab") as the product actually renders. AC-208/209/210 pass only because
+      their fixtures hold 1-4 puzzles.
+    suggestion: |
+      Move the bucket decision into the store query so LIMIT applies to members only,
+      without introducing a second threshold table (G-1/EC-024): pass the bucket's
+      (low, high) as a *longest-side* predicate the store can express — e.g. add a
+      `longest_side_range` to PuzzleFilter implemented as
+      `func.max(Puzzle.width, Puzzle.height).between(low, high)` (SQLite/Postgres both
+      have a 2-arg max) and `max(w, h)` in the in-memory branch, with book_plan
+      remaining the only source of the (low, high) pairs. Failing that, page the store
+      until the tab is full and render real pagination controls. Either way
+      `total_count` must be the tab's true member count, not the surviving slice.
+    confidence: high
+    source: static
+    violates: EC-024
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 108
+    title: "\"(N available)\" reports the surviving page slice, so the header states a false zero"
+    description: |
+      The route sets total_count=len(filtered_puzzles) (app.py L2459) — the count AFTER
+      the Python bucket filter has eaten the store page — and the template renders it as
+      "Longest side <=15 <small>(N available)</small>". In the measurement under F-001
+      the <=15 and 16-20 tabs both render "(0 available)" while 36 and 85 puzzles
+      respectively are available on them.
+
+      This is worse than the truncation itself: an empty list with an explicit "0
+      available" plus the empty-state copy ("No approved puzzles with a longest side of
+      <=15 match these filters. Try another tab…") tells the owner a true statement is
+      false. The store's own `total` (the pre-page count) is discarded.
+    suggestion: |
+      Once F-001's fix makes the store query bucket-exact, report the store's
+      PuzzleListResponse.total_count rather than len(filtered_puzzles), and render the
+      empty state only when that total is genuinely 0.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_select_tabs.py
+    line: 490
+    title: "The EC-024 route-level property test passes limit/offset the product never sends, so it certifies a path no user can reach"
+    description: |
+      `_every_offered_id` walks each tab with `panel.tab(book_id, bucket, limit=PAGE,
+      offset=offset)` — explicit `?limit=100&offset=N` query parameters. No rendered page
+      produces such a URL: `book_select_puzzles.html` contains no pagination control, no
+      link that sets `offset`, and no `limit` field (verified by grep over the template
+      and base.html), and the POST form's hidden fields carry bucket/difficulty/
+      quality_min/theme/status/puzzle_name only — `_SELECT_FILTERS` names "limit" and
+      "offset" but nothing ever submits them.
+
+      So `test_PropertyTest_LongestSideBuckets_PartitionEveryExtent` is green on a
+      corpus of 441 puzzles while the same 441 puzzles, loaded the way the browser loads
+      them, leave 371 unreachable (F-001). This is exactly the aspirational-green
+      pattern: the test's `given` is not the screen's `given`.
+    suggestion: |
+      Add one case to the same test that loads each tab with NO limit/offset — the URL a
+      browser actually requests — and asserts that the four tabs between them still
+      offer every available puzzle (or, if paging is the intended answer, that the page
+      renders a reachable control for the next page and that following it terminates on
+      the full set). Keep the paged walk as a second case.
+    confidence: high
+    source: static
+    violates: EC-024
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2245
+    title: "The kept selection lives in the signed session cookie and silently overflows the 4 KB browser limit at ~135 puzzles"
+    description: |
+      `_keep_selection` writes the full list of ticked puzzle ids into
+      `session["book_selection"][book_id]`. The admin panel uses Flask's default
+      client-side session (app.py L745-760 sets SECRET_KEY and cookie flags; no
+      server-side session interface is installed), so that list is serialised into the
+      `session` cookie on every response.
+
+      Measured with Flask's own SecureCookieSessionInterface serializer and UUID ids:
+
+         50 ticked -> 1575 bytes    ok
+        100 ticked -> 3056 bytes    ok
+        120 ticked -> 3636 bytes    ok
+        150 ticked -> 4507 bytes    OVERFLOW (browser limit ~4093)
+
+      ADR-0034's DEFAULT_PLAN is 150 puzzles, and the four tabs exist precisely so the
+      owner accumulates a whole book's worth of ticks before the single commit. At the
+      overflow point Werkzeug warns to the server log and the browser silently discards
+      the cookie — taking the entire session with it, including `unit_preference` and
+      `book_<id>_cover_path` written elsewhere in this same app. AC-211 then fails
+      silently, with no error the owner can see. The threshold is lower in practice,
+      since other session keys share the same 4093 bytes.
+    suggestion: |
+      Keep the pending selection server-side rather than in the cookie: either a
+      per-book scratch table / in-memory map keyed by a small session token, or a
+      compact encoding (the store already has the ids; storing them as raw 16-byte UUIDs
+      base64'd roughly halves the size but only moves the ceiling). If the cookie is
+      kept, at minimum cap the kept set and tell the owner when the cap is hit, instead
+      of losing the selection without a message.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: compliance
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 219
+    title: "The tab strip's over-plan marker is colour-only"
+    description: |
+      `.tab[data-over="true"] .tab-count { color: var(--color-warning); }` is the only
+      difference an over-plan tab shows in the tab strip: the button's text is
+      `<span class="tab-label">21-25</span><span class="tab-count">14 / 12</span>` with
+      no word, glyph, weight or shape change. The `.stat-cell` marker inside the panel
+      is correct (it carries the word "over" as well as `data-over` — AC-213 is
+      satisfied), but the tab strip is the one place that signals over-plan on the
+      *other three* tabs, and for a viewer who cannot perceive the warning colour it
+      signals nothing at all.
+
+      meta/design/components.md registers the Tabs state as "with-over-plan marker", and
+      the card's Standards line requires forge:engineering-standards §11's a11y minimum.
+    suggestion: |
+      Give the over state a non-colour affordance on the button too — append the same
+      "over" word (or a "!" / triangle glyph with an `aria-label`) inside `.tab-count`
+      when `entry.over`, the way `figure_cell` already does for the panel cells.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2268
+    title: "N+1: _selected_cells issues one get_puzzle per book member on every render"
+    description: |
+      `_selected_cells` loops `for puzzle_id in list(book.puzzle_ids) + list(kept_ids)`
+      and calls `puzzle_review.get_puzzle(puzzle_id)` for each. In DB mode every call
+      opens its own `self._session_factory()` and runs a single-row query
+      (puzzle_review.py L957-960). For a book at DEFAULT_PLAN's 150 puzzles that is 150
+      sessions and 150 queries on every GET of the step, including every tab switch.
+    suggestion: |
+      Fetch the members in one query — e.g. `filter_puzzles(PuzzleFilter(book_id=book_id,
+      limit=...))` for the committed half plus one id-set query for the kept half — and
+      pass the records to `selection_cells` as it already expects an iterable.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2213
+    title: "_SELECT_FILTERS carries \"limit\" and \"offset\" that no form field ever submits"
+    description: |
+      `_tab_query` copies `_SELECT_FILTERS` out of `request.form`, but the POST form in
+      book_select_puzzles.html renders hidden inputs for bucket, difficulty, quality_min,
+      theme, status and puzzle_name only. `limit` and `offset` are therefore always
+      absent from `request.form` and never reach the redirect — dead entries that read
+      as "paging is carried across a tab switch" when it is not.
+    suggestion: |
+      Drop the two names, or (better, together with F-001's fix) actually render the
+      paging controls and carry them.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_card_063_limits.py
+    line: 204
+    title: "The retargeted CARD-063 test asserts two pure constants inside a rendered-body test"
+    description: |
+      `test_the_book_puzzle_step_spans_the_range_in_tabs` fetches `body` and then
+      asserts `f"&lt;={BUCKETS[0].high}" in body and str(BUCKETS[-1].high) == str(HIGH)`
+      followed by `assert BUCKETS[0].low == LOW and BUCKETS[-1].high == HIGH`. The
+      second half of the first assertion and the whole of the second touch no rendered
+      output at all — they restate a property of `book_plan.BUCKETS` that
+      `tests/property/test_longest_side_buckets.py` already owns, and they would pass
+      with an empty `body`.
+
+      The genuinely new coverage is the two `id="size_from"` / `id="size_to"` absence
+      checks. The retarget itself is correct (the behaviour it replaced — number inputs
+      carrying MIN_SIZE/MAX_SIZE — is exactly what AC-216 deletes) and nothing
+      protecting the other two templates was weakened; this is about the replacement's
+      shape, not its legitimacy.
+    suggestion: |
+      Keep the absence checks; replace the constant assertions with one that reads the
+      rendered tab strip — e.g. collect the four `go_bucket` values from `body` and
+      assert they are `[b.label for b in BUCKETS]`, which is what "the tabs tile the
+      range end to end" means on this page.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2409
+    title: "?size= on this route is now silently ignored"
+    description: |
+      The route used to read `size = request.args.get("size", type=int)` and pass
+      `size=(size, size)` to the filter. That read is removed and nothing replaces it, so
+      an existing link or bookmark of the form
+      `/book/<id>/select-puzzles?size=20` now renders the default <=15 tab with no
+      indication that its filter was dropped. Removing the scalar read is right
+      (ADR-0022/R1), but the silent change of meaning is not obvious from the diff.
+    suggestion: |
+      Either ignore it deliberately with a comment saying so, or flash a one-line notice
+      when an unsupported `size`/`size_from`/`size_to` parameter arrives on this route.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: compliance
+    type: gap
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 90
+    title: "The tablist/tabpanel pair is not wired: no aria-controls, no panel id, and aria-current=\"page\" on a non-nav control"
+    description: |
+      Each tab is `role="tab" id="tab_N" aria-selected=… aria-current="page"` and the
+      panel is `role="tabpanel" aria-label="Longest side 21-25"`, but the panel has no
+      `id` and no tab carries `aria-controls`, so the ARIA tab pattern is declared and
+      left unconnected. `aria-current="page"` additionally claims page-navigation
+      semantics for a control that submits a form. The card's requirement (keyboard
+      reachable + current tab announced) is met — they are real submit buttons and
+      `aria-selected="true"` is on the current one, asserted by
+      test_every_tab_is_a_keyboard_reachable_control_and_the_current_one_is_announced.
+      Automated a11y was not run (no harness), so this is a static read of the markup.
+    suggestion: |
+      Give the panel an `id` and point each tab at it with `aria-controls`, and drop
+      `aria-current="page"` (or use `aria-current="true"`) since `aria-selected` already
+      announces the current tab.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "223fa3e"
+    dismissed_reason: null
+    learned_pattern: null

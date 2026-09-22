@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-23
+- CARD-122 (feature): Puzzle selection for a book is split into four longest-side tabs (≤15, 16–20, 21–25, 26–30), each showing planned vs actual per difficulty, sorted easy→hard then by shorter side, with the bucket filter, ordering and paging done in the store query; the pending selection is kept server-side instead of in the session cookie.
+
 ## 2026-09-22
 - CARD-125 (feature): Export can lay out two small puzzles on one book page at a single shared cell of at least 7.0 mm (capped at 7.5 mm), each slot with its own title band and the page's mirrored margins; when no shared cell reaches 7.0 mm it reports no pairing, so the two puzzles print alone.
 - CARD-115 (feature): A book's PageSpec is built from its stored trim and margins, falling back to the Book 1 profile (migration 011 adds the KDP margin defaults: gutter 1.27 cm, outside/top/bottom 0.95 cm); the printed cell size for a puzzle on that book comes from the same call the PDF will make.
