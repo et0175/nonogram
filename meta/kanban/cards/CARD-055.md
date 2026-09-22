@@ -19,7 +19,7 @@
 **Started:** 2026-09-22
 **Closed:** 2026-09-22
 **Actual:** 0.25d
-**Merge commit:** —
+**Merge commit:** df192c1
 **Blocked by:** —
 
 ## Re-cut 2026-09-22 — the reachability claim is stale, the two-field claim is not
