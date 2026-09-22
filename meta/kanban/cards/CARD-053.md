@@ -19,7 +19,7 @@
 **Started:** 2026-09-22
 **Closed:** 2026-09-22
 **Actual:** 0.25d
-**Merge commit:** —
+**Merge commit:** 8bc5e52
 **Blocked by:** —
 
 ## Re-cut 2026-09-22 — the orphan claim is half true, and both ACs are wider than they read
