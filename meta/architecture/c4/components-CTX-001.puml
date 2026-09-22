@@ -18,11 +18,16 @@
 '   component added or removed. Two CONTRACTS changed and only their labels
 '   below were rewritten — COMP-005's result gains the first-fixed-point
 '   undecided mask, a second witness on MANY (FR-024) and per-cell rung tags
-'   (ADR-0029); COMP-006's classifier takes (score, branch_nodes), emits the
+'   (ADR-0029); COMP-006's classifier takes the score alone (ADR-0031), emits the
 '   three-band tier and the strategies list (FR-029) — the fourth `guess`
 '   tier was retired by ADR-0031/CARD-098,
 '   with no clock term (NFR-007/CON-014). Everything else is left as found.
 '   COMP-007  Export Renderers        CTX-001  CAP-005  ADR-0006, ADR-0016, ADR-0017
+'   COMP-008  Web UI Adapter          CTX-001  —        ADR-0019, ADR-0020, ADR-0021, CON-007
+'   COMP-009  Admin Panel             CTX-001  —        ADR-0030, ADR-0032, CON-015, CON-016, CON-017
+'   COMP-010  Persistence             CTX-001  —        ADR-0032, CON-017
+'   (COMP-008 drawn for the first time, and COMP-009/COMP-010 added, by
+'   CARD-112 on 2026-09-22 — the diagram predated all three.)
 '
 ' Generated from: CTX-001 capabilities [CAP-001..CAP-005], aggregates
 '   [AGG-001], policies [POL-001..POL-005], and the module layout fixed by
@@ -34,22 +39,28 @@
 '   every cross-capability hand-off goes through COMP-002. Note there is
 '   deliberately NO arrow between COMP-003..COMP-007 below; that absence is
 '   the architecture, not an omission.
+'   The admin panel (COMP-009) is an ADAPTER, not a capability, so its
+'   arrows straight into COMP-004 (clues) and COMP-005 (solver) are legal
+'   under this rule and are drawn on purpose: they are ADR-0032/R1's storage
+'   guard, which re-derives a puzzle's clues and asks the solver for a verdict
+'   at the storage boundary itself rather than trusting whoever called it.
+'   Routing them "through the orchestrator" would erase that guarantee.
 '
-' No ComponentDb in the pipeline below: CON-017 (superseding CON-003 on
-'   2026-09-22, CARD-111) keeps the CLI and web UI persisting nothing beyond
-'   the files they export, so the only durable state HERE is the export file.
-'   That is still true of everything drawn below. What is missing is the
-'   admin panel (COMP-009) and its database (COMP-010) — a real ComponentDb,
-'   whose absence was justified by CON-003's blanket "ever" rather than by
-'   anything about this diagram. Drawing them is CARD-110's AC-3.
+' Persistence (CON-017, superseding CON-003): the CLI and the web UI keep
+'   no state beyond the files they export — nothing inside the "Puzzle
+'   Creation" boundary below touches COMP-010. The admin panel is the only
+'   exception and the only inbound edge to COMP-010; nothing outside
+'   src/nonogram/admin/ imports nonogram.db (grep-verified, CARD-112).
 ' ============================================================
 title Components — Puzzle Creation Context (CTX-001)
 
 Person(puzzleCreator, "Puzzle Creator", "ACT-001")
 
-Container_Boundary(cliTool, "Puzzle Creation CLI (CTX-001)") {
+Container_Boundary(cliTool, "Puzzle Creation — CLI and web UI, one process (CTX-001)") {
 
   Component(cli, "COMP-001 CLI Adapter", "Python — cli.py", "Thin adapter (ADR-0007): stdlib argparse parses mode/size/density/difficulty/--out/--seed and expresses only syntactic constraints (ADR-0010); domain validation lives inward. Echoes the seed (ADR-0015) and prints the FR-014 nudge-count line. Contains no domain logic.")
+
+  Component(web, "COMP-008 Web UI Adapter", "Python — web/ (stdlib http.server)", "Second inbound adapter (ADR-0019), a sibling of COMP-001 launched by `nonogram serve` from the same console entry point (ADR-0008) — so the same process and container, not a second one. Takes a form POST, makes the same synchronous call into COMP-002 the CLI makes (ADR-0021), and reports success or failure with the paths written. Binds loopback only and refuses cross-origin requests (NFR-003, NFR-004, CON-009, CON-010). No state beyond the export files (CON-017).")
 
   Component(orchestrator, "COMP-002 Pipeline Orchestrator", "Python — orchestrator.py", "Owns the Puzzle aggregate (AGG-001) and drives one generation run end to end. Sole enforcement point for INV-002 (export gate: uniqueness confirmed first) and INV-003 (retry/nudge counter bound, NFR-002/ADR-0002). Drives POL-001 regenerate, POL-002 pixel-nudge, POL-003 nudge-cap failure, POL-004 difficulty resample, POL-005 abandon-after-max-retries (EVT-012). Computes the ADR-0001 deadline and passes it into the solver; converts SolverTimeout into clean abandonment (ADR-0011). Injects the single random.Random instance (ADR-0015).")
 
@@ -64,6 +75,13 @@ Container_Boundary(cliTool, "Puzzle Creation CLI (CTX-001)") {
   Component(export, "COMP-007 Export Renderers", "Python — export/", "CAP-005: renders a finalized, uniqueness-confirmed puzzle as print-ready PNG/SVG (FR-011, Pillow per ADR-0006) or as JSON/CSV carrying the full solution grid, clues and seed (FR-012, ADR-0015), exactly round-trippable per EC-002. Also renders the FR-016 two-page PDF (page 1 blank puzzle + clues, page 2 answer key, both headered with the FR-015 name and difficulty tier) by reusing that same PNG raster path through Pillow's built-in multi-page PDF save — no new dependency (CON-006, ADR-0006). Resolves the export path as <name>-<difficulty>.pdf (ADR-0016), auto-suffixing on collision (ADR-0017). Static output only (CON-002). Invoked only after the orchestrator's INV-002 gate passes.")
 }
 
+Container_Boundary(adminPanel, "Admin Panel — separate process (CTX-001)") {
+
+  Component(admin, "COMP-009 Admin Panel", "Python — admin/ (Flask)", "Third inbound adapter, deployed as its own process (Procfile; Render). Batch generation through COMP-002, human review and curation, re-grading, and book assembly and PDF export. Stores a puzzle only after its storage guard has re-derived the clues and had the solver prove it unique (ADR-0032/R1); an unmeasured quality score is unknown, never zero (ADR-0032/R2). Loopback-only by default, one credentialed door when ADMIN_ALLOWED_HOST is set (CON-015, CON-016, ADR-0030).")
+
+  ComponentDb(persistence, "COMP-010 Persistence", "Python — db/ (SQLAlchemy, Alembic; Postgres)", "Batches, puzzles, books and generation history for the admin panel — the only persistent state in the system (CON-017). Its only caller is COMP-009. The schema also carries `users` and `user_selected_books`, which no code path reads or writes (CON-017; CARD-111 option B, undecided).")
+}
+
 System_Ext(filesystem, "Local Filesystem", "Source images in; exports out. Infrastructure, not an EXT-XXX.")
 
 Rel(puzzleCreator, cli, "Runs `nonogram ...`", "argv")
@@ -76,6 +94,21 @@ Rel(orchestrator, clues, "Compute row/column clues (CMD-004)", "in-process call"
 Rel(orchestrator, solver, "Check uniqueness with deadline (CMD-005) — returns count, solution, undecided mask + second witness on MANY (FR-024), signals and rung tags (ADR-0029)", "in-process call")
 Rel(orchestrator, difficulty, "Classify candidate from the score and rung tags (CMD-009) — one of three tiers, plus the strategies list; resample decision (CMD-010)", "in-process call")
 Rel(orchestrator, export, "Export finalized puzzle (CMD-012, CMD-013) — only after the INV-002 gate", "in-process call")
+
+Rel(puzzleCreator, web, "Fills in the generation form in a browser", "HTTP, loopback only")
+Rel(cli, web, "`nonogram serve` launches it", "in-process call")
+Rel(web, orchestrator, "Same synchronous generation call the CLI makes (ADR-0021)", "in-process call")
+
+Rel(puzzleCreator, admin, "Reviews batches, curates puzzles, assembles books", "HTTP; credential when remote (ADR-0030)")
+Rel(admin, orchestrator, "Generates batches and single puzzles (generate, generate_batch)", "in-process call")
+Rel(admin, sourcing, "Fits uploaded pictures: ink box, crop, extent prediction", "in-process call")
+Rel(admin, clues, "Re-derives clues at the storage boundary (ADR-0032/R1)", "in-process call")
+Rel(admin, solver, "Proves uniqueness before storing; re-grades stored puzzles (ADR-0032/R1)", "in-process call")
+Rel(admin, difficulty, "Scores and classifies on re-grade", "in-process call")
+Rel(admin, export, "Renders puzzle pages for book PDFs", "in-process call")
+Rel(admin, persistence, "Reads and writes batches, puzzles, books", "SQLAlchemy session")
+Rel(admin, filesystem, "Stores uploaded pictures, and reads them back to generate", "local file I/O")
+Rel(admin, puzzleCreator, "Book PDFs, streamed as downloads — never written to disk", "HTTP (send_file)")
 
 Rel(sourcing, filesystem, "Reads uploaded source image (FR-003)", "Pillow")
 Rel(export, filesystem, "Writes PNG/SVG/JSON/CSV/PDF", "local file I/O")

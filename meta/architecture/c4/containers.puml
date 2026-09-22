@@ -11,36 +11,47 @@
 '     runtime = installable src-layout package, PEP 621 pyproject.toml,
 '     [project.scripts] console entry point (ADR-0008);
 '     style = layered pipeline package (ADR-0007).
-'   CON-001 (CLI only, no web/GUI in v1) — SUPERSEDED by CON-007
-'   CON-003 (no persistence beyond local file export — hence NO
-'     ContainerDb) — SUPERSEDED by CON-017 on 2026-09-22 (CARD-111).
-'     STALE DIAGRAM, and knowingly so: CON-017 keeps "no database, no
-'     cache, no state that outlives the process" for the generation
-'     pipeline, which is what this diagram draws, but the admin panel
-'     (COMP-009) and its Postgres database (COMP-010) are a second
-'     deployable and a ContainerDb that belong here and are not drawn.
-'     Drawing them is CARD-110's AC-3, deferred there because this
-'     comment forbade what the code already does. The constraint no
-'     longer forbids it.
-' Deliberate single-container outcome: one bounded context, one local
-' process, one deployable artifact. The internal seams of that container
-' (sourcing / clues / solver / difficulty / export / orchestrator / cli)
-' are C4 Level 3 — see components-CTX-001.puml.
+'   CON-007 (CLI and web UI both first-class — superseded CON-001)
+'   CON-017 (the pipeline persists nothing beyond its exports; the admin
+'     panel keeps a database and is the only exception — superseded
+'     CON-003 on 2026-09-22, CARD-111)
+' Three containers, one bounded context (CARD-112, 2026-09-22 — this
+' diagram showed one until then, because CON-003 forbade the other two):
+'   - the generation tool: the CLI and the web UI are two adapters in ONE
+'     process, because ADR-0008 keeps a single console entry point and
+'     `nonogram serve` is a subcommand of it — a second adapter, not a
+'     second container;
+'   - the admin panel: a separate process with its own entry point
+'     (Procfile), deployed on Render;
+'   - its database, which only the admin panel reaches.
+' Their internal seams are C4 Level 3 — see components-CTX-001.puml.
 ' ============================================================
 title Containers — Nonogram Generator
 
 Person(puzzleCreator, "Puzzle Creator", "ACT-001")
 
 System_Boundary(nonogram, "Nonogram Generator") {
-  Container(cliTool, "Puzzle Creation CLI", "Python 3.14 package (Pillow, NumPy)", "CTX-001: the entire generation pipeline in a single local process — sourcing, clue derivation, uniqueness verification and recovery, difficulty calibration, export. Installed from pyproject.toml as the `nonogram` console entry point (ADR-0008).")
+  Container(cliTool, "Puzzle Creation Tool", "Python 3.14 package (Pillow, NumPy)", "CTX-001: the entire generation pipeline in a single local process — sourcing, clue derivation, uniqueness verification and recovery, difficulty calibration, export. Two first-class inbound adapters in that one process (CON-007): the `nonogram` console entry point (ADR-0008) and a loopback-only web UI launched by `nonogram serve` (ADR-0019). Keeps no state beyond the files it exports (CON-017).")
+
+  Container(adminPanel, "Admin Panel", "Python 3.14, Flask", "CTX-001: a separate process (Procfile; deployed on Render) for producing books — batch generation through the same pipeline, review and curation, re-grading, book assembly and PDF download. Stores a puzzle only after proving it unique itself (ADR-0032). Loopback-only by default; one credentialed door when ADMIN_ALLOWED_HOST is set (ADR-0030).")
+
+  ContainerDb(database, "Admin Database", "PostgreSQL via SQLAlchemy + Alembic", "Batches, puzzles, books and generation history — the only persistent state in the system (CON-017). Reached by the admin panel alone.")
 }
 
 System_Ext(filesystem, "Local Filesystem", "Source images in; PNG/SVG/JSON/CSV exports out. Infrastructure, not an EXT-XXX.")
 
 Rel(puzzleCreator, cliTool, "Invokes `nonogram --mode ... --size ... --difficulty ... --seed ...`", "argparse, ADR-0010 / ADR-0015")
 Rel(cliTool, puzzleCreator, "Seed echo, nudge-count line (FR-014), abandonment errors (EVT-012)", "stdout/stderr")
+Rel(puzzleCreator, cliTool, "Or fills in the web form, after `nonogram serve`", "HTTP, loopback only (NFR-003)")
 Rel(cliTool, filesystem, "Reads source image (FR-003)", "Pillow")
 Rel(cliTool, filesystem, "Writes PNG/SVG (FR-011) and JSON/CSV (FR-012)", "local file I/O")
+
+' No Rel between adminPanel and cliTool, deliberately: the admin panel imports
+' the same generation package into its OWN process; it never calls the other
+' container. An arrow here would claim an inter-process call that does not exist.
+Rel(puzzleCreator, adminPanel, "Reviews batches, curates puzzles, assembles and downloads books", "HTTP; credential when remote (ADR-0030)")
+Rel(adminPanel, database, "Reads and writes batches, puzzles, books", "SQLAlchemy")
+Rel(adminPanel, filesystem, "Stores uploaded pictures and reads them back", "local file I/O")
 
 SHOW_LEGEND()
 @enduml

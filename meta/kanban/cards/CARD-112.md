@@ -1,6 +1,6 @@
 # CARD-112: Draw the admin panel and its database into the C4 diagrams
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -8,16 +8,16 @@
 **Skill:** business-analyst
 **TDD:** false — diagrams only, no code, no model ids invented
 **Branch:** card/112-c4-admin-containers
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-112
 **Source:** CARD-110's AC-3, deferred there because CON-003 forbade what the code already did; unblocked by CARD-111 (CON-017)
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-110 (the ids), CARD-111 (the constraint) — both done
 **Touches:** meta/architecture/c4/containers.puml, meta/architecture/c4/components-CTX-001.puml, meta/architecture/c4/context.puml (only if the decision below says so)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-22
+**Closed:** 2026-09-22
+**Actual:** 0.4d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -163,3 +163,87 @@ a diagram, so it is out of scope here — but it belongs with the
 - **ADR:** ADR-0008 (one console entry point — why the web UI is not a second
   container), ADR-0019/0020/0021 (COMP-008's boundary and edges), ADR-0030
   (the admin's credential), ADR-0032 (why admin → clues/solver is direct)
+
+## Worktree notes
+
+### Delivered 2026-09-22 — option B
+
+All three C4 diagrams now describe the system that ships. The component diagram
+draws **COMP-008 for the first time** (it predated the web UI) and adds
+COMP-009 and COMP-010; the containers diagram goes from one container to three;
+the context diagram's system description and relations include the admin panel.
+
+**Suite: 3,681 passed** — diagrams only (AC-7). Validator unchanged: the one
+known false positive (CARD-071).
+
+### AC-3 — every edge, with the code behind it
+
+| Edge | Evidence |
+|---|---|
+| admin → orchestrator | `admin/app.py:252` `orchestrator.generate(request)`; `admin/batch_generator.py:434` `orchestrator.generate_batch(` |
+| admin → sourcing | `admin/app.py:2542` `ink_bounding_box, fit_crop_box`; `admin/image_manager.py:384` `derive_extent` |
+| admin → clues | `admin/puzzle_review.py:13` `compute_clues` — the storage guard |
+| admin → solver | `admin/puzzle_review.py` `solve` (storage guard); `admin/regrade.py:102` `solve` |
+| admin → difficulty | `admin/regrade.py:350-351` `score_difficulty`, `classify` |
+| admin → export | `admin/book_pdf_generator.py:209` `render_pages(` |
+| admin → persistence | six admin modules import `nonogram.db`; nothing outside `admin/` does |
+| admin → filesystem | `admin/app.py:1132` `file.save(...)`; read back at `:246`, `:1420` |
+| admin → owner (PDF) | `admin/app.py:2265`/`:2278`, `:2409`/`:2426` — bytes, then `send_file` |
+| web → orchestrator | `web/handler.py:52` `from nonogram import orchestrator`; `:797` `orchestrator.generate(` |
+| cli → web | `cli.py:44` `from nonogram import …, web` |
+
+Two hits from the first sweep were **not** accepted as evidence: the admin's
+first `nonogram.orchestrator` import is only the constant `MAX_BATCH_COUNT`,
+and the first `cli.py` match for "web" was its module docstring. Each edge was
+redrawn from a real call or import rather than from whichever line grep found
+first.
+
+### One label I had wrong, caught before commit
+
+I first labelled the admin's filesystem edge *"uploaded pictures in; book PDFs
+out"*. Book PDFs are **never written to disk**: `generate_book_pdf` returns
+bytes and `send_file` streams them to the browser. The edge now says it stores
+and re-reads uploaded pictures, and a separate admin → owner edge carries the
+PDF as a download. G-1 is about claims on an arrow as much as about the arrow.
+
+### Two edges deliberately not drawn
+
+- **No admin → tool container edge.** The admin panel imports the same
+  generation package into *its own* process; it never calls the other
+  container. An arrow would claim an inter-process call that does not exist.
+  Recorded as a comment beside the relations so the absence reads as a decision.
+- **No COMP-010 → anything.** Persistence is a leaf; the database engine is
+  infrastructure, carried in the container diagram as a `ContainerDb`.
+
+### AC-4 — the direct admin → clues/solver edges, defended in the diagram
+
+The dependency-rule comment already said capabilities never call each other and
+"every cross-capability hand-off goes through COMP-002". It now adds that the
+admin is an *adapter*, so its direct arrows into COMP-004 and COMP-005 are legal
+and deliberate — ADR-0032/R1's storage guard — and that routing them through
+the orchestrator would erase the guarantee. Without that, the obvious tidy-up
+is the wrong one.
+
+### Step 3 — Postgres is not an external system
+
+`external_systems.yml` stays `[]`. The database is the system's own store,
+owned and migrated by this repository, so it is a `ContainerDb` inside the
+boundary, not an `EXT-XXX` beside it. `context.puml`'s header comment says so
+where CARD-111 had left a "not yet shown" note.
+
+### AC-6 — rendering, stated honestly
+
+**PlantUML is not installed** (`java` is; no `plantuml` binary or jar), so
+nothing was rendered and I am not claiming it was. In its place, a structural
+check over all three files: every `Rel()` endpoint is a declared element,
+braces balance, quotes pair, and each file is framed by `@startuml`/`@enduml`.
+All three pass. The checker was then mutation-tested — a misspelt element name
+and a dropped closing brace — and caught both, so its pass is not vacuous. A
+real render remains worth doing once, by whoever has PlantUML to hand.
+
+### Fixed in passing
+
+The component diagram's 2026-09-12 DELTA note still said COMP-006's classifier
+"takes (score, branch_nodes)". That was my own leftover from CARD-110's G-4
+pass, which corrected the tier count but not the signature. ADR-0031 made it
+the score alone.
