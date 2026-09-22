@@ -243,3 +243,7 @@ Source: owner answers 2026-09-22 after carding (c), recorded in `docs/book_gener
 - Answer-key details (amend FR-042): each level (Easy / Medium / Hard) starts a new answer page with a small heading (resolves where FR-041's answer-key headings go; answer page count grows by at most 2); a "SOLUTIONS" divider page precedes the answer key; the caption title is the per-book title set in Arrangement, else the puzzle's stored name; answer cells are capped at 5 mm.
 # deferred: 2026-09-22 — full KDP cover wrap, later
 - DEFERRED — full KDP cover wrap with spine and back cover.
+
+## Delta 2026-09-22 (e) — CON-019 reading (owner, after CARD-113)
+
+- CON-019 / AC-180 "byte-for-byte unchanged" means: PNG and SVG byte-identical; PDF byte-identical except its two wall-clock timestamps (/CreationDate, /ModDate), which Pillow writes on every run. Source: owner, 2026-09-22 (CARD-113 review O-002).

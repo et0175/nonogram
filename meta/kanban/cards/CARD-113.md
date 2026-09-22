@@ -161,3 +161,4 @@ and after." This card provides the "before" side. CARD-114 must keep it green.
 - [Follow-up suggested] O-001: make pdf.write_pdf deterministic (fixed creationDate/modDate) after CARD-114; O-002: record the PDF-timestamp reading of byte-for-byte in CON-019/AC-180 (architect delta). F-001/F-002 cheap hardening worth doing before CARD-114 relies on the tripwire.
 
 - [Done] merged 365a7ff (--no-ff). Merge gate: main unchanged since the branch base 89ed292, so the full-suite build gate of this exact tree (3747 passed / 1 pre-existing failure test_size_configuration_applied, also red on 89ed292) stands in for the rebase-gate run. Deferral scan: 1 hit, incidental (docstring about a later card). Trace: FR-030/CON-019 already list the evidence tests; FR-030 stays partial (open cards).
+- [Owner] 2026-09-22 — confirmed: CON-019 means byte-identical except the two PDF timestamps (/CreationDate, /ModDate). Queued for the architect as raw-requirements delta 2026-09-22 (e).
