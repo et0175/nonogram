@@ -180,7 +180,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from fractions import Fraction
 from typing import Literal
@@ -197,6 +197,7 @@ __all__ = [
     "PAGE_HEIGHT_MM",
     "PAGE_MARGIN_MM",
     "PAGE_WIDTH_MM",
+    "TWO_UP_MIN_CELL_MM",
     "CellCapPolicy",
     "ClueEntry",
     "GridLine",
@@ -207,8 +208,10 @@ __all__ = [
     "PageParity",
     "PagePlacement",
     "PageSpec",
+    "PairLayout",
     "comfort_cap_mm",
     "compute_layout",
+    "compute_pair_layout",
     "header_band",
 ]
 
@@ -1463,4 +1466,297 @@ def compute_layout(
             column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys
         ),
         page=placement,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Two-up pages (FR-040, ADR-0036 clarification "Two-up pages", CARD-125)
+# ---------------------------------------------------------------------------
+
+#: FR-040's two-up minimum, in millimetres: two puzzles share a book page only
+#: at a shared cell of at least this much. It sits inside NFR-008's 4.8..7.5 mm
+#: book range, so a two-up page never uses the 4.8 mm floor or its override;
+#: the spec's flat cap (the 7.5 mm standard cell) still caps the shared cell.
+#: A named constant rather than a :class:`PageSpec` field: it is the owner's
+#: rule for every book, not a property of a trim.
+TWO_UP_MIN_CELL_MM = 7.0
+
+
+@dataclass(frozen=True, slots=True)
+class PairLayout:
+    """Two puzzles laid out on one book page at one shared cell (FR-040, TERM-030).
+
+    A value object, valid by construction: :meth:`__post_init__` refuses any
+    pair that is not a two-up page, so a caller holding one never re-checks it.
+
+    Each slot is an ordinary placed-page :class:`Layout` on the page's trim, so
+    the renderers draw it exactly as they draw a single puzzle page, and
+    :func:`header_band` measures each slot's own band from it. The one
+    difference is what a slot's :class:`PagePlacement` calls its usable area:
+    across, it is the page's usable width (each slot's drawing is centred on it,
+    FR-032); down, it is **the slot's own share** of the usable height —
+    ``usable_top`` is where the slot's band starts and ``usable_bottom`` where
+    the slot ends. The upper slot runs from the top margin to the lower slot's
+    band; the lower slot from its band to the bottom margin. So
+    ``upper.page.usable_bottom == lower.page.usable_top``, the slots never
+    overlap, and ``page.fits`` holding on each slot is "both drawings with
+    their bands lie inside the usable area without overlapping" (EC-028).
+
+    Attributes:
+        upper: The earlier puzzle in the book order. Its drawing's top edge is
+            top margin + band, the same fixed row as a single puzzle page
+            (FR-032, EC-022).
+        lower: The later puzzle, under its own band. Its drawing's bottom edge
+            is the bottom margin, so whatever height the pair leaves spare falls
+            *between* the two slots: the lower band then sits against the
+            puzzle it labels, never midway between two drawings.
+        cell_mm: The shared cell, exactly as both slots report it
+            (:attr:`PagePlacement.cell_mm`): at least :data:`TWO_UP_MIN_CELL_MM`
+            and never above the spec's flat cap.
+
+    Raises:
+        ValueError: a slot is not a placed page, the slots disagree about the
+            cell, the page or its parity, the cell is below
+            :data:`TWO_UP_MIN_CELL_MM`, the slots overlap, or a drawing lies
+            outside its slot.
+    """
+
+    upper: Layout
+    lower: Layout
+    cell_mm: float
+
+    def __post_init__(self) -> None:
+        upper, lower = self.upper.page, self.lower.page
+        if upper is None or lower is None:
+            raise ValueError("both slots of a two-up page must be placed-page layouts")
+        if not (upper.cell_mm == lower.cell_mm == self.cell_mm):
+            raise ValueError(
+                "both slots of a two-up page print at one shared cell, not "
+                f"{upper.cell_mm} and {lower.cell_mm} mm (pair says {self.cell_mm})"
+            )
+        if upper.parity is not lower.parity or (self.upper.width, self.upper.height) != (
+            self.lower.width,
+            self.lower.height,
+        ):
+            raise ValueError("both slots of a two-up page must be on the same page")
+        if self.cell_mm < TWO_UP_MIN_CELL_MM:
+            raise ValueError(
+                f"a two-up page's shared cell is at least {TWO_UP_MIN_CELL_MM} mm, not {self.cell_mm}"
+            )
+        if upper.usable_bottom > lower.usable_top:
+            raise ValueError("the slots of a two-up page must not overlap")
+        if not (upper.fits and lower.fits):
+            raise ValueError("each drawing of a two-up page must lie inside its own slot")
+
+
+def compute_pair_layout(
+    first: tuple[ClueSet, ClueSet],
+    second: tuple[ClueSet, ClueSet],
+    page_spec: PageSpec,
+) -> PairLayout | None:
+    """Lay two puzzles out on one book page at one shared cell, or decline (FR-040).
+
+    The pair-aware call of ADR-0036's "Two-up pages" clarification. It decides
+    only the geometry of one page: whether this pair fits two-up, at what cell,
+    and where each slot sits. Which neighbours to offer it (same tier, adjacent
+    in the book order, the in-order walk; INV-010, EC-027) is the book's
+    decision, and a single puzzle keeps using :func:`compute_layout`.
+
+    The shared cell is the largest cell, capped at the spec's flat cap, at which
+    (a) both drawings' heights — grid rows plus column-clue rows of each —
+    plus one band per puzzle fit the usable height (trim − top − bottom), and
+    (b) each drawing's width — grid columns plus row-clue columns — fits the
+    usable width. Clue depths are the real ones (:func:`_gutter_depth`,
+    TERM-021). That is exactly :func:`_placed_cell_mm` of one combined drawing
+    — the wider of the two drawings across, the two stacked down — on the same
+    spec with a second band reserved, so the pair is fitted by the same code,
+    exactly, as a single page: there is no second implementation of cell
+    fitting. Each slot is then built from the same helpers as
+    :func:`compute_layout`'s placed page (:func:`_boundaries`,
+    :func:`_rule_widths`, :func:`_axis_lines`, the clue placers), so strokes,
+    the every-5th rules and clue positions are the single page's.
+
+    Args:
+        first: ``(row_clues, column_clues)`` of the earlier puzzle in the book
+            order. It takes the upper slot.
+        second: ``(row_clues, column_clues)`` of the later one, the lower slot.
+        page_spec: The book page: a placed page (a parity, hence portrait
+            only) with a flat cell cap. The spec's own ``band_mm`` is each
+            slot's band.
+
+    Returns:
+        The :class:`PairLayout`, or ``None`` when the largest fitting cell is
+        below :data:`TWO_UP_MIN_CELL_MM` (or the usable height cannot hold even
+        the two bands). ``None`` is a verdict on a valid pair — print them on
+        separate pages — never an error.
+
+    Raises:
+        TypeError: ``page_spec`` is not a :class:`PageSpec`.
+        ValueError: ``page_spec`` is not a placed page with a flat cap (so the
+            default A4 spec never pairs), ``first`` or ``second`` is not a
+            ``(row_clues, column_clues)`` pair, or one of its clue sets is empty
+            while the other is not.
+    """
+    if not isinstance(page_spec, PageSpec):
+        raise TypeError(f"page_spec must be a PageSpec, not {type(page_spec).__name__}")
+    if page_spec.parity is None or page_spec.cell_cap is CellCapPolicy.COMFORT_CURVE:
+        raise ValueError(
+            "a two-up page is laid out only on a placed, portrait-only page with a flat "
+            "cell cap (a PageSpec with a parity and a cap in mm); this spec "
+            f"(parity {page_spec.parity}, cap {page_spec.cell_cap}) never pairs"
+        )
+    upper_rows, upper_columns = _pair_member(first, "first")
+    lower_rows, lower_columns = _pair_member(second, "second")
+
+    upper_down = _gutter_depth(upper_columns) + len(upper_rows)
+    lower_down = _gutter_depth(lower_columns) + len(lower_rows)
+    across = max(
+        _gutter_depth(upper_rows) + len(upper_columns),
+        _gutter_depth(lower_rows) + len(lower_columns),
+    )
+
+    # One band per puzzle. Checked exactly as PageSpec checks its own usable
+    # area, so the two-band spec below is always constructible when reached.
+    two_bands_mm = 2 * page_spec.band_mm
+    pair_height_mm = (
+        _exact_mm(page_spec.height_mm)
+        - _exact_mm(page_spec.top_mm)
+        - _exact_mm(page_spec.bottom_mm)
+        - _exact_mm(two_bands_mm)
+    )
+    if pair_height_mm <= 0:
+        return None
+    exact_cell_mm = _placed_cell_mm(
+        across,
+        upper_down + lower_down,
+        larger_dimension=max(
+            len(upper_rows), len(upper_columns), len(lower_rows), len(lower_columns)
+        ),
+        page_spec=replace(page_spec, band_mm=two_bands_mm),
+    )
+    if exact_cell_mm < _exact_mm(TWO_UP_MIN_CELL_MM):
+        return None
+
+    pitch = _exact_px(exact_cell_mm)
+    band = _exact_px(page_spec.band_mm)
+    # The upper band starts at the top margin (the single page's fixed row);
+    # the lower drawing ends at the bottom margin. The fit above guarantees
+    # upper_top + band + upper_down x pitch <= lower_band_top.
+    upper_band_top = _exact_px(page_spec.top_mm)
+    page_bottom = _exact_px(page_spec.height_mm) - _exact_px(page_spec.bottom_mm)
+    lower_band_top = page_bottom - lower_down * pitch - band
+    cell_mm = float(exact_cell_mm)
+    return PairLayout(
+        upper=_slot_layout(
+            upper_rows,
+            upper_columns,
+            page_spec,
+            cell_mm=cell_mm,
+            pitch=pitch,
+            band_top=upper_band_top,
+            slot_bottom=lower_band_top,
+        ),
+        lower=_slot_layout(
+            lower_rows,
+            lower_columns,
+            page_spec,
+            cell_mm=cell_mm,
+            pitch=pitch,
+            band_top=lower_band_top,
+            slot_bottom=page_bottom,
+        ),
+        cell_mm=cell_mm,
+    )
+
+
+def _pair_member(member: object, name: str) -> tuple[ClueSet, ClueSet]:
+    """One puzzle of a pair, checked the way :func:`compute_layout` checks its clues."""
+    if not isinstance(member, tuple | list) or len(member) != 2:
+        raise ValueError(f"{name} must be a (row_clues, column_clues) pair, not {member!r}")
+    row_clues, column_clues = member
+    rows, columns = len(row_clues), len(column_clues)
+    if bool(rows) != bool(columns):
+        raise ValueError(
+            f"{name}: clue sets disagree about the grid: {rows} row clue(s) but "
+            f"{columns} column clue(s); a grid has either both or neither"
+        )
+    return row_clues, column_clues
+
+
+def _slot_layout(
+    row_clues: ClueSet,
+    column_clues: ClueSet,
+    page_spec: PageSpec,
+    *,
+    cell_mm: float,
+    pitch: Fraction,
+    band_top: Fraction,
+    slot_bottom: Fraction,
+) -> Layout:
+    """One slot of a two-up page: a placed-page :class:`Layout` at a given cell.
+
+    :func:`compute_layout`'s placed page with the cell and the band's row
+    handed in instead of fitted: centred across the usable width, the drawing's
+    top edge one band below ``band_top``, every boundary rounded once
+    (:func:`_boundaries`). ``band_top`` and ``slot_bottom`` are exact pixels,
+    and become the slot's :attr:`PagePlacement.usable_top` and
+    :attr:`PagePlacement.usable_bottom` (see :class:`PairLayout`).
+    """
+    rows, columns = len(row_clues), len(column_clues)
+    row_gutter_cells = _gutter_depth(row_clues)
+    column_gutter_cells = _gutter_depth(column_clues)
+    drawing_columns = row_gutter_cells + columns
+    drawing_rows = column_gutter_cells + rows
+
+    usable_left_px = _exact_px(page_spec.left_margin_mm)
+    usable_width_px = (
+        _exact_px(page_spec.width_mm)
+        - _exact_px(page_spec.gutter_mm)
+        - _exact_px(page_spec.outside_mm)
+    )
+    spare = usable_width_px - drawing_columns * pitch
+    left = usable_left_px + max(spare, Fraction(0)) / 2
+    top = band_top + _exact_px(page_spec.band_mm)
+
+    xs = _boundaries(left, pitch, drawing_columns)
+    ys = _boundaries(top, pitch, drawing_rows)
+    grid_xs = xs[row_gutter_cells:]
+    grid_ys = ys[column_gutter_cells:]
+    grid_right, grid_bottom = grid_xs[-1], grid_ys[-1]
+    thin, thick = _rule_widths(pitch, page_spec)
+    return Layout(
+        rows=rows,
+        columns=columns,
+        orientation="portrait",
+        cell=math.floor(pitch),
+        margin=_round_px(_exact_px(page_spec.top_mm)),
+        row_gutter_cells=row_gutter_cells,
+        column_gutter_cells=column_gutter_cells,
+        width=_round_px(_exact_px(page_spec.width_mm)),
+        height=_round_px(_exact_px(page_spec.height_mm)),
+        grid_left=grid_xs[0],
+        grid_top=grid_ys[0],
+        grid_right=grid_right,
+        grid_bottom=grid_bottom,
+        thin_rule=thin,
+        thick_rule=thick,
+        clue_font_size=max(1, round(pitch * _CLUE_FONT_RATIO)),
+        vertical_lines=_axis_lines(grid_xs, start=ys[0], end=grid_bottom, thin=thin, thick=thick),
+        horizontal_lines=_axis_lines(grid_ys, start=xs[0], end=grid_right, thin=thin, thick=thick),
+        row_clues=_place_row_clues(row_clues, depth=row_gutter_cells, xs=xs, ys=grid_ys),
+        column_clues=_place_column_clues(
+            column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys
+        ),
+        page=PagePlacement(
+            parity=page_spec.parity,
+            cell_mm=cell_mm,
+            usable_left=_round_px(usable_left_px),
+            usable_top=_round_px(band_top),
+            usable_right=_round_px(usable_left_px + usable_width_px),
+            usable_bottom=_round_px(slot_bottom),
+            drawing_left=xs[0],
+            drawing_top=ys[0],
+            drawing_right=grid_right,
+            drawing_bottom=grid_bottom,
+        ),
     )

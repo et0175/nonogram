@@ -50,6 +50,9 @@ is the value a caller passes to ``png.render_image`` / ``pdf.render_pages`` /
 ``layout.compute_layout`` to lay a puzzle out on a sheet other than A4. The
 registry above never passes one, so every CLI and web export stays on the
 default A4 spec (CON-019). Only the book (COMP-009) builds one.
+:class:`PairLayout` and :data:`TWO_UP_MIN_CELL_MM` are re-exported beside it:
+``layout.compute_pair_layout`` lays two puzzles out on one book page at one
+shared cell of at least 7.0 mm, or returns ``None`` (FR-040).
 
 Layering (ADR-0007): a capability package, so it imports only its own
 submodules and the stdlib — never the adapter, the orchestrator or a sibling
@@ -72,6 +75,8 @@ from nonogram.export.layout import (
     PageParity,
     PagePlacement,
     PageSpec,
+    PairLayout,
+    TWO_UP_MIN_CELL_MM,
 )
 
 __all__ = [
@@ -82,6 +87,7 @@ __all__ = [
     "PDF",
     "PNG",
     "SVG",
+    "TWO_UP_MIN_CELL_MM",
     "ExportFormat",
     "CellCapPolicy",
     "ExportPayload",
@@ -89,6 +95,7 @@ __all__ = [
     "PageParity",
     "PagePlacement",
     "PageSpec",
+    "PairLayout",
     "Renderer",
     "default_stem",
     "for_format",
