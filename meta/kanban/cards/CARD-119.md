@@ -1,6 +1,6 @@
 # CARD-119: The distribution plan as pure domain — longest-side buckets, Book 1 prefill, POL-007 re-derive
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 20
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_plan.py, tests/test_book_plan.py, tests/property/test_book_plan.py, tests/property/test_longest_side_buckets.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 1/3)
+**Started:** 2026-09-22T15:26:35Z
+**Closed:** 2026-09-22T16:16:56Z
+**Actual:** 0.1d
+**Merge commit:** da6cf84
 **Blocked by:** —
 
 ## What to implement
@@ -154,3 +154,31 @@ the gate and the books-list stats.
 ## Worktree notes
 
 —
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+Implemented `src/nonogram/admin/book_plan.py` (pure domain; imports only `nonogram.difficulty`, `nonogram.errors`, `nonogram.limits`).
+- **API:** `LongestSideBucket` (+ `label`/`low`/`high`, outer ends from `limits.MIN_SIZE`/`MAX_SIZE`), `BUCKETS`, `TIERS`, `bucket_of(width, height)`, `Split(easy, medium, hard)`, `BOOK1_MATRIX`, `DistributionPlan(count, split, cells, edited)` with `cell()`, `tier_counts`, `disagrees_with_split`; `tier_counts(count, split)`, `prefill(count, split)`, `with_split(plan, new_split)`, `with_edited_cell(plan, bucket, tier, value)`, `DEFAULT_PLAN`, `planned_cells(plan)`, `selection_cells(puzzles)`, `InvalidPlan(ValueError)`.
+- **Rounding:** all largest-remainder arithmetic is exact integers (remainders compared as `total*w % W` numerators). **Ties go to the earlier share:** the earlier bucket (<=15 first) inside a tier column (AC-198's 7/27/20/6 pins it), and the earlier tier (easy, medium, hard) for the general plan's tier counts (e.g. 150 at 30/45/25 = 45/67.5/37.5 -> 45/68/37). Zero-share cells stay 0 structurally: a zero-weight share has zero remainder and there are always more positive remainders than leftover units.
+- **POL-007 / `with_split`:** unedited cells take their `prefill(count, new_split)` value; edited cells keep value and edited mark. `disagrees_with_split` is a derived property (column totals != new tier counts, which also covers the sum), not a stored flag, so it cannot be out of date. Note: in AC-202 itself the kept 15 happens to equal the 30/45/25 prefill of 21-25 x hard (37 over 0/5/10/10 -> 0/7/15/15), so that plan does not disagree. The warning is True whenever an edit really breaks a column (tested with an edit to 20).
+- **Hand edits** may set any non-negative int, including on zero-share cells; INV-005 only requires split=100 and non-negative cells, so an edited matrix that is off the general plan is valid and reported, not refused.
+- **`bucket_of`** raises `SizeOutOfRange` (existing `NonogramError`) for a side outside MIN_SIZE..MAX_SIZE. **`selection_cells`** reads `width`/`height`/`difficulty_tier` from the admin puzzle dicts; tier via `difficulty.tier_of_record` (never re-graded). It skips a record whose tier is None/unrecognised or whose extent is out of range (e.g. rows stored under the old 50 limit), because such a record has no tab and no plan cell. Both helpers return all 12 `(bucket, tier)` keys.
+- `InvalidPlan` is a `ValueError` local to `book_plan.py` (no `errors.py` edit), so there are no SCOPE+ edits.
+- **Tests:** `tests/test_book_plan.py` (AC-197..AC-202, AC-208..AC-210 bucket halves, G-1/G-2/G-3 checks), `tests/property/test_book_plan.py` (EC-023 over at least 15k cases against an independent Fraction-based sequential apportionment oracle, plus a POL-007 hand-edit survival property), `tests/property/test_longest_side_buckets.py` (EC-024, all 441 extents exhaustively). The PropertyTest ids are module-level `test_PropertyTest_...` functions so pytest collects them. A mutation that flips the tie-break to the later index fails AC-198 and EC-023.
+- Full suite: 3730 passed, 26 skipped, 1 failed. The failure is `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`, which is about template content and does not touch this card's files.
+- [Scope] src/nonogram/admin/book_plan.py, tests/property/test_book_plan.py, tests/property/test_longest_side_buckets.py, tests/test_book_plan.py
+- [Build gate] impact underivable (python-pro, no pytest-testmon) — full suite
+- [System contract] fresh lens matches card section (44 rules) — no refresh needed
+- [Build gate] PASSED (full, 125s) — 3730 passed, 26 skipped, 1 failed: tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied — pre-existing, fails identically on main HEAD 89ed292, outside this card (no file in fix_scope); treated as baseline, not a card regression
+- [Scope gate] cycle 1: in_scope — 4/4 files inside Touches; no G-4 guarded path touched
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/ (20260922T160048Z-CARD-119-cycle1.yml)
+- [Review 1/3] Score: 9.0 ✓ threshold reached + no critical/important (4 Minor: F-001 G-3 test patches module not book_plan namespace; F-002 tier-level tie rule unstated (45/68/37); F-003 AC-197 untouched-plan assertion vacuous; F-004 with_edited_cell/non-iterable cells raise ValueError/TypeError not InvalidPlan; out-of-scope F-005 selection_cells silently skips unplaceable members → CARD-124/CARD-132)
+- [Review 1/3] Step 8h coverage: 44/44 card rule ids have verdict lines (6 ✓, 38 ⚠ no_eligible_fact)
+- [Inline fallback] none — all agents spawned as subagents
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, CON-011)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-197 ✓ TestBookPlan_RejectsSplitNotSummingTo100 PASSED (domain half; route half CARD-120) · AC-198 ✓ TestBookPlan_PrefillMatchesBook1MatrixAt150x40_40_20::test_matrix PASSED · AC-199 ✓ TestBookPlan_PrefillColumnTotalsMatchGeneralPlan PASSED · AC-200 ✓ TestBookPlan_ZeroShareCellsStayZero PASSED · AC-201 ✓ TestBookPlan_UneditedMatrixRederivedOnSplitChange PASSED · AC-202 ✓ TestBookPlan_HandEditedCellSurvivesSplitChange PASSED · AC-208/209/210 ✓ TestBookSelect_* PASSED (bucket-function half; rendered tabs CARD-122) · EC-023 ✓ test_PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan PASSED (≥15000 cases, ≥100 ties, Fraction oracle) · EC-024 ✓ test_PropertyTest_LongestSideBuckets_PartitionEveryExtent PASSED (exhaustive 441 extents) · G-1 ✓ DEFAULT_PLAN module constant, no audience param · G-2 ✓ AST import scan + test_every_import_in_the_package_points_inward PASSED, no schema files · G-3 ✓ tier only via tier_of_record, test_selection_never_regrades PASSED · G-4 ✓ diff lists 4 files, none under a4_golden; 0 lines removed from tests
+- [Docs] skipped — changed dirs src/nonogram/admin/ (no README), tests/ (README is a Wave-1 admin suite guide, structure unchanged), tests/property/ (no README); no directory purpose changed
+- [Commit] /commit auto: nothing further to commit (worktree clean outside meta/); card commit is 3cd891d feat(book-plan) — 4 files, +834. Status stays review until done merges.
+
+- [Done] rebased onto main e1b5a12 (clean), full suite on the rebased tree: 1 failure only, test_size_configuration_applied — confirmed pre-existing by running it on 89ed292. Merged da6cf84 (--no-ff). Deferral scan: 0 hits. Trace: evidence tests already listed; FR-034 stays partial (CARD-120 open).

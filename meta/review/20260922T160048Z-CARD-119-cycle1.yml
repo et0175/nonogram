@@ -1,0 +1,201 @@
+version: 1
+generated_at: "2026-09-22T16:00:48Z"
+target: "card/119-book-plan-domain (git diff main...HEAD @ 3cd891d), CARD-119 cycle 1/3"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/book_plan.py
+    - tests/test_book_plan.py
+    - tests/property/test_book_plan.py
+    - tests/property/test_longest_side_buckets.py
+    - src/nonogram/difficulty.py (tier_of_record, Tier)
+    - meta/kanban/cards/CARD-119.md
+  not_reached:
+    - meta/architecture/ (trace.yml, ADR-0034 text) - relied on card-injected task/system contract
+    - consumers CARD-120/122/124/132 (not yet built)
+  confidence: high
+metrics:
+  diff: { files: 4, added: 834, removed: 0 }
+  max_fan_in: { symbol: "book_plan.bucket_of", callers: 0 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact - new module; no src caller yet (consumers are CARD-120/122/124/132)"
+    hotspots: "no_eligible_fact - all four files are new in this diff; no churn/defect history"
+    cochange_missing: "no_eligible_fact - new files have no co-change history"
+tests_run:
+  command: "pytest tests/test_book_plan.py tests/property/test_book_plan.py tests/property/test_longest_side_buckets.py tests/test_cli.py -p no:cacheprovider"
+  result: "143 passed"
+  extra: "pytest tests/test_export_pdf.py -k Dependency -> 2 passed (ADR-0006/R1 checker)"
+certification:
+  mutation_check: "skipped - review.mutation_check not configured (no meta/kanban/config.yml)"
+system_contract:
+  rules_checked: 44
+  holds: 6
+  unchecked: 38
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy green on 3cd891d (2 passed); book_plan.py imports only stdlib + nonogram.*"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on 3cd891d; diff touches no src/nonogram/web/ file"
+    - "ADR-0022/R1 ✓ holds — bucket_of(width, height) takes the extent as a pair (book_plan.py:114); no scalar size in any new public signature"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/recovery code"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no grid repair"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no grid repair"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair policy"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no scoring code"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve/strategy code"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring code"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code (import guard itself green)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage write path"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not read"
+    - "ADR-0033/R1 ✓ holds — selection_cells (book_plan.py:315-335) only reads width/height/difficulty_tier via tier_of_record; no write, no grader call; TestPlannedAndSelectionCells green"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: draft-exit gate is CARD-124; this diff supplies only planned_cells/selection_cells"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no layout code"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no page geometry"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no page rendering"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no strokes"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ✓ holds — bucket_of refuses sides outside MIN_SIZE..MAX_SIZE from nonogram.limits (book_plan.py:123-127); TestBucketOf_RefusesOutOfRange + PropertyTest_LongestSideBuckets_PartitionEveryExtent green; no literal 10/30"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin entry point untouched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin request doors untouched"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue code"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter"
+    - "INV-005 ✓ holds — Split.__post_init__ (book_plan.py:147-155) and DistributionPlan.__post_init__ (190-206) refuse non-100 splits and negative/non-int cells; TestBookPlan_RejectsSplitNotSummingTo100 + PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan green on 3cd891d; third check ref TestBookCreate_StoresDefaultPlanThatSumsTo100 not yet present (CARD-120 storage half)"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership/floor code"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate is CARD-124"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book change"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book order"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer key"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no interior PDF"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_plan.py
+    line: 276
+    title: "G-3 never-regrade test cannot detect a regrade"
+    description: |
+      test_selection_never_regrades monkeypatches difficulty.score_difficulty/classify on the
+      module object. book_plan.py binds names via `from nonogram.difficulty import ...`, so a
+      future `from nonogram.difficulty import classify` in book_plan would bind the original
+      function before the patch and the test would still pass. The test verifies only that the
+      current code does not call a symbol it does not import.
+    suggestion: |
+      Replace (or supplement) with an AST assertion that book_plan imports exactly {Tier,
+      tier_of_record} from nonogram.difficulty, or patch book_plan's own namespace.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/book_plan.py
+    line: 243
+    title: "Tier-level tie-break (earlier tier) is an unstated assumption that changes AC-201's result"
+    description: |
+      The card pins only the bucket-level tie-break (AC-198). tier_counts also breaks ties to the
+      earlier tier, so 150 at 30/45/25 becomes 45/68/37 rather than 45/67/38; AC-201's re-derived
+      matrix and CARD-120's Print setup display depend on this choice. Recorded in Worktree notes
+      but not in the model (FR-034 trace note).
+    suggestion: |
+      Confirm with the owner and record the tier-level rule next to FR-034's largest-remainder
+      note so CARD-120/124 do not re-decide it.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_plan.py
+    line: 61
+    title: "'stored plan untouched' assertion is tautological"
+    description: |
+      InvalidPlan is raised by Split(40, 40, 30) before with_split is entered, and the plan is
+      frozen, so `stored == DEFAULT_PLAN` cannot fail. The AC-197 'stays' half is CARD-120's; this
+      test adds no evidence beyond test_forty_forty_thirty_is_refused.
+    suggestion: |
+      Drop it or rename to state what it shows (the refusal happens at Split construction).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/book_plan.py
+    line: 295
+    title: "Some invalid inputs escape as ValueError/TypeError instead of InvalidPlan"
+    description: |
+      with_edited_cell with a non-bucket/non-tier argument raises ValueError from tuple.index
+      (line 295), and DistributionPlan(cells=<non-iterable>) raises TypeError at line 195. InvalidPlan
+      subclasses ValueError so the first is still catchable, but a CARD-120 route mapping only
+      InvalidPlan to a form error would 500 on the TypeError path.
+    suggestion: |
+      Validate bucket/tier membership in with_edited_cell and wrap the cells normalisation in
+      try/except TypeError -> InvalidPlan.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: info
+    category: feature
+    type: risk
+    file: src/nonogram/admin/book_plan.py
+    line: 326
+    title: "selection_cells silently drops ungraded/out-of-range members (follow-up for CARD-124)"
+    description: |
+      Records with no recognisable tier or a side outside 10..30 are skipped without being
+      reported. A readiness gate built on these counts could pass a book whose membership includes
+      uncounted puzzles. Documented design choice here; the gate must account for them.
+    suggestion: |
+      CARD-124/CARD-132: surface the skipped count (or refuse readiness when any member is
+      uncountable).
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

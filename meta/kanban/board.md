@@ -60,12 +60,11 @@ _(none)_
 ## In Progress
 
 ## Review
-- **CARD-119** P1 · The distribution plan as pure domain — longest-side buckets, Book 1 prefill, POL-007 re-derive · 1d · wave 20 · Inc 14
-  `worktree: ../PythonProject4-CARD-119` · `branch: card/119-book-plan-domain` · `elapsed: 0d`
 - **CARD-135** P1 · Interior PDF without the cover — starts at the guide page; the cover is its own file · 1d · wave 20 · Inc 13
   `worktree: ../PythonProject4-CARD-135` · `branch: card/135-interior-pdf-cover-separate` · `elapsed: 0d`
 
 ## Done
+- **CARD-119** Distribution plan as pure domain · score 9.0 · merged da6cf84
 - **CARD-113** Golden A4 tripwire · score 9.0 · merged 365a7ff
 - **CARD-112** P3 · The C4 diagrams show the system that ships — COMP-008 drawn for the first time, COMP-009/010 added, containers go from one to three · every arrow backed by a cited call or import; one label corrected before commit (book PDFs stream, never touch disk) · two arrows absent on purpose and explained in the diagram · not rendered — PlantUML unavailable — but a mutation-tested structural check passes · closes the CARD-110 → 111 → 112 thread · merged without a review cycle, at the owner's call · merged e6d93f0
 - **CARD-111** P1 · CON-017 supersedes CON-003 — "no persistence, ever" had been contradicted by six tables, ten migrations and a deployment, while still serving as the premise for three C4 diagrams and two decisions collapsed rather than taken · split by surface (the pipeline is still stateless, the admin panel is the one exception) following ADR-0030, with the vision's Non-goals amended in the same change · the dead `users` tables are stated, not quietly narrowed away · both collapsed decisions annotated, neither reopened · unblocks CARD-110's AC-3 · merged without a review cycle, at the owner's call · merged ccedcc8
