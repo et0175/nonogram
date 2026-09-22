@@ -16,7 +16,7 @@ _Updated: 2026-09-22 UTC_
 | 9 | CARD-015 P2 | ✅ done |
 | 10 | CARD-016 P2 | ✅ done |
 | 11 | CARD-017 P3 | ✅ done |
-| 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ▶ next |
+| 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ▶ active |
 | 21 | CARD-114 P1, CARD-120 P1 | ⏳ blocked (→ wave 20) |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ⏳ blocked (→ wave 21) |
 | 23 | CARD-116 P1, CARD-121 P1 | ⏳ blocked (→ wave 22) |
@@ -36,9 +36,6 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
-- **CARD-113** P1 · Pin today's A4 output byte for byte before any PageSpec change (golden A4 tripwire) · 0.5d · wave 20 · Inc 13
-- **CARD-135** P1 · Interior PDF without the cover — starts at the guide page; the cover is its own file · 1d · wave 20 · Inc 13
-- **CARD-119** P1 · The distribution plan as pure domain — longest-side buckets, Book 1 prefill, POL-007 re-derive · 1d · wave 20 · Inc 14
 - **CARD-114** P1 · PageSpec — compute_layout learns a second sheet, only when told · 1d · architectural · wave 21 · Inc 13 · after CARD-113
 - **CARD-120** P1 · The plan stored with the book — migration, default plan, Print setup matrix · 1d · wave 21 · Inc 14 · after CARD-119
 - **CARD-125** P2 · The pair-aware layout call — one shared cell in [7.0, 7.5] mm, or no pairing · 1d · architectural · wave 22 · Inc 15 · after CARD-114
@@ -61,12 +58,15 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-_(none)_
 
 ## Review
-_(none)_
+- **CARD-119** P1 · The distribution plan as pure domain — longest-side buckets, Book 1 prefill, POL-007 re-derive · 1d · wave 20 · Inc 14
+  `worktree: ../PythonProject4-CARD-119` · `branch: card/119-book-plan-domain` · `elapsed: 0d`
+- **CARD-135** P1 · Interior PDF without the cover — starts at the guide page; the cover is its own file · 1d · wave 20 · Inc 13
+  `worktree: ../PythonProject4-CARD-135` · `branch: card/135-interior-pdf-cover-separate` · `elapsed: 0d`
 
 ## Done
+- **CARD-113** Golden A4 tripwire · score 9.0 · merged 365a7ff
 - **CARD-112** P3 · The C4 diagrams show the system that ships — COMP-008 drawn for the first time, COMP-009/010 added, containers go from one to three · every arrow backed by a cited call or import; one label corrected before commit (book PDFs stream, never touch disk) · two arrows absent on purpose and explained in the diagram · not rendered — PlantUML unavailable — but a mutation-tested structural check passes · closes the CARD-110 → 111 → 112 thread · merged without a review cycle, at the owner's call · merged e6d93f0
 - **CARD-111** P1 · CON-017 supersedes CON-003 — "no persistence, ever" had been contradicted by six tables, ten migrations and a deployment, while still serving as the premise for three C4 diagrams and two decisions collapsed rather than taken · split by surface (the pipeline is still stateless, the admin panel is the one exception) following ADR-0030, with the vision's Non-goals amended in the same change · the dead `users` tables are stated, not quietly narrowed away · both collapsed decisions annotated, neither reopened · unblocks CARD-110's AC-3 · merged without a review cycle, at the owner's call · merged ccedcc8
 - **CARD-110** P2 · `admin/` and `db/` get component ids — COMP-009 and COMP-010 now own 38% of the package that no component did, so rows about admin behaviour stop naming COMP-008 (the web UI) · three rows repointed, though not the three the card named · **AC-3 deliberately not done**: both C4 diagrams assert the tool has no database, and CON-003 still says "no persistence beyond local file export, ever" while the admin ships Postgres — CON-001→CON-007 is the precedent for fixing it, and it is the owner's call · merged without a review cycle, at the owner's call · merged 353d83a

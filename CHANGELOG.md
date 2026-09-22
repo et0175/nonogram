@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-22
+- CARD-113 (feature): A golden-byte tripwire now pins today's A4 output — the layout of every supported size, and the CLI's PNG/SVG/PDF for 72 seeded requests (PDF compared with its two wall-clock timestamps blanked) — so the coming book page geometry cannot silently change CLI or web exports (CON-019).
+
 ## 2026-09-12
 - CARD-066 (feature): The puzzle review page (`/puzzles`) can now filter by status — Draft, Approved, Rejected or In book — alongside the existing date, book, name, size, difficulty and quality filters. The store already filtered by status in both modes (it is what the book page's "approved only" uses); the page simply never passed the parameter. The status is kept across the pagination links, and an unrecognised value is reported and ignored rather than filtering on it, which would show an empty page that reads as "nothing matches your other filters". The list of statuses comes from the `PuzzleStatus` enum, so the page cannot drift from the store.
 - CARD-065 (tech-debt): Shares now print as whole percent rounded down, through one helper shared by the batch results and the preview, so a grid keeping 89.7% never reads "90%" on a line that only appears below 90%. The Medium and Large presets are labelled "20/30 cells on the long side", and the two puzzle filters are labelled in cells rather than pixels. Two preset tests that carried their own stale table (Small as fixed 10, Large as 25) and re-ran the route's logic themselves now drive the real upload route. New tests pin the three-line cap on moved-to-Large results and the "apply to all" hint; the dead `image_selection.html` (no route, its own copy of the presets) is deleted.

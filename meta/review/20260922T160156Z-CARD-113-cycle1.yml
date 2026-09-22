@@ -1,0 +1,207 @@
+version: 1
+generated_at: "2026-09-22T16:01:56Z"
+target: "card/113-golden-a4-tripwire (git diff main...HEAD, 4719d13; base 89ed292)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/fixtures/a4_golden/__init__.py
+    - tests/fixtures/a4_golden/golden.py
+    - tests/fixtures/a4_golden/regenerate.py
+    - tests/fixtures/a4_golden/cli_exports.json (header + sample cases)
+    - tests/fixtures/a4_golden/layout.json (header + sample case)
+    - tests/test_export_a4_golden.py
+    - tests/property/test_cli_exports_byte_identity.py
+    - src/nonogram/orchestrator.py (deadline semantics, 1660-1740)
+    - src/nonogram/export/pdf.py (write_pdf save call)
+    - meta/architecture/requirements.yml (CON-019)
+    - CARD-113 worktree notes
+  not_reached:
+    - tests/test_web_server.py helper internals (only signatures checked)
+    - meta/architecture/decisions ADR-0036 full text (rules taken from the injected SYSTEM CONTRACT)
+  confidence: high
+metrics:
+  diff: { files: 7, added: 1053, removed: 0 }
+  tests_cover_change: true
+  suite_cost_added_seconds: 9.0
+  tmp_disk_per_run_mb: 55
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — diff adds only new test/fixture modules; no exported production symbol changed"
+    hotspots: "no_eligible_fact — all 7 files are new in this diff, no history to mine"
+    cochange_missing: "no_eligible_fact — all 7 files are new in this diff, no co-change history"
+  empirical:
+    tests_run: "66 passed in ~9 s (test_export_a4_golden.py + property/test_cli_exports_byte_identity.py)"
+    pdf_nondeterminism: "two AC-180 runs 1.2 s apart: 968837 bytes each, 2 bytes differ (seconds digits of /CreationDate and /ModDate); normalized_pdf(a) == normalized_pdf(b)"
+    src_resolution: "nonogram.__file__ resolves to the worktree src/"
+    mutation_check: "skipped — review.mutation_check not enabled (no meta/kanban/config.yml)"
+
+system_contract:
+  rules_checked: 7
+  holds: 1
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0036/R1 ✓ holds — its check TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden now exists (tests/test_export_a4_golden.py:73) and is green on 4719d13 (61 cases + coverage gate); the CLI/web half is pinned by TestCliExports_ByteIdenticalAfterBookGeometry and the EC-020 property test, PDF modulo Pillow's two save-time timestamps; git diff main...HEAD -- src is empty"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no admin-panel or book-geometry code in the diff"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver/orchestrator change (src/ untouched)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code changed; the test binds via the existing web.create_server(0)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web request-handling code changed"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size validation changed; corpora stay inside MIN_SIZE..MAX_SIZE from limits.py"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no image-mode / aspect-guard code touched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: enabler
+    type: risk
+    file: tests/test_export_a4_golden.py
+    line: 142
+    title: "Toolchain drift (Pillow/zlib/libjpeg) reads as a CON-019 break"
+    description: |
+      PNG (zlib) and PDF (DCTDecode/JPEG) bytes depend on the Pillow wheel's bundled codecs. The fixture header
+      records python 3.14.3 / pillow 12.3.0, but no assertion message shows it next to the live versions. A later
+      Pillow upgrade turns every digest red with the message "CON-019 broken", which pushes the reader toward
+      regenerating the goldens (G-3) without first establishing whether geometry or the toolchain changed.
+    suggestion: |
+      Add the golden header's pillow/python versions and the live PIL.__version__/platform.python_version() to the
+      failure messages in both CLI-digest tests (and in the layout test, which is toolchain-independent, say so).
+      Do not skip on a mismatch.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: enabler
+    type: gap
+    file: tests/fixtures/a4_golden/regenerate.py
+    line: 150
+    title: "G-3 guard does not tie the goldens to the base commit"
+    description: |
+      regenerate.py only refuses a dirty src/. After CARD-114 commits a geometry change, running the command
+      re-captures cleanly, and the only trace is a changed generated_from_commit inside a ~330 KB fixture diff.
+      Nothing in the tests pins 89ed292 as the "before" side.
+    suggestion: |
+      Pin GOLDEN_BASE_COMMIT = "89ed292add4c2da3678a932e3be8b0931db944fb" in tests/test_export_a4_golden.py and
+      assert that both JSON headers carry it. Any re-capture then also has to edit a test line, which shows up in review.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: enabler
+    type: risk
+    file: tests/property/test_cli_exports_byte_identity.py
+    line: 168
+    title: "Property test leaves ~55 MB of exports per run in pytest's retained tmp dirs"
+    description: |
+      Each of 72 requests writes a PNG, an SVG and a PDF of about 1 MB into tmp_path and never removes them.
+      Measured: 55 MB in test_property_cli_exports_byte0. pytest keeps the last 3 basetemps, so about 165 MB stays
+      on disk for every developer and CI run.
+    suggestion: |
+      After digesting each case, shutil.rmtree(tmp_path / case.case_id). Alternatively, keep only the directories
+      of diverging cases, which are useful for diagnosis.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: enabler
+    type: gap
+    file: tests/property/test_cli_exports_byte_identity.py
+    line: 187
+    title: "Web-slice floor is derived from the constants it guards"
+    description: |
+      `len(web_cases) >= CORPUS_SIZE // _WEB_STRIDE` recomputes the same slice arithmetic, so it holds for any
+      CORPUS_SIZE/_WEB_STRIDE and cannot catch the web slice shrinking.
+    suggestion: "Assert against a literal floor (e.g. REQUIRED_WEB_CASES = 5), as REQUIRED_CASES does for the CLI."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: enabler
+    type: risk
+    file: tests/property/test_cli_exports_byte_identity.py
+    line: 60
+    title: "Tripwire depends on private helpers of another test module"
+    description: |
+      The test imports _running, _request and _Response from tests/test_web_server.py (11 commits in 12 months).
+      Renaming or refactoring them there breaks the CON-019 tripwire for reasons unrelated to CON-019.
+    suggestion: "Promote the three helpers to a shared tests/helpers module, or make them public in test_web_server.py."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: O-001
+    severity: info
+    category: enabler
+    type: gap
+    file: src/nonogram/export/pdf.py
+    line: 436
+    title: "Follow-up card: make the PDF sink byte-deterministic"
+    description: |
+      Out of scope. Pillow stamps /CreationDate and /ModDate from time.gmtime(). If write_pdf passed fixed
+      creationDate/modDate values (or read SOURCE_DATE_EPOCH), the normalized digests would stay unchanged, so no
+      re-capture would be needed. A later deliberate re-capture could then drop normalized_pdf, and AC-180 would
+      hold literally.
+    suggestion: "Open a backlog card after CARD-114; the only record today is the CARD-113 worktree notes."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: O-002
+    severity: info
+    category: compliance
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 4520
+    title: "CON-019 / AC-180 say byte-for-byte; the PDF is checked modulo two timestamps"
+    description: |
+      Out of scope. Today the PDF is not identical from one run to the next, so the literal wording cannot be
+      verified. The model should either state the "modulo Pillow's /CreationDate and /ModDate" reading or be made
+      literally true through O-001.
+    suggestion: "Record the reading in CON-019/AC-180 (forge:architect delta), or close it via O-001."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
