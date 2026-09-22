@@ -739,7 +739,7 @@ links:
   contexts:
   - CTX-001
   components:
-  - COMP-008
+  - COMP-009
   adrs:
   - ADR-0020
   tests:
@@ -762,7 +762,7 @@ links:
   contexts:
   - CTX-001
   components:
-  - COMP-008
+  - COMP-009
   adrs:
   - ADR-0020
   tests:
@@ -1379,7 +1379,7 @@ links:
     `strategies`), shown and filterable in the admin review"
   capabilities: [CAP-004]
   contexts: [CTX-001]
-  components: [COMP-005, COMP-002, COMP-007, COMP-008]
+  components: [COMP-005, COMP-002, COMP-007, COMP-009, COMP-010]
   adrs: [ADR-0029, ADR-0025, ADR-0023, ADR-0015, ADR-0012]
   tests:
   - TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve
@@ -1410,12 +1410,21 @@ links:
     sample at admin/puzzle_review.py:730), the detail page and the
     CARD-066-pattern filter (value pinned to the enum, unknown refused).
     Pure function of the clues on every host (EC-018, NFR-007/CON-014,
-    ADR-0029/R3; ADR-0015 reproducibility). KNOWN MAPPING GAP for the owner:
-    COMP-008's declared code glob is src/nonogram/web/**.py, while the admin
-    panel and DB live in src/nonogram/admin/** and src/nonogram/db/** — no
-    component in this file or in c4/ owns those globs; this row follows the
-    task's instruction to use the existing web-UI component id rather than
-    invent one. The only Strategy enum in the repo today
+    ADR-0029/R3; ADR-0015 reproducibility). MAPPING GAP CLOSED 2026-09-22 (CARD-110): this row
+    named COMP-008, the web UI, for the admin half of the sentence, because
+    no component owned src/nonogram/admin/** or src/nonogram/db/**. COMP-009
+    (Admin Panel) and COMP-010 (Persistence) now do, and this row names them.
+    WHAT IS STILL UNMODELLED, and is the larger question the old note stood
+    in front of: the admin panel's own features have no requirements at all.
+    Books, batch production, the review/approve/reject lifecycle and the PDF
+    a customer buys are 38% of the package's code and appear in
+    requirements.yml only as CON-015 and CON-016, both about binding a socket.
+    `Book` — its own table, its own membership rules (CARD-100/101/103/107/108)
+    and its own lifecycle — is not in aggregates.yml, which holds only AGG-001
+    (Puzzle); contexts.yml argues single-context on the grounds that every
+    capability acts on that one aggregate, an argument a second aggregate would
+    reopen. CARD-110 deliberately stopped at the ids (option A of three) so
+    that decision is taken as a decision, not inside a commit about globs. The only Strategy enum in the repo today
     (analysis/strategy_counter.py) is fed by nothing the real solver does and
     is not the enum this row traces.
   status: partial
@@ -1521,3 +1530,17 @@ components:
   name: Web UI Adapter
   context: CTX-001
   code: ["src/nonogram/web/**.py"]
+# COMP-009 and COMP-010 added 2026-09-22 (CARD-110), closing the mapping gap
+# this file recorded on FR-029: 38% of the package (9,230 of 24,117 lines) had
+# no component, so rows about admin behaviour named COMP-008 — the web UI —
+# for want of an id. The two are separate components rather than one because
+# nothing in db/ knows the admin exists: admin/ imports db/, never the reverse,
+# and the orchestrator-driven paths reach neither.
+- id: COMP-009
+  name: Admin Panel
+  context: CTX-001
+  code: ["src/nonogram/admin/**.py"]
+- id: COMP-010
+  name: Persistence
+  context: CTX-001
+  code: ["src/nonogram/db/**.py"]
