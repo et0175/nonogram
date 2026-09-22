@@ -1,0 +1,202 @@
+version: 1
+generated_at: "2026-09-22T18:07:41Z"
+target: "card/115-book-page-spec-builder @ 4c19d82 (git diff main...HEAD), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-115"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "migrations/versions/011_book_margin_defaults.py"
+    - "src/nonogram/admin/book_page_spec.py"
+    - "src/nonogram/admin/book_manager.py"
+    - "src/nonogram/admin/print_specs.py"
+    - "src/nonogram/db/models.py"
+    - "tests/test_book_page_spec.py"
+    - "tests/property/test_book_page_spec.py"
+    - "tests/test_book_scaffolding.py"
+    - "src/nonogram/export/layout.py (PageSpec, compute_layout — read-only context)"
+    - "src/nonogram/admin/app.py (setup_print, /book/create context)"
+    - "meta/architecture/requirements.yml (FR-030, CON-018, AC-175..AC-181), ADR-0036, CARD-129"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (CARD-116/127 territory, not in file scope)"
+    - "tests/e2e/"
+  confidence: high
+metrics:
+  diff: { files: 8, added: 946, removed: 14 }
+  max_fan_in: { symbol: "nonogram.admin.book_page_spec.book_page_spec", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/db/models.py", "src/nonogram/admin/book_manager.py"]
+  cochange_missing: ["src/nonogram/admin/app.py", "src/nonogram/admin/templates/book_setup_print.html"]
+  unmeasured:
+    max_fan_in: "no_eligible_fact — book_page_spec/book_cell_mm are new; their only callers today are print_specs.py, book_manager.py and the two new test modules (planned consumers are CARD-116/118/121/123/127). The count is real but says little about blast radius."
+
+system_contract:
+  rules_checked: 44
+  holds: 10
+  unchecked: 34
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no runtime dependency: pyproject.toml untouched; new imports are stdlib (decimal, dataclasses, collections.abc) plus nonogram.export.layout; alembic/sqlalchemy/numpy already in the baseline (numpy only in tests). TestDependencyBaseline_IsExactlyPillowAndNumpy green on this head."
+    - "ADR-0019/R1 ✓ holds — no src/nonogram/web/ file in the diff; the one new import edge (admin -> export) points inward and tests/test_cli.py::test_every_import_in_the_package_points_inward is green on this head (ran locally)."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature, request field or export field in the diff."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no random-mode recovery code in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy code in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam touched."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring inputs in the diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: book_manager's storage boundary for puzzles (add_puzzle) is untouched; only create_book/_row_to_book changed."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is not read or written in the diff."
+    - "ADR-0033/R1 ✓ holds — the diff writes only book-side print columns (create_book, _row_to_book); grepped the diff for puzzle field writes: none, and puzzles.book_id is untouched."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no status transition or plan gate in the diff (create_book still stores DEFAULT_PLAN unchanged)."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** untouched (G-2, diff stat), DEFAULT_PAGE_SPEC unchanged, and book_page_spec always passes an explicit book spec; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden unaffected and the suite is green on this head."
+    - "ADR-0036/R2 ✓ holds — book_cell_mm is `compute_layout(...).page.cell_mm` with no arithmetic of its own (book_page_spec.py:262-276); TestBookCellMm_OnlyReadsComputeLayout asserts the spy call and the exact equality, and mutation M4 (return the converted pixel cell) was killed."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no page rendering or band content in the diff."
+    - "ADR-0037/R2 ✓ holds — the built spec sets min_thin_rule_mm=0.25 (book_page_spec.py:151, 249) and the default spec is untouched; TestBookPageSpec_FlatStandardCellCap asserts it."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not touched."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is not touched."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-admission code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size validation in the diff (the property corpus only reads MIN_SIZE/MAX_SIZE)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff."
+    - "CON-015 ✓ holds — admin entry point untouched: app.py is not in the diff (diff stat), so the loopback bind and debug flag are unchanged; TestAdminPanel_BindsLoopbackOnlyByDefault green on this head."
+    - "CON-016 ✓ holds — no route, before_request hook or door logic in the diff; only the existing /book/create route was exercised by tests. TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on this head."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue encoding in the diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness gate in the diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry loop in the diff."
+    - "INV-005 ✓ holds — create_book still sets self._plans[book_id] = DEFAULT_PLAN (memory) and distribution_plan=plan_to_json(DEFAULT_PLAN) (db); the diff only adds the print columns beside them. TestBookCreate_StoresDefaultPlanThatSumsTo100 green on this head."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership or floor/override code in the diff (CARD-121 owns the floor; the builder only supplies the cell function it will call)."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no readiness gate in the diff."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book confirmation in the diff."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no ordering/arrangement code in the diff."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing code in the diff."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer-key code in the diff."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change path in the diff."
+    - "INV-013 ✓ holds (builder half) — book_page_spec maps interior page 1 to PageParity.ODD and n%2 to ODD/EVEN (book_page_spec.py:196-199), matching 'page 1 is the guide page, right-hand'; no export route or cover handling is touched. TestBookPageSpec_OddPageGutterOnLeft::test_interior_page_1_the_guide_page_is_right_hand asserts it; mutation M1 (parity flipped) was killed."
+
+root_causes:
+  - id: RC-1
+    title: "The builder invents a hard minimum for both side margins, where the model puts the gutter minimum at finalise"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: risk
+    file: src/nonogram/admin/book_page_spec.py
+    line: 97
+    title: "MIN_SIDE_MARGIN_MM refuses the stored gutter ADR-0036/AC-179 requires the book to lay out with"
+    description: |
+      book_page_spec raises ValueError for any stored gutter_margin_cm below
+      6.35 mm (MIN_SIDE_MARGIN_MM, book_page_spec.py:97 and the check at
+      :225-230). ADR-0036's accepted clarification "Gutter margin and page
+      count" (decisions/adr/0036-book-page-geometry-via-page-spec.md:62) says
+      the opposite: "the book always lays out with its stored gutter margin
+      ... Finalising a book refuses when the actual page count needs a larger
+      gutter than the one stored." FR-030/AC-179 (requirements.yml, CARD-129)
+      states the scenario in numbers: "a book storing a 0.60 cm gutter margin
+      whose interior PDF runs to 180 pages ... finalise is refused, naming
+      KDP's 1.27 cm minimum ... the stored gutter is not changed". 0.60 cm =
+      6.0 mm < 6.35 mm, so with this builder that book cannot be laid out at
+      all: the PDF (CARD-116), the proof pages (CARD-118) and the finalise
+      page count (CARD-129) all go through book_page_spec and would die with
+      "book gutter_margin_cm is 0.6 cm, below the 0.635 cm minimum side
+      margin" instead of the KDP refusal the AC requires.
+      The refusal is pinned by a test — TestBookPageSpec_MinimumSideMargin
+      parametrises both columns with exactly AC-179's "0.60" value
+      (tests/test_book_page_spec.py:305-308) — so it will have to be undone
+      later rather than merely extended.
+      CON-018 sources the 0.25 in figure to the OUTSIDE margin only ("0.375 in
+      outside leaves room for trim variance above KDP's 0.25 in minimum");
+      applying it to the gutter has no source in the model, and KDP's gutter
+      minimum is page-count dependent, which is precisely why the ADR moved it
+      to finalise.
+    suggestion: |
+      Narrow the minimum to outside_margin_cm (keep the named-column message),
+      or drop the minimum entirely — PageSpec.__post_init__ already refuses a
+      non-positive usable area, and the builder's own gutter+outside >= width
+      check covers the degenerate case. Leave the gutter's KDP minimum to
+      CARD-129's kdp_min_gutter_cm(page_count) at finalise. Change the gutter
+      half of TestBookPageSpec_MinimumSideMargin accordingly (an assertion that
+      a 0.60 cm gutter still BUILDS a sheet is the useful pin, since AC-179
+      depends on it).
+    confidence: high
+    source: model
+    violates: AC-179
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_page_spec.py
+    line: 180
+    title: "The stored-form rule makes a stored \"0.95\" mean 9.525 mm, not 9.5 mm"
+    description: |
+      _stored_mm returns the profile's exact millimetres whenever the stored
+      string equals the profile's 2-decimal storage form ("0.95" -> 9.525 mm,
+      book_page_spec.py:178-181). An owner who deliberately stores 0.95 cm
+      gets 0.9525 cm. The delta is 25 micrometres — far below any print
+      tolerance — and the rule is the only way AC-272/AC-273's exact 206.375 /
+      9.525 mm hold for a book that stores the card-mandated default "0.95",
+      so this is a documented trade-off, not a defect. It is still a
+      value-dependent branch in a conversion function: "0.94" and "0.96" are
+      read literally while "0.95" is not, and nothing outside this module
+      knows that. Only outside_margin_cm is affected in practice (21.59 /
+      27.94 / 1.27 are exact in cm as well as inches).
+    suggestion: |
+      Keep, but consider a follow-up: store the exact profile value
+      ("0.9525") once AC-181's wording and migration 011's server default can
+      be widened, and delete the equality branch. At minimum keep the module
+      docstring paragraph that explains it (already present) and mirror it
+      wherever the columns are written.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/print_specs.py
+    line: 157
+    title: "create_spec defaults the margins but still validates none of them"
+    description: |
+      create_spec now fills empty margins from BOOK1_PROFILE
+      (print_specs.py:157-158) but passes any supplied margin through
+      unvalidated — non-numeric, negative, or below the builder's minimum —
+      while the trim is validated. Such a value would be stored and only blow
+      up later inside book_page_spec as a ValueError, far from the form.
+      Unreachable today (setup_print calls create_spec with trim only,
+      app.py:2129-2132), which is why this is Minor rather than a gate.
+    suggestion: |
+      When Print setup starts accepting margin fields, add a
+      validate_margins() beside validate_trim_size that refuses the same
+      values book_page_spec refuses, so the refusal happens at the form with
+      the field named.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

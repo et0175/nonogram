@@ -38,8 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-125** P2 · The pair-aware layout call — one shared cell in [7.0, 7.5] mm, or no pairing · 1d · architectural · wave 22 · Inc 15 · after CARD-114
-- **CARD-115** P1 · The book's PageSpec from its stored trim and margins (+ margin defaults) · 0.5d · wave 22 · Inc 13 · after CARD-114
 - **CARD-122** P1 · Puzzle selection by longest-side tab · 1d · wave 22 · Inc 14 · after CARD-119, CARD-120
 - **CARD-124** P1 · The readiness gate — no book leaves draft unless it matches its plan · 0.5d · wave 22 · Inc 14 · after CARD-119, CARD-120
 - **CARD-133** P2 · Answer tiles in COMP-007 — grid-only answers on a 2 × 3 / 2 × 2 tiled page · 1d · wave 22 · Inc 15 · after CARD-114
@@ -61,8 +59,11 @@ _(none)_
 _(none)_
 
 ## Review
+- **CARD-125** P2 · The pair-aware layout call — one shared cell in [7.0, 7.5] mm, or no pairing · 1d · architectural · wave 22 · Inc 15 · after CARD-114 · review: cycle 1 · score 9.0
+  `worktree: ../PythonProject4-CARD-125` · `branch: card/125-pair-aware-layout` · `elapsed: 0d`
 
 ## Done
+- **CARD-115** Book PageSpec builder · score 8.5 · merged 9f15c55
 - **CARD-120** Plan stored with the book · score 8.5 · merged bc799f2
 - **CARD-114** PageSpec · score 8.8 · merged e854cfc
 - **CARD-135** Interior PDF without the cover, cover separate · score 9.0 · merged 1541007

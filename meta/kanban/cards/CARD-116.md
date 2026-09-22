@@ -165,3 +165,6 @@ Book 1 PDF (15×15, 30×30, a 30×15 wide grid) and a 6×9 PDF in
 —
 
 - [Handover from CARD-114, 2026-09-22] F-004: the book-path `render_pages` currently prints "<name> — <tier>" in the band. ADR-0037/R1 forbids the picture name on a book puzzle page — replace it with "Puzzle N · Tier"; do not rely on the current band text.
+
+- [Handover from CARD-115, 2026-09-22] setup_print still writes the chosen trim only into book_metadata.size, never trim_width_cm/trim_height_cm, so book_page_spec keeps seeing the Book 1 profile trim. AC-176/AC-177 need that persistence — carry it here or card it.
+- [Handover from CARD-115] Measure through book_cell_mm, not test_layout_page_spec.py's private _book_cell_mm helper.

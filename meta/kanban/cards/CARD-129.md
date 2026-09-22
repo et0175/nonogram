@@ -148,3 +148,5 @@ eye.
 ## Worktree notes
 
 —
+
+- [Handover from CARD-115, 2026-09-22] AC-179's illustrative 0.60 cm gutter is below book_page_spec's 6.35 mm floor, so the builder refuses it before finalise can name the KDP band. Reconcile here (this card's checkpoint already uses the KDP-legal 0.375 in).
