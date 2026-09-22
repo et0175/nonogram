@@ -771,9 +771,17 @@ class PuzzleReviewService:
                             continue
                     elif tier_of_record(puzzle["difficulty_tier"]) is not wanted:
                         continue
-                # Quality filter
-                if filter_opts.quality_min and puzzle["quality_score"] < filter_opts.quality_min:
-                    continue
+                # Quality filter. An unmeasured puzzle (quality_score None —
+                # what random mode stores since CARD-050) cannot satisfy a
+                # minimum, so it is excluded rather than compared: `None < int`
+                # raises, and this branch is reached from two routes that take
+                # quality_min straight off the query string (ADR-0032/R2).
+                # Excluding matches what the DB branch below has always done,
+                # where SQL's `NULL >= n` is simply false.
+                if filter_opts.quality_min:
+                    quality = puzzle["quality_score"]
+                    if quality is None or quality < filter_opts.quality_min:
+                        continue
                 # Theme filter
                 if filter_opts.theme and puzzle["theme"] != filter_opts.theme:
                     continue
