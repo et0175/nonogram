@@ -191,6 +191,24 @@
 #   INV-009, INV-010 on AGG-002; CMD-022/EVT-023; CMD-016 and CMD-019
 #   preconditions and EVT-020 payload amended; TERM-030..TERM-032;
 #   TERM-018 and TERM-028 amended.
+# updated_at: 2026-09-22 (c) (delta mode — ONLY the raw-requirements.md
+#   section "## 2026-09-22 (c) — Book answer key, mirrored margins, back to
+#   draft" (owner answers during /forge:kanban decompose of Increments
+#   13-16; BK-8, BK-1 placement, BK-UI-9 amended; book rules 12-14; ADR-0035
+#   and ADR-0036 clarifications). All three lines DECIDED by the owner:
+#     1. FR-042 (new) — answer key: grid only, puzzle-number order,
+#        "Puzzle N — Title", 6-up while every answer <= 20, 4-up once one is
+#        longer; AC-261..AC-271, EC-030, EC-031; geometry assumed and
+#        stated in the FR (2 mm gap, 6 mm caption, no band).
+#     2. FR-030 and FR-032 AMENDED in place (dated notes) — mirrored margins
+#        by page parity, drawing centred across the usable width, top edge
+#        fixed; AC-272..AC-276, EC-032. Nothing retired.
+#     3. FR-037 and FR-038 AMENDED in place (dated notes) — a membership
+#        change on a non-draft book returns it to draft; AC-277..AC-282,
+#        EC-033. Nothing retired.
+#   Domain: INV-011, INV-012 on AGG-002; CMD-016, CMD-017, CMD-019
+#   preconditions and EVT-017, EVT-018, EVT-020 payloads amended;
+#   TERM-033, TERM-034. No new command, event, actor or policy.
 # tier: medium
 functional:
   - id: FR-001
@@ -1894,6 +1912,17 @@ functional:
   #            usable_h / (height + column-clue depth)).
   # ===================================================================
   - id: FR-030
+    # AMENDED 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line
+    # 2; BK-1 placement, book rule 13; ADR-0036 clarification "Mirrored
+    # margins"; owner decision). Book margins are MIRRORED by page parity:
+    # the gutter margin is on the left of a right-hand (odd) page and on the
+    # right of a left-hand (even) page (TERM-034). Parity is the page's
+    # 1-based position in the book PDF (page 1 is right-hand). The book's
+    # PageSpec carries the parity; the default A4 PageSpec has none and is
+    # unchanged (ADR-0036/R1, AC-180). Usable width is unchanged (193.7 mm
+    # on the Book 1 profile) — only its position moves. Horizontal centring
+    # and the fixed top edge are FR-032's. The sentence appended to the
+    # statement is the amendment; AC-272/AC-273 added.
     # RESOLVED 2026-09-22 by ADR-0036 (DEC-035): book geometry is an optional
     # PageSpec on COMP-007's compute_layout, defaulting to today's A4;
     # the book passes its trim/margins, portrait-only, flat 7.5 mm cap.
@@ -1930,7 +1959,11 @@ functional:
       COMP-007's compute_layout extended to take a page size and margins,
       or in a book-owned geometry in the admin panel reusing only the
       drawing primitives — is an open decision; CLI output is unchanged
-      under either (CON-019).
+      under either (CON-019). Margins are mirrored by page parity: on a
+      right-hand (odd) page the gutter margin is on the left and the
+      outside margin on the right; on a left-hand (even) page the other
+      way round; parity is the page's 1-based position in the book PDF,
+      and the usable area moves with it (its size does not).
     source: [US-023]
     _meta:
       source: authored
@@ -1988,6 +2021,19 @@ functional:
         then: it holds the CON-018 profile — trim 21.59 x 27.94 cm, gutter 1.27 cm, outside 0.95 cm
         kind: happy
         test: TestBookCreate_StoresBook1PrintProfile
+      # New 2026-09-22 (c) — mirrored margins (BK-1 placement).
+      - id: AC-272
+        given: a Book 1 profile book (gutter 1.27 cm, outside 0.95 cm)
+        when: the usable area of its PDF page 3 (a right-hand page) is computed
+        then: it spans 12.7 mm to 206.375 mm from the page's left trim edge — the gutter margin on the left
+        kind: happy
+        test: TestBookPageSpec_OddPageGutterOnLeft
+      - id: AC-273
+        given: the same Book 1 profile book
+        when: the usable area of its PDF page 4 (a left-hand page) is computed
+        then: it spans 9.525 mm to 203.2 mm from the page's left trim edge — the gutter margin on the right
+        kind: boundary
+        test: TestBookPageSpec_EvenPageGutterOnRight
     engineering_constraints:
       - id: EC-019
         statement: >-
@@ -2095,6 +2141,15 @@ functional:
         test: PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride
 
   - id: FR-032
+    # AMENDED 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line
+    # 2; BK-1 placement, book rule 13; ADR-0036 clarification; owner
+    # decision). The drawing is CENTRED HORIZONTALLY across the usable width
+    # of its page, whose position follows the page's parity (FR-030,
+    # mirrored margins); the top edge stays fixed as before. On a two-up
+    # page (FR-040) each slot's drawing is centred the same way; on an
+    # answer page (FR-042) the tile grid spans the usable width. The last
+    # sentence of the statement is the amendment; AC-274..AC-276 and EC-032
+    # added. Nothing retired.
     # AMENDED 2026-09-22 (b) (raw-requirements.md "## 2026-09-22 (b)", line 1;
     # BK-3 amended, book rule 5; owner decision — a turned picture is harder
     # to recognise). A book puzzle is NEVER TURNED: the page is portrait and
@@ -2132,7 +2187,11 @@ functional:
       applies to it. The top edge of the puzzle drawing sits at the same
       position on every puzzle page — below the top margin and the title
       band — rather than being centred vertically; on a two-up page
-      (FR-040) that position is the upper puzzle's.
+      (FR-040) that position is the upper puzzle's. Horizontally the
+      drawing is centred across the usable width of its page — between
+      the gutter and outside margins as mirrored for the page's parity
+      (FR-030) — so its left edge moves with the parity and its top edge
+      does not.
     source: [US-023]
     _meta:
       source: authored
@@ -2181,6 +2240,25 @@ functional:
         then: its tile carries no flag — neither a wide-grid flag nor a below-floor flag
         kind: negative
         test: TestBookSelect_WideGridAboveFloorCarriesNoFlag
+      # New 2026-09-22 (c) — horizontal centring by parity (BK-1 placement).
+      - id: AC-274
+        given: a Book 1 profile book whose PDF page 3 (right-hand) holds a 15x15 puzzle with 7-deep row- and column-clue gutters (22 cells x 7.5 mm = 165 mm drawing width)
+        when: the book PDF is generated
+        then: the drawing's left edge is 27.05 mm (+/- 0.1 mm) from the page's left trim edge — 14.35 mm inside each side of the usable width
+        kind: happy
+        test: TestBookPdf_DrawingCentredOnRightHandPage
+      - id: AC-275
+        given: the same puzzle printed on PDF page 4 (left-hand) of the same book
+        when: the book PDF is generated
+        then: the drawing's left edge is 23.875 mm (+/- 0.1 mm) from the page's left trim edge
+        kind: boundary
+        test: TestBookPdf_DrawingCentredOnLeftHandPage
+      - id: AC-276
+        given: the pages of AC-274 and AC-275
+        when: the top edges of the two drawings are compared
+        then: they lie on the same pixel row — parity moves the drawing sideways only
+        kind: boundary
+        test: TestBookPdf_ParityNeverMovesTopEdge
     engineering_constraints:
       # AMENDED 2026-09-22 (b): "and the grid is drawn unrotated" added and
       # AC-240 joined the instances (BK-3 amended). Otherwise unchanged.
@@ -2195,6 +2273,19 @@ functional:
         kind: consistency
         instances: [AC-189, AC-190, AC-240]
         test: PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+      # New 2026-09-22 (c) — mirrored margins, centred drawing.
+      - id: EC-032
+        statement: >-
+          For any puzzle extent of 10..30 per side, any clue depth, any
+          stored trim and margins and any page position, the gutter margin
+          lies on the binding side of the page (left on odd pages, right on
+          even pages), the drawing's horizontal centre is the centre of that
+          page's usable width, and the drawing's left edge on an odd page
+          minus its left edge on an even page equals gutter margin minus
+          outside margin — while its top edge is identical on both.
+        kind: consistency
+        instances: [AC-272, AC-273, AC-274, AC-275, AC-276]
+        test: PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
 
   - id: FR-033
     # RESOLVED 2026-09-22 by ADR-0037 (DEC-039): the band shows "Puzzle N ·
@@ -2495,6 +2586,13 @@ functional:
         test: PropertyTest_LongestSideBuckets_PartitionEveryExtent
 
   - id: FR-037
+    # AMENDED 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line
+    # 3; BK-UI-9, book rule 14; ADR-0035 clarification "Membership change
+    # after draft"; owner decision). A book whose membership changed after
+    # it left draft is back in draft (FR-038, INV-012) and must pass this
+    # FR's check again before it leaves draft — and so before a new PDF of
+    # a non-draft book. The last sentence of the statement is the
+    # amendment; AC-282 added.
     # RESOLVED 2026-09-22 by ADR-0035 (DEC-038): (a) every transition out of
     # draft is gated; (b) a cell's share = its count / the PLANNED total; (c) a
     # book with no stored plan is refused ("store a plan on Print setup
@@ -2509,7 +2607,9 @@ functional:
       its selection is within +/-3 percentage points (inclusive) of that
       cell's share of the plan (FR-034); otherwise the transition is
       refused, the status is unchanged, and the refusal names each cell
-      outside the tolerance with its actual and planned share.
+      outside the tolerance with its actual and planned share. A book
+      returned to draft by a membership change (FR-038) is checked again
+      on its new membership when it is next marked ready.
     source: [US-026]
     _meta:
       source: authored
@@ -2543,6 +2643,14 @@ functional:
         then: it names the 16-20 x medium cell with 14% against 10%
         kind: negative
         test: TestBookReady_RefusalNamesOffendingCell
+      # New 2026-09-22 (c) — back to draft (ADR-0035 clarification).
+      - id: AC-282
+        given: a 100-puzzle book that passed the check and reached pdf_generated, returned to draft by adding 4 medium 16-20 puzzles and removing 4 easy ones so its 16-20 x medium cell holds 14 against a plan of 10
+        when: the book is marked ready
+        then: the transition is rejected and the status remains draft
+        kind: negative
+        invariant: INV-012
+        test: TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership
     engineering_constraints:
       - id: EC-025
         statement: >-
@@ -2557,6 +2665,17 @@ functional:
         test: PropertyTest_BookReady_GateIffEveryCellWithinTolerance
 
   - id: FR-038
+    # AMENDED 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line
+    # 3; BK-UI-9 amended, book rule 14; ADR-0035 clarification; owner
+    # decision — "a KDP upload must never be built from a book that no
+    # longer matches its plan"). Adding or removing puzzles on a book that
+    # has left draft (any of ready_for_pdf, pdf_generated, ready_for_kdp,
+    # published — the latter only once confirmed, INV-008) sets its status
+    # to draft in the same change (INV-012); FR-037's check then gates it
+    # again. Only membership changes do this: reorder and retitle are not
+    # named by the owner and are left as they are (see _meta.open_question).
+    # The sentence appended to the statement is the amendment;
+    # AC-277..AC-281 and EC-033 added.
     # New 2026-09-22 (BK-UI-9, BK-UI-10). Today book_detail.html links only
     # to Print setup ("Continue scaffolding") and puzzle selection; there is
     # no route to edit the New-book fields of an existing book; and
@@ -2572,11 +2691,14 @@ functional:
       changes them only once confirmed. Moving to an earlier step never
       discards later work: changing the plan keeps the selection (and
       recomputes planned vs actual), and removing a puzzle keeps the rest of
-      the arrangement, order and titles included.
+      the arrangement, order and titles included. Adding or removing a
+      puzzle on a book that has left draft — once confirmed, for a
+      published book — returns the book to draft in the same change.
     source: [US-027]
     _meta:
       source: authored
-      amends_behaviour: "BookManager.add_puzzles_to_book / remove_puzzle_from_book refuse a published book outright today; FR-038 turns the refusal into a confirmation."
+      amends_behaviour: "BookManager.add_puzzles_to_book / remove_puzzle_from_book refuse a published book outright today; FR-038 turns the refusal into a confirmation. Since 2026-09-22 (c) a membership change on any non-draft book also sets its status to draft."
+      open_question: "2026-09-22 (c): whether a reorder or a retitle on a non-draft book (which changes the PDF but not the membership) also returns it to draft is unstated — the owner named adding and removing only."
       evidence: ["src/nonogram/admin/templates/book_detail.html:16", "src/nonogram/admin/templates/book_detail.html:109", "src/nonogram/admin/templates/books_list.html", "src/nonogram/admin/book_manager.py:268", "src/nonogram/admin/book_manager.py:311-372", "src/nonogram/admin/app.py:1908-2330"]
     acceptance:
       - id: AC-222
@@ -2629,6 +2751,42 @@ functional:
         then: the arrangement is A, C, D with the same custom titles on A, C and D
         kind: boundary
         test: TestBookRemovePuzzle_KeepsRestOfArrangement
+      # New 2026-09-22 (c) — back to draft (ADR-0035 clarification).
+      - id: AC-277
+        given: a book in status pdf_generated holding 120 puzzles
+        when: a puzzle is added
+        then: the book's status is draft
+        kind: happy
+        invariant: INV-012
+        test: TestBookMembership_AddOnNonDraftReturnsToDraft
+      - id: AC-278
+        given: a book in status ready_for_pdf holding 120 puzzles
+        when: a puzzle is removed
+        then: the book's status is draft
+        kind: happy
+        invariant: INV-012
+        test: TestBookMembership_RemoveOnNonDraftReturnsToDraft
+      - id: AC-279
+        given: a published book holding 120 puzzles
+        when: a puzzle is added with confirmation
+        then: the book's status is draft
+        kind: boundary
+        invariant: INV-012
+        test: TestBookPublished_ConfirmedChangeReturnsToDraft
+      - id: AC-280
+        given: a published book holding 120 puzzles
+        when: a puzzle is added without confirmation
+        then: the book's status remains published
+        kind: negative
+        invariant: INV-008
+        test: TestBookPublished_UnconfirmedChangeKeepsStatus
+      - id: AC-281
+        given: a book in status ready_for_kdp holding 120 puzzles
+        when: a puzzle's id is pasted into the detail page's add-puzzles form (POST /book/<id>/add-puzzles)
+        then: the book's status is draft — the paste-IDs route returns it to draft too
+        kind: boundary
+        invariant: INV-012
+        test: TestBookAddPuzzlesByIds_NonDraftReturnsToDraft
     engineering_constraints:
       - id: EC-026
         statement: >-
@@ -2639,6 +2797,19 @@ functional:
         kind: consistency
         instances: [AC-228, AC-229]
         test: PropertyTest_BookWorkflow_BackNavigationNeverDiscardsLaterWork
+      # New 2026-09-22 (c) — back to draft.
+      - id: EC-033
+        statement: >-
+          For any book, any starting status and any sequence of adds and
+          removes over every route (selection step, paste-IDs form, remove,
+          any future route ending in the book store), a book whose
+          membership differs from the membership it last left draft with
+          is in draft — no route leaves a non-draft book holding a changed
+          membership, for every sequence, not only the measured examples.
+        kind: consistency
+        invariant: INV-012
+        instances: [AC-277, AC-278, AC-279, AC-281]
+        test: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists
 
   - id: FR-039
     # RESOLVED 2026-09-22 by ADR-0035 (DEC-038): the short/over hint uses
@@ -2965,6 +3136,179 @@ functional:
         invariant: INV-009
         instances: [AC-253, AC-256, AC-258, AC-259]
         test: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
+
+  - id: FR-042
+    # New 2026-09-22 (c) (raw-requirements.md "## 2026-09-22 (c)", line 1;
+    # BK-8, book rule 12). DECIDED by the owner during /forge:kanban
+    # decompose of Increments 13-16 — not a DEC EXPECTED. Today
+    # admin/book_pdf_generator.py renders one full answer page per puzzle
+    # (render_pages' second page, clues included) after a "SOLUTIONS"
+    # divider, so a 150-puzzle book passes 300 pages.
+    # Relations:
+    #  - ADR-0037/R1 and FR-033 (AC-194): the answer key is the ONLY place
+    #    the picture's title appears; the caption here is that place. The
+    #    puzzle-page band stays "Puzzle N · Tier".
+    #  - ADR-0036/R2: answer tiles are laid out by COMP-007's layout
+    #    functions with the book's PageSpec (a tiled answer page); the admin
+    #    panel fits no cells. CLI/web output is unchanged (ADR-0036/R1,
+    #    CON-019, EC-020).
+    #  - FR-030 AC-179 / ADR-0036 "gutter margin and page count": the page
+    #    count finalise checks against KDP's gutter minimum INCLUDES the
+    #    answer-key pages, so the answer key's page count is part of that
+    #    check (AC-271).
+    #  - FR-041: puzzle numbers run 1..n in the book order, so number order
+    #    here is also level order; the owner's "small level headings" in
+    #    the answer key (FR-041 owner answer) are NOT placed by this FR —
+    #    see _meta.open_question.
+    #  - NFR-008 (4.8..7.5 mm) governs puzzle cells only; an answer cell is
+    #    a reference drawing and is bounded by EC-031 (>= 3.19 mm on the
+    #    Book 1 profile), not by NFR-008.
+    # GEOMETRY ASSUMED (Book 1 profile, CON-018): usable area 193.7 mm wide
+    # (215.9 - 12.7 gutter - 9.525 outside) x 260.35 mm tall (279.4 -
+    # 2 x 9.525); answer pages carry no 12 mm title band; tiles are
+    # separated by a 2 mm gap in both directions; each tile reserves a
+    # 6 mm caption line; the grid is drawn at one square cell, the
+    # largest that fits the tile's grid area.
+    #   6-up (2 x 3): tile 95.85 x 85.45 mm ((193.7-2)/2 x (260.35-2x2)/3),
+    #     grid area 95.85 x 79.45 mm -> 20x20: min(4.79, 3.97) = 3.97 mm;
+    #     worst case of any answer <= 20: 3.97 mm (height-limited).
+    #   4-up (2 x 2): tile 95.85 x 129.18 mm ((260.35-2)/2), grid area
+    #     95.85 x 123.18 mm -> 30x30: min(3.195, 4.11) = 3.19 mm; worst
+    #     case of any answer <= 30: 3.19 mm (width-limited, 30 wide).
+    #   The owner's quoted 3.7 mm (20 in 6-up) and 3.1 mm (30 in 4-up) are
+    #   both BELOW these values, so "about 3 mm or more" holds with margin;
+    #   the gap and caption are this FR's assumption, not the owner's.
+    # PAGE-COUNT EXAMPLE (default plan, ADR-0034: 150 puzzles, 90 at <= 20
+    # and 60 above per BK-8): 30 answer pages when the 90 small answers are
+    # contiguous (15 six-up + 15 four-up); at most ceil(150/4) = 38 when
+    # small and large alternate; one page per answer (today) = 150.
+    statement: >-
+      The book PDF ends with an answer key (TERM-033) holding every member
+      puzzle's answer exactly once, in puzzle-number order (INV-011). An
+      answer is the puzzle's filled solution grid only — no row or column
+      clues — captioned "Puzzle N — Title", where N is the puzzle's number
+      in the book and Title is the puzzle's title in the book (its custom
+      book title when one is set, otherwise the puzzle's name); the answer
+      key is the only place the title is printed (ADR-0037/R1). Answers
+      fill pages in order: a page is a 6-up page (2 columns x 3 rows) while
+      every answer on it is at most 20 cells on its longest side, and a
+      4-up page (2 x 2) once it holds an answer longer than 20; the next
+      answer goes on the current page when the page, with it, stays within
+      its capacity (6, or 4 if any answer on it is longer than 20),
+      otherwise it starts a new page. Each tile is (usable width - 2 mm) / 2
+      wide and (usable height - (rows - 1) x 2 mm) / rows tall, where the
+      usable area is the trim minus the page's mirrored margins (FR-030)
+      with no title band; a 6 mm caption line is reserved inside the tile
+      and the grid is drawn at the largest square cell that fits the rest.
+      The tiles are laid out by COMP-007's layout functions with the book's
+      PageSpec (ADR-0036/R2). The answer key's pages count toward the
+      book's page count, including the count finalise checks against KDP's
+      gutter minimum (FR-030, AC-179).
+    source: [US-023, US-024]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-09-22 (answers during /forge:kanban decompose of Increments 13-16) — BK-8, book_admin_ui_requirements.md rule 12"
+      relates_to: [FR-030, FR-032, FR-033, FR-040, FR-041, NFR-008, ADR-0036, ADR-0037, ADR-0034]
+      assumptions: "Geometry (2 mm gap, 6 mm caption line, no title band on answer pages) is stated by this FR, not by the owner; the owner's figures (3.7 / 3.1 mm) are conservative against it. The caption's Title as 'custom book title, else puzzle name' follows the arrangement step's per-puzzle titles (FR-038) — confirm with the owner."
+      open_question: "(1) Where FR-041's owner-confirmed 'small Easy / Medium / Hard headings' sit in the answer key (in a tile slot, above a row, or forcing a new page at a level boundary) is unstated; the criteria below use single-level books where it cannot bite, and the page-count example ignores headings. (2) Whether today's 'SOLUTIONS' divider page before the answer key is kept is unstated (it adds one page if kept). (3) Whether an answer cell is capped (e.g. at the 7.5 mm standard cell) for small answers is unstated; no criterion uses an answer small enough for it to bite."
+      evidence: ["src/nonogram/admin/book_pdf_generator.py:186-236", "src/nonogram/export/pdf.py", "docs/book_generation_req/book_generation_admin_panel.md#3", "docs/book_generation_req/book_admin_ui_requirements.md#5"]
+    acceptance:
+      - id: AC-261
+        given: a Book 1 profile book of 12 easy 15x15 puzzles, numbered 1..12
+        when: the book PDF is generated
+        then: the answer key is 2 pages, the first holding answers 1-6 and the second answers 7-12, each in 2 columns x 3 rows read left to right, top to bottom
+        kind: happy
+        invariant: INV-011
+        test: TestBookAnswerKey_SixUpInPuzzleNumberOrder
+      - id: AC-262
+        given: a Book 1 profile book whose answer key holds a 20x20 answer on a 6-up page
+        when: the answer's grid is measured
+        then: its cell is 3.97 mm (+/- 0.05 mm; 79.45 mm tile grid area over 20 rows)
+        kind: boundary
+        test: TestBookAnswerKey_TwentyInSixUpTileCellSize
+      - id: AC-263
+        given: a Book 1 profile book whose puzzles 1-5 are 15x15 and puzzle 6 is 25x25
+        when: the book PDF is generated
+        then: the first answer page is a 6-up page holding answers 1-5, and answer 6 starts the next page
+        kind: boundary
+        invariant: INV-011
+        test: TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage
+      - id: AC-264
+        given: a Book 1 profile book whose puzzles 1-3 are 15x15, puzzle 4 is 25x25 and puzzle 5 is 15x15
+        when: the book PDF is generated
+        then: the first answer page is a 4-up page (2 x 2) holding answers 1-4, and answer 5 starts the next page
+        kind: boundary
+        invariant: INV-011
+        test: TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20
+      - id: AC-265
+        given: a Book 1 profile book whose answer key holds a 30x30 answer on a 4-up page
+        when: the answer's grid is measured
+        then: its cell is 3.19 mm (+/- 0.05 mm; 95.85 mm tile width over 30 columns)
+        kind: boundary
+        test: TestBookAnswerKey_ThirtyInFourUpTileCellSize
+      - id: AC-266
+        given: a Book 1 profile book of 6 puzzles, puzzle 1 being 20 wide x 15 tall and puzzles 2-6 15x15
+        when: the book PDF is generated
+        then: the answer key is one 6-up page holding answers 1-6 — a longest side of exactly 20 keeps the page 6-up
+        kind: boundary
+        invariant: INV-011
+        test: TestBookAnswerKey_LongestSideTwentyStaysSixUp
+      - id: AC-267
+        given: a Book 1 profile book holding a 15x15 puzzle whose row and column clues are non-empty
+        when: its answer tile is rendered
+        then: the tile draws the 15 x 15 filled grid and no clue number
+        kind: negative
+        test: TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
+      - id: AC-268
+        given: a book whose puzzle 7 is named "Snowflake" and has no custom book title
+        when: the book PDF is generated
+        then: answer 7's caption reads "Puzzle 7 — Snowflake"
+        kind: happy
+        test: TestBookAnswerKey_CaptionPuzzleNumberAndTitle
+      - id: AC-269
+        given: a book whose puzzle 7 is named "Snowflake" and carries the custom book title "Winter Star"
+        when: the book PDF is generated
+        then: answer 7's caption reads "Puzzle 7 — Winter Star"
+        kind: boundary
+        test: TestBookAnswerKey_CaptionUsesCustomBookTitle
+      - id: AC-270
+        given: a Book 1 profile book of 150 puzzles — the default plan's count and BK-8's 90 / 60 size split — all of one tier, puzzles 1-90 at most 20 on the longest side and puzzles 91-150 longer
+        when: the book PDF is generated
+        then: the answer key is 30 pages — 15 six-up pages then 15 four-up pages — where one page per answer would take 150
+        kind: happy
+        invariant: INV-011
+        test: TestBookAnswerKey_DefaultPlanTakesThirtyPages
+      - id: AC-271
+        given: a book storing a 0.95 cm (0.375 in) gutter margin whose pages before the answer key number 125 and whose 150 answers lay out on 30 answer pages (155 pages in all)
+        when: the book is finalised
+        then: finalise is refused, naming KDP's 1.27 cm (0.5 in) minimum for 151-300 pages — the answer-key pages are counted
+        kind: negative
+        test: TestBookFinalise_PageCountIncludesAnswerKeyPages
+    engineering_constraints:
+      - id: EC-030
+        statement: >-
+          For any book order of any length and any mix of puzzle sizes
+          10..30, the answer key holds every member puzzle's answer exactly
+          once in puzzle-number order; no page holds more than 6 answers,
+          nor more than 4 when any answer on it is longer than 20; a page is
+          closed only when the next answer would push it past its capacity;
+          and the answer-key page count lies between ceil(n / 6) and
+          ceil(n / 4) for n answers — for every order, not only the
+          measured examples.
+        kind: consistency
+        invariant: INV-011
+        instances: [AC-261, AC-263, AC-264, AC-266, AC-270]
+        test: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
+      - id: EC-031
+        statement: >-
+          For any answer of 10..30 cells per side on the Book 1 profile, on
+          either page parity, the answer's cell is at least 3.19 mm, its
+          grid and 6 mm caption line lie inside its tile, and every tile
+          lies inside the page's usable area without overlapping another —
+          for every extent and position, not only the measured examples.
+        kind: consistency
+        instances: [AC-262, AC-265]
+        test: PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
 
 non_functional:
   - id: NFR-001

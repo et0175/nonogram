@@ -44,8 +44,13 @@ This reads "±3 percentage points" as proportion only: a smaller book in the rig
 - Existing books in the database have no plan, so none of them can leave draft until a plan is stored. That is the on-touch migration: fix when a book is next edited.
 
 ### Neutral
-- The gate runs at the transition only. Whether editing a non-draft book's membership (FR-038's confirm-then-apply flow) re-runs the check or returns the book to draft is not decided here. The book-status card must state it explicitly, and a later delta can decide it.
+- The gate runs at the transition only. Editing a non-draft book's membership returns it to draft (see Clarifications).
 - FR-037's open question (a)–(c) and FR-039's tolerance question are closed; the criteria that assumed actual count = planned count stand, and the card adds criteria for the under-filled and plan-less cases.
+
+## Clarifications (2026-09-22)
+
+### Membership change after draft
+Adding or removing puzzles in a book that has left draft (after FR-038's confirmation for a published book) returns the book to **draft**. It must pass the plan check again before a new PDF is generated. The owner chose this over keeping the status with a warning, because a KDP upload must never be built from a book that no longer matches its plan.
 
 ## References
 
@@ -58,6 +63,7 @@ This reads "±3 percentage points" as proportion only: a smaller book in the rig
 ## History
 
 - 2026-09-22: Created — every exit from draft is gated on the planned book (planned-total denominator, ±3 pp per cell); plan-less books are refused; the list hint uses exact counts.
+- 2026-09-22: Clarified (owner) — changing the puzzles of a book that has left draft returns it to draft. Decision unchanged.
 
 ## Rules
 

@@ -221,3 +221,14 @@ Source: owner discussion 2026-09-22 during DEC-039, recorded in `docs/book_gener
 - The book is ordered easy → medium → hard, with a divider page before each level ("Easy", "Medium", "Hard"); arrangement keeps the owner's order within a level (FR; BK-7; complements ADR-0037's "Puzzle N · Tier" band).
 # deferred: 2026-09-22 — future feature, not Book 1
 - DEFERRED — Solution hints (e.g. "Hint for 12: row 7 has cells 4–11 filled", from the solver's first line-logic deductions): a future feature, not Book 1.
+
+## 2026-09-22 (c) — Book answer key, mirrored margins, back to draft
+
+Source: owner answers 2026-09-22 during `/forge:kanban decompose` of Increments 13–16 (gaps found while carding), recorded in `docs/book_generation_req/book_generation_admin_panel.md` (BK-8, BK-1 placement) and `docs/book_generation_req/book_admin_ui_requirements.md` (BK-UI-9, rules 12–14), and as clarifications of ADR-0035 and ADR-0036. All three are DECIDED by the owner.
+
+# processed: 2026-09-22 -> FR-042 (AC-261..AC-271, EC-030, EC-031); INV-011, CMD-019/EVT-020 amended; TERM-033 — decided by the owner
+- The book's answer key shows each puzzle's filled grid only (no clues), in puzzle-number order, captioned "Puzzle N — Title" (the only place the picture's title appears, ADR-0037). A page holds up to 6 answers (2 × 3) while every answer on it is ≤20 on its longest side, and becomes a 4-answer page (2 × 2) as soon as it would hold one bigger than 20 — so every answer cell is about 3 mm or more (20 cells in a 6-up tile → 3.7 mm; 30 cells in a 4-up tile → 3.1 mm). Today `book_pdf_generator.py` renders one full answer page per puzzle, which takes a 150-puzzle book past 300 pages (FR, product; BK-8; the Book 1 page-count model of ~120–190 pages depends on it).
+# processed: 2026-09-22 -> FR-030 AMENDED (AC-272, AC-273), FR-032 AMENDED (AC-274..AC-276, EC-032); CMD-019/EVT-020 amended; TERM-034 — decided by the owner
+- Book pages use mirrored margins: the gutter margin is on the left of right-hand (odd) pages and on the right of left-hand (even) pages, and the drawing is centred across the usable width; the top edge stays fixed (amends FR-030 / FR-032; ADR-0036 clarification — the book PageSpec carries page parity; A4 default unchanged).
+# processed: 2026-09-22 -> FR-038 AMENDED (AC-277..AC-281, EC-033), FR-037 AMENDED (AC-282); INV-012, CMD-016/CMD-017, EVT-017/EVT-018 amended — decided by the owner
+- Adding or removing puzzles in a book that has left draft (after FR-038's confirmation for a published book) returns it to draft, so it must pass the plan check again before a new PDF (amends FR-037 / FR-038; ADR-0035 clarification).

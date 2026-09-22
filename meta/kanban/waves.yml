@@ -1,0 +1,139 @@
+# Per-wave checkpoints carried from meta/architecture/handoff.md (decompose step 8c).
+# Written by /forge:kanban decompose on 2026-09-22 for the book generator
+# (Increments 13..16, CARD-113..CARD-132). Waves 1..19 predate this file
+# (the last finished card ran in wave 19). Book waves are numbered 20..27 so they do
+# not collide with those done waves.
+# Book waves mix increments, because the waves come from a topological sort. Each
+# increment's checkpoint therefore sits on the wave where its LAST card lands. `run`
+# demands the checkpoint when that wave ends. A wave with no checkpoint only needs its
+# cards merged and the wave smoke test green.
+#
+# The CON-019 tripwire (`TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`,
+# `TestCliExports_ByteIdenticalAfterBookGeometry`,
+# `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`) lands in wave 20
+# and must be green at the end of EVERY later wave.
+#
+# Updated 2026-09-22 (c) by a decompose DELTA (owner answers: answer key FR-042,
+# mirrored margins FR-030/FR-032, back to draft FR-037/FR-038): CARD-133 joins wave
+# 22 and CARD-134 joins wave 25 (Increment 15); the Increment 13, 15 and 16
+# checkpoints gain the new observables. No wave was renumbered.
+
+waves:
+  - wave: 20
+    cards: [CARD-113, CARD-119]
+    increment: [13, 14]
+    checkpoint: "golden A4 tripwire green on main before any src/ change (CARD-113); plan arithmetic green (CARD-119)"
+    status: pending
+
+  - wave: 21
+    cards: [CARD-114, CARD-120]
+    increment: [13, 14]
+    checkpoint: "golden A4 test green on both sides of the PageSpec change (ADR-0036/R1, CON-019)"
+    status: pending
+
+  - wave: 22
+    cards: [CARD-115, CARD-122, CARD-124, CARD-125, CARD-133]
+    increment: [13, 14, 15]
+    checkpoint: null
+    status: pending
+
+  - wave: 23
+    cards: [CARD-116, CARD-121]
+    increment: [13, 14]
+    checkpoint: null
+    status: pending
+
+  - wave: 24
+    cards: [CARD-117, CARD-123, CARD-126]
+    increment: [13, 14, 15]
+    closes_increment: 14
+    checkpoint: >-
+      A new book's Print setup shows 150 at 40/40/20 and the AC-198 matrix
+      (<=15: 20/7/0, 16-20: 30/27/6, 21-25: 10/20/12, 26-30: 0/6/12); the plan
+      survives leaving and reopening. On the selection step a 30x25 puzzle with a
+      12-deep row clue shows 4.61 mm with a below-floor flag and is refused on both
+      the tab and the paste-IDs route, then accepted with an override that the
+      finalise summary counts. A 100-puzzle book with one cell at 14% against 10%
+      is refused with that cell named, and a draft -> ready_for_kdp jump is refused
+      the same way; at 13% it passes.
+    collapses: [INV-005, INV-006, INV-007, EC-021, EC-023, EC-024, EC-025, "ADR-0035 status-jump bypass"]
+    rollback: >-
+      Two migrations (plan, override), each with a downgrade. The gate is a
+      behaviour change on the live DB: a plan-less draft book can no longer leave
+      draft until a plan is stored. Reverting restores the old one-puzzle rule;
+      stored plans and overrides are ignored by the old code.
+    status: pending
+
+  - wave: 25
+    cards: [CARD-118, CARD-127, CARD-130, CARD-134]
+    increment: [13, 15, 16]
+    closes_increment: 13
+    checkpoint: >-
+      The golden A4 test is green on both sides of the change, and a seeded 30x30
+      `nonogram generate` writes byte-identical PNG/SVG/PDF before and after. A
+      Book 1 profile book PDF opens at 2550 x 3300 px per page, and a 6x9 book at
+      1800 x 2700 px. The band reads "Puzzle N · Tier" and no picture title is on
+      the puzzle page. Margins are mirrored: on facing pages the 15x15 drawing's
+      left edge sits at 27.05 mm (odd page) and 23.875 mm (even page) from the trim
+      edge, on the same top pixel row.
+    owner_confirmed_checkpoint:
+      automatable: false
+      statement: >-
+        Printed on 8.5x11 paper, the proof pages measure a 4.97 mm cell
+        (+/-0.05 mm) on the 30x30 with 9-deep clues and 7.5 mm on the 15x15, thin
+        rules at least 0.25 mm and heavy rules visibly double. The owner has looked
+        at the printed proofs and confirmed the stroke values
+        (owner-validates-visually).
+      evidence_path: "~/Documents/nonogram-reviews/CARD-118/"
+      recorded_on: CARD-118 Worktree notes
+      on_reject: "back to ADR-0037 (architect station), not a code tweak"
+    collapses: [ADR-0036 central bet (G-1 retirement), CON-019, EC-020, NFR-008 7.5 mm cap, EC-019, EC-032, ADR-0037 stroke numbers, CON-018 margin-default gap]
+    rollback: >-
+      PageSpec is an optional parameter with a byte-identical default; revert the
+      branch and the CLI/web path is untouched. The only non-additive edit is the
+      margin-default migration, which has a downgrade.
+    status: pending
+
+  - wave: 26
+    cards: [CARD-128, CARD-131, CARD-132]
+    increment: [15, 16]
+    closes_increment: 16
+    checkpoint: >-
+      From /books, a pdf_generated book opens into the step workflow with all five
+      steps linked; its title is edited in place. Adding a puzzle to a published
+      120-puzzle book without confirming leaves 120 and asks; confirming makes 121
+      and returns the book to draft; a puzzle added to a pdf_generated book likewise
+      returns it to draft, and it must pass the plan check again.
+      The list shows "132 / 150" and "easy 50 / 60 · medium 60 / 60 · hard 22 / 30"
+      for the seeded fixtures, hints a short 26-30 x hard bucket, and sorts 150/150,
+      132/150, 20/100.
+    collapses: [INV-008, INV-012, EC-026, EC-033, "FR-039 hint semantics (exact counts, ADR-0035)"]
+    rollback: "Additive routes and template changes; reverting restores the outright refusal on published books. No schema change."
+    status: pending
+
+  - wave: 27
+    cards: [CARD-129]
+    increment: [15]
+    closes_increment: 15
+    checkpoint: >-
+      The PDF of a real curated book on the Book 1 profile runs divider "Easy",
+      two-up and single pages, divider "Medium", ... with bands "Puzzle 1 · Easy" /
+      "Puzzle 2 · Easy" on the first shared page; a 12+12 pair measures 7.39 mm
+      (+/-0.05 mm) on the printed page and the upper slot's top edge sits on the
+      same pixel row as a single 20x20 page's drawing. The page count before and
+      after pairing is reported for that book, together with its answer-key page
+      count (6-up / 4-up answer pages in puzzle-number order, captioned "Puzzle N —
+      Title"; a 150-answer book with 90 answers <=20 first takes 30 answer pages,
+      not 150), and a book whose count, answer key included, crosses 150 pages with
+      a stored 0.375 in gutter is refused at finalise with the KDP reason. Rendered pages go to ~/Documents/nonogram-reviews/CARD-129/ for the
+      owner's eye.
+    owner_confirmed_checkpoint:
+      automatable: false
+      statement: "owner eyes the rendered real-book pages (dividers, two-up, bands, answer-key pages) and the measured 7.39 mm pair"
+      evidence_path: "~/Documents/nonogram-reviews/CARD-129/"
+    collapses: [INV-009, INV-010, INV-011, EC-027, EC-028, EC-029, EC-030, EC-031, "ADR-0036 two-up API shape", "gutter/page-count circularity", "answer key's share of the ~120-190-page Book 1 model"]
+    rollback: >-
+      Pairing, dividers and answer pages are decided at PDF time; nothing is stored. The
+      level-confined move and end-of-level insert write the stored order; a revert
+      leaves any order valid (still a permutation) and stops enforcing it.
+    status: pending

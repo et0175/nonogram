@@ -127,13 +127,16 @@ events:
     triggered_by: CMD-016
     aggregate: AGG-002
     source: [US-023, US-026]
-    payload_summary: book_id, puzzle_ids, below_floor_overrides{puzzle_id -> cell_mm}, confirmed_on_published
+    # AMENDED 2026-09-22 (c) (INV-012): status_before / status_after — a
+    # book that had left draft is back in draft.
+    payload_summary: book_id, puzzle_ids, below_floor_overrides{puzzle_id -> cell_mm}, confirmed_on_published, status_before, status_after (draft whenever status_before was not draft)
   - id: EVT-018
     name: PuzzleRemovedFromBook
     triggered_by: CMD-017
     aggregate: AGG-002
     source: [US-027]
-    payload_summary: book_id, puzzle_id, remaining_order
+    # AMENDED 2026-09-22 (c) (INV-012): status_before / status_after.
+    payload_summary: book_id, puzzle_id, remaining_order, status_before, status_after (draft whenever status_before was not draft)
   - id: EVT-019
     name: BookMarkedReady
     triggered_by: CMD-018
@@ -145,11 +148,15 @@ events:
     # page composition — each puzzle page single or two-up (with its shared
     # cell) and the divider page before each non-empty level; page_count
     # includes the divider pages and counts a two-up page once.
+    # AMENDED 2026-09-22 (c) (FR-042, FR-030/FR-032 amended): pages[] also
+    # carries the answer-key pages (kind answers, layout 6_up|4_up, puzzle
+    # numbers) and each page's parity (odd = right-hand); page_count
+    # includes the answer-key pages.
     name: BookPdfGenerated
     triggered_by: CMD-019
     aggregate: AGG-002
     source: [US-023, US-024]
-    payload_summary: book_id, trim, margins_applied (gutter after the KDP page-count minimum), page_count, cell_mm per puzzle, below_floor_count, pages[](kind single|two_up|divider, puzzle numbers, shared_cell_mm for two_up, level for divider)
+    payload_summary: book_id, trim, margins_applied (gutter after the KDP page-count minimum), page_count, cell_mm per puzzle, below_floor_count, pages[](kind single|two_up|divider|answers, parity odd|even, puzzle numbers, shared_cell_mm for two_up, level for divider, layout 6_up|4_up for answers)
   - id: EVT-021
     name: BookPlanMatrixRederived
     triggered_by: CMD-020

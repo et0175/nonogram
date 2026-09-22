@@ -61,6 +61,9 @@ FR-040 lets two small puzzles share a page at one shared cell of at least 7.0 mm
 ### Gutter margin and page count
 KDP's minimum gutter grows with page count, and page count depends on the layout. To avoid a loop, the book always lays out with its stored gutter margin; for Book 1 that is 0.5 in, which KDP accepts up to 300 pages. Finalising a book refuses when the actual page count needs a larger gutter than the one stored.
 
+### Mirrored margins
+A bound book puts the gutter margin on the binding side: on the left of right-hand (odd) pages and on the right of left-hand (even) pages. The book's `PageSpec` therefore carries the page's parity, and the drawing is centred across the usable width between the two side margins. The top edge stays fixed (FR-032). The default A4 spec has no parity and is unchanged.
+
 ## References
 
 - DEC-035 (resolved by this ADR)
@@ -73,6 +76,7 @@ KDP's minimum gutter grows with page count, and page count depends on the layout
 
 - 2026-09-22: Created — book geometry is an optional `PageSpec` on `compute_layout`, defaulting to today's A4; layout.py's "no second paper size" guardrail (G-1) retired.
 - 2026-09-22: Clarified (owner, same session; FR-040) — two-up pages come from a pair-aware COMP-007 call with one shared cell; the book lays out with its stored gutter margin and finalise checks it against KDP's page-count minimum. Decision unchanged.
+- 2026-09-22: Clarified (owner) — margins are mirrored by page parity and the drawing is centred across the usable width. Decision unchanged.
 
 ## Rules
 

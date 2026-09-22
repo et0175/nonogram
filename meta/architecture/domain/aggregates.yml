@@ -89,3 +89,20 @@ aggregates:
           they are adjacent in the book order and both fit at one shared cell of
           at least 7.0 mm (capped at 7.5 mm), each under its own band;
           pairing never changes the book order (FR-040).
+      # New 2026-09-22 (c) (delta — answer key, back to draft; owner
+      # decisions BK-8, BK-UI-9 / ADR-0035 clarification).
+      - id: INV-011
+        # Like INV-010, a rule on the page composition CMD-019 derives, not
+        # stored state; it must hold for every PDF the aggregate produces.
+        statement: >-
+          The book's answer key holds every member puzzle's answer exactly
+          once, in puzzle-number order; an answer-key page holds at most 6
+          answers while every answer on it is at most 20 cells on its
+          longest side, and at most 4 once it holds one longer than 20
+          (FR-042).
+      - id: INV-012
+        statement: >-
+          A book outside draft holds exactly the puzzle membership that last
+          passed the plan check (INV-007): adding or removing a puzzle on a
+          book that has left draft returns it to draft as part of that change
+          (FR-037, FR-038; ADR-0035 clarification).

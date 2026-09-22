@@ -1,6 +1,13 @@
 # generated_by: forge:architect-synthesis
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-09-22 (c) (delta mode, --trace-only — answer key, mirrored
+#   margins, back to draft: row ADDED for FR-042 (CAP-006; COMP-007 lays out
+#   the answer tiles with the book PageSpec, COMP-009 packs pages, ADR-0036 /
+#   ADR-0037); rows AMENDED with dated notes and the new planned test names
+#   for FR-030 / FR-032 (mirrored margins, AC-272..AC-276, EC-032) and FR-037 /
+#   FR-038 (back to draft, AC-277..AC-282, EC-033; ADR-0035 added to FR-038).
+#   No component added. Every existing row and id preserved.)
 # updated_at: 2026-09-22 (delta mode — the book generator: rows ADDED for
 #   FR-030..FR-041, NFR-008, CON-018 and CON-019, all on CAP-006 Book assembly
 #   and mapped to COMP-009 (Admin Panel), COMP-007 (Export Renderers — PageSpec
@@ -1560,7 +1567,13 @@ links:
   - PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell
   - PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
   - TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden
+  - TestBookPageSpec_OddPageGutterOnLeft
+  - TestBookPageSpec_EvenPageGutterOnRight
   notes: >-
+    Amended 2026-09-22 (c): margins mirrored by page parity (ADR-0036
+    clarification) — the book PageSpec carries parity (page 1 = right-hand,
+    gutter on the left); the default A4 spec has none (ADR-0036/R1). AC-179's
+    page count now includes FR-042's answer-key pages.
     Story US-023. DEC-035 resolved by ADR-0036: COMP-007's compute_layout takes
     an optional PageSpec (page size, margins, band, orientation and cap
     policies); the book builds one from its stored trim/margins (COMP-010,
@@ -1608,7 +1621,14 @@ links:
   - TestBookPdf_WideGridPrintsUprightNeverRotated
   - TestBookSelect_WideGridAboveFloorCarriesNoFlag
   - PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+  - TestBookPdf_DrawingCentredOnRightHandPage
+  - TestBookPdf_DrawingCentredOnLeftHandPage
+  - TestBookPdf_ParityNeverMovesTopEdge
+  - PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
   notes: >-
+    Amended 2026-09-22 (c): the drawing is centred across the usable width of
+    its page, whose position follows parity (FR-030); the top edge never moves
+    (EC-032). Centring lives in COMP-007's book PageSpec path (ADR-0036/R2).
     Story US-023; amended 2026-09-22 (b): AC-191/AC-192 retired unimplemented
     (no wide-grid flag), AC-240/AC-241 replace them. Portrait-only is the book
     PageSpec's orientation policy in COMP-007; NFR-006 still governs CLI/web
@@ -1707,7 +1727,11 @@ links:
   - TestBookReady_RefusalNamesOffendingCell
   - PropertyTest_BookReady_GateIffEveryCellWithinTolerance
   - TestBookStatus_EveryExitFromDraftIsGatedOnThePlan
+  - TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership
   notes: >-
+    Amended 2026-09-22 (c): a book returned to draft by a membership change
+    (FR-038, INV-012) is re-checked on its new membership (AC-282; ADR-0035
+    clarification).
     Story US-026, INV-007, EC-025. DEC-038 resolved by ADR-0035: every exit from
     draft is gated, share = count / PLANNED total, a plan-less book is refused.
     ADR-0035/R1's check ref is listed with the AC tests.
@@ -1718,7 +1742,7 @@ links:
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-009, COMP-010]
-  adrs: [ADR-0033]
+  adrs: [ADR-0033, ADR-0035]
   tests:
   - TestBookDetail_LinksToEveryStep
   - TestBooksList_OpensBookInStepWorkflow
@@ -1729,7 +1753,17 @@ links:
   - TestBookPlanChange_KeepsSelection
   - TestBookRemovePuzzle_KeepsRestOfArrangement
   - PropertyTest_BookWorkflow_BackNavigationNeverDiscardsLaterWork
+  - TestBookMembership_AddOnNonDraftReturnsToDraft
+  - TestBookMembership_RemoveOnNonDraftReturnsToDraft
+  - TestBookPublished_ConfirmedChangeReturnsToDraft
+  - TestBookPublished_UnconfirmedChangeKeepsStatus
+  - TestBookAddPuzzlesByIds_NonDraftReturnsToDraft
+  - PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists
   notes: >-
+    Amended 2026-09-22 (c): an add or remove on a book that has left draft
+    (confirmed, for a published one) sets it to draft in the same store write
+    (INV-012, EC-033; ADR-0035 clarification) — on every route ending in
+    BookManager (COMP-009) and persisted by COMP-010.
     Story US-027, INV-008, EC-026. Replaces BookManager's outright refusal on
     published books with a confirmation.
   status: partial
@@ -1802,6 +1836,38 @@ links:
     an added puzzle lands at the END of its level; the answer key carries small
     level headings, not divider pages; a legacy arrangement prints grouped by
     level (AC-260). Tier is the solver's three-band tier (ADR-0031).
+  status: partial
+
+- req: FR-042
+  description: "Answer key: each puzzle's filled grid only, in puzzle-number order, captioned 'Puzzle N — Title'; 6 answers a page while all are <= 20 on the longest side, 4 once one is longer; answer pages count toward the finalise page count"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-007, COMP-009]
+  adrs: [ADR-0036, ADR-0037]
+  tests:
+  - TestBookAnswerKey_SixUpInPuzzleNumberOrder
+  - TestBookAnswerKey_TwentyInSixUpTileCellSize
+  - TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage
+  - TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20
+  - TestBookAnswerKey_ThirtyInFourUpTileCellSize
+  - TestBookAnswerKey_LongestSideTwentyStaysSixUp
+  - TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
+  - TestBookAnswerKey_CaptionPuzzleNumberAndTitle
+  - TestBookAnswerKey_CaptionUsesCustomBookTitle
+  - TestBookAnswerKey_DefaultPlanTakesThirtyPages
+  - TestBookFinalise_PageCountIncludesAnswerKeyPages
+  - PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
+  - PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
+  notes: >-
+    New 2026-09-22 (c). Stories US-023, US-024; INV-011, EC-030, EC-031; owner
+    decision BK-8 (not a DEC). COMP-007 lays out a tiled answer page (2 x 3 or
+    2 x 2 tiles, grid only, 6 mm caption line, 2 mm gaps) with the book PageSpec
+    — mirrored margins included — and COMP-009 walks the puzzle numbers to fill
+    pages and supplies the captions (ADR-0036/R2: the admin panel fits no
+    cells). The caption is the only place the title prints (ADR-0037/R1). The
+    answer pages feed the page count AC-179's finalise check reads. Replaces
+    today's one-answer-page-per-puzzle loop in book_pdf_generator.py. Planned
+    test names from requirements.yml; no code yet.
   status: partial
 
 - req: NFR-008

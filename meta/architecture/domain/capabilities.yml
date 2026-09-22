@@ -140,9 +140,16 @@ capabilities:
       the book runs easy -> medium -> hard with a divider page per level
       and arrangement confined to a level (CMD-022 -> EVT-023), and two
       small same-tier neighbours share a two-up page at a shared cell of
-      at least 7.0 mm.
+      at least 7.0 mm. Since 2026-09-22 (c): the answer key packs answers
+      6-up / 4-up in puzzle-number order, captioned with the title
+      (FR-042); book margins are mirrored by page parity with the drawing
+      centred; and a membership change on a book that has left draft
+      returns it to draft.
     # AMENDED 2026-09-22 (b): EVT-023, CMD-022, FR-040, FR-041 appended
     # (book layout delta).
+    # AMENDED 2026-09-22 (c): FR-042 appended (answer key). FR-030/FR-032/
+    # FR-037/FR-038 amended in place — already listed; no new event or
+    # command (INV-011/INV-012 ride on CMD-016/017/019).
     events: [EVT-016, EVT-017, EVT-018, EVT-019, EVT-020, EVT-021, EVT-022,
              EVT-023]
     commands: [CMD-015, CMD-016, CMD-017, CMD-018, CMD-019, CMD-020, CMD-021,
@@ -150,4 +157,5 @@ capabilities:
     aggregates: [AGG-002]
     stories: [US-023, US-024, US-025, US-026, US-027]
     requirements: [FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-036,
-                   FR-037, FR-038, FR-039, FR-040, FR-041, NFR-008]
+                   FR-037, FR-038, FR-039, FR-040, FR-041, FR-042,
+                   NFR-008]

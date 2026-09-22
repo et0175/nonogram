@@ -1,6 +1,6 @@
 # Book rules and admin UI requirements
 
-*Living document — the rules for assembling a book in the admin panel. Updated as books are made. Companion to [book_generation_admin_panel.md](book_generation_admin_panel.md) (Book 1 profile, size × difficulty matrix, print-fit rules BK-1…BK-7).*
+*Living document — the rules for assembling a book in the admin panel. Updated as books are made. Companion to [book_generation_admin_panel.md](book_generation_admin_panel.md) (Book 1 profile, size × difficulty matrix, print-fit rules BK-1…BK-8).*
 
 ## Current workflow (for reference)
 
@@ -40,7 +40,7 @@
 
 ## 3. Re-entering a book
 
-- **BK-UI-9 Same steps from the book list.** Opening a book from the list lands in the same four-step workflow used at creation. From the book detail page every step is reachable directly — general info (New book fields), Print setup, Puzzle selection (add / remove puzzles), Arrangement, Finalise — regardless of the book's status, except that a *published* book asks for confirmation before puzzles are changed.
+- **BK-UI-9 Same steps from the book list.** Opening a book from the list lands in the same four-step workflow used at creation. From the book detail page every step is reachable directly — general info (New book fields), Print setup, Puzzle selection (add / remove puzzles), Arrangement, Finalise — regardless of the book's status, except that a *published* book asks for confirmation before puzzles are changed. Changing the puzzles of any book that has left draft returns it to **draft**, so it must pass the plan check again before a new PDF is made.
 - **BK-UI-10 No loss on the way back.** Moving to an earlier step never discards later work: changing the plan keeps the selection (and re-computes planned vs actual); removing a puzzle keeps the rest of the arrangement.
 
 ## 4. Books list
@@ -62,6 +62,9 @@ Rules every book must satisfy before it is marked ready. Add to this list as new
 9. The band above a puzzle shows "Puzzle N · Tier", never the picture's title (BK-5).
 10. Two small puzzles share a page only at a shared cell ≥ 7.0 mm, only same tier and adjacent in order (BK-6).
 11. The book runs easy → medium → hard with a divider page per level (BK-7).
+12. Answers: grid only, in number order, 6 per page while all are ≤20 on the longest side, otherwise 4 per page; captioned "Puzzle N — Title" (BK-8).
+13. Margins are mirrored on left- and right-hand pages; the puzzle is centred across the usable width (BK-1).
+14. Changing the puzzles of a book that has left draft returns it to draft; it must pass the plan check again (BK-UI-9, ADR-0035).
 
 ## Open items
 

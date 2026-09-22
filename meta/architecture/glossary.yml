@@ -332,3 +332,27 @@ terms:
     context: CTX-001
     aliases: [arrangement, puzzle order, difficulty order, level]
     source: [US-024, FR-040, FR-041]
+  # New 2026-09-22 (c) (delta — answer key, mirrored margins; owner
+  # decisions BK-8, BK-1 placement). context: CTX-001 (ADR-0033).
+  - id: TERM-033
+    term: Answer key
+    definition: >-
+      The section after a book's puzzles showing each puzzle's filled grid
+      only (no clues), in puzzle-number order, each captioned "Puzzle N —
+      Title" — the only place the picture's title appears; up to 6 answers
+      a page (2 x 3) while every answer on the page is at most 20 cells on
+      its longest side, 4 a page (2 x 2) once one is longer.
+    context: CTX-001
+    aliases: [answer section, answer page, 6-up page, 4-up page, answer tile]
+    source: [US-023, US-024, FR-042, FR-033]
+  - id: TERM-034
+    term: Mirrored margins
+    definition: >-
+      The book's side margins swap with page parity so the gutter margin
+      (TERM-020) is always on the binding side: on the left of a right-hand
+      (odd) page, on the right of a left-hand (even) page; the drawing is
+      centred across the usable width between them, and the top edge does
+      not move.
+    context: CTX-001
+    aliases: [page parity, facing pages, recto/verso margins]
+    source: [US-023, FR-030, FR-032]
