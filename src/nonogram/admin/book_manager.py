@@ -12,6 +12,7 @@ import json
 import logging
 import uuid as uuid_module
 
+from nonogram.admin.book_page_spec import BOOK1_PROFILE
 from nonogram.admin.book_plan import (
     BUCKETS,
     DEFAULT_PLAN,
@@ -64,6 +65,14 @@ class Book:
     status: str = BookStatus.DRAFT.value
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
+    # The stored print specification (the ``books`` print columns, cm as
+    # strings). ``None`` is an empty column: ``book_page_spec`` falls back to
+    # CON-018's Book 1 profile for it. create_book stores the profile (AC-181).
+    trim_width_cm: Optional[str] = None
+    trim_height_cm: Optional[str] = None
+    gutter_margin_cm: Optional[str] = None
+    outside_margin_cm: Optional[str] = None
+    outside_margin_bleed_cm: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for API response."""
@@ -170,7 +179,8 @@ class BookManager:
                 cover_image_url=cover_image_url,
             )
 
-            book = Book(book_id=book_id, metadata=metadata)
+            # AC-181 (CON-018): a new book stores the Book 1 print profile.
+            book = Book(book_id=book_id, metadata=metadata, **BOOK1_PROFILE.stored_columns())
             self.books[book_id] = book
             # ADR-0034: every new book starts on the default plan.
             self._plans[book_id] = DEFAULT_PLAN
@@ -199,6 +209,9 @@ class BookManager:
                     status=BookStatus.DRAFT.value,
                     # ADR-0034: every new book starts on the default plan.
                     distribution_plan=plan_to_json(DEFAULT_PLAN),
+                    # AC-181 (CON-018): a new book stores the Book 1 print
+                    # profile, explicitly rather than through column defaults.
+                    **BOOK1_PROFILE.stored_columns(),
                 )
                 db.add(book)
                 db.flush()  # get the auto-generated UUID
@@ -239,6 +252,11 @@ class BookManager:
             status=book_row.status,
             created_at=book_row.created_at,
             updated_at=book_row.updated_at or book_row.created_at,
+            trim_width_cm=book_row.trim_width_cm,
+            trim_height_cm=book_row.trim_height_cm,
+            gutter_margin_cm=book_row.gutter_margin_cm,
+            outside_margin_cm=book_row.outside_margin_cm,
+            outside_margin_bleed_cm=book_row.outside_margin_bleed_cm,
         )
 
     def get_book(self, book_id: str) -> Optional[Book]:
