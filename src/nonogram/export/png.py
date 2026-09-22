@@ -27,8 +27,10 @@ the JSON shape be asserted without writing a file.
 
 Resolution
 ----------
-``layout`` computes everything for A4 at 300 DPI (see its module docstring for
-the cell-size clamp that follows from that), and :func:`write_png` stamps that
+``layout`` computes everything at 300 DPI for A4, or for the sheet an explicit
+``PageSpec`` names (ADR-0036; only the book passes one, through
+:func:`render_image`; see the layout module docstring for the cell-size clamp
+that follows from that), and :func:`write_png` stamps that
 number into the file's ``pHYs`` chunk, so a print dialog reproduces the intended
 physical size instead of assuming 72 DPI and scaling the page to four times its
 size.
@@ -45,7 +47,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from nonogram.export.layout import DPI, GridLine, Layout, compute_layout
+from nonogram.export.layout import DPI, GridLine, Layout, PageSpec, compute_layout
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
     from nonogram.export import ExportPayload
@@ -117,7 +119,7 @@ def _draw_clues(draw: ImageDraw.ImageDraw, layout: Layout) -> None:
         )
 
 
-def render_image(payload: ExportPayload) -> Image.Image:
+def render_image(payload: ExportPayload, page_spec: PageSpec | None = None) -> Image.Image:
     """Draw ``payload`` as a blank puzzle and return the raster (CON-006).
 
     The in-memory form of the PNG export, and the buffer CARD-014's PDF saves
@@ -128,12 +130,18 @@ def render_image(payload: ExportPayload) -> Image.Image:
     Args:
         payload: The finalized puzzle. That it *is* finalized was settled by
             COMP-002's INV-002 gate before this call (guardrail G-3).
+        page_spec: The sheet (ADR-0036), passed straight to
+            :func:`~nonogram.export.layout.compute_layout`. ``None`` — every
+            CLI and web export — is today's A4 drawing, byte for byte. A book
+            spec with a parity returns the whole trim page with the drawing
+            already placed on it, and its band left blank.
 
     Returns:
-        A fresh ``RGB`` image, the size the layout computed for A4 at
-        :data:`~nonogram.export.layout.DPI`.
+        A fresh ``RGB`` image, the size the layout computed at
+        :data:`~nonogram.export.layout.DPI`: the drawing plus its margin on
+        the default spec, the trim on a placed page.
     """
-    layout = compute_layout(payload.row_clues, payload.column_clues)
+    layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
     image = Image.new(_MODE, (layout.width, layout.height), BACKGROUND)
     draw = ImageDraw.Draw(image)
     _draw_grid(draw, layout)

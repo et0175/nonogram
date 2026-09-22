@@ -43,6 +43,14 @@ mask width. The payload also carries the run's seed and generation parameters
 (ADR-0015), which is what makes an exported file traceable to the request that
 produced it.
 
+The sheet (ADR-0036)
+--------------------
+:class:`PageSpec` (from :mod:`nonogram.export.layout`) is re-exported here: it
+is the value a caller passes to ``png.render_image`` / ``pdf.render_pages`` /
+``layout.compute_layout`` to lay a puzzle out on a sheet other than A4. The
+registry above never passes one, so every CLI and web export stays on the
+default A4 spec (CON-019). Only the book (COMP-009) builds one.
+
 Layering (ADR-0007): a capability package, so it imports only its own
 submodules and the stdlib — never the adapter, the orchestrator or a sibling
 capability.
@@ -57,16 +65,30 @@ from datetime import datetime
 from pathlib import Path
 
 from nonogram.export import csv_export, json_export, pdf, png, svg
+from nonogram.export.layout import (
+    DEFAULT_PAGE_SPEC,
+    CellCapPolicy,
+    OrientationPolicy,
+    PageParity,
+    PagePlacement,
+    PageSpec,
+)
 
 __all__ = [
     "CSV",
+    "DEFAULT_PAGE_SPEC",
     "FORMATS",
     "JSON",
     "PDF",
     "PNG",
     "SVG",
     "ExportFormat",
+    "CellCapPolicy",
     "ExportPayload",
+    "OrientationPolicy",
+    "PageParity",
+    "PagePlacement",
+    "PageSpec",
     "Renderer",
     "default_stem",
     "for_format",

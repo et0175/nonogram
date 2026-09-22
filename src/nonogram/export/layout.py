@@ -17,8 +17,8 @@ sized so that drawing **plus** band fits A4 (NFR-005 defines page fit that
 way), because a cell chosen without the band is a cell the PDF cannot print.
 See :func:`header_band` and :func:`_fit_cell`.
 
-A pure function of the clues, and of nothing else
--------------------------------------------------
+A pure function of the clues and the sheet, and of nothing else
+---------------------------------------------------------------
 :func:`compute_layout` takes the two clue sets and returns plain ints, floats
 and tuples. No Pillow type, no SVG string and no filesystem appears in its
 signature, which is what lets a third renderer consume it without inheriting
@@ -26,8 +26,44 @@ the second one's library. The grid's size is not a separate parameter because
 it is not separate information: ``len(row_clues)`` is the number of rows and
 ``len(column_clues)`` the number of columns (INV-001 makes the clue sets the
 encoding of the grid, so a size argument could only ever agree with them or be
-a bug). Everything else — page size, resolution, the clamp on the cell — is a
-module constant, so the same clues always produce the same geometry.
+a bug). Everything else — page size, margins, band, the cap on the cell, the
+orientation rule, the strokes — comes from a :class:`PageSpec`, and the
+default one (:data:`DEFAULT_PAGE_SPEC`) is exactly the module constants below,
+so the same clues on the same sheet always produce the same geometry.
+
+Which sheet: the default one, or one the caller names (ADR-0036)
+----------------------------------------------------------------
+This module used to carry a guardrail (G-1, "no second paper size"): A4 was
+the only sheet it knew. ADR-0036 retired that rule. COMP-007 now knows more
+than one sheet, but **only through an explicit** :class:`PageSpec`, **never by
+guessing**. Nothing here infers a sheet from the puzzle, the payload or the
+caller. A caller that passes no spec (the CLI, the web UI, every existing
+export) gets :data:`DEFAULT_PAGE_SPEC`, which is today's A4 byte for byte
+(ADR-0036/R1, CON-019, pinned by ``tests/test_export_a4_golden.py``). The book
+(COMP-009) is the only caller that passes one.
+
+A spec lays a puzzle out in one of two ways, and its ``parity`` decides which:
+
+* **no parity: a drawing-sized image.** The image is the drawing plus one
+  uniform margin on all four sides, the sheet may turn (NFR-006) and the cell
+  is a whole number of device pixels. This is the only path the default spec
+  takes, and every measurement in the sections below (the 441-extent sweeps,
+  the orientation counts, the band's cost) **describes the default spec
+  only**.
+* **a parity (``ODD``/``EVEN``): a placed page.** The image is the whole trim.
+  The usable area is the trim minus its margins, with the gutter margin on the
+  binding side: left on an odd (right-hand) page, right on an even one. The
+  title band sits at the top of the usable area, and the drawing's top edge
+  sits directly under it, at a fixed offset of top margin + band (FR-032). The
+  drawing is centred across the usable width (FR-032 amended 2026-09-22 (c)),
+  so parity moves it sideways by gutter − outside and never changes its size.
+  The sheet is never turned (``PORTRAIT_ONLY``). The cell is
+  ``min(cap, page fit)`` computed in millimetres and drawn at a fractional
+  pitch, so the cell a book tile reports (FR-031) is the cell the page prints.
+  Where the drawing sits is reported as :class:`PagePlacement` on
+  :attr:`Layout.page`. The book's behaviour is measured by
+  ``tests/test_layout_page_spec.py`` and ``tests/property/test_book_layout.py``,
+  not by the A4 numbers here.
 
 What the geometry is
 --------------------
@@ -58,7 +94,8 @@ reproduces the intended size instead of guessing.
 
 The sheet turns whichever way prints the larger cell (NFR-006)
 --------------------------------------------------------------
-A4 is the only paper this module knows, but it is not always the same way up.
+*Default spec only (this and every section below): a placed book page is never
+turned.* The default sheet is A4, but it is not always the same way up.
 Page fit is a different measurement on a turned sheet — 186 mm across by
 273 mm down becomes 273 mm across by 186 mm down — so :func:`_orientation_for`
 measures the cell **both ways and keeps the larger**, a tie going to portrait
@@ -134,17 +171,23 @@ actually take::
   unreadable page would be the worse answer.
 
 Layering (ADR-0007): a capability submodule — stdlib only, no siblings, no
-orchestrator, and (guardrail G-3) no notion whatsoever of whether the puzzle
-it is measuring may be exported.
+orchestrator, no admin panel (a :class:`PageSpec` carries print numbers, never
+a book), and (guardrail G-3) no notion whatsoever of whether the puzzle it is
+measuring may be exported.
 """
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
+from fractions import Fraction
 from typing import Literal
 
 __all__ = [
     "CELL_COMFORT_MM",
+    "DEFAULT_PAGE_SPEC",
     "DPI",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
@@ -154,11 +197,16 @@ __all__ = [
     "PAGE_HEIGHT_MM",
     "PAGE_MARGIN_MM",
     "PAGE_WIDTH_MM",
+    "CellCapPolicy",
     "ClueEntry",
     "GridLine",
     "HeaderBand",
     "Layout",
     "Orientation",
+    "OrientationPolicy",
+    "PageParity",
+    "PagePlacement",
+    "PageSpec",
     "comfort_cap_mm",
     "compute_layout",
     "header_band",
@@ -248,7 +296,8 @@ _CLUE_FONT_RATIO = 0.62
 
 #: Thin and heavy rule widths, as a fraction of the cell. The thin rule is
 #: pinned to the cell rather than fixed in pixels so that the drawing keeps
-#: its proportions at every size the clamp above can produce.
+#: its proportions at every size the clamp above can produce. A spec's
+#: ``min_thin_rule_mm`` can hold it up (ADR-0037/R2), and never pull it down.
 _THIN_RULE_RATIO = 1 / 30
 
 #: A run-length clue for one line, and a full set of them — the same boundary
@@ -256,9 +305,273 @@ _THIN_RULE_RATIO = 1 / 30
 type LineClue = tuple[int, ...]
 type ClueSet = tuple[LineClue, ...]
 
-#: Which way up the A4 sheet is held (NFR-006). Two values and no third: this
-#: module has one paper size, and turning it is the only freedom it has.
+#: Which way up the sheet is held (NFR-006). Two values and no third: turning
+#: the sheet is the only freedom the layout has with it. A spec whose policy is
+#: :attr:`OrientationPolicy.PORTRAIT_ONLY` is always ``"portrait"``.
 type Orientation = Literal["portrait", "landscape"]
+
+
+class OrientationPolicy(StrEnum):
+    """How a :class:`PageSpec` chooses which way up its sheet is held."""
+
+    #: NFR-006: measure the cell on both sheets and keep the larger, ties
+    #: upright. The default spec's policy.
+    LARGER_CELL_WINS = "larger_cell_wins"
+    #: The sheet as given, never turned, and the grid never rotated (FR-032:
+    #: a book puzzle prints upright).
+    PORTRAIT_ONLY = "portrait_only"
+
+
+class CellCapPolicy(StrEnum):
+    """The one named cell cap. The other kind of cap is a flat number of mm.
+
+    A :class:`PageSpec`'s ``cell_cap`` is either :attr:`COMFORT_CURVE` or a
+    finite positive float, the flat cap in millimetres (NFR-008's 7.5 mm
+    standard cell for a book).
+    """
+
+    #: NFR-005: :func:`comfort_cap_mm` of the grid's longer side.
+    COMFORT_CURVE = "comfort_curve"
+
+
+class PageParity(StrEnum):
+    """Which side of a spread a placed page is on (ADR-0036, "Mirrored margins").
+
+    The gutter margin is on the binding side: the left of a right-hand
+    (``ODD``) page and the right of a left-hand (``EVEN``) one. Which page is
+    page 1 is the caller's decision (FR-043: the book's interior page 1, the
+    guide page, is right-hand); a spec only carries the parity it is given.
+    """
+
+    ODD = "odd"
+    EVEN = "even"
+
+
+def _is_real(value: object) -> bool:
+    """A finite int or float. ``bool`` is not a measurement, even though it is an int."""
+    return (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def _exact_mm(value: float | Fraction) -> Fraction:
+    """A measurement as the exact decimal it was written as.
+
+    ``Fraction(repr(value))``, not ``Fraction(value)``: 9.525 mm is 0.375 in
+    exactly, and the binary float nearest to it is not. The placed path keeps
+    the spec's numbers exact so that its fit and its parity arithmetic are
+    exact too.
+    """
+    return value if isinstance(value, Fraction) else Fraction(repr(value))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PageSpec:
+    """The sheet a puzzle is laid out on, in physical units (ADR-0036).
+
+    A value object: frozen, compared by value, and valid by construction.
+    :meth:`__post_init__` refuses every spec that could not be laid out, so
+    :func:`compute_layout` never re-checks one. See the module docstring for
+    the two ways a spec lays a puzzle out, which ``parity`` selects.
+
+    Attributes:
+        width_mm: Trim (sheet) width, held upright.
+        height_mm: Trim height.
+        top_mm: Top margin.
+        bottom_mm: Bottom margin.
+        gutter_mm: The binding-side margin: left on an ``ODD`` page, right on
+            an ``EVEN`` one.
+        outside_mm: The margin on the other side.
+        band_mm: The title band reserved above the drawing (TERM-028). On the
+            default spec it is :data:`HEADER_BAND_MM`, reserved from the
+            sheet's height but drawn by the PDF above the image. On a placed
+            page it is the strip between the top margin and the drawing.
+        orientation: :class:`OrientationPolicy`.
+        cell_cap: :attr:`CellCapPolicy.COMFORT_CURVE`, or a flat cap in mm.
+        min_thin_rule_mm: The thinnest a thin grid rule may be (ADR-0037/R2:
+            0.25 mm on a book). ``None`` keeps the ``cell / 30`` rule unchanged.
+            The heavy rule is always twice the thin one, and every rule is
+            drawn in pure black by the renderers.
+        parity: ``None`` means a drawing-sized image with one uniform border,
+            the default spec's way. ``ODD``/``EVEN`` means a trim-sized placed
+            page.
+
+    Raises:
+        ValueError: a field is not a finite number where one is required, a
+            size is non-positive, a margin or band is negative, the usable
+            area (trim minus margins minus band) is non-positive, a policy or
+            parity is not one of its enum's members, a spec without parity has
+            unequal margins, or a spec with parity may be turned.
+    """
+
+    width_mm: float
+    height_mm: float
+    top_mm: float
+    bottom_mm: float
+    gutter_mm: float
+    outside_mm: float
+    band_mm: float
+    orientation: OrientationPolicy
+    cell_cap: CellCapPolicy | float
+    min_thin_rule_mm: float | None = None
+    parity: PageParity | None = None
+
+    def __post_init__(self) -> None:
+        measurements = {
+            "width_mm": self.width_mm,
+            "height_mm": self.height_mm,
+            "top_mm": self.top_mm,
+            "bottom_mm": self.bottom_mm,
+            "gutter_mm": self.gutter_mm,
+            "outside_mm": self.outside_mm,
+            "band_mm": self.band_mm,
+        }
+        for name, value in measurements.items():
+            if not _is_real(value):
+                raise ValueError(f"PageSpec.{name} must be a finite number, not {value!r}")
+        if self.width_mm <= 0 or self.height_mm <= 0:
+            raise ValueError(
+                f"PageSpec trim must be positive, not {self.width_mm} x {self.height_mm} mm"
+            )
+        for name in ("top_mm", "bottom_mm", "gutter_mm", "outside_mm", "band_mm"):
+            if measurements[name] < 0:
+                raise ValueError(f"PageSpec.{name} must not be negative, not {measurements[name]}")
+        # Exactly, as the placed path computes it, so that a spec accepted
+        # here is never one the layout finds to have no usable area.
+        usable_width = (
+            _exact_mm(self.width_mm) - _exact_mm(self.gutter_mm) - _exact_mm(self.outside_mm)
+        )
+        usable_height = (
+            _exact_mm(self.height_mm)
+            - _exact_mm(self.top_mm)
+            - _exact_mm(self.bottom_mm)
+            - _exact_mm(self.band_mm)
+        )
+        if usable_width <= 0 or usable_height <= 0:
+            raise ValueError(
+                "PageSpec usable area is non-positive: "
+                f"{self.usable_width_mm:g} x {self.usable_height_mm:g} mm "
+                "(trim minus margins minus band)"
+            )
+        if not isinstance(self.orientation, OrientationPolicy):
+            raise ValueError(f"PageSpec.orientation must be an OrientationPolicy, not {self.orientation!r}")
+        if not isinstance(self.cell_cap, CellCapPolicy) and not (
+            _is_real(self.cell_cap) and self.cell_cap > 0
+        ):
+            raise ValueError(
+                "PageSpec.cell_cap must be CellCapPolicy.COMFORT_CURVE or a finite "
+                f"positive number of mm, not {self.cell_cap!r}"
+            )
+        if self.min_thin_rule_mm is not None and not (
+            _is_real(self.min_thin_rule_mm) and self.min_thin_rule_mm > 0
+        ):
+            raise ValueError(
+                "PageSpec.min_thin_rule_mm must be None or a finite positive number "
+                f"of mm, not {self.min_thin_rule_mm!r}"
+            )
+        if self.parity is not None and not isinstance(self.parity, PageParity):
+            raise ValueError(f"PageSpec has an invalid parity {self.parity!r}: use PageParity or None")
+        if self.parity is None and len(
+            {self.top_mm, self.bottom_mm, self.gutter_mm, self.outside_mm}
+        ) != 1:
+            raise ValueError(
+                "a PageSpec without parity lays out a drawing-sized image with one "
+                "uniform border, so its four margins must be equal"
+            )
+        if self.parity is not None and self.orientation is not OrientationPolicy.PORTRAIT_ONLY:
+            raise ValueError("a placed page (a PageSpec with parity) is never turned: use PORTRAIT_ONLY")
+
+    @property
+    def left_margin_mm(self) -> float:
+        """The margin on the page's left: the gutter unless this is an even page."""
+        return self.outside_mm if self.parity is PageParity.EVEN else self.gutter_mm
+
+    @property
+    def right_margin_mm(self) -> float:
+        """The margin on the page's right: the outside margin unless this is an even page."""
+        return self.gutter_mm if self.parity is PageParity.EVEN else self.outside_mm
+
+    @property
+    def usable_width_mm(self) -> float:
+        """Trim width minus both side margins. The same on either parity."""
+        return self.width_mm - self.gutter_mm - self.outside_mm
+
+    @property
+    def usable_height_mm(self) -> float:
+        """Trim height minus top and bottom margins minus the band."""
+        return self.height_mm - self.top_mm - self.bottom_mm - self.band_mm
+
+
+#: Today's sheet, as a spec: A4 upright, 12 mm margins, the header band, NFR-006's
+#: larger-cell-wins turning, NFR-005's comfort curve, the ``cell / 30`` strokes and
+#: no parity. ``compute_layout(r, c)`` and ``compute_layout(r, c, DEFAULT_PAGE_SPEC)``
+#: are the same call (ADR-0036/R1, G-6).
+DEFAULT_PAGE_SPEC = PageSpec(
+    width_mm=PAGE_WIDTH_MM,
+    height_mm=PAGE_HEIGHT_MM,
+    top_mm=PAGE_MARGIN_MM,
+    bottom_mm=PAGE_MARGIN_MM,
+    gutter_mm=PAGE_MARGIN_MM,
+    outside_mm=PAGE_MARGIN_MM,
+    band_mm=HEADER_BAND_MM,
+    orientation=OrientationPolicy.LARGER_CELL_WINS,
+    cell_cap=CellCapPolicy.COMFORT_CURVE,
+    min_thin_rule_mm=None,
+    parity=None,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PagePlacement:
+    """Where a placed page's drawing sits on its trim, in device pixels (ADR-0036).
+
+    Only a spec with a parity produces one. It is everything a caller needs to
+    put the band and the drawing on the page without fitting a cell or placing
+    a line itself (ADR-0036/R2). The origin is the trim's top-left corner.
+
+    Attributes:
+        parity: The page's side of the spread.
+        cell_mm: The cell, exactly: ``min(cap, page fit)`` in millimetres, never
+            above the cap and never below :data:`MIN_CELL_MM`. It is the number a
+            book tile shows (FR-031). The drawing prints it as the pitch between
+            grid lines, each line rounded to the nearest device pixel.
+        usable_left: The usable area's left edge, i.e. the left margin.
+        usable_top: The usable area's top edge, i.e. the top margin. The title
+            band starts here.
+        usable_right: The usable area's right edge.
+        usable_bottom: The usable area's bottom edge.
+        drawing_left: The drawing's left edge (the row-clue gutter's outer edge).
+        drawing_top: The drawing's top edge (the column-clue gutter's outer
+            edge), always ``usable_top`` + band, on every page and parity.
+        drawing_right: The grid's right edge.
+        drawing_bottom: The grid's bottom edge.
+    """
+
+    parity: PageParity
+    cell_mm: float
+    usable_left: int
+    usable_top: int
+    usable_right: int
+    usable_bottom: int
+    drawing_left: int
+    drawing_top: int
+    drawing_right: int
+    drawing_bottom: int
+
+    @property
+    def fits(self) -> bool:
+        """Whether the drawing lies inside the usable area below the band.
+
+        ``False`` only when page fit fell under :data:`MIN_CELL_MM` and the
+        floor won. The drawing then overflows to the right and downwards.
+        """
+        return (
+            self.usable_left <= self.drawing_left
+            and self.drawing_right <= self.usable_right
+            and self.drawing_bottom <= self.usable_bottom
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -356,6 +669,15 @@ class Layout:
         column_clues: The top gutter's numbers, already placed.
         dpi: The resolution :attr:`width` and :attr:`height` are expressed at,
             so a renderer can tag its output with the physical size it means.
+        page: ``None`` for a drawing-sized image (the default spec's path, so
+            the default ``Layout`` is exactly what it always was). For a placed
+            page (a :class:`PageSpec` with a parity) it is the
+            :class:`PagePlacement`, and several fields above read differently:
+            every coordinate is on the trim, :attr:`width`/:attr:`height` are
+            the trim, :attr:`cell` is the pitch floored to a whole pixel (the
+            exact cell is :attr:`PagePlacement.cell_mm`), and :attr:`margin` is
+            the top margin. The lines start at the drawing's edges rather than
+            at :attr:`margin`.
     """
 
     rows: int
@@ -379,6 +701,7 @@ class Layout:
     row_clues: tuple[ClueEntry, ...]
     column_clues: tuple[ClueEntry, ...]
     dpi: int = DPI
+    page: PagePlacement | None = None
 
     @property
     def clue_entries(self) -> tuple[ClueEntry, ...]:
@@ -423,7 +746,7 @@ class HeaderBand:
     font_size: int
 
 
-def header_band(layout: Layout) -> HeaderBand:
+def header_band(layout: Layout, page_spec: PageSpec | None = None) -> HeaderBand:
     """Measure the title strip for a page drawn to ``layout`` (FR-016).
 
     Why this is a second function and not a parameter of
@@ -482,19 +805,40 @@ def header_band(layout: Layout) -> HeaderBand:
     width to sit in and only has to be legible, and pinning it to the cell would
     set a 30x30 puzzle's header in the same 3 mm type as its clues.
 
+    On a placed page (``layout.page`` set) the band is not laid *above* the
+    image. It is the strip of the trim between the top margin and the
+    drawing, ``[page.usable_top, page.drawing_top)``, so ``center_y`` is
+    measured from the trim's top edge, and the renderer draws into the page it
+    already has. A trim cannot grow.
+
     Args:
-        layout: The geometry of the page the band goes above — read only for
-            its width, so the title is centred over the drawing.
+        layout: The geometry of the page the band belongs to — read for its
+            width (or, on a placed page, its drawing edges), so the title is
+            centred over the drawing.
+        page_spec: The spec ``layout`` was computed with, for the band's
+            height on a drawing-sized image. ``None`` is the default spec.
+            A placed page carries its band in ``layout.page``.
 
     Returns:
         The :class:`HeaderBand` the renderer draws into.
     """
-    height = _mm_to_px(HEADER_BAND_MM)
+    font_size = _mm_to_px(HEADER_FONT_MM)
+    page = layout.page
+    if page is None:
+        spec = DEFAULT_PAGE_SPEC if page_spec is None else page_spec
+        height = _mm_to_px(spec.band_mm)
+        return HeaderBand(
+            height=height,
+            center_x=layout.width // 2,
+            center_y=height // 2,
+            font_size=max(1, min(font_size, height)),
+        )
+    height = page.drawing_top - page.usable_top
     return HeaderBand(
         height=height,
-        center_x=layout.width // 2,
-        center_y=height // 2,
-        font_size=max(1, _mm_to_px(HEADER_FONT_MM)),
+        center_x=(page.drawing_left + page.drawing_right) // 2,
+        center_y=page.usable_top + height // 2,
+        font_size=max(1, min(font_size, height)),
     )
 
 
@@ -513,16 +857,37 @@ def _gutter_depth(clue_set: ClueSet) -> int:
     return max((len(clue) for clue in clue_set), default=1)
 
 
-def _page_size_mm(orientation: Orientation) -> tuple[float, float]:
-    """The A4 sheet's width and height in millimetres, held that way up.
+def _mm_to_px_at_least(millimetres: float) -> int:
+    """The fewest whole device pixels that measure *at least* ``millimetres``.
 
-    The single place :data:`PAGE_WIDTH_MM` and :data:`PAGE_HEIGHT_MM` are
-    allowed to swap. A4 is A4 either way (G-1: no second paper size, no
-    tiling); only the axis each measurement lands on changes.
+    Rounding up rather than to nearest, for a minimum: ADR-0037/R2's 0.25 mm is
+    2.95 px, and rounding to nearest would still give 3 px, but only by luck.
+    The tolerance absorbs float noise on an exact pixel count (25.4 mm is
+    exactly 300 px and must not become 301).
+    """
+    return math.ceil(millimetres / 25.4 * DPI - 1e-9)
+
+
+def _page_size_mm(
+    orientation: Orientation, page_spec: PageSpec = DEFAULT_PAGE_SPEC
+) -> tuple[float, float]:
+    """The spec's sheet width and height in millimetres, held that way up.
+
+    The single place the spec's width and height are allowed to swap. A sheet
+    is the same sheet either way (no tiling); only the axis each measurement
+    lands on changes. There is no second paper size unless the caller passes
+    one (ADR-0036): the default spec is A4.
     """
     if orientation == "landscape":
-        return PAGE_HEIGHT_MM, PAGE_WIDTH_MM
-    return PAGE_WIDTH_MM, PAGE_HEIGHT_MM
+        return page_spec.height_mm, page_spec.width_mm
+    return page_spec.width_mm, page_spec.height_mm
+
+
+def _cap_mm(larger_dimension: int, page_spec: PageSpec) -> float:
+    """The spec's cell cap for a grid this many cells on its longer side."""
+    if page_spec.cell_cap is CellCapPolicy.COMFORT_CURVE:
+        return comfort_cap_mm(larger_dimension)
+    return float(page_spec.cell_cap)
 
 
 def comfort_cap_mm(larger_dimension: int) -> float:
@@ -568,8 +933,14 @@ def _fit_cell(
     larger_dimension: int,
     orientation: Orientation,
     reserved_height_mm: float,
+    page_spec: PageSpec = DEFAULT_PAGE_SPEC,
 ) -> int:
     """The cell size in device pixels: ``min(comfort cap, page fit)`` (NFR-005).
+
+    For a drawing-sized image (a spec without parity). The sheet, its uniform
+    margin and the cap come from ``page_spec``. The default spec is A4, 12 mm
+    and NFR-005's curve, and everything measured below is about that spec. A
+    placed page is fitted by :func:`_placed_cell_mm` instead.
 
     Two measurements of the same cell, and they are functions of different
     things — which is why this takes both the drawing's totals and the grid's
@@ -619,17 +990,79 @@ def _fit_cell(
     exactly as before: below it the page is allowed to outgrow A4 rather than
     shrink past the point where a pencil mark is meaningless.
     """
-    page_width_mm, page_height_mm = _page_size_mm(orientation)
-    printable_width = _mm_to_px(page_width_mm - 2 * PAGE_MARGIN_MM)
-    printable_height = _mm_to_px(page_height_mm - 2 * PAGE_MARGIN_MM) - _mm_to_px(
+    page_width_mm, page_height_mm = _page_size_mm(orientation, page_spec)
+    # The four margins of a spec without parity are equal (PageSpec enforces
+    # it), so one of them is the border on every side, whichever way up.
+    margin_mm = page_spec.top_mm
+    printable_width = _mm_to_px(page_width_mm - 2 * margin_mm)
+    printable_height = _mm_to_px(page_height_mm - 2 * margin_mm) - _mm_to_px(
         reserved_height_mm
     )
     page_fit = min(
         printable_width // max(total_columns, 1),
         max(printable_height, 0) // max(total_rows, 1),
     )
-    cap = int(comfort_cap_mm(larger_dimension) / 25.4 * DPI)
+    cap = int(_cap_mm(larger_dimension, page_spec) / 25.4 * DPI)
     return max(_mm_to_px(MIN_CELL_MM), min(cap, page_fit))
+
+
+#: Millimetres per inch, exactly.
+_MM_PER_INCH = Fraction("25.4")
+
+
+def _exact_px(millimetres: float | Fraction) -> Fraction:
+    """Millimetres at :data:`DPI`, as an exact (fractional) number of pixels."""
+    return _exact_mm(millimetres) * DPI / _MM_PER_INCH
+
+
+def _round_px(value: int | Fraction) -> int:
+    """The nearest whole pixel, a half rounded up.
+
+    Rounding half up rather than to even (``round``'s rule), so that a
+    half-pixel margin (0.375 in is 112.5 px) always lands the same way,
+    whatever the neighbouring digit. An int is returned unchanged, which is
+    what keeps the drawing-sized path's integer arithmetic exact.
+    """
+    return math.floor(value + Fraction(1, 2))
+
+
+def _placed_cell_mm(
+    total_columns: int,
+    total_rows: int,
+    *,
+    larger_dimension: int,
+    page_spec: PageSpec,
+) -> Fraction:
+    """The cell of a placed page, exactly, in millimetres: ``min(cap, page fit)``.
+
+    Page fit is FR-030's own definition: usable width (trim − gutter −
+    outside) over the drawing's columns, and usable height (trim − top −
+    bottom − band) over its rows. The drawing's totals are the real clue
+    depths (:func:`_gutter_depth`) plus the grid. It is kept exact rather than
+    floored to a pixel: at 300 DPI a whole-pixel cell cannot express the
+    book's numbers (7.5 mm is 88.58 px; 4.61 mm is 54.46 px). The minimum is
+    taken exactly, so the result never exceeds the cap, not even by a rounding
+    step. Parity does not enter: it moves the usable area, never its size.
+
+    :data:`MIN_CELL_MM` still wins over page fit, as it does on the default
+    path. On a trim that cannot hold the drawing at 2 mm the drawing overflows
+    (:attr:`PagePlacement.fits` is then ``False``) rather than printing cells
+    nobody can mark.
+    """
+    usable_width = (
+        _exact_mm(page_spec.width_mm)
+        - _exact_mm(page_spec.gutter_mm)
+        - _exact_mm(page_spec.outside_mm)
+    )
+    usable_height = (
+        _exact_mm(page_spec.height_mm)
+        - _exact_mm(page_spec.top_mm)
+        - _exact_mm(page_spec.bottom_mm)
+        - _exact_mm(page_spec.band_mm)
+    )
+    fit = min(usable_width / total_columns, usable_height / total_rows)
+    cap = _exact_mm(_cap_mm(larger_dimension, page_spec))
+    return max(_exact_mm(MIN_CELL_MM), min(cap, fit))
 
 
 def _orientation_for(
@@ -638,8 +1071,12 @@ def _orientation_for(
     *,
     larger_dimension: int,
     reserved_height_mm: float,
+    page_spec: PageSpec = DEFAULT_PAGE_SPEC,
 ) -> Orientation:
     """Which way up the sheet goes for this puzzle (NFR-006, EC-010).
+
+    A spec whose policy is :attr:`OrientationPolicy.PORTRAIT_ONLY` answers
+    ``"portrait"`` without measuring anything. Otherwise (the default spec):
 
     **Whichever sheet prints the larger cell**, with a tie going to portrait.
     Not a function of the grid's extent: the same 30x20 turns or does not
@@ -699,12 +1136,15 @@ def _orientation_for(
         ``"landscape"`` when the turned sheet prints a strictly larger cell,
         ``"portrait"`` otherwise.
     """
+    if page_spec.orientation is OrientationPolicy.PORTRAIT_ONLY:
+        return "portrait"
     upright = _fit_cell(
         total_columns,
         total_rows,
         larger_dimension=larger_dimension,
         orientation="portrait",
         reserved_height_mm=reserved_height_mm,
+        page_spec=page_spec,
     )
     turned = _fit_cell(
         total_columns,
@@ -712,19 +1152,28 @@ def _orientation_for(
         larger_dimension=larger_dimension,
         orientation="landscape",
         reserved_height_mm=reserved_height_mm,
+        page_spec=page_spec,
     )
     return "landscape" if turned > upright else "portrait"
 
 
-def _rule_widths(cell: int) -> tuple[int, int]:
+def _rule_widths(cell: float, page_spec: PageSpec = DEFAULT_PAGE_SPEC) -> tuple[int, int]:
     """The thin and heavy stroke widths for a given cell size.
 
     Kept proportional to the cell so the drawing looks the same at every size
     the clamp can produce, and the heavy rule is exactly twice the thin one —
     enough to read as "heavier" across a page without the every-5th lines
     reading as a second, coarser grid.
+
+    A spec's ``min_thin_rule_mm`` (ADR-0037/R2, the book's 0.25 mm) raises the
+    thin rule to at least that many millimetres, rounded *up* to whole pixels
+    (3 px at 300 DPI), and never lowers it. The heavy rule stays exactly twice
+    the thin one. The default spec has no minimum, so its strokes are
+    unchanged. ``cell`` may be fractional on a placed page.
     """
     thin = max(1, round(cell * _THIN_RULE_RATIO))
+    if page_spec.min_thin_rule_mm is not None:
+        thin = max(thin, _mm_to_px_at_least(page_spec.min_thin_rule_mm))
     return thin, thin * 2
 
 
@@ -738,25 +1187,54 @@ def _is_major(index: int, last: int) -> bool:
     return index % MAJOR_RULE_EVERY == 0 or index == last
 
 
+
+
+def _boundaries(
+    origin: int | Fraction, pitch: int | Fraction, count: int
+) -> tuple[int, ...]:
+    """The ``count + 1`` box boundaries of one axis, from ``origin``, in whole pixels.
+
+    ``_round_px(origin + index * pitch)``: each boundary is rounded on its own,
+    so a fractional pitch (a placed page) never accumulates rounding error
+    along the axis. Every boundary is within half a pixel of where it belongs.
+    With an integer origin and an integer pitch (the drawing-sized path) the
+    sum is already an int and this is exactly ``origin + index * cell``, as
+    before.
+    """
+    return tuple(_round_px(origin + index * pitch) for index in range(count + 1))
+
+
 def _axis_lines(
-    count: int, *, origin: int, cell: int, start: int, end: int, thin: int, thick: int
+    positions: Sequence[int], *, start: int, end: int, thin: int, thick: int
 ) -> tuple[GridLine, ...]:
-    """The ``count + 1`` boundaries of one axis, from ``origin``."""
+    """One ruled line per boundary in ``positions`` (``count + 1`` of them)."""
+    last = len(positions) - 1
     return tuple(
         GridLine(
             index=index,
-            position=origin + index * cell,
+            position=position,
             start=start,
             end=end,
-            width=thick if _is_major(index, count) else thin,
-            major=_is_major(index, count),
+            width=thick if _is_major(index, last) else thin,
+            major=_is_major(index, last),
         )
-        for index in range(count + 1)
+        for index, position in enumerate(positions)
     )
 
 
+def _centre(boundaries: Sequence[int], box: int) -> int:
+    """The centre of box ``box``: its near boundary plus half its own width.
+
+    ``b + (b_next - b) // 2``. On an integer pitch that is ``b + cell // 2``,
+    exactly one half-cell from the box's own boundary and never a rounding
+    step away from where the matching grid line was placed.
+    """
+    near = boundaries[box]
+    return near + (boundaries[box + 1] - near) // 2
+
+
 def _place_row_clues(
-    clue_set: ClueSet, *, depth: int, cell: int, margin: int, grid_top: int
+    clue_set: ClueSet, *, depth: int, xs: Sequence[int], ys: Sequence[int]
 ) -> tuple[ClueEntry, ...]:
     """Lay the row clues out in the left gutter, right-aligned.
 
@@ -764,19 +1242,16 @@ def _place_row_clues(
     clue — the run that ends at the grid's edge — sits in the same column for
     every row, which is how a printed nonogram is read.
 
-    Centres are ``origin + index * cell + cell // 2``: integer arithmetic all
-    the way, so a clue box's centre is exactly one half-cell from its own
-    boundary at every cell size, and never a rounding step away from where the
-    matching grid line was placed.
+    ``xs`` are the drawing's column boundaries, gutter boxes first; ``ys`` its
+    row boundaries from the grid's top edge.
     """
-    half = cell // 2
     return tuple(
         ClueEntry(
             value=value,
             line=row,
             depth=depth - len(clue) + offset,
-            center_x=margin + (depth - len(clue) + offset) * cell + half,
-            center_y=grid_top + row * cell + half,
+            center_x=_centre(xs, depth - len(clue) + offset),
+            center_y=_centre(ys, row),
         )
         for row, clue in enumerate(clue_set)
         for offset, value in enumerate(clue)
@@ -784,56 +1259,71 @@ def _place_row_clues(
 
 
 def _place_column_clues(
-    clue_set: ClueSet, *, depth: int, cell: int, margin: int, grid_left: int
+    clue_set: ClueSet, *, depth: int, xs: Sequence[int], ys: Sequence[int]
 ) -> tuple[ClueEntry, ...]:
     """Lay the column clues out in the top gutter, bottom-aligned.
 
     The transpose of :func:`_place_row_clues`, and bottom-aligned for the same
-    reason: the last number of each clue abuts the grid.
+    reason: the last number of each clue abuts the grid. ``xs`` are the grid's
+    column boundaries; ``ys`` the drawing's row boundaries, gutter boxes first.
     """
-    half = cell // 2
     return tuple(
         ClueEntry(
             value=value,
             line=column,
             depth=depth - len(clue) + offset,
-            center_x=grid_left + column * cell + half,
-            center_y=margin + (depth - len(clue) + offset) * cell + half,
+            center_x=_centre(xs, column),
+            center_y=_centre(ys, depth - len(clue) + offset),
         )
         for column, clue in enumerate(clue_set)
         for offset, value in enumerate(clue)
     )
 
 
-def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
+def compute_layout(
+    row_clues: ClueSet, column_clues: ClueSet, page_spec: PageSpec | None = None
+) -> Layout:
     """Measure the printed page for one puzzle's clues.
 
-    Pure and total: same clues in, same numbers out, no I/O, no library types.
-    The grid's dimensions come from the clue sets themselves (see the module
-    docstring), and the blank grid is the only thing being measured — the
-    solution never reaches this function, which is the structural reason the
-    renderers cannot leak it onto a page they are only given coordinates for.
+    Pure and total: same clues and sheet in, same numbers out, no I/O, no
+    library types. The grid's dimensions come from the clue sets themselves
+    (see the module docstring), and the blank grid is the only thing being
+    measured — the solution never reaches this function, which is the
+    structural reason the renderers cannot leak it onto a page they are only
+    given coordinates for.
 
-    The sheet's orientation is derived here too, from those same clue sets:
-    the cell is measured on both sheets and the larger one wins, ties staying
-    upright (NFR-006, :func:`_orientation_for`). It is deliberately *not* a
-    parameter — a caller that had to supply it would have to know not just the
-    extent but the gutters, and the whole reason this function reads its
-    dimensions off the clues is that nothing upstream should have to hand them
-    over twice.
+    The sheet's orientation is derived here too, from those same clue sets and
+    the spec's policy: under NFR-006 the cell is measured on both sheets and
+    the larger one wins, ties staying upright (:func:`_orientation_for`). It is
+    deliberately *not* a parameter — a caller that had to supply it would have
+    to know not just the extent but the gutters, and the whole reason this
+    function reads its dimensions off the clues is that nothing upstream should
+    have to hand them over twice. A spec can only *forbid* turning
+    (``PORTRAIT_ONLY``), never pick a side.
 
     Args:
         row_clues: Row clues, top to bottom, in the ADR-0012 boundary type.
         column_clues: Column clues, left to right.
+        page_spec: The sheet (ADR-0036). ``None`` and :data:`DEFAULT_PAGE_SPEC`
+            are the same call and give today's A4 geometry exactly. A spec with
+            a parity lays the puzzle out on its trim (see the module docstring).
 
     Returns:
-        The :class:`Layout` both renderers draw from.
+        The :class:`Layout` the renderers draw from.
 
     Raises:
         ValueError: one clue set is empty while the other is not — a grid with
             rows but no columns (or the reverse) cannot be drawn, and is a
             pipeline bug rather than a puzzle.
+        TypeError: ``page_spec`` is neither ``None`` nor a :class:`PageSpec`.
     """
+    if page_spec is None:
+        spec = DEFAULT_PAGE_SPEC
+    elif isinstance(page_spec, PageSpec):
+        spec = page_spec
+    else:
+        raise TypeError(f"page_spec must be a PageSpec or None, not {type(page_spec).__name__}")
+
     rows, columns = len(row_clues), len(column_clues)
     if bool(rows) != bool(columns):
         raise ValueError(
@@ -846,38 +1336,101 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
 
     # The two terms of NFR-005 read different things off the same puzzle: page
     # fit measures the page (grid + gutters + the header band a titled sheet
-    # carries above them) against a sheet held a given way up, the comfort cap
+    # carries above them) against a sheet held a given way up, the cap
     # measures the grid. NFR-006 picks the way up by measuring the cell both
     # ways and keeping the larger, so the same four numbers describe the
     # drawing for the choice and for the cell that follows it — named once
     # here rather than threaded through, so the two cannot drift apart. All of
-    # them come from the clue sets, so compute_layout still needs nothing but
-    # them (G-4): HEADER_BAND_MM is a constant of this module, not an argument
-    # a caller supplies, and the orientation is derived here rather than passed
-    # in so that no caller has to know the extent.
+    # them come from the clue sets and the spec, so compute_layout still needs
+    # nothing else (G-4), and the orientation is derived here rather than
+    # passed in so that no caller has to know the extent.
     drawing_columns = row_gutter_cells + columns
     drawing_rows = column_gutter_cells + rows
     larger_dimension = max(columns, rows)
-    orientation = _orientation_for(
-        drawing_columns,
-        drawing_rows,
-        larger_dimension=larger_dimension,
-        reserved_height_mm=HEADER_BAND_MM,
-    )
-    cell = _fit_cell(
-        drawing_columns,
-        drawing_rows,
-        larger_dimension=larger_dimension,
-        orientation=orientation,
-        reserved_height_mm=HEADER_BAND_MM,
-    )
-    margin = _mm_to_px(PAGE_MARGIN_MM)
-    thin, thick = _rule_widths(cell)
 
-    grid_left = margin + row_gutter_cells * cell
-    grid_top = margin + column_gutter_cells * cell
-    grid_right = grid_left + columns * cell
-    grid_bottom = grid_top + rows * cell
+    placement: PagePlacement | None
+    if spec.parity is None:
+        # A drawing-sized image: today's path, every number from the spec.
+        orientation = _orientation_for(
+            drawing_columns,
+            drawing_rows,
+            larger_dimension=larger_dimension,
+            reserved_height_mm=spec.band_mm,
+            page_spec=spec,
+        )
+        cell = _fit_cell(
+            drawing_columns,
+            drawing_rows,
+            larger_dimension=larger_dimension,
+            orientation=orientation,
+            reserved_height_mm=spec.band_mm,
+            page_spec=spec,
+        )
+        margin = _mm_to_px(spec.top_mm)
+        pitch: int | Fraction = cell
+        left: int | Fraction = margin
+        top: int | Fraction = margin
+        cell_mm: float | None = None
+    else:
+        # A placed page: the trim is the image, and every coordinate is exact
+        # (a Fraction of a pixel) until the one rounding step per boundary in
+        # _boundaries. That is what makes "the drawing fits the usable area"
+        # and "parity never changes the usable size" exact rather than true
+        # to within a float's last bit.
+        orientation = "portrait"
+        exact_cell_mm = _placed_cell_mm(
+            drawing_columns,
+            drawing_rows,
+            larger_dimension=larger_dimension,
+            page_spec=spec,
+        )
+        cell_mm = float(exact_cell_mm)
+        pitch = _exact_px(exact_cell_mm)
+        cell = math.floor(pitch)
+        usable_left_px = _exact_px(spec.left_margin_mm)
+        usable_width_px = (
+            _exact_px(spec.width_mm) - _exact_px(spec.gutter_mm) - _exact_px(spec.outside_mm)
+        )
+        # Centred across the usable width (FR-032). Only when the MIN_CELL_MM
+        # floor has made the drawing wider than the usable area does it anchor
+        # at the usable area's left edge instead, overflowing to the right.
+        spare = usable_width_px - drawing_columns * pitch
+        left = usable_left_px + max(spare, Fraction(0)) / 2
+        # The top edge is fixed: top margin + band, on every page (FR-032).
+        top = _exact_px(spec.top_mm) + _exact_px(spec.band_mm)
+        page_width = _round_px(_exact_px(spec.width_mm))
+        page_height = _round_px(_exact_px(spec.height_mm))
+        usable_left = _round_px(usable_left_px)
+        usable_right = _round_px(usable_left_px + usable_width_px)
+        usable_top = _round_px(_exact_px(spec.top_mm))
+        usable_bottom = _round_px(_exact_px(spec.height_mm) - _exact_px(spec.bottom_mm))
+        margin = usable_top
+
+    xs = _boundaries(left, pitch, drawing_columns)
+    ys = _boundaries(top, pitch, drawing_rows)
+    grid_xs = xs[row_gutter_cells:]
+    grid_ys = ys[column_gutter_cells:]
+    grid_left, grid_right = grid_xs[0], grid_xs[-1]
+    grid_top, grid_bottom = grid_ys[0], grid_ys[-1]
+    thin, thick = _rule_widths(pitch, spec)
+
+    if cell_mm is None:
+        placement = None
+        width, height = grid_right + margin, grid_bottom + margin
+    else:
+        placement = PagePlacement(
+            parity=spec.parity,
+            cell_mm=cell_mm,
+            usable_left=usable_left,
+            usable_top=usable_top,
+            usable_right=usable_right,
+            usable_bottom=usable_bottom,
+            drawing_left=xs[0],
+            drawing_top=ys[0],
+            drawing_right=grid_right,
+            drawing_bottom=grid_bottom,
+        )
+        width, height = page_width, page_height
 
     return Layout(
         rows=rows,
@@ -887,48 +1440,27 @@ def compute_layout(row_clues: ClueSet, column_clues: ClueSet) -> Layout:
         margin=margin,
         row_gutter_cells=row_gutter_cells,
         column_gutter_cells=column_gutter_cells,
-        width=grid_right + margin,
-        height=grid_bottom + margin,
+        width=width,
+        height=height,
         grid_left=grid_left,
         grid_top=grid_top,
         grid_right=grid_right,
         grid_bottom=grid_bottom,
         thin_rule=thin,
         thick_rule=thick,
-        clue_font_size=max(1, round(cell * _CLUE_FONT_RATIO)),
+        clue_font_size=max(1, round(pitch * _CLUE_FONT_RATIO)),
         # Both axes span the gutters as well as the grid: a vertical line
         # continues up through the column-clue gutter so its clue reads as
         # belonging to that column, and vice versa.
         vertical_lines=_axis_lines(
-            columns,
-            origin=grid_left,
-            cell=cell,
-            start=margin,
-            end=grid_bottom,
-            thin=thin,
-            thick=thick,
+            grid_xs, start=ys[0], end=grid_bottom, thin=thin, thick=thick
         ),
         horizontal_lines=_axis_lines(
-            rows,
-            origin=grid_top,
-            cell=cell,
-            start=margin,
-            end=grid_right,
-            thin=thin,
-            thick=thick,
+            grid_ys, start=xs[0], end=grid_right, thin=thin, thick=thick
         ),
-        row_clues=_place_row_clues(
-            row_clues,
-            depth=row_gutter_cells,
-            cell=cell,
-            margin=margin,
-            grid_top=grid_top,
-        ),
+        row_clues=_place_row_clues(row_clues, depth=row_gutter_cells, xs=xs, ys=grid_ys),
         column_clues=_place_column_clues(
-            column_clues,
-            depth=column_gutter_cells,
-            cell=cell,
-            margin=margin,
-            grid_left=grid_left,
+            column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys
         ),
+        page=placement,
     )
