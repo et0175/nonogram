@@ -6,8 +6,17 @@
                 (CARD-114's property, two-up cases added here as a sibling so
                 ``tests/property/test_book_layout.py`` stays untouched)
         -> test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up
+           (the cap binds: one 10x10 pair over every cap in 7.00..7.50)
+        -> test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up_fitted
+           (the *height fit* binds: cells strictly below the cap, varied shapes,
+           both parities, over a seeded corpus)
+        -> test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up_pixels
+           ("black", measured off rendered pixels the way CARD-114's ``_pixels``
+           test measures it, for both slots of a pair)
     PairLayout's own invariant (the None-vs-pair verdict is exactly the rule)
         -> test_PropertyTest_BookTwoUp_PairsExactlyWhenTheRuleSaysSo
+    Each slot is compute_layout's placed page at the shared cell (no second assembly)
+        -> test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell
 
 How the expectations are independent
 ------------------------------------
@@ -19,6 +28,14 @@ helper, no exact-fraction arithmetic and no pixel rounding with ``layout``.
 Cases within a millionth of a millimetre of the 7.0 mm threshold are skipped
 for the verdict comparison (float against exact), and counted, so the skip
 cannot silently swallow the corpus.
+
+The stroke tests need pairs whose shared cell comes from the *height fit*
+rather than from the cap, at a known value. ``_spec_fitting_cell`` inverts the
+same formula: given the two puzzles and a wanted cell, it returns a trim whose
+usable height is exactly ``2 x band + (both drawings' rows) x cell`` and whose
+usable width is wide enough that the width term cannot bind. So a wanted cell
+under the cap is the height fit, one over the cap leaves the cap binding, and
+which of the three terms decides is chosen by the test rather than hoped for.
 
 No ``hypothesis`` (CLAUDE.md): stdlib ``random.Random`` at fixed seeds, each
 test asserting its own minimum case counts for both verdicts.
@@ -35,6 +52,7 @@ from nonogram.export.layout import (
     OrientationPolicy,
     PageParity,
     PageSpec,
+    compute_layout,
     compute_pair_layout,
     header_band,
 )
@@ -46,6 +64,9 @@ HALF_PIXEL_MM = 0.5 / PX_PER_MM
 STANDARD_CELL_MM = 7.5
 TWO_UP_MINIMUM_MM = 7.0
 BOOK_MIN_THIN_RULE_MM = 0.25
+# The lower slot's last heavy rule straddles the bottom-margin line; see
+# ``_spec_fitting_cell``. Well above any heavy rule at a 7.0..7.5 mm cell.
+_FITTED_BOTTOM_FLOOR_MM = 2.0
 
 BOOK1 = PageSpec(
     width_mm=215.9,
@@ -107,6 +128,69 @@ def _random_spec(rng: random.Random) -> PageSpec:
 
 def _depth(clue_set: ClueSet) -> int:
     return max(len(clue) for clue in clue_set)
+
+
+def _spec_fitting_cell(
+    rng: random.Random,
+    first: Puzzle,
+    second: Puzzle,
+    *,
+    cell_mm: float,
+    parity: PageParity,
+) -> PageSpec:
+    """A trim whose *height fit* for this pair is exactly ``cell_mm``.
+
+    FR-040's formula inverted, in millimetres, with no help from ``layout``:
+    the usable height is set to ``2 x band + (both drawings' rows) x cell_mm``,
+    so ``height_for_drawings / down`` is ``cell_mm`` exactly, and the trim is
+    made wide enough (a random 1.0..1.4 of what the widest drawing needs at
+    that cell) that the width term is never the smallest of the three. The
+    margins and the band are random within a book's range. Hand it a cell below
+    the cap and the height fit decides the shared cell; hand it one above the
+    cap and the cap decides.
+
+    The bottom margin is floored at ``_FITTED_BOTTOM_FLOOR_MM``. The lower
+    slot's last heavy rule is centred on the bottom-margin line, so a margin
+    thinner than half a heavy rule (~0.25 mm) would leave that rule clipped by
+    the canvas edge: a pixel probe reading it back would measure a short run,
+    or index off the image, and report a stroke-width failure that is the
+    trim's fault rather than the layout's. Two millimetres is ~23 px at 300
+    DPI, far more than any heavy rule at a 7.0..7.5 mm cell, so every rule both
+    slots draw has whole paper under it. Trims with a near-zero bottom margin
+    are still exercised — ``_random_spec`` draws one from 0.0 mm up, and the
+    geometry properties that do not read pixels run over that corpus.
+    """
+    down = sum(_depth(columns) + len(rows) for rows, columns in (first, second))
+    widest = max(_depth(rows) + len(columns) for rows, columns in (first, second))
+    top = round(rng.uniform(0.0, 20.0), 3)
+    bottom = round(rng.uniform(_FITTED_BOTTOM_FLOOR_MM, 20.0), 3)
+    gutter, outside = round(rng.uniform(6.0, 25.0), 3), round(rng.uniform(3.0, 20.0), 3)
+    band = round(rng.choice([12.0, 12.0, rng.uniform(4.0, 18.0)]), 3)
+    return PageSpec(
+        width_mm=round(gutter + outside + widest * cell_mm * rng.uniform(1.0, 1.4), 6),
+        height_mm=round(top + bottom + 2 * band + down * cell_mm, 6),
+        top_mm=top,
+        bottom_mm=bottom,
+        gutter_mm=gutter,
+        outside_mm=outside,
+        band_mm=band,
+        orientation=OrientationPolicy.PORTRAIT_ONLY,
+        cell_cap=STANDARD_CELL_MM,
+        min_thin_rule_mm=BOOK_MIN_THIN_RULE_MM,
+        parity=parity,
+    )
+
+
+def _assert_book_strokes(slot: Layout) -> None:
+    """ADR-0037/R2 on one slot: thin >= 0.25 mm (>= 3 px at 300 DPI), heavy == 2 x thin,
+    and every line drawn at the width its own major/minor role asks for."""
+    assert slot.thin_rule >= 3
+    assert _mm(slot.thin_rule) >= BOOK_MIN_THIN_RULE_MM
+    assert slot.thick_rule == 2 * slot.thin_rule
+    for line in slot.grid_lines:
+        last = slot.columns if line in slot.vertical_lines else slot.rows
+        assert line.major == (line.index % 5 == 0 or line.index == last)
+        assert line.width == (slot.thick_rule if line.major else slot.thin_rule)
 
 
 def _expected_shared_cell_mm(spec: PageSpec, first: Puzzle, second: Puzzle) -> float:
@@ -273,3 +357,213 @@ def test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_t
                     assert line.width == (slot.thick_rule if line.major else slot.thin_rule)
             checked += 1
     assert checked == 102
+
+
+def test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up_fitted() -> None:
+    """ADR-0037/R2 where the *height fit* sets the shared cell, not the cap.
+
+    The sibling above holds one 10x10 pair against every cap in 7.00..7.50, so
+    every cell it sees is the cap's. Here the cell is whatever fitting two
+    drawings into a trim's usable height leaves — a cell strictly below the cap
+    (7.39, 7.16, ... mm) — over varied puzzle shapes, varied margins and bands,
+    and both page parities: the 0.25 mm floor and heavy == 2 x thin hold there
+    too, and the cell stays inside FR-040's [7.0, 7.5] band.
+    """
+    rng = random.Random(1250037)
+    fitted = at_cap = 0
+    by_parity = {PageParity.ODD: 0, PageParity.EVEN: 0}
+    cells: set[float] = set()
+    for _ in range(600):
+        first, second = _puzzle(rng), _puzzle(rng)
+        parity = rng.choice([PageParity.ODD, PageParity.EVEN])
+        # Under the cap -> the height fit decides; over it -> the cap decides.
+        wanted = (
+            round(rng.uniform(7.0 + 1e-3, STANDARD_CELL_MM - 1e-3), 4)
+            if rng.random() < 0.75
+            else round(rng.uniform(7.6, 12.0), 4)
+        )
+        spec = _spec_fitting_cell(rng, first, second, cell_mm=wanted, parity=parity)
+        expected = _expected_shared_cell_mm(spec, first, second)
+        pair = compute_pair_layout(first, second, spec)
+        assert pair is not None, (spec, wanted, expected)
+
+        # The cell is the one this trim was built for, and the term that set it
+        # is the one the case intended.
+        assert abs(pair.cell_mm - expected) < 1e-6, (spec, pair.cell_mm, expected)
+        assert TWO_UP_MINIMUM_MM <= pair.cell_mm <= STANDARD_CELL_MM
+        if wanted < STANDARD_CELL_MM:
+            assert abs(pair.cell_mm - wanted) < 1e-6, (spec, pair.cell_mm, wanted)
+            assert pair.cell_mm < STANDARD_CELL_MM - 1e-9, "the height fit binds, not the cap"
+            fitted += 1
+            cells.add(round(pair.cell_mm, 4))
+        else:
+            assert abs(pair.cell_mm - STANDARD_CELL_MM) < 1e-9, "the cap binds"
+            at_cap += 1
+        by_parity[parity] += 1
+
+        assert pair.upper.thin_rule == pair.lower.thin_rule
+        assert pair.upper.thick_rule == pair.lower.thick_rule
+        for slot in (pair.upper, pair.lower):
+            assert slot.page is not None and slot.page.parity is parity
+            _assert_book_strokes(slot)
+    assert fitted >= 350, fitted
+    assert at_cap >= 100, at_cap
+    assert min(by_parity.values()) >= 200, by_parity
+    assert len(cells) >= 300, len(cells)  # the fitted cells really do vary
+
+
+def test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up_pixels() -> None:
+    """ADR-0037/R2's "black" clause for a pair, measured off the rendered pixels.
+
+    CARD-114's ``..._pixels`` test renders a single puzzle page and counts the
+    runs of ink a column of pixels meets crossing the horizontal rules. The
+    same technique, the same renderer and the same probe, applied to both slots
+    of a two-up page: the page is a blank trim-sized canvas with
+    ``png._draw_grid``/``png._draw_clues`` — the body of ``png.render_image``,
+    which cannot be called here because it fits its own layout from the clues
+    and a spec, and a slot's layout is the pair's — run once per slot, exactly
+    as CARD-125's proof renders do.
+
+    Both regimes are covered: the cap's 7.5 mm cell and cells the height fit
+    leaves below it, on both parities.
+    """
+    from PIL import Image, ImageDraw
+
+    from nonogram.export import png
+
+    rng = random.Random(370125)
+    checked = fitted = 0
+    for wanted in (STANDARD_CELL_MM, 7.39, 7.16, 7.02):
+        for parity in (PageParity.ODD, PageParity.EVEN):
+            first, second = _puzzle(rng), _puzzle(rng)
+            spec = _spec_fitting_cell(rng, first, second, cell_mm=wanted, parity=parity)
+            pair = compute_pair_layout(first, second, spec)
+            assert pair is not None
+            assert abs(pair.cell_mm - wanted) < 1e-6, (pair.cell_mm, wanted)
+            fitted += wanted < STANDARD_CELL_MM
+
+            page = Image.new(
+                "RGB", (pair.upper.width, pair.upper.height), png.BACKGROUND
+            )
+            draw = ImageDraw.Draw(page)
+            for slot in (pair.upper, pair.lower):
+                png._draw_grid(draw, slot)
+                png._draw_clues(draw, slot)
+
+            for slot in (pair.upper, pair.lower):
+                # Every rule both slots draw has whole paper under it, so the
+                # probe below reads each one in full rather than running off
+                # the canvas (``_spec_fitting_cell``'s bottom-margin floor).
+                assert slot.grid_top - slot.thick_rule >= 0
+                assert slot.grid_bottom + slot.thick_rule <= page.height
+                # Middle of the last grid column: no clue digit, no vertical line.
+                xs = [line.position for line in slot.vertical_lines]
+                probe_x = (xs[-2] + xs[-1]) // 2
+                runs: list[tuple[int, tuple[int, int, int]]] = []
+                run_colour: set[tuple[int, int, int]] = set()
+                length = 0
+                for y in range(
+                    slot.grid_top - slot.thick_rule, slot.grid_bottom + slot.thick_rule
+                ):
+                    pixel = page.getpixel((probe_x, y))
+                    # Literal white and literal black, not ``png.BACKGROUND`` /
+                    # ``png.INK`` read back: the clause is "black on the paper".
+                    if pixel != (255, 255, 255):
+                        length += 1
+                        run_colour.add(pixel)
+                    elif length:
+                        runs.append(
+                            (length, run_colour.pop() if len(run_colour) == 1 else (1, 1, 1))
+                        )
+                        run_colour, length = set(), 0
+                assert runs, "the probe crossed no rule at all"
+                assert all(colour == (0, 0, 0) for _, colour in runs), "every rule is pure black"
+                assert len(runs) == slot.rows + 1
+                widths = [width for width, _ in runs]
+                majors = [line.major for line in slot.horizontal_lines]
+                for width, major in zip(widths, majors, strict=True):
+                    assert width == (slot.thick_rule if major else slot.thin_rule)
+                    assert _mm(width) >= BOOK_MIN_THIN_RULE_MM
+                checked += 1
+    assert checked == 16
+    assert fitted == 6
+
+
+def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> None:
+    """A slot is ``compute_layout``'s placed page, not a second assembly of one.
+
+    The upper slot's band starts at the top margin, so it is the single-page
+    layout of the same puzzle on the same trim with the cap lowered to the
+    shared cell — every ruled line (its index, major/minor role, width, and its
+    position and extent), every clue entry, both stroke widths, the clue font
+    size, the drawing's left and top edges, and the cell itself. Any drift
+    between ``_slot_layout`` and ``compute_layout``'s placed-page assembly
+    shows up here rather than in one example.
+
+    The one licensed difference is a pixel. ``compute_layout`` is re-fitted from
+    the cap handed to it, a ``float``; the pair's own pitch is the exact
+    fraction that ``float`` was rounded from. When the shared cell *is* the cap
+    (the cell round-trips through ``float`` unchanged) the two agree exactly,
+    and that is asserted exactly; when the height fit set it, each boundary is
+    rounded from a pitch that differs in its last bits, so a boundary may land
+    one pixel apart. Widths, majors, indices, clue values and the clue font
+    size are compared exactly in both regimes.
+    """
+    rng = random.Random(1251)
+    checked = fitted = exact = 0
+    for index in range(900):
+        first, second = _puzzle(rng), _puzzle(rng)
+        if index % 2:
+            spec = _random_spec(rng)
+        else:
+            parity = rng.choice([PageParity.ODD, PageParity.EVEN])
+            spec = _spec_fitting_cell(
+                rng,
+                first,
+                second,
+                cell_mm=round(rng.uniform(7.0 + 1e-3, 9.0), 4),
+                parity=parity,
+            )
+        pair = compute_pair_layout(first, second, spec)
+        if pair is None:
+            continue
+        single = compute_layout(*first, dataclasses.replace(spec, cell_cap=pair.cell_mm))
+        assert single.page is not None and pair.upper.page is not None
+        assert single.page.cell_mm == pair.upper.page.cell_mm == pair.cell_mm
+
+        # The cap's own cell round-trips through float; a fitted one need not.
+        at_cap = pair.cell_mm == float(spec.cell_cap)
+        tolerance = 0 if at_cap else 1
+        exact += at_cap
+        fitted += not at_cap
+
+        slot_lines, single_lines = pair.upper.grid_lines, single.grid_lines
+        assert len(slot_lines) == len(single_lines)
+        for mine, theirs in zip(slot_lines, single_lines, strict=True):
+            assert (mine.index, mine.major, mine.width) == (
+                theirs.index,
+                theirs.major,
+                theirs.width,
+            )
+            assert abs(mine.position - theirs.position) <= tolerance
+            assert abs(mine.start - theirs.start) <= tolerance
+            assert abs(mine.end - theirs.end) <= tolerance
+        slot_clues, single_clues = pair.upper.clue_entries, single.clue_entries
+        assert len(slot_clues) == len(single_clues)
+        for mine_clue, theirs_clue in zip(slot_clues, single_clues, strict=True):
+            assert mine_clue.value == theirs_clue.value
+            assert abs(mine_clue.center_x - theirs_clue.center_x) <= tolerance
+            assert abs(mine_clue.center_y - theirs_clue.center_y) <= tolerance
+        assert (pair.upper.thin_rule, pair.upper.thick_rule) == (
+            single.thin_rule,
+            single.thick_rule,
+        )
+        # The size the clue digits are drawn at (``png._clue_font``) is a
+        # function of the pitch alone, so it matches exactly in both regimes.
+        assert pair.upper.clue_font_size == single.clue_font_size
+        assert abs(pair.upper.page.drawing_left - single.page.drawing_left) <= tolerance
+        assert abs(pair.upper.page.drawing_top - single.page.drawing_top) <= tolerance
+        checked += 1
+    assert checked >= 400, checked
+    assert exact >= 100, exact
+    assert fitted >= 100, fitted
