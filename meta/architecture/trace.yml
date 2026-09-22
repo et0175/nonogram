@@ -555,17 +555,51 @@ links:
   status: covered
 
 - req: CON-003
-  description: "No multiplayer, user accounts, or persistence beyond local file export"
+  description: "No multiplayer, user accounts, or persistence beyond local file export — SUPERSEDED by CON-017 (2026-09-22)"
   capabilities: [CAP-005]
   contexts: [CTX-001]
   components: [COMP-002, COMP-007]
   adrs: [ADR-0008]
   tests: []
   notes: >-
-    Satisfied by design: the containers view has no database and no
-    network edge; the Puzzle aggregate lives only for the duration of one
-    process, and the export file is the sole durable artifact.
+    HISTORY ONLY — retained because supersession preserves history, not
+    because the constraint still binds. requirements.yml marks CON-003
+    `status: superseded, superseded_by: CON-017`; read the CON-017 entry
+    below for the live rule. The note this replaces read "satisfied by
+    design: the containers view has no database" — true of the pipeline it
+    described, and false of the product from the moment the admin panel
+    shipped one. It was still being cited as the reason the architecture has
+    no database (three C4 diagrams, ADR-0021) and as the premise for two
+    decisions collapsed rather than taken in decisions/open.yml, which is
+    why CARD-111 superseded it rather than editing the note.
   status: covered
+
+- req: CON-017
+  description: "No multiplayer; the generation pipeline persists nothing beyond its exports; the admin panel keeps a database, and is the only exception; no user accounts are implemented on either surface"
+  capabilities: [CAP-005]
+  contexts: [CTX-001]
+  components: [COMP-002, COMP-007, COMP-009, COMP-010]
+  adrs: [ADR-0008, ADR-0030, ADR-0032]
+  tests: []
+  notes: >-
+    Replaces CON-003 (CARD-111, 2026-09-22). Split by surface following
+    ADR-0030, which retired NFR-003's no-authentication clause for the admin
+    surface only: the pipeline half of the old constraint is a real property
+    that ADR-0021 and the C4 component view depend on, and it still holds —
+    COMP-002 owns the Puzzle aggregate for the duration of one process and
+    COMP-007 writes the only durable artifact that path produces. The admin
+    half is new and describes what shipped: COMP-010 holds batches, puzzles,
+    books and generation history, and ADR-0032 states what a stored row is
+    guaranteed to be.
+    NOT COVERED BY A TEST, deliberately and with a gap named: no check asserts
+    that nothing in cli.py, web/** or orchestrator.py imports nonogram.db.
+    That is exactly the shape tests/test_cli.py's structural import guard
+    already has, and adding it is a small card rather than a constraint edit.
+    The `users`/`user_selected_books` clause is a statement about the code, not
+    about the schema: both tables exist in migration 001 and are referenced
+    nowhere in src/ (grep-verified). Whether they stay is an open product
+    question — CARD-111 option B.
+  status: partial
 
 - req: CON-004
   description: "Difficulty tiers are a heuristic score bucket, not a construction

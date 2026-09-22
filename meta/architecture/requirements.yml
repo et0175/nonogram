@@ -2414,6 +2414,8 @@ constraints:
       No multiplayer, user accounts, or persistence beyond local file
       export, ever.
     source: meta/business/vision.md Non-goals
+    status: superseded  # superseded 2026-09-22 by CON-017 (CARD-111): the admin panel keeps a database, so the persistence clause stopped describing the product; the statement is preserved verbatim because what it forbade is exactly what CON-017 has to account for
+    superseded_by: CON-017
   - id: CON-004
     type: technical
     statement: >-
@@ -2634,3 +2636,39 @@ constraints:
       kind: test
       ref: TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit
     severity: mandatory
+  - id: CON-017
+    # New 2026-09-22 (CARD-111), superseding CON-003. CON-003 said "no
+    # multiplayer, user accounts, or persistence beyond local file export,
+    # ever" and was sourced from the vision's Non-goals. The admin panel has
+    # since shipped six tables, ten Alembic revisions and a Postgres
+    # deployment, so the constraint had to either forbid the deployment or
+    # describe it — the same choice CON-016 faced with ADR-0030's public
+    # hostname, resolved the same way.
+    #
+    # Split by surface, following ADR-0030's precedent rather than dropping
+    # the constraint wholesale: the generation pipeline's statelessness is a
+    # real property that ADR-0021 and the C4 diagrams depend on, and it is
+    # still true. Only the admin panel persists.
+    #
+    # The "no user accounts" clause is NOT quietly dropped. `users` and
+    # `user_selected_books` exist in migration 001 and are referenced nowhere
+    # in src/ (grep-verified 2026-09-22): the schema contradicts the clause
+    # while the behaviour upholds it. Stated below as unused-and-undecided
+    # rather than resolved, because whether that product direction is intended
+    # is the owner's call, not a modelling one (CARD-111 option B).
+    type: organizational
+    statement: >-
+      No multiplayer. The generation pipeline — the CLI, the web UI and
+      everything inward of them — persists nothing beyond the files it
+      exports: no database, no cache, no state surviving the process. The
+      admin panel is the exception and the only one: it keeps a relational
+      database of batches, puzzles, books and generation history, which is
+      what makes review, curation and book assembly possible at all. No user
+      accounts are implemented or served on either surface; the `users` and
+      `user_selected_books` tables present in the schema are unused by any
+      code path and are not a licence to add accounts without a decision that
+      says so.
+    source: >-
+      CARD-111, 2026-09-22; supersedes CON-003 (meta/business/vision.md
+      Non-goals). Surface split follows ADR-0030, which retired NFR-003's
+      no-authentication clause for the admin surface only.

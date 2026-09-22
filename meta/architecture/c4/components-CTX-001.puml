@@ -35,8 +35,13 @@
 '   deliberately NO arrow between COMP-003..COMP-007 below; that absence is
 '   the architecture, not an omission.
 '
-' No ComponentDb: CON-003 forbids persistence beyond local file export, so
-'   the only durable state is the export file itself.
+' No ComponentDb in the pipeline below: CON-017 (superseding CON-003 on
+'   2026-09-22, CARD-111) keeps the CLI and web UI persisting nothing beyond
+'   the files they export, so the only durable state HERE is the export file.
+'   That is still true of everything drawn below. What is missing is the
+'   admin panel (COMP-009) and its database (COMP-010) — a real ComponentDb,
+'   whose absence was justified by CON-003's blanket "ever" rather than by
+'   anything about this diagram. Drawing them is CARD-110's AC-3.
 ' ============================================================
 title Components — Puzzle Creation Context (CTX-001)
 
