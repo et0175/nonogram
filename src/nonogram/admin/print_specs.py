@@ -7,6 +7,13 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from decimal import Decimal, InvalidOperation
 
+from nonogram.admin.book_page_spec import (
+    BOOK1_PROFILE,
+    MAX_TRIM_HEIGHT_CM,
+    MAX_TRIM_WIDTH_CM,
+    MIN_TRIM_CM,
+)
+
 
 @dataclass
 class PrintSpec:
@@ -32,15 +39,18 @@ class PrintSpec:
 class PrintSpecValidator:
     """Validates and converts print specifications."""
 
-    # Amazon KDP trim size bounds (in cm)
-    MIN_TRIM_CM = 10.0
-    MAX_TRIM_WIDTH_CM = 30.0
-    MAX_TRIM_HEIGHT_CM = 48.0
+    # Amazon KDP trim size bounds (in cm), stated once in book_page_spec
+    MIN_TRIM_CM = MIN_TRIM_CM
+    MAX_TRIM_WIDTH_CM = MAX_TRIM_WIDTH_CM
+    MAX_TRIM_HEIGHT_CM = MAX_TRIM_HEIGHT_CM
 
-    # Default trim size (cm): US Letter, 8.5 × 11 in — the dominant trim among
-    # top-selling nonogram books, and wide enough for 25×25–30×30 grids
-    DEFAULT_TRIM_WIDTH_CM = "21.59"
-    DEFAULT_TRIM_HEIGHT_CM = "27.94"
+    # Defaults (cm): CON-018's Book 1 print profile (CARD-115) — US Letter,
+    # 8.5 × 11 in, gutter 0.5 in, outside 0.375 in. Read from BOOK1_PROFILE,
+    # never restated here.
+    DEFAULT_TRIM_WIDTH_CM = BOOK1_PROFILE.trim_width_cm
+    DEFAULT_TRIM_HEIGHT_CM = BOOK1_PROFILE.trim_height_cm
+    DEFAULT_GUTTER_MARGIN_CM = BOOK1_PROFILE.gutter_margin_cm
+    DEFAULT_OUTSIDE_MARGIN_CM = BOOK1_PROFILE.outside_margin_cm
 
     @staticmethod
     def cm_to_inches(cm: str) -> str:
@@ -134,8 +144,8 @@ class PrintSpecValidator:
         Args:
             width_cm: Trim width in cm (defaults to 8.5 in, 21.59 cm)
             height_cm: Trim height in cm (defaults to 11 in, 27.94 cm)
-            gutter_margin_cm: Inside gutter margin in cm (optional)
-            outside_margin_cm: Outside margin in cm (optional)
+            gutter_margin_cm: Inside gutter margin in cm (defaults to 0.5 in, 1.27 cm)
+            outside_margin_cm: Outside margin in cm (defaults to 0.375 in, 0.95 cm)
             outside_margin_bleed_cm: Outside margin with bleed in cm (optional)
 
         Returns:
@@ -144,6 +154,8 @@ class PrintSpecValidator:
         # Use defaults if not provided
         width_cm = width_cm or PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM
         height_cm = height_cm or PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM
+        gutter_margin_cm = gutter_margin_cm or PrintSpecValidator.DEFAULT_GUTTER_MARGIN_CM
+        outside_margin_cm = outside_margin_cm or PrintSpecValidator.DEFAULT_OUTSIDE_MARGIN_CM
 
         # Validate trim size
         is_valid, error = PrintSpecValidator.validate_trim_size(width_cm, height_cm)

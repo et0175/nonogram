@@ -132,8 +132,12 @@ class Book(Base):
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
     trim_height_cm = Column(String, nullable=True, default='27.94')
-    gutter_margin_cm = Column(String, nullable=True)  # inside margin
-    outside_margin_cm = Column(String, nullable=True)
+    # Margins default to CON-018's Book 1 profile (0.5 in / 0.375 in), mirroring
+    # migration 011's server defaults. Still nullable: a row from before 011
+    # keeps its empty margins (no backfill), and book_page_spec falls back to
+    # the profile for them (CARD-115).
+    gutter_margin_cm = Column(String, nullable=True, default='1.27', server_default='1.27')  # inside margin
+    outside_margin_cm = Column(String, nullable=True, default='0.95', server_default='0.95')
     outside_margin_bleed_cm = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
