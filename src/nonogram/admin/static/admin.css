@@ -214,10 +214,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: calc(-1 * var(--border-width)); }
 .tab { display: inline-flex; align-items: baseline; gap: var(--space-2); background: var(--color-surface-sunken); color: var(--color-text-secondary); border: var(--border-width) solid var(--color-border-strong); border-bottom-color: var(--color-border-strong); border-radius: var(--radius-container) var(--radius-container) 0 0; padding: var(--space-2) var(--space-4); font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .tab:hover { background: var(--color-surface-hover); color: var(--color-text); }
+/* Roving tabindex means the arrow keys move focus between tabs, so the focus
+   ring is the only thing telling the owner where they are (F-004). A .tab is
+   not a .btn, so it does not inherit the ring at the top of this file. */
+.tab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .tab .tab-count { font-family: var(--font-num); font-size: var(--text-xs); }
 .tab.is-current { background: var(--color-surface); color: var(--color-accent); font-weight: 600; border-bottom-color: var(--color-surface); }
 .tab[data-over="true"] .tab-count { color: var(--color-warning); }
+/* Over plan is a word first and a colour second: .tab-over carries the text
+   "over", so the marker survives a viewer who cannot tell the colours apart
+   and a forced-colors mode that discards them (review cycle 1, F-005). */
+.tab .tab-over { font-variant: small-caps; letter-spacing: 0.06em; font-weight: 600; border: var(--border-width) solid currentColor; border-radius: var(--radius-badge); padding: 0 var(--space-1); }
 .tabpanel { border-top-left-radius: 0; }
+/* A page of a tab is a submit button (it carries the ticks with it), so it
+   needs the anchor's own reset to sit in Bootstrap's .pagination. */
+.pagination button.page-link { font: inherit; font-size: var(--text-sm); cursor: pointer; }
 
 /* Planned-vs-selected summary lines (whole book, and each tab). */
 .stat-line { margin: 0 0 var(--space-3); font-size: var(--text-sm); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }

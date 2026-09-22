@@ -4,6 +4,7 @@ import-guard half (AC-3) lives with the guard in ``tests/test_cli.py``.
 """
 
 import ast
+import html
 import inspect
 import re
 from pathlib import Path
@@ -201,8 +202,19 @@ def test_the_book_puzzle_step_spans_the_range_in_tabs(admin_app):
 
     for input_id in ("size_from", "size_to"):
         assert f'id="{input_id}"' not in body
-    assert f"&lt;={BUCKETS[0].high}" in body and str(BUCKETS[-1].high) == str(HIGH)
-    assert BUCKETS[0].low == LOW and BUCKETS[-1].high == HIGH
+
+    # What the page renders, not what BUCKETS holds: the four tab controls the
+    # owner can actually press, in order, spanning the range end to end. The
+    # pure partition property is tests/property/test_longest_side_buckets.py's
+    # and is not restated here (review cycle 1, F-008).
+    rendered = [
+        html.unescape(label)
+        for label in re.findall(r'name="go_bucket" value="([^"]+)"', body)
+    ]
+
+    assert rendered == [bucket.label for bucket in BUCKETS]
+    assert rendered[0] == f"<={BUCKETS[0].high}", "the first tab must reach down to the floor"
+    assert rendered[-1].endswith(f"-{HIGH}"), "the last tab must reach up to the ceiling"
 
 
 def test_the_admin_app_exposes_the_range_to_templates(monkeypatch):
