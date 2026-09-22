@@ -224,8 +224,12 @@ class TestBookPlan_StoredWithBookSurvivesReopen:
 
         # First store something else, so reading 150 at 40/40/20 back below
         # proves a write and a read rather than an untouched default.
+        # The matrix is submitted as the page showed it (the default's), so
+        # POL-007 re-derives it: no cell is hand-edited. (Posting other.cells
+        # here would be typing 12 new values — hand edits that, since F-001,
+        # rightly survive the next split change.)
         other = prefill(120, Split(30, 45, 25))
-        response = client.post(f"/book/{book_id}/setup-print", data=_form(120, (30, 45, 25), other.cells))
+        response = client.post(f"/book/{book_id}/setup-print", data=_form(120, (30, 45, 25), AC198_MATRIX))
         assert response.status_code == 302
         assert _shown_plan(_page(client, book_id)) == (120, (30, 45, 25), other.cells)
 
@@ -286,9 +290,13 @@ class TestBookPlan_RejectsSplitNotSummingTo100:
         client = app.test_client()
         book_id = _new_book(app.book_manager)
         assert app.book_manager.get_plan(book_id) == prefill(150, Split(40, 40, 20))
+        size_before = app.book_manager.get_book(book_id).metadata.size
 
+        # A valid, non-default trim alongside the refused split: the refusal
+        # must store nothing, the trim included (review F-005).
         response = client.post(
-            f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 30), AC198_MATRIX)
+            f"/book/{book_id}/setup-print",
+            data=_form(150, (40, 40, 30), AC198_MATRIX, width="15.24", height="22.86"),
         )
 
         assert response.status_code == 200  # re-rendered, not redirected on
@@ -299,6 +307,9 @@ class TestBookPlan_RejectsSplitNotSummingTo100:
         # The refused values stay in the fields, marked invalid, for correcting.
         assert _input_value(html, "split_hard") == "30"
         assert "is-invalid" in html
+
+        assert app.book_manager.get_book(book_id).metadata.size == size_before
+        assert "15.24" not in (size_before or "")
 
         stored = app.book_manager.get_plan(book_id)
         assert stored.count == 150
@@ -439,6 +450,207 @@ class TestRevisePlan:
 
     def test_a_plan_less_book_is_revised_from_the_default_it_was_shown(self) -> None:
         assert revise_plan(None, 150, Split(40, 40, 20), DEFAULT_PLAN.cells) == DEFAULT_PLAN
+
+    def test_changing_an_edit_that_equals_the_prefill_keeps_it_edited(self) -> None:
+        """An edited 15 that coincides with the 30/45/25 prefill, retyped to 17: still edited."""
+        stored = with_split(with_edited_cell(DEFAULT_PLAN, B25, H, 15), Split(30, 45, 25))
+        assert stored.cell(B25, H) == prefill(150, Split(30, 45, 25)).cell(B25, H) == 15
+        cells = [list(r) for r in stored.cells]
+        cells[2][2] = 17
+        revised = revise_plan(stored, 150, Split(30, 45, 25), cells)
+        assert revised.cell(B25, H) == 17
+        assert revised.edited == {(B25, H)}
+
+
+# --------------------------------------------------------------------------
+# Review F-001 — a stored hand edit survives an unchanged resubmission
+# --------------------------------------------------------------------------
+
+
+class TestRevisePlan_StoredEditSurvivesUnchangedResubmit:
+    """F-001: "hand-edited" is carried forward from the stored plan.
+
+    The review's own scenario: at 40/40/20 edit 21-25 x hard 12 -> 15 (edited);
+    change the split to 30/45/25 (15 kept — and 15 is now that split's prefill);
+    resubmit the page unchanged (every Print setup visit is a submit); change
+    the split back to 40/40/20. The old revise_plan dropped the mark at step 3
+    (15 == new prefill) and step 4 re-derived the cell to 12.
+    """
+
+    def _steps(self, submit):
+        """Drive steps 1-4 through ``submit(count, split, cells)`` -> stored plan."""
+        cells = [list(r) for r in DEFAULT_PLAN.cells]
+        cells[2][2] = 15
+        submit(150, (40, 40, 20), cells)                     # 1. edit
+        plan = submit(150, (30, 45, 25), cells)              # 2. split change, matrix as shown
+        plan = submit(150, (30, 45, 25), plan.cells)         # 3. unchanged resubmit
+        return submit(150, (40, 40, 20), plan.cells)         # 4. split back, matrix as shown
+
+    def test_storage_level(self, books) -> None:
+        book_id = _new_book(books)
+
+        def submit(count, split, cells):
+            books.save_plan(book_id, revise_plan(books.get_plan(book_id), count, Split(*split), cells))
+            return books.get_plan(book_id)
+
+        plan = self._steps(submit)
+
+        assert plan.cell(B25, H) == 15
+        assert plan.edited == {(B25, H)}
+        fresh = prefill(150, Split(40, 40, 20))
+        for bucket in BUCKETS:
+            for tier in TIERS:
+                if (bucket, tier) != (B25, H):
+                    assert plan.cell(bucket, tier) == fresh.cell(bucket, tier)
+
+    def test_through_the_route(self, app) -> None:
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+
+        def submit(count, split, cells):
+            response = client.post(f"/book/{book_id}/setup-print", data=_form(count, split, cells))
+            assert response.status_code == 302
+            plan = app.book_manager.get_plan(book_id)
+            # What the owner sees is what the next submit carries.
+            assert _shown_plan(_page(client, book_id)) == (
+                plan.count, (plan.split.easy, plan.split.medium, plan.split.hard), plan.cells
+            )
+            return plan
+
+        plan = self._steps(submit)
+
+        assert plan.cell(B25, H) == 15
+        assert plan.edited == {(B25, H)}
+        assert "Longest side 21-25, hard (hand-edited)" in _page(client, book_id)
+
+
+# --------------------------------------------------------------------------
+# Review F-002 / F-003 / F-004 — Print setup feedback
+# --------------------------------------------------------------------------
+
+
+def _flashes(client):
+    with client.session_transaction() as sess:
+        return list(sess.get("_flashes", []))
+
+
+def _input_tag(html: str, input_id: str) -> str:
+    match = re.search(r'<input\b[^>]*\bid="' + re.escape(input_id) + r'"[^>]*>', html, re.S)
+    assert match, f"no input #{input_id} on the page"
+    return match.group(0)
+
+
+class TestPrintSetup_WarnsWhenADisagreeingPlanIsSaved:
+    """F-002: the FR-034 warning at the moment the disagreeing plan is saved."""
+
+    def test_warning_flash_on_save(self, app) -> None:
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        cells = [list(r) for r in AC198_MATRIX]
+        cells[2][2] = 20
+
+        response = client.post(f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 20), cells))
+
+        assert response.status_code == 302
+        assert app.book_manager.get_plan(book_id).disagrees_with_split
+        warnings = [m for c, m in _flashes(client) if c == "warning"]
+        assert len(warnings) == 1
+        assert "disagrees with the general split" in warnings[0]
+        assert "60 / 60 / 38" in warnings[0] and "60 / 60 / 30" in warnings[0]
+
+    def test_no_warning_flash_for_an_agreeing_plan(self, app) -> None:
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+
+        client.post(f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 20), AC198_MATRIX))
+
+        assert [c for c, _ in _flashes(client)] == ["success"]
+
+
+class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
+    """F-003: a refused submission comes back whole, with only its failing field(s) invalid."""
+
+    def test_refused_split_keeps_the_typed_matrix(self, app) -> None:
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        cells = [list(r) for r in AC198_MATRIX]
+        cells[0][0] = 3  # an unrelated matrix edit that must not be lost
+
+        html = client.post(
+            f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 30), cells)
+        ).get_data(as_text=True)
+
+        assert _input_value(html, "cell_0_easy") == "3"
+        for tier in TIERS:
+            assert "is-invalid" in _input_tag(html, f"split_{tier.value}")
+        assert "is-invalid" not in _input_tag(html, "plan_count")
+        assert "is-invalid" not in _input_tag(html, "cell_0_easy")
+        assert app.book_manager.get_plan(book_id) == DEFAULT_PLAN
+
+    @pytest.mark.parametrize(
+        "field, value", [("plan_count", "0"), ("cell_2_hard", "-1"), ("cell_0_easy", "2.5")]
+    )
+    def test_only_the_failing_field_is_marked(self, app, field, value) -> None:
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        form = _form(150, (40, 40, 20), AC198_MATRIX)
+        form[field] = value
+
+        html = client.post(f"/book/{book_id}/setup-print", data=form).get_data(as_text=True)
+
+        assert "Plan not saved" in html
+        assert _input_value(html, field) == value
+        tag = _input_tag(html, field)
+        assert "is-invalid" in tag and 'aria-describedby="plan-error"' in tag
+        assert html.count("is-invalid") == 1
+        for tier in TIERS:
+            assert "is-invalid" not in _input_tag(html, f"split_{tier.value}")
+
+    def test_trim_refusal_carries_the_plan_input_back(self, app) -> None:
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        cells = [list(r) for r in prefill(120, Split(30, 45, 25)).cells]
+        cells[1][1] = 33
+
+        html = client.post(
+            f"/book/{book_id}/setup-print",
+            data=_form(120, (30, 45, 25), cells, width="5"),
+        ).get_data(as_text=True)
+
+        assert _shown_plan(html) == (120, (30, 45, 25), tuple(tuple(r) for r in cells))
+        assert _input_value(html, "width") == "5"
+        assert "is-invalid" not in html  # the plan was fine
+        assert app.book_manager.get_plan(book_id) == DEFAULT_PLAN
+
+
+class TestPrintSetup_UnreadableStoredPlanCanBeOverwritten:
+    """F-004: a stored document the aggregate refuses does not break Print setup."""
+
+    def test_damaged_plan_shows_default_and_a_submit_repairs_it(self, scope, monkeypatch) -> None:
+        from nonogram.db.models import Book as DBBook
+
+        app = _build_app("db", scope, monkeypatch)
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        broken = plan_to_json(DEFAULT_PLAN)
+        broken["split"] = {"easy": 40, "medium": 40, "hard": 30}
+        with scope() as db:
+            row = db.query(DBBook).filter(DBBook.id == uuid.UUID(book_id)).one()
+            row.distribution_plan = broken
+        with pytest.raises(InvalidPlan):
+            app.book_manager.get_plan(book_id)
+
+        html = _page(client, book_id)
+        assert 'id="plan-damaged"' in html
+        assert "no stored plan yet" not in html
+        assert _shown_plan(html) == (150, (40, 40, 20), AC198_MATRIX)
+
+        response = client.post(
+            f"/book/{book_id}/setup-print", data=_form(120, (30, 45, 25), AC198_MATRIX)
+        )
+        assert response.status_code == 302
+        assert app.book_manager.get_plan(book_id) == prefill(120, Split(30, 45, 25))
+        assert 'id="plan-damaged"' not in _page(client, book_id)
 
 
 # --------------------------------------------------------------------------

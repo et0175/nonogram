@@ -1066,10 +1066,23 @@ def revise_plan(
     form shows as :data:`DEFAULT_PLAN`). ``submitted_cells`` is the 4 x 3
     matrix as the owner submitted it.
 
-    A cell whose submitted value differs from the prefill of the plan the page
-    showed is hand-edited and keeps its value; every other cell is re-derived
-    from ``count`` and ``split`` — so a changed split re-derives an un-edited
-    matrix, and a cell typed back to its prefill value stops being edited.
+    Whether a cell is hand-edited is decided per cell against the plan the
+    page showed (``shown``). The form cannot tell "left alone" from "retyped
+    the same value", so only a *changed* value counts as an owner action:
+
+    * submitted value **equal to the shown value** — the owner left it alone,
+      so it keeps the mark it had: a stored hand edit stays edited (even when
+      its value happens to equal a prefill), an unedited cell stays unedited;
+    * submitted value **different from the shown value** — the owner typed
+      into it: it becomes hand-edited, unless the new value is the shown
+      plan's prefill for that cell, which is the owner deliberately putting
+      it back (the edit mark is cleared).
+
+    Hand-edited cells keep their values; every other cell is re-derived from
+    ``count`` and ``split`` (POL-007 via :func:`with_split`), so a changed
+    split re-derives an un-edited matrix. A value is never made edited or
+    un-edited just by coinciding with a prefill: an edit survives any number
+    of unchanged resubmissions and split changes (CARD-120 review F-001).
 
     Raises:
         InvalidPlan: ``count`` or a submitted cell is not one INV-005 allows.
@@ -1077,11 +1090,15 @@ def revise_plan(
     shown = current if current is not None else DEFAULT_PLAN
     reference = prefill(shown.count, shown.split)
     typed = DistributionPlan(count=count, split=shown.split, cells=submitted_cells)
+
+    def is_edited(bucket, tier) -> bool:
+        value = typed.cell(bucket, tier)
+        if value == shown.cell(bucket, tier):
+            return (bucket, tier) in shown.edited
+        return value != reference.cell(bucket, tier)
+
     edited = frozenset(
-        (bucket, tier)
-        for bucket in BUCKETS
-        for tier in TIERS
-        if typed.cell(bucket, tier) != reference.cell(bucket, tier)
+        (bucket, tier) for bucket in BUCKETS for tier in TIERS if is_edited(bucket, tier)
     )
     return with_split(
         DistributionPlan(count=count, split=shown.split, cells=typed.cells, edited=edited), split
