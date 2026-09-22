@@ -1,6 +1,6 @@
 # CARD-110: Give admin/ and db/ a place in the architecture model
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -8,16 +8,16 @@
 **Skill:** business-analyst
 **TDD:** false — model and documentation only, no production code
 **Branch:** card/110-admin-db-component-ids
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-110
 **Source:** `meta/architecture/trace.yml:1414` ("KNOWN MAPPING GAP for the owner"), raised again by CARD-053's AC-1 and CARD-056's ADR-0032
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** meta/architecture/trace.yml (the `components:` block and the gap note), meta/architecture/c4/components-CTX-001.puml, src/nonogram/__init__.py (the package map's "not components" paragraph), possibly meta/architecture/domain/contexts.yml and aggregates.yml — see the decision below
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** — _(merged without a review cycle, at the owner's call)_
+**Started:** 2026-09-22
+**Closed:** 2026-09-22
+**Actual:** 0.4d
 **Merge commit:** —
 **Blocked by:** —
 
@@ -155,3 +155,83 @@ one.
 - **ADR:** ADR-0019 (web UI component boundary — defines COMP-008's scope),
   ADR-0032 (whose two rules are scoped to the unowned admin glob)
 - **Trace:** `trace.yml:1414`, the gap note this card answers
+
+## Worktree notes
+
+### Delivered 2026-09-22 — option A, minus AC-3, which is stopped on G-2
+
+**Done:** COMP-009 (Admin Panel, `src/nonogram/admin/**.py`) and COMP-010
+(Persistence, `src/nonogram/db/**.py`) exist in `trace.yml`'s `components:`
+block; all 16 files under those two directories are owned (AC-1). No row names
+COMP-008 for admin behaviour (AC-2). The gap note is replaced rather than
+deleted (AC-4). Suite unchanged at 3,681 passed (AC-5). Validator reports the
+same single error as before — CARD-071's known false positive in the forge
+tool.
+
+**Not done: AC-3, the C4 diagram.** See below. G-2 says stop and say so.
+
+### The card said three rows to repoint. It was three rows — but not those three.
+
+I named `trace.yml:151`, `:508` and `:655`. Reading them: FR-017 ("Local web UI
+exposing the same generation options as the CLI"), NFR-003 ("Web UI server
+binds 127.0.0.1") and CON-008 ("Web UI v1 renders no in-browser preview") are
+all genuinely about the web UI. AC-2 was already satisfied for them.
+
+The rows that actually misused COMP-008 were:
+
+- **CON-015** — "Bind-scope rule for the **ADMIN** panel"
+- **CON-016** — "Host-refusal rule for the **ADMIN** panel"
+- **FR-029** — the `strategies_used` DB column, the admin detail page and the
+  admin filter; this is the row the gap note itself was written on
+
+All three repointed: CON-015/CON-016 to COMP-009, FR-029's COMP-008 to
+COMP-009 + COMP-010. `CON-010`, `NFR-004` and `CON-008` keep COMP-008, being
+web-UI rules.
+
+### Why two components and not one, verified rather than assumed
+
+`admin/` imports `db/` in six modules; `db/` imports nothing from `admin/`; and
+`cli.py`, `web/**` and `orchestrator.py` reach neither. Grep-verified before
+the claim was written into `trace.yml` and the package docstring.
+
+### AC-3 is blocked on a live constraint, not on drawing
+
+Both C4 diagrams predate the admin panel, and **both assert there is no
+database**:
+
+- `c4/components-CTX-001.puml:37` — *"No ComponentDb: CON-003 forbids
+  persistence beyond local file export, so the only durable state is the export
+  file itself."*
+- `c4/containers.puml:16` — *"ContainerDb: the tool has no database, no cache,
+  no state…"*, and it models exactly one container.
+
+**CON-003 is live and unsuperseded**: *"No multiplayer, user accounts, or
+persistence beyond local file export, **ever**."* Its source is
+`meta/business/vision.md`'s Non-goals. The admin panel ships SQLAlchemy models,
+Alembic migrations and a Postgres deployment.
+
+So drawing COMP-009/COMP-010 into the component diagram would either
+contradict its own header comment and the container diagram beside it, or
+require amending CON-003 — which is a business-level non-goal, sourced from the
+vision, and exactly the kind of decision G-2 forbids this card from taking.
+There is a precedent for how it should go: CON-001 said "no web/GUI in v1" and
+was **superseded by CON-007** when the web UI shipped. CON-003 needs the same
+treatment or an explicit carve-out for the admin panel, and that is the owner's
+call.
+
+Also noted, not fixed: **COMP-008 is not in the component diagram either.** It
+draws COMP-001..007 inside one `Container_Boundary(cliTool, "Puzzle Creation
+CLI")`. The web UI adapter has never been drawn, presumably because it is not
+the CLI — the same reason the admin panel cannot simply be added to that
+boundary. The diagram models the CLI container, and the model's component list
+has outgrown it by three.
+
+### G-4 — the stale Guess-tier text, fixed in passing
+
+`components-CTX-001.puml` described COMP-006 as classifying with
+`(score, branch_nodes)` and returning `Tier.GUESS` by that fact alone
+(EC-015, ADR-0025) — retired by CARD-098/ADR-0031 on 2026-09-18. Four places
+corrected: the header index line, the synthesis note, the `Component(...)`
+description and the `Rel(orchestrator, difficulty, …)` label. The one remaining
+mention of ADR-0025 records it as superseded, which is accurate. No other prose
+in the diagram was audited (G-4).
