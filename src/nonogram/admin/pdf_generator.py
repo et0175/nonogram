@@ -192,6 +192,33 @@ class BookPDFGenerator:
             return tier.label
         return stored or "N/A"
 
+    @staticmethod
+    def _quality_label(puzzle):
+        """The stored quality as a reader should see it — ``N/A``, not ``None``.
+
+        Random mode has no quality metric to report and stores ``None`` for it
+        (CARD-050); image mode gets a real 1..100 from ``measure_quality``.
+        Both call sites here used ``puzzle.get("quality_score", 0)``, whose
+        default never fired — the key is present and holds ``None`` — so a book
+        containing a random-mode puzzle printed ``Quality: None/100`` on its
+        contents page and again on the puzzle's own page.
+
+        ``N/A`` is not invented here: it is what five admin templates already
+        print for this value (``quality_score or 'N/A'``). Unknown reads the
+        same on every surface (ADR-0032/R2).
+
+        The denominator is part of what this returns, rather than being
+        appended at the call site, because it belongs to the number and not to
+        the field: the templates print ``N/A/100``, which a screen carries but
+        a printed page reads as a typo — 100 of what? A measured score prints
+        as ``73/100``; an unmeasured one prints as ``N/A`` and stops there.
+        (Owner's call, 2026-09-22, on a rendered sample.)
+        """
+        quality = puzzle.get("quality_score")
+        if quality is None:
+            return "N/A"
+        return f"{quality}/100"
+
     def _create_table_of_contents(self, metadata, puzzles):
         """Create table of contents."""
         story = []
@@ -203,7 +230,7 @@ class BookPDFGenerator:
         toc_text = "<br/>".join([
             f"<b>Puzzle {i}:</b> Difficulty: {self._tier_label(puzzle)} | "
             f"Size: {puzzle.get('width', 0)}×{puzzle.get('height', 0)} | "
-            f"Quality: {puzzle.get('quality_score', 0)}/100"
+            f"Quality: {self._quality_label(puzzle)}"
             for i, puzzle in enumerate(puzzles, 1)
         ])
 
@@ -224,7 +251,7 @@ class BookPDFGenerator:
         <font size=8>
         Difficulty: <b>{self._tier_label(puzzle)}</b> |
         Size: <b>{puzzle.get('width', 0)}×{puzzle.get('height', 0)}</b> |
-        Quality: <b>{puzzle.get('quality_score', 0)}/100</b>
+        Quality: <b>{self._quality_label(puzzle)}</b>
         </font>
         """
         story.append(Paragraph(meta, self.styles["BookBody"]))
