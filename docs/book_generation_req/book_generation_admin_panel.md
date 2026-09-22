@@ -22,18 +22,18 @@ Book 1: 8.5×11 in (or 8×10), 100–150 puzzles, one per page, ~120–190 pages
 
 The research matrix buckets puzzles by **longest side** only. Width is the tight axis of a portrait page, so a 30-tall × 15-wide grid prints a far larger cell than a 30×30. Each longest-side row is therefore split by **shorter side**; the difficulty shares stay at the longest-side level (they are the research values, unchanged) and the sub-rows add the printed cell size.
 
-Cell size is the page-fit value on the 8.5×11 trim with the margins in §1, at the top of each bucket (worst case): the drawing is ≈ 1.3 × N cells across (the clue band is ~30% of the side), so
+Cell size is the page-fit value on the 8.5×11 trim with the margins in §1, at the top of each bucket (worst case), held under a **standard cell of 7.5 mm**: the drawing is ≈ 1.3 × N cells across (the clue band is ~30% of the side), so
 
 ```
-cell = min( 193.7 mm / (1.3 × shorter side),  248 mm / (1.3 × longest side) )
+cell = min( 7.5 mm,  193.7 mm / (1.3 × shorter side),  248 mm / (1.3 × longest side) )
 ```
 
 | Longest side | Share (E / M / H, % of book) | Shorter side | Cell (mm) | Fit |
 |---|---|---|---|---|
-| ≤15 | 10 / 5 / – | ≤15 | 9.9 | ✅ |
-| 16–20 | 15 / 20 / 5 | ≤15 | 9.5 | ✅ |
+| ≤15 | 10 / 5 / – | ≤15 | 7.5 | ✅ cap |
+| 16–20 | 15 / 20 / 5 | ≤15 | 7.5 | ✅ cap |
 | | | 16–20 | 7.4 | ✅ |
-| 21–25 | 5 / 15 / 10 | ≤15 | 7.6 | ✅ |
+| 21–25 | 5 / 15 / 10 | ≤15 | 7.5 | ✅ cap |
 | | | 16–20 | 7.4 | ✅ |
 | | | 21–25 | 6.0 | ✅ |
 | 26–30 | – / 5 / 10 | ≤15 | 6.4 | ✅ |
@@ -45,16 +45,18 @@ Totals by difficulty: 30% easy / 45% medium / 25% hard. Totals by longest side: 
 
 Notes:
 
+- **Standard cell: 7.5 mm** (owner's decision). Page fit alone would print a 15×15 at 9.9 mm — large-print territory, and a jump from 9.9 to 7.4 between consecutive pages reads as inconsistent. With the cap, every puzzle up to 25 long and 20 wide prints at the same ~7.4–7.5 mm (about 70% of the book); only the 21–25-wide, the 26–30-long and the 30×30 puzzles step down (6.0 / 6.4 / 5.0).
+- **Empty space.** The cap leaves white around small and narrow puzzles: a 15×15 draws 146 × 146 mm on the 194 × 248 mm usable page (~44%), and a 30-tall × 15-wide grid at 6.4 mm draws a 125 × 250 mm strip with ~35 mm of white each side. Accepted for Book 1; the puzzle's top edge sits at the same position on every page rather than being centred, so the book reads consistently. Two puzzles per page does not help 15×15 at 7.5 mm (2 × 146 mm plus two title bands exceed 248 mm) and only works for grids ≤ 12. A frame or decoration around the page is a later decision.
 - **Floor: 4.8 mm** (owner's decision: 4.8–4.9 is fine, 4.6 is too small). Standard squared paper is 5 mm.
 - **Height binds for tall grids.** Any 26–30-tall puzzle up to 20 wide prints at 6.4 mm whatever its width; making it narrower buys nothing, making it wider than 20 starts to cost.
 - **26–30 × 26–30 is only 0.2 mm above the floor.** The 1.3× model assumes a ~9-entry row-clue band. A 30-wide puzzle with a 9-entry band draws 39 cells across → 4.97 mm ✅; with a 12-entry band it draws 42 → 4.61 mm ❌. The floor must therefore be checked **per puzzle on its real clue depth**, not per bucket (BK-1, BK-2).
 - **Widest grid at the 4.8 mm floor: 31 cells** with these margins (31 → 4.81 mm, 32 → 4.66 mm); 32 cells at KDP's bare minimum margins (0.25 in outside, 0.375 in gutter → 200 mm usable). Height would allow ~39, but `src/nonogram/limits.py` stops every grid at 30 either way.
-- These are page-fit values. A renderer may cap small grids (the CLI layout caps at 9.0 mm for ≤10 cells); the requirement is the floor, not the cap.
+- The CLI layout has its own cap curve (9.0 mm at ≤10 cells down to 6.5 at 30); the book uses the flat 7.5 mm above instead, and the book's cap wins inside the book.
 - For comparison, the renderer today sizes cells for **A4** with 12 mm margins (186 mm usable): a 30×30 gets 4.77 mm there — below the floor — which is why the trim-aware computation in BK-1 matters.
 
 ## 3. Print-fit requirements for the admin panel
 
-- **BK-1 Trim-aware cell size.** The book PDF computes each puzzle's cell for the **book's trim and margins**, not A4: usable width = trim width − outside margin − gutter margin; usable height = trim height − top − bottom − title band. Margins are read from the book's `gutter_margin_cm` / `outside_margin_cm` (Book 1 defaults 1.27 / 0.95 cm), with KDP's page-count minimum as a lower bound. The clue gutters are the puzzle's **real** clue depth (`max(len(clue))` per axis, as `export/layout.py`'s `_gutter_depth` measures it), not the 1.3× estimate.
+- **BK-1 Trim-aware cell size.** The book PDF computes each puzzle's cell for the **book's trim and margins**, not A4: usable width = trim width − outside margin − gutter margin; usable height = trim height − top − bottom − title band. Margins are read from the book's `gutter_margin_cm` / `outside_margin_cm` (Book 1 defaults 1.27 / 0.95 cm), with KDP's page-count minimum as a lower bound. The clue gutters are the puzzle's **real** clue depth (`max(len(clue))` per axis, as `export/layout.py`'s `_gutter_depth` measures it), not the 1.3× estimate. The result is capped at the **7.5 mm standard cell**, and the puzzle's top edge is placed at the same position on every page.
 - **BK-2 Cell floor 4.8 mm.** A puzzle whose cell would print below 4.8 mm on the book's trim is flagged in puzzle selection (Step 2) with its computed cell size, and cannot be added to Book 1 without an explicit override. The book summary (Step 4) lists how many puzzles sit below the floor.
 - **BK-3 Orientation.** The longest side runs down the page. A wide grid (width > height) is either sourced tall or flagged: a 30-wide × 15-tall grid prints at 5.0 mm, the same picture as 15 × 30 prints at 6.4 mm.
 - **BK-4 Target vs actual mix.** Puzzle selection shows the matrix in §2 as target vs actual (count and % per longest-side × difficulty cell, plus the shorter-side breakdown). A book can be marked ready only when every cell is within ±3 percentage points of its target.
