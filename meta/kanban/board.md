@@ -28,6 +28,7 @@ _(none — meta/kanban/backlog.md not found)_
 _(none)_
 
 ## Ready
+- **CARD-111** P1 · CON-003 says "no persistence, ever" and the admin panel runs on Postgres — a live, unsuperseded constraint contradicted by six tables, ten migrations and a deployment; it is cited as the premise for three C4 diagrams and for two decisions that were *collapsed rather than taken* · the `users` table exists in the schema and is dead in the code, which is a second, different question · CON-001→CON-007 is the supersession shape, ADR-0030 the surface-by-surface precedent · blocks CARD-110's AC-3
 
 ## In Progress
 _(none)_
