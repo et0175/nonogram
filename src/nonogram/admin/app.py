@@ -2147,7 +2147,20 @@ def create_app(debug=None):
                     flash(f"Error: {error}", "error")
                 elif plan_error is None:
                     if new_plan is not None:
+                        # CARD-124 (owner's decision): the plan is what the
+                        # readiness gate measures the selection against, so
+                        # editing it on a book that has left draft returns the
+                        # book to draft — the same rule a membership change
+                        # gets (ADR-0035 "Membership change after draft").
+                        # Read before the save, which is what returns it.
+                        had_left_draft = book.status != BookStatus.DRAFT.value
                         book_mgr.save_plan(book_id, new_plan)
+                        if had_left_draft:
+                            flash(
+                                "The plan changed, so the book is back in draft: it must "
+                                "match its plan again before it can leave.",
+                                "warning",
+                            )
                         if new_plan.disagrees_with_split:
                             # FR-034: warn at the moment the choice is made,
                             # not only when Print setup is reopened (F-002).

@@ -21,7 +21,9 @@ from nonogram.admin.book_plan import (
     InvalidPlan,
     LongestSideBucket,
     Split,
+    planned_cells,
     prefill,
+    selection_cells,
     with_split,
 )
 from nonogram.difficulty import Tier
@@ -94,6 +96,96 @@ class Book:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
+
+
+# --------------------------------------------------------------------------
+# The readiness gate (CARD-124; FR-037, INV-007, ADR-0035)
+# --------------------------------------------------------------------------
+#
+# A book leaves draft only as *the book that was planned*. The verdict is a
+# pure function of the stored plan and the selection's records, so it is the
+# same verdict in both storage modes and can be read on its own.
+
+#: How far one longest-side x tier cell may sit from its planned share and
+#: still leave draft, in percentage points. The bound is **inclusive**: a cell
+#: exactly 3 points out passes (AC-219), one 4 points out does not (AC-220).
+READY_TOLERANCE_POINTS = 3
+
+#: What a book with no stored plan is told at the gate (ADR-0035 (c)). Every
+#: book created since ADR-0034 starts on the default plan, so this is the
+#: pre-migration row's remedy, and it is one save on Print setup.
+NO_PLAN_REFUSAL = (
+    "This book has no stored plan, so it cannot leave draft. "
+    "Store one on Print setup first."
+)
+
+
+def off_plan_cells(plan: DistributionPlan, puzzles) -> List[tuple]:
+    """The cells whose count is further from the plan than the tolerance.
+
+    ``(bucket, tier, actual_count, planned_count)`` per offending cell, in
+    :data:`BUCKETS` x :data:`TIERS` order; empty when the selection matches
+    the plan. ``puzzles`` are the selection's stored records, counted by
+    CARD-119's :func:`~nonogram.admin.book_plan.selection_cells` — the one
+    bucketing function (EC-024), never re-derived here.
+
+    Both shares are taken over the **planned** total (ADR-0035 (b)): a cell's
+    actual share is its count divided by ``plan.count``, and its planned share
+    is the plan's own cell divided by the same number. "Ready" therefore means
+    the planned book, not merely the planned mix — an under-filled selection
+    fails even when its proportions are right.
+
+    The plan's ``count`` is the denominator, not the matrix's sum: the two
+    differ only for a hand-edited matrix that already disagrees with its split
+    (:attr:`DistributionPlan.disagrees_with_split`, reported and allowed), and
+    the total the owner planned is the book ADR-0035 measures against. It is
+    also never zero (INV-005), so the comparison has no degenerate case.
+
+    The comparison is exact integer arithmetic — ``|actual - planned| * 100 <=
+    tolerance * total`` rather than a difference of two floats against 3.0 —
+    because the bound is inclusive and AC-219 and AC-220 sit either side of
+    exactly that boundary.
+    """
+    planned = planned_cells(plan)
+    actual = selection_cells(puzzles)
+    return [
+        (bucket, tier, actual[(bucket, tier)], planned[(bucket, tier)])
+        for bucket in BUCKETS
+        for tier in TIERS
+        if abs(actual[(bucket, tier)] - planned[(bucket, tier)]) * 100
+        > READY_TOLERANCE_POINTS * plan.count
+    ]
+
+
+def _whole_percent(count: int, total: int) -> int:
+    """``count`` as a whole percent of ``total``, rounded half up, in integers."""
+    return (2 * 100 * count + total) // (2 * total)
+
+
+def ready_refusal(plan: Optional[DistributionPlan], puzzles) -> Optional[str]:
+    """Why this selection may not leave draft, or ``None`` when it may.
+
+    ADR-0035/R1 in one place: no stored plan is a refusal with its remedy, and
+    otherwise every cell must be within :data:`READY_TOLERANCE_POINTS` of its
+    planned share. A refusal names **every** offending cell with its actual and
+    planned share, so the owner sees the whole of what is wrong at once
+    (AC-221).
+    """
+    if plan is None:
+        return NO_PLAN_REFUSAL
+    offenders = off_plan_cells(plan, puzzles)
+    if not offenders:
+        return None
+    named = "; ".join(
+        f"{bucket.label} x {tier.value}:"
+        f" {_whole_percent(actual, plan.count)}%"
+        f" against {_whole_percent(planned, plan.count)}%"
+        for bucket, tier, actual, planned in offenders
+    )
+    return (
+        "This book does not match its plan, so it cannot leave draft. "
+        f"More than {READY_TOLERANCE_POINTS} percentage points out: {named}."
+    )
 
 
 class BookManager:
@@ -305,9 +397,16 @@ class BookManager:
         refused a split that does not sum to 100 and any negative or fractional
         cell (INV-005), so nothing reaches storage that it would not accept.
 
-        Writes the plan and nothing else — never the selection, its order or
-        its custom titles (G-2, FR-038). Does not touch the status either: the
-        gate is CARD-124's.
+        Writes the plan and nothing else of the book's content — never the
+        selection, its order or its custom titles (G-2, FR-038).
+
+        A plan edit on a book that has **left draft returns it to draft**
+        (owner's decision, CARD-124; the same rule ADR-0035's "Membership
+        change after draft" gives a membership edit, INV-012). The plan is what
+        :meth:`set_book_status` measures the selection against, so changing it
+        changes the verdict that let the book out — and a book whose verdict is
+        no longer known must be judged again before a PDF or a KDP upload is
+        built from it. A book already in draft is left where it is.
 
         Returns:
             True if stored, False if the book does not exist.
@@ -323,6 +422,7 @@ class BookManager:
             if not book:
                 return False
             self._plans[book_id] = plan
+            book.status = BookStatus.DRAFT.value
             book.updated_at = datetime.utcnow()
             return True
 
@@ -333,6 +433,7 @@ class BookManager:
             if not book_row:
                 return False
             book_row.distribution_plan = plan_to_json(plan)
+            book_row.status = BookStatus.DRAFT.value
             book_row.updated_at = datetime.utcnow()
             db.commit()
             return True
@@ -715,8 +816,86 @@ class BookManager:
                 puzzle_titles = book_row.puzzle_titles or {}
                 return puzzle_titles.get(puzzle_id)
 
+    def _selection_records(self, puzzle_ids) -> List[Dict[str, Any]]:
+        """The stored record of each puzzle in a selection, for the gate.
+
+        A puzzle id no row matches contributes to no cell — the same verdict
+        :func:`~nonogram.admin.book_plan.selection_cells` makes on a record
+        with no recognisable tier or a side outside the supported range.
+
+        A manager built without a puzzle store cannot see the selection at
+        all, so it reads as empty and the gate refuses rather than waving the
+        book through. That is the honest failure (the same choice
+        :meth:`_mirror_onto_puzzles` makes), not a way past ADR-0035/R1; every
+        manager ``create_app`` builds has a store.
+        """
+        if self.puzzle_store is None:
+            logger.warning(
+                "No puzzle store: the selection of %d puzzle(s) cannot be read, so "
+                "the plan check (ADR-0035) sees an empty book and refuses.",
+                len(list(puzzle_ids)),
+            )
+            return []
+
+        records: List[Dict[str, Any]] = []
+        for puzzle_id in puzzle_ids:
+            try:
+                record = self.puzzle_store.get_puzzle(str(puzzle_id))
+            except (ValueError, TypeError) as error:
+                logger.warning(
+                    "Book holds puzzle id %r that no row can match (%s); it counts "
+                    "towards no plan cell.",
+                    puzzle_id,
+                    error,
+                )
+                continue
+            if record is not None:
+                records.append(record)
+        return records
+
+    def _refuse_unless_the_planned_book(
+        self, book_id: str, current_status: str, new_status: str, puzzle_ids
+    ) -> None:
+        """ADR-0035/R1: an exit from draft that does not match the plan is refused.
+
+        The gate runs **at the exit from draft only** — every target status,
+        including a direct ``draft -> ready_for_kdp`` or ``draft -> published``
+        jump, which is the status-jump bypass ADR-0035 (a) closes. ``draft ->
+        draft`` is not an exit, and a move between two non-draft statuses is
+        past the gate already.
+
+        Raises:
+            ValueError: no stored plan, or a cell out of tolerance. The
+                message is the refusal the owner is shown.
+        """
+        if current_status != BookStatus.DRAFT.value or new_status == BookStatus.DRAFT.value:
+            return
+        refusal = ready_refusal(self.get_plan(book_id), self._selection_records(puzzle_ids))
+        if refusal is not None:
+            raise ValueError(refusal)
+
     def set_book_status(self, book_id: str, status: str) -> bool:
         """Update book status.
+
+        Every transition **out of draft** — to ``ready_for_pdf`` or to any
+        later status — is gated on the book's stored plan (ADR-0035/R1,
+        FR-037, INV-007): the book must have a plan, and every longest-side x
+        tier cell of its selection must be within
+        :data:`READY_TOLERANCE_POINTS` percentage points of that cell's share
+        of the planned total. A refusal leaves the status unchanged and names
+        every offending cell (see :func:`ready_refusal`).
+
+        Membership outside draft
+        ------------------------
+        The gate runs at the exit from draft, not continuously. Adding or
+        removing a puzzle on a book that has **left** draft returns the book to
+        draft (INV-012, ADR-0035's "Membership change after draft"), so it
+        passes this gate again before it can leave — a KDP upload is never
+        built from a book that no longer matches its plan. Editing the plan
+        does the same (:meth:`save_plan`). CARD-131 implements the return to
+        draft on the membership paths; there is no bypass either way, because a
+        book back in draft leaves it only through this gate, like any other
+        draft book.
 
         Args:
             book_id: ID of book
@@ -726,7 +905,7 @@ class BookManager:
             True if updated, False if not found
 
         Raises:
-            ValueError: If invalid status
+            ValueError: If invalid status, or the transition is refused
         """
         valid_statuses = {s.value for s in BookStatus}
         if status not in valid_statuses:
@@ -745,6 +924,10 @@ class BookManager:
 
             if len(book.puzzle_ids) == 0 and status != BookStatus.DRAFT.value:
                 raise ValueError("Must have puzzles before advancing status")
+
+            self._refuse_unless_the_planned_book(
+                book_id, current_status, status, list(book.puzzle_ids)
+            )
 
             book.status = status
             book.updated_at = datetime.utcnow()
@@ -765,6 +948,19 @@ class BookManager:
 
                 if len(book_row.puzzle_ids or []) == 0 and status != BookStatus.DRAFT.value:
                     raise ValueError("Must have puzzles before advancing status")
+
+                current_status = book_row.status
+                selection = list(book_row.puzzle_ids or [])
+
+            # Judged with no session of this method's open, exactly as
+            # `_mirror_onto_puzzles` is called outside one: the plan and the
+            # selection's records are each read through their own.
+            self._refuse_unless_the_planned_book(book_id, current_status, status, selection)
+
+            with self._session_factory() as db:
+                book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+                if not book_row:
+                    return False
 
                 book_row.status = status
                 book_row.updated_at = datetime.utcnow()

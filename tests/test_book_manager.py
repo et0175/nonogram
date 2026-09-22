@@ -9,6 +9,22 @@ from src.nonogram.admin.book_manager import (
     get_book_manager,
 )
 
+# Not ``src.nonogram...``: ``book_manager`` imports the plan types under the
+# installed ``nonogram`` name, and the two spellings are two module objects, so
+# a plan built from the other one is not the class its isinstance check wants.
+from nonogram.admin.book_plan import DistributionPlan, Split
+
+
+#: CARD-124: since ADR-0035 a book leaves draft only when every longest-side x
+#: tier cell of its selection is within 3 percentage points of its plan. The
+#: puzzle ids below are placeholders that no store resolves to a record, so the
+#: selection this manager can see is empty, and the plan matching it is the one
+#: that plans no cell. Storing it before a status change keeps each test about
+#: the status rule it was written for.
+EMPTY_SELECTION_PLAN = DistributionPlan(
+    count=1, split=Split(100, 0, 0), cells=((0, 0, 0),) * 4
+)
+
 
 @pytest.fixture
 def book_manager():
@@ -231,6 +247,7 @@ class TestBookStatus:
         )
 
         book_manager.add_puzzles_to_book(book_id, ["puzzle_000001"])
+        book_manager.save_plan(book_id, EMPTY_SELECTION_PLAN)
 
         result = book_manager.set_book_status(book_id, BookStatus.READY_FOR_PDF.value)
 
@@ -272,6 +289,7 @@ class TestBookStatus:
         )
 
         book_manager.add_puzzles_to_book(book_id, ["puzzle_000001"])
+        book_manager.save_plan(book_id, EMPTY_SELECTION_PLAN)
         book_manager.set_book_status(book_id, BookStatus.PUBLISHED.value)
 
         with pytest.raises(ValueError):
@@ -369,6 +387,7 @@ class TestBookRetrieval:
 
         # Change status of first book
         book_manager.add_puzzles_to_book(id1, ["puzzle_000001"])
+        book_manager.save_plan(id1, EMPTY_SELECTION_PLAN)
         book_manager.set_book_status(id1, BookStatus.READY_FOR_PDF.value)
 
         # Get books by status
