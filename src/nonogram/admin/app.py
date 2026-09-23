@@ -88,6 +88,7 @@ from nonogram.errors import (
     NonogramError,
     NotUniquelySolvable,
     SizeOutOfRange,
+    UnsupportedDifficulty,
 )
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.orchestrator import BATCH_BUDGET_SECONDS, MAX_BATCH_COUNT
@@ -1064,6 +1065,13 @@ def create_app(debug=None):
                 theme = request.form.get("theme", "christmas")
                 source = request.form.get("source", "random")
                 quality_filter = int(request.form.get("quality_filter", 0))
+                # CARD-138: "Any" is the *absence* of a tier, not a word for
+                # one, so the form's Any option sends an empty value and it
+                # becomes None here. Every non-empty spelling travels on
+                # untouched — `difficulty.parse_tier` owns the vocabulary
+                # (ADR-0031/R1), and this boundary has no easy/medium/hard of
+                # its own to fall out of step with it.
+                difficulty_tier = request.form.get("difficulty", "").strip() or None
 
                 batch_id = batch_gen.create_batch(
                     count=count,
@@ -1071,12 +1079,17 @@ def create_app(debug=None):
                     theme=theme,
                     source=source,
                     quality_filter=quality_filter,
+                    difficulty_tier=difficulty_tier,
                 )
 
                 flash(f"Batch created: {batch_id}", "success")
                 return redirect(url_for("batch_status", batch_id=batch_id))
 
-            except ValueError as e:
+            # A tier nobody supports is a typo in a form field, not a server
+            # fault: it comes back as the same kind of flash an out-of-range
+            # count does, carrying parse_tier's own message (which lists the
+            # tiers that exist), and the form re-renders below.
+            except (ValueError, UnsupportedDifficulty) as e:
                 flash(f"Error: {str(e)}", "error")
 
         return _render_batch_step_one()
@@ -1098,6 +1111,13 @@ def create_app(debug=None):
             loaded_images=image_mgr.get_all_images(),
             default_size=session.get("batch_default_size", "medium"),
             quality_filter=session.get("batch_quality_filter", 25),
+            # CARD-138: the tiers a random batch can be asked for, read off
+            # the enum rather than written out, so a fourth tier would reach
+            # the form without an edit here. "Any" is not in this list — it is
+            # the empty option the template adds, because it is the absence of
+            # a tier rather than one of them.
+            difficulty_tiers=[tier.value for tier in Tier],
+            default_count=DEFAULT_BATCH_COUNT,
         )
 
     @app.route("/batch/clear-images", methods=["POST"])

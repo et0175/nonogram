@@ -88,6 +88,57 @@
                 </form>
             </div>
         </div>
+
+        {# CARD-138: the random path. POST /batch/create has always accepted
+           these fields; until now nothing on the panel sent them, so a random
+           batch — the only way to fill a book's medium quota — could be asked
+           for only from a script. The difficulty select is this card's point:
+           "Any" carries an empty value, because any is the absence of a tier
+           rather than a word for one, and the tiers themselves come from the
+           enum so the panel spells none of them out. #}
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="/batch/create" id="randomBatchForm">
+                    <input type="hidden" name="source" value="random">
+
+                    <h2 class="card-title">Or generate random puzzles</h2>
+                    <p class="text-muted small">No pictures: grids drawn at random, solved, graded and stored as drafts like any other batch.</p>
+
+                    <div class="row">
+                        <div class="col-sm-4 mb-3">
+                            <label for="random_count" class="form-label">How many</label>
+                            <input type="number" class="form-control" id="random_count" name="count"
+                                   min="10" max="{{ MAX_BATCH_COUNT }}" value="{{ default_count }}" required>
+                        </div>
+                        <div class="col-sm-4 mb-3">
+                            <label for="random_size" class="form-label">Size (cells per side)</label>
+                            <input type="number" class="form-control" id="random_size" name="sizes"
+                                   min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="20" required>
+                        </div>
+                        <div class="col-sm-4 mb-3">
+                            <label for="random_difficulty" class="form-label">Difficulty</label>
+                            <select class="form-select" id="random_difficulty" name="difficulty">
+                                <option value="" selected>Any</option>
+                                {% for tier in difficulty_tiers %}
+                                <option value="{{ tier }}">{{ tier|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted d-block mt-2">
+                                Any is how every batch was made before: whatever the grids turn out to be.
+                                Ask for a tier and off-tier puzzles are redrawn — the batch may come back
+                                short, and its note says by how much.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <button type="submit" class="btn btn-primary">
+                            Generate {{ icons.icon('arrow-right') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <div class="col-md-4">
