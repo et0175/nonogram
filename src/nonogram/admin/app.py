@@ -2986,8 +2986,13 @@ def create_app(debug=None):
         order, no cover page) or the cover (the uploaded cover when its file
         exists, else the generated title cover). ``puzzles`` may be passed
         by a caller that has already fetched them.
+
+        The generator is built *for this book* (CARD-116): every page it
+        draws — guide, puzzles, divider, answers, and the cover file's page —
+        is the book's own stored trim at 300 DPI, and takes its mirrored
+        margins from its position in the interior (FR-030/FR-032/FR-043).
         """
-        generator = BookPDFGenerator()
+        generator = BookPDFGenerator(book)
         if part == "interior":
             if puzzles is None:
                 puzzles = _book_puzzles(book)
