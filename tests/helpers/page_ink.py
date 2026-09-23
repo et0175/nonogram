@@ -39,6 +39,15 @@ and can never be above the grid's top rule nor left of its left border:
 :attr:`Drawing.left` and :attr:`Drawing.top` are safe on an answer page.
 :attr:`Drawing.columns` and :attr:`Drawing.rows` are not — count rules on a
 blank puzzle page only.
+
+The page the printer measures
+----------------------------
+:func:`pdf_page_boxes` reads each PDF page's **MediaBox** — its physical size
+in PDF points, which is what a printer trims to. It is the other half of
+"1800 x 2700 px at 300 DPI" (AC-177): the pixel size is the raster the page
+embeds, and only the MediaBox says how large that raster is *printed*. A book
+whose ``dpi`` were dropped would keep every pixel assertion green while
+measuring 6 x 9 in at the wrong trim, so both are asserted.
 """
 
 from __future__ import annotations
@@ -46,7 +55,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from PIL import Image
+from PIL import Image, PdfParser
 
 #: A pixel darker than this (0..255 grey) is ink. The same level
 #: ``tests/helpers/pdf_pages.py`` reads a PDF's pages at.
@@ -89,6 +98,25 @@ class Drawing:
     def cell(self) -> float:
         """The printed cell in device pixels: the grid's width over its columns."""
         return (self.grid_right - self.grid_left) / self.columns
+
+
+def pdf_page_boxes(data: bytes) -> list[tuple[float, float, float, float]]:
+    """Every page's MediaBox in ``data``, in page order.
+
+    Four PDF points (1/72 in) — ``(left, bottom, right, top)`` — straight off
+    the page object Pillow wrote, with nothing re-derived from the page's
+    raster. A 6 x 9 in page is ``(0, 0, 432, 648)``.
+    """
+    parser = PdfParser.PdfParser(buf=data)
+    try:
+        boxes = []
+        for ref in parser.pages:
+            page = parser.read_indirect(ref)
+            left, bottom, right, top = page[b"MediaBox"]
+            boxes.append((float(left), float(bottom), float(right), float(top)))
+        return boxes
+    finally:
+        parser.close()
 
 
 def _dark(page: Image.Image) -> np.ndarray:

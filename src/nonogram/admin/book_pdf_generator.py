@@ -34,11 +34,10 @@ The band's *content* (today "<name> — <tier>") is deliberately untouched here:
 ADR-0037/R1's "Puzzle N · Tier" is CARD-117's.
 """
 
+import logging
 from collections import Counter
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple
-from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
@@ -47,7 +46,11 @@ from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.layout import DPI, PageSpec, compute_layout
 from nonogram.export.pdf import render_pages
-from nonogram import clues
+
+#: The panel's own logger, like the rest of ``admin/``: a dropped puzzle is
+#: the only trace the export leaves of a member that did not reach the file,
+#: and a ``print`` of it lands nowhere in a served request.
+logger = logging.getLogger(__name__)
 
 
 def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
@@ -171,7 +174,11 @@ def interior_page_count(puzzle_count: int) -> int:
 
     ``puzzle_count`` counts puzzles that *render*: ``interior_pages`` skips
     a puzzle it cannot build an export payload for, so a count taken from the
-    book's members is an upper bound when one of them is broken. CARD-129 owns
+    book's members is an upper bound when one of them is broken. That skip is
+    the only way the two can differ — a puzzle that builds a payload and then
+    will not draw aborts the export with a :class:`RuntimeError` naming it,
+    rather than quietly making the file one page shorter than this number.
+    CARD-129 owns
     the finalise count's exact equality (EC-034). CARD-116 put every page on
     the book's trim and left this plan alone; the two-up pairing and the
     packed answer key (CARD-134) do change it, and must change it here.
@@ -460,18 +467,41 @@ class BookPDFGenerator:
         (FR-043). That is why the payloads are built first: a puzzle that
         cannot even be turned into an export payload is dropped *before* any
         position is handed out, so no later page is numbered as though a page
-        that does not exist were there. A failure after that point — a puzzle
-        that builds a payload and then will not draw — is not swallowed: the
-        page plan below would no longer describe the file, and a book that is
-        quietly one page short is worse than an export that says so.
+        that does not exist were there — every surviving page still sits where
+        its **own** 1-based position puts it. The drop is logged, at warning,
+        and is the only trace of a member that did not reach the file.
+
+        Raises:
+            RuntimeError: one puzzle built a payload and then would not draw.
+                That failure is **not** swallowed — the page plan
+                :func:`interior_page_count` states would no longer describe the
+                file, and a book that is quietly one page short is worse than
+                an export that says so — so it aborts the whole export. The
+                message names the puzzle's ``id``, which is the only thing in
+                the raised text a 120-puzzle book can be searched by: the
+                position in ``puzzles`` no longer matches the interior once a
+                puzzle has been dropped, and the interior page number does not
+                point back at a row at all. It is also raised when the page
+                plan and the pages built disagree.
         """
-        payloads: List[ExportPayload] = []
+        # The puzzle's own id travels with its payload: it is what the raise
+        # below names, and once a member has been dropped nothing else left in
+        # the loop identifies the row the failure came from.
+        payloads: List[Tuple[Any, ExportPayload]] = []
         for puzzle in puzzles:
+            # Read outside the try: a row so malformed it is not even a
+            # mapping must still be logged, not raise again inside the
+            # handler that is reporting it.
+            puzzle_id = puzzle.get("id") if hasattr(puzzle, "get") else None
             try:
-                payloads.append(self._payload(puzzle))
+                payloads.append((puzzle_id, self._payload(puzzle)))
             except Exception as e:
-                # Log and skip this puzzle if it cannot be drawn
-                print(f"Failed to render puzzle {puzzle.get('id')}: {str(e)}")
+                logger.warning(
+                    "Dropping book puzzle %s from the interior: no export "
+                    "payload could be built for it (%s)",
+                    puzzle_id,
+                    e,
+                )
                 continue
 
         # The positions every page is built on: 1 the guide page, 2.. the
@@ -493,10 +523,15 @@ class BookPDFGenerator:
         ]
 
         answer_pages: List[Image.Image] = []
-        for index, payload in enumerate(payloads):
-            blank_page, answer_page = self._puzzle_and_answer(
-                payload, 2 + index, first_answer_page + index
-            )
+        for index, (puzzle_id, payload) in enumerate(payloads):
+            try:
+                blank_page, answer_page = self._puzzle_and_answer(
+                    payload, 2 + index, first_answer_page + index
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"puzzle {puzzle_id!r} could not be drawn: {e}"
+                ) from e
             pages.append(blank_page)
             answer_pages.append(answer_page)
 
@@ -507,11 +542,16 @@ class BookPDFGenerator:
             pages.extend(answer_pages)
 
         # The page plan the Finalise screen shows is this function's own
-        # make-up; fail loudly rather than let the two drift apart.
-        if len(pages) != interior_page_count(len(answer_pages)):
+        # make-up; fail loudly rather than let the two drift apart. The plan
+        # is taken over this call's *input* — the puzzles that survived the
+        # payload pass — not over a list the loop above built, so a change to
+        # the make-up of the pages (a divider per level, a two-up page) that
+        # forgets `interior_page_count` fails here instead of shipping a book
+        # whose stated page count is not its page count.
+        planned = interior_page_count(len(payloads))
+        if len(pages) != planned:
             raise RuntimeError(
-                f"interior has {len(pages)} pages, its page plan says "
-                f"{interior_page_count(len(answer_pages))}"
+                f"interior has {len(pages)} pages, its page plan says {planned}"
             )
         return pages
 

@@ -20,7 +20,13 @@ page fit. Neither side of that comparison calls ``compute_layout`` or
 The pages come from ``BookPDFGenerator(book).interior_pages(...)`` — the
 interior in print order, ``pages[n - 1]`` being interior page ``n`` — except
 where an AC is about the PDF **file**, which is read back with Pillow's own
-parser (``tests/helpers/pdf_pages.py``).
+parser (``tests/helpers/pdf_pages.py``, and ``page_ink.pdf_page_boxes`` for
+the MediaBox a printer measures).
+
+The last two classes carry no AC. They pin the module's **failure contract**
+— what a puzzle that will not render does to the pages of the ones around it
+— which is the contract the payload-first pass in ``interior_pages`` exists
+to keep. See their own docstrings for what they are and are not evidence of.
 """
 
 from __future__ import annotations
@@ -29,9 +35,10 @@ import pytest
 
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
+from nonogram.export.layout import DEFAULT_PAGE_SPEC
 from nonogram.limits import MAX_SIZE, MIN_SIZE
-from tests.helpers.page_ink import drawing_of
+from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import pdf_pages
 
 #: CON-018's Book 1 profile, in millimetres, written out here rather than
@@ -229,9 +236,19 @@ class TestBookPdf_CellFollowsStoredTrim:
 
 
 class TestBookPdf_PageSizeEqualsStoredTrim:
-    """AC-177 — every page of a 6 x 9 in book's PDF is 1800 x 2700 px."""
+    """AC-177 — every page of a 6 x 9 in book's PDF is 1800 x 2700 px at 300 DPI.
+
+    Both halves of the AC are measured. The pixel size is the raster the page
+    embeds; the **MediaBox** is what the page measures when printed, and only
+    it can tell 1800 x 2700 px at 300 DPI (6 x 9 in) from the same raster
+    written at some other resolution.
+    """
 
     TRIM_PX = (1800, 2700)
+
+    #: 6 x 9 in in PDF points (1/72 in): 432 x 648 pt. Written out here in
+    #: inches x 72, not read back off the page.
+    TRIM_PT = (0.0, 0.0, 6 * 72.0, 9 * 72.0)
 
     @pytest.fixture
     def export(self):
@@ -246,10 +263,17 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
         assert len(pages) == 1 + 3 + 1 + 3
         assert [page.size for page in pages] == [self.TRIM_PX] * len(pages)
 
+    def test_every_interior_page_measures_six_by_nine_inches_when_printed(self, export):
+        """The "at 300 DPI" half: 1800 px across a page 432 pt (6 in) wide."""
+        boxes = pdf_page_boxes(export.interior.getvalue())
+
+        assert boxes == [self.TRIM_PT] * (1 + 3 + 1 + 3)
+
     def test_the_cover_file_is_the_stored_trim_too(self, export):
         (cover,) = pdf_pages(export.cover.getvalue())
 
         assert cover.size == self.TRIM_PX
+        assert pdf_page_boxes(export.cover.getvalue()) == [self.TRIM_PT]
 
     def test_it_is_not_the_hard_coded_letter_page(self, export):
         assert (2550, 3300) not in {page.size for page in pdf_pages(export.interior.getvalue())}
@@ -284,6 +308,18 @@ class TestBookPdf_EmptyMarginsFallBackToBook1Profile:
         pages = _interior(book, [_puzzle(*self.PUZZLE)])
 
         assert {page.size for page in pages} == {(2550, 3300)}
+
+    def test_that_page_measures_eight_and_a_half_by_eleven_inches_when_printed(self):
+        """2550 x 3300 px is the profile trim only at 300 DPI: 612 x 792 pt."""
+        book = _book(width_mm=None, height_mm=None, gutter_mm=None, outside_mm=None)
+
+        export = BookPDFGenerator(book).export_book(
+            [_puzzle(*self.PUZZLE)], book.metadata.title
+        )
+
+        letter_pt = (0.0, 0.0, 8.5 * 72.0, 11 * 72.0)
+        assert pdf_page_boxes(export.interior.getvalue()) == [letter_pt] * 4
+        assert pdf_page_boxes(export.cover.getvalue()) == [letter_pt]
 
 
 # --------------------------------------------------------------------------
@@ -463,6 +499,189 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
 
         assert abs(lefts[0] - lefts[2]) < EDGE_TOLERANCE_MM
         assert abs(lefts[1] - lefts[0] - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
+
+
+# --------------------------------------------------------------------------
+# What a puzzle that will not render does to the pages around it
+# --------------------------------------------------------------------------
+
+
+def _unbuildable_puzzle(name: str = "Broken") -> dict:
+    """A book row no ``ExportPayload`` can be built from.
+
+    Its ``clues_rows`` is a number, so ``_payload``'s ``tuple(tuple(row) for
+    row in ...)`` raises before any page position has been handed out.
+    """
+    return {
+        "id": f"{name}-unbuildable",
+        "grid": [[True]],
+        "clues_rows": 5,
+        "clues_cols": [[1]],
+        "width": 1,
+        "height": 1,
+        "puzzle_name": name,
+        "difficulty_tier": "easy",
+    }
+
+
+def _undrawable_puzzle(name: str = "Ghost") -> dict:
+    """A book row whose payload builds and whose page then will not draw.
+
+    Real clues, no grid: ``compute_layout`` is happy, and the renderer fails
+    when it reaches the cells it is asked to reveal.
+    """
+    puzzle = _puzzle(*_MIRRORED_PUZZLE, name=name)
+    puzzle["id"] = f"{name}-undrawable"
+    puzzle["grid"] = None
+    return puzzle
+
+
+class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
+    """A dropped puzzle leaves every surviving page on its own parity.
+
+    This is an **API-contract** test, not a production scenario: the store's
+    write path refuses a row like this today (``add_puzzle`` re-derives the
+    clues from the grid), so the malformed row is fed straight to
+    ``interior_pages``, which is where the contract lives. The contract is the
+    reason ``interior_pages`` builds every payload before it hands out a
+    single page position: a puzzle dropped *after* positions were handed out
+    would leave a hole in the numbering and mirror every later page's margins
+    the wrong way round.
+    """
+
+    def test_the_survivors_sit_where_their_own_positions_put_them(self):
+        pages = _interior(
+            _book(),
+            [
+                _puzzle(*_MIRRORED_PUZZLE, name="First"),
+                _unbuildable_puzzle(),
+                _puzzle(*_MIRRORED_PUZZLE, name="Second"),
+            ],
+        )
+
+        # Guide 1, the two survivors 2 and 3, divider 4, two answers 5 and 6.
+        assert len(pages) == 6
+        first_mm = _mm(drawing_of(pages[1]).left)
+        second_mm = _mm(drawing_of(pages[2]).left)
+
+        # Interior page 2 is left-hand, page 3 right-hand.
+        assert abs(first_mm - _expected_left_mm(
+            15, 7, STANDARD_CELL_MM, right_hand=False
+        )) < EDGE_TOLERANCE_MM, first_mm
+        assert abs(second_mm - _expected_left_mm(
+            15, 7, STANDARD_CELL_MM, right_hand=True
+        )) < EDGE_TOLERANCE_MM, second_mm
+
+    def test_the_second_survivor_did_not_inherit_the_dropped_page_parity(self):
+        """The failure this pins: the survivor left on page 4's margins.
+
+        Had the drop happened after page 3 was handed to the broken puzzle,
+        the second survivor would be interior page 4 — left-hand, the same
+        left edge as the first survivor — instead of page 3.
+        """
+        pages = _interior(
+            _book(),
+            [
+                _puzzle(*_MIRRORED_PUZZLE, name="First"),
+                _unbuildable_puzzle(),
+                _puzzle(*_MIRRORED_PUZZLE, name="Second"),
+            ],
+        )
+
+        first_mm = _mm(drawing_of(pages[1]).left)
+        second_mm = _mm(drawing_of(pages[2]).left)
+
+        assert abs(second_mm - first_mm) > EDGE_TOLERANCE_MM
+        assert abs(second_mm - first_mm - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
+
+    def test_the_drop_leaves_a_trace_in_the_log(self, caplog):
+        """It is the only trace: nothing else says the book lost a member.
+
+        Through the module's logger, so a served request records it — a
+        ``print`` here lands nowhere.
+        """
+        with caplog.at_level("WARNING", logger="nonogram.admin.book_pdf_generator"):
+            _interior(_book(), [_unbuildable_puzzle(), _puzzle(*_MIRRORED_PUZZLE)])
+
+        (record,) = [r for r in caplog.records if "Broken-unbuildable" in r.getMessage()]
+        assert record.levelname == "WARNING"
+        assert record.name == "nonogram.admin.book_pdf_generator"
+
+
+class TestBookPdf_PagePlanGuardIsLive:
+    """The self-check fires when the pages built stop matching the page plan.
+
+    It compares this call's **input** — the puzzles that survived the payload
+    pass — against the pages the loop produced, so a later change to the
+    make-up of the interior (a divider per level, a two-up page) that forgets
+    :func:`interior_page_count` is caught here. It used to take its number
+    from a list the same loop built, which reads as a drift guard while
+    measuring the output against itself; no input makes the two disagree
+    today, so what this test pins is that the guard is *live* at all.
+    """
+
+    def test_a_plan_that_no_longer_describes_the_pages_aborts(self, monkeypatch):
+        import nonogram.admin.book_pdf_generator as generator_module
+
+        planned = generator_module.interior_page_count
+        monkeypatch.setattr(
+            generator_module, "interior_page_count", lambda count: planned(count) + 1
+        )
+
+        with pytest.raises(RuntimeError) as raised:
+            _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
+
+        assert "interior has 4 pages, its page plan says 5" in str(raised.value)
+
+
+class TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle:
+    """A puzzle that will not draw aborts the export, and the raise names it.
+
+    Also an **API-contract** test: no store write path produces a puzzle with
+    real clues and no grid today. The contract is deliberate — a page plan
+    that no longer describes the file is worse than a refusal — and its price
+    is that one bad member stops a whole book, so the owner has to be able to
+    tell *which* member from the message alone (a 120-puzzle book offers no
+    other way to look).
+    """
+
+    def test_interior_pages_raises_and_names_the_puzzle(self):
+        puzzles = [
+            _puzzle(*_MIRRORED_PUZZLE, name="First"),
+            _undrawable_puzzle(),
+            _puzzle(*_MIRRORED_PUZZLE, name="Second"),
+        ]
+
+        with pytest.raises(RuntimeError) as raised:
+            _interior(_book(), puzzles)
+
+        assert "Ghost-undrawable" in str(raised.value)
+        assert raised.value.__cause__ is not None, "the original failure is kept"
+
+    def test_the_export_route_sees_the_same_named_failure(self):
+        """``export_book`` is what the routes call; the id survives to there."""
+        book = _book()
+        puzzles = [_puzzle(*_MIRRORED_PUZZLE), _undrawable_puzzle()]
+
+        with pytest.raises(RuntimeError) as raised:
+            BookPDFGenerator(book).export_book(puzzles, book.metadata.title)
+
+        assert "Ghost-undrawable" in str(raised.value)
+
+
+class TestBookPdf_PageFrameNeedsABookPageSpec:
+    """``page_frame`` refuses a spec with no parity, rather than reading None.
+
+    ``DEFAULT_PAGE_SPEC`` is imported only as *a spec that is not a book
+    page* — nothing here derives a measurement from it, so the module's
+    independence from ``compute_layout``/``book_page_spec`` is untouched.
+    """
+
+    def test_a_spec_without_parity_is_refused(self):
+        with pytest.raises(ValueError) as raised:
+            page_frame(DEFAULT_PAGE_SPEC)
+
+        assert "book_page_spec" in str(raised.value)
 
 
 # --------------------------------------------------------------------------
