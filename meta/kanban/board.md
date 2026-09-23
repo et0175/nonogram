@@ -38,7 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-136** P1 · Print setup stores the chosen trim on the book · 0.5d · wave 24 · after CARD-116 (gap found in waves 22-23)
 - **CARD-118** P1 · Proof pages (30×30 + 15×15) — owner-confirmed print checkpoint · 0.5d · wave 25 · Inc 13 · after CARD-117
 - **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125
 - **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124
@@ -49,12 +48,13 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-137** P1 · Recalibrate the medium/hard cutoff so medium is reachable · 1d · architectural · wave 24
-  `worktree: ../PythonProject4-CARD-137` · `branch: card/137-recalibrate-medium-cutoff` · `elapsed: 0d`
 
 ## Review
+- **CARD-136** P1 · Print setup stores the chosen trim on the book · 0.5d · wave 24 · score 8.5 (cycle 2/3)
+  `worktree: ../PythonProject4-CARD-136` · `branch: card/136-store-chosen-trim` · `elapsed: 0d`
 
 ## Done
+- **CARD-137** Medium/hard cutoff 66 -> 90 · score 8.0 · merged a949244
 - **CARD-126** Book level order · score 9.0 · merged ea35a7f
 - **CARD-123** Tile cell + floor flag + override · score 9.3 · merged 8b7b78e
 - **CARD-117** "Puzzle N · Tier" band + print strokes · score 9.0 · merged 837a6f3

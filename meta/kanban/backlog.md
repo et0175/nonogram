@@ -19,3 +19,5 @@
 - [ ] UX gap (no card): an unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that cannot succeed, and never names the remedy. Fails closed, but unhelpful   @feature
 - [ ] CARD-126 F-002: the order paths resolve tiers one store read at a time (~150 sessions per arrow click on a default-plan book); memoise across the three call paths   @tech-debt
 - [ ] Card-text defect for decompose: CARD-126 G-4 names a test: that a LATER card (CARD-131) creates, so it is unverifiable in every wave before that   @tech-debt
+- [ ] Image-mode difficulty sweep: re-run scripts/measure_difficulty_cutoff.py over image-derived puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt
+- [ ] CARD-137 leftovers: add RUNG_OVERLAP_MAX_SCORE and the new cutoff names to _CUTOFF_NAMES in the AST guard; difficulty.py's docstring still carries the retired "fourth tier" section whose example classify(score, branch_nodes) raises TypeError (CARD-098 residue, pre-existing)   @tech-debt

@@ -1,0 +1,362 @@
+version: 1
+generated_at: "2026-09-23T07:48:34Z"
+target: "card/137-recalibrate-medium-cutoff (b7b961f..09dc714) vs main — CARD-137 cycle 1"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/difficulty.py
+    - scripts/measure_difficulty_cutoff.py
+    - tests/property/test_difficulty_calibration.py
+    - tests/property/test_difficulty_ladder.py
+    - tests/test_difficulty.py
+    - tests/test_difficulty_tiers.py
+    - tests/test_export_pdf.py
+    - tests/test_resample.py
+    - docs/GENERATION_ALGORITHM.md
+    - meta/architecture/decisions/adr/0005-difficulty-tier-cutoffs.md
+    - meta/architecture/inputs/raw-requirements.md
+    - src/nonogram/admin/regrade.py (read-only, guardrailed)
+  not_reached:
+    - src/nonogram/admin/book_*.py
+    - src/nonogram/export/**
+    - tests/e2e/**
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 1076, removed: 148 }
+  max_fan_in: { symbol: "nonogram.difficulty.MEDIUM_MAX_SCORE", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["docs/GENERATION_ALGORITHM.md"]
+  cochange_missing:
+    - src/nonogram/admin/puzzle_review.py
+    - src/nonogram/admin/app.py
+    - src/nonogram/orchestrator.py
+    - tests/test_admin_tier_surfaces.py
+  unmeasured:
+    mutation_check: "budget_truncated — deferred(cost): gating findings present on this cycle; certify on the stable cycle"
+
+system_contract:
+  rules_checked: 42
+  holds: 12
+  unchecked: 30
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from `git diff main...HEAD --stat`; scripts/measure_difficulty_cutoff.py imports only argparse/json/random/sys/time/collections/dataclasses/pathlib + nonogram. TestDependencyBaseline_IsExactlyPillowAndNumpy green (tests/test_export_pdf.py, 205 passed)."
+    - "ADR-0019/R1 ✓ holds — difficulty.py's only package import is `from nonogram.errors import UnsupportedDifficulty` (src/nonogram/difficulty.py:184); test_every_import_in_the_package_points_inward green in my tests/test_cli.py run (262 passed)."
+    - "ADR-0022/R1 ✓ holds — no extent crosses a signature in difficulty.py; the only extent read is signals.total_cells, a cell count. scripts/ lies outside the rule's scope (src/nonogram/**); the new corpus plan carries (width, height) pairs (tests/property/test_difficulty_calibration.py:115-123)."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no orchestrator/repair code in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: the retry bound is untouched; the diff changes only how many candidates POL-004 rejects (tests/test_resample.py now records 13 of a 30 bound, green)."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery code in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ✓ holds — the diff adds no density-grounds rejection; the new corpus and the measurement script only *sample* densities 45..52 / 45..75, and no module documentation claims a later stage refuses on density."
+    - "ADR-0029/R1 ✓ holds — RUNG_BANDS is bit-identical before/after (reproduce: import HEAD's and main's difficulty.py side by side, `dict(old.RUNG_BANDS) == dict(new.RUNG_BANDS)` True; 200,000 synthetic signal records scored identically, 0 differing floats). TestScoreDifficulty_DeeperLineReasoningScoresHigher green."
+    - "ADR-0029/R2 ⚠ unchecked — check_ref_missing: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve does not exist under tests/ (standing model gap, also recorded by CARD-116 and CARD-121 reviews). Manual read: the diff adds no solver call on the production path; the new test corpus calls solve() once per grid (test_difficulty_calibration.py:169)."
+    - "ADR-0029/R3 ✓ holds — SolverSignals still has no elapsed_seconds/size/density member (src/nonogram/difficulty.py:360-403); PropertyTest_ScoreDifficulty_IndependentOfElapsedTime green in tests/property/test_difficulty_ladder.py run."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver/propagate code in this diff."
+    - "ADR-0029/R5 ✓ holds — the new corpus keeps only solution_count == 1 records (test_difficulty_calibration.py:170); score_difficulty still returns SCORE_MIN for an all-zero histogram (difficulty.py:459-461). PropertyTest_SolveStrategies_RungsInvariantUnderTransposition green in the full suite per the build state."
+    - "ADR-0031/R1 ✓ holds — Tier still declares exactly EASY/MEDIUM/HARD (difficulty.py:284-286), TIER_BANDS keys all three (325-331), classify(score) takes one argument (472), no branch_nodes read in classify. TestTiers_ThreeBandsAndNoFourthTier green."
+    - "ADR-0031/R2 ✓ holds — no admin/orchestrator change in the diff; TestTiers_BranchingIsAStrategyNotATier green (tests/test_difficulty_tiers.py, 262 passed)."
+    - "ADR-0031/R3 ✓ holds — tier_of_record still maps \"guess\" to Tier.HARD (difficulty.py:554-563) and writes nothing; no migration file in the diff; nonogram_admin.db untouched by the branch (`git diff main...HEAD --stat` lists 9 files, none a DB or migration). TestTiers_LegacyGuessRowReadsAsHard green."
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book-assembly code in this diff."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book-status code in this diff. (The tier *mix* this gate measures shifts — see finding F-001 — but the gate itself is untouched.)"
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** is absent from the diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden and tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py green in my targeted run (262 passed), fixtures unmodified."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no admin layout code in this diff."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book PDF code in this diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no layout stroke code in this diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in this diff; the new corpus only consumes solve()'s verdict."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in this diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web server code in this diff."
+    - "CON-011 ✓ holds — the calibration corpus draws only inside MIN_SIZE..MAX_SIZE, read from nonogram.limits rather than written as 10/30 (test_difficulty_calibration.py:99,115-123) and asserted by test_the_corpus_really_is_drawn_in_the_batch_generators_density_band:266-268 (green)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no image/aspect code in this diff."
+    - "CON-014 ✓ holds — same evidence as ADR-0029/R3: no clock member on SolverSignals, score_difficulty reads only rung_cells and total_cells (difficulty.py:459-469); classify reads only the score (511-515)."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue-encoding code in this diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness code in this diff; the new corpus independently drops non-unique candidates (test_difficulty_calibration.py:170)."
+    - "INV-003 ✓ holds — the retry bound is untouched and tests/test_resample.py is green with the new expectation 13 (bound MAX_RETRY_ATTEMPTS = 30); TestResample_StopsAtMaxRetryBound / TestRegenerate_StopsAtMaxRetryBound green in the 205-passed run."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book-plan code in this diff."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no book-membership code in this diff."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no book-readiness code in this diff."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book code in this diff."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book-order code in this diff."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing code in this diff."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer-key code in this diff."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no book-membership code in this diff."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no book-export code in this diff."
+
+root_causes:
+  - id: RC-1
+    title: "The recalibration's downstream consequences are stated in one place (the tier table) but not carried to the surfaces that read it"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: docs/GENERATION_ALGORITHM.md
+    line: 470
+    title: "Hard's yield collapse (20.3% -> 7.0% in the batch density band) is measured but its consequence for --difficulty hard and the book's Hard quota is not stated"
+    description: |
+      The card's own measured table, now in §7 of the doc and in
+      tests/property/test_difficulty_calibration.py's docstring, records the tier split
+      moving 64.1/15.6/20.3 -> 64.1/28.9/7.0 on a 315-puzzle corpus drawn at the
+      density `orchestrator.generate_batch` hardcodes. Medium's side of that move is
+      documented everywhere. Hard's is not: Hard's per-candidate yield in the band the
+      book generator actually uses fell by ~3x, which is the number POL-004's resample
+      loop races against MAX_RETRY_ATTEMPTS = 30, and which the book's default 30/45/25
+      plan (FR-034, gated by ADR-0035/R1 / INV-007) has to fill 25% of.
+      §8.3's only acknowledgement is the appended clause "the non-Easy remainder is now
+      mostly Medium rather than mostly Hard", which states the direction and not the
+      magnitude, and §8's `--difficulty` paragraph was rewritten for Medium only
+      ("A request for Medium at an unlucky extent/density still resamples") while
+      leaving the Hard side silent.
+      Not a challenge to 90.0 — the owner chose to make Hard mean "a lot", and Hard
+      becoming rarer is the content of that decision. The gap is that the doc the card
+      updated does not say the whole true thing about it, so the next person to watch a
+      `--difficulty hard` request abandon, or a book stall short of its Hard cell, has
+      no pointer from here.
+    suggestion: |
+      Add one measured sentence to §7 (beside the new distribution table) and to §8.3:
+      Hard's per-candidate yield at the batch density falls from ~20% to ~7%, so a
+      `--difficulty hard` request at density 50 now leans on POL-004's 30-attempt budget
+      where it previously did not, and §8.3's existing practical rule ("generate Hard at
+      45") becomes load-bearing rather than advisory. scripts/measure_difficulty_cutoff.py
+      already prints the per-density and per-bucket tables that support the figure — cite
+      its run rather than deriving a new one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/difficulty.py
+    line: 231
+    title: "The declared architect writeback was never queued: ADR-0005's Decision and ADR-0029's History now state figures the shipped constant contradicts"
+    description: |
+      `MEDIUM_MAX_SCORE = 90.0` (difficulty.py:231) contradicts, verbatim and while both
+      ADRs carry Status: Accepted:
+        - meta/architecture/decisions/adr/0005-difficulty-tier-cutoffs.md:41-43 —
+          "divided into three equal-width bands — Easy = [0, 33], Medium = (33, 66],
+          Hard = (66, 100] — with the two boundary constants (33 and 66)";
+        - meta/architecture/decisions/adr/0029-difficulty-by-strategy-ladder.md:179 —
+          "ADR-0005's cutoffs now land exactly on rung boundaries".
+      This is NOT an ADR violation: ADR-0005's Consequences/Neutral explicitly sanctions
+      the move ("Revisiting this decision later ... is a constant-table change plus a
+      documented rationale"), and the rationale is documented three times over. The
+      defect is the tracking. CARD-137's Worktree notes claim twice that the writeback is
+      "queued in `inputs/raw-requirements.md`" ([Architect] and [Architect, still owed]),
+      and it is not: `grep -n "137\|cutoff\|90\.0" meta/architecture/inputs/raw-requirements.md`
+      returns nothing, while the file's tail shows the established pattern being used by
+      CARD-117, CARD-123, CARD-124, CARD-125 and CARD-133 in the last two days
+      ("... Source: CARD-NNN, 2026-09-23"). The queue is the only channel that survives
+      the worktree's deletion at merge, so as it stands the ADR drift is recorded nowhere
+      the architect pipeline reads.
+    suggestion: |
+      Append one line to meta/architecture/inputs/raw-requirements.md in the existing
+      Delta format, e.g.: "ADR-0005 / ADR-0029 / ADR-0031: the medium/hard cutoff moved
+      66.0 -> 90.0 (owner, 2026-09-23); a tier boundary now sits INSIDE the
+      probe_contradiction rung, so ADR-0029's History claim 'ADR-0005's cutoffs now land
+      exactly on rung boundaries' is half false from this date and ADR-0005's Decision
+      paragraph states superseded figures. No score moved. Source: CARD-137, 2026-09-23."
+      That is the whole fix; the ADR rewrite itself stays the architect's.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_difficulty_ladder.py
+    line: 386
+    title: "Tautological assertion replacing the retired rung==tier check"
+    description: |
+      `assert classify(score) in set(Tier)` cannot fail: `classify` returns a `Tier`
+      member on every path (difficulty.py:511-515). It is commented "And whatever band
+      that is, exactly one tier claims the score", which the assertion does not check.
+      The substantive half of the replacement — `low < score <= high` against
+      `RUNG_BANDS` — is a genuine strengthening and is what the test's name always
+      claimed, so the test is not weakened overall; this one line just reads as coverage
+      that isn't there.
+    suggestion: |
+      Either drop the line, or make it the claim the comment states — e.g. assert the
+      score falls in exactly one TIER_BANDS interval, which is the non-vacuous version
+      (tests/property/test_difficulty_calibration.py:175-187 already has `_tier_by_interval`
+      as the independent implementation to compare against).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/difficulty.py
+    line: 340
+    title: "The two new public rung constants are unguarded aliases of the Easy cutoff value"
+    description: |
+      G-1's argument that `RUNG_OVERLAP_MAX_SCORE` / `RUNG_LINE_DP_MAX_SCORE` belong
+      outside `_CUTOFF_NAMES` checks out as far as it goes — the AST guard
+      (tests/test_difficulty_tiers.py:447-483) is byte-identical, catches every shape it
+      caught before, and `grep -rn "RUNG_OVERLAP_MAX_SCORE\|RUNG_LINE_DP_MAX_SCORE" src/`
+      returns hits in difficulty.py only, so no module can currently decide a tier from a
+      rung constant. The guard's effective coverage did not shrink.
+      What the diff does add is a second *public* name for the value 33.0 that the guard
+      does not watch: `if score <= RUNG_OVERLAP_MAX_SCORE: return "easy"` in a future
+      module is exactly the second classifier the guard exists to stop, and it would pass.
+      (The `RUNG_BANDS[...][1]` subscript route already existed and is equally unguarded,
+      so this is a widening of a pre-existing hole rather than a new one.)
+    suggestion: |
+      Add both names to `_CUTOFF_NAMES`. It costs nothing today (zero comparisons against
+      them anywhere in src/) and it does not broaden the rule in practice, because a
+      legitimate comparison against a rung edge outside COMP-006 does not exist either —
+      the rung is `hardest_rung`'s answer, not a threshold a caller tests.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_difficulty_calibration.py
+    line: 190
+    title: "_adr_0029_score's independence claim is partial — it reuses the module's hardest_rung"
+    description: |
+      The docstring says the re-derivation happens "with no reference to the module's own
+      table", which is true of `RUNG_BANDS` (the literals live at :140-144) but not of the
+      rung *selection*: line 197 calls `difficulty.hardest_rung`. If a future card changed
+      which rung wins a tie or how an unknown rung is treated, this cross-check would
+      move with the code it is supposed to check. `hardest_rung` is not what CARD-137
+      touched, so the pairing still catches what it was written for.
+    suggestion: |
+      Inline the three-line selection (`[r for r in ("simple_overlap","line_dp",
+      "probe_contradiction") if signals.rung_cells.get(r, 0) > 0][-1]`) beside the literal
+      band table, so the whole second implementation is independent, and say so in the
+      docstring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_difficulty_calibration.py
+    line: 296
+    title: "The synthetic monotonicity corpus's floor assertion is vacuous"
+    description: |
+      `assert len(scores) >= 600, "the corpus shrank"` sits four lines below
+      `scores = [rng.uniform(...) for _ in range(600)]`, so it restates the literal above
+      it and cannot fire — unlike the corpus floors at :237 and :323, which guard a build
+      whose yield is genuinely uncertain. The house rule the docstring cites (a minimum
+      case count asserted inside the test) is met in letter, not in effect.
+    suggestion: |
+      Hoist the count to a module constant (`_MONOTONE_CASES = 600`) and assert
+      `len(scores) >= _MONOTONE_CASES + 2 * 3 * len(...)`, or simply assert against the
+      constant the list comprehension also reads, so an edit to one moves the other.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/difficulty.py
+    line: 111
+    title: "[pre-existing] The module docstring's 'The fourth tier (ADR-0025)' section and its usage example still describe the retired Tier.GUESS"
+    description: |
+      Lines 111-126 state ":class:`Tier` has four members", "``Tier.GUESS`` is keyed on
+      ... ``branch_nodes > 0``" and ":func:`classify` ... takes ``(score, branch_nodes)``";
+      line 174's usage example calls `classify(score, result.signals.branch_nodes)`, which
+      raises `TypeError: classify() takes 1 positional argument but 2 were given` against
+      this build (verified). Same for the comment at difficulty.py:238 and the
+      `SolverSignals.branch_nodes` docstring at :388-391, and for the comment at
+      tests/test_difficulty_tiers.py:~140.
+      Confirmed identical on `main` (`git show main:src/nonogram/difficulty.py`), so this
+      is CARD-098 residue and NOT introduced here — but this diff rewrote the two
+      docstring sections immediately above and below it, which is the cheapest moment it
+      will ever have. It also bears directly on how this card's third AC has to be read.
+    suggestion: |
+      Either fold the deletion into this card (it is adjacent to text the diff already
+      rewrote) or raise a one-line tech-debt card. The surviving fact — branching is the
+      `guess` STRATEGY, never a tier — is already stated correctly at
+      difficulty.py:270-276 and in docs/GENERATION_ALGORITHM.md §7.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: gap
+    file: docs/REQUIREMENTS/DIFFICULTY_ENGINE.md
+    line: 9
+    title: "[out of file scope] A second doc's status banner now states the retired cutoff"
+    description: |
+      The supersession banner reads "Tiers are **Easy 0–33, Medium 33–66, Hard 66–100**",
+      which this card makes false. The banner is the live part of an otherwise superseded
+      document — it exists to point a reader at the engine that ships — so it is worth the
+      one-word fix even though the body below it is history.
+      Same class, and correctly NOT fixed here because G-3 forbids the edit:
+      src/nonogram/admin/regrade.py:511 enumerates the band edges as "(0, 33, 66, 100)".
+      Its actual invariant survives the move (90 is a whole number, so ceiling still keeps
+      a score inside its band) and is covered by
+      tests/test_admin_regrade.py:1122 `classify(float(_stored_score(score))) is
+      classify(score)`, green in my 205-passed run — only the enumerated list is stale.
+    suggestion: |
+      Change `Medium 33–66, Hard 66–100` to `Medium 33–90, Hard 90–100` in the banner and
+      fold the regrade.py docstring figure into whichever card next legitimately opens
+      src/nonogram/admin/.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
