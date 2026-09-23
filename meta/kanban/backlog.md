@@ -17,3 +17,5 @@
 - [ ] Six system-contract check refs (ADR-0029/R2, INV-008..INV-012) name tests that do not exist yet — the model claims mechanical checks it does not have   @tech-debt
 - [ ] Test isolation: test_card_037_upload_retry and test_web_upload glob the shared system temp dir for nonogram-upload-*, so two full suites running at once perturb each other   @tech-debt
 - [ ] UX gap (no card): an unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that cannot succeed, and never names the remedy. Fails closed, but unhelpful   @feature
+- [ ] CARD-126 F-002: the order paths resolve tiers one store read at a time (~150 sessions per arrow click on a default-plan book); memoise across the three call paths   @tech-debt
+- [ ] Card-text defect for decompose: CARD-126 G-4 names a test: that a LATER card (CARD-131) creates, so it is unverifiable in every wave before that   @tech-debt

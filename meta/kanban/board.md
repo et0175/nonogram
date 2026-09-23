@@ -53,10 +53,9 @@ _(none)_
   `worktree: ../PythonProject4-CARD-137` · `branch: card/137-recalibrate-medium-cutoff` · `elapsed: 0d`
 
 ## Review
-- **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
-  `worktree: ../PythonProject4-CARD-126` · `branch: card/126-book-level-order` · `elapsed: 0d`
 
 ## Done
+- **CARD-126** Book level order · score 9.0 · merged ea35a7f
 - **CARD-123** Tile cell + floor flag + override · score 9.3 · merged 8b7b78e
 - **CARD-117** "Puzzle N · Tier" band + print strokes · score 9.0 · merged 837a6f3
 - **CARD-116** Book PDF on its own trim · score 9.3 · merged dff610b

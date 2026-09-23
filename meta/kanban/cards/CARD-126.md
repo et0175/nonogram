@@ -1,6 +1,6 @@
 # CARD-126: The book order runs easy → medium → hard — moves stay within a level, new puzzles land at the end of theirs
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 24
 **Depends on:** CARD-121
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/book_plan.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_level_order.py, tests/property/test_book_order.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 1/3)
+**Started:** 2026-09-23T03:55:53Z
+**Closed:** 2026-09-23T06:26:23Z
+**Actual:** 0.3d
+**Merge commit:** ea35a7f
 **Blocked by:** —
 
 ## What to implement
@@ -137,3 +137,198 @@ schema change.
 ## Worktree notes
 
 —
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+---
+### Implementation agent notes (synced from worktree)
+
+### Where the level order lives
+
+`book_level_order` and the functions beside it went into
+**`src/nonogram/admin/book_plan.py`** (the card's first option), not a new
+module. The plan decides *what goes into* a book and the order decides *what
+order it prints in*, and both speak the same tier vocabulary (`TIERS`,
+`tier_of_record`) — one module, one vocabulary, no second tier table. The new
+surface is pure (ids in, ids out; the caller supplies `tier_of`):
+
+* `level_rank(tier)` — 0 easy, 1 medium, 2 hard, `UNGRADED_RANK` (3) for
+  anything else;
+* `book_level_order(ids, tier_of)` — **the one grouping**. A stable sort on
+  the level alone, so it never reorders inside a level, and idempotent, which
+  is what lets a legacy order be *read* grouped without being rewritten;
+* `is_level_order` — INV-009's predicate, used by `reorder_puzzles`;
+* `book_levels` — the grouped order cut into `[(Tier|None, [ids])]`, one entry
+  per **non-empty** level (the shape CARD-128's one-divider-per-level needs);
+* `place_in_level` — the add rule: insertion at the end of the id's own level,
+  never a re-sort;
+* `moved_within_level` — the move rule: `None` at the very top/bottom of the
+  book (unchanged meaning of today's `False`), `LevelBoundary` when the
+  neighbour is in another level.
+
+`LevelBoundary` subclasses `ValueError`, so every caller that already handles
+the book store's refusals handles this one; the arrange route catches it
+separately and flashes the rule as a warning rather than as an error.
+
+### Where a legacy order gets normalised
+
+**Only in a move.** `_move_within_level` computes on the grouped view and
+writes the grouped order back through `reorder_puzzles`, so the first move an
+owner makes on a pre-CARD-126 book normalises it — visibly, on the page they
+clicked. Everything else leaves the stored list alone:
+
+* `puzzle_levels` (the arrange page) reads it grouped and writes nothing;
+* `add_puzzles_to_book` *inserts* each new id after the last id of its own
+  level and touches no other position;
+* `reorder_puzzles` refuses an ungrouped submission outright rather than
+  silently regrouping it — the aggregate enforces INV-009, the page is not
+  trusted to.
+
+Tier always comes from the stored word through `difficulty.tier_of_record`
+(`BookManager._stored_tier`), never from a grid or a size (ADR-0033/R1,
+ADR-0031); a legacy `guess` row reads as hard and is not rewritten
+(ADR-0031/R3). An id with no readable tier — no store, no row, not a UUID —
+ranks after every graded level rather than raising: an order has no
+fail-closed case, it stays a permutation of the membership either way.
+
+`move_puzzle_up`/`move_puzzle_down` are now one line each over
+`_move_within_level`; the four near-identical storage branches they held are
+gone, and the single write goes through `reorder_puzzles` (a fresh list in
+both modes, CARD-101's lesson).
+
+### Renders for the owner
+
+`~/Documents/nonogram-reviews/CARD-126/` — `arrange-puzzles.html` / `.png`
+(nine puzzles submitted hard-first, shown grouped easy → medium → hard with a
+TierChip heading per level, numbering 1..9 unbroken, up/down disabled at each
+level's own ends) and `arrange-puzzles-refused-move.html` / `.png` (the flash
+after moving the first medium puzzle up: the order is unchanged and the banner
+names the rule). Rendered through the Flask test client by a throwaway script
+in the scratchpad; the PNGs are headless Chrome.
+
+### SCOPE+
+
+* SCOPE+ `tests/property/test_book_export_interior.py` — EC-034's parity
+  property assumed the interior printed the puzzles in *submission* order. It
+  now prints them grouped, which is this card's whole point, so the loop takes
+  the same puzzles in level order (`_as_the_interior_prints_them`, with its own
+  rank table, kept independent like every other expected value in that file).
+  The parity assertion itself is untouched and still runs on every page.
+* SCOPE+ `meta/design/components.md` — the card's Design context asks for the
+  ArrangeRow level-boundary state; recorded there. Not committed (nothing under
+  `meta/` is committed from the worktree).
+* `BookManager._below_floor_for` gained an optional `tiers` out-dict. The add
+  needs each submitted puzzle's tier and the floor's pass already holds each
+  record; without this the add would read the store twice per submitted id and
+  break EC-021's "one store read per distinct id" (CARD-121 review F-004).
+* `BookManager.reorder_puzzles` gained an optional `tier_of` argument so a move
+  does not read the same rows twice. It never changes the verdict.
+
+### Tests
+
+* `tests/test_book_level_order.py` — AC-257/258/259 through the real routes
+  (Flask test client) plus the store-level rule in **both** storage modes, the
+  pure helper on its own, the legacy-mixed postures, and the read-never-regrade
+  guard.
+* `tests/property/test_book_order.py` —
+  `PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence`, 25 trials x 14
+  steps per storage mode over a seeded corpus, with a minimum step count *and*
+  a minimum per kind (add / remove / moved / refused / book_end) asserted
+  inside the test. Checked against injected bugs: removing both INV-009 gates
+  fails it, and making the grouping unstable fails it.
+
+Full suite green apart from the known pre-existing
+`tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`,
+which is deselected and not this card's.
+
+---
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/book_plan.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/property/test_book_export_interior.py, tests/property/test_book_order.py, tests/test_book_level_order.py
+- [Build gate] PASSED (full, 193s; 4498 passed, 0 failed; deselected the known pre-existing tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied)
+- [Golden tripwire] untouched — tests/test_export_a4_golden.py, tests/property/test_cli_exports_byte_identity.py and tests/fixtures/a4_golden/** are not in the diff, and green in the gate run
+- [Scope gate] in_scope — 1 file outside Touches (tests/property/test_book_export_interior.py, declared SCOPE+: EC-034's parity property assumed submission order); 0 guardrail hits (G-1 migrations/**, src/nonogram/db/**; G-5 book_select_puzzles.html, book_finalize.html, book_pdf_generator.py all absent from the diff)
+- [Visual] no Makefile run target / no browser harness — review runs static-only; the implementation agent rendered the arrange screen to ~/Documents/nonogram-reviews/CARD-126/ (arrange-puzzles.html/.png, arrange-puzzles-refused-move.html/.png) for the owner and for the reviewer's 8g check
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0 (4 minor, 2 out-of-scope)
+- [Review 1/3] Step 8h coverage: 47/47 card rules carry a verdict line (21 ✓ holds, 26 ⚠ unchecked no_eligible_fact, 0 ✗) — verified by id against the card's section
+- [Review sync] 1 report(s) → meta/review/20260923T052417Z-CARD-126-cycle1.yml
+- [Adversarial] not run — 0 critical / 0 important findings to verify
+- [8h spot-check] 3/3 sampled holds reproduced (INV-009, INV-013, ADR-0033/R1) — each skeptic re-ran the named tests, re-derived the claim independently and injected+restored a mutant; working tree verified clean after each
+  - INV-009: write-path enumeration re-done from scratch over all of src/ — the reviewer's list of 7 writers is complete, no route bypasses the aggregate; property-test oracle confirmed independent of book_level_order, MIN_STEPS/per-kind floors asserted in-test
+  - INV-013: the SCOPE+ edit to tests/property/test_book_export_interior.py is +28/-1, the single deleted line being the loop's order source; CASES=28, SEED=135 and every minimum-count assertion unchanged; two mutants (level_rank collapsed, parity flipped) both make it fail
+  - ADR-0033/R1: only puzzle-store call in the diff is the read get_puzzle; no tier derived from grid/size/score/solver; legacy `guess` reads as hard without rewrite
+- [Fix 1] discretionary pass over the cycle-1 minors (0 crit / 0 imp — this pass did not gate): F-001 page-break indicator renumbered off the whole book, F-003 dead parametrization made live, F-004 reorder_puzzles' grouping gate moved below the book-exists and membership checks. F-002 (per-row store reads on the order paths) deliberately NOT fixed — see handover.
+- [Fix 1] declarations: 1 updated (doc BookManager.reorder_puzzles — error classification and ordering), 2 none
+- [Fix 1] pre-gate: 11/11 named tests green
+- [Build gate] PASSED (full, 210s; 4504 passed, 0 failed; same single known pre-existing deselection)
+- [Design] meta/design/components.md (ArrangeRow level-boundary state) copied worktree → main repo; it is not committed from the worktree and would otherwise die with it
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  - AC-257 ✓ demonstrated — TestBookArrange_MoveWithinLevelKeepsOwnerOrder, green (exit 0). Real Flask test client POSTing /book/<id>/arrange-puzzles action=move_up, plus a store-level assertion in both storage modes. E1,E2,M1 → move E2 up → [e2,e1,m1].
+  - AC-258 ✓ demonstrated — TestBookArrange_MoveAcrossLevelBoundaryRefused, green. E1,E2,M1,M2 → move M1 up → order unchanged, refusal text "easy, then medium, then hard" rendered, "Moved puzzle up" absent; LevelBoundary raised at the store in both modes.
+  - AC-259 ✓ demonstrated — TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel, green. Via the real paste-IDs route; asserts order.index(e3) < order.index(m1).
+  - EC-029 ✓ demonstrated — test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, green in both storage modes. No hypothesis; seeded stdlib random.Random, 25 trials x 14 steps = 350 steps/mode, MIN_STEPS=300 AND a per-kind floor MIN_OF_EACH_KIND=15 over add/remove/moved/refused/book_end asserted INSIDE the test body; oracle is a local RANK table, book_level_order is never called. Edit-sequence half only — the divider/numbering half is CARD-128's by the card's own text.
+  - G-1 ✓ demonstrated — union of `git diff --name-only main...HEAD` and `git status --porcelain` (11 paths) contains no migrations/** and no src/nonogram/db/**.
+  - G-2 ✓ demonstrated — TestBookLevelOrder_ReadsTheStoredTier green in both modes (stored tier byte-identical after a move); bounded grep of every added line under src/nonogram/admin/ for write/regrade calls matched only a comment. Independently re-derived by the 8h spot-check.
+  - G-3 ✓ demonstrated — TestBookAddPuzzles_RefusesBelowFloorWithoutOverride + PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green; both files absent from the committed and uncommitted diffs, so byte-identical to main — not retargeted or weakened.
+  - G-4 ✓ demonstrated (evidence labelled honestly) — the card's named test TestBookRemovePuzzle_KeepsRestOfArrangement does NOT exist in this tree or on main; it is declared only in requirements.yml/trace.yml/CARD-131.md and is CARD-131's to create, so this card had nothing to regress and deleted nothing. Both halves of the behaviour are now directly evidenced: the ARRANGEMENT half by 108 existing removal tests plus EC-029's property (assert_levels_unchanged after 15+ removes per mode), and the TITLES half by a new mutation-checked test added here, TestBookRemovePuzzle_LeavesTheOtherTitlesAlone (both modes) — verified to FAIL when remove_puzzle_from_book is made to clear puzzle_titles wholesale.
+  - G-5 ✓ demonstrated — the same 11-path check finds no book_select_puzzles.html, book_finalize.html or book_pdf_generator.py.
+- [AC/EC check] ⚠ card defect for the decompose station (NOT blocking this card): G-4 names a `test:` that a LATER card (CARD-131, wave 26) creates. As written the guardrail is unverifiable by its own named test in every wave before CARD-131 lands. Worth rewording to name a test that exists at the time the guardrail is enforced.
+
+---
+### Fix pass (cycle 1 minors)
+
+Review cycle 1 scored 9.0 with no critical and no important findings; three of
+its four Minor ones are addressed here. F-002 (per-row store reads on the order
+paths) is deliberately left alone and handed over.
+
+* **F-001 — the page-break indicator.** The divider in
+  `book_arrange_puzzles.html` counted off `loop.index`, which this card's nested
+  per-level loop restarts at every heading: a two-level book printed "PAGE 2"
+  twice and never "PAGE 3", and a level of three or fewer rows got no divider
+  however deep in the book it sat. It now counts off `puzzle.order` — the
+  route's 1..n numbering across the whole book — and stops at the book's last
+  rendered row rather than at `loop.last`, which is only the last row of its own
+  level. Pinned by
+  `TestBookArrangeScreen_ShowsTheLevels::test_the_page_break_indicator_counts_the_whole_book_not_each_level`
+  and `::test_no_page_break_indicator_follows_the_last_puzzle_of_the_book`.
+* **F-003 — dead parametrization.** The unreadable-tier case was parametrized
+  over five values and then collapsed every one of them to `None`, so
+  `level_rank`'s non-`Tier` branch was never exercised. The value now goes
+  through to `tier_of` and into the `level_rank` assertion as it stands.
+* **F-004 — the order of `reorder_puzzles`' refusals.** The INV-009 grouping
+  gate ran *before* the book lookup and the membership check, so
+  `reorder_puzzles("does-not-exist", <ungrouped>)` raised `LevelBoundary` where
+  the docstring promised `False`, and an order that was both ungrouped and not
+  the book's membership reported the grouping complaint instead of the
+  actionable one. The gate now runs last, after "no such book" (still `False`)
+  and after the membership `ValueError`; it still runs outside either storage
+  branch, because the tier lookup opens sessions of its own. The docstring's
+  Returns/Raises now say so. `tests/test_book_manager.py::TestPuzzleReordering`
+  gained a `graded_puzzles` helper and four store-backed cases — the previous
+  ones used placeholder ids that resolve to no row, so every tier was `None` and
+  the gate could never fire.
+
+* **G-4, the titles half.** The gate found the arrangement half pinned (EC-029's
+  property) but nothing asserting that removing one puzzle leaves the *others'*
+  custom titles intact, so `tests/test_book_level_order.py` gained
+  `TestBookRemovePuzzle_LeavesTheOtherTitlesAlone::test_removing_one_titled_puzzle_keeps_the_rest_and_their_titles`
+  (both storage modes, real `set_puzzle_title`). Checked against an injected
+  bug: making `remove_puzzle_from_book` clear `puzzle_titles` wholesale in each
+  branch fails it in both modes (`assert [None, None, None] == ['First light',
+  ...]`); the production file was restored unchanged. Noted while doing so and
+  *not* fixed here: only the DB branch drops the removed id's own title entry —
+  the in-memory branch never touches `puzzle_titles` — so a re-added puzzle
+  silently regains its old title in legacy mode. Handed over, not pinned.
+
+Renders regenerated in `~/Documents/nonogram-reviews/CARD-126/` on a nine-puzzle
+book (four easy, three medium, two hard) so the corrected numbering is visible:
+the dividers now read PAGE 2 after row 3 and PAGE 3 after row 6, with none after
+row 9.
+
+- [Commit] 00ad374 fix(admin): CARD-126 review round — page breaks count the whole book (4 files, 210+/14-); first commit 7c594c7 intact, no amend, no rebase; meta/ not committed
+- [Handover] For CARD-128 (dividers + the printing half of AC-260): book_plan.book_levels returns [(Tier|None, [ids])] for NON-EMPTY levels only — that is the shape one-divider-per-level needs. The interior is now handed a GROUPED puzzle_ids, so any test assuming submission order through a book route needs the one-line adjustment EC-034's property already took (tests/property/test_book_export_interior.py::_as_the_interior_prints_them).
+- [Handover] A re-grade of a puzzle already in a book reproduces the legacy-mixed posture: tier is read at read time (correct per ADR-0033/R1), so re-grading silently makes that book's stored order ungrouped until the next move normalises it. Not reachable today (nothing updates difficulty_tier after creation), but CARD-128 should know before it routes the PDF through book_levels.
+- [Handover] Pre-existing, NOT this card's: remove_puzzle_from_book prunes puzzle_titles in the DB branch but not the in-memory branch (book_manager.py ~1058-1071 vs ~1101-1105), so in memory mode a removed-and-re-added puzzle silently regains an old title. Found by the G-4 titles test; left unfixed because it is a production behaviour change outside this card. Natural owner: CARD-131.
+- [Handover] Review F-002, not fixed by choice: _tier_of resolves the whole membership one store read at a time on every order operation (a move on a default-plan book costs ~150 sessions where the old code did one UPDATE), and the arrange route reads every row twice. Harmless on local single-user SQLite; the fix is memoisation across three call paths.
+- [Handover] tests/README.md documents 4 of 109 test files and is many waves stale — flagged by the docs step, worth its own card rather than per-card patching.
+
+
+- [Done] rebased onto main 0684b34 (after CARD-123), full suite on the rebased tree with a private --basetemp: only the pre-existing e2e failure. Merged ea35a7f (--no-ff). Deferral scan: 0 hits. SCOPE+ tests/property/test_book_export_interior.py (verified not weakened) and meta/design/components.md. Handover pushed to CARD-128 and CARD-131.

@@ -144,3 +144,5 @@
 —
 
 - [Handover from CARD-117, 2026-09-23] Puzzle numbering is positional: reordering renumbers the bands and the answer key together, and a per-level divider changes page positions only — N stays index+1 over the puzzles, not over pages.
+
+- [Handover from CARD-126, 2026-09-23] book_plan.book_levels returns [(Tier|None, [ids])] for non-empty levels only — the shape one-divider-per-level needs. The interior now receives a GROUPED puzzle_ids, so any test that assumed submission order needs the same one-line adjustment.

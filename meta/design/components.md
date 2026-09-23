@@ -107,8 +107,13 @@ Tokens: --color-surface, --color-accent, --color-accent-tint, --thumb.
 
 ## ArrangeRow
 Used by: book arrangement (step 3).
-States: default · first (up disabled) · last (down disabled) · title editing
-(inline input) · page-break divider after every 3 rows.
+States: default · first **of its level** (up disabled, "First in the <Level>
+level") · last **of its level** (down disabled, "Last in the <Level> level") ·
+title editing (inline input) · page-break divider after every 3 rows.
+The rows sit under one level heading per non-empty level (TierChip + "<Level>
+level" + count), easy then medium then hard: a move stays inside a level
+(INV-009, CARD-126), so the disabled state is at each level's own ends rather
+than the book's, while the row number still runs 1..n across the whole book.
 Tokens: --color-surface, --color-border, --font-num (#order).
 
 ## ProgressBar

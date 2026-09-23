@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-126 (feature): A book runs easy - medium - hard: a new puzzle joins the end of its own level, moves in the arrangement step stay inside a level and are refused across one, and books made before the rule print grouped by level keeping their order within each.
 - CARD-123 (feature): Every selection tile shows the puzzle's printed cell size on that book's trim and flags anything under the 4.8 mm floor, with an "Include below floor" override on the tile; the Finalise summary counts the overridden puzzles and names each one's cell size.
 - CARD-117 (feature): A book puzzle page prints "Puzzle N · Tier" in its band — never the picture's title, which now appears only in the answer key — and the book's print-weight rules apply (thin rules at least 0.25 mm, every fifth twice as heavy, pure black).
 - CARD-116 (feature): The book PDF is laid out on the book's own trim at 300 DPI with mirrored margins — the gutter on the binding side, the drawing centred across the usable width, the top edge fixed — and page parity counted from interior page 1, the guide page.

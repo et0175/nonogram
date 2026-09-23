@@ -170,3 +170,5 @@ for the seeded fixtures, hints a short 26-30 × hard bucket, and sorts 150/150, 
 - [Handover from CARD-124, 2026-09-23] A plan edit now returns a non-draft book to draft, which opens a two-step path around the published-membership guard: edit the plan (book -> draft), then POST /add-puzzles. FR-038's confirmation must actually land here — do not assume the old outright refusal still covers a published book.
 
 - [Handover from CARD-121, 2026-09-23] INV-012: a fully-refused submission must NOT demote a book — the return-to-draft write belongs AFTER the floor filter. A comment marks the spot in book_manager.py. INV-012 still has no implementation and no tests.
+
+- [Handover from CARD-126, 2026-09-23, pre-existing] remove_puzzle_from_book prunes puzzle_titles in the DB branch but not the in-memory one, so in memory mode a removed-and-re-added puzzle regains its old title. Natural owner: this card.

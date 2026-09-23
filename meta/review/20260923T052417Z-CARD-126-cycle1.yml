@@ -1,0 +1,309 @@
+version: 1
+generated_at: "2026-09-23T05:24:17Z"
+target: "CARD-126 cycle 1 — branch card/126-book-level-order @ 7c594c7 (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-126), diffed against main"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_plan.py
+    - src/nonogram/admin/book_manager.py
+    - src/nonogram/admin/app.py (arrange-puzzles route + book_mgr call sites)
+    - src/nonogram/admin/templates/book_arrange_puzzles.html
+    - src/nonogram/admin/templates/_tier.html
+    - tests/test_book_level_order.py
+    - tests/property/test_book_order.py
+    - tests/property/test_book_export_interior.py (diff)
+    - meta/architecture/requirements.yml (FR-041, AC-253..AC-260, EC-029)
+    - meta/design/components.md (ArrangeRow)
+    - ~/Documents/nonogram-reviews/CARD-126/*.html and *.png
+  not_reached:
+    - src/nonogram/admin/book_pdf_generator.py (G-5, owned by CARD-117 this wave)
+    - src/nonogram/admin/templates/book_finalize.html (G-5, owned by CARD-123)
+    - tests/test_book_ready_gate.py (outside the card's file scope)
+  confidence: high
+metrics:
+  diff: { files: 7, added: 1416, removed: 119 }
+  max_fan_in: { symbol: "book_level_order", callers: 21 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_manager.py (16 commits/12mo, 6 fix-shaped)"
+    - "src/nonogram/admin/app.py (co-changes with book_manager.py 12/16)"
+  cochange_missing:
+    - "src/nonogram/db/models.py (6/16 co-changes) — correctly absent: G-1 forbids a schema change"
+    - "tests/test_book_manager.py (3/16 co-changes) — reorder_puzzles' contract changed there but the file was not touched; its test_reorder_puzzles passes vacuously (no puzzle_store => every tier None => the new gate never fires)"
+  unmeasured: {}
+
+system_contract:
+  rules_checked: 47
+  holds: 21
+  unchecked: 26
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the whole diff adds exactly one import line, `from nonogram.difficulty import Tier, tier_of_record` (book_manager.py:40, replacing the existing Tier import); scan: `git diff main...7c594c7 -- src/ | grep -E '^\\+(import|from) '` returns that one line. TestDependencyBaseline_IsExactlyPillowAndNumpy green in the 387-test selection below."
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green (run below). New edges are admin/book_plan.py -> nonogram.difficulty and admin/book_manager.py -> admin/book_plan.py, both inward/lateral-within-admin as the existing edges already were; src/nonogram/web/ is untouched."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff adds no grid-extent-bearing signature, request field or export field (scan for `_mm|compute_layout|PageSpec|MIN_SIZE|MAX_SIZE` over added lines returns only a docstring word)."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no generation/recovery code in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam in the diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff; the only difficulty symbol used is the read-only tier_of_record."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve or strategies list in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring term in the diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff."
+    - "ADR-0031/R1 ✓ holds — the level order's whole tier vocabulary is book_plan.TIERS (book_plan.py:125, three members) and level_rank (book_plan.py:387) ranks anything outside it UNGRADED_RANK rather than inventing a fourth tier; no branch_nodes appears in the diff. TestTiers_ThreeBandsAndNoFourthTier green."
+    - "ADR-0031/R2 ✓ holds — no STRATEGY_GUESS / strategies handling is added; `guess` enters the diff only as a stored word ranked with hard (tests/property/test_book_order.py:70). TestTiers_BranchingIsAStrategyNotATier green."
+    - "ADR-0031/R3 ✓ holds — every level decision goes through difficulty.tier_of_record (book_manager.py:_stored_tier, line 1281) which maps a stored `guess` to Tier.HARD; tests/test_book_level_order.py::TestBookLevelOrder_ReadsTheStoredTier::test_a_legacy_guess_row_prints_with_the_hard_level asserts the row still reads back as \"guess\" afterwards. TestTiers_LegacyGuessRowReadsAsHard green."
+    - "ADR-0032/R1 ✓ holds — the diff adds no storage-boundary path; TestStorageBoundary_AsksTheSolverNotTheCaller green in the 387-test selection."
+    - "ADR-0032/R2 ✓ holds — quality_score is not read or written anywhere in the diff; TestUnmeasuredQuality_SurvivesTheFilter green in the same selection."
+    - "ADR-0033/R1 ✓ holds — the only puzzle-store call the new code makes is the read `puzzle_store.get_puzzle` (book_manager.py:1284); scan of added lines for `update_puzzle|add_puzzle|difficulty_tier =|difficulty_score|quality_score =` returns nothing. tests/test_book_level_order.py::TestBookLevelOrder_ReadsTheStoredTier::test_the_row_is_never_rewritten_by_an_order_change asserts every row's stored tier is byte-identical after a move, in both storage modes."
+    - "ADR-0035/R1 ✓ holds — no status transition is touched (the arrange route's `finish` action still only redirects, app.py:2751). TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green."
+    - "ADR-0036/R1 ✓ holds — tests/test_export_a4_golden.py green (126-test run below) and tests/fixtures/a4_golden/** is absent from `git diff --name-status main...7c594c7`. TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green."
+    - "ADR-0036/R2 ✓ holds — the diff adds no geometry: scan of added lines under src/nonogram/admin/ for `_mm|compute_layout|PageSpec` returns only a docstring word; the new code moves ids, never millimetres."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book_pdf_generator.py is untouched (G-5) and no band rendering is in the diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths in the diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is untouched."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is untouched; the admin panel's bind is CON-015."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is untouched."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid side is read or validated in the diff; no literal 10/30 is introduced (UNGRADED_RANK is derived as len(TIERS))."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff."
+    - "CON-015 ✓ holds — app.py's only edits are inside the existing /book/<id>/arrange-puzzles view function (app.py:2725-2810) plus one import; no bind address, host or debug flag is touched. TestAdminPanel_BindsLoopbackOnlyByDefault green in the 387-test selection."
+    - "CON-016 ✓ holds — no route is added or removed and no before_request/door code is touched; the edits are inside one existing handler. TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green in the same selection."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue encoding in the diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness check in the diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: the distribution plan (split, prefill, planned_cells) is untouched; the diff only appends new functions to book_plan.py."
+    - "INV-006 ✓ holds — _below_floor_for's refusal logic is unchanged; the only edit is an out-parameter that records the tier of each record the loop already holds (book_manager.py:732-736, 778-780), and it is filled before the early returns so a store-less or empty submission still answers for every id. PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride, TestBookAddPuzzles_RefusesBelowFloorWithoutOverride, TestBookAddPuzzles_AcceptsBelowFloorWithOverrideAndRecordsIt, TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride all green (387-test selection)."
+    - "INV-007 ✓ holds — the readiness gate reads the selection as a set of cells, not as an order; nothing in the ready path is edited. PropertyTest_BookReady_GateIffEveryCellWithinTolerance and the three TestBookReady_* checks green."
+    - "INV-008 ✓ holds — the published-book refusal in add_puzzles_reporting_refusals (book_manager.py:938) is untouched and still precedes every write. TestBookPublished_ConfirmedPuzzleChangeApplied / _PuzzleChangeRequiresConfirmation / _UnconfirmedChangeKeepsStatus green."
+    - "INV-009 ✓ holds — this card's own invariant, enforced at the aggregate, not the page: every write path into puzzle_ids was enumerated (add_puzzles_reporting_refusals -> place_in_level, book_manager.py:985/1024; remove_puzzle_from_book -> filter, 1064/1092; reorder_puzzles -> is_level_order gate, 1150; move_puzzle_up/down -> _move_within_level -> reorder_puzzles, 1246) and app.py has no other writer (`grep -n 'book_mgr\\.' src/nonogram/admin/app.py`). Evidence: tests/test_book_level_order.py + tests/property/test_book_order.py (25 trials x 14 steps x 2 storage modes, independent RANK oracle, per-kind minimums) green; and 4 injected mutants all killed — place_in_level's `>` -> `>=` (26 failures), moved_within_level's cross-level guard disabled (1), reorder_puzzles' is_level_order gate disabled (2), level_rank reversed (51)."
+    - "INV-010 ✓ holds — the pairing rule reads the book order but is not edited; a grouped order can only reduce the set of mixed-tier neighbours. PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly and the ten TestBookPdf_* pairing checks green in the 387-test selection."
+    - "INV-011 ✓ holds — the answer key walks puzzle-number order, which is still the book order; nothing in the answer-key path is edited. PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook and the eight TestBookAnswerKey_* checks green."
+    - "INV-012 ✓ holds — the return-to-draft write is still after the `if not puzzle_ids: return outcome` guard (book_manager.py:969) and the new tier lookup was inserted after it (line 978), so a fully refused submission still cannot demote a book. PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists and the five Test* checks green."
+    - "INV-013 ✓ holds — tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green; the SCOPE+ edit changes only WHICH puzzle each page is expected to hold (_as_the_interior_prints_them, its own _LEVEL rank table), the parity assertion itself is untouched and still runs on every page. TestBookExport_* (6) green in the 387-test selection."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    fixed_in: "00ad374"
+    status: fixed
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/templates/book_arrange_puzzles.html
+    line: 107
+    title: "Page-break indicator restarts its page numbering inside every level"
+    description: |
+      The page-break divider's `{% if loop.index % 3 == 0 and not loop.last %}` /
+      `page {{ (loop.index // 3) + 1 }}` was written against one flat loop over the
+      whole book. The diff nests that loop inside the new per-level loop, so
+      `loop.index` now counts from 1 again at each level heading. A book with four
+      or more puzzles in two different levels therefore renders "PAGE 2" twice and
+      never "PAGE 3", and a level of 3 or fewer shows no divider at all however far
+      into the book it sits.
+
+      The attached render only has 4 easy / 3 medium / 2 hard puzzles, so exactly one
+      divider appears and the defect is latent there; it is visible from the template
+      alone (arrange-puzzles.html:107-109) and reproduces with any level of >= 4.
+    suggestion: |
+      Number the divider off the running book position instead of the level-local
+      loop counter — the route already computes it: the row carries
+      `puzzle.order` (1..n across the whole book). Replace the condition with
+      `{% if puzzle.order % 3 == 0 and not loop.last %}` and the label with
+      `page {{ (puzzle.order // 3) + 1 }}`, or drop the indicator here and let
+      CARD-128 reinstate it once divider pages exist (they will shift the page
+      arithmetic again).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 1248
+    title: "_tier_of resolves the whole membership one store read at a time on every order operation"
+    description: |
+      `_tier_of` (book_manager.py:1248-1266) eagerly resolves every id it is given,
+      and `_stored_tier` (1281) issues one `puzzle_store.get_puzzle` per id — which in
+      DB mode opens its own session and runs its own query
+      (puzzle_review.py:1113-1116). Three paths now pay that:
+
+      * `_move_within_level` (1242) reads all N members just to swap two adjacent
+        ids — for the default 150-puzzle book (DEFAULT_PLAN) that is ~150 sessions
+        per click of an arrow button, where the old code did one UPDATE;
+      * `reorder_puzzles` (1150) does the same for the submitted order, and it does it
+        *before* the book-exists check, so an unknown book still costs N reads;
+      * the arrange route calls `book_mgr.puzzle_levels` (app.py:2766), which resolves
+        every member, and then calls `puzzle_review.get_puzzle(puzzle_id)` again per
+        row for display (app.py:2777) — the same rows fetched twice, ~2N queries to
+        render one page.
+
+      This is a local single-user admin panel on SQLite, so the wall-clock cost is
+      modest and no test observes it; it is filed as waste with a cheap fix, not as
+      a user-visible defect.
+    suggestion: |
+      Two independent cheap wins: (a) make `_tier_of` lazy/memoised — return a
+      closure that reads a row on first ask and caches it — so `place_in_level`'s
+      backwards scan and `moved_within_level`'s two lookups only touch the rows they
+      actually inspect; (b) in the arrange route, take the tier from the puzzle dict
+      the route already fetched (`puzzle["difficulty_tier"]`) rather than having
+      `puzzle_levels` re-read it, e.g. by letting `puzzle_levels` accept a
+      pre-built `tier_of`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+
+    fixed_in: "00ad374"
+
+    status: fixed
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_level_order.py
+    line: 547
+    title: "Dead parametrization: the unreadable-tier cases all collapse to None"
+    description: |
+      `test_a_puzzle_with_no_readable_tier_sorts_after_the_graded_ones` is
+      parametrized over `[None, "", "extreme", 7, "  "]`, but the fixture line is
+      `x=unreadable if isinstance(unreadable, Tier) else None` — none of those five
+      values is a `Tier`, so `x` is `None` in all five runs. The test executes the
+      same case five times and the non-None branch of `level_rank`'s
+      `tier in TIERS` guard (which the docstring advertises: "Anything that is not
+      one of TIERS") is never exercised.
+    suggestion: |
+      Either pass the value straight through (`x=unreadable`) so `level_rank` really
+      sees `""`, `"extreme"`, `7` and `"  "`, or drop the parametrize and keep one
+      `None` case, and add a separate direct assertion on
+      `level_rank("extreme") == UNGRADED_RANK`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+
+    fixed_in: "00ad374"
+
+    status: fixed
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 1150
+    title: "reorder_puzzles' new gate runs before its book-exists and membership checks"
+    description: |
+      The `is_level_order` gate is the first statement of `reorder_puzzles`, ahead of
+      both storage branches. Two consequences for a public method whose docstring
+      still promises "False if book not found":
+
+      * `reorder_puzzles("does-not-exist", <ungrouped>)` now raises `LevelBoundary`
+        instead of returning `False`;
+      * an order that neither matches the membership nor is grouped reports the
+        grouping complaint, not the membership one ("Puzzle IDs must match book's
+        current puzzles"), which is the more actionable of the two.
+
+      Both are reachable only by a caller other than `_move_within_level`, and both
+      raise a `ValueError` subclass either way, so nothing in the repo misbehaves.
+      Related co-change signal: `tests/test_book_manager.py::test_reorder_puzzles`
+      (3/16 co-changes with book_manager.py) was not updated and now passes
+      vacuously — its manager has no `puzzle_store`, so every tier is `None`, every
+      order is trivially "grouped" and the new gate never fires there.
+    suggestion: |
+      Move the gate below the book lookup and the membership check in each branch
+      (or hoist a `get_book` + membership check above it), so the refusals are
+      reported in cause order and the documented `False` for an unknown book
+      survives. While there, add a store-backed case to
+      tests/test_book_manager.py::test_reorder_puzzles so that file's coverage of
+      the method is not vacuous.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/book_manager.py
+    line: 1268
+    title: "[out-of-scope] A re-grade of a member puzzle reproduces the legacy-mixed posture"
+    description: |
+      Tier comes from the stored word at read time (correct, ADR-0033/R1), so
+      re-grading a puzzle that is already in a book (the panel's Re-grade screen)
+      silently makes that book's stored order ungrouped — the same posture as a
+      pre-CARD-126 book. The arrange page reads it grouped and the next move
+      normalises it, so nothing is broken; but until CARD-128 the finalize preview
+      and the interior PDF print the raw stored order, so the two screens disagree
+      for such a book. Worth naming in CARD-128's notes rather than fixing here.
+    suggestion: |
+      No action on this card. CARD-128 should route the PDF through
+      book_plan.book_levels (AC-260's printing half), which closes this as a
+      side effect.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: ops
+    type: question
+    file: tests/test_book_ready_gate.py
+    line: 443
+    title: "[out-of-scope] Intermittent failure observed once outside the card's file scope"
+    description: |
+      One run of a -k subset in this worktree reported
+      TestBookReady_RefusalNamesOffendingCell::test_the_refusal_names_the_cell_with_both_shares[db]
+      failing (1 failed, 386 passed). Four further runs of the identical command
+      passed (387 passed), as did the test in isolation and the same selection on
+      main. The project pins no test-order randomiser, so this is an intermittent
+      flake rather than an ordering artefact. The file is outside CARD-126's
+      declared scope and the card touches nothing on that path; recorded so it is
+      not lost, not attributed to this card.
+    suggestion: |
+      Open a separate card to reproduce with -p no:cacheprovider and a repeat loop
+      if it recurs.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
