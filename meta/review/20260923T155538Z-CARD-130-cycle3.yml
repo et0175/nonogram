@@ -1,0 +1,226 @@
+version: 1
+generated_at: "2026-09-23T15:55:38Z"
+target: "CARD-130 cycle 3 — branch card/130-book-step-workflow-reentry, git diff 89facec (commit ff0c14d + uncommitted fix rounds 1 and 2)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/book_manager.py
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/tokens.css
+    - src/nonogram/admin/templates/_stepper.html
+    - src/nonogram/admin/templates/book_create.html
+    - src/nonogram/admin/templates/book_detail.html
+    - src/nonogram/admin/templates/book_select_puzzles.html
+    - src/nonogram/admin/templates/book_arrange_puzzles.html
+    - src/nonogram/admin/templates/book_finalize.html
+    - src/nonogram/admin/templates/book_setup_print.html   # reference only, not in scope
+    - src/nonogram/admin/templates/base.html               # reference only, not in scope
+    - tests/test_book_workflow_steps.py
+    - meta/design/components.md
+    - meta/kanban/cards/CARD-130.md
+    - .forge-screens/CARD-130/cycle-3/  (prose.json, runtime.log, visual-diff.log, a11y.log, 2 of 20 PNGs opened)
+  not_reached:
+    - "the other 18 cycle-3 PNGs (judged through visual-diff.log's per-screen classification and prose.json)"
+    - "cycles 1 and 2 screenshot dirs (not opened; visual-diff.log's cycle-2/cycle-3 comparison used instead)"
+  confidence: high
+metrics:
+  diff: { files: 12, added: 1931, removed: 54 }
+  max_fan_in: { symbol: "_stepper.html:book_steps", callers: 6 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — every historical co-change peer of app.py/book_manager.py in the book area (the five book templates and tests/test_book_*.py) is present in this diff; books_list.html from the card's Touches is absent but AC-223 is satisfied by its existing /book/<id> link, proven by TestBooksList_OpensBookInStepWorkflow::test_the_page_the_list_opens_carries_the_step_navigation"
+
+system_contract:
+  rules_checked: 44
+  holds: 9
+  unchecked: 35
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — `git diff 89facec --stat` lists no pyproject.toml/requirements file; no import added outside stdlib + the existing Flask/SQLAlchemy admin stack"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: nothing under src/nonogram/web/ is in the diff (the analogous admin route keeps all four validation rules in book_manager._refuse_invalid_details, not in app.py)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature, request field or export field in the diff"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token handling in the diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter code in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair-choice code in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam in the diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no strategies/rung code in the diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring term in the diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle / the storage boundary is not in the diff"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is not read or written in the diff"
+    - "ADR-0033/R1 ✓ holds — the one new write path, book_manager.update_book_details (book_manager.py:1942-2010), sets exactly Book.title/description/theme/target_audience/updated_at in both storage modes; no puzzle field and no book_id mirror is touched, and tests/test_book_workflow_steps.py::TestBookSteps_RevisitingDiscardsNothing re-reads membership, order and custom titles after every step of 24 seeded books"
+    - "ADR-0035/R1 ✓ holds — no status transition is added or changed: update_book_details writes no status column, and app.py's step routes are unchanged below their docstrings (`git diff 89facec -- src/nonogram/admin/app.py` shows only docstring lines in setup_print/select_puzzles_for_book/arrange_puzzles_in_book/finalize_book)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout / PageSpec is not in the diff"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no geometry computed in the admin panel by this diff"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book_pdf_generator.py is absent from the diff (G-4)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths in the diff"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not in the diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ server binding is not in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ cross-site door is not in the diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-side bound in the diff"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff"
+    - "CON-015 ✓ holds — create_app's signature and the panel's bind/debug code are untouched by the diff; the new route is added inside create_app like every other"
+    - "CON-016 ✓ holds — the door is the app-wide `@app.before_request _refuse_what_this_panel_should_not_serve` (app.py:841), registered inside create_app before the route table; a before_request hook runs for every request, so /book/<id>/edit passes the same door as every pre-existing route — no per-route decorator was added or bypassed"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding is not in the diff"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export/ready gate is not in the diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff"
+    - "INV-005 ✓ holds — update_book_details writes none of the plan columns; the Print setup route and book_setup_print.html are untouched (G-4)"
+    - "INV-006 ✓ holds — no membership write in the diff; the 4.8 mm floor check is not reached by any changed path, and the G-2 corpus re-reads membership after visiting all five steps twice"
+    - "INV-007 ✓ holds — no ready-gate code in the diff; book status is never written by update_book_details"
+    - "INV-008 ⚠ unchecked — check_ref_missing: TestBookPublished_ConfirmedPuzzleChangeApplied / TestBookPublished_PuzzleChangeRequiresConfirmation / TestBookPublished_UnconfirmedChangeKeepsStatus are absent from tests/ (grep -rl returns nothing); CARD-131 owns them. Manual read of this diff found no membership write and no confirmation path: the removed guard is the `{% if book.status == 'draft' %}` wrapper around book_detail.html's Continue button, a render guard only"
+    - "INV-009 ✓ holds — no ordering code in the diff; TestBookSteps_RevisitingDiscardsNothing asserts shelf.curation(book_id) (membership + order + titles) is byte-equal after every step and /book/<id> are each opened twice in shuffled order, over a 24-book seeded corpus"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing code (book_pdf_generator.py) is absent from the diff (G-4)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer-key code is not in the diff"
+    - "INV-012 ⚠ unchecked — check_ref_missing: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists and TestBookAddPuzzlesByIds_NonDraftReturnsToDraft are absent from tests/ (grep -rl returns nothing); CARD-131 owns them. Manual read: update_book_details writes no membership and no status, so no non-draft book is returned to draft by it — book_manager.py:1953-1957 states this explicitly"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior/cover PDF code is absent from the diff (G-4)"
+
+root_causes: []
+
+findings:
+  - id: F-013
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 45
+    title: "The new invalid rule tokenizes the border but leaves Bootstrap's red focus halo"
+    description: |
+      The cycle-2 fix added `.form-control.is-invalid, .form-select.is-invalid,
+      .form-control.is-invalid:focus, .form-select.is-invalid:focus { border-color:
+      var(--color-danger); }`. It deliberately spells out the `:focus` selectors to
+      beat Bootstrap's `.form-control.is-invalid:focus` (0,3,0) — but overrides only
+      `border-color`, so that same Bootstrap rule's
+      `box-shadow: 0 0 0 .25rem rgba(220,53,69,.25)` survives and still wins over
+      admin.css's `.form-control:focus { box-shadow: none }` (0,2,0, line 38).
+      The capture station measured exactly this: prose.json
+      `step1-general-info-refused.focus_ring_on_marked` =
+      `{outline: "solid 2px rgb(31,95,91)", boxShadow: "rgba(220,53,69,0.25) 0 0 0 4px",
+      borderColor: "rgb(155,59,38)"}` — a focused invalid field shows three colours at
+      once: the teal focus outline, the brick token border and an untokenized Bootstrap
+      red halo. The halo pre-dates this card (it was already beating admin.css on print
+      setup), but the card's own rule is what left the pair mismatched, and the card's
+      Handover describes the change as "one rule, tokens only".
+      Shared-stylesheet scope is acceptable: G-4 guards book_setup_print.html, not
+      admin.css, and the rule moves that page toward the design system rather than away.
+    suggestion: |
+      Add `box-shadow: none;` to the existing `:focus` half of the rule (the focus ring
+      is already carried by the `outline` in the line-38 rule), or set the halo from
+      `--color-danger`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-014
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_create.html
+    line: 66
+    title: "#general-info-error carries no reason, unlike its sibling #plan-error — and the failure is announced twice"
+    description: |
+      The pattern this fix says it mirrors renders the reason inside the page-local
+      region: book_setup_print.html:86 is `<strong>Plan not saved:</strong>
+      {{ plan_error }}. …`, and setup_print does NOT flash on a `_PlanFormError`
+      (app.py:2399-2402 sets `plan_error`/`plan_error_fields` only).
+      edit_book instead flashes `f"Error: {str(e)}"` (app.py:2068-2069) AND renders a
+      region whose text is constant: "General info not saved: correct the field marked
+      below…". Consequences, both visible in prose.json's `alerts` for
+      step1-general-info-refused: (a) the refusal is announced twice — base.html's flash
+      `Error: Title cannot be empty` plus the new region, two `role="alert"` regions on
+      one render; (b) `aria-describedby="general-info-error"` resolves to a region that
+      says *that* the field is wrong but not *why*, while the reason sits in an
+      unassociated flash at the top of the page.
+      Judged Minor, not Important: the flash is itself `role="alert"` and is announced on
+      load, the control has a real label, `aria-invalid="true"` and a resolving
+      describedby, and axe would not flag it. But components.md's rewritten FormField
+      entry now asserts the two screens share this pattern, and on the reason they do not.
+    suggestion: |
+      Pass the refusal message into the template and render it inside
+      `#general-info-error` as `#plan-error` does, dropping the flash on that path —
+      one announcement, and the describedby target then carries the reason.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-015
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 98
+    title: "FormField's rewritten note ends with an unscoped claim that is false of two of its four listed users"
+    description: |
+      The entry's "Used by:" line is "batch create, book create *and* the book's
+      general-info step (one template, two modes), print setup, filters", and the Notes
+      block ends "A refusal re-renders what the owner submitted, not what storage still
+      holds." That is true of the two screens the preceding sentence names (print setup,
+      general info) but false of `book create` — `/book/create`'s refusal discards the
+      typed input, which cycle 1 adjudicated out of scope for this card and which the
+      card's own test `test_the_create_screen_is_untouched_by_the_marking` pins as
+      unchanged — and unverified for `batch create`.
+      The design system is the reference other cards implement against, so a blanket
+      sentence that the system does not hold is the same intent-vs-reality gap the card
+      spent cycle 1 removing from the step prose.
+    suggestion: |
+      Scope the last sentence to the screens it holds for ("on print setup and general
+      info, a refusal re-renders…"), or note book create as the one user that does not
+      yet do this and name the follow-up that owns it.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-016
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_create.html
+    line: 47
+    title: "Deriving the create lede's count turned prose 'four' into the numeral '4'"
+    description: |
+      `{{ (stepper.book_step_count()|int) - 1 }}` renders "Name the book first; the
+      puzzles, order and print size come in the 4 steps that follow."
+      visual-diff.log classifies this as THE FIX (item 2) and it is the only change on
+      the create screen, but it is a small readability regression: every other lede on
+      the panel spells small counts in running prose, and `--font-num` is reserved for
+      data, not sentences. The derivation is right; the rendering is what slipped.
+    suggestion: |
+      Either accept the numeral deliberately, or map 1..9 to words in the macro
+      (`book_step_count_word()`) so the count stays derived and the prose stays prose.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

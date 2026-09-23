@@ -87,17 +87,42 @@ Notes: icon-only buttons carry `aria-label`; icons are inline SVG from
 `_icons.html`, never emoji.
 
 ## FormField
-Used by: batch create, book create, print setup, filters.
+Used by: batch create, book create *and* the book's general-info step (one
+template, two modes), print setup, filters.
 States: default · focus · invalid (danger border + hint) · disabled ·
 with unit suffix (input-group) · file (native).
 Tokens: --color-input, --color-border-strong, --shadow-inset-input,
---control-h, --text-sm for hints.
+--control-h, --text-sm for hints, --color-danger for the invalid border.
+Notes: `invalid` marks **only the control the refusal named**, never the whole
+form, and always as all three of `is-invalid`, `aria-invalid="true"` and an
+`aria-describedby` pointing at a **page-local** error region (`#plan-error` on
+print setup, `#general-info-error` on book general info) — base.html's shared
+flash stack emits no stable id to point at. The field name comes from the
+domain's own refusal (`InvalidPlan.fields`, `InvalidBookDetails.fields`), so
+the page never re-derives which control failed. A refusal re-renders what the
+owner submitted, not what storage still holds.
 
 ## Stepper
-Used by: book scaffolding steps 1–4, batch workflow.
-States: done · current (accent) · upcoming (secondary).
+Used by: book scaffolding steps 1–5 — general info, print setup, puzzle
+selection, arrangement, finalise & export — the book's detail page (which
+renders the list with **no** step current), and the batch workflow.
+States, on two axes. Progress: done · current (accent, `aria-current="step"`)
+· upcoming (secondary). Reachability: a step renders as a **link** when the
+page has a book to link to and the step is not the current one; plain text
+otherwise — on New book, which has no book yet, and always for the current
+step. A book's status enters neither axis: every step of a book that exists is
+linked, draft through published.
 Tokens: --color-accent, --color-text-secondary, --font-num for step numbers.
-Notes: one macro (`_stepper.html`), never hand-copied per page.
+Notes: one macro (`_stepper.html`), never hand-copied per page. The step list
+is stated once in that file, and every number and count a page prints comes
+from it — `book_step_number(key)` for one step's number, `book_step_count()`
+for how many there are, `book_step_of(key)` for the "Step 3 of 5" lede (it
+asks `book_step_count()` for the total) — rather than being written into each
+page's prose. That includes counts *about* the list: New book's "the 4 steps
+that follow" is `book_step_count() - 1`. So adding a step renumbers the prose
+with the list. (`book_setup_print.html` still carries hand-written "Step 1 of
+4" copy, owned by CARD-118. Route docstrings **name** their step rather than
+numbering it, for the same reason.)
 
 ## PuzzleTile
 Used by: book puzzle selection.
@@ -106,7 +131,7 @@ no preview.
 Tokens: --color-surface, --color-accent, --color-accent-tint, --thumb.
 
 ## ArrangeRow
-Used by: book arrangement (step 3).
+Used by: book arrangement (step 4 of 5).
 States: default · first **of its level** (up disabled, "First in the <Level>
 level") · last **of its level** (down disabled, "Last in the <Level> level") ·
 title editing (inline input) · page-break divider after every 3 rows.

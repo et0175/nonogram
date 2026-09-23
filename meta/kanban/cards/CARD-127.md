@@ -358,3 +358,5 @@ the other way, the fix belongs in `compute_pair_layout`, not here — nothing in
   pages_saved (17 against 20 on the render). CARD-129's KDP gutter refusal is about to
   consume that number and must read BookExport.interior_page_count, not
   interior_page_count(len(puzzles)).
+- [Owner ruling 2026-09-23] The spare-height question is CLOSED: keep it as built. The slack stays between the two puzzles; the lower slot stays bottom-anchored. Olga ruled on the render, rejecting both an even split and pushing the slack below the pair. CARD-125's F-002 is settled; no follow-up card.
+

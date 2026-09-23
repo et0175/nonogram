@@ -38,20 +38,22 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · in_progress (impl, unblocked by CARD-127)
 - **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
 - **CARD-139** P1 · One import style in admin/ — a duplicate module tree cannot exist (live Print setup 500) · 0.25d · wave 26 · runs last, alone
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
+## Blocked
+- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · **blocked — escalated to decompose**: G-1 vs AC-268 (the answer-caption face has no em dash; the one-line fix is in `export/`, which G-1 forbids this card) and G-2 vs AC-261 (two CARD-117 tests pin the one-answer-page-per-puzzle form FR-042 replaces). Implementation committed 2cb5883; worktree kept · no review cycle ran
+
 ## In Progress
-- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · in_progress (impl, unblocked by CARD-127)
+_(none)_
 
 ## Review
-- **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124 · review (cycle 2)
 
 ## Done
+- **CARD-130** Books reopen into the step workflow · score 9.0 (3 cycles) · merged a101db1 · ⏳ owner screenshot check
 - **CARD-127** Two-up pages in the book PDF · score 9.0 (2 cycles) · merged 679e78a · ⏳ owner render check
 - **CARD-138** Batch generation can ask for a difficulty · score 9.0 (2 cycles) · merged cc64540 · ⏳ owner should submit one Medium batch
 - **CARD-118** Proof pages (30×30 + 15×15) for the owner's printed measurement · score 8.5 (1 cycle) · merged 2782887 · ⏳ owner print check outstanding
