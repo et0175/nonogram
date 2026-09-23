@@ -5,27 +5,32 @@ run:
   mode: run
   wave: 25
   max_concurrent: 5
+merged:
+  - card: CARD-118
+    merge_commit: 2782887
+    score: 8.5
+    owner_check: pending   # printed proof measurement, blocks the wave checkpoint
 active:
   - card: CARD-118
     branch: card/118-proof-pages
     worktree: ../PythonProject4-CARD-118
-    phase: implementation
-    review_cycle: 0
+    phase: commit
+    review_cycle: 1
   - card: CARD-127
     branch: card/127-book-two-up-pages
     worktree: ../PythonProject4-CARD-127
-    phase: implementation
-    review_cycle: 0
+    phase: review
+    review_cycle: 1
   - card: CARD-130
     branch: card/130-book-step-workflow-reentry
     worktree: ../PythonProject4-CARD-130
-    phase: implementation
-    review_cycle: 0
+    phase: review
+    review_cycle: 1
   - card: CARD-138
     branch: card/138-batch-difficulty-target
     worktree: ../PythonProject4-CARD-138
-    phase: implementation
-    review_cycle: 0
+    phase: review
+    review_cycle: 1
 serialized:
   # Overlap 0.33 on src/nonogram/admin/book_pdf_generator.py (>= max_overlap 0.3).
   # CARD-134 starts when CARD-127 is merged; the answer key counts pages after pairing.

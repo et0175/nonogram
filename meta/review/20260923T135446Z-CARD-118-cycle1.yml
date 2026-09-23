@@ -1,0 +1,308 @@
+version: 1
+generated_at: "2026-09-23T13:54:46Z"
+target: "card/118-proof-pages @ 8765b91 (git diff main...HEAD; base 89facec)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_proof.py"
+    - "src/nonogram/admin/app.py (import block, new route, door at :836, referrer precedent at :3446)"
+    - "src/nonogram/admin/templates/book_setup_print.html"
+    - "tests/test_book_proof_pages.py"
+    - "src/nonogram/admin/book_pdf_generator.py (PageFrame, page_frame, page_is_right_hand, payload builder, _save_pdf)"
+    - "src/nonogram/export/pdf.py (render_pages, FONT_PACKAGE/FONT_RESOURCE, write_pdf)"
+    - "src/nonogram/export/layout.py (PageSpec, PagePlacement, Layout fields)"
+    - "src/nonogram/export/png.py (_MODE, BACKGROUND)"
+    - "tests/helpers/page_ink.py"
+    - "tests/test_cli.py (layering guard, _ADAPTERS)"
+    - "meta/design/brief.md, meta/design/components.md, src/nonogram/admin/templates/_icons.html"
+    - "src/nonogram/admin/print_specs.py (trim bounds)"
+  not_reached:
+    - "rendered screens — no Makefile / no harness run target, so /book/<id>/setup-print and /book/<id>/proof-pages were never booted; no screenshots, runtime.log, a11y.log or visual-diff.log exist (tooling gap recorded on the card, not a boot failure)"
+    - "meta/architecture/adr/ADR-0037 and ADR-0036 full text (judged from the card's verbatim rule statements)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 1513, removed: 0 }
+  max_fan_in: { symbol: "nonogram.admin.book_proof.render_proof_pdf", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — `git log --name-only -- <file>` filters name-only output to the pathspec itself, so the co-change peer set could not be derived from that command; the diff's 4 files are all named in the card's Touches line, and no peer was independently identified"
+    hotspots: "measured — src/nonogram/admin/app.py: 120 commits in 12 months, 57 of them fix/bug/hotfix; book_setup_print.html: 6 commits. `git shortlog -sn` returned no rows (commits are unattributed in this repo), so bus-factor is no_eligible_fact"
+
+system_contract:
+  rules_checked: 44
+  holds: 25
+  unchecked: 19
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — `git diff main...HEAD --name-only` lists 4 files, no pyproject.toml; book_proof.py:72-91 imports only stdlib (io, dataclasses, functools, importlib.resources, typing), Pillow and first-party nonogram. TestDependencyBaseline_IsExactlyPillowAndNumpy green on 8765b91."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/** absent from the diff; tests/test_cli.py::test_every_import_in_the_package_points_inward green on 8765b91, and it discovers modules from disk (tests/test_cli.py:773 `_MODULES = _discover_modules()`), so the new admin module is covered automatically."
+    - "ADR-0022/R1 ✓ holds — the new public surface carries no scalar extent: ProofPuzzle.width/.height are separate properties (book_proof.py:250-257) and payload() passes width=/height= (book_proof.py:301-302). The only `size=` in the module is Pillow's type-size argument (book_proof.py:392), whose parameter is named `face_px`."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image sourcing or crop code in the diff (sourcing/ untouched)."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token parsing in the diff (cli.py untouched)."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/recovery code in the diff (orchestrator.py, sourcing/ untouched)."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter or retry bound in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair path in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation path in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the diff adds no pipeline stage that could reject on density."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty.py untouched; nothing in the diff scores a puzzle."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no verifying solve in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no score computation in the diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff."
+    - "ADR-0029/R5 ✓ holds — no rung attribution is produced or consumed: ProofPuzzle.tier (book_proof.py:227-228, 312-315) is a band label, documented as nominal at book_proof.py:212-224, never written to storage (`grep add_puzzle|quality_score|commit|session src/nonogram/admin/book_proof.py` returns nothing) and never read by difficulty.py — `grep -rn book_proof src tests meta/architecture` shows app.py as the sole importer."
+    - "ADR-0032/R1 ✓ holds — the diff contains no add_puzzle call (grep above); fixtures are constructed in memory at book_proof.py:312-315 and never reach the storage boundary. TestStorageBoundary_AsksTheSolverNotTheCaller green on 8765b91."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: the diff neither reads nor writes quality_score."
+    - "ADR-0033/R1 ✓ holds — the new route is a GET whose only book call is `book_mgr.get_book` (app.py:3490); proof_pages reads no membership (book_proof.py:508-516) and writes nothing. tests/test_book_proof_pages.py::TestBookProof_FixturesAreTheDepthsTheMeasurementsAssume::test_the_fixtures_come_from_this_module_and_not_from_a_book asserts a book with no puzzles proofs byte-identically to the bare profile."
+    - "ADR-0035/R1 ✓ holds — no status transition in the diff (`grep status src/nonogram/admin/book_proof.py` empty; route body writes nothing). TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green on 8765b91."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** absent from the diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py all green on 8765b91 (203-test run), and tests/fixtures/a4_golden/** is untouched."
+    - "ADR-0036/R2 ✓ holds — book_proof.py places no cell and no rule: the module's only drawing primitives are `ImageDraw.Draw` and `draw.text` (book_proof.py:476,478 — `grep -n 'draw\\.|\\.line\\(|\\.rectangle\\(|Image.new' src/nonogram/admin/book_proof.py` returns exactly those two plus the import). Every figure in the note is read off Layout/PagePlacement (book_proof.py:345-365: placement.cell_mm, layout.thin_rule, layout.thick_rule, layout.width/height, layout.dpi, layout.columns/rows, layout.row_gutter_cells/column_gutter_cells); the sheet comes from BookPDFGenerator.page_spec and the usable area from page_frame (book_proof.py:508-515). Verified end to end: the rendered page measures cell 4.967 mm and the note states 'cell 4.97 mm'."
+    - "ADR-0037/R1 ✓ holds — a book puzzle page is unchanged: tests/test_book_proof_pages.py::TestBookProof_AnnotationIsProofOnly::test_a_book_page_of_the_same_fixture_carries_no_note renders the same fixture through BookPDFGenerator.interior_pages and asserts the page is byte-identical to COMP-007's page for a payload with name=None, with a blank foot. ProofPuzzle.payload sets name=None (book_proof.py:303)."
+    - "ADR-0037/R2 ✓ holds — CK-3 (TestBookProof_StrokesMeetBookMinimum, 6 parametrised cases) green on 8765b91, measuring off the drawn page: thin 3 px = 0.254 mm >= 0.25 mm, heavy 6 px = 0.508 mm = 2x thin, scanline greys exactly {0,255} and ink RGB exactly (0,0,0). Independently reproduced: `_measured(proof_pages(_book())[0])` -> thin_mm 0.254, heavy_mm 0.508. The default PageSpec's strokes are untouched (export/** not in the diff; A4 golden green)."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the diff and nothing in it reports a uniqueness verdict; the proof fixtures make no uniqueness claim (book_proof.py:32-35)."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched; the diff adds no socket bind."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched; the new route is on the admin adapter, whose door is CON-016."
+    - "CON-011 ✓ holds — ProofPuzzle.from_art validates both sides against nonogram.limits.MIN_SIZE..MAX_SIZE and raises otherwise (book_proof.py:242-247), using the shared constants rather than literals (imported at book_proof.py:91); tests/test_book_proof_pages.py asserts the fixtures are 30x30 and 15x15 (:452,:460) and reads the extents back off the rendered ink (:301,:309,:367-374)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no uploaded-image aspect path in the diff."
+    - "CON-015 ✓ holds — the admin entry point and its bind address are untouched by the diff (4 files, none of them the runner). TestAdminPanel_BindsLoopbackOnlyByDefault green on 8765b91."
+    - "CON-016 ✓ holds — the door is a global `@app.before_request` (app.py:836-899) that runs before any view, so the new route at app.py:3473 inherits it with no per-route opt-in; the diff adds no route registered outside create_app. TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on 8765b91."
+    - "INV-001 ✓ holds — ProofPuzzle.row_clues/.column_clues are derived from the grid with clues.compute_clues (book_proof.py:268,272) rather than written out beside it, and the page is asserted to draw those gutters (tests/test_book_proof_pages.py:470-476 reads the depth back off the ink; :491-502 checks the layout's gutters equal the fixture's encoding). TestComputeClues_MatchesGridExactly green on 8765b91."
+    - "INV-002 ✓ holds — nothing in the diff marks a puzzle ready for export or bypasses COMP-002's gate for a book puzzle; the proof fixtures are never stored, never book members and never exported as puzzles (ADR-0032/R1 and ADR-0033/R1 evidence above). TestExport_RejectsUnverifiedPuzzle green on 8765b91. Noted as F-006: render_pages' own docstring (export/pdf.py:420) states a finalized-payload precondition that this new caller knowingly does not meet; book_proof.py:32-35 says so explicitly and no path leads to a book."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the diff contains no retry or attempt counter."
+    - "INV-005 ✓ holds — the route performs one read (book_mgr.get_book, app.py:3490) and no write, so no plan is created or altered; PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan, TestBookCreate_StoresDefaultPlanThatSumsTo100 and TestBookPlan_RejectsSplitNotSummingTo100 green on 8765b91 (304-test sweep)."
+    - "INV-006 ✓ holds — no membership is read or written by proof_pages (book_proof.py:508-516) and the fixtures never become members; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride and the three TestBookAddPuzzles* checks green on 8765b91. (The proof page can print a below-floor cell on a small trim; it is not a membership and is recorded as F-007.)"
+    - "INV-007 ✓ holds — no membership change in the diff; PropertyTest_BookReady_GateIffEveryCellWithinTolerance and the three TestBookReady_* checks green on 8765b91."
+    - "INV-008 ✓ holds — the new route changes no membership and requires no confirmation because it makes no change; the three TestBookPublished_* checks green on 8765b91."
+    - "INV-009 ✓ holds — the proof set is a fixed two-element tuple in print order (book_proof.py:312-315) that never touches book order; PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and the TestBookArrange_*/TestBookPdf_* order checks green on 8765b91."
+    - "INV-010 ✓ holds — proof pages are one puzzle per page by construction (book_proof.py:510-516 iterates one payload per page) and no pairing code is touched; PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly and the ten TestBookPdf_* pairing checks green on 8765b91."
+    - "INV-011 ✓ holds — the proof PDF carries no answer key (render_pages' answer page is discarded at book_proof.py:513 `page, _ =`); PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook and the eight TestBookAnswerKey_* checks green on 8765b91."
+    - "INV-012 ✓ holds — the route is a GET that writes nothing, so no membership leaves the state that last passed the plan check; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists and the five TestBook*_ReturnsToDraft checks green on 8765b91."
+    - "INV-013 ✓ holds — the proof PDF is a separate artefact, not the book's interior: book_proof builds it with its own save() (book_proof.py:529-539) and the book export path cannot reach it — tests/test_book_proof_pages.py::TestBookProof_AnnotationIsProofOnly::test_nothing_on_the_book_export_path_imports_this_module walks src/nonogram/**/*.py with ast and asserts app.py is the only importer (independently reproduced: `grep -rn book_proof src tests meta/architecture` -> app.py:80 and the template's url_for only). PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage and the five TestBookExport_* checks green on 8765b91."
+
+root_causes:
+  - id: RC-1
+    title: "The proof note is fitted only to the strip below the drawing, so a sheet the square fixtures fill vertically has nowhere to put it"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_proof.py
+    line: 428
+    title: "A book on a legal square KDP trim can never get proof pages, and the refusal names no remedy"
+    description: |
+      PrintSpecValidator accepts any trim from 10 cm up to 30 x 48 cm
+      (src/nonogram/admin/print_specs.py:113-129), which includes the real KDP
+      square sizes 8.25 x 8.25 in and 8.5 x 8.5 in. Both proof fixtures are
+      square, so on those trims the drawing is limited by page height and
+      _fitted_note_font raises, leaving the owner with no way at all to
+      validate ADR-0037's strokes for that book — which is the card's whole
+      purpose.
+
+      I measured the boundary rather than taking the card's "near-square"
+      wording on trust: with width 21.59 cm the first height that renders is
+      23.115 cm, i.e. an aspect ratio of ~1.071. Every real portrait KDP trim
+      I probed renders (5x8 1.600, 5.5x8.5 1.545, 6x9 1.500, 7x10 1.429,
+      8x10 1.250, 8.5x11 1.294, and the tightest real one, 7.5x9.25 at 1.234).
+      So the card's claim that "every portrait book trim leaves tens of
+      millimetres" holds; the gap is confined to square and landscape trims,
+      which the validator nonetheless allows.
+
+      The refusal message is also hard to act on: it reports both dimensions
+      symmetrically ("the note needs 62.0 x 4.6 mm and the page has
+      196.9 x 1.2 mm clear below the drawing"), so the owner cannot see that
+      only the height failed, and it names no remedy. The route wraps it as
+      "Failed to generate proof pages: <message>".
+    suggestion: |
+      Either (a) say what to do — append "use a portrait trim, or set a
+      taller sheet on Print setup" and lead with the dimension that failed; or
+      (b) close the gap: fall back to a single-line note, or set the note in
+      the drawing's blank clue corner (the card itself suggests this as a
+      later card). Option (a) is a two-line change inside the existing
+      ValueError and keeps the card's scope.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: compliance
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3505
+    title: "Unvalidated redirect target — `redirect(request.referrer or ...)`"
+    description: |
+      On failure the route redirects to `request.referrer`, a header the
+      caller controls. A page on another origin linking to
+      http://localhost:5000/book/<id>/proof-pages passes the loopback door
+      (the Host is local; the cross-site check only runs in deployed mode,
+      app.py:892-897) and, on the square-trim refusal, bounces the operator's
+      browser back to that origin. Impact is low — loopback-only panel, a
+      redirect after a failed download, no token in the URL — and there is a
+      precedent at app.py:3446, so this is not new to the codebase.
+    suggestion: |
+      Redirect unconditionally to `url_for("setup_print", book_id=book_id)`.
+      The route's own docstring already says Print setup "is where the trim
+      that caused it is changed", so the referrer adds nothing, and the
+      route's test already asserts that destination
+      (tests/test_book_proof_pages.py:768).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3497
+    title: "Broad `except Exception` turns real bugs into a flashed message, and puts internal exception text on screen"
+    description: |
+      The handler catches every exception from render_proof_pdf, flashes
+      `f"Failed to generate proof pages: {e}"` and returns 302. Exactly one
+      failure is expected (the ValueError of F-001); everything else is a bug
+      that now reports as a 200-level user flow with whatever `str(e)` happens
+      to contain (a path, a database message) rendered into the page. It is
+      mitigated — `app.logger.exception` keeps the traceback, and the comment
+      says this is deliberate — so this is a hardening note, not a defect.
+    suggestion: |
+      Catch `ValueError` for the expected refusal and flash its message; let
+      anything else propagate to the panel's 500 handler, or flash a generic
+      "Proof pages could not be built — see the server log" and keep the
+      detail in the log only.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3508
+    title: "`datetime.utcnow()` is deprecated on the project's own Python floor"
+    description: |
+      CLAUDE.md sets Python >= 3.14; `datetime.utcnow()` has been deprecated
+      since 3.12 and the suite run on this head reports it from the new line:
+      "app.py:3508: DeprecationWarning: datetime.datetime.utcnow() is
+      deprecated and scheduled for removal". There is one pre-existing
+      instance (book_manager.py:732), so the pattern is not new, but the diff
+      adds another.
+    suggestion: "`datetime.now(timezone.utc).strftime(...)` — same output string, no warning."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_proof_pages.py
+    line: 289
+    title: "No test asserts the served PDF carries the proof note"
+    description: |
+      Objective 3 (the annotation) is asserted thoroughly, but always against
+      `proof_pages`' in-memory images; every assertion that reads the PDF
+      (CK-1, CK-2) measures grid geometry and page boxes only. Nothing closes
+      the loop on the artefact the route actually hands the owner. I verified
+      it manually — both pages of `render_proof_pdf(_book())` carry foot ink
+      after the PDF round trip — so this is coverage, not a defect.
+
+      Secondary, same file: the ast importer guard at :690 compares
+      `path.name`, so a second file named `app.py` anywhere under
+      src/nonogram/ would satisfy `importers == {"app.py"}`.
+    suggestion: |
+      One line in TestBookProof_TwoTrimSizedPagesAtExpectedCells:
+      `assert _has_ink(_foot_strip(pdf_pages(book1_pdf)[0]))`, and compare
+      `path.relative_to(package)` instead of `path.name` at :669-690.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/export/pdf.py
+    line: 420
+    title: "render_pages' documented INV-002 precondition is knowingly unmet by the new caller"
+    description: |
+      `render_pages`' docstring states that its payload "is finalized ... was
+      settled by COMP-002's INV-002 gate before this call". book_proof passes
+      fixtures that are explicitly not claimed uniquely solvable
+      (book_proof.py:32-35). Nothing reaches a book and the module says so on
+      its face, so the invariant itself holds (see the INV-002 verdict); the
+      note is that export/pdf.py's stated precondition now has a legitimate
+      exception it does not mention. export/** is out of this card's reach
+      (G-2), so this belongs to whoever owns that module next.
+    suggestion: "Widen render_pages' docstring to admit a non-puzzle calibration payload, on a card that owns src/nonogram/export/**."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/admin/templates/book_setup_print.html
+    line: 171
+    title: "\"the smallest cell the book gives\" over-promises on a small trim"
+    description: |
+      The screen copy says the proof shows "a 30 x 30 at the smallest cell the
+      book gives". On a small trim that cell falls below NFR-008's 4.8 mm
+      floor — the property test deliberately spans it
+      (tests/test_book_proof_pages.py:922:
+      `assert min(cells_seen) < 4.8 <= max(cells_seen)`), and INV-006 would
+      refuse such a puzzle into that book without a stored override. So on a
+      5 x 8 in book the proof shows a cell the book will in practice never
+      print. Nothing lies — the note states the cell it actually drew — but
+      the copy is stronger than the fact.
+    suggestion: "Add a below-floor marker to the note (or the copy) when placement.cell_mm < 4.8, so a small-trim proof reads as \"below the 4.8 mm floor\" rather than as the book's working cell."
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
