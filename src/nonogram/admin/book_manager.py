@@ -283,6 +283,72 @@ class FloorRefusal:
         )
 
 
+@dataclass(frozen=True)
+class AddOutcome:
+    """What one submission did at the book store: what joined, and what did not.
+
+    Returned by :meth:`BookManager.add_puzzles_reporting_refusals`, so a route
+    can word its refusal from the **same** measurement the store enforced
+    rather than asking for a second one (EC-021: no two of them can disagree
+    about a puzzle, and a second pass is a second chance to). The two lists
+    partition the submission's *distinct* ids — a duplicate inside one
+    submission is one decision, not two.
+    """
+
+    #: The submitted ids the floor let through, in submission order. These
+    #: are the ids the add applied; one already in the book is among them (it
+    #: was admitted, it simply changed nothing), which is the count the two
+    #: routes have always shown.
+    admitted: List[str]
+    #: One :class:`FloorRefusal` per submitted id the floor kept out.
+    refusals: List[FloorRefusal]
+
+
+#: What an add is told when the book moved underneath it between the
+#: measurement and the write (review cycle 1, F-001). The verdict is decided on
+#: a snapshot of the row — the published refusal, the stored overrides and the
+#: trim and margins every cell is measured on — and DB mode writes in a second
+#: session; a publish, a Print-setup save or a concurrent remove landing in
+#: between would otherwise be overwritten by a decision made before it. Nothing
+#: is committed, so the remedy is to look at the book as it now is and submit
+#: again.
+CONCURRENT_CHANGE_REFUSAL = (
+    "This book changed while its puzzles were being measured (its status, its "
+    "trim and margins, or its stored overrides), so nothing was added. Reload "
+    "the book and submit again."
+)
+
+#: The row columns an add's verdict is a function of: the status the published
+#: refusal reads, the four print columns :func:`book_page_spec` measures every
+#: cell on, and the stored overrides that decide which below-floor ids may
+#: join. Not ``puzzle_ids``: membership is a union written from the live row
+#: inside the writing session, so another puzzle arriving or leaving does not
+#: change what this submission decided — but a *removal* takes that puzzle's
+#: override with it, which the overrides comparison catches.
+_VERDICT_COLUMNS = (
+    "status",
+    "trim_width_cm",
+    "trim_height_cm",
+    "gutter_margin_cm",
+    "outside_margin_cm",
+)
+
+
+def _verdict_state(source) -> tuple:
+    """The state of ``source`` an add's floor verdict rests on (F-001).
+
+    Read off a :class:`Book` snapshot before the measurement and off the live
+    ``books`` row inside the writing session; the write lands only when the two
+    are equal, so a verdict is never committed against a row that has moved
+    since it was made. Works on either because both carry the same attribute
+    names.
+    """
+    return (
+        tuple(getattr(source, column, None) for column in _VERDICT_COLUMNS),
+        tuple(str(pid) for pid in (getattr(source, "floor_overrides", None) or [])),
+    )
+
+
 def _clue_lines(record: Dict[str, Any], field_name: str) -> tuple:
     """One stored clue field as ``compute_layout`` wants it.
 
@@ -637,7 +703,10 @@ class BookManager:
                 :func:`book_page_spec`'s message, which names the column at
                 fault. The whole add is refused, because *no* puzzle's cell can
                 be computed for such a book; fail closed, and the owner's
-                remedy is one save on Print setup.
+                remedy is one save on Print setup. A manager with **no store**
+                does not reach this: its posture (nothing refused, an error
+                logged) is decided first, so an unreadable trim cannot turn it
+                into a raise (review cycle 1, F-005).
         """
         book = self.get_book(book_id)
         return [] if book is None else self._below_floor_for(book, puzzle_ids)
@@ -648,10 +717,11 @@ class BookManager:
         if not puzzle_ids:
             return []
 
-        # Before the store is consulted: a book whose sheet cannot be built has
-        # no cell for any puzzle, and that is the whole add's refusal.
-        spec = book_page_spec(book)
-
+        # First of all: a manager with no store resolves nothing, so it has
+        # nothing to refuse and says so (the posture above). This precedes the
+        # sheet deliberately (review cycle 1, F-005) — building it first made
+        # such a manager *raise* on a book whose trim is also unreadable, which
+        # is the one posture the docstring promises it will not take.
         if self.puzzle_store is None:
             logger.error(
                 "No puzzle store: the printed cell of %d puzzle(s) cannot be measured, "
@@ -661,6 +731,10 @@ class BookManager:
                 f"{FLOOR_MM:g}",
             )
             return []
+
+        # Before the store is consulted: a book whose sheet cannot be built has
+        # no cell for any puzzle, and that is the whole add's refusal.
+        spec = book_page_spec(book)
 
         refusals: List[FloorRefusal] = []
         for puzzle_id in puzzle_ids:
@@ -710,10 +784,14 @@ class BookManager:
         (:meth:`floor_overrides`), because INV-006 asks for a *stored* override
         and one stored earlier is still stored.
 
-        The same call :meth:`add_puzzles_to_book` makes to decide what it
-        admits, so a route that reports from here and then adds cannot name a
-        different set than the store enforced (EC-021). The store remains the
-        gate: a route that skips this still cannot get a below-floor puzzle in.
+        The measurement :meth:`add_puzzles_reporting_refusals` makes to decide
+        what it admits, asked **without** adding anything: this is the read-only
+        door for a screen that shows the verdict before a submission (CARD-123's
+        tile and finalise count). A route that is *about* to add asks the add
+        itself, which hands back the refusals it enforced, so the wording and
+        the enforcement are one measurement and cannot disagree (EC-021, review
+        cycle 1, F-004). The store remains the gate either way: a route that
+        skips this still cannot get a below-floor puzzle in.
 
         Raises:
             ValueError: as :meth:`below_floor` — the book's stored print
@@ -727,6 +805,32 @@ class BookManager:
     ) -> bool:
         """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
 
+        :meth:`add_puzzles_reporting_refusals` — the whole rule is there — read
+        as the yes/no every caller but the two add routes wants.
+
+        Args:
+            book_id: ID of book
+            puzzle_ids: IDs of puzzles to add
+            overrides: The ids the owner explicitly admitted below the floor in
+                *this* submission (TERM-025).
+
+        Returns:
+            True if the book was found and the add was processed — which
+            includes the case where every puzzle was refused by the floor.
+            False if the book does not exist. A caller that needs to *name* the
+            refusals asks :meth:`add_puzzles_reporting_refusals` instead; this
+            contract is unchanged.
+
+        Raises:
+            ValueError: as :meth:`add_puzzles_reporting_refusals`.
+        """
+        return self.add_puzzles_reporting_refusals(book_id, puzzle_ids, overrides) is not None
+
+    def add_puzzles_reporting_refusals(
+        self, book_id: str, puzzle_ids: List[str], overrides=()
+    ) -> Optional[AddOutcome]:
+        """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
+
         The floor is enforced here rather than at either route, because this is
         where membership is written and EC-021 covers "any future route ending
         in the book store" as well as today's two. A puzzle whose cell on this
@@ -737,8 +841,9 @@ class BookManager:
           per batch (FR-031): a submission of fifty tiles with one small
           picture among them is a corrected selection, not a lost one, and
           whole-batch refusal would make the owner find the offender by
-          bisection. The caller names the refused puzzles to the owner by
-          asking :meth:`floor_refusals` — the same call this makes;
+          bisection. The refusals come back in the :class:`AddOutcome`, so the
+          caller names them from the measurement that was enforced rather than
+          repeating it (review cycle 1, F-004);
         * **admitted**, when one does, and the override is then **stored with
           the book** for that id, so the membership and the reason it was
           allowed live together and survive the request that granted it
@@ -749,6 +854,27 @@ class BookManager:
         override that no rule needs is exactly the orphan record item 4 of the
         card removes on the other side.
 
+        A **repeated id inside one submission is one decision**, not two
+        (review cycle 1, F-006): ``[p, p]`` below the floor is refused once and
+        named once, and ``[p, p]`` above it joins once — which is what the book
+        already did with membership, and now what the refusal does too.
+
+        Consistency of the verdict with the write
+        -----------------------------------------
+        The published refusal, the stored overrides and every cell measured
+        against the floor are read off **one** snapshot of the book taken here,
+        and DB mode then writes in a second session (the per-puzzle store reads
+        in between open their own, and this module does not nest sessions —
+        :meth:`set_book_status` records why). So the writing session re-reads
+        the live row and commits only if :func:`_verdict_state` still matches
+        the snapshot the verdict was made on; a publish, a Print-setup save or
+        a concurrent remove landing in between refuses the add with
+        :data:`CONCURRENT_CHANGE_REFUSAL` instead of committing a decision made
+        on state that has gone (review cycle 1, F-001). Membership and its
+        override remain two columns of one row assigned and committed together,
+        so INV-006's pair still cannot land half-written. The in-memory branch
+        has one live object throughout and needs no such check.
+
         Args:
             book_id: ID of book
             puzzle_ids: IDs of puzzles to add
@@ -758,34 +884,48 @@ class BookManager:
                 id pasted there is named and refused.
 
         Returns:
-            True if the book was found and the add was processed — which
-            includes the case where every puzzle was refused by the floor.
-            False if the book does not exist.
+            The :class:`AddOutcome` — the submission's distinct ids split into
+            what the floor admitted and what it refused — when the book was
+            found and the add was processed, which includes the case where
+            every puzzle was refused. ``None`` if the book does not exist.
 
         Raises:
             ValueError: ``puzzle_ids`` is empty, the book is already published
                 (unchanged here — turning that into a confirmation is
-                CARD-131), or the book's stored print specification cannot be
-                read (:meth:`below_floor`).
+                CARD-131), the book's stored print specification cannot be read
+                (:meth:`below_floor`), or the book changed under the add
+                between the measurement and the write
+                (:data:`CONCURRENT_CHANGE_REFUSAL`). Nothing is written in any
+                of these cases.
         """
         if not puzzle_ids:
             raise ValueError("Must provide at least one puzzle")
+
+        # One submission, one decision per id (F-006). Order-preserving, and
+        # keyed on the id's string form because that is the form the floor,
+        # the store and the book's own list all speak.
+        submitted = list({str(pid): pid for pid in puzzle_ids}.values())
 
         # Read once, before the storage branch: the published refusal and the
         # floor both need the book, and both must answer the same in either
         # mode. The published refusal stays first, exactly as it was (G-4).
         book = self.get_book(book_id)
         if not book:
-            return False
+            return None
         if book.status == BookStatus.PUBLISHED.value:
             raise ValueError("Cannot add puzzles to published book")
 
+        # The truth this add's verdict rests on, as it stood when it was made.
+        measured_on = _verdict_state(book)
+
         allowed = set(book.floor_overrides) | {str(pid) for pid in overrides}
-        below_floor = self._below_floor_for(book, puzzle_ids)
-        refused = {r.puzzle_id for r in below_floor if r.puzzle_id not in allowed}
+        below_floor = self._below_floor_for(book, submitted)
+        refusals = [r for r in below_floor if r.puzzle_id not in allowed]
+        refused = {r.puzzle_id for r in refusals}
         # Stored for the ids an override actually had to cover, and no others.
         newly_overridden = [r.puzzle_id for r in below_floor if r.puzzle_id in allowed]
-        puzzle_ids = [pid for pid in puzzle_ids if str(pid) not in refused]
+        puzzle_ids = [pid for pid in submitted if str(pid) not in refused]
+        outcome = AddOutcome([str(pid) for pid in puzzle_ids], refusals)
         if refused:
             logger.info(
                 "Book %s: %d puzzle(s) refused by the %s mm floor with no override "
@@ -795,8 +935,12 @@ class BookManager:
                 f"{FLOOR_MM:g}",
                 ", ".join(sorted(refused)),
             )
+        # A submission the floor refused entirely changes no membership, so it
+        # is not a membership change. CARD-131 (INV-012): the return-to-draft
+        # write belongs *after* this line, not before it — a fully refused
+        # submission must not demote a book whose selection did not move.
         if not puzzle_ids:
-            return True
+            return outcome
 
         if self._session_factory is None:
             # Legacy mode: in-memory dict
@@ -812,7 +956,7 @@ class BookManager:
             book.updated_at = datetime.utcnow()
 
             self._mirror_onto_puzzles(new_puzzles, book_id)
-            return True
+            return outcome
         else:
             # DB mode: update Book row
             from nonogram.db.models import Book as DBBook
@@ -820,7 +964,21 @@ class BookManager:
             with self._session_factory() as db:
                 book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
                 if not book_row:
-                    return False
+                    return None
+
+                # The verdict above was decided on a snapshot; this session
+                # holds the live row. Nothing is written unless the state that
+                # verdict rests on is still the state here (F-001) — the
+                # published refusal included, which is why no separate status
+                # re-check is needed beside this one.
+                if _verdict_state(book_row) != measured_on:
+                    logger.warning(
+                        "Book %s changed between the floor measurement and the write "
+                        "(status, print columns or stored overrides); nothing was "
+                        "added.",
+                        book_id,
+                    )
+                    raise ValueError(CONCURRENT_CHANGE_REFUSAL)
 
                 # Add unique puzzle IDs (avoid duplicates)
                 existing_puzzles = book_row.puzzle_ids or []
@@ -842,7 +1000,7 @@ class BookManager:
                 db.commit()
 
             self._mirror_onto_puzzles(new_puzzles, book_id)
-            return True
+            return outcome
 
     def remove_puzzle_from_book(self, book_id: str, puzzle_id: str) -> bool:
         """Remove a puzzle from a book, and with it its under-floor override.

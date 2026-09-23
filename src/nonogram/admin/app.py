@@ -2566,15 +2566,19 @@ def create_app(debug=None):
                 try:
                     # FR-031/INV-006: the 4.8 mm floor. The overrides ticked on
                     # this submission travel with the add; the *store* decides
-                    # what may join (CARD-121), and this asks it the same
-                    # question beforehand only so the refused tiles can be
-                    # named with their cell (AC-183).
+                    # what may join (CARD-121) and hands back the refusals it
+                    # enforced, so the tiles are named with the cell that was
+                    # actually measured (AC-183) and the submission is measured
+                    # once rather than twice (EC-021).
                     overrides = _submitted_overrides(kept_ids)
-                    refusals = book_mgr.floor_refusals(book_id, kept_ids, overrides)
                     # Add puzzles to the book
-                    if book_mgr.add_puzzles_to_book(book_id, kept_ids, overrides):
+                    outcome = book_mgr.add_puzzles_reporting_refusals(
+                        book_id, kept_ids, overrides
+                    )
+                    if outcome is not None:
+                        refusals = outcome.refusals
                         refused_ids = [refusal.puzzle_id for refusal in refusals]
-                        added = len(kept_ids) - len(refused_ids)
+                        added = len(outcome.admitted)
                         if added:
                             flash(f"Added {added} puzzle(s) to book", "success")
                         for refusal in refusals:
@@ -3097,12 +3101,14 @@ def create_app(debug=None):
 
             # FR-031/AC-185: this route carries no override control, so a
             # pasted below-floor id is named with its cell and left out. The
-            # floor is held by the store either way (INV-006); asking it first
-            # is only how the refusal gets its wording.
-            refusals = book_mgr.floor_refusals(book_id, puzzle_ids)
-            added = len(puzzle_ids) - len(refusals)
+            # floor is held by the store (INV-006), which reports the refusals
+            # it enforced — one measurement, so the wording and the enforcement
+            # cannot disagree and a repeated id is named once (EC-021).
+            outcome = book_mgr.add_puzzles_reporting_refusals(book_id, puzzle_ids)
 
-            if book_mgr.add_puzzles_to_book(book_id, puzzle_ids):
+            if outcome is not None:
+                refusals = outcome.refusals
+                added = len(outcome.admitted)
                 if added:
                     flash(f"Added {added} puzzles to book", "success")
                 for refusal in refusals:

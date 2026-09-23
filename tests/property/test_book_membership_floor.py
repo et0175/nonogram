@@ -186,6 +186,20 @@ class Corpus:
                 setattr(row, column, value)
         return book_id
 
+    def release(self, book_id: str) -> None:
+        """Give every member back, so the next book starts from free puzzles.
+
+        One puzzle belongs to at most one book (ADR-0033, G-2), and
+        ``_mirror_onto_puzzles`` writes ``puzzles.book_id``. Putting the same
+        24 puzzles into 16 successive books without releasing them left the
+        corpus in exactly the multi-book state the ADR forbids, so a regression
+        in the assigned-puzzle exclusion could not have shown up here (review
+        cycle 1, F-007). Called *after* each book's verdicts are checked, so
+        nothing the property asserts is affected and the corpus does not shrink.
+        """
+        for puzzle_id in list(self.books.get_book(book_id).puzzle_ids):
+            self.books.remove_puzzle_from_book(book_id, puzzle_id)
+
     def below_floor(self, book_id: str) -> dict[str, bool]:
         """Whether each corpus puzzle is below this book's floor.
 
@@ -334,6 +348,7 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride(
             corpus.books.get_book(book_id).puzzle_ids,
             corpus.books.floor_overrides(book_id),
         )
+        corpus.release(book_id)
 
     tally.assert_covered(f"store/{mode}")
 
@@ -377,6 +392,7 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_selection_
             corpus.books.get_book(book_id).puzzle_ids,
             corpus.books.floor_overrides(book_id),
         )
+        corpus.release(book_id)
 
     tally.assert_covered("select-puzzles")
 
@@ -444,6 +460,7 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_paste_ids_
             corpus.books.get_book(book_id).puzzle_ids,
             corpus.books.floor_overrides(book_id),
         )
+        corpus.release(book_id)
 
     assert alone.admitted_below_with_override == 0, (
         "the paste-IDs route let a below-floor puzzle in on its own"

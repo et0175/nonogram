@@ -569,10 +569,17 @@ class TestBookFloor_EveryAddRouteEndsInTheGuardedStore:
     #: never drove, and the floor's reach would have to be argued again.
     COVERED = {"select_puzzles_for_book", "add_puzzles_to_book"}
 
+    #: Every way into the guarded store. ``add_puzzles_to_book`` is the
+    #: yes/no reading and ``add_puzzles_reporting_refusals`` the one that also
+    #: hands back what the floor refused (review cycle 1, F-004); both write
+    #: membership, so a route reaching either must be a covered one.
+    STORE_ENTRIES = {"add_puzzles_to_book", "add_puzzles_reporting_refusals"}
+
     def test_no_third_caller_has_appeared(self) -> None:
         app_py = Path(__file__).resolve().parent.parent / "src" / "nonogram" / "admin" / "app.py"
         callers: set[str] = set()
         enclosing: list[str] = []
+        store_entries = self.STORE_ENTRIES
 
         class InnermostFunction(ast.NodeVisitor):
             """Every route in ``app.py`` is nested inside ``create_app``, so the
@@ -589,7 +596,7 @@ class TestBookFloor_EveryAddRouteEndsInTheGuardedStore:
                 func = node.func
                 if (
                     isinstance(func, ast.Attribute)
-                    and func.attr == "add_puzzles_to_book"
+                    and func.attr in store_entries
                     and enclosing
                 ):
                     callers.add(enclosing[-1])
@@ -721,3 +728,417 @@ class TestBookFloor_GuardrailsIntact:
         """CON-011 via limits.py, rather than two literals repeated here."""
         for width, height, *_ in (BELOW_FLOOR, ABOVE_FLOOR):
             assert MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE
+
+
+# --------------------------------------------------------------------------
+# F-001 — the verdict and the write are one decision, not two
+# --------------------------------------------------------------------------
+
+
+def _change_book(shelf, book_id, **columns) -> None:
+    """Commit a change to the book's row — another request, in one line."""
+    import uuid as uuid_module
+
+    from nonogram.db.models import Book as DBBook
+
+    with shelf.factory() as db:
+        row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+        for name, value in columns.items():
+            setattr(row, name, value)
+
+
+def _interleave(shelf, change) -> None:
+    """Land ``change`` once, on the first store read the add makes.
+
+    That read sits **between** the snapshot the add's verdict is decided on
+    (``get_book``, its own session) and the session that writes membership, and
+    it is exactly where another request's commit lands on a threaded server —
+    Werkzeug's dev server is threaded by default, which this codebase already
+    says in ``app.py`` where it took a lock for the same reason. Driving the
+    interleaving here is the finding's own scenario rather than a proxy for it:
+    no thread is needed to show that a decision is made on state that is gone
+    by the time it is committed.
+    """
+    original = shelf.store.get_puzzle
+    fired: list[bool] = []
+
+    def once(puzzle_id):
+        record = original(puzzle_id)
+        if not fired:
+            fired.append(True)
+            change()
+        return record
+
+    shelf.store.get_puzzle = once
+
+
+class TestBookAddPuzzles_VerdictAndWriteAreOneDecision:
+    """A floor verdict is never committed against a book that has moved since.
+
+    The published refusal, the stored overrides and every cell are decided on
+    one snapshot of the row; in DB mode the write is a second session. If the
+    row changed in between, the add is refused and nothing is written —
+    otherwise a publish, a Print-setup save or a concurrent remove landing mid
+    add would be silently overwritten by a decision made before it (F-001).
+    """
+
+    def test_a_publish_landing_mid_add_refuses_instead_of_committing(self, tmp_path) -> None:
+        """G-4's refusal must hold against the row, not against a stale copy."""
+        shelf = Shelf("db", tmp_path)
+        puzzle_id = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+        _interleave(shelf, lambda: _change_book(shelf, book_id, status="published"))
+
+        with pytest.raises(ValueError):
+            shelf.books.add_puzzles_to_book(book_id, [puzzle_id])
+
+        assert shelf.books.get_book(book_id).puzzle_ids == [], (
+            "a published book took a puzzle: the refusal was decided on a "
+            "snapshot taken before the publish and the write never re-checked it"
+        )
+        assert shelf.books.get_book(book_id).status == "published"
+
+    def test_a_trim_change_mid_add_does_not_commit_the_stale_measurement(
+        self, tmp_path
+    ) -> None:
+        """The cell is a fact about the *stored* trim, so a new trim is a new verdict."""
+        shelf = Shelf("db", tmp_path)
+        # 4.84 mm on the Book 1 trim; 2.62 mm once the trim narrows to 12.70 cm.
+        puzzle_id = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+        _interleave(
+            shelf, lambda: _change_book(shelf, book_id, trim_width_cm="12.70")
+        )
+
+        with pytest.raises(ValueError, match="changed while"):
+            shelf.books.add_puzzles_to_book(book_id, [puzzle_id])
+
+        book = shelf.books.get_book(book_id)
+        assert book.puzzle_ids == [], (
+            "a puzzle joined at a cell measured on a trim the book no longer has"
+        )
+        assert book_cell_mm(
+            book_page_spec(book),
+            shelf.store.get_puzzle(puzzle_id)["clues_rows"],
+            shelf.store.get_puzzle(puzzle_id)["clues_cols"],
+        ) < FLOOR_MM, "the fixture must actually fall below the floor on the new trim"
+
+    def test_an_override_withdrawn_mid_add_does_not_admit_the_puzzle(
+        self, tmp_path
+    ) -> None:
+        """A stored override removed in between is not a stored override."""
+        shelf = Shelf("db", tmp_path)
+        puzzle_id = shelf.puzzle(*BELOW_FLOOR[:4])
+        book_id = shelf.book()
+        shelf.books.add_puzzles_to_book(book_id, [puzzle_id], overrides=[puzzle_id])
+        shelf.books.remove_puzzle_from_book(book_id, puzzle_id)
+        # Re-granted, then withdrawn by "another request" mid add.
+        _change_book(shelf, book_id, floor_overrides=[puzzle_id])
+        _interleave(shelf, lambda: _change_book(shelf, book_id, floor_overrides=[]))
+
+        with pytest.raises(ValueError, match="changed while"):
+            shelf.books.add_puzzles_to_book(book_id, [puzzle_id])
+
+        assert shelf.books.get_book(book_id).puzzle_ids == []
+        assert shelf.books.floor_overrides(book_id) == []
+
+    def test_a_book_that_did_not_move_still_takes_its_puzzles(self, tmp_path) -> None:
+        """The guard refuses a moved row, not every add (no false refusal)."""
+        shelf = Shelf("db", tmp_path)
+        puzzle_id = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+        _interleave(shelf, lambda: None)
+
+        assert shelf.books.add_puzzles_to_book(book_id, [puzzle_id]) is True
+        assert shelf.books.get_book(book_id).puzzle_ids == [puzzle_id]
+
+
+# --------------------------------------------------------------------------
+# F-004 — one measurement per submission, reported by the store
+# --------------------------------------------------------------------------
+
+
+class TestBookAddPuzzles_ReportsTheMeasurementItEnforced:
+    """The routes word their refusal from the add's own verdict (EC-021)."""
+
+    def test_the_outcome_partitions_the_submission(self, shelf) -> None:
+        small = shelf.puzzle(*BELOW_FLOOR[:4])
+        big = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+
+        outcome = shelf.books.add_puzzles_reporting_refusals(book_id, [small, big])
+
+        assert outcome.admitted == [big]
+        assert [r.puzzle_id for r in outcome.refusals] == [small]
+        assert outcome.refusals[0].cell_mm == pytest.approx(BELOW_FLOOR[4], abs=0.005)
+
+    def test_an_unknown_book_reports_nothing_rather_than_an_empty_verdict(
+        self, shelf
+    ) -> None:
+        unknown = str(uuid.uuid4()) if shelf.mode == "db" else "book_999999"
+        assert shelf.books.add_puzzles_reporting_refusals(unknown, ["p1"]) is None
+
+    def test_the_store_is_read_once_per_distinct_id(self, shelf) -> None:
+        """A book-sized submission cost two passes over the store before F-004."""
+        small = shelf.puzzle(*BELOW_FLOOR[:4])
+        big = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+        read: list[str] = []
+        original = shelf.store.get_puzzle
+
+        def counted(puzzle_id):
+            read.append(puzzle_id)
+            return original(puzzle_id)
+
+        shelf.store.get_puzzle = counted
+        shelf.books.add_puzzles_reporting_refusals(book_id, [small, big, small])
+
+        assert sorted(read) == sorted({small, big}), (
+            f"the submission was measured more than once: {read}"
+        )
+
+    def test_the_paste_ids_route_measures_the_submission_once(self, panel) -> None:
+        """Both routes used to measure twice — once to word the refusal and once
+        to enforce it — which is one store read per puzzle per pass and two
+        passes that could in principle disagree (EC-021's own concern, F-004)."""
+        small = panel.puzzle(*BELOW_FLOOR[:4])
+        big = panel.puzzle(*ABOVE_FLOOR[:4])
+        book_id = panel.book()
+        read: list[str] = []
+        original = panel.store.get_puzzle
+
+        def counted(puzzle_id):
+            read.append(puzzle_id)
+            return original(puzzle_id)
+
+        panel.store.get_puzzle = counted
+        shown = body(panel.paste(book_id, [small, big]))
+
+        assert sorted(read) == sorted([small, big]), (
+            f"the paste-IDs route measured the submission more than once: {read}"
+        )
+        # ... and the one measurement is still the one the owner reads.
+        assert f"{BELOW_FLOOR[4]:.2f} mm" in shown and "Added 1 puzzles" in shown, shown
+
+
+class TestBookAddPuzzles_ARepeatedIdIsOneDecision:
+    """``[p, p]`` is one puzzle submitted twice, not two puzzles (F-006)."""
+
+    def test_a_repeated_below_floor_id_is_refused_once(self, panel) -> None:
+        puzzle_id = panel.puzzle(*BELOW_FLOOR[:4])
+        book_id = panel.book()
+
+        shown = body(panel.paste(book_id, [puzzle_id, puzzle_id]))
+
+        assert panel.ids_of(book_id) == []
+        assert shown.count(f"Puzzle {puzzle_id} was not added") == 1, shown
+
+    def test_a_repeated_above_floor_id_joins_once_and_is_counted_once(
+        self, panel
+    ) -> None:
+        puzzle_id = panel.puzzle(*ABOVE_FLOOR[:4])
+        book_id = panel.book()
+
+        shown = body(panel.paste(book_id, [puzzle_id, puzzle_id]))
+
+        assert panel.ids_of(book_id) == [puzzle_id]
+        assert "Added 1 puzzles to book" in shown, shown
+
+    def test_the_outcome_holds_one_entry_per_distinct_id(self, shelf) -> None:
+        small = shelf.puzzle(*BELOW_FLOOR[:4])
+        big = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+
+        outcome = shelf.books.add_puzzles_reporting_refusals(
+            book_id, [small, big, small, big]
+        )
+
+        assert outcome.admitted == [big]
+        assert [r.puzzle_id for r in outcome.refusals] == [small]
+        assert shelf.books.get_book(book_id).puzzle_ids == [big]
+
+
+# --------------------------------------------------------------------------
+# F-005 — the storeless posture is decided before the sheet is built
+# --------------------------------------------------------------------------
+
+
+class TestBookFloor_TheStorelessPostureIsReachable:
+    """A manager with no store takes its documented posture on any book."""
+
+    def test_it_refuses_nothing_even_when_the_trim_cannot_be_read(self, caplog) -> None:
+        """Building the sheet first made this raise instead (F-005)."""
+        lonely = BookManager(session_factory=None)
+        book_id = lonely.create_book("Winter", "a book", "christmas", "adults")
+        lonely.get_book(book_id).trim_width_cm = "wide-ish"
+
+        with caplog.at_level("ERROR"):
+            assert lonely.add_puzzles_to_book(book_id, ["p1"]) is True
+
+        assert lonely.get_book(book_id).puzzle_ids == ["p1"]
+        assert f"{FLOOR_MM:g} mm floor" in caplog.text
+        assert lonely.below_floor(book_id, ["p1"]) == []
+
+
+# --------------------------------------------------------------------------
+# F-003 — the interaction the ready gate's stub hides
+# --------------------------------------------------------------------------
+
+
+class TestBookFloor_ALargeBucketPuzzleNeedsAnOverride:
+    """A realistic 30x30 picture prints *below* the floor on the default trim.
+
+    ``tests/test_book_ready_gate.py``'s stub gives every record a one-cell
+    clue pair, so its 30x30 puzzles measure as a 1x1 picture and clear the
+    floor easily. That keeps the gate's own suite about the gate — but it
+    hides a real interaction between INV-006 and INV-007, and this is it: a
+    consistent 30x30 clue set with a 12-deep row gutter gets 4.61 mm on the
+    Book 1 profile, so a book whose plan calls for large puzzles may not be
+    able to reach its planned counts in that bucket without overrides.
+    """
+
+    #: 30 cells across, a 12-entry clue gutter beside them — 42 cells across
+    #: the sheet, which is AC-182's own figure.
+    LARGE = (MAX_SIZE, MAX_SIZE, 12, 12)
+
+    def test_the_largest_bucket_on_the_default_trim_is_below_the_floor(
+        self, shelf
+    ) -> None:
+        puzzle_id = shelf.puzzle(*self.LARGE)
+        book_id = shelf.book()
+        record = shelf.store.get_puzzle(puzzle_id)
+
+        cell = book_cell_mm(
+            book_page_spec(shelf.books.get_book(book_id)),
+            record["clues_rows"],
+            record["clues_cols"],
+        )
+
+        assert cell < FLOOR_MM
+        assert cell == pytest.approx(BELOW_FLOOR[4], abs=0.005), (
+            "a consistent 30x30 clue set draws the same 4.61 mm cell AC-182 names"
+        )
+
+    def test_so_it_joins_a_planned_book_only_with_an_override(self, shelf) -> None:
+        """Both halves, so the consequence is on the record and not just the figure."""
+        puzzle_id = shelf.puzzle(*self.LARGE)
+        book_id = shelf.book()
+
+        shelf.books.add_puzzles_to_book(book_id, [puzzle_id])
+        assert shelf.books.get_book(book_id).puzzle_ids == [], (
+            "a 30x30 picture cannot fill the large-side cells of a plan on the "
+            "default trim unless the owner overrides the floor for it"
+        )
+
+        shelf.books.add_puzzles_to_book(book_id, [puzzle_id], overrides=[puzzle_id])
+        assert shelf.books.get_book(book_id).puzzle_ids == [puzzle_id]
+        assert shelf.books.floor_overrides(book_id) == [puzzle_id]
+
+
+# --------------------------------------------------------------------------
+# Migration 012 — the column this card added, up and down
+# --------------------------------------------------------------------------
+
+
+def _alembic(database_url, monkeypatch):
+    from alembic import command
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parent.parent
+    # No ini file: fileConfig would disable loggers later tests assert on.
+    config = Config()
+    config.set_main_option("script_location", str(root / "migrations"))
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    return command, config
+
+
+class TestMigration012:
+    """The chain, the column and the downgrade — as 010 and 011 each have."""
+
+    def test_chain_and_revision(self) -> None:
+        import importlib.util
+
+        path = (
+            Path(__file__).resolve().parent.parent
+            / "migrations"
+            / "versions"
+            / "012_book_floor_overrides.py"
+        )
+        spec = importlib.util.spec_from_file_location("migration_012", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        assert (module.revision, module.down_revision) == ("012", "011")
+
+    def test_no_backfill_and_a_downgrade_that_drops_the_column(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import sqlalchemy as sa
+
+        url = f"sqlite:///{tmp_path / 'migrate.db'}"
+        command, config = _alembic(url, monkeypatch)
+        command.upgrade(config, "011")
+        engine = sa.create_engine(url)
+
+        def insert(title):
+            with engine.begin() as conn:
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO books (id, title, puzzle_ids, puzzle_titles,"
+                        " book_metadata, status)"
+                        " VALUES (:id, :title, '[]', '{}', '{}', 'draft')"
+                    ),
+                    {"id": uuid.uuid4().hex, "title": title},
+                )
+
+        def columns():
+            with engine.connect() as conn:
+                return {
+                    row[1] for row in conn.execute(sa.text("PRAGMA table_info(books)"))
+                }
+
+        def overrides():
+            with engine.connect() as conn:
+                return {
+                    title: stored
+                    for title, stored in conn.execute(
+                        sa.text("SELECT title, floor_overrides FROM books")
+                    )
+                }
+
+        insert("Legacy")
+        assert "floor_overrides" not in columns()
+
+        command.upgrade(config, "012")
+        assert "floor_overrides" in columns()
+        assert overrides() == {"Legacy": None}, "012 backfills nothing"
+
+        # A pre-012 row reads back as "no override was ever given" — the
+        # fail-closed reading INV-006 needs, not an unset attribute.
+        from contextlib import contextmanager
+
+        from sqlalchemy.orm import sessionmaker
+
+        factory = sessionmaker(bind=engine)
+
+        @contextmanager
+        def migrated_scope():
+            db = factory()
+            try:
+                yield db
+                db.commit()
+            finally:
+                db.close()
+
+        books = BookManager(session_factory=migrated_scope)
+        legacy, = books.get_all_books()
+        assert legacy.floor_overrides == []
+        assert books.floor_overrides(legacy.book_id) == []
+
+        command.downgrade(config, "011")
+        assert "floor_overrides" not in columns(), "012's downgrade left the column"
+        insert("After downgrade")
+
+        command.upgrade(config, "012")  # up -> down -> up
+        assert "floor_overrides" in columns()
+        assert overrides() == {"Legacy": None, "After downgrade": None}
+        engine.dispose()
