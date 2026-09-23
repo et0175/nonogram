@@ -147,7 +147,18 @@
             {% elif puzzles %}
             <div class="puzzle-grid">
                 {% for puzzle in puzzles %}
-                <div class="puzzle-tile">
+                {#- CARD-123 (FR-031, NFR-008): the cell this puzzle prints at
+                    in *this* book, already capped at 7.5 mm, computed by
+                    COMP-007's layout through book_cell_mm — the same number
+                    the add refusal and the book PDF use (G-1, EC-021). `none`
+                    is a puzzle whose cell cannot be measured at all, which the
+                    floor treats as missing it. Two decimals: one is too coarse
+                    beside a 4.8 mm floor (4.84 would read as 4.8). -#}
+                {% set cell_mm = book_cells.get(puzzle.id) %}
+                {% set below_floor = cell_mm is none or cell_mm < floor_mm %}
+                <div class="puzzle-tile" data-puzzle-id="{{ puzzle.id }}"
+                     {%- if cell_mm is not none %} data-book-cell-mm="{{ '%.2f'|format(cell_mm) }}"{% endif %}
+                     {%- if below_floor %} data-below-floor="true"{% endif %}>
                     <input type="hidden" name="shown_ids" value="{{ puzzle.id }}">
                     <div class="puzzle-tile-header">
                         <input type="checkbox" class="form-check-input puzzle-checkbox"
@@ -176,7 +187,27 @@
                             <span class="info-label">Quality</span>
                             <span class="info-value">{{ puzzle.quality_score or 'N/A' }}/100</span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">Book cell</span>
+                            <span class="info-value">{% if cell_mm is none %}not measurable{% else %}{{ '%.2f'|format(cell_mm) }} mm{% endif %}</span>
+                        </div>
                     </div>
+                    {#- The floor is the only thing that flags a tile: a wide
+                        grid that clears it carries no flag of its own (FR-032
+                        amended, AC-241). The flag is a sentence, not a tint —
+                        the words carry it for a viewer who cannot tell the
+                        colours apart — and the override beside it is the
+                        `override_<id>` field the book store reads (CARD-121). -#}
+                    {% if below_floor %}
+                    <div class="tile-flag">
+                        <p class="flag-note">{% if cell_mm is none %}Cell cannot be measured on this book.{% else %}Below the {{ floor_mm }} mm floor.{% endif %}</p>
+                        <label class="flag-override" for="override_{{ puzzle.id }}">
+                            <input type="checkbox" class="form-check-input override-checkbox"
+                                   name="override_{{ puzzle.id }}" id="override_{{ puzzle.id }}" value="on">
+                            Include below floor
+                        </label>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -259,6 +290,21 @@ function clearAll() {
     document.querySelectorAll('.puzzle-checkbox').forEach(checkbox => { checkbox.checked = false; });
     updateSelectionCount();
 }
+
+// Ticking "Include below floor" also selects the tile (CARD-123): the override
+// is an answer about a puzzle the owner is choosing, and one riding on an
+// unticked tile would travel with nothing.
+document.querySelectorAll('.override-checkbox').forEach(override => {
+    override.addEventListener('change', function() {
+        if (!this.checked) return;
+        const tile = this.closest('.puzzle-tile');
+        const checkbox = tile && tile.querySelector('.puzzle-checkbox');
+        if (checkbox && !checkbox.checked) {
+            checkbox.checked = true;
+            updateSelectionCount();
+        }
+    });
+});
 
 // The whole tile toggles its checkbox; the checkbox and its label already do.
 document.querySelectorAll('.puzzle-tile').forEach(tile => {

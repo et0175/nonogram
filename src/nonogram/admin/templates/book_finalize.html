@@ -97,7 +97,22 @@
                     <dt>Easy</dt><dd class="num">{{ easy_count }}</dd>
                     <dt>Medium</dt><dd class="num">{{ medium_count }}</dd>
                     <dt>Hard</dt><dd class="num">{{ hard_count }}</dd>
+                    {#- CARD-123 (FR-031, NFR-008): counted on the book's
+                        current trim and margins every render, not read back
+                        from the stored overrides — so a trim changed after
+                        curation shows up here (AC-188). Zero renders 0. -#}
+                    <dt>Below the {{ floor_mm }} mm floor</dt><dd class="num" data-below-floor-count="{{ below_floor_count }}">{{ below_floor_count }}</dd>
                 </dl>
+                {% if below_floor_count %}
+                <div class="alert alert-warning">
+                    <p class="mb-1">{{ below_floor_count }} puzzle{{ '' if below_floor_count == 1 else 's' }} print{{ 's' if below_floor_count == 1 else '' }} below the {{ floor_mm }} mm floor on this book's trim:</p>
+                    <ul class="mb-0">
+                        {% for entry in below_floor %}
+                        <li>{{ entry.name }} — {% if entry.cell_mm is none %}cell cannot be measured{% else %}{{ '%.2f'|format(entry.cell_mm) }} mm{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
                 <form method="POST" class="mb-2">
                     <input type="hidden" name="action" value="download_pdf">
                     <input type="hidden" name="part" value="interior">

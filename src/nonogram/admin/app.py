@@ -55,6 +55,7 @@ from .puzzle_review import (
     STRATEGY_NAMES,
 )
 from .book_manager import get_book_manager, BookStatus, revise_plan
+from .book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from .book_plan import (
     BUCKETS as PLAN_BUCKETS,
     DEFAULT_PLAN,
@@ -2497,6 +2498,93 @@ def create_app(debug=None):
         width, height = puzzle.get("width") or 0, puzzle.get("height") or 0
         return (rank, min(width, height), max(width, height), str(puzzle.get("id")))
 
+    # ------------------------------------------------------------------
+    # The printed cell a tile shows, and the finalise count (CARD-123)
+    # ------------------------------------------------------------------
+    #
+    # FR-031/NFR-008: every tile on the selection tabs shows the cell its
+    # puzzle gets on *this* book's trim and margins, and a cell below
+    # ``FLOOR_MM`` is flagged with the override control the store reads. The
+    # finalise summary counts the members below the floor the same way, on the
+    # book's current sheet every render (AC-188) — never read back from the
+    # stored overrides, so a trim changed after curation shows up.
+    #
+    # The number is ``book_cell_mm(book_page_spec(book), ...)`` and nothing
+    # else: the one computation ``BookManager.below_floor``'s add refusal and
+    # FR-030's PDF make, so no two of them can disagree about a puzzle (G-1,
+    # EC-021, ADR-0036/R2). **The admin fits no cell itself.**
+
+    def _clue_lines(record, field_name):
+        """One stored clue field as ``compute_layout`` wants it.
+
+        The store keeps ``clues_rows``/``clues_cols`` as lists of lists of
+        ints; the layout takes a tuple of tuples. Reimplemented natively here
+        rather than imported from ``book_manager`` — the project's rule for
+        logic two modules need — and cross-checked against the store's own
+        verdict by ``tests/property/test_book_membership_floor.py``, which
+        holds the tile's figure and the add refusal's to one number.
+
+        Raises:
+            ValueError: the field is missing, empty, or not a sequence of
+                sequences of whole numbers. An unreadable clue set means this
+                record has no measurable cell, which is not a cell known to
+                clear the floor.
+        """
+        lines = record.get(field_name)
+        if not lines:
+            raise ValueError(f"{field_name} is empty")
+        try:
+            return tuple(tuple(int(run) for run in line) for line in lines)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{field_name} is not a clue set ({error})") from None
+
+    def _book_cells(book, records):
+        """``{puzzle id: printed cell in mm}`` on this book's current sheet.
+
+        ``None`` for a record whose cell cannot be measured — clues that
+        cannot be read, or a stored print specification ``book_page_spec``
+        refuses (then no puzzle has a cell on this book at all, and the screen
+        says so rather than showing a number nobody computed).
+        """
+        try:
+            spec = book_page_spec(book)
+        except ValueError as error:
+            app.logger.warning(
+                "Book %s has an unreadable print specification (%s); no printed "
+                "cell can be shown for it.",
+                book.book_id,
+                error,
+            )
+            return {str(record.get("id")): None for record in records}
+
+        cells = {}
+        for record in records:
+            try:
+                cells[str(record.get("id"))] = book_cell_mm(
+                    spec,
+                    _clue_lines(record, "clues_rows"),
+                    _clue_lines(record, "clues_cols"),
+                )
+            except (ValueError, TypeError) as error:
+                app.logger.warning(
+                    "Puzzle %s has no measurable printed cell on book %s (%s).",
+                    record.get("id"),
+                    book.book_id,
+                    error,
+                )
+                cells[str(record.get("id"))] = None
+        return cells
+
+    def _misses_the_floor(cell_mm):
+        """Does this cell miss NFR-008's floor? An unmeasurable one does.
+
+        The posture ``BookManager.below_floor`` takes, restated for the two
+        screens: a cell nobody can compute is not a cell known to clear the
+        floor. So the tile's flag, the add refusal and the finalise count make
+        the same verdict about the same puzzle (EC-021).
+        """
+        return cell_mm is None or cell_mm < FLOOR_MM
+
     @app.route("/book/<book_id>/select-puzzles", methods=["GET", "POST"])
     def select_puzzles_for_book(book_id):
         """Select and add puzzles to a book (Step 2 of scaffolding).
@@ -2635,6 +2723,11 @@ def create_app(debug=None):
             "puzzle_name": puzzle_name,
             "limit": limit,
             "offset": offset,
+            # CARD-123 (FR-031, NFR-008): the cell each tile shows, and the
+            # floor it is shown against. Empty until the page is known —
+            # a filter error renders no tiles and needs no cells.
+            "book_cells": {},
+            "floor_mm": FLOOR_MM,
             **_plan_progress(book, kept_ids),
         }
 
@@ -2693,6 +2786,10 @@ def create_app(debug=None):
 
             context.update(
                 puzzles=filtered_puzzles,
+                # The cell each of those tiles prints at in *this* book
+                # (CARD-123), measured on the book's current trim and margins
+                # every render.
+                book_cells=_book_cells(book, filtered_puzzles),
                 # The tab's own total, from the store's count of the same
                 # query — never the surviving slice of a page (F-002).
                 total_count=result.total_count,
@@ -2857,10 +2954,34 @@ def create_app(debug=None):
                 "warning",
             )
 
+        # CARD-123 (FR-031, NFR-008; AC-187, AC-188): the members that print
+        # below the floor, measured on the book's **current** trim and margins
+        # every time this renders. It is not read back from the stored
+        # overrides — an override records that the owner accepted a small cell
+        # once, not that the cell is still the same one — so a trim changed
+        # after curation shows up here (AC-188).
+        book_cells = _book_cells(book, puzzles_in_book)
+        below_floor = [
+            {
+                "id": puzzle.get("id"),
+                "name": (
+                    puzzle.get("custom_title")
+                    or puzzle.get("puzzle_name")
+                    or str(puzzle.get("id"))
+                ),
+                "cell_mm": book_cells.get(str(puzzle.get("id"))),
+            }
+            for puzzle in puzzles_in_book
+            if _misses_the_floor(book_cells.get(str(puzzle.get("id"))))
+        ]
+
         context = {
             "book": book,
             "puzzles": puzzles_in_book,
             "puzzle_count": len(puzzles_in_book),
+            "floor_mm": FLOOR_MM,
+            "below_floor": below_floor,
+            "below_floor_count": len(below_floor),
             "easy_count": easy_count,
             "medium_count": medium_count,
             "hard_count": hard_count,
