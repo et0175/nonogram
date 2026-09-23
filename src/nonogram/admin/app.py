@@ -2086,6 +2086,97 @@ def create_app(debug=None):
             "plan_disagrees": plan.disagrees_with_split,
         }
 
+    def _stored_trim_cm(book):
+        """The two centimetre trim figures Print setup opens on, as strings.
+
+        The book's own print columns, with the CON-018 Book 1 profile standing
+        in for an empty one — a legacy book prints on the profile (G-2), so
+        that is what the page must show it. Both the GET (what the fields are
+        filled with) and the POST (what "unchanged" is measured against) read
+        the trim through here, so they cannot disagree about which value the
+        owner was looking at.
+        """
+        return (
+            book.trim_width_cm or PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM,
+            book.trim_height_cm or PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM,
+        )
+
+    def _blank_trim_error(width_input, height_input):
+        """The refusal a blank trim field earns, or ``None`` (cycle 2, F-101).
+
+        A trim field that arrives empty (``""``), whitespace-only or with its
+        key absent altogether is **not a measurement**, and it is not the
+        owner asking for a default either: the form always renders both
+        fields, filled from the trim the book is stored on. The discriminator
+        is therefore the submitted field itself — is there a value in it — and
+        not what :meth:`PrintSpecValidator.create_spec` makes of one, because
+        ``create_spec`` substitutes the CON-018 Book 1 profile for any falsy
+        argument (that defaulting is for a programmatic caller that names no
+        trim, and stays as it is). By the time the substitution has happened
+        the spec is a perfectly valid 21.59 x 27.94 cm one, so neither
+        ``validate_trim_size`` nor :meth:`BookManager.set_print_spec`'s
+        storage-boundary check can tell it from a trim the owner chose — which
+        is how an empty cm field came to overwrite a stored 15.24 x 22.86 with
+        the profile and flash "Print specs set" over it, while the identical
+        inches submission was refused.
+
+        Returns the message the route reports (naming the blank field, or both
+        of them), or ``None`` when both fields carry something.
+        """
+        blank = [
+            label
+            for label, value in (("width", width_input), ("height", height_input))
+            if value is None or not str(value).strip()
+        ]
+        if not blank:
+            return None
+        return (
+            f"Trim {' and '.join(blank)} must be entered: an empty trim field is not a"
+            " size, so nothing was stored and the book keeps the trim it is on."
+        )
+
+    def _submitted_trim_cm(submitted_inches, stored_cm):
+        """One inches field as the centimetres to store (CARD-136 cycle 1, F-002).
+
+        Reopening Print setup in inches shows ``cm_to_inches(stored_cm)``,
+        rounded to two decimals; converting that back with ``inches_to_cm``
+        does not land on ``stored_cm`` again (15.00 cm shows as 5.91 in and
+        comes back as 15.01 cm), so pressing Save without touching the field
+        silently moved the trim every page and every cell is measured on.
+
+        A field the owner did not edit therefore stores the value that was
+        already there: the submission is an edit only when it differs from
+        **the inch form of the stored trim** — ``cm_to_inches(stored_cm)``,
+        computed here and compared as a string. The discriminator is that
+        string, not a tolerance: "the owner sent back the stored trim as we
+        show it" is the question, and a 0.1 mm window would also swallow a
+        deliberate one-step edit.
+
+        On a prefill render the inch form and the string in the field are the
+        same thing, which is the case this was written for. They part after a
+        **refused submission**, where the fields carry the owner's own entries
+        back instead (see :func:`setup_print`'s re-render): a resubmission the
+        owner did not touch is then measured against the stored trim, not
+        against what the page happens to show, so an entry that differs from
+        storage is converted rather than kept. That is the outcome storage
+        asks for — the owner's entry is a real edit, and the value it is being
+        compared against is the one it would replace (cycle 2, F-102).
+
+        Anything else — including a stored value with no inch form — is a real
+        edit and is converted as before; ``inches_to_cm`` raises ``ValueError``
+        on a value that is not a number, which the route reports. The value is
+        stripped on the way in so that a refusal quotes what the owner typed
+        rather than the form's own whitespace; a blank one never reaches here
+        (:func:`_blank_trim_error` refuses it first).
+        """
+        submitted = str(submitted_inches).strip()
+        try:
+            if PrintSpecValidator.cm_to_inches(stored_cm) == submitted:
+                return stored_cm
+        except (ValueError, TypeError):
+            pass
+        return PrintSpecValidator.inches_to_cm(submitted)
+
     @app.route("/book/<book_id>/setup-print", methods=["GET", "POST"])
     def setup_print(book_id):
         """Configure print specifications for a book (Step 1 of scaffolding).
@@ -2104,6 +2195,45 @@ def create_app(debug=None):
         draft. A submission that carries the plan fields back unchanged is not
         an edit — it stores nothing, moves nothing and flashes nothing about
         the plan; only the trim half of the form is applied.
+
+        CARD-136: the page opens on the trim the book is **stored** on, not on
+        the profile's defaults, and what is chosen here is written to the two
+        print columns. Three consequences of that, settled in review cycle 1:
+
+        * A trim field the owner leaves exactly as it was rendered stores the
+          centimetres already there, so reopening the page in inches and
+          saving untouched cannot shift the trim by the rounding of the two
+          conversions (F-002, :func:`_submitted_trim_cm`).
+        * A stored trim with no inch form renders the whole page in
+          centimetres — one unit for both fields, the labels and the reading
+          of the next submission (F-003). That downgrade is a property of the
+          *render*, not of the session: the remembered ``unit_preference``
+          still says "inches" after it, and only the correcting submission —
+          which carries the page's own ``unit=cm`` — writes the session back.
+          Every rendered state is self-consistent (the page, its labels and
+          the reading of what it submits are one unit), so the loose end is
+          cosmetic and is left as it stands (cycle 2, F-103).
+        * Each write is followed on its own return value: a book that went
+          away between the read at the top and a write is reported as "Book
+          not found" rather than flashed as saved (F-004). The plan and the
+          trim are still two writes in DB mode, so a failure *between* the two
+          commits can leave the plan stored and the trim not; that window is
+          the reason the success flash now stands for a committed write.
+
+        And one settled in review cycle 2:
+
+        * A **blank trim field is a refused submission**, not a request for a
+          default: an empty, whitespace-only or absent ``width``/``height`` is
+          reported with an error, re-renders the page with the submission
+          carried back, and stores neither the trim nor the plan (F-101,
+          :func:`_blank_trim_error`). Before this, only the inches branch
+          refused one — the cm branch passed the empty string to
+          ``create_spec``, which read it as "no trim given" and substituted
+          the Book 1 profile, so the book's stored trim was replaced by
+          21.59 x 27.94 cm under a "Print specs set" flash. The template's
+          ``required`` attributes keep a normal browser out of this, but the
+          columns written here are the trim of record, so the route does not
+          rely on the page for it.
         """
         book = book_mgr.get_book(book_id)
         if not book:
@@ -2149,19 +2279,31 @@ def create_app(debug=None):
                         if new_plan == current:
                             new_plan = None
 
-                # Convert to cm if input was in inches
-                if unit == "inches":
-                    width_cm = PrintSpecValidator.inches_to_cm(width_input)
-                    height_cm = PrintSpecValidator.inches_to_cm(height_input)
-                else:
-                    width_cm = width_input
-                    height_cm = height_input
+                # A blank trim field is refused here, before create_spec —
+                # which cannot tell one from a caller that named no trim at
+                # all and would hand back the Book 1 profile (F-101,
+                # :func:`_blank_trim_error`).
+                spec = None
+                error = _blank_trim_error(width_input, height_input)
 
-                # Validate and create spec
-                spec, error = PrintSpecValidator.create_spec(
-                    width_cm=width_cm,
-                    height_cm=height_cm,
-                )
+                if error is None:
+                    # Convert to cm if input was in inches — except for a
+                    # field the owner left exactly as the page rendered it,
+                    # which keeps the centimetres already stored rather than a
+                    # value rounded through inches and back (F-002).
+                    if unit == "inches":
+                        stored_width_cm, stored_height_cm = _stored_trim_cm(book)
+                        width_cm = _submitted_trim_cm(width_input, stored_width_cm)
+                        height_cm = _submitted_trim_cm(height_input, stored_height_cm)
+                    else:
+                        width_cm = width_input
+                        height_cm = height_input
+
+                    # Validate and create spec
+                    spec, error = PrintSpecValidator.create_spec(
+                        width_cm=width_cm,
+                        height_cm=height_cm,
+                    )
 
                 if error:
                     flash(f"Error: {error}", "error")
@@ -2174,7 +2316,11 @@ def create_app(debug=None):
                         # gets (ADR-0035 "Membership change after draft").
                         # Read before the save, which is what returns it.
                         had_left_draft = book.status != BookStatus.DRAFT.value
-                        book_mgr.save_plan(book_id, new_plan)
+                        if not book_mgr.save_plan(book_id, new_plan):
+                            # The book went away between the read above and
+                            # this write; nothing was stored (F-004).
+                            flash("Book not found", "error")
+                            return redirect(url_for("books_list"))
                         if had_left_draft:
                             flash(
                                 "The plan changed, so the book is back in draft: it must "
@@ -2195,10 +2341,23 @@ def create_app(debug=None):
                                 f" {planned}. The plan was saved as entered.",
                                 "warning",
                             )
-                    # Store in book metadata (for now, using the in-memory manager)
-                    # In production, this would update the Book row in the database
-                    book.metadata.size = f"{spec.trim_width_cm}×{spec.trim_height_cm} cm"
-                    book.updated_at = datetime.utcnow()
+                    # CARD-136 (FR-030, CON-018): the chosen trim is stored on
+                    # the book — the print columns book_page_spec measures
+                    # every cell on and the export prints from. Until this
+                    # card it was written to metadata.size, a display string
+                    # on a snapshot DB mode drops on the floor, so a book
+                    # whose trim the owner changed still printed on the Book 1
+                    # profile. The write happens here, beside save_plan, so a
+                    # refused plan stores neither (AC-197).
+                    #
+                    # A writer's False is "no such book", and the success
+                    # flash below is about a committed write, not an attempted
+                    # one: saying "Print specs set" over a book that is not
+                    # there is how a half-applied submission goes unnoticed
+                    # (F-004).
+                    if not book_mgr.set_print_spec(book_id, spec):
+                        flash("Book not found", "error")
+                        return redirect(url_for("books_list"))
 
                     flash(f"Print specs set: {spec.trim_width_cm} × {spec.trim_height_cm} cm", "success")
                     # Proceed to Step 2: Puzzle Selection
@@ -2211,15 +2370,46 @@ def create_app(debug=None):
             # carry the whole submission back so no input is lost (F-003).
             submitted = request.form
 
-        # Prepare default trim size
-        default_width = PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM
-        default_height = PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM
+        # The trim the book is stored on, so reopening Print setup shows what
+        # it will actually print on rather than the profile's defaults
+        # (CARD-136). An empty column is a legacy book, which prints on the
+        # Book 1 profile (CON-018) — and that is what the defaults are.
+        default_width, default_height = _stored_trim_cm(book)
         unit_preference = session.get("unit_preference", "cm")
 
-        # Convert defaults to inches if that's the preference
+        # Convert to inches if that's the preference. The page carries **one**
+        # unit: the radio, the two suffix labels and whatever the next
+        # submission is read as all follow `unit_preference`, so a column with
+        # no inch form (a stored value that is not a number) drops the *page*
+        # back to centimetres rather than leaving one field in inches beside
+        # one in centimetres under an inches label — which is a form that
+        # would then be read in the wrong unit and stored (F-003).
         if unit_preference == "inches":
-            default_width = PrintSpecValidator.cm_to_inches(default_width)
-            default_height = PrintSpecValidator.cm_to_inches(default_height)
+            try:
+                width_in = PrintSpecValidator.cm_to_inches(default_width)
+                height_in = PrintSpecValidator.cm_to_inches(default_height)
+            except ValueError:
+                if submitted is None:
+                    # A prefill from storage. After a refused submission the
+                    # two fields below carry the owner's own entries back
+                    # instead, in the unit they were typed in, so the page
+                    # keeps that unit rather than relabelling them.
+                    app.logger.warning(
+                        "Book %s has a stored trim with no inch form (%r x %r); "
+                        "Print setup is shown in centimetres so the owner can "
+                        "correct it.",
+                        book_id,
+                        default_width,
+                        default_height,
+                    )
+                    # Only the local name moves: the session still remembers
+                    # "inches" until the correcting submission carries this
+                    # page's own unit=cm back. Nothing reads the two apart —
+                    # the page, its labels and the reading of what it submits
+                    # are one unit either way (cycle 2, F-103).
+                    unit_preference = "cm"
+            else:
+                default_width, default_height = width_in, height_in
 
         if submitted is not None:
             default_width = submitted.get("width", default_width)
@@ -2575,6 +2765,32 @@ def create_app(debug=None):
                 )
                 cells[str(record.get("id"))] = None
         return cells
+
+    def _trim_cm(book):
+        """The book's stored trim as the two centimetre figures a screen shows.
+
+        Read through ``book_page_spec`` — the same door the printed cell
+        figures come through (EC-021) — so the Trim size row and the cell
+        numbers beside it can never disagree, and a legacy book with empty
+        columns shows the CON-018 profile it will really print on. Until
+        CARD-136 this was split out of ``metadata.size``, a display string the
+        trim was never stored in, which rendered "8x10 × 27.94 cm".
+
+        ``(None, None)`` when the stored specification cannot be read at all:
+        the screen then says so, rather than showing a size nobody can print
+        — the posture ``_book_cells`` takes for the same book.
+        """
+        try:
+            spec = book_page_spec(book)
+        except ValueError as error:
+            app.logger.warning(
+                "Book %s has an unreadable print specification (%s); no trim "
+                "size can be shown for it.",
+                book.book_id,
+                error,
+            )
+            return None, None
+        return f"{spec.width_mm / 10:.2f}", f"{spec.height_mm / 10:.2f}"
 
     def _misses_the_floor(cell_mm):
         """Does this cell miss NFR-008's floor? An unmeasurable one does.
@@ -3022,6 +3238,12 @@ def create_app(debug=None):
                 "warning",
             )
 
+        # CARD-136 (FR-030): the trim the figures below are measured on, read
+        # from the book's own print columns — the ones Print setup writes and
+        # the export prints from — so this screen, Print setup and the PDF
+        # report one trim.
+        trim_width_cm, trim_height_cm = _trim_cm(book)
+
         # CARD-123 (FR-031, NFR-008; AC-187, AC-188): the members that print
         # below the floor, measured on the book's **current** trim and margins
         # every time this renders. It is not read back from the stored
@@ -3063,8 +3285,8 @@ def create_app(debug=None):
             # bound — CARD-129 owns the exact equality (EC-034).
             "page_count": interior_page_count(len(puzzles_in_book)),
             "cover_uploaded": _uploaded_cover_file(book_id) is not None,
-            "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM,
-            "trim_height_cm": book.metadata.size.split("×")[1] if book.metadata.size and "×" in book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM,
+            "trim_width_cm": trim_width_cm,
+            "trim_height_cm": trim_height_cm,
         }
 
         return render_template("book_finalize.html", **context)

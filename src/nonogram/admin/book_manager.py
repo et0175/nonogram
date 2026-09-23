@@ -10,6 +10,7 @@ from enum import Enum
 from datetime import datetime
 import json
 import logging
+import math
 import uuid as uuid_module
 
 from nonogram.admin.book_page_spec import (
@@ -37,6 +38,7 @@ from nonogram.admin.book_plan import (
     selection_cells,
     with_split,
 )
+from nonogram.admin.print_specs import PrintSpec, PrintSpecValidator
 from nonogram.difficulty import Tier, tier_of_record
 
 logger = logging.getLogger(__name__)
@@ -646,6 +648,98 @@ class BookManager:
                 return False
             book_row.distribution_plan = plan_to_json(plan)
             book_row.status = BookStatus.DRAFT.value
+            book_row.updated_at = datetime.utcnow()
+            db.commit()
+            return True
+
+    def set_print_spec(self, book_id: str, spec: PrintSpec) -> bool:
+        """Store ``spec``'s trim as the book's print size (FR-030, CON-018).
+
+        ``spec`` must be a :class:`~nonogram.admin.print_specs.PrintSpec`
+        **whose trim this method has itself checked**. A
+        :class:`DistributionPlan` is a frozen dataclass that refuses an invalid
+        split in ``__post_init__``, so :meth:`save_plan` can take the type as
+        the proof; ``PrintSpec`` is a plain mutable dataclass with no
+        validating construction, so its type proves nothing and
+        ``PrintSpec("999", "abc")`` is as constructible as a real one
+        (CARD-136 review cycle 1, F-001). The trim is therefore re-checked
+        here, at the storage boundary, against the very bounds the reader
+        uses: :meth:`PrintSpecValidator.validate_trim_size` (KDP's
+        ``MIN_TRIM_CM..MAX_TRIM_*_CM``, the constants
+        :func:`book_page_spec` itself refuses outside of), plus finiteness,
+        which ``float("nan")`` passes a bounds test with and
+        :func:`book_page_spec` does not. Nothing reaches these columns that
+        :func:`book_page_spec` would then refuse to read back, and no caller's
+        assurance substitutes for that check (ADR-0032/R1's posture at the one
+        boundary that pays for a bad write).
+
+        Writes the two **trim** columns and ``updated_at``, and nothing else
+        (INV-008, the rule :meth:`save_plan` already respects): no puzzle
+        membership, no order, no custom titles, no status — and not the
+        margins either. Print setup offers no margin field, so a book keeps
+        the CON-018 margins :meth:`create_book` stored for it, and a legacy
+        book keeps its empty ones, which :func:`book_page_spec` still reads as
+        the Book 1 profile's.
+
+        Until CARD-136 the chosen trim was written to ``metadata.size`` — a
+        display string on a :class:`Book` snapshot, which in DB mode is
+        detached and was dropped on the floor. The trim of record is these
+        columns: they are what :func:`book_page_spec` measures every cell on
+        and what the book PDF is printed from.
+
+        Returns:
+            True if stored, False if the book does not exist.
+
+        Raises:
+            ValueError: ``spec`` is not a :class:`PrintSpec`, or its trim is
+                not a pair of finite centimetre numbers inside KDP's bounds —
+                ``None``, ``"abc"``, ``"nan"`` and ``"999"`` alike. Nothing is
+                written when it is raised.
+        """
+        if not isinstance(spec, PrintSpec):
+            raise ValueError(
+                f"a book's print specification must be a PrintSpec, got {type(spec).__name__}"
+            )
+
+        for column, value in (
+            ("trim_width_cm", spec.trim_width_cm),
+            ("trim_height_cm", spec.trim_height_cm),
+        ):
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                number = float("nan")
+            if not math.isfinite(number):
+                raise ValueError(
+                    f"a book's {column} must be a finite number of cm, not {value!r}"
+                )
+
+        is_valid, refusal = PrintSpecValidator.validate_trim_size(
+            spec.trim_width_cm, spec.trim_height_cm
+        )
+        if not is_valid:
+            raise ValueError(
+                f"a book's trim cannot be stored: {refusal} (got "
+                f"{spec.trim_width_cm!r} x {spec.trim_height_cm!r})"
+            )
+
+        if self._session_factory is None:
+            book = self.books.get(book_id)
+            if not book:
+                return False
+            book.trim_width_cm = spec.trim_width_cm
+            book.trim_height_cm = spec.trim_height_cm
+            book.updated_at = datetime.utcnow()
+            return True
+
+        from nonogram.db.models import Book as DBBook
+
+        with self._session_factory() as db:
+            book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+            if not book_row:
+                return False
+            book_row.trim_width_cm = spec.trim_width_cm
+            book_row.trim_height_cm = spec.trim_height_cm
             book_row.updated_at = datetime.utcnow()
             db.commit()
             return True
