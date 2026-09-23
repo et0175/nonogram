@@ -1,6 +1,6 @@
 # CARD-118: Proof pages — one 30×30 and one 15×15 on the book's PageSpec, for the owner to print
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/118-proof-pages
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-118
 **Source:** meta/architecture/handoff.md#increment-13 (last card — carries the increment checkpoint)
 **Idea:** —
 **Wave:** 25
 **Depends on:** CARD-117
 **Touches:** src/nonogram/admin/book_proof.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_proof_pages.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-23
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

@@ -38,10 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-138** P1 · Batch generation can ask for a difficulty · 0.5d · wave 25 · after CARD-137 (fills the book's medium quota)
-- **CARD-118** P1 · Proof pages (30×30 + 15×15) — owner-confirmed print checkpoint · 0.5d · wave 25 · Inc 13 · after CARD-117
-- **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125
-- **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124
 - **CARD-134** P2 · The answer key in the book PDF — number order, 6-up / 4-up, a new page per level with its heading, SOLUTIONS divider, "Puzzle N — Title" · 1d · wave 25 · Inc 15 · after CARD-117, CARD-133
 - **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
@@ -49,7 +45,11 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-_(none)_
+- **CARD-138** P1 · Batch generation can ask for a difficulty · 0.5d · wave 25 · after CARD-137 (fills the book's medium quota) · in_progress (impl)
+- **CARD-118** P1 · Proof pages (30×30 + 15×15) — owner-confirmed print checkpoint · 0.5d · wave 25 · Inc 13 · after CARD-117 · in_progress (impl)
+- **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125 · in_progress (impl)
+- **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124 · in_progress (impl)
+- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · serialized behind CARD-127 (book_pdf_generator.py overlap 0.33)
 
 ## Review
 

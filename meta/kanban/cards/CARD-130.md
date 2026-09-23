@@ -1,6 +1,6 @@
 # CARD-130: Books reopen into the step workflow — all five steps linked whatever the status, general info edits in place
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/130-book-step-workflow-reentry
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-130
 **Source:** meta/architecture/handoff.md#increment-16 (FR-038 navigation half)
 **Idea:** —
 **Wave:** 25
 **Depends on:** CARD-123, CARD-124
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/book_detail.html, src/nonogram/admin/templates/books_list.html, src/nonogram/admin/templates/book_create.html, src/nonogram/admin/templates/_stepper.html, tests/test_book_workflow_steps.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-23
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

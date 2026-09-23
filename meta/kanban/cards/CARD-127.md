@@ -1,6 +1,6 @@
 # CARD-127: Two-up pages in the book PDF — walk the order, pair same-tier fitting neighbours, never reorder
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/127-book-two-up-pages
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-127
 **Source:** meta/architecture/handoff.md#increment-15 (COMP-009 half of FR-040)
 **Idea:** —
 **Wave:** 25
 **Depends on:** CARD-117, CARD-125
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pairing.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-23
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

@@ -1,6 +1,6 @@
 # CARD-138: Batch generation can ask for a difficulty
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/138-batch-difficulty-target
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-138
 **Source:** owner, 2026-09-23 (after CARD-137's regrade: 37 mediums in ~300, a 150-puzzle book at 40/40/20 needs 60)
 **Idea:** —
 **Wave:** 25
 **Depends on:** CARD-137
 **Touches:** src/nonogram/admin/batch_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/generate_batch.html, tests/test_batch_difficulty_target.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-23
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
