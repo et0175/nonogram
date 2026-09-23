@@ -21,3 +21,7 @@
 - [ ] Card-text defect for decompose: CARD-126 G-4 names a test: that a LATER card (CARD-131) creates, so it is unverifiable in every wave before that   @tech-debt
 - [ ] Image-mode difficulty sweep: re-run scripts/measure_difficulty_cutoff.py over image-derived puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt
 - [ ] CARD-137 leftovers: add RUNG_OVERLAP_MAX_SCORE and the new cutoff names to _CUTOFF_NAMES in the AST guard; difficulty.py's docstring still carries the retired "fourth tier" section whose example classify(score, branch_nodes) raises TypeError (CARD-098 residue, pre-existing)   @tech-debt
+- [ ] CARD-136 known limitation (owner-accepted 2026-09-23): in memory-only mode get_book returns the LIVE Book, so a caller can write an invalid trim past set_print_spec's validation; DB mode returns a detached snapshot and book_page_spec refuses a bad value on read. Fix by having memory mode hand out a copy   @tech-debt
+- [ ] CARD-136 handover: book_detail.html's "Size" row is the last display still reading book.metadata.size, which Print setup no longer writes   @tech-debt
+- [ ] CARD-136 handover: book_setup_print.html's unit-blind min="10" max="30"/48 makes the inches path unreachable from the rendered form   @feature
+- [ ] CARD-136 handover: the plan and the trim still commit in two DB transactions; a single-session writer is the follow-up   @tech-debt
