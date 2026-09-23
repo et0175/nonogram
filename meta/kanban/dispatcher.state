@@ -32,11 +32,28 @@ active:
   - card: CARD-130
     branch: card/130-book-step-workflow-reentry
     worktree: ../PythonProject4-CARD-130
-    phase: review
-    review_cycle: 2
+    phase: commit
+    review_cycle: 3
   - card: CARD-138
     branch: card/138-batch-difficulty-target
     worktree: ../PythonProject4-CARD-138
     phase: commit
     review_cycle: 2
+resolved_escalations:   # CARD-134 unblocked 2026-09-23 by decompose rulings G-1a / G-2a
+escalated:
+  - card: CARD-134
+    branch: card/134-book-answer-key
+    worktree: ../PythonProject4-CARD-134
+    phase: escalated
+    review_cycle: 0
+    station: decompose
+    reason: >-
+      two guardrail-vs-AC conflicts, neither weakenable in the worktree —
+      G-1 vs AC-268 (CARD-133's render_answer_page sets captions in a face with
+      no U+2014, so "Puzzle 7 — Snowflake" prints a .notdef box; the one-line
+      fix is in src/nonogram/export/**, which G-1 forbids this card and tells it
+      to escalate) and G-2 vs AC-261 (two TestBookPdf_AnswerKeyCarriesPictureTitle
+      methods pin the one-answer-page-per-puzzle key FR-042 replaces).
+    commit: 2cb5883
+    worktree_kept: true
 serialized: []   # CARD-134 released 2026-09-23 when CARD-127 merged

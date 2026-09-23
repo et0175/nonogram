@@ -45,9 +45,9 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## Blocked
-- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · **blocked — escalated to decompose**: G-1 vs AC-268 (the answer-caption face has no em dash; the one-line fix is in `export/`, which G-1 forbids this card) and G-2 vs AC-261 (two CARD-117 tests pin the one-answer-page-per-puzzle form FR-042 replaces). Implementation committed 2cb5883; worktree kept · no review cycle ran
 
 ## In Progress
+- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · in_progress (escalation resolved, G-1a/G-2a ruled)
 _(none)_
 
 ## Review

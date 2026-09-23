@@ -107,7 +107,9 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 ## Guardrails
 
 - G-1: The admin panel decides only which answers go on which page, and the caption text. It fits no cell and places no tile or grid line itself (ADR-0036/R2). Do not edit `src/nonogram/export/**`: CARD-133's calls are consumed as delivered. If something is missing there, escalate.
+- G-1a (**decompose ruling, 2026-09-23** — narrow exception to G-1): ONE edit inside `src/nonogram/export/png.py` is permitted and required — the caption FACE used by `render_answer_page`. `ImageFont.load_default` has no U+2014, so "Puzzle 7 — Snowflake" prints a .notdef box and AC-268 is unsatisfiable as written. Load the packaged DejaVu through `importlib.resources`, exactly as `_band_font` and `pdf._draw_header` already do; ADR-0006/R1 explicitly permits non-executable static assets, so the dependency baseline is untouched. Nothing else in `export/**` may change: no tile geometry, no cell fitting, no grid lines — ADR-0036/R2 stands. The fix MUST ship a test that distinguishes rendered ink from the unmapped separator; comparing one render of a face against another render of the same face cannot see this defect, which is why no existing test caught it. G-3 (CON-019) still binds and the golden tripwire must stay green — answer pages are not CLI exports, so it should not move at all.
 - G-2: The picture title prints only in the answer key, never on a puzzle page (ADR-0037/R1). test: TestBookPdf_PuzzlePageCarriesNoPictureTitle, TestBookPdf_AnswerKeyCarriesPictureTitle (CARD-117) stay green.
+- G-2a (**decompose ruling, 2026-09-23** — authorized retarget): two methods of `TestBookPdf_AnswerKeyCarriesPictureTitle` (tests/test_book_pdf_band.py:343-397) assert a whole answer page byte-for-byte against `render_pages(payload_with_name, spec)[1]` — the clued page FR-042 DELETES. That is mutually exclusive with AC-261/270/292, so the card may retarget those two methods onto the new answer-page form. The RULE is unchanged and must still hold: the picture title prints only in the answer key, never on a puzzle page. Only CARD-117's pinned form changes, and the retargeted assertions must be at least as strong — assert the title's ink is present on the answer page and absent from the puzzle page, not merely that the render did not raise. `TestBookPdf_PuzzlePageCarriesNoPictureTitle` is NOT in scope and stays byte-identical.
 - G-3: CLI and web A4 output stay byte-identical (CON-019). test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry.
 - G-4: Answer pages are decided at PDF time, and nothing is stored (Increment 15 Rollback). Do not edit `src/nonogram/db/**`, `migrations/**` or `src/nonogram/admin/book_manager.py`.
 - G-5: Do not edit `src/nonogram/admin/book_proof.py`, `src/nonogram/admin/app.py`, `src/nonogram/admin/templates/book_setup_print.html`, `src/nonogram/admin/templates/book_detail.html`, `src/nonogram/admin/templates/books_list.html` or `src/nonogram/admin/templates/_stepper.html`. They are owned by CARD-118 / CARD-130 this wave.
@@ -172,7 +174,208 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 
 —
 
+### [CARD-134, 2026-09-23] Implementation summary — TWO BLOCKERS, card NOT done
+
+**[BLOCKER] guardrail conflict: G-1 vs AC-268 — CARD-133's `render_answer_page`
+sets every caption in `ImageFont.load_default()`, which has no U+2014, so
+"Puzzle 7 — Snowflake" prints "Puzzle 7 ▯ Snowflake" on the page.**
+
+Measured, not inferred (`src/nonogram/export/png.py:277`,
+`ImageFont.load_default(size=tile.caption_font_size)`):
+
+| face | U+2014 bitmap == U+FFFF (a codepoint no face has) | advance |
+|---|---|---|
+| Pillow's default | **True** — i.e. `.notdef` | 21 px |
+| the packaged DejaVu Sans (`export.pdf.FONT_PACKAGE`) | False | 41 px |
+
+The same trap `book_pdf_generator._band_font` was written for: its docstring
+already records that U+00B7 "is not in Pillow's embedded ASCII default face — a
+band set in that would print a `.notdef` box", and it reads the packaged face
+through `importlib.resources` for exactly that reason. The answer key's caption
+line does not, and the level heading ("Easy") is unaffected only because it is
+ASCII.
+
+The fix is one line in `export/png.render_answer_page` — set the caption (and
+the heading, for the same reason) in the packaged face, as
+`_set_band`/`pdf._draw_header` already do — and **G-1 forbids this card from
+touching `src/nonogram/export/**` at all**, with "if something is missing there,
+escalate". So it is escalated rather than worked around: the two workarounds
+available here (drop the em dash for an ASCII hyphen, or draw the caption in the
+admin panel) each break something else — AC-268 states the em dash, and drawing
+the caption here would be exactly the "the admin panel places no lettering of
+its tiles" half of ADR-0036/R2.
+
+**Note for whoever fixes it: no test in the tree can catch this.** Every caption
+assertion — mine included — compares the generator's page against a page built
+by the *same* renderer, so both sides print the same `.notdef` box and agree.
+It was found by rendering the proof pages and looking at them. A fix should come
+with a check that the caption's ink differs from the ink of a caption whose
+separator is replaced by an unmapped codepoint.
+
+**[BLOCKER] guardrail conflict: G-2 vs AC-261 — `TestBookPdf_AnswerKeyCarriesPictureTitle`
+pins the one-answer-page-per-puzzle key byte-for-byte, which FR-042 replaces.**
+
+Two of that class's three methods fail and cannot be made to pass by any
+implementation that satisfies FR-042:
+
+- `test_the_answer_page_carries_the_title_and_the_same_identity` and
+  `test_the_answer_number_is_the_number_printed_on_the_puzzle` assert
+  `pages[3 + count + index] == render_pages(payload_with_name, spec)[1]` — a
+  **full** answer page carrying the puzzle's clues and a header band reading
+  "Snowflake — Puzzle 1 · Easy". After FR-042 that page does not exist: the
+  answer prints as a tile of a packed key under the caption "Puzzle 1 —
+  Snowflake". AC-261/AC-270/AC-292 and this assertion are mutually exclusive.
+- The third method and the whole of `TestBookPdf_PuzzlePageCarriesNoPictureTitle`
+  stay green unchanged, and so does
+  `PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle`.
+
+G-2's **rule** survives FR-042 intact — the picture's title still prints only in
+the answer key and never on a puzzle page (ADR-0037/R1) — it is only the *form*
+those two CARD-117 tests pin it in that FR-042 changes. `tests/test_book_pdf_band.py`
+has therefore **not been touched**: retargeting them at the caption is a CARD-117
+decision, not this card's, and the guardrail says so. The retarget itself is
+small (compare against `render_answer_page([(grid, "Puzzle 1 — Snowflake")], 6,
+spec, "Easy")`, as `tests/test_book_answer_key.py` does throughout).
+
+### What was built
+
+- **`src/nonogram/admin/book_answer_key.py` (new)** — the packing walk as a pure
+  function over value objects. No PIL, no `PageSpec`, no geometry: `Answer`
+  (number, extent, level), `AnswerPage` (answers + heading, with `capacity`
+  **derived** from the answers so a page and its tiling cannot drift apart),
+  `page_capacity`, `level_heading`, `answer_title`, `answer_caption`,
+  `pack_answer_pages`. Both types are valid by construction — a page of two
+  levels, of seven answers, or of five with a large one among them cannot be
+  built — so INV-011 is a property of the type and not only of the walk.
+- **`book_pdf_generator.py`** — `answer_key(payloads, ids=)` (payloads →
+  `Answer`s → `pack_answer_pages`), `custom_titles()` (reads
+  `books.puzzle_titles` off a `Book`, a row or a mapping, without importing
+  `book_manager` and without swallowing an exception), `_answer_page(...)` (one
+  `render_answer_page` call per page, on that page's own spec) replacing the
+  per-puzzle loop; `_banded` became `_puzzle_payload` (the answer half had no
+  caller left).
+- **Page counts.** `interior_page_count(puzzle_count, puzzle_pages=None,
+  answer_pages=None)` — both variable terms default to one page each, so the
+  **one-argument call `app.py:3323` makes is unchanged in meaning**: the
+  un-paired, un-packed plan, the upper bound that screen has always labelled
+  "~" (CARD-129/EC-034 owns making it exact; the bound is now wider). The
+  divider is still `2 + len(plan)` and the key starts at `3 + len(plan)`.
+  `Interior`/`BookExport` gained `answer_page_count` (divider not counted).
+  `Interior.unpaired_page_count` is computed with the **packed** answer term on
+  both sides of the subtraction, so `pages_saved` still measures pairing alone.
+- **Failure naming.** The answer walk runs before any page is drawn and raises
+  `RuntimeError("puzzle 'p4' could not be laid out: ...")` through
+  `_named_puzzles`, matching `puzzle_pages`. Its own tripwire — the key must
+  hold puzzles 1..n — is taken over `interior`'s *input*, like the puzzle
+  walk's, not over the walk's own output.
+- **Decision (documented in `answer_caption`):** a puzzle with neither a custom
+  book title nor a name is captioned "Puzzle 7" and stops — no dangling em
+  dash. Same reasoning as `band_identity`'s ungraded band.
+- **Decision (documented in `pack_answer_pages`):** the heading marks the first
+  page of a level's *run*. For any order a book can be in (INV-009 groups by
+  tier) a run is a level, which is AC-291 exactly; a legacy order that returns
+  to a level already left gets a second heading rather than an unheaded run
+  that would read as a continuation.
+
+### EC-030 — one thing the wording needs
+
+`tests/property/test_book_answer_key.py` proves EC-030 over a 440-book seeded
+corpus **plus** an exhaustive enumeration of every book of up to 3 puzzles over
+a 5-size × 3-level alphabet (1,125 orders at length 3).
+
+EC-030's `ceil(n / 4) + (L - 1)` bound holds for `L` = the number of level
+**runs**. Over an order that is not grouped by level it is not merely wrong but
+unreachable by *any* walk that also keeps "no page holds two levels": easy,
+medium, easy is 3 answers over 2 levels and needs 3 pages, while the bound is 2.
+Since INV-009 groups a book's order by tier, runs = levels for every order a
+book can be in, and the two readings coincide — but the corpus checks both, and
+requires ≥150 genuinely grouped books so the literal bound is well exercised.
+**Suggest amending EC-030's wording to "L level runs (= non-empty levels for
+any INV-009-grouped order)".**
+
+### SCOPE+ (existing shared files changed, all additively or as the collision list foresaw)
+
+- `SCOPE+ tests/test_book_pdf.py` — `TestBookPdf_PageSizeEqualsStoredTrim`'s
+  page count (3 answer pages → 1, named as a `PAGES` constant with its
+  make-up); `TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage` 6 → 5;
+  `TestBookPdf_PagePlanGuardIsLive`'s monkeypatch signature gains
+  `answer_pages=None` and passes it through, so the guard is still proved live
+  and the assertion text is unchanged.
+- `SCOPE+ tests/test_book_pdf_two_up.py` — 16 bare page-count literals replaced
+  by `_interior_pages(puzzle_pages=…, answer_pages=…)`, which names both terms
+  at every call site instead of leaving either a literal. No pairing assertion
+  changed.
+- `SCOPE+ tests/test_book_export_interior_cover.py` — `_interior_pages()` +
+  `STANDARD_BOOK_PAGES`; `TestBookFinalise_PageCountIsTheExportsPagePlan` split
+  into three tests, all still cross-checked against the **written PDF's** page
+  tree: the plan given every term equals the file exactly, the one-argument
+  plan bounds the file from above, and Finalise shows that bound. A
+  `puzzle_count` of 7 was added so the two-answer-page case is covered.
+- `SCOPE+ tests/property/test_book_pairing.py` — `_expected_answer_pages()`, an
+  independent second implementation of the key's page count for that corpus.
+- `SCOPE+ tests/property/test_book_pdf_geometry.py` — EC-032's absolute
+  `drawing_left_mm` prediction now applies to the puzzle pages; the answer pages
+  carry the parity half that a tiled page still states sharply (same answer, two
+  parities, shift = gutter − outside) plus a containment check. Nothing dropped.
+- `SCOPE+ tests/property/test_book_export_interior.py` — EC-034/INV-013 gained
+  an independent `_answer_page_plan()` and `_expected_answer_left_mm()` (CARD-133's
+  tile arithmetic written out in mm), so every answer page's **leftmost grid** is
+  still measured against its own parity's left margin. New corpus floors require
+  ≥20 answer pages, both tilings and ≥10 headed pages.
+
+### Render proof (`~/Documents/nonogram-reviews/CARD-134/`)
+
+`01-six-up-easy-heading.png`, `02-six-up-second-page-no-heading.png`,
+`03-mixed-1.png` (4-up, 10x10 / 20x15 / 12x20 / 30x30), `04-mixed-2.png`.
+
+What I saw:
+
+1. **The `.notdef` box in every caption** — the first blocker above. Reads
+   "Puzzle 1 ▯ Snowflake". The heading "Easy" is clean.
+2. **The ragged bottom is real and worse than CARD-133 feared** — the owner
+   question it left open. On `03-mixed-1.png` the 10x10 in the top-left tile
+   occupies about a third of its tile's height, and because every grid hangs
+   from its caption the whole top row of tiles has a deep white band under it
+   while the tiles below start at their own fixed line. A mixed page reads as
+   two unrelated rows rather than as a grid. Vertically centring each grid in
+   its tile would halve the worst gap. **It is `export/` geometry (G-1), so
+   nothing was changed here — it is for the owner to decide and for CARD-133 to
+   do.** A 6-up page of same-size answers (`01`) reads well.
+3. Level headings, page breaks per level, captions (apart from the dash) and
+   the 6-up / 4-up switch all look right on paper.
+
+### Suite state
+
+Full suite green apart from the one known pre-existing e2e failure
+(`test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`,
+deselected) **and the two G-2 tests named in the second blocker**. All ten
+AC-named test classes and `PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook`
+pass. `AC-293` / `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`
+(named in INV-011's check list) was deliberately left to CARD-128, which the
+card assigns it to.
+
 - [Handover from CARD-133, 2026-09-23] Call `from nonogram.export.layout import compute_answer_page_layout` -> (extents, capacity, page_spec, heading=None) -> AnswerPageLayout, and `from nonogram.export.png import render_answer_page` -> (answers, capacity, page_spec, heading=None) -> Image. Import from the submodules, not the package. extents/answers in fill order (left->right, top->bottom), 1..capacity, capacity in {4,6}, page_spec for THAT page's parity (its band_mm is ignored), same heading to both.
 - [Handover from CARD-133 — CRITICAL] The 3.19 mm answer-cell floor is NOT enforced by the type: a 25x25 six-up returns 3.178 mm and a 30x30 six-up 2.648 mm with no error. Owning "six-up only while every answer on the page is <=20 on its longest side" (INV-011) is THIS card's job; re-check it, do not assume CARD-133 guarantees it.
 
 - [Handover from CARD-117, 2026-09-23] A two-up page needs TWO bands on one sheet, but the export draws one band per render_pages call — that is a COMP-007 conversation, settle it with CARD-127 rather than working around it in the PDF layer.
+
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured).
+- [Scope] src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_answer_key.py, tests/property/test_book_answer_key.py, tests/test_book_pdf.py, tests/test_book_pdf_two_up.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/property/test_book_pairing.py, tests/property/test_book_pdf_geometry.py (commit 2cb5883).
+- [Build gate] FAILED (full, under the repo full-suite lock, run twice) — exactly 2 failures, both `tests/test_book_pdf_band.py::TestBookPdf_AnswerKeyCarriesPictureTitle` (`test_the_answer_page_carries_the_title_and_the_same_identity`, `test_the_answer_number_is_the_number_printed_on_the_puzzle`) — the G-2 conflict below, not a code defect. The known pre-existing `test_size_configuration_applied` was deselected. Nothing else red.
+- [Guard] BLOCKER CHECK fired: 2 `[BLOCKER]` markers in the worktree notes. No review cycle was started.
+- [Orchestrator verification] Both blockers re-derived independently before escalating, not taken on the agent's word:
+  * G-1 vs AC-268 — in this venv `ImageFont.load_default(size=24)` renders U+2014 byte-identically to U+FFFF (`.notdef`), while "A" differs; `src/nonogram/export/png.py:277` is the call that sets every answer caption in that face. So the printed caption is "Puzzle 7 ▯ Snowflake". Confirmed.
+  * G-2 vs AC-261 — `tests/test_book_pdf_band.py:343-397`: two of the three methods assert a whole answer page byte-for-byte against `render_pages(payload_with_name, spec)[1]`, the full clued page FR-042 deletes. No implementation satisfies both. Confirmed.
+- [Escalated] 2026-09-23 — station: decompose. Two guardrail↔AC conflicts, neither weakenable in the worktree. (1) G-1 forbids `src/nonogram/export/**` and tells this card to escalate if something is missing there; what is missing is a caption face carrying U+2014 in CARD-133's `render_answer_page` — a one-line change to read the packaged DejaVu through `importlib.resources`, exactly as `book_pdf_generator._band_font` and `export.pdf._draw_header` already do, and it must ship with a test comparing the caption's ink against the same caption with an unmapped separator, because every existing caption assertion compares one render of that face with another and agrees on the box. (2) G-2 names two CARD-117 tests that pin the one-answer-page-per-puzzle form FR-042 replaces; G-2's rule (the title prints only in the key) survives, only the form changes — retargeting them at `render_answer_page([(grid, "Puzzle 1 — Snowflake")], 6, spec, "Easy")` is a CARD-117/decompose decision. Route: fix the card contract (widen G-1 for that one line or cut a card against `export/`; retarget G-2's test list), then `/kanban review CARD-134`. Worktree and branch KEPT; commit 2cb5883 stands. Do NOT weaken either guardrail in the worktree.
+- [Owner] Renders in ~/Documents/nonogram-reviews/CARD-134/ (01-six-up-easy-heading.png, 02-six-up-second-page-no-heading.png, 03-mixed-1.png, 04-mixed-2.png). Two things to eyeball: the `.notdef` box standing where the em dash belongs in every caption, and CARD-133's open question now answered with evidence — grids hang from their captions, so a mixed 4-up page (03) has a deep white band under its top row and reads as two unrelated rows. Vertically centring each grid in its tile is `export/` geometry and CARD-133's to do.
+- [Architect] EC-030's `ceil(n / 4) + (L - 1)` bound holds for L = level **runs**, not non-empty levels: easy/medium/easy is 3 answers over 2 levels and needs 3 pages against a bound of 2. INV-009 groups every real book by tier so the two readings coincide; suggested wording "L level runs (= non-empty levels for any INV-009-grouped order)".
+
+- [Escalation resolved 2026-09-23, station decompose] Both blockers ruled on by the
+  dispatcher, above as G-1a and G-2a. Blocker 1 (the em-dash .notdef box) gets a narrow,
+  test-backed exception to G-1 rather than a separate card: the defect is one line in the
+  face CARD-133 chose, the card already owns the caption text, and splitting it would
+  serialize the last card of the wave behind a one-line fix. Blocker 2 (CARD-117's two
+  byte-equality methods) is an authorized retarget: the rule survives intact, only its
+  pinned form moves. Neither ruling widens the card's Touches beyond export/png.py and
+  tests/test_book_pdf_band.py.
