@@ -9,20 +9,24 @@ the Finalise download, ``POST /book/<id>/download-pdf`` and
 
 * the interior PDF holds no cover page — no interior page is the cover file's
   page;
-* its page 1 is the guide page — the page parity counts from (FR-043). The
-  parity itself is not observable on a page until CARD-116's mirrored
-  margins, so this test does not claim to verify it;
+* its page 1 is the guide page — the page parity counts from (FR-043);
+* **each page's parity is its 1-based position in the interior** (CARD-116's
+  half, added here): every page is the book's trim, and on every page that
+  carries a drawing — the puzzle pages and the answer pages alike — the
+  drawing sits where a page of that parity puts it, gutter margin on the
+  binding side;
 * its page count is today's content without the cover — guide, puzzles,
   SOLUTIONS divider and answers — and equals the count the export reports;
 * exactly one cover file of one 2550 x 3300 px page is produced beside it,
   holding the uploaded cover when one is set, else the generated title cover.
 
-CARD-116 adds the parity half (mirrored margins); CARD-129 the finalise
-page-count half. The corpus is built by hand with a seeded ``random.Random``
-(no hypothesis — ADR-0006) and its size is asserted, so it cannot silently
-shrink. Expected values are derived here, independently of the generator: the
-page count from the book's make-up, the tier counts by reading the tier
-strings, the PDFs read back with Pillow's own parser.
+CARD-129 owns the finalise page-count half. The corpus is built by hand with a
+seeded ``random.Random`` (no hypothesis — ADR-0006) and its size is asserted,
+so it cannot silently shrink. Expected values are derived here, independently
+of the generator: the page count from the book's make-up, the tier counts by
+reading the tier strings, the expected drawing edge in millimetres from
+CON-018's profile and FR-032's centring rule, and the PDFs read back with
+Pillow's own parser.
 """
 
 from __future__ import annotations
@@ -38,12 +42,39 @@ from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_is_right_hand
+from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
 
 TRIM_PX = (2550, 3300)
 ROUTES = ("generator", "finalise", "download-pdf", "generate-pdf")
 CASES = 28
 SEED = 135
+
+#: CON-018's Book 1 profile in millimetres — every book here is on it —
+#: written out rather than imported, so the expected edge below is a second
+#: implementation of FR-030/FR-032 and not a re-derivation.
+GUTTER_MM = 0.5 * 25.4
+OUTSIDE_MM = TOP_MM = BOTTOM_MM = 0.375 * 25.4
+USABLE_WIDTH_MM = 8.5 * 25.4 - GUTTER_MM - OUTSIDE_MM
+USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 12.0
+STANDARD_CELL_MM = 7.5
+PX_PER_MM = 300 / 25.4
+
+
+def _expected_drawing_left_mm(puzzle, page_number):
+    """Where interior page ``page_number`` puts this puzzle's left edge (FR-032).
+
+    The drawing is ``clue depth + grid`` cells across at ``min(standard cell,
+    page fit)``, centred across the usable width, whose left margin is the
+    gutter on a right-hand (odd) page and the outside margin on a left-hand
+    one.
+    """
+    across = max(len(clue) for clue in puzzle["clues_rows"]) + puzzle["width"]
+    down = max(len(clue) for clue in puzzle["clues_cols"]) + puzzle["height"]
+    cell = min(STANDARD_CELL_MM, USABLE_WIDTH_MM / across, USABLE_HEIGHT_MM / down)
+    spare = USABLE_WIDTH_MM - across * cell
+    left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
+    return left_margin + max(spare, 0.0) / 2
 
 
 @pytest.fixture
@@ -208,12 +239,22 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         assert same_page(interior[0], _expected_guide(case["puzzles"])), label
         for page_number, page in enumerate(interior, start=1):
             assert not same_page(page, cover_page), f"{label}: page {page_number} is the cover"
+            assert page.size == TRIM_PX, f"{label}: page {page_number} is not the trim"
 
-        # Parity is *not* observed here: nothing on a page carries it until
-        # CARD-116's mirrored margins, so all this card can check is that the
-        # page parity counts from — interior page 1 — is the guide page
-        # (asserted above), not a cover. The observable parity half is
-        # CARD-116's TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1.
+        # Each page's parity is its 1-based position in the interior (CARD-116).
+        # Measured off the page: a right-hand (odd) page carries the gutter
+        # margin on its left, so its drawing sits further right than the same
+        # drawing on a left-hand page, by gutter - outside.
+        for index, puzzle in enumerate(case["puzzles"]):
+            for page_number in (2 + index, 3 + n + index):  # puzzle page, answer page
+                drawn_left_mm = drawing_of(interior[page_number - 1]).left / PX_PER_MM
+                expected_mm = _expected_drawing_left_mm(puzzle, page_number)
+                assert abs(drawn_left_mm - expected_mm) < 0.1, (
+                    f"{label}: page {page_number} "
+                    f"({'right' if page_number % 2 else 'left'}-hand) "
+                    f"draws its puzzle at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
+                )
+                seen["right-hand" if page_number % 2 else "left-hand"] += 1
 
         seen[case["route"]] += 1
         seen["with cover" if case["cover"] is not None else "without cover"] += 1
@@ -224,6 +265,8 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         assert seen[route] >= CASES // len(ROUTES) - 1, (route, seen)
     assert seen["with cover"] >= 5 and seen["without cover"] >= 5, seen
     assert seen["empty book"] >= 1 and seen["non-empty book"] >= 10, seen
+    # Both parities really were measured, on both page kinds.
+    assert seen["right-hand"] >= 10 and seen["left-hand"] >= 10, seen
 
 
 def test_page_numbers_start_at_one():
