@@ -22,12 +22,17 @@ beside the functions, which reads to the validator as a dead link:
 Two halves, matching the two things "a tier" has to be.
 
 *The bands* (``nonogram.difficulty``): ADR-0005 splits the 0..100 scale into
-three equal tertiles, and the tests below pin the cutoffs, the ends they belong
-to, and — the one that matters most for a tunable table — that the bands and
-the classifier are derived from the same two constants, so moving a cutoff
-moves both together. A test that restated ``33``/``66`` as its own expectation
-would only be pinning the current tuning; these pin the *structure* and check
-the numbers once, against ADR-0005 directly.
+three bands with two tunable constants, and the tests below pin the cutoffs,
+the ends they belong to, and — the one that matters most for a tunable table —
+that the bands and the classifier are derived from the same two constants, so
+moving a cutoff moves both together. A test that restated the cutoff figures as
+its own expectation would only be pinning the current tuning; these pin the
+*structure* and check the numbers once, against the decisions directly.
+
+The figures were ADR-0005's equal tertiles (33/66) until CARD-137 moved the
+medium/hard cutoff to ``90.0`` on the owner's decision; the split is no longer
+equal, and the tier bands are no longer the ladder's rung bands
+(``tests/test_difficulty.py`` holds that second table).
 
 *The selector* (``nonogram.cli`` -> ``nonogram.orchestrator``): the tier a user
 types survives the trip inward as a tier the aggregate carries (AC-020), and a
@@ -70,24 +75,30 @@ from nonogram.orchestrator import GenerationRequest, Puzzle
 # --------------------------------------------------------------------------
 
 
-def test_the_scale_is_split_into_the_three_tertiles_adr_0005_names() -> None:
-    """ADR-0005: Easy [0, 33], Medium (33, 66], Hard (66, 100].
+def test_the_scale_is_split_where_adr_0005_and_card_137_put_the_cutoffs() -> None:
+    """Easy [0, 33], Medium (33, 90], Hard (90, 100].
 
-    The one place the ADR's literal numbers are asserted. Everything else in
-    this module reads them from the module, so a retune moves one test rather
-    than a dozen — which is what makes the table tunable in practice and not
-    just in principle.
+    The one place the literal numbers are asserted. Everything else in this
+    module reads them from the module, so a retune moves one test rather than a
+    dozen — which is what makes the table tunable in practice and not just in
+    principle.
 
-    **Unchanged by ADR-0029, and that is the point of guardrail G-5.** The
-    strategy ladder was mapped onto these two constants rather than the other
-    way round (``simple_overlap`` 0..33, ``line_dp`` 33..66,
-    ``probe_contradiction`` 66..100), so no stored grade moved on account of a
-    band edge. The recalibration ADR-0005 is still owed — whether the
-    within-rung share spreads puzzles usefully inside a band — is recorded with
-    CARD-076's AC-118 distribution and deliberately not done there.
+    **``33.0`` is ADR-0005's and has never moved.** It coincides with the top
+    of the ladder's bottom rung, which is what keeps Easy meaning exactly "the
+    overlap rule finished it" (ADR-0029, History 2026-09-13).
+
+    **``90.0`` is CARD-137's**, and it is the recalibration ADR-0005 has been
+    owed since ADR-0029. At ``66.0`` the cutoff coincided with the other rung
+    boundary, so Medium meant "topped out at ``line_dp``" — an accident of a
+    random draw that the owner measured at 5 puzzles in 300 on production.
+    ``90.0`` coincides with nothing on the ladder: it cuts the
+    ``probe_contradiction`` rung at ``(90 - 66) / 34`` = 70.6% of the grid, so
+    Medium is "a little non-trivial work" and Hard is "a lot". No stored grade
+    moves, because the score mapping is the *rung* table and that is untouched
+    — see ``tests/test_difficulty.py`` and ``difficulty.RUNG_BANDS``.
     """
     assert EASY_MAX_SCORE == 33.0
-    assert MEDIUM_MAX_SCORE == 66.0
+    assert MEDIUM_MAX_SCORE == 90.0
     assert TIER_BANDS[Tier.EASY] == (SCORE_MIN, EASY_MAX_SCORE)
     assert TIER_BANDS[Tier.MEDIUM] == (EASY_MAX_SCORE, MEDIUM_MAX_SCORE)
     assert TIER_BANDS[Tier.HARD] == (MEDIUM_MAX_SCORE, SCORE_MAX)
@@ -127,10 +138,11 @@ def test_a_score_lands_in_the_band_adr_0005_puts_it_in(
 ) -> None:
     """The classifier itself, at both cutoffs and on both sides of each.
 
-    The two boundary values are the point: ADR-0005 writes the bands as
-    ``[0, 33]``, ``(33, 66]``, ``(66, 100]``, so a cutoff belongs to the band
-    *below* it. An implementation that used ``<`` instead of ``<=`` would pass
-    every "inside" case here and fail exactly these two.
+    The two boundary values are the point: ADR-0005 writes the bands with
+    *inclusive* upper bounds — ``[0, 33]``, ``(33, 90]``, ``(90, 100]`` as the
+    cutoffs stand — so a cutoff belongs to the band *below* it. An
+    implementation that used ``<`` instead of ``<=`` would pass every "inside"
+    case here and fail exactly these two.
     """
     # Through ``classify`` with a zero branch count, because that is the only
     # way a caller can ask: ADR-0025 makes a score alone insufficient to

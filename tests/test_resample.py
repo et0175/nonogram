@@ -861,11 +861,16 @@ def _dilate_the_solvers_clock(
 #: numbers: it is that a dilated clock changes neither the grid nor the resample
 #: count for a given seed. This request makes that claim checkable, in a
 #: hundredth of the time, on a run that really does exercise POL-004 — three
-#: resample rounds and eight regenerate attempts before a Medium candidate is
+#: resample rounds and thirteen regenerate attempts before a Medium candidate is
 #: accepted, so a clock-dependent tier decision would have plenty of chances to
 #: diverge. The abandoning case is covered for the same property by
 #: ``test_an_infeasible_tier_reaches_the_user_as_generation_failed``.
-_AC123_REQUEST = {"width": 12, "height": 12, "density": 45, "seed": 1}
+#:
+#: The seed was 1 until CARD-137 moved the medium/hard cutoff to 90.0. Medium
+#: is a wider band now, so seed 1 is satisfied by its first candidate and the
+#: run stopped exercising POL-004 at all; seed 4 restores the three rounds this
+#: request exists to produce. The claim under test is unchanged.
+_AC123_REQUEST = {"width": 12, "height": 12, "density": 45, "seed": 4}
 
 
 def test_same_seed_same_tier_under_dilated_clock(
@@ -888,10 +893,10 @@ def test_same_seed_same_tier_under_dilated_clock(
     promise extended to requests that carry ``--difficulty``
     (``docs/GENERATION_ALGORITHM.md`` §10.2 finding 3, now closed).
 
-    The run really exercises POL-004: three resample rounds and eight
+    The run really exercises POL-004: three resample rounds and thirteen
     regenerate attempts before a Medium candidate is accepted, so a
-    clock-dependent tier decision would have eight chances to keep a different
-    candidate under the slow clock.
+    clock-dependent tier decision would have thirteen chances to keep a
+    different candidate under the slow clock.
     """
     with monkeypatch.context() as normal_speed:
         _dilate_the_solvers_clock(normal_speed, 1.0)
@@ -910,7 +915,7 @@ def test_same_seed_same_tier_under_dilated_clock(
     # The *sequence* of discarded candidates replays too, not only the accepted
     # one: that is the half a per-candidate clock term would have broken.
     assert at_50x.resample.attempts == at_1x.resample.attempts == 3
-    assert at_50x.regenerate.attempts == at_1x.regenerate.attempts == 8
+    assert at_50x.regenerate.attempts == at_1x.regenerate.attempts == 13
 
 
 def test_the_dilated_clock_really_reaches_the_solvers_report(

@@ -56,10 +56,16 @@ _FILLED = "█"
 _WHITE = (255, 255, 255)
 _BLACK = (0, 0, 0)
 
-#: The score AC-046's ``"Medium"`` puzzle is pinned at: the middle of the
-#: Medium band, so a retune of the cutoffs has to move a long way before this
-#: test's tier changes meaning (ADR-0005's bands are 0-33 / 33-66 / 66-100).
+#: The score AC-046's ``"Medium"`` puzzle is pinned at: well inside the Medium
+#: band, so a retune of the cutoffs has to move a long way before this test's
+#: tier changes meaning (the bands are 0-33 / 33-90 / 90-100 since CARD-137).
 MEDIUM_SCORE = 50.0
+
+#: ...and the score ADR-0016's ``cat-hard.pdf`` example is pinned at, for the
+#: same reason. It was 80.0 until CARD-137 moved the medium/hard cutoff to
+#: 90.0 and 80.0 became a Medium score; the claim under test is about the
+#: *filename*, so the figure moves with the band rather than the test.
+HARD_SCORE = 95.0
 
 #: A4's two edges in PostScript points — 210 and 297mm at 72pt to the inch,
 #: spelled out here rather than read from ``layout_module``. A page bound that
@@ -977,7 +983,7 @@ def test_the_puzzle_page_never_depends_on_the_solution() -> None:
 def test_the_pdf_is_named_after_the_puzzle_and_its_tier(tmp_path: Path) -> None:
     """ADR-0016's own example, ``cat-hard.pdf``: the file says what the puzzle
     is called *and* how hard it turned out, without being opened."""
-    puzzle = _puzzle(tmp_path, name="cat", score=80.0)
+    puzzle = _puzzle(tmp_path, name="cat", score=HARD_SCORE)
     assert puzzle.difficulty_tier is difficulty.Tier.HARD
 
     assert export_puzzle(puzzle)[0].name == "cat-hard.pdf"

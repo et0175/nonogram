@@ -38,6 +38,7 @@ import pytest
 from nonogram.clues import compute_clues
 from nonogram.difficulty import (
     LADDER,
+    RUNG_BANDS,
     SCORE_MAX,
     SCORE_MIN,
     Tier,
@@ -361,6 +362,15 @@ def test_every_score_lands_on_the_scale_and_in_its_rungs_own_band(seed: int) -> 
     Not implied by the ordering property — an ordering can be correct on a
     scale that has drifted off 0..100 — and it is what POL-004's resample
     predicate, the DB column and the JSON export all assume.
+
+    Asserted against ``RUNG_BANDS``, which is what makes it a statement about
+    the *score* rather than about the tier. It read the tier tables until
+    CARD-137, when the medium/hard cutoff moved to 90.0 and stopped coinciding
+    with the probe rung's floor: a probe-rung puzzle is Medium or Hard
+    depending on how much of the grid it probed, so "the tier its rung maps
+    onto" is no longer a thing to assert. That the score mapping itself did
+    **not** move is the point — see
+    ``tests/property/test_difficulty_calibration.py``.
     """
     records = _synthetic_records(seed=seed, count=400)
     assert len(records) >= 200, "the corpus shrank"
@@ -371,5 +381,7 @@ def test_every_score_lands_on_the_scale_and_in_its_rungs_own_band(seed: int) -> 
         # Line-solvable puzzles land in the band their rung maps onto; the
         # branching ones are not graded on this ladder at all (ADR-0025).
         if signals.branch_nodes == 0:
-            expected = (Tier.EASY, Tier.MEDIUM, Tier.HARD)[_ladder_key(signals)[0]]
-            assert classify(score) is expected
+            low, high = RUNG_BANDS[LADDER[_ladder_key(signals)[0]]]
+            assert low < score <= high or (low == SCORE_MIN and score == SCORE_MIN)
+            # And whatever band that is, exactly one tier claims the score.
+            assert classify(score) in set(Tier)
