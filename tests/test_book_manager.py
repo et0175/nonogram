@@ -12,7 +12,7 @@ from src.nonogram.admin.book_manager import (
 # Not ``src.nonogram...``: ``book_manager`` imports the plan types under the
 # installed ``nonogram`` name, and the two spellings are two module objects, so
 # a plan built from the other one is not the class its isinstance check wants.
-from nonogram.admin.book_plan import DistributionPlan, Split
+from nonogram.admin.book_plan import DistributionPlan, LevelBoundary, Split
 from nonogram.admin.puzzle_review import PuzzleReviewService
 
 
@@ -41,6 +41,38 @@ def book_manager():
     exercised in the configuration production actually runs.
     """
     return BookManager(puzzle_store=PuzzleReviewService(session_factory=None))
+
+
+def graded_puzzles(book_manager, *tiers):
+    """One stored, approved puzzle per tier named — rows the order can *read*.
+
+    The placeholder ids most of this file uses resolve to no row, so every one
+    of them ranks ungraded and INV-009's grouping gate can never fire on them
+    (review cycle 1, F-004). A test about that gate needs real rows carrying
+    real tiers, which is what this makes.
+    """
+    store = book_manager.puzzle_store
+    ids = []
+    for index, tier in enumerate(tiers, start=1):
+        size = 10
+        puzzle_id = store.add_puzzle(
+            grid=[[True] * size for _ in range(size)],
+            clues_rows=[[size]] * size,
+            clues_cols=[[size]] * size,
+            width=size,
+            height=size,
+            theme="generic",
+            difficulty_score=10,
+            difficulty_tier=tier,
+            quality_score=50,
+            recognizability="medium",
+            strategies_used=[],
+            batch_id=None,
+            source_image=f"{tier}-{index}.png",
+        )
+        store.approve_puzzle(puzzle_id)
+        ids.append(puzzle_id)
+    return ids
 
 
 class TestBookCreation:
@@ -243,6 +275,60 @@ class TestPuzzleReordering:
             book_manager.reorder_puzzles(
                 book_id, ["puzzle_000001", "puzzle_000003"]
             )
+
+    # ----------------------------------------------------------------------
+    # INV-009's grouping gate, on rows whose tier can actually be read, and
+    # the order the three refusals come in (review cycle 1, F-004).
+    # ----------------------------------------------------------------------
+
+    def _graded_book(self, book_manager):
+        """A book holding a readable easy, easy, medium — in that order."""
+        book_id = book_manager.create_book(
+            title="Book",
+            description="Description",
+            theme="christmas",
+            target_audience="seniors",
+        )
+        e1, e2, m1 = graded_puzzles(book_manager, "easy", "easy", "medium")
+        book_manager.add_puzzles_to_book(book_id, [e1, e2, m1])
+        return book_id, e1, e2, m1
+
+    def test_reorder_puzzles_accepts_a_grouped_order_of_graded_puzzles(
+        self, book_manager
+    ):
+        """Swapping the two easy ones keeps the book grouped, so it is stored."""
+        book_id, e1, e2, m1 = self._graded_book(book_manager)
+
+        assert book_manager.reorder_puzzles(book_id, [e2, e1, m1]) is True
+        assert book_manager.get_book(book_id).puzzle_ids == [e2, e1, m1]
+
+    def test_reorder_puzzles_refuses_an_ungrouped_order_of_graded_puzzles(
+        self, book_manager
+    ):
+        """The medium one first is not grouped: refused, and nothing written."""
+        book_id, e1, e2, m1 = self._graded_book(book_manager)
+
+        with pytest.raises(LevelBoundary):
+            book_manager.reorder_puzzles(book_id, [m1, e1, e2])
+
+        assert book_manager.get_book(book_id).puzzle_ids == [e1, e2, m1]
+
+    def test_an_unknown_book_is_reported_before_the_grouping(self, book_manager):
+        """False, not LevelBoundary — even when the order handed in is ungrouped."""
+        book_id, e1, e2, m1 = self._graded_book(book_manager)
+
+        assert book_manager.reorder_puzzles("book_nope", [m1, e1, e2]) is False
+
+    def test_a_membership_mismatch_is_reported_before_the_grouping(self, book_manager):
+        """An order both ungrouped *and* not this book's names the actionable fault."""
+        book_id, e1, e2, m1 = self._graded_book(book_manager)
+        (stranger,) = graded_puzzles(book_manager, "hard")
+
+        with pytest.raises(ValueError) as refusal:
+            book_manager.reorder_puzzles(book_id, [m1, e1, stranger])
+
+        assert not isinstance(refusal.value, LevelBoundary), refusal.value
+        assert "match book's current puzzles" in str(refusal.value)
 
 
 class TestBookStatus:

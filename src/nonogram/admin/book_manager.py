@@ -22,16 +22,22 @@ from nonogram.admin.book_plan import (
     BUCKETS,
     DEFAULT_PLAN,
     TIERS,
+    UNGROUPED_ORDER_REFUSAL,
     DistributionPlan,
     InvalidPlan,
+    LevelBoundary,
     LongestSideBucket,
     Split,
+    book_levels,
+    is_level_order,
+    moved_within_level,
+    place_in_level,
     planned_cells,
     prefill,
     selection_cells,
     with_split,
 )
-from nonogram.difficulty import Tier
+from nonogram.difficulty import Tier, tier_of_record
 
 logger = logging.getLogger(__name__)
 
@@ -711,9 +717,23 @@ class BookManager:
         book = self.get_book(book_id)
         return [] if book is None else self._below_floor_for(book, puzzle_ids)
 
-    def _below_floor_for(self, book: Book, puzzle_ids) -> List[FloorRefusal]:
-        """:meth:`below_floor` against a book already read (see it for the rules)."""
+    def _below_floor_for(self, book: Book, puzzle_ids, *, tiers=None) -> List[FloorRefusal]:
+        """:meth:`below_floor` against a book already read (see it for the rules).
+
+        ``tiers``, when given, is a dict this fills with the stored tier of
+        every id it resolves — ``None`` for one it cannot. It is not part of
+        the floor's job; it is here because this loop is the one place the add
+        already holds each submitted record in its hand, and EC-021's
+        "one store read per distinct id" (F-004) is a promise about the whole
+        submission, not about the floor alone. The add hands its dict in and
+        :meth:`_tier_of` reads nothing twice.
+        """
         puzzle_ids = [str(pid) for pid in puzzle_ids]
+        if tiers is not None:
+            # Everything asked about is answered, including the ids the loop
+            # below skips: an id no row matches has no tier, and recording that
+            # is what stops it being looked up a second time.
+            tiers.update({puzzle_id: None for puzzle_id in puzzle_ids})
         if not puzzle_ids:
             return []
 
@@ -755,6 +775,9 @@ class BookManager:
                     puzzle_id,
                 )
                 continue
+            if tiers is not None:
+                # Read, never re-graded (ADR-0033/R1, ADR-0031).
+                tiers[puzzle_id] = tier_of_record(record.get("difficulty_tier"))
             try:
                 cell_mm = book_cell_mm(
                     spec,
@@ -919,7 +942,11 @@ class BookManager:
         measured_on = _verdict_state(book)
 
         allowed = set(book.floor_overrides) | {str(pid) for pid in overrides}
-        below_floor = self._below_floor_for(book, submitted)
+        # The floor's pass over the submission is also the add's tier reading
+        # (FR-041 below): one store read per distinct submitted id, still
+        # (EC-021, F-004).
+        submitted_tiers: Dict[str, Optional[Tier]] = {}
+        below_floor = self._below_floor_for(book, submitted, tiers=submitted_tiers)
         refusals = [r for r in below_floor if r.puzzle_id not in allowed]
         refused = {r.puzzle_id for r in refusals}
         # Stored for the ids an override actually had to cover, and no others.
@@ -942,12 +969,20 @@ class BookManager:
         if not puzzle_ids:
             return outcome
 
+        # FR-041/INV-009: a new puzzle joins the end of **its own level**, not
+        # the end of the book (CARD-126). The lookup runs here, before either
+        # storage branch, for the reason the paragraph above gives: the store
+        # opens its own sessions and this module does not nest them. The
+        # submission's tiers are already in hand from the floor's pass; only
+        # the book's existing members are read here, once each.
+        tier_of = self._tier_of(book.puzzle_ids, known=submitted_tiers)
+
         if self._session_factory is None:
             # Legacy mode: in-memory dict
             # Add unique puzzle IDs (avoid duplicates)
             existing = set(book.puzzle_ids)
             new_puzzles = [pid for pid in puzzle_ids if pid not in existing]
-            book.puzzle_ids.extend(new_puzzles)
+            book.puzzle_ids = place_in_level(book.puzzle_ids, new_puzzles, tier_of)
             if newly_overridden:
                 book.floor_overrides = _merged_overrides(book.floor_overrides, newly_overridden)
 
@@ -984,7 +1019,9 @@ class BookManager:
                 existing_puzzles = book_row.puzzle_ids or []
                 existing = set(existing_puzzles)
                 new_puzzles = [pid for pid in puzzle_ids if pid not in existing]
-                book_row.puzzle_ids = existing_puzzles + new_puzzles
+                # A NEW list, for CARD-101's reason, and grouped by level for
+                # FR-041's (INV-009): each new id at the end of its own level.
+                book_row.puzzle_ids = place_in_level(existing_puzzles, new_puzzles, tier_of)
                 if newly_overridden:
                     # A NEW list, assigned whole (CARD-100/CARD-101's lesson).
                     book_row.floor_overrides = _merged_overrides(
@@ -1079,19 +1116,56 @@ class BookManager:
             self._mirror_onto_puzzles([puzzle_id], None)
             return True
 
-    def reorder_puzzles(self, book_id: str, puzzle_ids: List[str]) -> bool:
-        """Reorder puzzles in a book.
+    def reorder_puzzles(self, book_id: str, puzzle_ids: List[str], tier_of=None) -> bool:
+        """Reorder puzzles in a book, inside INV-009's grouping.
+
+        The stored order is grouped easy, then medium, then hard (FR-041,
+        TERM-032): a submitted order that is not is **refused and nothing is
+        written**, which is what makes this the aggregate's own invariant
+        rather than a rule the arrange page is trusted to obey. The order the
+        page submits is already grouped, and so is the one a move computes
+        (:meth:`_move_within_level`), so no honest caller is turned away.
 
         Args:
             book_id: ID of book
             puzzle_ids: Ordered list of puzzle IDs
+            tier_of: the id -> tier lookup, when the caller has already made
+                one over these ids (:meth:`_move_within_level` has). Omitted,
+                it is made here. Passing one never changes the verdict — it
+                only saves reading the same rows twice.
 
         Returns:
-            True if reordered, False if book not found
+            True if reordered, False if book not found — and that answer comes
+            first, so a call naming no book still returns False however the
+            order it carries is grouped.
 
         Raises:
-            ValueError: If puzzle IDs don't match book's puzzles
+            ValueError: If puzzle IDs don't match book's puzzles. Reported
+                *before* the grouping, so a submission that is wrong in both
+                ways is named by the complaint the caller can act on.
+            LevelBoundary: the order is this book's own membership but is not
+                grouped by level (INV-009). A :class:`ValueError`, so a caller
+                that only knows about those is unaffected.
         """
+        # The three verdicts in this order, and not another (review cycle 1,
+        # F-004): "no such book" and "those are not this book's puzzles" are
+        # facts about the *call*, and answering them first is what keeps the
+        # contract above true and the message the more actionable one. INV-009
+        # is asked last, of an order that was otherwise about to be stored.
+        book = self.get_book(book_id)
+        if not book:
+            return False
+
+        if set(puzzle_ids) != set(book.puzzle_ids):
+            raise ValueError("Puzzle IDs must match book's current puzzles")
+
+        # Still outside either storage branch: the tier lookup reads the
+        # puzzle store, which opens sessions of its own, and this module does
+        # not nest sessions (:meth:`add_puzzles_reporting_refusals` records
+        # why).
+        if not is_level_order(puzzle_ids, tier_of or self._tier_of(puzzle_ids)):
+            raise LevelBoundary(UNGROUPED_ORDER_REFUSAL)
+
         if self._session_factory is None:
             # Legacy mode: in-memory dict
             book = self.books.get(book_id)
@@ -1124,126 +1198,145 @@ class BookManager:
                 return True
 
     def move_puzzle_up(self, book_id: str, puzzle_id: str) -> bool:
-        """Move a puzzle up one position in the book.
+        """Move a puzzle up one position **inside its own level** (FR-041, INV-009).
 
         Args:
             book_id: ID of book
             puzzle_id: ID of puzzle to move
 
         Returns:
-            True if moved, False if already at top or not found
+            True if moved, False if already at the top of the book
 
         Raises:
+            LevelBoundary: the puzzle above belongs to another level, so the
+                move would break the easy/medium/hard grouping. Nothing is
+                written (AC-258).
             ValueError: If book not found or puzzle not in book
         """
-        if self._session_factory is None:
-            # Legacy mode: in-memory dict
-            book = self.books.get(book_id)
-            if not book:
-                raise ValueError("Book not found")
-
-            if puzzle_id not in book.puzzle_ids:
-                raise ValueError("Puzzle not in book")
-
-            current_index = book.puzzle_ids.index(puzzle_id)
-            if current_index == 0:
-                return False  # Already at top
-
-            # Swap with previous puzzle
-            book.puzzle_ids[current_index], book.puzzle_ids[current_index - 1] = (
-                book.puzzle_ids[current_index - 1],
-                book.puzzle_ids[current_index],
-            )
-            book.updated_at = datetime.utcnow()
-            return True
-        else:
-            # DB mode: update Book row
-            from nonogram.db.models import Book as DBBook
-
-            with self._session_factory() as db:
-                book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
-                if not book_row:
-                    raise ValueError("Book not found")
-
-                puzzle_ids = book_row.puzzle_ids or []
-                if puzzle_id not in puzzle_ids:
-                    raise ValueError("Puzzle not in book")
-
-                current_index = puzzle_ids.index(puzzle_id)
-                if current_index == 0:
-                    return False  # Already at top
-
-                # Swap with previous puzzle
-                puzzle_ids[current_index], puzzle_ids[current_index - 1] = (
-                    puzzle_ids[current_index - 1],
-                    puzzle_ids[current_index],
-                )
-                book_row.puzzle_ids = puzzle_ids
-                book_row.updated_at = datetime.utcnow()
-
-                db.commit()
-                return True
+        return self._move_within_level(book_id, puzzle_id, -1)
 
     def move_puzzle_down(self, book_id: str, puzzle_id: str) -> bool:
-        """Move a puzzle down one position in the book.
+        """Move a puzzle down one position **inside its own level** (FR-041, INV-009).
 
         Args:
             book_id: ID of book
             puzzle_id: ID of puzzle to move
 
         Returns:
-            True if moved, False if already at bottom or not found
+            True if moved, False if already at the bottom of the book
 
         Raises:
+            LevelBoundary: the puzzle below belongs to another level, so the
+                move would break the easy/medium/hard grouping. Nothing is
+                written (AC-258).
             ValueError: If book not found or puzzle not in book
         """
-        if self._session_factory is None:
-            # Legacy mode: in-memory dict
-            book = self.books.get(book_id)
-            if not book:
-                raise ValueError("Book not found")
+        return self._move_within_level(book_id, puzzle_id, +1)
 
-            if puzzle_id not in book.puzzle_ids:
-                raise ValueError("Puzzle not in book")
+    def _move_within_level(self, book_id: str, puzzle_id: str, offset: int) -> bool:
+        """One step of CMD-022 -> EVT-023: the swap both move buttons make.
 
-            current_index = book.puzzle_ids.index(puzzle_id)
-            if current_index == len(book.puzzle_ids) - 1:
-                return False  # Already at bottom
+        The two directions were the same forty lines twice over, once per
+        storage mode, and the rule they now share is not a swap of adjacent
+        *stored* positions any more but a swap of adjacent positions in the
+        **level order** (:func:`~nonogram.admin.book_plan.moved_within_level`).
+        On a book that is already grouped those are the same two positions; on
+        a legacy mixed one they are not, and the move is the one place where
+        the grouped order is written back (the card's item 2).
 
-            # Swap with next puzzle
-            book.puzzle_ids[current_index], book.puzzle_ids[current_index + 1] = (
-                book.puzzle_ids[current_index + 1],
-                book.puzzle_ids[current_index],
+        The new order goes through :meth:`reorder_puzzles`, so the membership
+        check and the storage branch stay in one place and the write is a
+        fresh list in both modes (CARD-101). The tier lookup runs here, outside
+        any writing session.
+        """
+        book = self.get_book(book_id)
+        if not book:
+            raise ValueError("Book not found")
+        if puzzle_id not in book.puzzle_ids:
+            raise ValueError("Puzzle not in book")
+
+        tier_of = self._tier_of(book.puzzle_ids)
+        moved = moved_within_level(book.puzzle_ids, puzzle_id, offset, tier_of)
+        if moved is None:
+            return False  # Already at the end of the book
+        return self.reorder_puzzles(book_id, moved, tier_of)
+
+    def _tier_of(self, puzzle_ids, known=None):
+        """A total id -> stored tier lookup over ``puzzle_ids``, read once each.
+
+        The seam between the level order (pure, in ``book_plan``) and storage.
+        The tier is **read** from what the row holds, through
+        :func:`~nonogram.difficulty.tier_of_record`, and never re-derived from
+        a grid or a size (ADR-0033/R1, ADR-0031): book assembly grades nothing.
+
+        Total on purpose, and quiet on purpose. A manager with no puzzle store,
+        an id no row matches, an id that is not even a UUID — each answers
+        ``None``, which ranks after every graded level rather than raising.
+        The readiness gate's :meth:`_selection_records` refuses in that
+        situation because a plan verdict on a selection it cannot see would be
+        a false "ready"; an *order* has no such failure mode — it stays a
+        permutation of the membership either way — and refusing here would
+        break every book held in memory without a store, which is what the
+        panel's own tests and its legacy mode are.
+
+        Args:
+            puzzle_ids: the ids to resolve.
+            known: tiers a caller has already read, keyed the same way. Ids in
+                it are not read again, and it is carried into the result, so a
+                lookup built over the book's members still answers for the
+                submission the caller measured alongside them.
+
+        Returns:
+            A callable taking a puzzle id (in any form that ``str()`` renders
+            the same way the book's list does) and returning a
+            :class:`~nonogram.difficulty.Tier` or ``None``.
+        """
+        tiers: Dict[str, Optional[Tier]] = dict(known or {})
+        for puzzle_id in puzzle_ids:
+            key = str(puzzle_id)
+            if key not in tiers:
+                tiers[key] = self._stored_tier(key)
+        return lambda puzzle_id: tiers.get(str(puzzle_id))
+
+    def _stored_tier(self, puzzle_id: str) -> Optional[Tier]:
+        """One row's stored tier, or ``None`` when there is nothing to read."""
+        if self.puzzle_store is None:
+            return None
+        try:
+            record = self.puzzle_store.get_puzzle(puzzle_id)
+        except (ValueError, TypeError) as error:
+            logger.debug(
+                "Book order: puzzle id %r resolves to no row (%s); it has no level "
+                "and sorts after the graded ones.",
+                puzzle_id,
+                error,
             )
-            book.updated_at = datetime.utcnow()
-            return True
-        else:
-            # DB mode: update Book row
-            from nonogram.db.models import Book as DBBook
+            return None
+        if not record:
+            return None
+        return tier_of_record(record.get("difficulty_tier"))
 
-            with self._session_factory() as db:
-                book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
-                if not book_row:
-                    raise ValueError("Book not found")
+    def puzzle_levels(self, book_id: str) -> List[tuple]:
+        """The book's order cut into its levels — the arrange page's view.
 
-                puzzle_ids = book_row.puzzle_ids or []
-                if puzzle_id not in puzzle_ids:
-                    raise ValueError("Puzzle not in book")
+        ``[(Tier | None, [puzzle_id, ...]), ...]`` in book order, one entry per
+        non-empty level (see
+        :func:`~nonogram.admin.book_plan.book_levels`). The route renders this
+        and nothing else, so the page cannot group the book differently from
+        the way it is stored, moved and printed — there is one grouping
+        (FR-041).
 
-                current_index = puzzle_ids.index(puzzle_id)
-                if current_index == len(puzzle_ids) - 1:
-                    return False  # Already at bottom
+        A legacy mixed arrangement reads grouped here **without** being
+        rewritten; the first move the owner makes on it writes the grouped
+        order back.
 
-                # Swap with next puzzle
-                puzzle_ids[current_index], puzzle_ids[current_index + 1] = (
-                    puzzle_ids[current_index + 1],
-                    puzzle_ids[current_index],
-                )
-                book_row.puzzle_ids = puzzle_ids
-                book_row.updated_at = datetime.utcnow()
-
-                db.commit()
-                return True
+        Returns:
+            The levels, or ``[]`` for an unknown book.
+        """
+        book = self.get_book(book_id)
+        if not book:
+            return []
+        return book_levels(book.puzzle_ids, self._tier_of(book.puzzle_ids))
 
     def set_puzzle_title(self, book_id: str, puzzle_id: str, title: str) -> bool:
         """Set custom title for a puzzle in the book.
