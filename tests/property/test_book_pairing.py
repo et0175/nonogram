@@ -240,6 +240,35 @@ def _puzzle(rng: random.Random, small: bool = False) -> Puzzle:
     return puzzle
 
 
+#: How many answers FR-042 puts on a page while every answer on it is at most
+#: 20 cells on its longest side. Every puzzle of the rendered corpus below is
+#: drawn at 10..14 a side (``_puzzle(small=True)``), so that is the tiling of
+#: every page of every key here and the four-up one never arises.
+ANSWERS_PER_PAGE = 6
+
+
+def _expected_answer_pages(order: list[Puzzle]) -> int:
+    """How many pages FR-042's packed key takes for ``order`` (CARD-134).
+
+    No answer page holds two levels, so each run of one tier of record takes
+    ``ceil(its length / 6)`` pages of its own. Written out here rather than
+    asked of ``book_answer_key``: this module's subject is the *pairing* walk,
+    and an answer-page count re-derived with the key's own function would say
+    nothing about the interior it is counting.
+    """
+    pages = 0
+    run = 0
+    previous: object = object()
+    for puzzle in order:
+        level = puzzle.tier_of_record
+        if run and level != previous:
+            pages += -(-run // ANSWERS_PER_PAGE)
+            run = 0
+        previous = level
+        run += 1
+    return pages + -(-run // ANSWERS_PER_PAGE)
+
+
 def _expected_pages(sheet: Sheet, order: list[Puzzle]) -> list[tuple[int, ...]] | None:
     """EC-027's walk, written out: the 1-based puzzle numbers of each page.
 
@@ -387,8 +416,10 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         interior = BookPDFGenerator(sheet.book).interior_pages(rows)
         label = (sheet, [str(p) for p in order])
 
-        # Guide, the puzzle pages, the divider, one answer page per puzzle.
-        assert len(interior) == 1 + len(expected) + 1 + len(order), label
+        # Guide, the puzzle pages, the divider, the packed answer key (FR-042).
+        assert len(interior) == (
+            1 + len(expected) + 1 + _expected_answer_pages(order)
+        ), label
 
         drawn = [
             [(drawing.columns, drawing.rows) for drawing in drawings_of(interior[number - 1])]

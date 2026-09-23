@@ -32,6 +32,25 @@ TRIM_PX = (2550, 3300)
 BOOK_TITLE = "Winter Pictures"
 
 
+def _interior_pages(puzzle_count, answer_pages):
+    """The interior's page count: guide, the puzzle pages, divider, the key.
+
+    FR-043's make-up with both variable terms named rather than left as
+    literals. ``puzzle_count`` is also the puzzle-**page** count for every book
+    in this module: its puzzles are 20x20s, which never pair two-up here
+    (FR-040). ``answer_pages`` is what FR-042's packed key takes (CARD-134) —
+    these books are all one level and at most 20 cells a side, so six answers
+    share a page. A book with no puzzles has no divider and no key at all.
+    """
+    if puzzle_count == 0:
+        return 1
+    return 1 + puzzle_count + 1 + answer_pages
+
+
+#: This module's standard book: three easy 20x20s, so its key is one page.
+STANDARD_BOOK_PAGES = _interior_pages(3, 1)
+
+
 def _rectangle(width, height, left, top, right, bottom):
     """A filled rectangle — uniquely solvable, so the store accepts it."""
     return [
@@ -159,11 +178,16 @@ class TestBookExport_InteriorStartsAtGuidePage:
         assert same_page(interior[0], _guide_page(3, 3))
 
     def test_the_interior_runs_guide_puzzles_divider_answers(self, covered_book):
-        """Only the cover moved: 1 guide + 3 puzzles + divider + 3 answers."""
+        """1 guide + 3 puzzles + divider + the key, and no cover page anywhere.
+
+        The key is one page since FR-042 packed it (CARD-134); before that it
+        was three, one per puzzle. What this AC is about is the *order* of the
+        sections and the cover's absence from them, and neither moved.
+        """
         client, book_id = covered_book
         data = _download(client, "finalise", book_id, "interior")
 
-        assert pdf_page_count(data) == 1 + 3 + 1 + 3
+        assert pdf_page_count(data) == STANDARD_BOOK_PAGES
 
     def test_the_generator_reports_the_interiors_own_page_count(self):
         grid = _rectangle(20, 20, 0, 0, 5, 5)
@@ -281,7 +305,7 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
         cover = pdf_pages(_download(client, route, book_id, "cover"))
 
         assert same_page(interior[0], _guide_page(3, 3))
-        assert len(interior) == 1 + 3 + 1 + 3
+        assert len(interior) == STANDARD_BOOK_PAGES
         assert len(cover) == 1 and cover[0].size == TRIM_PX
         assert same_page(cover[0], _cover_art().resize(TRIM_PX))
         assert not any(same_page(p, cover[0]) for p in interior)
@@ -535,12 +559,31 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
     Cross-checked against the page tree of the PDF the export writes, not
     against the plan function's own arithmetic.
+
+    **What FR-042 changed here.** ``interior_page_count`` now takes how many
+    pages the *answers* take as well as how many the puzzles take, and both
+    default to one page each. Called with the puzzle count alone — which is
+    how the Finalise screen calls it — it is therefore the un-paired,
+    un-packed plan: an **upper bound**, which is what that screen has always
+    labelled it ("~") and what CARD-129 owns making exact (EC-034). Since the
+    packed key (CARD-134) that bound is wider: a three-puzzle book plans 8 and
+    writes 6.
+
+    So the two statements are asserted separately, and both against the
+    written file: the plan given every term is the file's page count exactly,
+    and the screen's figure is never less than it.
     """
 
-    @pytest.mark.parametrize("puzzle_count", (0, 1, 3))
-    def test_the_plan_matches_the_written_interior(self, puzzle_count):
-        from nonogram.admin.book_pdf_generator import interior_page_count
+    #: How many answer pages these books take: six answers to a page, all one
+    #: level and none above 20 cells a side (FR-042). Written out here rather
+    #: than asked of the packing walk.
+    @staticmethod
+    def _answer_pages(puzzle_count):
+        return -(-puzzle_count // 6)
 
+    @staticmethod
+    def _interior_of(puzzle_count):
+        """The written interior of a book of ``puzzle_count`` easy 20x20s."""
         grid = _rectangle(20, 20, 0, 0, 5, 5)
         found = clues.compute_clues(grid)
         puzzle = {
@@ -551,15 +594,49 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
             "height": 20,
             "difficulty_tier": "easy",
         }
-        interior = BookPDFGenerator().export_interior([puzzle] * puzzle_count)
+        return BookPDFGenerator().export_interior([puzzle] * puzzle_count)
 
-        assert interior_page_count(puzzle_count) == pdf_page_count(interior.getvalue())
+    @pytest.mark.parametrize("puzzle_count", (0, 1, 3, 7))
+    def test_the_plan_matches_the_written_interior(self, puzzle_count):
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
+        answer_pages = self._answer_pages(puzzle_count)
+
+        # The file, against this module's own arithmetic — independent of the
+        # plan function entirely.
+        assert written == _interior_pages(puzzle_count, answer_pages)
+        # And the plan function, given the same terms, against the file. A
+        # 20x20 never pairs here, so the puzzle-page term is the count.
+        assert (
+            interior_page_count(puzzle_count, puzzle_count, answer_pages) == written
+        )
+
+    @pytest.mark.parametrize("puzzle_count", (0, 1, 3, 7))
+    def test_the_plan_called_with_the_count_alone_bounds_the_file(self, puzzle_count):
+        """The Finalise screen's call, and what it promises: never too few.
+
+        A stated page count below the file's would send a book to KDP under a
+        spine width that does not fit it, which is the direction that costs
+        money; above it is the "~" the screen prints.
+        """
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
+
+        assert interior_page_count(puzzle_count) >= written
 
     @pytest.mark.parametrize("puzzle_count", (1, 3))
-    def test_finalise_shows_the_downloaded_interiors_page_count(self, admin_app, puzzle_count):
+    def test_finalise_shows_that_bound_on_the_downloaded_interior(
+        self, admin_app, puzzle_count
+    ):
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
         client = admin_app.test_client()
         book_id = _make_book(admin_app, puzzle_count)
         body = client.get(f"/book/{book_id}/finalize").get_data(as_text=True)
         pages = pdf_page_count(_download(client, "finalise", book_id, "interior"))
 
-        assert f"~{pages}</dd>" in body
+        assert f"~{interior_page_count(puzzle_count)}</dd>" in body
+        assert interior_page_count(puzzle_count) >= pages
+        assert pages == _interior_pages(puzzle_count, self._answer_pages(puzzle_count))

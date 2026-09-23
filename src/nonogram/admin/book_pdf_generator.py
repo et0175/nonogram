@@ -35,21 +35,41 @@ What the band says (ADR-0037/R1, CARD-117)
 A book puzzle page's 12 mm band (TERM-028) reads **"Puzzle N · Tier"** — the
 puzzle's 1-based position in the print order and the solver's tier, nothing
 else. The picture's title is not on it (FR-033): a titled puzzle page gives
-the picture away before the solver has drawn it. The title appears once, on
-that puzzle's **answer-key page**, beside the same "Puzzle N · Tier" line, so
-the answer can be found by the number printed on the puzzle and recognised by
-the name once it is found.
+the picture away before the solver has drawn it. The title appears once, in
+the **answer key**, as the caption over that puzzle's answer — "Puzzle N —
+Title" (FR-042, CARD-134) — so the answer can be found by the number printed
+on the puzzle and recognised by the name once it is found.
 
-Both bands are the export's own header, set by COMP-007 inside the band the
+The band is the export's own header, set by COMP-007 inside the band the
 `PageSpec` reserves; this module chooses only the *text*, by what it puts in
 the two header fields of each page's :class:`~nonogram.export.ExportPayload`
 (:func:`~nonogram.export.pdf.header_parts` is the non-empty members of
-``(name, difficulty)``, em rule between them). So the two pages of one puzzle
-are two different payloads and two ``render_pages`` calls — see
-:meth:`BookPDFGenerator._banded`. Drawing lettering is the admin's to decide
-(ADR-0036/R2 forbids fitting cells and placing rules, not wording), and it is
-set in the packaged DejaVu Sans the export already uses (ADR-0006/DEC-027),
-which covers the middle dot.
+``(name, difficulty)``, em rule between them) — see
+:meth:`BookPDFGenerator._puzzle_payload`, which clears the picture's name so
+that there is no title for the page to leave off. Drawing lettering is the
+admin's to decide (ADR-0036/R2 forbids fitting cells and placing rules, not
+wording), and it is set in the packaged DejaVu Sans the export already uses
+(ADR-0006/DEC-027), which covers the middle dot.
+
+The packed answer key (FR-042, INV-011, CARD-134)
+--------------------------------------------------
+The answer section used to be one full answer page per puzzle, clues and all,
+so a 150-puzzle book passed 300 pages. It is now **packed**: a "SOLUTIONS"
+divider immediately after the last puzzle page (AC-292), and then answer pages
+carrying six answers (2 x 3) or four (2 x 2), in puzzle-number order, each
+captioned with its number and the picture's title.
+
+The walk is :func:`~nonogram.admin.book_answer_key.pack_answer_pages` — a pure
+function over value objects, in a module of its own, which decides which
+answers share a page and which page carries a level heading and touches no
+geometry at all. The geometry is COMP-007's
+(:func:`~nonogram.export.png.render_answer_page`, CARD-133), which this module
+calls once per answer page with that page's own :class:`PageSpec`, so an
+answer page's margins are mirrored by its interior position like every other
+page's. **The capacity rule itself is the panel's** — CARD-133's handover is
+explicit that the layout applies no cell floor, so "six-up only while every
+answer is at most 20 cells on its longest side" is enforced in
+``book_answer_key`` and nowhere else.
 
 Two puzzles to a page (FR-040, INV-010, CARD-127)
 --------------------------------------------------
@@ -99,13 +119,21 @@ before and after pairing, come back on :class:`Interior` and
 
 import logging
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib import resources
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, Optional, List, Sequence, Tuple
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
+from nonogram.admin.book_answer_key import (
+    Answer,
+    AnswerPage,
+    answer_caption,
+    answer_title,
+    pack_answer_pages,
+)
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
@@ -120,7 +148,7 @@ from nonogram.export.layout import (
     header_band,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
-from nonogram.export.png import BACKGROUND, INK
+from nonogram.export.png import BACKGROUND, INK, render_answer_page
 
 #: The panel's own logger, like the rest of ``admin/``: a dropped puzzle is
 #: the only trace the export leaves of a member that did not reach the file,
@@ -386,10 +414,20 @@ class Interior:
             puzzle on a page of its own — the "before pairing" count. Both are
             **interior** counts: the cover is a separate file and is never
             counted.
+
+            It is the same interior before **pairing** and nothing else, so its
+            answer section is the packed one this interior really has (FR-042):
+            the packed count is on both sides of the subtraction, which is what
+            keeps :attr:`pages_saved` a measurement of two-up pairing rather
+            than of pairing and packing added together.
+        answer_page_count: How many of :attr:`pages` are answer pages, the
+            SOLUTIONS divider **not** counted (FR-042) — the Increment 15
+            checkpoint's own number.
     """
 
     pages: List[Image.Image]
     unpaired_page_count: int
+    answer_page_count: int = 0
 
     @property
     def page_count(self) -> int:
@@ -410,13 +448,16 @@ class BookExport:
     FR-043) — the interior's pages only; the cover file is never counted.
     ``unpaired_interior_page_count`` is the same count before two-up pairing
     (FR-040), so the two together are the saving the owner's "big books"
-    research asks for. Both are interior counts.
+    research asks for. ``answer_page_count`` is how many of those pages are
+    answer pages, the SOLUTIONS divider not counted (FR-042). All three are
+    interior counts.
     """
 
     interior: BytesIO
     cover: BytesIO
     interior_page_count: int
     unpaired_interior_page_count: int
+    answer_page_count: int = 0
 
     @property
     def pages_saved(self) -> int:
@@ -492,24 +533,39 @@ def page_is_right_hand(page_number: int) -> bool:
     return page_number % 2 == 1
 
 
-def interior_page_count(puzzle_count: int, puzzle_pages: Optional[int] = None) -> int:
+def interior_page_count(
+    puzzle_count: int,
+    puzzle_pages: Optional[int] = None,
+    answer_pages: Optional[int] = None,
+) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
     The page plan :meth:`BookPDFGenerator.interior` builds — one guide page,
     the puzzle pages, then (only when there are puzzles) the SOLUTIONS divider
-    and one answer page per puzzle; never the cover (FR-030 as amended by
-    FR-043). ``interior`` checks its own output against this, so a change to
-    the make-up of the pages that forgets this function fails loudly instead of
-    shipping a book whose stated page count is not its page count.
+    and the answer pages; never the cover (FR-030 as amended by FR-043).
+    ``interior`` checks its own output against this, so a change to the make-up
+    of the pages that forgets this function fails loudly instead of shipping a
+    book whose stated page count is not its page count.
+
+    Two of the three terms are **measured by the passes that decide them**, and
+    both default to the un-shortened plan:
 
     ``puzzle_pages`` is how many pages those puzzles actually take. It is
     ``puzzle_count`` — one page each — until two-up pairing shortens it
-    (FR-040), and that is why it defaults to ``puzzle_count``: called with the
-    count alone this is the **un-paired** plan, the number the Finalise screen
-    has always shown and the "before pairing" half of the saving FR-040 asks
-    the generator to report. CARD-129 owns making the Finalise count exact
-    (EC-034); until then that screen deliberately shows the un-paired plan as
-    an upper bound rather than a promise.
+    (FR-040).
+
+    ``answer_pages`` is how many pages the answer key actually takes. It is
+    ``puzzle_count`` — one answer page each — until FR-042's packing shortens
+    it, which on the default plan takes 150 answer pages down to 30
+    (:func:`~nonogram.admin.book_answer_key.pack_answer_pages`, AC-270).
+
+    So **called with the count alone this is the un-paired, un-packed plan**:
+    the number the Finalise screen has always shown, an upper bound on every
+    book, and the "before pairing" half of the saving FR-040 asks the generator
+    to report. ``app.py``'s Finalise screen still calls it that way and still
+    labels the figure "~" (CARD-129 owns making that count exact, EC-034); it
+    is an upper bound for one more reason since FR-042, and a wider one, but it
+    is the same kind of statement it always was.
 
     ``puzzle_count`` counts puzzles that *render*: :meth:`interior` skips a
     puzzle it cannot build an export payload for, so a count taken from the
@@ -517,16 +573,16 @@ def interior_page_count(puzzle_count: int, puzzle_pages: Optional[int] = None) -
     the only way the two can differ — a puzzle that builds a payload and then
     will not draw aborts the export with a :class:`RuntimeError` naming it,
     rather than quietly making the file one page shorter than this number.
-    CARD-116 put every page on the book's trim and left this plan alone;
-    CARD-127's two-up pairing changes it through ``puzzle_pages``, and the
-    packed answer key (CARD-134) will change the answer half here too.
     """
     if puzzle_count < 0:
         raise ValueError(f"puzzle count cannot be negative, got {puzzle_count}")
     pages = puzzle_count if puzzle_pages is None else puzzle_pages
     if pages < 0:
         raise ValueError(f"puzzle page count cannot be negative, got {pages}")
-    return 1 + pages + (puzzle_count + 1 if puzzle_count else 0)
+    answers = puzzle_count if answer_pages is None else answer_pages
+    if answers < 0:
+        raise ValueError(f"answer page count cannot be negative, got {answers}")
+    return 1 + pages + (answers + 1 if puzzle_count else 0)
 
 
 def _named_puzzles(ids: Optional[List[Any]], numbers: Tuple[int, ...]) -> str:
@@ -562,6 +618,48 @@ def _pairable_tier(payload: ExportPayload) -> Optional[Tier]:
     state a sameness the book cannot show the reader.
     """
     return tier_of_record(payload.difficulty)
+
+
+def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int]:
+    """One answer's ``(width, height)`` in cells, read off its solved grid.
+
+    The extent FR-042's capacity rule is applied to (INV-011), taken from the
+    grid rather than from the row's ``width``/``height`` columns so that the
+    number the key is *packed* by and the number COMP-007 *tiles* by are the
+    same number: :func:`~nonogram.export.png.render_answer_page` measures the
+    grid it is handed, and a row whose columns disagreed with its grid could
+    otherwise land a 25-cell answer on a six-up page.
+
+    Reimplemented here rather than imported: ``png._answer_extent`` is private
+    to that module and ``export/`` exposes no public call that measures a grid
+    on its own — the precedent ``solver/propagate.py``'s ``mask_runs`` sets.
+    The two are pinned equal by the tests, which check that a grid this refuses
+    is a grid the renderer refuses too.
+
+    Raises:
+        ValueError: the grid is missing, empty, not a sequence of rows, or its
+            rows are not all the same length — not a rectangle, so not a
+            nonogram's solution. The message names the puzzle by its print
+            number, which is the handle every other abort of
+            :meth:`BookPDFGenerator.interior` is searched by.
+    """
+    grid = payload.grid
+    if not isinstance(grid, (list, tuple)) or not all(
+        isinstance(row, (list, tuple)) for row in grid
+    ):
+        raise ValueError(
+            f"puzzle {puzzle_number}'s answer must be rows of cells, not "
+            f"{type(grid).__name__}"
+        )
+    rows = len(grid)
+    columns = len(grid[0]) if rows else 0
+    if not rows or not columns or any(len(row) != columns for row in grid):
+        raise ValueError(
+            f"puzzle {puzzle_number}'s answer must be a non-empty rectangular "
+            f"grid, not {rows} row(s) of "
+            f"{sorted({len(row) for row in grid})} cell(s)"
+        )
+    return columns, rows
 
 
 class BookPDFGenerator:
@@ -750,8 +848,9 @@ class BookPDFGenerator:
         laid out on.
 
         Returns:
-            :class:`BookExport` — both files, the interior's page count and
-            what it would have been without two-up pairing (FR-040).
+            :class:`BookExport` — both files, the interior's page count, what
+            it would have been without two-up pairing (FR-040), and how many
+            of its pages are answer pages (FR-042).
         """
         interior = self.interior(puzzles)
         return BookExport(
@@ -759,6 +858,7 @@ class BookPDFGenerator:
             cover=self.export_cover(book_title, cover_image),
             interior_page_count=interior.page_count,
             unpaired_interior_page_count=interior.unpaired_page_count,
+            answer_page_count=interior.answer_page_count,
         )
 
     def export_interior(self, puzzles: List[dict]) -> BytesIO:
@@ -818,34 +918,27 @@ class BookPDFGenerator:
         )
 
     @staticmethod
-    def _banded(
-        payload: ExportPayload, puzzle_number: int
-    ) -> Tuple[ExportPayload, ExportPayload]:
-        """``payload`` as the two payloads its pages are drawn from (ADR-0037/R1).
+    def _puzzle_payload(payload: ExportPayload, puzzle_number: int) -> ExportPayload:
+        """``payload`` as its puzzle page is drawn from (ADR-0037/R1).
 
-        Returns ``(puzzle_page_payload, answer_page_payload)``. Both carry the
-        same :func:`band_identity` line for ``puzzle_number``; only the answer
-        page keeps the picture's title, and the puzzle page's is cleared, which
-        is the whole mechanism by which no title is drawn on it — the export
-        sets the non-empty header fields and nothing else
+        Two changes to the record payload: the band becomes
+        :func:`band_identity`'s line for ``puzzle_number``, and the picture's
+        name is **cleared**. The clearing is the whole mechanism by which no
+        title is drawn on a puzzle page — the export sets the non-empty header
+        fields and nothing else
         (:func:`~nonogram.export.pdf.header_parts`), so a page whose payload
         has no name has no title to leave off.
 
-        **The title leads on the answer page**, ahead of the identity:
-        "Snowflake — Puzzle 12 · Easy". Reading order is the lesser reason.
-        The binding one is that the export fits a header too wide for its page
-        by setting it smaller and then, at the floor, eliding *the first
-        piece* — which it can do safely because the first piece is the only
-        one long enough to need it. A 200-character picture name in the second
-        slot would be the piece that does not fit and the piece that is never
-        cut. Putting the name first keeps that assumption true, so a long name
-        is shortened with an ellipsis and the puzzle's number and tier — the
-        part the answer key is *used* by — always survives whole.
+        Since FR-042 the title has nowhere else to go on a rendered *page*
+        either: the answer key is packed, and a picture's name reaches it as
+        the caption over its answer tile
+        (:func:`~nonogram.admin.book_answer_key.answer_caption`), not as a
+        header on a page of its own.
         """
-        identity = band_identity(puzzle_number, payload.difficulty)
-        return (
-            replace(payload, name=None, difficulty=identity),
-            replace(payload, difficulty=identity),
+        return replace(
+            payload,
+            name=None,
+            difficulty=band_identity(puzzle_number, payload.difficulty),
         )
 
     def _blank_page(
@@ -853,32 +946,143 @@ class BookPDFGenerator:
     ) -> Image.Image:
         """One puzzle's blank page, alone on the sheet of *its own* position.
 
-        A puzzle's blank page and its answer page sit at different places in
-        the interior, so they are different sheets whenever their positions
-        disagree in parity — the drawing moves sideways by gutter − outside
-        and nothing else (FR-032). That is why they are two ``render_pages``
-        calls and not one: since ADR-0037/R1 they do not even share a header —
-        the puzzle page's band is "Puzzle N · Tier" and the answer page's also
-        names the picture (:meth:`_banded`) — so each page is drawn from its
-        own payload, and the page the other call also produced (a blank titled
-        like an answer, an answer titled like a puzzle page) is dropped.
+        ``render_pages`` draws a blank page and a solved page from one payload;
+        the solved one is dropped. Since FR-042 it has no use at all — an
+        answer prints as a tile of the packed key, never as a full page — and
+        it is dropped here rather than in the caller so that every page this
+        method returns is a page the interior really holds.
         """
-        puzzle_payload, _ = self._banded(payload, puzzle_number)
-        blank, _ = render_pages(puzzle_payload, page_spec=self.page_spec(puzzle_page))
+        blank, _ = render_pages(
+            self._puzzle_payload(payload, puzzle_number),
+            page_spec=self.page_spec(puzzle_page),
+        )
         return blank
 
-    def _answer_page(
-        self, payload: ExportPayload, puzzle_number: int, answer_page: int
-    ) -> Image.Image:
-        """One puzzle's answer page, on the sheet of its own position.
+    def custom_titles(self) -> Dict[str, str]:
+        """The per-book titles the Arrangement step set, ``{puzzle_id: title}``.
 
-        Unchanged by CARD-127: the answer section is still one page per
-        puzzle, in puzzle-number order. FR-042's packed 6-up/4-up key
-        (CARD-134) replaces this, in this same file.
+        ``books.puzzle_titles`` on whatever object this generator was built
+        for, read **defensively and without importing ``book_manager``**: the
+        book may be a :class:`~nonogram.admin.book_manager.Book`, a SQLAlchemy
+        row, a plain mapping from a route, or ``None``, and a column that is
+        empty, ``NULL`` or holding something that is not a mapping is simply a
+        book with no custom titles. Keys are stringified, because a puzzle id
+        reaches this module as whatever the row holds and the column is keyed
+        by its string form (``book_manager.set_puzzle_title``).
+
+        No exception is swallowed to achieve that: the two shapes are told
+        apart by :class:`~collections.abc.Mapping` rather than by trying one
+        and catching the failure.
         """
-        _, answer_payload = self._banded(payload, puzzle_number)
-        _, answer = render_pages(answer_payload, page_spec=self.page_spec(answer_page))
-        return answer
+        book = self.book
+        if book is None:
+            return {}
+        raw = (
+            book.get("puzzle_titles")
+            if isinstance(book, Mapping)
+            else getattr(book, "puzzle_titles", None)
+        )
+        if not isinstance(raw, Mapping):
+            return {}
+        return {str(key): value for key, value in raw.items() if isinstance(value, str)}
+
+    def answer_key(
+        self,
+        payloads: Sequence[ExportPayload],
+        ids: Optional[List[Any]] = None,
+    ) -> List[AnswerPage]:
+        """The packed answer key's pages for the book order (FR-042, INV-011).
+
+        The panel's half of the answer key, and the only half it has: each
+        payload becomes an :class:`~nonogram.admin.book_answer_key.Answer` —
+        its 1-based puzzle number, its grid's extent and its tier — and
+        :func:`~nonogram.admin.book_answer_key.pack_answer_pages` decides which
+        of them share a page and which page carries a level heading. Nothing is
+        measured here and nothing is drawn.
+
+        The extent is taken from the **grid**, not from the row's ``width`` and
+        ``height`` columns: the grid is what the key prints and what COMP-007
+        measures (:func:`~nonogram.export.png.render_answer_page` reads the
+        same two numbers off it), so a row whose columns disagree with its grid
+        cannot put an answer on a six-up page that its grid then overflows.
+
+        The tier is read through :func:`_pairable_tier`, the same one reader of
+        stored tier text the pairing walk and the band use, so "easy", "Easy"
+        and ADR-0031/R3's retired "guess" are the tiers they mean.
+
+        Args:
+            payloads: The drawable puzzles in print order.
+            ids: The puzzle ids, parallel to ``payloads``, for the message of
+                the raise below — exactly as :meth:`puzzle_pages` takes them,
+                so that a failure on the answer path names the row the same way
+                a failure on the puzzle path does. Optional: without them a
+                failure names the print numbers instead.
+
+        Raises:
+            ValueError: ``ids`` was given and is not parallel to ``payloads``.
+            RuntimeError: an answer could not be measured — a grid that is not
+                a non-empty rectangle. Named, like every other abort of
+                :meth:`interior`, by the puzzle's id, with the original
+                failure as its ``__cause__``.
+        """
+        if ids is not None and len(ids) != len(payloads):
+            raise ValueError(
+                f"ids must be parallel to payloads: {len(ids)} id(s) for "
+                f"{len(payloads)} payload(s)"
+            )
+        answers: List[Answer] = []
+        for index, payload in enumerate(payloads):
+            number = index + 1
+            try:
+                columns, rows = _answer_extent(payload, number)
+            except ValueError as e:
+                raise RuntimeError(
+                    f"puzzle {_named_puzzles(ids, (number,))} could not be "
+                    f"laid out: {e}"
+                ) from e
+            answers.append(
+                Answer(
+                    number=number,
+                    width=columns,
+                    height=rows,
+                    level=_pairable_tier(payload),
+                )
+            )
+        return pack_answer_pages(answers)
+
+    def _answer_page(
+        self,
+        page: AnswerPage,
+        members: Sequence[Tuple[Any, ExportPayload]],
+        page_number: int,
+        titles: Dict[str, str],
+    ) -> Image.Image:
+        """One page of the packed answer key, drawn where the walk put it.
+
+        ``members`` is parallel to ``page.answers`` — each answer's ``(id,
+        payload)``, from which this takes the solved **grid** and the picture's
+        name. What this method composes is the caption of each tile, "Puzzle N
+        — Title" (:func:`~nonogram.admin.book_answer_key.answer_caption`), and
+        nothing else: the tiling, every cell and every rule are COMP-007's,
+        measured by :func:`~nonogram.export.png.render_answer_page` from the
+        page's capacity, its spec and its heading (ADR-0036/R2, G-1).
+
+        The spec is ``page_number``'s, so an answer page's margins are mirrored
+        by its own interior position exactly as a puzzle page's are (FR-043).
+        """
+        answers = [
+            (
+                payload.grid,
+                answer_caption(
+                    answer.number,
+                    answer_title(titles.get(str(puzzle_id)), payload.name),
+                ),
+            )
+            for answer, (puzzle_id, payload) in zip(page.answers, members, strict=True)
+        ]
+        return render_answer_page(
+            answers, page.capacity, self.page_spec(page_number), page.heading
+        )
 
     def _two_up_page(
         self, plan: PuzzlePagePlan, payloads: List[ExportPayload]
@@ -1042,8 +1246,10 @@ class BookPDFGenerator:
         length is the book's page count (FR-030); the cover is never counted.
 
         A puzzle page holds one puzzle, or two of equal tier that the walk
-        paired (:meth:`puzzle_pages`, FR-040). The answer section is untouched:
-        one page per puzzle, in puzzle-number order.
+        paired (:meth:`puzzle_pages`, FR-040). The answer section is the packed
+        key (:meth:`answer_key`, FR-042): six answers to a page, or four once a
+        page holds one longer than 20 cells, in puzzle-number order, each level
+        starting a page of its own.
 
         Every page is built on ``book_page_spec(book, its own position)``, so
         each one is the book's trim and takes its parity from where it lands
@@ -1114,13 +1320,14 @@ class BookPDFGenerator:
                 continue
 
         # The positions every page is built on: 1 the guide page, then the
-        # puzzle pages the walk planned, the divider, and one answer page per
-        # puzzle. The walk runs before a single page is drawn, because how
-        # many pages the puzzles take is what puts the divider and every
-        # answer page where it goes.
+        # puzzle pages the walk planned, the divider, and the packed answer
+        # key. Both walks run before a single page is drawn, because how many
+        # pages the puzzles take is what puts the divider and every answer
+        # page where it goes.
         count = len(payloads)
         ids = [puzzle_id for puzzle_id, _ in payloads]
         plan = self.puzzle_pages([payload for _, payload in payloads], ids=ids)
+        key = self.answer_key([payload for _, payload in payloads], ids=ids)
 
         # The walk's own half of the page-plan tripwire below, and the one the
         # tripwire cannot make: `interior_page_count(count, len(plan))` takes
@@ -1166,16 +1373,31 @@ class BookPDFGenerator:
                 named = _named_puzzles(ids, page_plan.numbers)
                 raise RuntimeError(f"puzzle {named} could not be drawn: {e}") from e
 
+        # The packed key's own half of the tripwire, and the one the page-count
+        # check cannot make: the answer term below comes from `len(key)`, the
+        # walk's own output, so a walk that dropped an answer (or printed one
+        # twice) would agree with itself and ship a book whose key is missing a
+        # puzzle. Checked against this call's own input instead, as the puzzle
+        # walk's plan is, and before an answer page is drawn.
+        answered = [number for page in key for number in page.numbers]
+        if answered != list(range(1, count + 1)):
+            raise RuntimeError(
+                f"the answer key holds {answered}, not puzzles 1..{count}"
+            )
+
+        titles = self.custom_titles()
         answer_pages: List[Image.Image] = []
-        for index, (puzzle_id, payload) in enumerate(payloads):
+        for offset, answer_page in enumerate(key):
+            members = [payloads[number - 1] for number in answer_page.numbers]
             try:
                 answer_pages.append(
-                    self._answer_page(payload, index + 1, first_answer_page + index)
+                    self._answer_page(
+                        answer_page, members, first_answer_page + offset, titles
+                    )
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"puzzle {puzzle_id!r} could not be drawn: {e}"
-                ) from e
+                named = _named_puzzles(ids, answer_page.numbers)
+                raise RuntimeError(f"puzzle {named} could not be drawn: {e}") from e
 
         # Add a divider page before solutions
         if answer_pages:
@@ -1185,18 +1407,27 @@ class BookPDFGenerator:
 
         # The page plan is this function's own make-up; fail loudly rather
         # than let the two drift apart. It is taken over this call's *input* —
-        # the puzzles that survived the payload pass — and over the walk's own
-        # verdict on how many pages they take, never over the list the loops
-        # above built, so a change to the make-up of the pages (a divider per
-        # level, a packed answer key) that forgets `interior_page_count` fails
-        # here instead of shipping a book whose stated page count is not its
-        # page count.
-        planned = interior_page_count(count, len(plan))
+        # the puzzles that survived the payload pass — and over the two walks'
+        # own verdicts on how many pages they take, never over the list the
+        # loops above built, so a change to the make-up of the pages (a divider
+        # per level, a packed answer key) that forgets `interior_page_count`
+        # fails here instead of shipping a book whose stated page count is not
+        # its page count.
+        planned = interior_page_count(count, len(plan), len(answer_pages))
         if len(pages) != planned:
             raise RuntimeError(
                 f"interior has {len(pages)} pages, its page plan says {planned}"
             )
-        return Interior(pages=pages, unpaired_page_count=interior_page_count(count))
+        return Interior(
+            pages=pages,
+            # Before **pairing**, and only that: the packed answer count is on
+            # this side of the subtraction too, so `pages_saved` measures the
+            # two-up pages and nothing else.
+            unpaired_page_count=interior_page_count(
+                count, answer_pages=len(answer_pages)
+            ),
+            answer_page_count=len(answer_pages),
+        )
 
     def _save_pdf(self, pages: List[Image.Image]) -> BytesIO:
         """Write ``pages`` as one PDF, one image per page, rewound to 0."""
