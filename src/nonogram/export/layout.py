@@ -186,6 +186,12 @@ from fractions import Fraction
 from typing import Literal
 
 __all__ = [
+    "ANSWER_CAPTION_MM",
+    "ANSWER_HEADING_MM",
+    "ANSWER_MAX_CELL_MM",
+    "ANSWER_TEXT_FONT_MM",
+    "ANSWER_TILE_CAPACITIES",
+    "ANSWER_TILE_GAP_MM",
     "CELL_COMFORT_MM",
     "DEFAULT_PAGE_SPEC",
     "DPI",
@@ -198,6 +204,8 @@ __all__ = [
     "PAGE_MARGIN_MM",
     "PAGE_WIDTH_MM",
     "TWO_UP_MIN_CELL_MM",
+    "AnswerPageLayout",
+    "AnswerTile",
     "CellCapPolicy",
     "ClueEntry",
     "GridLine",
@@ -210,6 +218,7 @@ __all__ = [
     "PageSpec",
     "PairLayout",
     "comfort_cap_mm",
+    "compute_answer_page_layout",
     "compute_layout",
     "compute_pair_layout",
     "header_band",
@@ -1759,4 +1768,555 @@ def _slot_layout(
             drawing_right=grid_right,
             drawing_bottom=grid_bottom,
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Answer tiles (FR-042, owner decision BK-8, ADR-0036/R2, CARD-133)
+# ---------------------------------------------------------------------------
+#
+# FR-042 replaced one full answer page per puzzle with a packed answer key: a
+# book page carrying six (2 x 3) or four (2 x 2) answers, each drawn as its
+# filled grid alone. The tiling is geometry, so by ADR-0036/R2 it lives here
+# and not in the admin panel. What this module does *not* decide is which
+# answers land on which page, which page carries a level heading, or what a
+# caption says — that walk is the book's (COMP-009, CARD-134). This call lays
+# out the answers it is handed, in the order it is handed them.
+#
+# An answer page carries **no title band**: its usable height is the trim minus
+# the top and bottom margins only, and the spec's ``band_mm`` — which is the
+# puzzle page's band — is deliberately not subtracted. That is the one place an
+# answer page reads a book PageSpec differently from every other call here, so
+# it is stated rather than left to be inferred from the arithmetic below.
+
+#: The blank strip between two tiles, and between the heading line and the
+#: first tile row, in millimetres (FR-042). Both axes: it is the same gap
+#: across as down, so the page reads as a grid of tiles rather than as two
+#: columns that happen to be near each other.
+ANSWER_TILE_GAP_MM = 2.0
+
+#: The strip each tile reserves at its top for its caption (FR-042), in
+#: millimetres. The caption sits *above* its grid, the way a book puzzle page's
+#: band sits above its drawing (FR-032), so a reader scanning the key meets the
+#: puzzle number before the picture it belongs to.
+ANSWER_CAPTION_MM = 6.0
+
+#: The level heading's own line at the top of the page's usable area, in
+#: millimetres (FR-042 amended 2026-09-22 (d)). A page that carries one spends
+#: ``ANSWER_HEADING_MM + ANSWER_TILE_GAP_MM`` — the line plus the same gap that
+#: separates two tile rows — before the first row of tiles begins.
+ANSWER_HEADING_MM = 6.0
+
+#: The cap on an answer's cell, in millimetres (FR-042 amended 2026-09-22 (d),
+#: BK-8). An answer is read, not written on, so it does not want the 7.5 mm a
+#: puzzle's cell wants: a 10x10 would otherwise take 7.94 mm of a six-up tile
+#: and a 15x15 5.30 mm, and both print better at 5.0 mm with white around them.
+#: Unlike a puzzle's cell this cap has no matching floor — the floor is the
+#: caller's capacity rule (INV-011: a six-up page holds nothing above 20 cells
+#: on its longest side), and on the Book 1 profile that rule is exactly what
+#: keeps every answer at or above EC-031's 3.19 mm.
+ANSWER_MAX_CELL_MM = 5.0
+
+#: The type size a caption and a level heading are set in, in millimetres —
+#: physical, like :data:`HEADER_FONT_MM`, not a fraction of the cell. One size
+#: for both because both sit on a 6 mm line: 3.5 mm is roughly 10 pt, which
+#: leaves a clear quarter-line of white above and below, and is the "small"
+#: FR-042 asks the heading to be set in.
+ANSWER_TEXT_FONT_MM = 3.5
+
+#: The two page capacities FR-042 defines: six answers as 2 columns x 3 rows,
+#: or four as 2 x 2. Always two columns; the capacity chooses the row count.
+ANSWER_TILE_CAPACITIES = (4, 6)
+
+#: An answer page is always two tiles across. Named because the tile width
+#: below divides by it, and "2" alone in that expression could as easily be the
+#: 2 mm gap.
+_ANSWER_TILE_COLUMNS = 2
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerTile:
+    """One answer's place on a packed answer page (FR-042), in device pixels.
+
+    The tile is the rectangle the answer owns; inside it sit the caption line
+    (the top :data:`ANSWER_CAPTION_MM`) and the grid, drawn at the largest
+    square cell that fits the rest of the tile and never above
+    :data:`ANSWER_MAX_CELL_MM`. The grid is centred across the tile and hangs
+    from the caption line, so whatever height the cap leaves spare falls at the
+    tile's bottom rather than between the caption and the picture it labels.
+
+    There are no clue gutters and no clue entries: an answer is the solved
+    picture, and FR-042's answer key prints nothing else (AC-267). That is why
+    this is not a :class:`Layout` — a ``Layout`` is a drawing *with* gutters,
+    and a tile with two empty ones would be a lie about what is on the page.
+
+    Attributes:
+        index: The tile's position in the page's fill order, ``0`` first,
+            left to right then top to bottom.
+        rows: The answer's height in cells.
+        columns: Its width in cells.
+        cell_mm: The cell, exactly, in millimetres:
+            ``min(ANSWER_MAX_CELL_MM, tile width / columns, (tile height −
+            ANSWER_CAPTION_MM) / rows)``. The grid prints it as the pitch
+            between rules, each rule rounded to the nearest device pixel.
+        tile_left: The tile's left edge.
+        tile_top: Its top edge, which is also the caption line's top.
+        tile_right: Its right edge.
+        tile_bottom: Its bottom edge.
+        caption_top: The caption line's top edge (``tile_top``).
+        caption_bottom: Its bottom edge, i.e. where the grid may begin.
+        caption_font_size: The size to set the caption in, never taller than
+            the line itself.
+        grid_left: The grid's left edge.
+        grid_top: Its top edge, always ``caption_bottom``.
+        grid_right: Its right edge.
+        grid_bottom: Its bottom edge.
+        thin_rule: Stroke width of an ordinary rule (ADR-0037/R2 applies: a
+            book spec's ``min_thin_rule_mm`` holds it up).
+        thick_rule: Stroke width of an every-5th or border rule, twice the thin
+            one.
+        vertical_lines: Column boundaries, left to right, ``columns + 1`` of
+            them, each spanning the grid's height. Named as
+            :class:`Layout`'s are, so a renderer strokes a tile with the same
+            code that strokes a page.
+        horizontal_lines: Row boundaries, top to bottom, ``rows + 1``.
+    """
+
+    index: int
+    rows: int
+    columns: int
+    cell_mm: float
+    tile_left: int
+    tile_top: int
+    tile_right: int
+    tile_bottom: int
+    caption_top: int
+    caption_bottom: int
+    caption_font_size: int
+    grid_left: int
+    grid_top: int
+    grid_right: int
+    grid_bottom: int
+    thin_rule: int
+    thick_rule: int
+    vertical_lines: tuple[GridLine, ...]
+    horizontal_lines: tuple[GridLine, ...]
+
+    @property
+    def column_boundaries(self) -> tuple[int, ...]:
+        """The ``columns + 1`` vertical cell boundaries, left to right.
+
+        Cell ``(row, column)`` of the answer is the rectangle between
+        ``column_boundaries[column]`` and ``[column + 1]`` across, and the
+        matching pair of :attr:`row_boundaries` down. Read off the rules rather
+        than stored again, so a filled cell and the rule that frames it can
+        never disagree.
+        """
+        return tuple(line.position for line in self.vertical_lines)
+
+    @property
+    def row_boundaries(self) -> tuple[int, ...]:
+        """The ``rows + 1`` horizontal cell boundaries, top to bottom."""
+        return tuple(line.position for line in self.horizontal_lines)
+
+    @property
+    def caption_center_x(self) -> int:
+        """The horizontal centre of the caption line: the tile's own centre."""
+        return (self.tile_left + self.tile_right) // 2
+
+    @property
+    def caption_center_y(self) -> int:
+        """The vertical centre of the caption line.
+
+        A renderer sets the caption centred on
+        ``(caption_center_x, caption_center_y)`` — the same ``anchor="mm"``
+        rule the clue numbers and the title use.
+        """
+        return (self.caption_top + self.caption_bottom) // 2
+
+    @property
+    def fits(self) -> bool:
+        """Whether the grid and its caption line lie inside the tile (EC-031).
+
+        Always ``True`` for a tile this module built — the cell is fitted to
+        the tile and capped, never floored, so there is no case where the grid
+        can outgrow its tile. It is asserted rather than assumed because
+        :class:`AnswerPageLayout` refuses a page whose tiles do not satisfy it,
+        which is what makes EC-031 a property of the type rather than of the
+        tests.
+        """
+        return (
+            self.tile_left <= self.grid_left
+            and self.grid_right <= self.tile_right
+            and self.caption_bottom <= self.grid_top
+            and self.grid_bottom <= self.tile_bottom
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerPageLayout:
+    """A packed answer page: up to ``capacity`` answer tiles on a book page (FR-042).
+
+    A value object, valid by construction: :meth:`__post_init__` refuses any
+    page whose tiles overlap, leave the usable area, or hold a grid outside
+    their own tile, so a caller holding one never re-checks EC-031.
+
+    The page is the book's trim with mirrored margins (ADR-0036) and **no
+    title band**: the usable area is the trim minus the four margins, and the
+    tiles (plus the heading line, when there is one) share all of it.
+
+    Attributes:
+        parity: The page's side of the spread. It moves the usable area
+            sideways, never its size, exactly as on a puzzle page.
+        capacity: 6 (2 x 3) or 4 (2 x 2) — the tiling the page was measured
+            for, not how many answers it was given. A half-filled last page of
+            a level keeps its capacity's tile size.
+        tile_rows: ``capacity // 2``, the number of tile rows.
+        tile_columns: Always :data:`_ANSWER_TILE_COLUMNS`, i.e. 2.
+        width: The trim's width in device pixels.
+        height: The trim's height.
+        usable_left: The usable area's left edge (the left margin).
+        usable_top: Its top edge. The heading line, if any, starts here;
+            otherwise the first tile row does.
+        usable_right: Its right edge.
+        usable_bottom: Its bottom edge.
+        heading: The level heading's line as a :class:`HeaderBand` — the same
+            measurement a title band is, because it is the same thing: a strip
+            of reserved height with a centred string on it. ``None`` on a page
+            that carries no heading, and then the tiles start at
+            :attr:`usable_top`.
+        tiles: One :class:`AnswerTile` per answer given, in fill order —
+            left to right, then top to bottom. At most ``capacity`` of them,
+            and fewer on a page the caller did not fill.
+        dpi: The resolution every coordinate above is expressed at.
+
+    Raises:
+        ValueError: the capacity is not one FR-042 defines, the tile rows do
+            not match it, there are more tiles than the capacity allows, a
+            tile's grid or caption leaves its tile, a tile's cell exceeds
+            :data:`ANSWER_MAX_CELL_MM`, two tiles overlap, or a tile or the
+            heading line leaves the usable area.
+    """
+
+    parity: PageParity
+    capacity: int
+    tile_rows: int
+    tile_columns: int
+    width: int
+    height: int
+    usable_left: int
+    usable_top: int
+    usable_right: int
+    usable_bottom: int
+    heading: HeaderBand | None
+    tiles: tuple[AnswerTile, ...]
+    dpi: int = DPI
+
+    def __post_init__(self) -> None:
+        if self.capacity not in ANSWER_TILE_CAPACITIES:
+            raise ValueError(
+                f"an answer page holds {' or '.join(map(str, ANSWER_TILE_CAPACITIES))} "
+                f"answers, not {self.capacity}"
+            )
+        if self.tile_columns * self.tile_rows != self.capacity:
+            raise ValueError(
+                f"an answer page of {self.capacity} is {self.tile_columns} x "
+                f"{self.tile_rows} tiles, which is {self.tile_columns * self.tile_rows}"
+            )
+        if len(self.tiles) > self.capacity:
+            raise ValueError(
+                f"{len(self.tiles)} answers on a page that holds {self.capacity}"
+            )
+        first_tile_top = self.usable_top
+        if self.heading is not None:
+            heading_top = self.heading.center_y - self.heading.height // 2
+            if heading_top < self.usable_top:
+                raise ValueError("the heading line must lie inside the usable area")
+            first_tile_top = self.usable_top + self.heading.height
+        for tile in self.tiles:
+            if not tile.fits:
+                raise ValueError(
+                    f"answer {tile.index}'s grid and caption must lie inside its own tile"
+                )
+            if tile.cell_mm > ANSWER_MAX_CELL_MM:
+                raise ValueError(
+                    f"answer {tile.index}'s cell is {tile.cell_mm} mm, above the "
+                    f"{ANSWER_MAX_CELL_MM} mm answer cap"
+                )
+            if not (
+                self.usable_left <= tile.tile_left
+                and tile.tile_right <= self.usable_right
+                and first_tile_top <= tile.tile_top
+                and tile.tile_bottom <= self.usable_bottom
+            ):
+                raise ValueError(f"answer {tile.index}'s tile must lie inside the usable area")
+        for position, earlier in enumerate(self.tiles):
+            for later in self.tiles[position + 1 :]:
+                if _tiles_overlap(earlier, later):
+                    raise ValueError(
+                        f"answers {earlier.index} and {later.index} sit on overlapping tiles"
+                    )
+
+
+def _tiles_overlap(one: AnswerTile, other: AnswerTile) -> bool:
+    """Do two tiles share any area? Touching edges do not count as overlapping."""
+    return (
+        one.tile_left < other.tile_right
+        and other.tile_left < one.tile_right
+        and one.tile_top < other.tile_bottom
+        and other.tile_top < one.tile_bottom
+    )
+
+
+def compute_answer_page_layout(
+    extents: Sequence[tuple[int, int]],
+    capacity: int,
+    page_spec: PageSpec,
+    heading: str | None = None,
+) -> AnswerPageLayout:
+    """Tile one page of the book's answer key (FR-042).
+
+    The answer-key half of ADR-0036/R2: the page is divided into ``capacity``
+    equal tiles, two across, and each answer is drawn inside its own tile at
+    the largest square cell that tile can hold, capped at
+    :data:`ANSWER_MAX_CELL_MM`. Every tile on a page is the same size whatever
+    the answers on it are, so the key reads as a regular grid and a 10x10 next
+    to a 20x20 does not pull the page out of true.
+
+    The geometry, in millimetres, on the usable area (trim minus the four
+    margins — an answer page carries **no title band**)::
+
+        tile width  = (usable width − ANSWER_TILE_GAP_MM) / 2
+        tile height = (usable height − heading − (rows − 1) × ANSWER_TILE_GAP_MM) / rows
+        cell        = min(ANSWER_MAX_CELL_MM,
+                          tile width / columns,
+                          (tile height − ANSWER_CAPTION_MM) / rows)
+
+    where ``rows`` is ``capacity // 2`` and ``heading`` is
+    ``ANSWER_HEADING_MM + ANSWER_TILE_GAP_MM`` on a page that carries one and
+    zero otherwise. On the Book 1 profile (193.675 x 260.35 mm usable) that is
+    a 95.84 x 85.45 mm six-up tile, 95.84 x 129.18 mm four-up, and a six-up
+    tile of 95.84 x 82.78 mm under a heading; a 20x20 answer then prints at
+    3.97 mm, 3.87 mm under a heading, and a 30x30 four-up at 3.19 mm
+    (AC-262, AC-265, AC-294, AC-295).
+
+    **No cell floor, and why that is safe.** Unlike a puzzle's cell this one is
+    capped but never held up: a floor would push a grid past the edge of its
+    own tile, which is the one thing EC-031 forbids. What keeps an answer
+    readable is the caller's capacity rule (INV-011 — a six-up page holds
+    nothing above 20 cells on its longest side, a four-up page up to 30), and
+    on the Book 1 profile that rule is exactly what puts every answer at or
+    above EC-031's 3.19 mm: the same profile would print a 25x25 six-up at
+    3.18 mm, which is why the capacity rule is a rule and not a preference.
+
+    Args:
+        extents: Up to ``capacity`` answers as ``(width, height)`` pairs in
+            cells — columns then rows, the boundary form ADR-0022 fixes — in
+            the order they fill the page, left to right then top to bottom.
+        capacity: 6 (2 x 3) or 4 (2 x 2), one of
+            :data:`ANSWER_TILE_CAPACITIES`. Which one a page gets is INV-011's
+            rule and the caller's decision (CARD-134).
+        page_spec: The book page: a placed page (a parity, hence portrait
+            only) with a flat cell cap. Its ``band_mm`` is ignored — an answer
+            page has no title band.
+        heading: The level heading's text, or ``None`` for a page that carries
+            none. Only its presence is read here; the string itself is the
+            renderer's, and which page carries one is the caller's decision
+            (CARD-128/CARD-134). It is taken as the text rather than as a flag
+            so that a caller passes the one value to this call and to
+            ``png.render_answer_page`` and the two cannot fall out of step.
+
+    Returns:
+        The :class:`AnswerPageLayout` the renderer draws from.
+
+    Raises:
+        TypeError: ``page_spec`` is not a :class:`PageSpec`.
+        ValueError: ``page_spec`` is not a placed page with a flat cap (so the
+            default A4 spec has no answer tiles), ``capacity`` is not one
+            FR-042 defines, ``extents`` is empty or holds more answers than the
+            capacity, an extent is not a pair of positive whole numbers, or the
+            usable area cannot hold that many tiles above their caption lines.
+    """
+    if not isinstance(page_spec, PageSpec):
+        raise TypeError(f"page_spec must be a PageSpec, not {type(page_spec).__name__}")
+    if page_spec.parity is None or page_spec.cell_cap is CellCapPolicy.COMFORT_CURVE:
+        raise ValueError(
+            "an answer page is tiled only on a placed, portrait-only page with a flat "
+            "cell cap (a PageSpec with a parity and a cap in mm); this spec "
+            f"(parity {page_spec.parity}, cap {page_spec.cell_cap}) has no answer tiles"
+        )
+    if capacity not in ANSWER_TILE_CAPACITIES:
+        raise ValueError(
+            f"an answer page holds {' or '.join(map(str, ANSWER_TILE_CAPACITIES))} "
+            f"answers, not {capacity!r}"
+        )
+    measured = tuple(_answer_extent(extent, index) for index, extent in enumerate(extents))
+    if not measured:
+        raise ValueError("an answer page holds at least one answer")
+    if len(measured) > capacity:
+        raise ValueError(f"{len(measured)} answers on a page that holds {capacity}")
+
+    tile_rows = capacity // _ANSWER_TILE_COLUMNS
+    gap_mm = _exact_mm(ANSWER_TILE_GAP_MM)
+    caption_mm = _exact_mm(ANSWER_CAPTION_MM)
+    heading_mm = (
+        _exact_mm(ANSWER_HEADING_MM) + gap_mm if heading is not None else Fraction(0)
+    )
+
+    usable_width_mm = (
+        _exact_mm(page_spec.width_mm)
+        - _exact_mm(page_spec.gutter_mm)
+        - _exact_mm(page_spec.outside_mm)
+    )
+    # The spec's band is the *puzzle* page's title band (FR-032). An answer
+    # page has none, so it is not subtracted here — the tiles have the whole
+    # usable height, minus the heading line when the page carries one.
+    usable_height_mm = (
+        _exact_mm(page_spec.height_mm)
+        - _exact_mm(page_spec.top_mm)
+        - _exact_mm(page_spec.bottom_mm)
+    )
+    tile_width_mm = (usable_width_mm - gap_mm) / _ANSWER_TILE_COLUMNS
+    tile_height_mm = (
+        usable_height_mm - heading_mm - (tile_rows - 1) * gap_mm
+    ) / tile_rows
+    if tile_width_mm <= 0 or tile_height_mm - caption_mm <= 0:
+        raise ValueError(
+            f"a {page_spec.width_mm:g} x {page_spec.height_mm:g} mm page cannot hold "
+            f"{capacity} answer tiles above their {ANSWER_CAPTION_MM:g} mm caption lines"
+        )
+
+    usable_left_px = _exact_px(page_spec.left_margin_mm)
+    usable_top_px = _exact_px(page_spec.top_mm)
+    usable_width_px = _exact_px(usable_width_mm)
+    usable_height_px = _exact_px(usable_height_mm)
+    tile_width_px = _exact_px(tile_width_mm)
+    tile_height_px = _exact_px(tile_height_mm)
+    gap_px = _exact_px(gap_mm)
+    caption_px = _exact_px(caption_mm)
+    first_row_top_px = usable_top_px + _exact_px(heading_mm)
+
+    band: HeaderBand | None = None
+    if heading is not None:
+        heading_px = _exact_px(ANSWER_HEADING_MM)
+        heading_height = _round_px(heading_px)
+        band = HeaderBand(
+            height=heading_height,
+            center_x=_round_px(usable_left_px + usable_width_px / 2),
+            center_y=_round_px(usable_top_px) + heading_height // 2,
+            font_size=max(1, min(_mm_to_px(ANSWER_TEXT_FONT_MM), heading_height)),
+        )
+
+    tiles = tuple(
+        _answer_tile(
+            index,
+            columns,
+            rows,
+            page_spec,
+            tile_left_px=usable_left_px
+            + (index % _ANSWER_TILE_COLUMNS) * (tile_width_px + gap_px),
+            tile_top_px=first_row_top_px
+            + (index // _ANSWER_TILE_COLUMNS) * (tile_height_px + gap_px),
+            tile_width_px=tile_width_px,
+            tile_height_px=tile_height_px,
+            tile_width_mm=tile_width_mm,
+            tile_height_mm=tile_height_mm,
+            caption_px=caption_px,
+            caption_mm=caption_mm,
+        )
+        for index, (columns, rows) in enumerate(measured)
+    )
+    return AnswerPageLayout(
+        parity=page_spec.parity,
+        capacity=capacity,
+        tile_rows=tile_rows,
+        tile_columns=_ANSWER_TILE_COLUMNS,
+        width=_round_px(_exact_px(page_spec.width_mm)),
+        height=_round_px(_exact_px(page_spec.height_mm)),
+        usable_left=_round_px(usable_left_px),
+        usable_top=_round_px(usable_top_px),
+        usable_right=_round_px(usable_left_px + usable_width_px),
+        usable_bottom=_round_px(usable_top_px + usable_height_px),
+        heading=band,
+        tiles=tiles,
+    )
+
+
+def _answer_extent(extent: object, index: int) -> tuple[int, int]:
+    """One answer's ``(width, height)``, checked before anything is measured.
+
+    Whole positive cell counts, as ADR-0022's boundary pair. The supported
+    range itself (:data:`~nonogram.limits.MIN_SIZE`..``MAX_SIZE``) is not
+    re-checked here: a grid that reached the answer key was validated where it
+    was created, and this module measures whatever extent it is handed.
+    """
+    if not isinstance(extent, tuple | list) or len(extent) != 2:
+        raise ValueError(f"answer {index} must be a (width, height) pair, not {extent!r}")
+    columns, rows = extent
+    if not all(isinstance(side, int) and not isinstance(side, bool) and side > 0
+               for side in (columns, rows)):
+        raise ValueError(
+            f"answer {index}'s extent must be two positive whole numbers of cells, "
+            f"not {columns!r} x {rows!r}"
+        )
+    return columns, rows
+
+
+def _answer_tile(
+    index: int,
+    columns: int,
+    rows: int,
+    page_spec: PageSpec,
+    *,
+    tile_left_px: Fraction,
+    tile_top_px: Fraction,
+    tile_width_px: Fraction,
+    tile_height_px: Fraction,
+    tile_width_mm: Fraction,
+    tile_height_mm: Fraction,
+    caption_px: Fraction,
+    caption_mm: Fraction,
+) -> AnswerTile:
+    """One answer in its tile: the cell, the caption line and the ruled grid.
+
+    The cell is taken exactly, in millimetres, so ``cell_mm`` is the number the
+    tile really prints rather than a pixel count read back as a length. The
+    grid is centred across the tile and hangs from the caption line, and every
+    boundary is rounded once (:func:`_boundaries`), so a fractional pitch never
+    accumulates error down the grid. Strokes and the every-5th rules come from
+    :func:`_rule_widths` and :func:`_axis_lines` — the page's own, so an answer
+    is ruled exactly as a puzzle is (ADR-0037/R2).
+    """
+    cell_mm = min(
+        _exact_mm(ANSWER_MAX_CELL_MM),
+        tile_width_mm / columns,
+        (tile_height_mm - caption_mm) / rows,
+    )
+    pitch = _exact_px(cell_mm)
+    grid_left_px = tile_left_px + max(tile_width_px - columns * pitch, Fraction(0)) / 2
+    grid_top_px = tile_top_px + caption_px
+
+    xs = _boundaries(grid_left_px, pitch, columns)
+    ys = _boundaries(grid_top_px, pitch, rows)
+    thin, thick = _rule_widths(pitch, page_spec)
+    return AnswerTile(
+        index=index,
+        rows=rows,
+        columns=columns,
+        cell_mm=float(cell_mm),
+        tile_left=_round_px(tile_left_px),
+        tile_top=_round_px(tile_top_px),
+        tile_right=_round_px(tile_left_px + tile_width_px),
+        tile_bottom=_round_px(tile_top_px + tile_height_px),
+        caption_top=_round_px(tile_top_px),
+        caption_bottom=_round_px(grid_top_px),
+        caption_font_size=max(1, min(_mm_to_px(ANSWER_TEXT_FONT_MM), _round_px(caption_px))),
+        grid_left=xs[0],
+        grid_top=ys[0],
+        grid_right=xs[-1],
+        grid_bottom=ys[-1],
+        thin_rule=thin,
+        thick_rule=thick,
+        vertical_lines=_axis_lines(xs, start=ys[0], end=ys[-1], thin=thin, thick=thick),
+        horizontal_lines=_axis_lines(ys, start=xs[0], end=xs[-1], thin=thin, thick=thick),
     )
