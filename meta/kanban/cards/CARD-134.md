@@ -1,6 +1,6 @@
 # CARD-134: The answer key in the book PDF — puzzle-number order, 6-up / 4-up pages, "Puzzle N — Title" captions
 
-**Status:** blocked
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — decompose: G-2a authorises two methods of TestBookPdf_AnswerKeyCarriesPictureTitle; the class's THIRD method was made vacuous by this card and needs the same authorisation to be retargeted or deleted (one ruling; nothing else on the card is open)
+**Blocked by:** —
 
 ## What to implement
 
@@ -110,6 +110,7 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 - G-1a (**decompose ruling, 2026-09-23** — narrow exception to G-1): ONE edit inside `src/nonogram/export/png.py` is permitted and required — the caption FACE used by `render_answer_page`. `ImageFont.load_default` has no U+2014, so "Puzzle 7 — Snowflake" prints a .notdef box and AC-268 is unsatisfiable as written. Load the packaged DejaVu through `importlib.resources`, exactly as `_band_font` and `pdf._draw_header` already do; ADR-0006/R1 explicitly permits non-executable static assets, so the dependency baseline is untouched. Nothing else in `export/**` may change: no tile geometry, no cell fitting, no grid lines — ADR-0036/R2 stands. The fix MUST ship a test that distinguishes rendered ink from the unmapped separator; comparing one render of a face against another render of the same face cannot see this defect, which is why no existing test caught it. G-3 (CON-019) still binds and the golden tripwire must stay green — answer pages are not CLI exports, so it should not move at all.
 - G-2: The picture title prints only in the answer key, never on a puzzle page (ADR-0037/R1). test: TestBookPdf_PuzzlePageCarriesNoPictureTitle, TestBookPdf_AnswerKeyCarriesPictureTitle (CARD-117) stay green.
 - G-2a (**decompose ruling, 2026-09-23** — authorized retarget): two methods of `TestBookPdf_AnswerKeyCarriesPictureTitle` (tests/test_book_pdf_band.py:343-397) assert a whole answer page byte-for-byte against `render_pages(payload_with_name, spec)[1]` — the clued page FR-042 DELETES. That is mutually exclusive with AC-261/270/292, so the card may retarget those two methods onto the new answer-page form. The RULE is unchanged and must still hold: the picture title prints only in the answer key, never on a puzzle page. Only CARD-117's pinned form changes, and the retargeted assertions must be at least as strong — assert the title's ink is present on the answer page and absent from the puzzle page, not merely that the render did not raise. `TestBookPdf_PuzzlePageCarriesNoPictureTitle` is NOT in scope and stays byte-identical.
+- G-2b (**decompose ruling, 2026-09-23** — extends G-2a to the THIRD method; option (a)): `test_the_title_is_ink_the_answer_band_would_not_have_without_it` was made vacuous by this card — it compares two different page KINDS (the packed key against the deleted clued page, ~3.0% pixel difference with or without the title) and its `_has_ink(_band_strip(page))` passes even with `heading=None` and an untitled caption, because the tile intrudes into the strip; a skeptic's mutation (answer_title -> None) fails its two siblings and PASSES this one. RETARGET it against a `name=None` packed page, so it is strictly stronger and ADR-0037/R1 keeps a third witness. Deleting it is NOT authorized: a test that cannot fail is worse than an absent one, because it reads as coverage to the next person, and a card that deletes the one test its own change blinded sets the wrong precedent.
 - G-3: CLI and web A4 output stay byte-identical (CON-019). test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry.
 - G-4: Answer pages are decided at PDF time, and nothing is stored (Increment 15 Rollback). Do not edit `src/nonogram/db/**`, `migrations/**` or `src/nonogram/admin/book_manager.py`.
 - G-5: Do not edit `src/nonogram/admin/book_proof.py`, `src/nonogram/admin/app.py`, `src/nonogram/admin/templates/book_setup_print.html`, `src/nonogram/admin/templates/book_detail.html`, `src/nonogram/admin/templates/books_list.html` or `src/nonogram/admin/templates/_stepper.html`. They are owned by CARD-118 / CARD-130 this wave.
