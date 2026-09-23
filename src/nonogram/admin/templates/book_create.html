@@ -2,15 +2,56 @@
 {% import '_icons.html' as icons %}
 {% import '_stepper.html' as stepper %}
 
-{% block title %}New book - Nonogram admin{% endblock %}
-{% block section %}Books · new{% endblock %}
+{#- CARD-130: one form for the workflow's general-info step, whether the book
+    is being named for the first time or renamed later. `book` is the existing
+    one in edit mode and absent on creation; everything the two screens differ
+    in is here, so the fields themselves cannot drift apart. -#}
+{% set editing = book is defined and book %}
+
+{#- CARD-130 review cycle 1 (F-002): a refused revision re-renders from what
+    the owner **submitted**, not from what storage still holds. `submitted` is
+    that refused form (`edit_book` passes it); it is absent on a GET and on
+    creation, so creation's behaviour is exactly what it was. -#}
+{#- Cycle 2 (F-012): the test is `is not none`, not truthiness. An empty form
+    is still a submission — it is what the owner sent — and reading it as
+    "nothing submitted" would quietly restore the pre-F-002 behaviour. -#}
+{% set entered = submitted if submitted is defined and submitted is not none else none %}
+{% set stored = book.metadata if editing else none %}
+{% set field_title = entered.get('title', '') if entered is not none else (stored.title if stored else '') %}
+{% set field_description = entered.get('description', '') if entered is not none else (stored.description if stored else '') %}
+{% set field_theme = entered.get('theme', '') if entered is not none else (stored.theme if stored else '') %}
+{% set field_audience = entered.get('target_audience', '') if entered is not none else (stored.target_audience if stored else '') %}
+
+{#- CARD-130 review cycle 2 (F-006): the refused control is **marked**, not
+    only refilled. `error_fields` names the one input the domain refused
+    (`InvalidBookDetails.fields`); the create route passes none, so the
+    create screen renders exactly as it did. Same pattern as the Print setup
+    page's `plan_error_fields`. -#}
+{% set invalid_fields = error_fields if error_fields is defined and error_fields is not none else [] %}
+
+{% block title %}{% if editing %}{{ book.metadata.title }} · general info{% else %}New book{% endif %} - Nonogram admin{% endblock %}
+{#- Cycle 2 (F-105): in edit mode this is a step page, and every step page's
+    breadcrumb names its step through the macro. Creation is not a step of an
+    existing book, so it stays "Books · new". -#}
+{% block section %}Books · {% if editing %}{{ book.metadata.title }} · step {{ stepper.book_step_number(0) }}{% else %}new{% endif %}{% endblock %}
 
 {% block content %}
 <div class="page-head">
     <div>
-        <h1>New book</h1>
-        <p class="lede">Name the book first; the puzzles, order and print size come in the four steps that follow.</p>
+        <h1>{% if editing %}General info{% else %}New book{% endif %}</h1>
+        {% if editing %}
+        <p class="lede">{{ stepper.book_step_of(0) }} for <strong>{{ book.metadata.title }}</strong>: what the book is called and who it is for. The puzzles, their order and their titles keep whatever they already hold.</p>
+        {% else %}
+        {#- Cycle 2 (F-008): the count is derived from the step list, not
+            hand-written — a sixth step would have falsified "four". -#}
+        <p class="lede">Name the book first; the puzzles, order and print size come in the {{ (stepper.book_step_count()|int) - 1 }} steps that follow.</p>
+        {% endif %}
     </div>
+    {% if editing %}
+    <div class="page-actions align-items-center">
+        <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
+    </div>
+    {% endif %}
 </div>
 
 <div class="row">
@@ -18,39 +59,59 @@
         <div class="card">
             <div class="card-body">
                 <form method="POST">
+                    {#- The page-local error region `aria-describedby` points at.
+                        base.html's flash stack emits no stable id, and it is
+                        shared by every admin page, so the anchor lives here
+                        (F-006) — as the Print setup page's `#plan-error` does. -#}
+                    {% if invalid_fields %}
+                    <div class="alert alert-danger" role="alert" id="general-info-error">
+                        <strong>General info not saved:</strong> correct the field marked below. Nothing stored was changed, and your other entries are kept as you typed them.
+                    </div>
+                    {% endif %}
+
                     <div class="mb-3">
                         <label for="title" class="form-label">Book title</label>
-                        <input type="text" class="form-control" id="title" name="title"
-                               placeholder="e.g. Christmas Nonograms 2026" required>
+                        <input type="text" class="form-control{% if 'title' in invalid_fields %} is-invalid{% endif %}" id="title" name="title"
+                               value="{{ field_title }}"
+                               placeholder="e.g. Christmas Nonograms 2026" required
+                               {% if 'title' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}>
                     </div>
 
                     <div class="mb-3">
                         <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"
+                        <textarea class="form-control{% if 'description' in invalid_fields %} is-invalid{% endif %}" id="description" name="description" rows="3"
                                   placeholder="e.g. A collection of festive holiday puzzles for seniors"
-                                  required></textarea>
+                                  {% if 'description' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}
+                                  required>{{ field_description }}</textarea>
                     </div>
 
                     <div class="mb-3">
                         <label for="theme" class="form-label">Theme</label>
-                        <select class="form-select" id="theme" name="theme" required>
-                            <option value="christmas">Christmas</option>
-                            <option value="halloween">Halloween</option>
-                            <option value="easter">Easter</option>
-                            <option value="valentine">Valentine</option>
-                            <option value="generic">Generic</option>
+                        <select class="form-select{% if 'theme' in invalid_fields %} is-invalid{% endif %}" id="theme" name="theme" required
+                                {% if 'theme' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}>
+                            {#- F-004: the domain's BOOK_THEMES, not a literal copy of it. -#}
+                            {% for value in book_themes() %}
+                            <option value="{{ value }}" {% if field_theme == value %}selected{% endif %}>{{ value|capitalize }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
                     <div class="mb-4">
                         <label for="target_audience" class="form-label">Target audience</label>
-                        <input type="text" class="form-control" id="target_audience" name="target_audience"
-                               placeholder="e.g. seniors, kids, adults" required>
+                        <input type="text" class="form-control{% if 'target_audience' in invalid_fields %} is-invalid{% endif %}" id="target_audience" name="target_audience"
+                               value="{{ field_audience }}"
+                               placeholder="e.g. seniors, kids, adults" required
+                               {% if 'target_audience' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}>
                     </div>
 
                     <div class="actions">
+                        {% if editing %}
+                        <button type="submit" class="btn btn-primary">Save general info</button>
+                        <a href="/book/{{ book.book_id }}" class="btn btn-outline-secondary">Cancel</a>
+                        {% else %}
                         <button type="submit" class="btn btn-primary">Create book {{ icons.icon('arrow-right') }}</button>
                         <a href="/books" class="btn btn-outline-secondary">Cancel</a>
+                        {% endif %}
                     </div>
                 </form>
             </div>
@@ -59,7 +120,7 @@
 
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header"><h2 class="card-title mb-0">What follows</h2></div>
+            <div class="card-header"><h2 class="card-title mb-0">{% if editing %}Steps{% else %}What follows{% endif %}</h2></div>
             <div class="card-body">
                 {{ stepper.book_steps(0) }}
                 <p class="text-muted small mt-3 mb-0">Then upload the PDF to KDP.</p>

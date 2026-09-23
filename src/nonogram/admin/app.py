@@ -59,7 +59,13 @@ from .puzzle_review import (
     PuzzleStatus,
     STRATEGY_NAMES,
 )
-from .book_manager import get_book_manager, BookStatus, revise_plan
+from .book_manager import (
+    BOOK_THEMES,
+    InvalidBookDetails,
+    get_book_manager,
+    BookStatus,
+    revise_plan,
+)
 from .book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from .book_plan import (
     BUCKETS as PLAN_BUCKETS,
@@ -1963,6 +1969,59 @@ def create_app(debug=None):
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
         return _back_to_puzzles_list()
 
+    # ------------------------------------------------------------------
+    # CARD-130 (FR-038): the book workflow is re-enterable. A book that
+    # exists reaches every one of its five steps from every other, whatever
+    # its status — what a published book may *change* is CARD-131's
+    # confirmation, never a refusal to render a step.
+    # ------------------------------------------------------------------
+
+    #: The endpoint each book step opens on, keyed by the step key
+    #: ``_stepper.html`` matches ``current`` against.
+    _BOOK_STEP_ENDPOINTS = {
+        0: "edit_book",
+        1: "setup_print",
+        2: "select_puzzles_for_book",
+        3: "arrange_puzzles_in_book",
+        4: "finalize_book",
+    }
+
+    @app.template_global()
+    def book_step_links(book_id=None):
+        """``{step key: URL}`` for the book this request is about.
+
+        A Jinja **global** rather than a context processor: every page imports
+        ``_stepper.html`` without context, which puts a context processor's
+        names out of the macro's reach and leaves a global's within it. That is
+        what lets the stepper link its steps on a page whose template is not
+        edited to pass them.
+
+        The book is the one in the request's own path (``/book/<book_id>/…``),
+        so the mapping follows the page rather than the render call. ``{}``
+        where there is no book yet — the New-book form — and the stepper then
+        renders the same plain list it always did there.
+        """
+        if book_id is None:
+            book_id = (request.view_args or {}).get("book_id")
+        if not book_id:
+            return {}
+        return {
+            step: url_for(endpoint, book_id=book_id)
+            for step, endpoint in _BOOK_STEP_ENDPOINTS.items()
+        }
+
+    @app.template_global()
+    def book_themes():
+        """The themes the general-info form offers, from the domain's own list.
+
+        ``BOOK_THEMES`` is where the themes are stated (review cycle 1,
+        F-004); the form used to repeat the same five as a literal, which is
+        exactly how the list the owner picks from and the list
+        ``_refuse_invalid_details`` accepts come to disagree. A global for the
+        same reason :func:`book_step_links` is one.
+        """
+        return BOOK_THEMES
+
     @app.route("/books")
     def books_list():
         """List all books."""
@@ -1993,6 +2052,76 @@ def create_app(debug=None):
                 flash(f"Error: {str(e)}", "error")
 
         return render_template("book_create.html")
+
+    @app.route("/book/<book_id>/edit", methods=["GET", "POST"])
+    def edit_book(book_id):
+        """General info — the workflow's first step on a book that exists.
+
+        CARD-130 (FR-038, AC-224): the four New-book fields, revisable after
+        creation. It renders ``book_create.html`` in edit mode rather than a
+        second copy of the same form, so the two cannot drift; the rules are
+        the domain's single ``_refuse_invalid_details``, not this route's.
+
+        A GET stores nothing (G-2/EC-026), and a refused submission stores
+        nothing either — but it comes back carrying **what the owner typed**,
+        not what storage still holds (review cycle 1, F-002). The page used to
+        re-render from the book read above, so a title of spaces — which the
+        browser's ``required`` lets through and the domain's
+        ``_refuse_invalid_details`` refuses — silently threw away the
+        description and the audience typed beside it. This now follows
+        :func:`setup_print`'s established pattern: nothing stored, everything
+        submitted carried back.
+
+        ``theme`` is read without a default, like the other three: on a
+        revision an absent field is a broken submission, not a request for
+        Christmas over whatever the book already carries (F-003).
+
+        The refusal also **names its field** (review cycle 2, F-006).
+        Carrying the input back is not enough on its own: a title of three
+        spaces comes back as a visually blank box between two filled ones,
+        indistinguishable from an untouched optional field. ``error_fields``
+        — the domain's ``InvalidBookDetails.fields`` — is what the template
+        marks ``is-invalid``/``aria-invalid``, exactly as :func:`setup_print`
+        marks its plan fields. Any other ``ValueError`` reaching here (a
+        book id storage cannot parse) names no field and marks none.
+        """
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        submitted = None
+        error_fields = frozenset()
+
+        if request.method == "POST":
+            try:
+                stored = book_mgr.update_book_details(
+                    book_id,
+                    title=request.form.get("title"),
+                    description=request.form.get("description"),
+                    theme=request.form.get("theme"),
+                    target_audience=request.form.get("target_audience"),
+                )
+            except ValueError as e:
+                flash(f"Error: {str(e)}", "error")
+                # Reaching here nothing was stored (a success redirects
+                # below): carry the whole submission back so no input is
+                # lost (F-002), and mark the one control that failed (F-006).
+                submitted = request.form
+                error_fields = e.fields if isinstance(e, InvalidBookDetails) else frozenset()
+            else:
+                if not stored:
+                    flash("Book not found", "error")
+                    return redirect(url_for("books_list"))
+                flash("Book details updated", "success")
+                return redirect(url_for("book_detail", book_id=book_id))
+
+        return render_template(
+            "book_create.html",
+            book=book,
+            submitted=submitted,
+            error_fields=error_fields,
+        )
 
     class _PlanFormError(InvalidPlan):
         """A refused Print setup plan, naming the form field(s) that caused it.
@@ -2216,7 +2345,13 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/setup-print", methods=["GET", "POST"])
     def setup_print(book_id):
-        """Configure print specifications for a book (Step 1 of scaffolding).
+        """Configure print specifications — the Print setup step of scaffolding.
+
+        Named rather than numbered (review cycle 2, F-009): general info
+        joined the flow ahead of it, and a hand-written position in a
+        docstring is renumbered by nothing. The step's printed number comes
+        from ``BOOK_STEPS`` in ``_stepper.html``, which is where it belongs.
+
 
         CARD-120: also the book's distribution plan — count, split and the
         4 x 3 per-bucket matrix. A submission the plan refuses (a split not
@@ -2863,7 +2998,7 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/select-puzzles", methods=["GET", "POST"])
     def select_puzzles_for_book(book_id):
-        """Select and add puzzles to a book (Step 2 of scaffolding).
+        """Select and add puzzles — the Puzzle selection step of scaffolding.
 
         CARD-122: one tab per longest-side bucket (FR-036). The tab in force is
         ``?bucket=<label>``, the ticked ids are kept server-side so that
@@ -3092,7 +3227,7 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/arrange-puzzles", methods=["GET", "POST"])
     def arrange_puzzles_in_book(book_id):
-        """Arrange and name puzzles in a book (Step 3 of scaffolding)."""
+        """Arrange and name puzzles — the Arrangement step of scaffolding."""
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")
@@ -3196,7 +3331,7 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/finalize", methods=["GET", "POST"])
     def finalize_book(book_id):
-        """Finalize book with cover, guide, and download (Step 4 of scaffolding)."""
+        """Cover, guide and download — the Finalise & export step of scaffolding."""
         book = book_mgr.get_book(book_id)
         if not book:
             flash("Book not found", "error")

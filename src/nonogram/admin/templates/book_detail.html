@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import '_icons.html' as icons %}
+{% import '_stepper.html' as stepper %}
 
 {% block title %}{{ book.metadata.title }} - Nonogram admin{% endblock %}
 {% block section %}Books · {{ book.metadata.title }}{% endblock %}
@@ -12,10 +13,21 @@
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
-        {% if book.status == 'draft' %}
+        {#- CARD-130 (AC-222): the way back into the workflow is offered on
+            every book, not only a draft one. A book that has left draft is
+            still revisable — the confirmation a published book's change needs
+            belongs to the change, not to opening the step. -#}
         <a href="/book/{{ book.book_id }}/setup-print" class="btn btn-primary">Continue scaffolding {{ icons.icon('arrow-right') }}</a>
-        {% endif %}
     </div>
+</div>
+
+{#- CARD-130 (AC-222/AC-223): the book's own copy of the step navigation, so
+    opening a book from /books lands in the workflow rather than beside it.
+    No step is "current" here — this page is the book, not one of its steps —
+    so every one of the five is a link, whatever the book's status. -#}
+<div class="card">
+    <div class="card-header"><h2 class="card-title mb-0">Book steps</h2></div>
+    <div class="card-body">{{ stepper.book_steps() }}</div>
 </div>
 
 <div class="row">

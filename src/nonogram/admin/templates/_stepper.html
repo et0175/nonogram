@@ -4,13 +4,53 @@
   copies had already drifted (one marked the current step with a green badge,
   one with bold, one with both).
 #}
-{% macro book_steps(current) -%}
-{% set steps = [(1, 'Print setup', 'Trim size and units'), (2, 'Puzzle selection', 'Pick approved grids'), (3, 'Arrangement', 'Order and title them'), (4, 'Finalise & export', 'Cover, guide page, PDF')] -%}
+{#
+  CARD-130 (FR-038): the book workflow's five steps, and its back navigation.
+
+  `current` is a step's **key**, not its printed number. The keys are the four
+  the list had before general info joined it — Print setup is 1 here as it was
+  then — so every page that already called this macro keeps its own call
+  unchanged while the list it renders grows by one; the number shown is the
+  step's position in the list (1..5). `current=None` is a page beside the flow
+  rather than in it (the book's detail page): no step is current, none is done,
+  and every one of them is a link.
+
+  `links` maps a key to the URL that opens that step. Left out, the macro asks
+  the `book_step_links` global for the book the current request is about, so a
+  step page under /book/<id>/… navigates without being passed anything, and a
+  page with no book (New book) gets {} and renders plain text, as before. A
+  book that exists is linked on every step whatever its status: what a
+  published book may *change* is a confirmation, never a refusal to render.
+#}
+{#
+  CARD-130 review cycle 1 (F-001): the list lives **here**, at module level,
+  and the three macros below are the only way a page states a step's number.
+  It used to be a `{% set %}` inside `book_steps`, out of reach of the prose,
+  so each step page printed its own "Step N of 4" — which the fifth step made
+  wrong on every one of them without failing a test. A sixth step now moves
+  the prose with it.
+
+  `BOOK_STEPS` is `(key, label, hint)`; the key is the macro's `current`, the
+  position in this list is the number the owner reads.
+#}
+{% set BOOK_STEPS = [(0, 'General info', 'Title, theme and audience'), (1, 'Print setup', 'Trim size and units'), (2, 'Puzzle selection', 'Pick approved grids'), (3, 'Arrangement', 'Order and title them'), (4, 'Finalise & export', 'Cover, guide page, PDF')] %}
+
+{#- The number a step key is printed as (1..5), and the whole count. -#}
+{% macro book_step_number(key) %}{% for step in BOOK_STEPS %}{% if step[0] == key %}{{ loop.index }}{% endif %}{% endfor %}{% endmacro %}
+{% macro book_step_count() %}{{ BOOK_STEPS | length }}{% endmacro %}
+
+{#- The lede every step page opens with: "Step 3 of 5". The count comes from
+    `book_step_count`, not from a second `| length` beside it: one statement
+    of "how many steps there are" (review cycle 2, F-007). -#}
+{% macro book_step_of(key) %}Step {{ book_step_number(key) }} of {{ book_step_count() }}{% endmacro %}
+
+{% macro book_steps(current=None, links=None) -%}
+{% set links = book_step_links() if links is none else links -%}
 <ol class="stepper" aria-label="Book scaffolding steps">
-    {% for n, label, hint in steps -%}
-    <li class="{% if n < current %}is-done{% elif n == current %}is-current{% endif %}" {% if n == current %}aria-current="step"{% endif %}>
-        <span class="step-n">{{ n }}</span>
-        <span>{{ label }}<small>{{ hint }}</small></span>
+    {% for n, label, hint in BOOK_STEPS -%}
+    <li class="{% if current is not none and n < current %}is-done{% elif n == current %}is-current{% endif %}" {% if n == current %}aria-current="step"{% endif %}>
+        <span class="step-n">{{ loop.index }}</span>
+        <span>{% if n != current and links.get(n) %}<a href="{{ links[n] }}">{{ label }}</a>{% else %}{{ label }}{% endif %}<small>{{ hint }}</small></span>
     </li>
     {% endfor -%}
 </ol>
