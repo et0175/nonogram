@@ -42,7 +42,10 @@ before the payload is even built.
 
 from __future__ import annotations
 
+import io
 from collections.abc import Sequence
+from functools import lru_cache
+from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -63,6 +66,8 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
 
 __all__ = [
     "BACKGROUND",
+    "FONT_PACKAGE",
+    "FONT_RESOURCE",
     "INK",
     "render",
     "render_answer_page",
@@ -82,6 +87,64 @@ BACKGROUND = (255, 255, 255)
 #: turn that into speckle at the 2 mm cell the maximum-size puzzle uses. The
 #: cost is bytes in a file that is written once and printed.
 _MODE = "RGB"
+
+#: Where the bundled face lives, as a package plus a resource path — the same
+#: package *data* :mod:`nonogram.export.pdf` names with its own
+#: ``FONT_PACKAGE``/``FONT_RESOURCE``, and the same file
+#: ``admin.book_pdf_generator`` reads for a puzzle page's band. ADR-0006/R1
+#: permits a non-executable static asset, so nothing about the dependency
+#: baseline is reopened by reading it here.
+#:
+#: Spelled out again rather than imported from :mod:`nonogram.export.pdf`:
+#: that module imports *this* one (``render_image`` is the raster a PDF page
+#: is saved from), so the edge only runs one way and importing it back would
+#: be a cycle. A test pins the two spellings equal, so they cannot drift.
+FONT_PACKAGE = "nonogram.export"
+FONT_RESOURCE = "fonts/DejaVuSans.ttf"
+
+
+@lru_cache(maxsize=1)
+def _lettering_font_bytes() -> bytes:
+    """The bundled TTF, read once through :mod:`importlib.resources`.
+
+    Package data is addressed the way package data is addressed — not by a
+    filesystem path — so it keeps working from a wheel that was never
+    unpacked. Cached because the file is roughly three quarters of a megabyte
+    and every answer page of a 150-puzzle book asks for a face.
+
+    A missing or unreadable resource raises out of here rather than falling
+    back to :func:`PIL.ImageFont.load_default`: that fallback is exactly what
+    :func:`_lettering_font` exists to stop doing, and reinstating it silently
+    would reproduce the ``.notdef`` box while reporting success.
+    """
+    return resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+
+
+@lru_cache(maxsize=8)
+def _lettering_font(size: int) -> ImageFont.FreeTypeFont:
+    """The bundled DejaVu Sans at ``size`` device pixels — the answer key's face.
+
+    The *words* an answer page prints — each tile's caption and the level
+    heading above them — are set in this, not in Pillow's embedded default.
+    A caption reads "Puzzle 7 — Snowflake" (AC-268) and U+2014 is not in that
+    embedded ASCII face: set in it, the em dash and a codepoint no face has
+    rasterize to the identical ``.notdef`` box, so the separator prints as a
+    box. The same trap ``pdf._header_font`` and
+    ``admin.book_pdf_generator._band_font`` were written for, resolved the
+    same way and from the same file.
+
+    The heading takes this face too, though "Easy" is ASCII and would set
+    without it: it is the other half of one page's lettering, level labels are
+    display strings rather than structurally-ASCII data, and two typefaces on
+    one page for two lines of the same job reads as a slip.
+
+    Not the *clue* face: :func:`_clue_font` stays on Pillow's default, because
+    clue digits are ASCII decimals with no coverage problem to solve and every
+    CLI and web page is ruled by CON-019's byte-identity tripwire.
+
+    Cached by size: a book asks for one or two sizes across its whole key.
+    """
+    return ImageFont.truetype(io.BytesIO(_lettering_font_bytes()), size=size)
 
 
 def _clue_font(layout: Layout) -> ImageFont.FreeTypeFont:
@@ -233,6 +296,11 @@ def render_answer_page(
     heading, and what a caption says are the book's decisions (COMP-009,
     CARD-134); this call draws the page it is given.
 
+    Both lines of lettering — every caption and the heading — are set in
+    :func:`_lettering_font`, the packaged DejaVu Sans, so a caption's em dash
+    prints as a dash rather than as the ``.notdef`` box Pillow's embedded
+    ASCII face gives it.
+
     Args:
         answers: Up to ``capacity`` ``(grid, caption)`` pairs in fill order,
             left to right then top to bottom. Each ``grid`` is the solution in
@@ -264,7 +332,7 @@ def render_answer_page(
         draw.text(
             (layout.heading.center_x, layout.heading.center_y),
             heading,
-            font=ImageFont.load_default(size=layout.heading.font_size),
+            font=_lettering_font(layout.heading.font_size),
             fill=INK,
             anchor="mm",
         )
@@ -274,7 +342,7 @@ def render_answer_page(
             draw.text(
                 (tile.caption_center_x, tile.caption_center_y),
                 caption,
-                font=ImageFont.load_default(size=tile.caption_font_size),
+                font=_lettering_font(tile.caption_font_size),
                 fill=INK,
                 anchor="mm",
             )

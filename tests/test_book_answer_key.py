@@ -5,6 +5,7 @@
     AC-264  TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20
     AC-266  TestBookAnswerKey_LongestSideTwentyStaysSixUp
     AC-268  TestBookAnswerKey_CaptionPuzzleNumberAndTitle
+            TestBookAnswerKey_CaptionSeparatorIsADrawnGlyph (G-1a)
     AC-269  TestBookAnswerKey_CaptionUsesCustomBookTitle
     AC-270  TestBookAnswerKey_DefaultPlanTakesThirtyPages
     AC-290  TestBookAnswerKey_EachLevelStartsNewAnswerPage
@@ -63,6 +64,7 @@ from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.export import pdf, png
 from nonogram.export.png import render_answer_page
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -676,6 +678,131 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
             None,
             book,
         ).tobytes()
+
+
+# --------------------------------------------------------------------------
+# AC-268, the half a page comparison cannot see — G-1a
+# --------------------------------------------------------------------------
+
+#: A codepoint no typeface carries: the last of the BMP, permanently unassigned
+#: by Unicode. Whatever face is in force rasterizes it to that face's
+#: ``.notdef`` glyph, so it is the control every "is this character really
+#: drawn?" question here is asked against.
+UNMAPPED = "￿"
+
+
+class TestBookAnswerKey_CaptionSeparatorIsADrawnGlyph:
+    """AC-268's em dash is a *dash* on paper, not a ``.notdef`` box (G-1a).
+
+    Why this is a test of its own, and not covered by the caption ACs above
+    -------------------------------------------------------------------------
+    Every other caption assertion in this module compares the generator's page
+    with a page drawn by the same renderer through
+    :func:`~nonogram.export.png.render_answer_page`. If the face those two
+    share has no glyph for U+2014, **both** sides print the same box in the
+    same place and agree — which is exactly how the defect G-1a rules on
+    shipped: the key was captioned "Puzzle 7 ▯ Snowflake" on paper with the
+    whole suite green. The question that comparison cannot ask is whether the
+    separator's ink is the separator's, so it is asked here instead, against
+    :data:`UNMAPPED`.
+
+    Both measurements are taken off the rendered page and neither knows which
+    face drew it: one is a page comparison against the same caption carrying
+    :data:`UNMAPPED` in the dash's place, the other is the shape of the ink
+    the separator itself contributes — an em dash is a flat horizontal bar,
+    far wider than it is tall, and a ``.notdef`` is an upright hollow box.
+    """
+
+    #: Where the separator's ink must be wider than tall for a dash, and is
+    #: not for a box. The packaged face measures roughly 11:1 for U+2014 and
+    #: 0.6:1 for its ``.notdef``, so the threshold is nowhere near either.
+    DASH_ASPECT = 3.0
+
+    NAME = "Snowflake"
+    NUMBER = 7
+
+    @staticmethod
+    def _page(caption: str) -> Image.Image:
+        """One six-up answer page carrying a single answer under ``caption``.
+
+        Drawn straight through COMP-007 rather than through the generator: the
+        caption *text* is what this class varies, and the generator composes
+        that text itself.
+        """
+        return render_answer_page(
+            [(_grid(15, 15), caption)],
+            SIX_UP,
+            book_page_spec(_book(), 4),
+        )
+
+    @classmethod
+    def _separator_ink(cls, separator: str) -> Tuple[int, int]:
+        """The ``(width, height)`` in pixels of the ink ``separator`` adds.
+
+        Isolated by difference rather than by cropping: the same page is drawn
+        with the caption and with an empty caption — which prints nothing and
+        still occupies its line, so the geometry is identical — and what
+        differs is the caption's ink and nothing else. Narrowing the caption to
+        the separator alone then leaves the separator's own ink.
+        """
+        drawn = _ink(cls._page(separator))
+        blank = _ink(cls._page(""))
+        mark = drawn != blank
+        rows = np.flatnonzero(mark.any(axis=1))
+        columns = np.flatnonzero(mark.any(axis=0))
+        assert rows.size and columns.size, f"{separator!r} drew nothing at all"
+        return (
+            int(columns[-1] - columns[0] + 1),
+            int(rows[-1] - rows[0] + 1),
+        )
+
+    def test_the_em_dash_is_ink_an_unmapped_codepoint_would_not_have_made(
+        self,
+    ) -> None:
+        """The whole caption, against the same caption with U+FFFF in its place.
+
+        The one assertion the rest of the module structurally cannot make. A
+        face without U+2014 draws these two pages identically, because it draws
+        the same ``.notdef`` box for both characters; a face that carries it
+        cannot.
+        """
+        caption = CAPTION.format(number=self.NUMBER, title=self.NAME)
+        tofu = caption.replace("—", UNMAPPED)
+        assert tofu != caption, "the caption under test carries no em dash"
+
+        assert self._page(caption).tobytes() != self._page(tofu).tobytes()
+
+    def test_the_separator_prints_as_a_bar_and_the_unmapped_one_does_not(
+        self,
+    ) -> None:
+        """The positive half: the drawn shape is a dash's, not a box's.
+
+        Page inequality alone would be satisfied by *any* second glyph. An em
+        dash is a rule — one flat horizontal stroke about one em long — so its
+        ink is several times wider than it is tall, while a ``.notdef`` box is
+        an upright rectangle that is not.
+        """
+        dash_width, dash_height = self._separator_ink("—")
+        box_width, box_height = self._separator_ink(UNMAPPED)
+
+        assert dash_width >= self.DASH_ASPECT * dash_height, (
+            f"U+2014 drew {dash_width}x{dash_height} px — not a dash's flat bar"
+        )
+        assert box_width < self.DASH_ASPECT * box_height, (
+            f"U+FFFF drew {box_width}x{box_height} px — the control is not a box"
+        )
+
+    def test_the_face_is_the_packaged_one_the_pdf_header_already_uses(self) -> None:
+        """ADR-0006/R1's static asset, addressed once for the whole project.
+
+        ``png`` spells the resource out again instead of importing it, because
+        ``pdf`` imports ``png`` and the edge only runs one way. This pins the
+        two spellings equal so they cannot drift to two different files.
+        """
+        assert (png.FONT_PACKAGE, png.FONT_RESOURCE) == (
+            pdf.FONT_PACKAGE,
+            pdf.FONT_RESOURCE,
+        )
 
 
 # --------------------------------------------------------------------------

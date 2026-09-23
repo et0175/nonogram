@@ -55,6 +55,7 @@ from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, band_identity
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
+from nonogram.export.png import render_answer_page
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
 
@@ -116,6 +117,27 @@ def expected_band(number: int, stored_tier: object) -> str:
     if label is None:
         return UNGRADED_TEMPLATE.format(number=number)
     return BAND_TEMPLATE.format(number=number, tier=label)
+
+
+# --------------------------------------------------------------------------
+# FR-042's answer caption, restated (guardrail G-2a)
+# --------------------------------------------------------------------------
+
+#: What captions one answer in the packed key: the puzzle's number, an em dash
+#: (U+2014) with a space either side, and the picture's title. Written out
+#: here for the same reason :data:`BAND_TEMPLATE` is — a second implementation
+#: of the rule, not ``book_answer_key``'s own ``answer_caption`` run twice.
+ANSWER_CAPTION = "Puzzle {number} — {title}"
+
+#: The same caption with the title withheld. Not a rule of FR-042 but the
+#: **control** the retargeted AC-194 tests need: a page captioned with this
+#: is the page the key would carry if the title were not printed, and the
+#: title's ink is what stands between the two.
+UNTITLED_ANSWER_CAPTION = "Puzzle {number}"
+
+#: FR-042's six-up tiling — every answer here is a MIN_SIZE grid, so no page
+#: of these books is ever taken down to four-up (INV-011).
+SIX_UP = 6
 
 
 # --------------------------------------------------------------------------
@@ -234,6 +256,30 @@ def _pages_with_band(
     return render_pages(payload, page_spec=spec)
 
 
+def _answer_page(
+    entries: Sequence[tuple[dict, str]],
+    page_number: int,
+    heading: str | None,
+    book: Book | None = None,
+) -> Image.Image:
+    """One page of the packed answer key, drawn from captions written out here.
+
+    FR-042's form of the key (CARD-134): the answers are tiles on a shared
+    page, each under its caption, the page headed by its level. The captions
+    this module names go in, so comparing the result with the generator's page
+    is about which answers, in which order, under which captions, and nothing
+    else — the same technique :func:`_pages_with_band` uses for a band, moved
+    onto the page shape FR-042 replaced the per-puzzle answer page with
+    (guardrail G-2a).
+    """
+    return render_answer_page(
+        [(puzzle["grid"], caption) for puzzle, caption in entries],
+        SIX_UP,
+        book_page_spec(book if book is not None else _book(), page_number),
+        heading,
+    )
+
+
 # --------------------------------------------------------------------------
 # Reading ink off a page
 # --------------------------------------------------------------------------
@@ -341,24 +387,47 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
     NAME = "Snowflake"
 
     def test_the_answer_page_carries_the_title_and_the_same_identity(self) -> None:
-        """The answer page is the page of a payload holding both.
+        """The title is on the answer page and is not on the puzzle page.
 
-        One ``identity`` string serves both assertions, so the two pages are
-        being required to carry the *same* number and tier, not two strings
-        that happen to be spelled alike.
+        Retargeted under G-2a: FR-042 deleted the one-answer-page-per-puzzle
+        form this used to compare against byte for byte, so the *rule* is
+        asserted on the packed key instead. Three measurements, one book:
+
+        * **absent** — the puzzle page is, pixel for pixel, the page of a
+          payload carrying no name at all, so "Snowflake" is nowhere on it;
+        * **present** — the answer page is the packed page captioned
+          "Puzzle 1 — Snowflake", exactly, so it carries the title and the
+          same number the band opposite it prints;
+        * **contributing** — that page is *not* the one captioned "Puzzle 1",
+          so the title is ink and not merely a string that was offered.
+
+        One ``number`` feeds the band and the caption, so the two pages are
+        being required to agree on the same N rather than on two numbers that
+        happen to be spelled alike; the tier reaches the answer page as the
+        level heading FR-042 puts at the top of it.
         """
+        number = 1
         puzzle = _puzzle(name=self.NAME)
         pages = _interior([puzzle])
-        identity = "Puzzle 1 · Easy"
 
         expected_puzzle, _ = _pages_with_band(
-            puzzle, puzzle_page_number(0), name=None, identity=identity
-        )
-        _, expected_answer = _pages_with_band(
-            puzzle, answer_page_number(0, 1), name=self.NAME, identity=identity
+            puzzle,
+            puzzle_page_number(0),
+            name=None,
+            identity=expected_band(number, puzzle["difficulty_tier"]),
         )
         assert pages[puzzle_page_number(0) - 1].tobytes() == expected_puzzle.tobytes()
-        assert pages[answer_page_number(0, 1) - 1].tobytes() == expected_answer.tobytes()
+
+        answer = pages[answer_page_number(0, 1) - 1]
+        titled = ANSWER_CAPTION.format(number=number, title=self.NAME)
+        assert answer.tobytes() == _answer_page(
+            [(puzzle, titled)], answer_page_number(0, 1), "Easy"
+        ).tobytes()
+        assert answer.tobytes() != _answer_page(
+            [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
+            answer_page_number(0, 1),
+            "Easy",
+        ).tobytes(), "the title contributes no ink to the answer page"
 
     def test_the_title_is_ink_the_answer_band_would_not_have_without_it(self) -> None:
         """Drop the name from the expected payload and the band stops matching.
@@ -378,11 +447,20 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         assert page.tobytes() != untitled.tobytes()
 
     def test_the_answer_number_is_the_number_printed_on_the_puzzle(self) -> None:
-        """Every puzzle's answer page repeats its own puzzle's number.
+        """Every answer is captioned with its own puzzle's number, not its page's.
 
-        A book of three, so a page that took its number from its own position
-        in the interior — where the answers start at page 6 — rather than from
-        the puzzle it answers would be caught.
+        A book of three at three tiers, so FR-042 gives each level a page of
+        its own (AC-290) and the answers land on interior pages 6, 7 and 8 —
+        which means an answer captioned from its position in the interior
+        rather than from the puzzle it answers would read "Puzzle 6" and be
+        caught. Each page is compared whole, so a caption carrying the wrong
+        number, the wrong title or the wrong level heading fails, and each is
+        then re-checked against its untitled control so the title is shown to
+        be ink on every one of them.
+
+        Retargeted under G-2a: the assertion moved from the deleted per-puzzle
+        answer page onto the packed key, and the rule it asserts — the title
+        prints here and its number is the puzzle's — is unchanged.
         """
         puzzles = [
             _puzzle(name=f"Picture {index}", puzzle_id=f"p{index}", tier=tier)
@@ -391,15 +469,27 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         pages = _interior(puzzles)
 
         for index, (puzzle, label) in enumerate(zip(puzzles, ("Easy", "Medium", "Hard"))):
-            identity = f"Puzzle {index + 1} · {label}"
-            _, expected = _pages_with_band(
-                puzzle,
-                answer_page_number(index, len(puzzles)),
-                name=puzzle["puzzle_name"],
-                identity=identity,
-            )
-            page = pages[answer_page_number(index, len(puzzles)) - 1]
-            assert page.tobytes() == expected.tobytes(), f"answer {index + 1}"
+            number = index + 1
+            page_number = answer_page_number(index, len(puzzles))
+            page = pages[page_number - 1]
+
+            assert page.tobytes() == _answer_page(
+                [
+                    (
+                        puzzle,
+                        ANSWER_CAPTION.format(
+                            number=number, title=puzzle["puzzle_name"]
+                        ),
+                    )
+                ],
+                page_number,
+                label,
+            ).tobytes(), f"answer {number}"
+            assert page.tobytes() != _answer_page(
+                [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
+                page_number,
+                label,
+            ).tobytes(), f"answer {number} shows no title"
 
 
 # --------------------------------------------------------------------------
