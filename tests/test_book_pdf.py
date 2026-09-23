@@ -598,6 +598,24 @@ def _undrawable_puzzle(name: str = "Ghost") -> dict:
     return puzzle
 
 
+def _unmeasurable_puzzle(name: str = "Half", tier: str = "easy") -> dict:
+    """A book row whose payload builds and which no layout call can measure.
+
+    Row clues and **no** column clues: ``_payload`` is happy (it turns an empty
+    list into an empty clue set), and both of COMP-007's layout calls refuse a
+    pair of clue sets that disagree about the grid — ``compute_layout`` when
+    the row prints alone, ``compute_pair_layout`` when the pairing walk offers
+    it beside a same-tier neighbour. The two stages are the point: this row
+    fails at *layout* time, where the ``grid=None`` row above fails at *draw*
+    time, and until CARD-127's review only the draw-time failure was named.
+    """
+    puzzle = _puzzle(*_MIRRORED_PUZZLE, name=name)
+    puzzle["id"] = f"{name}-unmeasurable"
+    puzzle["clues_cols"] = []
+    puzzle["difficulty_tier"] = tier
+    return puzzle
+
+
 class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
     """A dropped puzzle leaves every surviving page on its own parity.
 
@@ -687,13 +705,45 @@ class TestBookPdf_PagePlanGuardIsLive:
 
         planned = generator_module.interior_page_count
         monkeypatch.setattr(
-            generator_module, "interior_page_count", lambda count: planned(count) + 1
+            generator_module,
+            "interior_page_count",
+            # The plan now also takes how many pages the puzzles actually take,
+            # which two-up pairing (CARD-127) can make fewer than the count.
+            lambda count, puzzle_pages=None: planned(count, puzzle_pages) + 1,
         )
 
         with pytest.raises(RuntimeError) as raised:
             _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
         assert "interior has 4 pages, its page plan says 5" in str(raised.value)
+
+    def test_a_walk_that_loses_a_puzzle_aborts_before_a_page_is_drawn(self, monkeypatch):
+        """The half the page-count check cannot make (CARD-127 review F-002).
+
+        Since two-up pairing, the puzzle-page term of that check comes from
+        ``len(plan)`` — the walk's own output — so a walk that dropped a puzzle
+        would agree with itself: the book would ship without that puzzle while
+        its answer page was still printed. This is the guard taken over the
+        call's *input* instead.
+        """
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator as generator
+
+        walk = generator.puzzle_pages
+        monkeypatch.setattr(
+            generator,
+            "puzzle_pages",
+            lambda self, payloads, *args, **kwargs: walk(
+                self, payloads, *args, **kwargs
+            )[:-1],
+        )
+
+        with pytest.raises(RuntimeError) as raised:
+            _interior(
+                _book(),
+                [_puzzle(*_MIRRORED_PUZZLE, name=f"P{n}") for n in range(3)],
+            )
+
+        assert "the page plan prints [1, 2], not puzzles 1..3" in str(raised.value)
 
 
 class TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle:
@@ -729,6 +779,66 @@ class TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle:
             BookPDFGenerator(book).export_book(puzzles, book.metadata.title)
 
         assert "Ghost-undrawable" in str(raised.value)
+
+    # A row can also fail *before* any page is drawn, when the pairing walk
+    # (CARD-127) offers it to COMP-007's pair-aware call and the measurement
+    # itself refuses it. Whether a given malformed row takes that path is
+    # decided by its neighbour's tier — and since INV-009 groups the book order
+    # by tier, almost every member has a same-tier neighbour — so the contract
+    # this class states is only kept if the layout stage names the puzzle too.
+    # It did not: the four cases below raised a bare ``ValueError`` reading
+    # "first: clue sets disagree about the grid", naming no puzzle and keeping
+    # no cause, in exactly the two cases a real book most often produces.
+
+    def test_a_pair_that_cannot_be_laid_out_names_the_malformed_member(self):
+        """The finding's own case: a malformed row with a same-tier neighbour."""
+        puzzles = [
+            _unmeasurable_puzzle(),
+            _puzzle(*_MIRRORED_PUZZLE, name="Second"),  # easy, as the row is
+        ]
+
+        with pytest.raises(RuntimeError) as raised:
+            _interior(_book(), puzzles)
+
+        message = str(raised.value)
+        assert "Half-unmeasurable" in message, message
+        assert "could not be laid out" in message, message
+        assert isinstance(raised.value.__cause__, ValueError), "the original failure is kept"
+
+    def test_the_second_member_of_the_pair_is_named_too(self):
+        """The malformed row *after* a good one: "second: ..." named neither a
+        puzzle nor a position, so the id is the only handle there has ever been."""
+        puzzles = [
+            _puzzle(*_MIRRORED_PUZZLE, name="First"),
+            _unmeasurable_puzzle(),
+        ]
+
+        with pytest.raises(RuntimeError) as raised:
+            _interior(_book(), puzzles)
+
+        message = str(raised.value)
+        assert "Half-unmeasurable" in message, message
+        assert "could not be laid out" in message, message
+
+    @pytest.mark.parametrize(
+        "neighbour_tier",
+        [pytest.param(None, id="alone"), pytest.param("hard", id="different-tier")],
+    )
+    def test_the_same_row_is_named_whatever_neighbour_it_has(self, neighbour_tier):
+        """The other half of the consistency: a row with no same-tier neighbour
+        never reaches the pair call and is named at draw time instead. Both
+        stages abort, both name the id — which is the whole contract."""
+        puzzles = [_unmeasurable_puzzle()]
+        if neighbour_tier is not None:
+            neighbour = _puzzle(*_MIRRORED_PUZZLE, name="Other")
+            neighbour["difficulty_tier"] = neighbour_tier
+            puzzles.append(neighbour)
+
+        with pytest.raises(RuntimeError) as raised:
+            _interior(_book(), puzzles)
+
+        assert "Half-unmeasurable" in str(raised.value)
+        assert raised.value.__cause__ is not None, "the original failure is kept"
 
 
 class TestBookPdf_PageFrameNeedsABookPageSpec:

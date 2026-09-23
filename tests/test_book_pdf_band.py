@@ -629,7 +629,16 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
             puzzles.append(
                 _puzzle(
                     columns=side,
-                    rows=random_source.randint(MIN_SIZE, MIN_SIZE + 5),
+                    # 14..19 rows, so that no two neighbours of a book ever
+                    # share a page (FR-040, CARD-127) and every puzzle of this
+                    # corpus keeps a page of its own — which is what lets the
+                    # whole page be compared against a single puzzle's. A
+                    # 3-deep column gutter makes each drawing 17..22 cells
+                    # tall, so a pair would need 34 or more of the 33 that
+                    # Book 1's 236.35 mm of usable height holds at 7.0 mm.
+                    # The band on a two-up page is CARD-127's own corpus
+                    # (tests/test_book_pdf_two_up.py).
+                    rows=random_source.randint(MIN_SIZE + 4, MIN_SIZE + 9),
                     depth=3,
                     name=name,
                     tier=tier,

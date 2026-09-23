@@ -44,6 +44,7 @@ import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_is_right_hand
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
+from tests.helpers.two_up_ink import drawings_of
 
 TRIM_PX = (2550, 3300)
 ROUTES = ("generator", "finalise", "download-pdf", "generate-pdf")
@@ -60,18 +61,75 @@ USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 12.0
 STANDARD_CELL_MM = 7.5
 PX_PER_MM = 300 / 25.4
 
+#: FR-040's two-up minimum, and the usable height a page has left once it
+#: reserves a band for each of two puzzles rather than one.
+TWO_UP_MINIMUM_MM = 7.0
+PAIR_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 2 * 12.0
 
-def _expected_drawing_left_mm(puzzle, page_number):
+
+def _across(puzzle):
+    """The drawing's width in cells: the row-clue gutter plus the grid."""
+    return max(len(clue) for clue in puzzle["clues_rows"]) + puzzle["width"]
+
+
+def _down(puzzle):
+    """The drawing's height in cells: the column-clue gutter plus the grid."""
+    return max(len(clue) for clue in puzzle["clues_cols"]) + puzzle["height"]
+
+
+def _shared_cell_mm(first, second):
+    """FR-040's shared cell for a pair on one page, in millimetres.
+
+    The largest cell, capped at the standard cell, at which the wider of the
+    two drawings fits the usable width and both drawings' heights fit the trim
+    less its top and bottom margins and **two** bands. Written out here, like
+    every other expected value in this file.
+    """
+    return min(
+        STANDARD_CELL_MM,
+        USABLE_WIDTH_MM / max(_across(first), _across(second)),
+        PAIR_HEIGHT_MM / (_down(first) + _down(second)),
+    )
+
+
+def _pairs(first, second):
+    """INV-010: two adjacent puzzles share a page iff their tiers are equal and
+    their shared cell is at least 7.0 mm."""
+    levels = [_LEVEL.get(str(p["difficulty_tier"]).lower()) for p in (first, second)]
+    if levels[0] is None or levels[0] != levels[1]:
+        return False
+    return _shared_cell_mm(first, second) >= TWO_UP_MINIMUM_MM
+
+
+def _puzzle_page_plan(puzzles):
+    """EC-027's in-order walk: the puzzles each puzzle page holds, in order."""
+    plan, index = [], 0
+    while index < len(puzzles):
+        if index + 1 < len(puzzles) and _pairs(puzzles[index], puzzles[index + 1]):
+            plan.append([puzzles[index], puzzles[index + 1]])
+            index += 2
+        else:
+            plan.append([puzzles[index]])
+            index += 1
+    return plan
+
+
+def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     """Where interior page ``page_number`` puts this puzzle's left edge (FR-032).
 
     The drawing is ``clue depth + grid`` cells across at ``min(standard cell,
     page fit)``, centred across the usable width, whose left margin is the
     gutter on a right-hand (odd) page and the outside margin on a left-hand
-    one.
+    one. ``cell_mm`` overrides the cell with the pair's shared one when the
+    puzzle is a slot of a two-up page (FR-040); its drawing is centred across
+    the same usable width either way.
     """
-    across = max(len(clue) for clue in puzzle["clues_rows"]) + puzzle["width"]
-    down = max(len(clue) for clue in puzzle["clues_cols"]) + puzzle["height"]
-    cell = min(STANDARD_CELL_MM, USABLE_WIDTH_MM / across, USABLE_HEIGHT_MM / down)
+    across = _across(puzzle)
+    cell = (
+        min(STANDARD_CELL_MM, USABLE_WIDTH_MM / across, USABLE_HEIGHT_MM / _down(puzzle))
+        if cell_mm is None
+        else cell_mm
+    )
     spare = USABLE_WIDTH_MM - across * cell
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
     return left_margin + max(spare, 0.0) / 2
@@ -98,8 +156,21 @@ def admin_app(monkeypatch, tmp_path):
     image_manager_module._image_manager = None
 
 
-def _random_puzzle(rng):
-    width, height = rng.randint(10, 30), rng.randint(10, 30)
+def _random_puzzle(rng, *, small=False, tier=None):
+    """One puzzle of the corpus.
+
+    ``small`` draws the extents from the range where two drawings *do* fit one
+    page — with the single-run clues these grids produce, a pair needs
+    ``(h1 + 1) + (h2 + 1) <= 236.35 / 7`` down and ``w + 1 <= 193.675 / 7``
+    across — and ``tier`` fixes the grade, because a pair is offered only
+    between equal tiers (INV-010). Together they are what puts **two-up pages
+    on both parities** in this corpus: four small puzzles of one tier pair into
+    interior pages 2 and 3, one left-hand and one right-hand.
+    """
+    if small:
+        width, height = rng.randint(10, 20), rng.randint(10, 14)
+    else:
+        width, height = rng.randint(10, 30), rng.randint(10, 30)
     left, top = rng.randrange(width), rng.randrange(height)
     right, bottom = rng.randint(left + 1, width), rng.randint(top + 1, height)
     grid = [
@@ -113,7 +184,10 @@ def _random_puzzle(rng):
         "clues_cols": [list(c) for c in found.columns],
         "width": width,
         "height": height,
-        "difficulty_tier": rng.choice(["easy", "medium", "hard", "Easy", "Hard"]),
+        "difficulty_tier": (
+            tier if tier is not None
+            else rng.choice(["easy", "medium", "hard", "Easy", "Hard"])
+        ),
     }
 
 
@@ -131,10 +205,24 @@ def _random_cover(rng):
 def _random_case(rng, index):
     route = ROUTES[index % len(ROUTES)]  # every route, evenly
     low = 1 if route == "generate-pdf" else 0  # that route refuses an empty book
+    # Every third case is drawn from the small-and-same-tier corner, where the
+    # walk pairs: with extents and tiers both drawn freely a two-up page is
+    # rare (the review's F-006), and one that lands on an *odd* interior page
+    # rarer still, so the parity half of this property went unswept. A pairing
+    # case of 3..4 puzzles takes pages 2 and 3 — both parities — and one of 3
+    # ends with a puzzle printed alone on an odd page beside them.
+    pairing = index % 3 == 1
+    if pairing:
+        tier = rng.choice(["easy", "medium", "hard", "Easy", "Hard"])
+        puzzles = [
+            _random_puzzle(rng, small=True, tier=tier) for _ in range(rng.randint(3, 4))
+        ]
+    else:
+        puzzles = [_random_puzzle(rng) for _ in range(rng.randint(low, 3))]
     return {
         "route": route,
         "title": "Book " + "".join(rng.choice("ABCDEFGHJK") for _ in range(rng.randint(3, 12))),
-        "puzzles": [_random_puzzle(rng) for _ in range(rng.randint(low, 3))],
+        "puzzles": puzzles,
         "cover": _random_cover(rng) if rng.random() < 0.5 else None,
     }
 
@@ -254,8 +342,11 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         )
         assert same_page(cover_page, expected_cover), label
 
-        # Today's content with the cover gone: guide, puzzles, divider, answers.
-        expected_count = 1 + n + (n + 1 if n else 0)
+        # Today's content with the cover gone: guide, the pages the puzzles
+        # take (two-up pairing can make them fewer than the puzzles, FR-040),
+        # divider, one answer page per puzzle.
+        plan = _puzzle_page_plan(_as_the_interior_prints_them(case))
+        expected_count = 1 + len(plan) + (n + 1 if n else 0)
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
@@ -271,16 +362,36 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # Measured off the page: a right-hand (odd) page carries the gutter
         # margin on its left, so its drawing sits further right than the same
         # drawing on a left-hand page, by gutter - outside.
+        def _measured(page_number, puzzle, drawing, cell_mm=None):
+            drawn_left_mm = drawing.left / PX_PER_MM
+            expected_mm = _expected_drawing_left_mm(puzzle, page_number, cell_mm)
+            assert abs(drawn_left_mm - expected_mm) < 0.1, (
+                f"{label}: page {page_number} "
+                f"({'right' if page_number % 2 else 'left'}-hand) "
+                f"draws its puzzle at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
+            )
+            seen["right-hand" if page_number % 2 else "left-hand"] += 1
+
+        for offset, group in enumerate(plan):
+            page_number = 2 + offset
+            drawings = drawings_of(interior[page_number - 1])
+            assert len(drawings) == len(group), (
+                f"{label}: page {page_number} holds {len(drawings)} drawing(s), "
+                f"not {len(group)}"
+            )
+            shared = _shared_cell_mm(*group) if len(group) == 2 else None
+            for puzzle, drawing in zip(group, drawings):
+                _measured(page_number, puzzle, drawing, shared)
+            make_up = "two-up page" if len(group) == 2 else "single page"
+            seen[make_up] += 1
+            # Both slots of a two-up page are centred across the usable width
+            # of *that page's* parity, so the make-up and the parity are
+            # counted together and both combinations are required below.
+            seen[f"{make_up} {'right-hand' if page_number % 2 else 'left-hand'}"] += 1
+
         for index, puzzle in enumerate(_as_the_interior_prints_them(case)):
-            for page_number in (2 + index, 3 + n + index):  # puzzle page, answer page
-                drawn_left_mm = drawing_of(interior[page_number - 1]).left / PX_PER_MM
-                expected_mm = _expected_drawing_left_mm(puzzle, page_number)
-                assert abs(drawn_left_mm - expected_mm) < 0.1, (
-                    f"{label}: page {page_number} "
-                    f"({'right' if page_number % 2 else 'left'}-hand) "
-                    f"draws its puzzle at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
-                )
-                seen["right-hand" if page_number % 2 else "left-hand"] += 1
+            page_number = 3 + len(plan) + index  # this puzzle's answer page
+            _measured(page_number, puzzle, drawing_of(interior[page_number - 1]))
 
         seen[case["route"]] += 1
         seen["with cover" if case["cover"] is not None else "without cover"] += 1
@@ -293,6 +404,17 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
     assert seen["empty book"] >= 1 and seen["non-empty book"] >= 10, seen
     # Both parities really were measured, on both page kinds.
     assert seen["right-hand"] >= 10 and seen["left-hand"] >= 10, seen
+    # Both page make-ups are in the corpus, so the page map above is exercised
+    # in both directions rather than being a walk that never pairs — and a
+    # two-up page was measured on **each parity**, which is the half a corpus
+    # of freely drawn extents and tiers left to chance (CARD-127 review F-006):
+    # a slot centred across the wrong page's usable width would be caught on
+    # one parity only. (CARD-127's own corpora are where the walk's verdicts
+    # are swept; what is swept here is where the drawings land.)
+    assert seen["single page"] >= 5 and seen["two-up page"] >= 5, seen
+    assert seen["two-up page right-hand"] >= 2, seen
+    assert seen["two-up page left-hand"] >= 2, seen
+    assert seen["single page right-hand"] >= 2 and seen["single page left-hand"] >= 2, seen
 
 
 def test_page_numbers_start_at_one():
