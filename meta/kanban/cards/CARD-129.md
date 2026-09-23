@@ -150,3 +150,5 @@ eye.
 —
 
 - [Handover from CARD-115, 2026-09-22] AC-179's illustrative 0.60 cm gutter is below book_page_spec's 6.35 mm floor, so the builder refuses it before finalise can name the KDP band. Reconcile here (this card's checkpoint already uses the KDP-legal 0.375 in).
+
+- [Handover from CARD-116, 2026-09-23] The Finalise page count is taken over all members, so it can promise a page the exported file drops. A puzzle that builds a payload but cannot be drawn now raises RuntimeError naming the row id and aborts; one that cannot become a payload is dropped in a first pass before any interior position is handed out.

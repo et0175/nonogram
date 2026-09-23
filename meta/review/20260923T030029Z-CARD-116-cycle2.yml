@@ -1,0 +1,193 @@
+version: 1
+generated_at: "2026-09-23T03:00:29Z"
+target: "card/116-book-pdf-on-trim @ a89b6a6 + uncommitted fix round (vs main) — CARD-116, cycle 2 (FULL review)"
+overall_score: 9.3
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full, both commit and working-tree state)"
+    - "src/nonogram/admin/app.py (_export_part, generate_book_pdf_download, generate_book_pdf, _book_puzzles, the finalise page_count call at :2837)"
+    - "tests/helpers/page_ink.py (full) and tests/helpers/pdf_pages.py (the PdfParser precedent)"
+    - "tests/test_book_pdf.py (full, incl. the 5 new classes)"
+    - "tests/property/test_book_pdf_geometry.py (corpus sizing + minimum-count assertions)"
+    - "tests/property/test_book_export_interior.py (the CARD-116 delta in full)"
+    - "src/nonogram/admin/book_page_spec.py (book_page_spec validation, page-number dependence)"
+    - "meta/kanban/cards/CARD-116.md (contract + both worktree-note rounds)"
+    - "meta/review/20260923T022234Z-CARD-116-cycle1.yml (all six prior findings)"
+  not_reached:
+    - "src/nonogram/export/layout.py internals below compute_layout (untouched, G-3)"
+    - "tests/property/test_book_layout.py (CARD-114's layout halves of EC-019/022/032)"
+    - "the owner renders in ~/Documents/nonogram-reviews/CARD-116/ were not re-inspected this cycle (unchanged by the fix round)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1340, removed: 93 }
+  max_fan_in: { symbol: "nonogram.admin.book_pdf_generator.BookPDFGenerator", callers: 12 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py"                  # 114 commits/12mo across the two src files, 69 fix/bug
+    - "src/nonogram/admin/book_pdf_generator.py"
+  cochange_missing: []
+  unmeasured:
+    bus_factor: "no_eligible_fact — git shortlog returns no author rows for these paths in this repo"
+    cochange_missing: "no_eligible_fact — the fix round touches only files already in the diff; cycle 1's three co-change peers (book_finalize.html, test_book_export_interior_cover.py, GENERATION_ALGORITHM.md) were judged then and nothing in this delta changes that picture"
+
+system_contract:
+  rules_checked: 44
+  holds: 10
+  unchecked: 33
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy does not exist under tests/ (no collection match). Manual read: the fix round adds stdlib `logging` and `PIL.PdfParser` only, both inside the baseline; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed green in this worktree."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ untouched (git diff --name-only, 6 files, none under web/); tests/test_cli.py::test_every_import_in_the_package_points_inward green in this worktree."
+    - "ADR-0022/R1 ✓ holds — _payload still carries width and height as separate fields (book_pdf_generator.py:432-433); the fix round adds no signature and no scalar 'size'."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting or crop code in this diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy code in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam in this diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched; _payload passes difficulty_tier through unchanged."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no re-solving in this diff (its check ref TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve does not exist under tests/ — a standing model gap, not this card's)."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring code in this diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap masks in this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the export only reads stored puzzle rows; no storage boundary is crossed."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is neither read nor written in this diff."
+    - "ADR-0033/R1 ✓ holds — the generator reads puzzle dicts only; grep for an assignment into a puzzle row in book_pdf_generator.py returns none, and the fix round's new read (`puzzle.get(\"id\")`, :495) is a read."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no status transition code in this diff (book_manager.py untouched, G-4)."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** untouched; tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py green in this worktree (66 tests) with `git status --porcelain tests/fixtures/a4_golden/` empty."
+    - "ADR-0036/R2 ✓ holds — the fix round converts no millimetre to a pixel: the only new code is an id read, a logger call, an exception wrap and a renamed local. Every page size and usable edge still comes from page_frame -> compute_layout (:138-151) and every drawing from render_pages (:452-454)."
+    - "ADR-0037/R1 ✗ violated — book_pdf_generator.py:434-435 feeds payload.name/difficulty into the band, which prints \"<name> — <tier>\". Violated ON PURPOSE: this card's objective 5 defers band content, and CARD-117 owns the change to \"Puzzle N · Tier\". Recorded for coverage, NOT filed as a finding against CARD-116."
+    - "ADR-0037/R2 ✓ holds — every book page still goes through book_page_spec, which sets min_thin_rule_mm from the Book 1 profile (book_page_spec.py:257); the default spec is untouched (ADR-0036/R1 evidence above)."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by this diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the web UI server is untouched."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request handling changed; app.py is untouched by the fix round (git diff --name-only)."
+    - "CON-011 ✓ holds — the corpora still draw extents from limits.MIN_SIZE/MAX_SIZE (test_book_pdf_geometry.py:158-159); the fix round's new fixtures reuse _puzzle/_MIRRORED_PUZZLE (15x15) and introduce no literal 10/30."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff."
+    - "CON-015 ✓ holds — app.py unchanged in the fix round and its committed delta is 7 lines inside _export_part; no app.run, host, port or debug flag is touched."
+    - "CON-016 ✓ holds — same bounded check: no route registration, no ADMIN_ALLOWED_HOST handling and no before_request hook is touched."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues are passed through from the stored rows and never re-derived here."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: nothing in this diff reads or writes ready_for_export."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan code in this diff."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership/floor override is book_manager's, untouched (G-4). Its first check ref PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride does not exist under tests/."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the ready gate is untouched."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book confirmation is untouched. Its check ref TestBookPublished_ConfirmedPuzzleChangeApplied does not exist under tests/."
+    - "INV-009 ⚠ unchecked — check_ref_missing: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and TestBookPdf_DifficultyOrderWithDividerPerLevel do not exist under tests/. Manual read of the fix delta found no reordering: payloads keep the caller's order (:490-505) and pages are emitted in that order (:526-542)."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: two-up pairing is not implemented and this card does not add it. Its check refs do not exist under tests/."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the answer key stays one page per puzzle here by the card's objective 4 (CARD-134 owns the packed key). Its check ref PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook does not exist under tests/."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership outside draft is book_manager's, untouched (G-4). Its check ref PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists does not exist under tests/."
+    - "INV-013 ✓ holds — PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green in this worktree; unchanged by the fix round, and the fix's own parity test (TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage) strengthens the same property at the drop path — I killed a faithful pre-card mutant (drop after positions are handed out) and it moved the second survivor to 23.876 mm, page 4's left-hand edge."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 514
+    title: "A row that is not a mapping still aborts the export without naming anything"
+    description: |
+      The fix round's new failure contract is "either a file matching the page
+      plan, or no file and a message naming the puzzle". There is a third
+      outcome it does not cover. A row that is not a mapping at all is read
+      defensively at :495 (`puzzle.get("id") if hasattr(puzzle, "get") else
+      None`), fails in `_payload`, and is logged and dropped — but the very
+      next statement, `tier_breakdown(puzzles)` (:514), iterates *every*
+      member including that row and calls `puzzle.get("difficulty_tier")` on
+      it, raising a bare AttributeError out of the generator. The owner gets
+      neither a book nor a named puzzle, and the warning that was just logged
+      is the only clue.
+      Not reachable through the store's write path today (rows come from
+      `puzzle_review.get_puzzle`, which returns dicts), which is why this is
+      Minor and not Important. The comment at :492-494 is accurate about its
+      own narrower concern (not raising inside the except handler) — the gap
+      is that the module's contract now promises more than :514 delivers.
+    suggestion: |
+      Either read the tier through the same defensive shape
+      (`tier_of_record(puzzle.get("difficulty_tier") if hasattr(puzzle, "get")
+      else None)` inside `tier_breakdown`), or drop non-mapping rows once, up
+      front, before either pass sees them.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/helpers/page_ink.py
+    line: 103
+    title: "pdf_page_boxes duplicates pdf_pages.py's parser walk, in the ink-measuring helper"
+    description: |
+      `pdf_page_boxes` opens `PdfParser.PdfParser(buf=data)` and walks
+      `parser.pages` / `read_indirect` — byte for byte the same traversal
+      tests/helpers/pdf_pages.py:30-40 already performs, which is where cycle
+      1's F-002 suggested putting it. page_ink.py's own docstring scopes it to
+      "measure a rendered book page's drawing off its own ink"; a MediaBox is
+      not ink, and the helper now has two unrelated jobs and a second copy of
+      the Pillow-internals coupling to maintain when Pillow's PdfParser moves.
+      The parsing itself is sound — it mirrors the established precedent
+      exactly and returns the right numbers (I killed a dpi=(150,150) mutant
+      with it).
+    suggestion: |
+      Move `pdf_page_boxes` next to `pdf_pages` in tests/helpers/pdf_pages.py
+      (both tests already import that module) and keep page_ink.py to ink.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf.py
+    line: 600
+    title: "TestBookPdf_PagePlanGuardIsLive cannot tell the new guard from the old one"
+    description: |
+      The test monkeypatches `interior_page_count` itself to return
+      `planned(count) + 1` and asserts the guard fires. That mutation makes
+      the *old* form (`interior_page_count(len(answer_pages))`) fire
+      identically, so the test certifies only that the comparison executes —
+      it pins no behaviour the rewrite introduced. The fix agent states this
+      plainly and the class docstring's claim ("what this test pins is that
+      the guard is *live* at all") is no stronger than what is checked, which
+      is why this is a note rather than a finding against the docstring.
+      Worth recording because the guard's stated value — catching a future
+      change to the interior's make-up that forgets the plan — remains
+      unverified: `len(payloads)` and `len(answer_pages)` are equal by
+      construction on every input the loop can complete, and both diverge
+      together under a two-up page or a per-level divider.
+    suggestion: |
+      Either accept it as a liveness check (and say so in one line where the
+      value is claimed), or make it real: monkeypatch the *page-building* side
+      instead — e.g. have `create_divider_page` append nothing — so the pages
+      built stop matching a plan that was not patched.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

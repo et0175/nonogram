@@ -19,8 +19,8 @@ _Updated: 2026-09-22 UTC_
 | 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ✓ done |
 | 21 | CARD-114 P1, CARD-120 P1 | ✓ done |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
-| 23 | CARD-116 P1, CARD-121 P1 | ▶ active |
-| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2 | ⏳ blocked (→ wave 23) · closes Increment 14 |
+| 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
+| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2 | ▶ active · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ⏳ blocked (→ wave 24) · closes Increment 13 (owner-confirmed proof print) |
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
 | 27 | CARD-129 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
@@ -51,12 +51,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+_(none)_
 
 ## Review
-- **CARD-116** P1 · The book PDF on its own trim (parity from interior page 1) · 1d · wave 23 · Inc 13 · after CARD-115, CARD-135 · score 9.3 (cycle 2/3)
-  `worktree: ../PythonProject4-CARD-116` · `branch: card/116-book-pdf-on-trim` · `elapsed: 0d`
 
 ## Done
+- **CARD-116** Book PDF on its own trim · score 9.3 · merged dff610b
 - **CARD-121** 4.8 mm floor + override · score 9.0 · merged 9b2cfb7
 - **CARD-133** Answer tiles · score 8.0 · merged be12385
 - **CARD-124** Book readiness gate · score 9.0 · merged 238c6c0

@@ -1,0 +1,285 @@
+version: 1
+generated_at: "2026-09-23T02:22:34Z"
+target: "card/116-book-pdf-on-trim @ a89b6a6 (vs main) — CARD-116, cycle 1"
+overall_score: 8.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full)"
+    - "src/nonogram/admin/app.py (_export_part, the three export routes, the finalise handler)"
+    - "tests/helpers/page_ink.py (full)"
+    - "tests/test_book_pdf.py (full)"
+    - "tests/property/test_book_pdf_geometry.py (full)"
+    - "tests/property/test_book_export_interior.py (changed region + surrounding test)"
+    - "src/nonogram/admin/book_page_spec.py, src/nonogram/export/layout.py (compute_layout placed path, PageSpec, PagePlacement), src/nonogram/export/pdf.py (API surface), src/nonogram/admin/book_manager.py (Book print columns) — consumed contracts"
+    - "meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md (full)"
+    - "~/Documents/nonogram-reviews/CARD-116/ owner renders (guide + wide 30x15 on 6x9)"
+  not_reached:
+    - "src/nonogram/export/layout.py internals below compute_layout (_placed_cell_mm, _boundaries)"
+    - "tests/property/test_book_layout.py (CARD-114's layout halves of EC-019/022/032)"
+    - "the admin templates (book_finalize.html) — untouched by this diff"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1340, removed: 93 }
+  max_fan_in: { symbol: "nonogram.admin.book_pdf_generator.BookPDFGenerator", callers: 12 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py"           # 114 commits/12mo across the two src files, 55 fix/bug
+    - "src/nonogram/admin/book_pdf_generator.py"   # 8 commits/12mo
+  cochange_missing:
+    - "src/nonogram/admin/templates/book_finalize.html"   # 4/8 commits co-changed; absent here
+    - "tests/test_book_export_interior_cover.py"          # 2/8; still green unchanged
+    - "docs/GENERATION_ALGORITHM.md"                      # 2/8; no stale claim found, no change needed
+  unmeasured:
+    bus_factor: "no_eligible_fact — git shortlog returns no author rows for these paths in this repo"
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 32
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no runtime dependency; the only new imports are stdlib, PIL and (tests) NumPy. TestDependencyBaseline_IsExactlyPillowAndNumpy green in this worktree."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ untouched; test_every_import_in_the_package_points_inward green (admin -> export is a legal inward import, ADR-0007)."
+    - "ADR-0022/R1 ✓ holds — _payload carries width and height as separate fields (book_pdf_generator.py:425-426); no scalar 'size' introduced anywhere in the diff."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting or crop code in this diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy code in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam in this diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched; _payload passes difficulty_tier through unchanged."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no re-solving in this diff. Note: its check ref TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve does not exist under tests/ (model gap, not this card's)."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring code in this diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap masks in this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the export reads stored puzzles; no storage boundary is crossed."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is neither read nor written in this diff."
+    - "ADR-0033/R1 ✓ holds — the generator only reads puzzle dicts (book_pdf_generator.py:409-429, 468-501); no assignment to any puzzle field anywhere in the file."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no status transition code in this diff (book_manager.py untouched, G-4)."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** untouched (git diff --stat, 2 src files only); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry green (127 tests in the -k ByteIdentical/points_inward/DependencyBaseline run)."
+    - "ADR-0036/R2 ✓ holds — admin/ converts no millimetre to a pixel: every page size and usable edge is read off compute_layout through page_frame (book_pdf_generator.py:128-148), every drawing is placed by render_pages with the book's spec (:445-447). The only coordinates the module picks are text offsets on the guide/divider/cover pages, anchored to the layout's own usable edges."
+    - "ADR-0037/R1 ✗ violated — book_pdf_generator.py:427-428 feeds payload.name/difficulty into the band, which prints \"<name> — <tier>\" (confirmed on the owner render 6x9_page04: 'Fish 30x15 (wide) — medium'). Pre-existing and explicitly deferred by this card's objective 5; CARD-117 owns it. Recorded here for coverage, NOT filed as a finding against CARD-116."
+    - "ADR-0037/R2 ✓ holds — every book page now goes through book_page_spec, which sets min_thin_rule_mm=0.25 (book_page_spec.py:257); this card widens the rule's reach from puzzle pages to the guide, divider and answer pages. The default spec is untouched (ADR-0036/R1 evidence above)."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by this diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the web UI server is untouched."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request handling changed (the app.py delta is one constructor argument plus a docstring inside an existing helper)."
+    - "CON-011 ✓ holds — the new corpora draw extents from limits.MIN_SIZE/MAX_SIZE (test_book_pdf_geometry.py:158-159) and test_book_pdf.py:471-478 asserts every measured extent lies inside them; no literal 10/30 anywhere in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff."
+    - "CON-015 ✓ holds — the app.py delta is 7 lines inside _export_part (git diff); no app.run, host, port or debug flag is touched, so the bind constant is unchanged."
+    - "CON-016 ✓ holds — same bounded diff check: no route registration, no ADMIN_ALLOWED_HOST handling and no before_request hook is touched."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues are passed through from the stored puzzle rows and never re-derived here."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export gate is applied upstream; nothing in this diff reads or writes ready_for_export."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan code in this diff."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership/floor override is book_manager's, untouched (G-4). Note its first check ref PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride does not exist under tests/."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the ready gate is untouched."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book confirmation is untouched. Note its check ref TestBookPublished_ConfirmedPuzzleChangeApplied does not exist under tests/."
+    - "INV-009 ⚠ unchecked — check_ref_missing: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and TestBookPdf_DifficultyOrderWithDividerPerLevel do not exist under tests/. Manual read of this diff found no reordering: payloads are built in the caller's order (book_pdf_generator.py:469) and pages are emitted in that order (:496-501)."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: two-up pairing is not implemented yet and this card does not add it. Note its check refs (PropertyTest_BookPairing_..., TestBookPdf_DifferentTiersNeverPair, ...) do not exist under tests/."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the answer key stays one page per puzzle here by the card's own objective 4; the packed key is CARD-134. Note PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook does not exist under tests/."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership outside draft is book_manager's, untouched (G-4). Note PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists does not exist under tests/."
+    - "INV-013 ✓ holds — PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green in this worktree, now strengthened by this card: every interior page is asserted to be the trim and every drawing-bearing page (puzzle and answer alike) to draw where its own 1-based interior position puts it, over 28 seeded cases across all four export routes, with both parities asserted >= 10 times each."
+
+root_causes:
+  - id: RC-1
+    title: "interior_pages' failure semantics were changed without a test or a diagnosable message"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 468
+    title: "Render failure now aborts the whole book export — untested, and the error names no puzzle"
+    description: |
+      The rewrite moved the try/except from around "build the payload AND render the
+      two pages" to around "build the payload" alone. That part is right and needed
+      (dropping before positions are handed out is what keeps later pages' parity
+      correct). The consequence, however, is a user-visible change of failure
+      semantics that no test pins and whose message lost the one fact that made it
+      actionable.
+
+      Reproduced in this worktree against a three-puzzle book (good, broken, good):
+        * clues_rows = 5 (non-iterable)        -> _payload raises -> puzzle dropped,
+          6 pages, remaining positions correct. This is the intended path, and it is
+          the only failure class the first-pass drop actually catches.
+        * grid = None                          -> render_pages raises TypeError
+          ("'NoneType' object is not subscriptable") -> the whole export fails.
+        * row clues present, column clues empty -> render_pages raises ValueError
+          -> the whole export fails.
+      Before this card, both of the latter were caught and the puzzle skipped, so the
+      owner got a book minus one puzzle. Now the owner gets no book at all, and the
+      route (app.py:3164-3166 / :3010-3012) flashes the raw exception text, which
+      names no puzzle id — the old path at least printed it. On a 120-puzzle book,
+      one bad row becomes an unexplainable "Error generating PDF: 'NoneType' object
+      is not subscriptable".
+
+      Neither branch has a test. The first-pass drop exists precisely to keep the
+      page plan and the parities consistent when a puzzle disappears, and that
+      property — the one this restructuring was for — is unverified.
+    suggestion: |
+      1. Name the puzzle when the render fails, so the flash is actionable:
+         wrap the loop body of interior_pages (or _puzzle_and_answer's caller) and
+         re-raise as
+             raise RuntimeError(f"puzzle {puzzle_id} could not be drawn: {e}") from e
+         carrying the id from the source dict (keep the id alongside the payload in
+         the first pass).
+      2. Add two tests to tests/test_book_pdf.py:
+         - a payload-unbuildable puzzle between two good ones: assert the interior is
+           the 6-page plan and that the surviving puzzle pages still sit at the left
+           edges their own 1-based positions give them (i.e. the drop did not
+           mis-parify page 3);
+         - a render-unbuildable puzzle (grid=None): assert interior_pages raises and
+           that the message names the puzzle id.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 236
+    title: "AC-177's \"at 300 DPI\" clause is not asserted — the test reads the raster, not the page box"
+    description: |
+      tests/helpers/pdf_pages.py returns each page's embedded image (pdf_pages ->
+      Image.open of the DCT stream), so TestBookPdf_PageSizeEqualsStoredTrim asserts
+      the raster is 1800x2700 px. It never reads the page's MediaBox, which is what a
+      printer (and KDP) actually measures. A regression that changed _save_pdf's
+      dpi=(300,300) would leave every test in this card green while producing a book
+      of the wrong physical trim — the exact defect the card exists to fix.
+      I measured it by hand during this review and the behaviour is correct today:
+      the 6x9 interior's pages are MediaBox [0,0,432,648] pt = 6.0 x 9.0 in. So this
+      is an evidence gap, not a defect.
+    suggestion: |
+      In TestBookPdf_PageSizeEqualsStoredTrim add one assertion over the page tree,
+      e.g. via PIL.PdfParser: for every page, MediaBox == [0, 0, 432.0, 648.0] (and
+      [0, 0, 612.0, 792.0] on the Book 1 profile in
+      TestBookPdf_EmptyMarginsFallBackToBook1Profile). A small
+      tests/helpers/pdf_pages.pdf_page_boxes() would serve both.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 511
+    title: "The page-plan self-check cannot fire"
+    description: |
+      `if len(pages) != interior_page_count(len(answer_pages))` compares the list the
+      function just built against the same arithmetic that built it: pages is
+      1 + count + (1 + count if count else 0) and interior_page_count(count) is
+      1 + count + (count + 1 if count else 0), with count == len(answer_pages) by
+      construction. It reads as a guard against drift between the Finalise screen's
+      plan and the emitted file, and guards nothing. (Pre-existing; the diff rewrote
+      the surrounding code and docstring, so it is worth closing here.)
+    suggestion: |
+      Make it check the plan against the input rather than the output — e.g.
+      interior_page_count(len(payloads)) — or drop the check and cover the
+      screen-vs-file equality in the test that already exports through the route
+      (CARD-129 owns the exact equality per the docstring).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 474
+    title: "Dropped-puzzle log goes to stdout, not the app logger"
+    description: |
+      The drop path prints to stdout (`print(f"Failed to render puzzle ...")`) while
+      the rest of the admin panel logs through app.logger (e.g. app.py:2946
+      app.logger.warning for a missing puzzle). In a served request the print lands
+      nowhere a reader looks. Pre-existing line, but the diff touched it and it is now
+      the only trace of a silently dropped puzzle.
+    suggestion: |
+      Accept an optional logger (or use the `logging` module's module-level logger)
+      and log a warning with the puzzle id and the exception.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 137
+    title: "page_frame's no-parity guard is unreachable from this module and untested"
+    description: |
+      page_frame raises ValueError when the spec carries no parity, but every call
+      site builds its spec with book_page_spec, which always sets one
+      (book_page_spec.py:220, 258). The branch is defensive only and no test exercises
+      it — nor does any test call page_frame directly, although it is a new public
+      symbol of the module.
+    suggestion: |
+      One test: page_frame(DEFAULT_PAGE_SPEC) raises ValueError — or drop the branch
+      and let the None deref speak for itself.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 39
+    title: "Dead imports in the module whose import block the diff edited"
+    description: |
+      `from pathlib import Path` (:39), `from datetime import datetime` (:41) and
+      `from nonogram import clues` (:50) have no use left in the file (grep: one
+      occurrence each, the import itself). Pre-existing, but the diff added three
+      imports two lines away.
+    suggestion: "Remove the three unused imports."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

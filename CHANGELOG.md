@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-116 (feature): The book PDF is laid out on the book's own trim at 300 DPI with mirrored margins — the gutter on the binding side, the drawing centred across the usable width, the top edge fixed — and page parity counted from interior page 1, the guide page.
 - CARD-121 (feature): Adding a puzzle whose printed cell would fall below the 4.8 mm floor is refused at the book store — on the tab route and both paste-IDs routes alike — unless it carries an explicit override (migration 012 stores the overrides per book); the verdict is decided inside the writing transaction.
 - CARD-133 (feature): Export can render a packed answer page — grid-only answers, 6 per page (2 x 3) or 4 (2 x 2), each captioned above its grid, cells capped at 5 mm, with an optional page heading.
 - CARD-124 (feature): A book leaves draft only when it matches its plan — every longest-side × difficulty cell within ±3 percentage points of its planned share, measured against the planned total; a book with no stored plan is refused with a pointer to Print setup, and editing a plan returns a non-draft book to draft.

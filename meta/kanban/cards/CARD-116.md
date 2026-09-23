@@ -1,6 +1,6 @@
 # CARD-116: The book PDF on its own trim — trim-sized pages at 300 DPI, portrait, upright, fixed top edge
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 23
 **Depends on:** CARD-115, CARD-135
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.3 (cycle 2/3)
+**Started:** 2026-09-23T01:25:42Z
+**Closed:** 2026-09-23T03:35:32Z
+**Actual:** 0.3d
+**Merge commit:** dff610b
 **Blocked by:** —
 
 ## What to implement
@@ -168,3 +168,212 @@ Book 1 PDF (15×15, 30×30, a 30×15 wide grid) and a 6×9 PDF in
 
 - [Handover from CARD-115, 2026-09-22] setup_print still writes the chosen trim only into book_metadata.size, never trim_width_cm/trim_height_cm, so book_page_spec keeps seeing the Book 1 profile trim. AC-176/AC-177 need that persistence — carry it here or card it.
 - [Handover from CARD-115] Measure through book_cell_mm, not test_layout_page_spec.py's private _book_cell_mm helper.
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+### CARD-116 implementation, 2026-09-23
+
+**What changed.** `BookPDFGenerator` now takes the **book** (`BookPDFGenerator(book)`,
+`book=None` meaning "no stored print spec", i.e. CON-018's profile) and builds one
+`book_page_spec(book, page_number)` per page, where `page_number` is that page's
+1-based position in the interior (FR-043). Every page is the book's trim at 300 DPI:
+guide, puzzle pages, SOLUTIONS divider, answer pages and the cover file's single
+page — 2550x3300 px on Book 1, 1800x2700 px on 6x9 in. Puzzle and answer pages go
+through `render_pages(payload, page_spec=spec)` unchanged; the hard-coded
+2550x3300 letter page and the unused `trim_width_cm`/`trim_height_cm` arguments of
+`export_book`/`generate_book_pdf` are gone (one door onto the sheet, not two).
+
+**G-1 held.** The admin panel fits no cell and places no grid line. Everything it
+needs beyond `render_pages` — the trim and the usable area for the guide, divider
+and cover pages — is read off `compute_layout(..., book spec)` through the new
+`page_frame(spec)`, which lays out a one-cell probe purely to read `Layout.width`
+/ `.height` and the `PagePlacement`'s usable edges back. No millimetre is
+converted to a pixel in `admin/`.
+
+**Answer-page parity.** A puzzle's blank page and its answer page are at different
+interior positions, so when those positions disagree in parity they are different
+sheets. `_puzzle_and_answer` renders the second sheet only in that case.
+
+**Page numbering and failures.** Payloads are built in a first pass, so a puzzle
+that cannot be turned into an `ExportPayload` is dropped *before* any position is
+handed out (it used to be dropped mid-way, which with per-page specs would have
+mis-parified every later page). A failure after that point is no longer swallowed:
+the page plan `interior_page_count` states would no longer describe the file.
+
+**Band content deliberately unchanged (CARD-117's).** The puzzle page's band still
+prints today's `"<name> — <tier>"` via `payload.name`/`payload.difficulty`.
+ADR-0037/R1's "Puzzle N · Tier" is CARD-117's change and nothing here was built on
+the current text — `_payload` says so at the one place that feeds it.
+
+**Tests.** `tests/test_book_pdf.py` (AC-175..AC-178, AC-189, AC-190, AC-240,
+AC-274..AC-276, plus INV-013's `TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1`,
+which CARD-135 recorded as this card's half and which did not exist yet) and
+`tests/property/test_book_pdf_geometry.py` (the PDF halves of EC-019, EC-022,
+EC-032). Every geometric assertion is **measured off the rendered page's ink**
+(`tests/helpers/page_ink.py`) and compared against a figure worked out in
+millimetres in the test from CON-018's profile and FR-030/FR-032 — a second
+implementation, not a re-derivation: no test module here imports `compute_layout`,
+`PageSpec` or `book_page_spec`. Full suite green (1 pre-existing deselect:
+`tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`).
+
+**SCOPE+ lines.**
+- `SCOPE+ tests/helpers/page_ink.py — new shared test helper.` Reads a drawing's
+  placed edges, its cell and its rule counts back off a rendered page, so the ACs
+  and the three properties are all measured the same, independent way. It is a
+  helper, not a fixture of one test file, because CARD-117/CARD-134 will measure
+  the same pages.
+- `SCOPE+ tests/property/test_book_export_interior.py — EC-034's parity half.` The
+  card's EC-034 says "extend CARD-135's property", and this is that file. The
+  extension is additive: every interior page is asserted to be the trim, and every
+  page carrying a drawing (puzzle pages and answer pages) is asserted to draw it
+  where a page of *its own* 1-based position puts it. The stale comment saying
+  parity was not yet observable was replaced by the assertions that observe it.
+
+**[Handover to a later card] `setup_print` still does not persist the chosen trim.**
+CARD-115's handover is NOT resolved here, on purpose. `setup_print` writes the
+chosen trim into `book.metadata.size` only; there is **no existing `book_manager`
+API that stores `trim_width_cm`/`trim_height_cm`** (the print columns are written
+once, by `create_book`). Persisting them would mean editing
+`src/nonogram/admin/book_manager.py` and/or `src/nonogram/db/**`, which G-4 gives
+to CARD-121 this wave. Assigning the attributes on the `Book` object in `app.py`
+was rejected as a half-fix: it would stick in the in-memory manager and vanish in
+DB mode, making the trim mode-dependent. **What is still missing:** a
+`book_manager` method (e.g. `set_print_spec(book_id, trim_width_cm,
+trim_height_cm)`) writing the two `books` columns, called from `setup_print` after
+`PrintSpecValidator.create_spec` succeeds. Until then a book set up through the UI
+keeps the Book 1 profile trim, and only its `metadata.size` string shows the
+chosen one. AC-176/AC-177 are satisfied at the generator level with a book that
+carries a stored trim, which is what the export reads (`_export_part` passes the
+real `Book`), so the moment those columns are written the whole export follows
+with no further change here.
+
+**Owner renders.** `~/Documents/nonogram-reviews/CARD-116/` — `book1_interior.pdf`
+/ `book1_cover.pdf` and `6x9_interior.pdf` / `6x9_cover.pdf`, plus a PNG per page.
+The interior is guide (page 1, odd) → heart 15x15 (page 2, even/left-hand) →
+snowflake 30x30 (page 3, odd/right-hand) → fish 30x15 wide (page 4, even) → heart
+15x15 (page 5, odd) → SOLUTIONS divider → four answer pages.
+
+- [Review sync] entering review phase; implementation commit a89b6a6
+
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, tests/helpers/page_ink.py, tests/property/test_book_export_interior.py, tests/property/test_book_pdf_geometry.py, tests/test_book_pdf.py
+- [Build gate] impact underivable (python-pro without pytest-testmon) — full suite
+- [Build gate] PASSED (full, 184s)
+- [Build gate] ⚠ first full run showed one failure, tests/test_book_ready_gate.py::TestBookPlanEdit_OnANonDraftBookReturnsItToDraft::test_save_plan_returns_the_book_to_draft[db-ready_for_kdp], in CARD-124's area and untouched by this diff. Not reproducible in isolation nor over tests/ without the subdirectories; the run carried pytest's "(rm_rf) error removing .../pytest-of-omelnikova/garbage-..." warning, i.e. a CONCURRENT full suite (CARD-121's) garbage-collecting the shared pytest tmp base dir underneath it. Re-run under the full-suite lock with --basetemp isolated: green. Process hazard for the dispatcher, not a card defect — the full-suite lock does not isolate pytest's tmp root.
+- [Scope gate] ⚠ grown: 2 files outside Touches (tests/helpers/page_ink.py — new shared measuring helper; tests/property/test_book_export_interior.py — EC-034 says to extend CARD-135's property, and that is the file). Both recorded as SCOPE+ by the implementer. No component spread, no guardrail hit, no sibling poaching (1 of CARD-121's 7 Touches entries).
+
+- [Review 1/3] Score: 8.5 — crit: 0, imp: 1
+- [Review sync] 1 report(s) → meta/review/20260923T022234Z-CARD-116-cycle1.yml
+- [Review 1/3] Step 8h: 44/44 card rules carry a verdict line (11 ✓ holds, 32 ⚠ unchecked, 1 ✗ ADR-0037/R1 — recorded for coverage, owned by CARD-117 by this card's own objective 5). Coverage guard satisfied.
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+
+- [Adversarial] F-001 (render failure aborts the whole book export, untested, error names no puzzle) CONFIRMED — the skeptic reproduced it against both checkouts: on main a grid=None or an empty column-clue puzzle printed "Failed to render puzzle <id>" and the export returned 6 pages minus that puzzle; on the branch the same inputs raise out of interior_pages and the whole export is lost. Trimmed, not refuted: neither input is producible through the store's write path (add_puzzle refuses a non-rectangular grid; both real callers pass computed clues), and the new docstring states the non-swallowing as a deliberate trade — so it is an intended behaviour change with an unnamed-puzzle error and no test, not an accident. 1 confirmed important finding.
+
+- [Fix 1] FIXED F-001 (test: TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage, TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle), F-002 MediaBox (test: TestBookPdf_PageSizeEqualsStoredTrim, TestBookPdf_EmptyMarginsFallBackToBook1Profile), page-plan guard (TestBookPdf_PagePlanGuardIsLive), dropped-puzzle logger, page_frame guard (TestBookPdf_PageFrameNeedsABookPageSpec), dead imports. app.py deliberately NOT edited this round — the routes' existing flash now carries the puzzle id because the raised message does, so CARD-121's file was left alone.
+- [Fix 1] declarations: 2 updated (interior_pages Raises: contract, interior_page_count's drift wording; log text), 3 confirmed still correct (module docstring, _payload, app.py export docstrings), 4 none. Stated design change: puzzle["id"] acquires a second job — from log label to the identifying signal of a raised error contract.
+- [Fix pre-gate] all 6 named tests exist and pass (15 tests). Verified by revert by the fix agent: pre-fix code fails both new tests with the finding's own symptoms (unnamed TypeError; second survivor at 23.876 mm instead of 27.05 mm).
+- [Build gate] PASSED (full, 181s)
+
+- [Review 2/3] Score: 9.3 ✓ threshold reached + no critical/important — crit: 0, imp: 0. All six cycle-1 findings ✓ resolved; three of them re-derived by mutation (dpi 300→150 killed the new MediaBox assertions; the pre-fix unnamed abort killed the naming test; the pre-card mid-loop drop put the second survivor at 23.876 mm instead of 27.05 mm — the exact mis-parification, and the exact number, the fix claimed). 3 Minors remain, none gating.
+- [Review 2/3] Step 8h: 44/44 card rules carry a verdict line (10 ✓ holds, 33 ⚠ unchecked, 1 ✗ ADR-0037/R1 — deliberate, CARD-117 owns it). Coverage guard satisfied. Cycle 2 corrected cycle 1 on ADR-0006/R1: its check ref TestDependencyBaseline_IsExactlyPillowAndNumpy does not exist under tests/ (cycle 1 reported it green — an over-claim on a name); the baseline is in fact covered by tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed.
+- [Review sync] 2 report(s) → meta/review/20260923T030029Z-CARD-116-cycle2.yml
+
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0019/R1, ADR-0036/R1, INV-013). ADR-0019/R1: the ast guard is non-vacuous on this card — it walks 57 modules, ranks `admin` as a rank-0 adapter and discovers book_pdf_generator.py; the fix's only added import is stdlib `logging`. ADR-0036/R1: 66 tests green, and the a4_golden fixtures are byte-identical to main by blob hash (main == HEAD == working tree for all 5 files) — nothing regenerated; the card in fact removes the one spec-less render_pages call, moving book code off the default path, and a same-process check showed no global-state leak into the default layout. INV-013: the EC-034 property is a real seeded corpus (28 cases, 4 routes, floors incl. the card's new right-hand >= 10 / left-hand >= 10), the diff genuinely adds the trim-on-every-page and own-position-parity assertions, and the generator's position arithmetic reads exactly 1=guide, 2..1+n=puzzles, 2+n=divider, 3+n..2+2n=answers. One cosmetic note: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry is a docstring-level property label, not a runnable pytest node id (it maps to three snake_case functions).
+
+- [AC/EC check] All criteria/constraints ✓ (evidence): all 10 ACs, all 4 ECs and all 5 guardrails ✓ demonstrated by a fresh-evidence gate.
+  AC-175 4.9660 mm vs the A4 4.7692 mm; AC-176 5.9170 mm on 6x9 in and 7.5 mm on 8.5x11; AC-177 both halves — every page raster 1800x2700 px AND every MediaBox (0,0,432,648) pt (the "at 300 DPI" clause, added this fix round); AC-178 4.9660 mm on empty margins and on a wholly empty print spec, 612x792 pt; AC-189/AC-240 portrait 2550x3300 with rule counts read off the ink giving (30, 15) and a 15x30 negative control proving the measurement can see a rotation; AC-190/AC-276 same top pixel row; AC-274 27.05 mm, AC-275 23.875 mm, difference = gutter - outside.
+  EC-019 220 seeded cases, floors checked>=200 / at_cap>=20 / below_book_floor>=20; EC-022 121 systematic extents over CON-011's band + 5 wide grids on 2 sheets, floors len(extents)>=120 / counted>=150 / overflowed>=1, len(tops)==1 pinning the single top offset; EC-032 110 cases, floor checked>=100, both parities on both page kinds; EC-034 28 cases x 4 routes with per-route, cover, empty-book and right-hand>=10 / left-hand>=10 floors. All stdlib random.Random, no hypothesis.
+  G-1 no drawing primitive and no mm->px arithmetic anywhere in book_pdf_generator.py; G-2 171 tests green and tests/fixtures/a4_golden/** byte-identical to main (never regenerated); G-3/G-4/G-5 no path in the card's change set touches the guarded globs.
+  Note on method: main advanced mid-run (CARD-121 merged, tip 0594dd8, merge-base 6dd667a), so the gate used three-dot main...HEAD — a two-dot diff would have falsely attributed CARD-121's book_manager.py/db/migrations files to this card and failed G-4 spuriously.
+- [Docs] no README change: only tests/README.md exists among the changed directories, and it is a Wave-1-scoped document that enumerates four unrelated feature test files rather than the tree, so this card's files do not change what it states. src/nonogram/admin/, tests/helpers/ and tests/property/ carry no README in this project.
+
+- [Commit] f532aea fix(admin): review fix round — diagnostic render failure with puzzle id (3 files: src/nonogram/admin/book_pdf_generator.py, tests/helpers/page_ink.py, tests/test_book_pdf.py). Branch card/116-book-pdf-on-trim now carries a89b6a6 + f532aea; nothing under meta/ committed. Pipeline stops here — the dispatcher merges.
+
+
+### Review fix round 1, 2026-09-23 (F-001 Important + the cheap Minors)
+**F-001 — the render failure that aborted the book without naming a puzzle.**
+The trade the review confirmed is kept: a puzzle dropped *before* any interior
+position is handed out is what keeps every later page's parity right, and a
+failure *after* that point still aborts rather than being swallowed. What
+changed is that the abort is now diagnosable. Each puzzle's own `id` travels
+beside its payload through the first pass, and the render is wrapped so a
+failure becomes `RuntimeError(f"puzzle {id!r} could not be drawn: {e}")` with
+the original kept as `__cause__`. **The signal is the row's `id`**, not the
+position in `puzzles` (which stops matching the interior the moment a member
+is dropped), not the interior page number (which points at no row at all),
+and not `puzzle_name` (not unique, and optional). `id` is the key the book's
+membership stores and `puzzle_review.get_puzzle` looks up, so it is the one
+identifier that leads back to the row. The routes needed no change: their
+existing `flash(f"Error generating PDF: {e}")` now carries the id — `app.py`
+is deliberately untouched, CARD-121 is editing it this wave.
+**The invariant enforced:** every page of the interior sits at the 1-based
+interior position its own kind and order give it, and `interior_page_count`
+describes the file that is actually written — so the export either produces a
+file matching its page plan, or produces none and says which puzzle stopped
+it. Both halves are now tested at the module's API.
+**Tests (all in `tests/test_book_pdf.py`, all API-contract tests — their
+docstrings say so).** Neither malformed row is reachable through the store's
+write path today (`add_puzzle` re-derives clues from the grid), but the
+contract lives at `interior_pages`, so that is where it is pinned.
+- `TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage` — a row whose payload
+  cannot be built, placed *between* two good puzzles; the survivors are
+  asserted to sit at the left edges interior pages 2 (left-hand) and 3
+  (right-hand) imply, measured through `tests/helpers/page_ink.py` like the
+  rest of the file. **Verified by revert:** restoring the pre-card mid-loop
+  drop puts the second survivor at 23.876 mm (page 4's left-hand edge)
+  instead of 27.05 mm — the exact mis-parification the restructuring exists
+  to prevent.
+- `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` — a row that builds a
+  payload and then will not draw (`grid=None`), through `interior_pages` and
+  through `export_book`. **Verified by revert:** the pre-fix code fails it
+  with the finding's own symptom, `TypeError: 'NoneType' object is not
+  subscriptable` out of `export/pdf.py`, naming no puzzle.
+**Minors folded in.**
+- *AC-177's "at 300 DPI" clause is now asserted.* New
+  `page_ink.pdf_page_boxes()` reads each page's **MediaBox** straight off the
+  PDF — 6x9 in is `(0, 0, 432, 648) pt`, Book 1 is `(0, 0, 612, 792) pt` —
+  so a regression in `_save_pdf`'s `dpi=(300,300)` can no longer keep every
+  pixel assertion green while the book prints at the wrong physical trim.
+  Asserted in `TestBookPdf_PageSizeEqualsStoredTrim` (interior and cover) and
+  `TestBookPdf_EmptyMarginsFallBackToBook1Profile`.
+- *The page-plan self-check now reads from the input.* It compares the pages
+  built against `interior_page_count(len(payloads))` rather than against a
+  list the same loop produced. No input makes the two disagree *today* — the
+  gain is that a future change to the interior's make-up that forgets the
+  plan is caught. `TestBookPdf_PagePlanGuardIsLive` pins that the guard fires
+  on drift at all (it was worth checking: a guard that cannot fail reads like
+  one that can).
+- *The dropped-puzzle log goes to the module's `logger`*, at warning, with a
+  message saying what was dropped and why — it is the only trace of a member
+  that did not reach the file, and a `print` lands nowhere in a served
+  request. Pinned by
+  `TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage::test_the_drop_leaves_a_trace_in_the_log`;
+  reverting to `print` fails it.
+- *`page_frame`'s no-parity guard is kept and tested* —
+  `TestBookPdf_PageFrameNeedsABookPageSpec`. `page_frame` is a new public
+  symbol and the guard is what stops it reading attributes off `None`;
+  `DEFAULT_PAGE_SPEC` is imported there only as *a spec that is not a book
+  page*, and no measurement is derived from it, so the module's independence
+  from `compute_layout`/`book_page_spec` is untouched.
+- *Dead imports removed* from the block the diff edited: `Path`, `datetime`,
+  `clues`.
+**Declarations re-derived.** `interior_pages` gained a `Raises:` section
+stating the new error contract (the old wording said only "is not
+swallowed"). `interior_page_count`'s docstring was corrected: the payload
+skip is now stated as the *only* way its count and the book's members differ,
+because a later failure aborts instead of shortening the file. The module
+docstring, `_payload`'s docstring and `app.py`'s `_export_part` and route
+docstrings were re-read and state nothing about the failure lifecycle — still
+correct, left alone. No README states it. One design note: `puzzle["id"]`
+acquires a second job — it was a log label, it is now the identifying signal
+of a raised error contract that a reviewer will search a 120-puzzle book by.
+**Left alone on purpose.** The band still printing `"<name> — <tier>"`
+(objective 5 defers it to CARD-117); the CARD-115 `setup_print` persistence
+gap (G-4 gives `book_manager.py`/`db/**`/`migrations/**` to CARD-121);
+`src/nonogram/export/**` (G-3) and `admin/pdf_generator.py` (G-5).
+**Verification.** Full suite green from the worktree root with the stated
+deselect and `--basetemp`; the CON-019 golden-A4 tripwire
+(`tests/test_export_a4_golden.py`,
+`tests/property/test_cli_exports_byte_identity.py`) green with
+`tests/fixtures/a4_golden/**` untouched.
+
+- [Done] rebased onto main 0594dd8 (after CARD-121), full suite on the rebased tree with --basetemp: only the pre-existing e2e failure. Merged dff610b (--no-ff). Deferral scan: 0 hits. SCOPE+ x2 (tests/helpers/page_ink.py, tests/property/test_book_export_interior.py) judged necessary. CARD-115's trim-persistence handover deliberately NOT resolved here (G-4) — carded as CARD-136.
