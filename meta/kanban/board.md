@@ -18,8 +18,8 @@ _Updated: 2026-09-22 UTC_
 | 11 | CARD-017 P3 | ✅ done |
 | 20 | CARD-113 P1, CARD-135 P1, CARD-119 P1 | ✓ done |
 | 21 | CARD-114 P1, CARD-120 P1 | ✓ done |
-| 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ▶ active |
-| 23 | CARD-116 P1, CARD-121 P1 | ⏳ blocked (→ wave 22) |
+| 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
+| 23 | CARD-116 P1, CARD-121 P1 | ▶ active |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2 | ⏳ blocked (→ wave 23) · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ⏳ blocked (→ wave 24) · closes Increment 13 (owner-confirmed proof print) |
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
@@ -56,10 +56,9 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-133** P2 · Answer tiles in COMP-007 — grid-only answers on a 2 × 3 / 2 × 2 tiled page · 1d · wave 22 · Inc 15 · after CARD-114 · review: cycle 1 · score 8.0
-  `worktree: ../PythonProject4-CARD-133` · `branch: card/133-answer-tiles-layout` · `elapsed: 0d`
 
 ## Done
+- **CARD-133** Answer tiles · score 8.0 · merged be12385
 - **CARD-124** Book readiness gate · score 9.0 · merged 238c6c0
 - **CARD-122** Selection by longest-side tab · score 8.5 (3 cycles) · merged 37f1b68
 - **CARD-125** Pair-aware two-up layout · score 9.0 · merged b106796

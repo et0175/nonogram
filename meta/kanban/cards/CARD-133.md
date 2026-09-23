@@ -1,6 +1,6 @@
 # CARD-133: Answer tiles in COMP-007 — grid-only answers on a 2 × 3 or 2 × 2 tiled page of the book PageSpec
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 22
 **Depends on:** CARD-114
 **Touches:** src/nonogram/export/layout.py, src/nonogram/export/png.py, src/nonogram/export/__init__.py, tests/test_layout_answer_tiles.py, tests/property/test_book_answer_tiles.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 8.0 (cycle 1/3)
+**Started:** 2026-09-22T19:17:16Z
+**Closed:** 2026-09-23T01:04:44Z
+**Actual:** 0.7d
+**Merge commit:** be12385
 **Blocked by:** —
 
 ## What to implement
@@ -155,3 +155,62 @@ of FR-040.
 —
 
 - [Handover from CARD-125, 2026-09-22] The two-up code is one contiguous block at the end of src/nonogram/export/layout.py plus 3 __all__ entries — append the answer-tile code after it to keep the diff clean.
+
+- [Done, 2026-09-22] The answer-tile block is appended after CARD-125's two-up block at the end of `src/nonogram/export/layout.py`, plus 9 new `__all__` entries inserted at their alphabetical positions in the existing list (nothing above was reordered or reformatted). `render_answer_page` sits between `render_image` and `write_png` in `src/nonogram/export/png.py`. Full suite green: 4172 passed, 26 skipped, 1 deselected (the known pre-existing `test_size_configuration_applied`).
+
+- [Note] AC-295 prose vs formula: the card's 83.45/77.45 mm figures imply 6 mm reserved for the heading; its stated formula reserves 8 mm (heading + gap). Implemented the formula; the resulting 3.839 mm is inside AC-295's 3.87 +/- 0.05 mm. Flag for the owner / CARD-134.
+
+- [Note] `src/nonogram/export/__init__.py` was **not** touched. It re-exports `PairLayout` and `TWO_UP_MIN_CELL_MM` but **not** `compute_pair_layout` — the package re-exports layout *types/constants*, never its functions — so adding answer-tile re-exports would have been a new pattern rather than an additive one. CARD-134 imports from `nonogram.export.layout` / `nonogram.export.png` directly, exactly as CARD-127 must for `compute_pair_layout`.
+
+- [Note] EC-031's 3.19 mm floor holds *because of* INV-011, not independently of it. On the Book 1 profile the same six-up tile would print a 25x25 at 3.18 mm and a 30x30 at 2.65 mm — both under the floor. `compute_answer_page_layout` therefore does not enforce "six-up implies longest side <= 20": that is the caller's capacity rule (CARD-134), and the property corpus offers each capacity only the extents INV-011 allows it. The tightest case in range is a 30-wide answer four-up at 3.1946 mm, asserted by name in the property test so the margin cannot erode silently.
+
+- [Note] Geometry decisions not spelled out by the card: the caption line is the **top** 6 mm of its tile (the grid hangs from it, mirroring FR-032's band-above-drawing on a puzzle page, so spare tile height falls at the bottom and never between a caption and the picture it labels); the grid is centred across the tile width; an answer page's usable height ignores the spec's `band_mm` entirely (no title band); the answer cell is capped but has **no floor** (a floor would push a grid outside its own tile, which EC-031 forbids). The level heading is measured as an ordinary `HeaderBand` — it is the same thing a title band is — rather than as a new type.
+
+- [Note] `_draw_grid` in png.py had its parameter annotation widened to `Layout | AnswerTile` (one token; behaviour untouched). Both carry the same two tuples of placed `GridLine`s, so the answer key is ruled by the code that rules a puzzle page — there is no second implementation of rule widths, every-5th rules or mm->px rounding anywhere in this card.
+
+- [Render proof, 2026-09-22] `~/Documents/nonogram-reviews/CARD-133/six-up.png` (6 answers, extents 10..20, "Easy" heading, captions "Puzzle 1..6") and `four-up.png` (30x30, 25x25, 30x22, 24x30, no heading). Eyeballed: tiles do not overlap, captions are legible and inside their tiles above their grids, every grid is inside its tile, and on a blank 20x20 tile the rendered rule widths along a row are [6,3,3,3,3,6,3,3,3,3,6,...] px — the every-5th heavy rules are exactly twice the 0.25 mm thin rule (ADR-0037/R2), measured off pixels.
+
+- [Handover] CARD-134 must call:
+  - `from nonogram.export.layout import compute_answer_page_layout, AnswerPageLayout, AnswerTile, ANSWER_TILE_CAPACITIES, ANSWER_MAX_CELL_MM, ANSWER_CAPTION_MM, ANSWER_HEADING_MM, ANSWER_TILE_GAP_MM`
+  - `compute_answer_page_layout(extents: Sequence[tuple[int, int]], capacity: int, page_spec: PageSpec, heading: str | None = None) -> AnswerPageLayout` — `extents` is 1..capacity `(width, height)` = `(columns, rows)` pairs in fill order (left to right, then top to bottom); `capacity` is 4 or 6; `page_spec` is the book PageSpec **for that page's parity** (its `band_mm` is ignored); `heading` is the level's text or `None`. Raises `ValueError` on a non-book spec, a capacity other than 4/6, an empty or over-full page, or a bad extent.
+  - `from nonogram.export.png import render_answer_page` — `render_answer_page(answers: Sequence[tuple[Sequence[Sequence[bool]], str]], capacity: int, page_spec: PageSpec, heading: str | None = None) -> PIL.Image.Image`. `answers` is `(grid, caption)` pairs in the same fill order; `grid` is `list[list[bool]]` (the solution). **Pass the same `heading` value to both calls.** CARD-134 owns: the page-filling walk (INV-011 — six-up while every answer is <= 20 on its longest side, else four-up; a new page per level), the caption text ("Puzzle N", with or without a title), and which page carries the heading (CARD-128). An empty caption string prints nothing and still occupies its line.
+  - `AnswerPageLayout` carries `parity, capacity, tile_rows, tile_columns, width, height, usable_left/top/right/bottom, heading: HeaderBand | None, tiles: tuple[AnswerTile, ...], dpi`. `AnswerTile` carries `index, rows, columns, cell_mm, tile_left/top/right/bottom, caption_top/caption_bottom/caption_font_size, grid_left/top/right/bottom, thin_rule, thick_rule, vertical_lines, horizontal_lines`, plus the properties `column_boundaries`, `row_boundaries`, `caption_center_x`, `caption_center_y`, `fits`. Both are frozen value objects that refuse an invalid page at construction — overlap, a tile outside the usable area, a grid outside its tile, a cell above the 5 mm cap. **The 3.19 mm cell FLOOR is NOT enforced by the type**: it is the caller's INV-011 capacity rule (six-up only while every answer is <= 20 on its longest side). A 25x25 six-up returns 3.178 mm and a 30x30 six-up 2.648 mm, with no error. CARD-134 owns that rule and must apply it.
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+- [Scope] src/nonogram/export/layout.py, src/nonogram/export/png.py, tests/test_layout_answer_tiles.py, tests/property/test_book_answer_tiles.py
+
+- [Build gate] PASSED (full, 143s) — 4172 passed, 26 skipped, 0 failed; 1 deselected (the known pre-existing tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied).
+
+- [Scope gate] in scope — 4 changed files, all inside Touches; components: COMP-007 only; no hit on G-3 (admin/**, db/**, migrations/**) or G-4 (tests/fixtures/a4_golden/**, tests/test_export_a4_golden.py). Touches drift: src/nonogram/export/__init__.py was predicted but deliberately NOT touched (see the agent's note — the package re-exports layout types/constants, never its functions).
+
+- [Review 1/3] Score: 8.0 — crit: 0, imp: 1. Step 8h: 40 rules checked (5 holds with evidence, 1 violated, 34 unchecked-out-of-scope) — full card coverage.
+- [Review sync] 1 report(s) -> meta/review/ (20260923T005121Z-CARD-133-cycle1.yml)
+
+- [Adversarial] IMP-1 (layout.py "valid by construction ... never re-checks EC-031" overclaim) refuted — the reproduction is real (25x25 six-up = 3.178 mm, 30x30 six-up = 2.648 mm) but it is documented, deliberate and counterexampled in the code itself: layout.py:2103-2110 "No cell floor, and why that is safe" prints the 3.18 mm case verbatim, :1814-1817 and :1939-1942 both say the cell is "capped, never floored". No docstring promises the floor is enforced; :1960-1962 uses "EC-031" as shorthand for the three checks it enumerates. Dropped from the gating count (crit 0, imp 0). The one real downstream risk — the card's own [Handover] line telling CARD-134 it "never re-checks EC-031" — is corrected in place above, since that note is what CARD-134 reads.
+
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0022/R1) — the dependency baseline check (realized as tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed) and the AST import guard both re-run green, the two added src imports are stdlib + intra-package only, and neither new public signature nor either new value object exposes a scalar grid "size". No violation found in the bounded pass.
+
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-262 ✓ demonstrated — TestBookAnswerKey_TwentyInSixUpTileCellSize, 2 passed; tile 85.45 mm, cell == approx(3.97, abs=0.05), parity-invariant.
+  AC-265 ✓ demonstrated — TestBookAnswerKey_ThirtyInFourUpTileCellSize, 2 passed; cell == approx(3.19, abs=0.05) and equals tile width / 30 (the width term binds).
+  AC-267 ✓ demonstrated — TestBookAnswerKey_AnswerDrawsGridOnlyNoClues, 2 passed; 15x15 with verified non-empty clues, every cell centre's ink matches the grid and the whole image's ink bbox lies inside the grid rect (no clue gutter anywhere).
+  AC-294 ✓ demonstrated — TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm, 5 passed; unconstrained fit 7.94 mm, cell exactly ANSWER_MAX_CELL_MM = 5.0.
+  AC-295 ✓ demonstrated — TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize, 3 passed; cell == approx(3.87, abs=0.05) holds for the implemented 3.839 mm (the card's formula reserves heading 6 mm + 2 mm gap). Judged against AC-295's own stated tolerance.
+  EC-031 ✓ demonstrated — tests/property/test_book_answer_tiles.py, 2 passed. Genuinely multi-case, no hypothesis: an exhaustive sweep over every extent INV-011 allows (121 six-up + 441 four-up, both parities, heading/no-heading, every tile slot) with in-test minimum assertions (checked >= 9_900, seen[6] == 121, seen[4] == 441, all 10 slots), plus a seeded random.Random(20260922133) corpus of 2000 mixed/partial pages (pages == 2000, checked >= 5_000, capped >= 200, floored >= 100, partial >= 400). Expected cell re-derived from the CON-018 literals, not by calling the function under test. Corpus scope is stated, not hidden: six-up is offered only extents <= 20/side because that is INV-011, the caller's rule (see the [Adversarial] note).
+  G-1 ✓ demonstrated — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden + TestCliExports_ByteIdenticalAfterBookGeometry (126 passed) and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry (3 passed). None of those files nor tests/fixtures/a4_golden/** appears in the diff, so none was weakened, retargeted or deleted.
+  G-2 ✓ demonstrated — compute_layout (layout.py:1295) untouched; layout.py's only hunks are __all__ additions and a pure append at end of file. render_pages lives in export/pdf.py, not in the diff at all. render_image untouched. The single behavioural-surface change is one widened type ANNOTATION on the private _draw_grid (Layout -> Layout | AnswerTile); no body line changed.
+  G-3 ✓ demonstrated — changed-file set (diff main...HEAD union git status --porcelain) grepped against ^(src/nonogram/admin/|src/nonogram/db/|migrations/): no match.
+  G-4 ✓ demonstrated — same list grepped against ^(tests/fixtures/a4_golden/|tests/test_export_a4_golden\.py$): no match. CARD-113's golden tripwire is green and unregenerated.
+  Scope checked, exactly: only the tests this card's items name were run (the orchestrator ran the full suite separately, green); the guardrail glob check covers this branch's changed-file set, not the repository's global state.
+
+
+- [Docs] No README updated, and none needed: src/nonogram/export/ has no per-directory README (the package map lives in src/nonogram/__init__.py's docstring, and both new blocks carry full module/class/function docstrings). tests/README.md is an "Admin Panel Test Suite - Wave 1" document that enumerates admin tests only, untouched since 96da6ac and not updated by CARD-125 when it added the analogous two-up test files — adding two export-geometry test files changes neither its structure nor its purpose.
+
+- [Commit] SUCCESS e7ea1e9 — feat(export): answer tiles — a packed 2x3 / 2x2 answer page (CARD-133). 4 files, +1448/-3, conventional message, Co-Authored-By present, nothing under meta/ or src/nonogram.egg-info committed. The implementation agent had already produced the single card commit and no source change remained uncommitted, so /commit had nothing to add; the message was verified against the diff and the card rather than regenerated.
+
+- [Owner] Two proof pages in ~/Documents/nonogram-reviews/CARD-133/ (six-up.png with an "Easy" heading and captions "Puzzle 1..6"; four-up.png with 30x30 / 25x25 / 30x22 / 24x30, no heading). Eyeballed by the orchestrator as well as the implementer: tiles do not overlap, captions sit above their grids inside their tiles, the heading is centred at the top of the usable area. One design question the card never decided and the owner may want to rule on: each grid HANGS FROM ITS CAPTION at the top of its tile, so all the spare tile height falls at the bottom. On a 4-up page a 25-wide answer leaves roughly 43 mm of white below itself, and a mixed page reads ragged. Vertically centring the grid in the rest of the tile would be a one-line change here and would not move any AC value.
+
+  - `AnswerPageLayout` carries `parity, capacity, tile_rows, tile_columns, width, height, usable_left/top/right/bottom, heading: HeaderBand | None, tiles: tuple[AnswerTile, ...], dpi`. `AnswerTile` carries `index, rows, columns, cell_mm, tile_left/top/right/bottom, caption_top/caption_bottom/caption_font_size, grid_left/top/right/bottom, thin_rule, thick_rule, vertical_lines, horizontal_lines`, plus the properties `column_boundaries`, `row_boundaries`, `caption_center_x`, `caption_center_y`, `fits`. Both are frozen value objects that refuse an invalid page at construction, so CARD-134 never re-checks EC-031.
+
+- [Done] rebased onto main 98776c5 (after CARD-124), full suite on the rebased tree: only the pre-existing e2e failure. Merged be12385 (--no-ff). Deferral scan: 0 hits. Handover pushed to CARD-134 incl. the 3.19 mm floor caveat; AC-295 prose inconsistency and the tile-centring question queued for the owner/architect.

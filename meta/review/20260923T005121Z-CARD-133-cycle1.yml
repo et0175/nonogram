@@ -1,0 +1,218 @@
+reviewer_version: forge 2026.8.17
+card: CARD-133
+cycle: 1
+of_cycles: 3
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-133
+branch: card/133-answer-tiles-layout
+target: main
+commits:
+  - e7ea1e9
+reviewed_at: 2026-09-23T00:51:21Z
+overall_score: 8
+verdict: blocked
+file_scope:
+  - src/nonogram/export/layout.py
+  - src/nonogram/export/png.py
+  - tests/test_layout_answer_tiles.py
+  - tests/property/test_book_answer_tiles.py
+
+task_contract:
+  acceptance_criteria:
+    - id: AC-262
+      status: pass
+      evidence: >-
+        tests/test_layout_answer_tiles.py::TestBookAnswerKey_TwentyInSixUpTileCellSize.
+        Re-derived independently in exact Fractions: usable 193.675 x 260.35 mm,
+        six-up tile 95.8375 x 85.45 mm, cell = (85.45-6)/20 = 3.9725 mm, inside
+        3.97 +/- 0.05.
+    - id: AC-265
+      status: pass
+      evidence: >-
+        TestBookAnswerKey_ThirtyInFourUpTileCellSize. Re-derived: width term
+        95.8375/30 = 3.194583 mm (height term 4.1058 mm loses), inside 3.19 +/- 0.05.
+    - id: AC-267
+      status: pass
+      evidence: >-
+        TestBookAnswerKey_AnswerDrawsGridOnlyNoClues asserts structurally that all
+        ink lies inside the tile's grid rectangle; AnswerTile carries no ClueEntry
+        and no gutter fields at all.
+    - id: AC-294
+      status: pass
+      evidence: >-
+        TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm. Re-derived: tile fit
+        (85.45-6)/10 = 7.945 mm, capped to ANSWER_MAX_CELL_MM = 5.0.
+    - id: AC-295
+      status: pass
+      evidence: >-
+        TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize. The card's FORMULA
+        (8 mm reserved) is implemented; re-derived cell = ((260.35-8-4)/3 - 6)/20 =
+        3.839167 mm, inside AC-295's 3.87 +/- 0.05. The card's prose figures
+        (83.45/77.45) imply 6 mm; already flagged for the owner, not re-litigated.
+  engineering_constraints:
+    - id: EC-031
+      status: pass_with_caveat
+      evidence: >-
+        tests/property/test_book_answer_tiles.py, 50 tests green. Exhaustive sweep
+        9960 tile checks (121 six-up extents x 2 parities x 2 headings x 6 slots +
+        441 four-up extents x 2 x 2 x 4), plus a 2000-page seeded mixed corpus.
+        Independently re-derived minimum over the INV-011-allowed corpus: 3.194583 mm
+        at 30 columns four-up. Caveat: the property holds only under INV-011's
+        capacity rule, which compute_answer_page_layout does not enforce (see
+        finding IMP-1).
+  guardrails:
+    - id: G-1
+      status: pass
+      evidence: >-
+        tests/test_export_a4_golden.py and tests/test_cli.py -k "golden or
+        ByteIdentical" run green in the worktree; the only non-additive production
+        edits are png.py's __all__, its import list and one annotation widening,
+        all behind `from __future__ import annotations`.
+    - id: G-2
+      status: pass
+      evidence: git diff main...HEAD shows compute_layout/render_image/render_pages untouched.
+    - id: G-3
+      status: pass
+      evidence: diff touches exactly 4 files, none under src/nonogram/admin, src/nonogram/db or migrations.
+    - id: G-4
+      status: pass
+      evidence: tests/fixtures/a4_golden/** and tests/test_export_a4_golden.py are not in the diff.
+
+test_quality:
+  hypothesis_free: true
+  seeded_corpora: true
+  minimum_case_counts_asserted: true
+  notes: >-
+    Property tests assert their own case counts in-test (checked >= 9_900 against an
+    actual 9960; pages == 2000; checked >= 5_000; capped >= 200; floored >= 100;
+    partial >= 400) and assert corpus coverage (seen[6] == 121, seen[4] == 441,
+    every tile slot). Expected cells are re-derived in plain floats from CON-018
+    literals, not by calling the function under test. Mutation probe (module-global
+    constants patched, expectations left at the card's values) killed all four
+    mutants: ANSWER_CAPTION_MM 6->5, ANSWER_TILE_GAP_MM 2->3, ANSWER_MAX_CELL_MM
+    5->6, ANSWER_HEADING_MM 6->4. The six-up corpus restriction to <= 20 a side is
+    declared in the module docstring with its reason and the 25x25 = 3.18 mm /
+    30x30 = 2.65 mm counterexamples named, so the corpus is honest, not shaped to pass.
+
+findings:
+  critical: []
+  important:
+    - id: IMP-1
+      title: >-
+        "Valid by construction ... never re-checks EC-031" is an overclaim: the
+        3.19 mm cell floor is not enforced anywhere
+      files:
+        - src/nonogram/export/layout.py
+      detail: >-
+        AnswerPageLayout's class docstring ("so a caller holding one never re-checks
+        EC-031"), AnswerTile.fits's docstring ("what makes EC-031 a property of the
+        type rather than of the tests") and the card's own handover note ("so
+        CARD-134 never re-checks EC-031") all promise that the type guarantees
+        EC-031. __post_init__ checks the upper cap, tile containment, grid-in-tile
+        and overlap, but never the lower bound. Reproduced:
+        compute_answer_page_layout([(25, 25)], 6, BOOK1_ODD) returns cell_mm =
+        3.178 and [(30, 30)] six-up returns 2.648 — both below EC-031's 3.19 mm —
+        with no error. The split with CARD-134 is defensible, but the documentation
+        tells CARD-134 to skip the only check that keeps EC-031 true.
+      fix: >-
+        Either enforce INV-011's capacity rule in compute_answer_page_layout (reject
+        capacity 6 when max(columns, rows) > 20 — a named constant beside
+        ANSWER_MAX_CELL_MM), or correct the three docstrings and the handover note
+        to say the floor is the caller's rule and is NOT guaranteed by the type.
+      confidence: high
+      source: re-derivation
+  minor:
+    - id: MIN-1
+      title: compute_answer_page_layout's docstring quotes 3.87 mm for a heading page; the implemented formula gives 3.839 mm
+      files: [src/nonogram/export/layout.py]
+      detail: >-
+        The docstring correctly states the 82.78 mm heading tile but then says a
+        20x20 prints "3.87 mm under a heading" — that is AC-295's target, not what
+        this code prints (3.8392 mm). The test module docstring gets it right (3.84).
+    - id: MIN-2
+      title: AnswerPageLayout's heading validation is effectively vacuous and uses the wrong reservation
+      files: [src/nonogram/export/layout.py]
+      detail: >-
+        heading_top = center_y - height // 2 reconstructs exactly usable_top for any
+        band this module builds, so `heading_top < usable_top` can never fire. The
+        first-tile-row check then uses heading.height (6 mm) where the real
+        reservation is 6 + 2 mm, so it carries 2 mm of slack and never verifies that
+        the heading line clears the first tile row — the "without overlapping one
+        another" half of EC-031 for the heading.
+    - id: MIN-3
+      title: No caption/heading text fitting; a long caption draws across the whole page
+      files: [src/nonogram/export/png.py]
+      detail: >-
+        Measured: a 109-character caption on a six-up tile inks x = 0..2315 on a
+        2551 px page whose tile is x = 150..1282 — over the neighbouring tile and
+        past the left margin. EC-031 only constrains the caption *line*, and the
+        text is CARD-134's, so this is not an AC failure; it belongs in the handover
+        as an explicit caller obligation, or wants a measure-and-shrink in
+        render_answer_page.
+    - id: MIN-4
+      title: Two different private `_answer_extent` functions with the same name
+      files: [src/nonogram/export/png.py, src/nonogram/export/layout.py]
+      detail: >-
+        png.py's takes a grid and returns its extent; layout.py's takes a candidate
+        extent and validates it. Same name, different contracts, adjacent modules.
+  out_of_scope:
+    - id: OOS-1
+      detail: >-
+        src/nonogram/export/__init__.py is listed under the card's **Touches** but
+        deliberately untouched; the worktree note gives a consistent reason (the
+        package re-exports layout types/constants, never its functions — CARD-127's
+        compute_pair_layout is the precedent).
+    - id: OOS-2
+      detail: >-
+        The card's AC-295 prose (83.45 / 77.45 / 3.87 mm) contradicts its own stated
+        formula (82.78 / 76.78 / 3.839 mm). Already flagged for the owner; both
+        readings land inside AC-295's tolerance.
+
+system_contract:
+  rules_checked: 40
+  verdicts:
+    ADR-0006/R1: "holds — only stdlib collections.abc.Sequence and an intra-package export.layout import are added (git diff main...HEAD -- src | grep '^+.*import')"
+    ADR-0019/R1: "holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green in the worktree; export/ gains no admin/cli/orchestrator import"
+    ADR-0022/R1: "holds — extents cross the boundary as (width, height) pairs; layout._answer_extent refuses anything that is not a 2-pair (tests/test_layout_answer_tiles.py:418-425)"
+    ADR-0023/R1: "unchecked — no export metadata format is touched by this diff"
+    ADR-0024/R1: "unchecked — out of this diff's scope (no solver/recovery code)"
+    ADR-0024/R2: "unchecked — out of this diff's scope"
+    ADR-0024/R3: "unchecked — out of this diff's scope"
+    ADR-0024/R4: "unchecked — out of this diff's scope"
+    ADR-0024/R5: "unchecked — out of this diff's scope"
+    ADR-0027/R1: "unchecked — out of this diff's scope (no density path)"
+    ADR-0027/R2: "unchecked — out of this diff's scope"
+    ADR-0029/R1: "unchecked — out of this diff's scope (no difficulty code)"
+    ADR-0029/R2: "unchecked — out of this diff's scope"
+    ADR-0029/R3: "unchecked — out of this diff's scope"
+    ADR-0029/R4: "holds — same import guard as ADR-0019/R1; no lateral import added"
+    ADR-0029/R5: "unchecked — out of this diff's scope"
+    ADR-0033/R1: "holds — no puzzle field is read or written; the diff touches only export geometry and rendering"
+    ADR-0035/R1: "unchecked — out of this diff's scope (no book status transition)"
+    ADR-0036/R1: "holds — tests/test_export_a4_golden.py green; compute_layout untouched and the answer path is entered only by the new functions"
+    ADR-0036/R2: "holds — all answer-page geometry lives in export/layout.py; no admin file in the diff"
+    ADR-0037/R1: "holds — an answer tile prints only the caller's caption string; render_answer_page composes no title (png.py render_answer_page)"
+    ADR-0037/R2: "holds — _answer_tile reuses _rule_widths(pitch, page_spec); tests/property/test_book_answer_tiles.py:161-162 asserts thin >= 0.25 mm and thick == 2 * thin over the whole corpus"
+    CON-005: "unchecked — out of this diff's scope (no solver code)"
+    CON-009: "unchecked — out of this diff's scope (no web server code)"
+    CON-010: "unchecked — out of this diff's scope"
+    CON-011: "unchecked — layout._answer_extent deliberately does not re-check MIN_SIZE..MAX_SIZE (documented); validation stays at grid creation, which this diff does not touch"
+    CON-012: "unchecked — out of this diff's scope (no image sourcing)"
+    CON-019: "holds — tests/test_cli.py -k ByteIdentical and tests/test_export_a4_golden.py green; the only non-additive production edits are png.py's __all__, its import list and one annotation, all string-valued under `from __future__ import annotations`"
+    INV-001: "unchecked — out of this diff's scope; the AC-267 test calls clues.compute_clues from the test tree only"
+    INV-002: "unchecked — out of this diff's scope (no export gate touched)"
+    INV-003: "unchecked — out of this diff's scope (no retry counter)"
+    INV-005: "unchecked — out of this diff's scope (no book plan)"
+    INV-006: "unchecked — out of this diff's scope (no membership/override path)"
+    INV-007: "unchecked — out of this diff's scope"
+    INV-008: "unchecked — out of this diff's scope"
+    INV-009: "unchecked — out of this diff's scope; tile fill order is the caller's given order (asserted at tests/property/test_book_answer_tiles.py:263)"
+    INV-010: "unchecked — out of this diff's scope (puzzle-page pairing untouched)"
+    INV-011: "violated in spirit — compute_answer_page_layout accepts capacity 6 with a 25x25 (cell 3.178 mm) or 30x30 (2.648 mm), which INV-011 forbids; the rule is left entirely to CARD-134 while the type's docstrings claim EC-031 is guaranteed by construction (finding IMP-1)"
+    INV-012: "unchecked — out of this diff's scope"
+    INV-013: "unchecked — out of this diff's scope (no interior assembly)"
+
+build_gate:
+  full_suite: "green (orchestrator): 4172 passed, 26 skipped, 0 failed, 1 deselected"
+  targeted_runs:
+    - "tests/test_layout_answer_tiles.py + tests/property/test_book_answer_tiles.py: 50 passed"
+    - "tests/test_cli.py + tests/test_export_a4_golden.py -k 'import or golden or ByteIdentical': 7 passed"
