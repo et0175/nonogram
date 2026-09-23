@@ -1,0 +1,265 @@
+version: 1
+generated_at: "2026-09-23T08:02:41Z"
+target: "card/136-store-chosen-trim @ 5bad570 + uncommitted cycle-1 fix round (vs main) — CARD-136 cycle 2, CONFIRMATION MODE"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (_stored_trim_cm, _submitted_trim_cm, setup_print GET+POST, the two writer-return branches)"
+    - "src/nonogram/admin/book_manager.py (set_print_spec incl. the new isfinite + validate_trim_size gate)"
+    - "src/nonogram/admin/print_specs.py (PrintSpec, cm_to_inches, inches_to_cm, validate_trim_size, create_spec)"
+    - "src/nonogram/admin/book_page_spec.py (MIN_TRIM_CM/MAX_TRIM_*_CM, book_page_spec read-back)"
+    - "src/nonogram/admin/templates/book_setup_print.html (read for unit/field semantics; NOT in the card diff)"
+    - "tests/test_book_trim_persistence.py (full, 78 cases), tests/test_book_plan_storage.py helpers"
+    - "meta/review/20260923T071007Z-CARD-136-cycle1.yml, meta/kanban/cards/CARD-136.md (full)"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (unchanged; exercised only through the route-level export test)"
+    - "src/nonogram/admin/templates/book_finalize.html and tests/test_book_pdf.py — unchanged since cycle 1, verdicts carried"
+    - "rendered screens — static-only review; the implementer's renders in ~/Documents/nonogram-reviews/CARD-136/ were not re-captured"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 529, removed: 55 }
+  max_fan_in: { symbol: "nonogram.admin.book_manager.BookManager.set_print_spec", callers: 1 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (118 commits in 12 months; 54 of the commits on the touched pair are fix/bug/hotfix)"
+    - "src/nonogram/admin/book_manager.py (18 commits in 12 months)"
+  cochange_missing:
+    - "src/nonogram/admin/templates/book_setup_print.html"
+  unmeasured:
+    bus_factor: "no_eligible_fact — git shortlog reports a single author (Claude Code) for the whole repository, so the signal cannot discriminate"
+    mutation_check: "not_applicable — meta/kanban/config.yml is absent, so review.mutation_check is unset (default false); the opt-in mutation check does not run"
+    rendered_screens: "provider_unavailable — not a UI card by the procedure's test (no ## Design context, Skill python-pro) and there is no Makefile run target, so the visual loop captured no screenshots, runtime.log, a11y.log or visual-diff.log"
+
+system_contract:
+  rules_checked: 44
+  holds: 18
+  unchecked: 26
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the fix delta's only new imports are `import math` (stdlib) and `from nonogram.admin.print_specs import PrintSpec, PrintSpecValidator` (intra-package); `git diff main -- pyproject.toml` is empty; TestDependencyBaseline_IsExactlyPillowAndNumpy re-run green here."
+    - "ADR-0019/R1 ✓ holds — no file under src/nonogram/web/ is in the delta, but the rule's check walks the whole package on disk, so it was re-run rather than carried: tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED on this working tree."
+    - "ADR-0022/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no grid-extent signature, request field or export field in the fix delta (no_eligible_fact)."
+    - "ADR-0022/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no image-fitting code in the fix delta (no_eligible_fact)."
+    - "ADR-0022/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no --size handling in the fix delta (no_eligible_fact)."
+    - "ADR-0024/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no random-mode repair/verification code in the fix delta (no_eligible_fact)."
+    - "ADR-0024/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no RetryCounter or retry bound in the fix delta (no_eligible_fact)."
+    - "ADR-0024/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no repair code in the fix delta (no_eligible_fact)."
+    - "ADR-0024/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no repair pair-choice code in the fix delta (no_eligible_fact)."
+    - "ADR-0024/R5 ⚠ unchecked — carried(cycle 1, delta-clean): no source-mode recovery policy in the fix delta (no_eligible_fact)."
+    - "ADR-0027/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no density validation in the fix delta (no_eligible_fact)."
+    - "ADR-0027/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no pipeline stage in the fix delta makes a density verdict (no_eligible_fact)."
+    - "ADR-0029/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no difficulty scoring in the fix delta (no_eligible_fact)."
+    - "ADR-0029/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no solve/strategies code in the fix delta (no_eligible_fact)."
+    - "ADR-0029/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no scoring input in the fix delta (no_eligible_fact)."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver-package file in the fix delta. Its check (the package-wide import guard) DOES reach the delta's two src files, so it was re-run rather than carried: test_every_import_in_the_package_points_inward PASSED."
+    - "ADR-0029/R5 ⚠ unchecked — carried(cycle 1, delta-clean): no rung attribution in the fix delta (no_eligible_fact)."
+    - "ADR-0032/R1 ✓ holds — book_manager.py is in the delta, so re-derived: the delta adds no puzzle write (`git diff -- src/ | grep add_puzzle` is empty) and the only new writer path is set_print_spec's own trim validation, which strengthens rather than bypasses the boundary posture the rule states; TestStorageBoundary_AsksTheSolverNotTheCaller re-run green here."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: the fix delta's hunks in app.py touch the trim prefill and the writer-return branches only; no quality_score or recognizability rendering is in them (book_finalize.html unchanged since cycle 1)."
+    - "ADR-0033/R1 ✓ holds — re-derived on the new code: set_print_spec's added block only reads spec.trim_* and raises; the write still assigns trim_width_cm/trim_height_cm/updated_at and nothing else (book_manager.py:726-745). tests/test_book_trim_persistence.py::TestSetPrintSpec_WritesOnlyTheTrim::test_nothing_but_the_trim_columns_moves is now non-tautological in memory mode (fields snapshotted, F-005) and green in both modes."
+    - "ADR-0035/R1 ✓ holds — app.py is in the delta but the added code assigns no status: the new `if not book_mgr.save_plan(...)` branch only flashes and redirects, and `git diff -- src/ | grep -i status` returns nothing. TestBookStatus_EveryExitFromDraftIsGatedOnThePlan re-run green here."
+    - "ADR-0036/R1 ✓ holds — tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py re-run on this working tree: 66 passed. G-3 scan `git diff --name-only main | grep -E '^src/nonogram/export/|^tests/fixtures/a4_golden/'` returns nothing."
+    - "ADR-0036/R2 ✓ holds — the two new admin helpers fit no cell and place no rule: _stored_trim_cm (app.py:2089-2102) returns two strings, _submitted_trim_cm (app.py:2104-2129) only chooses between a stored string and inches_to_cm. All page geometry still comes from book_page_spec."
+    - "ADR-0037/R1 ⚠ unchecked — carried(cycle 1, delta-clean): book_pdf_generator.py is not in the fix delta and no band/title rendering is in it (no_eligible_fact)."
+    - "ADR-0037/R2 ⚠ unchecked — carried(cycle 1, delta-clean): book_page_spec.py is not in the fix delta; the stroke policy line the cycle-1 verdict cited (book_page_spec.py:280) is unchanged."
+    - "CON-005 ⚠ unchecked — carried(cycle 1, delta-clean): no solver code in the fix delta (no_eligible_fact)."
+    - "CON-009 ⚠ unchecked — carried(cycle 1, delta-clean): no file under src/nonogram/web/ in the fix delta (no_eligible_fact)."
+    - "CON-010 ⚠ unchecked — carried(cycle 1, delta-clean): no web request handling in the fix delta (no_eligible_fact)."
+    - "CON-011 ⚠ unchecked — carried(cycle 1, delta-clean): no grid-side validation in the fix delta (no_eligible_fact)."
+    - "CON-012 ⚠ unchecked — carried(cycle 1, delta-clean): no aspect-ratio guard in the fix delta (no_eligible_fact)."
+    - "CON-015 ✓ holds — app.py is in the delta, so re-scanned: `git diff -- src/nonogram/admin/app.py | grep -iE '^\\+.*(host=|port=|app\\.run|debug=|0\\.0\\.0\\.0)'` returns nothing. TestAdminPanel_BindsLoopbackOnlyByDefault re-run green here."
+    - "CON-016 ✓ holds — the delta adds no route (`git diff -- src/nonogram/admin/ | grep '^+.*@app.route'` is empty) and no request-admission code; the two new early returns are ordinary in-handler redirects to url_for('books_list'). TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit re-run green here."
+    - "INV-001 ⚠ unchecked — carried(cycle 1, delta-clean): no clue computation in the fix delta (no_eligible_fact)."
+    - "INV-002 ⚠ unchecked — carried(cycle 1, delta-clean): no export-readiness marking in the fix delta (no_eligible_fact)."
+    - "INV-003 ⚠ unchecked — carried(cycle 1, delta-clean): no retry counter in the fix delta (no_eligible_fact)."
+    - "INV-005 ✓ holds — re-derived over the restructured POST: the trim write is still inside `elif plan_error is None:` (app.py:2232/2280) and the new save_plan early return sits *after* the plan has been accepted, so a refused plan still reaches no writer. TestBookTrim_RefusedPlanStoresNothing (12 cases) green in the 78-case file run here."
+    - "INV-006 ✓ holds — set_print_spec writes no membership and no override; the G-4 test now compares a snapshot (before_overrides = list(before.floor_overrides), a real copy since floor_overrides is List[str], book_manager.py:94) rather than the live memory-mode Book. PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green in the 120-case book-invariant run here."
+    - "INV-007 ✓ holds — the readiness gate reads the plan and the selection's counts; the delta assigns no status and writes no membership. PropertyTest_BookReady_GateIffEveryCellWithinTolerance green in the book-invariant run here."
+    - "INV-008 ✓ holds — G-4 re-derived on the fixed test: before_status/before_ids/before_titles/before_overrides are all copied out before the write (tests/test_book_trim_persistence.py:405-414), so the memory-mode parametrisation now discriminates; green in both modes."
+    - "INV-009 ✓ holds — the G-4 test still reorders to [ids[2], ids[0], ids[1]] before the write and asserts that exact order afterwards against a copied list; PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green in the book-invariant run here."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing code in the fix delta; book_pdf_generator.py and book_page_spec.py are unchanged. (The ten TestBookPdf pairing tests were green in the book-invariant run here.)"
+    - "INV-011 ⚠ unchecked — carried(cycle 1, delta-clean): answer-key capacity is a function of each answer's longest side in cells, not of the trim, and no answer-key code is in the fix delta."
+    - "INV-012 ✓ holds — a trim write is still not a membership change: set_print_spec assigns neither puzzle_ids nor status, and the G-4 test asserts both unchanged against snapshots in both modes. PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists green in the book-invariant run here."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: the interior/cover separation is untouched by the fix delta (the route-level export test in tests/test_book_trim_persistence.py is unchanged by it). PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green in the book-invariant run here."
+
+root_causes:
+  - id: RC-1
+    title: "the trim route hands create_spec an absent/empty field, which silently substitutes the Book 1 profile instead of refusing"
+    finding_ids: [F-101]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2221
+    title: "An empty or absent trim field in cm mode silently overwrites the stored trim with the Book 1 profile and flashes success"
+    description: |
+      In centimetre mode the route passes the raw form value straight through
+      (app.py:2221-2222, `width_cm = width_input`). `PrintSpecValidator.create_spec`
+      then applies `width_cm = width_cm or DEFAULT_TRIM_WIDTH_CM` (print_specs.py:155-156),
+      so an empty string and a missing field are both indistinguishable from
+      "the owner asked for the Book 1 profile". Before this card that only produced a
+      display string; now it is written to the two print columns the PDF's page size and
+      every cell measurement are taken from.
+
+      Reproduced end to end through the real route on this working tree (memory mode,
+      /private/tmp/.../scratchpad/probe.py):
+        POST unit=cm width=15.24 height=22.86   -> stored ('15.24', '22.86')
+        POST unit=cm width=""    height=22.86   -> 302 to /select-puzzles,
+                                                   stored ('21.59', '22.86')
+        POST unit=cm (no width/height keys)     -> 302 to /select-puzzles,
+                                                   stored ('21.59', '27.94')
+      Both submissions flash "Print specs set: ... cm" and redirect on to puzzle
+      selection; the owner's chosen trim is gone and nothing says so.
+
+      The inches branch refuses exactly the same input — `_submitted_trim_cm("", stored)`
+      falls through to `inches_to_cm("")`, which raises ValueError and the route reports
+      "Error: Invalid inch value:" (probed: 200, columns unchanged). So the two units
+      disagree about what an empty trim field means, which is what marks this as
+      unintended rather than a policy.
+
+      This is not a fix-round regression — the cm branch is unchanged by the fix delta —
+      but it is the same defect class the fix round just closed one layer down: cycle 1's
+      F-001 made `set_print_spec` refuse a value the reader could not read back, on the
+      stated ground that "no caller's assurance substitutes for that check"; the route
+      still converts an absent value into a silent, valid-looking profile write before
+      that check can see it. The HTML `required` attribute on both inputs
+      (book_setup_print.html:45-46,54-55) keeps a normal browser out of this path, so
+      there is no live defect for the owner today — the cost is the same as F-001's:
+      the storage boundary the card exists to make authoritative accepts a submission
+      that loses the value of record, and nothing in the 78-case file covers it.
+    suggestion: |
+      Refuse an empty/absent trim field in the route rather than defaulting it: treat
+      `width_input`/`height_input` in ("", None) as an error ("Trim width is required")
+      before create_spec is called, in both unit branches, so cm and inches behave the
+      same. (Changing `create_spec`'s `or DEFAULT` is the wrong lever — its defaulting is
+      what a genuinely trim-less caller wants.) Add the missing negative cases to
+      tests/test_book_trim_persistence.py: a POST with width="" and a POST with no
+      width/height keys, both asserting the stored columns are untouched and no success
+      flash, in both storage modes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2280
+    title: "Endorsed residual: the plan and the trim still commit in two DB transactions"
+    description: |
+      The fix round resolved the ignored-return half of cycle 1's F-004 (verified: a book
+      deleted from inside the writer call now yields 302 to /books with exactly one flash,
+      ('error', 'Book not found'), and no success message). The declared residual stands:
+      in DB mode save_plan (book_manager.py:643-651) and set_print_spec (:726-745) commit
+      in two separate sessions, so a failure between the commits can leave the plan stored
+      and the trim not.
+
+      Reviewer's verdict on that owner-visible choice: ACCEPTABLE for this card, and this
+      finding exists to keep it visible rather than to block it. Grounds — (a) AC-197's
+      actual rule is about a *refused* submission, and that is fully honoured: both the
+      plan check and create_spec precede either write; (b) the half-applied state persists
+      nothing unreadable or invalid — the book simply keeps its previous, valid trim, and
+      the owner is told "Book not found" rather than "saved"; (c) no INV-005..INV-013
+      invariant spans the two writes; (d) the state is self-healing — reopening Print setup
+      and pressing Save stores the trim; (e) the admin panel is a single-owner loopback
+      surface (CON-015) with no concurrent writer, so the window needs a mid-request DB
+      failure, not a race.
+    suggestion: |
+      Leave as is for CARD-136. If the window ever matters, the follow-up is one
+      BookManager writer that sets the plan and the trim inside a single session, called
+      once from setup_print — the card's Worktree notes already record this.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2113
+    title: "_submitted_trim_cm's docstring says \"the exact string the page rendered\" but the code compares against the stored trim"
+    description: |
+      The helper's discriminator is `cm_to_inches(stored_cm) == str(submitted_inches).strip()`
+      (app.py:2125) — the inch form of the *stored* trim, not of whatever the page last
+      rendered. The two coincide on a prefill-from-storage render, which is the case the
+      docstring describes, but not after a refused submission, where the fields carry the
+      owner's own entries back (app.py:2331-2333). In that state an unchanged resubmission
+      is converted rather than kept. That outcome is correct (relative to storage it *is*
+      an edit), so this is a precision problem in the declared contract, not a behaviour
+      bug — but the declared design change is exactly the thing a later cycle re-reads, and
+      it should describe what the code does.
+
+      The second-meaning cost itself is real and correctly bounded: an owner who
+      deliberately types the rendered inch string wanting its exact centimetre value gets
+      the stored one instead (15.00 cm rather than 15.01 cm for "5.91"). At <= 0.1 mm on a
+      trim KDP wants exact, keeping the stored value is the better of the two readings;
+      the alternative (a tolerance window) would swallow a deliberate one-step edit, as the
+      docstring argues. Verified: untouched inches save keeps ('15.00','20.00') across five
+      round trips, a real edit to 6/9 still stores ('15.24','22.86'), and one edited field
+      converts while the other is kept.
+    suggestion: |
+      Reword to "the inch form of the stored trim — the string a prefill renders into the
+      field", and note the refused-submission case explicitly.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2327
+    title: "The cm downgrade does not rewrite the session, so correcting an unreadable trim silently drops the inches preference"
+    description: |
+      The F-003 fix sets the local `unit_preference = "cm"` without touching
+      `session["unit_preference"]` (verified: after the downgraded GET the session still
+      reads "inches" while the page renders cm radio + "cm"/"cm" suffixes). That is the
+      right call for the render — it is a per-request fact, not a preference change — but
+      the consequence is that the correcting submission from that page carries unit="cm"
+      and line 2184 then overwrites the session with "cm". An owner who worked in inches,
+      hit a book with an unreadable column, and corrected it comes out of the flow in
+      centimetres, with nothing said.
+
+      Impact is cosmetic and the state is self-consistent at every step (the page, the
+      radio, the two suffixes and the reading of the next submission all agree — confirmed
+      by TestBookTrim_ThePageCarriesOneUnit in both storage modes). Noted because it is the
+      one loose end of the declared "unit_preference is now the unit the PAGE is in"
+      design change.
+    suggestion: |
+      Either accept and say so in the docstring (one sentence: the correcting save adopts
+      the page's unit), or restore the remembered unit by rendering a hidden field with the
+      session's unit and only overwriting the session when the radio was actually the
+      owner's choice.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

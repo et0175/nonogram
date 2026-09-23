@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-136 (feature): Print setup now stores the chosen trim on the book instead of only showing it, so a book laid out at 6 x 9 in really prints at 6 x 9 in; the Finalise summary reads the stored trim, so the trim row and the per-puzzle cell figures are finally measured on the same page.
 - CARD-137 (tech-debt): The medium/hard cutoff moves from 66 to 90, so medium means "needed a little non-trivial work" and hard "needed a lot" — medium was 5 puzzles in 300 in production because it required zero probes. No score changes; only which tier scores in (66, 90] carry. Re-grade in the panel to re-file stored puzzles.
 - CARD-126 (feature): A book runs easy - medium - hard: a new puzzle joins the end of its own level, moves in the arrangement step stay inside a level and are refused across one, and books made before the rule print grouped by level keeping their order within each.
 - CARD-123 (feature): Every selection tile shows the puzzle's printed cell size on that book's trim and flags anything under the 4.8 mm floor, with an "Include below floor" override on the tile; the Finalise summary counts the overridden puzzles and names each one's cell size.

@@ -25,3 +25,4 @@
 - [ ] CARD-136 handover: book_detail.html's "Size" row is the last display still reading book.metadata.size, which Print setup no longer writes   @tech-debt
 - [ ] CARD-136 handover: book_setup_print.html's unit-blind min="10" max="30"/48 makes the inches path unreachable from the rendered form   @feature
 - [ ] CARD-136 handover: the plan and the trim still commit in two DB transactions; a single-session writer is the follow-up   @tech-debt
+- [ ] CARD-136 handover (real edge case): validate_trim_size accepts the string "nan" — NaN fails every float comparison, so create_spec passes it, save_plan COMMITS and only then does set_print_spec's finiteness guard raise: plan stored, trim not. Fix by moving the finiteness check into validate_trim_size, or by writing both halves in one session   @tech-debt

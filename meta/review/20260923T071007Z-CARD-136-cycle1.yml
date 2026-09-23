@@ -1,0 +1,308 @@
+version: 1
+generated_at: "2026-09-23T07:10:07Z"
+target: "card/136-store-chosen-trim @ 5bad570 (vs main) — CARD-136 cycle 1"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (setup_print, finalize, _trim_cm, _book_cells)"
+    - "src/nonogram/admin/book_manager.py (Book, create_book, get_book, save_plan, set_print_spec, _VERDICT_COLUMNS)"
+    - "src/nonogram/admin/print_specs.py"
+    - "src/nonogram/admin/book_page_spec.py"
+    - "src/nonogram/admin/book_plan.py (Split/DistributionPlan __post_init__)"
+    - "src/nonogram/admin/templates/book_finalize.html"
+    - "tests/test_book_trim_persistence.py"
+    - "tests/test_book_pdf.py"
+    - "meta/architecture/requirements.yml (FR-031, EC-021), domain/aggregates.yml (INV-005..INV-013)"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (read only for its book_page_spec entry points)"
+    - "src/nonogram/admin/templates/book_setup_print.html (unchanged; verified only through the rendered field values)"
+    - "rendered screens — static-only review, no screenshots captured by the loop"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 700, removed: 22 }
+  max_fan_in: { symbol: "nonogram.admin.book_page_spec.book_page_spec", callers: 89 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (118 commits in 12 months; ~48% of commits on the touched pair are fix/bug commits)"
+    - "src/nonogram/admin/book_manager.py (18 commits in 12 months)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the co-change peers of app.py/book_manager.py over 12 months (image_preview.html 21, puzzle_review.py 15, image_manager.py 14, db/models.py 11) all belong to the image/puzzle flows, none bears on the trim columns; no peer is a missing-change candidate for this diff"
+    bus_factor: "no_eligible_fact — git shortlog reports a single author (Claude Code) for the whole repository, so the signal cannot discriminate"
+
+system_contract:
+  rules_checked: 44
+  holds: 18
+  unchecked: 26
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff adds no dependency: its only new import is `from nonogram.admin.print_specs import PrintSpec` (book_manager.py:40), intra-package; `git diff main...HEAD -- pyproject.toml` is empty; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full suite at 5bad570."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: no file under src/nonogram/web/ is in the diff. (Note: the package-wide guard test_every_import_in_the_package_points_inward was re-run here and passed.)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature, request field or export field is in the diff."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling in the diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no random-mode repair/verification code in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter or retry bound in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair-choice code in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no pipeline stage in the diff makes a density verdict."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve/strategies code in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring input in the diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver package file in the diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff."
+    - "ADR-0032/R1 ✓ holds — the new writer touches the `books` row only (book_manager.py:693-709 sets trim_width_cm/trim_height_cm/updated_at on Book/DBBook); `git diff main...HEAD | grep add_puzzle` returns only the test file's use of the existing service, so no admin path writes a puzzle row by another route; TestStorageBoundary_AsksTheSolverNotTheCaller green in the full suite at 5bad570."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score or recognizability rendering is in the changed hunks of app.py or book_finalize.html."
+    - "ADR-0033/R1 ✓ holds — set_print_spec writes no puzzle field at all (book_manager.py:690-709 assigns only trim_width_cm, trim_height_cm, updated_at); proved behaviourally by tests/test_book_trim_persistence.py::TestSetPrintSpec_WritesOnlyTheTrim::test_nothing_but_the_trim_columns_moves in both modes (re-run here, green)."
+    - "ADR-0035/R1 ✓ holds — the new writer never assigns `status`; `git diff main...HEAD -- src/ | grep status` returns nothing, and set_book_status is untouched. The trim is not an input to the plan-tolerance gate (off_plan_cells reads longest side x tier counts only), so no book's exit from draft changes. TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green in the full suite at 5bad570."
+    - "ADR-0036/R1 ✓ holds — tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py re-run here inside a 239-passed targeted run at 5bad570; no fixture under tests/fixtures/a4_golden/ and no file under src/nonogram/export/ is in the diff (G-3 scan)."
+    - "ADR-0036/R2 ✓ holds — the admin code added here fits no cell and places no rule: _trim_cm (app.py:2593-2616) calls book_page_spec and only divides width_mm/height_mm by 10 for display; the PDF still builds every page from book_page_spec (book_pdf_generator.py:292)."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no band/title rendering is in the diff (book_pdf_generator.py is untouched)."
+    - "ADR-0037/R2 ✓ holds — the newly reachable trims do not reach the stroke policy: book_page_spec passes min_thin_rule_mm=profile.min_thin_rule_mm (book_page_spec.py:280) regardless of the stored trim, and that line is unchanged by the diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no file under src/nonogram/web/ in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web request handling in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-side validation in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-ratio guard in the diff."
+    - "CON-015 ✓ holds — app.py is in the diff but names no bind address: `git diff main...HEAD -- src/nonogram/admin/app.py | grep -iE 'host|port|app.run|debug'` matches nothing; TestAdminPanel_BindsLoopbackOnlyByDefault green in the full suite at 5bad570."
+    - "CON-016 ✓ holds — the diff adds no route and no request-admission code (both setup_print and finalize already existed; the changed hunks are inside their bodies); TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green in the full suite at 5bad570."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue computation in the diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness marking in the diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "INV-005 ✓ holds — the trim write is placed inside the `elif plan_error is None:` branch (app.py:2163/2205), so the plan is still validated before anything is stored; tests/test_book_trim_persistence.py::TestBookTrim_RefusedPlanStoresNothing (6 cases x 2 modes, incl. split_easy=39/'forty', plan_count=0, cell=-1, cell=2.5) asserts get_plan == DEFAULT_PLAN after each refusal — re-run here, green."
+    - "INV-006 ✓ holds — set_print_spec writes no membership and no override (book_manager.py:690-709; test_nothing_but_the_trim_columns_moves asserts after.puzzle_ids and after.floor_overrides unchanged in both modes) and neither add route is in the diff. Note, not a violation: the now-reachable trim change can re-measure existing members against a new floor — FR-031's own statement ('The finalise summary counts the book's puzzles below the floor, recomputed on the book's current trim and margins') and AC-188 prescribe exactly that, and CARD-123 implemented it."
+    - "INV-007 ✓ holds — the readiness gate reads the stored plan and the selection's longest-side x tier counts, none of which the diff writes; status is never assigned by set_print_spec. PropertyTest_BookReady_GateIffEveryCellWithinTolerance green in the full suite at 5bad570."
+    - "INV-008 ✓ holds — G-4: the writer assigns only the two trim columns and updated_at; tests/test_book_trim_persistence.py::TestSetPrintSpec_WritesOnlyTheTrim::test_nothing_but_the_trim_columns_moves asserts puzzle_ids, puzzle_titles and status unchanged after the write in both modes (re-run here, green)."
+    - "INV-009 ✓ holds — the writer touches no order; the G-4 test reorders to [ids[2], ids[0], ids[1]] before the write and asserts that exact order afterwards (tests/test_book_trim_persistence.py:391/400)."
+    - "INV-010 ✓ holds — no pairing code in the diff; pairing still reads the cell from book_page_spec, and the new end-to-end test exports a real interior at the freshly stored 6x9 trim (test_the_exported_interior_is_printed_at_the_stored_trim). The ten TestBookPdf pairing tests were green in the full suite at 5bad570."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer-key capacity is a function of each answer's longest side in cells, not of the trim, and no answer-key code is in the diff."
+    - "INV-012 ✓ holds — a trim write is not a membership change: the writer assigns neither puzzle_ids nor status (book_manager.py:690-709), and the G-4 test asserts both unchanged in both modes."
+    - "INV-013 ✓ holds — the new route-level test posts action=download_pdf with part='interior' and reads the pages back with Pillow (tests/test_book_trim_persistence.py:207-216), exercising the unchanged interior/cover separation; PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green in the full suite at 5bad570."
+
+root_causes:
+  - id: RC-1
+    title: "set_print_spec treats the PrintSpec type as proof of validation, but PrintSpec validates nothing"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "the inches display path converts the stored centimetre columns without owning the round trip"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 654
+    title: "set_print_spec's docstring promises a validation guarantee the PrintSpec type does not carry"
+    description: |
+      The docstring states: "``spec`` must be a PrintSpec: PrintSpecValidator.create_spec has already
+      refused a trim outside KDP's bounds and rounded it to the two-decimal centimetres the column
+      stores, so nothing reaches storage that book_page_spec would not read back — the posture
+      save_plan takes towards a DistributionPlan."
+
+      The analogy does not hold. DistributionPlan and Split enforce INV-005 in their own
+      __post_init__ (book_plan.py:178-186, 221-237), which is what makes save_plan's identical
+      sentence true. PrintSpec (print_specs.py:18-36) is a plain, non-frozen dataclass with no
+      __post_init__ and no validation at all, so the isinstance check at book_manager.py:682 proves
+      only the type, never that create_spec ever ran.
+
+      Reproduced against this worktree:
+        set_print_spec(bid, PrintSpec("999", "abc")) -> True; stored columns "999"/"abc";
+        book_page_spec(book) then raises "book trim_height_cm must be a number of cm, not 'abc'".
+      That is precisely the state the docstring says cannot reach storage, and the state _trim_cm
+      (app.py:2593) had to grow a "Cannot be read" branch for. PrintSpec(None, None) is likewise
+      accepted and silently resets the book to the Book 1 profile.
+
+      Same root cause one layer up: tests/test_book_trim_persistence.py:432
+      `test_it_accepts_nothing_but_a_validated_spec` is named for the guarantee but its body only
+      asserts that a *dict* is refused — an unvalidated PrintSpec is never tried, and the test file
+      constructs PrintSpec(*SIX_BY_NINE_CM) directly throughout, which is itself the bypass.
+
+      No live defect: the single production caller (app.py:2205) passes a create_spec result. The
+      cost is that the guarantee a second caller will rely on is not there, on the one storage
+      boundary the project elsewhere insists must not trust its caller (ADR-0032/R1, "No caller's
+      assurance substitutes for that check").
+    suggestion: |
+      Either enforce it — run PrintSpecValidator.validate_trim_size(spec.trim_width_cm,
+      spec.trim_height_cm) inside set_print_spec and raise ValueError on refusal (also rejecting
+      None columns) — or reword the docstring to say the caller is trusted and name the caller that
+      must validate. If enforced, extend
+      tests/test_book_trim_persistence.py::test_it_accepts_nothing_but_a_validated_spec with an
+      out-of-bounds PrintSpec and a PrintSpec(None, None), so the test's name matches its body.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2222
+    title: "Reopening Print setup in inches and saving unchanged silently shifts the stored trim"
+    description: |
+      The GET now prefills the two fields from the stored centimetre columns (app.py:2222-2223) and,
+      when the session's unit preference is inches, converts them with cm_to_inches, which rounds to
+      two decimals (print_specs.py:66-70). A save converts back with inches_to_cm, also to two
+      decimals. For a trim that is not a whole/half inch the round trip is lossy, so pressing Save
+      without touching anything changes the trim of record.
+
+      Reproduced end to end through the real routes in this worktree:
+        POST setup-print unit=cm 15.00 x 20.00  -> stored "15.00"/"20.00"
+        GET  setup-print with unit_preference=inches -> fields show 5.91 / 7.87
+        POST setup-print unit=inches 5.91 / 7.87 -> stored "15.01"/"19.99"
+      The shift is one-shot (15.01 and 19.99 are round-trip stable), i.e. 0.1 mm, but it is a silent
+      mutation of the value the PDF's page size and every cell measurement are taken from, and KDP
+      rejects interiors whose trim is not one of its exact sizes. Before this card the form always
+      showed the profile default, so this path did not exist.
+    suggestion: |
+      Keep the stored centimetres as the value of record: either render the inch field but submit
+      the untouched cm value when the owner did not edit it, or store the unit the owner chose
+      alongside the trim and convert only on an actual edit. At minimum, only display the inch form
+      when inches_to_cm(cm_to_inches(stored)) == stored.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2227
+    title: "The new except ValueError wraps both conversions, so one unreadable column renders the other in the wrong unit"
+    description: |
+      The try block added at app.py:2227-2236 converts width and height together and swallows a
+      ValueError from either. When only one column is unreadable, the readable one is left in
+      centimetres while the unit selector still reads "inches".
+
+      Reproduced: stored trim_width_cm = "not a number", trim_height_cm = "27.94",
+      session unit_preference = "inches" -> GET /book/<id>/setup-print returns 200 with
+      width="not a number" and height="27.94" under an inches selector. Here a correcting save is
+      refused (27.94 in = 70.97 cm, beyond the 48 cm height bound), but with a smaller stored height
+      — e.g. "15.00" — the same correcting save would store 38.10 cm without any refusal.
+
+      The branch is also untested: no test in the suite performs a GET of setup-print with
+      unit_preference set to "inches" (grep of tests/ for "inches" returns only the two POSTs in
+      tests/test_book_trim_persistence.py:154 and :205), so this negative path is unexercised.
+    suggestion: |
+      Convert each field independently, or fall back to rendering the form in cm (and say so in the
+      unit selector) when a stored value has no inch form. Add the missing negative test: a GET with
+      unit_preference="inches" over (a) a readable trim, (b) one unreadable column.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2205
+    title: "set_print_spec's False return is ignored and the two writes are separate transactions"
+    description: |
+      book_mgr.set_print_spec(book_id, spec) returns False when the book does not exist
+      (book_manager.py:691, 703) and the route ignores it: it flashes "Print specs set: W x H cm"
+      and redirects to the selection step regardless. The book was read at the top of the handler
+      (app.py:2108), so a book removed between that read and the write produces a success message
+      for a write that did not happen. The pre-existing save_plan call at app.py:2172 has the same
+      shape, so this is the second occurrence rather than a new pattern — but it is the one this
+      card introduces.
+
+      Related, and the reason it matters more here than for save_plan alone: in DB mode the two
+      writes now commit in two separate sessions (save_plan's `with self._session_factory()` at
+      book_manager.py:643-651, then set_print_spec's at :700-709). A failure between them leaves the
+      plan saved — which also returned the book to draft — and the trim not, i.e. exactly the
+      half-applied submission AC-197's rule exists to prevent, reached by a different door than a
+      refusal.
+    suggestion: |
+      Check both return values and flash "Book not found" (and re-render or redirect to the books
+      list) when either is False. If the plan and the trim must land together, give BookManager one
+      writer that sets both inside a single session, and have setup_print call that.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_trim_persistence.py
+    line: 393
+    title: "Three G-4 assertions are tautologies in memory mode (get_book returns the live object)"
+    description: |
+      In memory mode BookManager.get_book returns the stored Book instance itself
+      (book_manager.py:566-568), so `before` and `after` in test_nothing_but_the_trim_columns_moves
+      are the same object. `after.status == before.status`, `after.floor_overrides ==
+      before.floor_overrides` and `after.updated_at >= before.updated_at` therefore cannot fail in
+      the [memory] parametrisation whatever set_print_spec does; only the literal `== "draft"` and
+      the copied before_ids/before_titles discriminate. The same applies to
+      `get_book(book_id).updated_at == before.updated_at` at line 291. Both assertions do
+      discriminate in the [db] parametrisation, so the guardrail is still covered — but at half the
+      case count the file claims.
+    suggestion: |
+      Snapshot the compared fields before the write (copy.deepcopy(before), or capture
+      before.status / list(before.floor_overrides) / before.updated_at into locals) the way the test
+      already does for puzzle_ids and puzzle_titles.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_trim_persistence.py
+    line: 461
+    title: "The G-2 legacy-fallback and unreadable-trim tests run in DB mode only"
+    description: |
+      test_a_legacy_book_with_empty_columns_shows_the_profile and
+      test_a_trim_that_cannot_be_read_is_said_rather_than_shown take `scope, monkeypatch` and hard-code
+      _build_app("db", ...), while every other class in the file is parametrised over MODES. The
+      memory-mode route path for an empty column (`book.trim_width_cm or DEFAULT` at app.py:2222)
+      and for an unreadable one (_trim_cm's ValueError branch at app.py:2607) is never exercised,
+      although the file's own docstring says "Every storage-level test runs in both storage modes".
+    suggestion: |
+      Parametrise both over MODES; in memory mode the columns can be emptied or corrupted directly
+      on the Book returned by get_book, which is the live object.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

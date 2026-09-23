@@ -1,0 +1,155 @@
+version: 1
+generated_at: "2026-09-23T09:01:33Z"
+target: "card/136-store-chosen-trim @ dc0681f (5bad570 + dc0681f) vs merge base db74b04 — CARD-136 cycle 4/4, CONFIRMATION MODE re-entry after the owner unblocked the Step 8h escalation"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_manager.py — set_print_spec in full (655-745), get_book (559-579), _row_to_book (514-557), Book dataclass (72-110), save_plan (607-653), floor_overrides (747-757)"
+    - "src/nonogram/admin/app.py — _stored_trim_cm (2089-2102), _blank_trim_error (2104-2136), _submitted_trim_cm (2138-2179), setup_print POST body (2243-2374), _trim_cm (2769-2792)"
+    - "src/nonogram/admin/templates/book_finalize.html — the whole card diff (2 hunks)"
+    - "tests/test_book_trim_persistence.py — the G-1/G-2/G-4 region (401-540) read, all 110 cases run"
+    - "tests/test_book_pdf.py — the whole card diff (print_setup fixture + the two AC classes)"
+    - "src/nonogram/admin/puzzle_review.py — add_puzzle's signature (601-610), confirmed untouched by the diff"
+    - "meta/kanban/cards/CARD-136.md in full incl. ## Worktree notes and ## System contract; meta/review/20260923T084331Z-CARD-136-cycle3.yml in full"
+  delta_clean_evidence:
+    - "`git diff dc0681f` touches exactly one path, meta/kanban/cards/CARD-136.md (status-line and note edits); `git status --porcelain -- src/ tests/` is empty, so HEAD == the working tree for all card code"
+    - "the four app.py helper offsets cycle 3 cited (2089, 2104, 2138, 2769-2792) land byte-for-byte on the same definitions when read fresh at dc0681f"
+    - "full suite from the worktree root, this exact content: `4679 passed, 26 skipped, 1 deselected in 221.27s`, exit 0 — identical to the run cycle 3 reviewed, which is the strongest available proof the two fix rounds moved into dc0681f unchanged"
+  not_reached:
+    - "src/nonogram/admin/book_page_spec.py, book_pdf_generator.py — unchanged by the card; exercised only through the route-level export tests that were run"
+    - "rendered screens — Step 8g STATIC ONLY (not a UI card by the procedure's test, no Makefile run target): no screenshots, runtime.log, a11y.log or visual-diff.log exist, so the rendered result was NOT verified in this cycle"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 1430, removed: 35 }
+  max_fan_in: { symbol: "nonogram.admin.book_manager.BookManager.set_print_spec", callers: 1 }
+  tests_cover_change: true
+  full_suite: "4679 passed, 26 skipped, 1 deselected in 221.27s, exit 0 (deselect: the known pre-existing tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied)"
+  targeted_runs:
+    - "tests/test_admin_uniqueness_boundary.py::TestStorageBoundary_AsksTheSolverNotTheCaller — 2 passed in 0.02s (ADR-0032/R1's named check, on an unmodified test file)"
+    - "the four AC tests (TestBookPdf_CellFollowsStoredTrim, TestBookPdf_PageSizeEqualsStoredTrim, TestBookTrim_SetupPrintStoresAndExportFollows, TestBookTrim_RefusedPlanStoresNothing) — 37 passed in 2.35s"
+    - "TestSetPrintSpec_WritesOnlyTheTrim + TestBookTrim_ProfileAndLegacyBooks (G-1/G-2/G-4) — 30 passed in 0.63s"
+    - "tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py + tests/test_cli.py (CON-019 tripwire + import guard) — 160 passed in 9.80s"
+    - "tests/test_book_trim_persistence.py (110 cases) + the two AC classes of tests/test_book_pdf.py — 117 passed in 4.30s"
+  hotspots:
+    - "src/nonogram/admin/app.py + book_manager.py + book_finalize.html — 125 commits/12mo across the three, 61 matching fix|bug|hotfix"
+  cochange_missing:
+    - "src/nonogram/admin/templates/book_setup_print.html — deliberately not needed; its fields already render default_width/default_height, which setup_print's GET now fills from the stored columns (verified: the template is not in the diff and the GET reads through _stored_trim_cm)"
+  unmeasured:
+    bus_factor: "no_eligible_fact — git shortlog reports a single author (Claude Code) for the whole repository; the signal cannot discriminate"
+    mutation_check: "not_applicable — meta/kanban/config.yml is absent, so review.mutation_check is unset (default false); the static half of 8f ran"
+    rendered_screens: "provider_unavailable — Step 8g static-only per the scope gate; no visual-loop artifacts exist for this card"
+
+system_contract:
+  rules_checked: 44
+  holds: 16
+  unchecked: 28
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 3, delta-clean): `git diff dc0681f` touches no file under src/ or tests/ and `git status --porcelain -- src/ tests/` is empty, so the dependency baseline is byte-identical to the tree cycle 3 checked; that line was additionally reproduced by the Step 8h spot-check skeptic. Re-confirmed cheaply here: pyproject.toml is absent from `git diff --name-only db74b04` (which lists exactly 6 paths, 5 of them code)."
+    - "ADR-0019/R1 ✓ holds — re-derived fresh rather than carried, because the rule's check walks the whole package on disk: `pytest tests/test_cli.py tests/test_export_a4_golden.py tests/property/test_cli_exports_byte_identity.py` → 160 passed, 1 warning in 9.80s, including test_every_import_in_the_package_points_inward. No file under src/nonogram/web/ is in the diff (the 5 code paths are admin/app.py, admin/book_manager.py, admin/templates/book_finalize.html and two tests/)."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no grid-extent signature, request field or export field in the diff; the two new values are a page trim in cm, not a grid extent."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no image-fitting code in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no --size token handling in the diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no random-mode repair or re-verification code in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no RetryCounter or retry bound in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no repair code in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no repair pair-choice code in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no source-mode recovery policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no pipeline stage in the diff makes a density verdict."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no difficulty scoring in the diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no solve/strategies code in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no scoring input in the diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver-package file is in the diff. Its check (the package-wide import guard) does reach the diff's two src files, so it was re-run fresh this cycle rather than carried: test_every_import_in_the_package_points_inward PASSED inside the 160-passed run above."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no rung attribution in the diff."
+    - "ADR-0032/R1 ✓ holds — RE-DERIVED FROM SCRATCH this cycle (cycle 3's line failed the holds spot-check). The rule's subject is the PUZZLE storage boundary: add_puzzle (src/nonogram/admin/puzzle_review.py:601) and the clause 'no admin path writes a puzzle row by another route'. (1) puzzle_review.py is absent from `git diff --name-only db74b04`, which lists exactly meta/kanban/cards/CARD-136.md, src/nonogram/admin/{app.py,book_manager.py,templates/book_finalize.html}, tests/{test_book_pdf.py,test_book_trim_persistence.py}. (2) `git diff db74b04 -- src/ | grep -nE 'add_puzzle|puzzle_review|PuzzleReview|DBPuzzle|Puzzle\\(|puzzles\\b'` exits 1 (zero hits), and `git diff db74b04 -- src/ | grep -cE '^\\+.*@app\\.route'` is 0 — the card adds no puzzle-write route and no route at all. (3) The only model-attribute assignments the card adds under src/ are six lines, all on a BOOKS row/object, none on a puzzle: book_manager.py:730-732 (memory mode: trim_width_cm, trim_height_cm, updated_at) and 741-743 (DB mode, committed at 744) — line numbers read from the file as it stands at dc0681f, where set_print_spec spans 655-745 and 747 begins floor_overrides. (4) The rule's named check ran unmodified — tests/test_admin_uniqueness_boundary.py is absent from the diff — `pytest tests/test_admin_uniqueness_boundary.py::TestStorageBoundary_AsksTheSolverNotTheCaller -rA` → 2 passed in 0.02s (test_a_caller_cannot_talk_its_way_past_the_guard, test_the_guard_actually_enters_the_solver). KNOWN LIMITATION, named rather than claimed away (owner-accepted on this card, carded separately): set_print_spec's own storage-boundary check is NOT the same shape of guarantee add_puzzle gives. In memory mode get_book returns the LIVE Book (book_manager.py:570, `return self.books.get(book_id)`) and Book is a plain non-frozen @dataclass whose trim_width_cm/trim_height_cm are mutable (book_manager.py:72-87), so a caller can assign '999'/'abc' straight into the columns past the writer's gate; the card's own test helper _stored_book (tests/test_book_trim_persistence.py:501-522, 'a column in a state no writer puts it in') does exactly that deliberately. Mitigations, each personally verified: no code under src/ does it — the only assignment writers of those columns repo-wide are set_print_spec's four lines (`grep -rn 'trim_width_cm *=\\|trim_height_cm *=' src/` returns 11 lines, all accounted for: book_manager.py:730,731,741,742 ARE those four writes; book_manager.py:549-550 and print_specs.py:166-167 are construction kwargs rather than stored-column writes — respectively the Book(...) assembled inside _row_to_book and the PrintSpec assembled by create_spec; app.py:3245 is a tuple-unpack read of _trim_cm(book); and db/models.py:148-149 are Column declarations); in DB mode get_book returns a detached snapshot built by _row_to_book (book_manager.py:514-557), so such a mutation is dropped; and book_page_spec refuses an unreadable stored value on read rather than printing it (TestBookTrim_ProfileAndLegacyBooks::test_a_trim_that_cannot_be_read_is_said_rather_than_shown, 2 passed, both modes). The rule holds because this card introduces no puzzle-write route — not because it strengthens the storage-boundary posture."
+    - "ADR-0032/R2 ✓ holds — carried(cycle 3, delta-clean); re-confirmed on the template, which I read in full this cycle: the book_finalize.html diff is two hunks, the page-count sentence and the Trim size row, and neither adds nor removes any quality_score / recognizability rendering and moves no /100 denominator."
+    - "ADR-0033/R1 ✓ holds — re-derived fresh: set_print_spec touches no puzzle row — its write assigns trim_width_cm, trim_height_cm and updated_at and nothing else, in both storage modes (book_manager.py:730-732 memory, 741-743 DB). `pytest tests/test_book_trim_persistence.py::TestSetPrintSpec_WritesOnlyTheTrim tests/test_book_trim_persistence.py::TestBookTrim_ProfileAndLegacyBooks -rA` → 30 passed in 0.63s, including test_nothing_but_the_trim_columns_moves[memory] and [db], which compare membership/order/titles/status/overrides against copies taken before the write."
+    - "ADR-0035/R1 ✓ holds — carried(cycle 3, delta-clean): the diff assigns no status (its only added model-attribute assignments are the six trim/updated_at lines listed under ADR-0032/R1), and the two new early returns only flash and redirect to url_for('books_list') (app.py:2322-2323, 2359-2360, read this cycle)."
+    - "ADR-0036/R1 ✓ holds — re-derived fresh: `pytest tests/test_export_a4_golden.py tests/property/test_cli_exports_byte_identity.py tests/test_cli.py` → 160 passed, 1 warning in 9.80s. G-3 structurally clean — `git diff --name-only db74b04 | grep -E '^src/nonogram/export/|^tests/fixtures/a4_golden/'` exits 1 (zero hits), so the golden fixtures were neither edited nor regenerated (CON-019)."
+    - "ADR-0036/R2 ✓ holds — re-derived on the helpers I read this cycle: the admin panel fits no cell. _stored_trim_cm (app.py:2089-2102) returns two strings straight off the columns, _blank_trim_error (2104-2136) returns a message or None, _submitted_trim_cm (2138-2179) chooses between a stored string and inches_to_cm, and _trim_cm (app.py:2769-2792) reads geometry only through book_page_spec(book), returning f\"{spec.width_mm / 10:.2f}\" — a unit conversion for display, not a layout computation. No mm/px grid arithmetic is added anywhere in the diff."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — book_pdf_generator.py is not in the diff and no band/title rendering is."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — book_page_spec.py is not in the diff; the stroke policy is unchanged."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no solver code in the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no file under src/nonogram/web/ in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no web request-admission code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no grid-side validation in the diff; the new bounds check is KDP trim cm, not MIN_SIZE/MAX_SIZE cells."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no aspect-ratio guard in the diff."
+    - "CON-015 ✓ holds — carried(cycle 3, delta-clean); re-scanned this cycle on the same command: `git diff db74b04 -- src/ | grep -cE '^\\+.*(host=|0\\.0\\.0\\.0|app\\.run|debug=)'` returns 0."
+    - "CON-016 ✓ holds — carried(cycle 3, delta-clean); re-scanned fresh: `git diff db74b04 -- src/ | grep -cE '^\\+.*@app\\.route'` is 0, so the card adds no route and no request-admission code; the two new early returns are ordinary in-handler redirects (app.py:2322-2323, 2359-2360)."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no clue computation in the diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no export-readiness marking in the diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no retry counter in the diff."
+    - "INV-005 ✓ holds — re-derived fresh by reading the restructured POST: the trim write (app.py:2358) sits inside `elif plan_error is None:` (2310), and the blank guard sets `error` at 2287 before either writer, so `if error:` at 2308 short-circuits both halves. `pytest tests/test_book_trim_persistence.py::TestBookTrim_RefusedPlanStoresNothing` passed as part of the 37-passed AC run (test_a_split_not_summing_to_100_leaves_both_columns_alone and test_every_value_inv005_refuses_leaves_the_trim_alone, both modes)."
+    - "INV-006 ✓ holds — carried(cycle 3, delta-clean): set_print_spec writes no membership and no override (ADR-0033/R1's fresh evidence above re-confirms this at 30 passed), so the invariant's add-route scope is untouched. A trim change leaving an existing member below the floor is the modelled behaviour (AC-188), not a breach."
+    - "INV-007 ✓ holds — carried(cycle 3, delta-clean): the readiness gate reads the plan and the selection counts, neither of which this diff writes; the trim is not an input to the ±3pp cell check."
+    - "INV-008 ✓ holds — re-derived fresh, and the G-4 test's discriminating power was checked by reading it: before_ids/before_titles/before_status/before_overrides/before_updated_at are all copied out of the Book before the write (tests/test_book_trim_persistence.py:417-421), which is what stops memory mode comparing a live field with itself. test_nothing_but_the_trim_columns_moves PASSED in both modes inside the 30-passed run."
+    - "INV-009 ✓ holds — re-derived fresh: the same test reorders to [ids[2], ids[0], ids[1]] before the write (tests/test_book_trim_persistence.py:410) and asserts that exact order afterwards against the copied list (line 426); PASSED in both modes inside the 30-passed run."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — no pairing code in the diff."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — answer-key capacity is a function of each answer's longest side in cells, not of the trim; no answer-key code in the diff."
+    - "INV-012 ✓ holds — re-derived fresh: a trim write is not a membership change — set_print_spec assigns neither puzzle_ids nor status (the six added assignment lines under ADR-0032/R1 are the complete list), and test_nothing_but_the_trim_columns_moves asserts after.status == before_status == 'draft' against a copied value, in both modes, inside the 30-passed run."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: carried(cycle 3, delta-clean) — the interior/cover separation is untouched by the diff; the card's own route-level export test (download_pdf, part=interior) PASSED in both modes inside the 37-passed AC run."
+
+root_causes: []
+
+findings:
+  - id: F-301
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 714
+    title: "set_print_spec's non-finite ValueError text reaches the owner naming an internal column"
+    description: |
+      Re-stated from cycle 3 (F-201), accepted as Minor there and unchanged since
+      (`git diff dc0681f` touches no file under src/). set_print_spec raises
+      `ValueError("a book's trim_width_cm must be a finite number of cm, not 'nan'")`
+      at book_manager.py:713-715, and setup_print's outer `except ValueError as e`
+      (app.py:2366-2367) renders it verbatim as a flash. The behaviour is right —
+      nothing is stored — and no browser can produce it (the template's inputs are
+      type="number"). Only the wording is internal: a storage-layer column name and
+      a Python repr shown to the owner.
+    suggestion: |
+      Give the non-finite branch the same owner-facing voice the other refusals have;
+      keep the column name chained underneath or in the log.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-302
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2792
+    title: "Print setup shows the raw stored column while Finalise re-derives it through mm"
+    description: |
+      Re-stated from cycle 3 (F-202), accepted as Minor there and unchanged since.
+      _trim_cm returns `f"{spec.width_mm / 10:.2f}"` (app.py:2792, read fresh this
+      cycle — cycle 3 cited 2791) while Print setup's prefill returns the raw stored
+      string, `book.trim_width_cm or PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM`
+      (_stored_trim_cm, app.py:2099-2102). For every value the route itself can store
+      the two agree, because create_spec formats to two decimals; a legacy row holding
+      "15.2" would render "15.2" on Print setup and "15.20" on Finalise.
+    suggestion: |
+      Have _stored_trim_cm normalise through the same two-decimal form _trim_cm uses
+      (or have both read book_page_spec), so the two screens cannot diverge on a
+      legacy row either.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -20,8 +20,8 @@ _Updated: 2026-09-22 UTC_
 | 21 | CARD-114 P1, CARD-120 P1 | ✓ done |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
-| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ▶ active · closes Increment 14 |
-| 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ⏳ blocked (→ wave 24) · closes Increment 13 (owner-confirmed proof print) |
+| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
+| 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ▶ active · closes Increment 13 (owner-confirmed proof print) |
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
 | 27 | CARD-129 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
@@ -48,12 +48,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+_(none)_
 
 ## Review
-- **CARD-136** P1 · Print setup stores the chosen trim on the book · 0.5d · wave 24 · score 8.5 (cycle 2/3)
-  `worktree: ../PythonProject4-CARD-136` · `branch: card/136-store-chosen-trim` · `elapsed: 0d`
 
 ## Done
+- **CARD-136** Print setup stores the chosen trim · score 9.0 (4 cycles) · merged cb0440c
 - **CARD-137** Medium/hard cutoff 66 -> 90 · score 8.0 · merged a949244
 - **CARD-126** Book level order · score 9.0 · merged ea35a7f
 - **CARD-123** Tile cell + floor flag + override · score 9.3 · merged 8b7b78e

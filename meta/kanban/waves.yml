@@ -69,7 +69,7 @@ waves:
       behaviour change on the live DB: a plan-less draft book can no longer leave
       draft until a plan is stored. Reverting restores the old one-puzzle rule;
       stored plans and overrides are ignored by the old code.
-    status: pending
+    status: passed
 
   - wave: 25
     cards: [CARD-118, CARD-127, CARD-130, CARD-134]
