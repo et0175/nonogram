@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-117 (feature): A book puzzle page prints "Puzzle N · Tier" in its band — never the picture's title, which now appears only in the answer key — and the book's print-weight rules apply (thin rules at least 0.25 mm, every fifth twice as heavy, pure black).
 - CARD-116 (feature): The book PDF is laid out on the book's own trim at 300 DPI with mirrored margins — the gutter on the binding side, the drawing centred across the usable width, the top edge fixed — and page parity counted from interior page 1, the guide page.
 - CARD-121 (feature): Adding a puzzle whose printed cell would fall below the 4.8 mm floor is refused at the book store — on the tab route and both paste-IDs routes alike — unless it carries an explicit override (migration 012 stores the overrides per book); the verdict is decided inside the writing transaction.
 - CARD-133 (feature): Export can render a packed answer page — grid-only answers, 6 per page (2 x 3) or 4 (2 x 2), each captioned above its grid, cells capped at 5 mm, with an optional page heading.

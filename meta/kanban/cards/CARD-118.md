@@ -150,3 +150,5 @@ automatable half of the checkpoint is its executable done-definition:_
 ## Worktree notes
 
 —
+
+- [Handover from CARD-117, 2026-09-23] The proof set is already rendered in ~/Documents/nonogram-reviews/CARD-117/ (30x30 even page 2, 15x15 odd page 3, 30x30 odd page 5 answer, full-interior-6pages.pdf, README.txt with what to measure). Print at 100%, never fit-to-page. Open question for the owner: whether the fixed 0.25 mm thin rule makes the 30x30 look too dense.

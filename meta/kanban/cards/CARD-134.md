@@ -174,3 +174,5 @@ CARD-133 owns the tile geometry and drawing (ADR-0036/R2).
 
 - [Handover from CARD-133, 2026-09-23] Call `from nonogram.export.layout import compute_answer_page_layout` -> (extents, capacity, page_spec, heading=None) -> AnswerPageLayout, and `from nonogram.export.png import render_answer_page` -> (answers, capacity, page_spec, heading=None) -> Image. Import from the submodules, not the package. extents/answers in fill order (left->right, top->bottom), 1..capacity, capacity in {4,6}, page_spec for THAT page's parity (its band_mm is ignored), same heading to both.
 - [Handover from CARD-133 — CRITICAL] The 3.19 mm answer-cell floor is NOT enforced by the type: a 25x25 six-up returns 3.178 mm and a 30x30 six-up 2.648 mm with no error. Owning "six-up only while every answer on the page is <=20 on its longest side" (INV-011) is THIS card's job; re-check it, do not assume CARD-133 guarantees it.
+
+- [Handover from CARD-117, 2026-09-23] A two-up page needs TWO bands on one sheet, but the export draws one band per render_pages call — that is a COMP-007 conversation, settle it with CARD-127 rather than working around it in the PDF layer.

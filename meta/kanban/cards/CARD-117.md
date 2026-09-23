@@ -1,6 +1,6 @@
 # CARD-117: "Puzzle N · Tier" in the band, picture title only in the answer key, print-weight rules on the page
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 24
 **Depends on:** CARD-116
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_band.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 1/3)
+**Started:** 2026-09-23T03:55:53Z
+**Closed:** 2026-09-23T05:23:21Z
+**Actual:** 0.2d
+**Merge commit:** 837a6f3
 **Blocked by:** —
 
 ## What to implement
@@ -131,3 +131,120 @@ Out of scope: solution hints ("Hint for 12: row 7 has cells 4–11 filled") are 
 —
 
 - [Handover from CARD-114, 2026-09-22] F-004: the book-path `render_pages` currently prints "<name> — <tier>" in the band. ADR-0037/R1 forbids the picture name on a book puzzle page — replace it with "Puzzle N · Tier"; do not rely on the current band text.
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+- [Implemented, 2026-09-23] Done inside the card's Touches only —
+  `src/nonogram/admin/book_pdf_generator.py` and the new
+  `tests/test_book_pdf_band.py`. Nothing under `src/nonogram/export/**` was
+  touched (G-2): the band's content is decided entirely by what the admin puts
+  in each page's `ExportPayload`, since `pdf.header_parts` is just the
+  non-empty members of `(name, difficulty)`.
+
+  **What changed.** New module-level `band_identity(puzzle_number, stored_tier)`
+  composes `"Puzzle 12 · Easy"` (`BAND_SEPARATOR` is `" · "`, U+00B7, set as a
+  glyph in the packaged DejaVu Sans — no `/System/Library/...` anywhere).
+  `_payload` still reads the row as it is; the new `_banded(payload, number)`
+  turns it into the two payloads the pages are drawn from — puzzle page
+  `name=None, difficulty=identity`, answer page `name=<picture title>,
+  difficulty=identity`. `_puzzle_and_answer` now takes the puzzle's print
+  number and makes **two** `render_pages` calls always (the two pages no longer
+  share a header, so the old "one call when the parities agree" shortcut is
+  gone). `interior_pages` passes `index + 1`: N is the 1-based position among
+  the payloads that *survived* the drop pass, so numbers never leave a gap
+  where a broken member was, and the answer page built in the same iteration
+  carries the same N.
+
+  **Tier source.** Always `difficulty.tier_of_record` on the row's stored text
+  (FR-009, ADR-0031) — never grid size, never the raw stored spelling, so
+  `"easy"`, `"Easy"` and `"EASY"` all print `Easy`, and ADR-0031/R3's `"guess"`
+  prints `Hard` without anything being rewritten.
+
+  **Decision for a missing/unrecognised tier:** the band prints **`"Puzzle 12"`
+  alone** — number, no dot, nothing after it. Rejected: printing the raw stored
+  text (an unvetted database string on a printed page, spelled however it
+  happens to be spelled) and inventing a label such as "Unrated" (a fourth tier
+  on the page, where ADR-0031 has exactly three). The number still identifies
+  the puzzle and still matches the answer key; the missing grade shows up as an
+  absence to whoever proofs the book. Covered by
+  `TestBookPdf_UngradedPuzzlePrintsItsNumberAlone` and by the property corpus,
+  which includes `None`, `""`, `"extreme"` and a non-string tier.
+
+  **Answer page carries both,** as `"Snowflake — Puzzle 1 · Hard"` — the title
+  first, deliberately: the export fits an over-wide header by setting it smaller
+  and then eliding **the first piece**, which is safe only while the first piece
+  is the long one. A 200-character picture name in the second slot would be the
+  piece that does not fit and the piece that is never cut, so putting the name
+  first keeps the number and tier — what the answer key is *used* by — whole.
+
+  **Tests** (`tests/test_book_pdf_band.py`, 25 passing): AC-193
+  `TestBookPdf_PuzzlePageCarriesNoPictureTitle`, AC-194
+  `TestBookPdf_AnswerKeyCarriesPictureTitle`, AC-195
+  `TestBookPdf_EveryFifthGridLineWider`, EC
+  `test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle`
+  (28 seeded books, 80+ puzzles, 13 names incl. Cyrillic/Greek/Hebrew, a
+  200-character one and a decoy name that *is* a band line, x 13 stored tier
+  spellings x varied print positions; minimum case counts asserted inside the
+  test). Bands are read back by rendering the expected line through COMP-007
+  and comparing pages byte for byte, with ink checks and rename controls so a
+  blank band can never pass. AC-195 measures the printed page: `page_ink`
+  supplies the grid box by its own route, then a scanline through the middle of
+  the first cell counts 31 runs of ink per axis — thin 3 px (0.254 mm ≥ the
+  0.25 mm floor), heavy 6 px at lines 0/5/…/30, only greys {0, 255} and only
+  `(0,0,0)` ink, i.e. no anti-aliasing. Mutation-checked: clearing the elision,
+  keeping the name on the puzzle page, an off-by-one N, dropping the title from
+  the answer page and lowering `min_thin_rule_mm` each fail these tests.
+  Full suite green (only the known pre-existing
+  `TestFlow2BatchImageUpload::test_size_configuration_applied` deselected);
+  CARD-113's A4 golden tripwire untouched and green.
+
+  **Owner proof renders:** `/Users/omelnikova/Documents/nonogram-reviews/CARD-117/`
+  — `30x30-even-page2-puzzle.pdf/.png` (even/left-hand page, 4.97 mm cell),
+  `15x15-odd-page3-puzzle.pdf/.png` (odd/right-hand, 7.50 mm cell),
+  `30x30-odd-page5-answer.pdf/.png` (the title's one page),
+  `full-interior-6pages.pdf`, and `README.txt` listing what to measure on each
+  and the expected value. All at real Book 1 geometry, 300 DPI, correct DPI
+  metadata; built from in-memory puzzle dicts, `nonogram_admin.db` never
+  opened. The render script was a scratchpad throwaway and is not in the repo.
+
+- [Handover] CARD-118: print the four PDFs above at 100% ("actual size", not
+  "fit to page") and measure against `README.txt` — band wording, thin rule
+  ≥ 0.25 mm, every 5th rule exactly 2x thin, pure black, cell 4.97 / 7.50 mm.
+  The open question ADR-0037 leaves to the proof is whether the fixed 0.25 mm
+  rule makes the 30x30 look too dense.
+- [Handover] CARD-128 (order by level): numbering is positional, not stored —
+  `interior_pages` numbers puzzles by their place in the list it is handed, so
+  reordering `puzzles` renumbers the bands and the answer key together with no
+  change here. If a divider page per level is inserted, only the *page*
+  positions move (`2 + index`, `first_answer_page + index`); the puzzle number
+  stays `index + 1` and must keep counting puzzles, not pages.
+- [Handover] CARD-134 (two-up pages): a paired page carries two bands, one per
+  puzzle, and `_banded` already produces exactly one payload per page. The
+  pairing code needs its own way to set two headers on one sheet — the export
+  draws one band per `render_pages` call — so that is a COMP-007 conversation,
+  not a payload trick.
+
+- [Scope] src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_band.py
+
+- [Build gate] PASSED (full, 210s; 4535 passed, 26 skipped, 1 deselected — the known pre-existing TestFlow2BatchImageUpload::test_size_configuration_applied)
+- [Scope gate] IN_SCOPE (2 files, both inside Touches; no hits under G-2 src/nonogram/export/** or G-4 app.py/book_manager.py/templates/**)
+- [Review 1/3] first attempt aborted mid-review by a session rate limit (no report written, no score) — re-run, not counted as a cycle
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0; 4 Minor, 4 out-of-scope. Verdict LOW risk, no approve conditions.
+- [Review 1/3] Step 8h: 47/47 card rules carry a verdict line (14 ✓ holds, 33 ⚠ unchecked, 0 ✗). INV-009/INV-010/INV-011 read ⚠ check_ref_missing — six named tests do not exist in tests/ (per-level dividers, two-up pairing, 6-up answer key are not built yet). Pre-existing model gap, not this card's.
+- [Review sync] 1 report(s) → meta/review/20260923T051146Z-CARD-117-cycle1.yml
+- [Review 1/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-193 ✓ demonstrated — TestBookPdf_PuzzlePageCarriesNoPictureTitle: PASSED test_the_puzzle_page_is_the_page_of_a_nameless_payload; PASSED test_renaming_the_picture_leaves_the_puzzle_page_identical
+  AC-194 ✓ demonstrated — TestBookPdf_AnswerKeyCarriesPictureTitle: PASSED test_the_answer_page_carries_the_title_and_the_same_identity; PASSED test_the_title_is_ink_the_answer_band_would_not_have_without_it; PASSED test_the_answer_number_is_the_number_printed_on_the_puzzle
+  AC-195 ✓ demonstrated — TestBookPdf_EveryFifthGridLineWider: PASSED test_the_grid_is_the_thirty_by_thirty_at_the_stated_cell; PASSED test_every_fifth_rule_is_wider_than_every_rule_between_them[vertical|horizontal]; PASSED test_the_rules_are_pure_black_and_not_anti_aliased[vertical|horizontal]
+  EC(ADR-0037/R1) ✓ demonstrated — PASSED test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle; genuinely multi-case: 28 seeded books (random.Random(20260923)), 13 names x 13 stored tier spellings x varying print position, minimum counts asserted inside the test (>=24 books, >=60 puzzles, position >=4, all three labels, >=8 names); expected band comes from the test's own second implementation, not from band_identity/tier_of_record
+  G-1 ✓ demonstrated — diff adds no drawing primitive and no cell-fitting arithmetic in the admin; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green
+  G-2 ✓ demonstrated — no path under src/nonogram/export/ in the diff; tests/test_export_a4_golden.py (63 passed) and tests/property/test_cli_exports_byte_identity.py (3 passed) green, untouched, fixtures not regenerated
+  G-3 ✓ demonstrated — no hint machinery added anywhere in the diff
+  G-4 ✓ demonstrated — changed-file set is exactly the two Touches files; app.py / book_manager.py / templates/** unedited (the new test imports book_manager's types, an import not an edit)
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0031/R1) by an independent skeptic re-running the named checks on 06b158f. Two citation nits, neither a miss: the card's checker names TestDependencyBaseline_IsExactlyPillowAndNumpy and TestTiers_ThreeBandsAndNoFourthTier are trace.yml contract names, not pytest node ids (mapped in the modules' own docstrings to test_the_dependency_baseline_is_still_closed / test_tiers_three_bands_and_no_fourth_tier); and ADR-0031/R1's cited range 118-121 is two lines short of the None-return it describes (the body is 118-123).
+- [Docs step] No README written: src/nonogram/admin/ has no per-directory README, and tests/README.md is a stale "Wave 1" document no later card maintains — editing it would be a drive-by change on a shared file while CARD-123/CARD-126 run. Structure and purpose of the touched directories are unchanged by this card.
+- [Commit] Success commit is 06b158f (the implementation commit): conventional message with the card's context and rationale, exactly the two Touches files, nothing under meta/, attribution line present. The review produced no critical/important findings to fold in and the docs step produced no changes, so no follow-up commit was made.
+
+
+- [Done] main unchanged since branch base 17c647b; the card's full-suite gate (4535 passed) ran on this tree. Merged 837a6f3 (--no-ff). Deferral scan: 0 hits, no SCOPE+. Proof PDFs for CARD-118 in ~/Documents/nonogram-reviews/CARD-117/.

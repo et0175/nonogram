@@ -1,0 +1,255 @@
+version: 1
+generated_at: "2026-09-23T05:11:46Z"
+target: "card/117-book-band-and-strokes @ 06b158f (git diff main...HEAD)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py"
+    - "tests/test_book_pdf_band.py"
+    - "src/nonogram/export/pdf.py (header_parts/_draw_header/render_pages, read-only)"
+    - "src/nonogram/admin/book_page_spec.py (book_page_spec, read-only)"
+    - "src/nonogram/difficulty.py (tier_of_record, read-only)"
+    - "tests/helpers/page_ink.py"
+    - "meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md"
+    - "meta/kanban/cards/CARD-117.md"
+  not_reached:
+    - "src/nonogram/solver/**"
+    - "src/nonogram/web/**"
+    - "src/nonogram/admin/app.py, book_manager.py, templates/** (G-4, not readable-as-changed; unchanged)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 807, removed: 18 }
+  max_fan_in: { symbol: "book_pdf_generator.band_identity", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["src/nonogram/admin/app.py", "src/nonogram/admin/templates/book_finalize.html"]
+  unmeasured:
+    cochange_missing: "not_applicable — both peers are forbidden by guardrail G-4 (owned by CARD-123/CARD-126 this wave); their absence is required, not a missing change"
+
+system_contract:
+  rules_checked: 47
+  holds: 14
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green on 06b158f in this review; the diff's only new import is stdlib `dataclasses.replace` (book_pdf_generator.py:36); the band is lettered by COMP-007's packaged DejaVu, no new font or package"
+    - "ADR-0019/R1 ✓ holds — its declared checker test_every_import_in_the_package_points_inward (tests/test_cli.py) green on 06b158f in this review; no web/ file touched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff adds no public signature carrying a grid extent; width/height travel unchanged through _payload (book_pdf_generator.py:506-507)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair path in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode policy in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the diff makes no density verdict"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: the diff computes no difficulty score"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: the diff runs no solve"
+    - "ADR-0029/R3 ✓ holds — the printed tier is derived only from the stored tier text: band_identity calls tier_of_record(stored_tier) (book_pdf_generator.py:119) and _banded passes payload.difficulty, which _payload sets from puzzle['difficulty_tier'] (book_pdf_generator.py:509); no width/height/clock term anywhere in the diff. The EC corpus varies extent independently of tier (test_book_pdf_band.py:625-632) and still gets the expected label"
+    - "ADR-0029/R4 ✓ holds — its declared checker test_every_import_in_the_package_points_inward green on 06b158f in this review; solver internals untouched by the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff"
+    - "ADR-0031/R1 ✓ holds — TestTiers_ThreeBandsAndNoFourthTier (tests/test_difficulty_tiers.py) green on 06b158f in this review; band_identity prints only Tier.label from tier_of_record and prints nothing after the number when it returns None (book_pdf_generator.py:118-121) — no fourth label is invented; pinned by TestBookPdf_UngradedPuzzlePrintsItsNumberAlone"
+    - "ADR-0031/R2 ✓ holds — TestTiers_BranchingIsAStrategyNotATier green on 06b158f in this review; the diff never reads strategies or branch_nodes"
+    - "ADR-0031/R3 ✓ holds — TestTiers_LegacyGuessRowReadsAsHard green on 06b158f in this review; test_book_pdf_band.py:533-539 pins band_identity(4, 'guess'/'GUESS'/'Guess') == 'Puzzle 4 · Hard'; band_identity is pure and writes nothing back to the row"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the diff touches no storage boundary (no add_puzzle path)"
+    - "ADR-0032/R2 ✓ holds — quality never reaches the page: band_identity composes only the number and the tier label (book_pdf_generator.py:116-121) and _banded sets exactly the two header fields (book_pdf_generator.py:539-542); the EC property test compares the whole page against a payload carrying only those two"
+    - "ADR-0033/R1 ✓ holds — the diff writes no puzzle field: _banded copies the ExportPayload with dataclasses.replace (book_pdf_generator.py:540-541) and never mutates the row dict; `git diff main...HEAD` contains no DB call"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition in the diff"
+    - "ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py), tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py all green on 06b158f in this review; `git diff main...HEAD --name-only` = exactly 2 files, none under src/nonogram/export/ and no golden fixture"
+    - "ADR-0036/R2 ✓ holds — the diff places no rule and fits no cell: `git diff main...HEAD -- src/nonogram/admin/book_pdf_generator.py | grep 'draw\\.|\\.line(|rectangle('` returns only the pre-existing `from PIL import Image, ImageDraw, ImageFont` context line; geometry still comes from book_page_spec → render_pages (book_pdf_generator.py:552-553)"
+    - "ADR-0037/R1 ✓ holds — TestBookPdf_PuzzlePageCarriesNoPictureTitle and test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle (28 books, 84 puzzles) green; three runtime mutants (off-by-one N, keeping the name on the puzzle page, printing the raw stored tier) each killed by the property test alone"
+    - "ADR-0037/R2 ✓ holds — TestBookPdf_EveryFifthGridLineWider green: 31 rules per axis, thin ≥ 3 px (0.254 mm), set(heavy) == {2×thin}, scanline greys ⊆ {0,255}, ink == (0,0,0); a runtime mutant clearing min_thin_rule_mm on the book spec kills it; the default spec is unchanged per ADR-0036/R1's evidence above"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff runs no uniqueness check"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server binding in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no HTTP request handling in the diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: the diff performs no size validation; the corpus renders MIN_SIZE..MIN_SIZE+5 and MAX_SIZE grids without asserting the bound"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin/app.py untouched (also forbidden by G-4)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin/app.py untouched (also forbidden by G-4)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the diff neither derives nor rewrites clues; the test fixture re-derives them with clues.compute_clues (test_book_pdf_band.py:176)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export-readiness gate is upstream of this module"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan in the diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership/floor decision in the diff"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in the diff"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book confirmation in the diff"
+    - "INV-009 ⚠ unchecked — check_ref_missing: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and TestBookPdf_DifficultyOrderWithDividerPerLevel are absent from tests/ (grep -rl over tests/). Manual read of this diff found no violation: interior_pages preserves the caller's order and numbers 1..N over it (book_pdf_generator.py:651-653); grouping by level is CARD-128's"
+    - "INV-010 ⚠ unchecked — check_ref_missing: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_TwoSmallSameTierNeighboursShareAPage etc. are absent from tests/. Manual read: this generator draws one puzzle per page and the diff does not change the page make-up (the interior_page_count guard at book_pdf_generator.py:672-678 still fires)"
+    - "INV-011 ⚠ unchecked — check_ref_missing: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook and TestBookAnswerKey_SixUpInPuzzleNumberOrder are absent from tests/. Manual read: interior_pages emits exactly one answer page per surviving payload at first_answer_page + index with band 'Puzzle {index+1} · Tier' (book_pdf_generator.py:651-659), so answers are once each in puzzle-number order — and TestBookPdf_AnswerKeyCarriesPictureTitle::test_the_answer_number_is_the_number_printed_on_the_puzzle pins that across a 3-puzzle book; the 6-up/4-up capacity clause is not implemented in this generator at all"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change in the diff"
+    - "INV-013 ✓ holds — PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage (tests/property/test_book_export_interior.py) green on 06b158f in this review; the diff changes no page's position — _puzzle_and_answer still receives 2+index and first_answer_page+index (book_pdf_generator.py:652) and now builds each page on book_page_spec of its OWN position (book_pdf_generator.py:552-553), which is strictly more faithful to parity than the old shared-sheet shortcut"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 657
+    title: "The EC corpus never asserts that an ungraded band was actually rendered"
+    description: |
+      The property test records `labels_seen` only for identities containing "·"
+      (test_book_pdf_band.py:657) and asserts `labels_seen == {Easy, Medium, Hard}`,
+      but nothing asserts that at least one puzzle in the corpus took the
+      "Puzzle N"-alone path. Four of the thirteen CORPUS_TIERS entries (None, "",
+      "extreme", 17) are unreadable, so with the current seed the path is
+      exercised — but a future re-seed or a corpus edit could drop it silently,
+      and the ungraded band is this card's own recorded decision.
+    suggestion: |
+      Add a floor beside the existing ones, e.g. track `ungraded_seen` and assert
+      `ungraded_seen >= 3` (mirroring MIN_BOOKS/MIN_PUZZLES).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 526
+    title: "The name-first ordering rationale on the answer page is untested"
+    description: |
+      `_banded`'s docstring makes a load-bearing claim: the name leads so that a
+      long picture title is the piece the export elides, leaving "Puzzle N · Tier"
+      whole. I verified it manually against export/pdf.py:368-377 — a 200-char name
+      at the 20 px floor is elided to 100 chars while the identity keeps its full
+      208 px — but no test pins it. CORPUS_NAMES already carries `"A" * 200`, yet
+      the property test only ever compares the *puzzle* page, whose payload has
+      `name=None`, so the long name never reaches an asserted answer page.
+    suggestion: |
+      One case in TestBookPdf_AnswerKeyCarriesPictureTitle: render an answer page
+      for a 200-character name and assert its band still equals a page whose first
+      piece is the elided name and whose second piece is the untouched identity
+      (or, more cheaply, assert the page differs from one rendered with the
+      identity alone and with the name alone).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 588
+    title: "\"Numbers never leave a gap where a dropped member was\" is documented but untested"
+    description: |
+      interior_pages' new paragraph (book_pdf_generator.py:588-595) states that N is
+      the position among the *surviving* payloads. The code is correct by
+      construction (the loop enumerates `payloads`, book_pdf_generator.py:651), but
+      nothing exercises a book with a dropped member. Reproduced while probing: the
+      drop path is in practice hard to reach, because `_payload` is permissive
+      enough that a row as thin as `{"id": "bad"}` still builds a payload and gets a
+      numbered page of its own.
+    suggestion: |
+      Add one case to the band suite: a book whose middle member cannot build a
+      payload, asserting the third member's page carries "Puzzle 2 · Tier" (not
+      "Puzzle 3"). See also F-005 for the row shape that reaches the drop pass.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: feature
+    type: gap
+    file: meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md
+    line: 21
+    title: "ADR-0037 states no rule for a row with no readable tier"
+    description: |
+      ADR-0037's Decision and its Rules block say the band is "Puzzle N · Tier" and
+      nothing about a row whose stored tier is missing or unrecognised. The
+      implementation chose "Puzzle N" alone and argued it well (band_identity's
+      docstring, book_pdf_generator.py:92-113) and CARD-117's worktree notes record
+      it — but the ADR that the next reader consults does not. Informational, not a
+      conformance failure: nothing in R1 forbids the choice.
+    suggestion: |
+      One sentence in ADR-0037's Decision (and its History entry): a row with no
+      tier of record prints the number alone; no fourth label is invented and the
+      stored text is never printed raw.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 148
+    title: "[pre-existing, outside the diff] tier_breakdown aborts the export on the very row the payload pass tolerates"
+    description: |
+      Reproduced on this head with a book of [good, "not a dict", good]:
+      interior_pages logs "Dropping book puzzle None from the interior ('str' object
+      has no attribute 'get')" and then dies with AttributeError from
+      tier_breakdown (book_pdf_generator.py:148), which iterates the raw `puzzles`
+      list with `.get`. The payload pass guards the same row shape deliberately
+      (book_pdf_generator.py:621-628) and the guide-page count does not. Untouched
+      by this diff (context lines only) — noted because CARD-117 gave the drop pass
+      a second job (numbering) and the next reader will land here.
+    suggestion: |
+      Not this card. A follow-up should give tier_breakdown the same hasattr guard
+      the payload pass uses, or count over the survivors.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 318
+    title: "[pre-existing, outside the diff] the admin's own pages still reach for /System/Library/Fonts/Arial.ttf"
+    description: |
+      The card's "use the packaged font, not /System/Library/..." instruction is met
+      for the band, which COMP-007 letters in the bundled DejaVu Sans. But the
+      cover, guide and divider pages this module draws itself still try
+      ImageFont.truetype("/System/Library/Fonts/Arial.ttf", ...) at lines 318, 364,
+      365 and 409, falling back to ImageFont.load_default(). None of those lines is
+      in the diff; on a non-macOS host those three pages silently change face.
+    suggestion: |
+      A follow-up card should route those three pages through the same packaged-font
+      helper the export uses.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -39,9 +39,6 @@ _(none)_
 
 ## Ready
 - **CARD-136** P1 · Print setup stores the chosen trim on the book · 0.5d · wave 24 · after CARD-116 (gap found in waves 22-23)
-- **CARD-117** P1 · "Puzzle N · Tier" band, title only in the answer key, print-weight rules · 0.5d · wave 24 · Inc 13 · after CARD-116
-- **CARD-123** P1 · Tile cell + below-floor flag + override control; finalise below-floor count · 0.5d · wave 24 · Inc 14 · after CARD-121, CARD-122
-- **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
 - **CARD-118** P1 · Proof pages (30×30 + 15×15) — owner-confirmed print checkpoint · 0.5d · wave 25 · Inc 13 · after CARD-117
 - **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125
 - **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124
@@ -52,11 +49,15 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-_(none)_
 
 ## Review
+- **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
+  `worktree: ../PythonProject4-CARD-126` · `branch: card/126-book-level-order` · `elapsed: 0d`
+- **CARD-123** P1 · Tile cell + below-floor flag + override control; finalise below-floor count · 0.5d · wave 24 · Inc 14 · after CARD-121, CARD-122 · score 9.0 (cycle 1/3)
+  `worktree: ../PythonProject4-CARD-123` · `branch: card/123-tile-cell-and-floor-count` · `elapsed: 0d`
 
 ## Done
+- **CARD-117** "Puzzle N · Tier" band + print strokes · score 9.0 · merged 837a6f3
 - **CARD-116** Book PDF on its own trim · score 9.3 · merged dff610b
 - **CARD-121** 4.8 mm floor + override · score 9.0 · merged 9b2cfb7
 - **CARD-133** Answer tiles · score 8.0 · merged be12385
