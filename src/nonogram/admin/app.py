@@ -2195,10 +2195,15 @@ def create_app(debug=None):
                                 f" {planned}. The plan was saved as entered.",
                                 "warning",
                             )
-                    # Store in book metadata (for now, using the in-memory manager)
-                    # In production, this would update the Book row in the database
-                    book.metadata.size = f"{spec.trim_width_cm}×{spec.trim_height_cm} cm"
-                    book.updated_at = datetime.utcnow()
+                    # CARD-136 (FR-030, CON-018): the chosen trim is stored on
+                    # the book — the print columns book_page_spec measures
+                    # every cell on and the export prints from. Until this
+                    # card it was written to metadata.size, a display string
+                    # on a snapshot DB mode drops on the floor, so a book
+                    # whose trim the owner changed still printed on the Book 1
+                    # profile. The write happens here, beside save_plan, so a
+                    # refused plan stores neither (AC-197).
+                    book_mgr.set_print_spec(book_id, spec)
 
                     flash(f"Print specs set: {spec.trim_width_cm} × {spec.trim_height_cm} cm", "success")
                     # Proceed to Step 2: Puzzle Selection
@@ -2211,15 +2216,24 @@ def create_app(debug=None):
             # carry the whole submission back so no input is lost (F-003).
             submitted = request.form
 
-        # Prepare default trim size
-        default_width = PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM
-        default_height = PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM
+        # The trim the book is stored on, so reopening Print setup shows what
+        # it will actually print on rather than the profile's defaults
+        # (CARD-136). An empty column is a legacy book, which prints on the
+        # Book 1 profile (CON-018) — and that is what the defaults are.
+        default_width = book.trim_width_cm or PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM
+        default_height = book.trim_height_cm or PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM
         unit_preference = session.get("unit_preference", "cm")
 
-        # Convert defaults to inches if that's the preference
+        # Convert to inches if that's the preference
         if unit_preference == "inches":
-            default_width = PrintSpecValidator.cm_to_inches(default_width)
-            default_height = PrintSpecValidator.cm_to_inches(default_height)
+            try:
+                default_width = PrintSpecValidator.cm_to_inches(default_width)
+                default_height = PrintSpecValidator.cm_to_inches(default_height)
+            except ValueError:
+                # A stored column that is not a number has no inch form. Show
+                # it as it stands, so the owner sees the value to correct
+                # rather than an error page.
+                pass
 
         if submitted is not None:
             default_width = submitted.get("width", default_width)
@@ -2575,6 +2589,32 @@ def create_app(debug=None):
                 )
                 cells[str(record.get("id"))] = None
         return cells
+
+    def _trim_cm(book):
+        """The book's stored trim as the two centimetre figures a screen shows.
+
+        Read through ``book_page_spec`` — the same door the printed cell
+        figures come through (EC-021) — so the Trim size row and the cell
+        numbers beside it can never disagree, and a legacy book with empty
+        columns shows the CON-018 profile it will really print on. Until
+        CARD-136 this was split out of ``metadata.size``, a display string the
+        trim was never stored in, which rendered "8x10 × 27.94 cm".
+
+        ``(None, None)`` when the stored specification cannot be read at all:
+        the screen then says so, rather than showing a size nobody can print
+        — the posture ``_book_cells`` takes for the same book.
+        """
+        try:
+            spec = book_page_spec(book)
+        except ValueError as error:
+            app.logger.warning(
+                "Book %s has an unreadable print specification (%s); no trim "
+                "size can be shown for it.",
+                book.book_id,
+                error,
+            )
+            return None, None
+        return f"{spec.width_mm / 10:.2f}", f"{spec.height_mm / 10:.2f}"
 
     def _misses_the_floor(cell_mm):
         """Does this cell miss NFR-008's floor? An unmeasurable one does.
@@ -3022,6 +3062,12 @@ def create_app(debug=None):
                 "warning",
             )
 
+        # CARD-136 (FR-030): the trim the figures below are measured on, read
+        # from the book's own print columns — the ones Print setup writes and
+        # the export prints from — so this screen, Print setup and the PDF
+        # report one trim.
+        trim_width_cm, trim_height_cm = _trim_cm(book)
+
         # CARD-123 (FR-031, NFR-008; AC-187, AC-188): the members that print
         # below the floor, measured on the book's **current** trim and margins
         # every time this renders. It is not read back from the stored
@@ -3063,8 +3109,8 @@ def create_app(debug=None):
             # bound — CARD-129 owns the exact equality (EC-034).
             "page_count": interior_page_count(len(puzzles_in_book)),
             "cover_uploaded": _uploaded_cover_file(book_id) is not None,
-            "trim_width_cm": book.metadata.size.split("×")[0] if book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM,
-            "trim_height_cm": book.metadata.size.split("×")[1] if book.metadata.size and "×" in book.metadata.size else PrintSpecValidator.DEFAULT_TRIM_HEIGHT_CM,
+            "trim_width_cm": trim_width_cm,
+            "trim_height_cm": trim_height_cm,
         }
 
         return render_template("book_finalize.html", **context)

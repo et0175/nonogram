@@ -79,7 +79,7 @@
                     <li>{{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}, in your order, with their titles</li>
                     {% if puzzle_count %}<li>Solutions divider and answer pages</li>{% endif %}
                 </ol>
-                <small class="text-muted d-block mb-3">About {{ page_count }} interior pages at {{ trim_width_cm }} × {{ trim_height_cm }} cm. The cover is not counted.</small>
+                <small class="text-muted d-block mb-3">About {{ page_count }} interior pages{% if trim_width_cm %} at {{ trim_width_cm }} × {{ trim_height_cm }} cm{% endif %}. The cover is not counted.</small>
                 <h3 class="h6">Cover file</h3>
                 <p class="mb-0">One page: {% if cover_uploaded %}your cover image{% else %}a generated title cover{% endif %}. Front cover only.</p>
             </div>
@@ -93,7 +93,17 @@
                 <dl class="kv mb-3">
                     <dt>Puzzles</dt><dd class="num">{{ puzzle_count }}</dd>
                     <dt>Interior pages</dt><dd class="num">~{{ page_count }}</dd>
-                    <dt>Trim size</dt><dd class="num">{{ trim_width_cm }} × {{ trim_height_cm }} cm</dd>
+                    {#- CARD-136 (FR-030): the book's stored print columns —
+                        the trim the cell figures below are measured on and
+                        the one the PDF is printed at, never metadata.size.
+                        Empty when the stored specification cannot be read;
+                        then there is no size to print and the row says so. -#}
+                    <dt>Trim size</dt>
+                    {%- if trim_width_cm %}
+                    <dd class="num" data-trim-width-cm="{{ trim_width_cm }}" data-trim-height-cm="{{ trim_height_cm }}">{{ trim_width_cm }} × {{ trim_height_cm }} cm</dd>
+                    {%- else %}
+                    <dd>Cannot be read — set it again on Print setup</dd>
+                    {%- endif %}
                     <dt>Easy</dt><dd class="num">{{ easy_count }}</dd>
                     <dt>Medium</dt><dd class="num">{{ medium_count }}</dd>
                     <dt>Hard</dt><dd class="num">{{ hard_count }}</dd>

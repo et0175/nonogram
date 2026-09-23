@@ -23,6 +23,14 @@ where an AC is about the PDF **file**, which is read back with Pillow's own
 parser (``tests/helpers/pdf_pages.py``, and ``page_ink.pdf_page_boxes`` for
 the MediaBox a printer measures).
 
+AC-176 and AC-177 are about the trim a book is **stored** on, and since
+CARD-136 the admin panel's Print setup step is how a trim gets there. Their
+books are therefore not hand-built: the trim is typed into the real form and
+saved through the real route (``print_setup`` below), and the export is built
+from the :class:`Book` that comes back out of storage. A hand-built Book would
+satisfy both criteria on columns no screen had ever written — which is exactly
+the state the product was in until CARD-136.
+
 The last two classes carry no AC. They pin the module's **failure contract**
 — what a puzzle that will not render does to the pages of the ones around it
 — which is the contract the payload-first pass in ``interior_pages`` exists
@@ -94,6 +102,44 @@ def _book(
         gutter_margin_cm=None if gutter_mm is None else _cm(gutter_mm),
         outside_margin_cm=None if outside_mm is None else _cm(outside_mm),
     )
+
+
+@pytest.fixture
+def print_setup(monkeypatch):
+    """Choose a book's trim the way the owner does: on the Print setup step.
+
+    Returns ``choose(width_mm, height_mm) -> Book`` — a new book whose trim was
+    submitted to ``POST /book/<id>/setup-print`` in centimetres and then read
+    back out of the book store, so what the export is built from is whatever
+    that route stored (CARD-136). The panel runs in its in-memory mode with a
+    book store of its own, restored afterwards by ``monkeypatch``.
+    """
+    import nonogram.admin.book_manager as book_manager_module
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("TESTING", "true")
+    from nonogram.admin.app import create_app
+
+    monkeypatch.setattr(
+        book_manager_module,
+        "_book_manager",
+        book_manager_module.BookManager(session_factory=None),
+    )
+    app = create_app()
+    app.config["TESTING"] = True
+
+    def choose(width_mm: float, height_mm: float) -> Book:
+        book_id = app.book_manager.create_book(
+            "Winter Pictures", "A test book.", "generic", "adults"
+        )
+        response = app.test_client().post(
+            f"/book/{book_id}/setup-print",
+            data={"unit": "cm", "width": _cm(width_mm), "height": _cm(height_mm)},
+        )
+        assert response.status_code == 302, "Print setup refused the trim"
+        return app.book_manager.get_book(book_id)
+
+    return choose
 
 
 def _gutter_grid(columns: int, rows: int, depth: int) -> list[list[bool]]:
@@ -210,13 +256,17 @@ class TestBookPdf_CellSizedForBookTrimNotA4:
 
 
 class TestBookPdf_CellFollowsStoredTrim:
-    """AC-176 — the same 15x15 draws 5.92 mm on a 6 x 9 in book, 7.5 mm on 8.5 x 11."""
+    """AC-176 — the same 15x15 draws 5.92 mm on a 6 x 9 in book, 7.5 mm on 8.5 x 11.
+
+    Both books are set up through Print setup (CARD-136), so the criterion is
+    about the trim the owner chose and the product stored.
+    """
 
     PUZZLE = (15, 15, 7)
 
-    def test_a_six_by_nine_book_draws_the_smaller_cell(self):
+    def test_a_six_by_nine_book_draws_the_smaller_cell(self, print_setup):
         width_mm, height_mm = SIX_BY_NINE_MM
-        book = _book(width_mm=width_mm, height_mm=height_mm)
+        book = print_setup(width_mm, height_mm)
         page = _interior(book, [_puzzle(*self.PUZZLE)])[1]
 
         drawn_mm = _mm(drawing_of(page).cell)
@@ -227,12 +277,25 @@ class TestBookPdf_CellFollowsStoredTrim:
         )
         assert abs(drawn_mm - expected) < CELL_TOLERANCE_MM, (drawn_mm, expected)
 
-    def test_the_same_puzzle_on_the_book_one_trim_is_held_at_the_standard_cell(self):
-        page = _interior(_book(), [_puzzle(*self.PUZZLE)])[1]
+    def test_the_same_puzzle_on_the_book_one_trim_is_held_at_the_standard_cell(
+        self, print_setup
+    ):
+        book = print_setup(BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM)
+        page = _interior(book, [_puzzle(*self.PUZZLE)])[1]
 
         drawn_mm = _mm(drawing_of(page).cell)
 
         assert abs(drawn_mm - STANDARD_CELL_MM) < CELL_TOLERANCE_MM, drawn_mm
+
+    def test_changing_the_trim_is_what_changes_the_cell(self, print_setup):
+        """The two halves side by side: one puzzle, two chosen trims."""
+        puzzle = _puzzle(*self.PUZZLE)
+        six_by_nine = _mm(drawing_of(_interior(print_setup(*SIX_BY_NINE_MM), [puzzle])[1]).cell)
+        book_one = _mm(
+            drawing_of(_interior(print_setup(BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM), [puzzle])[1]).cell
+        )
+
+        assert book_one - six_by_nine > 1.0, (book_one, six_by_nine)
 
 
 class TestBookPdf_PageSizeEqualsStoredTrim:
@@ -251,9 +314,8 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
     TRIM_PT = (0.0, 0.0, 6 * 72.0, 9 * 72.0)
 
     @pytest.fixture
-    def export(self):
-        width_mm, height_mm = SIX_BY_NINE_MM
-        book = _book(width_mm=width_mm, height_mm=height_mm)
+    def export(self, print_setup):
+        book = print_setup(*SIX_BY_NINE_MM)
         puzzles = [_puzzle(15, 15, 7), _puzzle(20, 20, 6), _puzzle(30, 30, 9)]
         return BookPDFGenerator(book).export_book(puzzles, book.metadata.title)
 
