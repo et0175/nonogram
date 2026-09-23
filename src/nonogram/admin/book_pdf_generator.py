@@ -30,13 +30,31 @@ called with the book's spec: the trim and the usable area through
 text the layout knows nothing about — the guide page's lines and the divider's
 word — and it is positioned against the usable area the layout reported.
 
-The band's *content* (today "<name> — <tier>") is deliberately untouched here:
-ADR-0037/R1's "Puzzle N · Tier" is CARD-117's.
+What the band says (ADR-0037/R1, CARD-117)
+------------------------------------------
+A book puzzle page's 12 mm band (TERM-028) reads **"Puzzle N · Tier"** — the
+puzzle's 1-based position in the print order and the solver's tier, nothing
+else. The picture's title is not on it (FR-033): a titled puzzle page gives
+the picture away before the solver has drawn it. The title appears once, on
+that puzzle's **answer-key page**, beside the same "Puzzle N · Tier" line, so
+the answer can be found by the number printed on the puzzle and recognised by
+the name once it is found.
+
+Both bands are the export's own header, set by COMP-007 inside the band the
+`PageSpec` reserves; this module chooses only the *text*, by what it puts in
+the two header fields of each page's :class:`~nonogram.export.ExportPayload`
+(:func:`~nonogram.export.pdf.header_parts` is the non-empty members of
+``(name, difficulty)``, em rule between them). So the two pages of one puzzle
+are two different payloads and two ``render_pages`` calls — see
+:meth:`BookPDFGenerator._banded`. Drawing lettering is the admin's to decide
+(ADR-0036/R2 forbids fitting cells and placing rules, not wording), and it is
+set in the packaged DejaVu Sans the export already uses (ADR-0006/DEC-027),
+which covers the middle dot.
 """
 
 import logging
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, Optional, List, Tuple
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -51,6 +69,58 @@ from nonogram.export.pdf import render_pages
 #: the only trace the export leaves of a member that did not reach the file,
 #: and a ``print`` of it lands nowhere in a served request.
 logger = logging.getLogger(__name__)
+
+#: What stands between a puzzle's number and its tier in the band: a middle dot
+#: (U+00B7) with a space either side, exactly as ADR-0037 writes it
+#: ("Puzzle 12 · Easy").
+#:
+#: It is part of one header piece, set as a glyph in the packaged DejaVu Sans,
+#: which covers U+00B7 — unlike the em rule the export *strokes* between two
+#: pieces (``pdf.HEADER_SEPARATOR``). The two marks are deliberately different:
+#: the dot joins the number to its tier inside one line, the rule joins that
+#: line to the picture's title on the answer page.
+BAND_SEPARATOR = " · "
+
+
+def band_identity(puzzle_number: int, stored_tier: object) -> str:
+    """The band line of one book puzzle: ``"Puzzle 12 · Easy"`` (ADR-0037/R1).
+
+    The whole of what a puzzle page's band says. ``N`` is the puzzle's 1-based
+    position in the **print** order, which is the number its answer-key entry
+    carries too, so the two can be matched by eye; ``Tier`` is the solver's
+    own grade, never anything derived from the grid's size (FR-009).
+
+    ``stored_tier`` is whatever the puzzle's row holds, in any of the spellings
+    that reach it — the enum value a generated row stores (``"easy"``), the
+    display label an older or hand-entered row carries (``"Easy"``), or
+    ADR-0031/R3's retired ``"guess"``, which reads back as Hard without being
+    rewritten. It is normalised through
+    :func:`nonogram.difficulty.tier_of_record`, the one reader of stored tier
+    text, rather than printed as it is stored: a band reading "Puzzle 12 ·
+    easy" would be the same counting bug that function exists to prevent,
+    wearing a typography bug's clothes.
+
+    **A row with no tier of record prints "Puzzle 12" and stops.** ``None`` out
+    of ``tier_of_record`` means the text on the row is not a tier at all — a
+    missing column, a blank, a word from some retired vocabulary — and there
+    is nothing true to print after the dot. The three honest options are to
+    print the raw text (which would put an unvetted string from the database on
+    a printed page and spell it however it happens to be spelled), to invent a
+    label such as "Unrated" (a fourth tier on the page, which ADR-0031 has
+    exactly three of), or to say only what is known. This says only what is
+    known: the number still identifies the puzzle and still matches the answer
+    key, and the missing grade is visible as an absence to whoever proofs the
+    book rather than dressed up as one.
+
+    Raises:
+        ValueError: ``puzzle_number`` is not a print position (below 1).
+    """
+    if puzzle_number < 1:
+        raise ValueError(f"puzzles are numbered from 1, got {puzzle_number}")
+    tier = tier_of_record(stored_tier)
+    if tier is None:
+        return f"Puzzle {puzzle_number}"
+    return f"Puzzle {puzzle_number}{BAND_SEPARATOR}{tier.label}"
 
 
 def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
@@ -415,11 +485,15 @@ class BookPDFGenerator:
 
     @staticmethod
     def _payload(puzzle: dict) -> ExportPayload:
-        """One book puzzle as the export's boundary type.
+        """One book puzzle as the export's boundary type — the row, as it is.
 
-        Its ``name`` and ``difficulty`` still reach the band as they do today:
-        ADR-0037/R1's "Puzzle N · Tier" band is CARD-117's change, and building
-        on the current text here would only have to be undone.
+        The *record* payload: it carries the puzzle's own name and its stored
+        tier text, in the spelling the row holds them. Neither reaches a page
+        in that form. :meth:`_banded` turns this into the two payloads a page
+        is actually drawn from, once the puzzle's print position is known, and
+        that position is handed out only after a row has proved it can build a
+        payload at all (:meth:`interior_pages`) — which is why the band text is
+        not composed here.
         """
         clues_rows = puzzle.get("clues_rows", [])
         clues_cols = puzzle.get("clues_cols", [])
@@ -435,23 +509,63 @@ class BookPDFGenerator:
             difficulty=puzzle.get("difficulty_tier"),  # Display name, not score
         )
 
+    @staticmethod
+    def _banded(
+        payload: ExportPayload, puzzle_number: int
+    ) -> Tuple[ExportPayload, ExportPayload]:
+        """``payload`` as the two payloads its pages are drawn from (ADR-0037/R1).
+
+        Returns ``(puzzle_page_payload, answer_page_payload)``. Both carry the
+        same :func:`band_identity` line for ``puzzle_number``; only the answer
+        page keeps the picture's title, and the puzzle page's is cleared, which
+        is the whole mechanism by which no title is drawn on it — the export
+        sets the non-empty header fields and nothing else
+        (:func:`~nonogram.export.pdf.header_parts`), so a page whose payload
+        has no name has no title to leave off.
+
+        **The title leads on the answer page**, ahead of the identity:
+        "Snowflake — Puzzle 12 · Easy". Reading order is the lesser reason.
+        The binding one is that the export fits a header too wide for its page
+        by setting it smaller and then, at the floor, eliding *the first
+        piece* — which it can do safely because the first piece is the only
+        one long enough to need it. A 200-character picture name in the second
+        slot would be the piece that does not fit and the piece that is never
+        cut. Putting the name first keeps that assumption true, so a long name
+        is shortened with an ellipsis and the puzzle's number and tier — the
+        part the answer key is *used* by — always survives whole.
+        """
+        identity = band_identity(puzzle_number, payload.difficulty)
+        return (
+            replace(payload, name=None, difficulty=identity),
+            replace(payload, difficulty=identity),
+        )
+
     def _puzzle_and_answer(
-        self, payload: ExportPayload, puzzle_page: int, answer_page: int
+        self,
+        payload: ExportPayload,
+        puzzle_number: int,
+        puzzle_page: int,
+        answer_page: int,
     ) -> Tuple[Image.Image, Image.Image]:
         """One puzzle's two pages, each placed on the sheet of *its own* position.
 
         A puzzle's blank page and its answer page sit at different places in
         the interior, so they are different sheets whenever their positions
         disagree in parity — the drawing moves sideways by gutter − outside
-        and nothing else (FR-032). They are rendered twice only in that case;
-        when the two positions share a parity they share a sheet and one call
-        draws both.
+        and nothing else (FR-032).
+
+        Two ``render_pages`` calls, always. They used to be one whenever the
+        two positions shared a parity, because both pages carried the same
+        header and differed only in the revealed cells. Since ADR-0037/R1 they
+        do not: the puzzle page's band is "Puzzle N · Tier" and the answer
+        page's also names the picture (:meth:`_banded`), so each page is drawn
+        from its own payload and the page the other call also produced — a
+        blank titled like an answer, an answer titled like a puzzle page — is
+        dropped rather than used.
         """
-        blank_spec = self.page_spec(puzzle_page)
-        answer_spec = self.page_spec(answer_page)
-        blank, answer = render_pages(payload, page_spec=blank_spec)
-        if answer_spec.parity is not blank_spec.parity:
-            _, answer = render_pages(payload, page_spec=answer_spec)
+        puzzle_payload, answer_payload = self._banded(payload, puzzle_number)
+        blank, _ = render_pages(puzzle_payload, page_spec=self.page_spec(puzzle_page))
+        _, answer = render_pages(answer_payload, page_spec=self.page_spec(answer_page))
         return blank, answer
 
     def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
@@ -470,6 +584,14 @@ class BookPDFGenerator:
         that does not exist were there — every surviving page still sits where
         its **own** 1-based position puts it. The drop is logged, at warning,
         and is the only trace of a member that did not reach the file.
+
+        The same pass decides the **puzzle numbers** ADR-0037/R1 prints. A
+        puzzle's ``N`` is its 1-based position among the payloads that
+        survived, not among ``puzzles``, so the numbers a reader sees run
+        1, 2, 3 with no gap where a dropped member was — and the answer page
+        built in the same iteration carries that same number. Numbering
+        follows the print order, whatever put the puzzles in it: CARD-128's
+        grouping by level reorders ``puzzles`` and the numbers follow.
 
         Raises:
             RuntimeError: one puzzle built a payload and then would not draw.
@@ -526,7 +648,7 @@ class BookPDFGenerator:
         for index, (puzzle_id, payload) in enumerate(payloads):
             try:
                 blank_page, answer_page = self._puzzle_and_answer(
-                    payload, 2 + index, first_answer_page + index
+                    payload, index + 1, 2 + index, first_answer_page + index
                 )
             except Exception as e:
                 raise RuntimeError(
