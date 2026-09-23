@@ -26,8 +26,17 @@ from __future__ import annotations
 import pytest
 
 from nonogram.admin.book_manager import BookManager
+from nonogram.admin.book_plan import DistributionPlan, Split
 from nonogram.admin.puzzle_review import PuzzleReviewService, PuzzleStatus
 from tests.helpers.db import make_batch, sqlite_session_scope
+
+#: CARD-124: since ADR-0035 a book leaves draft only when every longest-side x
+#: tier cell is within 3 points of its plan, so a test that publishes a book
+#: plans it first. Every puzzle here is 10 x 10 and easy — the <=15 x easy
+#: cell — so a one-puzzle book is planned by a one-puzzle plan.
+ONE_SMALL_EASY_PUZZLE = DistributionPlan(
+    count=1, split=Split(100, 0, 0), cells=((1, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0))
+)
 
 
 class Panel:
@@ -157,6 +166,7 @@ def test_a_published_book_is_still_refused(panel):
     """G-2-adjacent: the existing rule is not loosened by the release."""
     puzzle_id = panel.add()
     book_id = panel.book(puzzle_id)
+    panel.books.save_plan(book_id, ONE_SMALL_EASY_PUZZLE)
     panel.books.set_book_status(book_id, "published")
 
     with pytest.raises(ValueError):
