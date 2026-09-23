@@ -4,13 +4,13 @@
 {% extends "base.html" %}
 
 {% block title %}Arrange puzzles - {{ book.metadata.title }} - Nonogram admin{% endblock %}
-{% block section %}Books · {{ book.metadata.title }} · step 3{% endblock %}
+{% block section %}Books · {{ book.metadata.title }} · step {{ stepper.book_step_number(3) }}{% endblock %}
 
 {% block content %}
 <div class="page-head">
     <div>
         <h1>Arrangement</h1>
-        <p class="lede">Step 3 of 4 for <strong>{{ book.metadata.title }}</strong>: reading order and a title for each puzzle.</p>
+        <p class="lede">{{ stepper.book_step_of(3) }} for <strong>{{ book.metadata.title }}</strong>: reading order and a title for each puzzle.</p>
         <p class="text-muted mb-0">The book runs easy, then medium, then hard. Moves stay inside a level, and a new puzzle lands at the end of its own.</p>
     </div>
     <div class="page-actions align-items-center">
@@ -119,7 +119,7 @@
                 </div>{# /level-group #}
                 {% endfor %}
                 {% else %}
-                <p class="empty">No puzzles selected. <a href="/book/{{ book.book_id }}/select-puzzles">Go back to step 2</a> to add some.</p>
+                <p class="empty">No puzzles selected. <a href="/book/{{ book.book_id }}/select-puzzles">Go back to step {{ stepper.book_step_number(2) }}</a> to add some.</p>
                 {% endif %}
             </div>
         </div>
@@ -138,7 +138,7 @@
                     <dt>Puzzles</dt><dd class="num">{{ puzzle_count }}</dd>
                     <dt>Pages</dt><dd class="num">~{{ page_count }}</dd>
                 </dl>
-                <small class="text-muted">The final count is worked out in step 4 from puzzle heights and trim size.</small>
+                <small class="text-muted">The final count is worked out in step {{ stepper.book_step_number(4) }} from puzzle heights and trim size.</small>
             </div>
         </div>
     </div>

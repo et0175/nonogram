@@ -6,6 +6,21 @@
     AC-225  TestBookSteps_ReachableWhateverStatus
     G-2     TestBookSteps_RevisitingDiscardsNothing                 (EC-026)
     CK-1    TestBookStepper_KeysAreTheOnesTheStepPagesStillPass
+    F-001   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 1)
+    F-002   TestBookGeneralInfo_EditsExistingBook
+            ::test_a_refused_submission_carries_the_owner_s_entries_back
+    F-006   TestBookGeneralInfo_EditsExistingBook             (cycle 2)
+            ::test_a_refused_edit_marks_exactly_the_offending_field
+            ::test_a_saved_submission_marks_nothing
+            ::test_the_create_screen_is_untouched_by_the_marking
+    F-007   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
+    F-008   ::test_the_create_lede_counts_the_steps_that_follow
+    F-009   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
+            ::test_no_route_docstring_numbers_a_step
+    F-012   TestBookGeneralInfo_EditsExistingBook             (cycle 2)
+            ::test_an_empty_submission_is_still_a_submission
+    F-105   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
+            ::test_the_breadcrumb_names_the_page_s_own_step
 
 The user-facing half is driven through the Flask test client against the real
 routes, because this project has no browser harness — the same convention
@@ -34,7 +49,7 @@ from html.parser import HTMLParser
 import pytest
 
 import nonogram.admin.book_manager as book_manager_module
-from nonogram.admin.book_manager import BookManager, BookStatus
+from nonogram.admin.book_manager import BOOK_THEMES, BookManager, BookStatus
 from nonogram.admin.book_plan import BUCKETS, TIERS, LevelBoundary
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from tests.helpers.db import make_batch, sqlite_session_scope
@@ -57,6 +72,19 @@ def step_paths(book_id: str) -> dict:
         3: f"/book/{book_id}/arrange-puzzles",
         4: f"/book/{book_id}/finalize",
     }
+
+
+#: The view functions behind those five steps, written out for the same
+#: reason ``step_paths`` writes the URLs out: the point is the pages the
+#: owner reaches, and a list asked of the app would agree with the app
+#: however the routes moved.
+STEP_ENDPOINTS = (
+    "edit_book",
+    "setup_print",
+    "select_puzzles_for_book",
+    "arrange_puzzles_in_book",
+    "finalize_book",
+)
 
 
 #: The five labels the stepper prints, in order.
@@ -136,6 +164,75 @@ def stepper_of(client, path: str) -> _Stepper:
     read = _Stepper()
     read.feed(response.get_data(as_text=True))
     assert read.found, f"{path} carries no book stepper"
+    return read
+
+
+class _Controls(HTMLParser):
+    """The general-info form's four controls, as the browser would see them.
+
+    An independent reader rather than a substring search for ``is-invalid``:
+    marking *some* control is not the claim — the claim is that the one field
+    the domain refused is marked and the other three are not, so each control
+    has to be found by its own ``id``. ``selected`` records which ``<option>``
+    of a ``<select>`` carries the attribute, which is the only place a
+    ``<select>``'s carried-back value is visible at all (every option's
+    ``value`` is in the page whatever was submitted).
+    """
+
+    NAMES = ("title", "description", "theme", "target_audience")
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.controls: dict = {}
+        self.selected: dict = {}
+        self.ids: set = set()
+        self._select = None
+
+    def handle_starttag(self, tag, attrs) -> None:
+        attributes = dict(attrs)
+        if attributes.get("id"):
+            self.ids.add(attributes["id"])
+        if tag in ("input", "textarea", "select") and attributes.get("id"):
+            self.controls[attributes["id"]] = attributes
+            if tag == "select":
+                self._select = attributes["id"]
+        elif tag == "option" and self._select is not None and "selected" in attributes:
+            self.selected[self._select] = attributes.get("value")
+
+    def handle_endtag(self, tag) -> None:
+        if tag == "select":
+            self._select = None
+
+    def marked(self) -> set:
+        """The control ids rendered as invalid — by class **and** by ARIA.
+
+        A control marked only one of the two ways is a half-done marking: the
+        red border without ``aria-invalid`` is invisible to a screen reader,
+        and either without a reachable ``aria-describedby`` target says
+        nothing about *what* is wrong. All three travel together or the test
+        fails here rather than silently accepting the weaker screen.
+        """
+        invalid = set()
+        for name, attributes in self.controls.items():
+            classes = (attributes.get("class") or "").split()
+            aria = attributes.get("aria-invalid")
+            if "is-invalid" not in classes and aria != "true":
+                continue
+            assert "is-invalid" in classes, f"{name}: aria-invalid without is-invalid"
+            assert aria == "true", f"{name}: is-invalid without aria-invalid"
+            target = attributes.get("aria-describedby")
+            assert target, f"{name}: marked invalid but describes nothing"
+            assert target in self.ids, f"{name}: aria-describedby={target} is not on the page"
+            invalid.add(name)
+        return invalid
+
+
+def controls_of(body: str) -> _Controls:
+    """The general-info form read back out of a rendered page."""
+    read = _Controls()
+    read.feed(body)
+    missing = [name for name in _Controls.NAMES if name not in read.controls]
+    assert not missing, f"the page carries no {missing} control"
     return read
 
 
@@ -503,6 +600,218 @@ class TestBookGeneralInfo_EditsExistingBook:
             shelf.books.update_book_details(book_id, **submission)
         assert shelf.details(book_id) == before
 
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("title", "   "),
+            ("description", " \t "),
+            ("theme", "winter"),
+            ("target_audience", "  "),
+        ],
+    )
+    def test_a_refused_submission_carries_the_owner_s_entries_back(
+        self, panel, field, value
+    ) -> None:
+        """F-002 — the refusal re-renders what was typed, not what is stored.
+
+        The route-level half of ``test_a_refused_field_stores_nothing``: that
+        one proves storage is untouched, this one proves the owner's other
+        three answers survive the refusal. They did not — the page re-rendered
+        from the book read at the top of the route, so a title of spaces (which
+        the browser's ``required`` lets through) discarded the description,
+        the theme and the audience typed beside it.
+        """
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals")
+        before = shelf.details(book_id)
+
+        submission = {
+            "title": "Winter Birds",
+            "description": "KEEP-ME-1234, birds mostly",
+            "theme": "generic",
+            "target_audience": "KEEP-ME-seniors",
+        }
+        submission[field] = value
+
+        with app.test_client() as client:
+            refused = client.post(f"/book/{book_id}/edit", data=submission)
+
+        assert refused.status_code == 200
+        assert shelf.details(book_id) == before
+
+        body = refused.get_data(as_text=True)
+        read = controls_of(body)
+        for name, typed in submission.items():
+            if name == field:
+                # The failing field is the one the owner must correct; only
+                # the *other* answers are what the refusal must not eat.
+                continue
+            if name == "theme":
+                # Cycle 2 (F-010): `"generic" in body` is unconditionally
+                # true — every theme is in the page as an <option value>, so
+                # that assertion passed with `field_theme` dropped entirely.
+                # The carried state is *which* option is `selected`.
+                assert read.selected.get("theme") == typed, (
+                    f"theme={typed!r} is not the selected option "
+                    f"({read.selected.get('theme')!r} is)"
+                )
+                continue
+            assert typed in body, f"{name}={typed!r} was dropped by the refusal"
+
+    def test_a_missing_theme_is_refused_not_defaulted(self, panel) -> None:
+        """F-003 — an absent theme on a revision is a broken submission.
+
+        The route read ``theme`` with a ``"christmas"`` default, unlike the
+        other three fields on the same call, so a submission with no theme
+        field silently rewrote a stored ``generic`` book as Christmas.
+        """
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals", theme="generic")
+
+        with app.test_client() as client:
+            refused = client.post(
+                f"/book/{book_id}/edit",
+                data={
+                    "title": "Winter Birds",
+                    "description": "birds, mostly",
+                    "target_audience": "seniors",
+                },
+            )
+
+        assert refused.status_code == 200
+        assert shelf.details(book_id)[2] == "generic"
+
+    def test_the_form_offers_exactly_the_domain_s_themes(self, panel) -> None:
+        """F-004 — the select loops over ``BOOK_THEMES``, not a copy of it."""
+        from nonogram.admin.book_manager import BOOK_THEMES
+
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            body = client.get(f"/book/{book_id}/edit").get_data(as_text=True)
+
+        select = body.split('name="theme"', 1)[1].split("</select>", 1)[0]
+        assert re.findall(r'<option value="([^"]+)"', select) == list(BOOK_THEMES)
+
+    # ----------------------------------------------------------------
+    # F-006 (cycle 2) — the refused control is marked, not only refilled
+    # ----------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("title", "   "),
+            ("title", ""),
+            ("description", " \t "),
+            ("theme", "winter"),
+            ("theme", ""),
+            ("target_audience", "  "),
+        ],
+    )
+    def test_a_refused_edit_marks_exactly_the_offending_field(
+        self, panel, field, value
+    ) -> None:
+        """F-006 — the rejected field is the marked one, and the only one.
+
+        Carrying the input back (F-002) left the refusal invisible: a title
+        of three spaces came back as a blank, default-bordered box between a
+        filled Description and a filled Target audience — indistinguishable
+        from an untouched optional field. FormField's ``invalid`` state is an
+        enumerated state of the design system and ``book create`` is named as
+        a user of it (meta/design/components.md).
+        """
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals")
+        before = shelf.details(book_id)
+
+        submission = {
+            "title": "Winter Birds",
+            "description": "birds, mostly",
+            "theme": "generic",
+            "target_audience": "seniors",
+        }
+        submission[field] = value
+
+        with app.test_client() as client:
+            refused = client.post(f"/book/{book_id}/edit", data=submission)
+
+        assert refused.status_code == 200
+        assert shelf.details(book_id) == before, "a refusal stored something"
+
+        read = controls_of(refused.get_data(as_text=True))
+        assert read.marked() == {field}
+
+    def test_a_saved_submission_marks_nothing(self, panel) -> None:
+        """F-006 — the mark is the refusal's, not the form's default dress."""
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals")
+
+        with app.test_client() as client:
+            saved = client.post(
+                f"/book/{book_id}/edit",
+                data={
+                    "title": "Winter Birds",
+                    "description": "birds, mostly",
+                    "theme": "generic",
+                    "target_audience": "seniors",
+                },
+            )
+            assert saved.status_code == 302
+            reopened = client.get(f"/book/{book_id}/edit")
+
+        assert controls_of(reopened.get_data(as_text=True)).marked() == set()
+
+    def test_an_empty_submission_is_still_a_submission(self, panel) -> None:
+        """F-012 — a falsy form is what the owner sent, not "nothing sent".
+
+        ``submitted if … and submitted`` tested truthiness, so a POST with no
+        fields at all fell back to the stored values — quietly restoring the
+        pre-F-002 behaviour the fix removed, inside the fix's own new line.
+        The refused page must show the empty submission, not the book's
+        stored title.
+        """
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals")
+
+        with app.test_client() as client:
+            refused = client.post(f"/book/{book_id}/edit", data={})
+
+        assert refused.status_code == 200
+        read = controls_of(refused.get_data(as_text=True))
+        assert read.controls["title"].get("value", "") == ""
+        assert read.marked() == {"title"}
+        assert shelf.details(book_id)[0] == "Winter Animals"
+
+    def test_the_create_screen_is_untouched_by_the_marking(self, panel) -> None:
+        """F-006 — objective 3: creation renders exactly as it did.
+
+        The create route passes no ``error_fields``, so the template's
+        marking is inert on that path — on a fresh GET and on a refused
+        create alike (whose own discard-of-input is a separate, out-of-scope
+        defect and is deliberately not addressed here).
+        """
+        app, _shelf = panel
+
+        with app.test_client() as client:
+            fresh = client.get("/book/create")
+            refused = client.post(
+                "/book/create",
+                data={
+                    "title": "   ",
+                    "description": "a new book",
+                    "theme": "generic",
+                    "target_audience": "kids",
+                },
+            )
+
+        assert fresh.status_code == 200
+        assert refused.status_code == 200
+        for response in (fresh, refused):
+            body = response.get_data(as_text=True)
+            assert controls_of(body).marked() == set()
+            assert "general-info-error" not in body
+
     def test_an_unknown_book_is_reported_not_created(self, shelf) -> None:
         assert (
             shelf.books.update_book_details(
@@ -603,7 +912,9 @@ def _corpus(shelf, seed: int = 20260923):
         book_id = shelf.book(
             title=f"Corpus {case}",
             description=f"case {case}",
-            theme=draw.choice(("christmas", "halloween", "easter", "valentine", "generic")),
+            # Cycle 2 (F-011): the domain's own list, not a literal copy of
+            # it — the same fan-in defect F-004 removed from the form.
+            theme=draw.choice(BOOK_THEMES),
             audience=draw.choice(("seniors", "kids", "adults")),
             members=tuple(members),
             status=draw.choice(EVERY_STATUS),
@@ -645,7 +956,10 @@ class TestBookSteps_RevisitingDiscardsNothing:
                 visits = list(step_paths(book_id).values()) + [f"/book/{book_id}"]
                 draw.shuffle(visits)
                 for path in visits * 2:
-                    assert client.get(path).status_code in (200, 302), path
+                    # Cycle 2 (F-011): exactly 200. Accepting 302 as well let
+                    # a step that started redirecting still satisfy the G-2
+                    # guard, which is the very thing AC-225 forbids.
+                    assert client.get(path).status_code == 200, path
 
                 assert shelf.curation(book_id) == before
                 assert shelf.details(book_id) == details
@@ -719,3 +1033,139 @@ class TestBookStepper_KeysAreTheOnesTheStepPagesStillPass:
 
         printed = re.findall(r'<span class="step-n">(\d+)</span>', body)
         assert printed == ["1", "2", "3", "4", "5"]
+
+
+# --------------------------------------------------------------------------
+# F-001 — a step page's prose and its own stepper name the same step
+# --------------------------------------------------------------------------
+
+
+#: "Step 3 of 5", wherever a page says it.
+STEP_PROSE = re.compile(r"Step\s+(\d+)\s+of\s+(\d+)")
+
+#: The steps whose page prose this checks, by the key the stepper matches on.
+#:
+#: ``1`` — Print setup — is deliberately absent: its page still reads "Step 1
+#: of 4" and ``book_setup_print.html`` is owned by another card this wave
+#: (G-4), so it cannot be corrected here. Put ``1`` back the moment that file
+#: is renumbered; nothing else about this test has to change.
+PROSE_CHECKED = (0, 2, 3, 4)
+
+
+class TestBookStepPages_ProseAgreesWithTheStepper:
+    """The number a page prints is the step its own stepper marks current.
+
+    ``TestBookStepper_KeysAreTheOnesTheStepPagesStillPass`` reads the ``<ol>``
+    and nothing else, so it is structurally blind to this: growing the list to
+    five left four pages reading "Step N of 4" beside a five-step stepper
+    marking step N+1 current, and the suite stayed green. This reads both
+    halves of the same page and makes them agree — the count as well as the
+    position, so a sixth step cannot quietly make them wrong again.
+    """
+
+    @pytest.mark.parametrize("step", PROSE_CHECKED)
+    def test_the_printed_step_is_the_current_one(self, panel, step) -> None:
+        app, shelf = panel
+        book_id = shelf.book(
+            members=((BUCKETS[0], TIERS[0]), (BUCKETS[2], TIERS[1])),
+            status=BookStatus.PUBLISHED.value,
+        )
+        path = step_paths(book_id)[step]
+
+        with app.test_client() as client:
+            response = client.get(path)
+            assert response.status_code == 200
+            body = response.get_data(as_text=True)
+
+        read = _Stepper()
+        read.feed(body)
+        assert read.found, f"{path} carries no book stepper"
+        assert read.current == [step], f"{path} marks {read.current}"
+
+        said = STEP_PROSE.findall(body)
+        assert said, f"{path} says no 'Step N of M'"
+        position = read.current[0] + 1
+        total = len(read.labels)
+        assert said == [(str(position), str(total))], (
+            f"{path} prose says {said} while its stepper marks step "
+            f"{position} of {total}"
+        )
+
+    @pytest.mark.parametrize("step", PROSE_CHECKED)
+    def test_a_cross_reference_names_a_step_that_exists(self, panel, step) -> None:
+        """"…step 4" in the body is within the list, whatever its length."""
+        app, shelf = panel
+        book_id = shelf.book(members=((BUCKETS[0], TIERS[0]),))
+
+        with app.test_client() as client:
+            body = client.get(step_paths(book_id)[step]).get_data(as_text=True)
+
+        read = _Stepper()
+        read.feed(body)
+        named = [int(n) for n in re.findall(r"\bstep (\d+)\b", body)]
+        assert all(1 <= n <= len(read.labels) for n in named), named
+
+    def test_the_create_lede_counts_the_steps_that_follow(self, panel) -> None:
+        """F-007/F-008 — New book's count is derived, not hand-written.
+
+        The lede read "the four steps that follow" — a hand-written count a
+        sixth step would silently falsify, which is exactly what F-001's fix
+        set out to end. It is ``book_step_count() - 1`` now, which is also
+        what gives ``book_step_count`` a caller outside the stepper file
+        (it had none: fan-in 0).
+        """
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            create = client.get("/book/create").get_data(as_text=True)
+            # The list's own length, read off a page that renders it.
+            read = _Stepper()
+            read.feed(client.get(f"/book/{book_id}/edit").get_data(as_text=True))
+
+        said = re.search(r"the (\d+) steps that follow", create)
+        assert said, "New book's lede states no step count"
+        assert int(said.group(1)) == len(read.labels) - 1
+
+    def test_no_route_docstring_numbers_a_step(self, panel) -> None:
+        """F-009 — a step is *named* in its docstring, never numbered by hand.
+
+        The four step routes read "Step 1..4 of scaffolding" while being
+        steps 2..5: a docstring is renumbered by nothing, and no test could
+        have caught it. Numbers belong to ``BOOK_STEPS``; prose names the
+        step.
+        """
+        import inspect
+
+        app, _shelf = panel
+        numbered = {
+            name: inspect.getdoc(app.view_functions[name])
+            for name in STEP_ENDPOINTS
+            if re.search(
+                r"\bstep\s+\d+\b", inspect.getdoc(app.view_functions[name]) or "", re.I
+            )
+        }
+        assert numbered == {}, numbered
+
+    @pytest.mark.parametrize("step", PROSE_CHECKED)
+    def test_the_breadcrumb_names_the_page_s_own_step(self, panel, step) -> None:
+        """Cycle 2 (F-105) — every step page's crumb ends "· step N", N its own.
+
+        General info was the one step page whose breadcrumb named no step at
+        all, which also made the Handover's "a step page never writes its own
+        number — its ``{% block section %}`` breadcrumb … goes through these
+        macros" untrue of it.
+        """
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals")
+
+        with app.test_client() as client:
+            body = client.get(step_paths(book_id)[step]).get_data(as_text=True)
+
+        read = _Stepper()
+        read.feed(body)
+        crumb = re.search(r'<span class="crumb">(.*?)</span>', body, re.S)
+        assert crumb, "the page renders no breadcrumb"
+        said = re.search(r"·\s*step\s+(\d+)\s*$", crumb.group(1).strip())
+        assert said, f"the breadcrumb {crumb.group(1).strip()!r} names no step"
+        assert int(said.group(1)) == read.current[0] + 1

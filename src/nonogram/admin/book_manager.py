@@ -395,6 +395,26 @@ def _merged_overrides(stored, added) -> List[str]:
 BOOK_THEMES = ("christmas", "halloween", "easter", "valentine", "generic")
 
 
+class InvalidBookDetails(ValueError):
+    """Refused general info, naming the field that caused the refusal.
+
+    A ``ValueError`` subclass on purpose (CARD-130 review cycle 2, F-006):
+    every caller that already writes ``except ValueError`` around
+    :meth:`BookManager.create_book` or
+    :meth:`BookManager.update_book_details` keeps catching it unchanged, and
+    the caller that wants to *mark the field* — the general-info form — asks
+    for ``fields``.
+
+    ``fields`` holds the form input name(s) the page marks invalid: only the
+    failing one, never all of them. The same shape the Print setup form's
+    refusal carries, so the two screens mark their fields the same way.
+    """
+
+    def __init__(self, message, field):
+        super().__init__(message)
+        self.fields = frozenset({field} if isinstance(field, str) else field)
+
+
 def _refuse_invalid_details(title, description, theme, target_audience) -> None:
     """Refuse general info no book may hold, whether new or revised.
 
@@ -403,17 +423,22 @@ def _refuse_invalid_details(title, description, theme, target_audience) -> None:
     statement of the rules, so the general-info step cannot store what creation
     would have refused (CARD-130, FR-038).
 
+    The first failing field decides: the refusal names exactly that one, so
+    the form marks the control the owner must correct and leaves the other
+    three alone.
+
     Raises:
-        ValueError: naming the field that is not acceptable.
+        InvalidBookDetails: a ``ValueError``, carrying the offending form
+            field's name in ``fields``.
     """
     if not title or len(title.strip()) == 0:
-        raise ValueError("Title cannot be empty")
+        raise InvalidBookDetails("Title cannot be empty", "title")
     if not description or len(description.strip()) == 0:
-        raise ValueError("Description cannot be empty")
+        raise InvalidBookDetails("Description cannot be empty", "description")
     if theme not in BOOK_THEMES:
-        raise ValueError(f"Invalid theme: {theme}")
+        raise InvalidBookDetails(f"Invalid theme: {theme}", "theme")
     if not target_audience or len(target_audience.strip()) == 0:
-        raise ValueError("Target audience cannot be empty")
+        raise InvalidBookDetails("Target audience cannot be empty", "target_audience")
 
 
 class BookManager:
@@ -473,7 +498,9 @@ class BookManager:
             book_id
 
         Raises:
-            ValueError: If parameters invalid
+            InvalidBookDetails: If parameters invalid. It is a ``ValueError``,
+                so a caller that only writes ``except ValueError`` — the
+                create route does — is unaffected by the field name it adds.
         """
         _refuse_invalid_details(title, description, theme, target_audience)
 
@@ -1944,7 +1971,11 @@ class BookManager:
             True if updated, False if not found
 
         Raises:
-            ValueError: If any field is not acceptable. Nothing is stored.
+            InvalidBookDetails: If any field is not acceptable. Nothing is
+                stored. It is a ``ValueError`` carrying ``fields`` — the name
+                of the one form input that failed — so the general-info step
+                can mark that control and only that one (review cycle 2,
+                F-006).
         """
         _refuse_invalid_details(title, description, theme, target_audience)
 

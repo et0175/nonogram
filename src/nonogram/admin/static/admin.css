@@ -41,6 +41,9 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
 .form-control::placeholder { color: var(--color-text-secondary); opacity: 0.8; }
 .form-label { font-size: var(--text-sm); color: var(--color-text-secondary); margin-bottom: var(--space-1); }
 .form-control-sm { min-height: calc(var(--control-h) - 8px); }
+/* FormField's invalid state in the design system's own danger, not Bootstrap's red. */
+.form-control.is-invalid, .form-select.is-invalid,
+.form-control.is-invalid:focus, .form-select.is-invalid:focus { border-color: var(--color-danger); }
 .input-group-text { background: var(--color-surface-sunken); border-color: var(--color-border-strong); color: var(--color-text-secondary); font-family: var(--font-num); }
 .form-check-input { border-color: var(--color-border-strong); }
 .form-check-input:checked { background-color: var(--color-accent); border-color: var(--color-accent); }

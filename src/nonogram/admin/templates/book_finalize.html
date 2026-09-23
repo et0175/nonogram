@@ -3,13 +3,13 @@
 {% import '_stepper.html' as stepper %}
 
 {% block title %}Finalise - {{ book.metadata.title }} - Nonogram admin{% endblock %}
-{% block section %}Books · {{ book.metadata.title }} · step 4{% endblock %}
+{% block section %}Books · {{ book.metadata.title }} · step {{ stepper.book_step_number(4) }}{% endblock %}
 
 {% block content %}
 <div class="page-head">
     <div>
         <h1>Finalise &amp; export</h1>
-        <p class="lede">Step 4 of 4 for <strong>{{ book.metadata.title }}</strong>: cover, guide page, and the two files KDP takes — the interior PDF and the cover.</p>
+        <p class="lede">{{ stepper.book_step_of(4) }} for <strong>{{ book.metadata.title }}</strong>: cover, guide page, and the two files KDP takes — the interior PDF and the cover.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
