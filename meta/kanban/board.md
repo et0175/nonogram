@@ -20,7 +20,7 @@ _Updated: 2026-09-22 UTC_
 | 21 | CARD-114 P1, CARD-120 P1 | ✓ done |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
-| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2 | ▶ active · closes Increment 14 |
+| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1 | ▶ active · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ⏳ blocked (→ wave 24) · closes Increment 13 (owner-confirmed proof print) |
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
 | 27 | CARD-129 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
@@ -38,6 +38,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
+- **CARD-136** P1 · Print setup stores the chosen trim on the book · 0.5d · wave 24 · after CARD-116 (gap found in waves 22-23)
 - **CARD-117** P1 · "Puzzle N · Tier" band, title only in the answer key, print-weight rules · 0.5d · wave 24 · Inc 13 · after CARD-116
 - **CARD-123** P1 · Tile cell + below-floor flag + override control; finalise below-floor count · 0.5d · wave 24 · Inc 14 · after CARD-121, CARD-122
 - **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
