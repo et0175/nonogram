@@ -44,7 +44,12 @@ import uuid
 from pathlib import Path
 from io import BytesIO
 
-from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
+from .batch_generator import (
+    get_batch_generator,
+    BatchStatus,
+    BatchGenerator,
+    MIN_RANDOM_BATCH_COUNT,
+)
 from .puzzle_review import (
     get_puzzle_review_service,
     BOOK_TAB_SORT,
@@ -944,6 +949,11 @@ def create_app(debug=None):
         MAX_PUZZLE_NAME_LENGTH=MAX_PUZZLE_NAME_LENGTH,
         # The batch ceiling, for the same reason (CARD-094).
         MAX_BATCH_COUNT=MAX_BATCH_COUNT,
+        # And its floor for a random batch (CARD-138): the form's `min` was a
+        # second copy of the bare 10 the generator validates against, which is
+        # the two-copies-of-a-bound shape this codebase has already been bitten
+        # by once.
+        MIN_RANDOM_BATCH_COUNT=MIN_RANDOM_BATCH_COUNT,
     )
     app.jinja_env.filters['strategy_label'] = lambda name: STRATEGY_LABELS.get(name, name)
 
@@ -1116,7 +1126,13 @@ def create_app(debug=None):
             # the form without an edit here. "Any" is not in this list — it is
             # the empty option the template adds, because it is the absence of
             # a tier rather than one of them.
-            difficulty_tiers=[tier.value for tier in Tier],
+            #
+            # Both halves come from the enum: the value the form posts and the
+            # spelling it shows. ``Tier.label`` owns the display form, so the
+            # template capitalizes nothing of its own — a tier that one day
+            # spells itself differently from ``value.capitalize()`` would then
+            # still render the way COMP-006 says it does.
+            difficulty_tiers=[(tier.value, tier.label) for tier in Tier],
             default_count=DEFAULT_BATCH_COUNT,
         )
 

@@ -24,6 +24,19 @@ from nonogram.limits import MAX_SIZE, MIN_SIZE
 #: have made impossible, so it must be visible rather than counted away.
 logger = logging.getLogger(__name__)
 
+#: The floor on a *random* batch: fewer than ten puzzles is not a batch, it is
+#: a handful, and a book wants variety (the panel's own sidebar says so). It
+#: lives here rather than beside :data:`MAX_BATCH_COUNT` because it is this
+#: layer's rule — ``orchestrator.generate_batch`` accepts a count of one and
+#: the image path below still does.
+#:
+#: Named rather than written out, for exactly the reason the ceiling is: it was
+#: a bare 10 here *and* a bare ``min="10"`` in ``batch_create.html``, which is
+#: the shape the comment at the validation site records as a past defect — two
+#: copies of a bound is the bug, one is the fix. ``admin/app.py`` publishes it
+#: to the templates beside ``MAX_BATCH_COUNT``.
+MIN_RANDOM_BATCH_COUNT = 10
+
 
 class BatchStatus(Enum):
     """Status of a batch generation job."""
@@ -183,7 +196,7 @@ class BatchGenerator:
 
         Args:
             count: Number of puzzles to generate (1 to ``MAX_BATCH_COUNT`` for images,
-                10 to ``MAX_BATCH_COUNT`` for random)
+                ``MIN_RANDOM_BATCH_COUNT`` to ``MAX_BATCH_COUNT`` for random)
             sizes: List of sizes to use (e.g., [10, 20, 30])
             theme: Puzzle theme (e.g., 'christmas')
             source: Generation source ('random' or 'images')
@@ -223,9 +236,10 @@ class BatchGenerator:
                     f"Image batch count must be 1-{MAX_BATCH_COUNT}, got {count}"
                 )
         else:
-            if not 10 <= count <= MAX_BATCH_COUNT:
+            if not MIN_RANDOM_BATCH_COUNT <= count <= MAX_BATCH_COUNT:
                 raise ValueError(
-                    f"Random batch count must be 10-{MAX_BATCH_COUNT}, got {count}"
+                    f"Random batch count must be {MIN_RANDOM_BATCH_COUNT}-"
+                    f"{MAX_BATCH_COUNT}, got {count}"
                 )
         if not sizes or not all(MIN_SIZE <= s <= MAX_SIZE for s in sizes):
             raise ValueError(f"Sizes must be {MIN_SIZE}-{MAX_SIZE}, got {sizes}")
@@ -347,6 +361,14 @@ class BatchGenerator:
         tell the two apart — the generator reports one `abandoned` number — so
         the note says which tier was asked for and that the shortfall is the
         tier, rather than claiming uniqueness was the problem.
+
+        The same holds for the batch's clock (CARD-088): every discarded
+        candidate is redrawn out of the one batch budget, so a targeted batch
+        runs out of it *sooner* than an untargeted one, and its note has to
+        offer Any difficulty beside "fewer puzzles" and "a smaller size". The
+        store-refusal sentence stays un-tiered on purpose — it reports a bug in
+        the generation path (CARD-080), which the requested tier has nothing to
+        do with.
 
         Works in both legacy and DB-backed modes.
 
@@ -513,13 +535,28 @@ class BatchGenerator:
         # "missing puzzles" number, because an owner who cannot tell them apart
         # learns nothing from either.
         #
-        # A batch that asked for a tier says so in every sentence below
-        # (CARD-138). Not decoration: "17 of 40 puzzles made" and "17 of 40
-        # medium puzzles made" are different facts, and an owner filling a
-        # book's medium quota is reading these notes to find out how many of
-        # the 40 they actually have. The phrase is built once, from the tier
-        # the request carried, and is empty for an untargeted batch — which is
-        # what keeps those notes worded exactly as they were.
+        # A batch that asked for a tier says so in every sentence below that
+        # reports a *shortfall against the tier* (CARD-138): the early stop,
+        # the abandoned candidates, and the candidates the clock never reached.
+        # Not decoration: "17 of 40 puzzles made" and "17 of 40 medium puzzles
+        # made" are different facts, and an owner filling a book's medium quota
+        # is reading these notes to find out how many of the 40 they actually
+        # have — and which lever (fewer puzzles, a smaller size, or Any
+        # difficulty) buys them the rest.
+        #
+        # The store-refusal sentence is the one exception, and deliberately so.
+        # It reports a candidate the *store* rejected as not uniquely solvable,
+        # which CARD-080 established is a bug in the generation path rather
+        # than a property of this batch; it means the same thing whatever tier
+        # was asked for, and naming the tier there would invite an owner to
+        # change their request to work around a defect that is not theirs.
+        #
+        # `target` is the short form, built once from the tier the request
+        # carried and empty for an untargeted batch — which is what keeps the
+        # untargeted notes worded exactly as they were. The sentences that need
+        # the tier as a noun rather than an adjective spell it out instead, and
+        # branch, because their untargeted wording is not a substring of their
+        # targeted one.
         target = f" {difficulty_tier}" if difficulty_tier is not None else ""
         notes = []
         if stopped_by is not None:
@@ -583,7 +620,28 @@ class BatchGenerator:
                 f"come out — and the batch was kept rather than discarded "
                 f"(CARD-083). Re-run if you need the full count."
             )
-        if not_attempted:
+        if not_attempted and difficulty_tier is not None:
+            # The give-up mode a tier makes *more* likely, not less: every
+            # off-tier candidate is discarded and redrawn out of this same
+            # budget (POL-004), so a targeted batch reaches the clock sooner
+            # than the untargeted one the sentence below was written for. An
+            # owner told only "ask for fewer, or for a smaller size" would be
+            # missing the lever that dominates the cost here, so this names the
+            # tier and offers Any as the third way out.
+            notes.append(
+                f"{not_attempted} of the {count} {difficulty_tier} puzzles "
+                f"were never attempted: the batch reached its time budget "
+                f"first. This is not bad luck — the same request will stop in "
+                f"the same place — so ask for fewer puzzles, for a smaller "
+                f"size, or for Any difficulty. The tier is part of the cost: "
+                f"a candidate that came out uniquely solvable but graded "
+                f"outside {difficulty_tier} is discarded and redrawn "
+                f"(POL-004), and those redraws are spent out of this same "
+                f"budget. A puzzle costs about 0.06s at 20x20 and about 3.9s "
+                f"at 30x30 before any redraw, which is the whole of the "
+                f"difference."
+            )
+        elif not_attempted:
             notes.append(
                 f"{not_attempted} of {count} were never attempted: the batch "
                 f"reached its time budget first. This is not bad luck — the "

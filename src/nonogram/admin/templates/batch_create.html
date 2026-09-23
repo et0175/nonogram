@@ -9,7 +9,10 @@
 <div class="page-head">
     <div>
         <h1>New batch</h1>
-        <p class="lede">Turn a set of pictures into nonogram puzzles. Upload files, or point at a folder.</p>
+        {# The lede named only the picture flow, which was the only flow here until
+           CARD-138 put the random one on the same page. The stepper beside it still
+           describes the picture flow, because that is the one with steps. #}
+        <p class="lede">Turn a set of pictures into nonogram puzzles — upload files, or point at a folder — or generate puzzles at random, with no pictures at all.</p>
     </div>
 </div>
 
@@ -108,7 +111,7 @@
                         <div class="col-sm-4 mb-3">
                             <label for="random_count" class="form-label">How many</label>
                             <input type="number" class="form-control" id="random_count" name="count"
-                                   min="10" max="{{ MAX_BATCH_COUNT }}" value="{{ default_count }}" required>
+                                   min="{{ MIN_RANDOM_BATCH_COUNT }}" max="{{ MAX_BATCH_COUNT }}" value="{{ default_count }}" required>
                         </div>
                         <div class="col-sm-4 mb-3">
                             <label for="random_size" class="form-label">Size (cells per side)</label>
@@ -119,8 +122,11 @@
                             <label for="random_difficulty" class="form-label">Difficulty</label>
                             <select class="form-select" id="random_difficulty" name="difficulty">
                                 <option value="" selected>Any</option>
-                                {% for tier in difficulty_tiers %}
-                                <option value="{{ tier }}">{{ tier|capitalize }}</option>
+                                {# Value and label both come from the Tier enum: the panel
+                                   neither names a tier nor spells one — `Tier.label` owns
+                                   the display form. #}
+                                {% for value, label in difficulty_tiers %}
+                                <option value="{{ value }}">{{ label }}</option>
                                 {% endfor %}
                             </select>
                             <small class="form-text text-muted d-block mt-2">
@@ -132,7 +138,7 @@
                     </div>
 
                     <div class="actions">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="randomSubmitBtn">
                             Generate {{ icons.icon('arrow-right') }}
                         </button>
                     </div>
@@ -183,6 +189,17 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Uploading ' + allFiles.length + ' picture' + (allFiles.length === 1 ? '' : 's') + '…';
+});
+
+// CARD-138: the random batch runs synchronously inside the request and can
+// take the whole batch budget (75s, and longer at 30x30), so the page just
+// sits there. A second click would start a second batch. Same busy state as
+// the upload button above, bound by id rather than by `querySelector('form')`
+// — that one matches the first form on the page, never this one.
+document.getElementById('randomBatchForm').addEventListener('submit', function() {
+    const btn = document.getElementById('randomSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Generating — this can take a minute…';
 });
 </script>
 {% endblock %}

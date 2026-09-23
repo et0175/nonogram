@@ -33,15 +33,24 @@ check below.
 from __future__ import annotations
 
 import random
+import time
 import uuid
 from contextlib import contextmanager
 
 import pytest
 
 from nonogram import difficulty, orchestrator
-from nonogram.admin.batch_generator import BatchGenerator, BatchStatus
+from nonogram.admin.batch_generator import (
+    MIN_RANDOM_BATCH_COUNT,
+    BatchGenerator,
+    BatchStatus,
+)
 from nonogram.difficulty import Tier
-from nonogram.errors import GenerationAbandoned, UnsupportedDifficulty
+from nonogram.errors import (
+    GenerationAbandoned,
+    NotUniquelySolvable,
+    UnsupportedDifficulty,
+)
 from nonogram.orchestrator import (
     MAX_CONSECUTIVE_ABANDONMENTS,
     GenerationRequest,
@@ -177,6 +186,40 @@ def _outcomes(monkeypatch: pytest.MonkeyPatch, script: list[object]) -> list[str
 
 def _abandonment() -> GenerationAbandoned:
     return GenerationAbandoned("abandoned after 30 regenerate attempts")
+
+
+def _budget_expires_after(monkeypatch: pytest.MonkeyPatch, candidates: int) -> None:
+    """Make the batch's own clock run out once ``candidates`` have been made.
+
+    ``generate_batch`` already takes ``budget_seconds`` and ``monotonic`` for
+    this (CARD-088); the admin generator calls it without them, so the call is
+    wrapped rather than the clock patched globally. No sleeping and no real
+    deadline: the fake returns real time plus an offset that leaps once, which
+    crosses only the batch's own deadline — a fake returning small absolute
+    numbers would also poison each candidate's deadline, the trap CARD-086 hit.
+
+    The loop reads the clock once to set the deadline and once before every
+    candidate, so ``candidates + 1`` calls pass before the leap.
+    """
+    real_generate_batch = orchestrator.generate_batch
+    base = time.monotonic()
+    state = {"calls": 0}
+
+    def clock() -> float:
+        state["calls"] += 1
+        return base + (0.0 if state["calls"] <= candidates + 1 else 999.0)
+
+    def generate_batch(**kwargs):
+        return real_generate_batch(budget_seconds=10.0, monotonic=clock, **kwargs)
+
+    monkeypatch.setattr(orchestrator, "generate_batch", generate_batch)
+
+
+class _RefusingStore(_Store):
+    """A store that rejects every candidate — CARD-080's "unreachable" branch."""
+
+    def add_puzzle(self, **kwargs) -> str:
+        raise NotUniquelySolvable("the store refused this candidate")
 
 
 @pytest.fixture
@@ -555,3 +598,167 @@ class TestBatchDifficulty_ShortfallIsReportedNotSilent:
             assert row.puzzle_count == 10
             assert "10 medium puzzles rather than 20" in row.error_message
         assert len(store.stored) == 10
+
+
+# ---------------------------------------------------------------------------
+# AC-4, the other give-up mode — the batch's clock (review cycle 1, F-001)
+# ---------------------------------------------------------------------------
+
+
+class TestBatchDifficulty_TheClockShortfallNamesTheTierToo:
+    """A targeted batch reaches its time budget *sooner*, and must say so.
+
+    Every off-tier candidate is discarded and redrawn out of the one batch
+    budget (POL-004), so asking for a tier makes this give-up mode more likely,
+    not less — and it is reachable at ordinary settings, since the resample
+    bound against ``BATCH_BUDGET_SECONDS`` lets a single 30x30 candidate spend
+    a large share of the batch's clock. The note that comes out of it was the
+    untargeted one word for word: no tier named, and remedial advice ("fewer
+    puzzles, or a smaller size") that omitted the lever which dominates the
+    cost here.
+    """
+
+    def test_the_clock_note_names_the_tier(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _ScriptedSource().install(monkeypatch)
+        _budget_expires_after(monkeypatch, 5)
+        store = _Store()
+        generator = BatchGenerator(puzzle_review_service=store)
+
+        batch_id = generator.create_batch(count=20, sizes=[10], difficulty_tier="hard")
+
+        job = generator.jobs[batch_id]
+        assert job.status is BatchStatus.COMPLETE
+        assert len(store.stored) == 5, "the work done before the clock is kept"
+        assert store.tiers == [Tier.HARD] * 5
+        assert "15 of the 20 hard puzzles were never attempted" in job.error_message
+
+    def test_the_clock_note_offers_any_difficulty_as_a_way_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The one lever that dominates the cost of a targeted batch. Advice
+        that lists only "fewer" and "smaller" sends the owner to shrink a
+        request whose real cost is the redraws."""
+        _ScriptedSource().install(monkeypatch)
+        _budget_expires_after(monkeypatch, 5)
+        generator = BatchGenerator(puzzle_review_service=_Store())
+
+        batch_id = generator.create_batch(count=20, sizes=[10], difficulty_tier="medium")
+        note = generator.jobs[batch_id].error_message
+
+        assert "for Any difficulty" in note
+        assert "discarded and redrawn" in note
+        assert "not bad luck" in note, "CARD-088's point survives: it will recur"
+
+    def test_the_untargeted_clock_note_is_word_for_word_what_it_was(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CARD-088's sentence, byte for byte. The tier wording is an
+        *additional* branch, not a rewrite of this one."""
+        _ScriptedSource().install(monkeypatch)
+        _budget_expires_after(monkeypatch, 5)
+        generator = BatchGenerator(puzzle_review_service=_Store())
+
+        batch_id = generator.create_batch(count=20, sizes=[10])
+
+        assert generator.jobs[batch_id].error_message == (
+            "15 of 20 were never attempted: the batch reached its time budget "
+            "first. This is not bad luck — the same request will stop in the "
+            "same place — so ask for fewer puzzles, or for a smaller size. A "
+            "puzzle costs about 0.06s at 20x20 and about 3.9s at 30x30, which "
+            "is the whole of the difference."
+        )
+
+    def test_the_store_refusal_sentence_stays_untiered(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deliberate, and the one sentence the tier does *not* reach.
+
+        A candidate the store rejects as not uniquely solvable is a bug in the
+        generation path (CARD-080, INV-002), not a shortfall against the
+        requested tier. It means the same thing whatever was asked for, and
+        naming the tier there would invite the owner to change their request to
+        work around a defect that is not theirs.
+        """
+        _ScriptedSource().install(monkeypatch)
+        generator = BatchGenerator(puzzle_review_service=_RefusingStore())
+
+        batch_id = generator.create_batch(count=10, sizes=[10], difficulty_tier="medium")
+        note = generator.jobs[batch_id].error_message
+
+        assert "10 of 10 generated candidates were refused by the store" in note
+        assert "medium" not in note.split("were refused by the store", 1)[1]
+        assert "bug in the generation path" in note
+
+
+# ---------------------------------------------------------------------------
+# AC-3, the seam — the form really drives a batch, not just create_batch
+# ---------------------------------------------------------------------------
+
+
+class TestBatchDifficulty_TheFormDrivesARealBatch:
+    def test_posting_the_form_with_a_tier_stores_puzzles_of_that_tier(
+        self, admin_app, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End to end through the seam the other route tests mock away: form
+        fields → route → ``create_batch`` → the engine → the store. A defect in
+        either half alone (a field the route drops, a tier the generator
+        ignores) shows up here; the route tests above pin only the first half."""
+        _ScriptedSource().install(monkeypatch)
+        store = _Store()
+        monkeypatch.setattr(admin_app.batch_generator, "puzzle_review_service", store)
+
+        response = admin_app.test_client().post(
+            "/batch/create",
+            data={
+                "source": "random",
+                "count": "10",
+                "sizes": "10",
+                "difficulty": "hard",
+            },
+        )
+
+        assert response.status_code == 302
+        assert store.tiers == [Tier.HARD] * 10
+
+    def test_posting_the_form_with_any_stores_a_mixed_batch(
+        self, admin_app, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _ScriptedSource().install(monkeypatch)
+        store = _Store()
+        monkeypatch.setattr(admin_app.batch_generator, "puzzle_review_service", store)
+
+        admin_app.test_client().post(
+            "/batch/create",
+            data={"source": "random", "count": "20", "sizes": "10", "difficulty": ""},
+        )
+
+        assert len(store.stored) == 20
+        assert len(set(store.tiers)) > 1, "Any filters nothing"
+
+
+# ---------------------------------------------------------------------------
+# The form's bounds are the generator's bounds (review cycle 1, minor)
+# ---------------------------------------------------------------------------
+
+
+class TestBatchDifficulty_TheFormStatesNoBoundOfItsOwn:
+    def test_the_count_floor_comes_from_the_generator(self, admin_app) -> None:
+        """One copy of the bound. It was a bare ``min="10"`` in the template
+        against a bare ``10`` in ``create_batch`` — the same two-copies shape
+        that let this layer accept a count the layer below refused (CARD-088)."""
+        page = admin_app.test_client().get("/batch/create").get_data(as_text=True)
+        field = page.split('id="random_count"', 1)[1].split(">", 1)[0]
+
+        assert f'min="{MIN_RANDOM_BATCH_COUNT}"' in field
+
+    def test_the_floor_the_form_shows_is_the_floor_the_generator_enforces(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _ScriptedSource().install(monkeypatch)
+        generator = BatchGenerator(puzzle_review_service=_Store())
+
+        with pytest.raises(ValueError):
+            generator.create_batch(count=MIN_RANDOM_BATCH_COUNT - 1, sizes=[10])
+
+        batch_id = generator.create_batch(count=MIN_RANDOM_BATCH_COUNT, sizes=[10])
+        assert generator.jobs[batch_id].status is BatchStatus.COMPLETE
