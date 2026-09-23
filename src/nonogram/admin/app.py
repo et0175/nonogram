@@ -44,7 +44,12 @@ import uuid
 from pathlib import Path
 from io import BytesIO
 
-from .batch_generator import get_batch_generator, BatchStatus, BatchGenerator
+from .batch_generator import (
+    get_batch_generator,
+    BatchStatus,
+    BatchGenerator,
+    MIN_RANDOM_BATCH_COUNT,
+)
 from .puzzle_review import (
     get_puzzle_review_service,
     BOOK_TAB_SORT,
@@ -89,6 +94,7 @@ from nonogram.errors import (
     NonogramError,
     NotUniquelySolvable,
     SizeOutOfRange,
+    UnsupportedDifficulty,
 )
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.orchestrator import BATCH_BUDGET_SECONDS, MAX_BATCH_COUNT
@@ -944,6 +950,11 @@ def create_app(debug=None):
         MAX_PUZZLE_NAME_LENGTH=MAX_PUZZLE_NAME_LENGTH,
         # The batch ceiling, for the same reason (CARD-094).
         MAX_BATCH_COUNT=MAX_BATCH_COUNT,
+        # And its floor for a random batch (CARD-138): the form's `min` was a
+        # second copy of the bare 10 the generator validates against, which is
+        # the two-copies-of-a-bound shape this codebase has already been bitten
+        # by once.
+        MIN_RANDOM_BATCH_COUNT=MIN_RANDOM_BATCH_COUNT,
     )
     app.jinja_env.filters['strategy_label'] = lambda name: STRATEGY_LABELS.get(name, name)
 
@@ -1065,6 +1076,13 @@ def create_app(debug=None):
                 theme = request.form.get("theme", "christmas")
                 source = request.form.get("source", "random")
                 quality_filter = int(request.form.get("quality_filter", 0))
+                # CARD-138: "Any" is the *absence* of a tier, not a word for
+                # one, so the form's Any option sends an empty value and it
+                # becomes None here. Every non-empty spelling travels on
+                # untouched — `difficulty.parse_tier` owns the vocabulary
+                # (ADR-0031/R1), and this boundary has no easy/medium/hard of
+                # its own to fall out of step with it.
+                difficulty_tier = request.form.get("difficulty", "").strip() or None
 
                 batch_id = batch_gen.create_batch(
                     count=count,
@@ -1072,12 +1090,17 @@ def create_app(debug=None):
                     theme=theme,
                     source=source,
                     quality_filter=quality_filter,
+                    difficulty_tier=difficulty_tier,
                 )
 
                 flash(f"Batch created: {batch_id}", "success")
                 return redirect(url_for("batch_status", batch_id=batch_id))
 
-            except ValueError as e:
+            # A tier nobody supports is a typo in a form field, not a server
+            # fault: it comes back as the same kind of flash an out-of-range
+            # count does, carrying parse_tier's own message (which lists the
+            # tiers that exist), and the form re-renders below.
+            except (ValueError, UnsupportedDifficulty) as e:
                 flash(f"Error: {str(e)}", "error")
 
         return _render_batch_step_one()
@@ -1099,6 +1122,19 @@ def create_app(debug=None):
             loaded_images=image_mgr.get_all_images(),
             default_size=session.get("batch_default_size", "medium"),
             quality_filter=session.get("batch_quality_filter", 25),
+            # CARD-138: the tiers a random batch can be asked for, read off
+            # the enum rather than written out, so a fourth tier would reach
+            # the form without an edit here. "Any" is not in this list — it is
+            # the empty option the template adds, because it is the absence of
+            # a tier rather than one of them.
+            #
+            # Both halves come from the enum: the value the form posts and the
+            # spelling it shows. ``Tier.label`` owns the display form, so the
+            # template capitalizes nothing of its own — a tier that one day
+            # spells itself differently from ``value.capitalize()`` would then
+            # still render the way COMP-006 says it does.
+            difficulty_tiers=[(tier.value, tier.label) for tier in Tier],
+            default_count=DEFAULT_BATCH_COUNT,
         )
 
     @app.route("/batch/clear-images", methods=["POST"])

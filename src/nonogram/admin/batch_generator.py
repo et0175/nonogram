@@ -14,7 +14,7 @@ import random
 
 import logging
 
-from nonogram import orchestrator
+from nonogram import difficulty, orchestrator
 from nonogram.orchestrator import MAX_BATCH_COUNT
 from nonogram.errors import GenerationAbandoned, NotUniquelySolvable, SolverTimeout
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -23,6 +23,19 @@ from nonogram.limits import MAX_SIZE, MIN_SIZE
 #: the generation path produced something orchestrator.generate should
 #: have made impossible, so it must be visible rather than counted away.
 logger = logging.getLogger(__name__)
+
+#: The floor on a *random* batch: fewer than ten puzzles is not a batch, it is
+#: a handful, and a book wants variety (the panel's own sidebar says so). It
+#: lives here rather than beside :data:`MAX_BATCH_COUNT` because it is this
+#: layer's rule — ``orchestrator.generate_batch`` accepts a count of one and
+#: the image path below still does.
+#:
+#: Named rather than written out, for exactly the reason the ceiling is: it was
+#: a bare 10 here *and* a bare ``min="10"`` in ``batch_create.html``, which is
+#: the shape the comment at the validation site records as a past defect — two
+#: copies of a bound is the bug, one is the fix. ``admin/app.py`` publishes it
+#: to the templates beside ``MAX_BATCH_COUNT``.
+MIN_RANDOM_BATCH_COUNT = 10
 
 
 class BatchStatus(Enum):
@@ -177,22 +190,36 @@ class BatchGenerator:
         theme: str = "christmas",
         source: str = "random",
         quality_filter: int = 0,
+        difficulty_tier: Optional[str] = None,
     ) -> str:
         """Create and start a batch generation job (legacy in-memory or DB-backed).
 
         Args:
             count: Number of puzzles to generate (1 to ``MAX_BATCH_COUNT`` for images,
-                10 to ``MAX_BATCH_COUNT`` for random)
+                ``MIN_RANDOM_BATCH_COUNT`` to ``MAX_BATCH_COUNT`` for random)
             sizes: List of sizes to use (e.g., [10, 20, 30])
             theme: Puzzle theme (e.g., 'christmas')
             source: Generation source ('random' or 'images')
             quality_filter: Minimum quality score (0-100)
+            difficulty_tier: The tier every puzzle in a random batch must grade
+                into, in any spelling ``nonogram.difficulty.parse_tier``
+                accepts — or ``None`` to accept any difficulty, which is what
+                every batch did before CARD-138. ``None`` is the *only* way to
+                say "any": an empty string names no tier and is refused, the
+                same answer the CLI and ``orchestrator.generate_batch`` give
+                it. Ignored by image-mode batches, which do not run POL-004's
+                resample loop.
 
         Returns:
             batch_id for tracking progress
 
         Raises:
             ValueError: If parameters invalid
+            UnsupportedDifficulty: ``difficulty_tier`` names no tier that
+                exists. COMP-006's own error rather than a second
+                ``ValueError``: which tiers exist is a domain rule with a
+                domain error already defined for it, and the admin route maps
+                it to a form error.
         """
         # Validate count based on source.
         # Images: allow 1..MAX (count = number of images)
@@ -209,9 +236,10 @@ class BatchGenerator:
                     f"Image batch count must be 1-{MAX_BATCH_COUNT}, got {count}"
                 )
         else:
-            if not 10 <= count <= MAX_BATCH_COUNT:
+            if not MIN_RANDOM_BATCH_COUNT <= count <= MAX_BATCH_COUNT:
                 raise ValueError(
-                    f"Random batch count must be 10-{MAX_BATCH_COUNT}, got {count}"
+                    f"Random batch count must be {MIN_RANDOM_BATCH_COUNT}-"
+                    f"{MAX_BATCH_COUNT}, got {count}"
                 )
         if not sizes or not all(MIN_SIZE <= s <= MAX_SIZE for s in sizes):
             raise ValueError(f"Sizes must be {MIN_SIZE}-{MAX_SIZE}, got {sizes}")
@@ -219,6 +247,21 @@ class BatchGenerator:
             raise ValueError(f"Source must be 'random' or 'images', got {source}")
         if not 0 <= quality_filter <= 100:
             raise ValueError(f"Quality filter must be 0-100, got {quality_filter}")
+        # One tier vocabulary for the whole system (ADR-0031/R1): the requested
+        # tier is resolved by COMP-006's own parser, so this module has no
+        # easy/medium/hard mapping of its own and compares no score to
+        # anything. The canonical spelling goes on from here, not the
+        # operator's, so the second parse inside the orchestrator cannot
+        # disagree with this one.
+        #
+        # `is not None` rather than a falsy test, because "" is a spelling like
+        # any other and parse_tier refuses it — "any" is the *absence* of a
+        # tier, and the form's Any option sends nothing rather than a word.
+        requested_tier = (
+            difficulty.parse_tier(difficulty_tier).value
+            if difficulty_tier is not None
+            else None
+        )
 
         batch_uuid = uuid.uuid4()
         batch_id = str(batch_uuid)  # Keep string version for legacy mode + return value
@@ -239,7 +282,7 @@ class BatchGenerator:
             # Generate puzzles synchronously
             try:
                 if source == "random":
-                    self._generate_random_batch(batch_id)
+                    self._generate_random_batch(batch_id, requested_tier)
                 # TODO: else if source == "images": self._generate_from_images(...)
 
                 job.status = BatchStatus.COMPLETE
@@ -272,8 +315,13 @@ class BatchGenerator:
                     db.flush()
 
                 # 2. Generate puzzles (each one commits individually)
+                #
+                # The requested tier travels as an argument rather than on the
+                # Batch row: it is a property of this request, the row has no
+                # column for it, and inventing one would mean a migration
+                # against a database this card is not allowed to touch.
                 if source == "random":
-                    self._generate_random_batch(batch_id)
+                    self._generate_random_batch(batch_id, requested_tier)
                 # TODO: else if source == "images": self._generate_from_images(...)
 
                 # 3. Mark batch complete
@@ -292,7 +340,9 @@ class BatchGenerator:
 
         return batch_id
 
-    def _generate_random_batch(self, batch_id: str) -> None:
+    def _generate_random_batch(
+        self, batch_id: str, difficulty_tier: Optional[str] = None
+    ) -> None:
         """Generate random puzzles using the real pipeline and store.
 
         Uses orchestrator.generate_batch() to generate real, uniquely-solvable
@@ -304,10 +354,29 @@ class BatchGenerator:
         below, beside the store-refusal note CARD-080 added, and the two are
         kept as separate sentences because they mean opposite things.
 
+        With a tier requested (CARD-138) a candidate has a second way to fail:
+        it can come out uniquely solvable and still grade outside the tier, in
+        which case POL-004 discards and redraws it, and a candidate whose
+        resamples all miss is abandoned like any other. The counts below cannot
+        tell the two apart — the generator reports one `abandoned` number — so
+        the note says which tier was asked for and that the shortfall is the
+        tier, rather than claiming uniqueness was the problem.
+
+        The same holds for the batch's clock (CARD-088): every discarded
+        candidate is redrawn out of the one batch budget, so a targeted batch
+        runs out of it *sooner* than an untargeted one, and its note has to
+        offer Any difficulty beside "fewer puzzles" and "a smaller size". The
+        store-refusal sentence stays un-tiered on purpose — it reports a bug in
+        the generation path (CARD-080), which the requested tier has nothing to
+        do with.
+
         Works in both legacy and DB-backed modes.
 
         Args:
             batch_id: ID of batch job to generate for
+            difficulty_tier: The tier every puzzle must grade into, already in
+                COMP-006's canonical spelling (``create_batch`` parsed it), or
+                ``None`` to accept any difficulty.
         """
         if self._session_factory is None:
             # Legacy mode: read from in-memory job
@@ -435,7 +504,11 @@ class BatchGenerator:
                 count=count,
                 sizes=sizes,
                 source="random",
-                difficulty_tier=None,  # Accept any difficulty
+                # None accepts any difficulty — today's behaviour for a batch
+                # nobody targeted. A tier here puts POL-004's resample loop
+                # behind every candidate (CARD-138); the bound on it is the
+                # generator's and is not touched from this side.
+                difficulty_tier=difficulty_tier,
                 on_puzzle=store,
             )
         except (GenerationAbandoned, SolverTimeout) as stop:
@@ -461,6 +534,30 @@ class BatchGenerator:
         # is a bug. They are reported as separate sentences rather than one
         # "missing puzzles" number, because an owner who cannot tell them apart
         # learns nothing from either.
+        #
+        # A batch that asked for a tier says so in every sentence below that
+        # reports a *shortfall against the tier* (CARD-138): the early stop,
+        # the abandoned candidates, and the candidates the clock never reached.
+        # Not decoration: "17 of 40 puzzles made" and "17 of 40 medium puzzles
+        # made" are different facts, and an owner filling a book's medium quota
+        # is reading these notes to find out how many of the 40 they actually
+        # have — and which lever (fewer puzzles, a smaller size, or Any
+        # difficulty) buys them the rest.
+        #
+        # The store-refusal sentence is the one exception, and deliberately so.
+        # It reports a candidate the *store* rejected as not uniquely solvable,
+        # which CARD-080 established is a bug in the generation path rather
+        # than a property of this batch; it means the same thing whatever tier
+        # was asked for, and naming the tier there would invite an owner to
+        # change their request to work around a defect that is not theirs.
+        #
+        # `target` is the short form, built once from the tier the request
+        # carried and empty for an untargeted batch — which is what keeps the
+        # untargeted notes worded exactly as they were. The sentences that need
+        # the tier as a noun rather than an adjective spell it out instead, and
+        # branch, because their untargeted wording is not a substring of their
+        # targeted one.
+        target = f" {difficulty_tier}" if difficulty_tier is not None else ""
         notes = []
         if stopped_by is not None:
             reason = (
@@ -469,11 +566,21 @@ class BatchGenerator:
                 else f"{stopped_by}"
             )
             notes.append(
-                f"This batch stopped early with {made} of {count} puzzles made: "
+                f"This batch stopped early with {made} of {count}{target} puzzles made: "
                 f"{reason}. The {made} it made are kept (CARD-093); re-run for "
                 f"the rest, and if it stops again the size or the request is "
                 f"the problem rather than luck."
             )
+            if difficulty_tier is not None:
+                notes.append(
+                    f"It was asked for {difficulty_tier} puzzles, so "
+                    f"\"the request\" includes the tier: a candidate that came "
+                    f"out uniquely solvable but graded outside {difficulty_tier} "
+                    f"is discarded and redrawn (POL-004), and candidates that "
+                    f"run out of redraws stop the batch the same way an "
+                    f"unsolvable draw does. Asking for Any difficulty is the "
+                    f"way to tell the two apart."
+                )
         # Two different shortfalls, and they mean opposite things to whoever
         # reads this: an abandoned candidate is bad luck and a re-run may do
         # better, while a batch stopped by its own clock will stop in the same
@@ -485,7 +592,26 @@ class BatchGenerator:
             0 if puzzles is None else getattr(puzzles, "abandoned", count - len(puzzles))
         )
         not_attempted = 0 if puzzles is None else getattr(puzzles, "not_attempted", 0)
-        if abandoned_count:
+        if abandoned_count and difficulty_tier is not None:
+            # The untargeted sentence would be a lie here: with a tier asked
+            # for, a skipped candidate was far more often a perfectly good
+            # puzzle of the wrong grade than an unsolvable draw, and the
+            # generator reports one `abandoned` number that cannot tell them
+            # apart. So this says what is certain — how many are missing, and
+            # that the tier is what they were measured against.
+            notes.append(
+                f"{abandoned_count} of {count} candidates could not be made "
+                f"{difficulty_tier} within the retry budget and were skipped, "
+                f"so this batch has {made} {difficulty_tier} puzzles rather "
+                f"than {count}. The shortfall is the tier, not uniqueness: a "
+                f"candidate that came out uniquely solvable but graded outside "
+                f"{difficulty_tier} is discarded and redrawn (POL-004), and one "
+                f"whose redraws all missed the tier is skipped. The batch was "
+                f"kept rather than discarded (CARD-083). Re-run for the rest, "
+                f"or ask for Any difficulty if you need the count more than "
+                f"the tier."
+            )
+        elif abandoned_count:
             notes.append(
                 f"{abandoned_count} of {count} candidates could not be made "
                 f"uniquely solvable within the retry budget and were skipped, "
@@ -494,7 +620,28 @@ class BatchGenerator:
                 f"come out — and the batch was kept rather than discarded "
                 f"(CARD-083). Re-run if you need the full count."
             )
-        if not_attempted:
+        if not_attempted and difficulty_tier is not None:
+            # The give-up mode a tier makes *more* likely, not less: every
+            # off-tier candidate is discarded and redrawn out of this same
+            # budget (POL-004), so a targeted batch reaches the clock sooner
+            # than the untargeted one the sentence below was written for. An
+            # owner told only "ask for fewer, or for a smaller size" would be
+            # missing the lever that dominates the cost here, so this names the
+            # tier and offers Any as the third way out.
+            notes.append(
+                f"{not_attempted} of the {count} {difficulty_tier} puzzles "
+                f"were never attempted: the batch reached its time budget "
+                f"first. This is not bad luck — the same request will stop in "
+                f"the same place — so ask for fewer puzzles, for a smaller "
+                f"size, or for Any difficulty. The tier is part of the cost: "
+                f"a candidate that came out uniquely solvable but graded "
+                f"outside {difficulty_tier} is discarded and redrawn "
+                f"(POL-004), and those redraws are spent out of this same "
+                f"budget. A puzzle costs about 0.06s at 20x20 and about 3.9s "
+                f"at 30x30 before any redraw, which is the whole of the "
+                f"difference."
+            )
+        elif not_attempted:
             notes.append(
                 f"{not_attempted} of {count} were never attempted: the batch "
                 f"reached its time budget first. This is not bad luck — the "
