@@ -1361,8 +1361,14 @@ _UNIQUENESS_REASON = (
 
 
 def _band_text(tier: difficulty.Tier) -> str:
-    """``"Hard band (66-100) of the 0-100 difficulty scale"`` — a tier named
+    """``"Hard band (90-100) of the 0-100 difficulty scale"`` — a tier named
     *and* placed.
+
+    The figures in that example are read off :attr:`difficulty.Tier.band` rather
+    than written here, so they move with ADR-0005's cutoffs instead of having to
+    be kept in step by hand: CARD-137 moved the medium/hard cutoff from 66.0 to
+    90.0 and this function's output followed on its own. Only the example in
+    this line had to be re-derived.
 
     The band is spelled out rather than left as a bare tier name because the
     user cannot see the 0..100 scale from the outside; saying where the tier

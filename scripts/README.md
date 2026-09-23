@@ -52,6 +52,31 @@ Run tests by type: Wave 1, Wave 2, unit, E2E, smoke, integration.
 ./scripts/run_admin_tests.sh --help                 # Show options
 ```
 
+## Measurement scripts
+
+Not admin-panel tooling: one-shot measurements kept in the repo because the number they
+produced is a *calibration*, and a calibration nobody can re-run is a guess with a
+decimal point.
+
+### `measure_difficulty_cutoff.py` — where the medium/hard cutoff can sit
+
+Builds a seeded corpus through the existing generator (`orchestrator.generate`, random
+mode — the path the admin's batch generation uses) and scores it through the existing
+scoring path, then reports, for each candidate medium/hard cutoff, the resulting
+easy/medium/hard shares: overall, per FR-034 longest-side bucket, and per density. No
+solver re-entry, no new entry point, and it never opens a database.
+
+```bash
+./.venv/bin/python scripts/measure_difficulty_cutoff.py                  # ~200s, 1010 requests
+./.venv/bin/python scripts/measure_difficulty_cutoff.py --draws 2        # quick look
+./.venv/bin/python scripts/measure_difficulty_cutoff.py --json out.json  # also dump the rows
+```
+
+One `random.Random` seeds the whole run and the corpus size is asserted, so the table
+replays exactly. It produced the evidence the owner chose
+`difficulty.MEDIUM_MAX_SCORE = 90.0` from (CARD-137); re-run it before moving that
+constant again.
+
 ## Typical Workflow
 
 ### Day 1: Set up and start testing
