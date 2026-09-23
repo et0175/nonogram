@@ -11,6 +11,7 @@
     <div>
         <h1>Arrangement</h1>
         <p class="lede">Step 3 of 4 for <strong>{{ book.metadata.title }}</strong>: reading order and a title for each puzzle.</p>
+        <p class="text-muted mb-0">The book runs easy, then medium, then hard. Moves stay inside a level, and a new puzzle lands at the end of its own.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
@@ -28,8 +29,22 @@
             </div>
             <div class="card-body">
                 {% if puzzles %}
+                {# FR-041/INV-009: one section per non-empty level, in book
+                   order. The route hands these over already grouped by the
+                   store's own grouping — the page never sorts anything
+                   itself. #}
+                {% for level in levels %}
+                <div class="level-group" data-level="{{ level.tier or 'ungraded' }}">
+                    <h3 class="level-heading h6 text-muted d-flex align-items-center gap-2 mt-3 mb-2">
+                        {# `label` rather than `tier`, so the ungraded tail gets
+                           the macro's own unknown-value chip and no colour
+                           literal lives in a template. #}
+                        {{ tier.badge(level.label) }}
+                        <span>{{ level.label }} level</span>
+                        <small class="fw-normal">({{ level.count }} puzzle{{ '' if level.count == 1 else 's' }})</small>
+                    </h3>
                 <div class="puzzle-list">
-                    {% for puzzle in puzzles %}
+                    {% for puzzle in level.puzzles %}
                     <div class="puzzle-list-item">
                         <div class="item-order">{{ puzzle.order }}</div>
 
@@ -58,24 +73,26 @@
                         </div>
 
                         <div class="item-actions">
-                            {% if puzzle.order > 1 %}
+                            {# A move stays inside its level, so the controls
+                               stop at the level's own first and last row. #}
+                            {% if puzzle.can_move_up %}
                             <form method="POST">
                                 <input type="hidden" name="action" value="move_up">
                                 <input type="hidden" name="puzzle_id" value="{{ puzzle.id }}">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary btn-icon" aria-label="Move up" title="Move up">{{ icons.icon('arrow-up') }}</button>
                             </form>
                             {% else %}
-                            <button class="btn btn-sm btn-outline-secondary btn-icon" disabled aria-label="Already at top">{{ icons.icon('arrow-up') }}</button>
+                            <button class="btn btn-sm btn-outline-secondary btn-icon" disabled aria-label="First in the {{ level.label }} level" title="First in the {{ level.label }} level">{{ icons.icon('arrow-up') }}</button>
                             {% endif %}
 
-                            {% if puzzle.order < puzzle_count %}
+                            {% if puzzle.can_move_down %}
                             <form method="POST">
                                 <input type="hidden" name="action" value="move_down">
                                 <input type="hidden" name="puzzle_id" value="{{ puzzle.id }}">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary btn-icon" aria-label="Move down" title="Move down">{{ icons.icon('arrow-down') }}</button>
                             </form>
                             {% else %}
-                            <button class="btn btn-sm btn-outline-secondary btn-icon" disabled aria-label="Already at bottom">{{ icons.icon('arrow-down') }}</button>
+                            <button class="btn btn-sm btn-outline-secondary btn-icon" disabled aria-label="Last in the {{ level.label }} level" title="Last in the {{ level.label }} level">{{ icons.icon('arrow-down') }}</button>
                             {% endif %}
 
                             <form method="POST" onsubmit="return confirm('Remove this puzzle from the book?');">
@@ -91,7 +108,9 @@
                     <div class="page-break-divider"><span>page {{ (loop.index // 3) + 1 }}</span></div>
                     {% endif %}
                     {% endfor %}
-                </div>
+                </div>{# /puzzle-list #}
+                </div>{# /level-group #}
+                {% endfor %}
                 {% else %}
                 <p class="empty">No puzzles selected. <a href="/book/{{ book.book_id }}/select-puzzles">Go back to step 2</a> to add some.</p>
                 {% endif %}

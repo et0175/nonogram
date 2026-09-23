@@ -146,6 +146,32 @@ def _expected_guide(puzzles):
     )
 
 
+#: Which level a stored tier word belongs to — written out here, like every
+#: other expected value in this file, rather than imported from the code that
+#: produces it.
+_LEVEL = {"easy": 0, "medium": 1, "hard": 2}
+
+
+def _as_the_interior_prints_them(case):
+    """The case's puzzles in the order the exported interior holds them.
+
+    A book runs easy, then medium, then hard (FR-041, INV-009; CARD-126), so a
+    submission whose tiers are drawn at random is *stored* grouped, and page
+    ``2 + index`` holds the index-th puzzle of the grouped order. The
+    ``generator`` route takes a list straight into ``export_book`` with no book
+    behind it, so it prints what it was handed.
+
+    This decides only *which* puzzle each page holds. What the assertions below
+    are about — that the page's parity is its 1-based position in the interior
+    — is untouched by it, and is still checked on every page.
+    """
+    if case["route"] == "generator":
+        return list(case["puzzles"])
+    return sorted(
+        case["puzzles"], key=lambda p: _LEVEL.get(str(p["difficulty_tier"]).lower(), 3)
+    )
+
+
 def _export_through_route(app, case):
     """(interior bytes, cover bytes, reported page count or None) for ``case``."""
     if case["route"] == "generator":
@@ -245,7 +271,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # Measured off the page: a right-hand (odd) page carries the gutter
         # margin on its left, so its drawing sits further right than the same
         # drawing on a left-hand page, by gutter - outside.
-        for index, puzzle in enumerate(case["puzzles"]):
+        for index, puzzle in enumerate(_as_the_interior_prints_them(case)):
             for page_number in (2 + index, 3 + n + index):  # puzzle page, answer page
                 drawn_left_mm = drawing_of(interior[page_number - 1]).left / PX_PER_MM
                 expected_mm = _expected_drawing_left_mm(puzzle, page_number)

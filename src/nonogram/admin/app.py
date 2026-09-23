@@ -61,6 +61,7 @@ from .book_plan import (
     DEFAULT_PLAN,
     TIERS as PLAN_TIERS,
     InvalidPlan,
+    LevelBoundary,
     Split as PlanSplit,
     bucket_of,
     planned_cells,
@@ -2851,13 +2852,15 @@ def create_app(debug=None):
             try:
                 if action == "move_up":
                     puzzle_id = request.form.get("puzzle_id")
-                    book_mgr.move_puzzle_up(book_id, puzzle_id)
-                    flash(f"Moved puzzle up", "success")
+                    # The flash follows the verdict now (CARD-126): a move the
+                    # order did not make is not reported as one.
+                    if book_mgr.move_puzzle_up(book_id, puzzle_id):
+                        flash(f"Moved puzzle up", "success")
 
                 elif action == "move_down":
                     puzzle_id = request.form.get("puzzle_id")
-                    book_mgr.move_puzzle_down(book_id, puzzle_id)
-                    flash(f"Moved puzzle down", "success")
+                    if book_mgr.move_puzzle_down(book_id, puzzle_id):
+                        flash(f"Moved puzzle down", "success")
 
                 elif action == "set_title":
                     puzzle_id = request.form.get("puzzle_id")
@@ -2874,20 +2877,54 @@ def create_app(debug=None):
                     # Proceed to Step 4: Finalization
                     return redirect(url_for("finalize_book", book_id=book_id))
 
+            except LevelBoundary as e:
+                # INV-009 refused the change and wrote nothing. The owner asked
+                # for something the book's order does not allow, which is not a
+                # fault — it is worded as the rule, not as an error (AC-258).
+                flash(str(e), "warning")
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")
 
-        # Get puzzles in current order with titles
+        # FR-041/INV-009: the page shows the book grouped easy, then medium,
+        # then hard, through the store's own grouping — the same one the moves
+        # and the printed book use, so what is on screen is what is stored and
+        # what will print (CARD-128 adds the divider pages). The book is
+        # re-read here because a move above has just rewritten the order.
+        levels = book_mgr.puzzle_levels(book_id)
+        numbering = {
+            puzzle_id: order_num
+            for order_num, puzzle_id in enumerate(
+                (pid for _tier, ids in levels for pid in ids), start=1
+            )
+        }
+
         puzzles_in_book = []
-        for order_num, puzzle_id in enumerate(book.puzzle_ids, start=1):
-            # Get puzzle details from puzzle_review service
-            puzzle = puzzle_review.get_puzzle(puzzle_id)
-            if puzzle:
-                # Add custom title if set
-                custom_title = book_mgr.get_puzzle_title(book_id, puzzle_id)
-                puzzle["order"] = order_num
-                puzzle["custom_title"] = custom_title
-                puzzles_in_book.append(puzzle)
+        level_groups = []
+        for tier, ids in levels:
+            rows = []
+            for position, puzzle_id in enumerate(ids):
+                # Get puzzle details from puzzle_review service
+                puzzle = puzzle_review.get_puzzle(puzzle_id)
+                if puzzle:
+                    # Add custom title if set
+                    custom_title = book_mgr.get_puzzle_title(book_id, puzzle_id)
+                    puzzle["order"] = numbering[puzzle_id]
+                    puzzle["custom_title"] = custom_title
+                    # The controls stop at the level's own ends, not the
+                    # book's: the move they would make is one the store
+                    # refuses, so the page does not offer it.
+                    puzzle["can_move_up"] = position > 0
+                    puzzle["can_move_down"] = position < len(ids) - 1
+                    rows.append(puzzle)
+                    puzzles_in_book.append(puzzle)
+            level_groups.append(
+                {
+                    "tier": tier.value if tier is not None else None,
+                    "label": tier.value.title() if tier is not None else "Ungraded",
+                    "count": len(ids),
+                    "puzzles": rows,
+                }
+            )
 
         # Calculate estimated page count
         # Rough estimate: assume each puzzle is ~1-2 pages based on height
@@ -2897,6 +2934,7 @@ def create_app(debug=None):
         context = {
             "book": book,
             "puzzles": puzzles_in_book,
+            "levels": level_groups,
             "page_count": page_count,
             "puzzle_count": len(puzzles_in_book),
         }
