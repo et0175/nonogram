@@ -2097,6 +2097,11 @@ def create_app(debug=None):
         saved plan that disagrees with its split is reported with a warning
         flash on the way on (AC-203/FR-034), not only on reopening. A form
         without the plan fields saves the trim size only, as before.
+
+        CARD-124: a plan **edit** on a book that has left draft returns it to
+        draft. A submission that carries the plan fields back unchanged is not
+        an edit — it stores nothing, moves nothing and flashes nothing about
+        the plan; only the trim half of the form is applied.
         """
         book = book_mgr.get_book(book_id)
         if not book:
@@ -2128,6 +2133,19 @@ def create_app(debug=None):
                     except _PlanFormError as e:
                         plan_error = str(e)
                         plan_error_fields = e.fields
+                    else:
+                        # Review cycle 1 (F-003): only a plan *edit* is saved.
+                        # save_plan is what returns a non-draft book to draft,
+                        # so re-opening this page on a book that has left
+                        # draft and pressing Save unchanged must leave both
+                        # the plan and the status where they are — and must
+                        # not flash that the plan changed. DistributionPlan is
+                        # a frozen dataclass, so `==` is exact; `current` is
+                        # the stored plan, or None when there is none, and a
+                        # plan is never equal to None, so the first save of a
+                        # plan-less book still happens.
+                        if new_plan == current:
+                            new_plan = None
 
                 # Convert to cm if input was in inches
                 if unit == "inches":

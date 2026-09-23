@@ -13,14 +13,20 @@ from src.nonogram.admin.book_manager import (
 # installed ``nonogram`` name, and the two spellings are two module objects, so
 # a plan built from the other one is not the class its isinstance check wants.
 from nonogram.admin.book_plan import DistributionPlan, Split
+from nonogram.admin.puzzle_review import PuzzleReviewService
 
 
 #: CARD-124: since ADR-0035 a book leaves draft only when every longest-side x
 #: tier cell of its selection is within 3 percentage points of its plan. The
-#: puzzle ids below are placeholders that no store resolves to a record, so the
-#: selection this manager can see is empty, and the plan matching it is the one
-#: that plans no cell. Storing it before a status change keeps each test about
-#: the status rule it was written for.
+#: puzzle ids these tests use are placeholders: the store behind the manager
+#: holds no row for any of them, so each resolves to no record and counts
+#: towards no cell, and the plan that matches such a selection is the one that
+#: plans no cell. Storing it before a status change keeps each test about the
+#: status rule it was written for.
+#:
+#: (Review cycle 1, F-004: the manager must have a *store* for that to be the
+#: reading. A manager wired without one cannot see the selection at all, and
+#: now refuses the transition outright instead of reading the book as empty.)
 EMPTY_SELECTION_PLAN = DistributionPlan(
     count=1, split=Split(100, 0, 0), cells=((0, 0, 0),) * 4
 )
@@ -28,8 +34,13 @@ EMPTY_SELECTION_PLAN = DistributionPlan(
 
 @pytest.fixture
 def book_manager():
-    """Get a fresh book manager for testing."""
-    return BookManager()
+    """Get a fresh book manager for testing.
+
+    Wired with a puzzle store the way ``create_app`` wires one (app.py builds
+    a ``PuzzleReviewService`` on both branches), so the status rules here are
+    exercised in the configuration production actually runs.
+    """
+    return BookManager(puzzle_store=PuzzleReviewService(session_factory=None))
 
 
 class TestBookCreation:

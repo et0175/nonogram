@@ -102,9 +102,11 @@ class Book:
 # The readiness gate (CARD-124; FR-037, INV-007, ADR-0035)
 # --------------------------------------------------------------------------
 #
-# A book leaves draft only as *the book that was planned*. The verdict is a
-# pure function of the stored plan and the selection's records, so it is the
-# same verdict in both storage modes and can be read on its own.
+# A book leaves draft only as the book its stored plan describes: every one of
+# the 12 cells within the tolerance of its share of the planned total (see
+# :func:`off_plan_cells` for exactly how far that guarantee reaches). The
+# verdict is a pure function of the stored plan and the selection's records, so
+# it is the same verdict in both storage modes and can be read on its own.
 
 #: How far one longest-side x tier cell may sit from its planned share and
 #: still leave draft, in percentage points. The bound is **inclusive**: a cell
@@ -113,10 +115,22 @@ READY_TOLERANCE_POINTS = 3
 
 #: What a book with no stored plan is told at the gate (ADR-0035 (c)). Every
 #: book created since ADR-0034 starts on the default plan, so this is the
-#: pre-migration row's remedy, and it is one save on Print setup.
+#: pre-migration row's remedy, and it is one save on Print setup. A stored
+#: document too damaged to decode says the same thing, for the same remedy
+#: (:meth:`BookManager._refuse_unless_the_planned_book`).
 NO_PLAN_REFUSAL = (
     "This book has no stored plan, so it cannot leave draft. "
     "Store one on Print setup first."
+)
+
+#: What the gate says when the selection cannot be read at all — a manager
+#: wired without a puzzle store, holding a book that does list puzzles. The
+#: gate refuses rather than judging a selection it could not see (F-004);
+#: unlike the two refusals above this is a wiring fault, not the owner's, so
+#: it names the cause instead of offering a remedy on a screen.
+UNREADABLE_SELECTION_REFUSAL = (
+    "This book's selection cannot be read (the panel has no puzzle store), so it "
+    "cannot be checked against its plan and cannot leave draft."
 )
 
 
@@ -131,15 +145,30 @@ def off_plan_cells(plan: DistributionPlan, puzzles) -> List[tuple]:
 
     Both shares are taken over the **planned** total (ADR-0035 (b)): a cell's
     actual share is its count divided by ``plan.count``, and its planned share
-    is the plan's own cell divided by the same number. "Ready" therefore means
-    the planned book, not merely the planned mix — an under-filled selection
-    fails even when its proportions are right.
+    is the plan's own cell divided by the same number. Measuring the mix
+    against the stated total rather than against the selection's own size is
+    what makes an under-filled selection fail even when its proportions are
+    right (CK-1): 50 puzzles at exactly half of every planned cell are each
+    half a planned share short, not on target.
+
+    That is as far as the guarantee goes, and it is worth stating precisely
+    (review cycle 2, F-004). "Ready means the planned book, not merely the
+    planned mix" holds **exactly when the matrix sums to ``plan.count``** —
+    every plan Print setup prefills does, and so does every hand edit that
+    keeps the column totals on the tier counts. A hand-edited matrix that
+    disagrees with its split (:attr:`DistributionPlan.disagrees_with_split`,
+    warned about but never refused, FR-034) is still measured cell by cell
+    against the stated total, and nothing here re-reads ``count`` from the
+    matrix — so a plan of 100 whose cells sum to 5 is passed by a selection of
+    5, every cell 0 points out. That is the plan the owner stored, spent to
+    the letter; it is not an INV-007 hole, because INV-007 is a per-cell rule
+    and every cell is on its plan. The matrix, not the count, is the thing a
+    disagreeing plan under-fills, and Print setup already tells the owner so.
 
     The plan's ``count`` is the denominator, not the matrix's sum: the two
-    differ only for a hand-edited matrix that already disagrees with its split
-    (:attr:`DistributionPlan.disagrees_with_split`, reported and allowed), and
-    the total the owner planned is the book ADR-0035 measures against. It is
-    also never zero (INV-005), so the comparison has no degenerate case.
+    differ only for such a hand-edited matrix, and the total the owner planned
+    is the book ADR-0035 measures against. It is also never zero (INV-005), so
+    the comparison has no degenerate case.
 
     The comparison is exact integer arithmetic — ``|actual - planned| * 100 <=
     tolerance * total`` rather than a difference of two floats against 3.0 —
@@ -170,6 +199,11 @@ def ready_refusal(plan: Optional[DistributionPlan], puzzles) -> Optional[str]:
     planned share. A refusal names **every** offending cell with its actual and
     planned share, so the owner sees the whole of what is wrong at once
     (AC-221).
+
+    ``plan`` is ``None`` both for a book that has no stored plan and for one
+    whose stored document cannot be decoded — the caller has already collapsed
+    the two (see :meth:`BookManager._refuse_unless_the_planned_book`), because
+    the owner's remedy is the same save either way.
     """
     if plan is None:
         return NO_PLAN_REFUSAL
@@ -378,6 +412,15 @@ class BookManager:
 
         ``None`` for a book that has no plan — one created before migration 010
         and never set up since (no backfill, G-3) — and for an unknown book.
+
+        Raises:
+            InvalidPlan: DB mode only — a stored document
+                :func:`plan_from_json` refuses (INV-005). A *damaged* plan is
+                not the same fact as *no* plan, so this reports it rather than
+                returning ``None``; the two callers that would show the owner
+                a screen (``app._readable_plan`` and the readiness gate,
+                :meth:`_refuse_unless_the_planned_book`) each collapse it to
+                "no plan" themselves, with their own log line.
         """
         if self._session_factory is None:
             return self._plans.get(book_id)
@@ -824,18 +867,33 @@ class BookManager:
         with no recognisable tier or a side outside the supported range.
 
         A manager built without a puzzle store cannot see the selection at
-        all, so it reads as empty and the gate refuses rather than waving the
-        book through. That is the honest failure (the same choice
-        :meth:`_mirror_onto_puzzles` makes), not a way past ADR-0035/R1; every
-        manager ``create_app`` builds has a store.
+        all. A book that *holds* ids is then unreadable rather than empty, and
+        the gate must not conclude anything about it: this raises, so the
+        transition is refused whatever the plan says. Reading it as an empty
+        selection — what this did until review cycle 1 — was not fail-closed,
+        because an empty selection matches any plan whose every cell is within
+        the tolerance of zero (F-004). No selection to read at all is a
+        different fact: a book with no ids is genuinely empty, is refused a
+        step earlier by :meth:`set_book_status`'s "Must have puzzles" rule,
+        and needs no store to be judged. Every manager ``create_app`` builds
+        has a store (app.py wires ``puzzle_review`` on both branches), so this
+        is a wiring error, not a reachable state of the panel.
+
+        Raises:
+            ValueError: the book holds puzzle ids and there is no store to
+                resolve them through.
         """
+        puzzle_ids = list(puzzle_ids)
         if self.puzzle_store is None:
-            logger.warning(
+            if not puzzle_ids:
+                return []
+            logger.error(
                 "No puzzle store: the selection of %d puzzle(s) cannot be read, so "
-                "the plan check (ADR-0035) sees an empty book and refuses.",
-                len(list(puzzle_ids)),
+                "the plan check (ADR-0035) refuses the transition — it has nothing "
+                "to judge, and an unread selection is not an empty one.",
+                len(puzzle_ids),
             )
-            return []
+            raise ValueError(UNREADABLE_SELECTION_REFUSAL)
 
         records: List[Dict[str, Any]] = []
         for puzzle_id in puzzle_ids:
@@ -864,13 +922,35 @@ class BookManager:
         draft`` is not an exit, and a move between two non-draft statuses is
         past the gate already.
 
+        A stored document :func:`plan_from_json` refuses to decode is read as
+        **no plan** rather than allowed to escape as ``InvalidPlan`` (review
+        cycle 2, F-001): a damaged plan is functionally a plan-less book, and
+        the owner needs ADR-0035 (c)'s remedy — store one on Print setup —
+        not a decode message. ``app._readable_plan`` reads it the same way,
+        which is what lets Print setup repair the document. Only DB mode can
+        hold such a document; the in-memory branch stores plan objects the
+        aggregate has already accepted.
+
         Raises:
-            ValueError: no stored plan, or a cell out of tolerance. The
-                message is the refusal the owner is shown.
+            ValueError: no stored plan (a damaged one included), a cell out of
+                tolerance, or a selection that cannot be read at all
+                (:meth:`_selection_records`). The message is the refusal the
+                owner is shown. No :class:`InvalidPlan` leaves here.
         """
         if current_status != BookStatus.DRAFT.value or new_status == BookStatus.DRAFT.value:
             return
-        refusal = ready_refusal(self.get_plan(book_id), self._selection_records(puzzle_ids))
+        try:
+            plan = self.get_plan(book_id)
+        except InvalidPlan as error:
+            logger.error(
+                "Stored distribution plan of book %s is unreadable (%s); the gate "
+                "(ADR-0035) treats it as no plan, so the refusal carries the "
+                "Print-setup remedy.",
+                book_id,
+                error,
+            )
+            plan = None
+        refusal = ready_refusal(plan, self._selection_records(puzzle_ids))
         if refusal is not None:
             raise ValueError(refusal)
 
@@ -879,7 +959,8 @@ class BookManager:
 
         Every transition **out of draft** — to ``ready_for_pdf`` or to any
         later status — is gated on the book's stored plan (ADR-0035/R1,
-        FR-037, INV-007): the book must have a plan, and every longest-side x
+        FR-037, INV-007): the book must have a plan — a stored document that
+        cannot be decoded counts as none — and every longest-side x
         tier cell of its selection must be within
         :data:`READY_TOLERANCE_POINTS` percentage points of that cell's share
         of the planned total. A refusal leaves the status unchanged and names
@@ -897,6 +978,22 @@ class BookManager:
         book back in draft leaves it only through this gate, like any other
         draft book.
 
+        What the guarantee is worth under concurrency
+        ---------------------------------------------
+        Sequentially. In DB mode the check and the write are **not atomic**:
+        the row is read (and the rules applied) in one session and written in
+        another, so between them another request could change the status or
+        the selection and this write would still land. The single-session
+        shape this replaced was no better — SQLAlchemy's pysqlite dialect runs
+        the SELECT outside any transaction and only opens one at the first
+        write, and a Postgres READ COMMITTED session behaves the same way — so
+        the exposure is the whole DB layer's, not this method's. It is
+        accepted here because the panel is a single-user loopback tool
+        (CON-015): one owner, one browser, no concurrent writers. Making the
+        verdict atomic (a compare-and-swap on status + selection, or a row
+        lock) is a change to the storage layer as a whole and belongs in its
+        own card.
+
         Args:
             book_id: ID of book
             status: New status (draft, ready_for_pdf, pdf_generated, ready_for_kdp, published)
@@ -905,7 +1002,12 @@ class BookManager:
             True if updated, False if not found
 
         Raises:
-            ValueError: If invalid status, or the transition is refused
+            ValueError: If invalid status, or the transition is refused. Every
+                refusal this method makes is a ``ValueError`` carrying the text
+                the owner is shown: a damaged stored plan is turned into the
+                plan-less refusal rather than surfacing as ``InvalidPlan``
+                (:meth:`_refuse_unless_the_planned_book`), so a caller needs no
+                second except clause to keep the refusal on the screen.
         """
         valid_statuses = {s.value for s in BookStatus}
         if status not in valid_statuses:

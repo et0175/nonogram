@@ -654,7 +654,12 @@ class TestPrintSetup_UnreadableStoredPlanCanBeOverwritten:
 
 
 # --------------------------------------------------------------------------
-# G-2 — save_plan writes plan columns only
+# G-2 — save_plan writes the plan columns and the status, and nothing else
+#
+# (CARD-124 added the status write: a plan edit on a book that has left draft
+# returns it to draft, because the plan is what the readiness gate measured
+# the selection against. A book already in draft — every book below — is left
+# where it is, which is what the assertions here pin.)
 # --------------------------------------------------------------------------
 
 
@@ -677,7 +682,12 @@ def _add_puzzle(store, batch_id, name):
 
 
 class TestSavePlan_NeverTouchesTheSelection:
-    """G-2 / FR-038: selection, order and custom titles are unchanged by save_plan."""
+    """G-2 / FR-038: selection, order and custom titles are unchanged by save_plan.
+
+    The status is *not* in that list since CARD-124 — save_plan returns a
+    non-draft book to draft — but these books are in draft, where the rule
+    leaves them, so the assertion below still reads ``before.status``.
+    """
 
     @pytest.mark.parametrize("mode", MODES)
     def test_selection_order_titles_and_status_unchanged(self, mode, scope) -> None:
