@@ -104,7 +104,7 @@ waves:
     status: pending
 
   - wave: 26
-    cards: [CARD-128, CARD-131, CARD-132]
+    cards: [CARD-128, CARD-131, CARD-132, CARD-139]
     increment: [15, 16]
     closes_increment: 16
     checkpoint: >-
@@ -118,6 +118,10 @@ waves:
       132/150, 20/100.
     collapses: [INV-008, INV-012, EC-026, EC-033, "FR-039 hint semantics (exact counts, ADR-0035)"]
     rollback: "Additive routes and template changes; reverting restores the outright refusal on published books. No schema change."
+    # CARD-139 (2026-09-23, owner-reported live 500): joins this wave as an import-style
+    # sweep over admin/. It rewrites the import block every other admin card edits, so it
+    # runs ALONE after CARD-128/131/132 merge. It adds no observable to the checkpoint —
+    # its own AC gate (no relative imports; the package tree cannot double) is the whole test.
     status: pending
 
   - wave: 27
