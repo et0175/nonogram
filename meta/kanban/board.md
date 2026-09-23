@@ -20,7 +20,7 @@ _Updated: 2026-09-22 UTC_
 | 21 | CARD-114 P1, CARD-120 P1 | ✓ done |
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
-| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1 | ▶ active · closes Increment 14 |
+| 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ▶ active · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ⏳ blocked (→ wave 24) · closes Increment 13 (owner-confirmed proof print) |
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
 | 27 | CARD-129 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
@@ -49,6 +49,8 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-137** P1 · Recalibrate the medium/hard cutoff so medium is reachable · 1d · architectural · wave 24
+  `worktree: ../PythonProject4-CARD-137` · `branch: card/137-recalibrate-medium-cutoff` · `elapsed: 0d`
 
 ## Review
 - **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
