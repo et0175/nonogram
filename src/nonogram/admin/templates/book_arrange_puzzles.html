@@ -103,9 +103,16 @@
                         </div>
                     </div>
 
-                    <!-- Page Break Indicator (every N puzzles) -->
-                    {% if loop.index % 3 == 0 and not loop.last %}
-                    <div class="page-break-divider"><span>page {{ (loop.index // 3) + 1 }}</span></div>
+                    {# Page break indicator, every 3 puzzles. It counts off
+                       `puzzle.order` — the route's 1..n numbering across the
+                       whole book — and never off `loop.index`, which restarts
+                       at every level heading and would print "page 2" once per
+                       level (review cycle 1, F-001). The end check is the
+                       book's own end for the same reason: `loop.last` is only
+                       the last row of *this* level, so the last rendered row
+                       of the book is what the divider stops at. #}
+                    {% if puzzle.order % 3 == 0 and puzzle.order < puzzles[-1].order %}
+                    <div class="page-break-divider"><span>page {{ (puzzle.order // 3) + 1 }}</span></div>
                     {% endif %}
                     {% endfor %}
                 </div>{# /puzzle-list #}

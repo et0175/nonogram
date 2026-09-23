@@ -1135,18 +1135,34 @@ class BookManager:
                 only saves reading the same rows twice.
 
         Returns:
-            True if reordered, False if book not found
+            True if reordered, False if book not found — and that answer comes
+            first, so a call naming no book still returns False however the
+            order it carries is grouped.
 
         Raises:
-            LevelBoundary: the submitted order is not grouped by level
-                (INV-009). A :class:`ValueError`, so a caller that only knows
-                about those is unaffected.
-            ValueError: If puzzle IDs don't match book's puzzles
+            ValueError: If puzzle IDs don't match book's puzzles. Reported
+                *before* the grouping, so a submission that is wrong in both
+                ways is named by the complaint the caller can act on.
+            LevelBoundary: the order is this book's own membership but is not
+                grouped by level (INV-009). A :class:`ValueError`, so a caller
+                that only knows about those is unaffected.
         """
-        # Checked before either storage branch: the tier lookup reads the
+        # The three verdicts in this order, and not another (review cycle 1,
+        # F-004): "no such book" and "those are not this book's puzzles" are
+        # facts about the *call*, and answering them first is what keeps the
+        # contract above true and the message the more actionable one. INV-009
+        # is asked last, of an order that was otherwise about to be stored.
+        book = self.get_book(book_id)
+        if not book:
+            return False
+
+        if set(puzzle_ids) != set(book.puzzle_ids):
+            raise ValueError("Puzzle IDs must match book's current puzzles")
+
+        # Still outside either storage branch: the tier lookup reads the
         # puzzle store, which opens sessions of its own, and this module does
         # not nest sessions (:meth:`add_puzzles_reporting_refusals` records
-        # why). It is a verdict on the *submission*, so it needs no book.
+        # why).
         if not is_level_order(puzzle_ids, tier_of or self._tier_of(puzzle_ids)):
             raise LevelBoundary(UNGROUPED_ORDER_REFUSAL)
 

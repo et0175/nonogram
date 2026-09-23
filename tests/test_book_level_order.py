@@ -396,6 +396,48 @@ class TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel:
 
 
 # --------------------------------------------------------------------------
+# G-4, the titles half — a removal is one member's, not the book's titles
+# --------------------------------------------------------------------------
+
+
+class TestBookRemovePuzzle_LeavesTheOtherTitlesAlone:
+    """Taking one titled puzzle out leaves every other title exactly as set.
+
+    G-4's *arrangement* half is pinned elsewhere — EC-029's property asserts the
+    surviving order after repeated removes in both storage modes. Its *titles*
+    half was pinned nowhere: ``remove_puzzle_from_book`` drops the removed id
+    from ``puzzle_titles`` by rebuilding the dict, and a rebuild that dropped
+    the wrong key, or every key, would have passed the whole suite.
+
+    (What this does *not* assert is that the removed puzzle's own entry is gone:
+    only the DB branch drops it — the in-memory branch never touches
+    ``puzzle_titles`` at all — so that is a divergence to settle, not a rule to
+    pin here.)
+    """
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_removing_one_titled_puzzle_keeps_the_rest_and_their_titles(
+        self, mode, tmp_path
+    ) -> None:
+        shelf = Shelf(mode, tmp_path)
+        book_id, (e1, e2, m1, h1) = a_book_of(shelf, "easy", "easy", "medium", "hard")
+        titles = {e1: "First light", e2: "Snowfall", m1: "The Rain Deer", h1: "Thaw"}
+        for puzzle_id, title in titles.items():
+            assert shelf.books.set_puzzle_title(book_id, puzzle_id, title) is True
+
+        assert shelf.books.remove_puzzle_from_book(book_id, e2) is True
+
+        assert shelf.ids_of(book_id) == [e1, m1, h1], (
+            "G-4: the rest of the arrangement, in its own order, minus the removed one"
+        )
+        assert [shelf.books.get_puzzle_title(book_id, p) for p in (e1, m1, h1)] == [
+            titles[e1],
+            titles[m1],
+            titles[h1],
+        ], "G-4: ... and every surviving title still exactly what the owner set"
+
+
+# --------------------------------------------------------------------------
 # The tier is read, never re-graded (G-2, ADR-0033/R1, ADR-0031)
 # --------------------------------------------------------------------------
 
@@ -548,11 +590,17 @@ class TestBookLevelOrder_ThePureGrouping:
     def test_a_puzzle_with_no_readable_tier_sorts_after_the_graded_ones(
         self, unreadable
     ) -> None:
-        """Never silently inside easy, and never dropped."""
-        tier_of = lookup(a=EASY, b=HARD, x=unreadable if isinstance(unreadable, Tier) else None)
+        """Never silently inside easy, and never dropped.
+
+        The unreadable value goes through to ``tier_of`` as it stands — a
+        blank, a word that is not a tier, a number — so each case exercises
+        ``level_rank``'s non-``Tier`` branch instead of collapsing to ``None``
+        five times over (review cycle 1, F-003).
+        """
+        tier_of = lookup(a=EASY, b=HARD, x=unreadable)
 
         assert book_level_order(["x", "b", "a"], tier_of) == ["a", "b", "x"]
-        assert level_rank(None) == UNGRADED_RANK
+        assert level_rank(unreadable) == UNGRADED_RANK
 
     def test_the_order_is_always_a_permutation_of_the_membership(self) -> None:
         tier_of = lookup(a=EASY, c=MEDIUM)
@@ -652,3 +700,42 @@ class TestBookArrangeScreen_ShowsTheLevels:
         assert positions == sorted(positions), "the page lists the book in level order"
         numbers = re.findall(r'item-order">(\d+)<', markup)
         assert numbers == ["1", "2", "3"], numbers
+
+    def test_the_page_break_indicator_counts_the_whole_book_not_each_level(
+        self, panel
+    ) -> None:
+        """Review cycle 1, F-001: four easy then three medium is pages 2 and 3.
+
+        The divider used to count off the loop variable, which this card's
+        nesting restarted at every level heading — so this book showed "page 2"
+        twice, never "page 3", and the medium level (three rows, the last of
+        the book) got no divider at all however deep it sat. Counting off the
+        route's whole-book ``order`` is what makes the two dividers land after
+        row 3 and row 6 and say 2 and 3.
+        """
+        book_id, _ids = a_book_of(
+            panel, "easy", "easy", "easy", "easy", "medium", "medium", "medium"
+        )
+
+        markup = panel.arrange(book_id).get_data(as_text=True)
+
+        assert re.findall(r'item-order">(\d+)<', markup) == list("1234567")
+        assert re.findall(r'page-break-divider"><span>page (\d+)<', markup) == ["2", "3"]
+        # ... and the second divider is inside the medium level, after its own
+        # second row: the number is the book's, not the level's.
+        rows = [m.start() for m in re.finditer(r'item-order">\d+<', markup)]
+        divider = markup.index("page-break-divider")
+        second = markup.index("page-break-divider", divider + 1)
+        assert rows[2] < divider < rows[3], "the first divider follows row 3"
+        assert rows[5] < second < rows[6], "the second divider follows row 6"
+        assert markup.index("Medium level") < second, "and sits inside the medium level"
+
+    def test_no_page_break_indicator_follows_the_last_puzzle_of_the_book(
+        self, panel
+    ) -> None:
+        """A book of exactly three ends on a row, not on a divider."""
+        book_id, _ids = a_book_of(panel, "easy", "easy", "medium")
+
+        markup = panel.arrange(book_id).get_data(as_text=True)
+
+        assert "page-break-divider" not in markup, markup
