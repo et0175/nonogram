@@ -6,6 +6,10 @@ run:
   wave: 25
   max_concurrent: 5
 merged:
+  - card: CARD-127
+    merge_commit: 679e78a
+    score: 9.0
+    owner_check: pending   # two-up render; spare-height question open
   - card: CARD-138
     merge_commit: cc64540
     score: 9.0
@@ -23,7 +27,7 @@ active:
   - card: CARD-127
     branch: card/127-book-two-up-pages
     worktree: ../PythonProject4-CARD-127
-    phase: ac_check
+    phase: committed
     review_cycle: 2
   - card: CARD-130
     branch: card/130-book-step-workflow-reentry
@@ -35,9 +39,4 @@ active:
     worktree: ../PythonProject4-CARD-138
     phase: commit
     review_cycle: 2
-serialized:
-  # Overlap 0.33 on src/nonogram/admin/book_pdf_generator.py (>= max_overlap 0.3).
-  # CARD-134 starts when CARD-127 is merged; the answer key counts pages after pairing.
-  - card: CARD-134
-    after: CARD-127
-    reason: "book_pdf_generator.py overlap 0.33"
+serialized: []   # CARD-134 released 2026-09-23 when CARD-127 merged

@@ -38,7 +38,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-134** P2 · The answer key in the book PDF — number order, 6-up / 4-up, a new page per level with its heading, SOLUTIONS divider, "Puzzle N — Title" · 1d · wave 25 · Inc 15 · after CARD-117, CARD-133
+- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · in_progress (impl, unblocked by CARD-127)
 - **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
@@ -46,13 +46,13 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125 · review (cycle 2/3, score 9.0)
-- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · serialized behind CARD-127 (book_pdf_generator.py overlap 0.33)
+- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · in_progress (impl, unblocked by CARD-127)
 
 ## Review
 - **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124 · review (cycle 2)
 
 ## Done
+- **CARD-127** Two-up pages in the book PDF · score 9.0 (2 cycles) · merged 679e78a · ⏳ owner render check
 - **CARD-138** Batch generation can ask for a difficulty · score 9.0 (2 cycles) · merged cc64540 · ⏳ owner should submit one Medium batch
 - **CARD-118** Proof pages (30×30 + 15×15) for the owner's printed measurement · score 8.5 (1 cycle) · merged 2782887 · ⏳ owner print check outstanding
 - **CARD-136** Print setup stores the chosen trim · score 9.0 (4 cycles) · merged cb0440c

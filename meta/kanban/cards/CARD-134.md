@@ -1,6 +1,6 @@
 # CARD-134: The answer key in the book PDF — puzzle-number order, 6-up / 4-up pages, "Puzzle N — Title" captions
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/134-book-answer-key
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-134
 **Source:** meta/architecture/handoff.md#increment-15 (COMP-009 half of FR-042, added by the 2026-09-22 (c) delta)
 **Idea:** —
 **Wave:** 25
 **Depends on:** CARD-117, CARD-133
 **Touches:** src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_answer_key.py, tests/property/test_book_answer_key.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-23
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

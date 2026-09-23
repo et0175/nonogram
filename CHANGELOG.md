@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-127 (feature): The book PDF puts two puzzles on a page where they fit — walking the stored order and pairing same-tier neighbours, never reordering — so a 9-puzzle Book 1 interior runs 17 pages instead of 20.
 - CARD-138 (feature): Batch generation can ask for a difficulty — Any, Easy, Medium or Hard — instead of generating at random and hoping; the engine's per-tier resample loop was already there and only the form could not reach it. A batch that cannot fill its count says how many it made rather than silently returning fewer.
 - CARD-118 (feature): Print setup can render a proof sheet — one 30x30 with 9-deep clues and one 15x15, laid out on the book's own trim and margins — so the printed cell sizes and rule weights can be measured on paper instead of trusted on screen.
 - CARD-136 (feature): Print setup now stores the chosen trim on the book instead of only showing it, so a book laid out at 6 x 9 in really prints at 6 x 9 in; the Finalise summary reads the stored trim, so the trim row and the per-puzzle cell figures are finally measured on the same page.
