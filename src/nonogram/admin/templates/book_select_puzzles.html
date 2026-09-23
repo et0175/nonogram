@@ -153,9 +153,18 @@
                     the add refusal and the book PDF use (G-1, EC-021). `none`
                     is a puzzle whose cell cannot be measured at all, which the
                     floor treats as missing it. Two decimals: one is too coarse
-                    beside a 4.8 mm floor (4.84 would read as 4.8). -#}
-                {% set cell_mm = book_cells.get(puzzle.id) %}
-                {% set below_floor = cell_mm is none or cell_mm < floor_mm %}
+                    beside a 4.8 mm floor (4.84 would read as 4.8).
+
+                    Both mappings are keyed by the id *as a string*, exactly as
+                    the route builds them, so a record whose id is not already
+                    a string cannot miss its own cell and be flagged for
+                    missing it (review cycle 1, F-002). And the flag below is
+                    the route's verdict rather than one made here: `FLOOR_MM`
+                    is compared against in exactly one place on the admin side,
+                    `_misses_the_floor` (G-1, EC-021; review cycle 1, F-001). -#}
+                {% set puzzle_key = puzzle.id|string %}
+                {% set cell_mm = book_cells.get(puzzle_key) %}
+                {% set below_floor = puzzle_key in below_floor_ids %}
                 <div class="puzzle-tile" data-puzzle-id="{{ puzzle.id }}"
                      {%- if cell_mm is not none %} data-book-cell-mm="{{ '%.2f'|format(cell_mm) }}"{% endif %}
                      {%- if below_floor %} data-below-floor="true"{% endif %}>

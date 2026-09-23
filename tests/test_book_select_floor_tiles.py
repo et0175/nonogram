@@ -28,7 +28,10 @@ refusal and the finalise count to that one number over the whole corpus.
 
 from __future__ import annotations
 
+import ast
 import re
+import uuid
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -573,3 +576,180 @@ class TestBookFloorTiles_TheCellIsTheOneComputation:
                 dotted_grid(*TRIM_SENSITIVE[:4])
             )]
         ) == pytest.approx(TRIM_SENSITIVE[5], abs=0.005)
+
+
+# --------------------------------------------------------------------------
+# review cycle 1, F-002 — the tile looks its cell up the way the route filed it
+# --------------------------------------------------------------------------
+
+
+class TestBookSelectTile_CellLookupIsKeyedLikeTheRouteFilesIt:
+    """One id, one key. A lookup that misses is a *wrong* verdict, not a safe one.
+
+    ``_book_cells`` files every cell under ``str(record["id"])``. Both storage
+    modes hand out string ids today, so a template looking a cell up by the
+    raw id agreed with it by accident; a record whose id is a ``uuid.UUID`` —
+    or an int, or anything else a store might one day return — would miss its
+    own cell silently and the tile would say "not measurable" and carry a
+    below-floor flag for a puzzle that comfortably clears the floor. That is
+    the fail-closed posture worn by a verdict that is simply wrong, and it is
+    the one shape the property test cannot catch: its corpus is string-keyed
+    too.
+    """
+
+    @staticmethod
+    def _with_a_uuid_id(panel, shape):
+        """A puzzle whose record carries a ``uuid.UUID`` id, not a string."""
+        puzzle_id = panel.puzzle(*shape[:4])
+        record = panel.store.puzzles[puzzle_id]
+        record["id"] = uuid.uuid4()
+        return record["id"]
+
+    def test_a_non_string_id_still_finds_its_own_cell(self, panel) -> None:
+        raw_id = self._with_a_uuid_id(panel, ABOVE_FLOOR_WIDE)
+        book_id = panel.book()
+
+        tile = tile_of(tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]), str(raw_id))
+
+        assert f'data-book-cell-mm="{ABOVE_FLOOR_WIDE[4]:.2f}"' in tile, (
+            "the tile looked its cell up by a key the route never filed it "
+            "under, so a measurable puzzle reads as unmeasurable"
+        )
+        assert "not measurable" not in text_of(tile)
+
+    def test_a_non_string_id_above_the_floor_is_not_flagged(self, panel) -> None:
+        """The wrong verdict the miss produces: a 6.05 mm puzzle flagged."""
+        raw_id = self._with_a_uuid_id(panel, ABOVE_FLOOR_WIDE)
+        book_id = panel.book()
+
+        tile = tile_of(tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]), str(raw_id))
+
+        assert "data-below-floor" not in tile, (
+            f"a puzzle at {ABOVE_FLOOR_WIDE[4]:.2f} mm clears the "
+            f"{FLOOR_MM:g} mm floor; the flag came from a failed lookup"
+        )
+        assert f"override_{raw_id}" not in tile
+
+    def test_a_non_string_id_below_the_floor_is_still_flagged(self, panel) -> None:
+        """...and the lookup that now works does not soften the real refusal."""
+        raw_id = self._with_a_uuid_id(panel, BELOW_FLOOR)
+        book_id = panel.book()
+
+        tile = tile_of(tab_html(panel, book_id, BELOW_FLOOR[5]), str(raw_id))
+
+        assert f'data-book-cell-mm="{BELOW_FLOOR[4]:.2f}"' in tile
+        assert 'data-below-floor="true"' in tile
+
+    def test_the_template_keys_its_lookup_as_a_string(self) -> None:
+        """Said once in the markup, so the next tile added cannot drift.
+
+        ``_book_cells`` keys by ``str(...)``; the template must too. A raw
+        ``book_cells.get(puzzle.id)`` is the defect itself.
+        """
+        source = _selection_template()
+        assert "book_cells.get(puzzle.id)" not in source, (
+            "the template looks a cell up by the raw id while the route files "
+            "it under str(id)"
+        )
+        assert "puzzle.id|string" in source
+
+
+# --------------------------------------------------------------------------
+# review cycle 1, F-001 — the floor is compared in exactly one place
+# --------------------------------------------------------------------------
+
+
+def _selection_template() -> str:
+    return (
+        Path(__file__).resolve().parent.parent
+        / "src" / "nonogram" / "admin" / "templates" / "book_select_puzzles.html"
+    ).read_text()
+
+
+def _admin_app_source() -> str:
+    return (
+        Path(__file__).resolve().parent.parent
+        / "src" / "nonogram" / "admin" / "app.py"
+    ).read_text()
+
+
+class TestBookSelectTile_TheFloorVerdictIsMadeOnce:
+    """G-1 for the *decision*, not only for the number.
+
+    The cell was already one computation. "Is it below the floor" was two:
+    ``_misses_the_floor`` in the route and an inline ``cell_mm < floor_mm`` in
+    the tile's markup — two statements of one rule, free to drift, with the
+    named one left at fan-in 1. The screens are handed the verdict now.
+    """
+
+    def test_only_one_function_in_app_py_compares_against_the_floor(self) -> None:
+        """``FLOOR_MM`` appears in exactly one comparison, in one function."""
+        comparing: dict[str, int] = {}
+        enclosing: list[str] = []
+
+        class InnermostFunction(ast.NodeVisitor):
+            """Every route in ``app.py`` is nested inside ``create_app``, so the
+            function that compares is the innermost one around the node."""
+
+            def visit_FunctionDef(self, node):
+                enclosing.append(node.name)
+                self.generic_visit(node)
+                enclosing.pop()
+
+            visit_AsyncFunctionDef = visit_FunctionDef
+
+            def visit_Compare(self, node):
+                names = [
+                    operand.id
+                    for operand in [node.left, *node.comparators]
+                    if isinstance(operand, ast.Name)
+                ]
+                if "FLOOR_MM" in names and enclosing:
+                    comparing[enclosing[-1]] = comparing.get(enclosing[-1], 0) + 1
+                self.generic_visit(node)
+
+        InnermostFunction().visit(ast.parse(_admin_app_source()))
+
+        assert comparing == {"_misses_the_floor": 1}, (
+            "the admin compares a cell against the floor in more than one "
+            f"place: {sorted(comparing)}. One decision, one statement of it "
+            "(G-1, EC-021)"
+        )
+
+    def test_the_selection_template_makes_no_comparison_of_its_own(self) -> None:
+        """It may *name* the floor in the flag's wording; it may not judge."""
+        source = _selection_template()
+        judging = re.findall(r"[<>]=?\s*floor_mm|floor_mm\s*[<>]=?", source)
+
+        assert judging == [], (
+            f"the tile decides the floor for itself: {judging}. The route "
+            f"hands it `below_floor_ids`"
+        )
+        assert "below_floor_ids" in source
+
+    def test_the_tile_flag_and_the_finalise_count_are_the_one_verdict(
+        self, panel
+    ) -> None:
+        """Behaviourally: swap the one computation and both screens follow.
+
+        The G-1 guard above this one pins the *number*; this pins the
+        *decision* — one puzzle that clears the floor on its own, reported
+        below it by both screens once ``book_cell_mm`` says so.
+        """
+        puzzle_id = panel.puzzle(*ABOVE_FLOOR_WIDE[:4])
+        book_id = panel.book()
+        assert "data-below-floor" not in tile_of(
+            tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]), puzzle_id
+        )
+
+        import nonogram.admin.app as app_module
+
+        monkey = pytest.MonkeyPatch()
+        monkey.setattr(app_module, "book_cell_mm", lambda *a, **k: FLOOR_MM - 0.01)
+        try:
+            tile = tile_of(tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]), puzzle_id)
+            assert 'data-below-floor="true"' in tile
+            panel.books.add_puzzles_to_book(book_id, [puzzle_id], [puzzle_id])
+            assert below_floor_count(finalize_html(panel, book_id)) == 1
+        finally:
+            monkey.undo()

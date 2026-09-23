@@ -2582,8 +2582,30 @@ def create_app(debug=None):
         screens: a cell nobody can compute is not a cell known to clear the
         floor. So the tile's flag, the add refusal and the finalise count make
         the same verdict about the same puzzle (EC-021).
+
+        The **only** place on the admin side that compares a cell against
+        ``FLOOR_MM``. Both screens reach it through ``_below_floor_ids``; no
+        template makes this verdict for itself (G-1, review cycle 1 F-001).
         """
         return cell_mm is None or cell_mm < FLOOR_MM
+
+    def _below_floor_ids(cells):
+        """The ids in a ``_book_cells`` mapping that miss the floor.
+
+        The verdict the screens are handed, rather than one they derive: the
+        selection tile's flag and the finalise count are then the same
+        sentence of code applied to the same mapping, and a template cannot
+        drift from it by comparing the number itself (G-1, EC-021).
+
+        Keyed exactly as ``_book_cells`` keys it — ``str(record["id"])`` — so
+        a caller looking a puzzle up in one mapping looks it up in the other
+        the same way.
+        """
+        return {
+            puzzle_id
+            for puzzle_id, cell_mm in cells.items()
+            if _misses_the_floor(cell_mm)
+        }
 
     @app.route("/book/<book_id>/select-puzzles", methods=["GET", "POST"])
     def select_puzzles_for_book(book_id):
@@ -2723,10 +2745,12 @@ def create_app(debug=None):
             "puzzle_name": puzzle_name,
             "limit": limit,
             "offset": offset,
-            # CARD-123 (FR-031, NFR-008): the cell each tile shows, and the
-            # floor it is shown against. Empty until the page is known —
-            # a filter error renders no tiles and needs no cells.
+            # CARD-123 (FR-031, NFR-008): the cell each tile shows, the ids
+            # the floor flags, and the floor itself for the flag's wording.
+            # Empty until the page is known — a filter error renders no tiles
+            # and needs no cells.
             "book_cells": {},
+            "below_floor_ids": set(),
             "floor_mm": FLOOR_MM,
             **_plan_progress(book, kept_ids),
         }
@@ -2784,12 +2808,18 @@ def create_app(debug=None):
                 key=_tab_order,
             )
 
+            # The cell each of those tiles prints at in *this* book
+            # (CARD-123), measured on the book's current trim and margins
+            # every render, and the floor's verdict on those same cells. The
+            # template is handed the verdict rather than making one: exactly
+            # one place on the admin side compares a cell against FLOOR_MM
+            # (G-1, EC-021; review cycle 1, F-001).
+            tile_cells = _book_cells(book, filtered_puzzles)
+
             context.update(
                 puzzles=filtered_puzzles,
-                # The cell each of those tiles prints at in *this* book
-                # (CARD-123), measured on the book's current trim and margins
-                # every render.
-                book_cells=_book_cells(book, filtered_puzzles),
+                book_cells=tile_cells,
+                below_floor_ids=_below_floor_ids(tile_cells),
                 # The tab's own total, from the store's count of the same
                 # query — never the surviving slice of a page (F-002).
                 total_count=result.total_count,
@@ -2961,6 +2991,9 @@ def create_app(debug=None):
         # once, not that the cell is still the same one — so a trim changed
         # after curation shows up here (AC-188).
         book_cells = _book_cells(book, puzzles_in_book)
+        # The same verdict the selection tile carries, from the same helper on
+        # the same mapping — the floor is compared in one place only (G-1).
+        missing_the_floor = _below_floor_ids(book_cells)
         below_floor = [
             {
                 "id": puzzle.get("id"),
@@ -2972,7 +3005,7 @@ def create_app(debug=None):
                 "cell_mm": book_cells.get(str(puzzle.get("id"))),
             }
             for puzzle in puzzles_in_book
-            if _misses_the_floor(book_cells.get(str(puzzle.get("id"))))
+            if str(puzzle.get("id")) in missing_the_floor
         ]
 
         context = {

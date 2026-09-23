@@ -46,11 +46,13 @@ from __future__ import annotations
 import random
 import re
 import uuid
+from contextlib import contextmanager
 
 import pytest
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
+import nonogram.db as db_module
 from nonogram.admin.book_manager import BookManager
 from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from nonogram.admin.book_plan import BUCKETS
@@ -314,17 +316,38 @@ class Tally:
 # --------------------------------------------------------------------------
 
 
-@pytest.fixture
-def admin_app(monkeypatch):
-    """The panel in in-memory mode, so the two routes can be driven for real."""
-    monkeypatch.delenv("DATABASE_URL", raising=False)
+@contextmanager
+def panel_in_mode(monkeypatch, factory):
+    """The whole panel, wired to one storage mode exactly as ``create_app`` is.
+
+    ``factory is None`` is in-memory mode. Otherwise the panel is DB-backed:
+    ``create_app`` resolves the session factory *fresh on every call* — it
+    takes the DB branch when ``DATABASE_URL`` is set and imports
+    ``session_scope`` off ``nonogram.db`` there and then — so pointing that
+    one name at the test's own SQLite scope is enough to get a DB-backed
+    panel, with its store, its book manager and its routes, and no server or
+    Postgres anywhere. The URL itself is never connected to; the scope
+    replaces it before anything opens a session.
+    """
     monkeypatch.setenv("TESTING", "true")
+    if factory is None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+    else:
+        monkeypatch.setenv("DATABASE_URL", "sqlite:///nonogram-test-panel")
+        monkeypatch.setattr(db_module, "session_scope", factory)
+
     from nonogram.admin.app import create_app
 
     image_manager_module._image_manager = None
     book_manager_module._book_manager = BookManager(session_factory=None)
     app = create_app()
     app.config["TESTING"] = True
+    if factory is not None:
+        assert app.puzzle_review_service._session_factory is not None, (
+            "the panel was built in in-memory mode although a session factory "
+            "was handed to it — the db half of this property would be the "
+            "memory half run twice"
+        )
     with app.app_context():
         yield app
     # Both module singletons emptied again, so the books and pictures made
@@ -336,6 +359,31 @@ def admin_app(monkeypatch):
     # store on first use and never rebuilds it.)
     image_manager_module._image_manager = None
     book_manager_module._book_manager = BookManager(session_factory=None)
+
+
+@pytest.fixture
+def admin_app(monkeypatch):
+    """The panel in in-memory mode, so the two routes can be driven for real."""
+    with panel_in_mode(monkeypatch, None) as app:
+        yield app
+
+
+@pytest.fixture(params=["memory", "db"])
+def admin_panel(request, monkeypatch, tmp_path):
+    """The panel in **both** storage modes: ``(mode, app, session factory)``.
+
+    EC-021 is a rule of the aggregate rather than of a backend, and the
+    membership half below is parametrised over both modes for exactly that
+    reason. The agreement half took the in-memory panel alone, which narrowed
+    the claim to one of the two (review cycle 1, F-005); it takes this instead.
+    """
+    factory = (
+        None
+        if request.param == "memory"
+        else sqlite_session_scope(tmp_path, "agreement.db")
+    )
+    with panel_in_mode(monkeypatch, factory) as app:
+        yield request.param, app, factory
 
 
 # EC-021's membership half: every route, every trim, every puzzle. The
@@ -510,9 +558,13 @@ def tiles_of(html: str) -> dict[str, tuple[str | None, bool]]:
 
 
 def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_tile_refusal_and_count_are_one_number(
-    admin_app,
+    admin_panel,
 ) -> None:
     """EC-021's agreement half (CARD-123): three readings, one number.
+
+    In **both storage modes**, like the membership half: the constraint is a
+    rule of the aggregate, not of a backend, and a claim made for one mode is
+    not a claim made for the property (review cycle 1, F-005).
 
     For every corpus puzzle on every corpus trim, the figure is read three
     times from three places that do not share a line of code between them —
@@ -530,12 +582,13 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_tile_refus
     owner ticking an override against one number while the store measures
     another.
     """
+    mode, app, factory = admin_panel
     corpus = Corpus(
-        None,
-        store=admin_app.puzzle_review_service,
-        books=admin_app.book_manager,
+        factory,
+        store=app.puzzle_review_service,
+        books=app.book_manager,
     )
-    client = admin_app.test_client()
+    client = app.test_client()
     agreements = 0
     flagged_seen = 0
     unflagged_seen = 0
@@ -562,30 +615,30 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_tile_refus
             assert response.status_code == 200
             tiles.update(tiles_of(response.get_data(as_text=True)))
         assert set(tiles) == set(corpus.ids), (
-            f"book {book_id}: the tabs showed {len(tiles)} of the corpus' "
+            f"[{mode}] book {book_id}: the tabs showed {len(tiles)} of the corpus' "
             f"{len(corpus.ids)} puzzles, so some have no tile at all"
         )
 
         for puzzle_id, cell_mm in cells.items():
             shown, flagged = tiles[puzzle_id]
             assert shown == f"{cell_mm:.2f}", (
-                f"book {book_id}: the tile for {puzzle_id} shows {shown} mm while "
+                f"[{mode}] book {book_id}: the tile for {puzzle_id} shows {shown} mm while "
                 f"book_cell_mm says {cell_mm:.2f} mm — the tile is not the one "
                 f"computation (G-1, EC-021)"
             )
             assert flagged == (cell_mm < FLOOR_MM), (
-                f"book {book_id}: the tile for {puzzle_id} at {cell_mm:.2f} mm "
+                f"[{mode}] book {book_id}: the tile for {puzzle_id} at {cell_mm:.2f} mm "
                 f"{'carries no' if cell_mm < FLOOR_MM else 'carries a'} "
                 f"below-floor flag against the {FLOOR_MM:g} mm floor"
             )
             assert flagged == (puzzle_id in refused_cells), (
-                f"book {book_id}: the tile and the add refusal disagree about "
+                f"[{mode}] book {book_id}: the tile and the add refusal disagree about "
                 f"{puzzle_id} — tile flagged={flagged}, store refuses="
                 f"{puzzle_id in refused_cells}"
             )
             if flagged:
                 assert f"{refused_cells[puzzle_id]:.2f}" == shown, (
-                    f"book {book_id}: the tile says {shown} mm and the refusal "
+                    f"[{mode}] book {book_id}: the tile says {shown} mm and the refusal "
                     f"says {refused_cells[puzzle_id]:.2f} mm for {puzzle_id}"
                 )
                 flagged_seen += 1
@@ -605,19 +658,19 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_tile_refus
         )
         assert counted is not None, "the finalise summary reports no below-floor figure"
         assert int(counted.group(1)) == len(refused_cells), (
-            f"book {book_id}: the finalise summary counts {counted.group(1)} "
+            f"[{mode}] book {book_id}: the finalise summary counts {counted.group(1)} "
             f"below the floor while the store refuses {len(refused_cells)} of the "
             f"same members — the count is not the same computation (EC-021)"
         )
         corpus.release(book_id)
 
     assert agreements >= MIN_DECISIONS, (
-        f"the corpus shrank to {agreements} per-puzzle agreements; EC-021's "
+        f"[{mode}] the corpus shrank to {agreements} per-puzzle agreements; EC-021's "
         f"agreement half is checked over at least {MIN_DECISIONS}"
     )
     for kind, count in (("flagged", flagged_seen), ("unflagged", unflagged_seen)):
         assert count >= MIN_OF_EACH_VERDICT, (
-            f"only {count} {kind} tile(s): below {MIN_OF_EACH_VERDICT}, the "
+            f"[{mode}] only {count} {kind} tile(s): below {MIN_OF_EACH_VERDICT}, the "
             f"agreement would hold vacuously"
         )
 
