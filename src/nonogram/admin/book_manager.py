@@ -390,6 +390,32 @@ def _merged_overrides(stored, added) -> List[str]:
     return list(dict.fromkeys([str(pid) for pid in (stored or [])] + [str(pid) for pid in added]))
 
 
+#: The themes a book may carry. Named here rather than repeated per caller so
+#: that creating a book and revising one cannot come to disagree (CARD-130).
+BOOK_THEMES = ("christmas", "halloween", "easter", "valentine", "generic")
+
+
+def _refuse_invalid_details(title, description, theme, target_audience) -> None:
+    """Refuse general info no book may hold, whether new or revised.
+
+    The four fields the owner names a book by. :meth:`BookManager.create_book`
+    and :meth:`BookManager.update_book_details` apply exactly this — one
+    statement of the rules, so the general-info step cannot store what creation
+    would have refused (CARD-130, FR-038).
+
+    Raises:
+        ValueError: naming the field that is not acceptable.
+    """
+    if not title or len(title.strip()) == 0:
+        raise ValueError("Title cannot be empty")
+    if not description or len(description.strip()) == 0:
+        raise ValueError("Description cannot be empty")
+    if theme not in BOOK_THEMES:
+        raise ValueError(f"Invalid theme: {theme}")
+    if not target_audience or len(target_audience.strip()) == 0:
+        raise ValueError("Target audience cannot be empty")
+
+
 class BookManager:
     """Service for managing books and their puzzles.
 
@@ -449,14 +475,7 @@ class BookManager:
         Raises:
             ValueError: If parameters invalid
         """
-        if not title or len(title.strip()) == 0:
-            raise ValueError("Title cannot be empty")
-        if not description or len(description.strip()) == 0:
-            raise ValueError("Description cannot be empty")
-        if theme not in ("christmas", "halloween", "easter", "valentine", "generic"):
-            raise ValueError(f"Invalid theme: {theme}")
-        if not target_audience or len(target_audience.strip()) == 0:
-            raise ValueError("Target audience cannot be empty")
+        _refuse_invalid_details(title, description, theme, target_audience)
 
         if self._session_factory is None:
             # Legacy mode: in-memory dict
@@ -1888,6 +1907,73 @@ class BookManager:
                 if book_row.metadata is None:
                     book_row.book_metadata = {}
                 book_row.metadata['kdp_asin'] = asin
+                book_row.updated_at = datetime.utcnow()
+
+                db.commit()
+                return True
+
+    def update_book_details(
+        self,
+        book_id: str,
+        title: str,
+        description: str,
+        theme: str,
+        target_audience: str,
+    ) -> bool:
+        """Store the book's general info — the four fields creation asks for.
+
+        The general-info step of the workflow, on a book that already exists
+        (CARD-130, FR-038). Validated by ``_refuse_invalid_details``, the same
+        rules :meth:`create_book` applies, so a book cannot be revised into a
+        state it could not have been created in.
+
+        Nothing else about the book moves: not its status, not its plan, not
+        its membership, order, titles or print columns (G-2/EC-026). Naming a
+        book is not a membership change, so INV-012's return to draft does not
+        apply here — the selection that last passed the plan check is exactly
+        the selection this leaves behind.
+
+        Args:
+            book_id: ID of book
+            title: Book title
+            description: Book description
+            theme: Book theme (e.g., 'christmas')
+            target_audience: Target audience (e.g., 'seniors')
+
+        Returns:
+            True if updated, False if not found
+
+        Raises:
+            ValueError: If any field is not acceptable. Nothing is stored.
+        """
+        _refuse_invalid_details(title, description, theme, target_audience)
+
+        if self._session_factory is None:
+            # Legacy mode: in-memory dict
+            book = self.books.get(book_id)
+            if not book:
+                return False
+
+            book.metadata.title = title
+            book.metadata.description = description
+            book.metadata.theme = theme
+            book.metadata.target_audience = target_audience
+            book.updated_at = datetime.utcnow()
+
+            return True
+        else:
+            # DB mode: update the Book row's four own columns
+            from nonogram.db.models import Book as DBBook
+
+            with self._session_factory() as db:
+                book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+                if not book_row:
+                    return False
+
+                book_row.title = title
+                book_row.description = description
+                book_row.theme = theme
+                book_row.target_audience = target_audience
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()

@@ -28,6 +28,13 @@
     </div>
 </div>
 
+{#- CARD-130: this page imported the stepper since it was written but never
+    called it, so it was the one step of the flow with no way out of it. -#}
+<div class="card">
+    <div class="card-header"><h2 class="card-title mb-0">Steps</h2></div>
+    <div class="card-body">{{ stepper.book_steps(2) }}</div>
+</div>
+
 <div class="card">
     <div class="card-header"><h2 class="card-title mb-0">Whole book</h2></div>
     <div class="card-body">

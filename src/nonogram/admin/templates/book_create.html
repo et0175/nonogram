@@ -2,15 +2,30 @@
 {% import '_icons.html' as icons %}
 {% import '_stepper.html' as stepper %}
 
-{% block title %}New book - Nonogram admin{% endblock %}
-{% block section %}Books · new{% endblock %}
+{#- CARD-130: one form for the workflow's general-info step, whether the book
+    is being named for the first time or renamed later. `book` is the existing
+    one in edit mode and absent on creation; everything the two screens differ
+    in is here, so the fields themselves cannot drift apart. -#}
+{% set editing = book is defined and book %}
+
+{% block title %}{% if editing %}{{ book.metadata.title }} · general info{% else %}New book{% endif %} - Nonogram admin{% endblock %}
+{% block section %}Books · {% if editing %}{{ book.metadata.title }}{% else %}new{% endif %}{% endblock %}
 
 {% block content %}
 <div class="page-head">
     <div>
-        <h1>New book</h1>
+        <h1>{% if editing %}General info{% else %}New book{% endif %}</h1>
+        {% if editing %}
+        <p class="lede">Step 1 of 5 for <strong>{{ book.metadata.title }}</strong>: what the book is called and who it is for. The puzzles, their order and their titles keep whatever they already hold.</p>
+        {% else %}
         <p class="lede">Name the book first; the puzzles, order and print size come in the four steps that follow.</p>
+        {% endif %}
     </div>
+    {% if editing %}
+    <div class="page-actions align-items-center">
+        <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
+    </div>
+    {% endif %}
 </div>
 
 <div class="row">
@@ -21,6 +36,7 @@
                     <div class="mb-3">
                         <label for="title" class="form-label">Book title</label>
                         <input type="text" class="form-control" id="title" name="title"
+                               value="{% if editing %}{{ book.metadata.title }}{% endif %}"
                                placeholder="e.g. Christmas Nonograms 2026" required>
                     </div>
 
@@ -28,29 +44,33 @@
                         <label for="description" class="form-label">Description</label>
                         <textarea class="form-control" id="description" name="description" rows="3"
                                   placeholder="e.g. A collection of festive holiday puzzles for seniors"
-                                  required></textarea>
+                                  required>{% if editing %}{{ book.metadata.description }}{% endif %}</textarea>
                     </div>
 
                     <div class="mb-3">
                         <label for="theme" class="form-label">Theme</label>
                         <select class="form-select" id="theme" name="theme" required>
-                            <option value="christmas">Christmas</option>
-                            <option value="halloween">Halloween</option>
-                            <option value="easter">Easter</option>
-                            <option value="valentine">Valentine</option>
-                            <option value="generic">Generic</option>
+                            {% for value, label in [('christmas', 'Christmas'), ('halloween', 'Halloween'), ('easter', 'Easter'), ('valentine', 'Valentine'), ('generic', 'Generic')] %}
+                            <option value="{{ value }}" {% if editing and book.metadata.theme == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
                     <div class="mb-4">
                         <label for="target_audience" class="form-label">Target audience</label>
                         <input type="text" class="form-control" id="target_audience" name="target_audience"
+                               value="{% if editing %}{{ book.metadata.target_audience }}{% endif %}"
                                placeholder="e.g. seniors, kids, adults" required>
                     </div>
 
                     <div class="actions">
+                        {% if editing %}
+                        <button type="submit" class="btn btn-primary">Save general info</button>
+                        <a href="/book/{{ book.book_id }}" class="btn btn-outline-secondary">Cancel</a>
+                        {% else %}
                         <button type="submit" class="btn btn-primary">Create book {{ icons.icon('arrow-right') }}</button>
                         <a href="/books" class="btn btn-outline-secondary">Cancel</a>
+                        {% endif %}
                     </div>
                 </form>
             </div>
@@ -59,7 +79,7 @@
 
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header"><h2 class="card-title mb-0">What follows</h2></div>
+            <div class="card-header"><h2 class="card-title mb-0">{% if editing %}Steps{% else %}What follows{% endif %}</h2></div>
             <div class="card-body">
                 {{ stepper.book_steps(0) }}
                 <p class="text-muted small mt-3 mb-0">Then upload the PDF to KDP.</p>

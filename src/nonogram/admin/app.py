@@ -1926,6 +1926,47 @@ def create_app(debug=None):
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
         return _back_to_puzzles_list()
 
+    # ------------------------------------------------------------------
+    # CARD-130 (FR-038): the book workflow is re-enterable. A book that
+    # exists reaches every one of its five steps from every other, whatever
+    # its status — what a published book may *change* is CARD-131's
+    # confirmation, never a refusal to render a step.
+    # ------------------------------------------------------------------
+
+    #: The endpoint each book step opens on, keyed by the step key
+    #: ``_stepper.html`` matches ``current`` against.
+    _BOOK_STEP_ENDPOINTS = {
+        0: "edit_book",
+        1: "setup_print",
+        2: "select_puzzles_for_book",
+        3: "arrange_puzzles_in_book",
+        4: "finalize_book",
+    }
+
+    @app.template_global()
+    def book_step_links(book_id=None):
+        """``{step key: URL}`` for the book this request is about.
+
+        A Jinja **global** rather than a context processor: every page imports
+        ``_stepper.html`` without context, which puts a context processor's
+        names out of the macro's reach and leaves a global's within it. That is
+        what lets the stepper link its steps on a page whose template is not
+        edited to pass them.
+
+        The book is the one in the request's own path (``/book/<book_id>/…``),
+        so the mapping follows the page rather than the render call. ``{}``
+        where there is no book yet — the New-book form — and the stepper then
+        renders the same plain list it always did there.
+        """
+        if book_id is None:
+            book_id = (request.view_args or {}).get("book_id")
+        if not book_id:
+            return {}
+        return {
+            step: url_for(endpoint, book_id=book_id)
+            for step, endpoint in _BOOK_STEP_ENDPOINTS.items()
+        }
+
     @app.route("/books")
     def books_list():
         """List all books."""
@@ -1956,6 +1997,43 @@ def create_app(debug=None):
                 flash(f"Error: {str(e)}", "error")
 
         return render_template("book_create.html")
+
+    @app.route("/book/<book_id>/edit", methods=["GET", "POST"])
+    def edit_book(book_id):
+        """General info — the workflow's first step on a book that exists.
+
+        CARD-130 (FR-038, AC-224): the four New-book fields, revisable after
+        creation. It renders ``book_create.html`` in edit mode rather than a
+        second copy of the same form, so the two cannot drift; the rules are
+        the domain's single ``_refuse_invalid_details``, not this route's.
+
+        A GET stores nothing (G-2/EC-026), and a refused submission stores
+        nothing either — the page comes back with the book as it still stands.
+        """
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        if request.method == "POST":
+            try:
+                stored = book_mgr.update_book_details(
+                    book_id,
+                    title=request.form.get("title"),
+                    description=request.form.get("description"),
+                    theme=request.form.get("theme", "christmas"),
+                    target_audience=request.form.get("target_audience"),
+                )
+            except ValueError as e:
+                flash(f"Error: {str(e)}", "error")
+            else:
+                if not stored:
+                    flash("Book not found", "error")
+                    return redirect(url_for("books_list"))
+                flash("Book details updated", "success")
+                return redirect(url_for("book_detail", book_id=book_id))
+
+        return render_template("book_create.html", book=book)
 
     class _PlanFormError(InvalidPlan):
         """A refused Print setup plan, naming the form field(s) that caused it.
