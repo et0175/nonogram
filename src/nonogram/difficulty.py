@@ -32,19 +32,20 @@ Monotone propagation is confluent, so the set of cells a rung settles is a
 function of the clue set alone — which is what makes the grade a fact about
 the puzzle rather than about how the solver walked the grid (ADR-0029/R5).
 
-Where the band edges come from, and why they are not thirds
-----------------------------------------------------------
-The three bands' edges **are** ADR-0005's two cutoff constants:
-``simple_overlap`` 0..33, ``line_dp`` 33..66, ``probe_contradiction`` 66..100
-(widths 33, 33, 34). Idealised thirds do not work, and the failure is not
-cosmetic: a puzzle that tops out at ``simple_overlap`` has *every* settled cell
-at that rung by definition, so its share is exactly ``1.0`` (measured 1.000 in
-420 of 420 line-solvable grids). At a band width of 33.33 that scores 33.33 —
-above :data:`EASY_MAX_SCORE` — so every Easy puzzle would classify Medium and
-the Easy band would be empty (ADR-0029, History 2026-09-13).
+The rung bands: where a score comes from, and why they are not thirds
+---------------------------------------------------------------------
+:data:`RUNG_BANDS` is the ladder's own table, and it is what
+:func:`score_difficulty` reads: ``simple_overlap`` 0..33, ``line_dp`` 33..66,
+``probe_contradiction`` 66..100 (widths 33, 33, 34), exactly as ADR-0029 draws
+them. Idealised thirds do not work, and the failure is not cosmetic: a puzzle
+that tops out at ``simple_overlap`` has *every* settled cell at that rung by
+definition, so its share is exactly ``1.0`` (measured 1.000 in 420 of 420
+line-solvable grids). At a band width of 33.33 that scores 33.33 — above
+:data:`EASY_MAX_SCORE` — so every Easy puzzle would classify Medium and the
+Easy band would be empty (ADR-0029, History 2026-09-13).
 
-With the edges *on* the cutoffs the arithmetic lands where ADR-0029 says it
-should, because the cutoffs are inclusive upper bounds:
+With the edges where they are the arithmetic lands where ADR-0029 says it
+should, because :func:`classify`'s cutoffs are inclusive upper bounds:
 
 * a full-share bottom rung scores exactly ``33.0`` and classifies **Easy**;
 * a higher rung is "present" only if it settled at least one cell, so its
@@ -54,9 +55,58 @@ should, because the cutoffs are inclusive upper bounds:
 
 One consequence is worth naming rather than hiding: **Easy is a single point
 on the scale.** Every puzzle that never leaves overlap scores exactly 33.0, so
-the within-rung ordering ADR-0005's owed recalibration is waiting on does not
-exist inside the bottom band. That is input for the calibration, not a defect
-of the mapping — see CARD-076's Worktree notes for the measured distribution.
+there is no within-rung ordering inside the bottom band at all. That is input
+for the calibration below, not a defect of the mapping.
+
+The tier bands: two tables now, and that is the point (CARD-137)
+----------------------------------------------------------------
+:data:`RUNG_BANDS` and :data:`TIER_BANDS` were **one** table until CARD-137 —
+the rung table was literally ``zip(LADDER, TIER_BANDS.values())``, because
+ADR-0029's History of 2026-09-13 concluded that "ADR-0005's cutoffs now land
+exactly on rung boundaries", so a tier *was* a rung: Easy = never left
+overlap, Medium = needed the full placement intersection, Hard = needed a
+refuted probe.
+
+That identity is what made **Medium unreachable**. Needing the placement DP
+somewhere and no probe anywhere is a narrow accident of a random draw: the
+owner measured 5 Medium puzzles in 300 on production, and this project's own
+database held 10 easy / 2 medium / 9 hard. Meanwhile the Hard rows' scores
+spread 67..99 — a puzzle with one probed cell in an otherwise line-solvable
+grid and a puzzle probed almost everywhere wore the same label, although
+:func:`score_difficulty`'s within-rung share already told them apart.
+
+So the two tables now genuinely diverge, and the divergence is the whole
+change:
+
+===================  ==========================  =========================
+score                rung (``RUNG_BANDS``)       tier (``TIER_BANDS``)
+===================  ==========================  =========================
+``[0, 33]``          ``simple_overlap``          Easy
+``(33, 66]``         ``line_dp``                 Medium
+``(66, 90]``         ``probe_contradiction``     Medium
+``(90, 100]``        ``probe_contradiction``     Hard
+===================  ==========================  =========================
+
+:data:`EASY_MAX_SCORE` still coincides with the top of the bottom rung, so
+Easy still means exactly "the overlap rule finished it". :data:`MEDIUM_MAX_SCORE`
+deliberately coincides with nothing on the ladder: it sits *inside* the probe
+rung's band, at ``(90 - 66) / 34`` = **70.6% of the grid**. Medium therefore
+means "the hardest rung was ``probe_contradiction`` but it settled at most
+70.6% of the grid — or the puzzle topped out at ``line_dp``"; Hard means
+"probing settled more than 70.6% of the grid, and line logic got essentially
+nowhere". **A tier boundary that sits inside a rung's band is what makes
+Medium reachable at all** (CARD-137, owner decision 2026-09-23).
+
+Because the two tables are now different facts, :data:`RUNG_BANDS` is written
+out rather than derived from :data:`TIER_BANDS`: deriving it would re-assert
+an identity this module has stopped believing in, and the next retune of a
+*tier* cutoff would silently re-scale every *score*.
+
+**No stored grade moves on account of this.** The score mapping is
+:data:`RUNG_BANDS` and it is untouched, so every puzzle scores exactly what it
+scored before; what moved is only which tier a given score is filed under, and
+re-filing stored rows is the admin panel's existing ``POST /regrade`` action
+(ADR-0031/R3: no migration runs, no production database is touched here).
 
 The fourth tier (ADR-0025)
 --------------------------
@@ -139,6 +189,8 @@ __all__ = [
     "MEDIUM_MAX_SCORE",
     "RUNG_BANDS",
     "RUNG_LINE_DP",
+    "RUNG_LINE_DP_MAX_SCORE",
+    "RUNG_OVERLAP_MAX_SCORE",
     "RUNG_PROBE_CONTRADICTION",
     "RUNG_SIMPLE_OVERLAP",
     "SCORE_MAX",
@@ -158,21 +210,25 @@ __all__ = [
 SCORE_MIN = 0.0
 SCORE_MAX = 100.0
 
-#: ADR-0005's two tier cutoffs. Unchanged in value by ADR-0029 — which is the
-#: point: the ladder was mapped onto *them* rather than the other way round, so
-#: no stored grade moves on account of a band edge (CARD-076 guardrail G-5).
+#: ADR-0005's two tier cutoffs — the single tuning surface it asked for, and
+#: the *only* thing CARD-137 changed. They are inclusive upper bounds:
+#: ``33.0`` is Easy and ``90.0`` is Medium.
 #:
-#: They are inclusive upper bounds: ``33.0`` is Easy and ``66.0`` is Medium.
-#: That is what lets a full-share bottom rung score exactly 33.0 and stay Easy;
-#: see the module docstring.
+#: :data:`EASY_MAX_SCORE` is unchanged since ADR-0005 and still coincides with
+#: the top of the bottom rung's band, which is what lets a full-share
+#: ``simple_overlap`` puzzle score exactly 33.0 and stay Easy — Easy therefore
+#: still means exactly "the overlap rule finished it".
 #:
-#: Still the single tuning surface ADR-0005 asked for, but what is owed has
-#: changed shape. ADR-0029 puts the three rungs *on* these cutoffs, so the
-#: tier-per-rung mapping is settled; what remains owed to AC-118's corpus is
-#: only whether the within-rung share spreads puzzles usefully inside a band.
-#: CARD-076 measured the distribution and deliberately did not retune (G-5).
+#: :data:`MEDIUM_MAX_SCORE` moved from ``66.0`` to ``90.0`` on the owner's
+#: decision of 2026-09-23 (CARD-137), which is the recalibration ADR-0005 has
+#: been owed since ADR-0029. At ``66.0`` it coincided with a rung boundary and
+#: Medium meant "topped out at ``line_dp``" — measured at 5 puzzles in 300 on
+#: production. At ``90.0`` it coincides with nothing on the ladder and sits
+#: *inside* the probe rung's band, at ``(90 - 66) / 34`` = 70.6% of the grid:
+#: Medium is "a little non-trivial work", Hard is "a lot". See the module
+#: docstring for the two-table arithmetic and for why no stored grade moves.
 EASY_MAX_SCORE = 33.0
-MEDIUM_MAX_SCORE = 66.0
+MEDIUM_MAX_SCORE = 90.0
 
 #: ADR-0029's ladder, lowest rung first. The names are spelled out rather than
 #: imported from ``nonogram.solver`` — see the module docstring on ADR-0007 —
@@ -249,6 +305,12 @@ class Tier(StrEnum):
         Total since CARD-098: every tier has a band again, because the one
         member that did not is gone. For reporting and for tests that need to
         see where a band sits; :func:`classify` is what a caller should ask.
+
+        **Not the same thing as a rung's band** since CARD-137. ``MEDIUM``
+        spans ``(33, 90]`` and so covers the whole of ``line_dp`` and the lower
+        70.6% of ``probe_contradiction``; ``HARD`` is the top of that one rung.
+        :data:`RUNG_BANDS` is the other table, and the module docstring is
+        where the two are drawn side by side.
         """
         return TIER_BANDS[self]
 
@@ -268,25 +330,30 @@ TIER_BANDS: Mapping[Tier, tuple[float, float]] = MappingProxyType(
     }
 )
 
-#: The score-band tiers in ladder order — the correspondence ADR-0029 draws
-#: between "which rung" and "which band", written once.
-_BAND_TIERS: tuple[Tier, ...] = (Tier.EASY, Tier.MEDIUM, Tier.HARD)
+#: ADR-0029's two *rung* boundaries on the 0..100 scale. They are not the tier
+#: cutoffs, and since CARD-137 only the first of them coincides with one:
+#: :data:`EASY_MAX_SCORE` is 33.0 too (so Easy is exactly the bottom rung),
+#: while :data:`MEDIUM_MAX_SCORE` is 90.0 and lies *inside* the band that
+#: starts here at 66.0. Moving one of these re-scales every score; moving a
+#: tier cutoff re-files scores that do not change. Two different acts, two
+#: different constants — see the module docstring.
+RUNG_OVERLAP_MAX_SCORE = 33.0
+RUNG_LINE_DP_MAX_SCORE = 66.0
 
-#: Each rung's ``(low, high)`` score band — the *same* three bands, read by rung
-#: instead of by tier, which is ADR-0029's "the cutoffs now land exactly on rung
-#: boundaries" as one table rather than as a comment. Zipped from
-#: :data:`TIER_BANDS` rather than restated, so a retune of the cutoffs moves the
-#: rungs and the tiers together and the correspondence cannot drift. ``strict``
-#: because a ladder and a band list of different lengths is a design change
-#: somebody must make on purpose.
+#: Each rung's ``(low, high)`` score band — the table :func:`score_difficulty`
+#: reads, and the one thing "no stored grade moves" is a statement about.
+#:
+#: Written out rather than zipped from :data:`TIER_BANDS`, which is how it was
+#: built until CARD-137. The zip encoded ADR-0029's claim that a tier *is* a
+#: rung; that claim is what made Medium unreachable, and the cutoff move
+#: retired it. Deriving one table from the other now would re-assert it, and
+#: would make the next retune of a tier cutoff silently re-scale every score.
 RUNG_BANDS: Mapping[str, tuple[float, float]] = MappingProxyType(
-    dict(
-        zip(
-            LADDER,
-            (TIER_BANDS[tier] for tier in _BAND_TIERS),
-            strict=True,
-        )
-    )
+    {
+        RUNG_SIMPLE_OVERLAP: (SCORE_MIN, RUNG_OVERLAP_MAX_SCORE),
+        RUNG_LINE_DP: (RUNG_OVERLAP_MAX_SCORE, RUNG_LINE_DP_MAX_SCORE),
+        RUNG_PROBE_CONTRADICTION: (RUNG_LINE_DP_MAX_SCORE, SCORE_MAX),
+    }
 )
 
 
@@ -372,8 +439,10 @@ def score_difficulty(signals: SolverSignals) -> float:
         information the resample loop's comparisons might want.
 
     The number is ``band_low(rung) + share * band_width(rung)`` for the hardest
-    rung present — see the module docstring for why the band edges are the
-    cutoff constants and not thirds.
+    rung present, over :data:`RUNG_BANDS` — the *ladder's* table, not the tier
+    table, and the one CARD-137 deliberately did not touch so that no stored
+    grade moves. See the module docstring for why those edges are 33/66 and
+    not thirds.
 
     Pure and total: no I/O, no clock, no randomness, no solver re-entry, and no
     input it refuses. A candidate with no rung attribution at all scores
@@ -427,11 +496,17 @@ def classify(score: float) -> Tier:
     raised on them would only turn a scale bug into a crash at the point
     furthest from its cause.
 
-    The cutoffs belong to the *lower* band (``33.0`` is Easy, ``66.0`` is
-    Medium), which is ADR-0005's ``Easy = [0, 33], Medium = (33, 66],
-    Hard = (66, 100]`` read literally — and which is what makes ADR-0029's
-    band-edge mapping land a full-share bottom rung on 33.0 rather than a third
-    of a point outside it.
+    The cutoffs belong to the *lower* band (``33.0`` is Easy, ``90.0`` is
+    Medium), which is ADR-0005's inclusive-upper-bound reading — and which is
+    what makes a full-share bottom rung land on 33.0 as Easy rather than a
+    third of a point outside it.
+
+    The bands are ``Easy = [0, 33]``, ``Medium = (33, 90]``,
+    ``Hard = (90, 100]`` since CARD-137. Only the first edge is also a rung
+    boundary; ``90.0`` cuts the ``probe_contradiction`` rung at 70.6% of the
+    grid, so a score of 70 and a score of 95 are now different tiers although
+    both puzzles needed a probe. That is the recalibration, and the module
+    docstring says why a boundary inside a rung is the point of it.
     """
     if score <= EASY_MAX_SCORE:
         return Tier.EASY

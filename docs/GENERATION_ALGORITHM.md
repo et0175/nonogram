@@ -395,15 +395,18 @@ ADR-0029 (the strategy ladder) and ADR-0025 (the fourth tier) replaced ADR-0013'
 weighted sum in CARD-076. There is no clock, no size and no density term anywhere in what
 follows; the scorer never re-enters the solver.
 
-**The grade is the hardest rung the one verifying solve required** (§6.5, `difficulty.hardest_rung`),
-and the tier is that rung's band — unless the search branched, in which case it is `Tier.GUESS`
-on that fact alone.
+**The grade is the hardest rung the one verifying solve required** (§6.5, `difficulty.hardest_rung`)
+together with how much of the grid that rung settled. There are **two** tables over the 0..100
+scale: `difficulty.RUNG_BANDS`, which turns the rung and the share into the score, and
+`difficulty.TIER_BANDS`, which files the score under a tier. They were the same three intervals
+until CARD-137 (2026-09-23); they are not any more.
 
-| rung | tier | band | means |
+| rung (`RUNG_BANDS`) | score | tier (`TIER_BANDS`) | means |
 |---|---|---|---|
-| `simple_overlap` | Easy | `[0, 33]` | the overlap rule finished the puzzle by itself |
-| `line_dp` | Medium | `(33, 66]` | some line needed the full placement intersection |
-| `probe_contradiction` | Hard | `(66, 100]` | some cell needed a refuted one-step probe |
+| `simple_overlap` | `[0, 33]` | Easy | the overlap rule finished the puzzle by itself |
+| `line_dp` | `(33, 66]` | Medium | some line needed the full placement intersection |
+| `probe_contradiction` | `(66, 90]` | Medium | some cells needed a refuted probe — at most 70.6% of the grid |
+| `probe_contradiction` | `(90, 100]` | Hard | probing settled more than 70.6% of the grid; line logic got nowhere |
 
 A solve with `branch_nodes >= 1` had a Guess tier of its own until ADR-0031; it now takes whichever
 band its score falls in, and reports the `guess` strategy beside it.
@@ -417,15 +420,34 @@ share = rung_cells[rung] / total_cells                          (ADR-0029's seco
 score = band_low(rung) + share * band_width(rung)
 ```
 
-**The band edges are ADR-0005's cutoff constants, not idealised thirds** (`EASY_MAX_SCORE`,
-`MEDIUM_MAX_SCORE`; ADR-0029, History 2026-09-13). The difference is a third of a point and it
-decides 88% of the corpus: a puzzle topping out at `simple_overlap` has *every* settled cell at
-that rung by definition, so its share is exactly 1.0 and its score is the top of the first band.
-At a width of 33.33 that is 33.33, which is above `EASY_MAX_SCORE = 33.0`, so every Easy puzzle
-would classify Medium and the Easy band would be empty. With the edges on the cutoffs — which are
-*inclusive* upper bounds — it scores exactly 33.0 and classifies Easy, while any higher rung has a
-strictly positive share and so scores strictly above its band's floor. That is what makes
-ADR-0029/R1's cross-rung ordering strict by construction.
+**The rung band edges are 33 and 66, not idealised thirds** (ADR-0029, History 2026-09-13). The
+difference is a third of a point and it decides 88% of the corpus: a puzzle topping out at
+`simple_overlap` has *every* settled cell at that rung by definition, so its share is exactly 1.0
+and its score is the top of the first band. At a width of 33.33 that is 33.33, which is above
+`EASY_MAX_SCORE = 33.0`, so every Easy puzzle would classify Medium and the Easy band would be
+empty. With the edge at 33.0 — and the tier cutoffs being *inclusive* upper bounds — it scores
+exactly 33.0 and classifies Easy, while any higher rung has a strictly positive share and so
+scores strictly above its band's floor. That is what makes ADR-0029/R1's cross-rung ordering
+strict by construction.
+
+**The tier cutoffs are no longer the rung boundaries** (CARD-137, owner decision 2026-09-23).
+ADR-0029's History concluded that "ADR-0005's cutoffs now land exactly on rung boundaries", so the
+tier-per-rung mapping fell out of the ladder and a tier *was* a rung. That identity is exactly what
+made **Medium unreachable**: needing the placement DP somewhere and a probe nowhere is a narrow
+accident of a random draw, and the owner measured 5 Medium puzzles in 300 on production. Meanwhile
+the Hard rows spread 67..99 — one probed cell and a wholly probed grid wearing one label, although
+the within-rung share already told them apart. So `EASY_MAX_SCORE` stays at 33.0, where it still
+coincides with the bottom rung's top (Easy is still exactly "the overlap rule finished it"), and
+`MEDIUM_MAX_SCORE` moves from 66.0 to **90.0**, where it coincides with nothing on the ladder and
+cuts the probe rung at `(90 - 66) / 34` = 70.6% of the grid. **A tier boundary sitting inside a
+rung's band is what makes Medium reachable at all.**
+
+`RUNG_BANDS` is therefore written out in `difficulty.py` rather than zipped from `TIER_BANDS` as it
+was before: the two tables are different facts now, and deriving one from the other would make the
+next retune of a tier cutoff silently re-scale every score. **No stored grade moved on account of
+this card** — the score mapping is `RUNG_BANDS` and it is untouched; what moved is which tier a
+score is filed under, and re-filing stored rows is the admin panel's `POST /regrade` action, not a
+migration (ADR-0031/R3).
 
 **Classification takes the score alone** and lives in exactly one place, `difficulty.classify`.
 It took `(score, branch_nodes)` until ADR-0031, because one tier was keyed on the solve rather
@@ -434,26 +456,35 @@ walks the package with `ast` and fails if a second module starts comparing a sco
 cutoff. Comparing `branch_nodes` was an offence under the same guard until ADR-0031; it now
 decides a *strategy* rather than a tier, and three modules do it on purpose.
 
-**Measured distribution** (CARD-076's AC-118 corpus: 292 uniquely-solvable random puzzles,
-10x10..30x30, seeded):
+**Measured distribution** (CARD-137's calibration corpus,
+`tests/property/test_difficulty_calibration.py`: 315 uniquely-solvable, line-solvable random
+puzzles at 10x10..30x30, seeded, drawn in densities 45..52 — the band `generate_batch`'s hardcoded
+density 50 sits in):
 
-| tier | rung | n | share of corpus | score range |
-|---|---|---:|---:|---|
-| Easy | `simple_overlap` | 258 | 88.4% | 33.000 (a single point) |
-| Medium | `line_dp` | 8 | 2.7% | 36.667..59.400 |
-| Hard | `probe_contradiction` | 26 | 8.9% | 68.116..98.640 |
+| rung | n | share | score range | tier at cutoff 66 | tier at cutoff 90 |
+|---|---:|---:|---|---|---|
+| `simple_overlap` | 202 | 64.1% | 33.000 (a single point) | Easy | Easy |
+| `line_dp` | 49 | 15.6% | 34.12..63.94 | Medium | Medium |
+| `probe_contradiction` | 64 | 20.3% | 66.68..98.83 | Hard | Medium (42) / Hard (22) |
 
-(The corpus contained 0 branching puzzles — the measurement ADR-0031 retired the Guess tier on.)
+So the tier split moves from **64.1 / 15.6 / 20.3** to **64.1 / 28.9 / 7.0**, and 42 of the 64
+probe-rung puzzles — every one scoring in `(66, 90]` — change hands. No score changes.
 
-Two things follow and are recorded rather than acted on (CARD-076 guardrail G-5). **Easy is a
-single point on the scale** — every puzzle that never leaves overlap scores exactly 33.0, so the
-within-rung ordering ADR-0005's owed recalibration is waiting on does not exist inside the
-bottom band. And **`Tier.GUESS` is measured-unreachable** from the current sources: 0 of 6,620
-grids in ADR-0029's sweep, 0 of 462 in CARD-076's pre-implementation measurement, 0 of 292 here.
-The tier is kept deliberately (ADR-0025, History 2026-09-12) and its criteria are tested against
-synthetic signal records, which is the only way to pose them. That corpus predates POL-006's
-repair; a repaired grid is judged by the same solve and graded by the same ladder, so the rules
-are unaffected, but the distribution has not been re-measured since.
+The density band is the whole context for those numbers. Over a density-uniform sweep (CARD-137
+step 1: 1001 puzzles through `orchestrator.generate`, densities 45..75) the Easy share is 69.7%
+whatever the cutoff, because **the Easy share is a density question, not a cutoff one**: every
+`simple_overlap`-only puzzle scores exactly 33.0, and density is the dial — 100% Easy at d65+,
+98.3% at d60, 79.2% at d55, 25.8% at d50, 20.0% at d45. The probe band is also **bimodal**: 99 of
+that sweep's 303 non-trivial puzzles score above 94 (probing settled almost the whole grid), which
+is the mass that stays Hard and keeps the name honest.
+
+**Easy is a single point on the scale** — every puzzle that never leaves overlap scores exactly
+33.0, so there is no within-rung ordering inside the bottom band; the recalibration ADR-0005 was
+owed happened above it instead. And **a branching solve is measured-unreachable** from the random
+source: 0 of 6,620 grids in ADR-0029's sweep, 0 of 462 in CARD-076's, 0 of 315 here. ADR-0031
+retired the tier keyed on it and kept the fact as the `guess` strategy;
+`tests/property/test_difficulty_ladder.py::test_no_generated_puzzle_needs_a_branch` is the tripwire
+that would bring the decision back for review.
 
 Retired with ADR-0013 — none of these exist any more: <!-- historical -->
 `SignalWeights`, `SIGNAL_WEIGHTS`, `NormalizedSignals`, `normalize_signals`, `clue_density`, <!-- historical -->
@@ -581,9 +612,11 @@ way to ask "is this score in that band" would be a second band table, which is w
 Worth knowing before requesting a tier: under ADR-0013 a line-solvable puzzle scored under 15
 and `--difficulty easy` therefore always succeeded on the first candidate. Under the ladder Easy
 means "never left the overlap rule", which is ~88% of random grids overall but only ~15% at
-density 45, and Medium (`line_dp`) is ~3% overall. A request for Medium at an unlucky
-extent/density will resample, and at a density where its rung does not occur it will exhaust the
-budget and abandon. `--difficulty guess` is no longer a request the domain accepts — ADR-0031
+density 45. Medium meant exactly "topped out at `line_dp`" — ~3% overall — until CARD-137 moved
+the medium/hard cutoff to 90.0; it now also holds every probe-rung puzzle that probed at most
+70.6% of the grid, which is 28.9% of the production-band corpus against 15.6% before (§7). A
+request for Medium at an unlucky extent/density still resamples, but it is no longer a request for
+one narrow accident of a draw. `--difficulty guess` is not a request the domain accepts — ADR-0031
 retired that tier (§7).
 
 **Which tier a request can satisfy depends on extent and density** — not because the score reads
@@ -606,7 +639,9 @@ budget. Measured at the then-bound of 20 and before repair, it went from 9/10 su
 the ladder to 0/10 after, while `hard` at the same extent went 0/10 to 9/10. The practical rule
 for a book: generate Easy at density 50-60 and Hard at 45. Repair raises the chance of *some*
 unique grid per request, but it does not change which tier a density produces; this table has not
-been re-measured since CARD-074, CARD-090 or CARD-091.
+been re-measured since CARD-074, CARD-090 or CARD-091. It also predates CARD-137: the "of those,
+Easy" column is a statement about the `simple_overlap` rung and so is unaffected, but the
+non-Easy remainder is now mostly Medium rather than mostly Hard.
 
 ### 8.4 Pixel nudge (POL-002/POL-003) — image mode only
 

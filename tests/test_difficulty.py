@@ -55,6 +55,8 @@ from nonogram.difficulty import (
     MEDIUM_MAX_SCORE,
     RUNG_BANDS,
     RUNG_LINE_DP,
+    RUNG_LINE_DP_MAX_SCORE,
+    RUNG_OVERLAP_MAX_SCORE,
     RUNG_PROBE_CONTRADICTION,
     RUNG_SIMPLE_OVERLAP,
     SCORE_MAX,
@@ -149,21 +151,24 @@ def test_the_ladder_is_the_solvers_own_ladder() -> None:
 
 
 def test_the_three_rung_bands_are_adr_0005s_cutoffs_and_tile_the_scale() -> None:
-    """ADR-0029, as corrected 2026-09-13: the band edges *are* the cutoffs.
+    """ADR-0029, as corrected 2026-09-13: the band edges are 33 and 66.
 
     Not idealised thirds. The distinction is a third of a point wide and it
     decides 88% of the corpus: at a width of 33.33 a full-share bottom rung
     scores 33.33, lands above ``EASY_MAX_SCORE`` and classifies Medium, which
     would empty the Easy band and make AC-118 unsatisfiable.
 
-    Asserted against ``EASY_MAX_SCORE``/``MEDIUM_MAX_SCORE`` rather than
-    against ``33``/``66``, so a legitimate retune moves this test's expectation
-    with it — the literal numbers are checked once, in
-    ``tests/test_difficulty_tiers.py``, against ADR-0005 directly.
+    Asserted against the ladder's own two edge constants rather than against
+    ``33``/``66``, so a legitimate re-scaling moves this test's expectation
+    with it. They were ``EASY_MAX_SCORE``/``MEDIUM_MAX_SCORE`` until CARD-137
+    moved the medium/hard *tier* cutoff to 90.0 without moving a rung: the
+    score mapping is this table, so leaving it alone is exactly what "no stored
+    grade moves" means. Only the bottom edge is still shared with a tier
+    cutoff, and the test below is where that is pinned.
     """
-    assert RUNG_BANDS[RUNG_SIMPLE_OVERLAP] == (SCORE_MIN, EASY_MAX_SCORE)
-    assert RUNG_BANDS[RUNG_LINE_DP] == (EASY_MAX_SCORE, MEDIUM_MAX_SCORE)
-    assert RUNG_BANDS[RUNG_PROBE_CONTRADICTION] == (MEDIUM_MAX_SCORE, SCORE_MAX)
+    assert RUNG_BANDS[RUNG_SIMPLE_OVERLAP] == (SCORE_MIN, RUNG_OVERLAP_MAX_SCORE)
+    assert RUNG_BANDS[RUNG_LINE_DP] == (RUNG_OVERLAP_MAX_SCORE, RUNG_LINE_DP_MAX_SCORE)
+    assert RUNG_BANDS[RUNG_PROBE_CONTRADICTION] == (RUNG_LINE_DP_MAX_SCORE, SCORE_MAX)
 
     # No gap and no overlap: each band starts where the last one ended, the
     # first at the bottom of the scale and the last at the top.
@@ -173,19 +178,40 @@ def test_the_three_rung_bands_are_adr_0005s_cutoffs_and_tile_the_scale() -> None
     assert all(high == nxt for (_, high), (nxt, _) in zip(edges, edges[1:]))
 
 
-def test_every_rung_band_is_the_band_of_the_tier_that_rung_means() -> None:
-    """ADR-0029's tier-per-rung mapping, as a table rather than as a sentence.
+def test_the_rung_table_and_the_tier_table_agree_only_at_the_easy_cutoff() -> None:
+    """Where the two tables meet, and where CARD-137 made them part company.
 
-    Easy = the puzzle never left overlap, Medium = it needed the full placement
-    intersection, Hard = it needed a refuted probe. The two tables are zipped
-    from one another in the module, so this is really asserting that the zip is
-    in the order a reader would assume.
+    ADR-0029's tier-per-rung mapping used to be an identity — the rung table
+    was ``zip(LADDER, TIER_BANDS.values())`` — so Easy = never left overlap,
+    Medium = needed the full placement intersection, Hard = needed a refuted
+    probe, and a tier *was* a rung. That identity is what made Medium
+    unreachable: needing the DP somewhere and a probe nowhere is a narrow
+    accident of a random draw (5 in 300 on production).
+
+    Now only the bottom edge is shared. Easy is still exactly the bottom rung,
+    and the medium/hard cutoff sits *inside* the top rung's band rather than on
+    its floor — which is the whole of the change, so it is asserted rather than
+    described: a future edit that re-derived one table from the other would
+    restore the identity silently and fail here.
     """
-    assert [RUNG_BANDS[rung] for rung in LADDER] == [
-        Tier.EASY.band,
-        Tier.MEDIUM.band,
-        Tier.HARD.band,
-    ]
+    assert RUNG_BANDS[RUNG_SIMPLE_OVERLAP] == Tier.EASY.band
+
+    # The line_dp rung is Medium all the way, but it no longer exhausts it.
+    dp_low, dp_high = RUNG_BANDS[RUNG_LINE_DP]
+    medium_low, medium_high = Tier.MEDIUM.band
+    assert (dp_low, dp_high) != (medium_low, medium_high)
+    assert dp_low == medium_low
+    assert dp_high < medium_high
+
+    # The probe rung straddles the medium/hard cutoff: its floor is Medium and
+    # its ceiling is Hard, which is what "a boundary inside a rung" means.
+    probe_low, probe_high = RUNG_BANDS[RUNG_PROBE_CONTRADICTION]
+    assert probe_low < medium_high < probe_high
+    assert classify(probe_low + 1e-9) is Tier.MEDIUM
+    assert classify(probe_high) is Tier.HARD
+
+    # Every rung still lives inside the scale, and the ladder order is intact.
+    assert [RUNG_BANDS[rung] for rung in LADDER] == sorted(RUNG_BANDS.values())
 
 
 def test_hardest_rung_reads_the_top_of_the_histogram_and_ignores_empty_rungs() -> None:
