@@ -163,6 +163,17 @@
                 </form>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-header"><h2 class="card-title mb-0">Proof pages</h2></div>
+            <div class="card-body">
+                <p>Two pages laid out on this book's trim, exactly as the book will print them: a 30 × 30 at the smallest cell the book gives, and a 15 × 15 at the largest. Each page prints its own trim, cell size and grid-rule widths in millimetres at the foot, so a ruler can check the claim.</p>
+                <p class="small text-muted">Print at 100% — never "fit to page". No puzzles need to be chosen yet: proofs come before selection.</p>
+                <a class="btn btn-outline-secondary" href="{{ url_for('download_book_proof_pages', book_id=book.book_id) }}">
+                    {{ icons.icon('download') }} Download proof pages
+                </a>
+            </div>
+        </div>
     </div>
 
     <div class="col-md-4">

@@ -77,6 +77,7 @@ from .image_manager import (
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
 from .book_pdf_generator import BookPDFGenerator, interior_page_count, tier_breakdown
+from .book_proof import render_proof_pdf
 
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
@@ -3470,6 +3471,46 @@ def create_app(debug=None):
 
         return generate_book_pdf_download(
             book, puzzle_review, request.values.get("part")
+        )
+
+    @app.route("/book/<book_id>/proof-pages")
+    def download_book_proof_pages(book_id):
+        """ADR-0037's proof pages for this book's trim, as a PDF (CARD-118).
+
+        Two pages on the book's own sheet — a 30 x 30 at the smallest cell the
+        book prints and a 15 x 15 at NFR-008's cap — for the owner to print at
+        100% and measure with a ruler. The strokes ADR-0037 fixes are final
+        only once that has happened.
+
+        A GET, and it reads no puzzle membership: proofs come before curation,
+        so a draft book with an empty selection downloads the same two pages a
+        finished one does. Everything on the pages is built by
+        :mod:`nonogram.admin.book_proof` from the book's stored print columns.
+        """
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        try:
+            pdf_bytes = render_proof_pdf(book)
+        except Exception as e:
+            # Reported to the owner *and* logged with its traceback: the one
+            # expected refusal (a trim that leaves no room for the proof note)
+            # is a message worth reading, and anything else is a bug worth
+            # keeping the stack of.
+            app.logger.exception("Proof pages for book %s could not be built", book_id)
+            flash(f"Failed to generate proof pages: {e}", "error")
+            return redirect(
+                request.referrer or url_for("setup_print", book_id=book_id)
+            )
+
+        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        return send_file(
+            pdf_bytes,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"book_{timestamp}_proof_pages.pdf",
         )
 
     @app.route("/book/<book_id>/delete", methods=["POST"])
