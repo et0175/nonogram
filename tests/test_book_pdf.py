@@ -687,7 +687,11 @@ class TestBookPdf_PagePlanGuardIsLive:
 
         planned = generator_module.interior_page_count
         monkeypatch.setattr(
-            generator_module, "interior_page_count", lambda count: planned(count) + 1
+            generator_module,
+            "interior_page_count",
+            # The plan now also takes how many pages the puzzles actually take,
+            # which two-up pairing (CARD-127) can make fewer than the count.
+            lambda count, puzzle_pages=None: planned(count, puzzle_pages) + 1,
         )
 
         with pytest.raises(RuntimeError) as raised:

@@ -38,6 +38,7 @@ from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
+from tests.helpers.two_up_ink import drawings_of
 
 #: 300 DPI, the resolution every book page is drawn at.
 PX_PER_MM = 300 / 25.4
@@ -264,6 +265,12 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
     counted = overflowed = 0
     for sheet in (BOOK1, _random_sheet(rng)):
         puzzles = [_puzzle(rng, columns, rows) for columns, rows in extents]
+        # One puzzle to a page: neighbours are given different tiers, which is
+        # the rule that stops two-up pairing (FR-040, INV-010, CARD-127)
+        # without touching the extents this property is stated over. A book's
+        # two-up pages are the sibling below.
+        for index, puzzle in enumerate(puzzles):
+            puzzle["difficulty_tier"] = "easy" if index % 2 else "medium"
         pages = BookPDFGenerator(sheet.book).interior_pages(puzzles)
         trim_width_px, trim_height_px = _trim_px(sheet)
         expected_top_mm = TOP_MM + BAND_MM
@@ -323,7 +330,12 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         if sheet.page_fit_mm(across, down) < MIN_CELL_MM:
             continue
 
-        pages = BookPDFGenerator(sheet.book).interior_pages([puzzle, puzzle])
+        # The same drawing twice, on two tiers, so the two copies never share a
+        # page (FR-040, CARD-127): this property's subject is parity, and it
+        # needs the *same* drawing on two pages of opposite parity.
+        pages = BookPDFGenerator(sheet.book).interior_pages(
+            [puzzle, dict(puzzle, difficulty_tier="medium")]
+        )
         assert len(pages) == 6, "guide, two puzzles, divider, two answers"
 
         # (interior page number, the page) for every page carrying the drawing.
@@ -374,3 +386,68 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         assert len({page.size for page in pages}) == 1
         checked += 1
     assert checked >= 100, checked
+
+
+def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages() -> None:
+    """EC-022 (PDF half), two-up pages — CARD-127 adds them to this corpus.
+
+    FR-040 lets two puzzles of one tier share a page. The clause this property
+    states about such a page is that **the upper puzzle's** drawing top edge is
+    the same fixed offset — top margin plus band — that every single puzzle
+    page uses, so a reader leafing through the book sees one top edge whatever
+    a page holds. Both drawings are still portrait and unrotated.
+
+    The corpus is one book of small same-tier neighbours, so the walk pairs
+    many of them; which pages it paired is read back off the ink rather than
+    predicted here (that walk is EC-027's own property,
+    ``tests/property/test_book_pairing.py``), and this test only requires that
+    two-up pages really did occur.
+    """
+    rng = random.Random(1270022)
+    extents = [
+        (columns, rows)
+        for columns in range(MIN_SIZE, 23, 2)
+        for rows in range(MIN_SIZE, 17, 2)
+    ]
+    assert len(extents) >= 24, len(extents)
+
+    sheet = BOOK1
+    puzzles = [_puzzle(rng, columns, rows) for columns, rows in extents]
+    pages = BookPDFGenerator(sheet.book).interior_pages(puzzles)
+    trim_width_px, trim_height_px = _trim_px(sheet)
+    expected_top_mm = TOP_MM + BAND_MM
+
+    counted = two_up = single = 0
+    tops: set[int] = set()
+    index = 0
+    page_number = 2
+    while index < len(puzzles):
+        page = pages[page_number - 1]
+        assert page.size[0] < page.size[1], (page_number, "portrait")
+        assert abs(page.size[0] - trim_width_px) <= 0.5
+        assert abs(page.size[1] - trim_height_px) <= 0.5
+
+        drawings = drawings_of(page)
+        assert 1 <= len(drawings) <= 2, (page_number, len(drawings))
+        for offset, drawing in enumerate(drawings):
+            columns, rows, _, _ = _extent(puzzles[index + offset])
+            # Unrotated: the grid's width runs across the page, its height down.
+            assert (drawing.columns, drawing.rows) == (columns, rows), (page_number, offset)
+            counted += 1
+        # The page's *upper* drawing carries the fixed top edge, on a page
+        # holding one puzzle and on a page holding two alike.
+        assert abs(_mm(drawings[0].top) - expected_top_mm) <= HALF_PIXEL_MM + 1e-9
+        tops.add(drawings[0].top)
+        if len(drawings) == 2:
+            two_up += 1
+            assert drawings[1].top > drawings[0].top, "the lower slot is below it"
+        else:
+            single += 1
+        index += len(drawings)
+        page_number += 1
+
+    assert len(tops) == 1, "the top edge never varies between puzzle pages"
+    assert counted == len(puzzles), counted
+    # Both page make-ups are really in the corpus.
+    assert two_up >= 5, two_up
+    assert single >= 5, single
