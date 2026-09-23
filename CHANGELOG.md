@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-124 (feature): A book leaves draft only when it matches its plan — every longest-side × difficulty cell within ±3 percentage points of its planned share, measured against the planned total; a book with no stored plan is refused with a pointer to Print setup, and editing a plan returns a non-draft book to draft.
 - CARD-122 (feature): Puzzle selection for a book is split into four longest-side tabs (≤15, 16–20, 21–25, 26–30), each showing planned vs actual per difficulty, sorted easy→hard then by shorter side, with the bucket filter, ordering and paging done in the store query; the pending selection is kept server-side instead of in the session cookie.
 
 ## 2026-09-22

@@ -38,7 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-124** P1 · The readiness gate — no book leaves draft unless it matches its plan · 0.5d · wave 22 · Inc 14 · after CARD-119, CARD-120
 - **CARD-116** P1 · The book PDF on its own trim (parity from interior page 1) · 1d · wave 23 · Inc 13 · after CARD-115, CARD-135
 - **CARD-121** P1 · The 4.8 mm floor at the book store — override on every add route · 1d · wave 23 · Inc 14 · after CARD-115, CARD-120
 - **CARD-117** P1 · "Puzzle N · Tier" band, title only in the answer key, print-weight rules · 0.5d · wave 24 · Inc 13 · after CARD-116
@@ -57,10 +56,11 @@ _(none)_
 _(none)_
 
 ## Review
-- **CARD-133** P2 · Answer tiles in COMP-007 — grid-only answers on a 2 × 3 / 2 × 2 tiled page · 1d · wave 22 · Inc 15 · after CARD-114 · review: cycle 0
+- **CARD-133** P2 · Answer tiles in COMP-007 — grid-only answers on a 2 × 3 / 2 × 2 tiled page · 1d · wave 22 · Inc 15 · after CARD-114 · review: cycle 1 · score 8.0
   `worktree: ../PythonProject4-CARD-133` · `branch: card/133-answer-tiles-layout` · `elapsed: 0d`
 
 ## Done
+- **CARD-124** Book readiness gate · score 9.0 · merged 238c6c0
 - **CARD-122** Selection by longest-side tab · score 8.5 (3 cycles) · merged 37f1b68
 - **CARD-125** Pair-aware two-up layout · score 9.0 · merged b106796
 - **CARD-115** Book PageSpec builder · score 8.5 · merged 9f15c55

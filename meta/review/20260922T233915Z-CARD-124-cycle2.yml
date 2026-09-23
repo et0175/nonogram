@@ -1,0 +1,207 @@
+version: 1
+generated_at: "2026-09-22T23:39:15Z"
+target: "CARD-124 cycle 2 — branch card/124-book-readiness-gate (commit ddd1534 + uncommitted fix round) vs main, worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-124"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_manager.py"
+    - "src/nonogram/admin/app.py (setup_print, finalize_book, update_book_status, _plan_from_form, _readable_plan, revise_plan)"
+    - "src/nonogram/admin/book_plan.py (read-only, unchanged — G-2)"
+    - "tests/test_book_ready_gate.py"
+    - "tests/property/test_book_ready_gate.py"
+    - "tests/test_book_manager.py"
+    - "tests/test_book_plan_storage.py"
+    - "tests/test_card_108_delete_book_releases.py"
+    - "meta/kanban/cards/CARD-124.md"
+  not_reached:
+    - "src/nonogram/admin/templates/** (rendered result not verified — no browser harness, no screenshots)"
+    - "src/nonogram/admin/puzzle_review.py (read only for get_puzzle semantics)"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 1427, removed: 8 }
+  max_fan_in: { symbol: "BookManager.set_book_status", callers: 2 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py"
+    - "src/nonogram/admin/book_manager.py"
+  cochange_missing:
+    - "src/nonogram/db/models.py"
+    - "src/nonogram/admin/templates/book_setup_print.html"
+  unmeasured:
+    bus_factor: "no_eligible_fact — every commit on the touched files is authored by 'Claude Code'; the signal carries no information in this repo"
+
+system_contract:
+  rules_checked: 44
+  holds: 12
+  unchecked: 32
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no import added outside stdlib + the project's own packages; diff adds `fractions` (stdlib, tests only) and `planned_cells`/`selection_cells` from nonogram.admin.book_plan; pyproject.toml untouched by this diff."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: the diff touches src/nonogram/admin/, not src/nonogram/web/."
+    - "ADR-0022/R1 ✓ holds — the new code carries grid extent as the (width, height) pair a stored record holds and reduces it to a scalar only inside book_plan.bucket_of (untouched, G-2); no new signature takes a scalar size."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in this diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no generation/repair path in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict seam in this diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in this diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve/strategies path in this diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty score computed in this diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver rung logic in this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the gate reads stored puzzle records and never calls add_puzzle; the storage boundary is untouched."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is not read or written by the gate."
+    - "ADR-0033/R1 ✓ holds — BookManager._selection_records (book_manager.py:826-878) only calls PuzzleReviewService.get_puzzle and reads width/height/difficulty_tier through book_plan.selection_cells; no write to any puzzle field appears in the diff (grep for `puzzle.`/`row.` assignment in the diff: none)."
+    - "ADR-0035/R1 ✓ holds — every exit from draft goes through BookManager._refuse_unless_the_planned_book (book_manager.py:881-902), called on both storage branches (:971 memory, :1001 DB) after the empty-book rule; grep of src/ for writes to a book's status finds exactly three (create_book -> draft :311/:288, save_plan -> draft :435/:446, set_book_status :975/:1008) and no status writer outside src/nonogram/admin/. Verified by TestBookStatus_EveryExitFromDraftIsGatedOnThePlan and tests/property/test_book_ready_gate.py::test_no_exit_from_draft_bypasses_it_in_either_storage_mode (both modes x every non-draft target)."
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec not touched."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no page geometry in this diff."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no PDF page band in this diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths in this diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by this diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: this is the web UI server, not the admin panel."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-door logic in this diff."
+    - "CON-011 ✓ holds — the diff adds no size path of its own; out-of-range sides are dropped by book_plan.selection_cells/bucket_of (untouched), and tests/property/test_book_ready_gate.py::_records injects MAX_SIZE+5 rows to pin that they move no cell."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff."
+    - "CON-015 ✓ holds — app.py's diff is confined to setup_print (lines 2097-2104 docstring, 2136-2148, 2168-2181); no change to the entry point, host, port or debug flag (git diff main -- src/nonogram/admin/app.py touches no other hunk)."
+    - "CON-016 ✓ holds — no change to the door middleware or ADMIN_ALLOWED_HOST handling; the two new route behaviours sit inside existing @app.route handlers and add no route."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues are not computed or stored in this diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness marking in this diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "INV-005 ✓ holds — the gate's denominator is plan.count, which DistributionPlan.__post_init__ (book_plan.py:207-209) refuses below 1, and save_plan accepts nothing but a DistributionPlan (book_manager.py:427); so off_plan_cells has no zero denominator. The card's three new plan constants (EMPTY_SELECTION_PLAN, ONE_SMALL_EASY_PUZZLE, NOTHING_PLANNED) all use count>=1 and a split summing to 100."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: the 4.8 mm floor and its override are not read or written by the gate; add_puzzles_to_book is untouched."
+    - "INV-007 ✓ holds — off_plan_cells (book_manager.py:126-164) compares |actual-planned|*100 <= READY_TOLERANCE_POINTS*plan.count in exact integers over all 12 BUCKETS x TIERS cells; pinned by TestBookReady_AcceptsWhenEveryCellWithinTolerance / _ExactlyThreePointsAccepted / _RefusedBeyondThreePoints and by the 600-case Fraction oracle in tests/property/test_book_ready_gate.py. I re-derived the arithmetic independently: over count 1..1000 the integer predicate and the float predicate disagree on 48 (count, actual, planned) triples, all of them exactly on the 3.0 pp bound (e.g. count=100, 4 vs 7), so the integer form is load-bearing and is the one used."
+    - "INV-008 ✓ holds — save_plan writes distribution_plan, status and updated_at only (book_manager.py:434-449); puzzle_ids / puzzle_titles are untouched on both branches, pinned by tests/test_book_plan_storage.py::TestSavePlan_NeverTouchesTheSelection (assertions unchanged by this card — the file's whole 12+/2- diff is comments)."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order is not read or written by the gate."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing logic in this diff."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer key in this diff."
+    - "INV-012 ⚠ unchecked — check_ref_missing: all six named checks (PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership) are absent from tests/ (grep: zero hits). Pre-existing, CARD-131's scope, explicitly handed over by CARD-122. Manual read of this diff found no violation: add_puzzles_to_book / remove_puzzle_from_book are untouched, and this card implements the plan-edit half of the same rule (save_plan -> draft) rather than weakening it."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no interior/cover separation in this diff."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_manager.py
+    line: 900
+    title: "A damaged stored plan is refused with a decode message, not the Print-setup remedy"
+    description: |
+      `_refuse_unless_the_planned_book` calls `self.get_plan(book_id)` without guarding
+      `InvalidPlan`. In DB mode `get_plan` -> `plan_from_json` (book_manager.py:1292-1311)
+      raises `InvalidPlan` for a stored document the aggregate refuses, so that exception —
+      not `NO_PLAN_REFUSAL` — is what the owner is shown.
+
+      Reproduced against a real SQLite book (status stays `draft`, so the gate is still
+      fail-closed and ADR-0035/R1 is not violated):
+
+          books.set_book_status(bid, "ready_for_pdf")
+          -> InvalidPlan: the puzzle count must be a whole number of at least 1, got 0
+          status after: draft
+
+      Two consequences. (a) ADR-0035 (c) asks the plan-less refusal to carry its remedy;
+      a damaged plan is functionally no plan (that is exactly the reading CARD-120 baked
+      into `app._readable_plan`, app.py:2019-2032) but gets no "Store one on Print setup
+      first". (b) The two storage modes are not equivalent for this state: the in-memory
+      branch holds `DistributionPlan` objects and can never produce it.
+    suggestion: |
+      In `_refuse_unless_the_planned_book`, read the plan the way Print setup already does:
+
+          try:
+              plan = self.get_plan(book_id)
+          except InvalidPlan:
+              logger.error(...)
+              plan = None
+          refusal = ready_refusal(plan, self._selection_records(puzzle_ids))
+
+      and add a case to `TestBookReady_PlanlessBookRefusedWithRemedy` that damages the
+      stored document (DB mode) rather than dropping it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_ready_gate.py
+    line: 683
+    title: "The no-op re-save test starts from an all-edited plan, so the `edited` half of `==` is not discriminated"
+    description: |
+      `test_print_setup_leaves_a_book_alone_when_the_plan_did_not_change` stores
+      `AC_PLAN_AS_STORED` (all 12 cells in `edited`). The M-1 shortcut compares
+      `new_plan == current` on a frozen dataclass, so the `edited` frozenset is part of
+      the comparison — but with every cell already marked, `revise_plan`'s edit-mark
+      round trip is trivially preserved and the test cannot fail on it.
+
+      I checked the underlying behaviour separately and it is sound — `revise_plan` is
+      idempotent on the plans the app can actually store:
+        DEFAULT_PLAN round-trip equal: True (edited set preserved)
+        hand-edited plan round-trip equal: True
+      so the shortcut is total in production and this is a test-discrimination gap, not a
+      behaviour bug. (An arbitrary unedited matrix such as the bare `AC_PLAN` is *not* a
+      fixed point — `revise_plan` re-derives its unedited cells — which is why the fixture
+      had to change; that change is legitimate, not a weakening.)
+    suggestion: |
+      Drive the fixed point through the route instead of asserting it: POST
+      `_setup_print_form(AC_PLAN_CELLS)` once, then POST the identical form again and
+      assert nothing moved on the second POST. That exercises the edit-mark round trip
+      from whatever state the route itself produces.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2769
+    title: "The second user-facing exit from draft (`finalize`, action=save_and_finish) has no route test"
+    description: |
+      The card's route audit asserts that `POST /book/<id>/finalize` with
+      `action=save_and_finish` "flashes the refusal and the page re-renders with the
+      status unchanged". Nothing pins it: `grep -rn save_and_finish tests/` returns zero
+      hits. The status route's user-facing half IS covered
+      (`TestBookReady_RefusalNamesOffendingCell::test_the_status_route_flashes_it`), so
+      the two user-facing exits are covered asymmetrically.
+
+      The gate itself is not at risk (the route calls the gated `set_book_status`, and the
+      property test drives every target status at the manager level), but the route's
+      `except Exception` handler — which is what turns the refusal into a flash rather
+      than a 500 — is unexercised, and it is a bare `except Exception`, so a future change
+      to the handler could swallow the refusal silently.
+    suggestion: |
+      Add one Flask-test-client case beside `test_the_status_route_flashes_it`: an
+      off-plan draft book, POST `/book/<id>/finalize` with `action=save_and_finish`,
+      assert the response is 200, the offending cell appears in the flashes, and the
+      status is still `draft`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

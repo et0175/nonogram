@@ -11,3 +11,5 @@
 - [ ] CARD-122 follow-up: bulk PuzzleReviewService.get_puzzles(ids) — _selected_cells opens up to ~300 DB sessions per render; the naive single-query fix is wrong because it reads the puzzles.book_id mirror   @tech-debt
 - [ ] Pre-existing: a hand-typed empty ?status= turns the approved-only default off on the book-selection and puzzle-list routes   @ops
 - [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja template cannot import); forge:commit's no-Co-Authored-By rule contradicts this session's required attribution line   @tech-debt
+- [ ] CARD-124 follow-up: N+1 selection read — a status change on a 150-puzzle book opens ~150 DB sessions; needs the same batch getter in puzzle_review.py as CARD-122's follow-up   @tech-debt
+- [ ] INV-008's three and INV-012's six declared checks exist nowhere under tests/   @tech-debt
