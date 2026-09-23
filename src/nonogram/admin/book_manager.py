@@ -12,7 +12,12 @@ import json
 import logging
 import uuid as uuid_module
 
-from nonogram.admin.book_page_spec import BOOK1_PROFILE
+from nonogram.admin.book_page_spec import (
+    BOOK1_PROFILE,
+    FLOOR_MM,
+    book_cell_mm,
+    book_page_spec,
+)
 from nonogram.admin.book_plan import (
     BUCKETS,
     DEFAULT_PLAN,
@@ -75,6 +80,10 @@ class Book:
     gutter_margin_cm: Optional[str] = None
     outside_margin_cm: Optional[str] = None
     outside_margin_bleed_cm: Optional[str] = None
+    # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.8 mm
+    # floor (TERM-025). Read it through :meth:`BookManager.floor_overrides`
+    # rather than off the book, so both storage modes answer the same way.
+    floor_overrides: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for API response."""
@@ -220,6 +229,91 @@ def ready_refusal(plan: Optional[DistributionPlan], puzzles) -> Optional[str]:
         "This book does not match its plan, so it cannot leave draft. "
         f"More than {READY_TOLERANCE_POINTS} percentage points out: {named}."
     )
+
+
+# --------------------------------------------------------------------------
+# The 4.8 mm printed-cell floor (CARD-121; FR-031, NFR-008, INV-006, EC-021)
+# --------------------------------------------------------------------------
+#
+# A puzzle whose cell on the book's trim falls below FLOOR_MM joins the book
+# only together with an override stored for its id. The rule is enforced
+# **here**, where membership is written, and not at either route: FR-031 names
+# two add routes today (the selection step and the detail page's paste-IDs
+# form) and EC-021 extends the obligation to "any future route ending in the
+# book store", which a route-level check could not keep.
+#
+# The cell itself is never estimated here. It is
+# ``book_cell_mm(book_page_spec(book), ...)`` — CARD-115's one door onto
+# COMP-007's geometry, the same call FR-030's PDF makes, so the tile, this
+# refusal and the finalise count cannot disagree about a puzzle (G-1,
+# ADR-0036/R2).
+
+
+@dataclass(frozen=True)
+class FloorRefusal:
+    """One puzzle this book may not take: its cell, against the floor.
+
+    Carries the two figures AC-183 asks the owner to be shown — the puzzle's
+    own cell and the floor it missed — rather than a pre-baked sentence, so
+    that a caller which wants them apart (a tile, a count, a log line) is not
+    forced to parse them back out of prose. :meth:`message` is the sentence.
+    """
+
+    puzzle_id: str
+    #: The puzzle's printed cell in millimetres, or ``None`` when it could not
+    #: be computed at all — a stored record whose clues cannot be read. That is
+    #: a refusal too (see :meth:`BookManager.floor_refusals`): a cell nobody can
+    #: compute is not a cell known to clear the floor.
+    cell_mm: Optional[float]
+    #: Why the cell could not be computed, for the ``cell_mm is None`` case.
+    reason: Optional[str] = None
+
+    def message(self) -> str:
+        """The refusal as the owner reads it, naming both figures (AC-183)."""
+        if self.cell_mm is None:
+            return (
+                f"Puzzle {self.puzzle_id} was not added: its cell on this book "
+                f"cannot be measured against the {FLOOR_MM:g} mm floor "
+                f"({self.reason})."
+            )
+        return (
+            f"Puzzle {self.puzzle_id} was not added: {self.cell_mm:.2f} mm "
+            f"against the {FLOOR_MM:g} mm floor. Tick the override for it to "
+            f"add it anyway."
+        )
+
+
+def _clue_lines(record: Dict[str, Any], field_name: str) -> tuple:
+    """One stored clue field as ``compute_layout`` wants it.
+
+    The store keeps ``clues_rows``/``clues_cols`` as lists of lists of ints;
+    the layout takes a tuple of tuples. The same conversion the book PDF does
+    (``book_pdf_generator``), so both measure the same puzzle.
+
+    Raises:
+        ValueError: the field is missing, empty, or not a sequence of
+            sequences of whole numbers. An unreadable clue set is not an
+            absent one: it means this record has no measurable cell, and the
+            caller turns that into a refusal rather than a silent pass.
+    """
+    lines = record.get(field_name)
+    if not lines:
+        raise ValueError(f"{field_name} is empty")
+    try:
+        return tuple(tuple(int(run) for run in line) for line in lines)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field_name} is not a clue set ({error})") from None
+
+
+def _merged_overrides(stored, added) -> List[str]:
+    """``stored`` with ``added`` folded in, as a **new** list of id strings.
+
+    Order is stored-then-new with duplicates dropped, which keeps the document
+    stable across repeated adds instead of reshuffling on every write. Always a
+    new list, never the stored one mutated: a JSON column compares by identity
+    (CARD-100/CARD-101), and this is the pattern that cannot be got wrong.
+    """
+    return list(dict.fromkeys([str(pid) for pid in (stored or [])] + [str(pid) for pid in added]))
 
 
 class BookManager:
@@ -383,6 +477,9 @@ class BookManager:
             gutter_margin_cm=book_row.gutter_margin_cm,
             outside_margin_cm=book_row.outside_margin_cm,
             outside_margin_bleed_cm=book_row.outside_margin_bleed_cm,
+            # NULL is a row from before migration 012: no override was ever
+            # given, which is the reading that keeps the floor closed.
+            floor_overrides=list(book_row.floor_overrides or []),
         )
 
     def get_book(self, book_id: str) -> Optional[Book]:
@@ -481,37 +578,234 @@ class BookManager:
             db.commit()
             return True
 
+    def floor_overrides(self, book_id: str) -> List[str]:
+        """The ids this book has stored an under-floor override for (TERM-025).
+
+        Both storage modes answer from the same place the override was
+        written, so "is there a stored override for this id" is one question
+        with one answer (INV-006). An unknown book, and a DB row from before
+        migration 012, both answer with the empty list: no override was ever
+        given, which is the reading that keeps the floor closed.
+        """
+        book = self.get_book(book_id)
+        return list(book.floor_overrides) if book else []
+
+    def below_floor(self, book_id: str, puzzle_ids) -> List[FloorRefusal]:
+        """Which of these puzzles this book cannot print at or above the floor.
+
+        The measurement, with no override rule applied: every id whose cell on
+        **this book's** trim and margins is below :data:`FLOOR_MM`, plus every
+        id whose cell cannot be computed although the store holds a record for
+        it. :meth:`floor_refusals` is this, minus the ids an override covers.
+
+        The cell is ``book_cell_mm(book_page_spec(book), ...)`` and nothing
+        else — the one computation FR-030's PDF uses (G-1, EC-021). The clue
+        fields are converted exactly as the book PDF converts them, so the two
+        measure the same puzzle.
+
+        Four postures, each decided deliberately (CARD-121):
+
+        * **A record whose cell computes** — the verdict, below vs at-or-above
+          :data:`FLOOR_MM`. Exactly at the floor passes (AC-186 reads it as
+          "at or above").
+        * **A record whose clues cannot be read** — refused, with the reason
+          (``cell_mm`` is ``None``). Fail closed: the store *has* this puzzle,
+          so it is one the floor has jurisdiction over, and a cell nobody can
+          compute is not a cell known to clear the floor.
+        * **An id no record matches** — not refused. This is not fail-open: a
+          phantom id is not a puzzle at all, it has no grid, no clues and
+          nothing to print, and whether a book's list holds ids no row matches
+          is referential integrity — ``puzzles.book_id``'s constraint
+          (CARD-103) and ``book_membership``'s repair (CARD-100) — not the
+          printed-cell floor. It is the same verdict
+          :meth:`_selection_records` makes on such an id ("contributes to no
+          cell"), and a book carrying one still cannot leave draft, because
+          ADR-0035's gate measures the same selection.
+        * **No puzzle store at all** — nothing can be resolved, so nothing is
+          refused, and an error is logged. ``create_app`` wires a store on
+          both branches, so this is a wiring error rather than a reachable
+          state of the panel; the readiness gate refuses such a manager's
+          books outright (:meth:`_selection_records`), so a book assembled by
+          one can never leave draft however the floor answered here. The
+          alternative — refusing every add — would have made
+          ``BookManager(session_factory=None)`` unable to hold a book at all,
+          which is the arrangement CARD-100 deliberately kept working ("says
+          so rather than pretending").
+
+        Raises:
+            ValueError: the book's stored print specification cannot be read —
+                :func:`book_page_spec`'s message, which names the column at
+                fault. The whole add is refused, because *no* puzzle's cell can
+                be computed for such a book; fail closed, and the owner's
+                remedy is one save on Print setup.
+        """
+        book = self.get_book(book_id)
+        return [] if book is None else self._below_floor_for(book, puzzle_ids)
+
+    def _below_floor_for(self, book: Book, puzzle_ids) -> List[FloorRefusal]:
+        """:meth:`below_floor` against a book already read (see it for the rules)."""
+        puzzle_ids = [str(pid) for pid in puzzle_ids]
+        if not puzzle_ids:
+            return []
+
+        # Before the store is consulted: a book whose sheet cannot be built has
+        # no cell for any puzzle, and that is the whole add's refusal.
+        spec = book_page_spec(book)
+
+        if self.puzzle_store is None:
+            logger.error(
+                "No puzzle store: the printed cell of %d puzzle(s) cannot be measured, "
+                "so the %s mm floor (INV-006) is not enforced on this add. Every "
+                "manager create_app builds has a store; this is a wiring error.",
+                len(puzzle_ids),
+                f"{FLOOR_MM:g}",
+            )
+            return []
+
+        refusals: List[FloorRefusal] = []
+        for puzzle_id in puzzle_ids:
+            try:
+                record = self.puzzle_store.get_puzzle(puzzle_id)
+            except (ValueError, TypeError) as error:
+                logger.warning(
+                    "Puzzle id %r that no row can match (%s); the floor has no "
+                    "cell to measure for it.",
+                    puzzle_id,
+                    error,
+                )
+                continue
+            if record is None:
+                logger.warning(
+                    "Puzzle id %r matches no stored puzzle; the floor has no cell "
+                    "to measure for it.",
+                    puzzle_id,
+                )
+                continue
+            try:
+                cell_mm = book_cell_mm(
+                    spec,
+                    _clue_lines(record, "clues_rows"),
+                    _clue_lines(record, "clues_cols"),
+                )
+            except ValueError as error:
+                logger.warning(
+                    "Puzzle %s is stored but its cell cannot be measured (%s); "
+                    "refused rather than admitted unmeasured.",
+                    puzzle_id,
+                    error,
+                )
+                refusals.append(FloorRefusal(puzzle_id, None, str(error)))
+                continue
+            if cell_mm < FLOOR_MM:
+                refusals.append(FloorRefusal(puzzle_id, cell_mm))
+        return refusals
+
+    def floor_refusals(
+        self, book_id: str, puzzle_ids, overrides=()
+    ) -> List[FloorRefusal]:
+        """Why these puzzles may not join this book — the floor's verdict (INV-006).
+
+        :meth:`below_floor`, minus every id an override covers: one given in
+        this submission (``overrides``) or one already stored with the book
+        (:meth:`floor_overrides`), because INV-006 asks for a *stored* override
+        and one stored earlier is still stored.
+
+        The same call :meth:`add_puzzles_to_book` makes to decide what it
+        admits, so a route that reports from here and then adds cannot name a
+        different set than the store enforced (EC-021). The store remains the
+        gate: a route that skips this still cannot get a below-floor puzzle in.
+
+        Raises:
+            ValueError: as :meth:`below_floor` — the book's stored print
+                specification cannot be read.
+        """
+        allowed = set(self.floor_overrides(book_id)) | {str(pid) for pid in overrides}
+        return [r for r in self.below_floor(book_id, puzzle_ids) if r.puzzle_id not in allowed]
+
     def add_puzzles_to_book(
-        self, book_id: str, puzzle_ids: List[str]
+        self, book_id: str, puzzle_ids: List[str], overrides=()
     ) -> bool:
-        """Add puzzles to a book.
+        """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
+
+        The floor is enforced here rather than at either route, because this is
+        where membership is written and EC-021 covers "any future route ending
+        in the book store" as well as today's two. A puzzle whose cell on this
+        book is below :data:`FLOOR_MM` is:
+
+        * **refused**, when no override covers its id — and the other puzzles
+          in the same submission are still added. Refusal is per puzzle, not
+          per batch (FR-031): a submission of fifty tiles with one small
+          picture among them is a corrected selection, not a lost one, and
+          whole-batch refusal would make the owner find the offender by
+          bisection. The caller names the refused puzzles to the owner by
+          asking :meth:`floor_refusals` — the same call this makes;
+        * **admitted**, when one does, and the override is then **stored with
+          the book** for that id, so the membership and the reason it was
+          allowed live together and survive the request that granted it
+          (AC-184).
+
+        An override is stored only for a puzzle that is actually below the
+        floor. Granting one for a puzzle that clears it stores nothing: an
+        override that no rule needs is exactly the orphan record item 4 of the
+        card removes on the other side.
 
         Args:
             book_id: ID of book
             puzzle_ids: IDs of puzzles to add
+            overrides: The ids the owner explicitly admitted below the floor in
+                *this* submission (TERM-025). The selection step passes the
+                ticked ones; the paste-IDs form passes none, so a below-floor
+                id pasted there is named and refused.
 
         Returns:
-            True if added, False if book not found
+            True if the book was found and the add was processed — which
+            includes the case where every puzzle was refused by the floor.
+            False if the book does not exist.
 
         Raises:
-            ValueError: If puzzle_ids empty or book already published
+            ValueError: ``puzzle_ids`` is empty, the book is already published
+                (unchanged here — turning that into a confirmation is
+                CARD-131), or the book's stored print specification cannot be
+                read (:meth:`below_floor`).
         """
         if not puzzle_ids:
             raise ValueError("Must provide at least one puzzle")
 
+        # Read once, before the storage branch: the published refusal and the
+        # floor both need the book, and both must answer the same in either
+        # mode. The published refusal stays first, exactly as it was (G-4).
+        book = self.get_book(book_id)
+        if not book:
+            return False
+        if book.status == BookStatus.PUBLISHED.value:
+            raise ValueError("Cannot add puzzles to published book")
+
+        allowed = set(book.floor_overrides) | {str(pid) for pid in overrides}
+        below_floor = self._below_floor_for(book, puzzle_ids)
+        refused = {r.puzzle_id for r in below_floor if r.puzzle_id not in allowed}
+        # Stored for the ids an override actually had to cover, and no others.
+        newly_overridden = [r.puzzle_id for r in below_floor if r.puzzle_id in allowed]
+        puzzle_ids = [pid for pid in puzzle_ids if str(pid) not in refused]
+        if refused:
+            logger.info(
+                "Book %s: %d puzzle(s) refused by the %s mm floor with no override "
+                "(INV-006): %s",
+                book_id,
+                len(refused),
+                f"{FLOOR_MM:g}",
+                ", ".join(sorted(refused)),
+            )
+        if not puzzle_ids:
+            return True
+
         if self._session_factory is None:
             # Legacy mode: in-memory dict
-            book = self.books.get(book_id)
-            if not book:
-                return False
-
-            if book.status == BookStatus.PUBLISHED.value:
-                raise ValueError("Cannot add puzzles to published book")
-
             # Add unique puzzle IDs (avoid duplicates)
             existing = set(book.puzzle_ids)
             new_puzzles = [pid for pid in puzzle_ids if pid not in existing]
             book.puzzle_ids.extend(new_puzzles)
+            if newly_overridden:
+                book.floor_overrides = _merged_overrides(book.floor_overrides, newly_overridden)
 
             # Update page count (rough estimate: ~2 puzzles per page)
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
@@ -528,14 +822,16 @@ class BookManager:
                 if not book_row:
                     return False
 
-                if book_row.status == BookStatus.PUBLISHED.value:
-                    raise ValueError("Cannot add puzzles to published book")
-
                 # Add unique puzzle IDs (avoid duplicates)
                 existing_puzzles = book_row.puzzle_ids or []
                 existing = set(existing_puzzles)
                 new_puzzles = [pid for pid in puzzle_ids if pid not in existing]
                 book_row.puzzle_ids = existing_puzzles + new_puzzles
+                if newly_overridden:
+                    # A NEW list, assigned whole (CARD-100/CARD-101's lesson).
+                    book_row.floor_overrides = _merged_overrides(
+                        book_row.floor_overrides, newly_overridden
+                    )
 
                 # Update page count in metadata
                 if book_row.book_metadata is None:
@@ -549,7 +845,13 @@ class BookManager:
             return True
 
     def remove_puzzle_from_book(self, book_id: str, puzzle_id: str) -> bool:
-        """Remove a puzzle from a book.
+        """Remove a puzzle from a book, and with it its under-floor override.
+
+        CARD-121 item 4: an override is a fact about a **member** — "this
+        puzzle may be in this book although it prints below the floor". A
+        puzzle that is no longer a member leaves none behind, so re-adding it
+        asks the owner again rather than letting a decision they made months
+        ago pass silently on a book whose trim may have changed since.
 
         Args:
             book_id: ID of book
@@ -565,6 +867,8 @@ class BookManager:
                 return False
 
             book.puzzle_ids.remove(puzzle_id)
+            if puzzle_id in book.floor_overrides:
+                book.floor_overrides = [p for p in book.floor_overrides if p != puzzle_id]
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
             book.updated_at = datetime.utcnow()
 
@@ -604,6 +908,13 @@ class BookManager:
                     book_row.puzzle_titles = {
                         k: v for k, v in book_row.puzzle_titles.items() if k != puzzle_id
                     }
+
+                # ... and its under-floor override, for the same reason and in
+                # the same way — a new list (CARD-121 item 4).
+                if book_row.floor_overrides and puzzle_id in book_row.floor_overrides:
+                    book_row.floor_overrides = [
+                        p for p in book_row.floor_overrides if p != puzzle_id
+                    ]
 
                 db.commit()
 

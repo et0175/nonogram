@@ -129,6 +129,21 @@ class Book(Base):
     # The document must therefore always be replaced whole — assign
     # plan_to_json(plan), as BookManager.save_plan does.
     distribution_plan = Column(MutableDict.as_mutable(JSON), nullable=True)
+    # CARD-121 (FR-031, INV-006, migration 012): the ids admitted below
+    # NFR-008's 4.8 mm floor, as a flat JSON list of puzzle-id strings — the
+    # "explicit per-puzzle override stored with the book" (TERM-025). A list,
+    # not a dict: the only fact stored is membership of the overridden set, and
+    # JSON has no set type. NULL for a book created before migration 012 (no
+    # backfill), which reads as "no override was ever given" — the fail-closed
+    # reading, since a puzzle below the floor then needs one before it may join.
+    #
+    # MutableList follows the CARD-101 precedent above, and it is enough here
+    # where MutableDict was not enough for distribution_plan: this document has
+    # no nesting at all, so every edit a caller can make to it — append, remove,
+    # replace — is a top-level one the wrapper sees. BookManager assigns a
+    # freshly built list anyway (`row.floor_overrides = [...]`), belt and
+    # braces, the way remove_puzzle_from_book rebuilds puzzle_ids after CARD-100.
+    floor_overrides = Column(MutableList.as_mutable(JSON), nullable=True)
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
     trim_height_cm = Column(String, nullable=True, default='27.94')

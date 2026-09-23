@@ -22,6 +22,10 @@ computation (EC-021).
   (ADR-0036/R2): the exact cell is ``Layout.page.cell_mm``, which layout
   computes in millimetres; re-deriving it from the pixel ``Layout.cell`` would
   round it (4.57 mm instead of 4.61 mm for a 12-deep 30-wide grid).
+* :data:`FLOOR_MM` is NFR-008's other end of the same band (TERM-024): the
+  4.8 mm below which a puzzle joins a book only with a stored override
+  (FR-031, INV-006 — enforced in ``BookManager``, which is where membership
+  is written).
 
 **The profile's stored form.** 0.375 in is 0.9525 cm, which a two-decimal
 column stores as ``"0.95"``. A stored value that *is* the profile's own storage
@@ -46,6 +50,7 @@ from nonogram.export.layout import (
 
 __all__ = [
     "BOOK1_PROFILE",
+    "FLOOR_MM",
     "MAX_TRIM_HEIGHT_CM",
     "MAX_TRIM_WIDTH_CM",
     "MIN_SIDE_MARGIN_MM",
@@ -65,6 +70,25 @@ _CM_PER_INCH = Decimal("2.54")
 MIN_TRIM_CM = 10.0
 MAX_TRIM_WIDTH_CM = 30.0
 MAX_TRIM_HEIGHT_CM = 48.0
+
+#: NFR-008's printed-cell **floor** (TERM-024), in millimetres: the smallest
+#: cell a puzzle may be printed at in a book, below which the picture stops
+#: being comfortably solvable in pen on paper. CARD-121 (FR-031, INV-006): a
+#: puzzle whose cell on the book's trim falls below this joins the book only
+#: together with an explicit override stored for its id.
+#:
+#: It sits here, a module constant beside :data:`BOOK1_PROFILE`, rather than on
+#: :class:`PrintProfile`, because the floor and the cap are the two ends of
+#: NFR-008's band but are *not* the same kind of number.
+#: :attr:`PrintProfile.cell_cap_mm` is an **input** to the sheet — it is handed
+#: to :class:`PageSpec` and changes the geometry ``compute_layout`` produces,
+#: so a profile that printed at a different standard cell would carry a
+#: different cap. The floor is a **verdict** the book store then makes about
+#: the cell that came back, it is the same 4.8 mm for every trim, every margin
+#: and every profile, and nothing downstream of it is laid out differently
+#: because of it. One statement, in one place: the tile (CARD-123), the add
+#: refusal and the finalise count all read this name (EC-021).
+FLOOR_MM = 4.8
 
 #: The narrowest side margin a book sheet may have: KDP's 0.25 in minimum for
 #: the outside margin (CON-018: "0.375 in outside leaves room for trim variance

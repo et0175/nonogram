@@ -446,6 +446,14 @@ class TestMigration011:
         assert margins() == {"Legacy": (None, None), "New": ("1.27", "0.95")}
 
         # The legacy row still builds the CON-018 sheet through the fallback.
+        #
+        # CARD-121: brought to head first, for the reason migration 010's test
+        # records — the ORM is the current model and selects every column it
+        # declares (012's floor_overrides since), so a database stopped at 011
+        # is not a schema it can read. The rows below are still the ones
+        # inserted before and after 011, which is what this is about.
+        command.upgrade(config, "head")
+
         from contextlib import contextmanager
 
         from sqlalchemy.orm import sessionmaker

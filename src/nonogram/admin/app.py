@@ -2380,6 +2380,19 @@ def create_app(debug=None):
         _keep_selection(book_id, kept + ticked)
         return _kept_selection(book_id)
 
+    def _submitted_overrides(puzzle_ids):
+        """The ids this submission carries an under-floor override for (FR-031).
+
+        One ``override_<puzzle_id>`` field per overridden tile — the shape
+        CARD-121 fixed; the tile control that renders it is CARD-123's. Read
+        from the submission being committed, so an override is an act on the
+        page the owner is looking at rather than a state kept behind their
+        back. An id ticked on another tab and committed from this one carries
+        no override yet and is refused by name, which is the safe direction:
+        the store, not this helper, is the gate (INV-006).
+        """
+        return [pid for pid in puzzle_ids if request.form.get(f"override_{pid}")]
+
     def _selected_cells(book, kept_ids):
         """``selection_cells`` over what the book holds plus what is ticked."""
         records = {}
@@ -2551,12 +2564,30 @@ def create_app(debug=None):
                 flash("No puzzles selected. Please select at least one puzzle.", "info")
             else:
                 try:
+                    # FR-031/INV-006: the 4.8 mm floor. The overrides ticked on
+                    # this submission travel with the add; the *store* decides
+                    # what may join (CARD-121), and this asks it the same
+                    # question beforehand only so the refused tiles can be
+                    # named with their cell (AC-183).
+                    overrides = _submitted_overrides(kept_ids)
+                    refusals = book_mgr.floor_refusals(book_id, kept_ids, overrides)
                     # Add puzzles to the book
-                    if book_mgr.add_puzzles_to_book(book_id, kept_ids):
-                        _drop_selection(book_id)
-                        flash(f"Added {len(kept_ids)} puzzle(s) to book", "success")
-                        # Proceed to Step 3: Puzzle Arrangement
-                        return redirect(url_for("arrange_puzzles_in_book", book_id=book_id))
+                    if book_mgr.add_puzzles_to_book(book_id, kept_ids, overrides):
+                        refused_ids = [refusal.puzzle_id for refusal in refusals]
+                        added = len(kept_ids) - len(refused_ids)
+                        if added:
+                            flash(f"Added {added} puzzle(s) to book", "success")
+                        for refusal in refusals:
+                            flash(refusal.message(), "error")
+                        if refused_ids:
+                            # Refusal is per puzzle: the rest went in, and the
+                            # refused tiles stay ticked so the owner can give
+                            # them an override without hunting for them again.
+                            _keep_selection(book_id, refused_ids)
+                        else:
+                            _drop_selection(book_id)
+                            # Proceed to Step 3: Puzzle Arrangement
+                            return redirect(url_for("arrange_puzzles_in_book", book_id=book_id))
                     else:
                         flash("Book not found", "error")
                 except ValueError as e:
@@ -3064,8 +3095,18 @@ def create_app(debug=None):
             puzzle_ids_str = request.form.get("puzzle_ids", "")
             puzzle_ids = [pid.strip() for pid in puzzle_ids_str.split(",") if pid.strip()]
 
+            # FR-031/AC-185: this route carries no override control, so a
+            # pasted below-floor id is named with its cell and left out. The
+            # floor is held by the store either way (INV-006); asking it first
+            # is only how the refusal gets its wording.
+            refusals = book_mgr.floor_refusals(book_id, puzzle_ids)
+            added = len(puzzle_ids) - len(refusals)
+
             if book_mgr.add_puzzles_to_book(book_id, puzzle_ids):
-                flash(f"Added {len(puzzle_ids)} puzzles to book", "success")
+                if added:
+                    flash(f"Added {added} puzzles to book", "success")
+                for refusal in refusals:
+                    flash(refusal.message(), "error")
             else:
                 flash("Book not found", "error")
 

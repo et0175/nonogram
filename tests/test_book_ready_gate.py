@@ -181,6 +181,16 @@ class Shelf:
         A cell's puzzles are square at the top of their bucket's own range, so
         the bucket each one lands in comes from ``book_plan``'s bounds rather
         than from a size this test picked.
+
+        CARD-121: the in-memory stub carries the same one-cell clue pair the
+        DB branch below always did. The gate itself still reads only width,
+        height and tier — but ``add_puzzles_to_book`` now measures each
+        puzzle's printed cell against the 4.8 mm floor (INV-006) and refuses a
+        stored record whose clues cannot be read, so a record with no clue
+        fields at all is a stub the store could never have written
+        (``add_puzzle`` always writes them) rather than a puzzle these tests
+        can put in a book. A one-cell clue pair lays out far above the floor,
+        so every puzzle here joins its book exactly as before.
         """
         wanted = [
             (bucket, tier)
@@ -195,6 +205,8 @@ class Shelf:
                     "id": puzzle_id,
                     "width": bucket.high,
                     "height": bucket.high,
+                    "clues_rows": [[1]],
+                    "clues_cols": [[1]],
                     "difficulty_tier": tier.value,
                     "status": "approved",
                     "book_id": None,

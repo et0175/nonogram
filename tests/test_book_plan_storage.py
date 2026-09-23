@@ -808,6 +808,15 @@ class TestMigration010:
         assert rows == [("Legacy", None)]  # no backfill
 
         # The ORM reads the migrated row: plan-less, still a book.
+        #
+        # CARD-121: brought to head first. The ORM is always the *current*
+        # model, and it selects every column the model declares (012's
+        # floor_overrides since), so reading a database stopped at 010 with it
+        # only ever proved that no later migration had happened yet. What this
+        # is about is the legacy row — inserted before 010, never backfilled —
+        # and it is still that row that is read back below.
+        command.upgrade(config, "head")
+
         from contextlib import contextmanager
 
         from sqlalchemy.orm import sessionmaker
