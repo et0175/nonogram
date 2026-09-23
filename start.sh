@@ -19,6 +19,16 @@
 #
 # The app is loaded through the factory, so CARD-085's AdminConfigurationError
 # still fails the boot rather than starting a worker that serves an open panel.
+#
+# The import path carries NO `src.` prefix, and that is load-bearing (2026-09-23).
+# requirements.txt installs the package (`-e .`, packages found under src/), so
+# `nonogram.admin.app` is the package's real name. Naming it `src.nonogram.admin.app`
+# imports the whole package a SECOND time under a second name: `book_plan` then exists
+# twice with two distinct LongestSideBucket enums, app.py (relative imports) holds one
+# and book_manager (absolute) builds stored plans from the other, and Print setup dies
+# with `ValueError: tuple.index(x): x not in tuple` on any book whose plan is stored.
+# A plan-less book renders fine, which is what made it look like bad data in production.
+# CARD-139 removes the underlying mixed-import trap; this line is the deployed fix.
 exec gunicorn \
   --bind "0.0.0.0:$PORT" \
   --workers "${WEB_CONCURRENCY:-1}" \
@@ -26,4 +36,4 @@ exec gunicorn \
   --graceful-timeout 30 \
   --access-logfile - \
   --error-logfile - \
-  "src.nonogram.admin.app:create_app()"
+  "nonogram.admin.app:create_app()"

@@ -78,6 +78,29 @@ class TestAdminServing_UsesAProductionServerInDeployment:
         """
         assert "create_app()" in _start_command()
 
+    def test_it_names_the_app_without_a_src_prefix(self) -> None:
+        """The deployed panel must not import the package under a second name.
+
+        ``requirements.txt`` installs the project (``-e .``, packages found
+        under ``src/``), so the package's real name is ``nonogram.admin.app``.
+        Loading ``src.nonogram.admin.app`` instead puts BOTH names in
+        ``sys.modules``: two ``book_plan`` modules, two ``LongestSideBucket``
+        enums whose members are equal to nothing across the divide. ``app.py``
+        reads its buckets from one copy and ``book_manager`` builds stored
+        plans from the other, so ``Plan.cell`` raised
+        ``ValueError: tuple.index(x): x not in tuple`` on every book with a
+        stored plan — in production, on 2026-09-23. Books without a stored plan
+        render the default from app's own copy and look perfectly healthy,
+        which is exactly why this needs a test rather than vigilance.
+        """
+        script = _start_command()
+
+        assert "nonogram.admin.app:create_app()" in script
+        assert "src.nonogram" not in script, (
+            "a `src.`-prefixed import path loads the admin package twice; see "
+            "CARD-139"
+        )
+
     def test_it_execs_rather_than_forking(self) -> None:
         """``exec`` so gunicorn is PID 1 and receives the platform's SIGTERM.
 
