@@ -142,3 +142,5 @@ cell named, a `draft → ready_for_kdp` jump is refused the same way, and at 13%
 ## Worktree notes
 
 —
+
+- [Handover from CARD-121, 2026-09-23] Use BookManager.below_floor(book_id, puzzle_ids) -> a FloorRefusal per below-floor puzzle carrying cell_mm (already the tile's and the finalise count's computation); floor_refusals(...) is the same minus overridden ids. Known limitation, fails safe: an override ticked on tab A and committed from tab B is not carried — the puzzle is refused by name.

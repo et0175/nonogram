@@ -38,8 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-116** P1 · The book PDF on its own trim (parity from interior page 1) · 1d · wave 23 · Inc 13 · after CARD-115, CARD-135
-- **CARD-121** P1 · The 4.8 mm floor at the book store — override on every add route · 1d · wave 23 · Inc 14 · after CARD-115, CARD-120
 - **CARD-117** P1 · "Puzzle N · Tier" band, title only in the answer key, print-weight rules · 0.5d · wave 24 · Inc 13 · after CARD-116
 - **CARD-123** P1 · Tile cell + below-floor flag + override control; finalise below-floor count · 0.5d · wave 24 · Inc 14 · after CARD-121, CARD-122
 - **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
@@ -53,11 +51,13 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-_(none)_
 
 ## Review
+- **CARD-116** P1 · The book PDF on its own trim (parity from interior page 1) · 1d · wave 23 · Inc 13 · after CARD-115, CARD-135 · score 9.3 (cycle 2/3)
+  `worktree: ../PythonProject4-CARD-116` · `branch: card/116-book-pdf-on-trim` · `elapsed: 0d`
 
 ## Done
+- **CARD-121** 4.8 mm floor + override · score 9.0 · merged 9b2cfb7
 - **CARD-133** Answer tiles · score 8.0 · merged be12385
 - **CARD-124** Book readiness gate · score 9.0 · merged 238c6c0
 - **CARD-122** Selection by longest-side tab · score 8.5 (3 cycles) · merged 37f1b68

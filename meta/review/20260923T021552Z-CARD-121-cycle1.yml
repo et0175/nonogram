@@ -1,0 +1,322 @@
+version: 1
+generated_at: "2026-09-23T02:15:52Z"
+target: "CARD-121 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-121, branch card/121-book-floor-override @ 3bd9d1f (diff main...HEAD)"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "migrations/versions/012_book_floor_overrides.py"
+    - "src/nonogram/admin/book_manager.py (floor block, add/remove paths, get_book, _row_to_book)"
+    - "src/nonogram/admin/app.py (_submitted_overrides, select_puzzles_for_book, add_puzzles_to_book route)"
+    - "src/nonogram/admin/book_page_spec.py (FLOOR_MM, book_cell_mm)"
+    - "src/nonogram/db/models.py (Book.floor_overrides)"
+    - "tests/test_book_floor.py (full)"
+    - "tests/property/test_book_membership_floor.py (full)"
+    - "tests/test_book_ready_gate.py (Shelf stub), tests/test_book_plan_storage.py (TestMigration010), tests/test_book_page_spec.py (TestMigration011)"
+    - "migrations/versions/*.py revision chain, tests/helpers/db.py"
+  not_reached:
+    - "rendered UI (no browser harness in this project; static + Flask-test-client only)"
+    - "src/nonogram/admin/templates/** (unchanged by the diff; tile control is CARD-123)"
+    - "src/nonogram/admin/book_pdf_generator.py (G-5 — confirmed absent from the diff, not read)"
+  confidence: high
+metrics:
+  diff: { files: 10, added: 1702, removed: 22 }
+  max_fan_in: { symbol: "BookManager.add_puzzles_to_book", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — book_manager.py's 12-month history shows no co-change peer outside the diff (13 of 14 commits touch it alone or with app.py, both in the diff)"
+
+system_contract:
+  rules_checked: 44
+  holds: 14
+  unchecked: 30
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no runtime dependency added; new imports are stdlib only (ast, html, re, uuid, pathlib, types) plus in-package modules; TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green in the -k book/dependency sweep"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is not in the diff; the inward-import guard test_every_import_in_the_package_points_inward ran green (tests/test_cli.py sweep, 322 passed)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature changed; book_cell_mm takes clue tuples, not a scalar size"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in this diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no random-mode repair path touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair logic touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R2 ⚠ unchecked — check_ref_missing: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve is not in tests/; no strategies/solve code in this diff either"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no clock/size/density term added to any score"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ✓ holds — the store boundary is untouched; the floor only READS records via puzzle_store.get_puzzle and never calls add_puzzle; TestStorageBoundary_AsksTheSolverNotTheCaller (tests/test_admin_uniqueness_boundary.py) unmodified"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is not read or written by the floor"
+    - "ADR-0033/R1 ✓ holds — the floor only reads puzzle records; the only puzzle field written on the add path is book_id via _mirror_onto_puzzles (book_manager.py:843, unchanged). Pinned by tests/test_book_floor.py:546 test_the_puzzle_is_untouched_by_being_measured, which diffs the whole record minus book_id, in both storage modes — green"
+    - "ADR-0035/R1 ✓ holds — the exit-from-draft gate (_selection_records / ready_refusal) is untouched by the diff; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan and PropertyTest_BookReady_GateIffEveryCellWithinTolerance green (tests/test_book_ready_gate.py + tests/property/test_book_ready_gate.py, 322-test sweep)"
+    - "ADR-0036/R1 ✓ holds — golden A4 tripwire untouched and green: the diff contains no file under src/nonogram/export/, tests/test_export_a4_golden.py, tests/property/test_cli_exports_byte_identity.py or tests/fixtures/a4_golden/** (git diff --stat, 10 files); re-ran tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py + tests/test_layout_page_spec.py::TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden — 119 passed"
+    - "ADR-0036/R2 ✓ holds — the panel computes no geometry: the only cell source is book_cell_mm(book_page_spec(book), ...) at book_manager.py:693-697, which delegates to COMP-007's compute_layout and reads Layout.page.cell_mm. Pinned twice: tests/test_book_floor.py:512 (the refusal carries compute_layout's own mm) and :525 (AST scan proving no float literal equal to FLOOR_MM exists in book_manager.py or app.py). Independently re-grepped src/nonogram/**.py: every remaining '4.8' is prose"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no PDF band rendering in this diff (book_pdf_generator.py absent, G-5)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched; PropertyTest_Solver_NeverFalsePositiveUniqueness not in the diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not in the diff"
+    - "CON-011 ✓ holds — no size literal added; tests/test_book_floor.py:720 asserts its 30x25 / 30x20 fixtures against limits.MIN_SIZE/MAX_SIZE, and the property corpus draws extents from MIN_SIZE..MAX_SIZE (tests/property/test_book_membership_floor.py:86-87)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff"
+    - "CON-015 ✓ holds — app.py's diff touches only two route bodies and adds one closure (_submitted_overrides); no change to the bind address or debug flag; TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) unmodified"
+    - "CON-016 ✓ holds — no change to the door middleware or ADMIN_ALLOWED_HOST handling; the two changed routes keep their existing decorators; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit unmodified"
+    - "INV-001 ✓ holds (product code) — clues are read, never written, by the floor (_clue_lines at book_manager.py:288 is read-only); TestComputeClues_MatchesGridExactly untouched. NOTE: the test fixture in tests/test_book_ready_gate.py:205-208 now stores clues that contradict the stub's own width/height — see finding F-003 (fixture only, no product effect)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness path touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "INV-005 ✓ holds — distribution_plan is not read or written by the floor; migration 012 adds a separate column and leaves 010's alone; PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan green in the sweep"
+    - "INV-006 ✓ holds — this card's own invariant, enforced at the single write point BookManager.add_puzzles_to_book (book_manager.py:788-800): the below-floor set is computed before either storage branch and filtered out of puzzle_ids, so neither route nor a future caller can bypass it. Verified by PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride (tests/property/test_book_membership_floor.py) — 16 stored print specs x 24 puzzles x 4 route variants, >=300 decisions with >=40 of each verdict kind asserted inside the test — plus AC-183/184/185/186 driven through the real POST routes. All green (119 passed)"
+    - "INV-007 ✓ holds — the readiness gate is untouched; its suite (tests/test_book_ready_gate.py, tests/property/test_book_ready_gate.py) green after the SCOPE+ fixture repair"
+    - "INV-008 ⚠ unchecked — check_ref_missing: TestBookPublished_ConfirmedPuzzleChangeApplied and its two siblings are not in tests/ (INV-008 is CARD-131's deliverable). Manual read: the published refusal in add_puzzles_to_book is preserved verbatim (book_manager.py:780-781) and pinned by tests/test_book_floor.py:692 in both storage modes (G-4)"
+    - "INV-009 ⚠ unchecked — check_ref_missing: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel are not in tests/. Manual read: the append order (existing_puzzles + new_puzzles, book_manager.py:829) is unchanged; the floor only removes ids from the incoming list"
+    - "INV-010 ⚠ unchecked — check_ref_missing: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly not in tests/; no pairing code in this diff"
+    - "INV-011 ⚠ unchecked — check_ref_missing: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook not in tests/; no answer-key code in this diff"
+    - "INV-012 ⚠ unchecked — check_ref_missing: all five named checks (PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, ...) are absent from tests/. Manual read of the write path this card edited: no return-to-draft exists on the membership path at all today (grep for a DRAFT status write in src/nonogram/admin/ finds only save_plan, book_manager.py:565/576), so there is no behaviour for the floor to disturb; the diff adds and removes no status write. Forward hazard recorded as an out-of-scope note (the new early `return True` at book_manager.py:800 must sit before any future draft-return)"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no interior/cover export code in this diff; PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage untouched"
+
+root_causes:
+  - id: RC-1
+    title: "The floor's verdict and the published refusal are decided against a Book snapshot read outside the session that writes the membership"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 777
+    title: "Floor verdict and published refusal now decided outside the writing transaction (DB mode)"
+    description: |
+      `add_puzzles_to_book` reads the book once at line 777 with `self.get_book(book_id)`.
+      In DB mode that opens and CLOSES its own session (`get_book`, line 501-505) and
+      returns a detached `Book` dataclass. The published refusal (line 780-781), the
+      override set (`book.floor_overrides`, line 783) and the whole floor measurement
+      (`_below_floor_for`, line 784 — which itself reads the print spec off that snapshot
+      and opens one more session per puzzle via `puzzle_store.get_puzzle`) are all decided
+      against that snapshot. The row is then re-fetched and written in a *different*
+      session at line 820-843.
+
+      Before this diff the published check ran inside the writing session
+      (`if book_row.status == PUBLISHED` on the freshly-loaded row). The diff moved it out,
+      so the window between "is this book published / what is its trim / what overrides does
+      it hold" and "write the new membership" now spans two transactions instead of one.
+      A publish, a trim change (Print setup) or a `remove_puzzle_from_book` landing in that
+      window is silently ignored: the add commits a membership decided against stale state.
+      Flask serves the panel multi-threaded by default, so two tabs are enough; the panel is
+      loopback and single-owner (CON-015), which bounds the blast radius but does not remove
+      the window.
+
+      What is NOT at risk: the membership list and the override list are two columns of the
+      same row assigned in the same session and committed together (lines 829-834), so
+      INV-006's pair can never land half-written. This finding is about the decision, not
+      the write.
+    suggestion: |
+      Move the published check, the override read and the floor measurement inside the
+      writing session: fetch `book_row` first, build the `Book` (or read status/trim/overrides
+      straight off the row), measure, filter, then assign `puzzle_ids` and `floor_overrides`
+      and commit — one transaction. If the per-puzzle `get_puzzle` calls must stay outside it
+      (they open their own sessions), at minimum re-read and re-check `book_row.status` and
+      the print-spec columns inside the writing session before committing, and abort if they
+      moved. A regression test with two interleaved managers over the same factory would pin it.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: migrations/versions/012_book_floor_overrides.py
+    line: 1
+    title: "No test class of its own for migration 012 (chain, column, downgrade)"
+    description: |
+      Migrations 010 and 011 each carry a `TestMigration0NN` class asserting
+      `(revision, down_revision)` and exercising upgrade / no-backfill / downgrade
+      explicitly (tests/test_book_plan_storage.py:~790, tests/test_book_page_spec.py:405).
+      012 has none. Its chain onto 011 and the column's existence are only covered
+      *incidentally*, by the two `command.upgrade(config, "head")` lines this card added to
+      those other migrations' tests, and its `downgrade` runs only as a by-product of
+      TestMigration011's `command.downgrade(config, "010")`. Nothing asserts that the column
+      is gone after 012's downgrade, or that a pre-012 NULL row reads back as "no override".
+      The coverage is real but it lives in tests about other revisions, so deleting or
+      rewriting either of those tests silently removes 012's only coverage.
+    suggestion: |
+      Add a `TestMigration012` beside the others: assert `(revision, down_revision) == ("012", "011")`;
+      upgrade 011 -> 012 over a row inserted at 011 and assert `floor_overrides` is NULL
+      (no backfill) and that `BookManager.floor_overrides(book_id)` reads it as `[]`;
+      downgrade to 011 and assert the column is absent from `PRAGMA table_info(books)`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_ready_gate.py
+    line: 205
+    title: "SCOPE+ fixture: the ready-gate stub clears the floor with a clue set that contradicts its own extent"
+    description: |
+      The in-memory `Shelf` stub now writes `clues_rows=[[1]], clues_cols=[[1]]` on every
+      record, whatever `width`/`height` it declares (those are `bucket.high`, up to 30x30).
+      `book_cell_mm` derives the grid extent from the clue arrays alone
+      (compute_layout(row_clues, column_clues)), so every one of these records is measured as
+      a 1x1 puzzle and clears the floor by a mile — regardless of the 30x30 it claims to be.
+
+      JUDGEMENT on the SCOPE+ question: the edit is NECESSARY (36 tests broke, the floor now
+      measures stored records) and MINIMAL, and it is NOT a weakening introduced by this card —
+      the stub's DB branch already wrote exactly `clues_rows=[[1]]` (line 224) before this diff,
+      so the in-memory branch was brought to parity with a pre-existing shape, not softened to
+      let new code through. The ready-gate suite's own guarantee (INV-007 plan tolerance) is
+      untouched: it reads only width, height and tier.
+
+      What it does hide is a real product interaction nothing now covers: with clues consistent
+      with a 30x30 extent, a deep-gutter large puzzle sits BELOW the floor on the default Book 1
+      trim (AC-182's own figure: 42 cells across = 4.61 mm), so books assembled from the largest
+      bucket may not be able to reach their planned counts without overrides. No test states that.
+    suggestion: |
+      Leave the parity repair as is, and add one test (in tests/test_book_floor.py, not in the
+      gate suite) that a realistic large puzzle whose clues match its 30x30 extent needs an
+      override to join a default book — so the floor/plan interaction is stated somewhere
+      rather than inferred. Optionally note in the stub's docstring that its clue pair is a
+      floor-clearing stand-in, not a description of the record's extent.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2572
+    title: "Every add measures the whole submission twice, one store round-trip per puzzle"
+    description: |
+      Both routes call `book_mgr.floor_refusals(...)` (app.py:2572 and :3103) purely to word the
+      refusal, then `add_puzzles_to_book` repeats the identical measurement internally
+      (book_manager.py:784). Each pass runs `_below_floor_for`, which calls
+      `self.puzzle_store.get_puzzle(puzzle_id)` inside a per-id loop (book_manager.py:668) —
+      a separate session/query per puzzle in DB mode — plus one `compute_layout` per puzzle.
+      A selection step committing a book-sized set (~150 tiles, ADR-0034) therefore issues
+      ~300 point reads and 300 layout computations for one POST. It is correct and bounded,
+      not a bug, but it is an N+1 on the hot path of the step the owner uses most.
+    suggestion: |
+      Have `add_puzzles_to_book` return (or accept) the `FloorRefusal` list so the route gets
+      the wording from the same pass that made the decision — that also removes the theoretical
+      disagreement between the two passes. If the loop stays, add a batch read to the puzzle
+      store (`get_puzzles(ids)`) and use it in `_below_floor_for`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_manager.py
+    line: 828
+    title: "A duplicate id inside one submission still duplicates membership, and now duplicates the refusal too"
+    description: |
+      `new_puzzles = [pid for pid in puzzle_ids if pid not in existing]` (lines 805 and 828)
+      de-duplicates against CURRENT members but not within the incoming list, so posting
+      `p,p` for a non-member `p` appends it twice. That is pre-existing (the line is unchanged
+      by this diff). What this card adds on top: `_below_floor_for` loops over the raw
+      `puzzle_ids` with no de-dup (line 649-700), so a duplicated below-floor id yields two
+      identical `FloorRefusal` entries — two identical flash messages to the owner — and makes
+      the route's `added = len(puzzle_ids) - len(refusals)` counter (app.py:2576, :3104)
+      double-count. The brief asked for duplicate-id behaviour; this is what it is.
+    suggestion: |
+      De-duplicate `puzzle_ids` once at the top of `add_puzzles_to_book` (preserving order,
+      `list(dict.fromkeys(...))`) and once in `_below_floor_for`; add a case to
+      tests/test_book_floor.py for a submission carrying the same id twice, below and above
+      the floor.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 653
+    title: "The storeless-manager posture is not reached when the trim is also unreadable"
+    description: |
+      `_below_floor_for` builds the page spec at line 653 BEFORE the
+      `if self.puzzle_store is None` check at line 655. A manager wired without a puzzle store
+      whose book also has an unreadable trim therefore raises `ValueError` from
+      `book_page_spec` instead of taking the documented "nothing resolvable, nothing refused,
+      an error logged" posture the docstring (lines 626-636) and
+      `test_a_manager_with_no_store_says_so_rather_than_pretending` describe. Unreachable
+      through `create_app` (which always wires a store), so this is a documentation/behaviour
+      mismatch rather than a live defect.
+    suggestion: "Move the `puzzle_store is None` check above `spec = book_page_spec(book)`, or amend the docstring to say the print-spec refusal wins."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_book_membership_floor.py
+    line: 328
+    title: "The property corpus puts the same puzzle into 16 books, a state ADR-0033 forbids"
+    description: |
+      Each test loops 16 print specs and calls `add_puzzles_to_book(book_id, corpus.ids, ...)`
+      with the SAME 24 puzzle ids every time (lines 328, 368, 407, 467). Since
+      `_mirror_onto_puzzles` writes `puzzles.book_id`, every puzzle ends up claimed by 16
+      successive books — the single-valued `puzzles.book_id` rule (ADR-0033, G-2) that the
+      selection route's assigned-puzzle exclusion exists to keep. It does not weaken what the
+      property asserts (the membership/override coupling is per book and independent of it),
+      but the corpus is exercising a state the product prevents, so a future regression in the
+      exclusion would not show up here.
+    suggestion: "Build a fresh puzzle set per book (or release the previous book's claim between iterations) so the corpus stays a reachable state."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

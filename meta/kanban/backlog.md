@@ -13,3 +13,6 @@
 - [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja template cannot import); forge:commit's no-Co-Authored-By rule contradicts this session's required attribution line   @tech-debt
 - [ ] CARD-124 follow-up: N+1 selection read — a status change on a 150-puzzle book opens ~150 DB sessions; needs the same batch getter in puzzle_review.py as CARD-122's follow-up   @tech-debt
 - [ ] INV-008's three and INV-012's six declared checks exist nowhere under tests/   @tech-debt
+- [ ] tests/README.md is titled "Admin Panel Test Suite - Wave 1", names no book test file and is ~20 waves stale — needs a rewrite, not a patch   @tech-debt
+- [ ] Six system-contract check refs (ADR-0029/R2, INV-008..INV-012) name tests that do not exist yet — the model claims mechanical checks it does not have   @tech-debt
+- [ ] Test isolation: test_card_037_upload_retry and test_web_upload glob the shared system temp dir for nonogram-upload-*, so two full suites running at once perturb each other   @tech-debt

@@ -1,6 +1,6 @@
 # CARD-121: The 4.8 mm floor at the book store — below-floor puzzles join only with a stored override, on every add route
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 23
 **Depends on:** CARD-115, CARD-120
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/book_page_spec.py, src/nonogram/db/models.py, migrations/versions/012_book_floor_overrides.py, tests/test_book_floor.py, tests/property/test_book_membership_floor.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 2/3)
+**Started:** 2026-09-23T01:25:42Z
+**Closed:** 2026-09-23T03:10:36Z
+**Actual:** 0.2d
+**Merge commit:** 9b2cfb7
 **Blocked by:** —
 
 ## What to implement
@@ -132,4 +132,169 @@ _(AC-182 names "a Book 1 profile book and a 30-wide x 25-tall puzzle whose row-c
 
 ## Worktree notes
 
-—
+### Add routes covered
+
+Enumerated from the code (`grep -rn "add_puzzles_to_book" src/`) and **held to
+that enumeration by a test**: `TestBookFloor_EveryAddRouteEndsInTheGuardedStore`
+walks `app.py` with `ast`, attributes every call to `BookManager.add_puzzles_to_book`
+to its *innermost* enclosing function, and fails if the set is not exactly the
+two below — so a third route added later is noticed rather than assumed away.
+
+1. `POST /book/<id>/select-puzzles` — `app.select_puzzles_for_book`. Passes the
+   per-puzzle overrides this submission carries (`override_<puzzle_id>`, read by
+   the new `_submitted_overrides`); the tile that renders the control is CARD-123.
+2. `POST /book/<id>/add-puzzles` — `app.add_puzzles_to_book`. Passes no
+   override (the route has no control for one, AC-185). **Both** posting
+   templates are covered: `book_detail.html`'s paste-IDs form and
+   `_puzzle_table.html`'s review modal (which sends `return_to`) — one test each.
+
+No third caller exists. The floor is enforced in `BookManager`, not in either
+route, so a future route ending in the store is covered whether or not it
+remembers to report the refusal (EC-021).
+
+### Override storage: a JSON column, not a table
+
+`books.floor_overrides`, a nullable JSON column added by migration **012**
+(chains onto 011; confirmed 012 was the next free revision), a flat list of
+puzzle-id strings, `MutableList.as_mutable(JSON)` per the CARD-101 precedent.
+It has no nesting, so MutableList is enough where MutableDict was not enough for
+`distribution_plan` — and `BookManager` assigns a freshly built list whole
+anyway (`_merged_overrides`), the way CARD-100 rebuilt `puzzle_ids`.
+
+Why not a table: the override set belongs to exactly one book, is read and
+written in the same breath as `puzzle_ids`, is bounded by the book's own puzzle
+count (~150), and is never queried across books. A join table would buy
+referential integrity it cannot use (`puzzle_ids` beside it is already a JSON
+list of the same ids) at the cost of a second write path per add. No backfill —
+NULL reads as "no override was ever given", the fail-closed reading.
+
+### Per-puzzle refusal (not whole-batch)
+
+As the card asks. A submission of fifty tiles with one small picture in it is a
+corrected selection, not a lost one; whole-batch refusal would make the owner
+find the offender by bisection. The selection step keeps the refused tiles
+ticked and stays on the step, so the remedy is one tick away.
+
+### Postures on what cannot be measured (fail-closed line)
+
+Stated at length in `BookManager.below_floor`'s docstring. Summary:
+
+* record whose cell computes → the verdict (`< FLOOR_MM` refuses; **at** the
+  floor passes, AC-186 reads "at or above");
+* record whose clues cannot be read → **refused** (fail closed), and an
+  override still admits it, because the refusal is the floor's;
+* book whose stored trim/margins cannot be read → **the whole add refused**,
+  with `book_page_spec`'s message naming the column (fail closed);
+* an id no row matches → *not* refused. A phantom id is not a puzzle: no grid,
+  no clues, nothing to print. Whether a book's list holds ids no row matches is
+  referential integrity (CARD-103's FK, CARD-100's repair), not the printed-cell
+  floor; it is the same verdict `_selection_records` makes, and ADR-0035's gate
+  still refuses such a book at the exit from draft;
+* manager with no puzzle store → nothing resolvable, nothing refused, an
+  **error logged**. `create_app` wires a store on both branches, so this is a
+  wiring error; CARD-100 deliberately kept `BookManager(session_factory=None)`
+  working ("says so rather than pretending") and the readiness gate already
+  fails closed for it. Covered by a named test that states the decision.
+
+### SCOPE+ (edits outside the card's `Touches:`)
+
+* `SCOPE+ tests/test_book_ready_gate.py` — its in-memory `Shelf` stub wrote
+  puzzle records with **no clue fields at all** (its DB branch always wrote
+  `clues_rows=[[1]]`). With the floor measuring stored records, a clue-less
+  record is now refused, which broke 36 tests (incl. `tests/property/
+  test_book_ready_gate.py`, which imports `Shelf`). Fixed by giving the
+  in-memory stub the same one-cell clue pair the DB branch already had — a
+  record with no clues is a stub the store could never write (`add_puzzle`
+  always writes them), not a state to weaken the floor for.
+* `SCOPE+ tests/test_book_plan_storage.py` (TestMigration010) and
+  `SCOPE+ tests/test_book_page_spec.py` (TestMigration011) — both read the
+  *current* ORM against a database stopped at their own revision, so any new
+  column breaks them. Each now runs `command.upgrade(config, "head")` before the
+  ORM read; the legacy un-backfilled row they are about is still the row read
+  back, and 011's test now exercises 012's `downgrade` on its way down to 010.
+
+No template was changed (the tile control is CARD-123; the selection route
+needs only the `override_<puzzle_id>` field). `book_pdf_generator.py` was not
+touched (G-5). The published-book refusal is unchanged (G-4) and has a test.
+
+### Tests
+
+* `tests/test_book_floor.py` — 48 tests: AC-183/184/185/186 driven through the
+  real POST routes with the Flask test client (no browser harness in this
+  project), plus both storage modes at the store, the postures above, the
+  guardrails, and two structural checks (no second `4.8` literal anywhere the
+  floor is applied, read off the AST; the add-route enumeration).
+* `tests/property/test_book_membership_floor.py` — EC-021, spelled the way this
+  suite spells a property test (`test_PropertyTest_<name>` module functions,
+  per `tests/property/test_book_export_interior.py`): 24 hand-built puzzles x
+  16 stored print specifications x every route (store in both modes, selection
+  step, paste-IDs form, and the paste-IDs form *after* another route stored an
+  override), stdlib `random.Random` on a fixed seed, no `hypothesis`. Minimum
+  case count asserted inside — and asserted **per verdict**, so a corpus in
+  which nothing ever fell below the floor cannot pass vacuously.
+* Mutation-checked: neutering the `cell_mm < FLOOR_MM` comparison fails all 5
+  property tests and 21 AC tests.
+* Both new files' `admin_app` fixtures put `book_manager._book_manager` and
+  `image_manager._image_manager` back to an empty singleton on teardown. The
+  existing panel fixtures set them up but never tear them down, and these two
+  files make many books: left behind, they made
+  `test_admin_review_actions.py::test_delete_works_without_a_database` fail in
+  the full-suite order (a fresh in-memory store reuses `puzzle_000001`, which
+  one of these books still claimed, and the delete route refuses a puzzle that
+  is in a book). Contained to the new files — the existing fixtures were left
+  alone (CARD-116 is in `app.py` this wave).
+
+Full suite green, minus the one known pre-existing failure
+(`tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::
+test_size_configuration_applied`), which was deselected.
+
+### Handover to CARD-123
+
+`BookManager.below_floor(book_id, puzzle_ids)` is the tile's and the finalise
+count's computation, already written: it returns a `FloorRefusal` per
+below-floor puzzle carrying `cell_mm`. `floor_refusals(...)` is the same minus
+the ids an override covers. The tile will also want the cell of an *above*-floor
+puzzle, which is `book_cell_mm(book_page_spec(book), ...)` directly — the same
+call, so the three figures cannot disagree.
+
+One limitation left for CARD-123: an override ticked on tab A and committed from
+tab B is not carried (`_submitted_overrides` reads the submitted form only, which
+is what the card sanctions). It fails safe — the puzzle is refused by name.
+
+- [Env] forge 2026.8.17 (no meta/.skills.yml — version gate not configured)
+
+- [Scope] migrations/versions/012_book_floor_overrides.py, src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/book_page_spec.py, src/nonogram/db/models.py, tests/property/test_book_membership_floor.py, tests/test_book_floor.py, tests/test_book_page_spec.py, tests/test_book_plan_storage.py, tests/test_book_ready_gate.py
+- [Scope gate] ⚠ grown: 3 files outside Touches (tests/test_book_page_spec.py, tests/test_book_plan_storage.py, tests/test_book_ready_gate.py) — all declared SCOPE+ by the implementer as forced test-fixture repairs. No guardrail hit: book_pdf_generator.py (G-5) untouched.
+- [Build gate] PASSED (full, 164s) — 3 failures in the run (tests/test_card_037_upload_retry.py::test_a_success_releases_the_token_and_deletes_the_file and two in tests/test_web_upload.py) are NOT this card's: all three glob the SHARED system temp dir for `nonogram-upload-*` and assert the global set is unchanged, so CARD-116's concurrent suite run in its own worktree makes them fail. All 21 tests in both files pass in isolation on this branch. The known pre-existing failure (tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied) was deselected.
+- [Visual] no Makefile run target and no ## Design context section — no browser harness in this project; review runs static-only. User-facing ACs (AC-183/184/185) are covered by Flask test-client tests driving the real POST routes.
+- [System contract] fresh lens (system_rules.py --card CARD-121) returns the same 44 rule ids as the card's ## System contract section — no refresh needed.
+- [Review 1/3] Score: 8.5 — crit: 0, imp: 1
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h checked all 44 card rules: 14 ✓ holds, 30 ⚠ unchecked (23 no_eligible_fact, 6 check_ref_missing), 0 ✗ violated. Coverage guard: PASS.
+- [Adversarial] F-001 (floor verdict + published refusal decided outside the writing transaction, DB mode) CONFIRMED — independent skeptic re-derived it: get_book returns a value snapshot from a closed session (book_manager.py:501-505), the verdict is taken off it (:777-784), and the write re-fetches the row in a new session (:820-842) that never re-checks book_row.status; on main the published check lived inside the writing session (main:526-532 + commit :546), so it is a regression, not a pre-existing property. Werkzeug's dev server is threaded (app.py:2278, which is why _pending_selections_lock exists), so the window is reachable from two tabs.
+- [Severity gate 1/3] Score 8.5 >= threshold 8 but 0 critical / 1 important finding — fix mandatory
+- [Fix 1] declarations: 5 updated, 4 confirmed, 3 none. FIXED F-001..F-007, each with a DECLARATIONS line; no "matrix ... updated" claim to cross-check (this card has no ## Failure matrix). Fix pre-gate: all 28 named tests run and green (TestBookAddPuzzles_VerdictAndWriteAreOneDecision, TestMigration012, TestBookFloor_ALargeBucketPuzzleNeedsAnOverride, TestBookAddPuzzles_ReportsTheMeasurementItEnforced, TestBookFloor_EveryAddRouteEndsInTheGuardedStore, TestBookFloor_TheStorelessPostureIsReachable, TestBookAddPuzzles_ARepeatedIdIsOneDecision, PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride x3).
+- [Fix 1] F-001's fix is a design change, declared as such: the store's add gained a second job (reporting the verdict it enforced, not only applying it), carried by a NEW sibling method `add_puzzles_reporting_refusals` returning a new `AddOutcome` rather than by overloading `add_puzzles_to_book`'s bool. The guard is `_verdict_state(book_row)` re-read INSIDE the writing session and compared with the snapshot the verdict was made on (status + the four print columns + floor_overrides; puzzle_ids deliberately excluded). Verified by revert: neutering only the guard fails all three F-001 tests with the finding's own symptom, while the no-false-refusal test stays green.
+- [Build gate] PASSED (full, 170s) — exit 0, no failures at all this run. The three upload tests that failed the cycle-1 gate pass here, confirming they were shared-temp-dir cross-talk from the concurrent card and never this card's.
+- [Scope gate] cycle 2: unchanged — same 3 SCOPE+ test files outside Touches, no new excess, no guardrail hit (book_pdf_generator.py still absent from the diff).
+- [Review 2/3] Score: 9.0 ✓ threshold reached + no critical/important — crit: 0, imp: 1->0. All seven cycle-1 findings verified resolved by the reviewer.
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h checked all 44 card rules: 17 ✓ holds, 27 ⚠ unchecked (21 no_eligible_fact, 6 check_ref_missing), 0 ✗ violated. Coverage guard: PASS. 8f mutation and 8g static certification RUN on this cycle, not deferred — the reviewer killed 3 mutants (F-001 guard, submission de-dup, newly_overridden filter) and restored the files byte-identically.
+- [Notes correction] The implementer's ## Worktree notes above predate the cycle-1 fix pass and are stale in three places: the add now has a second store entry point `add_puzzles_reporting_refusals` returning `AddOutcome` (`add_puzzles_to_book` is a one-line delegation to it, its bool/False-means-not-found contract unchanged); the AST route-enumeration guard matches a two-name STORE_ENTRIES set, not `add_puzzles_to_book` alone; and tests/test_book_floor.py holds ~80 tests, not 48. The design change itself is recorded in the [Fix 1] lines above.
+- [8h spot-check] 3/3 sampled holds reproduced by independent skeptics (INV-006, ADR-0036/R1, ADR-0033/R1). INV-006: the two cited line ranges are the real single write point (every other puzzle_ids writer refuses to add), the property test's >=300 / >=40-per-verdict assertions are live (proved by raising them to 99999 and watching them fail) and green, and the cell_mm < FLOOR_MM mutant was killed (34 failures). ADR-0036/R1: no tripwire path in the name-only diff, status, or untracked/ignored set; all tripwire blobs hash-identical to main; both suites green (66 passed); FLOOR_MM unreachable from export/. ADR-0033/R1: the test diffs the whole puzzle record minus book_id in both storage modes, and the only puzzle_store call the diff adds is a read.
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-183 ✓ demonstrated — TestBookAddPuzzles_RefusesBelowFloorWithoutOverride, 7 passed; real POST /book/<id>/select-puzzles via test_client with the template's own form fields, asserting "4.61 mm" and "4.8 mm floor" in the returned HTML and the book's list unchanged.
+  AC-184 ✓ demonstrated — TestBookAddPuzzles_AcceptsBelowFloorWithOverrideAndRecordsIt, 11 passed; real POST with override_<puzzle_id>=on; override persistence pinned in both storage modes, DB mode re-read through a fresh BookManager.
+  AC-185 ✓ demonstrated — TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride, 5 passed; real POST /book/<id>/add-puzzles with the comma string book_detail.html actually submits; the _puzzle_table.html review-modal variant covered too.
+  AC-186 ✓ demonstrated — TestBookAddPuzzles_AcceptsCellJustAboveFloor, 6 passed; 4.84 mm joins with no flag and no floor mention; the two fixtures pinned either side as cells[below] < FLOOR_MM <= cells[above].
+  EC-021 ✓ demonstrated — PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride, 5 passed; 24 puzzle shapes x 16 stored print specs x every route (both store modes, selection step, paste-IDs, paste-IDs after another route stored an override, plus removal); MIN_DECISIONS>=300 and MIN_OF_EACH_VERDICT>=40 per verdict kind asserted inside, plus the converse — cannot pass vacuously. Seeded random.Random, no hypothesis.
+  G-1 ✓ demonstrated — re-verified after the fix restructure: _below_floor_for holds the only floor comparison in the tree, on book_cell_mm(book_page_spec(book), ...); app.py computes nothing. AST scan finds no second 4.8 literal.
+  G-2 ✓ demonstrated — the assigned-puzzle exclusion lives in puzzle_review.py, absent from the diff; Puzzle.book_id unchanged; 183 tests across the membership/constraint suites pass unmodified.
+  G-3 ✓ demonstrated — whole-record diff minus book_id, both storage modes; _mirror_onto_puzzles unchanged.
+  G-4 ✓ demonstrated — pytest.raises(match="Cannot add puzzles to published book") in both modes; the check was moved earlier, not reworded or turned into a confirmation.
+  G-5 ✓ demonstrated (structural) — book_pdf_generator.py absent from the name-only diff and from status incl. untracked; byte-identical to main.
+  Evidence class note: no browser harness in this project, so the three user-facing ACs are verified by Flask test-client tests that drive the real routes with the templates' own field names and assert on the real response body — checked, not assumed. Test-file edits are pure additions (0 deleted lines across tests/), so no covering test was weakened, retargeted or deleted.
+- [Docs] forge:readme skipped, with reason. Of this card's changed directories, only tests/ has a README.md; migrations/versions/, src/nonogram/admin/, src/nonogram/db/ and tests/property/ have none, so this project does not keep per-directory developer READMEs and creating them for this card would be scope growth, not docs maintenance. tests/README.md is titled "Admin Panel Test Suite - Wave 1" and enumerates a fixed wave-1 file list; it names no book test file and has been stale for roughly twenty waves, so editing it for CARD-121 alone would be an opportunistic drive-by on a document whose staleness this card did not cause. Out-of-scope observation for a later card: tests/README.md needs a rewrite, not a patch.
+- [Commit] SUCCESS 8d32a5f fix(admin): CARD-121 decide the floor verdict inside the transaction that writes it — the review-fix pass, staged with explicit pathspecs (4 files), on top of 3bd9d1f. Two commits on the branch, nothing under meta/ committed, attribution line present. Card stays Status: review until the dispatcher merges.
+
+- [Done] main unchanged since branch base 6dd667a; the card's second full-suite gate ran clean on this tree. Merged 9b2cfb7 (--no-ff). Deferral scan: 0 hits. SCOPE+ on 3 test files (judged necessary; no covering test weakened). Handovers pushed to CARD-123 and CARD-131.
