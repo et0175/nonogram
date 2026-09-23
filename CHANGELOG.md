@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-23
+- CARD-123 (feature): Every selection tile shows the puzzle's printed cell size on that book's trim and flags anything under the 4.8 mm floor, with an "Include below floor" override on the tile; the Finalise summary counts the overridden puzzles and names each one's cell size.
 - CARD-117 (feature): A book puzzle page prints "Puzzle N · Tier" in its band — never the picture's title, which now appears only in the answer key — and the book's print-weight rules apply (thin rules at least 0.25 mm, every fifth twice as heavy, pure black).
 - CARD-116 (feature): The book PDF is laid out on the book's own trim at 300 DPI with mirrored margins — the gutter on the binding side, the drawing centred across the usable width, the top edge fixed — and page parity counted from interior page 1, the guide page.
 - CARD-121 (feature): Adding a puzzle whose printed cell would fall below the 4.8 mm floor is refused at the book store — on the tab route and both paste-IDs routes alike — unless it carries an explicit override (migration 012 stores the overrides per book); the verdict is decided inside the writing transaction.

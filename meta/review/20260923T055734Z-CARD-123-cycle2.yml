@@ -1,0 +1,197 @@
+version: 1
+generated_at: "2026-09-23T05:57:34Z"
+target: "card/123-tile-cell-and-floor-count @ 103ca6e + uncommitted fix round (confirmation cycle 2 of 3)"
+overall_score: 9.3
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py (fix hunks + _clue_lines/_book_cells/_misses_the_floor/_below_floor_ids, both routes, create_app session-factory branch at 899-966)
+    - src/nonogram/admin/templates/book_select_puzzles.html (whole tile block)
+    - src/nonogram/admin/templates/book_finalize.html (delta-clean; read for the count row)
+    - src/nonogram/admin/static/admin.css (delta-clean; read for token discipline)
+    - tests/property/test_book_membership_floor.py (whole file)
+    - tests/test_book_select_floor_tiles.py (whole file)
+    - src/nonogram/admin/book_manager.py (read-only, G-4; get_book_manager at 1897-1915)
+    - src/nonogram/admin/puzzle_review.py (_session_factory wiring)
+    - tests/helpers/db.py, tests/conftest.py (database guard, FK pragma)
+    - tests/test_cli.py (import guard, for the F-004 decline)
+    - "~/Documents/nonogram-reviews/CARD-123/*.html + select-tab-below-floor.png"
+  not_reached:
+    - src/nonogram/export/layout.py (compute_layout body)
+    - browser runtime (this project has no browser harness, no Makefile run target, no runtime.log, no axe scan and no visual baselines)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 926, removed: 6 }
+  fix_delta: { files: 4, added: 303, removed: 28 }
+  max_fan_in: { symbol: "_misses_the_floor", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the top co-change peers absent from the delta are book_arrange_puzzles.html and book_pdf_generator.py, which G-4 forbids touching this wave"
+    mutation_check: "not_applicable — review.mutation_check is not configured (no meta/kanban/config.yml); an equivalent targeted discrimination check was run instead by rendering the pre-fix template against the new guards"
+    axe_a11y: "provider_unavailable — no axe scan; the project has no browser harness"
+    runtime_log: "provider_unavailable — no runtime.log; screens render through the Flask test client"
+    visual_baselines: "no_eligible_fact — meta/design/baselines/ does not exist"
+    audit_findings: "no_eligible_fact — meta/audit/ does not exist"
+    learned_false_positives: "no_eligible_fact — neither .claude/fix-suppress.yaml nor ~/.forge/retro-signals.yml exists"
+    positioning_backing: "no_eligible_fact — meta/business/positioning.md and bets.md do not exist"
+
+system_contract:
+  rules_checked: 44
+  holds: 13
+  unchecked: 31
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived: app.py is in the delta but its fix hunks add no import; the only new imports anywhere in the delta are stdlib (`contextlib.contextmanager`) and first-party (`nonogram.db`). No manifest in the delta. TestDependencyBaseline_IsExactlyPillowAndNumpy green (in the 148-test targeted run)"
+    - "ADR-0019/R1 ⚠ unchecked — carried(cycle 1, delta-clean): scope src/nonogram/web/ intersects no file in the fix delta (app.py, book_select_puzzles.html, 2 test files)"
+    - "ADR-0022/R1 ✓ holds — re-derived: the fix adds `_below_floor_ids(cells)` (app.py:2592) and the context key `below_floor_ids` — a set of puzzle ids; no signature or context field reduces a grid's extent to a scalar. The tile's Size row still prints W×H (book_select_puzzles.html:189)"
+    - "ADR-0022/R3 ⚠ unchecked — carried(cycle 1, delta-clean): image fitting lives in src/nonogram/sourcing/, no intersection with the delta"
+    - "ADR-0022/R4 ⚠ unchecked — carried(cycle 1, delta-clean): --size parsing lives in src/nonogram/cli.py, no intersection with the delta"
+    - "ADR-0024/R1 ⚠ unchecked — carried(cycle 1, delta-clean): recovery lives in orchestrator/sourcing, no intersection with the delta"
+    - "ADR-0024/R2 ⚠ unchecked — carried(cycle 1, delta-clean): RetryCounter lives in the orchestrator, no intersection with the delta"
+    - "ADR-0024/R3 ⚠ unchecked — carried(cycle 1, delta-clean): repair lives in the orchestrator, no intersection with the delta"
+    - "ADR-0024/R4 ⚠ unchecked — carried(cycle 1, delta-clean): repair lives in the orchestrator, no intersection with the delta"
+    - "ADR-0024/R5 ⚠ unchecked — carried(cycle 1, delta-clean): source-mode recovery policy, no intersection with the delta"
+    - "ADR-0027/R1 ⚠ unchecked — carried(cycle 1, delta-clean): validate_density lives in sourcing/random_grid.py, no intersection with the delta"
+    - "ADR-0027/R2 ⚠ unchecked — carried(cycle 1, delta-clean): same scope as ADR-0027/R1"
+    - "ADR-0029/R1 ⚠ unchecked — carried(cycle 1, delta-clean): difficulty.py / solver, no intersection with the delta"
+    - "ADR-0029/R2 ⚠ unchecked — carried(cycle 1, delta-clean): solver strategies, no intersection with the delta"
+    - "ADR-0029/R3 ⚠ unchecked — carried(cycle 1, delta-clean): difficulty scoring, no intersection with the delta"
+    - "ADR-0029/R4 ⚠ unchecked — carried(cycle 1, delta-clean): solver/propagate.py overlap masks, no intersection with the delta"
+    - "ADR-0029/R5 ⚠ unchecked — carried(cycle 1, delta-clean): rung attribution in the solver, no intersection with the delta"
+    - "ADR-0032/R1 ✓ holds — re-derived: the fix delta adds no storage-boundary write; grep of both the committed (main...HEAD) and working-tree app.py diffs for add_puzzles_to_book/remove_puzzle_from_book/puzzle_ids=/floor_overrides returns nothing added. TestStorageBoundary_AsksTheSolverNotTheCaller green"
+    - "ADR-0032/R2 ✓ holds — re-derived: the tile's `puzzle.quality_score or 'N/A'` row (book_select_puzzles.html:197) is outside the fix hunks and unchanged; nothing new compares quality_score. TestUnmeasuredQuality_SurvivesTheFilter green"
+    - "ADR-0033/R1 ✓ holds — re-derived: `_below_floor_ids` reads a dict and returns a set; no assignment to any record/puzzle field appears in either app.py diff (grep of `+` lines for `record[`/`puzzle[` assignment: none)"
+    - "ADR-0035/R1 ✓ holds — re-derived: no set_book_status and no plan check in the fix hunks; the finalise POST branch is outside them. TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green (53-test targeted run)"
+    - "ADR-0036/R1 ✓ holds — carried(cycle 1, delta-clean) + re-run: src/nonogram/export/layout.py intersects no file in the fix delta; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden re-run green on this working tree"
+    - "ADR-0036/R2 ✓ holds — re-derived (NOT carried): app.py:2563 is the only cell computation and it is `book_cell_mm(book_page_spec(book), …)`; `_misses_the_floor` (app.py:2590) compares against the FLOOR_MM constant and `_below_floor_ids` (2592-2608) does set membership only — no mm/cell/rule arithmetic. The fix strictly REDUCED admin-side computation: the template lost its inline `cell_mm < floor_mm` and now reads `puzzle_key in below_floor_ids` (book_select_puzzles.html:167). Evidence: TestBookSelectTile_TheFloorVerdictIsMadeOnce (ast walk of app.py; template-comparison regex) and TestBookFloorTiles_TheCellIsTheOneComputation + test_the_tile_flag_and_the_finalise_count_are_the_one_verdict (book_cell_mm monkeypatched; both screens follow) — 35/35 green in tests/test_book_select_floor_tiles.py"
+    - "ADR-0037/R1 ⚠ unchecked — carried(cycle 1, delta-clean): book_pdf_generator.py has zero hunks in both the commit and the working tree (verified, G-4)"
+    - "ADR-0037/R2 ⚠ unchecked — carried(cycle 1, delta-clean): stroke widths live in the layout/PDF path, no intersection with the delta"
+    - "CON-005 ⚠ unchecked — carried(cycle 1, delta-clean): src/nonogram/solver/ intersects no file in the fix delta"
+    - "CON-009 ⚠ unchecked — carried(cycle 1, delta-clean): src/nonogram/web/ server, no intersection with the delta"
+    - "CON-010 ⚠ unchecked — carried(cycle 1, delta-clean): src/nonogram/web/ request filter, no intersection with the delta"
+    - "CON-011 ✓ holds — re-derived: the property corpus still draws its shapes from nonogram.limits MIN_SIZE/MAX_SIZE (tests/property/test_book_membership_floor.py:92-105, unchanged by the fix — `git diff` shows no edit to puzzle_shapes); no size literal is added anywhere in the delta"
+    - "CON-012 ⚠ unchecked — carried(cycle 1, delta-clean): the aspect guard lives in sourcing/image, no intersection with the delta"
+    - "CON-015 ✓ holds — re-derived: the fix hunks touch app.py lines 2582-3012 only; create_app's signature (app.py:748) and run_admin_panel are outside them, and no host=/debug= argument is added. TestAdminPanel_BindsLoopbackOnlyByDefault green"
+    - "CON-016 ✓ holds — re-derived: no @app.route is added by the fix (the decorator at app.py:2610 appears as diff context only); both handlers still pass the single @app.before_request door. TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green"
+    - "INV-001 ✓ holds — re-derived: `_clue_lines` is untouched by the fix round and only converts a stored field to tuples for measurement; no clue or grid is written anywhere in the delta. TestComputeClues_MatchesGridExactly green"
+    - "INV-002 ⚠ unchecked — carried(cycle 1, delta-clean): export readiness lives in the export path, no intersection with the delta"
+    - "INV-003 ⚠ unchecked — carried(cycle 1, delta-clean): retry counters live in the orchestrator, no intersection with the delta"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: app.py is in the delta, so this was re-verified rather than carried — the fix hunks contain no plan code; `_plan_progress` is called unchanged at app.py:2755 and nothing in the delta writes a split or a bucket count"
+    - "INV-006 ✓ holds — re-derived at full depth (NOT carried; cycle 1's citation was too broad). (a) Membership is still written only by BookManager: book_manager.py has ZERO hunks in both `git diff main...HEAD` and `git diff` (verified). (b) The fix delta adds no membership write: grep of the `+` lines of both app.py diffs for add_puzzles_to_book/remove_puzzle_from_book/puzzle_ids=/floor_overrides returns nothing; app.py's only add call (2683-2687) is pre-existing CARD-121 code outside every hunk range (hunks start at old line 2497). (c) The tile renders `name=\"override_{{ puzzle.id }}\"` (book_select_puzzles.html:215), which is exactly the field `_submitted_overrides` reads (app.py:2395, untouched), and TestBookSelect_TileShowsCellAndBelowFloorFlag::test_the_rendered_control_is_the_one_that_actually_admits_it drives it end to end. (d) CARD-121's cross-tab limitation is unchanged and still fails safe (refusal by name). STORAGE MODES, stated precisely: the store-level gate `test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride[memory]` and `[db]` run in both modes; the CARD-123 agreement half `..._tile_refusal_and_count_are_one_number[memory]` and `[db]` NOW run in both modes (this is the F-005 fix) — db mode independently verified genuinely DB-backed, not a second memory run (see F-005 re-derivation in the markdown report); `..._a_removed_puzzle_keeps_no_override` loops both modes internally. The two ROUTE-level membership tests `..._selection_step` and `..._paste_ids_route` still run in MEMORY ONLY (filed as M-3). All 7 node ids in tests/property/test_book_membership_floor.py re-run green here"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: app.py is in the delta, so re-verified rather than carried — no ready-status gate appears in any fix hunk"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: app.py is in the delta, so re-verified rather than carried — no published-book membership change appears in any fix hunk"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: app.py is in the delta, so re-verified rather than carried — the finalise list still preserves book.puzzle_ids order and the fix only changes the `if` predicate of that comprehension (app.py:3008)"
+    - "INV-010 ⚠ unchecked — carried(cycle 1, delta-clean): pairing lives in book_pdf_generator.py, zero hunks in both trees (G-4 verified)"
+    - "INV-011 ⚠ unchecked — carried(cycle 1, delta-clean): the answer key lives in book_pdf_generator.py, zero hunks in both trees"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: app.py is in the delta, so re-verified rather than carried — the fix makes no membership change (see INV-006 evidence (b))"
+    - "INV-013 ⚠ unchecked — carried(cycle 1, delta-clean): interior/cover separation lives in the book export path, no intersection with the delta"
+
+root_causes: []
+
+findings:
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_select_floor_tiles.py
+    line: 685
+    title: "The ast guard for F-001 does not discriminate the defect it was written for"
+    description: |
+      `TestBookSelectTile_TheFloorVerdictIsMadeOnce::test_only_one_function_in_app_py_compares_against_the_floor`
+      asserts `comparing == {"_misses_the_floor": 1}` over an ast walk of
+      app.py. It is NOT a trivially-passing test — an empty dict fails the
+      equality, which is the failure mode that matters. But it cannot fail
+      against the pre-fix state either: `git show HEAD:src/nonogram/admin/app.py
+      | grep FLOOR_MM` shows the pre-fix app.py already had exactly one
+      FLOOR_MM comparison (HEAD app.py:2586, inside `_misses_the_floor`) —
+      F-001's second verdict lived in the *Jinja template*, which this test
+      does not read. It is therefore a forward regression guard, not a
+      pre/post discriminator. The card's note "All five structural/behavioural
+      guards were watched to fail against the pre-fix template" reads as more
+      than it establishes for this one.
+
+      The F-001 defect IS discriminated, by its sibling
+      `test_the_selection_template_makes_no_comparison_of_its_own`: the pre-fix
+      template carries `cell_mm < floor_mm` (matched by that test's regex) and
+      carries no `below_floor_ids`, so it fails pre-fix. Independently
+      confirmed by rendering the pre-fix template.
+    suggestion: |
+      Say in the test's docstring that it guards the Python side going
+      forward, and that the template side is guarded by the sibling test —
+      so the pair's division of labour is not re-read as "both watched to
+      fail".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_select_floor_tiles.py
+    line: 701
+    title: "The ast guard sees only a bare `FLOOR_MM` Name inside a function"
+    description: |
+      `visit_Compare` records a hit only when `FLOOR_MM` appears as an
+      `ast.Name` among `node.left`/`node.comparators`, and only when
+      `enclosing` is non-empty. Three shapes evade it silently and would
+      re-open F-001 on the Python side: a local alias (`floor = FLOOR_MM`
+      then `cell < floor`), an attribute access
+      (`book_page_spec.FLOOR_MM`), and a module-level comparison (no
+      enclosing function). Narrow by construction rather than wrong — worth
+      naming so the next reader does not over-read the guarantee.
+    suggestion: |
+      Either widen the walk to `ast.Attribute` ending in `FLOOR_MM` and drop
+      the `enclosing` requirement in favour of a `"<module>"` bucket, or state
+      the three evasions in the docstring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_membership_floor.py
+    line: 424
+    title: "The two route-level membership tests still run in memory only, now that widening them is nearly free"
+    description: |
+      F-005's fix widened EC-021's *agreement* half to both storage modes and
+      built the machinery to do it (`panel_in_mode` + the `admin_panel`
+      parametrised fixture). The two route-level membership tests —
+      `..._selection_step` (line 424) and `..._paste_ids_route` (line 468) —
+      still take the in-memory-only `admin_app`, so the routes CARD-123
+      actually touches are exercised against one backend. This is a narrower
+      gap than F-005 was (membership is written only by `BookManager`, whose
+      gate test runs in both modes), which is why it is Minor and not a
+      repeat of F-005 — but it is the remaining half of the same argument,
+      and `admin_panel` already yields `(mode, app, factory)` in the shape
+      both tests would need.
+    suggestion: |
+      Swap `admin_app` for `admin_panel` in both tests (unpack
+      `mode, app, factory` and pass `factory` to `Corpus`, exactly as the
+      agreement half now does), or state in each docstring why the storage
+      mode cannot change the route's answer.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

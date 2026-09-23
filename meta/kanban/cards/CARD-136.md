@@ -84,3 +84,5 @@ are empty — keep that fallback for legacy books; this card is about new writes
 - [Origin] Found by CARD-115 (handover) and confirmed by CARD-116, which deliberately
   left it (its G-4 forbade the book_manager write). Until this card lands, a
   UI-configured trim is display-only.
+
+- [Handover from CARD-123, 2026-09-23] The Finalise Summary's "Trim size" row still reads book.metadata.size and renders nonsense like "8x10 x 27.94 cm" — it does not read the print columns the floor figure is measured against. Visible in ~/Documents/nonogram-reviews/CARD-123/finalize-after-trim-change.png. Closing that row is the display half of this card.

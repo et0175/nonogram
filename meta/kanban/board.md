@@ -53,10 +53,9 @@ _(none)_
 ## Review
 - **CARD-126** P2 · Book order easy → medium → hard; moves within a level · 1d · wave 24 · Inc 15 · after CARD-121
   `worktree: ../PythonProject4-CARD-126` · `branch: card/126-book-level-order` · `elapsed: 0d`
-- **CARD-123** P1 · Tile cell + below-floor flag + override control; finalise below-floor count · 0.5d · wave 24 · Inc 14 · after CARD-121, CARD-122 · score 9.0 (cycle 1/3)
-  `worktree: ../PythonProject4-CARD-123` · `branch: card/123-tile-cell-and-floor-count` · `elapsed: 0d`
 
 ## Done
+- **CARD-123** Tile cell + floor flag + override · score 9.3 · merged 8b7b78e
 - **CARD-117** "Puzzle N · Tier" band + print strokes · score 9.0 · merged 837a6f3
 - **CARD-116** Book PDF on its own trim · score 9.3 · merged dff610b
 - **CARD-121** 4.8 mm floor + override · score 9.0 · merged 9b2cfb7

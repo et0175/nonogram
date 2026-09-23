@@ -16,3 +16,4 @@
 - [ ] tests/README.md is titled "Admin Panel Test Suite - Wave 1", names no book test file and is ~20 waves stale — needs a rewrite, not a patch   @tech-debt
 - [ ] Six system-contract check refs (ADR-0029/R2, INV-008..INV-012) name tests that do not exist yet — the model claims mechanical checks it does not have   @tech-debt
 - [ ] Test isolation: test_card_037_upload_retry and test_web_upload glob the shared system temp dir for nonogram-upload-*, so two full suites running at once perturb each other   @tech-debt
+- [ ] UX gap (no card): an unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that cannot succeed, and never names the remedy. Fails closed, but unhelpful   @feature

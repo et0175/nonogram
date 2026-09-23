@@ -1,0 +1,237 @@
+version: 1
+generated_at: "2026-09-23T05:19:57Z"
+target: "card/123-tile-cell-and-floor-count @ 103ca6e (diff main...HEAD)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/templates/book_select_puzzles.html
+    - src/nonogram/admin/templates/book_finalize.html
+    - tests/test_book_select_floor_tiles.py
+    - tests/property/test_book_membership_floor.py
+    - src/nonogram/admin/book_page_spec.py
+    - src/nonogram/admin/book_manager.py (read-only, G-4)
+    - src/nonogram/admin/puzzle_review.py (_row_to_dict, filter_puzzles)
+    - meta/design/brief.md, tokens.css, components.md
+    - meta/architecture/requirements.yml (FR-031/FR-032 acceptance)
+    - "~/Documents/nonogram-reviews/CARD-123/*.png (3 rendered screens)"
+  not_reached:
+    - src/nonogram/export/layout.py (read compute_layout's contract only, not its body)
+    - browser runtime (no harness in this project)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 926, removed: 6 }
+  max_fan_in: { symbol: "book_cell_mm", callers: 5 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the three top co-change peers absent from the diff are puzzle_review.py (5/12, needs no change: both record sources already carry clues_rows/cols) and book_arrange_puzzles.html / book_pdf_generator.py (4/12 each), which G-4 forbids touching this wave"
+    axe_a11y: "provider_unavailable — no axe scan; the project has no browser harness"
+    runtime_log: "provider_unavailable — no runtime.log; screens were rendered through the Flask test client"
+    visual_baselines: "no_eligible_fact — meta/design/baselines/ does not exist"
+
+system_contract:
+  rules_checked: 44
+  holds: 17
+  unchecked: 27
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no manifest in the diff (git diff --stat: 6 files, no pyproject.toml); the only new import is `from .book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec` (app.py:58), a first-party module"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is not in the diff; this card touches src/nonogram/admin/ only"
+    - "ADR-0022/R1 ✓ holds — no new signature or context field reduces extent to a scalar; _book_cells/_clue_lines pass clue sets, and the tile's Size row (W×H) is untouched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in this diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/redraw path in this diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair path in this diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair path in this diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery in this diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict in this diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in this diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no strategies list in this diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no clock/size term enters any score here; the diff adds no scoring"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in this diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff"
+    - "ADR-0032/R1 ✓ holds — the diff adds no storage-boundary write; both routes read (filter_puzzles / get_puzzle) and add_puzzle is untouched"
+    - "ADR-0032/R2 ✓ holds — the tile's `puzzle.quality_score or 'N/A'` row is untouched, and nothing new compares quality_score; the new Book-cell row is a separate info-row"
+    - "ADR-0033/R1 ✓ holds — neither new code path writes a puzzle field; `_book_cells`/`below_floor` read `clues_rows`/`clues_cols` and never assign to a record (grep of the diff for `record[` / `puzzle[` assignment: none)"
+    - "ADR-0035/R1 ✓ holds — the diff contains no set_book_status call and no plan check; the finalise POST branch is unchanged"
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/layout.py is not in the diff; every new call passes a PageSpec built by book_page_spec, so the no-spec default path is untouched (TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden unchanged and green in the gate run)"
+    - "ADR-0036/R2 ✓ holds — app.py:2560-2588 computes the cell only via book_cell_mm(book_page_spec(book), …); no arithmetic on mm, cells or rules appears in the new code, and TestBookFloorTiles_TheCellIsTheOneComputation monkeypatches book_cell_mm to 12.34 / 1.0 and both screens follow it (ran green)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book_pdf_generator.py is untouched (G-4); the titles rendered here are screen text, not a printed band"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths in this diff"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by this diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ server is not in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ request filter is not in the diff"
+    - "CON-011 ✓ holds — no size bound is restated; the property corpus draws its shapes from nonogram.limits MIN_SIZE/MAX_SIZE (tests/property/test_book_membership_floor.py:88-105) rather than literals"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff"
+    - "CON-015 ✓ holds — the diff adds no host=/debug= argument and does not touch create_app's signature (app.py:748) or run_admin_panel (app.py:3775, host=LOOPBACK_HOST); TestAdminPanel_BindsLoopbackOnlyByDefault unchanged"
+    - "CON-016 ✓ holds — the diff adds no @app.route: both handlers already existed and still pass through the single @app.before_request door at app.py:834; grep of the diff for '@app.route' returns only the unchanged select-puzzles decorator line as context"
+    - "INV-001 ✓ holds — no clue or grid is written; _clue_lines only converts the stored field to tuples for measurement"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness transition in this diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: the plan is untouched; _plan_progress is called unchanged"
+    - "INV-006 ✓ holds — membership is still written only by BookManager (G-4, untouched); the tile renders the `override_<id>` field _submitted_overrides already reads (app.py:2395) and the store decides. PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride (memory+db) plus the new agreement half ran green (34 tests)"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready-status gate in this diff"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book membership change in this diff"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no ordering code in this diff; the finalise list preserves book.puzzle_ids order and writes nothing"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing lives in book_pdf_generator.py (untouched, G-4)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the answer key is not reached by this diff"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change is made by this diff"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior/cover separation is not reached; the finalise POST branch is unchanged"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 157
+    title: "The floor verdict is stated twice — `_misses_the_floor` in Python, the same expression inline in Jinja"
+    description: |
+      The *cell* is one computation (G-1 holds), but the *verdict* is not: the
+      finalise route uses `_misses_the_floor(cell)` (app.py:2586) while the tile
+      recomputes it inline as `{% set below_floor = cell_mm is none or cell_mm <
+      floor_mm %}` (book_select_puzzles.html:157). They agree today and the
+      property test pins them to one another over 384 agreements, but the rule
+      ("an unmeasurable cell misses the floor") now has two homes, and
+      `_misses_the_floor` has fan-in 1 as a result.
+    suggestion: |
+      Pass a per-puzzle verdict alongside the cell (e.g. `book_cells[id] =
+      (cell, misses_floor)`, or a second `below_floor_ids` set in the context)
+      so the template renders a decision it was handed rather than one it makes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 156
+    title: "Tile looks the cell up by the raw id while `_book_cells` keys by `str(id)`"
+    description: |
+      `_book_cells` deliberately normalises its keys (`str(record.get("id"))`,
+      app.py:2551) but the template reads `book_cells.get(puzzle.id)` without the
+      same normalisation. Both storage modes hand out string ids today
+      (`_row_to_dict` casts, legacy uses `f"puzzle_{n:06d}"`), so this is latent,
+      not live. If a record ever carried a non-string id the lookup would miss
+      silently and the tile would degrade to "not measurable" + a below-floor
+      flag — a wrong verdict wearing the fail-closed posture, and the one shape
+      the property test cannot catch because its corpus is string-keyed too.
+    suggestion: |
+      Key the context dict by the same value the template uses (drop the `str()`
+      and key by `record.get("id")`), or expose the lookup already resolved per
+      puzzle. Either way, state the id's type once.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2561
+    title: "An unreadable print spec is shown as N unmeasurable puzzles, never as the book's own fault"
+    description: |
+      When `book_page_spec(book)` raises, `_book_cells` logs a warning and
+      returns `{id: None}` for every record. The owner then sees every tile
+      reading "Cell cannot be measured on this book" with an override control
+      offered, and the finalise summary reads "Below the 4.8 mm floor: N" with N
+      "cell cannot be measured" entries — the cause (a stored trim/margin column
+      that cannot be read) is server-side only. Ticking those overrides and
+      submitting reaches `BookManager._below_floor_for`, which *raises* the same
+      ValueError; the route catches it and flashes a raw `Error: <message>`.
+      Fail-closed in both directions, so nothing wrong is admitted, but the
+      remedy ("fix this book's Print setup") is never named on the screen.
+    suggestion: |
+      Have `_book_cells` report the spec failure distinctly (e.g. return
+      `(cells, spec_error)`) and flash/banner "This book's trim cannot be read —
+      re-save Print setup" on both screens, suppressing the per-tile override
+      control in that state since no override can succeed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2519
+    title: "`_clue_lines` is copied from book_manager into a module that already imports it"
+    description: |
+      The native reimplementation is the project's stated rule for logic two
+      modules need, and the copy is byte-equivalent to `book_manager._clue_lines`
+      (book_manager.py:352-371) today. But app.py already imports book_manager
+      (app.py:57), so this particular duplication is a choice rather than a
+      boundary, and a drift in the stored clue format would put the tile and the
+      add refusal on two different readers — the one disagreement EC-021 forbids.
+      The property test's agreement half does catch it, which is why this is
+      Minor rather than higher.
+    suggestion: |
+      Either cite the cross-check explicitly where the copy lives (the docstring
+      does, so this is nearly satisfied) or promote the conversion to
+      `book_page_spec` beside `book_cell_mm`, where every caller of the one
+      computation already looks.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_membership_floor.py
+    line: 502
+    title: "EC-021's agreement half runs in in-memory mode only, while the membership half runs on both"
+    description: |
+      `test_..._tile_refusal_and_count_are_one_number` takes the `admin_app`
+      fixture, which is in-memory only (line 318-338), whereas
+      `test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride` is
+      parametrized `["memory", "db"]`. The tile's record comes from
+      `filter_puzzles` and the refusal's from `get_puzzle`; in DB mode both go
+      through `_row_to_dict`, so they agree by construction — but that is an
+      argument, not a run, and EC-021 is about the figures agreeing for every
+      input, not the sampled storage mode.
+    suggestion: |
+      If the route can be driven against a DB-backed app fixture, parametrize the
+      agreement test the same way; otherwise state in the test's docstring why
+      the storage mode cannot change the answer (both readers share
+      `_row_to_dict`).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
