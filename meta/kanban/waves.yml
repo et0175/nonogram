@@ -72,7 +72,7 @@ waves:
     status: passed
 
   - wave: 25
-    cards: [CARD-118, CARD-127, CARD-130, CARD-134]
+    cards: [CARD-118, CARD-127, CARD-130, CARD-134, CARD-138]
     increment: [13, 15, 16]
     closes_increment: 13
     checkpoint: >-

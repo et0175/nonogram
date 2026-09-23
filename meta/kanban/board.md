@@ -21,7 +21,7 @@ _Updated: 2026-09-22 UTC_
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
-| 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2 | ▶ active · closes Increment 13 (owner-confirmed proof print) |
+| 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ▶ active · closes Increment 13 (owner-confirmed proof print) |
 | 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3 | ⏳ blocked (→ wave 25) · closes Increment 16 |
 | 27 | CARD-129 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
@@ -38,6 +38,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
+- **CARD-138** P1 · Batch generation can ask for a difficulty · 0.5d · wave 25 · after CARD-137 (fills the book's medium quota)
 - **CARD-118** P1 · Proof pages (30×30 + 15×15) — owner-confirmed print checkpoint · 0.5d · wave 25 · Inc 13 · after CARD-117
 - **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125
 - **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124
