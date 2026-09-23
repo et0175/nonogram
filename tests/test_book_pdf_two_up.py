@@ -30,11 +30,16 @@ The comparison is on each band's **tight ink box** rather than on the strip it
 sits in, because the lower slot's band starts wherever the pair's spare height
 leaves it and the reference page's starts at the top margin — a comparison that
 required them to agree to the pixel would be measuring the crop, not the words.
+It carries the box's **left edge on the page** beside the glyphs (``_Ink``),
+because a tight crop alone says what was set and not where: a band centred on
+the trim's centre rather than on its slot's would be the same picture moved
+sideways by (gutter − outside) / 2, and the glyph comparison would pass it.
+The vertical placement is pinned by the millimetres the strips are cropped at.
 """
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import NamedTuple, Optional, Sequence
 
 import numpy as np
 import pytest
@@ -216,13 +221,34 @@ def _page_shapes(pages: Sequence[Image.Image], first: int, count: int) -> list[l
     ]
 
 
-def _ink(image: Image.Image) -> Optional[Image.Image]:
-    """``image`` cropped to its ink, or ``None`` when it carries none."""
+class _Ink(NamedTuple):
+    """A strip's ink: the tight crop, and where on the page it starts.
+
+    The crop says *what* was set, ``left`` says *where* — the x of the leftmost
+    ink pixel in the page's own pixels. Both are compared (``_same_ink``),
+    because a tight crop is the same picture wherever it sits: a band centred
+    on the trim's centre instead of on the slot's would be identical ink shifted
+    by (gutter − outside) / 2, and every AC-251 assertion would still pass.
+    """
+
+    image: Image.Image
+    left: int
+
+
+def _ink(image: Image.Image, origin: int = 0) -> Optional[_Ink]:
+    """``image`` cropped to its ink, or ``None`` when it carries none.
+
+    ``origin`` is the crop's own x on the page, so ``left`` comes back in page
+    pixels rather than in the strip's.
+    """
     dark = np.asarray(image.convert("L")) < INK_LEVEL
     rows, columns = np.flatnonzero(dark.any(axis=1)), np.flatnonzero(dark.any(axis=0))
     if not rows.size:
         return None
-    return image.crop((columns[0], rows[0], columns[-1] + 1, rows[-1] + 1))
+    return _Ink(
+        image.crop((columns[0], rows[0], columns[-1] + 1, rows[-1] + 1)),
+        origin + int(columns[0]),
+    )
 
 
 #: How far inside the band's own 12 mm the strip compared below is taken. The
@@ -233,18 +259,20 @@ def _ink(image: Image.Image) -> Optional[Image.Image]:
 _BAND_INSET_MM = 1.0
 
 
-def _band_ink(page: Image.Image, top_mm: float) -> Optional[Image.Image]:
+def _band_ink(page: Image.Image, top_mm: float) -> Optional[_Ink]:
     """The ink of the 12 mm band starting ``top_mm`` down the trim (TERM-028).
 
     ``top_mm`` is worked out in millimetres by the caller, from CON-018's
-    profile and FR-040's own geometry, never read off a layout.
+    profile and FR-040's own geometry, never read off a layout. The strip runs
+    the full width of the trim, so the ``left`` that comes back is the band's
+    own placement across the page and not an artefact of the crop.
     """
     top = round((top_mm + _BAND_INSET_MM) * PX_PER_MM)
     bottom = round((top_mm + BAND_MM - _BAND_INSET_MM) * PX_PER_MM)
     return _ink(page.crop((0, top, page.width, bottom)))
 
 
-def _reference_band(puzzle: dict, page_number: int, identity: str) -> Optional[Image.Image]:
+def _reference_band(puzzle: dict, page_number: int, identity: str) -> Optional[_Ink]:
     """The ink COMP-007 sets for ``identity`` on this puzzle's own single page.
 
     The same payload the generator builds from the row, except that this test
@@ -267,10 +295,20 @@ def _reference_band(puzzle: dict, page_number: int, identity: str) -> Optional[I
     return _band_ink(blank, TOP_MM)
 
 
-def _same_ink(first: Optional[Image.Image], second: Optional[Image.Image]) -> bool:
+def _same_ink(first: Optional[_Ink], second: Optional[_Ink]) -> bool:
+    """The same letters **in the same place across the page**.
+
+    Both bands are measured on a page of the same parity, so a band the slot
+    centred correctly and the same band on a single page start on the same
+    pixel column; the left edges are compared exactly, like the glyphs.
+    """
     if first is None or second is None:
         return False
-    return first.size == second.size and first.tobytes() == second.tobytes()
+    return (
+        first.left == second.left
+        and first.image.size == second.image.size
+        and first.image.tobytes() == second.image.tobytes()
+    )
 
 
 # --------------------------------------------------------------------------
@@ -793,6 +831,35 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
         single = drawing_of(pages[2])
 
         assert abs(upper.cell - single.cell) > 1
+
+
+# --------------------------------------------------------------------------
+# The two copies of the export's header-fitting ratios are pinned equal
+# --------------------------------------------------------------------------
+
+
+def test_a_two_up_band_is_fitted_by_the_exports_own_header_ratios() -> None:
+    """``_set_band``'s shrink-to-fit is COMP-007's, not a second tuning.
+
+    ``book_pdf_generator`` restates ``pdf``'s two header ratios rather than
+    importing them, because they are private to that module and G-3 forbids
+    widening its surface. The restatement is only safe while the two agree: if
+    COMP-007 retuned its header fitting, a band drawn on a two-up page and the
+    same band drawn on a single page would start shrinking at different widths,
+    and no AC above would notice — "Puzzle 1 · Easy" never reaches the shrink
+    branch, so the ink comparisons never exercise these numbers.
+
+    Importing the private names is legal here and nowhere else: the test tree
+    is where the project cross-checks a deliberate reimplementation against its
+    original (CLAUDE.md, the ``clues.encode_line`` precedent).
+    """
+    from nonogram.admin import book_pdf_generator
+    from nonogram.export import pdf
+
+    assert (
+        book_pdf_generator._BAND_WIDTH_RATIO,
+        book_pdf_generator._MIN_BAND_FONT_RATIO,
+    ) == (pdf._HEADER_WIDTH_RATIO, pdf._MIN_HEADER_FONT_RATIO)
 
 
 # --------------------------------------------------------------------------

@@ -156,8 +156,21 @@ def admin_app(monkeypatch, tmp_path):
     image_manager_module._image_manager = None
 
 
-def _random_puzzle(rng):
-    width, height = rng.randint(10, 30), rng.randint(10, 30)
+def _random_puzzle(rng, *, small=False, tier=None):
+    """One puzzle of the corpus.
+
+    ``small`` draws the extents from the range where two drawings *do* fit one
+    page — with the single-run clues these grids produce, a pair needs
+    ``(h1 + 1) + (h2 + 1) <= 236.35 / 7`` down and ``w + 1 <= 193.675 / 7``
+    across — and ``tier`` fixes the grade, because a pair is offered only
+    between equal tiers (INV-010). Together they are what puts **two-up pages
+    on both parities** in this corpus: four small puzzles of one tier pair into
+    interior pages 2 and 3, one left-hand and one right-hand.
+    """
+    if small:
+        width, height = rng.randint(10, 20), rng.randint(10, 14)
+    else:
+        width, height = rng.randint(10, 30), rng.randint(10, 30)
     left, top = rng.randrange(width), rng.randrange(height)
     right, bottom = rng.randint(left + 1, width), rng.randint(top + 1, height)
     grid = [
@@ -171,7 +184,10 @@ def _random_puzzle(rng):
         "clues_cols": [list(c) for c in found.columns],
         "width": width,
         "height": height,
-        "difficulty_tier": rng.choice(["easy", "medium", "hard", "Easy", "Hard"]),
+        "difficulty_tier": (
+            tier if tier is not None
+            else rng.choice(["easy", "medium", "hard", "Easy", "Hard"])
+        ),
     }
 
 
@@ -189,10 +205,24 @@ def _random_cover(rng):
 def _random_case(rng, index):
     route = ROUTES[index % len(ROUTES)]  # every route, evenly
     low = 1 if route == "generate-pdf" else 0  # that route refuses an empty book
+    # Every third case is drawn from the small-and-same-tier corner, where the
+    # walk pairs: with extents and tiers both drawn freely a two-up page is
+    # rare (the review's F-006), and one that lands on an *odd* interior page
+    # rarer still, so the parity half of this property went unswept. A pairing
+    # case of 3..4 puzzles takes pages 2 and 3 — both parities — and one of 3
+    # ends with a puzzle printed alone on an odd page beside them.
+    pairing = index % 3 == 1
+    if pairing:
+        tier = rng.choice(["easy", "medium", "hard", "Easy", "Hard"])
+        puzzles = [
+            _random_puzzle(rng, small=True, tier=tier) for _ in range(rng.randint(3, 4))
+        ]
+    else:
+        puzzles = [_random_puzzle(rng) for _ in range(rng.randint(low, 3))]
     return {
         "route": route,
         "title": "Book " + "".join(rng.choice("ABCDEFGHJK") for _ in range(rng.randint(3, 12))),
-        "puzzles": [_random_puzzle(rng) for _ in range(rng.randint(low, 3))],
+        "puzzles": puzzles,
         "cover": _random_cover(rng) if rng.random() < 0.5 else None,
     }
 
@@ -352,7 +382,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             shared = _shared_cell_mm(*group) if len(group) == 2 else None
             for puzzle, drawing in zip(group, drawings):
                 _measured(page_number, puzzle, drawing, shared)
-            seen["two-up page" if len(group) == 2 else "single page"] += 1
+            make_up = "two-up page" if len(group) == 2 else "single page"
+            seen[make_up] += 1
+            # Both slots of a two-up page are centred across the usable width
+            # of *that page's* parity, so the make-up and the parity are
+            # counted together and both combinations are required below.
+            seen[f"{make_up} {'right-hand' if page_number % 2 else 'left-hand'}"] += 1
 
         for index, puzzle in enumerate(_as_the_interior_prints_them(case)):
             page_number = 3 + len(plan) + index  # this puzzle's answer page
@@ -370,11 +405,16 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
     # Both parities really were measured, on both page kinds.
     assert seen["right-hand"] >= 10 and seen["left-hand"] >= 10, seen
     # Both page make-ups are in the corpus, so the page map above is exercised
-    # in both directions rather than being a walk that never pairs.
-    # (Two-up pages are rare here because a case holds at most three puzzles
-    # and draws each one's tier at random; CARD-127's own corpora are where
-    # the walk is swept.)
-    assert seen["single page"] >= 5 and seen["two-up page"] >= 1, seen
+    # in both directions rather than being a walk that never pairs — and a
+    # two-up page was measured on **each parity**, which is the half a corpus
+    # of freely drawn extents and tiers left to chance (CARD-127 review F-006):
+    # a slot centred across the wrong page's usable width would be caught on
+    # one parity only. (CARD-127's own corpora are where the walk's verdicts
+    # are swept; what is swept here is where the drawings land.)
+    assert seen["single page"] >= 5 and seen["two-up page"] >= 5, seen
+    assert seen["two-up page right-hand"] >= 2, seen
+    assert seen["two-up page left-hand"] >= 2, seen
+    assert seen["single page right-hand"] >= 2 and seen["single page left-hand"] >= 2, seen
 
 
 def test_page_numbers_start_at_one():

@@ -59,7 +59,10 @@ puzzle and offers puzzle *i* and puzzle *i+1* to COMP-007's
 equal**. A :class:`~nonogram.export.layout.PairLayout` back means both print on
 one page and the walk moves to *i+2*; ``None`` — a verdict, not an error: the
 pair's largest shared cell is under 7.0 mm — means *i* prints alone and the
-walk moves to *i+1*. The last puzzle of an odd run prints alone. **The walk
+walk moves to *i+1*. An *exception* from that call is not a verdict and is not
+read as one: it is re-raised naming the two puzzles offered, so that a member
+too malformed to measure is named whether or not it happened to have a
+same-tier neighbour. The last puzzle of an odd run prints alone. **The walk
 never reorders**, never looks past the immediate successor for a better
 partner, and never skips a puzzle to keep a later pair intact, so
 concatenating the pages front to back yields the book order exactly (EC-027).
@@ -79,8 +82,10 @@ they are given came from COMP-007.
 
 Each slot carries **its own band**, "Puzzle N · Tier", measured by
 :func:`~nonogram.export.layout.header_band` on that slot and set with the same
-type, the same centring and the same shrink-to-fit rule the export's header
-uses, so a slot's band and a single page's band are the same ink. The upper
+type, the same centring and the same measure-and-shrink fitting the export's
+header uses (:func:`_set_band`, whose docstring records the one step of the
+export's three it does not reproduce and why that step cannot be reached), so
+a slot's band and a single page's band are the same ink. The upper
 slot is the earlier puzzle and its drawing's top edge is the fixed row every
 single puzzle page uses — top margin plus band (FR-032, EC-022).
 
@@ -214,7 +219,11 @@ def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
 #: module writes: "Puzzle 120 · Medium" is about a tenth of a book page's
 #: usable width at the 5 mm the band is set in. They are kept so that a band is
 #: fitted by the same rule wherever it is drawn, rather than running off the
-#: page in the one case nobody measured.
+#: page in the one case nobody measured — and they are pinned equal to
+#: COMP-007's pair by
+#: ``test_a_two_up_band_is_fitted_by_the_exports_own_header_ratios``
+#: (``tests/test_book_pdf_two_up.py``, where importing those private names is
+#: legal), so a retuning on that side cannot leave this side silently behind.
 _BAND_WIDTH_RATIO = 0.9
 _MIN_BAND_FONT_RATIO = 1 / 3
 
@@ -303,6 +312,21 @@ def _set_band(draw: ImageDraw.ImageDraw, band: HeaderBand, text: str, room: int)
     what :func:`~nonogram.export.pdf.render_pages` does for a one-piece header:
     the two must put the same ink in the same pixels, or the upper slot's band
     and the band of the same puzzle printed alone would differ.
+
+    **Two of the export's three fitting steps, not three.** ``pdf._draw_header``
+    measures, shrinks once to :data:`_MIN_BAND_FONT_RATIO` of the band's type
+    size, and then — if the line is *still* too wide at that floor — elides its
+    first piece. The first two steps are above; the third is deliberately not
+    reproduced, and cannot be reached from here: the export elides the first of
+    several pieces because only a picture's name is long enough to need it
+    (:meth:`BookPDFGenerator._banded`), while a band is the one piece
+    :func:`band_identity` composes — "Puzzle 120 · Medium", about a tenth of a
+    book page's usable width at the 5 mm the band is set in, with the number
+    bounded by the book's membership and the tier by ADR-0031's three labels.
+    There is nothing here that could grow into the case the third step exists
+    for, and eliding the only piece would cut the number the answer key is
+    looked up by. Were a band ever to carry a second, unbounded piece, that
+    step would have to come with it.
     """
     if band.height <= 0 or not text:
         return
@@ -503,6 +527,24 @@ def interior_page_count(puzzle_count: int, puzzle_pages: Optional[int] = None) -
     if pages < 0:
         raise ValueError(f"puzzle page count cannot be negative, got {pages}")
     return 1 + pages + (puzzle_count + 1 if puzzle_count else 0)
+
+
+def _named_puzzles(ids: Optional[List[Any]], numbers: Tuple[int, ...]) -> str:
+    """The puzzles of one page, as an aborted export names them.
+
+    One naming rule for every abort :meth:`BookPDFGenerator.interior` can raise
+    — a pair that will not lay out, a page that will not draw — because the
+    owner searches a 120-puzzle book by the id in the message and nothing else
+    (:meth:`BookPDFGenerator.interior`'s ``Raises``).
+
+    ``ids`` is the puzzle ids, parallel to the payloads, so ``numbers`` (1-based
+    print numbers) index into it. Without them — :meth:`puzzle_pages` called on
+    its own, as a test or a future caller may — the print numbers are named
+    instead, which is still the only handle such a caller has.
+    """
+    if ids is None:
+        return ", ".join(f"#{number}" for number in numbers)
+    return ", ".join(repr(ids[number - 1]) for number in numbers)
 
 
 def _pairable_tier(payload: ExportPayload) -> Optional[Tier]:
@@ -882,7 +924,10 @@ class BookPDFGenerator:
         return page
 
     def puzzle_pages(
-        self, payloads: List[ExportPayload], first_page: int = 2
+        self,
+        payloads: List[ExportPayload],
+        first_page: int = 2,
+        ids: Optional[List[Any]] = None,
     ) -> List[PuzzlePagePlan]:
         """The pairing walk over the book order (FR-040, INV-010, EC-027).
 
@@ -911,16 +956,42 @@ class BookPDFGenerator:
         verdict; measuring on the real page is what keeps that true by
         construction rather than by assumption.)
 
+        ``None`` back from :func:`~nonogram.export.layout.compute_pair_layout`
+        is the only verdict it has; an **exception** from it is a malformed
+        member (clue sets that disagree about the grid) or a page spec that is
+        not a book page, and is re-raised as a :class:`RuntimeError` naming the
+        two puzzles the walk offered. It is not turned into "this pair does not
+        pair": ``None`` means *measured and too small*, and a walk that answered
+        it for a member it could not measure would print that member alone and
+        leave the export to fail — or not — somewhere else, under a different
+        name. The failure is named here, where it happened, so that every abort
+        of :meth:`interior` names a puzzle whatever stage it came from.
+
         Args:
             payloads: The drawable puzzles in print order. A payload's
                 ``difficulty`` is the row's stored tier text, and its clue sets
                 are what the pair is fitted from.
             first_page: The interior position of the first puzzle page. Page 1
                 is the guide page, so the default is 2.
+            ids: The puzzle ids, parallel to ``payloads``, for the message of
+                the raise below. Optional: without them a failure names the
+                print numbers instead.
 
         Returns:
             One :class:`PuzzlePagePlan` per page, in print order.
+
+        Raises:
+            ValueError: ``ids`` was given and is not parallel to ``payloads``
+                — naming the wrong puzzle is worse than naming none.
+            RuntimeError: a pair the walk offered could not be laid out. The
+                message names both members (``_named_puzzles``) and keeps the
+                original failure as its ``__cause__``.
         """
+        if ids is not None and len(ids) != len(payloads):
+            raise ValueError(
+                f"ids must be parallel to payloads: {len(ids)} id(s) for "
+                f"{len(payloads)} payload(s)"
+            )
         plan: List[PuzzlePagePlan] = []
         page_number = first_page
         index = 0
@@ -930,15 +1001,21 @@ class BookPDFGenerator:
                 tier = _pairable_tier(first)
                 if tier is not None and tier is _pairable_tier(payloads[index + 1]):
                     second = payloads[index + 1]
-            pair = (
-                None
-                if second is None
-                else compute_pair_layout(
-                    (first.row_clues, first.column_clues),
-                    (second.row_clues, second.column_clues),
-                    self.page_spec(page_number),
-                )
-            )
+            if second is None:
+                pair = None
+            else:
+                numbers = (index + 1, index + 2)
+                try:
+                    pair = compute_pair_layout(
+                        (first.row_clues, first.column_clues),
+                        (second.row_clues, second.column_clues),
+                        self.page_spec(page_number),
+                    )
+                except Exception as e:
+                    raise RuntimeError(
+                        f"puzzle {_named_puzzles(ids, numbers)} could not be "
+                        f"laid out: {e}"
+                    ) from e
             if pair is None:
                 plan.append(PuzzlePagePlan(page_number, (index + 1,)))
                 index += 1
@@ -991,7 +1068,7 @@ class BookPDFGenerator:
             would have taken with every puzzle on a page of its own (FR-040).
 
         Raises:
-            RuntimeError: one puzzle built a payload and then would not draw.
+            RuntimeError: one puzzle built a payload and then would not print.
                 That failure is **not** swallowed — the page plan
                 :func:`interior_page_count` states would no longer describe the
                 file, and a book that is quietly one page short is worse than
@@ -1000,8 +1077,21 @@ class BookPDFGenerator:
                 the raised text a 120-puzzle book can be searched by: the
                 position in ``puzzles`` no longer matches the interior once a
                 puzzle has been dropped, and the interior page number does not
-                point back at a row at all. It is also raised when the page
-                plan and the pages built disagree.
+                point back at a row at all.
+
+                A puzzle can fail at either of two stages, and **both name it**:
+                "puzzle <id> could not be laid out" when the pairing walk
+                offered it to COMP-007 and the measurement itself failed
+                (:meth:`puzzle_pages`; a pair names both members, since the
+                measurement is of the two together), and "puzzle <id> could not
+                be drawn" when its page would not render. Which stage a given
+                malformed row reaches depends on whether it has a same-tier
+                neighbour, so a failure that named the row in one book and not
+                in the other would be the contract holding by luck.
+
+                It is also raised when the page plan and the pages built
+                disagree, and when the walk's plan does not print every puzzle
+                exactly once, in order.
         """
         # The puzzle's own id travels with its payload: it is what the raise
         # below names, and once a member has been dropped nothing else left in
@@ -1029,7 +1119,20 @@ class BookPDFGenerator:
         # many pages the puzzles take is what puts the divider and every
         # answer page where it goes.
         count = len(payloads)
-        plan = self.puzzle_pages([payload for _, payload in payloads])
+        ids = [puzzle_id for puzzle_id, _ in payloads]
+        plan = self.puzzle_pages([payload for _, payload in payloads], ids=ids)
+
+        # The walk's own half of the page-plan tripwire below, and the one the
+        # tripwire cannot make: `interior_page_count(count, len(plan))` takes
+        # the puzzle-page term from the walk's output, so a walk that dropped a
+        # puzzle (or printed one twice) would agree with itself and ship a book
+        # missing a puzzle whose answer page is printed all the same. Checked
+        # against this call's own input instead, before a page is drawn.
+        printed = [number for entry in plan for number in entry.numbers]
+        if printed != list(range(1, count + 1)):
+            raise RuntimeError(
+                f"the page plan prints {printed}, not puzzles 1..{count}"
+            )
         first_answer_page = 3 + len(plan)
 
         # Calculate difficulty counts for guide — over every member of the
@@ -1060,7 +1163,7 @@ class BookPDFGenerator:
                         self._two_up_page(page_plan, [p for _, p in members])
                     )
             except Exception as e:
-                named = ", ".join(repr(puzzle_id) for puzzle_id, _ in members)
+                named = _named_puzzles(ids, page_plan.numbers)
                 raise RuntimeError(f"puzzle {named} could not be drawn: {e}") from e
 
         answer_pages: List[Image.Image] = []
