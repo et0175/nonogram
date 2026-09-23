@@ -2,7 +2,15 @@
 
     For any puzzle, any stored trim and margins and every add route, a puzzle
     whose book cell is below 4.8 mm becomes a member only together with a
-    stored override for its id.
+    stored override for its id; **and** the tile's cell, the add refusal and
+    the finalise count all come from the one computation FR-030's PDF uses, so
+    no two of them can disagree about a puzzle.
+
+The constraint has two halves and this file holds both. The *membership* half
+is the four tests below; the *agreement* half (CARD-123) is the last one, which
+reads the figure off every rendered tile, off the store's own refusal and off
+the finalise summary for the same puzzle on the same book, and asserts the
+three are one number.
 
 The property has three moving parts and this corpus moves all three:
 
@@ -36,14 +44,18 @@ code.
 from __future__ import annotations
 
 import random
+import re
 import uuid
+from contextlib import contextmanager
 
 import pytest
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
+import nonogram.db as db_module
 from nonogram.admin.book_manager import BookManager
 from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
+from nonogram.admin.book_plan import BUCKETS
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.db import sqlite_session_scope
@@ -200,16 +212,26 @@ class Corpus:
         for puzzle_id in list(self.books.get_book(book_id).puzzle_ids):
             self.books.remove_puzzle_from_book(book_id, puzzle_id)
 
+    def cells(self, book_id: str) -> dict[str, float]:
+        """Each corpus puzzle's printed cell on this book, in millimetres.
+
+        ``book_cell_mm(book_page_spec(book), ...)`` — the one computation
+        (EC-021), which is what the agreement half of the property is about.
+        """
+        spec = book_page_spec(self.books.get_book(book_id))
+        return {
+            puzzle_id: book_cell_mm(spec, *self.clues[puzzle_id])
+            for puzzle_id in self.ids
+        }
+
     def below_floor(self, book_id: str) -> dict[str, bool]:
         """Whether each corpus puzzle is below this book's floor.
 
         ``book_cell_mm(book_page_spec(book), ...)`` — the one computation
         (EC-021), which is what the property is about.
         """
-        spec = book_page_spec(self.books.get_book(book_id))
         return {
-            puzzle_id: book_cell_mm(spec, *self.clues[puzzle_id]) < FLOOR_MM
-            for puzzle_id in self.ids
+            puzzle_id: cell < FLOOR_MM for puzzle_id, cell in self.cells(book_id).items()
         }
 
 
@@ -294,17 +316,38 @@ class Tally:
 # --------------------------------------------------------------------------
 
 
-@pytest.fixture
-def admin_app(monkeypatch):
-    """The panel in in-memory mode, so the two routes can be driven for real."""
-    monkeypatch.delenv("DATABASE_URL", raising=False)
+@contextmanager
+def panel_in_mode(monkeypatch, factory):
+    """The whole panel, wired to one storage mode exactly as ``create_app`` is.
+
+    ``factory is None`` is in-memory mode. Otherwise the panel is DB-backed:
+    ``create_app`` resolves the session factory *fresh on every call* — it
+    takes the DB branch when ``DATABASE_URL`` is set and imports
+    ``session_scope`` off ``nonogram.db`` there and then — so pointing that
+    one name at the test's own SQLite scope is enough to get a DB-backed
+    panel, with its store, its book manager and its routes, and no server or
+    Postgres anywhere. The URL itself is never connected to; the scope
+    replaces it before anything opens a session.
+    """
     monkeypatch.setenv("TESTING", "true")
+    if factory is None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+    else:
+        monkeypatch.setenv("DATABASE_URL", "sqlite:///nonogram-test-panel")
+        monkeypatch.setattr(db_module, "session_scope", factory)
+
     from nonogram.admin.app import create_app
 
     image_manager_module._image_manager = None
     book_manager_module._book_manager = BookManager(session_factory=None)
     app = create_app()
     app.config["TESTING"] = True
+    if factory is not None:
+        assert app.puzzle_review_service._session_factory is not None, (
+            "the panel was built in in-memory mode although a session factory "
+            "was handed to it — the db half of this property would be the "
+            "memory half run twice"
+        )
     with app.app_context():
         yield app
     # Both module singletons emptied again, so the books and pictures made
@@ -316,6 +359,31 @@ def admin_app(monkeypatch):
     # store on first use and never rebuilds it.)
     image_manager_module._image_manager = None
     book_manager_module._book_manager = BookManager(session_factory=None)
+
+
+@pytest.fixture
+def admin_app(monkeypatch):
+    """The panel in in-memory mode, so the two routes can be driven for real."""
+    with panel_in_mode(monkeypatch, None) as app:
+        yield app
+
+
+@pytest.fixture(params=["memory", "db"])
+def admin_panel(request, monkeypatch, tmp_path):
+    """The panel in **both** storage modes: ``(mode, app, session factory)``.
+
+    EC-021 is a rule of the aggregate rather than of a backend, and the
+    membership half below is parametrised over both modes for exactly that
+    reason. The agreement half took the in-memory panel alone, which narrowed
+    the claim to one of the two (review cycle 1, F-005); it takes this instead.
+    """
+    factory = (
+        None
+        if request.param == "memory"
+        else sqlite_session_scope(tmp_path, "agreement.db")
+    )
+    with panel_in_mode(monkeypatch, factory) as app:
+        yield request.param, app, factory
 
 
 # EC-021's membership half: every route, every trim, every puzzle. The
@@ -468,6 +536,143 @@ def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_paste_ids_
     assert alone.total >= MIN_DECISIONS and alone.refused_below >= MIN_OF_EACH_VERDICT
     assert alone.admitted_above >= MIN_OF_EACH_VERDICT
     after_override.assert_covered("add-puzzles after a stored override")
+
+
+#: One selection tile, as the rendered tab spells it: its puzzle's id, the cell
+#: it shows (``None`` when it shows none) and whether it carries the below-floor
+#: flag. The markup is CARD-123's and is pinned by
+#: ``tests/test_book_select_floor_tiles.py`` as well.
+_TILE = re.compile(r'<div class="puzzle-tile" data-puzzle-id="([^"]+)"([^>]*)>')
+
+
+def tiles_of(html: str) -> dict[str, tuple[str | None, bool]]:
+    """``{puzzle id: (the cell the tile shows, is it flagged)}`` for one tab."""
+    tiles = {}
+    for puzzle_id, attributes in _TILE.findall(html):
+        shown = re.search(r'data-book-cell-mm="([^"]+)"', attributes)
+        tiles[puzzle_id] = (
+            shown.group(1) if shown else None,
+            'data-below-floor="true"' in attributes,
+        )
+    return tiles
+
+
+def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_tile_refusal_and_count_are_one_number(
+    admin_panel,
+) -> None:
+    """EC-021's agreement half (CARD-123): three readings, one number.
+
+    In **both storage modes**, like the membership half: the constraint is a
+    rule of the aggregate, not of a backend, and a claim made for one mode is
+    not a claim made for the property (review cycle 1, F-005).
+
+    For every corpus puzzle on every corpus trim, the figure is read three
+    times from three places that do not share a line of code between them —
+
+    * the **tile** on the selection tab the puzzle belongs to, as rendered
+      HTML (``GET /book/<id>/select-puzzles?bucket=…``);
+    * the **add refusal** the book store would make about it
+      (``BookManager.below_floor``, which is what the add enforces);
+    * the **finalise count**'s per-puzzle verdict, read off the rendered
+      summary after the whole corpus has joined the book
+      (``GET /book/<id>/finalize``)
+
+    — and the three must agree, to the two decimals the tile prints and on the
+    verdict itself. A disagreement is exactly the failure EC-021 forbids: the
+    owner ticking an override against one number while the store measures
+    another.
+    """
+    mode, app, factory = admin_panel
+    corpus = Corpus(
+        factory,
+        store=app.puzzle_review_service,
+        books=app.book_manager,
+    )
+    client = app.test_client()
+    agreements = 0
+    flagged_seen = 0
+    unflagged_seen = 0
+
+    for index, spec in enumerate(print_specs()):
+        book_id = corpus.book_on(spec, f"Measured {index}")
+        # (1) the one computation, for this book's stored sheet.
+        cells = corpus.cells(book_id)
+        # (2) the store's own refusal, which is what an add enforces.
+        refused_cells = {
+            refusal.puzzle_id: refusal.cell_mm
+            for refusal in corpus.books.below_floor(book_id, corpus.ids)
+        }
+
+        # (3) every tile the owner can actually see, across all four tabs. The
+        # selection step shows one longest-side tab at a time, so the corpus is
+        # read tab by tab and the union must be the whole of it — a puzzle no
+        # tab shows has no tile to agree with anything.
+        tiles: dict[str, tuple[str | None, bool]] = {}
+        for bucket in BUCKETS:
+            response = client.get(
+                f"/book/{book_id}/select-puzzles?bucket={bucket.label}"
+            )
+            assert response.status_code == 200
+            tiles.update(tiles_of(response.get_data(as_text=True)))
+        assert set(tiles) == set(corpus.ids), (
+            f"[{mode}] book {book_id}: the tabs showed {len(tiles)} of the corpus' "
+            f"{len(corpus.ids)} puzzles, so some have no tile at all"
+        )
+
+        for puzzle_id, cell_mm in cells.items():
+            shown, flagged = tiles[puzzle_id]
+            assert shown == f"{cell_mm:.2f}", (
+                f"[{mode}] book {book_id}: the tile for {puzzle_id} shows {shown} mm while "
+                f"book_cell_mm says {cell_mm:.2f} mm — the tile is not the one "
+                f"computation (G-1, EC-021)"
+            )
+            assert flagged == (cell_mm < FLOOR_MM), (
+                f"[{mode}] book {book_id}: the tile for {puzzle_id} at {cell_mm:.2f} mm "
+                f"{'carries no' if cell_mm < FLOOR_MM else 'carries a'} "
+                f"below-floor flag against the {FLOOR_MM:g} mm floor"
+            )
+            assert flagged == (puzzle_id in refused_cells), (
+                f"[{mode}] book {book_id}: the tile and the add refusal disagree about "
+                f"{puzzle_id} — tile flagged={flagged}, store refuses="
+                f"{puzzle_id in refused_cells}"
+            )
+            if flagged:
+                assert f"{refused_cells[puzzle_id]:.2f}" == shown, (
+                    f"[{mode}] book {book_id}: the tile says {shown} mm and the refusal "
+                    f"says {refused_cells[puzzle_id]:.2f} mm for {puzzle_id}"
+                )
+                flagged_seen += 1
+            else:
+                unflagged_seen += 1
+            agreements += 1
+
+        # The whole corpus joins the book, every below-floor id overridden, so
+        # the finalise summary has all 24 members to judge.
+        corpus.books.add_puzzles_to_book(book_id, list(corpus.ids), list(corpus.ids))
+        assert set(corpus.books.get_book(book_id).puzzle_ids) == set(corpus.ids)
+
+        finalised = client.get(f"/book/{book_id}/finalize")
+        assert finalised.status_code == 200
+        counted = re.search(
+            r'data-below-floor-count="(\d+)"', finalised.get_data(as_text=True)
+        )
+        assert counted is not None, "the finalise summary reports no below-floor figure"
+        assert int(counted.group(1)) == len(refused_cells), (
+            f"[{mode}] book {book_id}: the finalise summary counts {counted.group(1)} "
+            f"below the floor while the store refuses {len(refused_cells)} of the "
+            f"same members — the count is not the same computation (EC-021)"
+        )
+        corpus.release(book_id)
+
+    assert agreements >= MIN_DECISIONS, (
+        f"[{mode}] the corpus shrank to {agreements} per-puzzle agreements; EC-021's "
+        f"agreement half is checked over at least {MIN_DECISIONS}"
+    )
+    for kind, count in (("flagged", flagged_seen), ("unflagged", unflagged_seen)):
+        assert count >= MIN_OF_EACH_VERDICT, (
+            f"[{mode}] only {count} {kind} tile(s): below {MIN_OF_EACH_VERDICT}, the "
+            f"agreement would hold vacuously"
+        )
 
 
 def test_PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride_a_removed_puzzle_keeps_no_override(
