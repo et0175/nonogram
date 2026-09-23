@@ -1,0 +1,238 @@
+version: 1
+generated_at: "2026-09-23T15:05:10Z"
+target: "CARD-127 cycle 2 — branch card/127-book-two-up-pages @ ed8d20e + uncommitted fix edits (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-127), target main"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (fix delta in full; puzzle_pages/interior/_named_puzzles/_set_band/page_spec re-read whole)"
+    - "tests/test_book_pdf.py (fix delta in full + TestBookPdf_PagePlanGuardIsLive / TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle)"
+    - "tests/test_book_pdf_two_up.py (fix delta in full + AC-251/AC-252 classes 680-840)"
+    - "tests/property/test_book_export_interior.py (fix delta in full + corpus builder and assertion block 150-412)"
+    - "src/nonogram/export/layout.py (compute_pair_layout 1561-1678, its Raises contract)"
+    - "src/nonogram/admin/book_page_spec.py (book_page_spec 222-283 — reachability of compute_pair_layout's spec raises)"
+    - "src/nonogram/export/pdf.py (_HEADER_WIDTH_RATIO/_MIN_HEADER_FONT_RATIO/_draw_header/_elided)"
+    - "meta/kanban/cards/CARD-127.md (full), meta/review/20260923T141008Z-CARD-127-cycle1.yml (full)"
+    - "~/Documents/nonogram-reviews/CARD-127/CARD-127-interior-page-2.png (rendered two-up page, eyeballed)"
+  not_reached:
+    - "tests/helpers/two_up_ink.py, tests/property/test_book_pairing.py, tests/property/test_book_pdf_geometry.py, tests/test_book_pdf_band.py — unchanged by the fix delta; carried from cycle 1's full read, re-run green"
+    - "e2e suite (one known-red test deselected per the task brief)"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 2373, removed: 119 }
+  fix_delta: { files: 4, added: 354, removed: 38 }
+  max_fan_in:
+    symbol: "BookPDFGenerator.puzzle_pages"
+    callers: 2
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing:
+    - "src/nonogram/admin/app.py"
+    - "src/nonogram/admin/templates/book_finalize.html"
+  unmeasured:
+    mutation_check: "not_applicable — review.mutation_check is opt-in and no meta/kanban/config.yml or meta/.skills.yml exists in this repo, so the flag defaults to false; the static discrimination analysis in 8f was done instead (each new test shown to fail without its fix)."
+    baseline_diff: "not_applicable — no web UI rendered in this diff; the owner render was eyeballed instead."
+
+system_contract:
+  rules_checked: 44
+  holds: 13
+  unchecked: 31
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the fix delta adds no import line at all to src (`git diff -- src/... | grep '^+(import|from)'` returns nothing); TestDependencyBaseline_IsExactlyPillowAndNumpy re-run green on the working tree."
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward (the AST walk over src/nonogram/**/*.py) re-run green on the working tree; the fix adds no import, and the two private export names it now mentions (_HEADER_WIDTH_RATIO, _MIN_HEADER_FONT_RATIO) appear in src only inside comments/docstrings (grep of src shows them imported nowhere outside export/pdf.py)."
+    - "ADR-0022/R1 ✓ holds — the fix's new/changed public surface is puzzle_pages(payloads, first_page, ids) and the ValueError guard; no parameter or field reduces an extent to a scalar size."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the fix delta touches no image sourcing or crop path (scope glob src/nonogram/admin/** does intersect the changed file, so this is a fresh read of the delta, not carried)."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the fix delta parses no --size token."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the fix delta."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter in the fix delta."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no grid repair in the fix delta."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair-choice code in the fix delta."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the fix delta."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the fix delta."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the fix delta adds no density verdict and no doc claiming one."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: the fix computes no difficulty score; _pairable_tier still only reads difficulty.tier_of_record and is unchanged by the delta."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve, no strategies list in the fix delta."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no tier decision and no score in the fix delta."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the fix delta."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the fix delta."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the fix writes no puzzle row; it adds an error wrapper, a plan guard and a naming helper, all read-only over the payload list."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score/recognizability are not read, rendered or compared anywhere in the fix delta."
+    - "ADR-0033/R1 ✓ holds — the fix's new code reads only `payloads[i][0]`/`.row_clues`/`.column_clues`; `ids = [puzzle_id for puzzle_id, _ in payloads]` is a fresh list and no assignment into an input puzzle dict or db write appears in the delta."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition in the fix delta."
+    - "ADR-0036/R1 ✓ holds — tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py re-run green on the working tree; `git diff main...HEAD --name-only` plus `git diff --name-only` list 8 code files, none under src/nonogram/export/** or tests/fixtures/a4_golden/**."
+    - "ADR-0036/R2 ✓ holds — the fix delta adds no geometry: the only new expressions are an exception wrapper around the unchanged compute_pair_layout call, `_named_puzzles` (string formatting), and the `printed != list(range(1, count+1))` list comparison. No mm→px conversion, no cell fitting, no rule placement was added; the page canvas and slot numbers still come from COMP-007's PairLayout."
+    - "ADR-0037/R1 ✓ holds — the band text path is untouched by the fix (only _set_band's docstring changed); TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand::test_neither_band_carries_the_pictures_title re-run green, and the owner render page 2 shows 'Puzzle 1 · Easy' / 'Puzzle 2 · Easy' and no title."
+    - "ADR-0037/R2 ✓ holds — _stroke_drawing is untouched by the fix delta; it still strokes with line.width off COMP-007 and png.INK, and no PageSpec stroke field is written."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by the fix delta."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in the fix delta."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-admission code in the fix delta."
+    - "CON-011 ✓ holds — the fix delta adds no 10/30 literal to src (`git diff -- src/... | grep '^+' | grep -E '\\b(10|30)\\b'` returns nothing) and imposes no extent bound; the card's own corpora still state the range through nonogram.limits (test_book_pdf_two_up.py:49, test_book_pairing.py:47)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the fix delta."
+    - "CON-015 ⚠ unchecked — no_eligible_fact: no bind address or entry point in the fix delta."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: no request door in the fix delta."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the fix derives no clues (the corpus helper _random_puzzle calls clues.compute_clues to build fixtures, which is not a production path)."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no ready-for-export decision in the fix delta."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the fix delta."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan code in the fix delta."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership and the 4.8 mm floor live in book_manager.py, untouched by the branch."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in the fix delta."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-membership change in the fix delta."
+    - "INV-009 ✓ holds — and the fix strengthens it: the walk is still forward-only (index += 1 or 2, emitting index+1[, index+2]) and interior() now refuses, before any page is drawn, a plan whose numbers are not exactly 1..count in order (book_pdf_generator.py:1132-1136). PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly re-run green."
+    - "INV-010 ✓ holds — the pairing predicate is unchanged by the fix (same tier via _pairable_tier, same adjacency, same PairLayout >= 7.0 mm verdict); the only change is that an *exception* from the measurement is now re-raised instead of propagating bare. All 10 named AC tests plus the EC-027 property re-run green (278 tests across the 9 targeted files, exit 0)."
+    - "INV-011 ✓ holds — the answer path is untouched by the fix delta; _answer_page still renders one page per puzzle in puzzle-number order, and the new plan guard makes those numbers provably 1..count. The TestBookAnswerKey_* family re-run green."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change outside draft in the fix delta."
+    - "INV-013 ✓ holds — interior() still starts at the guide page with no cover page; the fix inserts its guard between the walk and `first_answer_page = 3 + len(plan)` and changes no page position. PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage re-run green, now with two-up pages measured on both parities."
+
+root_causes: []
+
+findings:
+  - id: F-101
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 990
+    title: "The new ids-parallelism ValueError is a documented error path with no test"
+    description: |
+      The F-001 fix added `if ids is not None and len(ids) != len(payloads): raise
+      ValueError(...)` and documented it in `puzzle_pages`'s `Raises:` block
+      ("naming the wrong puzzle is worse than naming none"). Nothing exercises it:
+      a grep of tests for "must be parallel" returns nothing, and the only two
+      callers pass either a correctly parallel list (`interior`) or no ids at all
+      (tests/property/test_book_pairing.py:287). By the project's own negative-
+      scenario rule this is a rejection path added without a rejection test, so a
+      future refactor that drops or inverts the guard is invisible to the suite —
+      and the guard exists precisely because the failure it prevents (an id list
+      out of step with the payloads) would name the WRONG puzzle in an abort
+      message, which is the failure mode the whole F-001 fix is about.
+    suggestion: |
+      One test beside the new layout-time cases:
+        with pytest.raises(ValueError, match="parallel"):
+            BookPDFGenerator(book).puzzle_pages([payload], ids=["a", "b"])
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_two_up.py
+    line: 238
+    title: "_ink's new `origin` parameter is dead — no call site ever passes it"
+    description: |
+      The F-005 fix gave `_ink` an `origin: int = 0` parameter and a docstring
+      explaining that it is "the crop's own x on the page, so `left` comes back in
+      page pixels rather than in the strip's". The only caller, `_band_ink`
+      (line 272), crops at `x = 0` and passes nothing, so `origin` is always 0 and
+      the offset arithmetic is a no-op. Harmless today, but it is a parameter whose
+      documented purpose no code demonstrates: a later caller cropping a narrower
+      window would have to guess whether the helper's `left` convention was ever
+      exercised, and the answer is no.
+    suggestion: |
+      Drop the parameter (and the paragraph about it) — `_band_ink` already takes
+      the full trim width, which is what makes `left` a page coordinate — or add
+      the one caller that needs it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 213
+    title: "The F-006 bias shrinks the free-extent sweep by a third with no counter pinning what is left"
+    description: |
+      `pairing = index % 3 == 1` replaces 9 of the corpus's 28 cases with 3-4
+      puzzles drawn from the small corner (`rng.randint(10, 20) x rng.randint(10,
+      14)`), so the freely drawn 10..30 extents now come from 19 cases instead of
+      28. Every floor the test asserts is about routes, covers, parities and page
+      make-ups — none is about extent, so a further narrowing of the free branch
+      (or another bias added later) would erode the large-extent half of this
+      property silently, which is exactly what the project's "assert a minimum case
+      count inside the test so the corpus can't silently shrink" rule exists to
+      prevent.
+      Verified as NOT a skew in the dimensions that are pinned: `index % 3` against
+      `route = ROUTES[index % 4]` has period 12 over 28 cases, so all four routes
+      receive pairing cases (finalise 3, generator 2, download-pdf 2, generate-pdf
+      2) and each keeps at least 4 free cases; `seen["empty book"] >= 1`,
+      `seen["with cover"]/[.. without] >= 5`, `seen["non-empty book"] >= 10` and the
+      route floor all still pass.
+    suggestion: |
+      Count it like the others, e.g. `seen["large puzzle"] += 1` when
+      `max(width, height) > 20` and assert a floor (>= 5) beside the new two-up
+      floors, so the branch the bias took cases away from is pinned too.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3286
+    title: "[out-of-scope, carried from cycle 1] Finalise still shows the un-paired interior page count; CARD-129 must consume the paired one"
+    description: |
+      Unchanged by the fix delta (app.py is outside this card's file scope and the
+      card defers the equality to CARD-129/EC-034). `interior_page_count(len(
+      puzzles_in_book))` is still the one-argument, un-paired plan, so the Finalise
+      screen overstates the real interior by `pages_saved` on every book that pairs.
+      Re-stated here so the dependency stays visible: CARD-129's gutter check must
+      switch to `interior_page_count(count, puzzle_pages)` or read
+      `BookExport.interior_page_count`.
+    suggestion: |
+      No change in this card. Record the dependency on CARD-129's card body.
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/helpers/two_up_ink.py
+    line: 57
+    title: "[out-of-scope, carried from cycle 1] The new helper imports three private names from a sibling test helper"
+    description: |
+      Unchanged by the fix delta (the file is untouched since ed8d20e). Legal in the
+      test tree and the right reuse, but it couples two helpers through names with
+      no stability promise. Accepted by the fix agent as out of scope; re-noted only.
+    suggestion: |
+      Optional: promote _dark/_groups/_longest_runs to public names in page_ink.py.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

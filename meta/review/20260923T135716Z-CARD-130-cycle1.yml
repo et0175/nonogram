@@ -1,0 +1,311 @@
+version: 1
+generated_at: "2026-09-23T13:57:16Z"
+target: "branch card/130-book-step-workflow-reentry @ ff0c14d (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-130), 7 files vs main"
+overall_score: 7.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (book routes 1926-2040, 2258-2340, 2555-2620, 2905-3134, 3134-3300, 3582-3600, door 830-845)"
+    - "src/nonogram/admin/book_manager.py (390-420, 470-485, 1912-1985)"
+    - "src/nonogram/admin/templates/_stepper.html"
+    - "src/nonogram/admin/templates/book_create.html"
+    - "src/nonogram/admin/templates/book_detail.html"
+    - "src/nonogram/admin/templates/book_select_puzzles.html"
+    - "tests/test_book_workflow_steps.py (full)"
+    - "meta/kanban/cards/CARD-130.md, meta/design/components.md (Stepper), src/nonogram/admin/static/admin.css (.stepper, a:focus-visible)"
+    - ".forge-screens/CARD-130/cycle-1 (6 of 16 PNGs read + runtime.log, a11y.log, visual-diff.log, layout-probes.txt)"
+  not_reached:
+    - "src/nonogram/db/models.py beyond the Book column list"
+    - "10 of the 16 screenshots (book-detail-mobile, step2/step5-mobile, books-list-desktop, book-create-mobile, step3/step4-desktop, step1-mobile, books-list-mobile, step2-desktop) — read the 6 that bear on the findings"
+    - "meta/architecture/trace.yml (relied on the card's System contract section, confirmed authoritative by the caller)"
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 968, removed: 25 }
+  max_fan_in: { symbol: "_stepper.html::book_steps", callers: 6 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (120 commits all-time, 55 of them fix/bug — ~46% defect density; the highest-churn file in the change set)"
+  cochange_missing:
+    - "src/nonogram/admin/static/admin.css (4/20 recent app.py commits) — justified: the new anchor state reuses the global `a` / `a:focus-visible` rules, confirmed rendered in step5-finalise-desktop.png"
+    - "src/nonogram/admin/templates/book_finalize.html (3/20) — NOT justified: it carries the 'Step 4 of 4' copy the fifth step made wrong (F-001)"
+    - "src/nonogram/db/models.py (3/20) — deliberately excluded by G-1"
+  unmeasured:
+    mutation_check: "not_applicable — review.mutation_check not enabled; and certification deferred, gating findings present"
+    churn_12mo_window: "tooling_failure — `git log --since=12.months` returned 0 commits for every touched path despite 120 all-time commits on app.py (clock/commit-date skew in this checkout); all-time counts substituted and reported as such"
+    baseline_visual_diff: "no_eligible_fact — visual-diff.log reports no baselines in meta/design/; first UI capture for these screens"
+    a11y_scan: "provider_unavailable — a11y.log: @axe-core/playwright not installed, no node e2e scaffold in this repo; static a11y check done by hand instead"
+
+system_contract:
+  rules_checked: 44
+  holds: 7
+  unchecked: 37
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no manifest in the 7-file diff; no new import beyond stdlib+Flask; tests use stdlib random.Random, no hypothesis (tests/test_book_workflow_steps.py:29,597). TestDependencyBaseline_IsExactlyPillowAndNumpy exists (tests/test_export_pdf.py) and was green in this cycle's full-suite run."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: the rule scopes src/nonogram/web/, untouched. Note (not the verdict): the analogous admin separation was honoured — validation sits in book_manager._refuse_invalid_details, not in edit_book — and the package-wide inward-import guard is green on this head (pytest tests/test_cli.py -k import → 16 passed)."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature, request field or export field in this diff."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code in this diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/solver code in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair-choice code in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam in this diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in this diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no strategies/technique code in this diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no clock/size/density term enters any scorer here."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff."
+    - "ADR-0032/R1 ✓ holds — the storage boundary (add_puzzle) is untouched; the diff's only new write, update_book_details, writes four books columns and no puzzle row (book_manager.py:1959-1978). The test fixture inserts puzzle rows directly, the established convention in tests/test_book_ready_gate.py, not a production path."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is neither read nor written in this diff."
+    - "ADR-0033/R1 ✓ holds — update_book_details writes books.title/description/theme/target_audience/updated_at only (book_manager.py:1959-1978 memory, 1969-1981 DB); no puzzle grid, clues, tier, strategies or even the puzzles.book_id mirror is written."
+    - "ADR-0035/R1 ✓ holds — no status write in the diff; update_book_details leaves status untouched in both storage modes, and TestBookGeneralInfo_EditsExistingBook::test_the_step_edits_a_book_at_any_status (tests/test_book_workflow_steps.py:440-457) asserts status unchanged across the whole BookStatus enum. TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green on this head (pytest tests/test_book_ready_gate.py → 120 passed)."
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout is not called or changed in this diff."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no geometry computed in the admin panel by this diff."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no puzzle-page band code in this diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke weights in this diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the uniqueness check is not reached by this diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the rule scopes the web UI server, not the admin panel; no bind code here."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: the rule scopes the web UI server's cross-site door."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-side validation in this diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff."
+    - "CON-015 ✓ holds — no bind address and no debug flag in the diff; create_app's entry point and run() are untouched. tests/test_admin_binding.py green on this head (16 passed)."
+    - "CON-016 ✓ holds — the new route /book/<id>/edit is registered inside create_app and therefore passes the single @app.before_request door at app.py:835-836 like every other route; @app.template_global() registers a Jinja name, not a route, so book_step_links adds no door bypass. TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on this head (tests/test_admin_binding.py)."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues are neither derived nor stored in this diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness marking in this diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff."
+    - "INV-005 ✓ holds — the plan columns are not among the five update_book_details writes (book_manager.py:1959-1978), and no other write is added; the split/prefill code in book_plan.py is untouched. PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan and TestBookPlan_RejectsSplitNotSummingTo100 exist and ran green in the cycle's full-suite run."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership admission or floor/override code in this diff."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the ready gate is neither called nor changed by this diff."
+    - "INV-008 ⚠ unchecked — check_ref_missing: all three named checks (TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus) are absent from tests/ — CARD-131 has not been built yet. Manual read of this diff found no violation: update_book_details changes four general-info columns and no membership, and book_detail.html's add/remove controls are byte-unchanged, so G-3 is not disturbed."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no ordering code in this diff; the corpus fixture calls the existing move_puzzle_down API and honours its LevelBoundary refusal (tests/test_book_workflow_steps.py:618-625)."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no pairing code in this diff."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer-key code in this diff."
+    - "INV-012 ⚠ unchecked — check_ref_missing: TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft and PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists are all absent from tests/. Manual read: update_book_details is a rename, not an add/remove, and deliberately does not return a non-draft book to draft; INV-012's subject (membership) is untouched by this diff, so the rule is not implicated."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no interior/cover export code in this diff."
+
+root_causes:
+  - id: RC-1
+    title: "The fifth step was added to the macro but the four step pages' own step-count copy was not renumbered"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "The theme vocabulary is stated twice and defaulted once — BOOK_THEMES exists but neither the form nor the edit route uses it"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/templates/_stepper.html
+    line: 26
+    title: "The fifth step makes 'Step N of 4' wrong on all four step pages, three of them unguarded"
+    description: |
+      Adding General info as step 0 grew the printed list to 1..5, but every step
+      page's own prose and breadcrumb still says "of 4". The contradiction is on
+      the same screen, not in a distant file: step5-finalise-desktop.png shows
+      "Step 4 of 4 for Winter Animals" above a stepper whose step 5 "Finalise &
+      export" is marked current; step3-puzzle-selection-mobile.png shows
+      "Step 2 of 4" above a stepper marking step 3 current.
+
+      Stale copy, by file:
+        - book_setup_print.html:12        "Step 1 of 4"       (GUARDED by G-4 — CARD-118)
+        - book_select_puzzles.html:7,24   "· step 2", "Step 2 of 4"   (NOT guarded — and this
+                                          card edited this very file, adding the Steps card at :31-36)
+        - book_arrange_puzzles.html:7,13  "· step 3", "Step 3 of 4"   (NOT guarded)
+        - book_arrange_puzzles.html:122   "Go back to step 2"  (now step 3)
+        - book_arrange_puzzles.html:141   "worked out in step 4" (now step 5)
+        - book_finalize.html:6,12         "· step 4", "Step 4 of 4"   (NOT guarded)
+      Only book_create.html:19 was updated ("Step 1 of 5").
+
+      The card's Worktree notes record the choice to leave all four alone so they
+      stay "consistent with each other". Judged against the rendered screens that
+      reasoning does not hold: they are not consistent with the stepper standing
+      beside them on every one of those pages, which is the comparison the reader
+      actually makes. This is NOT a [BLOCKER] guardrail conflict — every AC of this
+      card is deliverable without touching a guarded file, so nothing was blocked —
+      but it is a gap the card should have closed for the three files it could.
+      Reinforced by history: book_finalize.html is a co-change peer of app.py
+      (3 of the last 20 app.py commits) and is absent from this diff.
+    suggestion: |
+      Renumber the three UNGUARDED templates in this card: book_select_puzzles.html:7,24;
+      book_arrange_puzzles.html:7,13,122,141; book_finalize.html:6,12 — "of 4" → "of 5",
+      "· step N" → "· step N+1", "step 2" → "step 3", "step 4" → "step 5".
+      book_setup_print.html:12 is G-4's (CARD-118): hand it over in that card's notes or
+      open a one-line follow-up card, rather than leaving all four wrong. Better still,
+      derive the number from the same list the macro holds so the copy cannot go stale again.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2016
+    title: "The edit route's refusal path is untested and silently discards what the owner typed"
+    description: |
+      edit_book's `except ValueError` branch (app.py:2026-2027) flashes and falls
+      through to `render_template("book_create.html", book=book)` at :2035 — and
+      book_create.html fills every field from `book.metadata.*` (lines 39, 47, 54, 62),
+      never from `request.form`. So a refused submission re-renders the STORED book
+      and throws away everything the owner typed in the other three fields.
+
+      This is reachable from a browser: HTML `required` does not reject a
+      whitespace-only value, and `_refuse_invalid_details` (book_manager.py:404-411)
+      rejects `"   ".strip() == ""`. Type "   " into Book title plus a rewritten
+      Description → error flash, description gone.
+
+      It also contradicts the convention this repo's sibling step already established
+      under review: setup_print's docstring (app.py:2265-2267) records "the page
+      re-renders with everything the owner submitted and only the failing field(s)
+      marked invalid" as CARD-120 review F-003.
+
+      And the branch has zero test coverage. tests/test_book_workflow_steps.py tests
+      refusal only at the manager level (test_a_refused_field_stores_nothing, :489-504);
+      no test posts an invalid submission to /book/<id>/edit at all (grep of "edit" in
+      the file: lines 54, 398, 415, 447 — all valid submissions or GETs). A new error
+      path with no negative-scenario test is exactly what Step 8f's static check names.
+    suggestion: |
+      Carry the submission back: pass `request.form` (or a `submitted` dict) into
+      book_create.html on the refusal path and prefer it over `book.metadata.*` when
+      present, as setup_print does. Add a route-level test: POST title="   " to
+      /book/<id>/edit, assert 200 (not a redirect), assert the stored four fields are
+      unchanged, and assert the re-rendered form still carries the submitted description.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_create.html
+    line: 53
+    title: "BOOK_THEMES was introduced to stop theme drift, then not used by the form"
+    description: |
+      book_manager.py:393-395 adds `BOOK_THEMES = ("christmas", "halloween", "easter",
+      "valentine", "generic")` with the comment "Named here rather than repeated per
+      caller so that creating a book and revising one cannot come to disagree".
+      The diff then rewrote book_create.html's five static <option> tags into a loop
+      over a hand-written literal list of the same five values — a second statement of
+      the vocabulary, in the file the constant was meant to protect. Fan-in of
+      BOOK_THEMES is 1: only `_refuse_invalid_details` reads it. Add a sixth theme to
+      the domain and the form silently cannot offer it; remove one and the form offers
+      a value the domain refuses.
+    suggestion: |
+      Expose the vocabulary to the template — a `@app.template_global()` beside
+      book_step_links, or `themes=BOOK_THEMES` passed from create_book/edit_book — and
+      loop over it, keeping the display labels in a single mapping. Then BOOK_THEMES
+      has the two callers its docstring claims.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2022
+    title: "A theme-less edit submission silently rewrites the stored theme to 'christmas'"
+    description: |
+      `theme=request.form.get("theme", "christmas")` at app.py:2022 mirrors create_book
+      at :1982, which is defensible on creation (there is nothing to lose). On an EDIT it
+      is a silent overwrite: any submission that omits the field — a programmatic POST, a
+      future partial form, a disabled <select> — quietly resets an easter/valentine book
+      to christmas instead of being refused. `_refuse_invalid_details` would reject a
+      `None` theme loudly; the default is what prevents that.
+    suggestion: |
+      In edit_book use `request.form.get("theme")` with no default and let
+      _refuse_invalid_details refuse a missing theme, as it already does for the other
+      three fields (which are passed without defaults on the same call).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/_stepper.html
+    line: 26
+    title: "components.md's Stepper entry is stale — still 'steps 1-4', no linked state"
+    description: |
+      meta/design/components.md:96-100 reads "Used by: book scaffolding steps 1–4" and
+      lists three states (done · current · upcoming). The macro now renders five steps
+      and a second axis the entry does not mention: each non-current step is an anchor
+      when a link exists for it and plain text when it does not (/book/create). The
+      design system is the card's own declared source of visual truth (Design context:
+      "Stepper (reuse — one macro … linked for every step on revisit)"), so the
+      inventory entry should move with the component.
+    suggestion: |
+      Update meta/design/components.md:96-101 — five steps; states done · current ·
+      upcoming; note that every non-current step renders as a link when the page has a
+      book (and as plain text on /book/create), reusing the global `a` / `a:focus-visible`
+      rules rather than a stepper-specific style.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/templates/book_detail.html
+    line: 30
+    title: "The detail page's stepper shows no progress at all — five identical upcoming links"
+    description: |
+      `book_steps()` with current=None yields neither is-done nor is-current, so a
+      pdf_generated book's detail page renders five identical teal links
+      (book-detail-desktop.png). The reasoning in the card is sound — the page is the
+      book, not one of its steps — but it means the one screen an owner returns to is
+      also the only one that tells them nothing about how far the book has got, while
+      every step page does (step5-finalise-desktop.png: four green done circles).
+      components.md's done state exists for exactly this.
+    suggestion: |
+      Consider a third rendering for this page: all five linked, with the steps the book
+      has passed still marked is-done (derivable from status, or from whether a plan /
+      membership / cover exists). If the answer is "no", the choice is worth one line in
+      components.md so the next card does not re-litigate it.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

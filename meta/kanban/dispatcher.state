@@ -6,6 +6,10 @@ run:
   wave: 25
   max_concurrent: 5
 merged:
+  - card: CARD-138
+    merge_commit: cc64540
+    score: 9.0
+    owner_check: pending   # submit one Medium batch, watch the button and the note
   - card: CARD-118
     merge_commit: 2782887
     score: 8.5
@@ -19,18 +23,18 @@ active:
   - card: CARD-127
     branch: card/127-book-two-up-pages
     worktree: ../PythonProject4-CARD-127
-    phase: review
-    review_cycle: 1
+    phase: ac_check
+    review_cycle: 2
   - card: CARD-130
     branch: card/130-book-step-workflow-reentry
     worktree: ../PythonProject4-CARD-130
     phase: review
-    review_cycle: 1
+    review_cycle: 2
   - card: CARD-138
     branch: card/138-batch-difficulty-target
     worktree: ../PythonProject4-CARD-138
-    phase: review
-    review_cycle: 1
+    phase: commit
+    review_cycle: 2
 serialized:
   # Overlap 0.33 on src/nonogram/admin/book_pdf_generator.py (>= max_overlap 0.3).
   # CARD-134 starts when CARD-127 is merged; the answer key counts pages after pairing.

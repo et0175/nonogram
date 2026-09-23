@@ -1,0 +1,259 @@
+version: 1
+generated_at: "2026-09-23T14:56:03Z"
+target: "card/138-batch-difficulty-target @ 6b48ace + uncommitted fix round, vs main (src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py, src/nonogram/admin/templates/batch_create.html, tests/test_batch_difficulty_target.py)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (batch-create route, _render_batch_step_one, jinja globals, imports)"
+    - "src/nonogram/admin/batch_generator.py (full: create_batch, _generate_random_batch, note block)"
+    - "src/nonogram/admin/templates/batch_create.html (full, plus rendered output in both loaded_images states)"
+    - "tests/test_batch_difficulty_target.py (full, 765 lines)"
+    - "src/nonogram/difficulty.py (Tier, label, band, classify, parse_tier)"
+    - "src/nonogram/orchestrator.py (generate_batch signature, budget/not_attempted machinery)"
+    - "src/nonogram/db/models.py (Batch.error_message column type)"
+    - "src/nonogram/errors.py (UnsupportedDifficulty)"
+    - "main:src/nonogram/admin/batch_generator.py note block (byte-identity baseline)"
+    - "main:src/nonogram/admin/templates/batch_create.html (rendered; Touches-correction premise)"
+    - "meta/design/brief.md, meta/design/components.md (Step 8g static)"
+  not_reached:
+    - "src/nonogram/solver/**, src/nonogram/export/**, src/nonogram/admin/book_*.py, src/nonogram/web/** (outside the declared file scope)"
+    - "rendered UI: no screenshots captured, app not started (not a UI card by the pipeline's test; no Makefile run target)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 1029, removed: 14 }
+  max_fan_in: { symbol: "BatchGenerator.create_batch", callers: 2 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (120 commits/12mo)"
+    - "src/nonogram/admin/batch_generator.py (26 commits/12mo, 14 fix-shaped)"
+  cochange_missing:
+    - "src/nonogram/orchestrator.py (7/26 co-changes; deliberately absent — generate_batch already takes difficulty_tier)"
+    - "src/nonogram/admin/puzzle_review.py (7/26 co-changes; deliberately absent — add_puzzle already stores the puzzle's own tier)"
+  unmeasured:
+    learned_false_positives: "provider_unavailable — .claude/fix-suppress.yaml and ~/.forge/retro-signals.yml both absent"
+    audit_findings: "provider_unavailable — meta/audit/ absent"
+    positioning: "provider_unavailable — meta/business/positioning.md absent"
+    impact_report: "provider_unavailable — meta/impact/ absent"
+
+system_contract:
+  rules_checked: 47
+  holds: 14
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — grep over the scoped diff's added lines finds no new third-party import: batch_generator adds only `difficulty` to its existing `from nonogram import orchestrator`; app.py adds `MIN_RANDOM_BATCH_COUNT` and `UnsupportedDifficulty` from in-package modules. pyproject.toml is not among the 4 changed files."
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: the rule is scoped to src/nonogram/web/, which this diff does not touch (the layering guard tests/test_cli.py::test_every_import_in_the_package_points_inward ran green and unmodified, but that is evidence about admin/, not a verdict on this rule)."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature, request field or export field on this diff carries a grid extent; the new `sizes` form field feeds create_batch's existing list[int] parameter unchanged."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting, cropping or ink-bounding-box code on this diff (image mode is out of the card's scope)."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token parsing on this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/recovery code on this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter or MAX_RETRY_ATTEMPTS reference on this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code on this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code on this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair policy code on this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: grep of the scoped diff's added lines for `density` returns zero hits; validate_density is not on this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: same grep — the batch path this diff changes adds no density verdict and no documentation claiming one."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no scoring code on this diff; the admin passes a tier name, never a score."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve or strategies derivation on this diff; batch_generator.py:465 passes `list(puzzle.strategies)` through unchanged from main."
+    - "ADR-0029/R3 ✓ holds — the only clock on this diff is the *batch* budget (orchestrator's pre-existing `monotonic`/`budget_seconds`, injected by the new test at tests/test_batch_difficulty_target.py:204-215); no difficulty score is computed anywhere in the 4 changed files, and no elapsed_seconds term is introduced."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver/overlap-mask code on this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution code on this diff."
+    - "ADR-0031/R1 ✓ holds — independent re-derivation, not read off the notes: an ast walk of every src/nonogram/**/*.py Compare node whose operands name a score/cutoff against a numeric constant returns 4 hits, all pre-existing and all outside src/nonogram/admin/ (analysis/quality_metric.py:268,270; analysis/strategy_counter.py:138,140); nothing under admin/ compares a score to anything. tests/test_difficulty_tiers.py (the AST guard) is unmodified and green. The rendered form offers exactly 3 tier options (verified by rendering /batch/create off the worktree src), all sourced from `Tier`."
+    - "ADR-0031/R2 ✓ holds — no tier named `guess` is introduced: `difficulty_tiers=[(tier.value, tier.label) for tier in Tier]` (app.py:1135) iterates the 3-member enum, and the rendered select carries easy/medium/hard only. STRATEGY_GUESS is not referenced on this diff."
+    - "ADR-0031/R3 ✓ holds — no migration and no tier rewrite: `git diff main --stat -- src tests` lists 4 files, none under src/nonogram/db/; batch_generator.py:458 still stores `difficulty_tier=puzzle.difficulty_tier` verbatim from main; the requested tier travels as a function argument precisely so the `batches` table needs no column."
+    - "ADR-0032/R1 ✓ holds — the storage boundary is untouched: batch_generator.py:449-478 (the `add_puzzle` call and its `except NotUniquelySolvable` branch) is byte-identical to main, and tests/test_admin_uniqueness_boundary.py is unmodified and green. No new admin path writes a puzzle row."
+    - "ADR-0032/R2 ✓ holds — `quality_score=None` and `recognizability=None` are still the values passed at batch_generator.py:459-460, unchanged from main; the diff adds no quality comparison and no order comparison on a score."
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book-assembly code on this diff (G-3 glob src/nonogram/admin/book_*.py is clean)."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition on this diff."
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no compute_layout or PageSpec code on this diff."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no page-geometry code on this diff."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book puzzle-page rendering on this diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke-width code on this diff."
+    - "CON-005 ✓ holds — the solver is untouched: no file under src/nonogram/solver/ is in the 4-file diff, and the uniqueness proof a candidate carries still comes from orchestrator.generate (batch_generator.py:503-513 only changes which tier is requested, not how uniqueness is decided)."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the web UI server is not on this diff; grep of added lines for `0.0.0.0`/`host=`/`app.run` returns zero hits."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no Sec-Fetch-Site/Origin handling on this diff."
+    - "CON-011 ✓ holds — the new size field renders `min=\"10\" max=\"30\"` from the MIN_SIZE/MAX_SIZE jinja globals (verified by rendering the page), and create_batch's `not all(MIN_SIZE <= s <= MAX_SIZE for s in sizes)` check at batch_generator.py:243 is unchanged from main. No new literal side bound is introduced."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-ratio guard code on this diff."
+    - "CON-015 ✓ holds — grep of the scoped diff's added lines for `0.0.0.0`, `host=` and `app.run` returns zero hits; no bind address is named in any of the 4 changed files."
+    - "CON-016 ✓ holds — no `@app.route` is added by this diff (grep of added lines: zero hits); the new form posts to the pre-existing `POST /batch/create`, which sits behind the same unchanged door. tests/test_admin_serving.py is unmodified and green."
+    - "INV-001 ✓ holds — clues are still the encoding of the stored grid: batch_generator.py:451-453 passes `puzzle.grid`, `puzzle.clues.rows`, `puzzle.clues.columns` from one aggregate, byte-identical to main; the diff derives no clues of its own."
+    - "INV-002 ✓ holds — the uniqueness gate before storage is unchanged, and the diff deliberately keeps the store-refusal note un-tiered precisely because that path is an INV-002 breach rather than a tier shortfall (batch_generator.py:547-552 comment + :653-661 sentence, pinned by TestBatchDifficulty_TheClockShortfallNamesTheTierToo::test_the_store_refusal_sentence_stays_untiered)."
+    - "INV-003 ✓ holds — no retry or resample bound is changed: the diff contains no reference to MAX_RETRY_ATTEMPTS or to the resample bound, and the comment at batch_generator.py:508-510 states the bound is the generator's and untouched from this side. tests/test_batch_abandonment.py is unmodified and green (ran it)."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book distribution plan code on this diff."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no book membership or cell-floor code on this diff."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no book ready-gate code on this diff."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book confirmation code on this diff."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book ordering code on this diff."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no book pairing code on this diff."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer-key code on this diff."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no book status/membership code on this diff."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no book interior/cover export code on this diff."
+
+root_causes:
+  - id: RC-1
+    title: "A default or bound stated twice — the shape MIN_RANDOM_BATCH_COUNT was introduced to remove, applied to the count floor but not to the size default"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/batch_create.html
+    line: 180
+    title: "querySelector('form') binds the clear-images form once pictures are loaded"
+    description: |
+      Pre-existing on main and NOT a regression from this card — but the fix
+      round added a comment (lines 194-198) reasoning about exactly this
+      selector, so this is the cheapest moment to notice it.
+
+      Rendering the template with a non-empty `loaded_images` gives the form
+      order: /batch/clear-images, /batch/from-images, /batch/create. So
+      `document.querySelector('form')` (line 180) matches the "Start over"
+      form, not the upload form. Consequences in that state: pressing
+      "Start over" runs getSelectedFiles(), finds 0 files, calls
+      e.preventDefault() and alerts "Select at least one image file …" — the
+      button never works; and the upload form loses its guard entirely.
+
+      The new comment's own claim ("that one matches the first form on the
+      page, never this one") is literally true and the new listener is
+      correctly bound by id, so nothing this card added is broken.
+    suggestion: |
+      Give the upload form an id (e.g. `id="imageUploadForm"`) and change line
+      180 to `document.getElementById('imageUploadForm')`, matching the
+      pattern the card just introduced for the random form.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/batch_create.html
+    line: 119
+    title: "The size field's default 20 is a second copy of the route's own default"
+    description: |
+      The card removed one two-copies-of-a-number defect (the count floor, now
+      MIN_RANDOM_BATCH_COUNT, read by both the validation at
+      batch_generator.py:239 and the template's `min`) and left the adjacent
+      one in place: the new size field hard-codes `value="20"` while the route
+      hard-codes the same default independently at app.py:1074
+      (`request.form.get("sizes", "20")`). The count field, by contrast, reads
+      `value="{{ default_count }}"` from DEFAULT_BATCH_COUNT.
+
+      Low impact today (both say 20) — it is the shape, not the current
+      divergence, that the card's own comments call a past defect.
+    suggestion: |
+      Add a DEFAULT_BATCH_SIZE constant beside DEFAULT_BATCH_COUNT in app.py,
+      use it for both the route's fallback and a `default_size_cells` template
+      kwarg, exactly as default_count already works.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/batch_generator.py
+    line: 34
+    title: "The MIN_RANDOM_BATCH_COUNT comment describes intra-card history as repo history"
+    description: |
+      batch_generator.py:33-36 and the mirroring comment at app.py:951-955 say
+      the bound "was a bare 10 here *and* a bare `min=\"10\"` in
+      batch_create.html". Verified against main: `git show
+      main:src/nonogram/admin/templates/batch_create.html | grep -c 'min="10"'`
+      returns 0, and `git log -S'min="10"' -- …/batch_create.html` attributes it
+      to 6b48ace — this card's own first commit. The duplicate existed for one
+      cycle inside this card, never on main.
+
+      Harmless to behaviour; it will mislead a later reader who goes looking
+      for the defect in the repo's history and cannot find it.
+    suggestion: |
+      Reword to name the actual origin — "the form this card first added wrote
+      the bound out beside the generator's own" — keeping the design rationale
+      (one name, two readers) intact.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 1105
+    title: "A flashed error discards the operator's difficulty, count and size"
+    description: |
+      On a refused request (out-of-range count, unsupported tier) the route
+      flashes and falls through to `_render_batch_step_one()`, which renders
+      the random form from defaults only: Any selected, count reset to
+      DEFAULT_BATCH_COUNT, size reset to 20. The image half of the same page
+      does better — it restores default_size and quality_filter from the
+      session (app.py:1122-1123).
+
+      Mild: HTML5 `min`/`max` catch most bad counts client-side, and the tier
+      select cannot produce an unsupported value unless the request is forged.
+    suggestion: |
+      Persist the three random-form fields in the session the way
+      batch_default_size / batch_quality_filter already are, and pre-select
+      them on re-render.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/batch_generator.py
+    line: 27
+    title: "MIN_RANDOM_BATCH_COUNT's docstring cites a sidebar sentence about pictures"
+    description: |
+      The constant's docstring justifies the floor with "a book wants variety
+      (the panel's own sidebar says so)". The sidebar sentence it points at is
+      batch_create.html:156 — "Up to 50 pictures per batch. Ten or more gives a
+      book some variety." — which is inside the image flow's Workflow card and
+      is about pictures, not about the random-batch floor. The citation
+      attaches the constant's rationale to a sentence about a different thing,
+      and that sentence is now the only remaining prose copy of "ten" on the
+      page.
+    suggestion: |
+      Either drop the sidebar citation from the docstring, or move/duplicate
+      the variety sentence so the random card states its own floor from
+      MIN_RANDOM_BATCH_COUNT.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

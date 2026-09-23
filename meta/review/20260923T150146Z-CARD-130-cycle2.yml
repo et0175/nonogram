@@ -1,0 +1,308 @@
+version: 1
+generated_at: "2026-09-23T15:01:46Z"
+target: "CARD-130 cycle 2 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-130, branch card/130-book-step-workflow-reentry; full working-tree state (commit ff0c14d + uncommitted cycle-1 FIX) vs merge-base 89facec"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py
+    - src/nonogram/admin/book_manager.py
+    - src/nonogram/admin/templates/_stepper.html
+    - src/nonogram/admin/templates/book_create.html
+    - src/nonogram/admin/templates/book_detail.html
+    - src/nonogram/admin/templates/book_select_puzzles.html
+    - src/nonogram/admin/templates/book_arrange_puzzles.html
+    - src/nonogram/admin/templates/book_finalize.html
+    - src/nonogram/admin/templates/book_setup_print.html (read only, G-4)
+    - tests/test_book_workflow_steps.py
+    - tests/test_cli.py (import-guard scope)
+    - meta/design/components.md
+    - meta/kanban/cards/CARD-130.md
+    - .forge-screens/CARD-130/cycle-2/ (18 PNG, runtime.log, visual-diff.log, a11y.log, layout-probes.txt)
+  not_reached:
+    - src/nonogram/admin/static/admin.css (stepper link styling judged from the rendered screenshot, not the stylesheet)
+    - src/nonogram/admin/templates/base.html
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 1211, removed: 39 }
+  max_fan_in: { symbol: "_stepper.html book_steps", callers: 6 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (125 commits/12mo across the three code files, 60 fix-flavoured — high churn, high defect density)"
+    - "src/nonogram/admin/book_manager.py"
+  cochange_missing:
+    - "src/nonogram/admin/static/admin.css (co-changed with app.py 6/40 — deliberately absent: .stepper already styles is-done/is-current and batch_steps has rendered anchors since the design system; confirmed visually in book-detail-desktop.png)"
+    - "src/nonogram/db/models.py (co-changed 5/40 — correctly absent: G-1 forbids a schema change and none is needed)"
+  unmeasured:
+    mutation_check: "provider_unavailable — one F-001 mutant was applied to book_finalize.html and the sandbox denied the pytest run; the mutation was restored and the whole-diff sanity check re-verified byte-for-byte before continuing"
+
+system_contract:
+  rules_checked: 44
+  holds: 10
+  unchecked: 34
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is byte-identical to the merge-base (git diff 89facec -- pyproject.toml is empty); the only import added anywhere in the diff is `from .book_manager import BOOK_THEMES` (app.py:57), an intra-package name."
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ is untouched by the diff; the analogous adapter rule was kept on the admin side: edit_book (app.py:2013) parses the form and delegates every rule to book_manager._refuse_invalid_details. Checker test_every_import_in_the_package_points_inward walks all of src/nonogram/**/*.py (tests/test_cli.py:765), so it covers the changed admin modules, and it was green in the caller's full-suite run on this tree (4777 passed)."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature, request field or export field in the diff carries a grid extent."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter code in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair-choice code in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no pipeline stage in the diff makes a density verdict."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no strategies/technique code in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty score inputs in the diff."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle and the storage boundary are untouched; update_book_details stores no puzzle."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is neither read nor written by the diff."
+    - "ADR-0033/R1 ✓ holds — the one new domain write, BookManager.update_book_details (book_manager.py:1915), assigns exactly Book.title/description/theme/target_audience/updated_at in both storage modes and touches no puzzles row, no grid, clues, tier, strategies or book_id mirror; membership stays by id. Re-derivable: grep the method body — the only attribute targets are book_row.title/description/theme/target_audience/updated_at (DB mode) and book.metadata.* (legacy mode)."
+    - "ADR-0035/R1 ✓ holds — no status transition is added, removed or widened; update_book_details deliberately leaves status alone, and TestBookGeneralInfo_EditsExistingBook::test_the_step_edits_a_book_at_any_status asserts the status is unchanged across the whole BookStatus enum after a successful edit."
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout is untouched."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: the diff computes no page geometry."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book puzzle-page rendering in the diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke/PageSpec code in the diff; book_proof.py untouched under G-4."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is untouched."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: nonogram.web's server is untouched."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: nonogram.web's cross-origin door is untouched."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-side validation in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard code in the diff."
+    - "CON-015 ✓ holds — no bind address, host argument or debug flag appears in the diff; the admin entry point is untouched."
+    - "CON-016 ✓ holds — the door is a blanket @app.before_request (_refuse_what_this_panel_should_not_serve, app.py:835) that runs before every view and carries no endpoint allowlist, so the new /book/<id>/edit route inherits both doors by construction; verifiable by re-reading app.py:835-899 (single before_request registration in the module)."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding is untouched."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export readiness path is untouched."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "INV-005 ✓ holds — the distribution plan is neither read nor written by the diff; update_book_details writes four Book columns and updated_at only, and the G-2 corpus (TestBookSteps_RevisitingDiscardsNothing, 24 seeded books) re-reads each book after every step GET and finds it unchanged."
+    - "INV-006 ✓ holds — no membership write is added; add_puzzles_to_book and the 4.8 mm floor/override path are untouched, and the corpus test proves puzzle_ids are identical after visiting every step twice."
+    - "INV-007 ✓ holds — the readiness gate is untouched; the diff changes neither membership nor status, so no cell can drift out of its +/-3pp tolerance through it."
+    - "INV-008 ⚠ unchecked — check_ref_missing: all three named tests (TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus) are absent from tests/ (grep -rl over tests/ returns nothing for each). Manual read of this diff found no change to published-book membership; it does link the puzzle-selection step from a published book's detail page for the first time, which widens discovery of a change path whose confirmation is CARD-131's and does not yet exist — deliberate per AC-225/G-3."
+    - "INV-009 ✓ holds — no ordering code in the diff; TestBookSteps_RevisitingDiscardsNothing compares tuple(book.puzzle_ids) and every custom title before and after each book's five step GETs plus its detail page, visited twice in a shuffled order, over 24 seeded books."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: the pairing rule lives in the PDF generator, untouched under G-4."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer-key construction is untouched."
+    - "INV-012 ⚠ unchecked — check_ref_missing: none of the six named tests exist in tests/ (verified by grep -rl per name: PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership). Manual read: update_book_details deliberately does not return a non-draft book to draft, which is correct because INV-012 governs membership, not naming; the route-level test asserts status is preserved at every status."
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior/cover PDF assembly is untouched."
+
+root_causes:
+  - id: RC-1
+    title: "Step numbers and counts still written by hand in the layers the F-001 fix did not reach"
+    finding_ids: [F-102, F-103, F-104]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_create.html
+    line: 49
+    title: "The new refusal screen leaves the rejected field unmarked (FormField 'invalid' state missing)"
+    description: |
+      The F-002 fix added a refusal render path to book_create.html in edit mode, but
+      renders no `is-invalid` class, no `aria-invalid="true"` and no `aria-describedby`
+      on the field `_refuse_invalid_details` rejected. meta/design/components.md's
+      FormField entry lists "invalid (danger border + hint)" as a required state, the
+      card's own Design context names "FormField (reuse on general-info edit)", and the
+      sibling step page already implements exactly this pattern
+      (book_setup_print.html:104-106, 113-116, 140-144: `plan_error_fields` ->
+      `is-invalid` + `aria-invalid="true"` + `aria-describedby="plan-error"`).
+
+      The harm is visible in the cycle-2 evidence screenshot
+      .forge-screens/CARD-130/cycle-2/step1-general-info-refused-desktop.png: the
+      rejected title was three spaces, so the carried-back value renders as a visually
+      empty, unmarked input, and the only cue is a page-level banner with no
+      programmatic association to the control. A screen-reader user gets no link
+      between the error and the input at all; the automated axe scan that would have
+      caught this did not run (a11y.log: @axe-core/playwright not installed).
+    suggestion: |
+      Follow setup_print's pattern: have _refuse_invalid_details (or a thin wrapper in
+      edit_book) name the offending field the way _PlanFormError names plan fields,
+      pass `error_fields` to the template alongside `submitted`, and mark the input
+      with `is-invalid` + `aria-invalid="true"` + `aria-describedby` pointing at the
+      flash banner's id. No new component or CSS is needed — .form-control.is-invalid
+      already exists.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2289
+    title: "Four route docstrings still misnumber the workflow (Step 1..4 of scaffolding)"
+    description: |
+      setup_print (app.py:2289 "Step 1 of scaffolding"), select_puzzles_for_book
+      (2936 "Step 2"), arrange_puzzles_in_book (3165 "Step 3") and finalize_book
+      (3269 "Step 4") are now steps 2, 3, 4 and 5 of five. Same root cause as F-001
+      — a hand-written number that does not move with BOOK_STEPS — one layer below
+      the screens, in a file this card edits. Developer-facing only, so not a screen
+      contradiction, but it is exactly the drift the fix set out to end.
+    suggestion: "Renumber the four docstrings, or drop the ordinal and name the step ('the print-setup step of scaffolding')."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_create.html
+    line: 32
+    title: "Create-mode lede still hard-codes 'the four steps that follow'"
+    description: |
+      The create-mode branch reads "the puzzles, order and print size come in the four
+      steps that follow". It is correct today (four steps do follow general info) but
+      it is a hand-written count that a sixth step would silently falsify — the exact
+      condition the F-001 fix claims to have eliminated ("a sixth step now moves the
+      prose with it"). No test covers it: PROSE_CHECKED only reaches the edit-mode
+      lede, and STEP_PROSE only matches "Step N of M".
+    suggestion: "Derive it, e.g. `{{ stepper.book_step_count()|int - 1 }} steps that follow` — which would also give book_step_count() its first caller (F-104)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/_stepper.html
+    line: 40
+    title: "book_step_count() has zero callers"
+    description: |
+      The fix introduced `book_step_count()` and advertised it in the card's Handover
+      and in components.md, but no template calls it (grep over src/ and tests/: the
+      only hits are the definition and prose). Its own sibling `book_step_of` inlines
+      `BOOK_STEPS | length` on line 43 rather than calling it. Fan-in 0 — one below
+      the engineering-standards §9 threshold — and no ready/in_progress card names a
+      consumer; only CARD-130's own Handover does.
+    suggestion: "Either call it from book_step_of (line 43) and from the create-mode lede (F-103), or delete it and drop it from the Handover and components.md."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_create.html
+    line: 23
+    title: "General info is the only step page whose breadcrumb carries no step number"
+    description: |
+      In edit mode `{% block section %}` renders "Books · {title}", while the other
+      four step pages render "Books · {title} · step N". Independently observed by the
+      capture station. It also makes the card's Handover claim inaccurate — "A step
+      page never writes its own number. Its {% block section %} breadcrumb, its lede
+      and any in-body '…step N' cross-reference go through these macros" — since this
+      page's breadcrumb goes through no macro and shows no step at all.
+    suggestion: "Append `{% if editing %} · step {{ stepper.book_step_number(0) }}{% endif %}` and correct the Handover sentence."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_workflow_steps.py
+    line: 549
+    title: "The theme carry-back is asserted tautologically"
+    description: |
+      In test_a_refused_submission_carries_the_owner_s_entries_back the per-field loop
+      asserts `typed in body` for every non-failing field. For theme the value is
+      "generic", which is always in the body as `<option value="generic">` whatever the
+      carry-back does — the assertion would pass even if field_theme were dropped
+      entirely. The real carried state is the `selected` attribute, which is unasserted.
+      Description and target_audience use KEEP-ME sentinels and are genuine
+      discriminators, so the test is not worthless — but one of its four fields is.
+    suggestion: "Assert the selected option, e.g. `re.search(r'<option value=\"generic\"[^>]*selected', body)`."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-107
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_workflow_steps.py
+    line: 734
+    title: "The G-2 corpus accepts a 302 where every step returns 200, and restates the theme list"
+    description: |
+      test_opening_every_step_leaves_every_book_exactly_as_it_was asserts
+      `status_code in (200, 302)`; a step that started redirecting on a GET would still
+      satisfy the G-2 guard (AC-225's own test catches it separately, so this is a
+      weaker-than-it-reads assertion rather than a coverage hole). Separately, _corpus
+      (line 692) re-lists the five themes as a literal — the exact fan-in pattern F-004
+      removed from production code.
+    suggestion: "Tighten to `== 200` for the five step paths (the detail page is 200 too), and draw the theme from BOOK_THEMES, which the file already imports in a sibling test."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-108
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_create.html
+    line: 15
+    title: "An empty POST body falls back to stored values instead of the (empty) submission"
+    description: |
+      `{% set entered = submitted if submitted is defined and submitted else none %}`
+      treats a falsy request.form as "nothing submitted", so a POST carrying no form
+      fields at all re-renders storage — the pre-F-002 behaviour. Not browser-reachable
+      (all four inputs are `required`, so a browser always submits all four keys), and
+      in that case nothing the owner typed exists to lose, so the practical harm is nil.
+      Noted because it is a latent condition inside the fix's own new line.
+    suggestion: "Use `submitted is defined and submitted is not none` if the distinction is ever wanted; otherwise leave it and note why."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -46,14 +46,14 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-138** P1 · Batch generation can ask for a difficulty · 0.5d · wave 25 · after CARD-137 (fills the book's medium quota) · review (cycle 1/3) · score 8.5
-- **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125 · review (cycle 1/3, score 8.0)
+- **CARD-127** P2 · Two-up pages in the book PDF · 1d · wave 25 · Inc 15 · after CARD-117, CARD-125 · review (cycle 2/3, score 9.0)
 - **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · serialized behind CARD-127 (book_pdf_generator.py overlap 0.33)
 
 ## Review
-- **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124 · review (cycle 1)
+- **CARD-130** P2 · Books reopen into the step workflow · 1d · wave 25 · Inc 16 · after CARD-123, CARD-124 · review (cycle 2)
 
 ## Done
+- **CARD-138** Batch generation can ask for a difficulty · score 9.0 (2 cycles) · merged cc64540 · ⏳ owner should submit one Medium batch
 - **CARD-118** Proof pages (30×30 + 15×15) for the owner's printed measurement · score 8.5 (1 cycle) · merged 2782887 · ⏳ owner print check outstanding
 - **CARD-136** Print setup stores the chosen trim · score 9.0 (4 cycles) · merged cb0440c
 - **CARD-137** Medium/hard cutoff 66 -> 90 · score 8.0 · merged a949244

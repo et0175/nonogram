@@ -1,0 +1,384 @@
+version: 1
+generated_at: "2026-09-23T14:10:08Z"
+target: "CARD-127 — branch card/127-book-two-up-pages @ ed8d20e (worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-127), target main"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full)"
+    - "tests/test_book_pdf_two_up.py (full)"
+    - "tests/property/test_book_pairing.py (full)"
+    - "tests/helpers/two_up_ink.py (full)"
+    - "tests/property/test_book_pdf_geometry.py (diff + surrounding helpers)"
+    - "tests/property/test_book_export_interior.py (diff + oracle helpers)"
+    - "tests/test_book_pdf.py (diff + contract test classes 595-740)"
+    - "tests/test_book_pdf_band.py (diff + property test 560-680)"
+    - "src/nonogram/export/layout.py (PairLayout, compute_pair_layout, __all__)"
+    - "src/nonogram/export/pdf.py (_draw_header, render_pages, FONT_*)"
+    - "src/nonogram/export/png.py (_draw_grid, _draw_clues, __all__)"
+    - "src/nonogram/admin/app.py (finalise page_count call site, read-only)"
+    - "meta/architecture/requirements.yml (EC-034), meta/kanban/cards/CARD-127.md, CARD-129.md"
+  not_reached:
+    - "src/nonogram/admin/book_page_spec.py (consumed as delivered by CARD-115)"
+    - "src/nonogram/admin/templates/book_finalize.html (rendered display of page_count)"
+    - "e2e suite (one known-red test deselected per the task brief)"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 2019, removed: 81 }
+  max_fan_in:
+    symbol: "BookPDFGenerator.interior_pages"
+    callers: 7
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]   # 11 commits/12mo, 4 fix-shaped
+  cochange_missing:
+    - "src/nonogram/admin/app.py"                          # 6 of 11 commits
+    - "src/nonogram/admin/templates/book_finalize.html"    # 4 of 11 commits
+  unmeasured:
+    mutation_check: "budget_truncated — deferred(cost): gating findings present on this cycle; certify on the stable cycle"
+
+system_contract:
+  rules_checked: 44
+  holds: 13
+  unchecked: 31
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no runtime dependency added; the diff's only new imports are stdlib (functools.lru_cache, importlib.resources) and public export symbols; the packaged DejaVu face is read as package data via pdf.FONT_PACKAGE/FONT_RESOURCE, which this rule explicitly allows. TestDependencyBaseline_IsExactlyPillowAndNumpy green on ed8d20e."
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward (the AST walk over src/nonogram/**/*.py) green on ed8d20e; admin/ imports export/, never the reverse, and no capability module imports admin."
+    - "ADR-0022/R1 ✓ holds — the new public surface (puzzle_pages, PuzzlePagePlan, Interior, BookExport.unpaired_interior_page_count, interior_page_count's second parameter) carries no scalar \"size\" field; extents travel as clue sets / (width, height) throughout."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff touches no image sourcing or crop path."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff parses no --size token."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no grid repair in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair-choice code in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the diff adds no density verdict and no doc claiming one."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: the diff computes no difficulty score; it only reads a stored tier through difficulty.tier_of_record."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve, no strategies list in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: the diff makes no tier decision and computes no score (the size terms it does use fit a page, not a grade)."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the diff writes no puzzle row; it is read-only over the review service's dicts."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score/recognizability are not rendered or compared anywhere in the diff."
+    - "ADR-0033/R1 ✓ holds — book_pdf_generator.py contains no assignment into an input puzzle dict and no db write (grep for `puzzle[...] =`, `.update(`, `.pop(` returns nothing); _payload/_banded copy through ExportPayload/dataclasses.replace."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition in the diff."
+    - "ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py all green on ed8d20e; src/nonogram/export/** and tests/fixtures/a4_golden/** are untouched by the diff (git diff --stat lists 8 files, none under export/ or fixtures/)."
+    - "ADR-0036/R2 ✓ holds — read line by line: _stroke_drawing uses only GridLine.position/start/end/width; _write_clues only ClueEntry.center_x/center_y and Layout.clue_font_size; _set_band only HeaderBand.center_x/center_y/font_size/height plus (placement.usable_right - placement.usable_left); the page canvas is (pair.upper.width, pair.upper.height). No mm→px conversion, no cell fitting, no rule placement in admin. Every imported export symbol is in that module's __all__ (no private import)."
+    - "ADR-0037/R1 ✓ holds — the two-up bands are band_identity(number, payload.difficulty) only; TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand::test_neither_band_carries_the_pictures_title proves the page is byte-identical under a rename while the answer page differs. Green on ed8d20e."
+    - "ADR-0037/R2 ✓ holds — _stroke_drawing strokes with line.width straight off COMP-007 and fill=png.INK (0,0,0); the diff invents no stroke weight and touches no PageSpec stroke field."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not reached by this diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-admission code in the diff."
+    - "CON-011 ✓ holds — the diff adds no grid-size literal to src (grep of the added src lines for a bare 10/30 returns nothing) and imposes no extent bound of its own; the new tests state the range through nonogram.limits.MIN_SIZE/MAX_SIZE (test_book_pdf_two_up.py:49, test_book_pairing.py:47, with an explicit CON-011 guard test at test_book_pdf_two_up.py:803)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff."
+    - "CON-015 ⚠ unchecked — no_eligible_fact: no bind address or entry point in the diff."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: no request door in the diff."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the diff derives no clues (the test corpora call clues.compute_clues to build fixtures, which is not a production path)."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no ready-for-export decision in the diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan code in the diff."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership and the 4.8 mm floor are decided in book_manager.py, untouched; pairing never admits a member (and its cells are >= 7.0 mm anyway)."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in the diff."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-membership change in the diff."
+    - "INV-009 ✓ holds — the walk is forward-only and never reorders: puzzle_pages advances index by 1 or 2 and emits (index+1[, index+2]); test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly asserts `printed == list(range(1, len(order)+1))` over 850+ seeded books, and the rendered sibling asserts the same off the ink. PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green on ed8d20e."
+    - "INV-010 ✓ holds — the card's central invariant. Tier equality is read through difficulty.tier_of_record (book_pdf_generator.py:508-522), adjacency is structural in the walk, the >= 7.0 mm / <= 7.5 mm cell is COMP-007's PairLayout (which refuses below TWO_UP_MIN_CELL_MM in __post_init__), each slot gets its own header_band, and the order is unchanged. All 10 named AC tests plus PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly green on ed8d20e."
+    - "INV-011 ✓ holds — the answer path is unchanged in substance: _answer_page still renders one page per puzzle in puzzle-number order (numbers = 1-based index among surviving payloads, the same index the puzzle pages use). The only change is that the old _puzzle_and_answer was split into _blank_page + _answer_page; the whole TestBookAnswerKey_* family is green on ed8d20e."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change outside draft in the diff."
+    - "INV-013 ✓ holds — interior() still starts at the guide page with no cover page, and every page is built on self.page_spec(its own 1-based position): guide 1, plan[k].page_number == 2+k, divider 2+len(plan), answers 3+len(plan)+i. PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage and the whole TestBookExport_* family green on ed8d20e; BookExport.interior_page_count remains the real post-pairing interior count."
+
+root_causes:
+  - id: RC-1
+    title: "The pairing walk runs outside interior()'s puzzle-naming error boundary"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "COMP-007 exposes no draw-a-given-Layout call, so admin reimplements three renderer pieces"
+    finding_ids: [F-003, F-004, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1032
+    title: "A layout failure during the pairing walk escapes interior() unnamed, breaking the documented Raises contract"
+    description: |
+      `interior()` calls `plan = self.puzzle_pages([...])` at line 1032, outside the
+      `try/except` (lines 1050-1064) that converts a drawing failure into
+      `RuntimeError(f"puzzle {named} could not be drawn: {e}")`. `compute_pair_layout`
+      raises `ValueError` when "one of its clue sets is empty while the other is not"
+      (export/layout.py:1602-1607), so a malformed member with a same-tier neighbour
+      aborts the export with a bare, anonymous error.
+
+      Reproduced against this worktree (PYTHONPATH=<worktree>/src):
+        row id "HALF" with clues_rows present and clues_cols == []:
+          * [HALF] alone                     -> RuntimeError: puzzle 'HALF' could not be drawn: ...
+          * [HALF, good] both tier "easy"    -> ValueError: first: clue sets disagree about the grid: ...
+          * [good, HALF] both tier "easy"    -> ValueError: second: clue sets disagree about the grid: ...
+          * [HALF, good] different tiers     -> RuntimeError: puzzle 'HALF' could not be drawn: ...
+
+      This is exactly the contract `interior()`'s own docstring states ("The message
+      names the puzzle's `id`, which is the only thing in the raised text a 120-puzzle
+      book can be searched by", lines 999-1002) and that
+      `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` exists to protect ("the owner
+      has to be able to tell *which* member from the message alone (a 120-puzzle book
+      offers no other way to look)", tests/test_book_pdf.py:705-710). That test's fixture
+      fails at draw time (grid=None), not at layout time, so the regression is invisible
+      to the suite.
+
+      Reachability is the same "API-contract, not a production scenario" class the
+      existing test class declares for itself: `add_puzzle` refuses such rows today. But
+      the set of inputs that hit the unnamed path is now materially larger than the set
+      that hits the named one, because INV-009 groups the book order by tier — after
+      CARD-126 almost every member HAS a same-tier neighbour, so almost every malformed
+      member now takes the anonymous path.
+    suggestion: |
+      Either (a) keep the failure inside the per-page boundary: wrap only the
+      `compute_pair_layout(...)` call in `puzzle_pages` and treat an exception as
+      "this pair does not pair" (`pair = None`), so the bad row reaches `_blank_page`
+      inside the try/except that names it; or (b) hand the ids to the walk (or wrap the
+      `self.puzzle_pages(...)` call in `interior()`) and re-raise
+      `RuntimeError(f"puzzle {ids} could not be laid out: {e}") from e`.
+      Add a test with a same-tier neighbour to
+      `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` — the existing fixture cannot
+      reach this path.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1091
+    title: "The page-plan tripwire no longer ties the plan back to the puzzle count"
+    description: |
+      `planned = interior_page_count(count, len(plan))` still catches a page-BUILD /
+      page-PLAN disagreement (a divider per level, a packed answer key: the loops would
+      emit more pages than the plan's terms allow), so it has not become fully
+      self-fulfilling. But the puzzle-page term used to come from `count` — this call's
+      own input — and now comes from `len(plan)`, a number the walk produced. Nothing at
+      runtime asserts that the walk covers every puzzle exactly once: a walk that dropped
+      a puzzle would shorten `len(plan)`, the tripwire would agree with itself, the book
+      would ship without that puzzle, and its answer page would still be printed.
+      (A duplicate would print twice, also silently; an out-of-range number is the one
+      case that still fails, via IndexError at line 1049.)
+      The coverage property is real and is covered — by
+      `test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly` — but only in
+      the test tree, not by the runtime guard that exists precisely so this class of
+      change fails loudly.
+    suggestion: |
+      One line beside the existing check, e.g.:
+        printed = [n for entry in plan for n in entry.numbers]
+        if printed != list(range(1, count + 1)):
+            raise RuntimeError(f"the page plan prints {printed}, not puzzles 1..{count}")
+      It restores the input-derived half of the guard and is what CARD-134 will want when
+      it rewrites the answer term.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 218
+    title: "_BAND_WIDTH_RATIO / _MIN_BAND_FONT_RATIO duplicate private export constants with nothing pinning them equal"
+    description: |
+      Lines 218-219 restate `pdf._HEADER_WIDTH_RATIO` (0.9) and
+      `pdf._MIN_HEADER_FONT_RATIO` (1/3), and the comment says so. The reimplementation is
+      the right call under G-3/ADR-0007 (they are private to `export/`), but no test binds
+      the two pairs together: if COMP-007 retunes its header fitting, a two-up band and the
+      same band on a single page diverge silently. AC-251's comparison cannot catch it —
+      "Puzzle 1 · Easy" never reaches the shrink branch, so the shared constants are never
+      exercised by the ink comparison.
+    suggestion: |
+      Add a one-line cross-check in the test tree (where importing the private names is
+      legal, the `clues.encode_line` precedent in CLAUDE.md):
+        assert (generator._BAND_WIDTH_RATIO, generator._MIN_BAND_FONT_RATIO) == (
+            pdf._HEADER_WIDTH_RATIO, pdf._MIN_HEADER_FONT_RATIO)
+      or render a deliberately over-wide band on both paths and compare the ink.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 307
+    title: "_set_band drops the export's elide-at-the-floor pass, so the docstring's 'same rule' claim is not exact"
+    description: |
+      `pdf._draw_header` fits a header in three steps: measure, shrink once to
+      `_MIN_HEADER_FONT_RATIO`, then — if it still overflows — elide the first piece
+      (`_elided`, export/pdf.py:374-378). `_set_band` implements the first two and stops:
+      a band line still too wide at the font floor would be drawn past `room` rather than
+      elided. Unreachable with "Puzzle N · Tier" (the docstring's own argument, and a
+      correct one), but the docstring claims "the same shrink-to-fit rule the export's
+      header uses" without recording the missing third step, which is the kind of claim a
+      later reader relies on.
+    suggestion: |
+      Either add the elide pass, or narrow the docstring to say exactly which of the
+      export's three steps are reproduced and why the third cannot be reached
+      (one-piece header, bounded text).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_two_up.py
+    line: 270
+    title: "The band comparison discards position, so a two-up band's horizontal placement is unverified"
+    description: |
+      `_same_ink` compares `_ink(...)` crops — the band's tight ink bounding box — so it
+      proves the glyphs are identical but says nothing about where on the page they sit.
+      A `_set_band` that centred the line on the wrong x (e.g. the trim's centre instead
+      of `band.center_x`, which differs by (gutter - outside)/2 on a mirrored page) would
+      pass every AC-251 assertion. The vertical placement IS pinned (the 12 mm strip is
+      cropped at hand-computed millimetres, and `test_the_two_bands_are_not_the_same_line`
+      shows the two strips differ); only the horizontal is not.
+      The value itself is COMP-007's (`header_band(slot).center_x`), so the risk is low —
+      but the card's claim that a slot's band "is the same ink" as a single page's band is
+      only half-measured.
+    suggestion: |
+      Assert the ink box's left edge too, e.g. compare `_ink_box(page, top_mm)[0]` against
+      the reference page's, or crop both bands on the same x-window before comparing.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 375
+    title: "EC-032's parity property was not extended to two-up pages, and the interior corpus guarantees only one of them"
+    description: |
+      `test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages` was
+      edited so its two copies never pair (a legitimate preservation of its subject), and
+      no sibling was added for two-up pages — so no property test sweeps "a two-up slot's
+      drawing is centred across the usable width of the page's own parity". The only
+      property-level coverage is here, where `assert seen["two-up page"] >= 1` guarantees a
+      single two-up page across the whole corpus, and two-up pages in that corpus start at
+      interior page 2 (even). Odd-parity two-up pages are covered only indirectly, by
+      `TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand::test_the_numbers_follow_the_pages_before_this_one`,
+      which renders its reference band on `book_page_spec(book, 3)` and compares ink boxes
+      (see F-005: position discarded).
+      The card only required EC-022's corpus to gain two-up pages, so this is a gap, not a
+      contract breach — but it is the parity half of the same geometry.
+    suggestion: |
+      Either raise the floor here (`seen["two-up page"] >= 5` with a corpus biased to
+      small same-tier neighbours so both parities occur), or add an EC-032 two-up sibling
+      in tests/property/test_book_pdf_geometry.py alongside the EC-022 one this card added.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3286
+    title: "[out-of-scope] Finalise now overstates the interior page count by pages_saved; CARD-129's gutter check will consume it"
+    description: |
+      `interior_page_count(len(puzzles_in_book))` (the one-argument call) is by design the
+      un-paired plan, so the Finalise screen now shows a count that exceeds the interior's
+      real page count by `pages_saved` on every book that pairs — the card's own 9-puzzle
+      render saved 3 of 20 pages (~15%), and Book 1 profiles of small easy puzzles will
+      save considerably more. EC-034 states "the page count finalise checks equals the
+      interior's page count" (meta/architecture/requirements.yml:3584), which is now false
+      for a systematic reason rather than the pre-existing rare one (a dropped member).
+      The card explicitly defers this (item 4: the generator returns both counts "so
+      CARD-128/129 and the checkpoint can print it"; app.py already carried the comment
+      "CARD-129 owns the exact equality (EC-034)"), so this is NOT a failure of this card's
+      contract and is filed as out-of-scope.
+      History supports flagging it: `app.py` (6 of 11 commits) and
+      `templates/book_finalize.html` (4 of 11) are the two strongest co-change peers of
+      book_pdf_generator.py in the last 12 months, and both are absent from this diff.
+      The concrete downstream risk: CARD-129 ("Finalise refuses when the page count needs a
+      larger KDP gutter than the stored one") computes its gutter requirement from this
+      number — an overstated count can demand a larger gutter, or refuse a book, that the
+      real interior does not warrant. CARD-129 must switch the call to
+      `interior_page_count(count, puzzle_pages)` or consume `BookExport.interior_page_count`.
+    suggestion: |
+      No change requested in this card. Record the dependency on CARD-129's card body so
+      the gutter check is not built on the un-paired number.
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/helpers/two_up_ink.py
+    line: 57
+    title: "[out-of-scope] The new helper imports three private names from a sibling test helper"
+    description: |
+      `from tests.helpers.page_ink import Drawing, _dark, _groups, _longest_runs` reaches
+      into `page_ink`'s private surface to build `rule_rows` with a different threshold.
+      Legal (the test tree is where CLAUDE.md allows the imports the src tree forbids) and
+      the right reuse — re-deriving `_longest_runs` would make the two measurements
+      disagree — but it now couples two helpers through names with no stability promise.
+      Noted, not requested: promoting the three to public names in `page_ink` would cost
+      nothing and remove the coupling smell.
+    suggestion: |
+      Optional: rename `_dark`/`_groups`/`_longest_runs` to public helpers in page_ink.py
+      and update both call sites.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
