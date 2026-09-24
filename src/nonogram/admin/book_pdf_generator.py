@@ -115,16 +115,76 @@ page's parity flips** — which is why each page is still built on the spec of
 its own position and never on a position assumed in advance. Both page counts,
 before and after pairing, come back on :class:`Interior` and
 :class:`BookExport`.
+
+One page at a time (CARD-145, the 512 MB envelope)
+---------------------------------------------------
+A page of the Book 1 profile is 2550 x 3300 px RGB — **25.2 MB of bitmap**,
+every page, whatever is drawn on it. The export used to build the whole
+interior as a list and hand it to Pillow's ``save_all``, so peak memory was
+25.2 MB **x the page count**: 0.5 GB at 20 pages, 3.8 GB at a 150-page Book 1.
+The deployed panel has 512 MB, so the worker was OOM-killed with no traceback
+— which is what the owner saw as "render crashes when I try to generate pdf".
+No instance size fixes that shape; releasing a page before the next is built
+does.
+
+**How a page is built, written and released.** :meth:`BookPDFGenerator.interior_stream`
+does every decision that does *not* draw — the payload pass, the pairing walk,
+the packed key, the tier counts, the custom titles, and both plan tripwires —
+and returns an :class:`InteriorStream`: the three page counts, known before a
+single pixel exists, and a **one-shot generator** of the pages. :meth:`_write_pdf`
+pre-allocates one image, page and contents object id per page from that count
+(which is why the count has to be known first), writes the header and the
+catalog, and then pulls one page at a time: it JPEG-encodes that page into the
+output buffer and drops it before asking for the next. Nothing on the export
+path holds a list of pages, and neither the producer nor the writer keeps its
+page bound across the call that builds the following one, so exactly one page
+bitmap is alive at any moment.
+
+**The memory envelope, with its numbers.** Peak is one page bitmap (25.2 MB on
+Book 1) plus that page's JPEG buffer, plus — and this term is real, not
+rounded away — the written PDF itself, which accumulates in the returned
+``BytesIO`` at a measured ~0.46 MB per page. A 179-page interior therefore
+peaks near 25.2 + 82 = ~107 MB instead of the old shape's 4.5 GB, and a book
+fits the envelope with room for the request around it. Peak is **O(one page) +
+O(the compressed file)**, not O(one page x the page count); it is not a
+constant, and the tests say so rather than claiming one the code does not
+have.
+
+**Why Pillow rather than ReportLab.** ReportLab is an installed dependency of
+the panel (ADR-0006, 2026-09-11) and can write a page and move on, but it
+writes an unconditional comment line inside the PDF trailer dictionary, and
+Pillow's own ``PdfParser`` — which ``tests/helpers/pdf_pages.py`` reads every
+book PDF with — refuses such a trailer. Reaching for it would have meant
+editing a shared test helper to accommodate a self-inflicted format change.
+Pillow's ``PdfParser`` is already a writer as well as a reader:
+``PdfImagePlugin`` needs the whole page list only to pre-allocate those object
+ids, and the page count here is known without drawing anything. :meth:`_write_pdf`
+therefore mirrors ``PdfImagePlugin._save``'s ``mode == "RGB"`` path object for
+object — same ``DCTDecode`` stream, same ``MediaBox``, same contents operator,
+same ``Info`` dates — so the file is byte-identical to the old one but for its
+two timestamps, and every reader of a book PDF keeps working unedited.
+
+**Nothing half-written escapes.** The output buffer is a local of
+:meth:`_write_pdf` and is returned only after the cross-reference table and
+trailer are written, so a page that will not draw at page *k* of *N* raises
+through the caller and the partial bytes are released unreferenced — a route
+can serve a whole PDF or an error, never a truncated one. And because the
+object ids are pre-allocated, a producer that yielded the wrong number of
+pages would leave dangling page references: :func:`_as_planned` counts what
+the producer yields against the count the plan declared and raises
+``RuntimeError`` — before the extra page is written, or before the trailer is
+— so a structurally corrupt PDF is unreachable by construction.
 """
 
 import logging
+import time
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib import resources
-from typing import Any, Dict, Optional, List, Sequence, Tuple
-from PIL import Image, ImageDraw, ImageFont
+from typing import Any, Dict, Iterable, Iterator, Optional, List, Sequence, Tuple
+from PIL import Image, ImageDraw, ImageFont, PdfParser
 from io import BytesIO
 
 from nonogram.admin.book_answer_key import (
@@ -438,6 +498,87 @@ class Interior:
     def pages_saved(self) -> int:
         """How many interior pages the two-up pages saved. Never negative."""
         return self.unpaired_page_count - self.page_count
+
+
+@dataclass(frozen=True)
+class InteriorStream:
+    """The interior decided but not yet drawn (CARD-145).
+
+    Everything :class:`Interior` states about a book, **before** a page of it
+    exists: the three counts are the page plan's own arithmetic over the
+    pairing walk and the packed key, so an export can report what it is about
+    to write without building 25.2 MB of bitmap per page to count them.
+
+    Attributes:
+        page_count: The interior's page count after pairing — the same number
+            :attr:`Interior.page_count` reports, and the number of pages
+            :attr:`pages` is contracted to produce.
+        unpaired_page_count: What the same interior would have taken with
+            every puzzle on a page of its own (:attr:`Interior.unpaired_page_count`).
+        answer_page_count: How many of the pages are answer pages, the
+            SOLUTIONS divider not counted (:attr:`Interior.answer_page_count`).
+        pages: The interior's pages in print order, drawn **one at a time, on
+            demand**. A generator, and therefore single-use: walking it a
+            second time yields nothing. It is the export path's only source of
+            pages, and it holds none of them — a page is built when it is
+            asked for and released when the next one is. Its length is checked
+            against :attr:`page_count` as it goes (:func:`_as_planned`).
+    """
+
+    page_count: int
+    unpaired_page_count: int
+    answer_page_count: int
+    pages: Iterator[Image.Image]
+
+    @property
+    def pages_saved(self) -> int:
+        """How many interior pages the two-up pages saved. Never negative."""
+        return self.unpaired_page_count - self.page_count
+
+
+def _as_planned(
+    pages: Iterable[Image.Image], page_count: int
+) -> Iterator[Image.Image]:
+    """``pages``, refused the moment they stop being ``page_count`` of them.
+
+    The streaming replacement for the list-length check the export used to
+    make after building every page. It cannot be made on a list any more —
+    there is no list — so it is made *as the pages go past*, which is strictly
+    earlier: the extra page is refused before it is written rather than after.
+
+    Both directions are structural failures, not cosmetic ones. The PDF writer
+    pre-allocates one image, page and contents object id per planned page
+    before anything is drawn (:meth:`BookPDFGenerator._write_pdf`), so a
+    producer that yielded **more** pages than planned would write objects
+    nothing references, and one that yielded **fewer** would leave the page
+    tree pointing at object ids that were never written — a file whose page
+    count is a lie and whose reader hits a dangling reference. Neither is
+    allowed to reach the trailer: the over-count raises in place of the
+    surplus page, and the under-count raises at the end of the walk, before
+    the caller writes the cross-reference table.
+
+    The under-count's message is the wording the list-length check used, so
+    the guard reads the same in a traceback as it always has.
+
+    Raises:
+        RuntimeError: the producer's page count is not ``page_count``.
+    """
+    produced = 0
+    for page in pages:
+        produced += 1
+        if produced > page_count:
+            raise RuntimeError(
+                f"interior has at least {produced} pages, its page plan says "
+                f"{page_count}"
+            )
+        yield page
+        # The page is the writer's alone from here: this frame must not be
+        # what keeps a 25.2 MB bitmap alive while the next one is built.
+        del page
+    if produced != page_count:
+        raise RuntimeError(
+            f"interior has {produced} pages, its page plan says {page_count}"
+        )
 
 
 @dataclass(frozen=True)
@@ -856,22 +997,31 @@ class BookPDFGenerator:
             :class:`BookExport` — both files, the interior's page count, what
             it would have been without two-up pairing (FR-040), and how many
             of its pages are answer pages (FR-042).
+
+        The three counts come off the **page plan**, not off a list of built
+        pages: :meth:`interior_stream` knows all three before a page is drawn,
+        so reporting them costs nothing and the interior is never materialised
+        to be counted (CARD-145).
         """
-        interior = self.interior(puzzles)
+        stream = self.interior_stream(puzzles)
         return BookExport(
-            interior=self._save_pdf(interior.pages),
+            interior=self._write_pdf(stream.pages, stream.page_count),
             cover=self.export_cover(book_title, cover_image),
-            interior_page_count=interior.page_count,
-            unpaired_interior_page_count=interior.unpaired_page_count,
-            answer_page_count=interior.answer_page_count,
+            interior_page_count=stream.page_count,
+            unpaired_interior_page_count=stream.unpaired_page_count,
+            answer_page_count=stream.answer_page_count,
         )
 
     def export_interior(self, puzzles: List[dict]) -> BytesIO:
         """The interior PDF alone — :meth:`export_book`'s ``interior``.
 
         For a route that serves only the interior: it renders no cover page.
+        One page of it is alive at a time (CARD-145) — this goes through
+        :meth:`interior_stream`, never through :meth:`interior_pages`, whose
+        list is exactly what a book cannot afford.
         """
-        return self._save_pdf(self.interior_pages(puzzles))
+        stream = self.interior_stream(puzzles)
+        return self._write_pdf(stream.pages, stream.page_count)
 
     def export_cover(
         self, book_title: str, cover_image: Optional[Image.Image] = None
@@ -880,8 +1030,19 @@ class BookPDFGenerator:
 
         One page: ``cover_image`` when given, else the generated title cover.
         It renders no interior page, so a cover download costs one page.
+
+        One page is not the memory problem CARD-145 is about, but it takes the
+        same path as the interior all the same: the cover is built when the
+        writer asks for it and is released by the same walk, so the cover file
+        never holds a page beside the interior's.
         """
-        return self._save_pdf([self.create_cover_page(book_title, cover_image)])
+        return self._write_pdf(self._cover_page(book_title, cover_image), 1)
+
+    def _cover_page(
+        self, book_title: str, cover_image: Optional[Image.Image] = None
+    ) -> Iterator[Image.Image]:
+        """The cover file's one page, built when the writer asks for it."""
+        yield self.create_cover_page(book_title, cover_image)
 
     def generate_book_pdf(
         self,
@@ -1239,6 +1400,14 @@ class BookPDFGenerator:
 
         :attr:`Interior.pages` of :meth:`interior`, for the callers that want
         the pages and not the page-count saving beside them.
+
+        **A list of pages, and therefore not what an export uses.** Since
+        CARD-145 the export path walks :meth:`interior_stream` instead, one
+        page alive at a time; this method and :meth:`interior` are the
+        materialising convenience over the same walk, for a caller that really
+        does want every page at once — a test measuring ink on page 4, a
+        future proof sheet. On a book of any size that list is 25.2 MB a page,
+        so calling it *is* the shape the deployed panel was OOM-killed by.
         """
         return self.interior(puzzles).pages
 
@@ -1303,6 +1472,55 @@ class BookPDFGenerator:
                 It is also raised when the page plan and the pages built
                 disagree, and when the walk's plan does not print every puzzle
                 exactly once, in order.
+
+        Since CARD-145 this is :meth:`interior_stream` with its pages
+        collected — the same walk, the same order, the same tripwires, the
+        same failures, and every page held at once at the end of it.
+        """
+        stream = self.interior_stream(puzzles)
+        return Interior(
+            pages=list(stream.pages),
+            unpaired_page_count=stream.unpaired_page_count,
+            answer_page_count=stream.answer_page_count,
+        )
+
+    def interior_stream(self, puzzles: List[dict]) -> InteriorStream:
+        """The interior's page plan, and its pages one at a time (CARD-145).
+
+        The export path's entry point, and the lazy core :meth:`interior` is
+        the materialising convenience over. It splits the interior into the
+        part that **decides** and the part that **draws**, and does all of the
+        first before any of the second:
+
+        *Decided here, eagerly, before this method returns.* The payload pass
+        (and the drop of any member that cannot build one), the pairing walk,
+        the packed answer key, both plan tripwires, the guide page's tier
+        counts, the Arrangement step's custom titles, and all three page
+        counts. None of it draws a pixel, and all of it can fail — so an
+        export that is going to be refused is refused before its file has a
+        first byte.
+
+        *Drawn later, lazily, one page per :func:`next`.* The guide page, the
+        puzzle pages the walk planned, the SOLUTIONS divider and the packed
+        key's pages, each on the spec of its own interior position (FR-043),
+        each built when it is asked for and released when the next one is.
+        The returned generator is single-use and holds no page: see
+        :class:`InteriorStream`.
+
+        Returns:
+            The :class:`InteriorStream`: three counts known without drawing,
+            and the pages.
+
+        Raises:
+            RuntimeError: as :meth:`interior` documents — but note *when*. The
+                two plan tripwires ("the page plan prints ...", "the answer
+                key holds ...") raise from this call, before the caller has
+                opened a file. "puzzle <id> could not be drawn" and the
+                page-count guard (:func:`_as_planned`) raise from the
+                generator instead, while the caller is walking it; a caller
+                that is writing a PDF must therefore treat its output buffer
+                as worthless until the walk has finished, which is exactly
+                what :meth:`_write_pdf` does.
         """
         # The puzzle's own id travels with its payload: it is what the raise
         # below names, and once a member has been dropped nothing else left in
@@ -1347,37 +1565,6 @@ class BookPDFGenerator:
             )
         first_answer_page = 3 + len(plan)
 
-        # Calculate difficulty counts for guide — over every member of the
-        # book, drawable or not, because that is what the book holds.
-        counts = tier_breakdown(puzzles)
-        pages: List[Image.Image] = [
-            self.create_guide_page(
-                len(puzzles),
-                counts[Tier.EASY],
-                counts[Tier.MEDIUM],
-                counts[Tier.HARD],
-                page_number=1,
-            )
-        ]
-
-        for page_plan in plan:
-            members = [payloads[number - 1] for number in page_plan.numbers]
-            try:
-                if page_plan.pair is None:
-                    ((_, payload),) = members
-                    pages.append(
-                        self._blank_page(
-                            payload, page_plan.numbers[0], page_plan.page_number
-                        )
-                    )
-                else:
-                    pages.append(
-                        self._two_up_page(page_plan, [p for _, p in members])
-                    )
-            except Exception as e:
-                named = _named_puzzles(ids, page_plan.numbers)
-                raise RuntimeError(f"puzzle {named} could not be drawn: {e}") from e
-
         # The packed key's own half of the tripwire, and the one the page-count
         # check cannot make: the answer term below comes from `len(key)`, the
         # walk's own output, so a walk that dropped an answer (or printed one
@@ -1390,70 +1577,211 @@ class BookPDFGenerator:
                 f"the answer key holds {answered}, not puzzles 1..{count}"
             )
 
+        # Calculate difficulty counts for guide — over every member of the
+        # book, drawable or not, because that is what the book holds. Read
+        # here, with the custom titles, rather than inside the walk below:
+        # everything that can fail without drawing fails before the caller has
+        # a file open.
+        counts = tier_breakdown(puzzles)
         titles = self.custom_titles()
-        answer_pages: List[Image.Image] = []
-        for offset, answer_page in enumerate(key):
-            members = [payloads[number - 1] for number in answer_page.numbers]
-            try:
-                answer_pages.append(
-                    self._answer_page(
-                        answer_page, members, first_answer_page + offset, titles
-                    )
-                )
-            except Exception as e:
-                named = _named_puzzles(ids, answer_page.numbers)
-                raise RuntimeError(f"puzzle {named} could not be drawn: {e}") from e
-
-        # Add a divider page before solutions
-        if answer_pages:
-            pages.append(self.create_divider_page(2 + len(plan)))
-            # Add all solution pages
-            pages.extend(answer_pages)
 
         # The page plan is this function's own make-up; fail loudly rather
         # than let the two drift apart. It is taken over this call's *input* —
         # the puzzles that survived the payload pass — and over the two walks'
-        # own verdicts on how many pages they take, never over the list the
-        # loops above built, so a change to the make-up of the pages (a divider
-        # per level, a packed answer key) that forgets `interior_page_count`
-        # fails here instead of shipping a book whose stated page count is not
-        # its page count.
-        planned = interior_page_count(count, len(plan), len(answer_pages))
-        if len(pages) != planned:
-            raise RuntimeError(
-                f"interior has {len(pages)} pages, its page plan says {planned}"
+        # own verdicts on how many pages they take, never over the pages the
+        # walk below produces, so a change to the make-up of the pages (a
+        # divider per level, a packed answer key) that forgets
+        # `interior_page_count` is caught rather than shipping a book whose
+        # stated page count is not its page count. Since CARD-145 the two
+        # sides meet in `_as_planned`, as the pages go past, instead of in a
+        # `len()` over a list nobody can afford to build.
+        planned = interior_page_count(count, len(plan), len(key))
+
+        def produce() -> Iterator[Image.Image]:
+            """The interior's pages in print order, one per :func:`next`.
+
+            Written as ``yield <expression>`` throughout, deliberately: a page
+            bound to a local here would stay alive across the yield, and the
+            next page would then be built beside it — which is the whole shape
+            this card exists to remove.
+            """
+            yield self.create_guide_page(
+                len(puzzles),
+                counts[Tier.EASY],
+                counts[Tier.MEDIUM],
+                counts[Tier.HARD],
+                page_number=1,
             )
-        return Interior(
-            pages=pages,
+
+            for page_plan in plan:
+                members = [payloads[number - 1] for number in page_plan.numbers]
+                try:
+                    if page_plan.pair is None:
+                        ((_, payload),) = members
+                        yield self._blank_page(
+                            payload, page_plan.numbers[0], page_plan.page_number
+                        )
+                    else:
+                        yield self._two_up_page(page_plan, [p for _, p in members])
+                except Exception as e:
+                    named = _named_puzzles(ids, page_plan.numbers)
+                    raise RuntimeError(
+                        f"puzzle {named} could not be drawn: {e}"
+                    ) from e
+
+            # The divider opens the answer section, so it is yielded before
+            # the pages it opens — the order the interior holds them in. The
+            # answer pages used to be built first and appended after; each is
+            # drawn from its own interior position and nothing else, so
+            # building them in the order they are printed changes no page's
+            # ink (CARD-145's AC-3 pins that page for page).
+            if not key:
+                return
+            yield self.create_divider_page(2 + len(plan))
+            for offset, answer_page in enumerate(key):
+                members = [payloads[number - 1] for number in answer_page.numbers]
+                try:
+                    yield self._answer_page(
+                        answer_page, members, first_answer_page + offset, titles
+                    )
+                except Exception as e:
+                    named = _named_puzzles(ids, answer_page.numbers)
+                    raise RuntimeError(
+                        f"puzzle {named} could not be drawn: {e}"
+                    ) from e
+
+        return InteriorStream(
+            page_count=planned,
             # Before **pairing**, and only that: the packed answer count is on
             # this side of the subtraction too, so `pages_saved` measures the
             # two-up pages and nothing else.
-            unpaired_page_count=interior_page_count(
-                count, answer_pages=len(answer_pages)
-            ),
-            answer_page_count=len(answer_pages),
+            unpaired_page_count=interior_page_count(count, answer_pages=len(key)),
+            answer_page_count=len(key),
+            pages=_as_planned(produce(), planned),
         )
 
-    def _save_pdf(self, pages: List[Image.Image]) -> BytesIO:
-        """Write ``pages`` as one PDF, one image per page, rewound to 0."""
-        # PIL's save_all only works with images in same format
-        # Convert all to RGB if needed
-        rgb_pages = []
-        for page in pages:
-            if page.mode != "RGB":
-                page = page.convert("RGB")
-            rgb_pages.append(page)
+    def _write_pdf(
+        self, pages: Iterable[Image.Image], page_count: int
+    ) -> BytesIO:
+        """Write ``pages`` as one PDF, one image per page, rewound to 0.
 
-        # Save to BytesIO
-        pdf_bytes = BytesIO()
-        if rgb_pages:
-            rgb_pages[0].save(
-                pdf_bytes,
-                format="PDF",
-                save_all=True,
-                append_images=rgb_pages[1:] if len(rgb_pages) > 1 else [],
-                dpi=(self.dpi, self.dpi),
-            )
-        pdf_bytes.seek(0)
+        ``page_count`` is how many pages ``pages`` will produce, known from
+        the page plan before any of them exists. It is not a hint: the PDF's
+        object table is laid out from it — one image, one page and one
+        contents object id per page, all allocated before the catalog is
+        written — which is what lets the pages themselves arrive one at a time
+        rather than as a list (CARD-145). ``pages`` is consumed exactly once
+        and no page is held after it is written; a caller that wants the pages
+        afterwards must keep them itself.
 
-        return pdf_bytes
+        What is written is ``PdfImagePlugin._save``'s ``mode == "RGB"`` path,
+        object for object: a ``DCTDecode`` (JPEG) image stream at the book's
+        DPI, a page whose ``MediaBox`` is the trim in points, a contents
+        stream drawing that one image over the whole page, and an ``Info``
+        dictionary with the two dates Pillow writes. The only difference
+        between this file and the one the old list-at-once call produced is
+        those two timestamps — the same language CON-019 uses for the CLI's
+        own PDFs — so ``tests/helpers/pdf_pages.py`` and every other reader of
+        a book PDF works on it unedited.
+
+        Returns:
+            The finished PDF, rewound to 0. **Only** a finished one: the
+            buffer is a local of this method until the cross-reference table
+            and trailer are written, so a page that will not draw at page *k*
+            of *N* raises through this call and takes its partial bytes with
+            it. No caller, and no route, can be handed a truncated PDF.
+
+        Raises:
+            RuntimeError: ``pages`` produced a number of pages other than
+                ``page_count`` — see :func:`_as_planned`, which is what the
+                interior's producer is already wrapped in. Checked again here,
+                over whatever iterable this method was actually given, because
+                it is this method's object table that a miscount corrupts.
+            Exception: whatever a page raised while being drawn, unchanged.
+        """
+        written = BytesIO()
+        pdf = PdfParser.PdfParser(f=written, filename="", mode="w+b")
+        # The two dates Pillow's own writer stamps a new file with, so the
+        # Info dictionary reads the same as it always has.
+        pdf.info["CreationDate"] = time.gmtime()
+        pdf.info["ModDate"] = time.gmtime()
+
+        # One image, page and contents object per planned page, allocated
+        # before anything is drawn. This is the whole reason the page count
+        # has to be known in advance — and the reason a producer that yields
+        # the wrong number of pages is a corrupt file rather than a short one.
+        image_refs: List[Any] = []
+        page_refs: List[Any] = []
+        contents_refs: List[Any] = []
+        for _ in range(page_count):
+            image_refs.append(pdf.next_object_id(0))
+            page_refs.append(pdf.next_object_id(0))
+            contents_refs.append(pdf.next_object_id(0))
+            pdf.pages.append(page_refs[-1])
+
+        pdf.start_writing()
+        pdf.write_header()
+        pdf.write_comment("created by Pillow PDF driver")
+        pdf.write_catalog()
+
+        index = 0
+        for page in _as_planned(pages, page_count):
+            self._write_page(pdf, page, image_refs[index], page_refs[index],
+                             contents_refs[index])
+            index += 1
+            # Nothing in this frame may outlive the page it wrote: the next
+            # one is built by the `next()` at the top of this loop.
+            del page
+
+        pdf.write_xref_and_trailer()
+        pdf.close()
+        written.seek(0)
+        return written
+
+    def _write_page(
+        self,
+        pdf: PdfParser.PdfParser,
+        page: Image.Image,
+        image_ref: Any,
+        page_ref: Any,
+        contents_ref: Any,
+    ) -> None:
+        """Write one page's three objects into ``pdf``, at its own object ids.
+
+        ``PdfImagePlugin._write_image`` and the body of its ``_save`` loop for
+        an RGB image, side by side here because the plugin only offers them
+        behind a call that wants every page at once. Nothing is chosen: the
+        filter, the colour space, the ``MediaBox`` arithmetic and the contents
+        operator are all taken from it verbatim, which is what keeps the file
+        byte-identical to the one the old call wrote.
+        """
+        if page.mode != "RGB":
+            page = page.convert("RGB")
+        encoded = BytesIO()
+        page.save(encoded, format="JPEG", dpi=(self.dpi, self.dpi))
+        pdf.write_obj(
+            image_ref,
+            stream=encoded.getvalue(),
+            Type=PdfParser.PdfName("XObject"),
+            Subtype=PdfParser.PdfName("Image"),
+            Width=page.width,
+            Height=page.height,
+            Filter=PdfParser.PdfName("DCTDecode"),
+            BitsPerComponent=8,
+            ColorSpace=PdfParser.PdfName("DeviceRGB"),
+        )
+        width = page.width * 72.0 / self.dpi
+        height = page.height * 72.0 / self.dpi
+        pdf.write_page(
+            page_ref,
+            Resources=PdfParser.PdfDict(
+                ProcSet=[PdfParser.PdfName("PDF"), PdfParser.PdfName("ImageC")],
+                XObject=PdfParser.PdfDict(image=image_ref),
+            ),
+            MediaBox=[0, 0, width, height],
+            Contents=contents_ref,
+        )
+        pdf.write_obj(
+            contents_ref,
+            stream=b"q %f 0 0 %f 0 0 cm /image Do Q\n" % (width, height),
+        )
