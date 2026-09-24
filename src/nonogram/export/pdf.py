@@ -29,6 +29,13 @@ geometry: every coordinate below comes from
 :func:`~nonogram.export.layout.compute_layout` and
 :func:`~nonogram.export.layout.header_band`.
 
+That is also why a book page's :class:`~nonogram.export.layout.PuzzleFrame`
+(FR-041, CARD-144) appears on both pages without a line of code here: the
+frame is stroked into the raster by
+:func:`~nonogram.export.png.render_image`, and both pages are that raster.
+:func:`_reveal` cannot disturb it — it fills cells *inside* the grid, in the
+same pure black, so the frame's rules are neither crossed nor lightened.
+
 Why a font ships inside this package (ADR-0006 revision 2026-09-01, ADR-0006/R1)
 --------------------------------------------------------------------------------
 Pillow bundles no TTF. ``ImageFont.load_default()`` returns an embedded
@@ -425,9 +432,10 @@ def render_pages(
             COMP-002's INV-002 gate before this call (guardrail G-4).
         page_spec: The sheet (ADR-0036). ``None`` (every CLI and web export)
             gives today's pages byte for byte: the drawing with the band laid
-            above it. A book spec with a parity gives two trim-sized pages with
-            the drawing placed by the layout, and the header set inside the
-            spec's band rather than on a taller canvas.
+            above it, and no frame (CON-019). A book spec with a parity gives
+            two trim-sized pages with the drawing placed by the layout, closed
+            off by its :class:`~nonogram.export.layout.PuzzleFrame`, and the
+            header set inside the spec's band rather than on a taller canvas.
 
     Returns:
         ``(puzzle_page, answer_page)`` — the blank grid with its clues, and the

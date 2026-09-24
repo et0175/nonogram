@@ -57,6 +57,7 @@ from nonogram.export.layout import (
     GridLine,
     Layout,
     PageSpec,
+    PuzzleFrame,
     compute_answer_page_layout,
     compute_layout,
 )
@@ -183,6 +184,37 @@ def _draw_grid(draw: ImageDraw.ImageDraw, layout: Layout | AnswerTile) -> None:
         draw.line(ends, fill=INK, width=line.width)
 
 
+def _draw_frame(draw: ImageDraw.ImageDraw, frame: PuzzleFrame) -> None:
+    """Stroke the rectangle that closes a framed puzzle off (FR-041, CARD-144).
+
+    Four sides at the heavy rule, in the same pure :data:`INK` as every other
+    rule and at no new weight (ADR-0037/R2). Two of them — right and bottom —
+    land on the grid's outer border, which :func:`_draw_grid` has already
+    stroked at the same width on the same coordinates, so re-stroking them
+    puts identical black in identical pixels; what the frame actually adds to
+    the page is its left and top sides, the outer edges of the two clue
+    gutters.
+
+    Drawn *after* :func:`_draw_grid` for the reason that function draws its
+    heavy rules last: where the frame crosses a thin rule, the heavy line is
+    the one that survives the overlap and stays continuous.
+
+    Each side is stroked on its boundary coordinate, so Pillow centres it
+    there — half a heavy rule outside the box, exactly as the grid's own outer
+    border already hangs half a heavy rule outside the grid. See
+    :class:`~nonogram.export.layout.PuzzleFrame` for why that, and not an
+    inset frame, is the right answer.
+    """
+    left, top, right, bottom = frame.left, frame.top, frame.right, frame.bottom
+    for ends in (
+        ((left, top), (right, top)),
+        ((left, bottom), (right, bottom)),
+        ((left, top), (left, bottom)),
+        ((right, top), (right, bottom)),
+    ):
+        draw.line(list(ends), fill=INK, width=frame.width)
+
+
 def _draw_clues(draw: ImageDraw.ImageDraw, layout: Layout) -> None:
     """Write every clue number, centred on the point the layout placed it.
 
@@ -217,7 +249,10 @@ def render_image(payload: ExportPayload, page_spec: PageSpec | None = None) -> I
             :func:`~nonogram.export.layout.compute_layout`. ``None`` — every
             CLI and web export — is today's A4 drawing, byte for byte. A book
             spec with a parity returns the whole trim page with the drawing
-            already placed on it, and its band left blank.
+            already placed on it, its band left blank, and the drawing closed
+            off by its :class:`~nonogram.export.layout.PuzzleFrame` (FR-041):
+            a framed sheet is the only one that carries one, and no sheet the
+            CLI or the web ever passes is framed (CON-019).
 
     Returns:
         A fresh ``RGB`` image, the size the layout computed at
@@ -228,6 +263,8 @@ def render_image(payload: ExportPayload, page_spec: PageSpec | None = None) -> I
     image = Image.new(_MODE, (layout.width, layout.height), BACKGROUND)
     draw = ImageDraw.Draw(image)
     _draw_grid(draw, layout)
+    if layout.frame is not None:
+        _draw_frame(draw, layout.frame)
     _draw_clues(draw, layout)
     return image
 

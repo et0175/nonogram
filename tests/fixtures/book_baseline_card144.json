@@ -1,0 +1,118 @@
+{
+  "card": "CARD-144",
+  "supersedes": "tests/fixtures/book_baseline_card128.json",
+  "recorded_from_commit": "the commit that rebases card/144-book-puzzle-frame onto 557c7ac (CARD-128's merge) — a commit cannot carry its own hash, so the SHA is written in by the commit that immediately follows it, which edits this one field and nothing else and therefore exports the same eleven pages",
+  "recorded_from_commit_note": "The first tree that reproduces these digests. No earlier commit can: this card's pre-rebase tip (7288f2e) writes an 8-page interior for the same book, because it predates CARD-128's level dividers, and CARD-128's own tree (407c0cc) writes eleven unframed pages. Only the two together produce the eleven framed-where-it-counts pages below.",
+  "recorded_on": "2026-09-24",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-144 deliberately changes what a book puzzle page prints, which is the one reason the CARD-145 fixture's warning allows a new baseline to be recorded: FR-041's frame closes the drawing off with one heavy rectangle around clues and grid, so the pages that carry a single puzzle moved. It is recorded against the rebased tree rather than against this card's pre-rebase tip, because CARD-128 merged first and changed the book underneath it: the interior is eleven pages grouped easy/medium/hard with a divider opening each level, not the eight pages the pre-rebase recording described, and the two single-puzzle pages are now interior 5 and interior 7 rather than 2 and 4. Both predecessors are left in place, unregenerated, as the evidence they were recorded to be.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-144. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids. If a later card deliberately changes a page's content, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "changed_pages": [
+    5,
+    7
+  ],
+  "changed_pages_note": "The 1-based interior pages whose ink moved against the CARD-128 baseline, and the only ones: interior 5 (the 15x15 Medium) and interior 7 (the 30x30 Hard), the book's two single-puzzle pages, which are now framed. The other nine digests are CARD-128's own, byte for byte. Interior 3 is the two-up page and is identical to the CARD-128 recording, because a two-up page is composed by admin.book_pdf_generator._stroke_drawing, which strokes a slot's grid lines and not its Layout.frame; CARD-144's guardrail G-4 forbade touching that file, so the pair geometry carries a frame per slot that nothing yet draws — tracked as CARD-146 and deliberately out of this card's scope. Interiors 1, 2, 4, 6 and 8 are the guide and the four divider pages, which carry no drawing, and 9-11 are the packed answer key, which FR-042 owns and CARD-144 did not touch.",
+  "font_fingerprint": "19f6bed7e82991d6f9ba6e1552b97aa9d863707e08b5fade368d4b5f31d710a5",
+  "font_fingerprint_note": "The guide page and every divider page are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against the digests of the pages named in font_dependent_pages. The fingerprint is unchanged from CARD-128's and from CARD-145's: the frame is ink drawn by COMP-007 and touches no lettering, and this is the same machine.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "The 1-based interior pages whose pixels depend on the machine's own font: page 1 is the guide page (Arial at 48 and 28, load_default fallback), pages 2, 4 and 6 are the Easy, Medium and Hard level dividers and page 8 is the SOLUTIONS divider (Arial at 60). The other six are drawn in the bundled band face and Pillow's built-in clue face, so their digests are comparable on any machine and are compared even when font_fingerprint differs — which is where both of this card's changed pages sit, so the frame's evidence survives a face mismatch. interior_bytes is compared only when the fingerprint matches: those pages sit inside the same file, and a different face changes the length of their JPEG streams.",
+  "interior_bytes": 2637748,
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "73ab7e03d0fa64ef5839c8116fb96c766e367771cfeb89417623604157903021"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "84ee283a62de31507a8d8ee05c024e952cd499509262d9b8788e5e6bba2b91f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd36d4dc043f4af75b83f77fc147186e36dd021194e0b7d62e25028b695ded"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "3f3e7b686bbdb67d942d4244fdedd91d6aec3d511446a3674a19872fd7617955"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bcb474a056c470d6c6818204eec9f0f8ed03e6a9d244570f1e3e71b26b29a113"
+    }
+  ]
+}

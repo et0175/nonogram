@@ -83,6 +83,8 @@ class Drawing:
         columns: How many columns the grid is drawn with, counted from its
             vertical rules. Blank puzzle pages only.
         rows: The same, down the page.
+        framed: Whether the drawing is closed off by a book page's frame
+            (FR-041, CARD-144), read off the page — see :func:`drawing_of`.
     """
 
     left: int
@@ -93,6 +95,7 @@ class Drawing:
     grid_bottom: int
     columns: int
     rows: int
+    framed: bool = False
 
     @property
     def cell(self) -> float:
@@ -177,6 +180,18 @@ def _rule_groups(longest: np.ndarray) -> list[list[int]]:
 def drawing_of(page: Image.Image) -> Drawing:
     """Measure ``page``'s puzzle drawing.
 
+    A book page's frame (FR-041, CARD-144) is told from the grid by where it
+    sits, not by being told about it — the same principle as everything else
+    here. A frame's left side is a rule on the **drawing's** left edge, and
+    the drawing's left edge is where every horizontal rule starts; the grid's
+    left border, on an unframed page, is a whole clue gutter (at least one
+    cell) to the right of that. So the leftmost full-height rule is the frame's
+    exactly when its own ink covers the point the horizontal rules start from,
+    and the same downward for the topmost full-width rule. The frame's two
+    rules are then dropped before the grid's are counted, which is what keeps
+    ``columns``, ``rows`` and therefore :attr:`Drawing.cell` the grid's own on
+    a framed page and identical to before the frame on an unframed one.
+
     Raises:
         ValueError: the page carries no ink, or no grid rules were found (it
             is not a puzzle page).
@@ -187,15 +202,24 @@ def drawing_of(page: Image.Image) -> Drawing:
     if len(horizontal) < 2 or len(vertical) < 2:
         raise ValueError("this page does not carry a ruled grid")
 
-    top_rule = horizontal[0][0]
-    left_rule = vertical[0][0]
+    left = _longest_run_start(dark[horizontal[0][0]])
+    top = _longest_run_start(dark[:, vertical[0][0]])
+    framed = vertical[0][0] <= left < vertical[0][0] + len(vertical[0]) and (
+        horizontal[0][0] <= top < horizontal[0][0] + len(horizontal[0])
+    )
+    if framed:
+        horizontal, vertical = horizontal[1:], vertical[1:]
+        if len(horizontal) < 2 or len(vertical) < 2:
+            raise ValueError("this page carries a frame but no ruled grid inside it")
+
     return Drawing(
-        left=_longest_run_start(dark[top_rule]),
-        top=_longest_run_start(dark[:, left_rule]),
-        grid_left=left_rule,
+        left=left,
+        top=top,
+        grid_left=vertical[0][0],
         grid_right=vertical[-1][0],
-        grid_top=top_rule,
+        grid_top=horizontal[0][0],
         grid_bottom=horizontal[-1][0],
         columns=len(vertical) - 1,
         rows=len(horizontal) - 1,
+        framed=framed,
     )
