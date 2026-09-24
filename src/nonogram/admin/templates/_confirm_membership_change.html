@@ -47,8 +47,15 @@
         </div>
 
         <h2 class="card-title">{{ change }}</h2>
+        {#- The promise is conditional on purpose. The published question is
+            asked *before* the 4.8 mm floor measures anything (INV-006 is the
+            store's, and it runs after INV-008's door), so a confirmed change
+            can still be refused in part or in full — and a change that moves
+            no puzzle correctly demotes nothing (INV-012). "Confirming ...
+            returns the book to draft" was flatly false in that case. -#}
         <p>
-            Confirming applies this change and returns the book to
+            Confirming applies this change. Whatever of it actually moves a
+            puzzle into or out of the book sends the book back to
             <strong>draft</strong>, because a book outside draft holds exactly
             the puzzles that last passed its plan check. It has to pass that
             check again before it can leave draft.

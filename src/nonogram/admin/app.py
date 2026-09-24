@@ -3154,6 +3154,28 @@ def create_app(debug=None):
                         # INV-008: nothing was added and the ticks are still
                         # kept, so the owner can confirm or walk away with the
                         # selection they built intact (EC-026).
+                        #
+                        # The three legs are three different lists on purpose.
+                        # `puzzle_ids` is the whole folded selection, so the
+                        # confirmed re-POST commits what the owner ticked
+                        # across every tab, not the last tab alone; the
+                        # `override_` fields are `overrides` and *only*
+                        # `overrides`, because `_submitted_overrides` reads
+                        # whichever form is being committed — carrying one per
+                        # ticked id would hand the store an override the owner
+                        # never gave, and `newly_overridden` would persist it
+                        # (INV-006).
+                        #
+                        # `shown_ids` cannot change the outcome: `kept_ids` IS
+                        # the whole kept selection, so on the re-POST
+                        # `_fold_tab_into_selection` either drops everything
+                        # and re-adds the ticks, or keeps everything and the
+                        # `dict.fromkeys` dedupe collapses the repeat — the
+                        # same set either way. It stays because this form is
+                        # the owner's submission posted back: the confirmation
+                        # re-POSTs a *selection-step submission*, and one
+                        # without `shown_ids` is a tab that offered nothing,
+                        # a shape no browser would ever send.
                         return _ask_to_confirm(
                             book,
                             url_for("select_puzzles_for_book", book_id=book_id),

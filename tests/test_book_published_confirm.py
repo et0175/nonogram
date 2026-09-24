@@ -36,10 +36,12 @@ against 10 — are written out here.
 
 from __future__ import annotations
 
+import contextlib
 import html as html_module
 import re
 
 import pytest
+from flask import message_flashed
 
 import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_manager import (
@@ -95,12 +97,27 @@ HOLDS_AFTER_ADD = 121
 A_FEW = 3
 HOLDS_AFTER_A_FEW = 123
 
+#: The mixed submission: four tiles ticked at once, of which one is refused.
+#: Two below the floor **with** an override, one below it **without** one, one
+#: ordinary — so the three legs of the confirmation's field list (4 ids, 4
+#: shown, 2 overrides) all have different lengths, and none of them can be fed
+#: from the wrong list, or truncated, and still render a form that looks right.
+MIXED_TICKED = 4
+MIXED_OVERRIDDEN = 2
+MIXED_ADMITTED = 3
+HOLDS_AFTER_MIXED = 123
+
 
 def test_the_scenario_book_really_holds_a_hundred_and_twenty() -> None:
     """The criteria's 120 is the fixture's 120, checked against the matrix."""
     assert sum(sum(row) for row in BOOK_OF_120) == PLAN_OF_120.count == HOLDS
     assert HOLDS + 1 == HOLDS_AFTER_ADD
     assert HOLDS + A_FEW == HOLDS_AFTER_A_FEW
+    assert HOLDS + MIXED_ADMITTED == HOLDS_AFTER_MIXED
+    # Three different lengths, and every leg longer than one: the arithmetic
+    # that makes the mixed submission unable to hide a single-item blind spot.
+    assert MIXED_TICKED == MIXED_ADMITTED + 1
+    assert 1 < MIXED_OVERRIDDEN < MIXED_ADMITTED < MIXED_TICKED
     assert not PLAN_OF_120.disagrees_with_split
 
 
@@ -265,6 +282,29 @@ def resubmit_confirmation(client, response):
     for name, value in fields:
         form.setdefault(name, []).append(value)
     return client.post(action, data=form, follow_redirects=True)
+
+
+@contextlib.contextmanager
+def recorded_flashes(app):
+    """Every message the app flashes while the block runs, in order.
+
+    Caught at ``flash()`` through Flask's ``message_flashed`` signal rather
+    than read back off the rendered page or out of ``session["_flashes"]``:
+    a route that re-renders (the selection step, the arrange step) has already
+    consumed its flashes by the time the response is in hand, while one that
+    redirects has not, so only the signal reads the *same* thing for both. The
+    pattern is ``tests/test_book_trim_persistence.py``'s.
+    """
+    recorded: list[str] = []
+
+    def record(_sender, message, category, **_extra):
+        recorded.append(message)
+
+    message_flashed.connect(record, app)
+    try:
+        yield recorded
+    finally:
+        message_flashed.disconnect(record, app)
 
 
 def asks_to_confirm(response, book, *, change_mentions=()) -> str:
@@ -588,6 +628,93 @@ class TestBookPublished_ConfirmedPuzzleChangeApplied:
             f"the owner is told their overridden puzzle is below the floor: {shown}"
         )
 
+    def test_a_mixed_submission_carries_each_decision_and_invents_none(
+        self, panel
+    ) -> None:
+        """INV-006 x INV-008 in the shape the selection step is really used in.
+
+        Four tiles ticked at once: two below the floor with the override
+        ticked, one below it with the override deliberately **not** ticked, one
+        ordinary. That closes both directions of the override leg in one go —
+        an override the owner gave survives the question, and one they did not
+        give is not invented for them.
+
+        The second direction is the one a single-tile scenario cannot see at
+        all: with one tick and one override the ticked list and the override
+        list are the same list, so a screen that carried an ``override_<id>``
+        for *every* ticked puzzle would read as correct. On a real submission
+        it admits a below-floor puzzle the owner never vouched for and stores a
+        floor override for it — one that then survives every later trim change,
+        which is exactly what CARD-121's override pruning exists to prevent.
+
+        Driven through the rendered form, so what is pinned is the page the
+        owner presses, not a submission this test reconstructed.
+        """
+        app, shelf = panel
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
+        overridden = [below_the_floor(shelf) for _ in range(MIXED_OVERRIDDEN)]
+        no_override = below_the_floor(shelf)
+        ordinary = one_more(shelf)
+        ticked = [*overridden, no_override, ordinary]
+        assert len(ticked) == MIXED_TICKED
+        client = app.test_client()
+
+        asked = client.post(
+            f"/book/{book_id}/select-puzzles",
+            data={
+                "bucket": "26-30",
+                "shown_ids": ticked,
+                "puzzle_ids": ticked,
+                **{f"override_{pid}": "on" for pid in overridden},
+            },
+        )
+
+        shown_question = asks_to_confirm(
+            asked,
+            shelf.books.get_book(book_id),
+            change_mentions=(f"Add {MIXED_TICKED} selected puzzles",),
+        )
+        _, fields = confirmation_form(asked)
+        assert [value for name, value in fields if name == "puzzle_ids"] == ticked, (
+            f"the confirmation does not carry back the submission it was given: {fields}"
+        )
+        assert sorted(name for name, _ in fields if name.startswith("override_")) == sorted(
+            f"override_{pid}" for pid in overridden
+        ), f"the confirmation page rewrote the owner's overrides: {fields}"
+        # F-104: this submission is one the floor refuses in part and could
+        # refuse entirely, so the page may not promise the demotion flatly.
+        assert "returns the book to draft" not in shown_question, (
+            f"the confirmation promises a return to draft it cannot keep: {shown_question}"
+        )
+
+        with recorded_flashes(app) as flashed:
+            applied = resubmit_confirmation(client, asked)
+
+        held = ids_of(shelf, book_id)
+        assert [pid for pid in ticked if pid in held] == [*overridden, ordinary], (
+            "the confirmed add did not land exactly on the tiles the floor allowed: "
+            f"{[pid for pid in ticked if pid in held]}"
+        )
+        assert no_override not in held
+        assert len(held) == HOLDS_AFTER_MIXED
+        assert sorted(shelf.books.floor_overrides(book_id)) == sorted(overridden), (
+            "the confirmation screen stored a floor override the owner never gave: "
+            f"{shelf.books.floor_overrides(book_id)}"
+        )
+        refusals = [line for line in flashed if "mm floor" in line]
+        assert len(refusals) == 1 and no_override in refusals[0], (
+            f"the tile with no override was not refused by name: {flashed}"
+        )
+        for puzzle_id in (*overridden, ordinary):
+            assert puzzle_id not in refusals[0], (
+                f"a tile the owner vouched for was refused anyway: {flashed}"
+            )
+        assert f"Added {MIXED_ADMITTED} puzzle(s) to book" in flashed, (
+            f"the owner is told a number the book does not hold: {flashed}"
+        )
+        assert applied.status_code == 200
+        assert status_of(shelf, book_id) == DRAFT
+
     def test_the_store_carries_an_override_through_a_confirmed_add(self, shelf) -> None:
         """The store half of the same interaction, in both storage modes."""
         book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
@@ -656,11 +783,17 @@ class TestBookArrangeStep_DeleteReportsWhatTheStoreDid:
     """The fourth route was brought into scope over exactly this flash.
 
     Before CARD-131 the step announced "Removed puzzle from book" whatever the
-    store answered — including the published book's "not without a
-    confirmation", which is the lie that argued the route into the card. The
-    announcement now follows ``RemoveOutcome.removed``, and the not-found arm
-    is worded like the sibling route ``POST /book/<id>/remove-puzzle``: the
-    same delete, reached from two screens, answers the owner the same way.
+    store answered, which then meant announcing a delete that found nothing —
+    the lie that argued the route into the card. The published book's "not
+    without a confirmation" is *new in this card*: on ``main``
+    ``remove_puzzle_from_book`` had no published check at all, in either
+    storage branch, so a published book simply lost the puzzle in silence.
+    That second answer is pinned by
+    :meth:`test_the_question_a_published_book_asks_is_not_an_announcement`.
+
+    The announcement now follows ``RemoveOutcome.removed``, and the not-found
+    arm is worded like the sibling route ``POST /book/<id>/remove-puzzle``:
+    the same delete, reached from two screens, answers the owner the same way.
     """
 
     def test_a_removal_the_store_made_is_announced(self, panel) -> None:
@@ -695,6 +828,43 @@ class TestBookArrangeStep_DeleteReportsWhatTheStoreDid:
         )
         assert "Book or puzzle not found" in shown, (
             f"the step said nothing at all about a delete that found nothing: {shown}"
+        )
+        assert len(ids_of(shelf, book_id)) == HOLDS
+
+    def test_both_delete_screens_answer_a_stranger_with_the_same_words(
+        self, panel
+    ) -> None:
+        """The cross-route rule read off both routes, not typed out twice.
+
+        ``app.py``'s arrange-step comment records that this answer is "worded
+        as the sibling route has always worded it, so the same delete answers
+        the same from either screen". Pinned as a literal in each test, a later
+        card that rewords the sibling and updates the sibling's own test would
+        leave this step on the old wording, still green, with the rule silently
+        gone — from the screen the owner actually deletes from. So the two
+        answers are compared with each other here instead.
+        """
+        app, shelf = panel
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120)
+        stranger = one_more(shelf)
+        client = app.test_client()
+
+        with recorded_flashes(app) as from_arrange:
+            client.post(
+                f"/book/{book_id}/arrange-puzzles",
+                data={"action": "delete", "puzzle_id": stranger},
+            )
+        with recorded_flashes(app) as from_detail:
+            client.post(
+                f"/book/{book_id}/remove-puzzle",
+                data={"puzzle_id": stranger},
+                follow_redirects=True,
+            )
+
+        assert from_arrange, "the arrange step said nothing about a delete that found nothing"
+        assert from_arrange == from_detail, (
+            "the same delete answers differently depending on the screen it was "
+            f"reached from: {from_arrange} vs {from_detail}"
         )
         assert len(ids_of(shelf, book_id)) == HOLDS
 
@@ -1117,9 +1287,19 @@ class TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership:
         the book now holds, and the gate runs at the **exit from draft only**
         (``_refuse_unless_the_planned_book``) — so a changed membership left at
         pdf_generated would never be measured again on its way to KDP. What
-        INV-012 buys is that the road back out of draft is the gate, and the
-        gate refuses this membership for every target, the ship-ward jump
-        straight to published included (ADR-0035 (a)'s status-jump bypass).
+        INV-012 buys is that the road back out of draft is the gate, and this
+        membership does not clear it.
+
+        The novelty here is the **membership delta** — that the selection which
+        bought the pass and the selection the book now holds differ by exactly
+        the four that joined, captured before the edits and asserted after.
+        That the gate refuses *every* target, the ship-ward jump straight to
+        published included (ADR-0035 (a)'s status-jump bypass), is already
+        pinned exhaustively elsewhere, parametrised over every non-draft
+        status, by ``tests/test_book_ready_gate.py``'s
+        ``TestBookStatus_EveryExitFromDraftIsGatedOnThePlan``; published is
+        used below because it is this card's status, not because the every-
+        target claim is made here.
         """
         book_id, groups = stocked(shelf, AC_PLAN_CELLS, AC_PLAN, status=PDF_GENERATED)
         passed_the_gate_with = ids_of(shelf, book_id)
