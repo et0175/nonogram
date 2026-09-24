@@ -1840,10 +1840,14 @@ class AnswerTile:
 
     The tile is the rectangle the answer owns; inside it sit the caption line
     (the top :data:`ANSWER_CAPTION_MM`) and the grid, drawn at the largest
-    square cell that fits the rest of the tile and never above
+    square cell the page's measured tile can hold and never above
     :data:`ANSWER_MAX_CELL_MM`. The grid is centred across the tile and hangs
-    from the caption line, so whatever height the cap leaves spare falls at the
-    tile's bottom rather than between the caption and the picture it labels.
+    from the caption line.
+
+    The tile is only as tall as its **row** needs: the caption line plus the
+    tallest grid in that row (CARD-141). So a tile holds spare height only
+    where a neighbour in the same row is taller than it; the height no row
+    uses falls at the foot of the page, not between two rows.
 
     There are no clue gutters and no clue entries: an answer is the solved
     picture, and FR-042's answer key prints nothing else (AC-267). That is why
@@ -1856,13 +1860,15 @@ class AnswerTile:
         rows: The answer's height in cells.
         columns: Its width in cells.
         cell_mm: The cell, exactly, in millimetres:
-            ``min(ANSWER_MAX_CELL_MM, tile width / columns, (tile height −
-            ANSWER_CAPTION_MM) / rows)``. The grid prints it as the pitch
+            ``min(ANSWER_MAX_CELL_MM, tile width / columns, (measured tile
+            height − ANSWER_CAPTION_MM) / rows)`` over the page's equal tile,
+            never over the row's own height. The grid prints it as the pitch
             between rules, each rule rounded to the nearest device pixel.
         tile_left: The tile's left edge.
         tile_top: Its top edge, which is also the caption line's top.
         tile_right: Its right edge.
-        tile_bottom: Its bottom edge.
+        tile_bottom: Its bottom edge — the bottom of its row, i.e. its top
+            plus the caption line plus the tallest grid in that row.
         caption_top: The caption line's top edge (``tile_top``).
         caption_bottom: Its bottom edge, i.e. where the grid may begin.
         caption_font_size: The size to set the caption in, never taller than
@@ -1970,8 +1976,11 @@ class AnswerPageLayout:
             sideways, never its size, exactly as on a puzzle page.
         capacity: 6 (2 x 3) or 4 (2 x 2) — the tiling the page was measured
             for, not how many answers it was given. A half-filled last page of
-            a level keeps its capacity's tile size.
-        tile_rows: ``capacity // 2``, the number of tile rows.
+            a level keeps its capacity's cell size.
+        tile_rows: ``capacity // 2``, the number of tile rows the page was
+            measured for. A row is laid out only for answers the page was
+            given, and takes the height its own content needs, so the tiles
+            may occupy fewer rows and less height than this (CARD-141).
         tile_columns: Always :data:`_ANSWER_TILE_COLUMNS`, i.e. 2.
         width: The trim's width in device pixels.
         height: The trim's height.
@@ -2076,21 +2085,21 @@ def compute_answer_page_layout(
 ) -> AnswerPageLayout:
     """Tile one page of the book's answer key (FR-042).
 
-    The answer-key half of ADR-0036/R2: the page is divided into ``capacity``
-    equal tiles, two across, and each answer is drawn inside its own tile at
-    the largest square cell that tile can hold, capped at
-    :data:`ANSWER_MAX_CELL_MM`. Every tile on a page is the same size whatever
+    The answer-key half of ADR-0036/R2: the page is measured as ``capacity``
+    equal tiles, two across, and each answer is drawn at the largest square
+    cell such a tile can hold, capped at :data:`ANSWER_MAX_CELL_MM`. That
+    measurement is what every answer on the page is sized against, whatever
     the answers on it are, so the key reads as a regular grid and a 10x10 next
     to a 20x20 does not pull the page out of true.
 
-    The geometry, in millimetres, on the usable area (trim minus the four
-    margins — an answer page carries **no title band**)::
+    The cell, in millimetres, on the usable area (trim minus the four margins
+    — an answer page carries **no title band**)::
 
-        tile width  = (usable width − ANSWER_TILE_GAP_MM) / 2
-        tile height = (usable height − heading − (rows − 1) × ANSWER_TILE_GAP_MM) / rows
-        cell        = min(ANSWER_MAX_CELL_MM,
-                          tile width / columns,
-                          (tile height − ANSWER_CAPTION_MM) / rows)
+        tile width    = (usable width − ANSWER_TILE_GAP_MM) / 2
+        measured tile = (usable height − heading − (rows − 1) × ANSWER_TILE_GAP_MM) / rows
+        cell          = min(ANSWER_MAX_CELL_MM,
+                            tile width / columns,
+                            (measured tile − ANSWER_CAPTION_MM) / rows)
 
     where ``rows`` is ``capacity // 2`` and ``heading`` is
     ``ANSWER_HEADING_MM + ANSWER_TILE_GAP_MM`` on a page that carries one and
@@ -2099,6 +2108,23 @@ def compute_answer_page_layout(
     tile of 95.84 x 82.78 mm under a heading; a 20x20 answer then prints at
     3.97 mm, 3.87 mm under a heading, and a 30x30 four-up at 3.19 mm
     (AC-262, AC-265, AC-294, AC-295).
+
+    **Where the spare height goes** (CARD-141, owner's ruling 2026-09-23). The
+    equal tile above sizes the cell and nothing else. A row of tiles is then
+    given only the height its own content needs::
+
+        row height = ANSWER_CAPTION_MM + max(rows × cell) over the row's answers
+
+    which is at most the measured tile height, since the cell never exceeds
+    that tile's own height fit. Rows are laid from the top of the usable area
+    (under the heading line, where there is one) with
+    :data:`ANSWER_TILE_GAP_MM` between them, so the height a short row does not
+    use accumulates at the **foot of the page** rather than as a white band
+    between two rows. Both tiles of a row share the row's height, so the page
+    still reads as rows; vertical centring inside a tile was the alternative
+    and was rejected — it spreads the slack around every grid instead of
+    gathering it. Horizontal geometry is untouched: two columns of
+    ``tile width``, each grid centred across its own column.
 
     **No cell floor, and why that is safe.** Unlike a puzzle's cell this one is
     capped but never held up: a floor would push a grid past the edge of its
@@ -2191,7 +2217,6 @@ def compute_answer_page_layout(
     usable_width_px = _exact_px(usable_width_mm)
     usable_height_px = _exact_px(usable_height_mm)
     tile_width_px = _exact_px(tile_width_mm)
-    tile_height_px = _exact_px(tile_height_mm)
     gap_px = _exact_px(gap_mm)
     caption_px = _exact_px(caption_mm)
     first_row_top_px = usable_top_px + _exact_px(heading_mm)
@@ -2207,22 +2232,36 @@ def compute_answer_page_layout(
             font_size=max(1, min(_mm_to_px(ANSWER_TEXT_FONT_MM), heading_height)),
         )
 
+    cells_mm = tuple(
+        _answer_cell_mm(
+            columns,
+            rows,
+            tile_width_mm=tile_width_mm,
+            tile_height_mm=tile_height_mm,
+            caption_mm=caption_mm,
+        )
+        for columns, rows in measured
+    )
+    row_heights_mm = _answer_row_heights_mm(measured, cells_mm, caption_mm)
+    row_tops_px: list[Fraction] = []
+    next_top_px = first_row_top_px
+    for row_height_mm in row_heights_mm:
+        row_tops_px.append(next_top_px)
+        next_top_px += _exact_px(row_height_mm) + gap_px
+
     tiles = tuple(
         _answer_tile(
             index,
             columns,
             rows,
             page_spec,
+            cell_mm=cells_mm[index],
             tile_left_px=usable_left_px
             + (index % _ANSWER_TILE_COLUMNS) * (tile_width_px + gap_px),
-            tile_top_px=first_row_top_px
-            + (index // _ANSWER_TILE_COLUMNS) * (tile_height_px + gap_px),
+            tile_top_px=row_tops_px[index // _ANSWER_TILE_COLUMNS],
             tile_width_px=tile_width_px,
-            tile_height_px=tile_height_px,
-            tile_width_mm=tile_width_mm,
-            tile_height_mm=tile_height_mm,
+            tile_height_px=_exact_px(row_heights_mm[index // _ANSWER_TILE_COLUMNS]),
             caption_px=caption_px,
-            caption_mm=caption_mm,
         )
         for index, (columns, rows) in enumerate(measured)
     )
@@ -2262,36 +2301,81 @@ def _answer_extent(extent: object, index: int) -> tuple[int, int]:
     return columns, rows
 
 
+def _answer_cell_mm(
+    columns: int,
+    rows: int,
+    *,
+    tile_width_mm: Fraction,
+    tile_height_mm: Fraction,
+    caption_mm: Fraction,
+) -> Fraction:
+    """FR-042's cell for one answer, exactly, in millimetres.
+
+    Measured against the page's **equal** tile — the one
+    :func:`compute_answer_page_layout` derives from the capacity alone — and
+    never against the height the answer's own row ends up taking. That is what
+    keeps ADR-0036/R2's one cell size per page true and the computation
+    non-circular: the cell decides the row's height, so the row's height
+    cannot be allowed to decide the cell.
+    """
+    return min(
+        _exact_mm(ANSWER_MAX_CELL_MM),
+        tile_width_mm / columns,
+        (tile_height_mm - caption_mm) / rows,
+    )
+
+
+def _answer_row_heights_mm(
+    measured: Sequence[tuple[int, int]],
+    cells_mm: Sequence[Fraction],
+    caption_mm: Fraction,
+) -> tuple[Fraction, ...]:
+    """Each tile row's height in millimetres: its caption line plus its tallest grid.
+
+    One height per row that holds an answer — ``ceil(len(measured) / 2)`` of
+    them, so a page the caller did not fill has no empty rows to lay out. Both
+    tiles of a row share the row's height, and a row is never taller than the
+    equal tile the cells were measured against (the cell is at most that
+    tile's own height fit), so the rows always fit the usable area with the
+    unused height left over at the page's foot (CARD-141).
+    """
+    return tuple(
+        caption_mm
+        + max(
+            rows * cells_mm[index]
+            for index, (_, rows) in enumerate(measured)
+            if index // _ANSWER_TILE_COLUMNS == row
+        )
+        for row in range(-(-len(measured) // _ANSWER_TILE_COLUMNS))
+    )
+
+
 def _answer_tile(
     index: int,
     columns: int,
     rows: int,
     page_spec: PageSpec,
     *,
+    cell_mm: Fraction,
     tile_left_px: Fraction,
     tile_top_px: Fraction,
     tile_width_px: Fraction,
     tile_height_px: Fraction,
-    tile_width_mm: Fraction,
-    tile_height_mm: Fraction,
     caption_px: Fraction,
-    caption_mm: Fraction,
 ) -> AnswerTile:
-    """One answer in its tile: the cell, the caption line and the ruled grid.
+    """One answer in its tile: the caption line and the ruled grid at ``cell_mm``.
 
-    The cell is taken exactly, in millimetres, so ``cell_mm`` is the number the
-    tile really prints rather than a pixel count read back as a length. The
-    grid is centred across the tile and hangs from the caption line, and every
+    The cell is passed in, taken exactly in millimetres by
+    :func:`_answer_cell_mm`, so ``cell_mm`` is the number the tile really
+    prints rather than a pixel count read back as a length. ``tile_height_px``
+    is the answer's **row** height, not the equal tile's: the grid is centred
+    across the tile and hangs from the caption line, so the only height spare
+    inside a tile is what a taller neighbour in the same row needs. Every
     boundary is rounded once (:func:`_boundaries`), so a fractional pitch never
     accumulates error down the grid. Strokes and the every-5th rules come from
     :func:`_rule_widths` and :func:`_axis_lines` — the page's own, so an answer
     is ruled exactly as a puzzle is (ADR-0037/R2).
     """
-    cell_mm = min(
-        _exact_mm(ANSWER_MAX_CELL_MM),
-        tile_width_mm / columns,
-        (tile_height_mm - caption_mm) / rows,
-    )
     pitch = _exact_px(cell_mm)
     grid_left_px = tile_left_px + max(tile_width_px - columns * pitch, Fraction(0)) / 2
     grid_top_px = tile_top_px + caption_px

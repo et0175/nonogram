@@ -168,10 +168,20 @@ def _check_tile(
     assert first_row_top <= tile.tile_top
     assert tile.tile_bottom <= page.usable_bottom
 
-    # The tile is the size FR-042 says, and the page is the trim.
+    # The tile is the size FR-042 says, and the page is the trim. Across, that
+    # is the measured tile itself; down, it is the row's own content — the
+    # caption line plus the tallest grid sharing the row (CARD-141) — which is
+    # never taller than the measured tile the cell was fitted to.
     tile_width_mm, tile_height_mm = _expected_tile_mm(capacity, heading=heading)
     assert abs(_mm(tile.tile_right - tile.tile_left) - tile_width_mm) <= PIXEL_MM
-    assert abs(_mm(tile.tile_bottom - tile.tile_top) - tile_height_mm) <= PIXEL_MM
+    row_height_mm = ANSWER_CAPTION_MM + max(
+        other.rows
+        * _expected_cell_mm((other.columns, other.rows), capacity, heading=heading)
+        for other in page.tiles
+        if other.index // page.tile_columns == tile.index // page.tile_columns
+    )
+    assert abs(_mm(tile.tile_bottom - tile.tile_top) - row_height_mm) <= PIXEL_MM
+    assert _mm(tile.tile_bottom - tile.tile_top) <= tile_height_mm + PIXEL_MM
     assert page.parity is spec.parity
 
 
