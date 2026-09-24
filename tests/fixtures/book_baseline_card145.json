@@ -5,8 +5,10 @@
   "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
   "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
   "warning": "This is evidence of what the book PDF looked like BEFORE CARD-145 restructured the export. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids. If a later card deliberately changes a page's content, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
-  "font_fingerprint": "1e15d956c1ef44cbde66f1d28576b968e9b603aef36eb885bfa58105ff5cb687",
-  "font_fingerprint_note": "The guide page and the SOLUTIONS divider are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those two pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against these digests.",
+  "font_fingerprint": "19f6bed7e82991d6f9ba6e1552b97aa9d863707e08b5fade368d4b5f31d710a5",
+  "font_fingerprint_note": "The guide page and the SOLUTIONS divider are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those two pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against the digests of the pages named in font_dependent_pages. This field is the ONLY one CARD-145's cycle-1 review re-recorded, and it is evidence about this machine rather than about the code: the fingerprint now covers all three sizes those two pages are lettered at (48, 28, 60) instead of 48 alone, which changes the digest without changing the face. Every page digest below is still the merge-base's, and still matches.",
+  "font_dependent_pages": [1, 5],
+  "font_dependent_pages_note": "The 1-based interior pages whose pixels depend on the machine's own font: page 1 is the guide page (Arial at 48 and 28, load_default fallback) and page 5 is the SOLUTIONS divider (Arial at 60). The other six are drawn in the bundled band face and Pillow's built-in clue face, so their digests are comparable on any machine and are compared even when font_fingerprint differs. interior_bytes is compared only when the fingerprint matches: those two pages sit inside the same file, and a different face changes the length of their JPEG streams.",
   "interior_bytes": 2210622,
   "page_count": 8,
   "pages": [

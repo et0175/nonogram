@@ -136,19 +136,41 @@ pre-allocates one image, page and contents object id per page from that count
 (which is why the count has to be known first), writes the header and the
 catalog, and then pulls one page at a time: it JPEG-encodes that page into the
 output buffer and drops it before asking for the next. Nothing on the export
-path holds a list of pages, and neither the producer nor the writer keeps its
-page bound across the call that builds the following one, so exactly one page
-bitmap is alive at any moment.
+path holds a list of pages, and **no page survives the call that builds the
+next one**: neither the producer nor the writer keeps its page bound across
+it, so the number of pages this module *retains* is one, whatever the book's
+length. That is asserted as an **equality** rather than as a bound —
+``tests/test_book_pdf_memory.py`` measures a retained peak of exactly one page
+bitmap on an 8-page and on a 179-page book, and on
+:meth:`BookPDFGenerator.export_book`, which writes both files — because every
+one of those ``del``\\ s is the difference between a retained peak of 1.00 and
+2.00 page bitmaps, and a test that allowed 2.00 would not notice one going
+missing.
 
-**The memory envelope, with its numbers.** Peak is one page bitmap (25.2 MB on
-Book 1) plus that page's JPEG buffer, plus — and this term is real, not
-rounded away — the written PDF itself, which accumulates in the returned
+**One page retained is not one page alive, and the difference is a measured
+constant.** Inside a single puzzle-page build the process holds **two**
+full-size bitmaps: :meth:`BookPDFGenerator._blank_page` calls COMP-007's
+:func:`~nonogram.export.pdf.render_pages`, which draws a blank page *and* a
+solved page from one payload, and binds ``blank, _ = render_pages(...)`` — so
+the solved page, which has had no use since FR-042, is alive until that frame
+returns. Registering both pages it returns measures a peak of **50,490,000 B =
+2.00 page bitmaps**, and measures the *same* 50,490,000 B on the 179-page book
+as on the 8-page one: it is a constant every puzzle page pays and none of them
+accumulates, not a term that grows. It is also the merge-base's code untouched
+— CARD-145 changed when a page is released, not what draws one (G-1) — so
+reducing it belongs to whatever card revisits ``render_pages``' second page.
+
+**The memory envelope, with its numbers.** Peak is those two page bitmaps
+(50.5 MB on Book 1) plus a page's JPEG buffer, plus — and this term is real,
+not rounded away — the written PDF itself, which accumulates in the returned
 ``BytesIO`` at a measured ~0.46 MB per page. A 179-page interior therefore
-peaks near 25.2 + 82 = ~107 MB instead of the old shape's 4.5 GB, and a book
-fits the envelope with room for the request around it. Peak is **O(one page) +
-O(the compressed file)**, not O(one page x the page count); it is not a
-constant, and the tests say so rather than claiming one the code does not
-have.
+peaks near 50.5 + 81.9 = **~132 MB** instead of the old shape's 4.5 GB, about
+a quarter of the 512 MB instance, and a book fits the envelope with room for
+the request around it. Measured end to end, a child process exporting that
+book peaks at 150.8-169.9 MB resident, interpreter and imports included. Peak
+is **O(one retained page) + O(a transient constant) + O(the compressed
+file)**, not O(one page x the page count); it is not a constant, and the tests
+say so rather than claiming one the code does not have.
 
 **Why Pillow rather than ReportLab.** ReportLab is an installed dependency of
 the panel (ADR-0006, 2026-09-11) and can write a page and move on, but it
@@ -1002,11 +1024,33 @@ class BookPDFGenerator:
         pages: :meth:`interior_stream` knows all three before a page is drawn,
         so reporting them costs nothing and the interior is never materialised
         to be counted (CARD-145).
+
+        The interior is finished **before** the cover page is built, and the
+        two are written as two statements rather than as two arguments of one
+        ``BookExport(...)`` call — that reads better, and nothing more should
+        be read into it. **The order is not what keeps a cover page from being
+        alive beside an interior page** (card item 3, failure matrix F-6), and
+        neither is :meth:`_cover_page` being a generator. What keeps them
+        apart is that no page escapes the :meth:`export_cover` call at all:
+        :meth:`_write_pdf` retains no page after writing one and hands back a
+        ``BytesIO``, and :attr:`BookExport.cover` is that ``BytesIO``, not an
+        :class:`~PIL.Image.Image`. Mutation-measured, each of — swapping the
+        two statements, folding them back into one ``BookExport(...)`` call
+        with ``cover=`` evaluated first, and making :meth:`_cover_page` eager
+        with the cover built first — still peaks at one page bitmap. What
+        would double the peak is *this* method binding a page itself: a
+        ``cover_page = self.create_cover_page(...)`` held across the interior
+        write measures 2.00 page bitmaps and fails
+        ``test_the_whole_book_holds_one_page_bitmap_at_a_time``. The four
+        ``del page`` sites this card added pin the **interior** half of the
+        bound (F-1) — consecutive pages of a multi-page walk — not this one.
         """
         stream = self.interior_stream(puzzles)
+        interior = self._write_pdf(stream.pages, stream.page_count)
+        cover = self.export_cover(book_title, cover_image)
         return BookExport(
-            interior=self._write_pdf(stream.pages, stream.page_count),
-            cover=self.export_cover(book_title, cover_image),
+            interior=interior,
+            cover=cover,
             interior_page_count=stream.page_count,
             unpaired_interior_page_count=stream.unpaired_page_count,
             answer_page_count=stream.answer_page_count,
@@ -1032,16 +1076,27 @@ class BookPDFGenerator:
         It renders no interior page, so a cover download costs one page.
 
         One page is not the memory problem CARD-145 is about, but it takes the
-        same path as the interior all the same: the cover is built when the
-        writer asks for it and is released by the same walk, so the cover file
-        never holds a page beside the interior's.
+        same path as the interior all the same, and the page it draws does not
+        escape this call: :meth:`_write_pdf` retains no page after writing one
+        and returns a ``BytesIO``. That, and not the order :meth:`export_book`
+        calls it in, is why a cover file never holds a page beside the
+        interior's (failure matrix F-6). For a one-page file the ``del page``
+        in the writer's loop does nothing at all — it only matters between
+        consecutive pages of a multi-page walk, which is the interior's half
+        of the bound (F-1).
         """
         return self._write_pdf(self._cover_page(book_title, cover_image), 1)
 
     def _cover_page(
         self, book_title: str, cover_image: Optional[Image.Image] = None
     ) -> Iterator[Image.Image]:
-        """The cover file's one page, built when the writer asks for it."""
+        """The cover file's one page, as the iterable :meth:`_write_pdf` takes.
+
+        A generator, so the page is built when the writer asks for it — but
+        nothing in the memory bound rests on that: an eager version returning
+        ``[self.create_cover_page(...)]`` measures the same one page bitmap
+        (failure matrix F-6).
+        """
         yield self.create_cover_page(book_title, cover_image)
 
     def generate_book_pdf(
@@ -1744,7 +1799,11 @@ class BookPDFGenerator:
                              contents_refs[index])
             index += 1
             # Nothing in this frame may outlive the page it wrote: the next
-            # one is built by the `next()` at the top of this loop.
+            # one is built by the `next()` at the top of this loop, and this
+            # loop variable is the one reference every other frame's own `del`
+            # cannot drop for it. Without this line the measured peak is
+            # exactly 2.00 page bitmaps instead of 1.00, which is what
+            # `test_neither_book_holds_more_than_one_page_bitmap` pins.
             del page
 
         pdf.write_xref_and_trailer()

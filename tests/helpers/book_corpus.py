@@ -24,6 +24,17 @@ shorten the interior. It yields a 179-page interior: 1 guide + 150 puzzle
 pages + 1 divider + 27 answer pages. That is the "150-page book" AC-1 and
 AC-2 talk about, and it is a real export — the page count is never faked.
 
+**The same book, exported inside a capped child process.**
+:func:`capped_export_report` exports :func:`corpus_puzzles` in whatever
+process calls it, in either the streaming shape or the list shape this card
+removed, and reports the page count it read back out of the file and the
+process's own high-water resident set. ``tests/test_book_pdf_memory.py``
+calls it in a fresh interpreter that has installed a memory cap first, which
+is how AC-2's "under a memory cap that the current code fails" is executed
+rather than derived. Both shapes are the production calls — ``export_interior``
+and ``interior_pages`` — so the capped run exports the same book the
+in-process measurements do.
+
 **Determinism.** Nothing here reads a clock, a database or a dict whose order
 is not fixed: the grids are computed, the ids and names are literals, the tiers
 are positional, and the sizes come from a seeded ``Random`` drawn in a fixed
@@ -31,7 +42,11 @@ order. The one thing that is *not* fixed is the system font the guide page and
 the divider are lettered in — ``book_pdf_generator`` asks Pillow for Arial and
 falls back to its built-in face — so :func:`font_fingerprint` pins that too,
 and the fixture carries it. A machine that letters those two pages differently
-cannot be compared against a baseline recorded on one that does not.
+cannot be compared against a baseline recorded on one that does not **on those
+two pages**; the other six are drawn in the bundled band face and Pillow's own
+built-in one, so they are comparable on any machine, and the fixture names
+which two are which (``font_dependent_pages``) rather than putting the whole
+book's evidence behind one skip.
 """
 
 from __future__ import annotations
@@ -39,6 +54,8 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import sys
+import time
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
@@ -207,23 +224,67 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
     return [page_digest(page) for page in pages]
 
 
+#: Every size the two machine-face interior pages are lettered at: the guide
+#: page's title (48) and its body text (28), and the SOLUTIONS divider's word
+#: (60). The cover's 72 is deliberately absent: the cover is a separate file
+#: and the interior baseline holds no page of it. One size is not enough,
+#: because a face can differ at one size and agree at another (hinting, bitmap
+#: strikes), and a fingerprint that agreed at 48 while the divider's 60
+#: differed would let a page be compared that cannot be.
+#:
+#: **Hand-transcribed from three call sites, with nothing in the code tying
+#: them together.** They are the three
+#: ``ImageFont.truetype("/System/Library/Fonts/Arial.ttf", N)`` calls in
+#: ``src/nonogram/admin/book_pdf_generator.py``:
+#:
+#: * ``create_guide_page`` — ``title_font``, size **48**
+#: * ``create_guide_page`` — ``text_font``, size **28**
+#: * ``create_divider_page`` — ``divider_font``, size **60**
+#:
+#: The sizes are integer literals at those call sites, not named constants, so
+#: there is nothing to import; if one of them moves, this tuple has to be
+#: re-derived by hand or the fingerprint stops covering the face those two
+#: pages are really drawn in.
+#:
+#: **Editing this tuple is a baseline change, not a test tweak.** It is what
+#: :func:`font_fingerprint` digests, so a changed tuple makes ``same_face``
+#: false on every machine — which silently turns off the pixel comparison of
+#: interior pages 1 and 5 *and* the whole byte-length assertion in
+#: ``tests/test_book_pdf_memory.py``, with every test still green. That is
+#: G-1 evidence disappearing without anyone touching
+#: ``tests/fixtures/book_baseline_card145.json``, where the "NEVER regenerate"
+#: warning lives. Treat a change here as a re-recording of the fixture: the
+#: same justification, and the fixture's own ``font_fingerprint`` re-recorded
+#: alongside it.
+MACHINE_FACE_SIZES = (48, 28, 60)
+
+
 def font_fingerprint() -> str:
     """A digest of the face the guide page and the divider are lettered in.
 
     ``book_pdf_generator`` asks Pillow for Arial by path and falls back to
     ``ImageFont.load_default()`` when it is not there, so those two pages'
     pixels depend on the machine. This draws the guide page's own title with
-    the same call, at the same size, into a small image, and digests it: two
-    machines with the same fingerprint letter those pages identically, and two
-    with different fingerprints cannot be compared page for page at all.
+    the same call, at **each** of :data:`MACHINE_FACE_SIZES`, into a small
+    image, and digests the three together: two machines with the same
+    fingerprint letter those two pages identically, and two with different
+    fingerprints cannot compare *those two pages* at all. The other six pages
+    of the baseline book are lettered in the bundled face and in Pillow's own
+    built-in one, so they are comparable everywhere — which is why the fixture
+    records ``font_dependent_pages`` and the comparison skips only those.
     """
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 48)
-    except OSError:
-        font = ImageFont.load_default()
-    sample = Image.new("RGB", (900, 80), "white")
-    ImageDraw.Draw(sample).text((0, 0), "How to Use This Book", fill="black", font=font)
-    return hashlib.sha256(sample.tobytes()).hexdigest()
+    digests: List[str] = []
+    for size in MACHINE_FACE_SIZES:
+        try:
+            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
+        except OSError:
+            font = ImageFont.load_default()
+        sample = Image.new("RGB", (900, 120), "white")
+        ImageDraw.Draw(sample).text(
+            (0, 0), "How to Use This Book", fill="black", font=font
+        )
+        digests.append(hashlib.sha256(sample.tobytes()).hexdigest())
+    return hashlib.sha256(" ".join(digests).encode("ascii")).hexdigest()
 
 
 def load_baseline() -> Dict[str, Any]:
@@ -240,3 +301,104 @@ def export_of(generator, puzzles: Sequence[Dict[str, Any]]) -> bytes:
     """
     written: BytesIO = generator.export_interior(list(puzzles))
     return written.getvalue()
+
+
+# --------------------------------------------------------------------------
+# The same book, exported inside a child process that is under a memory cap
+# --------------------------------------------------------------------------
+#
+# AC-2 asks for "a 150-page book exports successfully under a memory cap that
+# the current code fails". Both halves of that sentence want a *process* that
+# a cap can kill, which is what these three shapes are for: a fresh
+# interpreter installs the cap before it imports anything, then asks for one
+# of them and reports what it cost. ``tests/test_book_pdf_memory.py`` runs the
+# children and owns the cap's derivation; what lives here is only the work
+# they do, so the capped run and the in-process run export the same book
+# through the same two calls.
+
+#: Import the stack, build one page, drop it, report. The **floor** a capped
+#: child cannot go below on any platform: interpreter + PIL + numpy + the
+#: corpus book + a single page bitmap. It is measured so a cap can be shown to
+#: have room over the platform's own footprint rather than over a guess.
+BASELINE_SHAPE = "baseline"
+
+#: ``export_interior`` — the shape this card ships: no page survives the call
+#: that builds the next one.
+STREAMING_SHAPE = "stream"
+
+#: ``interior_pages`` into a list, then written — the shape this card removed
+#: from the export path and which :meth:`BookPDFGenerator.interior_pages` can
+#: still produce for a caller that asks for it. This is "the current code" of
+#: AC-2's second half, run rather than reasoned about.
+MATERIALISED_SHAPE = "list"
+
+
+def resident_bytes() -> int:
+    """This process's high-water resident set, in bytes.
+
+    ``ru_maxrss`` is bytes on Darwin and kibibytes on Linux — the one
+    normalisation every reader of that field has to do. Imported inside the
+    function because :mod:`resource` is POSIX-only and this module is imported
+    by tests that have nothing to do with process memory.
+
+    This is RSS, and ``tests/test_book_pdf_memory.py`` is explicit that RSS is
+    not a number a test may *assert a shape on*. It is used only where it is
+    the right instrument: as the quantity a process-level cap is enforced
+    against, with orders of magnitude between the two outcomes it separates.
+    """
+    import resource
+
+    used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return used if sys.platform == "darwin" else used * 1024
+
+
+def capped_export_report(shape: str) -> Dict[str, Any]:
+    """Do ``shape``'s work in **this** process and report what it cost.
+
+    Called in a child interpreter that has already installed a memory cap, so
+    it deliberately catches nothing: a shape that cannot fit the cap must die
+    or raise :class:`MemoryError` at the caller, which is the whole point of
+    running it here rather than in the test process.
+
+    The page count in the report is read back **out of the written PDF's page
+    tree**, never taken from the page plan — a memory test must not fake a
+    page count, and the capped run is the one most tempted to.
+    """
+    from nonogram.admin.book_pdf_generator import BookPDFGenerator
+    from tests.helpers.pdf_pages import pdf_page_count
+
+    imported = resident_bytes()
+    generator = BookPDFGenerator(corpus_book())
+
+    if shape == BASELINE_SHAPE:
+        page = generator.create_guide_page(4, 2, 1, 1)
+        page_bytes = page.width * page.height * len(page.mode)
+        del page
+        return {
+            "shape": shape,
+            "outcome": "drawn",
+            "imported": imported,
+            "page_bytes": page_bytes,
+            "resident": resident_bytes(),
+        }
+
+    puzzles = corpus_puzzles()
+    started = time.perf_counter()
+    if shape == STREAMING_SHAPE:
+        written = generator.export_interior(puzzles).getvalue()
+    elif shape == MATERIALISED_SHAPE:
+        pages = generator.interior_pages(puzzles)  # the shape this card removed
+        written = generator._write_pdf(iter(pages), len(pages)).getvalue()
+        del pages
+    else:
+        raise ValueError(f"unknown export shape: {shape!r}")
+
+    return {
+        "shape": shape,
+        "outcome": "written",
+        "imported": imported,
+        "page_count": pdf_page_count(written),
+        "file_bytes": len(written),
+        "seconds": time.perf_counter() - started,
+        "resident": resident_bytes(),
+    }
