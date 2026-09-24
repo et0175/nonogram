@@ -696,8 +696,34 @@ class TestBookFloor_PostureOnIdsThatAreNotPuzzles:
 
 
 class TestBookFloor_GuardrailsIntact:
-    def test_a_published_book_still_refuses_in_the_same_words(self, shelf) -> None:
-        """G-4: turning this into a confirmation is CARD-131, not this card."""
+    def test_a_published_book_asks_before_it_takes_a_puzzle(self, shelf) -> None:
+        """CARD-131 turned CARD-121's outright refusal into a confirmation.
+
+        **Retargeted, deliberately, and made stricter.** Until CARD-131 this
+        was ``test_a_published_book_still_refuses_in_the_same_words``, and its
+        docstring said in as many words that "turning this into a confirmation
+        is CARD-131, not this card" (G-4). CARD-131 is that card: FR-038 /
+        INV-008 replaces the refusal with a confirmation, and the old
+        assertion — that ``add_puzzles_to_book`` raises "Cannot add puzzles to
+        published book" — is now false by design. It could not simply be
+        deleted: what it was really guarding is that a published book's
+        membership does not move on its own, and that is still true and still
+        this file's business, because the floor's measurement must not run on
+        an unconfirmed submission either.
+
+        So the replacement asserts **more** than the raise did:
+
+        * the membership does not move (the raise implied it; nothing checked
+          it), and neither does the status;
+        * the store says *why* it did nothing, in a machine-readable outcome
+          rather than a sentence;
+        * the floor's own bookkeeping did not run — no override was stored for
+          the below-floor puzzle that was submitted, which a measurement that
+          went ahead unconfirmed could have left behind;
+        * and the confirmed submission is still subject to the floor: the same
+          below-floor id is refused with its cell named, exactly as on a draft
+          book (INV-006 is not waived by INV-008).
+        """
         puzzle_id = shelf.puzzle(*ABOVE_FLOOR[:4])
         book_id = shelf.book()
         shelf.books.add_puzzles_to_book(book_id, [puzzle_id])
@@ -712,8 +738,22 @@ class TestBookFloor_GuardrailsIntact:
                     DBBook.id == uuid.UUID(book_id)
                 ).first().status = "published"
 
-        with pytest.raises(ValueError, match="Cannot add puzzles to published book"):
-            shelf.books.add_puzzles_to_book(book_id, [shelf.puzzle(*BELOW_FLOOR[:4])])
+        small = shelf.puzzle(*BELOW_FLOOR[:4])
+        asked = shelf.books.add_puzzles_reporting_refusals(book_id, [small])
+
+        assert asked.needs_confirmation is True
+        assert (asked.admitted, asked.refusals) == ([], [])
+        assert shelf.books.get_book(book_id).puzzle_ids == [puzzle_id]
+        assert shelf.books.get_book(book_id).status == "published"
+        assert shelf.books.floor_overrides(book_id) == []
+
+        # ...and confirming does not buy a way past the floor (INV-006).
+        confirmed = shelf.books.add_puzzles_reporting_refusals(
+            book_id, [small], confirmed=True
+        )
+
+        assert [r.puzzle_id for r in confirmed.refusals] == [small]
+        assert shelf.books.get_book(book_id).puzzle_ids == [puzzle_id]
 
     def test_an_empty_submission_still_refuses_first(self, shelf) -> None:
         with pytest.raises(ValueError, match="at least one puzzle"):

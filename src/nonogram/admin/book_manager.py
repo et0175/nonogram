@@ -310,6 +310,30 @@ class AddOutcome:
     admitted: List[str]
     #: One :class:`FloorRefusal` per submitted id the floor kept out.
     refusals: List[FloorRefusal]
+    #: INV-008 (CARD-131): the book is published and this submission carried no
+    #: confirmation, so **nothing was done** — not the membership, not the
+    #: status, not an override. Both lists are empty when it is set, because
+    #: the submission was not measured against anything: it was not applied.
+    #: The route turns it into the confirmation screen, and the same submission
+    #: with ``confirmed=True`` applies.
+    needs_confirmation: bool = False
+
+
+@dataclass(frozen=True)
+class RemoveOutcome:
+    """What one removal did at the book store (INV-008's other half).
+
+    The remove side's counterpart of :class:`AddOutcome`, and for the same
+    reason: :meth:`BookManager.remove_puzzle_from_book` answers yes/no, which
+    cannot tell "there is no such member" from "this book is published and the
+    owner has not said they mean it". A route that must *ask* reads this.
+    """
+
+    #: Whether the puzzle left the book.
+    removed: bool
+    #: INV-008: the book is published and the call carried no confirmation, so
+    #: nothing was written. Never set together with ``removed``.
+    needs_confirmation: bool = False
 
 
 #: What an add is told when the book moved underneath it between the
@@ -388,6 +412,43 @@ def _merged_overrides(stored, added) -> List[str]:
     (CARD-100/CARD-101), and this is the pattern that cannot be got wrong.
     """
     return list(dict.fromkeys([str(pid) for pid in (stored or [])] + [str(pid) for pid in added]))
+
+
+# --------------------------------------------------------------------------
+# Membership after draft (CARD-131; FR-037, FR-038, INV-012, EC-033)
+# --------------------------------------------------------------------------
+#
+# A book outside draft holds exactly the membership that last passed the plan
+# check (INV-007). So adding or removing a puzzle on a book that has left draft
+# returns it to draft **in the same store write** — the write that changes the
+# membership is the write that changes the status, in both storage modes, so no
+# route can land one without the other and there is no order in which a
+# non-draft book is observed holding a changed membership (EC-033). Editing the
+# plan does the same, one layer up (:meth:`BookManager.save_plan`).
+#
+# Reorder and retitle are **not** membership changes and keep the status: the
+# owner named add and remove only (decision 2026-09-22 (c)), and FR-038's
+# `_meta.open_question` records the question.
+
+
+def _draft_after_membership_change(book_id: str, status: str) -> str:
+    """The status a book carries once its membership has just changed (INV-012).
+
+    ``draft`` unless it is already, which is the whole rule; the log line is
+    here so that a book the owner finds back in draft says in one place why.
+    Called only where the membership really did move — a submission the floor
+    refused entirely, or an add of ids the book already holds, changes no
+    membership and so demotes nothing.
+    """
+    if status == BookStatus.DRAFT.value:
+        return status
+    logger.info(
+        "Book %s was %s and its puzzle membership changed, so it returns to "
+        "draft (INV-012) and must pass the plan check again before it leaves.",
+        book_id,
+        status,
+    )
+    return BookStatus.DRAFT.value
 
 
 #: The themes a book may carry. Named here rather than repeated per caller so
@@ -964,33 +1025,43 @@ class BookManager:
         return [r for r in self.below_floor(book_id, puzzle_ids) if r.puzzle_id not in allowed]
 
     def add_puzzles_to_book(
-        self, book_id: str, puzzle_ids: List[str], overrides=()
+        self, book_id: str, puzzle_ids: List[str], overrides=(), confirmed: bool = False
     ) -> bool:
         """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
 
         :meth:`add_puzzles_reporting_refusals` — the whole rule is there — read
-        as the yes/no every caller but the two add routes wants.
+        as the yes/no every caller but the add routes wants.
 
         Args:
             book_id: ID of book
             puzzle_ids: IDs of puzzles to add
             overrides: The ids the owner explicitly admitted below the floor in
                 *this* submission (TERM-025).
+            confirmed: the owner has confirmed changing a **published** book's
+                membership (INV-008). Ignored for every other status.
 
         Returns:
             True if the book was found and the add was processed — which
             includes the case where every puzzle was refused by the floor.
-            False if the book does not exist. A caller that needs to *name* the
-            refusals asks :meth:`add_puzzles_reporting_refusals` instead; this
-            contract is unchanged.
+            False if the book does not exist, **and** false for the published
+            book whose change was not confirmed: nothing was processed there
+            either. A caller that needs to tell those two apart, or to *name*
+            the refusals, asks :meth:`add_puzzles_reporting_refusals`.
 
         Raises:
             ValueError: as :meth:`add_puzzles_reporting_refusals`.
         """
-        return self.add_puzzles_reporting_refusals(book_id, puzzle_ids, overrides) is not None
+        outcome = self.add_puzzles_reporting_refusals(
+            book_id, puzzle_ids, overrides, confirmed=confirmed
+        )
+        return outcome is not None and not outcome.needs_confirmation
 
     def add_puzzles_reporting_refusals(
-        self, book_id: str, puzzle_ids: List[str], overrides=()
+        self,
+        book_id: str,
+        puzzle_ids: List[str],
+        overrides=(),
+        confirmed: bool = False,
     ) -> Optional[AddOutcome]:
         """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
 
@@ -1045,19 +1116,40 @@ class BookManager:
                 *this* submission (TERM-025). The selection step passes the
                 ticked ones; the paste-IDs form passes none, so a below-floor
                 id pasted there is named and refused.
+            confirmed: the owner has confirmed changing a **published** book's
+                membership (INV-008, below). Ignored for every other status.
+
+        A published book asks rather than refuses (INV-008)
+        ---------------------------------------------------
+        Until CARD-131 a published book refused the add outright. It now
+        *asks*: an unconfirmed submission changes nothing at all — not the
+        membership, not an override, not the status (AC-280) — and comes back
+        as an :class:`AddOutcome` with ``needs_confirmation`` set, which the
+        route renders as the confirmation screen. The same submission carrying
+        ``confirmed=True`` applies, floor and all. The question is asked before
+        anything is measured, so an unconfirmed submission reads no puzzle rows
+        and is indistinguishable from not having been made.
+
+        Leaving draft is paid for again (INV-012)
+        -----------------------------------------
+        An applied add that really moves the membership returns a book that has
+        left draft **to draft**, in the same store write
+        (:func:`_draft_after_membership_change`). A submission the floor refused
+        entirely, and one holding only ids the book already has, move no
+        membership and so change no status.
 
         Returns:
             The :class:`AddOutcome` — the submission's distinct ids split into
             what the floor admitted and what it refused — when the book was
             found and the add was processed, which includes the case where
-            every puzzle was refused. ``None`` if the book does not exist.
+            every puzzle was refused; or the "needs confirmation" outcome for an
+            unconfirmed change to a published book. ``None`` if the book does
+            not exist.
 
         Raises:
-            ValueError: ``puzzle_ids`` is empty, the book is already published
-                (unchanged here — turning that into a confirmation is
-                CARD-131), the book's stored print specification cannot be read
-                (:meth:`below_floor`), or the book changed under the add
-                between the measurement and the write
+            ValueError: ``puzzle_ids`` is empty, the book's stored print
+                specification cannot be read (:meth:`below_floor`), or the book
+                changed under the add between the measurement and the write
                 (:data:`CONCURRENT_CHANGE_REFUSAL`). Nothing is written in any
                 of these cases.
         """
@@ -1069,14 +1161,21 @@ class BookManager:
         # the store and the book's own list all speak.
         submitted = list({str(pid): pid for pid in puzzle_ids}.values())
 
-        # Read once, before the storage branch: the published refusal and the
+        # Read once, before the storage branch: the published question and the
         # floor both need the book, and both must answer the same in either
-        # mode. The published refusal stays first, exactly as it was (G-4).
+        # mode. The published question stays first, exactly where the refusal
+        # it replaced was (INV-008): an unconfirmed change to a published book
+        # measures nothing and writes nothing.
         book = self.get_book(book_id)
         if not book:
             return None
-        if book.status == BookStatus.PUBLISHED.value:
-            raise ValueError("Cannot add puzzles to published book")
+        if book.status == BookStatus.PUBLISHED.value and not confirmed:
+            logger.info(
+                "Book %s is published: its membership changes only after an "
+                "explicit confirmation (INV-008), so nothing was added.",
+                book_id,
+            )
+            return AddOutcome([], [], needs_confirmation=True)
 
         # The truth this add's verdict rests on, as it stood when it was made.
         measured_on = _verdict_state(book)
@@ -1125,6 +1224,9 @@ class BookManager:
             book.puzzle_ids = place_in_level(book.puzzle_ids, new_puzzles, tier_of)
             if newly_overridden:
                 book.floor_overrides = _merged_overrides(book.floor_overrides, newly_overridden)
+            if new_puzzles:
+                # INV-012, with the membership and in the same write.
+                book.status = _draft_after_membership_change(book_id, book.status)
 
             # Update page count (rough estimate: ~2 puzzles per page)
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
@@ -1167,6 +1269,12 @@ class BookManager:
                     book_row.floor_overrides = _merged_overrides(
                         book_row.floor_overrides, newly_overridden
                     )
+                if new_puzzles:
+                    # INV-012, assigned in the session that commits the
+                    # membership, so the two land together or not at all.
+                    book_row.status = _draft_after_membership_change(
+                        book_id, book_row.status
+                    )
 
                 # Update page count in metadata
                 if book_row.book_metadata is None:
@@ -1179,36 +1287,96 @@ class BookManager:
             self._mirror_onto_puzzles(new_puzzles, book_id)
             return outcome
 
-    def remove_puzzle_from_book(self, book_id: str, puzzle_id: str) -> bool:
-        """Remove a puzzle from a book, and with it its under-floor override.
+    def remove_puzzle_from_book(
+        self, book_id: str, puzzle_id: str, confirmed: bool = False
+    ) -> bool:
+        """Remove a puzzle from a book — :meth:`remove_puzzle_reporting_confirmation`.
+
+        Read as the yes/no every caller but the remove routes wants.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle to remove
+            confirmed: the owner has confirmed changing a **published** book's
+                membership (INV-008). Ignored for every other status.
+
+        Returns:
+            True if removed; False if the book or the puzzle was not found, and
+            False for the published book whose removal was not confirmed —
+            nothing left the book in either case. A caller that must tell those
+            apart, because it has to *ask*, reads the outcome instead.
+        """
+        return self.remove_puzzle_reporting_confirmation(
+            book_id, puzzle_id, confirmed=confirmed
+        ).removed
+
+    def remove_puzzle_reporting_confirmation(
+        self, book_id: str, puzzle_id: str, confirmed: bool = False
+    ) -> RemoveOutcome:
+        """Remove a puzzle from a book, and with it its custom title and override.
 
         CARD-121 item 4: an override is a fact about a **member** — "this
         puzzle may be in this book although it prints below the floor". A
         puzzle that is no longer a member leaves none behind, so re-adding it
         asks the owner again rather than letting a decision they made months
-        ago pass silently on a book whose trim may have changed since.
+        ago pass silently on a book whose trim may have changed since. Its
+        custom title goes the same way, and now in **both** storage modes: the
+        in-memory branch kept it, so a puzzle removed and re-added in memory
+        came back wearing a title the owner had never given this book
+        (handover from CARD-126). The rest of the arrangement's titles are
+        untouched (AC-229).
+
+        A published book asks rather than refuses (INV-008): an unconfirmed
+        removal changes nothing — membership, title, override and status alike
+        — and says so in :attr:`RemoveOutcome.needs_confirmation`. An applied
+        removal that really moves the membership returns a book that has left
+        draft to draft, in the same store write (INV-012).
 
         Args:
             book_id: ID of book
             puzzle_id: ID of puzzle to remove
+            confirmed: the owner has confirmed changing a published book's
+                membership.
 
         Returns:
-            True if removed, False if book/puzzle not found
+            The :class:`RemoveOutcome`: removed, not found, or awaiting the
+            owner's confirmation.
         """
+        # "There is no such member" is a fact about the call and is answered
+        # first, so a published book is never asked to confirm a removal that
+        # would change nothing.
+        book = self.get_book(book_id)
+        if not book or puzzle_id not in (book.puzzle_ids or []):
+            return RemoveOutcome(False)
+        if book.status == BookStatus.PUBLISHED.value and not confirmed:
+            logger.info(
+                "Book %s is published: its membership changes only after an "
+                "explicit confirmation (INV-008), so nothing was removed.",
+                book_id,
+            )
+            return RemoveOutcome(False, needs_confirmation=True)
+
         if self._session_factory is None:
             # Legacy mode: in-memory dict
             book = self.books.get(book_id)
             if not book or puzzle_id not in book.puzzle_ids:
-                return False
+                return RemoveOutcome(False)
 
             book.puzzle_ids.remove(puzzle_id)
             if puzzle_id in book.floor_overrides:
                 book.floor_overrides = [p for p in book.floor_overrides if p != puzzle_id]
+            # The removed puzzle's own title entry, and no other (AC-229) — a
+            # new dict, as the DB branch has always written one.
+            if puzzle_id in book.puzzle_titles:
+                book.puzzle_titles = {
+                    k: v for k, v in book.puzzle_titles.items() if k != puzzle_id
+                }
+            book.status = _draft_after_membership_change(book_id, book.status)
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
             book.updated_at = datetime.utcnow()
 
             self._mirror_onto_puzzles([puzzle_id], None)
-            return True
+            return RemoveOutcome(True)
         else:
             # DB mode: update Book row
             from nonogram.db.models import Book as DBBook
@@ -1216,11 +1384,11 @@ class BookManager:
             with self._session_factory() as db:
                 book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
                 if not book_row:
-                    return False
+                    return RemoveOutcome(False)
 
                 puzzle_ids = book_row.puzzle_ids or []
                 if puzzle_id not in puzzle_ids:
-                    return False
+                    return RemoveOutcome(False)
 
                 # A NEW list, not the same one mutated and assigned back
                 # (CARD-100). `puzzle_ids` is a plain JSON column: SQLAlchemy
@@ -1251,10 +1419,15 @@ class BookManager:
                         p for p in book_row.floor_overrides if p != puzzle_id
                     ]
 
+                # INV-012, assigned in the session that commits the removal.
+                book_row.status = _draft_after_membership_change(
+                    book_id, book_row.status
+                )
+
                 db.commit()
 
             self._mirror_onto_puzzles([puzzle_id], None)
-            return True
+            return RemoveOutcome(True)
 
     def reorder_puzzles(self, book_id: str, puzzle_ids: List[str], tier_of=None) -> bool:
         """Reorder puzzles in a book, inside INV-009's grouping.
@@ -1675,10 +1848,10 @@ class BookManager:
         draft (INV-012, ADR-0035's "Membership change after draft"), so it
         passes this gate again before it can leave — a KDP upload is never
         built from a book that no longer matches its plan. Editing the plan
-        does the same (:meth:`save_plan`). CARD-131 implements the return to
-        draft on the membership paths; there is no bypass either way, because a
-        book back in draft leaves it only through this gate, like any other
-        draft book.
+        does the same (:meth:`save_plan`). The membership paths write it with
+        the membership (:func:`_draft_after_membership_change`, CARD-131);
+        there is no bypass either way, because a book back in draft leaves it
+        only through this gate, like any other draft book.
 
         What the guarantee is worth under concurrency
         ---------------------------------------------

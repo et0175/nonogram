@@ -3039,6 +3039,39 @@ def create_app(debug=None):
             if _misses_the_floor(cell_mm)
         }
 
+    # ----------------------------------------------------------------------
+    # INV-008 — a published book's membership changes only after a confirmation
+    # ----------------------------------------------------------------------
+
+    def _is_confirmed() -> bool:
+        """Whether this submission carries the owner's confirmation (INV-008).
+
+        One reading of the field for every membership route, so no two of them
+        can come to disagree about what confirming looks like. The value is the
+        one ``_confirm_membership_change.html`` posts back, and nothing else:
+        an arbitrary truthy string is **not** a confirmation, because the only
+        thing that may set this is the confirmation screen's own button.
+        """
+        return request.form.get("confirm") == "1"
+
+    def _ask_to_confirm(book, action, fields, change):
+        """The confirmation screen for a change the store has not applied.
+
+        ``fields`` is the owner's own submission as ``(name, value)`` pairs —
+        a list rather than a dict so a repeated field (the selection step's
+        ``puzzle_ids``) survives — and the page re-POSTs it to ``action`` with
+        ``confirm=1``. The store measured nothing and wrote nothing to get
+        here, so cancelling is simply not pressing the button (EC-026).
+        """
+        return render_template(
+            "_confirm_membership_change.html",
+            book=book,
+            action=action,
+            fields=list(fields),
+            change=change,
+            cancel_url=url_for("book_detail", book_id=book.book_id),
+        )
+
     @app.route("/book/<book_id>/select-puzzles", methods=["GET", "POST"])
     def select_puzzles_for_book(book_id):
         """Select and add puzzles — the Puzzle selection step of scaffolding.
@@ -3115,8 +3148,21 @@ def create_app(debug=None):
                     overrides = _submitted_overrides(kept_ids)
                     # Add puzzles to the book
                     outcome = book_mgr.add_puzzles_reporting_refusals(
-                        book_id, kept_ids, overrides
+                        book_id, kept_ids, overrides, confirmed=_is_confirmed()
                     )
+                    if outcome is not None and outcome.needs_confirmation:
+                        # INV-008: nothing was added and the ticks are still
+                        # kept, so the owner can confirm or walk away with the
+                        # selection they built intact (EC-026).
+                        return _ask_to_confirm(
+                            book,
+                            url_for("select_puzzles_for_book", book_id=book_id),
+                            [("puzzle_ids", pid) for pid in kept_ids]
+                            + [("shown_ids", pid) for pid in kept_ids]
+                            + [(f"override_{pid}", "on") for pid in overrides],
+                            f"Add {len(kept_ids)} selected "
+                            f"puzzle{'' if len(kept_ids) == 1 else 's'} to this book.",
+                        )
                     if outcome is not None:
                         refusals = outcome.refusals
                         refused_ids = [refusal.puzzle_id for refusal in refusals]
@@ -3301,8 +3347,22 @@ def create_app(debug=None):
 
                 elif action == "delete":
                     puzzle_id = request.form.get("puzzle_id")
-                    book_mgr.remove_puzzle_from_book(book_id, puzzle_id)
-                    flash(f"Removed puzzle from book", "success")
+                    # INV-008/EC-033: this step ends in the book store too, so
+                    # it asks the same question the other two membership routes
+                    # ask, and reports what the store actually did rather than
+                    # announcing a removal that did not happen.
+                    removal = book_mgr.remove_puzzle_reporting_confirmation(
+                        book_id, puzzle_id, confirmed=_is_confirmed()
+                    )
+                    if removal.needs_confirmation:
+                        return _ask_to_confirm(
+                            book,
+                            url_for("arrange_puzzles_in_book", book_id=book_id),
+                            [("action", "delete"), ("puzzle_id", puzzle_id)],
+                            f"Remove puzzle {puzzle_id} from this book.",
+                        )
+                    if removal.removed:
+                        flash(f"Removed puzzle from book", "success")
 
                 elif action == "finish":
                     # Proceed to Step 4: Finalization
@@ -3778,7 +3838,24 @@ def create_app(debug=None):
             # floor is held by the store (INV-006), which reports the refusals
             # it enforced — one measurement, so the wording and the enforcement
             # cannot disagree and a repeated id is named once (EC-021).
-            outcome = book_mgr.add_puzzles_reporting_refusals(book_id, puzzle_ids)
+            outcome = book_mgr.add_puzzles_reporting_refusals(
+                book_id, puzzle_ids, confirmed=_is_confirmed()
+            )
+
+            if outcome is not None and outcome.needs_confirmation:
+                # INV-008: nothing was added. The pasted text is carried into
+                # the confirmation form, so confirming adds what was typed.
+                book = book_mgr.get_book(book_id)
+                fields = [("puzzle_ids", puzzle_ids_str)]
+                if request.form.get("return_to") is not None:
+                    fields.append(("return_to", request.form.get("return_to")))
+                return _ask_to_confirm(
+                    book,
+                    url_for("add_puzzles_to_book", book_id=book_id),
+                    fields,
+                    f"Add {len(puzzle_ids)} "
+                    f"puzzle{'' if len(puzzle_ids) == 1 else 's'} to this book.",
+                )
 
             if outcome is not None:
                 refusals = outcome.refusals
@@ -3807,9 +3884,24 @@ def create_app(debug=None):
         book_detail.html's per-row Remove button posted here since the page
         was written, but no route answered — every click was a 404. The
         manager method it needed already existed.
+
+        CARD-131: on a published book the removal is a question, not a doing
+        (INV-008). The store answers "needs confirmation", this renders it, and
+        the same submission carrying ``confirm=1`` removes the puzzle and
+        returns the book to draft (INV-012).
         """
         puzzle_id = request.form.get("puzzle_id", "").strip()
-        if book_mgr.remove_puzzle_from_book(book_id, puzzle_id):
+        removal = book_mgr.remove_puzzle_reporting_confirmation(
+            book_id, puzzle_id, confirmed=_is_confirmed()
+        )
+        if removal.needs_confirmation:
+            return _ask_to_confirm(
+                book_mgr.get_book(book_id),
+                url_for("remove_puzzle_from_book", book_id=book_id),
+                [("puzzle_id", puzzle_id)],
+                f"Remove puzzle {puzzle_id} from this book.",
+            )
+        if removal.removed:
             flash("Puzzle removed from book", "success")
         else:
             flash("Book or puzzle not found", "error")

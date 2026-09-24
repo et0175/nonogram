@@ -28,6 +28,18 @@
     </div>
 </div>
 
+{#- CARD-131 (INV-012, INV-008): what adding a puzzle here costs a book that
+    has left draft, said before the owner spends the work rather than after.
+    A published book is asked to confirm first (_confirm_membership_change). -#}
+{% if book.status != 'draft' %}
+<div class="alert alert-warning" role="alert">
+    This book is <strong>{{ book.status|replace('_', ' ') }}</strong>.
+    {% if book.status == 'published' %}Adding puzzles asks you to confirm first, and then returns{% else %}Adding puzzles returns{% endif %}
+    the book to draft, so it has to pass its plan check again before it can leave.
+    Changing the order or a title does not.
+</div>
+{% endif %}
+
 {#- CARD-130: this page imported the stepper since it was written but never
     called it, so it was the one step of the flow with no way out of it. -#}
 <div class="card">
