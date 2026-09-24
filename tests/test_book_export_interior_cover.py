@@ -38,7 +38,12 @@ def _interior_pages(puzzle_count, answer_pages):
     FR-043's make-up with both variable terms named rather than left as
     literals. ``puzzle_count`` is also the puzzle-**page** count for every book
     in this module: its puzzles are 20x20s, which never pair two-up here
-    (FR-040). ``answer_pages`` is what FR-042's packed key takes (CARD-134) —
+    (FR-040). That premise is not assumed — it is asserted off a written
+    interior by ``TestBookFinalise_PageCountIsTheExportsPagePlan``'s
+    ``test_a_puzzle_of_this_module_never_shares_a_page_with_the_next``, so a
+    pairing rule or profile that made it false is caught by name rather than
+    as a page-count failure with no stated cause.
+    ``answer_pages`` is what FR-042's packed key takes (CARD-134) —
     these books are all one level and at most 20 cells a side, so six answers
     share a page. A book with no puzzles has no divider and no key at all.
     """
@@ -596,6 +601,30 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         }
         return BookPDFGenerator().export_interior([puzzle] * puzzle_count)
 
+    @pytest.mark.parametrize("puzzle_count", (1, 2, 3, 7))
+    def test_a_puzzle_of_this_module_never_shares_a_page_with_the_next(
+        self, puzzle_count
+    ):
+        """:func:`_interior_pages`'s one unstated premise, taken off the file.
+
+        Every count this module writes reads ``puzzle_count`` as the
+        puzzle-**page** count too. That is true only while no two of these
+        puzzles pair two-up (FR-040) — true today, because they are 20x20s,
+        and silently false the day the profile or the pairing rule moves,
+        which would take every page-count assertion in this module down with
+        it without naming the reason.
+
+        So it is measured, not assumed: the written interior is guide +
+        puzzle pages + divider + key, so what is left after the two fixed
+        pages and the key's own term is the puzzle-page count, and it is the
+        puzzle count. These books are one tier throughout, so a pairing walk
+        that paired anything at all would be seen here.
+        """
+        written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
+        puzzle_pages = written - 2 - self._answer_pages(puzzle_count)
+
+        assert puzzle_pages == puzzle_count
+
     @pytest.mark.parametrize("puzzle_count", (0, 1, 3, 7))
     def test_the_plan_matches_the_written_interior(self, puzzle_count):
         from nonogram.admin.book_pdf_generator import interior_page_count
@@ -637,6 +666,10 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         body = client.get(f"/book/{book_id}/finalize").get_data(as_text=True)
         pages = pdf_page_count(_download(client, "finalise", book_id, "interior"))
 
-        assert f"~{interior_page_count(puzzle_count)}</dd>" in body
+        # The figure on the screen, against this module's own arithmetic and
+        # not against the function that produced it: the one-argument call is
+        # the un-paired, un-packed plan, so both of its variable terms are the
+        # puzzle count — one puzzle page and one answer page each.
+        assert f"~{_interior_pages(puzzle_count, puzzle_count)}</dd>" in body
         assert interior_page_count(puzzle_count) >= pages
         assert pages == _interior_pages(puzzle_count, self._answer_pages(puzzle_count))

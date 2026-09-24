@@ -30,6 +30,15 @@ answer above that floor is the rule here — a six-up page holds nothing above
 :data:`SIX_UP_LONGEST_SIDE` cells on its longest side — so it is a rule, with
 its own tests, and not a preference.
 
+Neither number is measured by this module's own tests, which count pages and
+read captions. The floor is swept over every extent INV-011 admits by CARD-133's
+``tests/property/test_book_answer_tiles.py``, and the *link* between it and the
+threshold above — 20 six-up clears the floor, 25 six-up does not, and the layout
+raises nothing either way — is pinned by
+``tests/test_book_answer_key.py::TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor``.
+The threshold is deliberately clear of the edge: on the Book 1 profile every
+side up to 24 still clears the floor six-up, 25 is the first that does not.
+
 A page is closed late, never early
 ----------------------------------
 The next answer joins the current page when the page **with it** is still

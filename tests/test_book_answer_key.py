@@ -11,6 +11,9 @@
     AC-290  TestBookAnswerKey_EachLevelStartsNewAnswerPage
     AC-291  TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
     AC-292  TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
+    EC-031  TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor
+            (the link only — the floor itself is CARD-133's
+            tests/property/test_book_answer_tiles.py)
 
 How an answer page is read back
 -------------------------------
@@ -63,8 +66,10 @@ from PIL import Image
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
+from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.export import pdf, png
+from nonogram.export.layout import compute_answer_page_layout
 from nonogram.export.png import render_answer_page
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -553,6 +558,96 @@ class TestBookAnswerKey_LongestSideTwentyStaysSixUp:
         assert len(key) == 2
         assert len(answer_grids(key[0])) == FOUR_UP
         assert len(answer_grids(key[1])) == 2
+
+
+# --------------------------------------------------------------------------
+# EC-031's floor, and the rule that keeps it
+# --------------------------------------------------------------------------
+
+#: EC-031's floor on a printed answer cell, in millimetres — written out as
+#: CARD-133's ``tests/property/test_book_answer_tiles.py`` writes it, because
+#: nothing in ``nonogram.export.layout`` holds a cell up to it.
+ANSWER_FLOOR_MM = 3.19
+
+#: The first square answer whose six-up cell falls under that floor on the
+#: Book 1 profile. INV-011 refuses it a six-up page.
+FIRST_SIX_UP_BREACH = 25
+
+
+class TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor:
+    """Why :data:`SIX_UP_LONGEST_SIDE` is a rule and not a preference (EC-031).
+
+    ``book_answer_key``'s own docstring rests the 3.19 mm answer-cell floor on
+    this module's capacity rule, because
+    :func:`~nonogram.export.layout.compute_answer_page_layout` enforces no
+    floor of its own — a 25x25 laid out six-up comes back undersized and no
+    error is raised. That rationale was otherwise unmeasured on this card: the
+    floor itself is swept, over every extent INV-011 admits, by CARD-133's
+    ``tests/property/test_book_answer_tiles.py``, and nothing else here
+    measures a millimetre.
+
+    So this pins the *link* — the rule's threshold against the geometry it is
+    chosen for — on the Book 1 page the rule produces. The layout is read, not
+    reimplemented: what is asserted is which side of the floor each case lands
+    on, which is the rule's claim. The arithmetic that puts it there is
+    CARD-133's property test's business, re-derived there from the profile's
+    own literals.
+    """
+
+    @staticmethod
+    def _cell_mm(side: int, capacity: int, heading: Optional[str]) -> float:
+        """The printed cell of one ``side`` x ``side`` answer on such a page."""
+        layout = compute_answer_page_layout(
+            [(side, side)], capacity, book_page_spec(_book(), 4), heading
+        )
+        return layout.tiles[0].cell_mm
+
+    @pytest.mark.parametrize("heading", [None, "Easy"])
+    def test_the_largest_answer_left_six_up_clears_the_floor(
+        self, heading: Optional[str]
+    ) -> None:
+        """20 on the longest side, six-up: 3.97 mm bare, 3.84 mm under a heading.
+
+        The worst case the rule admits to a six-up page, on both kinds of page
+        it can be — a level's first page carries a heading and gives up 6 mm.
+        """
+        assert self._cell_mm(SIX_UP_LONGEST_SIDE, SIX_UP, heading) >= ANSWER_FLOOR_MM
+
+    @pytest.mark.parametrize("heading", [None, "Easy"])
+    def test_an_answer_the_rule_refuses_six_up_would_have_broken_the_floor(
+        self, heading: Optional[str]
+    ) -> None:
+        """25x25 six-up: 3.18 mm bare, 3.07 mm headed — and nothing raises.
+
+        The other half of the link. Were the capacity rule a preference, this
+        is the page the key would print, and the layout would not object.
+        """
+        assert self._cell_mm(FIRST_SIX_UP_BREACH, SIX_UP, heading) < ANSWER_FLOOR_MM
+
+    @pytest.mark.parametrize("heading", [None, "Easy"])
+    def test_the_four_up_page_the_rule_gives_it_instead_clears_the_floor(
+        self, heading: Optional[str]
+    ) -> None:
+        """And the page INV-011 does give that answer is above the floor."""
+        assert self._cell_mm(FIRST_SIX_UP_BREACH, FOUR_UP, heading) >= ANSWER_FLOOR_MM
+
+    def test_the_threshold_is_conservative_and_this_is_by_how_much(self) -> None:
+        """20 is not the tight bound, and the rationale must not read as one.
+
+        Sides 21..24 still clear the floor six-up; the first that does not is
+        :data:`FIRST_SIX_UP_BREACH`, so the rule stands four cells clear of the
+        edge. The tightest admitted case is a headed 24x24 at 3.1993 mm — a
+        0.009 mm margin — which is why the threshold is not put there. A
+        profile change that eats the headroom moves this number and is caught.
+        """
+        breaches = [
+            side
+            for side in range(SIX_UP_LONGEST_SIDE, MAX_SIZE + 1)
+            if self._cell_mm(side, SIX_UP, "Easy") < ANSWER_FLOOR_MM
+        ]
+        assert breaches, "no square answer in range breaks the floor six-up"
+        assert breaches[0] == FIRST_SIX_UP_BREACH
+        assert SIX_UP_LONGEST_SIDE < breaches[0]
 
 
 # --------------------------------------------------------------------------
@@ -1103,6 +1198,57 @@ class TestBookAnswerKey_AMemberThatCannotBeMeasuredIsNamed:
             _interior([puzzle])
 
         assert "'p9'" in str(raised.value)
+
+
+class TestBookAnswerKey_TheExtentReaderAgreesWithTheRenderer:
+    """The two grid measurements the key depends on, compared to each other.
+
+    ``book_pdf_generator._answer_extent`` decides which tiling a page gets
+    (INV-011) and ``png._answer_extent`` decides how the page is drawn. They
+    are two implementations on purpose — ``export/`` exposes no public call
+    that measures a grid, and the project reimplements rather than imports
+    across a capability boundary — so nothing but a test keeps them from
+    drifting into two different answers about one grid. That is what this
+    class is: both readers, the same grids, in both directions.
+
+    The generator's *type* check has no counterpart and is not compared here:
+    a payload's grid arrives off a database row, and a row that is not rows of
+    cells must be named and refused before any renderer sees it.
+    """
+
+    @staticmethod
+    def _payload(grid: object):
+        """A payload carrying ``grid``, exactly as the generator builds one."""
+        return BookPDFGenerator._payload({"grid": grid})
+
+    @pytest.mark.parametrize("columns,rows", [(10, 10), (20, 15), (15, 20), (30, 30)])
+    def test_both_readers_measure_a_well_formed_grid_the_same_way(
+        self, columns: int, rows: int
+    ) -> None:
+        grid = _grid(columns, rows, mark=1)
+
+        assert book_pdf_generator._answer_extent(self._payload(grid), 1) == (
+            columns,
+            rows,
+        )
+        assert png._answer_extent(grid, 0) == (columns, rows)
+
+    @pytest.mark.parametrize(
+        "grid",
+        [
+            pytest.param([[True] * 15, [True] * 14], id="ragged"),
+            pytest.param([], id="no-rows"),
+            pytest.param([[]], id="one-empty-row"),
+        ],
+    )
+    def test_a_grid_the_generator_refuses_is_refused_by_the_renderer_too(
+        self, grid: list
+    ) -> None:
+        with pytest.raises(ValueError):
+            book_pdf_generator._answer_extent(self._payload(grid), 4)
+
+        with pytest.raises(ValueError):
+            render_answer_page([(grid, "")], SIX_UP, book_page_spec(_book(), 4))
 
 
 # --------------------------------------------------------------------------

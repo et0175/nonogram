@@ -633,8 +633,13 @@ def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int
     Reimplemented here rather than imported: ``png._answer_extent`` is private
     to that module and ``export/`` exposes no public call that measures a grid
     on its own — the precedent ``solver/propagate.py``'s ``mask_runs`` sets.
-    The two are pinned equal by the tests, which check that a grid this refuses
-    is a grid the renderer refuses too.
+    The two are pinned equal in ``tests/test_book_answer_key.py`` by
+    ``TestBookAnswerKey_TheExtentReaderAgreesWithTheRenderer``, which runs both
+    readers over the same grids: each measures a well-formed grid the same way,
+    and a grid one refuses for its shape the other refuses too. The type check
+    below is this module's own and has no counterpart in ``png``: a payload's
+    grid comes off a database row, and such a row must be named and refused
+    here rather than reaching the renderer as a ``TypeError``.
 
     Raises:
         ValueError: the grid is missing, empty, not a sequence of rows, or its

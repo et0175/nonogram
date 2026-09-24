@@ -298,6 +298,19 @@ def _has_ink(image: Image.Image) -> bool:
     return bool((np.asarray(image.convert("L")) < INK_LEVEL).any())
 
 
+def _ink_pixels(image: Image.Image) -> int:
+    """How many of ``image``'s pixels are ink, as :func:`_has_ink` reads one."""
+    return int((np.asarray(image.convert("L")) < INK_LEVEL).sum())
+
+
+def _rows_that_differ(left: Image.Image, right: Image.Image) -> np.ndarray:
+    """The indices of the pixel rows on which two same-sized pages disagree."""
+    theirs = np.asarray(left.convert("L"))
+    others = np.asarray(right.convert("L"))
+    assert theirs.shape == others.shape, "the pages are not the same size"
+    return np.flatnonzero((theirs != others).any(axis=1))
+
+
 def _runs(mask: Iterable[bool]) -> list[list[int]]:
     """The consecutive runs of ``True`` in ``mask``, as lists of indices."""
     runs: list[list[int]] = []
@@ -430,21 +443,65 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         ).tobytes(), "the title contributes no ink to the answer page"
 
     def test_the_title_is_ink_the_answer_band_would_not_have_without_it(self) -> None:
-        """Drop the name from the expected payload and the band stops matching.
+        """Withhold the title and the *same* packed page loses ink, in one place.
 
-        Without this, the previous test would pass just as well against an
-        answer page whose band said only "Puzzle 1 · Easy" — the name has to
-        be shown to *contribute* the ink, not merely to have been offered.
+        Retargeted under G-2b. What this used to compare the key against was
+        ``_pages_with_band(...)[1]`` — the full clued per-puzzle answer page
+        FR-042 deleted — so it compared two page *kinds*, which differ (~3% of
+        their pixels) whether or not a title is printed, and its companion
+        ``_has_ink(_band_strip(page))`` could not fail either: on a packed
+        page the top 12 mm is where the first answer *tile* sits, so that
+        strip carries ink with no heading and an untitled caption. Both were
+        assertions that read as evidence and were not.
+
+        The control is now the same page kind, one caption apart: the packed
+        page of this very answer captioned "Puzzle 1" — what the key would
+        print if the title were withheld (``answer_caption`` stops at the
+        number when there is no title, and the em dash is not printed with
+        nothing after it). Three measurements of the one difference:
+
+        * the two pages are **not** equal, so the title changed the page;
+        * the titled page carries **strictly more** ink. The caption's face
+          and size are fixed by the tile's geometry, never by the text in it,
+          so a longer caption can only add glyphs — a title that merely
+          displaced the number, or blanked it, would not raise the count;
+        * the rows that differ are **one unbroken run, shorter than the 12 mm
+          band** — a single line of type, the caption's. The title's ink is
+          where a caption is and nowhere else, so a page that changed because
+          its tile moved, its heading changed or a second answer appeared
+          fails here rather than passing as "the title did something".
+
+        That last measurement is also the retired ``_has_ink(_band_strip(...))``
+        line's epitaph. This whole difference is ~31 pixel rows; the strip it
+        read is 142, and measured, that strip still holds some 18,000 ink
+        pixels with ``heading=None`` *and* an untitled caption, because the
+        answer tile is drawn through it. That assertion tested the tile.
+
+        This is the third witness ADR-0037/R1 keeps here, and it is narrower
+        than its siblings by design — they pin the whole page against a
+        written-out expectation, this one isolates what the title alone did.
         """
+        number = 1
+        page_number = answer_page_number(0, 1)
         puzzle = _puzzle(name=self.NAME)
-        page = _interior([puzzle])[answer_page_number(0, 1) - 1]
-        identity = "Puzzle 1 · Easy"
+        page = _interior([puzzle])[page_number - 1]
 
-        _, untitled = _pages_with_band(
-            puzzle, answer_page_number(0, 1), name=None, identity=identity
+        untitled = _answer_page(
+            [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
+            page_number,
+            "Easy",
         )
-        assert _has_ink(_band_strip(page))
-        assert page.tobytes() != untitled.tobytes()
+        assert page.tobytes() != untitled.tobytes(), "the title changed nothing"
+        assert _ink_pixels(page) > _ink_pixels(untitled), "the title added no ink"
+
+        differing = _rows_that_differ(page, untitled)
+        assert len(differing), "the pages differ in no row"
+        assert list(differing) == list(
+            range(int(differing.min()), int(differing.max()) + 1)
+        ), "the title's ink is not one line of type"
+        assert len(differing) < round(BAND_MM * PX_PER_MM), (
+            "the title changed more of the page than a caption line is tall"
+        )
 
     def test_the_answer_number_is_the_number_printed_on_the_puzzle(self) -> None:
         """Every answer is captioned with its own puzzle's number, not its page's.
