@@ -82,13 +82,23 @@ Every fifth line, and both outer borders, is stroked heavier
 twelve along a thirty-cell row is the thing a solver actually does with a ruler
 otherwise, and the every-5th rule is the convention that makes it unnecessary.
 
-A **book** page closes that drawing off with a :class:`PuzzleFrame` (FR-041,
-CARD-144): one rectangle around clues and grid, which boxes both clue bands
+A **book** page closes that drawing off with a :class:`PuzzleFrame`
+(CARD-144): one rectangle around clues and grid, which boxes both clue bands
 against the grid's existing outer border and leaves the corner empty. It is
 ink and not geometry — every coordinate of it is a boundary already computed
 above, so a framed page and an unframed one are the same page plus two rules —
 and it is confined to the placed path by :attr:`PageSpec.framed`, because
 CON-019 holds the CLI's and the web's A4 output byte-identical.
+
+**The frame carries no requirement id, and this module does not invent one.**
+It is the owner's decision of 2026-09-23, recorded as intake at
+``meta/architecture/inputs/raw-requirements.md:265`` ("Book puzzle pages carry
+a frame around the puzzle ... BOOK PAGES ONLY"), and the architect station has
+not yet formalised it into an FR with acceptance criteria. Every citation of
+the frame below therefore names the owner's decision and CARD-144, and no FR —
+in particular **not FR-041**, which is the level-divider and print-order
+requirement (COMP-009/COMP-010, CARD-128) and has nothing to do with page
+geometry. A wrong id would make untraced scope look traced.
 
 Why the sizes are what they are (the A4 / 300 DPI target)
 ---------------------------------------------------------
@@ -419,7 +429,8 @@ class PageSpec:
             the default spec's way. ``ODD``/``EVEN`` means a trim-sized placed
             page.
         frame: Whether a puzzle drawn on this sheet is closed off by a
-            :class:`PuzzleFrame` (FR-041, CARD-144). ``None``, the default, is
+            :class:`PuzzleFrame` (CARD-144, owner intake — see this module's
+            docstring for why no FR is named). ``None``, the default, is
             "the sheet's own convention", which :attr:`framed` reads: a placed
             page is framed, a drawing-sized image is not. ``True``/``False``
             state it outright. See :attr:`framed` for why the default is
@@ -639,7 +650,11 @@ class PagePlacement:
 
 @dataclass(frozen=True, slots=True)
 class PuzzleFrame:
-    """The rectangle that closes a framed puzzle off (FR-041, CARD-144).
+    """The rectangle that closes a framed puzzle off (CARD-144).
+
+    The owner's decision of 2026-09-23, recorded as intake at
+    ``meta/architecture/inputs/raw-requirements.md:265`` and not yet formalised
+    into a requirement — so this names no FR (see the module docstring).
 
     The classic printed look the owner asked for: one rectangle around clues
     and grid, the two clue bands boxed off from the grid, and an empty corner
@@ -806,7 +821,7 @@ class Layout:
             the top margin. The lines start at the drawing's edges rather than
             at :attr:`margin`.
         frame: The :class:`PuzzleFrame` a framed sheet closes the drawing off
-            with (FR-041), or ``None`` on an unframed one — which the default
+            with (CARD-144), or ``None`` on an unframed one — which the default
             spec always is, so the default ``Layout`` is exactly what it always
             was, field for field (CON-019). It is carried beside the grid's
             lines rather than among them: :attr:`vertical_lines` and
@@ -1368,7 +1383,7 @@ def _puzzle_frame(
     thick: int,
     page_spec: PageSpec,
 ) -> PuzzleFrame | None:
-    """The drawing's frame, or ``None`` on an unframed sheet (FR-041).
+    """The drawing's frame, or ``None`` on an unframed sheet (CARD-144).
 
     Four numbers the caller already has — the drawing's two outer edges
     (``xs[0]``, ``ys[0]``) and the grid's two far ones — and the heavy rule.

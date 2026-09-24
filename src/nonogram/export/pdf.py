@@ -30,7 +30,9 @@ geometry: every coordinate below comes from
 :func:`~nonogram.export.layout.header_band`.
 
 That is also why a book page's :class:`~nonogram.export.layout.PuzzleFrame`
-(FR-041, CARD-144) appears on both pages without a line of code here: the
+(CARD-144 — the owner's decision of 2026-09-23, intake at
+``meta/architecture/inputs/raw-requirements.md:265``, not yet a formalised
+requirement) appears on both pages without a line of code here: the
 frame is stroked into the raster by
 :func:`~nonogram.export.png.render_image`, and both pages are that raster.
 :func:`_reveal` cannot disturb it — it fills cells *inside* the grid, in the

@@ -85,7 +85,7 @@ OUTSIDE_MM = 0.375 * 25.4
 #: * ``book_baseline_card128.json`` — CARD-128 made the interior print grouped
 #:   by level and open each level with a divider page (INV-009, TERM-031), so
 #:   the interior became eleven pages and every page after the guide moved;
-#: * ``book_baseline_card144.json`` — FR-041's frame closes a book puzzle page's
+#: * ``book_baseline_card144.json`` — CARD-144's frame closes a book puzzle page's
 #:   drawing off with one heavy rectangle, so the pages that carry a drawing
 #:   moved again on top of CARD-128's eleven.
 #:

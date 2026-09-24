@@ -1,4 +1,4 @@
-"""CARD-144 — a frame around the puzzle on book pages (FR-041, ADR-0036/R1).
+"""CARD-144 — a frame around the puzzle on book pages (ADR-0036/R1, CON-019).
 
     AC (new)  TestPuzzleFrame_BookPageCarriesTheFrame
     AC (new)  TestPuzzleFrame_DefaultPageSpecIsUnchanged
@@ -12,6 +12,15 @@ and not geometry** — every side of it lands on a boundary ``compute_layout``
 had already placed — and it is confined to **book pages**, because CON-019
 holds the CLI's and the web's A4 output byte-identical and the owner chose to
 keep that intact rather than amend it.
+
+**No FR is named above, deliberately.** The frame is the owner's decision of
+2026-09-23, recorded as intake at
+``meta/architecture/inputs/raw-requirements.md:265`` and not yet formalised
+into a requirement with acceptance criteria — so the "AC (new)" rows above are
+this module's own names for the properties it pins, not ids from
+``requirements.yml``. This card first cited FR-041, which is the **level
+order and divider** requirement (CARD-128's), and that was wrong in a way a
+missing citation would not have been: it made untraced scope look traced.
 
 What is measured, and against what
 ----------------------------------
@@ -44,9 +53,12 @@ drawn half a rule out of step with the border it continues, fails there.
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import random
+import warnings
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -694,11 +706,89 @@ def test_the_frame_is_a_field_of_the_layout_and_not_a_line_of_the_grid() -> None
     assert "frame" in {field.name for field in dataclasses.fields(layout)}
 
 
-def test_the_frame_never_reaches_an_answer_tile() -> None:
-    """FR-042's packed answer key is out of CARD-144's scope and carries none."""
-    from nonogram.export.layout import compute_answer_page_layout
+def _gutter_cells(edge: int, border: int, cell: float) -> int:
+    """How many whole cells of clue gutter stand between ``edge`` and ``border``.
 
-    page = compute_answer_page_layout([(10, 10)] * 4, 4, _spec())
+    ``edge`` is the drawing's outer edge as ``page_ink`` reads it — where the
+    rules of the *other* axis start, which is half a heavy stroke inside the
+    rule group's own first pixel that ``border`` reports. Rounding to whole
+    cells is what makes the two comparable: a gutter is a whole number of
+    cells deep by construction, and half a rule is not a fraction of one.
+    """
+    return round(abs(border - edge) / cell)
+
+
+def test_the_frame_never_reaches_an_answer_tile() -> None:
+    """FR-042's packed answer key is out of scope and carries no frame **on paper**.
+
+    Read off the rendered key, not off the layout object. The structural
+    reading — ``AnswerTile`` has no ``frame`` field — is true of every tree
+    this card could have produced, under every mutation of the frame code, so
+    on its own it proves nothing. What the card claims is that a *printed*
+    answer page carries no rectangle around its tiles, and the only way to say
+    that is to render one and measure it.
+
+    Measured with the project's own ink measurer, against a framed puzzle page
+    on the **same sheet** as a positive control, so the test fails from either
+    side: a frame that leaked onto the key reads ``framed=True`` there, and a
+    measurer that cannot see a frame at all reads ``framed=False`` on the
+    puzzle page. The first is how CARD-144's first cycle shipped — the
+    measurer asked only "does the leftmost rule sit on the drawing's own
+    edge?", which an answer tile satisfies trivially because it carries no
+    clue gutter, so the key's pages reported a frame they do not have and read
+    one column and one row short of their true extent, with every test green.
+    Both halves are asserted here.
+    """
+    from nonogram.export.layout import compute_answer_page_layout
+    from nonogram.export.png import render_answer_page
+
+    from tests.helpers.page_ink import drawing_of
+
+    spec = _spec()
+    columns, rows, row_depth, column_depth = 16, 12, 4, 3
+
+    # One answer on the page, so the rules the measurer counts are that one
+    # tile's grid and nothing else. ``_grid`` fills only row 0 and column 0 and
+    # never the last cell of either, so the grid's outer ring stays blank and
+    # no revealed run is ever as long as the rule beside it — which is what
+    # makes counting rules safe on this particular answer page.
+    key = render_answer_page(
+        [(_grid(columns, rows, row_depth, column_depth), "1")], 4, spec
+    )
+    on_the_key = drawing_of(key)
+
+    assert on_the_key.framed is False, "the frame reached FR-042's answer key"
+    assert (on_the_key.columns, on_the_key.rows) == (columns, rows), (
+        "the answer tile's grid does not read back its own extent"
+    )
+    # A tile has no clue gutter and no rule outside its grid's border, so the
+    # drawing's own left and top edges ARE that border, to within the half of
+    # its stroke that falls outside it: **zero** cells stand between them,
+    # where a framed drawing always has the clues' own depth.
+    assert _gutter_cells(on_the_key.left, on_the_key.grid_left, on_the_key.cell) == 0
+    assert _gutter_cells(on_the_key.top, on_the_key.grid_top, on_the_key.cell) == 0
+
+    # The positive control on the same sheet: a puzzle page of this book IS
+    # framed, and reads its own extent from behind the frame.
+    puzzle = render_image(
+        _payload(columns, rows, row_depth, column_depth), page_spec=spec
+    )
+    on_the_puzzle = drawing_of(puzzle)
+
+    assert on_the_puzzle.framed is True, "the measurer cannot see the frame it looks for"
+    assert (on_the_puzzle.columns, on_the_puzzle.rows) == (columns, rows)
+    # There the gutters are real: as many whole cells deep as the clues run.
+    assert (
+        _gutter_cells(on_the_puzzle.left, on_the_puzzle.grid_left, on_the_puzzle.cell)
+        == row_depth
+    )
+    assert (
+        _gutter_cells(on_the_puzzle.top, on_the_puzzle.grid_top, on_the_puzzle.cell)
+        == column_depth
+    )
+
+    # The cheap structural companion, kept: no tile carries a frame field either.
+    page = compute_answer_page_layout([(10, 10)] * 4, 4, spec)
     for tile in page.tiles:
         assert not hasattr(tile, "frame")
 
@@ -721,3 +811,131 @@ def test_the_book_spec_is_the_sheet_these_tests_state_by_hand() -> None:
             assert ours == pytest.approx(theirs), field.name
         else:
             assert ours == theirs, field.name
+
+
+# --------------------------------------------------------------------------
+# "A placed page is framed" is only safe while "placed" and "book" name the
+# same pages — so that equivalence is walked on disk, not asserted in prose
+# --------------------------------------------------------------------------
+
+#: The package on disk, walked the way ``tests/test_cli.py``'s import guard
+#: walks it, so a module a later card adds is covered from the moment it lands.
+_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "nonogram"
+
+#: The one module allowed to build a page spec that carries a parity.
+_THE_PLACED_PAGE_PRODUCER = "nonogram.admin.book_page_spec"
+
+
+def _module_name(path: Path) -> str:
+    parts = path.relative_to(_PACKAGE_DIR).with_suffix("").parts
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(("nonogram", *parts))
+
+
+def _is_page_spec_call(node: ast.Call) -> bool:
+    """``PageSpec(...)`` or ``layout.PageSpec(...)``, however it was imported."""
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return func.attr == "PageSpec"
+    return isinstance(func, ast.Name) and func.id == "PageSpec"
+
+
+def _carries_a_parity(node: ast.Call) -> bool:
+    """Whether this call can produce a spec whose ``parity`` is not ``None``.
+
+    A ``parity=`` keyword written as the literal ``None`` is the unplaced case
+    and does not count; anything else does, **including ``**kwargs``**, whose
+    contents this walk cannot see. Unknown is treated as placed on purpose: the
+    guard's job is to make a second producer impossible to add quietly, and an
+    unreadable call is exactly the shape that would.
+    """
+    for keyword in node.keywords:
+        if keyword.arg is None:
+            return True
+        if keyword.arg == "parity":
+            value = keyword.value
+            return not (isinstance(value, ast.Constant) and value.value is None)
+    return False
+
+
+def _placed_page_producers() -> tuple[dict[str, list[int]], int]:
+    """``({module: [line, ...]}, how many PageSpec calls were seen at all)``."""
+    producers: dict[str, list[int]] = {}
+    seen = 0
+    for path in sorted(_PACKAGE_DIR.rglob("*.py")):
+        with warnings.catch_warnings():
+            # ``sourcing/templates/dog_in_house.py`` carries a stray escape in
+            # a docstring and warns on every parse. It is not this guard's
+            # business, and letting it through would put the same line in the
+            # suite's output on every run.
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and _is_page_spec_call(node)):
+                continue
+            seen += 1
+            if _carries_a_parity(node):
+                producers.setdefault(_module_name(path), []).append(node.lineno)
+    return producers, seen
+
+
+def test_the_book_is_the_only_thing_in_src_that_places_a_page() -> None:
+    """``PageSpec.framed`` reads "a placed page is framed" — pin what "placed" means.
+
+    ``PageSpec.framed`` returns ``self.parity is not None`` when ``frame`` is
+    left at its default, so the *stated* rule is about parity. The rule the
+    owner gave is about the **book** ("BOOK PAGES ONLY", intake at
+    ``meta/architecture/inputs/raw-requirements.md:265``), and the two agree
+    only because nothing but the book lays a puzzle on a trim. That is a fact
+    about today's source tree, not a property of ``PageSpec`` — and until this
+    test it lived in a docstring, so the first non-book placed page (a
+    single-sheet trim preview, a poster export, a marketing render) would have
+    acquired a frame in silence and CON-019's reasoning would have quietly
+    stopped holding.
+
+    Walked on disk with ``ast`` rather than by import, in the spirit of
+    ``tests/test_cli.py``'s import guard, so a module a later card adds is
+    covered the moment it lands. The day a second producer appears this fails,
+    and the reading to take from it is *not* "add the module to the allowlist"
+    — it is that ``framed`` must then say what it means and be given an
+    explicit ``frame=``, which the field already supports.
+    """
+    producers, seen = _placed_page_producers()
+
+    assert seen >= 2, (
+        f"the walk saw {seen} PageSpec constructions in {_PACKAGE_DIR} — it is "
+        "empty or misrooted, and would pass whatever the source said"
+    )
+    assert set(producers) == {_THE_PLACED_PAGE_PRODUCER}, (
+        "a second module now builds a page spec with a parity, so "
+        "'a placed page is framed' no longer means 'a book page is framed': "
+        f"{producers}"
+    )
+
+
+def test_the_placed_page_walk_reads_a_parity_where_there_is_one() -> None:
+    """Guard the guard: the two shapes it must tell apart, told apart.
+
+    ``DEFAULT_PAGE_SPEC`` writes ``parity=None`` and the panel's spec passes a
+    variable, and those are the two readings the whole guard turns on. Asserted
+    against parsed source rather than against the real files, so this stays true
+    when the real ones are reformatted.
+    """
+    unplaced, placed, splatted, silent = (
+        ast.parse(source).body[0].value
+        for source in (
+            "PageSpec(width_mm=1, parity=None)",
+            "PageSpec(width_mm=1, parity=parity)",
+            "PageSpec(**fields)",
+            "PageSpec(width_mm=1)",
+        )
+    )
+
+    assert not _carries_a_parity(unplaced)
+    assert not _carries_a_parity(silent)
+    assert _carries_a_parity(placed)
+    assert _carries_a_parity(splatted), "an unreadable call must count as placed"
+    assert _is_page_spec_call(placed)
+    assert _is_page_spec_call(ast.parse("layout.PageSpec(parity=p)").body[0].value)
+    assert not _is_page_spec_call(ast.parse("Layout(parity=p)").body[0].value)

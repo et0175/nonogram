@@ -42,7 +42,7 @@ through the widest gap **no vertical rule crosses**, and a page where every gap
 is crossed holds one drawing.
 
 That is a stronger reading than the gap widths it replaced, and CARD-144 is why
-it had to be. A framed book page (FR-041) rules the drawing's own top edge, so
+it had to be. A framed book page (CARD-144) rules the drawing's own top edge, so
 a single puzzle page now shows one extra horizontal rule a whole clue gutter
 above the grid — four cells on an ordinary page, which is wider than the 12 mm
 band that separates two slots. Measured by gap width alone, a framed

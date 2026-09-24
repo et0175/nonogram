@@ -1,7 +1,7 @@
 {
   "card": "CARD-128",
   "supersedes": "tests/fixtures/book_baseline_card145.json",
-  "superseded_by": "tests/fixtures/book_baseline_card144.json — CARD-144 deliberately changed what a book puzzle page prints (FR-041's frame closes the drawing off with one heavy rectangle), so interior 5 and interior 7, this book's two single-puzzle pages, moved. That is the one reason a successor may be recorded, and it was, under that card's number. Nothing below was regenerated: the other nine digests here are the ones CARD-144's recording carries too, and tests/helpers/book_corpus.BASELINE_FIXTURE now points at that file.",
+  "superseded_by": "tests/fixtures/book_baseline_card144.json — CARD-144 deliberately changed what a book puzzle page prints (its frame — the owner's decision of 2026-09-23, intake at meta/architecture/inputs/raw-requirements.md:265, not yet a formalised requirement — closes the drawing off with one heavy rectangle), so interior 5 and interior 7, this book's two single-puzzle pages, moved. That is the one reason a successor may be recorded, and it was, under that card's number. Nothing below was regenerated: the other nine digests here are the ones CARD-144's recording carries too, and tests/helpers/book_corpus.BASELINE_FIXTURE now points at that file.",
   "recorded_from_commit": "407c0cc8920574c257ff03229551e0cf9760978c",
   "recorded_from_commit_note": "This card's own implementation commit — the tree these digests were taken from, and the first one that reproduces them. The merge base (346d89e) writes an 8-page interior for the same book, so it cannot.",
   "recorded_on": "2026-09-24",

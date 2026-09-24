@@ -185,7 +185,7 @@ def _draw_grid(draw: ImageDraw.ImageDraw, layout: Layout | AnswerTile) -> None:
 
 
 def _draw_frame(draw: ImageDraw.ImageDraw, frame: PuzzleFrame) -> None:
-    """Stroke the rectangle that closes a framed puzzle off (FR-041, CARD-144).
+    """Stroke the rectangle that closes a framed puzzle off (CARD-144).
 
     Four sides at the heavy rule, in the same pure :data:`INK` as every other
     rule and at no new weight (ADR-0037/R2). Two of them — right and bottom —
@@ -250,7 +250,8 @@ def render_image(payload: ExportPayload, page_spec: PageSpec | None = None) -> I
             CLI and web export — is today's A4 drawing, byte for byte. A book
             spec with a parity returns the whole trim page with the drawing
             already placed on it, its band left blank, and the drawing closed
-            off by its :class:`~nonogram.export.layout.PuzzleFrame` (FR-041):
+            off by its :class:`~nonogram.export.layout.PuzzleFrame`
+            (CARD-144):
             a framed sheet is the only one that carries one, and no sheet the
             CLI or the web ever passes is framed (CON-019).
 
