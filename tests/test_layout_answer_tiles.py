@@ -311,9 +311,16 @@ class TestAnswerPage_TileGeometry:
         assert _mm(page.tiles[0].tile_right - page.tiles[0].tile_left) == pytest.approx(
             TILE_WIDTH_MM, abs=PIXEL_MM
         )
+        # CARD-141: a tile is as tall as its row's content — the caption line
+        # plus the tallest grid in the row — not as tall as the equal tile the
+        # cell was measured against. A 15x15 is cap-bound (the AC-294 case
+        # above), so every row here is 6 + 15 x 5 = 81 mm and the height the
+        # rows do not use falls at the foot of the page.
+        assert page.tiles[0].cell_mm == ANSWER_MAX_CELL_MM
         assert _mm(
             page.tiles[0].tile_bottom - page.tiles[0].tile_top
-        ) == pytest.approx(_tile_height_mm(capacity, heading=False), abs=PIXEL_MM)
+        ) == pytest.approx(ANSWER_CAPTION_MM + 15 * ANSWER_MAX_CELL_MM, abs=PIXEL_MM)
+        assert _tile_height_mm(capacity, heading=False) > 81.0
 
     def test_tiles_fill_left_to_right_then_top_to_bottom(self) -> None:
         page = _page([(15, 15)] * 6, 6)
