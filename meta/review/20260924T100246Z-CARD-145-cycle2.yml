@@ -1,0 +1,326 @@
+version: 1
+generated_at: "2026-09-24T10:02:46Z"
+target: "CARD-145 cycle 2 (confirmation) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-145, branch card/145-stream-the-book-pdf, `git diff b4c523d` (four commits + the uncommitted fix delta)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full delta + _as_planned, produce(), _write_pdf, export_book, export_cover/_cover_page, the three font call sites)"
+    - "tests/test_book_pdf_memory.py (full, working tree)"
+    - "tests/helpers/book_corpus.py (full delta: font_fingerprint, MACHINE_FACE_SIZES)"
+    - "tests/fixtures/book_baseline_card145.json (full delta)"
+    - "meta/kanban/cards/CARD-145.md (## Failure matrix F-1..F-7, Guardrails, System contract, Cycle-1 review fixes)"
+    - "meta/review/20260924T091248Z-CARD-145-cycle1.yml (previous verdicts)"
+  not_reached:
+    - "src/nonogram/admin/app.py (untouched by the card and by the delta)"
+    - "the deployed panel — the 512 MB outcome remains unobservable from here"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 447, removed: 77 }   # the FIX DELTA only (card file excluded)
+  max_fan_in: { symbol: "BookPDFGenerator.interior_pages", callers: 47 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]   # 16 commits/12mo
+  cochange_missing: []      # the delta touches no production seam a peer would follow
+  unmeasured:
+    bus_factor: "no_eligible_fact — git shortlog returns no author lines for this file in this worktree (unchanged since cycle 1)"
+    cochange_missing: "not_applicable — the fix delta changes no signature and no route; cycle 1's co-change analysis over the whole card still stands and is recorded there"
+
+system_contract:
+  rules_checked: 44
+  holds: 8
+  unchecked: 36
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived on the delta: `git diff HEAD` adds no import line to book_pdf_generator.py (the delta is comments + a 3-statement split); pyproject.toml/requirements.txt carry no edit vs b4c523d; the dependency-baseline test green in my targeted run on this head (145 passed)."
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green on this head (my run, 145 passed); the delta adds no import anywhere."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the delta reduces no grid extent to a scalar."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in the delta."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling in the delta."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair path in the delta."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in the delta."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair logic in the delta."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in the delta."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no mode-specific recovery policy in the delta."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the delta."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the delta adds no rejection of any kind."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the delta."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve/strategies code in the delta."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: the delta reads no clock; the only clock call in the file (time.gmtime() for the PDF Info dict) is unchanged by it."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the delta."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the delta."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage boundary in the delta."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score/recognizability rendering (_answer_page/_blank_page) carries no hunk in the delta."
+    - "ADR-0033/R1 ✓ holds — the delta writes no puzzle field: its only production change is `export_book` splitting one BookExport(...) call into three statements (book_pdf_generator.py:1035-1037); no db/book_manager call added."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition in the delta."
+    - "ADR-0036/R1 ✓ holds — `git diff --name-only b4c523d -- src/nonogram/export tests/fixtures/a4_golden` is empty (re-run this cycle); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green in my targeted run on this head."
+    - "ADR-0036/R2 ✓ holds — the delta's production hunks are a docstring paragraph (1010-1018), a comment (1762-1767) and the export_book statement split; no arithmetic, no MediaBox change. Re-derivable: tests/test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged::test_the_interior_file_is_the_length_it_was_recorded_with asserts the interior is 2,210,622 B, the merge-base's length to the byte, and it passes on this head."
+    - "ADR-0037/R1 ✓ holds — no band or title drawing in the delta; all 8 baseline page digests still match (test_every_page_is_pixel_identical_to_the_recorded_one green on this head, and I confirmed font_fingerprint() == the fixture's value on this machine, so all 8 were really compared, none skipped)."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: stroke widths live in COMP-007's layout, which the delta does not touch; the 8 unchanged page digests are the supporting evidence."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the delta."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server bind in the delta."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-origin handling in the delta."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-side validation in the delta; the corpus helper's sides are unchanged by it."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the delta."
+    - "CON-015 ⚠ unchecked — no_eligible_fact: no bind address named in the delta."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: no request handling in the delta; app.py untouched."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue derivation in the delta."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness gate in the delta."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the delta."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan arithmetic in the delta."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership floor/override in the delta."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready-status check in the delta."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book confirmation in the delta."
+    - "INV-009 ✓ holds — page order is untouched by the delta; the 8 baseline page digests still match in order (strict zip against the fixture) and tests/test_book_pdf.py + the geometry property test were green in the orchestrator's full run on this head (5030 passed)."
+    - "INV-010 ✓ holds — puzzle_pages carries no hunk in the delta; additionally re-derived positively this cycle: test_the_corpus_covers_every_page_kind_the_interior_has now reads the two-up page's two 10x10 grids back off its own ink (page 3, upper and lower halves) and passes."
+    - "INV-011 ✓ holds — answer_key/_answer_page carry no hunk in the delta; the three answer pages are now positively identified by their solid ink blocks (measured 40,598 / 34,972 / 30,621 against 0 on all five non-answer pages) and their digests still match the merge-base's."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change in the delta."
+    - "INV-013 ✓ holds — export_book still returns two BytesIO files and the same three counts; I ran the statement-order mutant and the interior-materialising mutant on a sandbox copy and the returned BookExport was structurally identical in both. TestBookExport_EveryRouteSeparatesInteriorAndCover, PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage and TestBookPdfMemory_InteriorAndCoverStillSeparate all green on this head (my run, 145 + 25 passed)."
+
+root_causes:
+  - id: RC-1
+    title: "The cycle-1 fix justified a correct code change with a mechanism the code does not have"
+    finding_ids: [F-101]
+  - id: RC-2
+    title: "The font gate's evidence budget is pinned by hand-transcribed constants with no link back to the code they mirror"
+    finding_ids: [F-102, F-103]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1015
+    title: "F-6's ordering claim is refuted: swapping the interior/cover statements leaves all 25 tests green at 1.00 page bitmaps"
+    description: |
+      The cycle-1 fix split `BookExport(interior=..., cover=...)` into two
+      statements and justified it, in a NEW production docstring paragraph
+      (book_pdf_generator.py:1010-1018) and in the card's failure-matrix F-6
+      row, with: "The order is what keeps a cover page from being alive beside
+      an interior page … a reader reordering two kwargs would silently double
+      the peak."
+
+      That is false, and mutation-verified false. On a sandbox copy of the
+      module I swapped the two statements so the cover is written FIRST:
+
+          stream   = self.interior_stream(puzzles)
+          cover    = self.export_cover(book_title, cover_image)
+          interior = self._write_pdf(stream.pages, stream.page_count)
+
+      Result: `25 passed` — peak still exactly 1.00 page bitmaps. The reason is
+      structural and is in the same file: `export_cover` (line 1055) hands
+      `_cover_page` — a GENERATOR (lines 1057-1061) — to `_write_pdf`, so the
+      cover bitmap is built inside the writer's walk and released by the
+      writer's own `del page` before `export_cover` returns. No cover page can
+      survive one statement into the next, whichever statement runs first.
+
+      What actually pins the cover half of F-6 is the page-factory seam plus
+      the four `del`s, not the ordering. I verified that too: an `export_book`
+      that builds the cover page eagerly and holds it across the interior write
+      measures 2.00 and fails `test_the_whole_book_holds_one_page_bitmap_at_a_time`;
+      an `export_book` that materialises its interior measures 9.00 and fails
+      the same test.
+
+      Why this is not a nit: the card hands this producer to CARD-128 next, and
+      this paragraph is the first thing a reader of `export_book` sees. It
+      teaches that statement order is load-bearing (it is not) and, by
+      implication, that the `del`s and the lazy `_cover_page` are not (they
+      are). The failure matrix carries the same refuted clause, so the
+      declaration a future reviewer checks against is wrong at the mechanism
+      level while its numeric bound (9 pages seen, peak == 1 x 25,245,000 B) is
+      correct and measured.
+    suggestion: |
+      Correct both statements of the mechanism rather than the code — the
+      two-statement form is fine to keep for readability. In the docstring,
+      replace the ordering claim with what is actually true and tested: the
+      cover is built lazily inside `_write_pdf` (`_cover_page` is a generator),
+      so no cover bitmap outlives `export_cover`; the peak of one page is held
+      by the four `del`s and is pinned by
+      `TestBookPdfMemory_InteriorAndCoverStillSeparate::test_the_whole_book_holds_one_page_bitmap_at_a_time`
+      plus `::test_a_page_built_outside_the_writer_is_still_seen`. Amend F-6's
+      row the same way (keep its numeric bound; drop "the ordering the bound
+      depends on"). If the ordering is to stay declared as load-bearing, it
+      needs a test that fails on the swap — and there is nothing to pin, which
+      is the point.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_memory.py
+    line: 670
+    title: "On a font mismatch the pixel test silently compares 6 of 8 pages — no skip, no message, same floor either way"
+    description: |
+      The narrowed skip is a real improvement over cycle 1's all-or-nothing one
+      and I verified its premise: the ONLY machine-face calls on an interior
+      page are book_pdf_generator.py:919 (48), :920 (28) and :964 (60) — the
+      guide page and the divider, i.e. interior pages 1 and 5 exactly;
+      line 873's 72 is the cover, correctly excluded from MACHINE_FACE_SIZES.
+      `assert machine_face == {1, 5}` is a genuine guard against someone
+      widening `font_dependent_pages` to silence the comparison.
+
+      The residual: when `same_face` is false the loop does a bare `continue`
+      (line 670) and the test reports PASS with no indication that it compared
+      six pages instead of eight. The only visible signal anywhere in the run is
+      the separate SKIPPED on
+      `test_the_interior_file_is_the_length_it_was_recorded_with`. And the floor
+      `assert compared >= BASELINE_PAGE_COUNT - len(machine_face)` is the same
+      `>= 6` on the recording machine, where the honest assertion is `== 8`.
+    suggestion: |
+      Make the budget explicit:
+      `assert compared == BASELINE_PAGE_COUNT - (0 if same_face else len(machine_face))`
+      and, when `same_face` is false, emit the reason (a `warnings.warn` or a
+      `pytest.skip`-free `print`/`record_property`) so a green run on a Linux
+      box says on its face that two pages of G-1 evidence were not compared.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/book_corpus.py
+    line: 214
+    title: "MACHINE_FACE_SIZES is hand-transcribed from the generator, and editing it is an unguarded second way to make the fingerprint mismatch"
+    description: |
+      `MACHINE_FACE_SIZES = (48, 28, 60)` mirrors three literals in
+      book_pdf_generator.py (919, 920, 964) with nothing tying the two
+      together. Two consequences, both modest:
+
+      (a) if a later card changes one of those sizes, the fingerprint keeps
+          pinning a size no page is lettered at. This does NOT hide a pixel
+          regression — `font_fingerprint()` reads no production code, so the
+          digest comparison still runs and still fails — but the cross-machine
+          claim the fingerprint makes quietly stops being true.
+
+      (b) the re-record itself was legitimate (the fingerprint is a digest of
+          PIL + the Arial file at three sizes, computed with zero production
+          code, and the `pages` array in the fixture is byte-for-byte the
+          merge-base's — I diffed it, and confirmed the fingerprint matches on
+          this machine so all 8 digests were really compared). But that means
+          the fixture's loud "NEVER regenerate" warning does not cover the
+          helper: editing `MACHINE_FACE_SIZES` flips `same_face` to false and
+          silences pages 1 and 5 plus the whole byte-length assertion, without
+          touching the warned file.
+    suggestion: |
+      Either read the three sizes off the generator's own constants (promote
+      them to named module constants there and import them in the helper), or
+      add one line to the helper's docstring pointing at the three call sites
+      by line so a reader can re-derive the transcription — plus a note that
+      changing this tuple invalidates the fixture's fingerprint and is a
+      baseline change, not a test-helper tweak.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 102
+    title: "PAGE_FACTORIES is a hardcoded list with no test that it covers every page-returning method"
+    description: |
+      The extended instrument is real — I confirmed it non-vacuously: an
+      `export_book` that builds the cover eagerly and holds it measures 2.00
+      and fails, which a producer-only probe would have read as 1.00. The
+      `id(page)` keying is also sound: `weakref.finalize`'s callback runs during
+      deallocation, before CPython can reuse the address, so a dead page's entry
+      is always gone before a new page can collide with it — and an
+      under-registration would show up as `probe.seen` falling short of the
+      asserted 8 / 179 / 9, which is checked in all three places.
+
+      The gap is coverage of the seam itself: `PAGE_FACTORIES` names six methods
+      by string, and nothing asserts that those are all of `BookPDFGenerator`'s
+      page-returning methods. CARD-128 adding a new page factory (a per-level
+      divider) and holding its output outside the writer would be invisible to
+      the factory seam. Narrow, because a page that is actually written is still
+      seen through `_write_pdf`'s producer — the blind spot is only a page built
+      and held and never written.
+    suggestion: |
+      One cheap guard in the module: assert that every public/underscore method
+      of `BookPDFGenerator` whose return annotation is `Image.Image` appears in
+      `PAGE_FACTORIES` (the annotations are already there — `create_guide_page`,
+      `create_divider_page`, `_blank_page`, `_two_up_page`, `_answer_page`,
+      `create_cover_page` all declare `-> Image.Image`).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1733
+    title: "Out of scope, carried from cycle 1 (F-011): production output depends on Pillow's internal PdfParser"
+    description: |
+      Unchanged by the fix delta. `PdfParser.PdfParser`, `next_object_id`,
+      `start_writing`, `write_catalog`, `write_page`, `write_obj` and
+      `write_xref_and_trailer` are Pillow internals and pyproject pins only
+      `Pillow>=10.0`. ADR-0006/R1 still holds (no new dependency). A break would
+      now be louder than at cycle 1, because the byte-length assertion
+      (2,210,622 B) fires before any pixel does.
+    suggestion: "Unchanged from cycle 1: consider a floor pin or an object-layout smoke test on a follow-up card."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: info
+    category: ops
+    type: question
+    file: tests/test_book_export_interior_cover.py
+    line: 527
+    title: "Out of scope, handover only: the interior_pages monkeypatch is inert on every export path"
+    description: |
+      Recorded on the card as [Handover] after cycle 1's F-002 was refuted by an
+      independent skeptic. Not re-raised and not a regression: the guard
+      exercises the COVER route, which never went through `interior_pages` at
+      HEAD or at the merge-base; the behaviour it cited changed at CARD-127
+      (ed8d20e). G-1 forbids this card from editing that file and it was
+      correctly left unedited (verified: `git diff --name-only b4c523d --
+      tests/` lists only the card's three new/own files).
+    suggestion: "CARD-128 re-aims it at `interior_stream`, or drops it — as the card's handover note already says."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

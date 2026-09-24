@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-24
+- CARD-145 (bug): The book PDF is written a page at a time instead of building every page first and holding them all — a 179-page book peaked at about 4.3 GB and was killed on the 512 MB deployed panel, and now peaks at about 132 MB. Pages are byte-for-byte what they were.
 - CARD-134 (feature): The book's answer key is packed — 6 answers to a page, 4 once an answer is over 20 cells, in puzzle-number order with "Puzzle N — Title" captions and a new page per level under its heading. A 150-puzzle book's key goes from 150 pages to 31. The caption's em dash also prints as a real dash: the face in use had no U+2014, so it had been printing an empty box.
 
 ## 2026-09-23

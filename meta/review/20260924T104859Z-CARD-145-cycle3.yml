@@ -1,0 +1,365 @@
+version: 1
+generated_at: "2026-09-24T10:48:59Z"
+target: "CARD-145 cycle 3 (FULL) — branch card/145-stream-the-book-pdf vs merge-base b4c523d (4 commits + uncommitted working tree)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"   # /Users/omelnikova/MyProjects/forge_1/.claude-plugin/plugin.json does not exist
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (whole diff + surrounding methods: interior_stream, produce, _as_planned, _write_pdf, _write_page, export_book/_interior/_cover, _cover_page, interior, interior_pages, interior_page_count, create_cover_page/_guide_page/_divider_page, _blank_page, _two_up_page, _answer_page, custom_titles)"
+    - "tests/test_book_pdf_memory.py (all 1117 lines)"
+    - "tests/helpers/book_corpus.py (all 290 lines)"
+    - "tests/fixtures/book_baseline_card145.json (all 80 lines)"
+    - "meta/kanban/cards/CARD-145.md (whole card: What to implement, AC, Guardrails, System contract, Failure matrix, Worktree notes)"
+    - "PIL/PdfImagePlugin.py and PIL/PdfParser.py (Pillow 12.3.0) — the writer the new code mirrors, read line by line"
+    - "src/nonogram/admin/app.py:3555-3660 (the routes that call export_interior/export_cover)"
+    - "src/nonogram/export/pdf.py:414-458 (render_pages)"
+    - "pyproject.toml, meta/architecture/requirements.yml (FR-041/FR-043/NFR grep), 44 system rules"
+  not_reached:
+    - "tests/e2e/** (one pre-existing failure reported by a helper agent, also failing at the merge-base — not re-derived by me)"
+    - "meta/architecture/c4/**, ADR prose bodies (checked via the assembled rule set, not read in full)"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 2223, removed: 96 }
+  max_fan_in: { symbol: "BookPDFGenerator.interior_pages", callers: 46 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]   # 16 commits/12mo, 5 of them fix/bug
+  cochange_missing: ["src/nonogram/admin/app.py", "tests/property/test_book_export_interior.py", "tests/property/test_book_pdf_geometry.py"]
+  # Both peers are deliberate: app.py's only change would have been card item 4 (deferred on a
+  # 3.42 s measurement); the two property files are pre-existing book tests that G-1 forbids
+  # editing — I ran the whole tests/property/ suite instead: 167 passed.
+  mutants_run: 7
+  mutants_killed: 6
+  mutants_survived: 1
+  unmeasured:
+    bus_factor: "no_eligible_fact — `git shortlog -sn -- src/nonogram/admin/book_pdf_generator.py` returns no rows in this repo (commits carry no attributable author rows for this path), so single-author concentration could not be derived"
+
+system_contract:
+  rules_checked: 44
+  holds: 41
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy. `grep -rn \"class TestDependencyBaseline\" tests/` → no hit; the name occurs only in comments at tests/test_export_pdf.py:622 and in the docstring of the live test `test_the_dependency_baseline_is_still_closed` (tests/test_export_pdf.py:1249). Manual read of this diff found no violation: pyproject.toml byte-identical to b4c523d (blob 4f3e077), the only imports added are stdlib `time` and `PdfParser` from the already-declared Pillow (book_pdf_generator.py:185,192), no reportlab import anywhere in src/."
+    - "ADR-0019/R1 ✓ holds — check ref `test_every_import_in_the_package_points_inward` exists (tests/test_cli.py:934) and passes; the changed module imports stdlib + PIL + nonogram.admin/difficulty/export only, `grep -n \"nonogram.cli\\|nonogram.web\\|orchestrator\" src/nonogram/admin/book_pdf_generator.py` → no hit"
+    - "ADR-0022/R1 ✓ holds — the added signatures (`interior_stream(puzzles)`, `_as_planned(pages, page_count)`, `_write_pdf(pages, page_count)`, `_write_page(pdf, page, image_ref, page_ref, contents_ref)`, `_cover_page(book_title, cover_image)`) carry no scalar grid extent; `page_count` is a page tally"
+    - "ADR-0022/R3 ✓ holds — src/nonogram/sourcing/image.py untouched; no crop/bbox/aspect line added to the diff; TestFitImage_RefusesRatioMismatchBeyondTwice exists and passes"
+    - "ADR-0022/R4 ✓ holds — cli.py/orchestrator.py/sourcing/** untouched; PropertyTest_BareSize_DerivesShorterSideFromSourceShape exists (tests/property/test_grid_dimensions.py) and passes"
+    - "ADR-0024/R1 ✓ holds — orchestrator.py untouched; no solve/accept path in the diff; PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound exists and passes"
+    - "ADR-0024/R2 ✓ holds — no retry/counter code added; TestRecovery_RepairAttemptsCountAgainstRetryBound exists and passes"
+    - "ADR-0024/R3 ✓ holds — the only assignments the diff adds are pdf.info[\"CreationDate\"]/[\"ModDate\"] (book_pdf_generator.py:1758-1759); TestRecovery_RepairKeepsFilledCountExact exists and passes"
+    - "ADR-0024/R4 ✓ holds — review-lens: no Random/shuffle/choice added; the one host read is time.gmtime() for the PDF Info dates, the same call Pillow's own writer made before"
+    - "ADR-0024/R5 ✓ holds — review-lens: no mode branch added; repair policy lives in orchestrator.py, untouched"
+    - "ADR-0027/R1 ✓ holds — sourcing/random_grid.py untouched; TestGenerateRandom_RefusesDensityZeroAndHundred exists and passes"
+    - "ADR-0027/R2 ✓ holds — `grep -i density src/nonogram/admin/book_pdf_generator.py` → no hit; TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam exists and passes"
+    - "ADR-0029/R1 ✓ holds — difficulty.py and solver/** untouched; the generator only reads tiers (tier_breakdown, book_pdf_generator.py:1623, call unchanged); TestScoreDifficulty_DeeperLineReasoningScoresHigher exists and passes"
+    - "ADR-0029/R2 ✓ holds — `grep -n \"solve\\|Solver\" src/nonogram/admin/book_pdf_generator.py` → no hit; TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve exists and passes"
+    - "ADR-0029/R3 ✓ holds — the added clock read (time.gmtime(), :1758-1759) writes PDF Info dates only; difficulty.py untouched; PropertyTest_ScoreDifficulty_IndependentOfElapsedTime exists and passes"
+    - "ADR-0029/R4 ✓ holds — solver/** untouched and the import guard passes; PropertyTest_SolveStrategies_RungsInvariantUnderTransposition exists and passes"
+    - "ADR-0029/R5 ✓ holds — no rung/attribution code added; solver/** untouched; same property test passes"
+    - "ADR-0032/R1 ✓ holds — the generator writes no puzzle row (`grep -n \"add_puzzle\\|session\\|commit(\"` → no hit); TestStorageBoundary_AsksTheSolverNotTheCaller exists and passes"
+    - "ADR-0032/R2 ✓ holds — no quality/recognizability token added; band drawing code byte-unchanged and the pages are pixel-identical to the merge-base's; TestUnmeasuredQuality_SurvivesTheFilter exists and passes"
+    - "ADR-0033/R1 ✓ holds — review-lens: the export only reads puzzle dicts (payloads[number-1] at :1670 and :1694); no book_id write and no DB session in the module"
+    - "ADR-0035/R1 ✓ holds — admin/book_manager.py untouched; no status transition in the generator; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan exists and passes"
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/layout.py untouched; `grep -rn \"_save_pdf\" --include='*.py' .` → zero hits repo-wide (no dangling caller of the removed method); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden and tests/test_export_a4_golden.py run explicitly, all passed"
+    - "ADR-0036/R2 ✓ holds — the closest call: _write_page (book_pdf_generator.py:1797-1843) adds `width = page.width * 72.0 / self.dpi` / MediaBox arithmetic in the panel, but it is PDF-container geometry copied verbatim from Pillow's PdfImagePlugin._save (independently verified byte-identical output), not cell fitting or rule placement; no compute_layout/compute_pair_layout call added or bypassed; TestBookPdf_PageSizeEqualsStoredTrim and TestBookPdf_CellFollowsStoredTrim pass"
+    - "ADR-0037/R1 ✓ holds — _blank_page/_two_up_page/_set_band bodies untouched (the puzzle loop moved verbatim into produce(), :1638-1704); all 8 interior pages pixel-identical to the merge-base's, so no band text changed"
+    - "ADR-0037/R2 ✓ holds — src/nonogram/export/layout.py (where stroke widths live) untouched; decoded pages of the new interior are pixel-identical for all 8 corpus pages, so no stroke thinned through the new JPEG/PDF path"
+    - "CON-005 ✓ holds — solver/** untouched; PropertyTest_Solver_NeverFalsePositiveUniqueness exists (tests/property/test_solver_uniqueness.py) and passes"
+    - "CON-009 ✓ holds — src/nonogram/web/** untouched; no socket/bind token added; TestWebServer_BindsLoopbackOnlyByDefault exists and passes"
+    - "CON-010 ✓ holds — web adapter untouched; no header/Origin handling added; PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest exists and passes"
+    - "CON-011 ✓ holds — limits.py and every source mode untouched; PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 exists and passes"
+    - "CON-012 ✓ holds — image fit path untouched; PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore exists and passes"
+    - "CON-015 ✓ holds — src/nonogram/admin/app.py untouched; `grep -n \"127\\.0\\.0\\.1\\|host=\\|run(\" src/nonogram/admin/book_pdf_generator.py` → no hit; TestAdminPanel_BindsLoopbackOnlyByDefault exists and passes"
+    - "CON-016 ✓ holds — no route/door/Host handling added; app.py untouched and the export is still reached through app.py:3585/3586 with unchanged signatures; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit exists and passes"
+    - "INV-001 ✓ holds — clues.py untouched; the PDF path re-encodes no clues; TestComputeClues_MatchesGridExactly exists and passes"
+    - "INV-002 ✓ holds — all three refs exist (tests/test_export_json.py, tests/test_export_pdf.py, tests/test_orchestrator.py) and pass; the card adds no export-readiness gate and removes none"
+    - "INV-003 ✓ holds — all six refs exist and pass; no retry loop in the diff"
+    - "INV-005 ✓ holds — all three refs exist and pass; plan storage is in book_manager.py, untouched"
+    - "INV-006 ✓ holds — all four refs exist and pass; the floor check is in book_manager.py, untouched"
+    - "INV-007 ✓ holds — all four refs exist and pass; no plan-tolerance code in the diff"
+    - "INV-008 ⚠ unchecked — check_ref_missing: TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation, TestBookPublished_UnconfirmedChangeKeepsStatus — none exists in tests/**; they occur only in meta/architecture/requirements.yml and trace.yml. Pre-existing model gap, not this card's; the membership/confirmation code (book_manager.py) is untouched by this diff"
+    - "INV-009 ✓ holds — 4 of 6 refs exist and pass (tests/property/test_book_order.py, tests/test_book_level_order.py x3, both run explicitly); the walk order is unchanged (`for page_plan in plan:` moved verbatim into produce(), :1667). Two refs (TestBookPdf_DifficultyOrderWithDividerPerLevel, TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel) exist only in meta/*.yml — pre-existing partial check_ref_missing"
+    - "INV-010 ✓ holds — all 10 refs exist (tests/property/test_book_pairing.py + tests/test_book_pdf_two_up.py x9), both files run explicitly, all passed; the pairing walk is untouched and the pair branch (:1669-1678) is the merge-base's code moved into the generator"
+    - "INV-011 ✓ holds — 7 of 8 refs exist and pass (tests/property/test_book_answer_key.py, tests/test_book_answer_key.py x6, both run explicitly); the answer-page term changed from len(answer_pages) to len(key) at :1636, equal by construction (one page per packed key entry), and first_answer_page = 3 + len(plan) (:1604) and the divider number 2 + len(plan) (:1690) are unchanged. TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages exists only in meta/*.yml — pre-existing partial check_ref_missing"
+    - "INV-012 ⚠ unchecked — check_ref_missing: all six named refs (PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft, TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft, TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership) exist only in meta/architecture/*.yml, not in tests/**. Pre-existing model gap; membership code untouched by this diff"
+    - "INV-013 ✓ holds — two files, two calls: export_book does stream=interior_stream(...) / interior=_write_pdf(stream.pages, stream.page_count) / cover=export_cover(...) (book_pdf_generator.py:1031-1033); export_interior writes only the interior stream (:1050-1051); export_cover writes exactly one page (_write_pdf(self._cover_page(...), 1), :1071) — no cover page enters the interior producer. Parity unchanged: produce() yields the guide with page_number=1 (:1656), puzzle pages on page_plan.page_number (:1671-1676), the divider on 2+len(plan) (:1690), answers on first_answer_page+offset with first_answer_page=3+len(plan) (:1604). All six named refs exist and pass (tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py, tests/test_book_pdf.py run explicitly), plus TestBookPdfMemory_InteriorAndCoverStillSeparate's five assertions and the page-for-page pixel equality with the merge-base"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 136
+    title: "\"exactly one page bitmap is alive at any moment\" is one page short: render_pages' discarded solved page makes the real peak 2.00"
+    description: |
+      The module docstring (:130-137), the test module's docstring, the card's
+      F-1 row and the card's Measured-numbers table all state the peak as
+      **exactly one page bitmap (25,245,000 B)**. Measured, that is the peak of
+      the pages the instrument registers, not of the page-size bitmaps alive in
+      the process.
+
+      `_blank_page` (:1148-1163) calls `nonogram.export.pdf.render_pages`, which
+      builds TWO full-size page bitmaps — `blank = render_image(...)` and
+      `answer = _reveal(blank.copy(), ...)` (export/pdf.py:439-440) — and
+      `_blank_page` then binds `blank, _ = render_pages(...)`, keeping the
+      discarded solved page alive until the frame exits. `render_pages` is not a
+      `BookPDFGenerator` method, so it is outside `PAGE_FACTORIES` and the probe
+      never sees it.
+
+      Re-derived on a copy in my scratchpad (never the worktree): registering
+      both pages `render_pages` returns and running the real `export_interior`
+      over the 8-page baseline book gives `pages registered: 10, peak bytes:
+      50490000 = 2.00 page bitmaps`. Every one of the 150 puzzle pages of the
+      corpus book goes through the same path.
+
+      **Why this is Minor and not Important, stated explicitly.** No AC is
+      affected: AC-1 asks that peak not grow with page count, and the extra term
+      is a constant, not a per-page one; AC-2's real 179-page export still fits
+      the envelope (50.5 MB of bitmap + 81.9 MB of file = ~132 MB, 26% of 512 MB,
+      against the card's stated 107.1 MB / 21%). There is no behaviour change
+      versus the merge-base — `_blank_page` is byte-for-byte the code that was
+      there before. The equality assertion still has all the teeth the card
+      claims for it (I killed the `_write_pdf` `del page` mutant and it fails
+      four tests). The concrete harm is bounded: a 25 MB understatement against
+      a 380 MB margin, and a production docstring that CARD-128 is instructed to
+      preserve stating a property the process does not have.
+    suggestion: |
+      Cheapest honest fix, no code change: reword the claim to what is actually
+      measured and pinned — "the export retains no page across the call that
+      builds the next one; exactly one page bitmap survives a page boundary" —
+      in the module docstring (:130-137), the test module's docstring and F-1,
+      and restate the envelope as ~132 MB / 26%.
+      If you would rather widen the measurement, add
+      `nonogram.admin.book_pdf_generator.render_pages` to the wrapped seam in
+      `_measured` and move the equality to 2, with a note that the second bitmap
+      is COMP-007's transient and not a retained page.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1834
+    title: "Surviving mutant: file fidelity is asserted as length + pixels, so a same-length byte change in the embedded JPEG passes"
+    description: |
+      Failure matrix F-7 declares "The only difference between the old file and
+      the new is the two `Info` timestamps". What the suite asserts is weaker:
+      `test_the_interior_file_is_the_length_it_was_recorded_with` (byte LENGTH ==
+      2,210,622) and `test_every_page_is_pixel_identical_to_the_recorded_one`
+      (decoded pixels). A byte change that alters neither is invisible.
+
+      Mutation-proved on a copy in my scratchpad (the worktree was never touched):
+      dropping `dpi=(self.dpi, self.dpi)` from `page.save(encoded, format="JPEG",
+      dpi=(self.dpi, self.dpi))` at :1834 — the one thing in `_write_page` that
+      reproduces the JFIF density Pillow's own `JpegImagePlugin._save` wrote from
+      the PDF encoderinfo — leaves **all 26 tests green**. Measured directly:
+      with and without `dpi=`, a 2550x3300 white page JPEG is 133,107 bytes both
+      ways, first differing byte at offset 13 (the JFIF density field).
+
+      Six other mutants I ran were all killed, including the four that matter for
+      this card's own claims: `del page` removed from `_write_pdf`'s loop (4
+      tests fail), the `_as_planned` under-count guard removed (1), the
+      over-count guard disabled (1), `export_book` binding the cover page itself
+      (1), a one-page shift of the answer pages' page numbers (2 — the baseline
+      fixture does have teeth), and dropping a name from `PAGE_FACTORIES` (2 —
+      the cycle-2 coverage guard is non-vacuous and its premise does not go
+      vacuous, the `assert annotated` line fires first).
+
+      Harm is small: the JFIF density is metadata a PDF reader ignores (page size
+      comes from the MediaBox, which `_write_page` computes from `self.dpi`), so
+      a regression here would not change what prints. It is the evidence, not the
+      file, that is one notch weaker than the row claims.
+    suggestion: |
+      Add one test that pins what F-7 actually says: build a one-page PDF both
+      ways — `im.save(buf, format="PDF", save_all=True, append_images=[],
+      dpi=(300, 300))` and `BookPDFGenerator._write_pdf(iter([im]), 1)` — and
+      assert the two byte strings are equal after masking the two `(D:...Z)`
+      timestamps. That is a few milliseconds, kills this mutant, and is also the
+      tripwire that would catch Pillow changing its PDF writer under an
+      unbounded `Pillow>=10.0` (see the out-of-scope note).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 909
+    title: "F-6's cover bound is only measured for the generated title cover, never for the route's uploaded one"
+    description: |
+      `TestBookPdfMemory_InteriorAndCoverStillSeparate` always calls
+      `export_book(baseline_puzzles(), BOOK_TITLE)` with `cover_image` left at
+      `None`, and asserts `probe.page_bytes == PAGE_BITMAP_BYTES` and
+      `probe.peak == 1 * PAGE_BITMAP_BYTES` (:908-913). The panel's actual cover
+      route does not take that path: `app.py:3586-3587` calls
+      `generator.export_cover(book.metadata.title, _uploaded_cover(book.book_id))`,
+      and `create_cover_page` returns `cover_image.resize(...)` (:865), which
+      preserves the uploaded image's mode.
+
+      Measured on a copy in my scratchpad, real `export_cover`:
+      generated cover -> `seen=1 peak=1.00 pages`; an RGBA upload ->
+      `seen=1 peak=1.33 pages page_bytes=33660000` (2550*3300*4), and
+      `_write_page`'s `if page.mode != "RGB": page = page.convert("RGB")`
+      (:1830-1831) then holds a second, converted bitmap alongside it.
+
+      This is one page of a one-page file, it is byte-for-byte the conversion the
+      merge-base's `_save_pdf` did, and it cannot grow with the book — so it
+      breaks no AC and is not a regression. It is an undeclared boundary: the
+      failure matrix's seven rows state the cover bound unconditionally, and the
+      card is a memory card, so the one path where an arbitrary user-supplied
+      bitmap enters the export is worth a row rather than silence.
+    suggestion: |
+      Either scope F-6's numeric bound to the generated cover in one clause
+      ("measured with the generated title cover; an uploaded cover's page is the
+      upload's own mode and size"), or add one cheap assertion:
+      `_measured(lambda: g.export_cover(TITLE, Image.new("RGBA", (1200, 1600))))`
+      and pin `peak == page_bytes` (one page, whatever its mode), which states
+      the real property — the cover file holds one page — without pretending the
+      upload is 25.2 MB.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-145.md
+    line: 267
+    title: "The card's [Test cost] note and F-6 both say 25 tests; the module now has 26"
+    description: |
+      `[Test cost]` reads "tests/test_book_pdf_memory.py: **25 tests, 5.35 s**",
+      and F-6's mutant evidence repeatedly says "25 passed". The cycle-2 fix
+      added `TestBookPdfMemory_TheInstrumentWrapsEveryPageFactory`, so the module
+      is 26 tests: I measured 26 passed in 5.4-5.9 s, twice, in two trees. A
+      reader re-deriving the card's own evidence gets a different number than the
+      card states, which is exactly the friction the Worktree notes exist to
+      remove.
+    suggestion: "Update the two counts to 26 (and the `(22 and 4.59 s before the cycle-1 fixes)` parenthetical stays correct)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1755
+    title: "Out of scope: _write_pdf is built on PIL.PdfParser internals under an unbounded Pillow>=10.0"
+    description: |
+      `PdfParser.PdfParser`, `next_object_id`, `start_writing`, `write_header`,
+      `write_comment`, `write_catalog`, `write_obj`, `write_page`,
+      `write_xref_and_trailer` are Pillow internals. I read Pillow 12.3.0's
+      `PdfImagePlugin._save`/`_write_image` and `PdfParser` line by line against
+      `_write_pdf`/`_write_page`: the object-id allocation order, the
+      `write_comment("created by Pillow PDF driver")` string (no version
+      substring, which is what would most plausibly have differed), the
+      `DCTDecode`/`DeviceRGB`/`BitsPerComponent` key order after `PdfDict`
+      skips the two `None`s Pillow passes, the MediaBox arithmetic and the
+      contents operator all match, and the recorded byte length reproduces
+      exactly. G-4 holds — Pillow is already a declared runtime dependency and
+      `tests/helpers/pdf_pages.py` already imported `PdfParser`. But
+      `pyproject.toml:20` pins `Pillow>=10.0` with no upper bound and nothing in
+      the suite compares the two writers, so a Pillow upgrade that reshapes its
+      PDF writer would be caught only indirectly (via the fixture's byte length,
+      and only on a machine whose font fingerprint matches). F-002's suggested
+      test closes this too.
+    suggestion: "Note it on the card, or adopt F-002's two-writer equality test, which is the direct tripwire."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1
+    title: "Out of scope: the memory envelope this card is built on is not an NFR in the model"
+    description: |
+      The card's Architecture context says "**NFR:** the deployed panel's memory
+      envelope — this card is the first thing in the project to state one", and
+      that is literally true: `grep -n \"memory\\|envelope\\|512 MB\\|OOM\"
+      meta/architecture/requirements.yml` finds nothing, and
+      `meta/architecture/**` is untouched by this diff. The 512 MB figure lives
+      only on the card and as `ENVELOPE_BYTES` in
+      `tests/test_book_pdf_memory.py:120`. Untraced scope, acknowledged by the
+      card, and registering an NFR is forge:architect's job rather than this
+      card's — but the project now has a P0 fix whose whole acceptance rests on a
+      threshold no requirement states.
+    suggestion: "Open a follow-up to register the panel's memory envelope as an NFR with the 512 MB threshold and this card's tests as its acceptance criteria."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1
+    title: "Out of scope: three system rules name check refs that do not exist as tests"
+    description: |
+      Re-derived this cycle, all pre-existing and none introduced by this card:
+      ADR-0006/R1's `check.ref: TestDependencyBaseline_IsExactlyPillowAndNumpy`
+      has no class by that name (`grep -rn \"class TestDependencyBaseline\"
+      tests/` → no hit); the live test is `test_the_dependency_baseline_is_still_closed`
+      (tests/test_export_pdf.py:1249), which carries the ref only in its
+      docstring. INV-008's three refs and INV-012's six refs exist only in
+      `meta/architecture/requirements.yml` / `trace.yml`. INV-009 and INV-011
+      each carry one or two more of the same. A dead check ref makes a rule
+      unverifiable rather than satisfied, so the contract currently reports
+      "checked" for properties no test asserts by that name.
+    suggestion: "Either rename the tests to the refs, point the refs at the live tests, or re-type the checks to kind: review-lens. Worth a card of its own."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

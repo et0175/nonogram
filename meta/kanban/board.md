@@ -22,7 +22,7 @@ _Updated: 2026-09-22 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
-| 26 | CARD-145 P0 (first, alone), CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
+| 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
 | 27 | CARD-129 P2, CARD-143 P2 — placeholder P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -50,12 +50,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-145** P0 · The book PDF written a page at a time · 1d · wave 26 · in_progress (started out of band — P0 production defect)
 
 
 ## Review
 
 ## Done
+- **CARD-145** The book PDF written a page at a time (4.3 GB -> 132 MB) · score 9.0 (3 cycles) · merged 554c437
 - **CARD-134** The packed answer key in the book PDF · score 9.0 (3 cycles) · merged 72f7a3b
 - **CARD-130** Books reopen into the step workflow · score 9.0 (3 cycles) · merged a101db1 · ⏳ owner screenshot check
 - **CARD-127** Two-up pages in the book PDF · score 9.0 (2 cycles) · merged 679e78a · ⏳ owner render check
