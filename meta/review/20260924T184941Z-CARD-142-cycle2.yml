@@ -1,0 +1,576 @@
+version: 1
+generated_at: "2026-09-24T18:49:41Z"
+target: "branch card/142-batch-bulk-buttons @ d53d549 — git diff main...HEAD (436cf4d implementation + d53d549 fix round); files: src/nonogram/admin/app.py, src/nonogram/admin/templates/generated_puzzles.html, tests/test_batch_bulk_button_state.py"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+previous_cycle:
+  report: "meta/review/20260924T180711Z-CARD-142-cycle1.yml"
+  score: 7.5
+  findings_carried_in: [F-001, F-002, F-003, F-004, F-005]
+
+mode: confirmation
+mode_note: |
+  The reviewed delta is d53d549 (the fix round) against the cycle-1 state 436cf4d.
+  Every cycle-1 finding was re-derived from the code and from a fresh mutation run,
+  not accepted from the fix round's own report. The delta touches no .py source, so
+  system-contract verdicts whose scope is `**.py` are carried from cycle 1 as
+  delta-clean; the six ✓ holds were re-derived anyway because they are cheap.
+
+coverage:
+  read:
+    - "src/nonogram/admin/templates/generated_puzzles.html (full: bulk_confirm macro, the three bulk forms, the per-puzzle forms, the whole <script> block before and after the fix)"
+    - "tests/test_batch_bulk_button_state.py (full, 507 lines — the fix round's new _applier_source, APPLIER, the three shape regexes and the rewritten _assert_wiring line by line)"
+    - "src/nonogram/admin/app.py (approve/reject routes, _prefers_json, _action_result) — unchanged by the fix delta, re-read to confirm"
+    - "git show d53d549 in full, diffed against 436cf4d, to isolate what the fix round introduced"
+    - "meta/review/20260924T180711Z-CARD-142-cycle1.yml (full)"
+    - "meta/kanban/cards/CARD-142.md (full: What to implement, Acceptance criteria, Guardrails, Worktree notes)"
+    - "assembled system rules for src/nonogram/admin/** (45, via system_rules.py --verify-refs)"
+    - "pyproject.toml dependency blocks; tests/e2e/test_admin_workflow.py fixture (to establish whether ANY browser engine exists)"
+  not_reached:
+    - "the page rendered in a real browser — no screenshots, runtime log, a11y scan or baseline diff were provided, and this repository has NO JavaScript engine at all (no playwright/selenium/webdriver anywhere in pyproject.toml or tests/; tests/e2e/ is a Flask test client). No assertion in this suite, or in this review, executes the page's script."
+    - "the Postgres code path of batch_action_counts (the suite exercises the in-memory store only)"
+    - "the full 5080-test suite — scoped instead to 10 files / 323 tests covering every poster of the two changed routes, per the task's instruction to scope runs"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 646, removed: 16 }
+  fix_delta: { files: 2, added: 110, removed: 13 }
+  max_fan_in:
+    symbol: "POST /puzzle/<puzzle_id>/approve and /reject"
+    callers: 21
+    note: "carried from cycle 1; the fix delta changes neither route. 3 templates post them, 18 test modules reference them."
+  applier_fan_in:
+    symbol: "applyActionCounts (JS)"
+    callers: 1
+    note: "one call site, inside the per-puzzle fetch success handler. Introduced with its caller in 436cf4d; not a minimalism finding — it is the seam the test pins by name on purpose."
+  wiring_pin_fan_in:
+    symbol: "_assert_wiring"
+    callers: 1
+    note: "called only from test_rejecting_one_puzzle_enables_delete_rejected_naming_one:286. Every one of the ten source pins the fix round added — the F-003 and F-004 pins included — gates on that single test."
+  tests_cover_change: true
+  tests_run: "323 passed, 0 failed across tests/test_batch_bulk_button_state.py, test_card_068_batch_curation.py, test_admin_review_actions.py, test_card_100_book_membership.py, test_puzzle_review.py, test_bulk_operations.py, test_card_066_status_filter.py, test_card_099_grouped_page.py, test_wave1_e2e.py, test_wave2_async_generation.py"
+  hotspots:
+    - "src/nonogram/admin/app.py — highest-churn, highest-defect-density file in the repo (carried from cycle 1); NOT touched by the fix delta"
+    - "src/nonogram/admin/templates/generated_puzzles.html — 18 commits in 12 months (17 at cycle 1, +1 for this fix)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — assessed at cycle 1 and re-checked: puzzle_review.py and _puzzle_table.html/puzzles_list.html co-change with this template, and both were correctly assessed as not required (the diff only reads batch_action_counts; the other templates post plain browser forms with no Accept header and keep today's redirect verbatim). The empty list is a real zero, not an uncounted one."
+    bus_factor: "tooling_failure — every commit in this repository carries the same configured git identity, so shortlog cannot separate authors even when it prints rows"
+    visual_baseline: "provider_unavailable — no screenshots, runtime.log, a11y.log or visual-diff.log were attached to this review"
+
+system_contract:
+  rules_checked: 45
+  holds: 6
+  unchecked: 39
+  violated: 0
+  note: |
+    45 rules assembled for scope src/nonogram/admin/** (cycle 1 reported 44; the
+    set now also carries ADR-0031/R2). diagnostics: check_refs_verified true,
+    dead_check_ref [], tooling_failure [], unresolvable_scope [],
+    scope_unmapped_model []; sources_absent: threat-model.md,
+    business/constraints.md (so no TM-NNN rules exist).
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived on this head: `git diff main...HEAD --name-only` is exactly 3 files, pyproject.toml untouched; the fix delta adds no import on either side (the template gained only DOM calls, the test gained stdlib `re`). No JS engine was added to close the mutation gaps below — which is why they stay open."
+    - "ADR-0019/R1 ✓ holds — the fix delta keeps every number on the server side. The new catch reads `data.message` (a string the server composed) and the new try/catch wraps a call; `_assert_wiring` still asserts `.result-card` never appears in the script (test line 240), so the adapter still counts nothing. `test_every_import_in_the_package_points_inward` green in the scoped run."
+    - "ADR-0032/R1 ✓ holds — carried(cycle 1, delta-clean): the fix delta touches no .py file, so no write path changed. Re-confirmed by `git show d53d549 --stat` (2 files, neither under src/nonogram/**/*.py)."
+    - "ADR-0033/R1 ✓ holds — carried(cycle 1, delta-clean): `in_a_book` still gates both routes at app.py:1976/1999, unchanged by d53d549; the 409 tests (TestBulkButtons_RefusedActionDoesNotChangeCounts, 4 cases) green."
+    - "CON-015 ✓ holds — carried(cycle 1, delta-clean): no bind address, host or debug flag appears in either file of the fix delta. `TestAdminPanel_BindsLoopbackOnlyByDefault` green."
+    - "CON-016 ✓ holds — carried(cycle 1, delta-clean): no @app.route added or moved; the fix delta is entirely inside a rendered template's script block and a test file."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0031/R2, ADR-0032/R2, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: these scope grid extent, image fitting, the retry/repair loop, difficulty scoring and the guess strategy, density validation, book plan/order/answer-key/export geometry, the solver, and the CLI/web surface. The fix delta rewires one confirmation sentence in a browser script and tightens a test's source pins; nothing in it bears on any of them."
+
+mutation_check:
+  ran: true
+  deferred: false
+  deferral_note: "Certification was NOT deferred: this is the confirmation cycle the task contract designated, and review.mutation_check is true."
+  command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -q -p no:warnings --tb=no tests/test_batch_bulk_button_state.py tests/test_card_068_batch_curation.py tests/test_admin_review_actions.py tests/test_card_100_book_membership.py  (117 tests, baseline green)"
+  mutants: 11
+  killed: 6
+  survived: 5
+  survived_intentionally: 1
+  restore_verified: true
+  restore_evidence: |
+    Every mutant was applied by replacing the file from a byte-exact snapshot taken
+    before the battery and restored from that same snapshot in a `finally`, with a
+    sha1 equality assertion after each restore. Final state:
+      generated_puzzles.html  d47668d40c20e28e8958b09a51797e937eeb77b9  (== pre-battery)
+      app.py                  c8a694a0ef49bc8e38780d58c16a09ea13a98bb9  (never mutated)
+      test_batch_bulk_button_state.py 7d4465d14b64d0d0b91c78936707136e32dc7e37 (never mutated)
+    `git status --short` in the worktree is unchanged from the start of the review:
+    ` M meta/kanban/cards/CARD-142.md` and `?? meta/review/…cycle1.yml` only.
+    No git checkout/restore was used at any point.
+  results:
+    - "M5 (RE-RUN, the gating one) — delete the sentence/onsubmit block from applyActionCounts — KILLED (test_rejecting_one_puzzle_enables_delete_rejected_naming_one). At cycle 1 this mutant SURVIVED the whole suite. The fix round's central claim is INDEPENDENTLY CONFIRMED."
+    - "M6 (RE-RUN) — `count === 0` -> `count !== 0` — KILLED, now by _DISABLED_BELOW_ONE's shape match rather than by a verbatim string."
+    - "M9a — behaviour-preserving reformat `button.disabled = ( count===0 ) ;` — SURVIVED, i.e. PASSES. This is the intended outcome and confirms the second direction of the F-002 claim: a reformat no longer breaks the suite."
+    - "M9b — same shape, WRONG variable: `button.disabled = index === 0;` — SURVIVED. _DISABLED_BELOW_ONE's `\\w+` admits any identifier, so a genuinely wrong operand passes. See N-1."
+    - "M10 — revert F-003 (bare `throw new Error('HTTP ' + status)`, message never read) — KILLED (the `data.message` pin). The F-003 fix is pinned, not just present."
+    - "M11 — revert F-004 (the applier call back in the bare success path, no try/catch) — KILLED (the `try\\s*{[^}]*applyActionCounts\\(` pin). The F-004 fix is pinned."
+    - "M14 — drop the `.replace('{n}', count)` substitution, keep the rewiring — KILLED (_FILLS_IN_THE_NUMBER)."
+    - "M15 — applier always reads dataset.confirmMany, never confirmOne — KILLED (the `dataset.confirmOne` pin). The singular/plural half of AC-1 is now covered."
+    - "M12 — `badge.textContent = 'Error'; badge.title = error.message` -> `badge.innerHTML = error.message` — SURVIVED. The DOM-not-markup property F-003's fix was written for has no test. See N-2."
+    - "M13 — `.replace('{n}', count)` -> `.replace('{n}', count + 1)` — SURVIVED. The sentence would name the wrong digit and the suite stays green. See N-3."
+    - "M16 — the unparseable-body fallback `() => { throw new Error(fallback); }` -> `() => {}` — SURVIVED. With that regression the chain would resolve instead of rejecting, so a refusal with a non-JSON body would leave the row's spinner spinning and no badge at all. See N-4."
+
+fix_verification:
+  - finding: F-001
+    claim: "FIXED — _applier_source slices applyActionCounts by brace depth; the sentence half pinned inside it; M5 flips SURVIVED -> KILLED"
+    verdict: CONFIRMED
+    evidence: |
+      Re-ran M5 myself from a byte-exact snapshot: deleting the five lines that build
+      the sentence, substitute {n} and reassign form.onsubmit now FAILS
+      test_rejecting_one_puzzle_enables_delete_rejected_naming_one ("the singular
+      sentence must be read"). Three further mutants confirm the pin is not a single
+      lucky string: M14 (drop only the {n} substitution) and M15 (always read the
+      plural attribute) are both killed too.
+
+      The brace-depth slicer was probed directly for the hole the task named. It
+      CANNOT slice nothing: the loop starts at the function's opening brace, which
+      raises depth to 1 before the `depth == 0` test can ever fire, so the shortest
+      possible slice is the whole `function applyActionCounts(...) { ... }`. On the
+      real script it returns 725 characters and `"fetch(" in slice` is False — it
+      really is the function's own body and not the surrounding handler, so the
+      assertions inside it are not satisfiable by code elsewhere in the page.
+      Two degenerate probes: a `}` inside a `//` comment truncates the slice to 70
+      chars and the assertions FAIL LOUDLY (fails closed — safe); an unbalanced `{`
+      inside a string literal over-extends the slice to 4875 chars and would let the
+      assertions be satisfied by code outside the function (fails open — but requires
+      someone to write an unbalanced brace in a string inside this one function).
+      Neither is the vacuous-empty-slice hole that was asked about.
+  - finding: F-002
+    claim: "FIXED — verbatim match replaced by _DISABLED_BELOW_ONE; verified both directions"
+    verdict: CONFIRMED (with a residual, N-1)
+    evidence: |
+      Both directions re-derived, not accepted: M6 (`!== 0`) KILLED, M9a
+      (`button.disabled = ( count===0 ) ;`) PASSES. The regex is anchored to `.disabled`
+      and to `=== 0`, so `=== 1`, `= false`, and the assignment disappearing are all
+      caught. The weakness the task asked about is real but narrow: `\\w+` matches any
+      identifier, so M9b (`button.disabled = index === 0;`) passes. That is a
+      semantically wrong operand slipping through — filed as N-1 (Minor), not as a
+      regression of F-002, because the assertion is strictly stronger than the verbatim
+      string it replaced (which would have rejected M9a and accepted nothing better).
+  - finding: F-003
+    claim: "FIXED by surfacing — non-2xx reads the body, throws data.message, falls back to 'HTTP <status>'; the catch builds the badge through the DOM"
+    verdict: CONFIRMED (partial surfacing, see N-2 and N-5)
+    evidence: |
+      generated_puzzles.html:203-212 and :234-243 read as claimed. Markup injection is
+      genuinely impossible on this path: `badge.textContent = 'Error'` and
+      `badge.title = error.message` are DOM property assignments with no HTML parsing,
+      and `statusBadge.innerHTML = ''` only clears. The one remaining `innerHTML` writes
+      in this handler (the ✓ Approved / ✕ Rejected badges) are constant literals with no
+      interpolation. Traced the data path: `message` is composed server-side in app.py
+      (:1977 / :2000) from fixed sentences or `f"Puzzle {puzzle_id} approved"`, and
+      puzzle_id only reaches a success message for a puzzle that exists (i.e. a
+      store-generated id) — and even then it lands in a `title` property as text.
+      Fallback: correct in all three cases I could construct — an unparseable body (a
+      Flask 500 HTML page) rejects response.json() and the second callback throws
+      'HTTP 500'; a parsed body with no `message` key, an empty `message`, or a literal
+      `null` body all take `|| fallback` because of the `(data && data.message)` guard;
+      a network-level failure never reaches this branch and arrives at the catch with
+      its own TypeError message.
+      Two gaps, both Minor: the safety property itself is untested (M12 survives, N-2),
+      and "surfaced" here means a `title` tooltip — the visible badge still reads the
+      bare word "Error" (N-5).
+  - finding: F-004
+    claim: "FIXED — applyActionCounts in its own try/catch inside the success .then, logging instead of falling through"
+    verdict: CONFIRMED
+    evidence: |
+      generated_puzzles.html:228-238. The try/catch is inside the fulfilment callback of
+      `response.json().then(...)`, which is itself inside the success branch, so a
+      synchronous throw in applyActionCounts is caught there and the returned promise
+      still fulfils — it can no longer reach the shared `.catch` at :243 and can no
+      longer re-enable the action button or repaint an already-correct badge. The
+      cycle-1 trigger (a bulk button rendered without data-confirm-* making `.replace`
+      run on undefined) now logs and stops. M11 (removing the try/catch) is KILLED, so
+      the fix is pinned, not merely present.
+      On "does swallowing hide a real failure the user needs to see": it hides exactly
+      one thing — the bulk buttons staying stale, which is CARD-142's own bug returning
+      silently. That is a genuine cost, but it is strictly better than the alternative it
+      replaced (reporting a completed approve/reject as failed), it is logged to the
+      console, and the counts self-correct on the next successful action or any reload.
+      Not a finding; noted in the verdict.
+  - finding: F-005
+    claim: "deliberately NOT fixed — architect-station traceability defect"
+    verdict: CONFIRMED LEFT ALONE
+    evidence: |
+      `git diff -- meta/kanban/cards/CARD-142.md` shows the Architecture context line
+      `**FR:** FR-026, FR-027 (batch review)` untouched; the only change to the card is
+      the appended cycle-1 Worktree note. Re-checked requirements.yml: FR-026 is
+      line-logic difficulty grading and FR-027 is silhouette binarisation, so the
+      mis-trace stands. Not re-raised as a code finding, per the task contract.
+
+new_in_fix_round:
+  summary: |
+    d53d549 adds 110 lines and removes 13, across exactly two files, both already in
+    the card's Touches list. Nothing new was added to app.py — the whole fix round is
+    inside the template's <script> block and the test file. Diffing it against 436cf4d
+    line by line, the new production code is: the non-2xx body-reading branch, the
+    try/catch around the applier call, and the DOM-built failure badge. The new test
+    code is: `import re`, the APPLIER constant, three compiled shape regexes,
+    `_applier_source`, and ten assertions in a rewritten `_assert_wiring`.
+  regressions_found: []
+  new_risks: [N-1, N-2, N-3, N-4, N-5, N-6]
+  note: |
+    No behavioural regression was found in the new code. The response body is consumed
+    exactly once on each branch (the non-ok branch returns before the success path's
+    `response.json()`), the rendered badge is attribute-for-attribute what the old
+    innerHTML string produced (`class="badge" data-status="failed"`, text "Error"), and
+    no existing assertion anywhere in the repo reads that badge, so nothing downstream
+    could have depended on the old markup.
+
+root_causes:
+  - id: RC-2
+    title: "The page's JavaScript can be verified only by reading its source — this repository has no JavaScript engine at any tier, so every pin is a source-shape assertion and every value-level property is out of reach"
+    finding_ids: [N-1, N-2, N-3, N-4, N-6]
+    note: |
+      Confirmed structurally, not assumed: pyproject.toml declares Pillow + NumPy as
+      runtime deps with dev/admin/db extras, none of which carries playwright, selenium
+      or a webdriver, and `grep -rn 'playwright|selenium|webdriver' pyproject.toml tests/`
+      returns nothing. tests/e2e/test_admin_workflow.py is a Flask test-client suite that
+      never executes a line of JavaScript. So the three surviving semantic mutants
+      (M9b, M12, M13) are not defects the fix round failed to close — they are the floor
+      of the available instrument. Closing them requires a dependency decision
+      (ADR-0006/R1 territory), not another fix cycle.
+
+findings:
+  - id: N-1
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_batch_bulk_button_state.py
+    line: 174
+    title: "_DISABLED_BELOW_ONE's `\\w+` admits a wrong operand, so `button.disabled = index === 0` passes"
+    description: |
+      `_DISABLED_BELOW_ONE = re.compile(r"\.disabled\s*=\s*\(?\s*\w+\s*===\s*0\s*\)?")`
+      matches any identifier on the left of `=== 0`. MUTATION EVIDENCE (M9b): replacing
+      `button.disabled = count === 0;` with `button.disabled = index === 0;` leaves all
+      117 tests in the scoped run green, although the page would then disable whichever
+      button happened to be first in the NodeList and enable the rest regardless of
+      their counts.
+
+      This is not a regression of F-002 — the regex is strictly stronger than the
+      verbatim string it replaced, and it correctly kills `!== 0`, `=== 1` and the
+      assignment disappearing. It is the residual of trading spelling for shape.
+    suggestion: |
+      Bind the operand to the name the applier actually uses, e.g.
+      `r"\.disabled\s*=\s*\(?\s*count\s*===\s*0\s*\)?"` — `count` is a name the page
+      chose on purpose, the same category of intentional marker the fix round already
+      pins for APPLIER and the two dataset attributes, and it costs nothing in
+      reformat-tolerance.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: N-2
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 236
+    title: "The DOM-not-markup property F-003 was written for has no assertion — reverting the badge to innerHTML leaves the suite green"
+    description: |
+      The fix round's stated reason for building the failure badge through the DOM is
+      that the server's sentence "reaches the user as text, never markup". MUTATION
+      EVIDENCE (M12): collapsing `badge.textContent = 'Error'; badge.title =
+      error.message` back to `badge.innerHTML = error.message` passes all 117 tests.
+      Nothing in the repository asserts `data-status="failed"`, `textContent` or
+      `title` — `grep -rn 'data-status="failed"\|badge.title\|textContent' tests/`
+      returns nothing.
+
+      The code as written is safe (see fix_verification F-003: the only value that
+      reaches the badge is a server-composed sentence, delivered to a DOM property).
+      The finding is that the safety property is unprotected against the next edit.
+    suggestion: |
+      Add one pin beside the existing ten in `_assert_wiring` — that the catch block's
+      slice contains `textContent` and `.title =` and does not assign `innerHTML` from
+      `error` — so a future edit cannot quietly re-open the markup path. This is the
+      same instrument already used for the other nine properties, at the same cost.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: N-3
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 176
+    title: "AC-1's number itself is still unverified: substituting count + 1 into the sentence leaves the suite green"
+    description: |
+      MUTATION EVIDENCE (M13): `.replace('{n}', count)` -> `.replace('{n}', count + 1)`
+      passes all 117 tests. After rejecting one puzzle, `Delete rejected` would
+      correctly enable itself and then confirm "Delete the 2 rejected puzzles…" — a
+      wrong digit, which is the failure mode AC-1 names ("its confirmation names 1").
+
+      This is a materially smaller gap than cycle 1's F-001, and I am deliberately NOT
+      filing it at that severity. F-001 was an entire code path deletable with the
+      suite green, and it was within reach of the instrument this project has; it is now
+      closed (M5, M14, M15 all killed). What survives here is only the arithmetic
+      inside the substitution, and NO instrument in this repository can reach it: there
+      is no JavaScript engine at any tier (see RC-2). `_apply_counts` verifies the
+      rendered attributes and the server's counts end to end, and the wiring pins verify
+      that the script reads those attributes, substitutes into them and reassigns the
+      handler — the only unverifiable link is the expression's value.
+    suggestion: |
+      Do not attempt to close this with another source pin — a pin for `count)` is
+      spelling-matching again, which is what F-002 was raised to remove. Either accept
+      it as the documented floor (the card's [Tests] note already says the two halves
+      are pinned separately because no engine exists), or open a separate card to decide
+      whether a JS engine joins the dev extras — a dependency decision under
+      ADR-0006/R1, not a fix for this card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: N-4
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 210
+    title: "The unparseable-body fallback is unpinned, and losing it strands the row rather than showing an error"
+    description: |
+      `response.json().then(data => { throw … }, () => { throw new Error(fallback); })`
+      at :208-211. MUTATION EVIDENCE (M16): replacing the rejection handler with
+      `() => {}` passes all 117 tests. With that regression, a non-2xx whose body is not
+      JSON — a Flask 500 HTML error page, a proxy's error document — makes the inner
+      promise FULFIL rather than reject, so the outer `.then` returns normally, the
+      shared `.catch` never runs, and the row is left with its action button disabled
+      and the spinner still showing, with no badge and no message at all.
+
+      The code as written is correct; the failure-handling branch simply has no
+      assertion holding it in place. Worth naming because the branch exists precisely
+      for the case the tests cannot produce (this suite's refusals all come back as
+      well-formed jsonify bodies).
+    suggestion: |
+      Pin the fallback the same way the rest of the handler is pinned — assert the
+      post-`fetch(` slice contains `'HTTP ' + response.status` and that the non-ok
+      `response.json()` call has a two-argument `.then`. Alternatively use
+      `.catch(() => { throw new Error(fallback); })` on the inner promise, which is
+      harder to delete by accident.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: N-5
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 241
+    title: "The refusal reason is surfaced only as a hover tooltip — the visible badge still reads the bare word \"Error\""
+    description: |
+      F-003 was raised because "the owner sees a bare Error". After the fix the owner
+      still sees a bare "Error" badge; the server's sentence ("Cannot approve a puzzle
+      that is in a book") lives in `badge.title`, a tooltip that appears only on mouse
+      hover and is not announced by most screen readers, is invisible on touch, and
+      disappears on any subsequent re-render of that badge. The code comment states the
+      trade-off explicitly ("the badge stays one word wide"), so this is a deliberate
+      choice rather than an oversight — but it is worth the owner's confirmation, since
+      the finding it answers was specifically about the reason not reaching them.
+
+      Nothing else on the page shows it either: the JSON branch returns before
+      `flash(...)` (app.py:1981/2004), so a reload after a refusal carries no message —
+      which is what makes the tooltip the only channel.
+    suggestion: |
+      Ask the owner (this is a visual-judgement call — see the standing note that
+      image/UI changes get an eyeballed render, not just green tests). If a tooltip is
+      not enough, the cheapest honest alternative is an inline text node beside the
+      badge, or reusing the page's existing flash/alert region, both of which keep the
+      sentence as text.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: N-6
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_batch_bulk_button_state.py
+    line: 222
+    title: "The fix round introduced two new brittle source pins — the same class F-002 was raised to remove"
+    description: |
+      Two of the ten assertions the fix round added are matched on spelling rather than
+      on intent, which is the pattern cycle 1's F-002 flagged:
+
+        line 219  `assert "data.message" in after_fetch`
+        line 222  `assert re.search(rf"try\s*\{{[^}}]*{APPLIER}\(", after_fetch)`
+
+      The first fails on a behaviour-preserving rename or destructure
+      (`const { message } = data`). The second requires that NO `}` appear between
+      `try {` and the call, so wrapping the call in any braced construct — `try { if
+      (counts) { applyActionCounts(...) } }` — fails the suite while the page behaves
+      identically.
+
+      Both are much weaker instances than the original F-002 (they pin identifiers and a
+      control-flow keyword, not a full expression's spelling), and both do their job
+      today: M10 and M11 are killed by them. Named so the tail is visible, not because
+      either should gate.
+    suggestion: |
+      Leave them. If they are ever touched, match `message` by name inside the non-ok
+      slice rather than as `data.message`, and match `try` and the call separately
+      (`"try {" in slice and APPLIER + "(" in slice`) rather than in one anchored regex.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+acceptance_criteria:
+  - id: AC-1
+    text: "rejecting one puzzle by fetch enables Delete rejected and its confirmation names 1"
+    test: TestBulkButtons_SingleRejectEnablesDeleteRejected
+    cycle1_verdict: "implemented, half-verified — the disabled half pinned, the sentence half uncovered (M5 survived)"
+    cycle2_verdict: "VERIFIED to the limit of the available instrument — no longer half-verified"
+    evidence: |
+      Both halves are now covered. The disabled half: _DISABLED_BELOW_ONE inside the
+      applier slice (M6 killed). The sentence half, which cycle 1 found uncovered, is now
+      pinned by five independent assertions inside applyActionCounts's own body —
+      dataset.confirmOne, dataset.confirmMany, the {n} substitution, the onsubmit
+      reassignment and the confirm() that consumes the result — and three separate
+      mutants prove they bite: M5 (delete the block) KILLED, M14 (drop the substitution)
+      KILLED, M15 (always read the plural attribute) KILLED. The value itself is checked
+      end to end by _apply_counts against the server's reported counts
+      (`sentence == "Delete the 1 rejected puzzle in this batch? This cannot be undone."`,
+      test line 297).
+      Residual, named honestly rather than waved through: the arithmetic inside the
+      substitution is unverifiable without a JS engine (M13 survives — N-3). I am calling
+      this AC verified rather than half-verified because the clause cycle 1 identified as
+      uncovered is now covered, and what remains is a floor set by the dependency
+      baseline, not a gap the card can close.
+  - id: AC-2
+    text: "the approve and reject endpoints return the fresh counts to a JSON caller, and a browser form post still gets today's redirect"
+    test: TestBulkButtons_ActionsReportCountsToJsonCallersOnly
+    cycle2_verdict: "VERIFIED — carried(cycle 1, delta-clean); the fix round touches no .py file"
+    evidence: |
+      6 tests green (JSON caller gets 200 + application/json + all three count keys;
+      bare and browser Accept headers both get 302 to the batch screen; a JSON caller
+      with no batch_id still acts and simply carries no action_counts). Cycle 1's M1
+      (`_prefers_json` `>` -> `>=`) and M3 were killed against this same code, which
+      d53d549 does not touch.
+  - id: AC-3
+    text: "the counts a JSON caller receives equal batch_action_counts for that batch"
+    test: TestBulkButtons_ReportedCountsMatchTheBatch
+    cycle2_verdict: "VERIFIED — carried(cycle 1, delta-clean)"
+    evidence: |
+      Cross-checked two ways in the same test: against batch_action_counts itself and
+      against _counts_from_the_store, an independent reimplementation of the rule over
+      the rows. test_the_counts_are_the_batchs_not_the_rendered_rows builds a 120-puzzle
+      batch against a 100-row page and asserts {approve:120, reject:119,
+      delete_rejected:1} — the DOM-counting failure mode cannot pass it.
+  - id: AC-4
+    text: "a puzzle in a book is still refused, and the refusal leaves the counts alone"
+    test: TestBulkButtons_RefusedActionDoesNotChangeCounts
+    cycle2_verdict: "VERIFIED — and strengthened by the fix round"
+    evidence: |
+      6 tests green: 409 + ok:false + the CARD-100 sentence + no action_counts key + the
+      store's counts unmoved, for both actions; 404 for an unknown puzzle with the same
+      guarantee; and the browser path still flashes the reason. Cycle 1's M2 and M4 were
+      killed here. The fix round additionally makes the refusal's message reach the
+      JavaScript caller (M10 killed), which is AC-4's spirit — the user now learns why
+      nothing changed.
+
+guardrails:
+  - id: G-1
+    text: "The no-JavaScript path is unchanged — every existing test of /puzzle/<id>/approve and /reject stays green without being edited"
+    verdict: HOLDS
+    evidence: |
+      `git diff main...HEAD --name-status` is `M src/nonogram/admin/app.py`,
+      `M src/nonogram/admin/templates/generated_puzzles.html`,
+      `A tests/test_batch_bulk_button_state.py` — the only test file in the diff is ADDED,
+      so no existing test was edited, weakened or retargeted. Behaviourally: 323 tests
+      across all 10 repository files that post or reference these routes pass, including
+      test_a_form_post_still_gets_todays_redirect for both a bare and a browser Accept
+      header. The fix delta touches no .py file at all, so this is additionally
+      delta-clean.
+  - id: G-2
+    text: "No second implementation of the counting rules. The numbers come from batch_action_counts; JavaScript only displays what the server sent"
+    verdict: HOLDS
+    evidence: |
+      Re-derived on the post-fix script: applyActionCounts contains no arithmetic beyond
+      reading `counts[button.dataset.bulkAction]` and comparing it to 0 and 1 (the display
+      rule, not the counting rule), and the fix round added no number-producing code —
+      its new lines read a message string and wrap a call in try/catch. `_assert_wiring`
+      still asserts `".result-card" not in script` (line 240), so the page cannot start
+      counting rendered cards. On the test side, the fix round's new assertions name
+      attributes and function names only; the sole reimplementation in the file remains
+      `_counts_from_the_store`, which is a deliberate independent cross-check in the test
+      tree, where that is the house style.
+  - id: G-3
+    text: "Do not edit src/nonogram/export/** or tests/fixtures/a4_golden/** (CON-019)"
+    verdict: HOLDS
+    evidence: "`git diff main...HEAD --name-only | grep -E 'src/nonogram/export/|tests/fixtures/a4_golden/'` returns nothing; the diff is 3 files, none under either path."
+  - id: G-4
+    text: "No schema change"
+    verdict: HOLDS
+    evidence: "`git diff main...HEAD | grep -E 'CREATE TABLE|ALTER TABLE|Column\\(|migrat|__tablename__'` returns nothing. No file under src/nonogram/db/ or alembic/ is in the diff."
+
+convergence:
+  cycle1_score: 7.5
+  cycle2_score: 9.0
+  verdict: CONVERGED
+  gating_findings_cycle1: 1
+  gating_findings_cycle2: 0
+  family_regression_check: |
+    Applying the family-regression rule honestly: YES, all five test/code findings new
+    in this cycle (N-1, N-2, N-3, N-4, N-6) trace to a cycle-1 fix and live in the same
+    two places — `_assert_wiring` in tests/test_batch_bulk_button_state.py and the fetch
+    handler in generated_puzzles.html. On the letter of the rule, that is the pattern
+    the rule watches for.
+
+    It is NOT the condition the rule exists to catch, and I want to be explicit about
+    why rather than let the pattern-match decide:
+
+      1. Severity trajectory is strictly downward and crosses the gate. Cycle 1: one
+         high (F-001, a whole AC clause deletable with the suite green) plus three low.
+         Cycle 2: zero high, zero important, five low. The loop is not reproducing
+         defects of the same weight in a new disguise — it closed the gating one and
+         what remains is a shrinking tail.
+      2. Every cycle-1 fix was independently re-derived and holds. M5, the mutant that
+         defined cycle 1's verdict, flips SURVIVED -> KILLED under my own run, and three
+         further mutants (M14, M15, M10, M11) confirm the new pins bite rather than
+         merely exist.
+      3. The residual has a floor that is structural, not procedural. RC-2: this
+         repository has no JavaScript engine at any tier — verified against
+         pyproject.toml's dependency blocks and by grepping tests/ for
+         playwright/selenium/webdriver, and tests/e2e/ turns out to be a Flask
+         test-client suite. So M9b, M12 and M13 cannot be killed by any instrument the
+         project owns. A cycle 3 aimed at this family would trade one source pin for
+         another and could not move them.
+
+    Recommendation: STOP FIXING THIS FAMILY. The card is over min_score (9.0 vs 8) with
+    no gating findings. N-1, N-2 and N-4 are each a one-line addition beside pins that
+    already exist and could be folded in if a cycle runs for another reason, but none
+    justifies a cycle of its own. N-3 is not a fix at all — it is a dependency question
+    for the architect station, alongside F-005.

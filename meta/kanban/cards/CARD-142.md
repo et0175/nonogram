@@ -1,6 +1,6 @@
 # CARD-142: The batch's bulk buttons keep up with per-puzzle approve and reject
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** bug
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/142-batch-bulk-buttons
-**Worktree:** ../PythonProject4-CARD-142
+**Worktree:** —
 **Source:** owner, 2026-09-23 ("delete rejected button is disabled if we reject individual puzzles, not the batch")
 **Idea:** —
 **Wave:** 26
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/app.py, tests/test_batch_bulk_button_state.py
-**Review score:** 7.5 (cycle 1/3) — below min_score 8, fix cycle running
+**Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-09-24T17:24:11Z
-**Closed:** —
+**Closed:** 2026-09-24T18:58:44Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 87ea085
 **Blocked by:** —
 
 ## What to implement
@@ -143,3 +143,12 @@ works), pagination of the batch screen, and any change to what the bulk actions 
 [Guard] G-1..G-4 all hold. G-1 verified empirically against installed werkzeug 3.1.8 / flask 3.1.3, not from the claim: absent -> 0,0; */* -> 1,1; browser header -> 0.8,1; "application/json, */*" -> 1,1 — all four redirect. M1 (> -> >=) killed, so the strictness is pinned.
 [Review] CARD-068's window test confirmed genuinely still testing, not accommodated: the discriminating case is /reject-all, whose enabled button has no `disabled` in its 400-char window.
 [Traceability defect] The card's Architecture context claims FR-026, FR-027 (batch review). In requirements.yml FR-026 is line-logic difficulty scoring and FR-027 is silhouette binarisation. No FR covers the batch-review surface — this is untraced scope carried under two misleading ids. Route: architect station, not this card.
+[Fix 1] F-001..F-004 fixed; F-005 (FR-026/FR-027 mistrace) deliberately left for the architect station. Commit d53d549 — template + test only, no .py file touched.
+[Review 2/3] score 9.0 — 0 critical, 0 important, 6 minor. PASSES min_score 8.
+[Review sync] 2 reports -> meta/review/
+[Mutation] M5 independently RE-RUN by the reviewer from a byte-exact snapshot: SURVIVED -> KILLED. M14 (drop the {n} substitution) and M15 (always read the plural attribute) also killed, so the sentence half is pinned by more than one lucky string. 11 mutants, 6 killed, 5 survived — all survivors are the instrument's floor, not defects (see below). Restores proved by sha1 in a finally block.
+[Review] The brace-depth slicer cannot silently slice nothing — the loop raises depth to 1 before the depth==0 test can fire, so the shortest slice is the whole function. The vacuous-assertion hole I asked about does not exist. It fails closed on a brace in a comment; it fails open only on an unbalanced brace inside a string literal in that one function.
+[Root cause RC-2] All 6 minors share one cause: this project's JavaScript can only be verified by reading its source. Verified structurally, not assumed — no playwright/selenium/webdriver in any pyproject extra, none under tests/, and tests/e2e/test_admin_workflow.py is a Flask test-client suite that never executes a line of JS. M9b (wrong operand), M12 (innerHTML), M13 (count+1 in the substitution) are unreachable without a JS engine.
+[Convergence] CONVERGED. The family-regression rule fires on the letter — all five new findings trace to a cycle-1 fix in the same two places — but not on its condition: severity crossed the gate downward (1 important + 3 minor -> 0 gating + 5 minor), every cycle-1 fix was independently re-derived and holds, and the residual has a structural floor a cycle 3 could not move. Reviewer's explicit recommendation: stop fixing this family.
+[Owner judgement wanted] N-5: a refusal's reason reaches the user only as a hover tooltip; the visible badge still reads the bare word "Error", and the JSON branch returns before flash() so a reload carries nothing either. Deliberate, but it is a visual call.
+[Architect station] N-3 + F-005: whether a JS engine joins the dev extras is an ADR-0006/R1 dependency-baseline question, not a card fix. The FR-026/FR-027 mistrace goes with it.

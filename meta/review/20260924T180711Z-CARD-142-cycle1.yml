@@ -1,0 +1,261 @@
+version: 1
+generated_at: "2026-09-24T18:07:11Z"
+target: "branch card/142-batch-bulk-buttons @ 436cf4d — git diff main...HEAD (src/nonogram/admin/app.py, src/nonogram/admin/templates/generated_puzzles.html, tests/test_batch_bulk_button_state.py)"
+overall_score: 7.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (approve/reject routes + the two new helpers, flask import line)"
+    - "src/nonogram/admin/templates/generated_puzzles.html (full: macro, three bulk forms, per-puzzle forms, whole script block)"
+    - "tests/test_batch_bulk_button_state.py (full)"
+    - "src/nonogram/admin/puzzle_review.py::batch_action_counts"
+    - "src/nonogram/admin/templates/_puzzle_table.html, batch_status.html (other posters of the same two routes)"
+    - "tests/test_card_068_batch_curation.py, tests/test_card_100_book_membership.py, tests/test_admin_review_actions.py"
+    - "meta/architecture/requirements.yml (FR-026, FR-027), meta/architecture/trace.yml, assembled system rules (44)"
+    - "meta/kanban/cards/CARD-142.md"
+  not_reached:
+    - "the page rendered in a real browser — no screenshots, runtime log, a11y scan or baseline diff were provided; no JS engine in the dependency baseline, so no assertion in this review executes the script"
+    - "the Postgres code path of batch_action_counts (the suite exercises the in-memory store only)"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 547, removed: 14 }
+  max_fan_in:
+    symbol: "POST /puzzle/<puzzle_id>/approve and /reject (the two changed endpoints)"
+    callers: 21
+    note: "3 templates post them (generated_puzzles.html — the only fetch caller and the only one that sends Accept: application/json; _puzzle_table.html and batch_status.html post plain browser forms) + 18 test modules reference approve/reject. The two new helpers _prefers_json/_action_result have fan-in 2 each (the two routes)."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py — 124 commits in 12 months, 60 of them (48%) fix/bug/hotfix; the single highest-churn, highest-defect-density file in the repo"
+    - "src/nonogram/admin/templates/generated_puzzles.html — 17 commits in 12 months"
+  cochange_missing:
+    - "src/nonogram/admin/puzzle_review.py (co-changed 4x with the template) — assessed and NOT required: batch_action_counts already exists and the diff only reads it"
+    - "src/nonogram/admin/templates/puzzles_list.html / _puzzle_table.html (co-changed 4x) — assessed and NOT required: they post plain browser forms with no Accept header, so they keep today's redirect verbatim"
+  unmeasured:
+    bus_factor: "tooling_failure — `git shortlog -sn --since=12.months -- src/nonogram/admin/app.py` returned no rows in this worktree; every commit also carries the same configured identity, so the signal cannot separate authors even when it prints"
+
+system_contract:
+  rules_checked: 44
+  holds: 6
+  unchecked: 38
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no runtime dependency added: `git diff main...HEAD --name-only` is exactly 3 files (pyproject.toml untouched) and the only new import usage is `jsonify`, already on app.py:31 before the diff. TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full run (1 failure, the known unrelated one)."
+    - "ADR-0019/R1 ✓ holds — both new helpers are HTTP concerns only: `_prefers_json` reads `request.accept_mimetypes` (app.py:1950-1951) and `_action_result` shapes a response body, delegating every number to `puzzle_review.batch_action_counts` (app.py:1966). No counting, membership or status rule is reimplemented in the adapter. check ref `test_every_import_in_the_package_points_inward` green."
+    - "ADR-0032/R1 ✓ holds — the diff adds no puzzle write path: it adds one store READ (batch_action_counts) and still routes every mutation through the existing `approve_puzzle`/`reject_puzzle`. check ref TestStorageBoundary_AsksTheSolverNotTheCaller green."
+    - "ADR-0033/R1 ✓ holds — the JSON branch writes no puzzle field, and `in_a_book` still gates both routes before any mutation (app.py:1976 approve, app.py:1999 reject), verified by the new 409 tests."
+    - "CON-015 ✓ holds — no bind address, host or debug flag is named anywhere in the diff (3 files, none containing `run(`/`host=`). check ref TestAdminPanel_BindsLoopbackOnlyByDefault green."
+    - "CON-016 ✓ holds — no `@app.route` added or moved and no before_request touched; the content-negotiation branch runs inside an already-registered handler, i.e. after the door. check ref TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R2, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: these scope grid extent, image fitting, the retry/repair loop, difficulty scoring, density validation, book plan/order/pairing/answer-key/export geometry, the solver, and the CLI web surface. The diff changes only the response shape of two admin review endpoints and the batch screen's bulk-button markup/script; nothing in it bears on any of them."
+  diagnostics_note: "system_rules.py --verify-refs reported check_refs_verified: true, dead_check_ref: [], tooling_failure: [], unresolvable_scope: [], scope_unmapped_model: []; sources_absent: threat-model.md, business/constraints.md (so no TM-NNN rules exist to check)."
+
+mutation_check:
+  ran: true
+  command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -q tests/test_batch_bulk_button_state.py tests/test_card_068_batch_curation.py tests/test_admin_review_actions.py tests/test_card_100_book_membership.py"
+  mutants: 8
+  killed: 7
+  survived: 1
+  restore_verified: true
+  restore_evidence: "shasum of src/nonogram/admin/app.py (c8a694a0…) and templates/generated_puzzles.html (844d4126…) match the pre-mutation snapshots; `git diff --stat` shows only meta/kanban/cards/CARD-142.md, which was already modified before the review started."
+  results:
+    - "M1 _prefers_json `>` -> `>=` — KILLED (test_a_form_post_still_gets_todays_redirect[bare/browser], test_action_returns_to_the_same_filters_and_page)"
+    - "M2 _action_result `if ok and batch_id` -> `if batch_id` — KILLED (TestBulkButtons_RefusedActionDoesNotChangeCounts, all 4)"
+    - "M3 _action_result `if ok and batch_id` -> `if ok` — KILLED (test_a_json_caller_without_a_batch_still_acts)"
+    - "M4 approve in-a-book 409 -> 404 — KILLED (test_a_puzzle_in_a_book_is_refused_and_reports_no_counts[approve])"
+    - "M5 drop the sentence/onsubmit rewiring in applyActionCounts — SURVIVED → finding F-001"
+    - "M6 `button.disabled = count === 0` -> `!== 0` — KILLED, but by literal source match in _assert_wiring, not by observed behavior (see F-002)"
+    - "M7 delete_rejected data-confirm-one rendered with the PLURAL shape — KILLED (test_rejecting_one_puzzle_enables_delete_rejected_naming_one)"
+    - "M8 approve button loses data-bulk-action — KILLED (4 tests in TestBulkButtons_SingleRejectEnablesDeleteRejected)"
+
+root_causes:
+  - id: RC-1
+    title: "The page's JavaScript is pinned by string-matching its source text, so half the display rule is asserted about the source rather than about behavior"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_batch_bulk_button_state.py
+    line: 158
+    title: "AC-1's \"the confirmation names 1\" clause is not covered: deleting the script's sentence-rewiring leaves the whole suite green"
+    description: |
+      `_assert_wiring` (tests/test_batch_bulk_button_state.py:158-171) pins four source
+      strings: the Accept header, `[data-bulk-action]`, `button.disabled = count === 0`,
+      and `data.action_counts` after `fetch(`. It pins NOTHING about the second half of
+      the display rule — the three lines at
+      src/nonogram/admin/templates/generated_puzzles.html:175-179 that build the sentence
+      from `data-confirm-one`/`data-confirm-many`, substitute `{n}`, and reassign
+      `form.onsubmit`.
+
+      MUTATION EVIDENCE (mutant M5): deleting exactly those three lines leaves all 20 tests
+      in this file, plus tests/test_card_068_batch_curation.py,
+      tests/test_admin_review_actions.py and tests/test_card_100_book_membership.py, green.
+
+      FAILURE SCENARIO with that regression shipped: on the batch screen, reject one puzzle
+      by fetch. `Delete rejected` correctly becomes enabled (that half is pinned), but
+      clicking it shows the confirmation the page was RENDERED with —
+      "Delete all 0 rejected puzzles in this batch? This cannot be undone." — the stale
+      digit. That is literally half the bug CARD-142 exists to fix ("the `disabled` state
+      AND the number their confirmation names", card line 45), and nothing in the suite
+      notices.
+
+      `_apply_counts` cannot close this: it is a reimplementation of the INTENDED display
+      rule, read off the rendered data attributes. It describes what the page WOULD show if
+      the script did its job; it never observes whether the script does it. The two halves
+      are asymmetric — the `disabled` half has a (string-level) pin, the sentence half has
+      none.
+
+      Related: mutant M6 (`count === 0` -> `count !== 0`) was killed only because
+      `_assert_wiring` asserts that exact source text. That is change-detection, not
+      behavior verification — the same class of assertion CARD-034 removed
+      (`assert "if" in content`). The production code is correct today; what is missing is
+      the assertion that would catch it going wrong.
+    suggestion: |
+      Extend `_assert_wiring` so the sentence half is pinned as tightly as the disabled
+      half — e.g. inside the post-`fetch(` slice, assert the script reads both
+      `dataset.confirmOne` and `dataset.confirmMany`, substitutes the placeholder
+      (`.replace('{n}'`), and reassigns the form handler (`form.onsubmit`). Better still,
+      pin the call rather than the expression: assert `applyActionCounts(` appears inside
+      the `fetch(` slice and that the function's body reads both data attributes — this is
+      also less brittle than matching `button.disabled = count === 0` verbatim (F-002).
+      Re-run mutant M5 afterwards; it must go from SURVIVED to KILLED.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_batch_bulk_button_state.py
+    line: 167
+    title: "`_assert_wiring` matches a JavaScript expression verbatim, so a behavior-preserving reformat fails the suite"
+    description: |
+      `assert "button.disabled = count === 0" in script` (line 167) matches the expression
+      character-for-character. A behavior-preserving edit — `button.disabled = (count === 0);`,
+      a rename of the loop variable, or a prettier pass on the template — fails the suite
+      while the page still behaves correctly. Combined with F-001, the wiring assertion has
+      the worst of both: it fails on harmless edits and passes on a harmful one.
+    suggestion: |
+      Pin a stable, intentional marker instead of an expression's spelling — the name of the
+      function the fetch handler must call, and the attribute names it must read.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 216
+    title: "The server's refusal reason is now sent and then discarded — the owner sees a bare \"Error\" badge"
+    description: |
+      `_action_result` puts a `message` in every JSON body, including the refusals
+      ("Cannot approve a puzzle that is in a book", app.py:1976 / 1999). The fetch handler
+      never reads it: a non-2xx throws at generated_puzzles.html:201 and the catch writes
+      `<span class="badge" data-status="failed">Error</span>` (line 219). Because the JSON
+      branch returns before `flash(...)` (app.py:1984 / 2007), no message reaches the next
+      page load either.
+
+      FAILURE SCENARIO: the owner rejects a puzzle that a book holds. The badge reads
+      "Error"; reloading the page shows the puzzle unchanged with no explanation, and the
+      CARD-100 wording that exists specifically to stop them hunting for a missing row is
+      never shown on the JavaScript path.
+
+      NOT a regression — before this diff the fetch followed the 302, consumed the flash in
+      the redirected GET, and then LIED, painting "✓ Approved" over a refused puzzle. The
+      new behavior is strictly more truthful and is correctly inside the card's scope
+      ("a failed action changes nothing"). The finding is that the diff introduces a
+      `message` field with no consumer while a one-line change would surface it.
+    suggestion: |
+      In the catch, read the body when there is one and show its `message` (an alert, or a
+      title on the badge) instead of the bare word "Error".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/generated_puzzles.html
+    line: 216
+    title: "A throw inside applyActionCounts would repaint a SUCCEEDED action as \"Error\""
+    description: |
+      `return response.json().then(data => applyActionCounts(...), () => {})` (lines 216-219)
+      runs inside the success `.then`. The second argument guards a JSON-parse failure, but a
+      synchronous throw inside `applyActionCounts` itself rejects the returned promise and
+      falls through to the shared `.catch` (line 220), which re-enables the action button and
+      overwrites the already-correct status badge with "Error" — for an action the server
+      actually performed.
+
+      TRIGGER: a button rendered with `data-bulk-action` but missing `data-confirm-one` /
+      `data-confirm-many` makes line 175 call `.replace` on `undefined`. Today the macro
+      always emits the three attributes together, so this is narrow — but it is exactly the
+      shape of failure a future edit to the bulk-button markup would introduce, and the
+      symptom (a successful reject reported as failed) is worse than the cause.
+    suggestion: |
+      Apply the counts in a `.finally`-style step, or wrap the `applyActionCounts` call in
+      its own try/catch, so bulk-button bookkeeping can never retroactively mark a completed
+      per-puzzle action as failed.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-142.md
+    line: 82
+    title: "The card's Architecture context names FR-026/FR-027 \"(batch review)\"; in the model those are difficulty scoring and silhouette binarisation"
+    description: |
+      CARD-142's Architecture context claims `FR: FR-026, FR-027 (batch review)`. In
+      meta/architecture/requirements.yml, FR-026 is "A puzzle solved entirely by line logic
+      … scored across the WHOLE difficulty scale by how much line reasoning it needed" and
+      FR-027 is "For CON-013 silhouette input, the per-cell binarisation applied after the
+      LANCZOS resize…". Neither concerns the batch review screen, and a scan of the
+      functional requirements found no FR covering per-puzzle approve/reject or the bulk
+      buttons. So this change is untraced scope carried under two misleading trace refs.
+
+      Out of scope for this diff (the card file is not under review, and the code is right),
+      but it will mislead the next reviewer or a trace-drift check. Raising once here per
+      Step 8c's untraced-scope rule rather than opening a second stream.
+    suggestion: |
+      Either add an FR for the batch review surface (COMP-009) or set the card's FR line to
+      `—` so the gap is visible instead of camouflaged by two unrelated ids.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

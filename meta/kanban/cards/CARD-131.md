@@ -1,6 +1,6 @@
 # CARD-131: A published book confirms before its puzzles change, and going back never discards later work
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/131-published-confirm-and-no-discard
-**Worktree:** —
+**Branch:** card/131-published-book-confirm
+**Worktree:** ../PythonProject4-CARD-131
 **Source:** meta/architecture/handoff.md#increment-16 (FR-038 INV-008 + EC-026 half)
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-126, CARD-130
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/_confirm_membership_change.html, src/nonogram/admin/templates/book_detail.html, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_book_published_confirm.py, tests/property/test_book_workflow.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-24T18:59:10Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
