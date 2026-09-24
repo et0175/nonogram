@@ -104,7 +104,10 @@ waves:
     status: pending
 
   - wave: 26
-    cards: [CARD-128, CARD-131, CARD-132, CARD-139, CARD-140, CARD-141, CARD-142, CARD-144]
+    # CARD-145 (2026-09-24) runs FIRST and ALONE: the deployed panel cannot export
+    # a book at all (24.1 MB per 300-DPI page x the page count, against 512 MB), and
+    # CARD-128's dividers should be written against the streaming path, not retrofitted.
+    cards: [CARD-145, CARD-128, CARD-131, CARD-132, CARD-139, CARD-140, CARD-141, CARD-142, CARD-144]
     increment: [15, 16]
     closes_increment: 16
     checkpoint: >-

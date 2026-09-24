@@ -22,7 +22,7 @@ _Updated: 2026-09-22 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ▶ active · closes Increment 13 (owner-confirmed proof print) |
-| 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
+| 26 | CARD-145 P0 (first, alone), CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
 | 27 | CARD-129 P2, CARD-143 P2 — placeholder P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -38,6 +38,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
+- **CARD-145** P0 · The book PDF is written a page at a time — 24 MB/page x the book exhausts the 512 MB instance (owner: render crashes on PDF) · 1d · wave 26 · runs first, alone
 - **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
