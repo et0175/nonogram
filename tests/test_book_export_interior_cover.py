@@ -668,6 +668,54 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
         assert interior_page_count(puzzle_count) >= written
 
+    @staticmethod
+    def _one_per_level_interior():
+        """The written interior of three 20x20s, one on each of the levels.
+
+        Every other book in this module is easy throughout, so its puzzle
+        section opens a single divider. This one opens the most a three-puzzle
+        book can (CARD-128) — one per non-empty level, ADR-0031's three — and
+        its key takes a page per level, since each level's answers start a new
+        answer page (FR-042, AC-290).
+        """
+        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        found = clues.compute_clues(grid)
+        return BookPDFGenerator().export_interior(
+            [
+                {
+                    "grid": grid,
+                    "clues_rows": found.rows,
+                    "clues_cols": found.columns,
+                    "width": 20,
+                    "height": 20,
+                    "difficulty_tier": tier,
+                }
+                for tier in ("easy", "medium", "hard")
+            ]
+        )
+
+    def test_the_bound_holds_where_a_book_opens_a_divider_per_level(self):
+        """The one-argument bound at the boundary it is tight on (EC-034).
+
+        The two assertions above run only on this module's easy books — one
+        level, one divider page — so neither would see the plan's divider term
+        understate a book that opens three. Three puzzles across three levels
+        is where the bound and the file meet exactly: it is the first book a
+        narrower divider term stops bounding, and CARD-129's KDP refusal reads
+        this number next.
+        """
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        written = pdf_page_count(self._one_per_level_interior().getvalue())
+
+        # This module's own arithmetic first: guide, a divider per level, a
+        # page per puzzle, SOLUTIONS, and an answer page per level.
+        assert written == _interior_pages(3, 3, levels=3)
+        assert interior_page_count(3) >= written
+        # And the bound is not merely satisfied here, it is met — this is the
+        # worst case, so any slack left would be slack the bound does not have.
+        assert interior_page_count(3) == written
+
     @pytest.mark.parametrize("puzzle_count", (1, 3))
     def test_finalise_shows_that_bound_on_the_downloaded_interior(
         self, admin_app, puzzle_count

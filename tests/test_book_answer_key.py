@@ -354,31 +354,37 @@ def is_divider(page: Image.Image) -> bool:
 
 
 def answer_key_of(
-    pages: Sequence[Image.Image], puzzle_count: Optional[int] = None
+    pages: Sequence[Image.Image], puzzles: Optional[Sequence[dict]] = None
 ) -> List[Image.Image]:
     """The interior's answer pages: everything after the SOLUTIONS divider.
 
     The divider is found by **measuring** the pages rather than by counting to
     it (:func:`is_divider`), so a book whose puzzles happened to pair two-up
-    (FR-040) is read just as correctly as one whose puzzles did not. Exactly
-    one page of the interior may be a divider, and every page after it must
-    carry an answer — so every test in this module carries AC-292's check as
-    well as its own.
+    (FR-040) is read just as correctly as one whose puzzles did not. Since
+    CARD-128 the interior opens each level with a divider of its own, so the
+    **last** divider is the SOLUTIONS page: it is the one every later page
+    carries an answer after, and every page after it must carry an answer — so
+    every test in this module carries AC-292's check as well as its own.
 
-    ``puzzle_count``, when given, is asserted against where the divider was
-    found — which is how a test that expects no pairing finds out that its
-    puzzles paired, and what makes ``3 + puzzle_count`` a safe interior
-    position for the first answer page. It is left out only where the pairing
-    is beside the point.
+    ``puzzles``, when given, is asserted against what was measured: how many
+    dividers the interior opened, and where the SOLUTIONS one landed. Both
+    figures come from this module's own :func:`level_count` /
+    :func:`first_answer_page` and never from the dividers that were found, so
+    an interior that opened one divider too many is refuted here rather than
+    silently moving both sides of the comparison together. It is how a test
+    that expects no pairing finds out that its puzzles paired, and it is left
+    out only where the pairing is beside the point.
     """
     dividers = [number for number, page in enumerate(pages, start=1) if is_divider(page)]
     assert dividers, "the interior holds no divider page"
-    # Since CARD-128 the interior opens each level with a divider of its own,
-    # so the **last** divider is the SOLUTIONS page: it is the one every later
-    # page carries an answer after.
     divider = dividers[-1]
-    if puzzle_count is not None:
-        expected = 2 + (len(dividers) - 1) + puzzle_count
+    if puzzles is not None:
+        opened = level_count(puzzles) + 1
+        assert len(dividers) == opened, (
+            f"the interior opened {len(dividers)} divider pages, not {opened} — "
+            "one per non-empty level, and SOLUTIONS"
+        )
+        expected = first_answer_page(puzzles) - 1
         assert divider == expected, (
             f"the SOLUTIONS divider is interior page {divider}, not {expected} — "
             "these puzzles were expected to take a page each"
@@ -441,7 +447,7 @@ class TestBookAnswerKey_SixUpInPuzzleNumberOrder:
     @staticmethod
     def _key() -> Tuple[List[dict], List[Image.Image]]:
         puzzles = _book_of(*[(15, 15)] * TestBookAnswerKey_SixUpInPuzzleNumberOrder.PUZZLES)
-        return puzzles, answer_key_of(_interior(puzzles), len(puzzles))
+        return puzzles, answer_key_of(_interior(puzzles), puzzles)
 
     def test_twelve_answers_take_two_pages(self) -> None:
         _, key = self._key()
@@ -498,7 +504,7 @@ class TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage:
 
     def test_the_first_page_holds_five_and_the_large_answer_starts_the_next(self) -> None:
         puzzles = _book_of(*self.SIZES)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
         first_page = first_answer_page(puzzles)
 
         assert len(key) == 2
@@ -512,7 +518,7 @@ class TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage:
     def test_the_first_page_shows_five_answers_and_the_second_one(self) -> None:
         """The counts, read off the ink rather than off the comparison above."""
         puzzles = _book_of(*self.SIZES)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         assert len(answer_grids(key[0])) == 5
         assert len(answer_grids(key[1])) == 1
@@ -539,7 +545,7 @@ class TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20:
         self,
     ) -> None:
         puzzles = _book_of(*self.SIZES)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
         first_page = first_answer_page(puzzles)
 
         assert len(key) == 2
@@ -552,7 +558,7 @@ class TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20:
 
     def test_the_first_page_is_two_columns_by_two_rows(self) -> None:
         puzzles = _book_of(*self.SIZES)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         assert grid_columns_and_rows(key[0]) == (2, 2)
         assert len(answer_grids(key[0])) == FOUR_UP
@@ -572,7 +578,7 @@ class TestBookAnswerKey_LongestSideTwentyStaysSixUp:
 
     def test_twenty_on_the_longest_side_leaves_one_six_up_page(self) -> None:
         puzzles = _book_of((SIX_UP_LONGEST_SIDE, 15), *[(15, 15)] * 5)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         assert len(key) == 1
         assert key[0].tobytes() == expected_answer_page(
@@ -586,7 +592,7 @@ class TestBookAnswerKey_LongestSideTwentyStaysSixUp:
     def test_one_cell_longer_takes_the_page_to_four_up(self) -> None:
         """The control: 21 wide, and the same six puzzles need two pages."""
         puzzles = _book_of((SIX_UP_LONGEST_SIDE + 1, 15), *[(15, 15)] * 5)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         assert len(key) == 2
         assert len(answer_grids(key[0])) == FOUR_UP
@@ -708,7 +714,7 @@ class TestBookAnswerKey_CaptionPuzzleNumberAndTitle:
 
     def test_answer_seven_is_captioned_with_its_number_and_its_name(self) -> None:
         puzzles, book = _snowflake_book()
-        key = answer_key_of(_interior(puzzles, book), len(puzzles))
+        key = answer_key_of(_interior(puzzles, book), puzzles)
 
         # Answer 7 is the only answer on the second page of a seven-answer key.
         assert len(key) == 2
@@ -727,7 +733,7 @@ class TestBookAnswerKey_CaptionPuzzleNumberAndTitle:
         whose tiles were captioned with empty strings.
         """
         puzzles, book = _snowflake_book()
-        page = answer_key_of(_interior(puzzles, book), len(puzzles))[1]
+        page = answer_key_of(_interior(puzzles, book), puzzles)[1]
         uncaptioned = expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "")], SIX_UP, first_answer_page(puzzles) + 1, None, book
         )
@@ -748,7 +754,7 @@ class TestBookAnswerKey_CaptionPuzzleNumberAndTitle:
         ]
         for puzzle in puzzles[:1]:
             puzzle["puzzle_name"] = None
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         expected = expected_answer_page(
             [
@@ -771,7 +777,7 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
 
     def test_the_custom_book_title_is_what_the_caption_prints(self) -> None:
         puzzles, book = _snowflake_book({f"p{_SNOWFLAKE}": "Winter Star"})
-        key = answer_key_of(_interior(puzzles, book), len(puzzles))
+        key = answer_key_of(_interior(puzzles, book), puzzles)
 
         assert key[1].tobytes() == expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Winter Star")],
@@ -784,7 +790,7 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
     def test_the_puzzles_own_name_is_not_what_is_printed(self) -> None:
         """The control: the same page captioned with the name does not match."""
         puzzles, book = _snowflake_book({f"p{_SNOWFLAKE}": "Winter Star"})
-        page = answer_key_of(_interior(puzzles, book), len(puzzles))[1]
+        page = answer_key_of(_interior(puzzles, book), puzzles)[1]
 
         assert page.tobytes() != expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Snowflake")],
@@ -797,7 +803,7 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
     def test_a_title_set_for_another_puzzle_leaves_this_one_alone(self) -> None:
         """A column keyed by puzzle id, not by position."""
         puzzles, book = _snowflake_book({"p1": "Winter Star"})
-        key = answer_key_of(_interior(puzzles, book), len(puzzles))
+        key = answer_key_of(_interior(puzzles, book), puzzles)
 
         assert key[1].tobytes() == expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Snowflake")],
@@ -988,7 +994,7 @@ class TestBookAnswerKey_DefaultPlanTakesThirtyPages:
         the walk's verdict.
         """
         puzzles = _book_of(*([(15, 15)] * 6 + [(25, 25)] * 4))
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         assert len(key) == 2
         assert len(answer_grids(key[0])) == SIX_UP
@@ -1013,7 +1019,7 @@ class TestBookAnswerKey_EachLevelStartsNewAnswerPage:
         self,
     ) -> None:
         puzzles = _book_of(*[(15, 15)] * len(self.TIERS), tiers=self.TIERS)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
         first_page = first_answer_page(puzzles)
 
         assert len(key) == 2
@@ -1031,14 +1037,14 @@ class TestBookAnswerKey_EachLevelStartsNewAnswerPage:
         about arithmetic nobody ran.
         """
         one_level = _book_of(*[(15, 15)] * len(self.TIERS))
-        key = answer_key_of(_interior(one_level), len(one_level))
+        key = answer_key_of(_interior(one_level), one_level)
 
         assert len(key) == 2
         assert len(answer_grids(key[0])) == SIX_UP
 
     def test_neither_page_shows_more_answers_than_its_level_has(self) -> None:
         puzzles = _book_of(*[(15, 15)] * len(self.TIERS), tiers=self.TIERS)
-        key = answer_key_of(_interior(puzzles), len(puzzles))
+        key = answer_key_of(_interior(puzzles), puzzles)
 
         assert [len(answer_grids(page)) for page in key] == [4, 3]
 
@@ -1056,7 +1062,7 @@ class TestBookAnswerKey_HeadingOnlyOnLevelFirstPage:
     def _key() -> Tuple[List[dict], List[Image.Image]]:
         tiers = TestBookAnswerKey_HeadingOnlyOnLevelFirstPage.TIERS
         puzzles = _book_of(*[(15, 15)] * len(tiers), tiers=tiers)
-        return puzzles, answer_key_of(_interior(puzzles), len(puzzles))
+        return puzzles, answer_key_of(_interior(puzzles), puzzles)
 
     @pytest.mark.parametrize(
         "offset,numbers,heading",
@@ -1175,7 +1181,7 @@ class TestBookAnswerKey_ReportsItsAnswerPageCount:
         interior = BookPDFGenerator(_book()).interior(puzzles)
 
         assert interior.answer_page_count == len(
-            answer_key_of(interior.pages, len(puzzles))
+            answer_key_of(interior.pages, puzzles)
         )
         assert interior.answer_page_count == 2
 

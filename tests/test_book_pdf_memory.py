@@ -508,7 +508,7 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
 
         assert small.seen == BASELINE_PAGE_COUNT
         assert big.seen == CORPUS_PAGE_COUNT
-        assert big.seen > 15 * small.seen, "the two books must differ in size"
+        assert big.seen > 16 * small.seen, "the two books must differ in size"
         assert big.peak == small.peak, (
             f"{big.seen} pages peaked at {big.peak_in_pages:.2f} page bitmaps, "
             f"{small.seen} pages at {small.peak_in_pages:.2f}"

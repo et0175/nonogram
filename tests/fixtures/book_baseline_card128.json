@@ -1,7 +1,8 @@
 {
   "card": "CARD-128",
   "supersedes": "tests/fixtures/book_baseline_card145.json",
-  "recorded_from_commit": "346d89e80f2aabffcc9bf277e8c3b56f0513161c",
+  "recorded_from_commit": "407c0cc8920574c257ff03229551e0cf9760978c",
+  "recorded_from_commit_note": "This card's own implementation commit — the tree these digests were taken from, and the first one that reproduces them. The merge base (346d89e) writes an 8-page interior for the same book, so it cannot.",
   "recorded_on": "2026-09-24",
   "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
   "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",

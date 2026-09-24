@@ -1695,6 +1695,20 @@ class BookPDFGenerator:
         Raises:
             ValueError: ``ids`` was given and is not parallel to ``payloads``.
             RuntimeError: as :meth:`puzzle_pages`.
+
+        Note:
+            The print-order premise above is a **precondition, not a guard**.
+            It is what makes "one divider per non-empty level" — and therefore
+            :func:`interior_page_count`'s ``min(len(TIERS), puzzle_count)``
+            default — true: ``_level_runs`` cuts maximal runs, so an ungrouped
+            list of *n* tier changes yields *n* named runs and *n* dividers,
+            above that bound. Today the premise holds by construction, because
+            :meth:`interior_stream` calls :func:`print_order` before it calls
+            this and is the only production caller. It is left unguarded here
+            deliberately, and CARD-129 — which must make the interior's page
+            count exact and is the expected next direct caller — is the card
+            that decides whether the ordering moves inside this method or
+            becomes a checked precondition.
         """
         if ids is not None and len(ids) != len(payloads):
             raise ValueError(
