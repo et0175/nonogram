@@ -3363,6 +3363,12 @@ def create_app(debug=None):
                         )
                     if removal.removed:
                         flash(f"Removed puzzle from book", "success")
+                    else:
+                        # Neither removed nor asked about: this book does not
+                        # hold that puzzle. Worded as the sibling route
+                        # (`remove_puzzle_from_book`) has always worded it, so
+                        # the same delete answers the same from either screen.
+                        flash("Book or puzzle not found", "error")
 
                 elif action == "finish":
                     # Proceed to Step 4: Finalization

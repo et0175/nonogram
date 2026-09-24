@@ -12,7 +12,9 @@
     AC-282  TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership (FR-037)
 
 EC-026 and EC-033 — the two standing properties — are in
-``tests/property/test_book_workflow.py``.
+``tests/property/test_book_workflow.py``. The fourth membership route, the
+arrangement step's Delete, has its three answers (removed · asked · found
+nothing) in ``TestBookArrangeStep_DeleteReportsWhatTheStoreDid`` here.
 
 Every store-level assertion runs in **both** storage modes: INV-008 and INV-012
 are rules of the aggregate, not of a backend, and the two modes have twice
@@ -87,12 +89,18 @@ PLAN_OF_120 = DistributionPlan(count=120, split=Split(40, 40, 20), cells=BOOK_OF
 #: AC-226/AC-227's number, written out rather than summed by the test helper.
 HOLDS = 120
 HOLDS_AFTER_ADD = 121
+#: The selection step's normal use is a handful of ticks at once, not one: the
+#: confirmation has to carry the whole submission, so one scenario below ticks
+#: three puzzles and counts them off the book afterwards.
+A_FEW = 3
+HOLDS_AFTER_A_FEW = 123
 
 
 def test_the_scenario_book_really_holds_a_hundred_and_twenty() -> None:
     """The criteria's 120 is the fixture's 120, checked against the matrix."""
     assert sum(sum(row) for row in BOOK_OF_120) == PLAN_OF_120.count == HOLDS
     assert HOLDS + 1 == HOLDS_AFTER_ADD
+    assert HOLDS + A_FEW == HOLDS_AFTER_A_FEW
     assert not PLAN_OF_120.disagrees_with_split
 
 
@@ -164,6 +172,39 @@ def _path_to(status):
 def one_more(shelf, cell=(B20, M)) -> str:
     """One further stored puzzle, in a cell of the plan, not in any book."""
     return shelf.puzzles({cell: 1})[0]
+
+
+def below_the_floor(shelf) -> str:
+    """One stored, approved puzzle whose printed cell misses the 4.8 mm floor.
+
+    A 30x25 grid with 12-deep row clues — ``tests/test_book_floor.py``'s
+    ``BELOW_FLOOR`` fixture, whose 4.61 mm is measured there rather than
+    re-derived here. It is written through the store's own ``add_puzzle`` (not
+    the shelf's stub records) because the floor reads the clues, and it is the
+    puzzle INV-006 refuses unless the submission carries an override for it.
+    """
+    from tests.test_book_floor import BELOW_FLOOR, clues_of, dotted_grid
+
+    width, height, row_gutter, column_gutter, _cell = BELOW_FLOOR
+    grid = dotted_grid(width, height, row_gutter, column_gutter)
+    rows, cols = clues_of(grid)
+    puzzle_id = shelf.store.add_puzzle(
+        grid=grid,
+        clues_rows=rows,
+        clues_cols=cols,
+        width=width,
+        height=height,
+        theme="generic",
+        difficulty_score=10,
+        difficulty_tier="easy",
+        quality_score=50,
+        recognizability="medium",
+        strategies_used=[],
+        batch_id=None,
+        source_image="below-floor.png",
+    )
+    shelf.store.approve_puzzle(puzzle_id)
+    return puzzle_id
 
 
 def ids_of(shelf, book_id):
@@ -325,6 +366,37 @@ class TestBookPublished_PuzzleChangeRequiresConfirmation:
         asks_to_confirm(response, shelf.books.get_book(book_id))
         assert len(ids_of(shelf, book_id)) == HOLDS
 
+    def test_the_question_carries_every_ticked_puzzle_not_just_the_first(
+        self, panel
+    ) -> None:
+        """The step is asked about the whole submission it was given.
+
+        A confirmation page that carried the first tick only would still read
+        as a question and still apply *something* on confirm, so the count is
+        pinned here on the page's own fields and in the plural wording the
+        owner reads — the singular is the only shape the other tests take.
+        """
+        app, shelf = panel
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
+        joining = [one_more(shelf) for _ in range(A_FEW)]
+        client = app.test_client()
+
+        response = client.post(
+            f"/book/{book_id}/select-puzzles",
+            data={"bucket": "16-20", "shown_ids": joining, "puzzle_ids": joining},
+        )
+
+        asks_to_confirm(
+            response,
+            shelf.books.get_book(book_id),
+            change_mentions=(f"Add {A_FEW} selected puzzles",),
+        )
+        _, fields = confirmation_form(response)
+        assert [value for name, value in fields if name == "puzzle_ids"] == joining, (
+            "the confirmation does not carry back the submission it was given"
+        )
+        assert len(ids_of(shelf, book_id)) == HOLDS
+
     def test_the_remove_route_renders_the_confirmation(self, panel) -> None:
         app, shelf = panel
         book_id, groups = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
@@ -444,6 +516,91 @@ class TestBookPublished_ConfirmedPuzzleChangeApplied:
         assert len(ids_of(shelf, book_id)) == HOLDS_AFTER_ADD
         assert joining in ids_of(shelf, book_id)
 
+    def test_pressing_confirm_adds_every_puzzle_the_question_named(self, panel) -> None:
+        """All three join, and the owner is told about three.
+
+        The card's own checkpoint is a published 120-puzzle book, where the
+        selection step is used a tabful of ticks at a time. A confirmation that
+        carried only part of the submission would add part of it and report
+        that part as the whole, with the rest left in the kept selection where
+        a floor refusal also leaves things — indistinguishable to the owner.
+        """
+        app, shelf = panel
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
+        joining = [one_more(shelf) for _ in range(A_FEW)]
+        client = app.test_client()
+
+        asked = client.post(
+            f"/book/{book_id}/select-puzzles",
+            data={"bucket": "16-20", "shown_ids": joining, "puzzle_ids": joining},
+        )
+        applied = resubmit_confirmation(client, asked)
+
+        held = ids_of(shelf, book_id)
+        assert [pid for pid in joining if pid in held] == joining, (
+            f"the confirmation applied {[pid for pid in joining if pid in held]} "
+            f"of the {A_FEW} puzzles it was given"
+        )
+        assert len(held) == HOLDS_AFTER_A_FEW
+        assert f"Added {A_FEW} puzzle(s) to book" in text_of(
+            applied.get_data(as_text=True)
+        ), "the owner is told a number the book does not hold"
+
+    def test_pressing_confirm_carries_the_floor_override_with_it(self, panel) -> None:
+        """INV-006 x INV-008: the screen must not eat the owner's override.
+
+        A below-floor tile is admitted only with an override on the submission
+        being committed (``_submitted_overrides`` reads the *current* form), so
+        the confirmation page is the only thing that can carry the owner's
+        override across the question. If it did not, the store would refuse the
+        puzzle by name and the owner would be told their explicitly overridden
+        puzzle is below the floor, with nothing pointing at the screen that
+        dropped the decision.
+        """
+        app, shelf = panel
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
+        tiny = below_the_floor(shelf)
+        client = app.test_client()
+
+        asked = client.post(
+            f"/book/{book_id}/select-puzzles",
+            data={
+                "bucket": "26-30",
+                "shown_ids": [tiny],
+                "puzzle_ids": [tiny],
+                f"override_{tiny}": "on",
+            },
+        )
+        _, fields = confirmation_form(asked)
+        assert (f"override_{tiny}", "on") in fields, (
+            f"the confirmation page dropped the override for {tiny}: {fields}"
+        )
+
+        applied = resubmit_confirmation(client, asked)
+
+        shown = text_of(applied.get_data(as_text=True))
+        assert tiny in ids_of(shelf, book_id), (
+            "the overridden puzzle did not join through the confirmation (INV-006 "
+            f"was applied to a submission with no override): {shown}"
+        )
+        assert shelf.books.floor_overrides(book_id) == [tiny]
+        assert "mm floor" not in shown, (
+            f"the owner is told their overridden puzzle is below the floor: {shown}"
+        )
+
+    def test_the_store_carries_an_override_through_a_confirmed_add(self, shelf) -> None:
+        """The store half of the same interaction, in both storage modes."""
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
+        tiny = below_the_floor(shelf)
+
+        outcome = shelf.books.add_puzzles_reporting_refusals(
+            book_id, [tiny], [tiny], confirmed=True
+        )
+
+        assert outcome.refusals == []
+        assert tiny in ids_of(shelf, book_id)
+        assert shelf.books.floor_overrides(book_id) == [tiny]
+
     def test_pressing_confirm_on_the_remove_route_removes_the_puzzle(self, panel) -> None:
         app, shelf = panel
         book_id, groups = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
@@ -488,6 +645,78 @@ class TestBookPublished_ConfirmedPuzzleChangeApplied:
         assert stored.index(joining) == max(
             i for i, t in enumerate(tiers) if t == "easy"
         ), "a confirmed add did not join the end of its own level (INV-009)"
+
+
+# --------------------------------------------------------------------------
+# EC-033 — the arrange step reports the store's verdict, not its intention
+# --------------------------------------------------------------------------
+
+
+class TestBookArrangeStep_DeleteReportsWhatTheStoreDid:
+    """The fourth route was brought into scope over exactly this flash.
+
+    Before CARD-131 the step announced "Removed puzzle from book" whatever the
+    store answered — including the published book's "not without a
+    confirmation", which is the lie that argued the route into the card. The
+    announcement now follows ``RemoveOutcome.removed``, and the not-found arm
+    is worded like the sibling route ``POST /book/<id>/remove-puzzle``: the
+    same delete, reached from two screens, answers the owner the same way.
+    """
+
+    def test_a_removal_the_store_made_is_announced(self, panel) -> None:
+        app, shelf = panel
+        book_id, groups = stocked(shelf, BOOK_OF_120, PLAN_OF_120)
+        leaving = groups[(B15, E)][0]
+        client = app.test_client()
+
+        response = client.post(
+            f"/book/{book_id}/arrange-puzzles",
+            data={"action": "delete", "puzzle_id": leaving},
+        )
+
+        assert "Removed puzzle from book" in text_of(response.get_data(as_text=True))
+        assert leaving not in ids_of(shelf, book_id)
+        assert len(ids_of(shelf, book_id)) == HOLDS - 1
+
+    def test_a_delete_that_found_nothing_announces_no_removal(self, panel) -> None:
+        app, shelf = panel
+        book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120)
+        stranger = one_more(shelf)
+        client = app.test_client()
+
+        response = client.post(
+            f"/book/{book_id}/arrange-puzzles",
+            data={"action": "delete", "puzzle_id": stranger},
+        )
+
+        shown = text_of(response.get_data(as_text=True))
+        assert "Removed puzzle from book" not in shown, (
+            f"the step announced a removal the store did not make: {shown}"
+        )
+        assert "Book or puzzle not found" in shown, (
+            f"the step said nothing at all about a delete that found nothing: {shown}"
+        )
+        assert len(ids_of(shelf, book_id)) == HOLDS
+
+    def test_the_question_a_published_book_asks_is_not_an_announcement(
+        self, panel
+    ) -> None:
+        """The scenario the flash lied about: asked, so nothing was removed."""
+        app, shelf = panel
+        book_id, groups = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PUBLISHED)
+        leaving = groups[(B15, E)][0]
+        client = app.test_client()
+
+        response = client.post(
+            f"/book/{book_id}/arrange-puzzles",
+            data={"action": "delete", "puzzle_id": leaving},
+        )
+
+        shown = text_of(response.get_data(as_text=True))
+        assert "Removed puzzle from book" not in shown, (
+            f"the step announced a removal it was only asking about: {shown}"
+        )
+        assert leaving in ids_of(shelf, book_id)
 
 
 # --------------------------------------------------------------------------
@@ -698,29 +927,7 @@ class TestBookMembership_AddOnNonDraftReturnsToDraft:
         """Handover from CARD-121: the return-to-draft write is *after* the filter."""
         app, shelf = panel
         book_id, _ = stocked(shelf, BOOK_OF_120, PLAN_OF_120, status=PDF_GENERATED)
-        # A 30x30 grid with 12-deep row clues prints below the 4.8 mm floor on
-        # this trim (tests/test_book_floor.py's BELOW_FLOOR fixture).
-        from tests.test_book_floor import BELOW_FLOOR, clues_of, dotted_grid
-
-        width, height, row_gutter, column_gutter, _cell = BELOW_FLOOR
-        grid = dotted_grid(width, height, row_gutter, column_gutter)
-        rows, cols = clues_of(grid)
-        tiny = shelf.store.add_puzzle(
-            grid=grid,
-            clues_rows=rows,
-            clues_cols=cols,
-            width=width,
-            height=height,
-            theme="generic",
-            difficulty_score=10,
-            difficulty_tier="easy",
-            quality_score=50,
-            recognizability="medium",
-            strategies_used=[],
-            batch_id=None,
-            source_image="below-floor.png",
-        )
-        shelf.store.approve_puzzle(tiny)
+        tiny = below_the_floor(shelf)
 
         outcome = shelf.books.add_puzzles_reporting_refusals(book_id, [tiny])
 
@@ -901,15 +1108,35 @@ class TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership:
         assert len(in_the_cell) == 14
         assert cells_of(AC_PLAN_CELLS)[(B20, M)] == 10
 
-    def test_without_the_return_to_draft_the_book_would_have_shipped(self, shelf) -> None:
-        """What AC-282 is worth: the same membership behind a status is refused.
+    def test_the_changed_membership_cannot_ship_behind_the_pass_it_no_longer_has(
+        self, shelf
+    ) -> None:
+        """What AC-282 is worth, stated as the shipping step rather than the next rung.
 
-        The book is put back to pdf_generated (which the gate lets through only
-        because the plan is re-saved to match), and the point is that reaching
-        a non-draft status at all is what INV-012 denies a changed membership.
+        The selection that bought the pdf_generated pass is not the selection
+        the book now holds, and the gate runs at the **exit from draft only**
+        (``_refuse_unless_the_planned_book``) — so a changed membership left at
+        pdf_generated would never be measured again on its way to KDP. What
+        INV-012 buys is that the road back out of draft is the gate, and the
+        gate refuses this membership for every target, the ship-ward jump
+        straight to published included (ADR-0035 (a)'s status-jump bypass).
         """
-        book_id = self._returned_to_draft(shelf)
+        book_id, groups = stocked(shelf, AC_PLAN_CELLS, AC_PLAN, status=PDF_GENERATED)
+        passed_the_gate_with = ids_of(shelf, book_id)
+        joining = shelf.puzzles({(B20, M): 4})
+        shelf.books.add_puzzles_to_book(book_id, joining)
+        for leaving in groups[(B15, E)][:4]:
+            shelf.books.remove_puzzle_from_book(book_id, leaving)
 
+        held = ids_of(shelf, book_id)
+        assert sorted(set(held) - set(passed_the_gate_with)) == sorted(joining), (
+            "the book still holds the selection its pdf_generated pass was for"
+        )
+
+        with pytest.raises(ValueError) as refused:
+            shelf.books.set_book_status(book_id, PUBLISHED)
+
+        assert OFFENDING_CELL_TEXT in str(refused.value)
         assert status_of(shelf, book_id) == DRAFT, (
             "the membership changed under a non-draft status: INV-012 (EC-033)"
         )
