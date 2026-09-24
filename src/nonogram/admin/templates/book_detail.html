@@ -91,6 +91,18 @@
 <div class="card">
     <div class="card-header"><h2 class="card-title mb-0">Puzzles <span class="badge count">{{ book.puzzle_ids|length }}</span></h2></div>
     <div class="card-body">
+        {#- CARD-131 (INV-008, INV-012): a book outside draft holds exactly the
+            puzzles that last passed its plan check, so adding or removing one
+            here returns it to draft — and on a published book it is a
+            confirmation first (_confirm_membership_change.html). -#}
+        {% if book.status != 'draft' %}
+        <div class="alert alert-warning" role="alert">
+            This book is <strong>{{ book.status|replace('_', ' ') }}</strong>.
+            {% if book.status == 'published' %}Adding or removing a puzzle asks you to confirm first, and then returns{% else %}Adding or removing a puzzle returns{% endif %}
+            the book to draft, so it has to pass its plan check again before it can leave.
+        </div>
+        {% endif %}
+
         {% if book.puzzle_ids %}
         <div class="table-responsive">
             <table class="table table-sm">

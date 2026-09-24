@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import '_icons.html' as icons %}
+
+{#
+  CARD-131 (FR-038, INV-008) — the confirmation a published book's membership
+  change needs, and the *only* screen this project can offer for it: there is
+  no JavaScript engine anywhere in the dependency baseline, so a browser
+  `confirm()` is a thing no test can execute. This is a server-rendered page
+  whose form re-POSTs the owner's own submission, with `confirm=1` added, to
+  the very route that asked; a Flask test client drives it exactly as a browser
+  does.
+
+  Nothing has been written when this renders. The submission is carried here
+  whole, as hidden fields, so confirming applies the change the owner made
+  rather than one this page reconstructed — and cancelling leaves the book,
+  its status and its selection untouched (EC-026).
+
+  ConfirmChange (design context: states asking · confirmed · cancelled). Only
+  `asking` has a screen of its own: `confirmed` is the route's own answer
+  (the applied change, flashed) and `cancelled` is the book as it was.
+#}
+
+{% block title %}Confirm change - {{ book.metadata.title }} - Nonogram admin{% endblock %}
+{% block section %}Books · {{ book.metadata.title }} · Confirm change{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Confirm this change</h1>
+        <p class="lede">Nothing has been changed yet.</p>
+    </div>
+    <div class="page-actions align-items-center">
+        <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>
+    </div>
+</div>
+
+<div class="card border-warning">
+    <div class="card-body">
+        <div class="alert alert-warning" role="alert">
+            {#- The book, its status and the change: the three things AC-226
+                asks this response to name. The status is *rendered* — it is
+                never spelled out as prose here, so a page that stopped
+                reading it off the book would stop naming it (INV-008). -#}
+            &ldquo;{{ book.metadata.title }}&rdquo; is
+            <strong>{{ book.status|replace('_', ' ') }}</strong>, and its puzzles
+            change only after you confirm it (INV-008).
+        </div>
+
+        <h2 class="card-title">{{ change }}</h2>
+        {#- The promise is conditional on purpose. The published question is
+            asked *before* the 4.8 mm floor measures anything (INV-006 is the
+            store's, and it runs after INV-008's door), so a confirmed change
+            can still be refused in part or in full — and a change that moves
+            no puzzle correctly demotes nothing (INV-012). "Confirming ...
+            returns the book to draft" was flatly false in that case. -#}
+        <p>
+            Confirming applies this change. Whatever of it actually moves a
+            puzzle into or out of the book sends the book back to
+            <strong>draft</strong>, because a book outside draft holds exactly
+            the puzzles that last passed its plan check. It has to pass that
+            check again before it can leave draft.
+        </p>
+
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ action }}">
+                {% for name, value in fields %}
+                <input type="hidden" name="{{ name }}" value="{{ value }}">
+                {% endfor %}
+                <input type="hidden" name="confirm" value="1">
+                <button type="submit" class="btn btn-primary">{{ icons.icon('check') }} Confirm change</button>
+            </form>
+            <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
