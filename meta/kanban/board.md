@@ -38,7 +38,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-145** P0 · The book PDF is written a page at a time — 24 MB/page x the book exhausts the 512 MB instance (owner: render crashes on PDF) · 1d · wave 26 · runs first, alone
 - **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
@@ -51,6 +50,7 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-145** P0 · The book PDF written a page at a time · 1d · wave 26 · in_progress (started out of band — P0 production defect)
 
 
 ## Review

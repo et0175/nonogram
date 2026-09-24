@@ -1,6 +1,6 @@
 # CARD-145: The book PDF is written a page at a time, so a real book fits in memory
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P0
 **Category:** bug
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/145-stream-the-book-pdf
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-145
 **Source:** owner, 2026-09-24 ("render crashes when I try to generate pdf")
 **Idea:** —
 **Wave:** 26
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, tests/test_book_pdf_memory.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-24
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

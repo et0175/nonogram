@@ -56,3 +56,15 @@ serialized: []   # CARD-134 released 2026-09-23 when CARD-127 merged
 # Wave 25: all five cards merged 2026-09-23/24. The wave is NOT closed — its
 # owner_confirmed_checkpoint (the printed proof measurement, CARD-118) is outstanding,
 # and Increment 13 closes on it. Wave 26 must not start before that ruling.
+
+# CARD-145 started 2026-09-24 OUT OF BAND, ahead of wave 25's checkpoint, at the
+# owner's explicit go-ahead. Rationale: it is a P0 production defect (the deployed
+# panel cannot export a book at all) and it touches page ASSEMBLY, not page geometry,
+# so the outstanding printed-proof ruling cannot invalidate it — a rejection there
+# routes to ADR-0037 stroke weights, which this card does not touch.
+out_of_band:
+  - card: CARD-145
+    branch: card/145-stream-the-book-pdf
+    worktree: ../PythonProject4-CARD-145
+    phase: implementation
+    review_cycle: 0
