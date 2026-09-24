@@ -71,6 +71,42 @@ explicit that the layout applies no cell floor, so "six-up only while every
 answer is at most 20 cells on its longest side" is enforced in
 ``book_answer_key`` and nowhere else.
 
+Levels, and the page that opens one (FR-041, INV-009, CARD-128)
+----------------------------------------------------------------
+A book prints **easy, then medium, then hard**, and the grouping is decided
+here, at PDF time: :func:`print_order` runs the book's rows through
+``book_plan.book_level_order`` — the one grouping the arrange screen, the
+moves and the adds already use (FR-041) — so a legacy mixed arrangement
+*prints* grouped without its stored list being rewritten (AC-260, G-1). The
+sort is stable and keyed on the level alone, so the owner's arrangement
+inside a level is untouched, and it is idempotent, so a book that is already
+grouped is not reordered at all.
+
+Each non-empty level opens with a **divider page** (TERM-031): one trim-sized
+page carrying the level's name and nothing else — no band, no number, no
+grid (G-3). An empty level has no divider, because the cut
+(:meth:`BookPDFGenerator.puzzle_section`) walks the levels that are there.
+The **ungraded tail** — rows whose ``difficulty_tier`` no reader can turn into
+one of ADR-0031's three tiers — is not a level and opens no divider: its name
+is the one thing a divider carries, and there is none to print. A blank sheet
+would be a page the reader cannot account for, so those puzzles simply follow
+the last named level, exactly as their band prints "Puzzle 12" and stops
+(:func:`band_identity`) and their answer run starts an unheaded page
+(:func:`~nonogram.admin.book_answer_key.level_heading`).
+
+**Dividers consume no puzzle numbers.** ``N`` in "Puzzle N · Tier" is the
+puzzle's 1-based position among the *puzzles* in print order, unbroken across
+the levels (AC-255), while a divider is a page like any other and takes its
+parity from its interior position like any other (FR-043, CARD-116). With the
+guide page at interior page 1 and the "Easy" divider at 2, the first puzzle
+page is interior page 3 — a right-hand page (AC-287).
+
+Two-up pairing needs no level rule of its own: a page is shared only by two
+puzzles of **equal** tier (INV-010), and a level *is* a tier's run, so no pair
+can straddle a divider. The answer key follows the same order — it is packed
+from these payloads — so its level headings (CARD-134) come out in the puzzle
+section's order without this module arranging anything twice.
+
 Two puzzles to a page (FR-040, INV-010, CARD-127)
 --------------------------------------------------
 :meth:`BookPDFGenerator.puzzle_pages` walks the book order from the first
@@ -205,7 +241,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib import resources
-from typing import Any, Dict, Iterable, Iterator, Optional, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, Iterator, Optional, List, Sequence, Tuple, Union
 from PIL import Image, ImageDraw, ImageFont, PdfParser
 from io import BytesIO
 
@@ -217,6 +253,7 @@ from nonogram.admin.book_answer_key import (
     pack_answer_pages,
 )
 from nonogram.admin.book_page_spec import book_page_spec
+from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
@@ -316,6 +353,54 @@ def tier_breakdown(puzzles: List[Dict[str, Any]]) -> "Counter[Tier]":
         )
         if tier is not None
     )
+
+
+def _stored_tier(puzzle: Any) -> Optional[Tier]:
+    """One book row's level, however it spells its tier — ``None`` when it states none.
+
+    :func:`~nonogram.difficulty.tier_of_record` is the one reader of stored
+    tier text everywhere in this module (the band, the pairing walk, the answer
+    key), so ``"easy"``, ``"Easy"`` and ADR-0031/R3's retired ``"guess"`` are
+    the tiers they mean. The row is read defensively — a member so malformed it
+    is not even a mapping has no tier, and is dropped a few lines later by the
+    payload pass rather than raising here, where the export is still deciding
+    what order to print in.
+    """
+    if not hasattr(puzzle, "get"):
+        return None
+    return tier_of_record(puzzle.get("difficulty_tier"))
+
+
+def print_order(puzzles: List[Any]) -> List[Any]:
+    """``puzzles`` in the order the book prints them: easy, medium, hard (INV-009).
+
+    The grouping half of FR-041, decided **here, at PDF time**, over whatever
+    order the book's rows arrive in. Nothing is stored and nothing is rewritten
+    (G-1, Increment 15's rollback story): a book whose stored arrangement
+    predates INV-009 — medium, easy, hard, easy — prints E1, E2, M1, H1 and
+    still reads back mixed from the database (AC-260). Only a move writes a
+    grouped order back, and that is ``book_manager``'s (CARD-126).
+
+    It is ``book_plan.book_level_order`` — **the one grouping** the arrange
+    screen, the adds and the moves all use — applied to the rows' positions
+    rather than to their ids, so it holds for a list whose members share an id,
+    carry none, or are not rows at all. Two consequences come with that
+    function and are the reason it is reused rather than rewritten here: the
+    sort is **stable** and keyed on the level alone, so the owner's arrangement
+    inside a level is never re-sorted, and it is **idempotent**, so a book that
+    is already grouped comes back in exactly the order it went in.
+
+    Rows with no readable tier (:func:`_stored_tier`) rank after all three
+    levels, in their own relative order. They are never dropped: the print
+    order is a permutation of the book's membership, always.
+    """
+    ranked = list(puzzles)
+    return [
+        ranked[index]
+        for index in book_level_order(
+            range(len(ranked)), lambda index: _stored_tier(ranked[index])
+        )
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -483,6 +568,45 @@ class PuzzlePagePlan:
     def is_two_up(self) -> bool:
         """Whether this page holds two puzzles (TERM-030)."""
         return self.pair is not None
+
+
+@dataclass(frozen=True)
+class DividerPagePlan:
+    """One page of the interior's puzzle section that opens a level (TERM-031).
+
+    The other kind of page :meth:`BookPDFGenerator.puzzle_section` plans, and
+    deliberately a type of its own rather than a :class:`PuzzlePagePlan`
+    holding no puzzle: a divider carries no band, no number and no drawing
+    (G-3), so every caller that walks the section is made to say which of the
+    two it is looking at instead of discovering it from an empty tuple.
+
+    Attributes:
+        page_number: Its 1-based position in the interior, which is where its
+            parity comes from like any other page's (FR-043).
+        level: The level it opens. A :class:`~nonogram.difficulty.Tier` and
+            never ``None`` — the name is the whole of what a divider carries,
+            and a run of rows with no readable tier has none to print, so it
+            opens no divider at all (see the module docstring).
+    """
+
+    page_number: int
+    level: Tier
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.level, Tier):
+            raise ValueError(
+                f"a divider page opens one of ADR-0031's tiers, not {self.level!r}"
+            )
+
+    @property
+    def text(self) -> str:
+        """The only thing printed on it: "Easy", "Medium" or "Hard" (AC-254)."""
+        return self.level.label
+
+
+#: One planned page of the interior's puzzle section: a level's divider, or a
+#: page of one or two puzzles.
+SectionPage = Union[DividerPagePlan, PuzzlePagePlan]
 
 
 @dataclass(frozen=True)
@@ -700,12 +824,14 @@ def interior_page_count(
     puzzle_count: int,
     puzzle_pages: Optional[int] = None,
     answer_pages: Optional[int] = None,
+    level_dividers: Optional[int] = None,
 ) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
     The page plan :meth:`BookPDFGenerator.interior` builds — one guide page,
-    the puzzle pages, then (only when there are puzzles) the SOLUTIONS divider
-    and the answer pages; never the cover (FR-030 as amended by FR-043).
+    one divider per non-empty level, the puzzle pages, then (only when there
+    are puzzles) the SOLUTIONS divider and the answer pages; never the cover
+    (FR-030 as amended by FR-043).
     ``interior`` checks its own output against this, so a change to the make-up
     of the pages that forgets this function fails loudly instead of shipping a
     book whose stated page count is not its page count.
@@ -730,6 +856,18 @@ def interior_page_count(
     is an upper bound for one more reason since FR-042, and a wider one, but it
     is the same kind of statement it always was.
 
+    ``level_dividers`` is how many level divider pages the book opens
+    (CARD-128) — one per non-empty named level, measured by the pass that
+    decides it (:meth:`BookPDFGenerator.puzzle_section`). It **cannot** be
+    derived from ``puzzle_count``: it takes the book's stored tiers, which a
+    caller holding only a member count does not have. So left out it is the
+    most a book of that many puzzles could open — ``min(3, puzzle_count)``,
+    since ADR-0031 has three tiers and a level needs a puzzle in it — which
+    keeps "called with the count alone this is an upper bound on every book"
+    true of the dividers as it already is of pairing and packing. That bound
+    is what the Finalise screen shows as "~"; CARD-129 owns making it exact
+    (EC-034).
+
     ``puzzle_count`` counts puzzles that *render*: :meth:`interior` skips a
     puzzle it cannot build an export payload for, so a count taken from the
     book's members is an upper bound when one of them is broken. That skip is
@@ -745,10 +883,17 @@ def interior_page_count(
     answers = puzzle_count if answer_pages is None else answer_pages
     if answers < 0:
         raise ValueError(f"answer page count cannot be negative, got {answers}")
-    return 1 + pages + (answers + 1 if puzzle_count else 0)
+    dividers = (
+        min(len(TIERS), puzzle_count) if level_dividers is None else level_dividers
+    )
+    if dividers < 0:
+        raise ValueError(f"divider page count cannot be negative, got {dividers}")
+    return 1 + dividers + pages + (answers + 1 if puzzle_count else 0)
 
 
-def _named_puzzles(ids: Optional[List[Any]], numbers: Tuple[int, ...]) -> str:
+def _named_puzzles(
+    ids: Optional[List[Any]], numbers: Tuple[int, ...], first_number: int = 1
+) -> str:
     """The puzzles of one page, as an aborted export names them.
 
     One naming rule for every abort :meth:`BookPDFGenerator.interior` can raise
@@ -760,10 +905,17 @@ def _named_puzzles(ids: Optional[List[Any]], numbers: Tuple[int, ...]) -> str:
     print numbers) index into it. Without them — :meth:`puzzle_pages` called on
     its own, as a test or a future caller may — the print numbers are named
     instead, which is still the only handle such a caller has.
+
+    ``first_number`` is the print number of ``ids[0]``. It is 1 for the whole
+    book and the level's first puzzle when the walk is run over one level at a
+    time (:meth:`BookPDFGenerator.puzzle_section`), where the numbers keep
+    running 1..n across the levels while ``ids`` is only that level's slice —
+    naming the wrong row is worse than naming none, so the offset travels with
+    the ids rather than being assumed away.
     """
     if ids is None:
         return ", ".join(f"#{number}" for number in numbers)
-    return ", ".join(repr(ids[number - 1]) for number in numbers)
+    return ", ".join(repr(ids[number - first_number]) for number in numbers)
 
 
 def _pairable_tier(payload: ExportPayload) -> Optional[Tier]:
@@ -781,6 +933,29 @@ def _pairable_tier(payload: ExportPayload) -> Optional[Tier]:
     state a sameness the book cannot show the reader.
     """
     return tier_of_record(payload.difficulty)
+
+
+def _level_runs(
+    payloads: Sequence[ExportPayload],
+) -> List[Tuple[Optional[Tier], int, int]]:
+    """``payloads`` cut into its levels: ``(level, start, end)`` half-open slices.
+
+    A level is a maximal run of consecutive payloads whose tier of record is
+    the same (:func:`_pairable_tier`), so on the grouped print order
+    (:func:`print_order`) there is one run per non-empty level and none for an
+    empty one. ``None`` is a level here as it is everywhere else in this
+    module — a run of rows stating no readable tier — and it is the caller that
+    decides such a run opens no divider
+    (:meth:`BookPDFGenerator.puzzle_section`).
+    """
+    runs: List[Tuple[Optional[Tier], int, int]] = []
+    for index, payload in enumerate(payloads):
+        level = _pairable_tier(payload)
+        if runs and runs[-1][0] is level:
+            runs[-1] = (level, runs[-1][1], index + 1)
+        else:
+            runs.append((level, index, index + 1))
+    return runs
 
 
 def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int]:
@@ -967,7 +1142,13 @@ class BookPDFGenerator:
         return guide
 
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
-        """The divider that opens the answer section, one trim-size page.
+        """A divider page: one word on the book's trim, one page (TERM-031).
+
+        Both dividers the interior holds, because they are the same page: the
+        "SOLUTIONS" page that opens the answer key (AC-292, the default) and
+        the "Easy" / "Medium" / "Hard" page that opens a level (AC-254,
+        CARD-128). Its ``text`` is **the only thing on it** — no band, no page
+        number, no drawing, nothing fitted (G-3, ADR-0036/R2).
 
         Its word is centred on the trim, so ``page_number`` decides its size
         and nothing else — but it is taken, not assumed, because the divider
@@ -1353,6 +1534,7 @@ class BookPDFGenerator:
         payloads: List[ExportPayload],
         first_page: int = 2,
         ids: Optional[List[Any]] = None,
+        first_number: int = 1,
     ) -> List[PuzzlePagePlan]:
         """The pairing walk over the book order (FR-040, INV-010, EC-027).
 
@@ -1397,10 +1579,18 @@ class BookPDFGenerator:
                 ``difficulty`` is the row's stored tier text, and its clue sets
                 are what the pair is fitted from.
             first_page: The interior position of the first puzzle page. Page 1
-                is the guide page, so the default is 2.
+                is the guide page, so the default is 2 — which is what it is
+                for a book with no levels to divide; with CARD-128's dividers
+                :meth:`puzzle_section` passes the page after each level's
+                divider instead.
             ids: The puzzle ids, parallel to ``payloads``, for the message of
                 the raise below. Optional: without them a failure names the
                 print numbers instead.
+            first_number: The print number of ``payloads[0]``. 1 for the whole
+                book; for one level's slice it is the number that level's first
+                puzzle carries, so the bands and the answer key still run 1..n
+                unbroken across the levels (AC-255) and a divider consumes
+                none of them.
 
         Returns:
             One :class:`PuzzlePagePlan` per page, in print order.
@@ -1426,10 +1616,11 @@ class BookPDFGenerator:
                 tier = _pairable_tier(first)
                 if tier is not None and tier is _pairable_tier(payloads[index + 1]):
                     second = payloads[index + 1]
+            number = index + first_number
             if second is None:
                 pair = None
             else:
-                numbers = (index + 1, index + 2)
+                numbers = (number, number + 1)
                 try:
                     pair = compute_pair_layout(
                         (first.row_clues, first.column_clues),
@@ -1438,17 +1629,107 @@ class BookPDFGenerator:
                     )
                 except Exception as e:
                     raise RuntimeError(
-                        f"puzzle {_named_puzzles(ids, numbers)} could not be "
-                        f"laid out: {e}"
+                        f"puzzle {_named_puzzles(ids, numbers, first_number)} "
+                        f"could not be laid out: {e}"
                     ) from e
             if pair is None:
-                plan.append(PuzzlePagePlan(page_number, (index + 1,)))
+                plan.append(PuzzlePagePlan(page_number, (number,)))
                 index += 1
             else:
-                plan.append(PuzzlePagePlan(page_number, (index + 1, index + 2), pair))
+                plan.append(PuzzlePagePlan(page_number, (number, number + 1), pair))
                 index += 2
             page_number += 1
         return plan
+
+    def puzzle_section(
+        self,
+        payloads: List[ExportPayload],
+        first_page: int = 2,
+        ids: Optional[List[Any]] = None,
+    ) -> List[SectionPage]:
+        """The interior's puzzle section: a divider per level, then its pages.
+
+        The whole of the interior between the guide page and the SOLUTIONS
+        divider (FR-041, INV-009, CARD-128), planned before anything is drawn.
+        ``payloads`` is the book in **print order** — grouped easy, then
+        medium, then hard by :func:`print_order`, which is where the ordering
+        decision is made and the only place it is made.
+
+        This method cuts that order into its levels and, for each one, plans a
+        :class:`DividerPagePlan` followed by :meth:`puzzle_pages`' walk over
+        that level's puzzles alone. A level is a **maximal run of consecutive
+        payloads sharing a tier**, read through :func:`_pairable_tier`, which
+        on a grouped order is exactly "one run per non-empty level" — an empty
+        level is not in the list at all, so it gets no divider (AC-256). A run
+        whose tier is ``None`` gets no divider either: there is no name to
+        print on one (see the module docstring).
+
+        Reading runs rather than sorting again is deliberate, and it is the
+        same rule :func:`~nonogram.admin.book_answer_key.pack_answer_pages`
+        applies to its level headings: the two surfaces of one book agree by
+        construction, and an order that returns to a level it has already left
+        opens that level again rather than printing the return unannounced.
+
+        Splitting the pairing walk at a level boundary changes no verdict:
+        INV-010 already lets only two puzzles of **equal** tier share a page,
+        so no pair the single walk would have made could straddle a boundary
+        anyway. What the split adds is the page numbers — each level's walk
+        starts on the page after its own divider — while the **puzzle**
+        numbers run on unbroken through ``first_number``, so a divider costs a
+        page and no number (AC-255).
+
+        Args:
+            payloads: The drawable puzzles in print order.
+            first_page: The interior position of the section's first page,
+                which is the first level's divider. Page 1 is the guide page,
+                so the default is 2.
+            ids: The puzzle ids, parallel to ``payloads``, for the messages
+                :meth:`puzzle_pages` raises. Each level's walk is handed its
+                own slice, so a failure still names the row it happened to.
+
+        Returns:
+            The section's pages in print order: one :class:`DividerPagePlan`
+            per named non-empty level, each immediately before that level's
+            :class:`PuzzlePagePlan`\\ s.
+
+        Raises:
+            ValueError: ``ids`` was given and is not parallel to ``payloads``.
+            RuntimeError: as :meth:`puzzle_pages`.
+
+        Note:
+            The print-order premise above is a **precondition, not a guard**.
+            It is what makes "one divider per non-empty level" — and therefore
+            :func:`interior_page_count`'s ``min(len(TIERS), puzzle_count)``
+            default — true: ``_level_runs`` cuts maximal runs, so an ungrouped
+            list of *n* tier changes yields *n* named runs and *n* dividers,
+            above that bound. Today the premise holds by construction, because
+            :meth:`interior_stream` calls :func:`print_order` before it calls
+            this and is the only production caller. It is left unguarded here
+            deliberately, and CARD-129 — which must make the interior's page
+            count exact and is the expected next direct caller — is the card
+            that decides whether the ordering moves inside this method or
+            becomes a checked precondition.
+        """
+        if ids is not None and len(ids) != len(payloads):
+            raise ValueError(
+                f"ids must be parallel to payloads: {len(ids)} id(s) for "
+                f"{len(payloads)} payload(s)"
+            )
+        section: List[SectionPage] = []
+        page_number = first_page
+        for level, start, end in _level_runs(payloads):
+            if level is not None:
+                section.append(DividerPagePlan(page_number, level))
+                page_number += 1
+            pages = self.puzzle_pages(
+                payloads[start:end],
+                first_page=page_number,
+                ids=None if ids is None else ids[start:end],
+                first_number=start + 1,
+            )
+            section.extend(pages)
+            page_number += len(pages)
+        return section
 
     def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
         """Every page of the interior, in print order; no cover page.
@@ -1470,9 +1751,16 @@ class BookPDFGenerator:
         """Every page of the interior, in print order, and what pairing saved.
 
         ``pages[n - 1]`` is interior page ``n``: page 1 is the guide page,
-        a right-hand page (:func:`page_is_right_hand`), followed by the
-        puzzle pages, the SOLUTIONS divider and the answer pages. The list's
-        length is the book's page count (FR-030); the cover is never counted.
+        a right-hand page (:func:`page_is_right_hand`), followed by the puzzle
+        section — a divider page opening each non-empty level and that level's
+        puzzle pages (:meth:`puzzle_section`, FR-041) — then the SOLUTIONS
+        divider and the answer pages. The list's length is the book's page
+        count (FR-030); the cover is never counted.
+
+        The puzzles print grouped easy, then medium, then hard whatever order
+        the book's rows arrive in (:func:`print_order`, INV-009), and the
+        numbers their bands carry run 1..n over the puzzles in that order: a
+        divider takes a page and no number.
 
         A puzzle page holds one puzzle, or two of equal tier that the walk
         paired (:meth:`puzzle_pages`, FR-040). The answer section is the packed
@@ -1547,18 +1835,20 @@ class BookPDFGenerator:
         part that **decides** and the part that **draws**, and does all of the
         first before any of the second:
 
-        *Decided here, eagerly, before this method returns.* The payload pass
-        (and the drop of any member that cannot build one), the pairing walk,
-        the packed answer key, both plan tripwires, the guide page's tier
-        counts, the Arrangement step's custom titles, and all three page
-        counts. None of it draws a pixel, and all of it can fail — so an
-        export that is going to be refused is refused before its file has a
-        first byte.
+        *Decided here, eagerly, before this method returns.* The print order
+        (:func:`print_order`), the payload pass (and the drop of any member
+        that cannot build one), the level cut and the pairing walk
+        (:meth:`puzzle_section`), the packed answer key, both plan tripwires,
+        the guide page's tier counts, the Arrangement step's custom titles,
+        and all three page counts. None of it draws a pixel, and all of it can
+        fail — so an export that is going to be refused is refused before its
+        file has a first byte.
 
-        *Drawn later, lazily, one page per :func:`next`.* The guide page, the
-        puzzle pages the walk planned, the SOLUTIONS divider and the packed
-        key's pages, each on the spec of its own interior position (FR-043),
-        each built when it is asked for and released when the next one is.
+        *Drawn later, lazily, one page per :func:`next`.* The guide page, each
+        level's divider and the puzzle pages the walk planned, the SOLUTIONS
+        divider and the packed key's pages, each on the spec of its own
+        interior position (FR-043), each built when it is asked for and
+        released when the next one is.
         The returned generator is single-use and holds no page: see
         :class:`InteriorStream`.
 
@@ -1577,6 +1867,13 @@ class BookPDFGenerator:
                 as worthless until the walk has finished, which is exactly
                 what :meth:`_write_pdf` does.
         """
+        # The print order, decided here and stored nowhere (FR-041, G-1): the
+        # rows are grouped easy, then medium, then hard before a payload, a
+        # number or a page position is handed out, so everything below — the
+        # bands, the pairing walk, the answer key's numbers and its level
+        # headings — follows one order that was settled once.
+        puzzles = print_order(puzzles)
+
         # The puzzle's own id travels with its payload: it is what the raise
         # below names, and once a member has been dropped nothing else left in
         # the loop identifies the row the failure came from.
@@ -1598,13 +1895,16 @@ class BookPDFGenerator:
                 continue
 
         # The positions every page is built on: 1 the guide page, then the
-        # puzzle pages the walk planned, the divider, and the packed answer
+        # puzzle section — a divider per non-empty level and the puzzle pages
+        # the walk planned — then the SOLUTIONS divider and the packed answer
         # key. Both walks run before a single page is drawn, because how many
-        # pages the puzzles take is what puts the divider and every answer
+        # pages the section takes is what puts the divider and every answer
         # page where it goes.
         count = len(payloads)
         ids = [puzzle_id for puzzle_id, _ in payloads]
-        plan = self.puzzle_pages([payload for _, payload in payloads], ids=ids)
+        section = self.puzzle_section([payload for _, payload in payloads], ids=ids)
+        plan = [entry for entry in section if isinstance(entry, PuzzlePagePlan)]
+        dividers = len(section) - len(plan)
         key = self.answer_key([payload for _, payload in payloads], ids=ids)
 
         # The walk's own half of the page-plan tripwire below, and the one the
@@ -1618,7 +1918,10 @@ class BookPDFGenerator:
             raise RuntimeError(
                 f"the page plan prints {printed}, not puzzles 1..{count}"
             )
-        first_answer_page = 3 + len(plan)
+        # Every page of the section — dividers included — sits between the
+        # guide page and the SOLUTIONS divider, so both of those positions
+        # count the section's length and not its puzzle pages alone.
+        first_answer_page = 3 + len(section)
 
         # The packed key's own half of the tripwire, and the one the page-count
         # check cannot make: the answer term below comes from `len(key)`, the
@@ -1650,13 +1953,14 @@ class BookPDFGenerator:
         # stated page count is not its page count. Since CARD-145 the two
         # sides meet in `_as_planned`, as the pages go past, instead of in a
         # `len()` over a list nobody can afford to build.
-        planned = interior_page_count(count, len(plan), len(key))
+        planned = interior_page_count(count, len(plan), len(key), dividers)
 
         def produce() -> Iterator[Image.Image]:
             """The interior's pages in print order, one per :func:`next`.
 
             Two rules hold throughout, and both are load-bearing rather than
-            stylistic — a later page kind (CARD-128's dividers) must keep them:
+            stylistic — every page kind keeps them, the level dividers
+            CARD-128 added included:
 
             **No page outlives the yield that hands it on.** A page is either
             yielded as an expression or bound, yielded and immediately
@@ -1678,7 +1982,15 @@ class BookPDFGenerator:
                 page_number=1,
             )
 
-            for page_plan in plan:
+            for page_plan in section:
+                if isinstance(page_plan, DividerPagePlan):
+                    # A level's divider: its name on the book's trim and
+                    # nothing else (AC-254, G-3). Yielded as an expression, so
+                    # this frame never holds it while the next page is built.
+                    yield self.create_divider_page(
+                        page_plan.page_number, page_plan.text
+                    )
+                    continue
                 members = [payloads[number - 1] for number in page_plan.numbers]
                 try:
                     if page_plan.pair is None:
@@ -1704,7 +2016,7 @@ class BookPDFGenerator:
             # ink (CARD-145's AC-3 pins that page for page).
             if not key:
                 return
-            yield self.create_divider_page(2 + len(plan))
+            yield self.create_divider_page(2 + len(section))
             for offset, answer_page in enumerate(key):
                 members = [payloads[number - 1] for number in answer_page.numbers]
                 try:
@@ -1724,7 +2036,9 @@ class BookPDFGenerator:
             # Before **pairing**, and only that: the packed answer count is on
             # this side of the subtraction too, so `pages_saved` measures the
             # two-up pages and nothing else.
-            unpaired_page_count=interior_page_count(count, answer_pages=len(key)),
+            unpaired_page_count=interior_page_count(
+                count, answer_pages=len(key), level_dividers=dividers
+            ),
             answer_page_count=len(key),
             pages=_as_planned(produce(), planned),
         )

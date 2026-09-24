@@ -215,14 +215,71 @@ def _interior(puzzles: Sequence[dict], book: Book | None = None) -> list[Image.I
     )
 
 
-def puzzle_page_number(index: int) -> int:
-    """Where puzzle ``index`` (0-based) prints: after the guide page."""
-    return 2 + index
+#: Where each level sits in the book: easy, then medium, then hard (INV-009).
+#: Written out here, keyed on the *label* this module already derives from the
+#: stored word, so the print order below is this module's own reading of
+#: FR-041 and not ``book_plan``'s run twice.
+LEVEL_RANK = {"Easy": 0, "Medium": 1, "Hard": 2}
+
+#: Where a row whose stored tier is no tier at all sits: after every level,
+#: and behind no divider — there is no name to put on one.
+UNGRADED_RANK = len(LEVEL_RANK)
 
 
-def answer_page_number(index: int, count: int) -> int:
-    """Where puzzle ``index``'s answer prints: after the SOLUTIONS divider."""
-    return 3 + count + index
+def level_rank(stored_tier: object) -> int:
+    """Which level a stored tier word belongs to, :data:`UNGRADED_RANK` if none."""
+    label = None
+    if isinstance(stored_tier, str):
+        label = TIER_LABELS.get(stored_tier.strip().casefold())
+    return UNGRADED_RANK if label is None else LEVEL_RANK[label]
+
+
+def print_plan(puzzles: Sequence[dict]) -> dict[int, tuple[int, int]]:
+    """``{index in the book: (puzzle number, interior page)}`` (CARD-128).
+
+    This module's own reading of the printed book: the rows grouped easy, then
+    medium, then hard — a **stable** sort on the level alone, so the order
+    inside a level is the one the book was handed in — numbered 1..n over the
+    puzzles, and laid out from interior page 2 with one divider page opening
+    each non-empty *named* level. Every book here is one of 15..20-cell
+    drawings that never pair (see the class docstrings), so a puzzle takes a
+    page.
+    """
+    order = sorted(range(len(puzzles)), key=lambda index: level_rank(puzzles[index]["difficulty_tier"]))
+    plan: dict[int, tuple[int, int]] = {}
+    page = 2
+    opened: object = None
+    for number, index in enumerate(order, start=1):
+        rank = level_rank(puzzles[index]["difficulty_tier"])
+        if rank != opened:
+            opened = rank
+            if rank != UNGRADED_RANK:
+                page += 1  # this level's divider
+        plan[index] = (number, page)
+        page += 1
+    return plan
+
+
+def puzzle_page_number(puzzles: Sequence[dict], index: int = 0) -> int:
+    """Where puzzle ``index`` (0-based in the book) prints in the interior."""
+    return print_plan(puzzles)[index][1]
+
+
+def solutions_page_number(puzzles: Sequence[dict]) -> int:
+    """Where the SOLUTIONS divider sits: after the last puzzle page."""
+    return max(page for _, page in print_plan(puzzles).values()) + 1
+
+
+def answer_page_number(puzzles: Sequence[dict], index: int = 0) -> int:
+    """Where puzzle ``index``'s answer prints.
+
+    Only for books whose answers take one page each — the three-tier book of
+    AC-194, where every level starts a page of its own (AC-290), and the
+    one-puzzle books — so the answer's page is its number's place after the
+    SOLUTIONS divider.
+    """
+    number, _ = print_plan(puzzles)[index]
+    return solutions_page_number(puzzles) + number
 
 
 def _pages_with_band(
@@ -357,10 +414,10 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
         in the band or beside the grid, differs from this one.
         """
         puzzle = _puzzle(name=self.NAME)
-        page = _interior([puzzle])[puzzle_page_number(0) - 1]
+        page = _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
 
         expected, _ = _pages_with_band(
-            puzzle, puzzle_page_number(0), name=None, identity="Puzzle 1 · Easy"
+            puzzle, puzzle_page_number([puzzle]), name=None, identity="Puzzle 1 · Easy"
         )
         assert _has_ink(_band_strip(page)), "the band is blank"
         assert page.tobytes() == expected.tobytes()
@@ -378,8 +435,8 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
 
         theirs = _interior([snowflake])
         others = _interior([renamed])
-        puzzle_page = puzzle_page_number(0) - 1
-        answer_page = answer_page_number(0, 1) - 1
+        puzzle_page = puzzle_page_number([snowflake]) - 1
+        answer_page = answer_page_number([snowflake]) - 1
 
         assert theirs[puzzle_page].tobytes() == others[puzzle_page].tobytes()
         assert theirs[answer_page].tobytes() != others[answer_page].tobytes()
@@ -425,20 +482,20 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
 
         expected_puzzle, _ = _pages_with_band(
             puzzle,
-            puzzle_page_number(0),
+            puzzle_page_number([puzzle]),
             name=None,
             identity=expected_band(number, puzzle["difficulty_tier"]),
         )
-        assert pages[puzzle_page_number(0) - 1].tobytes() == expected_puzzle.tobytes()
+        assert pages[puzzle_page_number([puzzle]) - 1].tobytes() == expected_puzzle.tobytes()
 
-        answer = pages[answer_page_number(0, 1) - 1]
+        answer = pages[answer_page_number([puzzle]) - 1]
         titled = ANSWER_CAPTION.format(number=number, title=self.NAME)
         assert answer.tobytes() == _answer_page(
-            [(puzzle, titled)], answer_page_number(0, 1), "Easy"
+            [(puzzle, titled)], answer_page_number([puzzle]), "Easy"
         ).tobytes()
         assert answer.tobytes() != _answer_page(
             [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
-            answer_page_number(0, 1),
+            answer_page_number([puzzle]),
             "Easy",
         ).tobytes(), "the title contributes no ink to the answer page"
 
@@ -482,8 +539,8 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         written-out expectation, this one isolates what the title alone did.
         """
         number = 1
-        page_number = answer_page_number(0, 1)
         puzzle = _puzzle(name=self.NAME)
+        page_number = answer_page_number([puzzle])
         page = _interior([puzzle])[page_number - 1]
 
         untitled = _answer_page(
@@ -527,7 +584,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
 
         for index, (puzzle, label) in enumerate(zip(puzzles, ("Easy", "Medium", "Hard"))):
             number = index + 1
-            page_number = answer_page_number(index, len(puzzles))
+            page_number = answer_page_number(puzzles, index)
             page = pages[page_number - 1]
 
             assert page.tobytes() == _answer_page(
@@ -575,7 +632,7 @@ class TestBookPdf_EveryFifthGridLineWider:
     def _page() -> Image.Image:
         columns, rows, depth = TestBookPdf_EveryFifthGridLineWider.PUZZLE
         puzzle = _puzzle(columns, rows, depth)
-        return _interior([puzzle])[puzzle_page_number(0) - 1]
+        return _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
 
     def test_the_grid_is_the_thirty_by_thirty_at_the_stated_cell(self) -> None:
         """The premise of the measurement, taken off the page itself."""
@@ -670,9 +727,9 @@ class TestBookPdf_UngradedPuzzlePrintsItsNumberAlone:
 
     def test_the_page_of_an_ungraded_puzzle_says_only_its_number(self) -> None:
         puzzle = _puzzle(tier=None)
-        page = _interior([puzzle])[puzzle_page_number(0) - 1]
+        page = _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
         expected, _ = _pages_with_band(
-            puzzle, puzzle_page_number(0), name=None, identity="Puzzle 1"
+            puzzle, puzzle_page_number([puzzle]), name=None, identity="Puzzle 1"
         )
         assert _has_ink(_band_strip(page))
         assert page.tobytes() == expected.tobytes()
@@ -757,6 +814,15 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
     said anything else — the wrong number, a stored ``"easy"`` unlabelled, an
     invented tier for an ungraded row — would differ, and so would a page
     carrying the picture's title anywhere on it.
+
+    Since CARD-128 these are **grouped and divided** books: the tiers are
+    drawn independently of the position, so almost every book of the corpus is
+    of several levels, prints in an order that is not the one it was handed in
+    and carries a divider page opening each of its levels. ``N`` is therefore
+    the puzzle's place in the *print* order and the page is the one the
+    grouping put it on — both taken from :func:`print_plan`, this module's own
+    reading of FR-041 — so a band numbered by submission order, or by page,
+    fails here.
     """
     random_source = random.Random(20260923)
     books = 0
@@ -794,10 +860,13 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
             )
 
         pages = _interior(puzzles)
+        plan = print_plan(puzzles)
         for index, puzzle in enumerate(puzzles):
-            number = index + 1
+            # Where this row lands once the book is grouped by level, and the
+            # number it carries there (CARD-128) — this module's own reading
+            # of the print order, not the generator's.
+            number, page_number = plan[index]
             identity = expected_band(number, puzzle["difficulty_tier"])
-            page_number = puzzle_page_number(index)
             expected, _ = _pages_with_band(
                 puzzle, page_number, name=None, identity=identity
             )

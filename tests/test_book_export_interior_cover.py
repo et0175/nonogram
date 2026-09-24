@@ -32,11 +32,13 @@ TRIM_PX = (2550, 3300)
 BOOK_TITLE = "Winter Pictures"
 
 
-def _interior_pages(puzzle_count, answer_pages):
-    """The interior's page count: guide, the puzzle pages, divider, the key.
+def _interior_pages(puzzle_count, answer_pages, levels=1):
+    """The interior's page count: guide, levels, puzzles, divider, the key.
 
-    FR-043's make-up with both variable terms named rather than left as
-    literals. ``puzzle_count`` is also the puzzle-**page** count for every book
+    FR-043's make-up with every variable term named rather than left as
+    literals. ``levels`` is how many divider pages the puzzle section opens —
+    one per non-empty level (CARD-128), and every book in this module is a
+    book of easy puzzles, so one. ``puzzle_count`` is also the puzzle-**page** count for every book
     in this module: its puzzles are 20x20s, which never pair two-up here
     (FR-040). That premise is not assumed — it is asserted off a written
     interior by ``TestBookFinalise_PageCountIsTheExportsPagePlan``'s
@@ -49,7 +51,7 @@ def _interior_pages(puzzle_count, answer_pages):
     """
     if puzzle_count == 0:
         return 1
-    return 1 + puzzle_count + 1 + answer_pages
+    return 1 + levels + puzzle_count + 1 + answer_pages
 
 
 #: This module's standard book: three easy 20x20s, so its key is one page.
@@ -183,7 +185,7 @@ class TestBookExport_InteriorStartsAtGuidePage:
         assert same_page(interior[0], _guide_page(3, 3))
 
     def test_the_interior_runs_guide_puzzles_divider_answers(self, covered_book):
-        """1 guide + 3 puzzles + divider + the key, and no cover page anywhere.
+        """1 guide + the "Easy" divider + 3 puzzles + SOLUTIONS + the key.
 
         The key is one page since FR-042 packed it (CARD-134); before that it
         was three, one per puzzle. What this AC is about is the *order* of the
@@ -210,7 +212,8 @@ class TestBookExport_InteriorStartsAtGuidePage:
         )
 
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
-        assert export.interior_page_count == 4  # guide, puzzle, divider, answer
+        # Guide, the "Easy" divider, the puzzle, SOLUTIONS, its answer.
+        assert export.interior_page_count == 5
 
 
 class TestBookExport_InteriorHoldsNoCoverPage:
@@ -362,7 +365,10 @@ class TestBookFinalise_OffersBothDownloads:
         assert 'name="part" value="cover"' in body
         # The cover is no longer listed as a page of the book.
         assert "Cover page (" not in body
-        assert "~8</dd>" in body  # 1 guide + 3 puzzles + divider + 3 answers
+        # The un-paired, un-packed plan of a 3-puzzle book, with the most
+        # dividers 3 puzzles could open: 1 guide + 3 dividers + 3 puzzles +
+        # SOLUTIONS + 3 answers.
+        assert "~11</dd>" in body
 
 
 # --- CARD-135 review cycle 1 --------------------------------------------------
@@ -571,8 +577,9 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
     how the Finalise screen calls it — it is therefore the un-paired,
     un-packed plan: an **upper bound**, which is what that screen has always
     labelled it ("~") and what CARD-129 owns making exact (EC-034). Since the
-    packed key (CARD-134) that bound is wider: a three-puzzle book plans 8 and
-    writes 6.
+    packed key (CARD-134) that bound is wider, and wider again since CARD-128
+    put the most dividers a book of that many puzzles could open into it: a
+    three-puzzle book plans 11 and writes 7.
 
     So the two statements are asserted separately, and both against the
     written file: the plan given every term is the file's page count exactly,
@@ -614,14 +621,15 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         which would take every page-count assertion in this module down with
         it without naming the reason.
 
-        So it is measured, not assumed: the written interior is guide +
-        puzzle pages + divider + key, so what is left after the two fixed
-        pages and the key's own term is the puzzle-page count, and it is the
-        puzzle count. These books are one tier throughout, so a pairing walk
-        that paired anything at all would be seen here.
+        So it is measured, not assumed: the written interior is guide + the
+        one level's divider + puzzle pages + SOLUTIONS + key, so what is left
+        after the three fixed pages and the key's own term is the puzzle-page
+        count, and it is the puzzle count. These books are one tier
+        throughout, so a pairing walk that paired anything at all would be
+        seen here — and so would a second divider.
         """
         written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
-        puzzle_pages = written - 2 - self._answer_pages(puzzle_count)
+        puzzle_pages = written - 3 - self._answer_pages(puzzle_count)
 
         assert puzzle_pages == puzzle_count
 
@@ -636,9 +644,14 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         # plan function entirely.
         assert written == _interior_pages(puzzle_count, answer_pages)
         # And the plan function, given the same terms, against the file. A
-        # 20x20 never pairs here, so the puzzle-page term is the count.
+        # 20x20 never pairs here, so the puzzle-page term is the count, and
+        # these books are one level, so the divider term is 1 — 0 for the
+        # empty book, which has no puzzle section at all.
         assert (
-            interior_page_count(puzzle_count, puzzle_count, answer_pages) == written
+            interior_page_count(
+                puzzle_count, puzzle_count, answer_pages, min(1, puzzle_count)
+            )
+            == written
         )
 
     @pytest.mark.parametrize("puzzle_count", (0, 1, 3, 7))
@@ -655,6 +668,54 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
         assert interior_page_count(puzzle_count) >= written
 
+    @staticmethod
+    def _one_per_level_interior():
+        """The written interior of three 20x20s, one on each of the levels.
+
+        Every other book in this module is easy throughout, so its puzzle
+        section opens a single divider. This one opens the most a three-puzzle
+        book can (CARD-128) — one per non-empty level, ADR-0031's three — and
+        its key takes a page per level, since each level's answers start a new
+        answer page (FR-042, AC-290).
+        """
+        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        found = clues.compute_clues(grid)
+        return BookPDFGenerator().export_interior(
+            [
+                {
+                    "grid": grid,
+                    "clues_rows": found.rows,
+                    "clues_cols": found.columns,
+                    "width": 20,
+                    "height": 20,
+                    "difficulty_tier": tier,
+                }
+                for tier in ("easy", "medium", "hard")
+            ]
+        )
+
+    def test_the_bound_holds_where_a_book_opens_a_divider_per_level(self):
+        """The one-argument bound at the boundary it is tight on (EC-034).
+
+        The two assertions above run only on this module's easy books — one
+        level, one divider page — so neither would see the plan's divider term
+        understate a book that opens three. Three puzzles across three levels
+        is where the bound and the file meet exactly: it is the first book a
+        narrower divider term stops bounding, and CARD-129's KDP refusal reads
+        this number next.
+        """
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        written = pdf_page_count(self._one_per_level_interior().getvalue())
+
+        # This module's own arithmetic first: guide, a divider per level, a
+        # page per puzzle, SOLUTIONS, and an answer page per level.
+        assert written == _interior_pages(3, 3, levels=3)
+        assert interior_page_count(3) >= written
+        # And the bound is not merely satisfied here, it is met — this is the
+        # worst case, so any slack left would be slack the bound does not have.
+        assert interior_page_count(3) == written
+
     @pytest.mark.parametrize("puzzle_count", (1, 3))
     def test_finalise_shows_that_bound_on_the_downloaded_interior(
         self, admin_app, puzzle_count
@@ -670,6 +731,9 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         # not against the function that produced it: the one-argument call is
         # the un-paired, un-packed plan, so both of its variable terms are the
         # puzzle count — one puzzle page and one answer page each.
-        assert f"~{_interior_pages(puzzle_count, puzzle_count)}</dd>" in body
+        assert (
+            f"~{_interior_pages(puzzle_count, puzzle_count, min(3, puzzle_count))}</dd>"
+            in body
+        )
         assert interior_page_count(puzzle_count) >= pages
         assert pages == _interior_pages(puzzle_count, self._answer_pages(puzzle_count))
