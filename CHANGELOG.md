@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-24
+- CARD-134 (feature): The book's answer key is packed — 6 answers to a page, 4 once an answer is over 20 cells, in puzzle-number order with "Puzzle N — Title" captions and a new page per level under its heading. A 150-puzzle book's key goes from 150 pages to 31. The caption's em dash also prints as a real dash: the face in use had no U+2014, so it had been printing an empty box.
+
 ## 2026-09-23
 - CARD-130 (feature): A book reopens into its step workflow from anywhere — all five steps are linked from every screen whatever the book's status, and general info is edited in place instead of only at creation.
 - CARD-127 (feature): The book PDF puts two puzzles on a page where they fit — walking the stored order and pairing same-tier neighbours, never reordering — so a 9-puzzle Book 1 interior runs 17 pages instead of 20.

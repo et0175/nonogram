@@ -1,0 +1,161 @@
+version: 1
+generated_at: "2026-09-24T06:44:41Z"
+target: "CARD-134 cycle 3/3 (LAST) — branch card/134-book-answer-key, WORKING TREE vs merge-base 679e78a (committed 2cb5883, 81b68c0 + the uncommitted cycle-1 and cycle-3 fix rounds), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-134"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_answer_key.py (whole file, incl. the uncommitted docstring delta)"
+    - "src/nonogram/admin/book_pdf_generator.py (interior_page_count, _named_puzzles, _answer_extent, custom_titles, answer_key, _answer_page, interior() 1330-1435; whole committed diff header)"
+    - "src/nonogram/export/png.py (whole diff vs 679e78a: imports, FONT_PACKAGE/RESOURCE, _lettering_font_bytes/_lettering_font, the two font= swaps; _clue_font confirmed unchanged)"
+    - "tests/test_book_pdf_band.py (whole uncommitted diff; TestBookPdf_PuzzlePageCarriesNoPictureTitle AST-extracted at 679e78a and at the working tree and byte-compared)"
+    - "tests/test_book_answer_key.py (whole uncommitted diff, header/helpers, AC-261/266/268/269/270/290/291 classes, the new EC-031 and extent-cross-check classes)"
+    - "tests/property/test_book_answer_key.py (docstring, the independent rule restatement, check_the_key, corpus floors)"
+    - "tests/test_book_pdf.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pairing.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py (whole diffs vs 679e78a plus the uncommitted delta)"
+    - "src/nonogram/admin/app.py:3310-3330 (the one-argument interior_page_count call, read-only)"
+    - "meta/kanban/cards/CARD-134.md (whole), CARD-129.md (header), pyproject.toml package-data, src/nonogram/export/fonts/"
+  not_reached:
+    - "src/nonogram/export/layout.py compute_answer_page_layout (CARD-133's, consumed as delivered; only font_size types and ANSWER_* constants grepped)"
+    - "tests/property/test_book_answer_tiles.py (CARD-133's; grepped for its vertical/tile assertions, not read line by line)"
+    - "tests/test_book_answer_key.py lines 399-560 read by structure rather than line by line"
+  confidence: high
+metrics:
+  diff: { files: 12, added: 2836, removed: 181 }
+  max_fan_in: { symbol: "interior_page_count", callers: 29 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["src/nonogram/admin/app.py", "src/nonogram/admin/templates/book_finalize.html"]
+  unmeasured:
+    cochange_missing: "not_applicable — both peers (app.py 6 co-changes, book_finalize.html 4) are forbidden by G-5 / owned by CARD-129 (status ready, Depends on CARD-134, Touches both files). Their absence is mandated by the decomposition, not a missing change; the user-visible consequence is filed as F-303."
+
+system_contract:
+  rules_checked: 46
+  holds: 13
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived this cycle: pyproject.toml is absent from the change set (git diff --name-only 679e78a HEAD -- pyproject.toml and git status --porcelain -- pyproject.toml both empty); [tool.setuptools.package-data] \"nonogram.export\" = [\"fonts/*.ttf\", \"fonts/LICENSE\"] already existed and src/nonogram/export/fonts/ holds DejaVuSans.ttf + LICENSE; png.py's three new imports are stdlib only (io, functools.lru_cache, importlib.resources — src/nonogram/export/png.py:45-48)"
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web/ is absent from the change set (git diff --name-only 679e78a HEAD -- src/nonogram/web empty, git status clean there); no nonogram.admin import was created in export/png.py, so test_cli.py's AST guard's scope is untouched"
+    - "ADR-0022/R1 ✓ holds — every new boundary type carries the extent as a pair: Answer.width/height (book_answer_key.py:140-143), _answer_extent -> Tuple[int, int] (book_pdf_generator.py:623/667), png._answer_extent -> (columns, rows), _expected_answer_left_mm reads puzzle[\"width\"]/[\"height\"]; no scalar \"size\" field introduced anywhere in the 12 files"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the change set (no sourcing/ or image module among the 12 files)"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: cli.py is absent from the change set (git diff --name-only 679e78a HEAD -- src/nonogram/cli.py empty)"
+    - "ADR-0023/R1 ⚠ unchecked — no_eligible_fact: no export metadata format changed; png.py's only hunk is the lettering face"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the change set"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter code in the change set"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the change set"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the change set"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the change set"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the change set"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict seam in the change set"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty.py is absent from the change set; tier_of_record is consumed read-only by _pairable_tier"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no technique classification in the change set"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring term in the change set"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the change set"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the change set"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage boundary in the change set (G-4 re-derived clean: src/nonogram/db/**, migrations/** and book_manager.py all absent from git diff --name-only 679e78a HEAD and from git status --porcelain)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is neither read nor written anywhere in the change set"
+    - "ADR-0033/R1 ✓ holds — the change touches no DB module and writes no puzzle field; custom_titles() (book_pdf_generator.py:966-992) reads books.puzzle_titles through Mapping/getattr with no book_manager import and no swallowed exception, and persists nothing; answer_key()/_answer_page() read grid, name and difficulty only"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition or plan check in the change set"
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/layout.py is absent from the change set; png.py's diff contains no geometry hunk; render_answer_page has no CLI or web caller (grep over src/: only admin/book_pdf_generator.py:151/1088 plus docstring references)"
+    - "ADR-0036/R2 ✓ holds — book_answer_key.py's only project import is `from nonogram.difficulty import Tier` (no PIL, no PageSpec — re-derived by grepping its import block); _answer_page (book_pdf_generator.py:1058-1090) composes captions only and delegates capacity/spec/heading to render_answer_page; png.py's diff adds no tile geometry, cell fitting, grid line or vertical centring"
+    - "ADR-0037/R1 ✓ holds — _puzzle_payload clears payload.name so a puzzle page has no title to print, while _answer_page passes payload.name into answer_title; TestBookPdf_PuzzlePageCarriesNoPictureTitle AST-extracted from 679e78a and from the working tree and byte-compared: IDENTICAL, 1931 bytes, sha1 0e97335c6af4 both sides; MUTATION-VERIFIED this cycle by the reviewer (answer_title forced to return None) — all THREE methods of TestBookPdf_AnswerKeyCarriesPictureTitle now FAIL, where cycle 2's mutant left the third one passing; file restored, shasum 7befd8e9fcc24282a9d5391b5a2f328ba2316839 before and after"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no rule-stroke code in the change set; png._draw_answer is unchanged"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ is absent from the change set"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in the change set"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web request handling in the change set"
+    - "CON-011 ✓ holds — no literal 10 or 30 is used as a grid bound in the new modules; SIX_UP_LONGEST_SIDE = 20 is documented at book_answer_key.py:88-93 as the key's tiling threshold and explicitly not a grid bound, and tests/property/test_book_answer_key.py draws extents from limits.MIN_SIZE..MAX_SIZE (imported, not spelled)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the change set"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: app.py is absent from the change set (G-5 re-derived clean)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: app.py is absent from the change set (G-5 re-derived clean)"
+    - "CON-019 ✓ holds — the golden tripwire files (tests/test_export_a4_golden.py, tests/property/test_cli_exports_byte_identity.py, tests/fixtures/a4_golden/**) are absent from both git diff --name-only 679e78a HEAD and git status --porcelain (re-derived by pattern this cycle); the face swap is confined to render_answer_page's caption and heading, _clue_font still returns ImageFont.load_default(size=layout.clue_font_size) (png.py:160), and render_answer_page has no CLI or web caller"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues.py is absent from the change set"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness gate in the change set"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the change set"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan code in the change set"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership/override code in the change set"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in the change set"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-membership code in the change set"
+    - "INV-009 ✓ holds — pack_answer_pages (book_answer_key.py:293-355) is forward-only, appends and never sorts, and refuses a non-strictly-increasing number sequence up front; interior() re-checks `answered == list(range(1, count + 1))` against its own input before an answer page is drawn (book_pdf_generator.py:1387-1391); the property test's clause 1 asserts the concatenation of the pages' answers equals the input over a 400+ book corpus plus exhaustive enumeration at lengths 1-3"
+    - "INV-010 ✓ holds — puzzle_pages/_two_up_page are untouched by this card (the generator diff contains no pairing hunk); tests/property/test_book_pairing.py changed only the interior page-count term via an independent _expected_answer_pages written out in that file (lines 243-269), and no pairing assertion moved — verified line by line in the diff"
+    - "INV-011 ✓ holds — the capacity/level/order rule is the card's subject; re-derived independently in tests/property/test_book_answer_key.py (capacity_of, page_bounds, level_runs, the no-early-close replay, headings; 6/4/20 written out rather than imported) over a >=400-book seeded corpus with asserted shape floors plus exhaustive enumeration at lengths 1-3; AnswerPage.__post_init__ makes a seven-answer, over-capacity or two-level page unbuildable; MUTATION-VERIFIED this cycle: SIX_UP_LONGEST_SIDE 20 -> 21 killed 5 tests (all 4 property cases + TestBookAnswerKey_LongestSideTwentyStaysSixUp::test_one_cell_longer_takes_the_page_to_four_up), and always-on heading killed 6 tests incl. TestBookAnswerKey_HeadingOnlyOnLevelFirstPage; both restored (shasum unchanged)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership persistence in the change set"
+    - "INV-013 ✓ holds — guide = interior page 1; puzzle pages 2..1+len(plan); divider create_divider_page(2 + len(plan)); answers from first_answer_page = 3 + len(plan), each drawn on self.page_spec(first_answer_page + offset) (book_pdf_generator.py:1348, 1395-1405); interior() asserts len(pages) == interior_page_count(count, len(plan), len(answer_pages)) before returning; PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage measures each answer page's leftmost grid against an independent _expected_answer_left_mm under corpus floors (>=20 answer pages, >=5 of each tiling, >=10 headed)"
+
+root_causes: []
+
+findings:
+  - id: F-301
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3323
+    title: "The Finalise screen's \"~N\" page figure is now a far looser upper bound than before this card (302 vs ~182 on the default plan)"
+    description: |
+      `interior_page_count(len(puzzles_in_book))` — the one-argument call the
+      Finalise screen makes (src/nonogram/admin/app.py:3323) — still means
+      "one puzzle page and one answer page per puzzle". Before FR-042 that was
+      loose only by the two-up pairing saving; since this card it is also loose
+      by the whole of the answer-key packing. On the default 150-puzzle plan
+      the screen now shows ~302 for an interior that writes roughly 182 pages
+      (1 guide + <=150 puzzle pages + 1 divider + 30 answer pages), a ~65%
+      overstatement.
+
+      This is not a defect of this card's code and it is not fixable inside it:
+      G-5 forbids editing app.py, and CARD-129 (status `ready`, `Depends on:
+      CARD-134`, `Touches:` app.py + templates/book_finalize.html) already owns
+      making the figure exact (EC-034/AC-271). The direction is the safe one —
+      the covering test states why (an understated count would send a book to
+      KDP under a spine that does not fit) — and the card's notes do say "the
+      bound is now wider". What is missing is the magnitude, which is what
+      makes it read as a nit rather than as a number the owner will see on
+      screen until CARD-129 lands.
+    suggestion: |
+      No code change here. Record the number on CARD-129 (or in CARD-134's
+      worktree notes) so its acceptance criteria are written against a known
+      starting error rather than against "wider": the generator already reports
+      the exact value via `Interior.page_count` / `BookExport.answer_page_count`,
+      so CARD-129's fix is to read that instead of re-planning from the count.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-302
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_band.py
+    line: 223
+    title: "answer_page_number() still encodes one-answer-page-per-puzzle (cycle 2's F-102, re-derived; skip still correct)"
+    description: |
+      Re-derived this cycle, not carried. `answer_page_number` is called from
+      inside `TestBookPdf_PuzzlePageCarriesNoPictureTitle`, which G-2a requires
+      to stay byte-identical — and it does (AST-extracted at 679e78a and at the
+      working tree: identical, 1931 bytes, sha1 0e97335c6af4 on both sides), so
+      renaming or re-signing the helper would have broken the guardrail. Its
+      surviving call sites are arithmetically correct: `answer_page_number(0, 1)`
+      = 4 for the one-puzzle book and `answer_page_number(index, 3)` = 6, 7, 8
+      for the three-puzzle / three-tier book, which FR-042 gives three answer
+      pages (one per level). Only the helper's name and docstring still
+      generalise from the deleted per-puzzle form.
+    suggestion: |
+      Leave as is on this card — G-2a's freeze makes any change to it a
+      guardrail violation. Follow-up card for CARD-117's owner: take the
+      answer-page count explicitly, or rename to state the assumption.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

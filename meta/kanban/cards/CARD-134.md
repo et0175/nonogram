@@ -1,6 +1,6 @@
 # CARD-134: The answer key in the book PDF — puzzle-number order, 6-up / 4-up pages, "Puzzle N — Title" captions
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -14,12 +14,12 @@
 **Idea:** —
 **Wave:** 25
 **Depends on:** CARD-117, CARD-133
-**Touches:** src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_answer_key.py, tests/property/test_book_answer_key.py, src/nonogram/export/png.py (G-1a: the caption face only), tests/test_book_pdf_band.py (G-2a: the two retargeted methods only)
-**Review score:** 8.0 (cycle 2/3)
+**Touches:** src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_answer_key.py, tests/property/test_book_answer_key.py, src/nonogram/export/png.py (G-1a: the caption face only), tests/test_book_pdf_band.py (G-2a + G-2b: the three retargeted methods of TestBookPdf_AnswerKeyCarriesPictureTitle only)
+**Review score:** 9.0 (cycle 3/3)
 **Started:** 2026-09-23
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-24
+**Actual:** 1d
+**Merge commit:** 72f7a3b
 **Blocked by:** —
 
 ## What to implement
@@ -524,3 +524,59 @@ The same four pages, overwritten, and looked at:
   (c) AUTHORISE NEITHER — then the only honest action left is to amend the card note that currently presents this method as live coverage, and the dead test ships. Not recommended: a vacuous test with a name that claims a property is what the next reader will trust.
   Route: rule on (a)/(b)/(c), then `/kanban review CARD-134` — the worktree, both commits and the uncommitted cycle-1 fixes are all KEPT. Do NOT redo the card; nothing about the implementation is in question.
 - [State at escalation] Implementation committed 2cb5883 + 81b68c0; cycle-1 fixes present but UNCOMMITTED (that is the procedure's fix loop, not an oversight). Full suite green (242s, exit 0, 0 failures, known pre-existing e2e deselected). Both review reports synced. The formal AC/EC/G verification gate has NOT run — it runs only on the success path — but cycle 1 and cycle 2 both walked all ten ACs and EC-030 against named tests and found them satisfied, and cycle 2's Step 8h reported 46/46 rules with 0 violations.
+- [Unblocked] 2026-09-23 (2nd) — decompose ruled F-006 as option (a): RETARGET the third method, deleting explicitly NOT authorised. Recorded as G-2b (main c98ad97). Touches parenthetical updated to three methods. Cycle 3 is the last; the stalled-check reading was accepted by the dispatcher and does not block.
+- [Fix 2] FIXED F-006 by the G-2b retarget: the method now compares the packed answer page against the SAME page kind one caption apart (`_answer_page([(puzzle, UNTITLED_ANSWER_CAPTION…)])`), and measures the difference three ways — pages unequal, titled page carries strictly MORE ink (caption font size is fixed by tile geometry, so a title can only add glyphs), and the differing rows form one unbroken run shorter than the band (31 rows, 226..256), i.e. one line of type. The information-free `_has_ink(_band_strip(page))` line was REMOVED with its reason recorded in the docstring: on a packed page the top 12 mm is where the first answer TILE is drawn, so the strip holds ink (18174 px) even with heading=None and an untitled caption. Also fixed both cycle-2 minors: TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor (the EC-031 link is now evidence, not a claim) and a premise test for `_interior_pages`.
+- [Fix 2] declarations: 0 updated, 0 confirmed, 3 doc/notes (book_answer_key module docstring, _interior_pages docstring, card notes). No production behaviour changed this round — every edit is a test or a docstring; the only source file touched gained 9 docstring lines.
+- [Fix 2] ⚠ worth the record: the fix agent's FIRST retarget attempt asserted "every differing row lies below the 12 mm strip" and that assertion is FALSE — the caption rows 226..256 overlap the strip 112..254. It was caught by running the test, not by reasoning, and replaced with the contiguous-run bound. It also refuted the Minor's suggested numbers: a 21x21 six-up measures 3.78 mm, comfortably ABOVE the 3.19 mm floor; 25x25 (3.178) is the first breach, so INV-011's 20-cell rule stands four cells clear of the edge — pinned by name so the rationale cannot be misread.
+- [Fix pre-gate] PASSED — exactly the tests the FIXED line names: 24 passed. THE DECISIVE MUTATION RE-RUN BY THE ORCHESTRATOR, not taken on the agent's word: forcing `answer_title` to return None makes ALL THREE methods of TestBookPdf_AnswerKeyCarriesPictureTitle FAIL (cycle 2's mutant left the third one passing); restored byte-for-byte (shasum 7befd8e9… identical before and after) and all three pass again.
+- [Build gate] PASSED (full, 245s) — exit 0, 0 failures, 1 deselected (known pre-existing). Under the repo full-suite lock.
+
+### [CARD-134, 2026-09-24] Pipeline resumed by a fresh orchestrator — cycle 3 through the success /commit
+
+- [Handover] The previous pipeline agent stopped without reporting after the Fix-2/G-2b round. Nothing was redone: commits 2cb5883 + 81b68c0 stand, the uncommitted fix work was kept, and the steps below are only the ones that had not run.
+- [G-2b verification] The retarget BITES — re-derived by this orchestrator before anything else, not taken from the notes. Mutation `book_answer_key.answer_title -> return None` makes **all three** methods of `TestBookPdf_AnswerKeyCarriesPictureTitle` FAIL (cycle 2's mutant left the third one passing). File restored byte-for-byte (shasum 7befd8e9fcc24282a9d5391b5a2f328ba2316839 before and after) and all three pass again.
+- [System contract] re-assembled fresh from the model this cycle (`system_rules.py --card CARD-134`): 46 ids, IDENTICAL to the card's section — no drift, no sync needed.
+- [Scope gate] GROWN (unchanged from cycle 1, not re-noted as new): 12 changed files, 6 inside Touches, 6 existing test files recorded as SCOPE+. comp_spread 0, guardrail_hits 0, judged against the MERGE-BASE 679e78a. Because the verdict is GROWN, confirmation mode was NOT eligible — cycle 3 ran as a FULL review.
+- [Build gate] PASSED (full, 246s) — exit 0, 4926 collected, 0 failures, 1 deselected (the known pre-existing `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`). Run from the worktree root under the repo full-suite lock via `fcntl.flock` on `meta/kanban/.full-suite.lock` (flock(1) does not exist on macOS), with a private `--basetemp`.
+- [Review 3/3] Score: 9.0 ✓ threshold reached + no critical/important — crit 0, imp 0, 2 minor, 2 out-of-scope. Step 8h: 46 rules checked (13 ✓ holds all freshly re-derived, 33 ⚠ unchecked/no_eligible_fact, 0 ✗) — full coverage, count line present. Step 8f mutation check RAN, not deferred: 3 mutants, 3 killed, 0 survivors (answer_title→None; SIX_UP_LONGEST_SIDE 20→21; heading on every page). SCOPE+ audit answered the cycle's key question: **no existing test was weakened into a tautology** — file by file, every edit is a named term, an independent second implementation, or a retarget forced by FR-042 deleting the page kind the old assertion pinned.
+- [Review sync] 1 report(s) → meta/review/ (20260924T064441Z-CARD-134-cycle3.yml)
+- [Severity gate 3/3] Score 9.0 >= threshold 8 AND 0 critical / 0 important — success path OPEN.
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0037/R1, CON-019, INV-011) by three independent skeptics in fresh context, each re-running the evidence rather than reading the verdict. Sampled by consequence rather than by report order — these are the three rules the card's own guardrails hang on (G-2/G-2a/G-2b, G-3, and INV-011 the card's subject). Two corrections to the reviewer's wording, neither changing a verdict: the frozen class is 1939 bytes, not the 1931 the report says (the cited sha1 matches, so it is a typo, not different evidence); and the always-on-heading mutant kills 9 tests, not 6 — a superset of the claim. The `answer_title` mutant also kills a fourth test the report did not claim (`TestBookPdf_PuzzlePageCarriesNoPictureTitle::test_renaming_the_picture_leaves_the_puzzle_page_identical`).
+- [8h spot-check] ⚠ process note for later cards: two skeptics were spawned concurrently against the SAME mutated file and one began mutating before the serialization warning reached it. Caught, both re-ran under an `fcntl` lock, and the worktree was verified pristine afterwards (shasum + `git status` + `git diff --stat` all unchanged). **Never fan out concurrent mutation skeptics over one file without a lock** — the failure would have been a silently contaminated verdict, not a visible error.
+- [AC/EC check] All criteria/constraints ✓ (evidence): 20/20 items ✓ demonstrated in a fresh-context gate — 10 ACs, EC-030, and G-1, G-1a, G-2, G-2a, G-2b, G-3, G-4, G-5, G-6. Every AC ran its named class green (31 tests in tests/test_book_answer_key.py). EC-030 confirmed genuinely multi-case, not one hardcoded scenario: no hypothesis, seeded `random.Random(20260923)` over 440 books with the floors asserted INSIDE the test (MIN_BOOKS 400, MIN_ANSWERS 8000, MIN_PAGES 2000 plus twelve shape floors), and an exhaustive companion asserting `checked == 15**length` for lengths 1-3. G-1/G-1a: the whole 72-line png.py diff is the lettering face and nothing else — no tile geometry, no cell fitting, no grid line, no vertical centring — and G-1a's required discriminating test (`TestBookAnswerKey_CaptionSeparatorIsADrawnGlyph`) was proved to really see the defect by reverting the face IN MEMORY, which failed two of its three methods. G-2a: `TestBookPdf_PuzzlePageCarriesNoPictureTitle` byte-identical to 679e78a, proved by extracting the class from both revisions and hashing (sha256 d8e05dd109bb6515, 2140 B both sides). G-2b: the third method still exists under its exact name and now fails under the skeptic mutation. G-3: 128 tests green and `tests/fixtures/a4_golden/**` absent from both the merge-base diff and `git status` — neither edited nor regenerated. G-4/G-5: zero hits against every guarded glob. All mutation work in this gate was done in memory via a `pytest_configure` plugin, so no repo file was touched.
+- [Golden tripwire] GREEN and untouched, verified three independent ways: by blob hash per fixture file against 679e78a, by absence from both the committed diff and `git status`, and by running it (66 passed in the CON-019 skeptic's run, 128 in the AC gate's wider set).
+- [Docs] no-op, and that is the repo's convention rather than a skip. The four changed directories are `src/nonogram/admin`, `src/nonogram/export`, `tests` and `tests/property`; only `tests/` has a README and it is a stale Wave-1 document about batch history / preview / bulk operations that this card neither touches nor owns. The canonical package map is `src/nonogram/__init__.py`'s docstring (CLAUDE.md), which maps package → COMP id and gains nothing from a new module inside COMP-009. `admin/__init__.py` re-exports only the three long-standing services — neither `book_pdf_generator` nor `book_proof` is there — so `book_answer_key` correctly is not either.
+- [Owner] Two things still want your eyes, both carried over and neither blocking: (1) the re-rendered proofs in `~/Documents/nonogram-reviews/CARD-134/` — the em dash now prints as a real dash, worth confirming on paper; (2) the ragged bottom on a mixed 4-up page (`03-mixed-1.png`) — grids hang from their captions, so a mixed page reads as two unrelated rows. That is `export/` geometry outside G-1a's one-line exception, so it was deliberately left alone: CARD-133's to do and yours to rule on.
+- [Follow-up for CARD-129] Finalise's "~N" is now a far looser bound than it was: the one-argument `interior_page_count(len(puzzles))` still means one puzzle page and one answer page per puzzle, which overstates the default 150-puzzle interior by roughly 65% (302 against ~182). Not fixable here (G-5 forbids app.py) and already CARD-129's; recorded so its AC can be written against a known starting error. The generator already reports the exact value via `Interior.page_count` / `BookExport.answer_page_count`.
+- [Follow-up for CARD-117's owner] `answer_page_number()` in tests/test_book_pdf_band.py still encodes one-answer-page-per-puzzle in its name and docstring. Both surviving call sites are arithmetically correct, and the helper is called from inside the G-2a-frozen class, so this card could not rename it. Take the answer-page count explicitly, or rename to state the assumption.
+- [Architect] EC-030's `ceil(n / 4) + (L - 1)` bound holds for L = level **runs**, not non-empty levels (easy/medium/easy is 3 answers over 2 levels and needs 3 pages against a bound of 2). INV-009 groups every real book by tier so the two readings coincide, and the property test checks both. Suggested wording: "L level runs (= non-empty levels for any INV-009-grouped order)". Unchanged from cycle 1; restated because it is still open.
+- [Commit] fbab191 `test(admin): CARD-134 — answer-key tests measure the docstrings' claims` — the cycle-3 fix round, 5 files, 265 insertions / 15 deletions, no production behaviour change (every edit a test or a docstring). Staged with explicit pathspecs; nothing under `meta/` committed from the worktree, no `nonogram_admin.db`, no egg-info. The card's three commits on `card/134-book-answer-key` are now 2cb5883 (the packed key), 81b68c0 (the em-dash glyph fix) and fbab191, all on merge-base 679e78a. **Pipeline stops here — the dispatcher merges.**
+- [Commit] ⚠ two documented deviations from forge:commit's defaults, both on the orchestrator's instruction: its `git add -A -- ':(exclude)meta/kanban/**'` was replaced by an explicit five-path add (the repo carries a large standing staged/untracked set, so a bare add is unsafe here), and its "never add Co-Authored-By" rule was overridden by this session's required trailer.
+
+- [Done] Merged 72f7a3b on 2026-09-24. Review 9.0 across 3 cycles (8.5 -> 8.0 -> 9.0), 0
+  critical / 0 important at close. Full review on cycle 3, not confirmation mode — the
+  scope verdict was GROWN, which makes confirmation mode ineligible. Step 8h 46/46 rules,
+  0 violated; the mutation check ran, 3 mutants, 3 killed. AC/EC/G 20/20 demonstrated in
+  fresh context. Full suite green on the merge.
+- [G-2b verified] Before anything else, the retarget was re-derived: the mutation
+  (answer_title -> None) now fails ALL THREE methods of
+  TestBookPdf_AnswerKeyCarriesPictureTitle, where cycle 2's mutant left the third passing.
+  The vacuous test is genuinely fixed, not merely rewritten.
+- [Golden tripwire] Green and untouched, verified three ways: per-fixture blob hash against
+  the merge-base, absence from both the committed diff and git status, and two independent
+  runs. Never regenerated.
+- [Scope] 12 files, 6 in Touches, 6 SCOPE+ existing test files. The review's key question
+  answered NO: no test was weakened into a tautology — every SCOPE+ edit is a named term,
+  an independent second implementation, or a retarget forced by FR-042 deleting the page
+  kind the old assertion pinned.
+- [Handover -> CARD-129] Finalise's "~N" now OVERSTATES the default 150-puzzle interior by
+  about 65% (302 against ~182). Not fixable here (G-5). The exact value is already
+  available as Interior.page_count / BookExport.answer_page_count.
+- [Handover -> CARD-117's next toucher] answer_page_number() still encodes
+  one-answer-page-per-puzzle in its name; G-2a froze that class, so it could not be renamed
+  here.
+- [Process warning for later cards] Two mutation skeptics were fanned out over the SAME
+  file concurrently and one began mutating before the serialization warning landed. Caught,
+  both re-run under a lock, worktree verified pristine — but the failure mode would have
+  been a silently contaminated verdict, not a visible error. Never run concurrent mutation
+  skeptics on one file without a lock.

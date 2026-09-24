@@ -21,7 +21,7 @@ _Updated: 2026-09-22 UTC_
 | 22 | CARD-125 P2, CARD-115 P1, CARD-122 P1, CARD-124 P1, CARD-133 P2 | ✓ done |
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
-| 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ▶ active · closes Increment 13 (owner-confirmed proof print) |
+| 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
 | 26 | CARD-145 P0 (first, alone), CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
 | 27 | CARD-129 P2, CARD-143 P2 — placeholder P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
@@ -51,12 +51,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-134** P2 · The answer key in the book PDF · 1d · wave 25 · Inc 15 · review (cycle 3 — last) · G-2b retarget applied and mutation-verified by the orchestrator
 
 
 ## Review
 
 ## Done
+- **CARD-134** The packed answer key in the book PDF · score 9.0 (3 cycles) · merged 72f7a3b
 - **CARD-130** Books reopen into the step workflow · score 9.0 (3 cycles) · merged a101db1 · ⏳ owner screenshot check
 - **CARD-127** Two-up pages in the book PDF · score 9.0 (2 cycles) · merged 679e78a · ⏳ owner render check
 - **CARD-138** Batch generation can ask for a difficulty · score 9.0 (2 cycles) · merged cc64540 · ⏳ owner should submit one Medium batch

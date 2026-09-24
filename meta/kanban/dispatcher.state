@@ -6,6 +6,9 @@ run:
   wave: 25
   max_concurrent: 5
 merged:
+  - card: CARD-134
+    merge_commit: 72f7a3b
+    score: 9.0
   - card: CARD-127
     merge_commit: 679e78a
     score: 9.0
@@ -19,6 +22,14 @@ merged:
     score: 8.5
     owner_check: pending   # printed proof measurement, blocks the wave checkpoint
 active:
+  - card: CARD-134
+    branch: card/134-book-answer-key
+    worktree: ../PythonProject4-CARD-134
+    phase: committed
+    review_cycle: 3
+    head: fbab191
+    score: 9.0
+    owner_check: pending   # re-rendered proofs; ragged bottom on mixed 4-up pages
   - card: CARD-118
     branch: card/118-proof-pages
     worktree: ../PythonProject4-CARD-118
@@ -40,20 +51,8 @@ active:
     phase: commit
     review_cycle: 2
 resolved_escalations:   # CARD-134 unblocked 2026-09-23 by decompose rulings G-1a / G-2a
-escalated:
-  - card: CARD-134
-    branch: card/134-book-answer-key
-    worktree: ../PythonProject4-CARD-134
-    phase: escalated
-    review_cycle: 0
-    station: decompose
-    reason: >-
-      two guardrail-vs-AC conflicts, neither weakenable in the worktree —
-      G-1 vs AC-268 (CARD-133's render_answer_page sets captions in a face with
-      no U+2014, so "Puzzle 7 — Snowflake" prints a .notdef box; the one-line
-      fix is in src/nonogram/export/**, which G-1 forbids this card and tells it
-      to escalate) and G-2 vs AC-261 (two TestBookPdf_AnswerKeyCarriesPictureTitle
-      methods pin the one-answer-page-per-puzzle key FR-042 replaces).
-    commit: 2cb5883
-    worktree_kept: true
 serialized: []   # CARD-134 released 2026-09-23 when CARD-127 merged
+
+# Wave 25: all five cards merged 2026-09-23/24. The wave is NOT closed — its
+# owner_confirmed_checkpoint (the printed proof measurement, CARD-118) is outstanding,
+# and Increment 13 closes on it. Wave 26 must not start before that ruling.

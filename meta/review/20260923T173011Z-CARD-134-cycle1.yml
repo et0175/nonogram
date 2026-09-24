@@ -1,0 +1,249 @@
+version: 1
+generated_at: "2026-09-23T17:30:11Z"
+target: "CARD-134 cycle 1 — branch card/134-book-answer-key, git diff 679e78a...HEAD (2cb5883, 81b68c0), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-134"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_answer_key.py"
+    - "src/nonogram/admin/book_pdf_generator.py (full diff + interior() body)"
+    - "src/nonogram/export/png.py (full diff + render_answer_page/_answer_extent)"
+    - "tests/test_book_answer_key.py (header, AC map, G-1a class, failure/size classes)"
+    - "tests/property/test_book_answer_key.py (whole file)"
+    - "tests/test_book_pdf_band.py (whole diff + both title classes)"
+    - "tests/test_book_pdf.py, tests/test_book_pdf_two_up.py (whole diffs)"
+    - "tests/test_book_export_interior_cover.py (whole diff + lines 555-643)"
+    - "tests/property/test_book_export_interior.py, tests/property/test_book_pairing.py, tests/property/test_book_pdf_geometry.py (whole diffs)"
+    - "pyproject.toml (package-data + dependencies, unchanged)"
+  not_reached:
+    - "tests/test_book_answer_key.py lines 140-680 and 813-1077 (AC bodies read by name/structure, not line by line)"
+    - "src/nonogram/export/layout.py compute_answer_page_layout (CARD-133's, consumed as delivered)"
+  confidence: high
+metrics:
+  diff: { files: 12, added: 2836, removed: 181 }
+  max_fan_in: { symbol: "interior_page_count", callers: 8 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["src/nonogram/admin/app.py", "src/nonogram/admin/templates/book_finalize.html"]
+  unmeasured:
+    cochange_missing: "not_applicable — both peers are forbidden by guardrail G-5 (app.py) / owned by CARD-129 EC-034 (book_finalize.html); their absence is mandated, not a missing change"
+
+system_contract:
+  rules_checked: 46
+  holds: 13
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not in the 12-file diff; the DejaVu face was already package data ([tool.setuptools.package-data] \"nonogram.export\" = [\"fonts/*.ttf\", \"fonts/LICENSE\"]) and png.py's new imports are stdlib only (io, functools.lru_cache, importlib.resources); TestDependencyBaseline_IsExactlyPillowAndNumpy green in my run"
+    - "ADR-0019/R1 ✓ holds — no file under src/nonogram/web/ in the diff; test_every_import_in_the_package_points_inward (tests/test_cli.py AST guard) green in my run over the new export/png.py imports"
+    - "ADR-0022/R1 ✓ holds — every new boundary type carries the extent as a pair (Answer.width/height, _answer_extent -> (columns, rows), _expected_answer_left_mm(columns, rows)); no scalar \"size\" field introduced"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no CLI --size parsing in the diff"
+    - "ADR-0023/R1 ⚠ unchecked — no_eligible_fact: no export metadata format changed; png.py's only change is the lettering face"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no recovery/repair code in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter code in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery policy in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict seam in the diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff (tier_of_record is consumed read-only)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no technique classification in the diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no scoring term in the diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code in the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage boundary in the diff (G-4 clean: no db/**, migrations/**, book_manager.py)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is not read or written anywhere in the diff"
+    - "ADR-0033/R1 ✓ holds — the diff touches no DB module and writes no puzzle field; book_pdf_generator reads rows (grid, name, difficulty_tier) and books.puzzle_titles only, via custom_titles(), and persists nothing"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition or plan check in the diff"
+    - "ADR-0036/R1 ✓ holds — compute_layout is untouched; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green in my run"
+    - "ADR-0036/R2 ✓ holds — book_answer_key.py imports neither PIL nor PageSpec (pure value objects); _answer_page composes captions and delegates capacity/spec/heading to render_answer_page; png.py's diff contains no geometry hunk (only imports, FONT_PACKAGE/RESOURCE, two font helpers and two font= argument swaps)"
+    - "ADR-0037/R1 ✓ holds — _puzzle_payload clears payload.name so a puzzle page has no title to print; TestBookPdf_PuzzlePageCarriesNoPictureTitle is byte-identical (0 diff hits) and green, and the retargeted TestBookPdf_AnswerKeyCarriesPictureTitle now asserts absent+present+contributing on one book"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no rule-stroke code in the diff; png._draw_answer is unchanged"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web request handling in the diff"
+    - "CON-011 ✓ holds — no literal 10/30 in the new modules; SIX_UP_LONGEST_SIDE = 20 is documented as the key's own tiling threshold, not a grid bound, and tests/property/test_book_answer_key.py draws extents from limits.MIN_SIZE..MAX_SIZE"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: app.py is untouched (G-5)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: app.py is untouched (G-5)"
+    - "CON-019 ✓ holds — the golden tripwire files are not in the diff; PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry and TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green in my run; _clue_font deliberately stays on Pillow's default and render_answer_page has no CLI/web caller (grep: only admin/book_pdf_generator.py and tests)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue encoding in the diff"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness gate in the diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan code in the diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership/override code in the diff"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in the diff"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-membership code in the diff"
+    - "INV-009 ✓ holds — pack_answer_pages is forward-only and never reorders; the property test's clause 1 asserts the concatenation of the pages' answers equals the input order over a 440-book corpus plus exhaustive enumeration at lengths 1-3, and interior() re-checks answered == 1..n over its own input before a page is drawn"
+    - "INV-010 ✓ holds — puzzle_pages/_two_up_page are untouched; tests/property/test_book_pairing.py changed only the page-count term, via an independent _expected_answer_pages, and no pairing assertion moved (verified line by line in the diff)"
+    - "INV-011 ✓ holds — the capacity/level/order rule is the card's subject; mutation-verified (needs_four_up '>' -> '>=' and the join '<=' -> '<' both killed, 4 and 1 failures respectively) and swept by the seeded 440-book corpus + exhaustive length<=3 enumeration with asserted shape floors"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership persistence in the diff"
+    - "INV-013 ✓ holds — guide = interior page 1, puzzle pages 2..1+len(plan), divider create_divider_page(2 + len(plan)), answers from first_answer_page = 3 + len(plan) with self.page_spec(first_answer_page + offset) per page; PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage now measures each answer page's leftmost grid against an independent _expected_answer_left_mm with corpus floors (>=20 answer pages, both tilings, >=10 headed)"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_export_interior_cover.py
+    line: 640
+    title: "Finalise's displayed page count is now re-derived with the function under test"
+    description: |
+      `test_finalise_shows_that_bound_on_the_downloaded_interior` asserts
+      `f"~{interior_page_count(puzzle_count)}</dd>" in body`. The expected value
+      comes from `interior_page_count` itself — the same function `app.py:3323`
+      calls to produce the string being matched — so that assertion holds for any
+      arithmetic the function returns. Before this diff the same assertion read
+      `f"~{pages}</dd>" in body`, where `pages` was the written PDF's real page
+      count: an independent number.
+
+      This matters because the single-argument path lost its only exact pin in
+      the same edit: `test_the_plan_matches_the_written_interior` now pins the
+      three-argument form (`interior_page_count(n, n, answer_pages) == written`)
+      and the single-argument form only as `>= written`
+      (`test_the_plan_called_with_the_count_alone_bounds_the_file:627`, and
+      `:641` here). Grep over src/ and tests/ finds no assertion anywhere that
+      `interior_page_count(n)` equals `2n + 2`. The dangerous direction (a stated
+      count BELOW the file's) is still guarded by the two `>=` assertions, so this
+      is a test-quality regression rather than a correctness hole — but it is
+      exactly the "re-derive the expected value with the function you are testing"
+      that CLAUDE.md names, on the one screen a wrong number costs money.
+    suggestion: |
+      Use the module's own independent helper, already defined at line 35:
+
+          assert f"~{_interior_pages(puzzle_count, puzzle_count)}</dd>" in body
+
+      (the un-paired, un-packed plan: one puzzle page and one answer page each).
+      Keep the two `>=` assertions and the `pages == _interior_pages(...)` line as
+      they are.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 618
+    title: "_answer_extent's docstring claims a cross-check test that does not exist"
+    description: |
+      `_answer_extent`'s docstring says of itself and `png._answer_extent`: "The
+      two are pinned equal by the tests, which check that a grid this refuses is
+      a grid the renderer refuses too." No such test exists.
+      `TestBookAnswerKey_AMemberThatCannotBeMeasuredIsNamed`
+      (tests/test_book_answer_key.py:1078) asserts only that the generator's
+      refusal names the puzzle id; `tests/test_layout_answer_tiles.py:437` asserts
+      only that the renderer refuses a ragged grid — neither compares the two
+      predicates. The two implementations do agree today (the generator's adds a
+      type guard and is otherwise identical), so this is drift in a comment, not
+      in behaviour — but the comment is what a future editor will trust.
+    suggestion: |
+      Either add the cross-check (parametrize the malformed grids and assert both
+      `book_pdf_generator._answer_extent` and `png._answer_extent` raise on each),
+      or reword the docstring to say what is actually pinned.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_band.py
+    line: 225
+    title: "answer_page_number() still encodes one-answer-page-per-puzzle"
+    description: |
+      `answer_page_number(index, count) = 3 + count + index` is the pre-FR-042
+      formula: it maps puzzle index -> answer page assuming one answer page per
+      puzzle. Its two surviving call sites are correct only by coincidence — the
+      one-puzzle book and the three-puzzle/three-tier book each happen to have
+      exactly `count` answer pages (one per level). Any future book added to this
+      module with two same-tier puzzles would silently address the wrong page.
+    suggestion: |
+      Rename to something that states the assumption (e.g.
+      `answer_page_number(offset, puzzle_pages)`) or take the answer-page count
+      explicitly, so the coincidence is written down rather than relied on.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/export/png.py
+    line: 335
+    title: "G-1a names the caption face; the heading's face changed too"
+    description: |
+      G-1a permits "the caption FACE used by render_answer_page". The diff also
+      moves the level heading (line 335) onto `_lettering_font`. It is inside the
+      guardrail's stated prohibitions (no tile geometry, no cell fitting, no grid
+      lines, no vertical centring — none of which moved), the review brief words
+      the exception as "the caption/lettering FACE", and the card documents the
+      choice with reasons, so I do not file it as a violation. Recording it so the
+      dispatcher can confirm the reading rather than discover it later: it is a
+      second pixel-changing edit beyond the literal wording, and every affected AC
+      compares two pages drawn by the same renderer, so the ACs move with it.
+    suggestion: |
+      No code change. Confirm the reading of G-1a on the card (one line), or
+      revert line 335 to `ImageFont.load_default(size=layout.heading.font_size)`
+      if the literal wording is to bind.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_pdf_geometry.py
+    line: 396
+    title: "\"Nothing dropped\" over-claims: the absolute left prediction left the answer pages"
+    description: |
+      The card's SCOPE+ note says of this file "Nothing dropped". The edit does
+      drop something: `sheet.drawing_left_mm(number, across, down)` was asserted
+      on pages 2, 3, 5 and 6 and is now asserted on 2 and 3 only, with the answer
+      pages getting a containment check plus the within-kind parity shift; and the
+      four cross-kind shift comparisons became two within-kind ones. The retarget
+      is correct — an answer page's tile is not a placed full-page drawing, so the
+      old prediction no longer describes it — and the absolute measurement is
+      restored elsewhere by `_expected_answer_left_mm` in
+      tests/property/test_book_export_interior.py with asserted corpus floors. So
+      coverage is not lost; only the card's description of the edit is wrong.
+    suggestion: "Amend the SCOPE+ line on the card to say what moved and where it was restored."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
