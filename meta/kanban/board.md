@@ -22,7 +22,7 @@ _Updated: 2026-09-24 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
-| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 1/9 merged (CARD-145, ran first and alone) · 8 ready · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
+| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 2/9 merged (CARD-145, CARD-141) · CARD-142 in review · CARD-128 + CARD-144 implementing · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
 | 27 | CARD-129 P2, CARD-143 P2 — placeholder P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -38,23 +38,23 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134
 - **CARD-131** P2 · Published book confirms before puzzle changes (and returns a non-draft book to draft); back-navigation never discards · 1d · wave 26 · Inc 16 · after CARD-126, CARD-130
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
 - **CARD-139** P1 · One import style in admin/ — a duplicate module tree cannot exist (live Print setup 500) · 0.25d · wave 26 · runs last, alone
 - **CARD-140** P1 · Arrange screen shows the real page breaks (owner: "3 per page even for big ones") · 0.5d · wave 26 · after CARD-128
-- **CARD-141** P2 · Answer-page spare white falls at the page foot (owner ruling) · 0.5d · wave 26 · after CARD-134
-- **CARD-142** P1 · Batch bulk buttons keep up with per-puzzle approve/reject (owner-reported) · 0.5d · wave 26
 - **CARD-144** P2 · Frame around the puzzle on book pages, clue bands boxed (owner) · 0.5d · wave 26 · after CARD-141
 - **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · after CARD-140
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134 · ▶ implementation
 
 
 ## Review
+- **CARD-142** P1 · Batch bulk buttons keep up with per-puzzle approve/reject (owner-reported) · 0.5d · wave 26 · ⟳ review cycle 1/3
 
 ## Done
+- **CARD-141** Answer-page rows take the height they need; spare white at the page foot · score 9.0 (1 cycle) · merged a83cc54
 - **CARD-145** The book PDF written a page at a time (4.3 GB -> 132 MB) · score 9.0 (3 cycles) · merged 554c437
 - **CARD-134** The packed answer key in the book PDF · score 9.0 (3 cycles) · merged 72f7a3b
 - **CARD-130** Books reopen into the step workflow · score 9.0 (3 cycles) · merged a101db1 · ⏳ owner screenshot check

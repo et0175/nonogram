@@ -1,77 +1,60 @@
-# Dispatcher state — /forge:kanban run, wave 25 (closes Increment 13).
+# Dispatcher state — /forge:kanban run, wave 26 (closes Increment 16).
 # Written atomically (tmp + mv). Each card's own pipeline agent updates only its entry.
 run:
-  started: 2026-09-23
+  started: 2026-09-24
   mode: run
-  wave: 25
-  max_concurrent: 5
+  wave: 26
+  max_concurrent: 5        # no meta/kanban/config.yml in this repo — dispatcher defaults
 merged:
-  - card: CARD-134
-    merge_commit: 72f7a3b
-    score: 9.0
-  - card: CARD-127
-    merge_commit: 679e78a
-    score: 9.0
-    owner_check: pending   # two-up render; spare-height question open
-  - card: CARD-138
-    merge_commit: cc64540
-    score: 9.0
-    owner_check: pending   # submit one Medium batch, watch the button and the note
-  - card: CARD-118
-    merge_commit: 2782887
-    score: 8.5
-    owner_check: pending   # printed proof measurement, blocks the wave checkpoint
-active:
-  - card: CARD-134
-    branch: card/134-book-answer-key
-    worktree: ../PythonProject4-CARD-134
-    phase: committed
-    review_cycle: 3
-    head: fbab191
-    score: 9.0
-    owner_check: pending   # re-rendered proofs; ragged bottom on mixed 4-up pages
-  - card: CARD-118
-    branch: card/118-proof-pages
-    worktree: ../PythonProject4-CARD-118
-    phase: commit
-    review_cycle: 3
-  - card: CARD-127
-    branch: card/127-book-two-up-pages
-    worktree: ../PythonProject4-CARD-127
-    phase: committed
-    review_cycle: 3
-  - card: CARD-130
-    branch: card/130-book-step-workflow-reentry
-    worktree: ../PythonProject4-CARD-130
-    phase: commit
-    review_cycle: 3
-  - card: CARD-138
-    branch: card/138-batch-difficulty-target
-    worktree: ../PythonProject4-CARD-138
-    phase: commit
-    review_cycle: 3
-resolved_escalations:   # CARD-134 unblocked 2026-09-23 by decompose rulings G-1a / G-2a
-serialized: []   # CARD-134 released 2026-09-23 when CARD-127 merged
-
-# Wave 25: all five cards merged 2026-09-23/24. The wave is NOT closed — its
-# owner_confirmed_checkpoint (the printed proof measurement, CARD-118) is outstanding,
-# and Increment 13 closes on it. Wave 26 must not start before that ruling.
-
-# CARD-145 started 2026-09-24 OUT OF BAND, ahead of wave 25's checkpoint, at the
-# owner's explicit go-ahead. Rationale: it is a P0 production defect (the deployed
-# panel cannot export a book at all) and it touches page ASSEMBLY, not page geometry,
-# so the outstanding printed-proof ruling cannot invalidate it — a rejection there
-# routes to ADR-0037 stroke weights, which this card does not touch.
-out_of_band:
   - card: CARD-145
-    branch: card/145-stream-the-book-pdf
-    worktree: ../PythonProject4-CARD-145
-    phase: committed
-    review_cycle: 3
-    head: 7b092b8
+    merge_commit: 554c437
     score: 9.0
-    owner_check: pending   # deploy and export a real book; the OOM should be gone
-
-# Nothing is running. Wave 26 proper is gated on wave 25's owner_confirmed_checkpoint
-# (the printed proof measurement, CARD-118). CARD-145 was the one card cleared to run
-# ahead of it, and it is merged.
+active:
+  - id: CARD-142
+    phase: implementation
+    branch: card/142-batch-bulk-buttons
+    worktree: ../PythonProject4-CARD-142
+  - id: CARD-128
+    phase: implementation
+    branch: card/128-level-dividers-print-order
+    worktree: ../PythonProject4-CARD-128
+  - id: CARD-141
+    phase: implementation
+    branch: card/141-answer-page-row-heights
+    worktree: ../PythonProject4-CARD-141
+queued:
+  # Held back by conflict edges, not by dependencies. They start through the
+  # slot refill (cmd-run.md 6c) once their conflict partner is merged.
+  - id: CARD-131
+    reason: "conflict edge with CARD-142 — src/nonogram/admin/app.py"
+  - id: CARD-132
+    reason: "conflict edge with CARD-142 — src/nonogram/admin/app.py"
+  - id: CARD-140
+    reason: "depends on CARD-128 (not yet merged)"
+  - id: CARD-144
+    reason: "depends on CARD-141 (not yet merged)"
+  - id: CARD-139
+    reason: "runs last and alone — import sweep rewrites the block every other admin card edits (waves.yml)"
+escalated: []
+conflict_edges:
+  - pair: [CARD-142, CARD-131]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-142, CARD-132]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-142, CARD-140]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-142, CARD-139]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-131, CARD-132]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-131, CARD-139]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-132, CARD-140]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-132, CARD-139]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-140, CARD-139]
+    reason: "predicted: src/nonogram/admin/app.py (overlap 0.33)"
+  - pair: [CARD-141, CARD-144]
+    reason: "predicted: src/nonogram/export/layout.py (overlap 0.33)"
+last_updated: 2026-09-24

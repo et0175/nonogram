@@ -1,0 +1,201 @@
+version: 1
+generated_at: "2026-09-24T18:00:25Z"
+target: "CARD-141 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-141, branch card/141-answer-page-row-heights, git diff main...HEAD (commit 1e0e1e0)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/export/layout.py (answer-page region 1796-2405 in full, helpers _exact_mm/_exact_px/_round_px/_boundaries/_axis_lines)"
+    - "src/nonogram/export/png.py (_draw_answer, _draw_grid, render_answer_page)"
+    - "src/nonogram/admin/book_answer_key.py (pack_answer_pages, page_capacity, imports)"
+    - "tests/test_answer_page_layout.py (new, full)"
+    - "tests/property/test_answer_page_layout.py (new, full)"
+    - "tests/test_layout_answer_tiles.py (edited hunk + AC classes + helpers)"
+    - "tests/property/test_book_answer_tiles.py (edited hunk + _check_tile/_check_page/_expected_* helpers)"
+    - "meta/architecture/requirements.yml FR-042 (statement + AC-261..AC-295)"
+    - "meta/architecture/inputs/raw-requirements.md (delta 2026-09-23)"
+    - "meta/kanban/cards/CARD-141.md, CARD-133.md/CARD-134.md (relevant notes), board.md"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (read only by grep for tile geometry use; no tile_* reference found)"
+    - "meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md (rule text taken from the system_rules lens, not the prose)"
+    - "the rendered PNGs in ~/Documents/nonogram-reviews/CARD-141/ (present, not eyeballed — owner's job per the standing note)"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 815, removed: 42 }
+  max_fan_in: { symbol: "nonogram.export.layout.compute_answer_page_layout", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: ["src/nonogram/export/png.py", "src/nonogram/export/__init__.py", "src/nonogram/export/pdf.py"]
+  unmeasured:
+    hotspots: "no_eligible_fact — src/nonogram/export/layout.py has 5 commits in the 12-month window and 0 of them are fix/bug/hotfix commits; the repository is younger than the window, so there is no churn/defect hotspot to report"
+    bus_factor: "tooling_failure — `git shortlog -sn -- src/nonogram/export/layout.py` returns an empty table in this worktree (the repo's commits carry a single configured identity), so authorship concentration could not be derived"
+
+system_contract:
+  rules_checked: 40
+  holds: 9
+  unchecked: 31
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff adds no import and does not touch pyproject.toml; layout.py's import block (lines 179-186) is byte-unchanged in `git diff main...HEAD`, and the new helpers use only fractions/collections.abc already imported"
+    - "ADR-0019/R1 ✓ holds — the structural import guard `tests/test_cli.py::test_every_import_in_the_package_points_inward` runs green on this head (pytest tests/test_cli.py -k import, 16 passed, exit 0)"
+    - "ADR-0022/R1 ✓ holds — extents still cross the boundary as (width, height) pairs; `_answer_extent` is unchanged and the new `_answer_cell_mm`/`_answer_row_heights_mm` take `columns, rows` separately; no scalar 'size' introduced"
+    - "ADR-0023/R1 ✓ holds — no export-metadata field changed; the diff touches no serialisation path (export/pdf.py, export/svg.py, export/json untouched)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: the diff touches no solver, repair or retry path"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair path in this diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair path in this diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair path in this diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no difficulty/scoring code in this diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no difficulty/scoring code in this diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty banding code in this diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no difficulty banding code in this diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty banding code in this diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no difficulty banding code in this diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no difficulty banding code in this diff"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no persistence/storage code in this diff"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book-plan code in this diff"
+    - "ADR-0036/R1 ✓ holds — `tests/test_export_a4_golden.py` (incl. TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden) and `tests/property/test_cli_exports_byte_identity.py` run green on this head (68 passed, exit 0); the diff changes only the four answer-page symbols and no shared helper (_exact_px/_round_px/_boundaries/_rule_widths/_axis_lines are byte-unchanged)"
+    - "ADR-0036/R2 ✓ holds — all new geometry (`_answer_cell_mm`, `_answer_row_heights_mm`, the row-top walk) lives in COMP-007's src/nonogram/export/layout.py; `git diff main...HEAD --stat` lists zero files under src/nonogram/admin/**"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: the puzzle-page band and the answer caption text are untouched (png.py is not in the diff)"
+    - "ADR-0037/R2 ✓ holds — `_answer_tile` still derives strokes from `_rule_widths(pitch, page_spec)` (unchanged call); `tests/property/test_book_answer_tiles.py::_check_tile` asserts `_mm(thin_rule) >= BOOK_MIN_THIN_RULE_MM` and `thick_rule == 2 * thin_rule` over the whole INV-011 extent sweep and is green on this head"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in this diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code in this diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web server code in this diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: the layout deliberately does not re-check MIN_SIZE..MAX_SIZE (documented in `_answer_extent`) and that is unchanged; no validation path moved"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no image aspect-guard code in this diff"
+    - "CON-019 ✓ holds — `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` and the A4 golden suite green on this head (see ADR-0036/R1); `tests/fixtures/a4_golden/**` appears in neither `git diff main...HEAD --stat` nor `git status --porcelain`"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue encoding in this diff"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness gate in this diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book-plan code in this diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership/cell-floor gate in this diff (the answer cell has no floor by design, EC-031)"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no book-ready gate in this diff"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book confirmation in this diff"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book-order code in this diff"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no puzzle-pairing code in this diff (this card is the answer page, deliberately the opposite ruling)"
+    - "INV-011 ✓ holds — the packing walk `pack_answer_pages` (src/nonogram/admin/book_answer_key.py:293-355) is not in the diff and imports only `nonogram.difficulty` (no layout import exists in the module at all); its branch reads `answer.level`, `len(joined)` and `page_capacity(joined)` (longest_side only) and consults no layout height. All 8 named INV-011 tests green on this head, incl. TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages (the 31-answer-page budget CARD-129 consumes)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership/status code in this diff"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no interior/cover assembly in this diff"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 3295
+    title: "FR-042's statement still defines the tile height as the equal division, which the code no longer does"
+    description: |
+      FR-042's `statement:` says "Each tile is (usable width - 2 mm) / 2 wide and
+      **(usable height - (rows - 1) x 2 mm) / rows tall** ... a 6 mm caption line is
+      reserved inside the tile and the grid is drawn at the largest square cell that
+      fits the rest." After this diff that expression is only the *measured* tile used
+      to size the cell (`_answer_cell_mm`, layout.py:2304-2325); the tile a caller
+      actually receives is `ANSWER_CAPTION_MM + max(rows x cell)` over its row
+      (`_answer_row_heights_mm`, layout.py:2328-2350). The registry now misdescribes
+      shipped geometry and nothing in the FR distinguishes the two heights.
+
+      Concrete failure scenario: CARD-144 (next in wave 26, "frame around the puzzle
+      on book pages, clue bands boxed", listed `after CARD-141`) and CARD-129 both
+      size against book geometry. A card author who reads FR-042's statement rather
+      than layout.py's docstring will compute `(260.35 - 4)/3 = 85.45 mm` as an answer
+      tile's height and place a frame, a rule or a page-fit check 4.45..30 mm below
+      where the tile now ends on any cap-bound row (a 15x15 six-up row is 81 mm, a
+      10x10 six-up row is 56 mm).
+
+      Mitigating (why this is Minor, not Important): the delta IS captured in the
+      intake queue — meta/architecture/inputs/raw-requirements.md:264 records the
+      owner's ruling verbatim, including the row-height rule — so this is a tracked
+      deferral, not a hidden one, and requirements.yml is outside the card's declared
+      `Touches`. No AC pins a tile height, so no test is aspirational-green because
+      of it.
+    suggestion: |
+      Either amend FR-042's statement in place with a dated note (the pattern the FR
+      already uses for the 2026-09-22 (c)/(d) deltas) distinguishing "the measured
+      tile, which sizes the cell" from "the row, which is the tile a caller gets", or
+      confirm on the card that the amendment rides on the raw-requirements delta at
+      line 264 and name the card that will formalise it.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_answer_page_layout.py
+    line: 190
+    title: "The corpus helper `_extents(capacity)` ignores its argument and is rebuilt 3000 times"
+    description: |
+      `def _extents(capacity: int) -> list[Extent]` never reads `capacity`; it returns
+      every (columns, rows) in MIN_SIZE..MAX_SIZE regardless. That is deliberate (the
+      docstring says "INV-011's rule is not applied") but the parameter is dead, and
+      the call site `allowed = _extents(capacity)` sits *inside* the 3000-iteration
+      loop, so the 441-element list is rebuilt on every page — ~1.3 M tuple
+      allocations per run.
+
+      Concrete failure scenario: a later card widens the property to be
+      capacity-aware, passes a different capacity, and silently gets the same corpus
+      back — the new coverage it believes it added does not exist, and the minimum
+      counts (`partial >= 600` etc.) still pass because they were computed over the
+      unchanged corpus. Suite cost today is 1.2 s, so this is a readability/trap
+      finding, not a performance one.
+    suggestion: |
+      Hoist the list out of the loop (`ALLOWED = _extents()` at module level, or one
+      dict keyed by capacity) and drop the unused parameter, or make it actually
+      select the INV-011 subset and say in the docstring which corpus each capacity
+      gets.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_answer_page_layout.py
+    line: 54
+    title: "The property test hardcodes DPI = 300 instead of importing layout.DPI, so its one-pixel tolerance can go stale"
+    description: |
+      `DPI = 300` / `PX_PER_MM = DPI / 25.4` / `PIXEL_MM = 1.0 / PX_PER_MM` are
+      literals here, while the sibling unit test `tests/test_answer_page_layout.py:42`
+      imports `DPI` from `nonogram.export.layout` for the same purpose. Every
+      assertion in `_check_page` is `<= PIXEL_MM`, i.e. "within one device pixel".
+
+      Concrete failure scenario: if `layout.DPI` is ever raised (e.g. to 600 for a
+      print-quality card), this file keeps a `PIXEL_MM` of 0.0847 mm while a real
+      device pixel is 0.0423 mm — every tolerance in the property becomes twice as
+      loose as it claims, and a genuine half-pixel-per-row placement error in
+      `_answer_row_heights_mm` would pass unnoticed while the unit test still catches
+      it. The opposite direction (DPI lowered) turns the property flaky. The file's
+      own docstring justifies re-deriving *CON-018's Book 1 literals* independently —
+      DPI is not one of those; it is the module constant the coordinates are expressed
+      in.
+    suggestion: |
+      Import `DPI` from `nonogram.export.layout` as `tests/test_answer_page_layout.py`
+      already does, keeping the Book 1 millimetre literals hand-written as they are.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

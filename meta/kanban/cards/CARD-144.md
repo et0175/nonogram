@@ -1,6 +1,6 @@
 # CARD-144: A frame around the puzzle on book pages — the clue bands boxed, the CLI untouched
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/144-book-puzzle-frame
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-144
 **Source:** owner, 2026-09-23 ("I'd add a frame around puzzle, around the top and left sides"), shape and scope settled by AskUserQuestion the same day
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-141
 **Touches:** src/nonogram/export/layout.py, src/nonogram/export/png.py, src/nonogram/export/pdf.py, tests/test_book_puzzle_frame.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-24T18:09:15Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
