@@ -1,0 +1,85 @@
+# Kanban configuration. Written 2026-09-24, from the settings wave 26 was
+# actually dispatched under — until now this file did not exist and every
+# value below was an unstated default.
+#
+# CAVEAT on `Skill: python-pro` (the value every card carries): the agent
+# definition of that name available in this environment is scoped to a
+# different project's FastAPI/SQLAlchemy services, and spawning it here
+# imports assumptions this codebase does not hold (stdlib + Pillow + NumPy
+# only, no web framework in the pipeline, src-layout). Wave 26 was dispatched
+# with general-purpose agents carrying this project's conventions in the
+# prompt instead. Treat the field as "a Python card", not as an agent name,
+# until a project-local skill exists.
+implementation_skill: python-pro
+
+tdd: false            # not the project's practice; cards opt in via `TDD: true`
+
+review:
+  enabled: true
+  min_score: 8
+  max_cycles: 3
+  min_improvement: 0.5
+  build_fix_attempts: 2
+  scope_gate: on
+  family_regression: on
+  parallel: false     # keep off: heavy reviewers x max_concurrent is the cost cliff
+
+  test_command: "./.venv/bin/python -m pytest"
+
+  # FULL, deliberately. The skill's Python recipe narrows only with
+  # pytest-testmon installed ("import-graph heuristics on Python are not
+  # trustworthy enough to gate on"); it is not in this venv, so `impact` would
+  # fall back to full on every cycle while claiming to be scoped. Install
+  # pytest-testmon and flip this to `impact` if the suite becomes the
+  # bottleneck. Note the suite is the dominant per-cycle cost:
+  # O(suite) x cycles x cards x max_concurrent.
+  test_scope: full
+
+  # On: this project already reviews by mutation — merged cards routinely
+  # record "4 of 5 mutants caught", and CARD-105 went as far as proving the
+  # survivor equivalent rather than chasing it. The setting makes an existing
+  # practice a gate instead of a habit. Cost-deferred by the skill to the
+  # passing cycle, so it runs once per card on stable code.
+  mutation_check: true
+
+  # Off: visual capture needs a harness run target and there is no Makefile in
+  # this repo, so `auto` would attempt a capture and write a degraded-to-static
+  # note on every cycle of every template card. pytest-playwright IS installed,
+  # so the route to enabling this is a `make run` target, not a dependency.
+  # The owner's visual validation currently happens on rendered pages under
+  # ~/Documents/nonogram-reviews/CARD-NNN, which no automated gate replaces.
+  visual: off
+
+e2e:
+  # Off, not `auto`: the admin panel is server-rendered Flask, not a JS
+  # frontend, and there is no e2e suite or `make test-e2e`. Left at `auto` the
+  # wave gate would report a mandated-but-missing suite every wave.
+  enabled: false
+  test_command: ""
+
+dispatcher:
+  max_concurrent: 5
+  max_overlap: 0.3
+
+conflict:
+  # Seeded from what wave 26's dispatch actually showed. Before this list
+  # existed, app.py serialized only by arithmetic accident: five cards touch
+  # it, each pair scoring exactly 0.33 against a 0.3 threshold. A card with a
+  # wider Touches set would have scored below the threshold and run
+  # concurrently into the same file. Naming these makes the serialization
+  # intentional and independent of how many other paths a card happens to list.
+  hotspots:
+    - src/nonogram/admin/app.py            # route registration — CARD-131/132/139/140/142
+    - src/nonogram/export/layout.py        # shared page geometry — CARD-141/144
+    - src/nonogram/admin/book_pdf_generator.py  # the streaming page writer (CARD-145)
+    - src/nonogram/admin/book_manager.py
+    - migrations/**                        # migration index; merged order is what runs
+    - src/nonogram/db/**
+
+done:
+  require_pr: false
+  target_branch: main
+
+sizing:
+  min_estimate: 0.25d
+  max_estimate: 1d
