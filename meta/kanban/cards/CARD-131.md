@@ -1,6 +1,6 @@
 # CARD-131: A published book confirms before its puzzles change, and going back never discards later work
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -165,10 +165,150 @@ for the seeded fixtures, hints a short 26-30 × hard bucket, and sorts 150/150, 
 
 ## Worktree notes
 
-—
+### Implementation summary (2026-09-24)
+
+**INV-008 — the refusal became a confirmation.** `add_puzzles_reporting_refusals`
+and the new `remove_puzzle_reporting_confirmation` both take `confirmed: bool`.
+On a published book an unconfirmed call **measures nothing and writes nothing**
+— the question is asked before the floor pass, so an unconfirmed submission
+reads no puzzle rows at all — and comes back as `AddOutcome(…,
+needs_confirmation=True)` / `RemoveOutcome(False, needs_confirmation=True)`.
+`add_puzzles_to_book` / `remove_puzzle_from_book` keep their yes/no shape and
+now answer **False** for "asked but not confirmed" (they answered by raising
+before). The remove side gained a reporting variant for exactly the reason the
+add side already had one: yes/no cannot tell "no such member" from "this book
+is published". A removal of a puzzle the book never held is answered *first*,
+so a published book is never asked to confirm a change that would do nothing.
+
+**INV-012 — leaving draft is paid for again.** One statement of the rule,
+`_draft_after_membership_change(book_id, status)`, called from the four write
+sites (add/remove × memory/DB) **inside the same store write** as the
+membership, so no route and no ordering can leave a non-draft book holding a
+changed membership. It fires only when the membership really moved: a
+submission the floor refused entirely, an add of ids the book already holds,
+and a removal that found nothing all demote nothing (the CARD-121 handover's
+"the write belongs *after* the floor filter" — the guard is `if new_puzzles`,
+and `test_a_submission_the_floor_refused_entirely_demotes_nothing` /
+`test_an_add_that_changes_no_membership_demotes_nothing` pin it; a mutant that
+demotes unconditionally fails both).
+
+**Reorder and retitle keep the status** (owner decision 2026-09-22 (c)):
+`reorder_puzzles`, `_move_within_level` and `set_puzzle_title` are untouched by
+INV-012, pinned by `test_reorder_and_retitle_keep_the_status`. FR-038's
+`_meta.open_question` still records the question.
+
+**CARD-126 handover closed.** The in-memory `remove_puzzle_from_book` now prunes
+`puzzle_titles` the way the DB branch always did (a new dict, CARD-101's
+pattern), so a removed-and-re-added puzzle no longer regains a title the owner
+never gave this book. Covered by `test_a_re_added_puzzle_does_not_wear_its_old_title`.
+
+**Routes.** `_is_confirmed()` (one reading of the field: exactly `confirm=1`,
+so an arbitrary truthy string is not a confirmation) and `_ask_to_confirm(book,
+action, fields, change)` are two new nested helpers in `create_app`; everything
+else in `app.py` is an in-place edit of the four handlers below, no reordering
+or reformatting. `_confirm_membership_change.html` is a **server-rendered
+page**, not a browser `confirm()`: there is no JS engine at any tier of this
+project, so a browser dialog is a thing no test can execute. Its form re-POSTs
+the owner's own submission — carried as `(name, value)` pairs, a list so the
+selection step's repeated `puzzle_ids` survives — to the route that asked, plus
+`confirm=1`. The tests drive that rendered form rather than imitating it
+(`resubmit_confirmation`), so a confirmation page carrying the wrong fields or
+posting to the wrong route fails.
+
+**A fourth membership route was brought under the rule.** The card's item 2
+names three routes; `POST /book/<id>/arrange-puzzles` with `action=delete` is a
+fourth one ending in the book store, and it previously ignored
+`remove_puzzle_from_book`'s return value entirely and flashed "Removed puzzle
+from book" unconditionally. It now asks the same question and reports what the
+store actually did. EC-033's "any future route ending in the book store" is
+held by the store regardless, but the route would otherwise have lied to the
+owner about a published book.
+
+### EC-026 audit — every step's POST handler, and what it writes
+
+Asked of each handler: does it write `puzzle_ids`, the order, or
+`puzzle_titles`? The whole panel writes those three through exactly **six**
+call sites, all of them behind an explicit action:
+
+| Step / route | POST writes | Touches selection, order or titles? |
+|---|---|---|
+| `/book/<id>/setup-print` (Print setup) | `session["unit_preference"]`, `save_plan` (plan + status→draft), `set_print_spec` (two trim columns) | **No** |
+| `/book/<id>/edit` (general info) | `update_book_details` (4 columns) | **No** |
+| `/book/<id>/select-puzzles` | pending ticks (`_fold_tab_into_selection` / `_keep_selection` / `_drop_selection` — server-side, never the book), `add_puzzles_reporting_refusals` | Only via the explicit **add**; `go_bucket` / `go_offset` / `go_filter` / `go_clear` commit nothing to the book |
+| `/book/<id>/arrange-puzzles` | `move_puzzle_up` / `move_puzzle_down`, `set_puzzle_title`, `remove_puzzle_from_book` | Only via the explicit **reorder / retitle / remove** |
+| `/book/<id>/finalize` | cover session keys, `set_book_status`, PDF download | **No** |
+| `/book/<id>/add-puzzles`, `/book/<id>/remove-puzzle` | the explicit add / remove | Explicit by definition |
+| `/book/<id>/status`, `/book/<id>/generate-pdf`, `/books`, `/book/<id>` | status, `set_pdf_url`, reads | **No** |
+
+No side-effect write was found; nothing had to be removed. The property test
+asserts the audit rather than resting on it: ten passive operations (six step
+visits, a plan edit, a tab switch, a page move, "clear all ticks") are replayed
+in seeded sequences interleaved with the four explicit ones, and `(order,
+titles)` is compared for equality after **every** passive operation.
+
+### SCOPE+
+
+- `SCOPE+ tests/test_book_floor.py` — one test retargeted (see below). No other
+  file outside the card's Touches was edited; nothing under `tests/helpers/` or
+  `tests/fixtures/` was touched. `tests/test_book_ready_gate.py` is **imported
+  from** (its `Shelf`, `AC_PLAN`, `_setup_print_form`, `cells_of`) but not
+  edited — the same cross-test import precedent
+  `tests/property/test_book_membership_floor.py` sets with
+  `tests.test_book_floor`.
+- Not done, on purpose: `meta/design/components.md` has no `ConfirmChange`
+  entry. The design context asks for one, but the instructions forbid
+  committing anything under `meta/`. **Follow-up for whoever owns
+  `meta/design/`:** register `ConfirmChange` (states asking · confirmed ·
+  cancelled; only `asking` has a screen, `confirmed` is the route's flash and
+  `cancelled` is the book as it was). The page itself reuses existing tokens
+  only — `.alert-warning`, `.card.border-warning`, `.btn-primary` /
+  `.btn-outline-secondary`, `.badge[data-status]` — so nothing new was invented
+  in CSS.
+
+### Retargeted assertion — declared loudly
+
+`tests/test_book_floor.py::TestBookFloor_GuardrailsIntact::test_a_published_book_still_refuses_in_the_same_words`
+asserted `pytest.raises(ValueError, match="Cannot add puzzles to published
+book")`. **That assertion is now false by design** — it is the one behaviour
+FR-038/INV-008 removes, and the test's own docstring said so ("turning this
+into a confirmation is CARD-131, not this card"). It is renamed
+`test_a_published_book_asks_before_it_takes_a_puzzle` and the replacement is
+**stricter**, not looser: where the old one checked only that a call raised, the
+new one checks that the membership does not move, that the status does not
+move, that the store says *why* in a machine-readable outcome, that no override
+was left behind by a floor pass that must not have run, **and** that confirming
+does not buy a way past the floor (the same below-floor id is still refused
+with its cell named). Nothing else in the file changed.
+
+### Test evidence
+
+New: `tests/test_book_published_confirm.py` (76 tests, store-level ones in both
+storage modes) and `tests/property/test_book_workflow.py` (EC-026 and EC-033,
+seeded `random.Random` corpora with per-kind minimum counts asserted inside the
+tests — including minimum promotions and minimum membership changes, so neither
+property can pass vacuously).
+
+Mutation-checked by hand before commit; every one of these was caught:
+the published question deleted from add and from remove; the return-to-draft
+write deleted from each of the four write sites; the `if new_puzzles` guard
+removed so every add demotes; the in-memory title pruning removed; the paste
+route not passing `confirmed` on; the arrange delete always confirming; and the
+confirmation page no longer reading the book's status off the book. That last
+one **escaped the first draft** (the template's prose said "a published book",
+so the text assertion passed with the dynamic status gone) — the template no
+longer spells the status out in prose and the test now also pins the status
+badge's own `data-status` attribute.
+
+**Full suite: 5175 passed, 1 failed, 27 skipped.** The one failure is the known
+pre-existing `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`.
 
 - [Handover from CARD-124, 2026-09-23] A plan edit now returns a non-draft book to draft, which opens a two-step path around the published-membership guard: edit the plan (book -> draft), then POST /add-puzzles. FR-038's confirmation must actually land here — do not assume the old outright refusal still covers a published book.
 
 - [Handover from CARD-121, 2026-09-23] INV-012: a fully-refused submission must NOT demote a book — the return-to-draft write belongs AFTER the floor filter. A comment marks the spot in book_manager.py. INV-012 still has no implementation and no tests.
 
 - [Handover from CARD-126, 2026-09-23, pre-existing] remove_puzzle_from_book prunes puzzle_titles in the DB branch but not the in-memory one, so in memory mode a removed-and-re-added puzzle regains its old title. Natural owner: this card.
+
+[Scope] src/nonogram/admin/app.py, book_manager.py, 3 templates, tests/property/test_book_workflow.py, tests/test_book_published_confirm.py, tests/test_book_floor.py
+[Touches drift] tests/test_book_floor.py (1 test) — declared SCOPE+. Nothing under tests/helpers/ or tests/fixtures/ touched, so no collision with CARD-128/CARD-144's shared-fixture conflict.
+[Scope gate] grown, small and declared. Also widened by one route beyond the card's three: POST /book/<id>/arrange-puzzles action=delete, a fourth route ending in the book store that previously ignored the store's return value and flashed "Removed puzzle from book" unconditionally. Reviewer to rule whether that is in-scope completion or scope creep.
+[Design debt] ConfirmChange is not registered in meta/design/components.md — the card's design context asks for it, but agents are barred from committing under meta/. States: asking / confirmed / cancelled (only `asking` has a screen). The page invents no new CSS.

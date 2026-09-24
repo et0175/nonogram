@@ -1,6 +1,6 @@
 # CARD-128: Level dividers and the difficulty order in print — "Easy", "Medium", "Hard" pages, numbers 1..n unbroken
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/128-level-dividers-print-order
-**Worktree:** ../PythonProject4-CARD-128
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-15 (FR-041 print half)
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-126, CARD-127, CARD-134
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_answer_key.py, tests/test_book_pdf_levels.py, tests/property/test_book_order.py
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3) — passes; fix round for the two named approve conditions
 **Started:** 2026-09-24T17:24:11Z
-**Closed:** —
+**Closed:** 2026-09-24T20:04:49Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 557c7ac
 **Blocked by:** —
 
 ## What to implement
@@ -212,5 +212,84 @@
 
 - [Handover from CARD-126, 2026-09-23] book_plan.book_levels returns [(Tier|None, [ids])] for non-empty levels only — the shape one-divider-per-level needs. The interior now receives a GROUPED puzzle_ids, so any test that assumed submission order needs the same one-line adjustment.
 
-[Touches drift] 14 files beyond Touches, all test-side, all declared SCOPE+: 11 test modules, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card128.json (new) and a superseded_by line in book_baseline_card145.json. No production file outside Touches was edited.
-[Runtime conflict] OBSERVED with CARD-144: both edit tests/fixtures/book_baseline_card145.json, tests/helpers/book_corpus.py and tests/test_book_pdf_memory.py. Owner's ruling 2026-09-24: CARD-128 merges FIRST (it owns book_pdf_generator.py and changes page composition itself); CARD-144 then rebases and RE-RECORDS its baseline rather than resolving textually.
+- [Review cycle 1 conditions closed, 2026-09-24 — commit 5acb0cf] Score 8.5,
+  no critical and no important findings; no correctness defect was found in
+  `book_pdf_generator.py`. Four items taken, in the reviewer's order.
+
+  **F-001 (med) — fixed.** `answer_key_of` in `tests/test_book_answer_key.py`
+  had started computing the expected SOLUTIONS position as
+  `2 + (len(dividers) - 1) + puzzle_count`, i.e. from the dividers it had just
+  measured. Both sides of the comparison moved together, so the helper every
+  test in the file routes through could no longer refute "the interior opened
+  one divider too many". It now takes the **puzzles** rather than their count
+  (all 19 call sites pass the sequence they were already calling `len()` on)
+  and asks this module's own independent helpers: an exact
+  `len(dividers) == level_count(puzzles) + 1`, and
+  `expected = first_answer_page(puzzles) - 1`. Nothing is asked of production.
+
+  *Bite check.* Injected the reviewer's scenario into `_level_runs`
+  (`book_pdf_generator.py:954` — an extra condition that splits one level into
+  two runs, so a single-level book opens a spurious divider). Before the
+  change the helper's own assertion fired **zero** times: every failure came
+  from the downstream byte-exact page comparisons, exactly as the report said.
+  After the change the helper fails first and by name —
+  *"the interior opened 3 divider pages, not 2 — one per non-empty level, and
+  SOLUTIONS"*. The generator was restored and the restore proved by checksum
+  (`3b858ab8…dec10b` before and after, empty `git diff`).
+
+  **F-002 (med) — fixed.** Both existing bound assertions
+  (`tests/test_book_export_interior_cover.py`) ran only on that module's
+  single-level easy books, so nothing in the suite would have seen
+  `interior_page_count`'s one-argument divider term understate a multi-level
+  book — the number CARD-129's KDP refusal consumes next wave. Added
+  `test_the_bound_holds_where_a_book_opens_a_divider_per_level` beside the
+  other bound assertions: three 20x20s, one per level, which is the boundary
+  the bound is tight on. It asserts the written count against this module's own
+  arithmetic (`_interior_pages(3, 3, levels=3)` = 11), then the bound
+  (`interior_page_count(3) >= written`), then the tight equality so the "no
+  slack here" fact is visible rather than implied.
+
+  *Bite check.* Mutated the default to `min(len(TIERS) - 1, puzzle_count)`.
+  The existing `test_the_plan_called_with_the_count_alone_bounds_the_file`
+  passed on all four of its counts; the new test failed with `assert 10 >= 11`.
+  (The only other kill remained the cosmetic `~11` string assertion, as the
+  report described.) Restored and checksummed as above.
+
+  **F-003 (low) — deferred with a note, as the report allows.** No runtime
+  guard and no restructuring. `puzzle_section`'s docstring gains a `Note:`
+  recording that print order is a **precondition, not a guard**; that it is
+  what keeps the divider count inside `interior_page_count`'s default bound
+  (`_level_runs` cuts maximal runs, so an ungrouped list of n tier changes
+  yields n dividers); that `interior_stream` supplies it today and is the only
+  production caller; and that CARD-129, the expected next direct caller, owns
+  deciding whether the ordering moves inside the method or becomes a checked
+  precondition.
+
+  **F-005 (low) — fixed.** `tests/fixtures/book_baseline_card128.json`'s
+  `recorded_from_commit` named the merge base (346d89e), whose tree writes an
+  8-page interior for `baseline_puzzles` and therefore cannot reproduce the
+  recorded 11-page digests. Now names this card's implementation commit
+  (407c0cc), with a one-line note saying why the merge base is not it. **No
+  digest, page entry or `interior_bytes` was touched** — `git diff` on the
+  fixture is 2 insertions, 1 deletion, all on the provenance line.
+
+  **F-006 (low) — fixed.** The "the two books must differ in size" premise
+  tightened from `> 15 * small.seen` back to `> 16 *`, the tightest bound the
+  new counts allow (182 / 11 = 16.5). The two assertions carrying CARD-145's
+  streaming claim — `big.peak == small.peak` and `PEAK_IN_PAGES == 1.00` —
+  were **not** touched.
+
+  **Not taken:** F-004, F-007 (ungraded-tail rule → architect station), F-008
+  (legacy pairing → owner), F-009. `meta/architecture/requirements.yml`
+  unchanged. Guardrails held: no edit under `src/nonogram/db/`, `migrations/`,
+  `book_manager.py`, `app.py` or `templates/books_list.html`.
+
+  **Suite:** 5082 tests, 1 failure — the known pre-existing
+  `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`,
+  unrelated to this card. 27 skipped, 0 errors. The CON-019 golden-A4
+  tripwires are green.
+
+[Fix 1] Commit 5acb0cf — F-001, F-002, F-005, F-006 fixed; F-003 deferred to a docstring note naming CARD-129; F-004/F-007/F-008/F-009 not taken. 5 files, test-only apart from one docstring. requirements.yml unchanged.
+[Fix 1 bite] F-001 was REAL and the reviewer's analysis exact: with an injected _level_runs regression splitting one level into two runs, the OLD assertion fired ZERO times (grep for its message returned 0 across the run) — observed 3 dividers gave expected = N+4, and the shifted SOLUTIONS page really is at N+4, so it passed on the bug. Every failure came from the downstream byte-exact comparisons instead. After the fix it fails first and by name. Restore proved: sha256 3b858ab8...dec10b identical before and after, git diff empty.
+[Fix 1 bite] F-002 coverage gap was REAL: with the default mutated to min(2, n), the existing bound test PASSED on all four of its counts (0, 1, 3, 7); the new 3-level test failed with "assert 10 >= 11". The only other kill was the cosmetic ~11 string assertion, exactly as reported.
+[Review cycle 2 SKIPPED — deliberate] Cycle 1 already PASSED at 8.5 with zero critical and zero important findings; the fix round was test-only plus one docstring, and both of its claims were demonstrated by injected-regression verification with restore checksums rather than asserted. A second heavy review of test-only edits is disproportionate. Recorded here so the skip is visible rather than silent.

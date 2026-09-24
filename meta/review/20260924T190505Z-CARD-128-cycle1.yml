@@ -1,0 +1,513 @@
+version: 1
+generated_at: "2026-09-24T19:05:05Z"
+target: "CARD-128 cycle 1 of 3 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-128, branch card/128-level-dividers-print-order, commit 407c0cc, diff git diff main...HEAD"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"   # /Users/omelnikova/MyProjects/forge_1/.claude-plugin/plugin.json absent
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py          # full, plus the whole production diff
+    - src/nonogram/admin/book_plan.py                   # book_level_order, level_rank, TIERS, UNGRADED_RANK
+    - src/nonogram/difficulty.py                        # tier_of_record, Tier
+    - meta/kanban/cards/CARD-128.md                     # in full
+    - meta/architecture/requirements.yml                # AC-253..256, AC-260, AC-287, AC-293, EC-029, EC-034
+    - tests/test_book_pdf_levels.py                     # the new AC file, in full
+    - tests/test_book_pdf.py
+    - tests/test_book_answer_key.py
+    - tests/test_book_pdf_two_up.py
+    - tests/test_book_pdf_band.py
+    - tests/test_book_export_interior_cover.py
+    - tests/test_book_pdf_memory.py
+    - tests/test_book_proof_pages.py
+    - tests/helpers/book_corpus.py
+    - tests/property/test_book_export_interior.py
+    - tests/property/test_book_pairing.py
+    - tests/property/test_book_pdf_geometry.py
+    - tests/property/test_book_order.py
+    - tests/fixtures/book_baseline_card128.json
+    - tests/fixtures/book_baseline_card145.json
+    - src/nonogram/admin/app.py                         # only the interior_page_count call site (line 3458)
+  not_reached:
+    - src/nonogram/admin/book_answer_key.py             # CARD-134's, consumed as delivered (G-2)
+    - src/nonogram/export/layout.py                     # COMP-007, unchanged by this card
+    - tests/e2e/                                        # only the known pre-existing failure was inspected
+  confidence: high
+
+metrics:
+  diff: { files: 16, added: 1944, removed: 352 }
+  production_files: 1
+  max_fan_in:
+    symbol: "book_pdf_generator.interior_page_count"
+    callers: 1      # src/nonogram/admin/app.py:3458 — the Finalise screen's "~" figure
+  new_symbol_fan_in:
+    print_order: 1          # book_pdf_generator.interior_stream:1861 (+ 2 test call sites)
+    puzzle_section: 1       # book_pdf_generator.interior_stream:1884 (+ 2 test call sites)
+    DividerPagePlan: 1      # puzzle_section (+ tests/property/test_book_order.py)
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]   # 18 commits/12mo, 6 of them fix/bug — high churn, high defect density
+  cochange_missing: []      # the file's 12-month history shows no co-change peer at all: every commit touching it touched it alone
+  suite: "1 failure — tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied (known pre-existing); everything else green"
+  unmeasured:
+    learned_false_positives: "provider_unavailable — no .claude/fix-suppress.yaml and no ~/.forge/retro-signals.yml"
+    audit_findings: "provider_unavailable — no meta/audit/ directory"
+    positioning_backing: "no_eligible_fact — meta/business/positioning.md does not exist"
+    reviewer_version: "provider_unavailable — the executing plugin manifest (forge_1/.claude-plugin/plugin.json) is absent"
+
+system_contract:
+  rules_checked: 47
+  holds: 12
+  unchecked: 35
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no manifest change; the only new imports are nonogram.admin.book_plan (intra-package) and numpy in tests/test_book_pdf.py, and NumPy is already in the baseline. `git diff main...HEAD -- pyproject.toml` is empty; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full-suite run."
+    - "ADR-0019/R1 ✓ holds — no src/nonogram/web/ file touched; test_every_import_in_the_package_points_inward green in the full-suite run on this head."
+    - "ADR-0031/R1 ✓ holds — TIERS stays the 3-tuple; DividerPagePlan.__post_init__ (book_pdf_generator.py:1146) refuses any level that is not a Tier; interior_page_count's default bound is min(len(TIERS), n), so no fourth level can open a divider. TestTiers_ThreeBandsAndNoFourthTier green."
+    - "ADR-0031/R3 ✓ holds — _stored_tier reads through tier_of_record, so a stored \"guess\" ranks and prints as Hard; nothing is rewritten (print_order returns a new list, book_pdf_generator.py:1108). tests/property/test_book_order.py's POOL_TIERS includes \"guess\" and its RANK table maps it to hard; both modes green."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the card touches no storage boundary."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score is not read or written here."
+    - "ADR-0033/R1 ✓ holds — the diff writes no puzzle field at all: no src/nonogram/db/**, migrations/** or book_manager.py edit (git diff --name-only), and interior_stream only rebinds its own local (book_pdf_generator.py:1861). TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel::test_the_stored_arrangement_is_left_as_it_was asserts the handed-in list is unmutated."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no status transition is touched."
+    - "ADR-0036/R1 ✓ holds — compute_layout and PageSpec are untouched; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green."
+    - "ADR-0036/R2 ✓ holds — create_divider_page (book_pdf_generator.py:1160-1170) takes its frame from page_frame(self.page_spec(page_number)) and draws one centred string; it fits no cell and places no grid line. tests/test_book_pdf_levels.py::TestBookPdf_DividerPageCarriesLevelNameOnly::test_a_divider_carries_one_line_of_type_and_nothing_else measures one band of ink and no drawing."
+    - "ADR-0037/R1 ✓ holds — the band stays band_identity(number, tier) with number the print position after grouping (_puzzle_payload unchanged); divider pages carry no band. PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle now runs on grouped and divided books against tests/test_book_pdf_band.py's own print_plan oracle; green."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: stroke widths are COMP-007's and unchanged."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature is touched."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting is not touched."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the --size token is not touched."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: recovery is not touched."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: recovery is not touched."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: recovery is not touched."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: recovery is not touched."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: recovery is not touched."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation is not touched."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation is not touched."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring is not touched."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: difficulty scoring is not touched."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty scoring is not touched."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: overlap masks are not touched."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution is not touched."
+    - "ADR-0031/R2 ⚠ unchecked — no_eligible_fact: the strategies list is not touched."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is not touched."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the web server is not touched."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: the web server is not touched."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits are not touched."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect guard is not touched."
+    - "CON-015 ⚠ unchecked — no_eligible_fact: app.py was not edited (G-4 verified by git diff --name-only)."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: app.py was not edited."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding is not touched."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export-readiness gate is not touched."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters are not touched."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: the distribution plan is not touched."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership/override is not touched."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the ready gate is not touched."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-membership confirmation is not touched."
+    - "INV-009 ✓ holds — the card's central invariant, and the diff strengthens it: print_order (book_pdf_generator.py:1085) delegates to book_plan.book_level_order, the same stable, level-keyed, idempotent grouping the arrange screen uses. Verified by PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence (now checking the printed page plan at every state against the test file's own RANK table, both modes green), by TestBookPdf_DifficultyOrderWithDividerPerLevel and TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel, and by mutants M1/M2 (both killed)."
+    - "INV-010 ✓ holds — pairing still offers only two payloads whose tier of record is identical and adjacent (book_pdf_generator.py:1616-1617, unchanged); splitting the walk per level can only remove candidate pairs that INV-010 already forbade. tests/property/test_book_pairing.py re-derives the expected pages from its own _printed grouping and asserts the drawn extents page by page; green. NOTE (see F-008): \"adjacent in the book order\" now means adjacent in the GROUPED order, so a legacy mixed book can pair two same-tier puzzles its stored list separates."
+    - "INV-011 ✓ holds — the answer key is packed from the same grouped payloads and its 1..n tripwire (book_pdf_generator.py:1915) is unchanged. AC-293's TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages asserts 31 pages, the 11/13/7 split, the three headings and all 150 numbers in order; PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook green."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership outside draft is not touched."
+    - "INV-013 ✓ holds — the interior still starts at the guide page as page 1 and holds no cover page; first_answer_page now counts the whole section (book_pdf_generator.py:1907) and interior_page_count counts the dividers, so the reported count is the file's count. PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage (EC-034) green with its new _section_plan/_divider_pages oracles; AC-287's rewritten test asserts interior page 3, right-hand, 12.7 mm gutter. Mutant M6 killed."
+
+root_causes:
+  - id: RC-1
+    title: "The interior's divider count is re-derived from observation or left unbounded in places where an independent figure was available"
+    finding_ids: [F-001, F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_answer_key.py
+    line: 374
+    title: "answer_key_of stopped pinning how many dividers the interior opened"
+    description: |
+      The helper's guard went from `assert len(dividers) == 1` to
+      `assert dividers` + `divider = dividers[-1]`, and — the substantive part —
+      the expected SOLUTIONS position is now `2 + (len(dividers) - 1) + puzzle_count`,
+      i.e. it is derived from the OBSERVED number of divider pages rather than
+      from the independently computed `level_count(puzzles)` that the same file
+      already defines two functions higher (`first_answer_page`, line 213).
+      The helper can therefore no longer refute "the interior opened one divider
+      too many": both sides of its comparison move together.
+
+      Failure scenario: a regression in `_level_runs`
+      (src/nonogram/admin/book_pdf_generator.py:954) that splits one level into
+      two runs — e.g. a tier representation that stops being a singleton, so
+      `is` stops matching — adds a spurious divider to a single-level book.
+      `answer_key_of` recomputes `expected` from the 2 observed dividers and
+      passes. The regression is still caught downstream, because the byte-exact
+      `expected_answer_page(..., first_answer_page(puzzles) + offset, ...)`
+      comparisons DO use the independent `level_count`, and a shifted answer page
+      changes its parity and therefore its pixels — which is why this is medium
+      and not high. But the helper every test in the file routes through has
+      stopped being evidence.
+    suggestion: |
+      `expected = first_answer_page(puzzles) - 1`, and keep an exact divider
+      count: `assert len(dividers) == level_count(puzzles) + 1`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 887
+    title: "interior_page_count's one-argument upper bound is only asserted on single-level books"
+    description: |
+      `level_dividers` left out defaults to `min(len(TIERS), puzzle_count)`, and
+      the card's claim is that this keeps "called with the count alone, this is
+      an upper bound on every book" true. I VERIFIED the claim holds and is
+      tight: a 3-puzzle 3-level book plans 11 and writes 11; the 4-puzzle
+      3-level baseline book bounds at 13 and writes 11. So this is a coverage
+      gap, not a defect.
+
+      The gap: the two assertions that state the bound —
+      tests/test_book_export_interior_cover.py:669 and :690
+      (`interior_page_count(puzzle_count) >= written` / `>= pages`) — run only on
+      that module's books, which are "three easy 20x20s", i.e. ONE level. Nothing
+      in the suite asserts the bound on a two- or three-level book. Mutation M5
+      (`min(len(TIERS), n)` -> `min(len(TIERS) - 1, n)`, which makes the bound
+      genuinely wrong for a 3-level book) was killed only by the two
+      exact-figure assertions on the Finalise screen's "~11" string, never by a
+      bound assertion.
+
+      Failure scenario: a later change narrows the divider term (or CARD-129
+      replaces it) in a way that understates a 3-level book. CARD-129's gutter
+      refusal consumes exactly this number next wave; the suite would report the
+      break only as a changed cosmetic figure in one HTML assertion, which is
+      the kind of failure a fix agent re-points rather than investigates.
+    suggestion: |
+      Add one case to TestBookFinalise_PageCountIsTheExportsPagePlan whose book
+      is easy+medium+hard, asserting `interior_page_count(n) >= written` there
+      too — the tight 3-puzzle 3-level case (bound 11, actual 11) is the
+      boundary value and is currently untested.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1402
+    title: "puzzle_section's \"payloads are in print order\" precondition is documented but unguarded"
+    description: |
+      `puzzle_section` states in its docstring that `payloads` is "the book in
+      print order", and the `dividers <= 3` property that `interior_page_count`'s
+      default bound (F-002) rests on is true only for a grouped input:
+      `_level_runs` cuts MAXIMAL RUNS, so an ungrouped list of n tier changes
+      yields n named runs and n divider pages. The method validates `ids`
+      parallelism (line 1402) but not the ordering premise, and it does not call
+      `print_order` itself.
+
+      Today this is safe: `interior_stream` calls `print_order(puzzles)` first
+      (line 1861) and is the only production caller. But `puzzle_section` is
+      public and is already called directly from
+      tests/property/test_book_order.py:243 and :308, and CARD-129 — which must
+      compute the interior's EXACT page count — is the obvious next direct
+      caller. A CARD-129 implementation that hands it the stored (legacy mixed)
+      order gets several dividers per level, silently exceeds `min(3, n)`, and
+      the `_as_planned` tripwire will not catch it because it is handed the same
+      measured `dividers` value.
+    suggestion: |
+      Either call `print_order` inside `puzzle_section` (it is idempotent, so
+      the interior_stream call becomes free), or assert
+      `len(_level_runs(payloads)) <= len(TIERS) + 1` at the top with a message
+      naming the precondition.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_pdf_geometry.py
+    line: 175
+    title: "EC-022's PDF half now runs its 120-extent corpus entirely on ungraded rows"
+    description: |
+      `_puzzle`'s default `difficulty_tier` flipped from `"easy"` to `None`, and
+      `test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages`
+      dropped its explicit alternating easy/medium assignment. Every book in that
+      sweep is now ungraded: no pairing, no dividers, `pages[1 + index]` is the
+      puzzle page.
+
+      This is a legitimate re-point, not a mask: I checked that the property's
+      subject (portrait trim, drawing top edge = TOP_MM + BAND_MM) is a function
+      of the page spec and the band height only, and neither depends on the row's
+      tier or on where the page sits — so nothing the property states is lost.
+      The narrowing is that the module's LARGEST corpus (120+ extents x 2 sheets)
+      no longer touches the divider path at all; the divider/geometry interaction
+      now rests on the single three-copy case in the parity sibling
+      (`_MirroredMargins...`, which I verified DOES need its third copy — see
+      the report's item 2).
+    suggestion: |
+      Optional: keep one graded variant of the extent sweep (e.g. run the same
+      extents once with `difficulty_tier="easy"` and index off a page map) so the
+      largest corpus also crosses a divider.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/fixtures/book_baseline_card128.json
+    line: 4
+    title: "The new baseline's recorded_from_commit names a tree that cannot reproduce its digests"
+    description: |
+      `recorded_from_commit: 346d89e80f2aabffcc9bf277e8c3b56f0513161c` is main /
+      the merge base, whose code produces an 8-page interior for
+      `baseline_puzzles` (I confirmed this by accident when a bare `python -c`
+      resolved the editable install to the main checkout and reported
+      `page_count 8`). The fixture records `page_count: 11`, so it was in fact
+      recorded from this card's own tree. The provenance field therefore names a
+      commit that does not reproduce the file — which is the one thing a
+      provenance field exists to let a later reader check.
+
+      The supersession PROCEDURE itself was followed exactly as the CARD-145
+      fixture's `warning` prescribes, and I verified this rather than taking it
+      on trust: a NEW file with its own card number and a `why_a_new_baseline`
+      field; `book_baseline_card145.json` left unregenerated with ONE line added
+      (`git diff --stat` shows `1 +`, 0 deletions — no digest, no page entry and
+      no `interior_bytes` was rewritten). Nothing was regenerated to make a
+      failing test pass.
+    suggestion: "Set recorded_from_commit to the card's own commit (407c0cc or its successor)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 511
+    title: "The size-differential sanity guard loosened further than the new counts require"
+    description: |
+      `assert big.seen > 20 * small.seen` became `> 15 * small.seen`. The change
+      is forced — 182 / 11 = 16.5, so 20 no longer passes — but 16 would have
+      preserved the tightest true bound; 15 leaves more slack than the new
+      figures need.
+
+      Scope: this is the "the two books must differ in size" premise guard, NOT
+      the memory property. The two assertions that carry CARD-145's streaming
+      claim are untouched: `assert big.peak == small.peak` (equality, line 512)
+      and `PEAK_IN_PAGES == 1.00` in
+      `test_neither_book_holds_more_than_one_page_bitmap`. I also confirmed the
+      probe cannot miss the new page kind: `PAGE_FACTORIES` discovers every
+      generator method that returns a page, so `create_divider_page` is covered
+      by construction, and the divider is yielded as an expression
+      (book_pdf_generator.py:1975) so no frame holds it across the yield.
+    suggestion: "Use `> 16 * small.seen`, or state the ratio as a named constant beside CORPUS_PAGE_COUNT."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/architecture/requirements.yml
+    line: 0
+    title: "The ungraded tail opening no divider is an undeclared design decision"
+    description: |
+      Verified correct and safe: a run of rows with no tier of record opens no
+      divider page, and this cannot produce an unnumbered or unaccounted page —
+      those puzzles are in `plan`, are numbered by the `printed == 1..count`
+      tripwire (book_pdf_generator.py:1899), and their pages are in
+      `interior_page_count`'s `pages` term. It is covered by
+      tests/test_book_pdf_two_up.py::TestBookPdf_DifferentTiersNeverPair::test_a_row_with_no_tier_of_record_never_pairs
+      (`levels=0`) and by the geometry parity property's `len(pages) == 10`.
+
+      But no AC or EC states it. AC-256 is about an EMPTY level; EC-029 says "one
+      divider per non-empty level" and an ungraded run is not one of ADR-0031's
+      levels. The rule lives only in the module docstring and the card's worktree
+      notes, and EC-029's own property sweep never exercises it: POOL_TIERS
+      (tests/property/test_book_order.py:77) holds only easy/medium/hard/guess,
+      so no state of any edit sequence has an ungraded member.
+    suggestion: "Add a sentence to EC-029 (or a sibling AC) stating that a run with no tier of record opens no divider, and add one ungraded word to POOL_TIERS."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1861
+    title: "Grouping at PDF time can make a legacy book pair two puzzles its stored list separates"
+    description: |
+      Because `print_order` runs before the pairing walk, two same-tier puzzles
+      that the stored (legacy mixed) arrangement separates — e.g. stored E1, M1,
+      E2 — become adjacent in print order and are now offered to
+      `compute_pair_layout`, so they may share a two-up page where before they
+      could not. This is correct under INV-009 ("adjacent in the book order",
+      where the book order IS the grouped one) and is asserted by
+      tests/property/test_book_pairing.py, whose `_printed` oracle expects
+      exactly this. It is nonetheless a user-visible change to how an existing
+      legacy book prints that no AC names, and the owner validates books
+      visually.
+    suggestion: "Worth one line in the card's notes / the FR so it is a decision rather than a side effect."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 761
+    title: "The interior_page_count monkeypatch stub defaults level_dividers to 0, production to None"
+    description: |
+      `TestBookPdf_PagePlanGuardIsLive`'s replacement lambda is
+      `lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0`,
+      while the real signature defaults `level_dividers` to `None` (which means
+      `min(3, n)`, a materially different value). Harmless today because
+      `interior_stream` passes the term explicitly at both call sites
+      (book_pdf_generator.py:1937 and :2027), so the stub's default is never
+      taken — but the stub now misrepresents the function it stands in for, and
+      a future call that relies on the default would be tested against the wrong
+      semantics.
+    suggestion: "Use `level_dividers=None` in the stub and pass it straight through."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 890
+    title: "No test covers the new negative guard on level_dividers"
+    description: |
+      `raise ValueError(f"divider page count cannot be negative, got {dividers}")`
+      has no covering test — but neither do its three siblings on lines 879, 882
+      and 885 (grep over tests/ finds none of the four messages). The new guard
+      follows the file's existing, consistently untested pattern, so it is noted
+      rather than filed as a coverage gap of this card's making.
+    suggestion: "Optional: one parametrised test over all four guards."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  ran: true
+  deferred: false
+  note: "Run after the full suite finished and with no other agent or suite active on the worktree. File captured to the scratchpad and verified by sha256 after every restore."
+  file: src/nonogram/admin/book_pdf_generator.py
+  sha256_before: "3b858ab8cf7971fc3b894ecaa7c12aeb5afb67c386ef53e2fe573b83d1dec10b"
+  sha256_after: "3b858ab8cf7971fc3b894ecaa7c12aeb5afb67c386ef53e2fe573b83d1dec10b"
+  byte_identical_to_capture: true
+  working_tree_after: "only meta/kanban/cards/CARD-128.md modified — the implementer's uncommitted worktree notes, present before the review began"
+  mutants:
+    - id: M1
+      target: "print_order:1111 — the tier reader handed to book_level_order"
+      mutation: "lambda index: _stored_tier(ranked[index])  ->  lambda index: None (grouping becomes identity)"
+      result: killed
+      killed_by:
+        - "tests/test_book_pdf_levels.py::TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel::test_the_puzzles_print_grouped_by_level"
+        - "tests/test_book_pdf_levels.py::TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel::test_each_level_still_opens_with_its_own_divider"
+      restored: true
+    - id: M2
+      target: "_level_runs:954 — the section-cutting walk's run-continuation test"
+      mutation: "runs[-1][0] is level  ->  runs[-1][0] is not level"
+      result: killed
+      killed_by:
+        - "tests/test_book_pdf_levels.py (6 tests, incl. AC-253, AC-255, AC-256, AC-260, AC-293)"
+        - "tests/property/test_book_order.py::test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence[memory] and [db] — EC-029 both modes"
+      restored: true
+    - id: M3
+      target: "puzzle_section:1417 — first_number offsetting"
+      mutation: "first_number=start + 1  ->  first_number=start"
+      result: killed
+      killed_by:
+        - "tests/test_book_pdf_levels.py (AC-255 band numbers)"
+        - "tests/test_book_pdf_band.py::test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle (ADR-0037/R1's property) + 7 example tests"
+      restored: true
+    - id: M4
+      target: "puzzle_section:1410 — which runs open a divider"
+      mutation: "if level is not None:  ->  if level is not None and start != 0: (the first level loses its divider)"
+      result: killed
+      killed_by:
+        - "tests/test_book_pdf_levels.py (AC-253/254/255/256/260/293)"
+        - "tests/test_book_pdf.py::TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1 (3 of 5, incl. test_the_divider_did_not_take_the_puzzle_pages_place) — AC-287"
+        - "tests/test_book_pdf.py::TestBookPdf_PagePlanGuardIsLive::test_a_plan_that_no_longer_describes_the_pages_aborts"
+      restored: true
+    - id: M5
+      target: "interior_page_count:888 — the divider arithmetic's default bound"
+      mutation: "min(len(TIERS), puzzle_count)  ->  min(len(TIERS) - 1, puzzle_count)"
+      result: killed
+      killed_by:
+        - "tests/test_book_export_interior_cover.py::TestBookFinalise_OffersBothDownloads::test_the_screen_renders_an_interior_and_a_cover_download"
+        - "tests/test_book_export_interior_cover.py::TestBookFinalise_PageCountIsTheExportsPagePlan::test_finalise_shows_that_bound_on_the_downloaded_interior[3]"
+      note: "Killed only by the two EXACT-figure assertions, not by either upper-bound assertion — see F-002."
+      restored: true
+    - id: M6
+      target: "interior_stream:1907 — where the answer section starts"
+      mutation: "first_answer_page = 3 + len(section)  ->  3 + len(plan) (dividers stop counting)"
+      result: killed
+      killed_by:
+        - "tests/test_book_answer_key.py (6 tests: four-up/six-up page identity, captions, custom titles)"
+      restored: true
+  survivors: []

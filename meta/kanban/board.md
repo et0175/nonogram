@@ -22,7 +22,7 @@ _Updated: 2026-09-24 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
-| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 3/9 merged (CARD-145, CARD-141, CARD-142) · CARD-142 in review · CARD-128 + CARD-144 implementing · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
+| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 4/9 merged (CARD-145, CARD-141, CARD-142, CARD-128) · CARD-142 in review · CARD-128 + CARD-144 implementing · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -51,9 +51,9 @@ _(none)_
 
 ## Review
 - **CARD-144** P2 · Frame around the puzzle on book pages, clue bands boxed (owner) · 0.5d · wave 26 · after CARD-141 · ⟳ review cycle 1/3
-- **CARD-128** P2 · Level dividers and the difficulty order in print (+ default-plan answer key, first-puzzle parity) · 0.5d · wave 26 · Inc 15 · after CARD-126, CARD-127, CARD-134 · ⟳ review cycle 1/3
 
 ## Done
+- **CARD-128** Level dividers and the difficulty order in print · score 8.5 (1 cycle + fix) · merged 557c7ac
 - **CARD-142** The bulk buttons follow a per-puzzle approve or reject · score 9.0 (2 cycles) · merged 87ea085
 - **CARD-141** Answer-page rows take the height they need; spare white at the page foot · score 9.0 (1 cycle) · merged a83cc54
 - **CARD-145** The book PDF written a page at a time (4.3 GB -> 132 MB) · score 9.0 (3 cycles) · merged 554c437
