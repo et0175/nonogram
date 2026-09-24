@@ -34,12 +34,12 @@ active:
     branch: card/118-proof-pages
     worktree: ../PythonProject4-CARD-118
     phase: commit
-    review_cycle: 1
+    review_cycle: 3
   - card: CARD-127
     branch: card/127-book-two-up-pages
     worktree: ../PythonProject4-CARD-127
     phase: committed
-    review_cycle: 2
+    review_cycle: 3
   - card: CARD-130
     branch: card/130-book-step-workflow-reentry
     worktree: ../PythonProject4-CARD-130
@@ -49,7 +49,7 @@ active:
     branch: card/138-batch-difficulty-target
     worktree: ../PythonProject4-CARD-138
     phase: commit
-    review_cycle: 2
+    review_cycle: 3
 resolved_escalations:   # CARD-134 unblocked 2026-09-23 by decompose rulings G-1a / G-2a
 serialized: []   # CARD-134 released 2026-09-23 when CARD-127 merged
 
@@ -66,5 +66,12 @@ out_of_band:
   - card: CARD-145
     branch: card/145-stream-the-book-pdf
     worktree: ../PythonProject4-CARD-145
-    phase: implementation
-    review_cycle: 0
+    phase: committed
+    review_cycle: 3
+    head: 7b092b8
+    score: 9.0
+    owner_check: pending   # deploy and export a real book; the OOM should be gone
+
+# Nothing is running. Wave 26 proper is gated on wave 25's owner_confirmed_checkpoint
+# (the printed proof measurement, CARD-118). CARD-145 was the one card cleared to run
+# ahead of it, and it is merged.
