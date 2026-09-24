@@ -1,6 +1,6 @@
 # CARD-128: Level dividers and the difficulty order in print — "Easy", "Medium", "Hard" pages, numbers 1..n unbroken
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/128-book-level-dividers
-**Worktree:** —
+**Branch:** card/128-level-dividers-print-order
+**Worktree:** ../PythonProject4-CARD-128
 **Source:** meta/architecture/handoff.md#increment-15 (FR-041 print half)
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-126, CARD-127, CARD-134
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_answer_key.py, tests/test_book_pdf_levels.py, tests/property/test_book_order.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-24T17:24:11Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -141,8 +141,76 @@
 
 ## Worktree notes
 
-—
+- [Implementation, 2026-09-24] **Print order and dividers are decided in
+  `book_pdf_generator`, at PDF time, and nothing is stored (G-1).**
+  `interior_stream` now begins with the new module function `print_order`,
+  which runs the rows through `book_plan.book_level_order` — the one grouping
+  the arrange screen, the adds and the moves already use — keyed on the rows'
+  *positions* rather than their ids, so it holds for a list whose members share
+  an id or carry none. It is stable and idempotent, so an already-grouped book
+  is not reordered and a legacy mixed one prints grouped while its stored list
+  is left alone (AC-260).
+- The section between the guide page and SOLUTIONS is planned by the new
+  `BookPDFGenerator.puzzle_section`, which cuts the print order into maximal
+  runs of one tier of record and, for each **named** run, plans a
+  `DividerPagePlan` and then `puzzle_pages`' walk over that level alone.
+  `puzzle_pages` gained `first_number`, so the bands keep running 1..n across
+  the levels while each level's walk starts on the page after its own divider
+  (AC-255). Splitting the walk changes no pairing verdict: INV-010 already
+  pairs only equal tiers, so no pair could straddle a level boundary.
+- **The ungraded tail opens no divider.** A divider carries the level's name
+  and nothing else (AC-254, G-3), and a run of rows whose `difficulty_tier` is
+  no tier of record has no name to print; a blank sheet would be a page the
+  reader cannot account for. Those puzzles follow the last named level, as
+  their band already prints "Puzzle 12" and stops and their answer run already
+  starts an unheaded page.
+- **The counting tripwires.** `interior_page_count` gained `level_dividers`;
+  `interior_stream` passes the measured count on both sides of `pages_saved`,
+  so that figure still measures two-up pairing alone. Left out, the term
+  defaults to `min(3, puzzle_count)` — the most a book of that many puzzles
+  could open — which keeps "called with the count alone this is an upper bound
+  on every book" true of the dividers as it already was of pairing and
+  packing. That is the Finalise screen's "~" figure (it now reads ~11 for a
+  3-puzzle book); making it exact is still CARD-129's (EC-034). `app.py` was
+  not touched (G-4).
+- Divider pages are written through CARD-145's streaming path: the producer
+  yields `self.create_divider_page(...)` as an expression, so no frame holds a
+  page across the yield, and the page count is known from the plan before
+  anything is drawn, which `_write_pdf`'s pre-allocated object ids require.
+- SCOPE+ `tests/test_book_pdf.py`, `tests/test_book_answer_key.py`,
+  `tests/test_book_pdf_two_up.py`, `tests/test_book_pdf_band.py`,
+  `tests/test_book_export_interior_cover.py`, `tests/test_book_pdf_memory.py`,
+  `tests/test_book_proof_pages.py`, `tests/helpers/book_corpus.py`,
+  `tests/property/test_book_export_interior.py`,
+  `tests/property/test_book_pairing.py`,
+  `tests/property/test_book_pdf_geometry.py` — every interior page after the
+  guide moved, so each module's page map moved with it. No production file
+  outside the card's Touches was edited. Where a test needed "one puzzle per
+  page and no divider" it now uses rows with **no tier of record** (they never
+  pair and open no divider) rather than alternating tiers, which the grouping
+  would have regrouped; `test_book_pdf_geometry`'s parity property needed a
+  third copy (easy / medium / ungraded) because one puzzle per named level
+  always lands on an odd page.
+- SCOPE+ `tests/fixtures/book_baseline_card128.json` (new) — CARD-145's
+  per-page baseline fixture records the merge-base's 8-page interior, and this
+  card deliberately changes what the interior holds, which is the one case its
+  own `warning` field allows a successor for. The CARD-145 fixture is left
+  unregenerated with a `superseded_by` line added; the new file records the
+  same book's 11 pages and names the guide page and the four divider pages as
+  the machine-lettered ones.
+- Tests: `tests/test_book_pdf_levels.py` (AC-253..AC-256, AC-260, AC-293),
+  AC-287 rewritten in `tests/test_book_pdf.py`, and EC-029's printed half added
+  to `tests/property/test_book_order.py` — every state of every edit sequence
+  now also has its page plan checked against this file's own rank table (one
+  divider per non-empty level, immediately before its first puzzle, numbers
+  1..n), with the last book of each mode really exported. The
+  `PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle` corpus now
+  covers grouped and divided books, since its tiers are drawn independently of
+  position and its page map is computed by an oracle in that module.
 
 - [Handover from CARD-117, 2026-09-23] Puzzle numbering is positional: reordering renumbers the bands and the answer key together, and a per-level divider changes page positions only — N stays index+1 over the puzzles, not over pages.
 
 - [Handover from CARD-126, 2026-09-23] book_plan.book_levels returns [(Tier|None, [ids])] for non-empty levels only — the shape one-divider-per-level needs. The interior now receives a GROUPED puzzle_ids, so any test that assumed submission order needs the same one-line adjustment.
+
+[Touches drift] 14 files beyond Touches, all test-side, all declared SCOPE+: 11 test modules, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card128.json (new) and a superseded_by line in book_baseline_card145.json. No production file outside Touches was edited.
+[Runtime conflict] OBSERVED with CARD-144: both edit tests/fixtures/book_baseline_card145.json, tests/helpers/book_corpus.py and tests/test_book_pdf_memory.py. Owner's ruling 2026-09-24: CARD-128 merges FIRST (it owns book_pdf_generator.py and changes page composition itself); CARD-144 then rebases and RE-RECORDS its baseline rather than resolving textually.
