@@ -1,8 +1,8 @@
 {
   "card": "CARD-144",
   "supersedes": "tests/fixtures/book_baseline_card128.json",
-  "recorded_from_commit": "the commit that rebases card/144-book-puzzle-frame onto 557c7ac (CARD-128's merge) — a commit cannot carry its own hash, so the SHA is written in by the commit that immediately follows it, which edits this one field and nothing else and therefore exports the same eleven pages",
-  "recorded_from_commit_note": "The first tree that reproduces these digests. No earlier commit can: this card's pre-rebase tip (7288f2e) writes an 8-page interior for the same book, because it predates CARD-128's level dividers, and CARD-128's own tree (407c0cc) writes eleven unframed pages. Only the two together produce the eleven framed-where-it-counts pages below.",
+  "recorded_from_commit": "3350c2a77642e106f62a43f19b2b9c2775a14ad5",
+  "recorded_from_commit_note": "This card's rebase of card/144-book-puzzle-frame onto 3c7b7dd (main, after CARD-128 merged as 557c7ac) — the first tree that reproduces these digests, and the tree they were taken from. No earlier commit can: this card's pre-rebase tip (7288f2e) writes an 8-page interior for the same book, because it predates CARD-128's level dividers, and CARD-128's own tree (407c0cc) writes eleven unframed pages. Only the two together produce the eleven pages below. A commit cannot carry its own hash, so this field was filled in by the commit that immediately follows 3350c2a; that commit edits these two fields and nothing else, so it exports the same eleven pages and reproduces them too.",
   "recorded_on": "2026-09-24",
   "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
   "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
