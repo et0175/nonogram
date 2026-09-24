@@ -3166,12 +3166,26 @@ def create_app(debug=None):
                         # never gave, and `newly_overridden` would persist it
                         # (INV-006).
                         #
-                        # `shown_ids` cannot change the outcome: `kept_ids` IS
-                        # the whole kept selection, so on the re-POST
+                        # Carrying `shown_ids` whole, or dropping it entirely,
+                        # cannot change the outcome: `kept_ids` IS the whole
+                        # kept selection, so on the re-POST
                         # `_fold_tab_into_selection` either drops everything
                         # and re-adds the ticks, or keeps everything and the
                         # `dict.fromkeys` dedupe collapses the repeat — the
-                        # same set either way. It stays because this form is
+                        # same set, in the same order, either way.
+                        #
+                        # A *partial* `shown_ids` is NOT inert, and the
+                        # difference is not academic: the fold then keeps a
+                        # non-empty `kept`, so `kept + ticked` puts the unshown
+                        # ids first and `dict.fromkeys` freezes that order. The
+                        # set is unchanged; the ORDER is not. That order is
+                        # where a new puzzle lands inside its level (INV-009),
+                        # which is the order the printed book runs in. Nothing
+                        # here can send a partial one — the field is emitted
+                        # from the same `shown_ids` the tab rendered — but the
+                        # leg is inert by that fact, not by the dedupe.
+                        #
+                        # It stays because this form is
                         # the owner's submission posted back: the confirmation
                         # re-POSTs a *selection-step submission*, and one
                         # without `shown_ids` is a tab that offered nothing,
