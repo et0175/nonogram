@@ -834,11 +834,27 @@ def _module_name(path: Path) -> str:
 
 
 def _is_page_spec_call(node: ast.Call) -> bool:
-    """``PageSpec(...)`` or ``layout.PageSpec(...)``, however it was imported."""
+    """A call that can hand back a placed :class:`PageSpec`.
+
+    Two shapes, because a spec is born two ways in this codebase:
+
+    * ``PageSpec(...)`` or ``layout.PageSpec(...)``, however it was imported;
+    * ``replace(...)`` or ``dataclasses.replace(...)`` — the idiom
+      ``layout.py`` itself already uses on this very type, and the one a
+      second producer is most likely to reach for, since it starts from a
+      spec that already exists.
+
+    ``replace`` is matched by name alone, without checking what is being
+    replaced: the walk cannot know a local's type, and a guard that only
+    fires on calls it can prove are ``PageSpec`` is a guard that misses the
+    interesting case. A ``replace`` of something else carrying ``parity=``
+    would be a false positive, and a loud one is the right failure here —
+    the same reason ``_carries_a_parity`` treats ``**kwargs`` as placed.
+    """
     func = node.func
     if isinstance(func, ast.Attribute):
-        return func.attr == "PageSpec"
-    return isinstance(func, ast.Name) and func.id == "PageSpec"
+        return func.attr in {"PageSpec", "replace"}
+    return isinstance(func, ast.Name) and func.id in {"PageSpec", "replace"}
 
 
 def _carries_a_parity(node: ast.Call) -> bool:
