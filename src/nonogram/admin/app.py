@@ -1931,6 +1931,41 @@ def create_app(debug=None):
             pagination=_page_window(result.total_count, result.limit, result.offset),
         )
 
+    # ------------------------------------------------------------------
+    # CARD-142: the batch screen posts the two per-puzzle actions by fetch and
+    # never reloads, so the three bulk buttons kept the counts the page was
+    # rendered with — rejecting puzzles one at a time left "Delete rejected"
+    # disabled with rejected puzzles sitting on the page. A caller that asks
+    # for JSON now gets the batch's fresh `batch_action_counts` back with the
+    # outcome; every other caller (a browser form post, every existing test)
+    # keeps the flash-and-redirect unchanged.
+    # ------------------------------------------------------------------
+
+    def _prefers_json() -> bool:
+        """Whether this caller would rather have JSON than a rendered page.
+
+        Strictly *rather*: a request with no ``Accept`` header rates the two
+        equally and is answered with the redirect, so the opt-in belongs to
+        the page's ``fetch``, which asks for JSON outright. A browser's own
+        ``Accept`` puts ``text/html`` first and is likewise unaffected.
+        """
+        accept = request.accept_mimetypes
+        return accept["application/json"] > accept["text/html"]
+
+    def _action_result(ok, message, status_code, batch_id):
+        """The JSON body a fetch caller gets for one per-puzzle action.
+
+        The counts ride along only when the action succeeded: a refusal
+        changed nothing, so the buttons must stay as they are rather than be
+        re-applied from a number that has not moved. They are asked of the
+        store, never derived here — the confirmation number and the number the
+        bulk action itself applies stay one rule.
+        """
+        body = {"ok": ok, "message": message}
+        if ok and batch_id:
+            body["action_counts"] = puzzle_review.batch_action_counts(batch_id)
+        return jsonify(body), status_code
+
     @app.route("/puzzle/<puzzle_id>/approve", methods=["POST"])
     def approve_puzzle(puzzle_id):
         """Approve a puzzle."""
@@ -1939,11 +1974,15 @@ def create_app(debug=None):
         # "Puzzle not found" would send the owner looking for a missing row
         # rather than telling them what actually stopped it.
         if puzzle_review.in_a_book(puzzle_id):
-            flash("Cannot approve a puzzle that is in a book", "error")
+            ok, code, message = False, 409, "Cannot approve a puzzle that is in a book"
         elif puzzle_review.approve_puzzle(puzzle_id):
-            flash(f"Puzzle {puzzle_id} approved", "success")
+            ok, code, message = True, 200, f"Puzzle {puzzle_id} approved"
         else:
-            flash(f"Puzzle not found", "error")
+            ok, code, message = False, 404, "Puzzle not found"
+
+        if _prefers_json():
+            return _action_result(ok, message, code, batch_id)
+        flash(message, "success" if ok else "error")
 
         # Return to batch if batch_id provided, else global puzzles list
         if batch_id:
@@ -1958,11 +1997,15 @@ def create_app(debug=None):
         # "Puzzle not found" would send the owner looking for a missing row
         # rather than telling them what actually stopped it.
         if puzzle_review.in_a_book(puzzle_id):
-            flash("Cannot reject a puzzle that is in a book", "error")
+            ok, code, message = False, 409, "Cannot reject a puzzle that is in a book"
         elif puzzle_review.reject_puzzle(puzzle_id):
-            flash(f"Puzzle {puzzle_id} rejected", "success")
+            ok, code, message = True, 200, f"Puzzle {puzzle_id} rejected"
         else:
-            flash(f"Puzzle not found", "error")
+            ok, code, message = False, 404, "Puzzle not found"
+
+        if _prefers_json():
+            return _action_result(ok, message, code, batch_id)
+        flash(message, "success" if ok else "error")
 
         # Return to batch if batch_id provided, else global puzzles list
         if batch_id:

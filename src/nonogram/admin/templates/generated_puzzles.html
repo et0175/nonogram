@@ -6,6 +6,15 @@
 {% block section %}New batch · step 4{% endblock %}
 
 {% block content %}
+{#- CARD-142: the bulk confirmations are worded in one place and read three
+    ways — the sentence the page is rendered with, plus the two shapes the
+    script re-fills from a count the server sent back after a per-puzzle
+    action. `count` is the real number for the first and the placeholder
+    `{n}` for the other two, so the page carries no stale digit and the
+    script never composes a sentence of its own. -#}
+{%- macro bulk_confirm(verb, count, plural, one_article, noun, tail) -%}
+{{ verb }} {{ 'all ' if plural else one_article }}{{ count }} {{ noun }}{{ 's' if plural else '' }} in this batch?{{ tail }}
+{%- endmacro -%}
 <div class="page-head">
     <div>
         <h1>Review the batch</h1>
@@ -99,19 +108,35 @@
                     the count that decides whether you meant it — and a button
                     with nothing to do is disabled rather than confirming its
                     way to a no-op. The numbers come from the store, so they
-                    are the same rule the action itself applies. -#}
+                    are the same rule the action itself applies.
+
+                    CARD-142: each button carries `data-bulk-action` — the key
+                    its count arrives under when a per-puzzle approve or reject
+                    reports fresh ones — and the two sentences the script
+                    re-fills. They sit after `disabled` on the button, not on
+                    the form, so the rendered order of the pair the page is
+                    read by stays what it was. -#}
                 <div class="d-grid gap-2">
                     <form method="POST" action="/batch/{{ batch_id }}/approve-all"
-                          onsubmit="return confirm('Approve {{ 'all ' if action_counts.approve != 1 else '' }}{{ action_counts.approve }} puzzle{{ 's' if action_counts.approve != 1 else '' }} in this batch?');">
-                        <button type="submit" class="btn btn-success w-100" {{ 'disabled' if not action_counts.approve }}>{{ icons.icon('check') }} Approve all</button>
+                          onsubmit="return confirm('{{ bulk_confirm('Approve', action_counts.approve, action_counts.approve != 1, '', 'puzzle', '') }}');">
+                        <button type="submit" class="btn btn-success w-100" {{ 'disabled' if not action_counts.approve }}
+                                data-bulk-action="approve"
+                                data-confirm-one="{{ bulk_confirm('Approve', '{n}', false, '', 'puzzle', '') }}"
+                                data-confirm-many="{{ bulk_confirm('Approve', '{n}', true, '', 'puzzle', '') }}">{{ icons.icon('check') }} Approve all</button>
                     </form>
                     <form method="POST" action="/batch/{{ batch_id }}/reject-all"
-                          onsubmit="return confirm('Reject {{ 'all ' if action_counts.reject != 1 else '' }}{{ action_counts.reject }} puzzle{{ 's' if action_counts.reject != 1 else '' }} in this batch?');">
-                        <button type="submit" class="btn btn-outline-danger w-100" {{ 'disabled' if not action_counts.reject }}>{{ icons.icon('x') }} Reject all</button>
+                          onsubmit="return confirm('{{ bulk_confirm('Reject', action_counts.reject, action_counts.reject != 1, '', 'puzzle', '') }}');">
+                        <button type="submit" class="btn btn-outline-danger w-100" {{ 'disabled' if not action_counts.reject }}
+                                data-bulk-action="reject"
+                                data-confirm-one="{{ bulk_confirm('Reject', '{n}', false, '', 'puzzle', '') }}"
+                                data-confirm-many="{{ bulk_confirm('Reject', '{n}', true, '', 'puzzle', '') }}">{{ icons.icon('x') }} Reject all</button>
                     </form>
                     <form method="POST" action="/batch/{{ batch_id }}/delete-rejected"
-                          onsubmit="return confirm('Delete {{ 'all ' if action_counts.delete_rejected != 1 else 'the ' }}{{ action_counts.delete_rejected }} rejected puzzle{{ 's' if action_counts.delete_rejected != 1 else '' }} in this batch? This cannot be undone.');">
-                        <button type="submit" class="btn btn-outline-danger w-100" {{ 'disabled' if not action_counts.delete_rejected }}>{{ icons.icon('trash') }} Delete rejected</button>
+                          onsubmit="return confirm('{{ bulk_confirm('Delete', action_counts.delete_rejected, action_counts.delete_rejected != 1, 'the ', 'rejected puzzle', ' This cannot be undone.') }}');">
+                        <button type="submit" class="btn btn-outline-danger w-100" {{ 'disabled' if not action_counts.delete_rejected }}
+                                data-bulk-action="delete_rejected"
+                                data-confirm-one="{{ bulk_confirm('Delete', '{n}', false, 'the ', 'rejected puzzle', ' This cannot be undone.') }}"
+                                data-confirm-many="{{ bulk_confirm('Delete', '{n}', true, 'the ', 'rejected puzzle', ' This cannot be undone.') }}">{{ icons.icon('trash') }} Delete rejected</button>
                     </form>
                 </div>
             </div>
@@ -136,6 +161,25 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // CARD-142: the bulk buttons follow the per-puzzle actions. `counts` is
+    // what the server just reported for this batch — the page counts nothing
+    // itself, because the rendered cards are not the batch and a second
+    // implementation of the rules is exactly what went wrong the first time.
+    function applyActionCounts(counts) {
+        if (!counts) return;
+        document.querySelectorAll('[data-bulk-action]').forEach(button => {
+            const count = counts[button.dataset.bulkAction];
+            if (typeof count !== 'number') return;
+            button.disabled = count === 0;
+            const sentence = (count === 1 ? button.dataset.confirmOne : button.dataset.confirmMany)
+                .replace('{n}', count);
+            // Assigning the property replaces the server-rendered inline
+            // handler, so the confirmation names the fresh number.
+            const form = button.closest('form');
+            if (form) form.onsubmit = function() { return confirm(sentence); };
+        });
+    }
+
     document.querySelectorAll('.puzzle-action-form').forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -151,7 +195,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const originalHtml = actionBtn.innerHTML;
             actionBtn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
 
-            fetch(this.action, { method: 'POST' })
+            // CARD-142: asking for JSON is what makes the endpoint answer with
+            // the batch's fresh counts instead of a redirect. Nothing else
+            // sends this header, so the no-JavaScript path is untouched.
+            fetch(this.action, { method: 'POST', headers: { 'Accept': 'application/json' } })
             .then(response => {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const deleteForm = container.querySelector('.puzzle-delete-form');
@@ -166,6 +213,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 container.querySelectorAll('.puzzle-action-btn').forEach(btn => { btn.disabled = true; });
                 actionBtn.innerHTML = originalHtml;
+                // Only a successful action reaches here, so a refusal — a
+                // puzzle a book holds (CARD-100) — leaves the buttons alone.
+                return response.json().then(
+                    data => applyActionCounts(data && data.action_counts),
+                    () => {}
+                );
             })
             .catch(error => {
                 actionBtn.disabled = false;
