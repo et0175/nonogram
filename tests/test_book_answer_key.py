@@ -196,6 +196,34 @@ def _interior(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Imag
     )
 
 
+#: Every stored tier word this module's books carry, and the level it belongs
+#: to (ADR-0031's three; "guess" reads back as hard, ADR-0031/R3). Written out
+#: rather than imported: how many divider pages a book opens is a figure this
+#: module works out for itself.
+LEVEL_OF = {"easy": 0, "medium": 1, "hard": 2, "guess": 2}
+
+
+def level_count(puzzles: Sequence[dict]) -> int:
+    """How many divider pages the puzzle section opens (CARD-128).
+
+    One per **non-empty** level, and none for rows whose tier is no level at
+    all. Every book in this module is graded, so this is simply how many of
+    easy / medium / hard it holds.
+    """
+    words = {str(puzzle.get("difficulty_tier", "")).strip().casefold() for puzzle in puzzles}
+    return len({LEVEL_OF[word] for word in words if word in LEVEL_OF})
+
+
+def first_answer_page(puzzles: Sequence[dict]) -> int:
+    """Where the packed key's first page sits in the interior.
+
+    The guide page, one divider per level (CARD-128), one page per puzzle —
+    none of this module's books pairs (see the module docstring) — and the
+    SOLUTIONS divider, so the key starts on the page after those.
+    """
+    return 2 + level_count(puzzles) + len(puzzles) + 1
+
+
 # --------------------------------------------------------------------------
 # Reading a page back off its ink
 # --------------------------------------------------------------------------
@@ -344,11 +372,15 @@ def answer_key_of(
     is beside the point.
     """
     dividers = [number for number, page in enumerate(pages, start=1) if is_divider(page)]
-    assert len(dividers) == 1, f"the interior holds {len(dividers)} divider page(s)"
-    (divider,) = dividers
+    assert dividers, "the interior holds no divider page"
+    # Since CARD-128 the interior opens each level with a divider of its own,
+    # so the **last** divider is the SOLUTIONS page: it is the one every later
+    # page carries an answer after.
+    divider = dividers[-1]
     if puzzle_count is not None:
-        assert divider == 2 + puzzle_count, (
-            f"the divider is interior page {divider}, not {2 + puzzle_count} — "
+        expected = 2 + (len(dividers) - 1) + puzzle_count
+        assert divider == expected, (
+            f"the SOLUTIONS divider is interior page {divider}, not {expected} — "
             "these puzzles were expected to take a page each"
         )
     key = list(pages[divider:])
@@ -427,13 +459,14 @@ class TestBookAnswerKey_SixUpInPuzzleNumberOrder:
     ) -> None:
         """The page is, pixel for pixel, the page of exactly those six answers.
 
-        Its interior position is ``3 + puzzles + offset`` — after the guide
-        page, the puzzle pages and the divider — which is also what makes the
-        comparison a check on the page's *parity*: a key laid out on the wrong
-        side of the spread would sit a few millimetres across from this.
+        Its interior position is :func:`first_answer_page` plus the offset —
+        after the guide page, the level's divider, the puzzle pages and the
+        SOLUTIONS divider — which is also what makes the comparison a check on
+        the page's *parity*: a key laid out on the wrong side of the spread
+        would sit a few millimetres across from this.
         """
         puzzles, key = self._key()
-        page_number = 3 + self.PUZZLES + offset
+        page_number = first_answer_page(puzzles) + offset
         expected = expected_answer_page(
             captioned(puzzles, numbers), SIX_UP, page_number, heading
         )
@@ -466,7 +499,7 @@ class TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage:
     def test_the_first_page_holds_five_and_the_large_answer_starts_the_next(self) -> None:
         puzzles = _book_of(*self.SIZES)
         key = answer_key_of(_interior(puzzles), len(puzzles))
-        first_page = 3 + len(puzzles)
+        first_page = first_answer_page(puzzles)
 
         assert len(key) == 2
         assert key[0].tobytes() == expected_answer_page(
@@ -507,7 +540,7 @@ class TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20:
     ) -> None:
         puzzles = _book_of(*self.SIZES)
         key = answer_key_of(_interior(puzzles), len(puzzles))
-        first_page = 3 + len(puzzles)
+        first_page = first_answer_page(puzzles)
 
         assert len(key) == 2
         assert key[0].tobytes() == expected_answer_page(
@@ -545,7 +578,7 @@ class TestBookAnswerKey_LongestSideTwentyStaysSixUp:
         assert key[0].tobytes() == expected_answer_page(
             captioned(puzzles, (1, 2, 3, 4, 5, 6)),
             SIX_UP,
-            3 + len(puzzles),
+            first_answer_page(puzzles),
             "Easy",
         ).tobytes()
         assert grid_columns_and_rows(key[0]) == (2, 3)
@@ -682,7 +715,7 @@ class TestBookAnswerKey_CaptionPuzzleNumberAndTitle:
         assert key[1].tobytes() == expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Snowflake")],
             SIX_UP,
-            3 + len(puzzles) + 1,
+            first_answer_page(puzzles) + 1,
             None,
             book,
         ).tobytes()
@@ -696,7 +729,7 @@ class TestBookAnswerKey_CaptionPuzzleNumberAndTitle:
         puzzles, book = _snowflake_book()
         page = answer_key_of(_interior(puzzles, book), len(puzzles))[1]
         uncaptioned = expected_answer_page(
-            [(puzzles[_SNOWFLAKE - 1], "")], SIX_UP, 3 + len(puzzles) + 1, None, book
+            [(puzzles[_SNOWFLAKE - 1], "")], SIX_UP, first_answer_page(puzzles) + 1, None, book
         )
 
         assert page.tobytes() != uncaptioned.tobytes()
@@ -723,7 +756,7 @@ class TestBookAnswerKey_CaptionPuzzleNumberAndTitle:
                 for number, puzzle in enumerate(puzzles, start=1)
             ],
             SIX_UP,
-            3 + len(puzzles),
+            first_answer_page(puzzles),
             "Easy",
         )
         assert key[0].tobytes() == expected.tobytes()
@@ -743,7 +776,7 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
         assert key[1].tobytes() == expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Winter Star")],
             SIX_UP,
-            3 + len(puzzles) + 1,
+            first_answer_page(puzzles) + 1,
             None,
             book,
         ).tobytes()
@@ -756,7 +789,7 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
         assert page.tobytes() != expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Snowflake")],
             SIX_UP,
-            3 + len(puzzles) + 1,
+            first_answer_page(puzzles) + 1,
             None,
             book,
         ).tobytes()
@@ -769,7 +802,7 @@ class TestBookAnswerKey_CaptionUsesCustomBookTitle:
         assert key[1].tobytes() == expected_answer_page(
             [(puzzles[_SNOWFLAKE - 1], "Puzzle 7 — Snowflake")],
             SIX_UP,
-            3 + len(puzzles) + 1,
+            first_answer_page(puzzles) + 1,
             None,
             book,
         ).tobytes()
@@ -981,7 +1014,7 @@ class TestBookAnswerKey_EachLevelStartsNewAnswerPage:
     ) -> None:
         puzzles = _book_of(*[(15, 15)] * len(self.TIERS), tiers=self.TIERS)
         key = answer_key_of(_interior(puzzles), len(puzzles))
-        first_page = 3 + len(puzzles)
+        first_page = first_answer_page(puzzles)
 
         assert len(key) == 2
         assert key[0].tobytes() == expected_answer_page(
@@ -1038,7 +1071,7 @@ class TestBookAnswerKey_HeadingOnlyOnLevelFirstPage:
     ) -> None:
         puzzles, key = self._key()
         expected = expected_answer_page(
-            captioned(puzzles, numbers), SIX_UP, 3 + len(puzzles) + offset, heading
+            captioned(puzzles, numbers), SIX_UP, first_answer_page(puzzles) + offset, heading
         )
         assert len(key) == 3
         assert key[offset].tobytes() == expected.tobytes()
@@ -1070,7 +1103,7 @@ class TestBookAnswerKey_HeadingOnlyOnLevelFirstPage:
 
 
 class TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey:
-    """AC-292 — a book of 3 easy 15x15s: guide, 3 puzzles, SOLUTIONS, the key.
+    """AC-292 — 3 easy 15x15s: guide, "Easy", 3 puzzles, SOLUTIONS, the key.
 
     The divider carries only that word: no band, no number, no heading and no
     answer. It is one trim-size page, immediately after the last puzzle page
@@ -1085,9 +1118,11 @@ class TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey:
         puzzles = _book_of(*[(15, 15)] * self.PUZZLES)
         book = _book()
         pages = _interior(puzzles, book)
-        divider = 2 + self.PUZZLES
+        divider = first_answer_page(puzzles) - 1
 
-        assert len(pages) == divider + 1, "guide, 3 puzzles, divider, one answer page"
+        assert len(pages) == divider + 1, (
+            "guide, the Easy divider, 3 puzzles, SOLUTIONS, one answer page"
+        )
         assert pages[divider - 1].tobytes() == BookPDFGenerator(
             book
         ).create_divider_page(divider).tobytes()
@@ -1100,7 +1135,7 @@ class TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey:
         """
         puzzles = _book_of(*[(15, 15)] * self.PUZZLES)
         pages = _interior(puzzles)
-        divider = pages[2 + self.PUZZLES - 1]
+        divider = pages[first_answer_page(puzzles) - 2]
 
         assert is_divider(divider)
         assert not answer_grids(divider)
@@ -1112,7 +1147,7 @@ class TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey:
     ) -> None:
         puzzles = _book_of(*[(15, 15)] * self.PUZZLES)
         pages = _interior(puzzles)
-        divider = 2 + self.PUZZLES
+        divider = first_answer_page(puzzles) - 1
 
         assert not is_divider(pages[divider - 2]), "the page before is a divider too"
         assert answer_grids(pages[divider]), "the page after carries no answer"
@@ -1162,7 +1197,8 @@ class TestBookAnswerKey_ReportsItsAnswerPageCount:
         export = BookPDFGenerator(_book()).export_book(puzzles, "Winter Pictures")
 
         assert export.answer_page_count == 2
-        assert export.interior_page_count == 1 + 12 + 1 + 2
+        # Guide, the "Easy" divider, 12 puzzle pages, SOLUTIONS, 2 answer pages.
+        assert export.interior_page_count == 1 + 1 + 12 + 1 + 2
 
 
 # --------------------------------------------------------------------------

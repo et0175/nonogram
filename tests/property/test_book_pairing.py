@@ -269,6 +269,33 @@ def _expected_answer_pages(order: list[Puzzle]) -> int:
     return pages + -(-run // ANSWERS_PER_PAGE)
 
 
+#: Where each level sits in the printed book (INV-009), and where a row whose
+#: tier is no tier at all sits: after every level, behind no divider.
+_LEVEL_RANK = {"Easy": 0, "Medium": 1, "Hard": 2}
+_UNGRADED_RANK = len(_LEVEL_RANK)
+
+
+def _printed(order: list[Puzzle]) -> list[Puzzle]:
+    """``order`` as the interior prints it: easy, then medium, then hard.
+
+    A stable sort on the level alone — this module's own reading of FR-041 —
+    so two puzzles of one level keep the order they were submitted in
+    (CARD-128 decides this at PDF time, so it holds for a list handed straight
+    to the generator).
+    """
+    return sorted(
+        order,
+        key=lambda puzzle: _LEVEL_RANK.get(puzzle.tier_of_record, _UNGRADED_RANK),
+    )
+
+
+def _divider_count(order: list[Puzzle]) -> int:
+    """How many divider pages the puzzle section opens: one per named level."""
+    return len({
+        puzzle.tier_of_record for puzzle in order if puzzle.tier_of_record is not None
+    })
+
+
 def _expected_pages(sheet: Sheet, order: list[Puzzle]) -> list[tuple[int, ...]] | None:
     """EC-027's walk, written out: the 1-based puzzle numbers of each page.
 
@@ -409,29 +436,48 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         extents = {(p.columns, p.rows) for p in order}
         if len(extents) != len(order):
             continue
-        expected = _expected_pages(sheet, order)
+        # The book prints grouped by level (INV-009, CARD-128), so the walk's
+        # order — and every page number below — is the grouped one.
+        printed = _printed(order)
+        expected = _expected_pages(sheet, printed)
         assert expected is not None, "no corpus book sits on the threshold"
+        dividers = _divider_count(printed)
 
         rows = [puzzle.as_row(f"p{index}") for index, puzzle in enumerate(order)]
         interior = BookPDFGenerator(sheet.book).interior_pages(rows)
         label = (sheet, [str(p) for p in order])
 
-        # Guide, the puzzle pages, the divider, the packed answer key (FR-042).
+        # Guide, a divider per non-empty level, the puzzle pages, the
+        # SOLUTIONS divider, the packed answer key (FR-042).
         assert len(interior) == (
-            1 + len(expected) + 1 + _expected_answer_pages(order)
+            1 + dividers + len(expected) + 1 + _expected_answer_pages(printed)
         ), label
+
+        # Which interior page each planned puzzle page landed on: page 1 is
+        # the guide, and each named level's run opens with a divider page.
+        numbers_of: list[int] = []
+        page_number = 2
+        opened: object = object()
+        for group in expected:
+            level = printed[group[0] - 1].tier_of_record
+            if level != opened:
+                opened = level
+                if level is not None:
+                    page_number += 1
+            numbers_of.append(page_number)
+            page_number += 1
 
         drawn = [
             [(drawing.columns, drawing.rows) for drawing in drawings_of(interior[number - 1])]
-            for number in range(2, 2 + len(expected))
+            for number in numbers_of
         ]
         assert drawn == [
-            [(order[n - 1].columns, order[n - 1].rows) for n in numbers]
+            [(printed[n - 1].columns, printed[n - 1].rows) for n in numbers]
             for numbers in expected
         ], label
-        # ... and therefore the book order, front to back, unchanged.
+        # ... and therefore the print order, front to back, unchanged.
         assert [extent for page in drawn for extent in page] == [
-            (puzzle.columns, puzzle.rows) for puzzle in order
+            (puzzle.columns, puzzle.rows) for puzzle in printed
         ], label
 
         for page in drawn:

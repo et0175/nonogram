@@ -5,10 +5,20 @@
     order of two puzzles of one level changes only through an explicit move
     within that level.
 
-This file holds the **edit-sequence half** of EC-029. The other half — one
-divider per non-empty level immediately before that level's first puzzle, and
-puzzle numbers 1..n unbroken — belongs to the printed book and is CARD-128's
-to add here; nothing in this file asserts anything about a PDF.
+This file holds **both halves** of EC-029: the edit sequence, and — since
+CARD-128 — the printed book that comes out of every state it passes through.
+After each step the book's rows are put through the export's own two decisions
+(``print_order`` then ``puzzle_section``, which is the pair
+``interior_stream`` makes before it draws anything) and the page plan that
+comes back is required to be **one divider page per non-empty level,
+immediately before that level's first puzzle page, with puzzle numbers 1..n
+unbroken across the levels**. The expected plan is built here, from this
+file's own rank table, and never by asking the code under test what it thinks.
+
+Nothing is rendered inside the sweep — the plan is decided without a pixel,
+which is what makes it affordable per step — but the last book of each mode
+**is** exported, so the plan this property sweeps is tied to a file whose
+pages were really drawn.
 
 What is moved
 -------------
@@ -47,6 +57,12 @@ import random
 import pytest
 
 from nonogram.admin.book_manager import BookManager
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    DividerPagePlan,
+    PuzzlePagePlan,
+    print_order,
+)
 from nonogram.admin.book_plan import LevelBoundary
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from tests.helpers.db import sqlite_session_scope
@@ -74,6 +90,10 @@ POOL_TIERS = (
 #: imported: this is the oracle, and an oracle that asks the code under test
 #: what the answer is is not one.
 RANK = {"easy": 0, "medium": 1, "hard": 2, "guess": 2}
+
+#: What a divider page for each rank says — the level's name, and nothing else
+#: (AC-254). Written out here for the same reason :data:`RANK` is.
+LEVEL_NAME = {0: "Easy", 1: "Medium", 2: "Hard"}
 
 #: How much sequence each mode runs, and the floor under it.
 TRIALS = 25
@@ -169,6 +189,137 @@ def assert_levels_unchanged(shelf, before, after, context, *, except_rank=None) 
 
 
 # --------------------------------------------------------------------------
+# the printed book (CARD-128)
+# --------------------------------------------------------------------------
+
+
+def _rows(shelf, order) -> list:
+    """The book's rows, in the stored order, as the export is handed them."""
+    return [shelf.store.get_puzzle(puzzle_id) for puzzle_id in order]
+
+
+def _expected_section(shelf, order) -> list:
+    """The puzzle section this file says the interior must hold.
+
+    ``[("divider", name) | ("puzzle", puzzle id, number), ...]`` in print
+    order: the ids grouped by :data:`RANK` with a stable sort, one divider
+    before each run of a **named** level, and the numbers running 1..n over
+    the puzzles alone. Nothing here calls the generator; it is the expectation
+    the generator's plan is compared against.
+
+    None of this corpus's puzzles ever shares a page: they are 10x10s with
+    single-run clues, which two-up pairing could pair — so the comparison
+    below allows a page to hold two puzzles and this expectation is written
+    per **puzzle**, not per page, with the pages' contents concatenated on the
+    other side.
+    """
+    printed = sorted(order, key=shelf.rank)
+    section: list = []
+    opened = None
+    for number, puzzle_id in enumerate(printed, start=1):
+        rank = shelf.rank(puzzle_id)
+        if rank != opened:
+            opened = rank
+            if rank in LEVEL_NAME:
+                section.append(("divider", LEVEL_NAME[rank]))
+        section.append(("puzzle", puzzle_id, number))
+    return section
+
+
+def _planned_section(shelf, order) -> list:
+    """The same list, read off the export's own page plan.
+
+    ``print_order`` and ``puzzle_section`` are the two decisions
+    :meth:`BookPDFGenerator.interior_stream` makes before it draws anything,
+    made here in the same order and over the same rows, so what is compared is
+    the plan the export would print. A two-up page contributes both of its
+    puzzles, in print order, which is what lets a paired book be compared
+    against the per-puzzle expectation above.
+    """
+    rows = print_order(_rows(shelf, order))
+    payloads = [BookPDFGenerator._payload(row) for row in rows]
+    ids = [row["id"] for row in rows]
+    section: list = []
+    for entry in BookPDFGenerator(None).puzzle_section(payloads, ids=ids):
+        if isinstance(entry, DividerPagePlan):
+            section.append(("divider", entry.text))
+            continue
+        for number in entry.numbers:
+            section.append(("puzzle", ids[number - 1], number))
+    return section
+
+
+def assert_prints_grouped_with_dividers(shelf, order, context) -> int:
+    """EC-029's printed half, over one state of one book.
+
+    One divider per non-empty named level, immediately before that level's
+    first puzzle, and puzzle numbers 1..n unbroken across the levels — checked
+    as a single comparison of the whole section, because each of those three
+    claims is a claim about *where* something is and the section is where they
+    all live.
+
+    Returns how many levels this state prints, so the sweep can require that
+    books of one, two and three levels all occurred rather than assuming a
+    random walk produced them.
+    """
+    planned = _planned_section(shelf, order)
+    assert planned == _expected_section(shelf, order), (
+        f"the printed section is not the one this order prints, after {context}"
+    )
+
+    # And the three claims again, each on its own, so a failure says which of
+    # them broke rather than only that the lists differ.
+    numbers = [entry[2] for entry in planned if entry[0] == "puzzle"]
+    assert numbers == list(range(1, len(order) + 1)), (
+        f"puzzle numbers are not 1..{len(order)} after {context}: {numbers}"
+    )
+    names = [entry[1] for entry in planned if entry[0] == "divider"]
+    levels = [
+        LEVEL_NAME[rank]
+        for rank in sorted({shelf.rank(p) for p in order} & set(LEVEL_NAME))
+    ]
+    assert names == levels, (
+        f"the dividers are {names}, not one per non-empty level ({levels}) "
+        f"after {context}"
+    )
+    for index, entry in enumerate(planned):
+        if entry[0] != "divider":
+            continue
+        follower = planned[index + 1]
+        assert follower[0] == "puzzle", f"{entry[1]} opens no puzzle after {context}"
+        assert LEVEL_NAME[shelf.rank(follower[1])] == entry[1], (
+            f"the {entry[1]} divider opens a {follower[1]} page after {context}"
+        )
+    return len(names)
+
+
+def assert_the_interior_really_prints_that(shelf, order, context) -> None:
+    """The same book, exported: the page plan's own count, and a real file.
+
+    The sweep decides a plan per step without drawing; this draws one book, so
+    the plan the property is stated over is tied to pages that exist. The page
+    count is checked against this file's own arithmetic — guide page, the
+    section's pages, the SOLUTIONS divider and the packed key's pages — and
+    the pages are really built, which is where a plan that cannot be drawn
+    would fail.
+    """
+    rows = print_order(_rows(shelf, order))
+    payloads = [BookPDFGenerator._payload(row) for row in rows]
+    plan = BookPDFGenerator(None).puzzle_section(payloads)
+    dividers = sum(1 for entry in plan if isinstance(entry, DividerPagePlan))
+    puzzle_pages = sum(1 for entry in plan if isinstance(entry, PuzzlePagePlan))
+
+    stream = BookPDFGenerator(None).interior_stream(_rows(shelf, order))
+    pages = list(stream.pages)
+
+    # Guide page, the section's pages, the SOLUTIONS divider, the packed key.
+    expected = 1 + dividers + puzzle_pages + 1 + stream.answer_page_count
+    assert stream.page_count == expected, context
+    assert len(pages) == expected, context
+    assert {page.size for page in pages} == {pages[0].size}, context
+
+
+# --------------------------------------------------------------------------
 # the property
 # --------------------------------------------------------------------------
 
@@ -237,14 +388,21 @@ def _check_move(shelf, before, after, moving, offset, outcome, context) -> str:
 def test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence(mode, tmp_path) -> None:
     """EC-029 — PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence.
 
-    The edit-sequence half: for any book and any sequence of adds, removes and
-    moves, the order stays grouped easy/medium/hard, and a level's internal
-    order changes only through a move inside that level. CARD-128 extends this
-    with the divider and numbering half.
+    Both halves: for any book and any sequence of adds, removes and moves, the
+    order stays grouped easy/medium/hard, a level's internal order changes only
+    through a move inside that level, and the book that order **prints** holds
+    exactly one divider per non-empty level, immediately before that level's
+    first puzzle, with puzzle numbers 1..n unbroken (CARD-128).
     """
     shelf = Shelf(mode, tmp_path)
     rng = random.Random(SEED)
     counts = {"add": 0, "remove": 0, "moved": 0, "refused": 0, "book_end": 0}
+    #: The printed half runs on every step of every trial, so it is counted
+    #: separately from the edit kinds and has a floor of its own.
+    counts["printed"] = 0
+    #: How many levels the printed books held, so a sweep that only ever saw
+    #: one-level books cannot pass for a sweep of the divider rule.
+    levels_seen: set = set()
 
     for trial in range(TRIALS):
         book_id = shelf.books.create_book(f"Book {trial}", "a book", "christmas", "adults")
@@ -286,11 +444,28 @@ def test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence(mode, tmp_path
                 counts[_check_move(shelf, before, after, moving, offset, outcome, context)] += 1
 
             assert_grouped(shelf, after, context)
+            # ...and the book this state prints (CARD-128). Decided, not
+            # drawn: the plan is what the claim is about, and a rendered page
+            # per step would make this corpus unaffordable.
+            levels_seen.add(assert_prints_grouped_with_dividers(shelf, after, context))
+            counts["printed"] += 1
             members = after
 
+        # One book of each trial's final state is really exported, so the
+        # plans swept above are tied to pages that were drawn. The last trial
+        # of each mode is enough: the work is one 13-page interior, not 350.
+        if trial == TRIALS - 1 and members:
+            assert_the_interior_really_prints_that(
+                shelf, members, f"trial {trial} (exported)"
+            )
         shelf.books.delete_book(book_id)
 
+    printed = counts.pop("printed")
     steps = sum(counts.values())
+    assert printed == steps, (printed, steps)
+    # Books of one, two and three levels were all printed, so "one divider per
+    # non-empty level" was checked where it has something to say.
+    assert {1, 2, 3} <= levels_seen, levels_seen
     assert steps >= MIN_STEPS, f"the corpus shrank to {steps} steps: {counts}"
     for kind, seen in counts.items():
         assert seen >= MIN_OF_EACH_KIND, (

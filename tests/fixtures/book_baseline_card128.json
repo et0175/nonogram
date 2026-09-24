@@ -1,0 +1,112 @@
+{
+  "card": "CARD-128",
+  "supersedes": "tests/fixtures/book_baseline_card145.json",
+  "recorded_from_commit": "346d89e80f2aabffcc9bf277e8c3b56f0513161c",
+  "recorded_on": "2026-09-24",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-128 deliberately changes what the interior holds, which is the one reason the CARD-145 fixture's warning allows a new baseline to be recorded: the book now prints grouped easy, then medium, then hard (INV-009) and opens each non-empty level with a divider page (TERM-031), so this four-puzzle book's interior went from 8 pages to 11 and every page after the guide moved. The CARD-145 fixture is left in place, unregenerated, as the evidence it was recorded to be.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-128. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids. If a later card deliberately changes a page's content, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "font_fingerprint": "19f6bed7e82991d6f9ba6e1552b97aa9d863707e08b5fade368d4b5f31d710a5",
+  "font_fingerprint_note": "The guide page and every divider page are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against the digests of the pages named in font_dependent_pages.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "The 1-based interior pages whose pixels depend on the machine's own font: page 1 is the guide page (Arial at 48 and 28, load_default fallback), pages 2, 4 and 6 are the Easy, Medium and Hard level dividers and page 8 is the SOLUTIONS divider (Arial at 60). The other six are drawn in the bundled band face and Pillow's built-in clue face, so their digests are comparable on any machine and are compared even when font_fingerprint differs. interior_bytes is compared only when the fingerprint matches: those pages sit inside the same file, and a different face changes the length of their JPEG streams.",
+  "interior_bytes": 2614114,
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "73ab7e03d0fa64ef5839c8116fb96c766e367771cfeb89417623604157903021"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "84ee283a62de31507a8d8ee05c024e952cd499509262d9b8788e5e6bba2b91f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "2def160bf03dd790ba6f25b4187ee0732449f5d27b57d9d9f19ec0ca4dd370ee"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "1d108e1a8b545eac2fe2d965cfec0afe3095f0197b766fb33e03716418fedf84"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd36d4dc043f4af75b83f77fc147186e36dd021194e0b7d62e25028b695ded"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "3f3e7b686bbdb67d942d4244fdedd91d6aec3d511446a3674a19872fd7617955"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bcb474a056c470d6c6818204eec9f0f8ed03e6a9d244570f1e3e71b26b29a113"
+    }
+  ]
+}

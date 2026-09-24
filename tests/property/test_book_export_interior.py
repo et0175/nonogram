@@ -362,21 +362,60 @@ _LEVEL = {"easy": 0, "medium": 1, "hard": 2}
 def _as_the_interior_prints_them(case):
     """The case's puzzles in the order the exported interior holds them.
 
-    A book runs easy, then medium, then hard (FR-041, INV-009; CARD-126), so a
-    submission whose tiers are drawn at random is *stored* grouped, and page
-    ``2 + index`` holds the index-th puzzle of the grouped order. The
-    ``generator`` route takes a list straight into ``export_book`` with no book
-    behind it, so it prints what it was handed.
+    A book runs easy, then medium, then hard (FR-041, INV-009), and since
+    CARD-128 that grouping is made **at PDF time**, by the generator itself —
+    so it holds for the ``generator`` route, which hands ``export_book`` a
+    list with no book behind it, exactly as it holds for the routes whose
+    books store a grouped order. One stable sort on the level alone, so two
+    puzzles of one level keep the order they were submitted in.
 
     This decides only *which* puzzle each page holds. What the assertions below
     are about — that the page's parity is its 1-based position in the interior
     — is untouched by it, and is still checked on every page.
     """
-    if case["route"] == "generator":
-        return list(case["puzzles"])
     return sorted(
         case["puzzles"], key=lambda p: _LEVEL.get(str(p["difficulty_tier"]).lower(), 3)
     )
+
+
+def _section_plan(puzzles):
+    """The puzzle section: ``(page number, the puzzles on it)`` per page.
+
+    The guide page is interior page 1, and then each non-empty **named** level
+    opens with a divider page of its own (TERM-031, CARD-128) followed by that
+    level's pages as :func:`_puzzle_page_plan` walks them. A run of puzzles
+    whose stored tier is no level at all opens no divider — there is no name
+    to print on one — so it simply follows the last named level.
+
+    Returns the puzzle pages only; the dividers are counted by their absence
+    from the numbering (:func:`_divider_pages`).
+    """
+    pages, page_number = [], 2
+    index = 0
+    while index < len(puzzles):
+        level = _LEVEL.get(str(puzzles[index]["difficulty_tier"]).lower())
+        run = [p for p in puzzles[index:]
+               if _LEVEL.get(str(p["difficulty_tier"]).lower()) == level]
+        # The order is grouped, so a level's run is contiguous and this is all
+        # of it.
+        if level is not None:
+            page_number += 1  # the level's divider
+        for group in _puzzle_page_plan(run):
+            pages.append((page_number, group))
+            page_number += 1
+        index += len(run)
+    return pages
+
+
+def _divider_pages(puzzles):
+    """How many divider pages the puzzle section opens: one per named level."""
+    return len({
+        level
+        for level in (
+            _LEVEL.get(str(p["difficulty_tier"]).lower()) for p in puzzles
+        )
+        if level is not None
+    })
 
 
 def _export_through_route(app, case):
@@ -466,8 +505,10 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # divider, and the pages the packed answer key takes (FR-042).
         printed = _as_the_interior_prints_them(case)
         plan = _puzzle_page_plan(printed)
+        section = _section_plan(printed)
+        dividers = _divider_pages(printed)
         key = _answer_page_plan(printed)
-        expected_count = 1 + len(plan) + (len(key) + 1 if n else 0)
+        expected_count = 1 + dividers + len(plan) + (len(key) + 1 if n else 0)
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
@@ -493,8 +534,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             )
             seen["right-hand" if page_number % 2 else "left-hand"] += 1
 
-        for offset, group in enumerate(plan):
-            page_number = 2 + offset
+        for page_number, group in section:
             drawings = drawings_of(interior[page_number - 1])
             assert len(drawings) == len(group), (
                 f"{label}: page {page_number} holds {len(drawings)} drawing(s), "
@@ -516,7 +556,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # written out in this module. That tiling starts at the page's own
         # parity's left margin, which is the clause this loop is here for.
         for offset, (answers, capacity, heading) in enumerate(key):
-            page_number = 3 + len(plan) + offset
+            page_number = 3 + dividers + len(plan) + offset
             drawn_left_mm = _ink_left_px(interior[page_number - 1]) / PX_PER_MM
             expected_mm = _expected_answer_left_mm(
                 answers, page_number, capacity, heading

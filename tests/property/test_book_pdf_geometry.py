@@ -172,7 +172,15 @@ def _puzzle(rng: random.Random, columns: int | None = None, rows: int | None = N
         "width": columns,
         "height": rows,
         "puzzle_name": "P",
-        "difficulty_tier": "easy",
+        # **No tier of record.** A row whose stored grade is not one of
+        # ADR-0031's three has no level: it never pairs two-up (INV-010 — two
+        # absences are not an equality) and its run opens no divider page
+        # (CARD-128 — there is no name to print on one). So every book in this
+        # module is guide page, one page per puzzle in the order given,
+        # SOLUTIONS, key, which is the page map every assertion here counts
+        # on. The tier is incidental to a property about where a *drawing*
+        # lands; the graded books are CARD-127's and CARD-128's own corpora.
+        "difficulty_tier": None,
         "_rows": found.rows,
         "_columns": found.columns,
     }
@@ -265,12 +273,11 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
     counted = overflowed = 0
     for sheet in (BOOK1, _random_sheet(rng)):
         puzzles = [_puzzle(rng, columns, rows) for columns, rows in extents]
-        # One puzzle to a page: neighbours are given different tiers, which is
-        # the rule that stops two-up pairing (FR-040, INV-010, CARD-127)
-        # without touching the extents this property is stated over. A book's
-        # two-up pages are the sibling below.
-        for index, puzzle in enumerate(puzzles):
-            puzzle["difficulty_tier"] = "easy" if index % 2 else "medium"
+        # One puzzle to a page, and no divider between them: every row here
+        # is ungraded (see ``_puzzle``), which stops two-up pairing (FR-040,
+        # INV-010) and opens no level divider (CARD-128) without touching the
+        # extents this property is stated over. A book's two-up pages are the
+        # sibling below.
         pages = BookPDFGenerator(sheet.book).interior_pages(puzzles)
         trim_width_px, trim_height_px = _trim_px(sheet)
         expected_top_mm = TOP_MM + BAND_MM
@@ -344,13 +351,30 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         if sheet.page_fit_mm(across, down) < MIN_CELL_MM:
             continue
 
-        # The same drawing twice, on two tiers, so the two copies never share a
-        # page (FR-040, CARD-127): this property's subject is parity, and it
-        # needs the *same* drawing on two pages of opposite parity.
-        pages = BookPDFGenerator(sheet.book).interior_pages(
-            [puzzle, dict(puzzle, difficulty_tier="medium")]
+        # The same drawing three times — easy, medium and ungraded — which is
+        # what this property needs now that each named level opens with a
+        # divider page (CARD-128). The interior runs guide 1, the "Easy"
+        # divider 2, the easy copy 3, the "Medium" divider 4, the medium copy
+        # 5, the ungraded copy 6 (an ungraded run has no name, so it opens no
+        # divider), SOLUTIONS 7, and one answer page per level: 8 "Easy", 9
+        # "Medium", 10 unheaded.
+        #
+        # So the same drawing sits on interior 5 and 6 — **opposite** parity —
+        # and its answer on 8 and 9, opposite parity and both headed. Two
+        # copies alone would no longer do: one puzzle per named level always
+        # lands on an odd page, and an unheaded answer page's tiles are drawn
+        # at another cell (the heading's line costs height), so a headed page
+        # and an unheaded one cannot be compared edge to edge. No two of the
+        # three ever share a page: no two of their tiers are equal (FR-040,
+        # INV-010), and an ungraded row never pairs at all.
+        pages = BookPDFGenerator(sheet.book).interior_pages([
+            dict(puzzle, difficulty_tier="easy", id="p-easy"),
+            dict(puzzle, difficulty_tier="medium", id="p-medium"),
+            dict(puzzle, id="p-ungraded"),
+        ])
+        assert len(pages) == 10, (
+            "guide, two level dividers, three puzzles, SOLUTIONS, three answers"
         )
-        assert len(pages) == 6, "guide, two puzzles, divider, two answers"
 
         # (interior page number, the page) for every page carrying the drawing.
         # The two blank puzzle pages are also measured for width and cell; an
@@ -358,9 +382,9 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # rules cannot be counted (see ``tests/helpers/page_ink.py``) and only
         # its two placed edges are read.
         by_number = {
-            number: drawing_of(pages[number - 1]) for number in (2, 3, 5, 6)
+            number: drawing_of(pages[number - 1]) for number in (5, 6, 8, 9)
         }
-        for number in (2, 3):
+        for number in (5, 6):
             drawing = by_number[number]
             expected_left = sheet.drawing_left_mm(number, across, down)
             assert abs(_mm(drawing.left) - expected_left) <= 2 * HALF_PIXEL_MM + 1e-9, (
@@ -372,7 +396,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # Both answer pages lie inside their own page's usable area — the only
         # absolute statement about a tiled page this module can make without
         # re-deriving COMP-007's tiling.
-        for number in (5, 6):
+        for number in (8, 9):
             drawing = by_number[number]
             left_margin_mm = sheet.left_margin_mm(number)
             assert _mm(drawing.left) >= left_margin_mm - 2 * HALF_PIXEL_MM, (
@@ -382,7 +406,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
                 left_margin_mm + sheet.usable_width_mm + 2 * HALF_PIXEL_MM
             ), (sheet, number)
 
-        for number in (2, 3):
+        for number in (5, 6):
             drawing = by_number[number]
             assert (drawing.columns, drawing.rows) == (columns, rows)
             # Centred across this page's usable width: the white left of the
@@ -401,15 +425,20 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # kinds are compared within their own kind: a puzzle page's drawing and
         # an answer page's tile are different measurements of different things,
         # and only the *shift between two pages of one kind* is the margin.
-        for odd, even in ((by_number[3], by_number[2]), (by_number[5], by_number[6])):
+        for odd, even in ((by_number[5], by_number[6]), (by_number[9], by_number[8])):
             shift_mm = _mm(odd.left - even.left)
             assert abs(shift_mm - (sheet.gutter_mm - sheet.outside_mm)) < 2 * HALF_PIXEL_MM, (
                 sheet, shift_mm
             )
-            # Parity moves the drawing sideways only.
-            assert odd.top == even.top, (sheet, odd.top, even.top)
-        assert by_number[2].grid_bottom == by_number[3].grid_bottom
-        assert abs(by_number[2].cell - by_number[3].cell) <= 1
+
+        # Parity moves the drawing sideways only — on the two puzzle pages,
+        # which are the same page but for their side of the spread, and on the
+        # two answer pages, which carry the same single answer under headings
+        # of their own ("Easy" and "Medium", AC-291) and so are tiled alike.
+        assert by_number[5].top == by_number[6].top, (sheet, by_number[5].top)
+        assert by_number[8].top == by_number[9].top, (sheet, by_number[8].top)
+        assert by_number[5].grid_bottom == by_number[6].grid_bottom
+        assert abs(by_number[5].cell - by_number[6].cell) <= 1
 
         # Every one of those pages is the same trim.
         assert len({page.size for page in pages}) == 1
@@ -441,7 +470,13 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     assert len(extents) >= 24, len(extents)
 
     sheet = BOOK1
-    puzzles = [_puzzle(rng, columns, rows) for columns, rows in extents]
+    # One tier for the whole book, because a pair is offered only between
+    # equal tiers (INV-010) and ``_puzzle`` grades nothing. One level also
+    # means one divider page, interior page 2, so the walk below starts at 3.
+    puzzles = [
+        dict(_puzzle(rng, columns, rows), difficulty_tier="easy")
+        for columns, rows in extents
+    ]
     pages = BookPDFGenerator(sheet.book).interior_pages(puzzles)
     trim_width_px, trim_height_px = _trim_px(sheet)
     expected_top_mm = TOP_MM + BAND_MM
@@ -449,7 +484,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     counted = two_up = single = 0
     tops: set[int] = set()
     index = 0
-    page_number = 2
+    page_number = 3  # guide 1, the "Easy" divider 2
     while index < len(puzzles):
         page = pages[page_number - 1]
         assert page.size[0] < page.size[1], (page_number, "portrait")
