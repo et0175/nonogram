@@ -22,7 +22,7 @@ _Updated: 2026-09-22 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ▶ active · closes Increment 13 (owner-confirmed proof print) |
-| 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
+| 26 | CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ blocked (→ wave 25) · closes Increment 16 · CARD-139 runs last, alone (import sweep over app.py) |
 | 27 | CARD-129 P2, CARD-143 P2 — placeholder P2 | ⏳ blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -45,6 +45,7 @@ _(none)_
 - **CARD-140** P1 · Arrange screen shows the real page breaks (owner: "3 per page even for big ones") · 0.5d · wave 26 · after CARD-128
 - **CARD-141** P2 · Answer-page spare white falls at the page foot (owner ruling) · 0.5d · wave 26 · after CARD-134
 - **CARD-142** P1 · Batch bulk buttons keep up with per-puzzle approve/reject (owner-reported) · 0.5d · wave 26
+- **CARD-144** P2 · Frame around the puzzle on book pages, clue bands boxed (owner) · 0.5d · wave 26 · after CARD-141
 - **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · after CARD-140
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 

@@ -104,7 +104,7 @@ waves:
     status: pending
 
   - wave: 26
-    cards: [CARD-128, CARD-131, CARD-132, CARD-139, CARD-140, CARD-141, CARD-142]
+    cards: [CARD-128, CARD-131, CARD-132, CARD-139, CARD-140, CARD-141, CARD-142, CARD-144]
     increment: [15, 16]
     closes_increment: 16
     checkpoint: >-
