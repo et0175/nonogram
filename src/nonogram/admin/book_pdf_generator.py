@@ -1600,10 +1600,20 @@ class BookPDFGenerator:
         def produce() -> Iterator[Image.Image]:
             """The interior's pages in print order, one per :func:`next`.
 
-            Written as ``yield <expression>`` throughout, deliberately: a page
-            bound to a local here would stay alive across the yield, and the
-            next page would then be built beside it — which is the whole shape
-            this card exists to remove.
+            Two rules hold throughout, and both are load-bearing rather than
+            stylistic — a later page kind (CARD-128's dividers) must keep them:
+
+            **No page outlives the yield that hands it on.** A page is either
+            yielded as an expression or bound, yielded and immediately
+            ``del``\\ eted, because a 25.2 MB bitmap still bound when the walk
+            resumes is a bitmap alive while the next one is built, which is
+            exactly the shape this card removes.
+
+            **No ``yield`` sits inside the ``except Exception`` that names an
+            undrawable puzzle.** A page is built inside the ``try`` and handed
+            on outside it, so the handler can only ever see a failure of the
+            drawing it wrapped — never something a consumer threw back in
+            while the walk was suspended at that yield.
             """
             yield self.create_guide_page(
                 len(puzzles),
@@ -1618,16 +1628,18 @@ class BookPDFGenerator:
                 try:
                     if page_plan.pair is None:
                         ((_, payload),) = members
-                        yield self._blank_page(
+                        page = self._blank_page(
                             payload, page_plan.numbers[0], page_plan.page_number
                         )
                     else:
-                        yield self._two_up_page(page_plan, [p for _, p in members])
+                        page = self._two_up_page(page_plan, [p for _, p in members])
                 except Exception as e:
                     named = _named_puzzles(ids, page_plan.numbers)
                     raise RuntimeError(
                         f"puzzle {named} could not be drawn: {e}"
                     ) from e
+                yield page
+                del page
 
             # The divider opens the answer section, so it is yielded before
             # the pages it opens — the order the interior holds them in. The
@@ -1641,7 +1653,7 @@ class BookPDFGenerator:
             for offset, answer_page in enumerate(key):
                 members = [payloads[number - 1] for number in answer_page.numbers]
                 try:
-                    yield self._answer_page(
+                    page = self._answer_page(
                         answer_page, members, first_answer_page + offset, titles
                     )
                 except Exception as e:
@@ -1649,6 +1661,8 @@ class BookPDFGenerator:
                     raise RuntimeError(
                         f"puzzle {named} could not be drawn: {e}"
                     ) from e
+                yield page
+                del page
 
         return InteriorStream(
             page_count=planned,
