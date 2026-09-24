@@ -1,0 +1,78 @@
+{
+  "card": "CARD-145",
+  "recorded_from_commit": "b4c523df5417a2b54d0d31590fb6773d5dd7047b",
+  "recorded_on": "2026-09-24",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "warning": "This is evidence of what the book PDF looked like BEFORE CARD-145 restructured the export. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids. If a later card deliberately changes a page's content, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "font_fingerprint": "1e15d956c1ef44cbde66f1d28576b968e9b603aef36eb885bfa58105ff5cb687",
+  "font_fingerprint_note": "The guide page and the SOLUTIONS divider are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those two pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against these digests.",
+  "interior_bytes": 2210622,
+  "page_count": 8,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "73ab7e03d0fa64ef5839c8116fb96c766e367771cfeb89417623604157903021"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "31ce5772bc8cdc08160c8a592e9417b46abe59a18e00ec197d6a6aed7342dd61"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0df8d00e3171d726e34060f35b9aff37ec9f4576ac0785665b818948874c75ce"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "c2b9bfaeb98d40120c15fb31a2ee7ea2568b2b671cd1d80d80a8d3f88c0b2a3a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e191461cd02dd99009742b91ad26a98caba8dc7e7d8f86865c6c3a8ede0b0261"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "1a786a42ace5c29e9fffde387bdb63e9d6fb76aae1a4bf7b2a66479a59dea206"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "839196160f1e21891da92e75df7d3b5c0077e5bea5597ce98cf6128c153c24b1"
+    }
+  ]
+}
