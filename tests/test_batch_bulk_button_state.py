@@ -14,15 +14,22 @@ applies them.
 Nothing here executes the page's JavaScript — there is no engine in the
 dependency baseline. So the two halves are pinned separately and deliberately:
 :func:`_assert_wiring` pins that the script does read ``data.action_counts``
-and drive the buttons off it, and :func:`_apply_counts` is an independent
-second implementation of the *display* rule (disabled below one, which sentence
-gets the number) written from the data attributes the page renders. The
-counting rule itself is never reimplemented here — the tests compare against
-the store, which is the one place it lives.
+and drives *both* halves of the display rule off it — the ``disabled`` state
+and the sentence the confirmation names — and :func:`_apply_counts` is an
+independent second implementation of that display rule (disabled below one,
+which sentence gets the number) written from the data attributes the page
+renders. The counting rule itself is never reimplemented here — the tests
+compare against the store, which is the one place it lives.
+
+The wiring pins read the script's source, so they are written to survive a
+reformat: they name the function that must do the applying and the attributes
+it must read, and match the one expression they cannot avoid by shape rather
+than by spelling.
 """
 
 from __future__ import annotations
 
+import re
 import uuid
 from html.parser import HTMLParser
 
@@ -155,18 +162,80 @@ def _apply_counts(buttons, counts):
     return shown
 
 
+#: The one function the fetch handler hands the server's counts to. Pinning a
+#: name the page chose on purpose, rather than an expression's spelling, is
+#: what keeps these assertions about intent.
+APPLIER = "applyActionCounts"
+
+#: ``button.disabled = count === 0`` by shape: something's ``disabled`` is
+#: assigned the result of a strict comparison against zero. Parentheses, a
+#: trailing semicolon or a renamed loop variable all still match; ``!==``, a
+#: different threshold, or the assignment going away do not.
+_DISABLED_BELOW_ONE = re.compile(r"\.disabled\s*=\s*\(?\s*\w+\s*===\s*0\s*\)?")
+
+#: The ``{n}`` in the rendered sentence is where the fresh number goes.
+_FILLS_IN_THE_NUMBER = re.compile(r"\.replace\(\s*['\"]\{n\}['\"]")
+
+#: The confirmation the browser will actually ask is the form's own handler,
+#: so re-filling the sentence means replacing that handler.
+_REPLACES_THE_HANDLER = re.compile(r"\.onsubmit\s*=")
+
+
+def _applier_source(script):
+    """The body of the function the counts are handed to.
+
+    Sliced by brace depth from its declaration so that the assertions below
+    are about the function that does the applying, not about the script as a
+    whole — a page that merely mentioned the attributes somewhere else would
+    not satisfy them.
+    """
+    start = script.index("function " + APPLIER)
+    depth = 0
+    for index in range(script.index("{", start), len(script)):
+        depth += {"{": 1, "}": -1}.get(script[index], 0)
+        if depth == 0:
+            return script[start : index + 1]
+    raise AssertionError(f"{APPLIER} must be a complete function")
+
+
 def _assert_wiring(body):
     """The script really does drive the buttons off what the server sent.
 
     Without this, :func:`_apply_counts` would happily describe a page whose
-    handler ignores the response.
+    handler ignores the response — or one that applies only the half of the
+    rule that greys a button out and leaves the confirmation naming the digit
+    the page was rendered with, which is half the bug this card exists to fix.
     """
     script = body[body.index("<script>") :]
     assert "'Accept': 'application/json'" in script, "the fetch must ask for JSON"
-    assert "[data-bulk-action]" in script, "every bulk button must be updated"
-    assert "button.disabled = count === 0" in script
-    # …and off the response of the action that was just taken, not on load.
-    assert "data.action_counts" in script[script.index("fetch(") :]
+
+    # The counts applied are the ones the action just taken reported, not the
+    # ones the page loaded with.
+    after_fetch = script[script.index("fetch(") :]
+    assert re.search(rf"{APPLIER}\([^)]*action_counts", after_fetch), (
+        f"the fetch handler must hand the server's own counts to {APPLIER}()"
+    )
+    # A refusal says why (CARD-100's wording), instead of a bare "Error".
+    assert "data.message" in after_fetch, "the server's reason must reach the owner"
+    # Applying the counts is bookkeeping for the bulk buttons: it may not
+    # repaint a per-puzzle action the server actually performed.
+    assert re.search(rf"try\s*\{{[^}}]*{APPLIER}\(", after_fetch), (
+        f"a throw inside {APPLIER}() must not reach the shared catch"
+    )
+
+    applier = _applier_source(script)
+    assert "[data-bulk-action]" in applier, "every bulk button must be updated"
+    # Half one: a button with nothing to do is disabled.
+    assert _DISABLED_BELOW_ONE.search(applier), "a count of zero must disable"
+    # Half two: …and the confirmation of a button that is *not* disabled names
+    # the fresh number, in the sentence that matches its plurality.
+    assert "dataset.confirmOne" in applier, "the singular sentence must be read"
+    assert "dataset.confirmMany" in applier, "the plural sentence must be read"
+    assert _FILLS_IN_THE_NUMBER.search(applier), "{n} must be filled in"
+    assert _REPLACES_THE_HANDLER.search(applier), (
+        "the rendered onsubmit still names the old number until it is replaced"
+    )
+    assert "confirm(" in applier, "the refilled sentence must be what is asked"
     # G-2: the rules are the store's. The page may not count cards of its own.
     assert ".result-card" not in script
 

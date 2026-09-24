@@ -200,7 +200,17 @@ document.addEventListener('DOMContentLoaded', function() {
             // sends this header, so the no-JavaScript path is untouched.
             fetch(this.action, { method: 'POST', headers: { 'Accept': 'application/json' } })
             .then(response => {
-                if (!response.ok) throw new Error('HTTP ' + response.status);
+                if (!response.ok) {
+                    // CARD-142: a refusal carries the server's own reason —
+                    // "Cannot approve a puzzle that is in a book" (CARD-100) —
+                    // and that sentence is what the owner is told, because a
+                    // bare "Error" sends them hunting for what stopped it.
+                    const fallback = 'HTTP ' + response.status;
+                    return response.json().then(
+                        data => { throw new Error((data && data.message) || fallback); },
+                        () => { throw new Error(fallback); }
+                    );
+                }
                 const deleteForm = container.querySelector('.puzzle-delete-form');
                 if (action === 'approve') {
                     statusBadge.innerHTML = '<span class="badge" data-status="approved">✓ Approved</span>';
@@ -216,14 +226,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Only a successful action reaches here, so a refusal — a
                 // puzzle a book holds (CARD-100) — leaves the buttons alone.
                 return response.json().then(
-                    data => applyActionCounts(data && data.action_counts),
+                    data => {
+                        // Refreshing the bulk buttons is bookkeeping that comes
+                        // after the action the server already performed: a throw
+                        // in here must not travel to the catch below and repaint
+                        // a succeeded approve or reject as failed.
+                        try {
+                            applyActionCounts(data && data.action_counts);
+                        } catch (countsError) {
+                            console.error('Bulk buttons:', countsError);
+                        }
+                    },
                     () => {}
                 );
             })
             .catch(error => {
                 actionBtn.disabled = false;
                 actionBtn.innerHTML = originalHtml;
-                statusBadge.innerHTML = '<span class="badge" data-status="failed">Error</span>';
+                // The reason travels as text, never as markup — it is the
+                // server's sentence, and the badge stays one word wide.
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.dataset.status = 'failed';
+                badge.textContent = 'Error';
+                badge.title = error.message;
+                statusBadge.innerHTML = '';
+                statusBadge.appendChild(badge);
                 console.error('Error:', error);
             });
         });
