@@ -317,9 +317,23 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
     the same on both.
 
     One book of the same puzzle twice puts it on interior page 2 (left-hand) and
-    page 3 (right-hand), and its two answer pages on 5 (right-hand) and 6
-    (left-hand) — so both parities are measured on both page kinds, with the
+    page 3 (right-hand), and — the two copies being of two levels, which no
+    answer page may mix (FR-042) — its two answer pages on 5 (right-hand) and 6
+    (left-hand), so both parities are measured on both page kinds with the
     drawing held constant.
+
+    **What is measured on an answer page, since FR-042 packed the key.** An
+    answer page no longer carries a placed full-page *drawing*: it carries the
+    key's tiles, whose sizes and positions inside the usable area are
+    COMP-007's (CARD-133, swept by
+    ``tests/property/test_book_answer_tiles.py``) and not this module's
+    arithmetic. So the absolute left edge predicted by ``drawing_left_mm`` is
+    asserted on the two puzzle pages, where it is the statement EC-032 makes,
+    and the answer pages carry the half of EC-032 that is still about the
+    **sheet** and that a tiled page states just as sharply: the same answer, on
+    two pages of opposite parity, sits exactly ``gutter - outside`` further
+    right on the odd one, and at the same height on both. A key laid out on the
+    wrong side of the spread fails that by the whole of the margin difference.
     """
     rng = random.Random(1160032)
     checked = 0
@@ -343,17 +357,30 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # answer page's revealed cells are long runs of ink themselves, so its
         # rules cannot be counted (see ``tests/helpers/page_ink.py``) and only
         # its two placed edges are read.
-        placed = [(2, pages[1]), (3, pages[2]), (5, pages[4]), (6, pages[5])]
-        by_number = {}
-        for number, page in placed:
-            drawing = drawing_of(page)
-            by_number[number] = drawing
+        by_number = {
+            number: drawing_of(pages[number - 1]) for number in (2, 3, 5, 6)
+        }
+        for number in (2, 3):
+            drawing = by_number[number]
             expected_left = sheet.drawing_left_mm(number, across, down)
             assert abs(_mm(drawing.left) - expected_left) <= 2 * HALF_PIXEL_MM + 1e-9, (
                 sheet, number, _mm(drawing.left), expected_left
             )
-            # The top edge is the same fixed offset on every one of them.
+            # The top edge is the fixed offset every puzzle page uses.
             assert abs(_mm(drawing.top) - (TOP_MM + BAND_MM)) <= HALF_PIXEL_MM + 1e-9
+
+        # Both answer pages lie inside their own page's usable area — the only
+        # absolute statement about a tiled page this module can make without
+        # re-deriving COMP-007's tiling.
+        for number in (5, 6):
+            drawing = by_number[number]
+            left_margin_mm = sheet.left_margin_mm(number)
+            assert _mm(drawing.left) >= left_margin_mm - 2 * HALF_PIXEL_MM, (
+                sheet, number, _mm(drawing.left), left_margin_mm
+            )
+            assert _mm(drawing.grid_right) <= (
+                left_margin_mm + sheet.usable_width_mm + 2 * HALF_PIXEL_MM
+            ), (sheet, number)
 
         for number in (2, 3):
             drawing = by_number[number]
@@ -369,16 +396,18 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
                     sheet, number, left_spare, right_spare
                 )
 
-        odd_pages = (by_number[3], by_number[5])
-        even_pages = (by_number[2], by_number[6])
-        for odd in odd_pages:
-            for even in even_pages:
-                shift_mm = _mm(odd.left - even.left)
-                assert abs(shift_mm - (sheet.gutter_mm - sheet.outside_mm)) < 2 * HALF_PIXEL_MM, (
-                    sheet, shift_mm
-                )
-                # Parity moves the drawing sideways only.
-                assert odd.top == even.top, (sheet, odd.top, even.top)
+        # The odd page's copy sits gutter − outside further right than the even
+        # page's, on the puzzle pages and on the answer pages alike. The two
+        # kinds are compared within their own kind: a puzzle page's drawing and
+        # an answer page's tile are different measurements of different things,
+        # and only the *shift between two pages of one kind* is the margin.
+        for odd, even in ((by_number[3], by_number[2]), (by_number[5], by_number[6])):
+            shift_mm = _mm(odd.left - even.left)
+            assert abs(shift_mm - (sheet.gutter_mm - sheet.outside_mm)) < 2 * HALF_PIXEL_MM, (
+                sheet, shift_mm
+            )
+            # Parity moves the drawing sideways only.
+            assert odd.top == even.top, (sheet, odd.top, even.top)
         assert by_number[2].grid_bottom == by_number[3].grid_bottom
         assert abs(by_number[2].cell - by_number[3].cell) <= 1
 

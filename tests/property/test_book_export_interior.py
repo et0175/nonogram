@@ -114,6 +114,125 @@ def _puzzle_page_plan(puzzles):
     return plan
 
 
+# --------------------------------------------------------------------------
+# FR-042's packed answer key, written out here (CARD-134 / CARD-133)
+# --------------------------------------------------------------------------
+
+#: A page holds six answers while every answer on it is at most 20 cells on
+#: its longest side, and four once one of them is longer (INV-011).
+SIX_UP, FOUR_UP, SIX_UP_LONGEST_SIDE = 6, 4, 20
+
+#: CARD-133's tile geometry in millimetres. An answer page carries **no title
+#: band**, so its usable height is the trim less the top and bottom margins
+#: only — which is why it is not :data:`USABLE_HEIGHT_MM`.
+ANSWER_TILE_GAP_MM = 2.0
+ANSWER_CAPTION_MM = 6.0
+ANSWER_HEADING_MM = 6.0
+ANSWER_MAX_CELL_MM = 5.0
+ANSWER_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM
+
+#: How far the leftmost *ink* of a grid may sit from the geometric edge the
+#: arithmetic below predicts. A grid's border is a heavy rule — twice the thin
+#: one, and a book page's thin rule is held at 0.25 mm (ADR-0037/R2) — stroked
+#: on the boundary it marks, so its ink reaches a little left of it. 0.3 mm
+#: covers that with room to spare and is still an order of magnitude below the
+#: 3.175 mm (gutter − outside) a page laid out on the wrong parity would be out
+#: by, which is what this measurement is for.
+ANSWER_EDGE_TOLERANCE_MM = 0.3
+
+
+def _answer_capacity(answers):
+    """FR-042's tiling for the answers on one page."""
+    if any(max(p["width"], p["height"]) > SIX_UP_LONGEST_SIDE for p in answers):
+        return FOUR_UP
+    return SIX_UP
+
+
+def _level_of(puzzle):
+    return _LEVEL.get(str(puzzle["difficulty_tier"]).lower())
+
+
+def _answer_page_plan(puzzles):
+    """FR-042's walk: ``(answers, capacity, heading)`` per answer page.
+
+    The rule written out again rather than asked of the walk under test: the
+    next answer joins the current page when it is of the same level *and* the
+    page with it stays within the capacity it would then have, and otherwise
+    opens a new one; the first page of a level's run carries that level's
+    heading, later pages of the run carry none.
+    """
+    grouped, current = [], []
+    for puzzle in puzzles:
+        if current:
+            joined = current + [puzzle]
+            if _level_of(puzzle) == _level_of(current[0]) and len(joined) <= (
+                _answer_capacity(joined)
+            ):
+                current = joined
+                continue
+            grouped.append(current)
+        current = [puzzle]
+    if current:
+        grouped.append(current)
+
+    pages, previous = [], object()
+    for answers in grouped:
+        level = _level_of(answers[0])
+        pages.append((answers, _answer_capacity(answers), level != previous))
+        previous = level
+    return pages
+
+
+def _expected_answer_left_mm(answers, page_number, capacity, heading):
+    """Where an answer page puts the left edge of its leftmost grid.
+
+    CARD-133's arithmetic in millimetres: the usable area is two tiles across
+    with a 2 mm gap between them, each grid is drawn at the largest square cell
+    its tile can hold (capped at 5 mm) and centred across that tile, and the
+    page's left margin is the gutter on a right-hand (odd) page and the outside
+    margin on a left-hand one. That last term is what this measurement is for:
+    a key laid out for the wrong side of the spread lands ``gutter - outside``
+    away from it.
+
+    The answer is the **widest** of the tiles in the page's left column — fill
+    order is left to right, so those are the answers at even positions — since
+    a wider grid is centred with less spare beside it and so reaches further
+    left than its neighbours above and below.
+    """
+    tile_rows = capacity // 2
+    tile_width = (USABLE_WIDTH_MM - ANSWER_TILE_GAP_MM) / 2
+    heading_mm = ANSWER_HEADING_MM + ANSWER_TILE_GAP_MM if heading else 0.0
+    tile_height = (
+        ANSWER_USABLE_HEIGHT_MM - heading_mm - (tile_rows - 1) * ANSWER_TILE_GAP_MM
+    ) / tile_rows
+    left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
+
+    def grid_left_mm(puzzle):
+        columns, rows = puzzle["width"], puzzle["height"]
+        cell = min(
+            ANSWER_MAX_CELL_MM,
+            tile_width / columns,
+            (tile_height - ANSWER_CAPTION_MM) / rows,
+        )
+        return left_margin + max(tile_width - columns * cell, 0.0) / 2
+
+    return min(grid_left_mm(puzzle) for puzzle in answers[0::2])
+
+
+def _ink_left_px(page):
+    """The x of the leftmost inked pixel of ``page``.
+
+    On an answer page that is the leftmost grid of the left tile column: a
+    caption is one short line of 3.5 mm type centred in its own tile, a level
+    heading the same centred on the page, and the narrowest grid the key can
+    print — 10 cells at the 5 mm cap, 50 mm — is wider than either and so
+    starts further left.
+    """
+    box = page.convert("L").point(lambda value: 255 if value < 128 else 0).getbbox()
+    assert box is not None, "the page carries no ink"
+    return box[0]
+
+
 def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     """Where interior page ``page_number`` puts this puzzle's left edge (FR-032).
 
@@ -344,9 +463,11 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
 
         # Today's content with the cover gone: guide, the pages the puzzles
         # take (two-up pairing can make them fewer than the puzzles, FR-040),
-        # divider, one answer page per puzzle.
-        plan = _puzzle_page_plan(_as_the_interior_prints_them(case))
-        expected_count = 1 + len(plan) + (n + 1 if n else 0)
+        # divider, and the pages the packed answer key takes (FR-042).
+        printed = _as_the_interior_prints_them(case)
+        plan = _puzzle_page_plan(printed)
+        key = _answer_page_plan(printed)
+        expected_count = 1 + len(plan) + (len(key) + 1 if n else 0)
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
@@ -389,9 +510,27 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             # counted together and both combinations are required below.
             seen[f"{make_up} {'right-hand' if page_number % 2 else 'left-hand'}"] += 1
 
-        for index, puzzle in enumerate(_as_the_interior_prints_them(case)):
-            page_number = 3 + len(plan) + index  # this puzzle's answer page
-            _measured(page_number, puzzle, drawing_of(interior[page_number - 1]))
+        # The same clause on the answer pages. A packed answer page carries no
+        # full-page drawing to measure, so what is measured is its **leftmost
+        # grid** — the leftmost ink on the page — against CARD-133's tiling
+        # written out in this module. That tiling starts at the page's own
+        # parity's left margin, which is the clause this loop is here for.
+        for offset, (answers, capacity, heading) in enumerate(key):
+            page_number = 3 + len(plan) + offset
+            drawn_left_mm = _ink_left_px(interior[page_number - 1]) / PX_PER_MM
+            expected_mm = _expected_answer_left_mm(
+                answers, page_number, capacity, heading
+            )
+            assert abs(drawn_left_mm - expected_mm) < ANSWER_EDGE_TOLERANCE_MM, (
+                f"{label}: answer page {page_number} "
+                f"({'right' if page_number % 2 else 'left'}-hand) "
+                f"starts its key at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
+            )
+            seen["right-hand" if page_number % 2 else "left-hand"] += 1
+            seen["answer page"] += 1
+            seen[f"{capacity}-up answer page"] += 1
+            if heading:
+                seen["headed answer page"] += 1
 
         seen[case["route"]] += 1
         seen["with cover" if case["cover"] is not None else "without cover"] += 1
@@ -415,6 +554,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
     assert seen["two-up page right-hand"] >= 2, seen
     assert seen["two-up page left-hand"] >= 2, seen
     assert seen["single page right-hand"] >= 2 and seen["single page left-hand"] >= 2, seen
+    # The answer pages were measured too, at both of FR-042's tilings and with
+    # a level heading, so the tile arithmetic above is exercised in every shape
+    # it takes rather than only on the six-up page a small book happens to get.
+    assert seen["answer page"] >= 20, seen
+    assert seen["6-up answer page"] >= 5 and seen["4-up answer page"] >= 5, seen
+    assert seen["headed answer page"] >= 10, seen
 
 
 def test_page_numbers_start_at_one():

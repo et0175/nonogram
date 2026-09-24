@@ -319,17 +319,24 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
         puzzles = [_puzzle(15, 15, 7), _puzzle(20, 20, 6), _puzzle(30, 30, 9)]
         return BookPDFGenerator(book).export_book(puzzles, book.metadata.title)
 
+    #: This fixture's interior: the guide page, three puzzle pages (none of
+    #: these three pairs) and the SOLUTIONS divider, then the **one** answer
+    #: page FR-042's packed key takes — the three answers are one level, and
+    #: the 30x30 among them makes the page four-up, which holds all three
+    #: (CARD-134).
+    PAGES = 1 + 3 + 1 + 1
+
     def test_every_interior_page_of_the_pdf_is_the_stored_trim(self, export):
         pages = pdf_pages(export.interior.getvalue())
 
-        assert len(pages) == 1 + 3 + 1 + 3
+        assert len(pages) == self.PAGES
         assert [page.size for page in pages] == [self.TRIM_PX] * len(pages)
 
     def test_every_interior_page_measures_six_by_nine_inches_when_printed(self, export):
         """The "at 300 DPI" half: 1800 px across a page 432 pt (6 in) wide."""
         boxes = pdf_page_boxes(export.interior.getvalue())
 
-        assert boxes == [self.TRIM_PT] * (1 + 3 + 1 + 3)
+        assert boxes == [self.TRIM_PT] * self.PAGES
 
     def test_the_cover_file_is_the_stored_trim_too(self, export):
         (cover,) = pdf_pages(export.cover.getvalue())
@@ -639,8 +646,10 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
             ],
         )
 
-        # Guide 1, the two survivors 2 and 3, divider 4, two answers 5 and 6.
-        assert len(pages) == 6
+        # Guide 1, the two survivors 2 and 3, divider 4, and the packed key's
+        # one page 5 — both answers are one level and fit a six-up page
+        # (FR-042, CARD-134).
+        assert len(pages) == 5
         first_mm = _mm(drawing_of(pages[1]).left)
         second_mm = _mm(drawing_of(pages[2]).left)
 
@@ -707,9 +716,15 @@ class TestBookPdf_PagePlanGuardIsLive:
         monkeypatch.setattr(
             generator_module,
             "interior_page_count",
-            # The plan now also takes how many pages the puzzles actually take,
-            # which two-up pairing (CARD-127) can make fewer than the count.
-            lambda count, puzzle_pages=None: planned(count, puzzle_pages) + 1,
+            # The plan now also takes how many pages the puzzles and the
+            # answers actually take — two-up pairing (CARD-127) can make the
+            # first fewer than the count, and FR-042's packed key (CARD-134)
+            # the second. Both are passed straight through, so what this
+            # monkeypatch changes is the total and nothing else.
+            lambda count, puzzle_pages=None, answer_pages=None: planned(
+                count, puzzle_pages, answer_pages
+            )
+            + 1,
         )
 
         with pytest.raises(RuntimeError) as raised:
