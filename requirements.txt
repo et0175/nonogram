@@ -17,6 +17,19 @@ Werkzeug>=3.0
 gunicorn>=23.0
 
 # Database
+#
+# SQLAlchemy is capped below 2.1 on purpose. 2.1.0 changed the default DBAPI
+# for a bare `postgresql://` URL from psycopg2 to psycopg (v3), and Render's
+# DATABASE_URL is a bare `postgresql://`. Nothing in this repo changed: the
+# unpinned `>=2.0` simply resolved to 2.1.0 on the next build, which then
+# failed at import with `No module named 'psycopg'`. Verified by installing
+# 2.1.0 in isolation: `make_url("postgresql://…").get_dialect().driver` is
+# `psycopg` on 2.1.0 and `psycopg2` on 2.0.x.
+#
+# The lasting fix is to stop depending on SQLAlchemy's default at all and name
+# the driver in the URL (`postgresql+psycopg2://`), or to move to psycopg 3
+# deliberately — CARD-148. This cap is the stopgap that gets the panel back up,
+# not the answer.
 psycopg2-binary>=2.9
-sqlalchemy>=2.0
+sqlalchemy>=2.0,<2.1
 alembic>=1.13

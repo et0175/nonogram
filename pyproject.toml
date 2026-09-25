@@ -34,7 +34,11 @@ dev = ["pytest>=8.3"]
 # exactly Pillow + NumPy — the extras have always been outside it.
 admin = ["Flask>=3.0", "Werkzeug>=3.0", "reportlab>=4.0", "gunicorn>=23.0"]
 # Database dependencies
-db = ["SQLAlchemy>=2.0", "alembic>=1.13", "psycopg2-binary>=2.9"]
+# SQLAlchemy is capped below 2.1: 2.1.0 changed the default DBAPI for a bare
+# `postgresql://` URL from psycopg2 to psycopg (v3), which broke the deployed
+# panel's boot with `No module named 'psycopg'`. See requirements.txt for the
+# full note and CARD-148 for the lasting fix.
+db = ["SQLAlchemy>=2.0,<2.1", "alembic>=1.13", "psycopg2-binary>=2.9"]
 
 [project.scripts]
 nonogram = "nonogram.cli:main"
