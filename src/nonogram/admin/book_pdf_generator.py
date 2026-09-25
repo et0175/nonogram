@@ -152,6 +152,23 @@ its own position and never on a position assumed in advance. Both page counts,
 before and after pairing, come back on :class:`Interior` and
 :class:`BookExport`.
 
+One page plan, asked twice (CARD-140)
+--------------------------------------
+:meth:`BookPDFGenerator.section_plan` is the whole of the decision above with
+no drawing in it: the print order, the payload pass, and the pairing and level
+walk, returned as a :class:`SectionPlan`. :meth:`BookPDFGenerator.interior_stream`
+walks it to draw the interior, and the Arrangement screen calls the **same**
+method to say where each puzzle will print — which is what makes the screen's
+page breaks the book's pages rather than a second opinion on them. The screen
+had shown a break every three puzzles, a rule no book this project prints has
+ever followed.
+
+It stays a *call*, not a stored plan (G-4): the answer depends on the book's
+trim and on every row's clues, so it is re-asked whenever it is needed and the
+two surfaces cannot drift. And it is asked of **this** module rather than
+reimplemented in the panel's routes: a second implementation of INV-010 is
+exactly what ADR-0036/R2 forbids the panel.
+
 One page at a time (CARD-145, the 512 MB envelope)
 ---------------------------------------------------
 A page of the Book 1 profile is 2550 x 3300 px RGB — **25.2 MB of bitmap**,
@@ -607,6 +624,39 @@ class DividerPagePlan:
 #: One planned page of the interior's puzzle section: a level's divider, or a
 #: page of one or two puzzles.
 SectionPage = Union[DividerPagePlan, PuzzlePagePlan]
+
+
+@dataclass(frozen=True)
+class SectionPlan:
+    """The book's puzzle section decided from its rows, before anything draws.
+
+    What :meth:`BookPDFGenerator.section_plan` settles: the print order, which
+    rows can be printed at all, and the pages they take
+    (:meth:`BookPDFGenerator.puzzle_section`). It is the **one** seam through
+    which a book's pages are decided (CARD-140) — the export path walks it to
+    draw, and the Arrangement screen walks the same call to say where each
+    puzzle will print, so the screen cannot report a page the book does not
+    have.
+
+    Attributes:
+        puzzles: Every row the book holds, in print order
+            (:func:`print_order`) — the undrawable ones included, because that
+            is the book's membership and what the guide page counts.
+        ids: The ids of the rows that built an export payload, in print order
+            and parallel to :attr:`payloads`. ``ids[n - 1]`` is the row printed
+            as puzzle ``n``, which is what turns a page's
+            :attr:`PuzzlePagePlan.numbers` back into rows a screen can point at.
+        payloads: Those rows as the export's boundary type, parallel to
+            :attr:`ids`.
+        pages: The section's pages in print order: a
+            :class:`DividerPagePlan` opening each named non-empty level, each
+            immediately before that level's :class:`PuzzlePagePlan`\\ s.
+    """
+
+    puzzles: List[Any]
+    ids: List[Any]
+    payloads: List[ExportPayload]
+    pages: List[SectionPage]
 
 
 @dataclass(frozen=True)
@@ -1731,6 +1781,83 @@ class BookPDFGenerator:
             page_number += len(pages)
         return section
 
+    def section_plan(self, puzzles: List[dict]) -> SectionPlan:
+        """Where this book's puzzles print, decided from its rows alone (CARD-140).
+
+        The **pure** half of :meth:`interior_stream`, extracted so that a
+        caller who only wants to know *where* a puzzle lands does not have to
+        draw a page to find out — and, more importantly, so that there is one
+        implementation of that question. The Arrangement screen's page breaks
+        and the exported book's pages come out of this one call (FR-036,
+        FR-041): the screen asks and renders, and decides no geometry of its
+        own (G-1, ADR-0036/R2). It draws nothing, opens no file and stores
+        nothing — pages are decided at PDF time and remain so (G-4).
+
+        Three decisions, in the order the export makes them:
+
+        * the **print order** (:func:`print_order`): grouped easy, then medium,
+          then hard, stably and idempotently, so a caller that already holds
+          the book grouped — as the arrange screen does, through the store's
+          own grouping — gets the same list back;
+        * the **payload pass**: a row that cannot even build an
+          :class:`~nonogram.export.ExportPayload` is dropped with a warning,
+          before a puzzle number or a page position is handed out, exactly as
+          the export drops it;
+        * the **section walk** (:meth:`puzzle_section`): a divider page per
+          named non-empty level (CARD-128) and that level's pages, one puzzle
+          each or two of equal tier that COMP-007 measured onto one page
+          (FR-040, INV-010).
+
+        **What the pairing verdict is read from, and what it is not.** The walk
+        offers each same-tier neighbour pair to
+        :func:`~nonogram.export.layout.compute_pair_layout`, which fits the
+        shared cell from both puzzles' *real clue depths* (TERM-021) — so a
+        pair's verdict is not a function of the two extents alone, and a
+        planner that took ``(width, height)`` and nothing else would answer
+        differently from the book it is supposed to describe. The rows' own
+        stored clues are therefore what travels here, and they are on the
+        puzzle record beside the extent and the tier, so the screen loads
+        nothing extra to ask this question.
+
+        Args:
+            puzzles: The book's rows, in any order — the same list the export
+                is given.
+
+        Returns:
+            The :class:`SectionPlan`: the ordered rows, the printable ones with
+            their ids, and the section's pages.
+
+        Raises:
+            RuntimeError: a pair the walk offered could not be laid out
+                (:meth:`puzzle_pages`).
+        """
+        ordered = print_order(puzzles)
+        ids: List[Any] = []
+        payloads: List[ExportPayload] = []
+        for puzzle in ordered:
+            # Read outside the try: a row so malformed it is not even a
+            # mapping must still be logged, not raise again inside the
+            # handler that is reporting it.
+            puzzle_id = puzzle.get("id") if hasattr(puzzle, "get") else None
+            try:
+                payload = self._payload(puzzle)
+            except Exception as e:
+                logger.warning(
+                    "Dropping book puzzle %s from the interior: no export "
+                    "payload could be built for it (%s)",
+                    puzzle_id,
+                    e,
+                )
+                continue
+            ids.append(puzzle_id)
+            payloads.append(payload)
+        return SectionPlan(
+            puzzles=ordered,
+            ids=ids,
+            payloads=payloads,
+            pages=self.puzzle_section(payloads, ids=ids),
+        )
+
     def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
         """Every page of the interior, in print order; no cover page.
 
@@ -1838,7 +1965,9 @@ class BookPDFGenerator:
         *Decided here, eagerly, before this method returns.* The print order
         (:func:`print_order`), the payload pass (and the drop of any member
         that cannot build one), the level cut and the pairing walk
-        (:meth:`puzzle_section`), the packed answer key, both plan tripwires,
+        (:meth:`puzzle_section`) — those three through :meth:`section_plan`,
+        which is the same call the Arrangement screen asks where a puzzle
+        prints (CARD-140) — then the packed answer key, both plan tripwires,
         the guide page's tier counts, the Arrangement step's custom titles,
         and all three page counts. None of it draws a pixel, and all of it can
         fail — so an export that is going to be refused is refused before its
@@ -1867,42 +1996,32 @@ class BookPDFGenerator:
                 as worthless until the walk has finished, which is exactly
                 what :meth:`_write_pdf` does.
         """
-        # The print order, decided here and stored nowhere (FR-041, G-1): the
-        # rows are grouped easy, then medium, then hard before a payload, a
-        # number or a page position is handed out, so everything below — the
-        # bands, the pairing walk, the answer key's numbers and its level
-        # headings — follows one order that was settled once.
-        puzzles = print_order(puzzles)
-
-        # The puzzle's own id travels with its payload: it is what the raise
-        # below names, and once a member has been dropped nothing else left in
-        # the loop identifies the row the failure came from.
-        payloads: List[Tuple[Any, ExportPayload]] = []
-        for puzzle in puzzles:
-            # Read outside the try: a row so malformed it is not even a
-            # mapping must still be logged, not raise again inside the
-            # handler that is reporting it.
-            puzzle_id = puzzle.get("id") if hasattr(puzzle, "get") else None
-            try:
-                payloads.append((puzzle_id, self._payload(puzzle)))
-            except Exception as e:
-                logger.warning(
-                    "Dropping book puzzle %s from the interior: no export "
-                    "payload could be built for it (%s)",
-                    puzzle_id,
-                    e,
-                )
-                continue
-
+        # The print order, the payload pass and the section walk, all through
+        # the one seam the Arrangement screen asks the same question of
+        # (:meth:`section_plan`, CARD-140): the rows are grouped easy, then
+        # medium, then hard and a row that cannot build a payload is dropped
+        # before a number or a page position is handed out, so everything below
+        # — the bands, the answer key's numbers and its level headings —
+        # follows one order that was settled once, and the screen's page breaks
+        # are this same book's pages rather than a second opinion on them.
+        #
         # The positions every page is built on: 1 the guide page, then the
         # puzzle section — a divider per non-empty level and the puzzle pages
         # the walk planned — then the SOLUTIONS divider and the packed answer
         # key. Both walks run before a single page is drawn, because how many
         # pages the section takes is what puts the divider and every answer
         # page where it goes.
+        decided = self.section_plan(puzzles)
+        puzzles = decided.puzzles
+        # The puzzle's own id travels with its payload: it is what the raises
+        # below name, and once a member has been dropped nothing else left in
+        # the walk identifies the row the failure came from.
+        payloads: List[Tuple[Any, ExportPayload]] = list(
+            zip(decided.ids, decided.payloads)
+        )
         count = len(payloads)
-        ids = [puzzle_id for puzzle_id, _ in payloads]
-        section = self.puzzle_section([payload for _, payload in payloads], ids=ids)
+        ids = decided.ids
+        section = decided.pages
         plan = [entry for entry in section if isinstance(entry, PuzzlePagePlan)]
         dividers = len(section) - len(plan)
         key = self.answer_key([payload for _, payload in payloads], ids=ids)

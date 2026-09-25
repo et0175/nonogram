@@ -87,7 +87,12 @@ from .image_manager import (
 )
 from .grid_renderer import grid_to_svg
 from .print_specs import PrintSpecValidator
-from .book_pdf_generator import BookPDFGenerator, interior_page_count, tier_breakdown
+from .book_pdf_generator import (
+    BookPDFGenerator,
+    DividerPagePlan,
+    interior_page_count,
+    tier_breakdown,
+)
 from .book_proof import render_proof_pdf
 
 # Import the professional export PDF module
@@ -757,6 +762,50 @@ def _ask_for_a_credential() -> Response:
         {"WWW-Authenticate": 'Basic realm="Nonogram admin", charset="UTF-8"'},
         mimetype="text/plain",
     )
+
+
+def _printed_places(book, puzzles):
+    """Where the printed book puts each of its puzzles (FR-036, CARD-140).
+
+    The Arrangement screen's page breaks, asked of the one call that decides
+    them: :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.section_plan`,
+    the same seam the export walks to draw the interior. The panel decides no
+    geometry here (G-1, ADR-0036/R2) — it fits no cell, compares no tier and
+    pairs nothing; it reads the plan the generator came back with and turns it
+    into per-row labels a template can render. Nothing is stored: a book's
+    pages are decided at PDF time and asking the question twice is how the two
+    surfaces are kept identical rather than merely similar (G-4).
+
+    Args:
+        book: The book, whose stored trim and margins are the pages' geometry.
+        puzzles: Its rows, in the order the screen lists them. The plan orders
+            them by level itself (``print_order`` is idempotent), so a screen
+            that already lists the book grouped hands over the same order it
+            gets back.
+
+    Returns:
+        ``(places, divider_pages)``. ``places`` maps a puzzle's id, as a string,
+        to ``{"page", "opens_page", "shares_page"}``: the **interior** page
+        number the puzzle prints on (page 1 is the guide page, INV-013), whether
+        it is the first puzzle on that page, and whether it shares the page with
+        its neighbour (FR-040, INV-010). ``divider_pages`` maps a level's tier
+        value to the interior page of the divider page that opens it (CARD-128).
+        A row the interior cannot print is in neither.
+    """
+    plan = BookPDFGenerator(book).section_plan(list(puzzles))
+    places = {}
+    divider_pages = {}
+    for page in plan.pages:
+        if isinstance(page, DividerPagePlan):
+            divider_pages.setdefault(page.level.value, page.page_number)
+            continue
+        for position, number in enumerate(page.numbers):
+            places[str(plan.ids[number - 1])] = {
+                "page": page.page_number,
+                "opens_page": position == 0,
+                "shares_page": len(page.numbers) > 1,
+            }
+    return places, divider_pages
 
 
 def create_app(debug=None):
@@ -3458,6 +3507,32 @@ def create_app(debug=None):
                     "puzzles": rows,
                 }
             )
+
+        # FR-036/FR-041: the page breaks the screen draws are the printed
+        # book's own, asked of the generator's page plan (CARD-140). The screen
+        # used to rule off every third puzzle, which was true of no book this
+        # project prints: the interior puts one puzzle on a page, or two of
+        # equal tier that COMP-007 measured onto one (FR-040, INV-010), and
+        # each level opens behind a divider page (CARD-128). A book whose
+        # stored print specification cannot be laid out has no pages to show —
+        # the Finalise step is where that is reported — so the rows are listed
+        # without page labels rather than the step failing on the owner.
+        try:
+            places, divider_pages = _printed_places(book, puzzles_in_book)
+        except Exception as e:
+            app.logger.warning(
+                "No page plan for book %s's arrange screen: %s", book_id, e
+            )
+            places, divider_pages = {}, {}
+        for puzzle in puzzles_in_book:
+            place = places.get(str(puzzle.get("id")), {})
+            # The interior page this puzzle prints on, counted from the guide
+            # page (INV-013), or None when the plan does not hold it.
+            puzzle["page"] = place.get("page")
+            puzzle["opens_page"] = place.get("opens_page", False)
+            puzzle["shares_page"] = place.get("shares_page", False)
+        for group in level_groups:
+            group["divider_page"] = divider_pages.get(group["tier"])
 
         # Calculate estimated page count
         # Rough estimate: assume each puzzle is ~1-2 pages based on height
