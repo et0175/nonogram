@@ -82,6 +82,24 @@ Every fifth line, and both outer borders, is stroked heavier
 twelve along a thirty-cell row is the thing a solver actually does with a ruler
 otherwise, and the every-5th rule is the convention that makes it unnecessary.
 
+A **book** page closes that drawing off with a :class:`PuzzleFrame`
+(CARD-144): one rectangle around clues and grid, which boxes both clue bands
+against the grid's existing outer border and leaves the corner empty. It is
+ink and not geometry — every coordinate of it is a boundary already computed
+above, so a framed page and an unframed one are the same page plus two rules —
+and it is confined to the placed path by :attr:`PageSpec.framed`, because
+CON-019 holds the CLI's and the web's A4 output byte-identical.
+
+**The frame carries no requirement id, and this module does not invent one.**
+It is the owner's decision of 2026-09-23, recorded as intake at
+``meta/architecture/inputs/raw-requirements.md:265`` ("Book puzzle pages carry
+a frame around the puzzle ... BOOK PAGES ONLY"), and the architect station has
+not yet formalised it into an FR with acceptance criteria. Every citation of
+the frame below therefore names the owner's decision and CARD-144, and no FR —
+in particular **not FR-041**, which is the level-divider and print-order
+requirement (COMP-009/COMP-010, CARD-128) and has nothing to do with page
+geometry. A wrong id would make untraced scope look traced.
+
 Why the sizes are what they are (the A4 / 300 DPI target)
 ---------------------------------------------------------
 The card asks for output "legible when printed at A4". That is a physical
@@ -217,6 +235,7 @@ __all__ = [
     "PagePlacement",
     "PageSpec",
     "PairLayout",
+    "PuzzleFrame",
     "comfort_cap_mm",
     "compute_answer_page_layout",
     "compute_layout",
@@ -409,13 +428,21 @@ class PageSpec:
         parity: ``None`` means a drawing-sized image with one uniform border,
             the default spec's way. ``ODD``/``EVEN`` means a trim-sized placed
             page.
+        frame: Whether a puzzle drawn on this sheet is closed off by a
+            :class:`PuzzleFrame` (CARD-144, owner intake — see this module's
+            docstring for why no FR is named). ``None``, the default, is
+            "the sheet's own convention", which :attr:`framed` reads: a placed
+            page is framed, a drawing-sized image is not. ``True``/``False``
+            state it outright. See :attr:`framed` for why the default is
+            phrased as a convention rather than as a flat ``False``.
 
     Raises:
         ValueError: a field is not a finite number where one is required, a
             size is non-positive, a margin or band is negative, the usable
             area (trim minus margins minus band) is non-positive, a policy or
-            parity is not one of its enum's members, a spec without parity has
-            unequal margins, or a spec with parity may be turned.
+            parity is not one of its enum's members, ``frame`` is neither
+            ``None`` nor a bool, a spec without parity has unequal margins, or
+            a spec with parity may be turned.
     """
 
     width_mm: float
@@ -429,6 +456,7 @@ class PageSpec:
     cell_cap: CellCapPolicy | float
     min_thin_rule_mm: float | None = None
     parity: PageParity | None = None
+    frame: bool | None = None
 
     def __post_init__(self) -> None:
         measurements = {
@@ -483,6 +511,10 @@ class PageSpec:
                 "PageSpec.min_thin_rule_mm must be None or a finite positive number "
                 f"of mm, not {self.min_thin_rule_mm!r}"
             )
+        if self.frame is not None and not isinstance(self.frame, bool):
+            raise ValueError(
+                f"PageSpec.frame must be True, False or None, not {self.frame!r}"
+            )
         if self.parity is not None and not isinstance(self.parity, PageParity):
             raise ValueError(f"PageSpec has an invalid parity {self.parity!r}: use PageParity or None")
         if self.parity is None and len(
@@ -515,6 +547,35 @@ class PageSpec:
         """Trim height minus top and bottom margins minus the band."""
         return self.height_mm - self.top_mm - self.bottom_mm - self.band_mm
 
+    @property
+    def framed(self) -> bool:
+        """Whether a puzzle on this sheet is closed off by a :class:`PuzzleFrame`.
+
+        :attr:`frame` as a verdict: ``True``/``False`` are taken as stated, and
+        ``None`` — the default — means *a placed page is framed, a
+        drawing-sized image is not*.
+
+        Why the default is a convention and not a flat ``False``
+        --------------------------------------------------------
+        CARD-144 asked for the frame on **book pages only**: CON-019 holds the
+        CLI and web A4 output byte-identical, and the owner chose to keep it
+        intact rather than amend it. A placed page (a spec with a parity) is
+        exactly the book's page — nothing else in this project lays a puzzle
+        out on a trim — and the default spec has no parity, so this default
+        says "book pages only" in the one place that can state it without the
+        book having to remember to. ``compute_layout`` called with no spec, or
+        with :data:`DEFAULT_PAGE_SPEC`, is therefore unframed and unchanged to
+        the byte (ADR-0036/R1, CON-019).
+
+        Stating it here rather than in the book's own spec is also what keeps
+        ADR-0036/R2 intact: the frame is print geometry, so it is decided by
+        COMP-007, and the panel that builds the book's :class:`PageSpec` goes
+        on deciding none of it. A caller that wants the other answer — an
+        unframed book proof, or a framed sheet for an experiment — says so with
+        an explicit ``frame=``.
+        """
+        return self.parity is not None if self.frame is None else self.frame
+
 
 #: Today's sheet, as a spec: A4 upright, 12 mm margins, the header band, NFR-006's
 #: larger-cell-wins turning, NFR-005's comfort curve, the ``cell / 30`` strokes and
@@ -532,6 +593,7 @@ DEFAULT_PAGE_SPEC = PageSpec(
     cell_cap=CellCapPolicy.COMFORT_CURVE,
     min_thin_rule_mm=None,
     parity=None,
+    frame=None,
 )
 
 
@@ -584,6 +646,74 @@ class PagePlacement:
             and self.drawing_right <= self.usable_right
             and self.drawing_bottom <= self.usable_bottom
         )
+
+
+@dataclass(frozen=True, slots=True)
+class PuzzleFrame:
+    """The rectangle that closes a framed puzzle off (CARD-144).
+
+    The owner's decision of 2026-09-23, recorded as intake at
+    ``meta/architecture/inputs/raw-requirements.md:265`` and not yet formalised
+    into a requirement — so this names no FR (see the module docstring).
+
+    The classic printed look the owner asked for: one rectangle around clues
+    and grid, the two clue bands boxed off from the grid, and an empty corner
+    box where the bands meet::
+
+        +---+-------+
+        |   | 2   1 |      <- the column-clue band, boxed
+        |   | 1   3 |
+        +---+-------+
+        | 1 | | | | |
+        | 2 | | | | |      <- the row-clue band, boxed
+        | 3 | | | | |
+        +---+-------+
+
+    **Ink, not geometry.** Every coordinate below is a boundary the layout had
+    already computed: the drawing's outer edges (:attr:`left`, :attr:`top` —
+    the outer edges of the two clue gutters) and the grid's own outer border
+    (:attr:`right`, :attr:`bottom`). Nothing moves to make room for it. The two
+    inner dividers the sketch shows — the band/grid boundary down and across —
+    are the grid's existing outer border rules, which already run the full
+    extent of their axis through the gutters; so the only ink a frame adds is
+    its **left and top sides**, which is exactly what the owner asked for
+    ("around the top and left sides"). The rectangle is nevertheless carried
+    and stroked whole, because a renderer re-stroking the right and bottom
+    sides puts the same pure black in the same pixels at the same heavy width,
+    and "a closed rectangle" is then a property of this object rather than of
+    two objects read together.
+
+    **Where the stroke sits: centred on the boundary.** Pillow centres a
+    stroke on its coordinate, so half of a rule drawn on a box's edge falls
+    outside the box. That is deliberate here, and it is the *same* deliberate
+    choice every other rule in the drawing already makes: the grid's right
+    border is centred on :attr:`Layout.grid_right` and so hangs half a heavy
+    rule to the right of the grid. A frame centred on its four boundaries is
+    therefore symmetric with the border it continues — the same half-rule of
+    ink outside the box on all four sides — where a frame drawn *inside* its
+    box would sit a full rule in from a right border that stayed put, and read
+    as a misprint. At 300 DPI that overhang is 3 px (0.25 mm) of a 9.5 mm
+    margin. ``tests/test_book_puzzle_frame.py`` pins it by measuring the
+    frame's left overhang against the grid's right overhang on a rendered
+    page.
+
+    Attributes:
+        left: The frame's left side, on the drawing's left edge — the outer
+            edge of the row-clue gutter.
+        top: Its top side, on the drawing's top edge.
+        right: Its right side, on the grid's right edge
+            (:attr:`Layout.grid_right`).
+        bottom: Its bottom side, on the grid's bottom edge.
+        width: How heavy to stroke every side: :attr:`Layout.thick_rule`, the
+            heavy rule, exactly twice the thin one and no third weight
+            (ADR-0037/R2).
+    """
+
+    left: int
+    top: int
+    right: int
+    bottom: int
+    width: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -690,6 +820,15 @@ class Layout:
             exact cell is :attr:`PagePlacement.cell_mm`), and :attr:`margin` is
             the top margin. The lines start at the drawing's edges rather than
             at :attr:`margin`.
+        frame: The :class:`PuzzleFrame` a framed sheet closes the drawing off
+            with (CARD-144), or ``None`` on an unframed one — which the default
+            spec always is, so the default ``Layout`` is exactly what it always
+            was, field for field (CON-019). It is carried beside the grid's
+            lines rather than among them: :attr:`vertical_lines` and
+            :attr:`horizontal_lines` are the *grid's* boundaries, ``columns +
+            1`` and ``rows + 1`` of them, and a consumer that reads a cell's
+            extent off consecutive entries (``pdf._reveal`` does) would be
+            wrong about every cell if a gutter-edge rule were folded in.
     """
 
     rows: int
@@ -714,6 +853,7 @@ class Layout:
     column_clues: tuple[ClueEntry, ...]
     dpi: int = DPI
     page: PagePlacement | None = None
+    frame: PuzzleFrame | None = None
 
     @property
     def clue_entries(self) -> tuple[ClueEntry, ...]:
@@ -1234,6 +1374,32 @@ def _axis_lines(
     )
 
 
+def _puzzle_frame(
+    xs: Sequence[int],
+    ys: Sequence[int],
+    *,
+    grid_right: int,
+    grid_bottom: int,
+    thick: int,
+    page_spec: PageSpec,
+) -> PuzzleFrame | None:
+    """The drawing's frame, or ``None`` on an unframed sheet (CARD-144).
+
+    Four numbers the caller already has — the drawing's two outer edges
+    (``xs[0]``, ``ys[0]``) and the grid's two far ones — and the heavy rule.
+    It reads no measurement of its own, which is the whole of "the frame is
+    ink, not geometry": a layout with a frame and the same layout without one
+    differ in this field and in nothing else. Both :func:`compute_layout` and
+    :func:`_slot_layout` build theirs here, so a two-up slot is framed exactly
+    as the single page it would otherwise have been (FR-040).
+    """
+    if not page_spec.framed:
+        return None
+    return PuzzleFrame(
+        left=xs[0], top=ys[0], right=grid_right, bottom=grid_bottom, width=thick
+    )
+
+
 def _centre(boundaries: Sequence[int], box: int) -> int:
     """The centre of box ``box``: its near boundary plus half its own width.
 
@@ -1475,6 +1641,14 @@ def compute_layout(
             column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys
         ),
         page=placement,
+        frame=_puzzle_frame(
+            xs,
+            ys,
+            grid_right=grid_right,
+            grid_bottom=grid_bottom,
+            thick=thick,
+            page_spec=spec,
+        ),
     )
 
 
@@ -1767,6 +1941,14 @@ def _slot_layout(
             drawing_top=ys[0],
             drawing_right=grid_right,
             drawing_bottom=grid_bottom,
+        ),
+        frame=_puzzle_frame(
+            xs,
+            ys,
+            grid_right=grid_right,
+            grid_bottom=grid_bottom,
+            thick=thick,
+            page_spec=page_spec,
         ),
     )
 

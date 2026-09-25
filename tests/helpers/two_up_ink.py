@@ -32,14 +32,23 @@ column-clue gutter meets only the thin verticals, a few pixels each.
 
 Where the cut goes
 ------------------
-The horizontal rules of one drawing are one pitch apart — the printed cell, at
-most 7.5 mm (88.6 px at 300 DPI) on a two-up page, since FR-040 caps the shared
-cell at the standard cell. Between the two drawings there is always at least the
-lower slot's whole band (12 mm, 142 px), because that band sits between the
-upper drawing's last rule and the lower drawing's first. So the widest gap
-between consecutive rules on a two-up page is always at least 1.6x the
-narrowest, and on a one-puzzle page every gap is the same pitch to within the
-pixel each boundary was rounded to. :data:`_GAP_RATIO` sits between the two.
+Between two consecutive horizontal rules of the **same** drawing there is
+always a vertical rule: the verticals run the full extent of their axis,
+gutters included, from the drawing's top edge to the grid's bottom one. So a
+pixel column somewhere is unbroken ink right through that gap. Between the two
+drawings of a two-up page there is no such column — the strip holds the lower
+slot's band, whose letters are a few pixels tall each. The cut therefore goes
+through the widest gap **no vertical rule crosses**, and a page where every gap
+is crossed holds one drawing.
+
+That is a stronger reading than the gap widths it replaced, and CARD-144 is why
+it had to be. A framed book page (CARD-144) rules the drawing's own top edge, so
+a single puzzle page now shows one extra horizontal rule a whole clue gutter
+above the grid — four cells on an ordinary page, which is wider than the 12 mm
+band that separates two slots. Measured by gap width alone, a framed
+one-puzzle page reads as two drawings and gets cut through its own clue gutter;
+measured by what crosses the gap, it reads as the one drawing it is, framed or
+not.
 
 A page whose drawing overflows the trim (the ``MIN_CELL_MM`` floor beating page
 fit) puts some of its rules off the canvas, so the gaps it shows are not the
@@ -60,10 +69,6 @@ from tests.helpers.page_ink import Drawing, _dark, _groups, _longest_runs, drawi
 #: longest on the page, for that line to count as a grid rule of *either* slot.
 _SLOT_RULE_SHARE = 0.25
 
-#: How many times the narrowest gap between consecutive grid rules the widest
-#: one must be for the page to be read as holding two drawings.
-_GAP_RATIO = 1.5
-
 
 def rule_rows(page: Image.Image) -> list[int]:
     """The first pixel row of every horizontal grid rule on ``page``.
@@ -81,18 +86,38 @@ def rule_rows(page: Image.Image) -> list[int]:
 def split_row(page: Image.Image) -> int | None:
     """The pixel row to cut ``page`` at, or ``None`` if it holds one drawing.
 
+    The widest gap between consecutive horizontal rules that no vertical rule
+    crosses — see the module docstring for why that, and not the widest gap,
+    is the question.
+
     Raises:
         ValueError: the page carries no ink at all.
     """
     starts = rule_rows(page)
     if len(starts) < 3:
         return None
-    gaps = [later - earlier for earlier, later in zip(starts, starts[1:])]
-    widest = max(gaps)
-    if widest < _GAP_RATIO * min(gaps):
+    dark = _dark(page)
+    between = [
+        (later - earlier, earlier, later)
+        for earlier, later in zip(starts, starts[1:])
+        if not _crossed(dark, earlier, later)
+    ]
+    if not between:
         return None
-    index = gaps.index(widest)
-    return (starts[index] + starts[index + 1]) // 2
+    _, earlier, later = max(between)
+    return (earlier + later) // 2
+
+
+def _crossed(dark: np.ndarray, earlier: int, later: int) -> bool:
+    """Is the gap between two horizontal rules crossed by a vertical one?
+
+    ``True`` when some pixel column is unbroken ink from the first rule's own
+    top row through to the second's, which is what every column carrying a
+    vertical rule does inside one drawing — and what no column does across the
+    strip between two slots, where the only ink is a band's lettering.
+    """
+    band = dark[earlier : later + 1]
+    return bool(band.size and band.all(axis=0).any())
 
 
 def drawings_of(page: Image.Image) -> list[Drawing]:

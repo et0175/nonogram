@@ -76,13 +76,21 @@ OUTSIDE_MM = 0.375 * 25.4
 
 #: Where the recorded per-page evidence of the interior's pages lives.
 #:
-#: CARD-145's own fixture, recorded from the merge-base, is still beside it and
-#: still unregenerated — but it no longer describes this book: CARD-128 made
-#: the interior print grouped by level and open each level with a divider page
-#: (INV-009, TERM-031), which is the one reason that fixture's ``warning``
-#: allows a successor to be recorded. Both files carry the reasoning; this
-#: constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card128.json"
+#: Three recordings of this same book now sit side by side, each kept and none
+#: regenerated, because each of the two changes after the first was *deliberate*
+#: — the one reason CARD-145's fixture's own ``warning`` admits a successor:
+#:
+#: * ``book_baseline_card145.json`` — the merge-base's eight pages, before a
+#:   line of CARD-145's refactor existed;
+#: * ``book_baseline_card128.json`` — CARD-128 made the interior print grouped
+#:   by level and open each level with a divider page (INV-009, TERM-031), so
+#:   the interior became eleven pages and every page after the guide moved;
+#: * ``book_baseline_card144.json`` — CARD-144's frame closes a book puzzle page's
+#:   drawing off with one heavy rectangle, so the pages that carry a drawing
+#:   moved again on top of CARD-128's eleven.
+#:
+#: All three files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card144.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until

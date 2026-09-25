@@ -83,6 +83,13 @@ class Drawing:
         columns: How many columns the grid is drawn with, counted from its
             vertical rules. Blank puzzle pages only.
         rows: The same, down the page.
+        framed: Whether the drawing is closed off by a book page's frame
+            (CARD-144; the owner's decision of 2026-09-23, recorded at
+            ``meta/architecture/inputs/raw-requirements.md:265`` and not yet
+            formalised as a requirement), read off the page — see
+            :func:`drawing_of` for what the page is asked, and for why an
+            FR-042 answer tile, which carries no gutter of its own, answers
+            ``False``.
     """
 
     left: int
@@ -93,6 +100,7 @@ class Drawing:
     grid_bottom: int
     columns: int
     rows: int
+    framed: bool = False
 
     @property
     def cell(self) -> float:
@@ -174,8 +182,54 @@ def _rule_groups(longest: np.ndarray) -> list[list[int]]:
     return _groups(np.flatnonzero(longest >= _RULE_SHARE * peak))
 
 
+def _outer_rule_is_a_frames(rules: list[list[int]], edge: int) -> bool:
+    """Whether ``rules[0]`` is a frame's side rather than the grid's own border.
+
+    ``rules`` are one axis's rule groups in order, each a run of consecutive
+    pixel lines, so ``len(group)`` is how heavily that rule is stroked;
+    ``edge`` is the drawing's outer edge on that axis — the point the *other*
+    axis's rules all start from.
+
+    Two things are true of a frame's side and of nothing else on the page:
+
+    * **it sits on the drawing's outer edge.** A frame's left side is ruled on
+      the drawing's left edge, which is where every horizontal rule starts, so
+      its own ink covers ``edge``. The grid's left border does not, on a page
+      that has a clue gutter: the border is a whole gutter to the right of it.
+    * **the rule beside it is stroked just as heavily.** What lies immediately
+      inside a frame's side is the grid's own outer border, and an outer border
+      is one of the two heavy rules of its axis. What lies immediately inside a
+      grid's *border* is boundary 1, which is heavy only when the grid is one
+      cell wide (``MAJOR_RULE_EVERY`` is 5 and ``MIN_SIZE`` is 10, so never):
+      it is thin, and thin is exactly half of heavy (ADR-0037/R2).
+
+    The first test alone is what CARD-144 shipped, and it is not enough: an
+    FR-042 answer tile carries no clues, so the tile's own left edge **is** its
+    grid's left border and the first test passes trivially — which had the key's
+    pages reading one column and one row short, with the frame they do not carry
+    reported as present. The second test is what tells a zero-gutter drawing
+    from a framed one, and it needs no measurement of a gutter's depth, so it
+    does not depend on how deep this page's clues happen to run.
+    """
+    outer, inner = rules[0], rules[1]
+    on_the_edge = outer[0] <= edge < outer[0] + len(outer)
+    return on_the_edge and len(inner) == len(outer)
+
+
 def drawing_of(page: Image.Image) -> Drawing:
     """Measure ``page``'s puzzle drawing.
+
+    A book page's frame (CARD-144; owner intake, ``raw-requirements.md:265``,
+    not yet a formalised requirement) is told from the grid by where it sits
+    and how heavily it is stroked, not by being told about it — the same
+    principle as everything else here. :func:`_outer_rule_is_a_frames` states
+    the two questions the page is asked, and both axes must answer yes: the
+    leftmost full-height rule must be a frame's left side *and* the topmost
+    full-width rule a frame's top. The frame's two rules are then dropped
+    before the grid's are counted, which is what keeps ``columns``, ``rows``
+    and therefore :attr:`Drawing.cell` the grid's own on a framed page and
+    identical to before the frame on an unframed one — an FR-042 answer page
+    included, where the drawing has no gutter at all.
 
     Raises:
         ValueError: the page carries no ink, or no grid rules were found (it
@@ -187,15 +241,24 @@ def drawing_of(page: Image.Image) -> Drawing:
     if len(horizontal) < 2 or len(vertical) < 2:
         raise ValueError("this page does not carry a ruled grid")
 
-    top_rule = horizontal[0][0]
-    left_rule = vertical[0][0]
+    left = _longest_run_start(dark[horizontal[0][0]])
+    top = _longest_run_start(dark[:, vertical[0][0]])
+    framed = _outer_rule_is_a_frames(vertical, left) and _outer_rule_is_a_frames(
+        horizontal, top
+    )
+    if framed:
+        horizontal, vertical = horizontal[1:], vertical[1:]
+        if len(horizontal) < 2 or len(vertical) < 2:
+            raise ValueError("this page carries a frame but no ruled grid inside it")
+
     return Drawing(
-        left=_longest_run_start(dark[top_rule]),
-        top=_longest_run_start(dark[:, left_rule]),
-        grid_left=left_rule,
+        left=left,
+        top=top,
+        grid_left=vertical[0][0],
         grid_right=vertical[-1][0],
-        grid_top=top_rule,
+        grid_top=horizontal[0][0],
         grid_bottom=horizontal[-1][0],
         columns=len(vertical) - 1,
         rows=len(horizontal) - 1,
+        framed=framed,
     )
