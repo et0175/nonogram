@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-09-25
+- CARD-140 (bug): The Arrangement step now shows the page breaks the printed book actually has. It used to rule off a page after every third puzzle, which was true of no book this project prints — so a screen full of 30×30s claimed three pages' worth on one. A break now opens every page the book opens: one puzzle per page, two when they were measured onto one page together, and a level's divider page where a level begins. The numbers shown are the interior numbers the book will carry, counted from the guide page, so the first puzzle page is 3 rather than 1. The screen asks the PDF's own page plan rather than guessing, so the two cannot disagree; when a book's stored print setup cannot be laid out at all, the step says so instead of quietly listing the puzzles with no pages.
+
 ## 2026-09-24
 - CARD-144 (feature): A book puzzle page now carries a frame — one rectangle around the clues and the grid, with the clue bands boxed off and the corner left empty, the way printed nonograms usually look. It is ink only: no cell, margin or page count moves, and standalone CLI and web exports are untouched. A two-up page is not framed yet.
 - CARD-131 (feature): Changing the puzzles in a published book now asks first, and the question carries your whole submission — every puzzle you ticked and exactly the floor overrides you gave, never one you did not. Confirming applies it and sends the book back to draft, so it has to pass the plan check again. The arrange step's Delete asks too, and stops announcing a removal it did not make.

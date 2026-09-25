@@ -22,8 +22,8 @@ _Updated: 2026-09-25 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
-| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 6/9 merged — CARD-140 in progress, CARD-132 next, CARD-139 last and alone (import sweep over app.py) · closes Increment 16 |
-| 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1 | ⏳ blocked (→ wave 26) · closes Increment 15 |
+| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 7/9 merged — CARD-132 next, CARD-139 last and alone (import sweep over app.py) · closes Increment 16 |
+| 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1 | ⏳ CARD-148 pulled forward and running in parallel (owner, 2026-09-25); the rest blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
 
@@ -34,26 +34,29 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - CARD-135 F-008 export_book docstring
 - Pre-existing failure: test_size_configuration_applied
 - Stale assertion: test_wave3_e2e.py::test_batch_creation_form_renders expects the heading "Create Batch from Images"; f773015 (2026-09-14, Pressroom) renamed it "New batch". The page is fine — the test is not.
+- CARD-140 F-005: the arrange screen's page labels are keyed by object identity (`id(row)`), which is safe today but fails *silently* if it ever stops holding — no labels and no notice. Remedy judged in review: keep the key, add a count check (labelled rows vs `len(plan.printed)`) that flips the existing `page_plan_failed`. A positional key would fail unsafely instead.
+- CARD-140 F-006: `puzzle_section`'s `ValueError("ids must be parallel to payloads")` is a caller precondition — the seam-bug class the ERROR clause exists for — but lands in the arrange route's WARNING clause with no traceback. Unreachable today.
+- CARD-140 F-007: a row the interior cannot draw renders between the "page 3" and "page 4" labels with no marker, so the screen implies it prints on page 3.
 
 ## Architecture
 _(none)_
 
 ## Ready
-- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default (prod outage 2026-09-25) · 0.5d · wave 27
 - **CARD-147** P2 · The book PDF is written black-and-white or in colour (owner, print cost) · 1d · wave 27 · ⏸ blocked: after CARD-146
 - **CARD-146** P2 · The frame reaches the printed two-up page (CARD-144 gap, owner's ruling) · 0.25d · wave 27 · ⏸ blocked: after CARD-128 + CARD-144 merge
 - **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
 - **CARD-139** P1 · One import style in admin/ — a duplicate module tree cannot exist (live Print setup 500) · 0.25d · wave 26 · runs last, alone
-- **CARD-140** P1 · Arrange screen shows the real page breaks (owner: "3 per page even for big ones") · 0.5d · wave 26 · after CARD-128
 - **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · after CARD-140
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default (prod outage 2026-09-25) · 0.5d · wave 27 · run in parallel with CARD-140 (owner's go-ahead) · worktree ../PythonProject4-CARD-148
 
 
 ## Review
 
 ## Done
+- **CARD-140** The arrange screen shows the book's real page breaks · score 9.0 (2 cycles) · merged 5d54019
 - **CARD-144** A frame around the puzzle on book pages · score 9.0 (2 cycles) · merged e2a5b3b
 - **CARD-131** A published book asks before its puzzles change · score 9.0 (3 cycles) · merged 293f921
 - **CARD-128** Level dividers and the difficulty order in print · score 8.5 (1 cycle + fix) · merged 557c7ac

@@ -1,6 +1,6 @@
 # CARD-148: The database driver is named, not inherited from a default
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/148-name-the-db-driver
+**Worktree:** ../PythonProject4-CARD-148
 **Source:** production outage, 2026-09-25 (Render deploy failed: `ModuleNotFoundError: No module named 'psycopg'`)
 **Idea:** —
 **Wave:** 27
 **Depends on:** —
 **Touches:** src/nonogram/db/session.py, requirements.txt, pyproject.toml, tests/test_db_url_driver.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-25T10:30:09Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -95,6 +95,12 @@ Two independent problems to close:
 - **Trace:** meta/architecture/trace.yml
 
 ## Worktree notes
+
+- [Env] forge 2026.8.17
+- [Parallel] Run alongside CARD-140 (wave 26, in review). No file overlap: CARD-140 is
+  admin/app.py + book_pdf_generator.py + templates; this card is db/session.py +
+  requirements.txt + pyproject.toml. The one shared resource is the repo's `.venv`, which
+  CARD-140's review is using — see the venv constraint below.
 
 [Why P1] The stopgap cap restores service but freezes a dependency on a
 deadline nobody chose: 2.0.x stops getting fixes eventually, and the cap is the

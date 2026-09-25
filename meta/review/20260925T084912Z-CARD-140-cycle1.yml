@@ -1,0 +1,340 @@
+version: 1
+generated_at: "2026-09-25T08:49:12Z"
+target: "card/140-arrange-real-page-breaks @ 5ccd7a9 (git diff main..HEAD, 5 files, +965/-61)"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (section_plan, interior_stream, puzzle_pages, puzzle_section, print_order, _payload, PuzzlePagePlan/DividerPagePlan/SectionPlan)"
+    - "src/nonogram/admin/app.py (_printed_places, arrange_puzzles_in_book, _book_puzzles, _export_part)"
+    - "src/nonogram/admin/templates/book_arrange_puzzles.html"
+    - "src/nonogram/admin/book_plan.py (book_level_order, book_levels, level_rank)"
+    - "src/nonogram/admin/book_manager.py (puzzle_levels, _stored_tier, add_puzzles_reporting_refusals)"
+    - "src/nonogram/admin/book_page_spec.py (header/contract)"
+    - "src/nonogram/admin/puzzle_review.py (get_puzzle)"
+    - "tests/test_book_arrange_page_breaks.py (all 680 lines)"
+    - "tests/test_book_level_order.py (the two rewritten tests)"
+    - "tests/helpers/pdf_pages.py, tests/helpers/two_up_ink.py (headers)"
+    - "meta/kanban/cards/CARD-140.md"
+  not_reached:
+    - "src/nonogram/export/layout.py internals (compute_pair_layout body — treated as the untouched authority; exercised, not read)"
+    - "tests/property/test_book_export_interior.py body (its own _section_plan helper only located, not read)"
+    - "the rendered arrange screen (no screenshots / runtime.log / a11y.log / visual-diff.log were provided)"
+    - "8f-mutation: deferred(cost) — gating findings present; certify on the stable cycle"
+    - "8g-baseline: deferred(cost) — gating findings present; certify on the stable cycle"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 965, removed: 61 }
+  max_fan_in: { symbol: "BookPDFGenerator.section_plan", callers: 2 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (20 commits, 7 of them fix/bug — 35% defect density)"
+    - "src/nonogram/admin/app.py (high-churn adapter, 15 co-changes in the generator's own 29-commit window)"
+  cochange_missing:
+    - "tests/test_book_pdf.py (5 co-changes with the touched files; untouched here — green, and G-2 forbids editing it)"
+    - "tests/property/test_book_export_interior.py (4 co-changes; holds a third in-tree implementation of the walk, _section_plan, left unreconciled)"
+  unmeasured:
+    bus_factor: "not_applicable — single-author repository (Claude Code is the only committer)"
+    churn_window: "tooling_failure — `git log --since=12.months` over the three paths unquoted returned 0 and a combined multi-path run hung past 120s; counts above were taken per-path with a bounded -n and no date window"
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no runtime dependency added by the diff (new imports are intra-package only); TestDependencyBaseline_IsExactlyPillowAndNumpy green on 5ccd7a9."
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on 5ccd7a9; _printed_places (app.py:767-805) only walks the generator's documented SectionPlan into view labels — no geometry, no validation, no new outward import."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature or field in the diff reduces an extent to a scalar; the plan carries no extent at all."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting or crop path in the diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size token parsing in the diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no generation or repair path in the diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair logic in the diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair logic in the diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode policy in the diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict anywhere in the diff."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver entry in the diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no clock, size or density term enters any score here."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver code in the diff (its check ref test_every_import_in_the_package_points_inward is green regardless)."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff."
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no puzzle-storage boundary in the diff."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score rendering in the diff."
+    - "ADR-0033/R1 ✓ holds — review-lens: the diff writes no puzzle grid, clues, tier or strategies and no DB column; _printed_places is read-only over the rows, and the route annotates only the request's view dicts (page/opens_page/shares_page) as it already did with order/custom_title/can_move_up."
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition in the diff."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** untouched (G-3); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green on 5ccd7a9."
+    - "ADR-0036/R2 ✓ holds — review-lens: every pairing verdict still comes from compute_pair_layout inside BookPDFGenerator.puzzle_pages (unchanged); grep of app.py + book_arrange_puzzles.html finds no 7.0/7.5 literal, no compute_pair_layout, no _gutter_depth and no tier comparison."
+    - "ADR-0037/R1 ✓ holds — _puzzle_payload and band_identity untouched; tests/test_book_pdf_band.py green on 5ccd7a9."
+    - "ADR-0037/R2 ✓ holds — src/nonogram/export/layout.py untouched; tests/property/test_book_pdf_geometry.py green on 5ccd7a9."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** untouched."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web/** untouched."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size range is read or enforced in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff."
+    - "CON-015 ⚠ unchecked — no_eligible_fact: no bind address named or changed; the new code sits inside an existing route."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: no door logic touched; the arrange route is served through the unchanged host/credential check."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue derivation in the diff."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness gate in the diff."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan in the diff."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership and the 4.8 mm floor are untouched."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no readiness gate in the diff."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no membership change in the diff."
+    - "INV-009 ✓ holds — print_order moved behind section_plan unmodified; the screen's grouping still comes from book_manager.puzzle_levels → book_levels → book_level_order, and both it and print_order resolve the tier via tier_of_record over the same puzzle store, so the displayed order is the plan's order; PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence and TestBookPdf_DifficultyOrderWithDividerPerLevel green on 5ccd7a9."
+    - "INV-010 ✓ holds — puzzle_pages and puzzle_section are byte-identical to main; PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly and the 43 tests of tests/test_book_pdf_two_up.py green on 5ccd7a9, and AC-4's independent planned_by_hand re-derives the same verdicts over 24 seeded books."
+    - "INV-011 ✓ holds — answer_key still receives decided.payloads with decided.ids in the same print order, and both 1..n tripwires in interior_stream are unchanged; tests/test_book_answer_key.py green on 5ccd7a9."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership write in the diff."
+    - "INV-013 ✓ holds — section_plan calls puzzle_section with the unchanged default first_page=2, so the section opens at page 2 and the first puzzle page is 3; PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green on 5ccd7a9, and AC-3 reads the numbers back off the served PDF's own ink (tests/helpers/pdf_pages + drawings_of)."
+
+root_causes:
+  - id: RC-1
+    title: "The deviation from the card's step 1 is recorded with figures that do not reproduce"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "_printed_places' failure and identity handling is best-effort and unexercised"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_arrange_page_breaks.py
+    line: 60
+    title: "The measurement that justifies deviating from the card's step 1 does not reproduce (126/21 vs 99/10; 145 vs 164 puzzles)"
+    description: |
+      The card's step 1 asked for a planner over "each puzzle's tier and (width, height)
+      extent". The implementation deliberately plans from the row's stored
+      clues_rows/clues_cols instead, and justifies that in two permanent places —
+      tests/test_book_arrange_page_breaks.py's module docstring (lines 60-68) and
+      CARD-140.md's "[Deviation from step 1, deliberate]" note — with:
+
+        "Measured over AC-4's corpus: of the 126 same-tier neighbour verdicts it offers
+         COMP-007, 21 come out differently when the two puzzles' clues are replaced by
+         one-run-deep clues of the same extent"
+
+      and, in the card, "24 seeded books, 145 puzzles".
+
+      Re-derived independently by importing the test module's own corpus_books() and
+      comb_grid() and calling compute_pair_layout directly:
+
+        * the corpus is 24 books / **164** puzzles, not 145;
+        * it contains **99** same-tier neighbour pairs in total (93 of them actually
+          offered by the greedy walk), not 126 — 126 is arithmetically impossible here,
+          since 99 is the ceiling on same-tier adjacent pairs in this corpus;
+        * **10** verdicts flip when both puzzles' clues are replaced by one-run-deep
+          clues of the same extent. 10/99 under a solid-grid flattening
+          (row (w,), column (h,)) and 10/99 under a filled-count-preserving flattening
+          ((sum(runs),) per line) — the figure is 10 either way, not 21.
+
+      The *conclusion* the numbers exist to support is confirmed: 10 of 99 same-tier
+      verdicts really do flip, so an extent-only planner would disagree with the printed
+      book, and reading the stored clues is the right call. Only the evidence is wrong.
+      That matters because these figures are the entire recorded justification for
+      departing from the declared contract, they sit in a module docstring future cards
+      will cite rather than re-measure, and one of them (126) is refutable by arithmetic
+      alone — which is how a stale measurement survives.
+    suggestion: |
+      Re-measure and correct both texts (the docstring at
+      tests/test_book_arrange_page_breaks.py:60-68 and CARD-140.md's deviation note), or
+      state the numbers as derived facts with the script that derives them. The honest
+      figures for this corpus at seed 140 are: 24 books, 164 puzzles, 99 same-tier
+      neighbour pairs, 10 flips when clues are flattened to depth 1 at the same extent.
+      Better still, pin the claim with a test — a one-case assertion that at least one
+      corpus pair flips under flattening makes the deviation self-documenting and stops
+      the figure going stale again.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "71f9b41"
+    fix_note: |
+      Re-measured independently from the test module's own corpus_books() at seed 140,
+      comb_grid grids and the greedy walk of planned_by_hand (which now reports each pair
+      it offers COMP-007 and the page they would share): 24 books, 164 puzzles, 99
+      same-tier neighbour pairs, 93 of them actually offered, 10 flipped verdicts under a
+      solid-grid flattening and 10 under a filled-count-preserving one. Matches the
+      finding. The old 145/126/21 corrected in all three places (the test module
+      docstring, section_plan's docstring, CARD-140's deviation note) and pinned by the
+      new test_extent_alone_would_disagree_with_the_book_on_this_corpus, which re-derives
+      every figure on each run in 0.05 s and asserts both the exact set and the two
+      properties that matter (offered <= same-tier neighbours; flips > 0). The conclusion
+      is unchanged and kept.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3520
+    title: "The arrange route's catch-all around _printed_places degrades the whole screen silently, and no test exercises it"
+    description: |
+      app.py:3520-3526 wraps the new seam in `except Exception`, logs a warning and falls
+      back to `places, divider_pages = {}, {}`. The fallback is not partial: it removes
+      *every* page label and *every* level divider from the screen, and the template's
+      `{% if puzzle.opens_page %}` / `{% if level.divider_page %}` guards then render a
+      flat list identical in appearance to a book that genuinely has no page structure.
+      Nothing tells the owner the page plan is unavailable — the only signal is an
+      `app.logger.warning`, and the sidebar still reports "~N pages" (see out-of-scope
+      note), so the screen positively misinforms rather than declining to answer.
+
+      Two consequences worth separating:
+
+      1. **Breadth.** The clause catches more than the seam declares. `section_plan`'s
+         documented failure is RuntimeError from `puzzle_pages` (plus ValueError from
+         `book_page_spec` on an out-of-bounds stored trim). The catch-all additionally
+         swallows AttributeError/TypeError/KeyError raised *by _printed_places itself* —
+         e.g. a future rename of `SectionPlan.ids` or a change to `PuzzlePagePlan.numbers`
+         indexing — which is precisely the class of regression in the single seam that
+         this card exists to make impossible. A blanked screen is not obviously wrong to
+         look at.
+      2. **No coverage.** Grep of tests/ finds no reference to `_printed_places` and no
+         test that drives the arrange route for a book whose stored print specification
+         cannot be laid out. The 13 new tests all exercise the success path, so the
+         degradation branch introduced by this diff is entirely unverified — including
+         the claim in its own comment that the step "does not 500 on the owner".
+
+      The guard itself is right and must stay (project convention: an intentional outer
+      try/except is not removed). What is missing is precision and a signal.
+    suggestion: |
+      Keep the guard; narrow and surface it:
+      (a) catch `(RuntimeError, ValueError)` — the exceptions the seam documents — so a
+          bug inside `_printed_places` still reaches the error page instead of quietly
+          blanking the screen. If a broader net is wanted for safety, keep `Exception` as
+          a second clause that logs at `exception()` level (with traceback) rather than
+          `warning()`, so the two cases are distinguishable in the log;
+      (b) pass a flag into the template and render one line where the labels would have
+          been ("This book's page plan could not be computed; the Finalise step will say
+          why") so the owner is not shown a page-break-free list as if it were the truth;
+      (c) add one test: a book whose stored trim cannot be laid out still returns 200 from
+          /book/<id>/arrange-puzzles, renders every row, and shows no page label — plus
+          an assertion that the notice appears.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "71f9b41"
+    fix_note: |
+      Guard kept (standing convention) and split in two: (RuntimeError, ValueError) — the
+      failures the seam declares — logged as a warning, and a second `except Exception`
+      logged with app.logger.exception(...) so a bug inside _printed_places itself is on
+      the record with its traceback and distinguishable in the log. The route passes
+      page_plan_failed and the template renders one line where the first page label would
+      have been, using the Print setup step's existing `alert alert-warning` /
+      role="status" pattern and no new colour, px or font literal (the design-token check
+      still passes). Four new tests in TestArrangeBreaks_WhenThereIsNoPlanToShow cover
+      the 200 with every row listed and no labels plus the notice, the control with no
+      notice, the declared failure logged as one WARNING naming the column, and an
+      IndexError raised inside the seam logged at ERROR with exc_info.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 795
+    title: "_printed_places keys places by str(id), so rows with no id (or a repeated stringified id) take another row's page"
+    description: |
+      `_printed_places` builds `places[str(plan.ids[number - 1])] = {...}` (app.py:800-805)
+      and the route looks each row up with `places.get(str(puzzle.get("id")))`
+      (app.py:3528). The index arithmetic itself is correct — `PuzzlePagePlan.numbers` are
+      1-based indices into `SectionPlan.payloads`, which is parallel to `SectionPlan.ids`,
+      and `puzzle_section` passes `first_number=start + 1` per level slice, so
+      `ids[number - 1]` is exactly the right row. The dictionary is what loses
+      information: two rows whose ids stringify the same collapse into one entry and the
+      later page wins.
+
+      Reproduced directly against `section_plan`: a two-row book whose rows carry
+      `id=None` yields `ids=[None, None]` and pages `[Divider(2), Puzzle(3, (1,)),
+      Puzzle(4, (2,))]`. `_printed_places` writes `places["None"]` twice, so both rows
+      read page 4 — the screen would print two "page 4" breaks and put the first puzzle on
+      a page it does not print on.
+
+      Reachability is low, which is why this is Minor rather than Important: rows reach
+      the route from `puzzle_review.get_puzzle`, which always carries an `id`, and
+      `add_puzzles_reporting_refusals` de-duplicates a submission
+      (`{str(pid): pid for pid in puzzle_ids}`, book_manager.py:1163) so a book cannot
+      hold one puzzle twice. But the mapping is the one place in the new seam that is not
+      exact by construction, and the card's whole premise is that the screen must not be
+      able to report a page the book does not have.
+    suggestion: |
+      Key the places by the plan's own coordinate instead of by a stringified id — e.g.
+      return `{print_number: {...}}` plus the parallel `ids` list, and have the route zip
+      `plan.ids` with `puzzles_in_book` by position (both are in print order); or keep the
+      id map but build it with `enumerate` over `plan.ids` and skip/flag a key that is
+      already present. Either removes the collapse without adding any decision to the
+      panel.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "71f9b41"
+    fix_note: |
+      SectionPlan gained `printed` — the rows that built a payload, themselves, in print
+      order and parallel to ids/payloads. _printed_places now keys places by
+      id(plan.printed[number - 1]) and the route reads places.get(id(puzzle)), so the key
+      is the plan's own coordinate resolved to the row it names; two rows with no id no
+      longer collapse. The export path is otherwise untouched.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_arrange_page_breaks.py
+    line: 234
+    title: "AC-4 keys its comparison on the screen's item-order, which is not the plan's puzzle number once a member is undrawable"
+    description: |
+      `shown_plan` returns `{item-order → page}` and is compared against
+      `planned_by_hand`/`generated_plan`, which return `{print number → page}`. The route
+      builds `item-order` from `numbering`, an enumeration over **every** id
+      `book_manager.puzzle_levels` reports (app.py:3476-3481), while the plan numbers only
+      the rows that built an `ExportPayload` (`SectionPlan.ids`). The two coincide exactly
+      when nothing is dropped, which is true of every book in this file's corpus — so the
+      property is real today, but its key is an accident of the corpus rather than a
+      property of the seam.
+
+      On a book with one member that `puzzle_review.get_puzzle` cannot load, or one that
+      the payload pass drops, the keys shift by one for every later row and the property
+      test fails with a confusing diff rather than reporting the real relationship. (The
+      *display* is unaffected — each row's label is looked up by id and is correct — so
+      this is a test-robustness gap, not a screen bug.)
+    suggestion: |
+      Either parse the plan's own coordinate out of the markup (the rows already carry
+      `data-page`, so a `{data-page per row in document order}` reading needs no
+      `item-order`), or add one case to the corpus with a member the payload pass drops
+      and assert the intended relationship explicitly. The second also closes the
+      degenerate case the card's review focus names ("a row that builds no payload"),
+      which nothing in this file currently covers.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "71f9b41"
+    fix_note: |
+      shown_plan now keys on the plan's puzzle number — the rows carrying a data-page,
+      counted 1..n in document order — and item-order is read only by the new
+      shown_orders, where that number is the subject. New shown_rows reads each row's own
+      data-page. The degenerate case is covered by
+      test_an_undrawable_member_shifts_no_other_rows_page: a three-row book whose middle
+      row's stored clues _payload cannot read is still listed, carries no page, and
+      shifts neither of the other two (shown_rows [3, None, 4], plan {1: 3, 2: 4},
+      agreeing with planned_by_hand over the drawable rows and generated_plan over all).
+    dismissed_reason: null
+    learned_pattern: null
