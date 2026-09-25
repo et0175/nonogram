@@ -2030,9 +2030,9 @@ class BookManager:
                 if not book_row:
                     return False
 
-                if book_row.metadata is None:
+                if book_row.book_metadata is None:
                     book_row.book_metadata = {}
-                book_row.metadata['cover_image_url'] = cover_url
+                book_row.book_metadata['cover_image_url'] = cover_url
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()
@@ -2067,9 +2067,9 @@ class BookManager:
                 if not book_row:
                     return False
 
-                if book_row.metadata is None:
+                if book_row.book_metadata is None:
                     book_row.book_metadata = {}
-                book_row.metadata['pdf_url'] = pdf_url
+                book_row.book_metadata['pdf_url'] = pdf_url
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()
@@ -2104,9 +2104,9 @@ class BookManager:
                 if not book_row:
                     return False
 
-                if book_row.metadata is None:
+                if book_row.book_metadata is None:
                     book_row.book_metadata = {}
-                book_row.metadata['kdp_asin'] = asin
+                book_row.book_metadata['kdp_asin'] = asin
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()
