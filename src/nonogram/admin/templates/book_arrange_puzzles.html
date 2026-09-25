@@ -29,6 +29,21 @@
             </div>
             <div class="card-body">
                 {% if puzzles %}
+                {# CARD-140: the page plan could not be built for this book, so
+                   there are no breaks to draw — and a list with no labels is
+                   exactly what a book with no page structure would look like,
+                   which no book this project prints is. So the screen says the
+                   labels are missing, where the first of them would have been,
+                   rather than letting their absence read as the truth. The
+                   Print setup step's own pattern for a stored specification it
+                   could not read (`alert alert-warning`, `role="status"`): no
+                   colour, size or font of its own lives here. #}
+                {% if page_plan_failed %}
+                <div class="alert alert-warning" role="status" id="page-plan-unavailable">
+                    <strong>The page breaks could not be worked out for this book.</strong>
+                    The puzzles are listed in reading order, with no page numbers. Step {{ stepper.book_step_number(4) }} reports what the book's print setup cannot lay out.
+                </div>
+                {% endif %}
                 {# FR-041/INV-009: one section per non-empty level, in book
                    order. The route hands these over already grouped by the
                    store's own grouping — the page never sorts anything

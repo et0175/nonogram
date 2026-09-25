@@ -643,9 +643,18 @@ class SectionPlan:
             (:func:`print_order`) — the undrawable ones included, because that
             is the book's membership and what the guide page counts.
         ids: The ids of the rows that built an export payload, in print order
-            and parallel to :attr:`payloads`. ``ids[n - 1]`` is the row printed
-            as puzzle ``n``, which is what turns a page's
-            :attr:`PuzzlePagePlan.numbers` back into rows a screen can point at.
+            and parallel to :attr:`payloads`. ``ids[n - 1]`` is the id of the
+            row printed as puzzle ``n``, which is what the export's failure
+            messages name.
+        printed: Those same rows **themselves**, in print order and parallel to
+            :attr:`ids`. ``printed[n - 1]`` is the row printed as puzzle ``n``,
+            which is what turns a page's :attr:`PuzzlePagePlan.numbers` back
+            into rows a screen can point at. It carries the rows and not just
+            their ids because an id need not identify a row: two rows with no
+            id, or with ids that stringify alike, are one key in any map built
+            from :attr:`ids` and the later one wins, whereas the rows the
+            caller handed over are distinct objects by construction
+            (CARD-140 F-003).
         payloads: Those rows as the export's boundary type, parallel to
             :attr:`ids`.
         pages: The section's pages in print order: a
@@ -655,6 +664,7 @@ class SectionPlan:
 
     puzzles: List[Any]
     ids: List[Any]
+    printed: List[Any]
     payloads: List[ExportPayload]
     pages: List[SectionPage]
 
@@ -1819,13 +1829,21 @@ class BookPDFGenerator:
         puzzle record beside the extent and the tier, so the screen loads
         nothing extra to ask this question.
 
+        *How* differently is measured rather than asserted, and re-measured on
+        every run, by
+        ``tests/test_book_arrange_page_breaks.py``'s
+        ``test_extent_alone_would_disagree_with_the_book_on_this_corpus``: over
+        that file's seeded 24-book corpus, 10 of the 93 same-tier neighbour
+        verdicts the walk offers come out differently when both puzzles' clues
+        are flattened to one run per line at the same extent.
+
         Args:
             puzzles: The book's rows, in any order — the same list the export
                 is given.
 
         Returns:
-            The :class:`SectionPlan`: the ordered rows, the printable ones with
-            their ids, and the section's pages.
+            The :class:`SectionPlan`: the ordered rows, the printable ones
+            themselves and their ids, and the section's pages.
 
         Raises:
             RuntimeError: a pair the walk offered could not be laid out
@@ -1833,6 +1851,7 @@ class BookPDFGenerator:
         """
         ordered = print_order(puzzles)
         ids: List[Any] = []
+        printed: List[Any] = []
         payloads: List[ExportPayload] = []
         for puzzle in ordered:
             # Read outside the try: a row so malformed it is not even a
@@ -1850,10 +1869,12 @@ class BookPDFGenerator:
                 )
                 continue
             ids.append(puzzle_id)
+            printed.append(puzzle)
             payloads.append(payload)
         return SectionPlan(
             puzzles=ordered,
             ids=ids,
+            printed=printed,
             payloads=payloads,
             pages=self.puzzle_section(payloads, ids=ids),
         )

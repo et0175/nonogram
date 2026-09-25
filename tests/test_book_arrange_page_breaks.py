@@ -60,18 +60,38 @@ asks for. Depth matters here and a corpus of solid squares would have hidden
 the reason it does: a pair's shared cell is fitted from both puzzles' **real**
 clue depths (TERM-021), so two puzzles' extents alone do not decide whether
 they share a page, and a screen that guessed from ``width``/``height`` would
-disagree with the book on exactly the rows this corpus varies. Measured over
-AC-4's corpus: of the 126 same-tier neighbour verdicts it offers COMP-007,
-**21** come out differently when the two puzzles' clues are replaced by
-one-run-deep clues of the same extent — so the corpus discriminates between the
-plan the book makes and a plan fitted from extents alone, rather than agreeing
-with both.
+disagree with the book on exactly the rows this corpus varies.
+
+How far it disagrees is measured rather than remembered, and the measurement is
+:func:`test_extent_alone_would_disagree_with_the_book_on_this_corpus`, which
+re-derives every figure below from :func:`corpus_books`, :func:`comb_grid` and
+the greedy walk of :func:`planned_by_hand` each time the suite runs. Over that
+corpus, each same-tier neighbour pair offered to COMP-007's
+:func:`~nonogram.export.layout.compute_pair_layout` on the page the pair would
+share:
+
+* 24 books holding **164** puzzles between them;
+* **99** same-tier neighbour pairs in print order, of which the greedy forward
+  walk actually offers **93** (a pair that forms consumes its successor, so the
+  pair starting on the second of two paired puzzles is never asked about);
+* **10** of those verdicts come out differently when both puzzles' clues are
+  replaced by one-run-deep clues of the same extent — 10 under a solid-grid
+  flattening (every row ``(width,)``, every column ``(height,)``) and 10 under
+  a filled-count-preserving one (every line ``(sum(runs),)``), so the figure
+  does not depend on which way the depth is flattened away.
+
+Ten is a small number and is the whole point: it is not zero, so this corpus
+discriminates between the plan the book makes and a plan fitted from extents
+alone instead of agreeing with both — an extent-only planner would have put ten
+pairs of puzzles on pages the printed book does not print them on.
 """
 
 from __future__ import annotations
 
+import logging
 import random
 import re
+from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
@@ -221,40 +241,86 @@ def panel(admin_app):
 # What the screen says
 # --------------------------------------------------------------------------
 
-#: One page label or one puzzle row, in the order the markup holds them.
+#: One page label or one puzzle row, in the order the markup holds them. A
+#: row's own ``data-page`` is optional in the markup and so it is here: a row the
+#: plan does not hold carries none.
 _TOKEN = re.compile(
     r'class="page-break-divider" data-page="(?P<page>\d+)"'
     r'(?: data-divider-level="(?P<level>[a-z]+)")?'
-    r'|class="item-order">(?P<order>\d+)<'
+    r'|class="puzzle-list-item"(?: data-page="(?P<row>\d+)")?'
 )
 
 #: The visible text of one page label: ``page 3``, ``page 3 · two puzzles``,
 #: ``page 2 · Easy divider page``.
 _LABEL = re.compile(r"<span>(?P<text>page [^<]+)</span>")
 
+#: A row's ``item-order`` — the membership number the screen prints in its first
+#: column. Read only where that number is the subject; it is **not** the plan's
+#: puzzle number (see :func:`shown_plan`).
+_ORDER = re.compile(r'class="item-order">(?P<order>\d+)<')
+
 
 def shown_plan(markup: str) -> Tuple[Dict[int, Optional[int]], Dict[str, int]]:
     """What the screen says, read the way a reader reads it, top to bottom.
 
-    Returns ``({puzzle number: interior page}, {level: divider page})``. A row
-    with no page label above it maps to ``None``, and a divider page's label
-    ends the run it opens — so a break rendered *after* the row it belongs to,
-    or a level whose rows are still counted against the previous level's last
-    page, comes back wrong rather than unnoticed.
+    Returns ``({puzzle number: interior page}, {level: divider page})``, keyed
+    on the **plan's** puzzle number: the rows the plan holds, counted 1..n in
+    document order. That is the plan's own coordinate — ``print_order`` gives
+    the screen and the plan the same order, and a row the plan does not hold
+    carries no ``data-page`` — so it is the key the two sides of every
+    comparison in this file agree on.
+
+    It is deliberately not the row's ``item-order``, which the route numbers
+    over the book's whole **membership**: the two coincide only while nothing is
+    dropped, and a book with one undrawable member would shift every later key
+    by one and fail the property test with a confusing diff instead of reporting
+    the real relationship (CARD-140 F-004,
+    :func:`test_an_undrawable_member_shifts_no_other_rows_page`).
+
+    A row the plan holds but which has no page label above it maps to ``None``,
+    and a divider page's label ends the run it opens — so a break rendered
+    *after* the row it belongs to, or a level whose rows are still counted
+    against the previous level's last page, comes back wrong rather than
+    unnoticed.
     """
     pages: Dict[int, Optional[int]] = {}
     dividers: Dict[str, int] = {}
     current: Optional[int] = None
+    number = 0
     for token in _TOKEN.finditer(markup):
-        if token.group("page"):
+        if token.group(0).startswith('class="page-break-divider"'):
             if token.group("level"):
                 dividers[token.group("level")] = int(token.group("page"))
                 current = None
             else:
                 current = int(token.group("page"))
-        else:
-            pages[int(token.group("order"))] = current
+            continue
+        if token.group("row") is None:
+            # A row the plan does not hold: listed, but not one of the plan's
+            # numbered puzzles, and it neither opens nor closes a page's run.
+            continue
+        number += 1
+        pages[number] = current
     return pages, dividers
+
+
+def shown_rows(markup: str) -> List[Optional[int]]:
+    """Each puzzle row's own ``data-page``, in document order.
+
+    ``None`` for a row the plan does not hold — the page the screen prints
+    beside the row itself, as against :func:`shown_plan`'s reading of the label
+    *above* it. Its length is how many rows the screen listed at all.
+    """
+    return [
+        None if token.group("row") is None else int(token.group("row"))
+        for token in _TOKEN.finditer(markup)
+        if not token.group(0).startswith('class="page-break-divider"')
+    ]
+
+
+def shown_orders(markup: str) -> List[int]:
+    """The membership numbers the screen prints, in document order."""
+    return [int(match.group("order")) for match in _ORDER.finditer(markup)]
 
 
 def shown_labels(markup: str) -> List[str]:
@@ -277,7 +343,11 @@ def _clue_sets(row: Dict[str, Any]) -> Tuple[tuple, tuple]:
     )
 
 
-def planned_by_hand(book, rows: List[Dict[str, Any]]) -> Tuple[Dict[int, int], Dict[str, int]]:
+def planned_by_hand(
+    book,
+    rows: List[Dict[str, Any]],
+    offered: Optional[List[Tuple[Dict[str, Any], Dict[str, Any], int, bool]]] = None,
+) -> Tuple[Dict[int, int], Dict[str, int]]:
     """Where this book prints each puzzle, worked out from the rules.
 
     The independent second implementation this file compares the screen
@@ -292,6 +362,15 @@ def planned_by_hand(book, rows: List[Dict[str, Any]]) -> Tuple[Dict[int, int], D
       offered to COMP-007 on the spec of the page they would share, and a
       ``PairLayout`` back puts both on it. Otherwise *i* has the page to
       itself. A run with no readable tier never pairs.
+
+    Args:
+        book: The book, for its page specs.
+        rows: Its rows, in stored order.
+        offered: If given, every pair this walk offers COMP-007 is appended to
+            it as ``(earlier row, later row, the shared page, the verdict)``.
+            That is what makes the clue-depth measurement a reading of *this*
+            walk rather than a fourth implementation of it
+            (:func:`test_extent_alone_would_disagree_with_the_book_on_this_corpus`).
 
     Returns ``({puzzle number: interior page}, {level value: divider page})``.
     """
@@ -321,6 +400,8 @@ def planned_by_hand(book, rows: List[Dict[str, Any]]) -> Tuple[Dict[int, int], D
                     )
                     is not None
                 )
+                if offered is not None:
+                    offered.append((ordered[index], ordered[index + 1], page, paired))
             pages[index + 1] = page
             if paired:
                 pages[index + 2] = page
@@ -565,6 +646,143 @@ def corpus_books(seed: int = 140) -> List[List[Tuple[str, int, int, int, bool]]]
     return books
 
 
+#: Every figure the module docstring quotes about this corpus, re-derived by
+#: :func:`test_extent_alone_would_disagree_with_the_book_on_this_corpus`. It is
+#: pinned because it is the whole recorded justification for planning from the
+#: rows' stored clues rather than from the ``(width, height)`` extent the card's
+#: step 1 proposed, and a figure nobody re-measures is a figure that goes stale
+#: (CARD-140 F-001: the first set of numbers did, and one of them — more
+#: same-tier verdicts than the corpus has same-tier neighbours — was refutable
+#: by arithmetic alone).
+CORPUS_MEASURED = {
+    "books": 24,
+    "puzzles": 164,
+    "same_tier_neighbours": 99,
+    "verdicts_offered": 93,
+    "flips_solid_grid": 10,
+    "flips_filled_count": 10,
+}
+
+
+def corpus_rows(members: List[Tuple[str, int, int, int, bool]]) -> List[Dict[str, Any]]:
+    """One corpus book's rows, as the store would hold them.
+
+    The fields :func:`planned_by_hand` reads, built straight from
+    :func:`comb_grid` and :func:`~nonogram.clues.compute_clues` — the same grids
+    and therefore the same clues the panel's store keeps for them, without
+    paying for 164 uniqueness solves to find that out.
+    """
+    rows: List[Dict[str, Any]] = []
+    for tier, width, height, teeth, across in members:
+        found = clues_module.compute_clues(comb_grid(width, height, teeth, across))
+        rows.append(
+            {
+                "difficulty_tier": tier,
+                "clues_rows": [list(clue) for clue in found.rows],
+                "clues_cols": [list(clue) for clue in found.columns],
+                "width": width,
+                "height": height,
+            }
+        )
+    return rows
+
+
+def _solid_grid_clues(row: Dict[str, Any]) -> Tuple[tuple, tuple]:
+    """The row's clues flattened to depth 1: a solid grid of the same extent."""
+    width, height = row["width"], row["height"]
+    return (
+        tuple((width,) for _ in range(height)),
+        tuple((height,) for _ in range(width)),
+    )
+
+
+def _filled_count_clues(row: Dict[str, Any]) -> Tuple[tuple, tuple]:
+    """The row's clues flattened to depth 1, keeping each line's filled count."""
+    rows, columns = _clue_sets(row)
+    return (
+        tuple((sum(clue),) if sum(clue) else (0,) for clue in rows),
+        tuple((sum(clue),) if sum(clue) else (0,) for clue in columns),
+    )
+
+
+def test_extent_alone_would_disagree_with_the_book_on_this_corpus() -> None:
+    """The measurement behind the deviation from the card's step 1 (CARD-140).
+
+    Step 1 asked for a planner over "each puzzle's tier and ``(width, height)``
+    extent". The implementation plans from the rows' **stored clues** instead,
+    because a pair's shared cell is fitted from both puzzles' real clue depths
+    (``layout._gutter_depth``, TERM-021) — and this is the evidence, re-derived
+    every run rather than quoted from a note:
+
+    * the corpus is :func:`corpus_books` at its default seed, its grids
+      :func:`comb_grid`, its rows :func:`corpus_rows`;
+    * the walk is :func:`planned_by_hand`'s, which reports each same-tier
+      neighbour pair it offers COMP-007 and the page they would share. No book
+      row is stored and no page is drawn, so this is cheap enough to keep;
+    * the book is one with no stored print specification, which is CON-018's
+      Book 1 profile — exactly what ``create_book`` leaves, so the page specs are
+      AC-4's own;
+    * the counterfactual is each pair's verdict re-asked with both puzzles'
+      clues flattened to depth 1 at the same extent, which is all an extent-only
+      planner could have known. Two flattenings, because the figure must not be
+      an artefact of one: a solid grid of the same extent, and one run per line
+      keeping that line's filled count.
+
+    The conclusion is what the numbers are for and it does not depend on their
+    exact size: the flips are not zero, so extent alone answers INV-010
+    differently from the book, and the plan has to travel on the stored clues.
+    """
+    corpus = corpus_books()
+    rows_per_book = [corpus_rows(members) for members in corpus]
+
+    same_tier_neighbours = 0
+    offered: List[Tuple[Dict[str, Any], Dict[str, Any], int, bool]] = []
+    for rows in rows_per_book:
+        ordered = sorted(
+            rows, key=lambda row: _RANK.get(tier_of_record(row["difficulty_tier"]), 3)
+        )
+        tiers = [tier_of_record(row["difficulty_tier"]) for row in ordered]
+        same_tier_neighbours += sum(
+            1
+            for index in range(len(ordered) - 1)
+            if tiers[index] is not None and tiers[index] is tiers[index + 1]
+        )
+        planned_by_hand(None, rows, offered=offered)
+
+    flips = {"flips_solid_grid": 0, "flips_filled_count": 0}
+    for earlier, later, page, verdict in offered:
+        spec = book_page_spec(None, page)
+        for key, flatten in (
+            ("flips_solid_grid", _solid_grid_clues),
+            ("flips_filled_count", _filled_count_clues),
+        ):
+            flattened = (
+                compute_pair_layout(flatten(earlier), flatten(later), spec) is not None
+            )
+            if flattened != verdict:
+                flips[key] += 1
+
+    measured = {
+        "books": len(corpus),
+        "puzzles": sum(len(members) for members in corpus),
+        "same_tier_neighbours": same_tier_neighbours,
+        "verdicts_offered": len(offered),
+        **flips,
+    }
+    assert measured == CORPUS_MEASURED, (
+        "the deviation's figures no longer reproduce — re-measure and correct "
+        f"the module docstring and CARD-140's note: {measured}"
+    )
+    assert measured["verdicts_offered"] <= measured["same_tier_neighbours"], (
+        "a walk cannot offer more pairs than the corpus has same-tier neighbours"
+    )
+    assert flips["flips_solid_grid"] > 0, (
+        "no verdict flips: the corpus has stopped discriminating between the "
+        "book's plan and one fitted from extents alone, which is the only "
+        "reason the plan reads the stored clues"
+    )
+
+
 def test_PropertyTest_ArrangeBreaks_AgreeWithTheGeneratedBook(panel) -> None:
     """Over a seeded corpus of books, the screen's plan is the book's plan.
 
@@ -678,3 +896,152 @@ class TestArrangeBreaks_LevelStartsANewPage:
         _pages, dividers = shown_plan(panel.arrange(book_id))
 
         assert set(dividers) == {"easy", "hard"}, dividers
+
+
+# --------------------------------------------------------------------------
+# When there is no plan to show (CARD-140 F-002, F-004)
+# --------------------------------------------------------------------------
+
+
+class TestArrangeBreaks_WhenThereIsNoPlanToShow:
+    """The screen declines to answer rather than answering wrongly.
+
+    The arrange step is three steps before Finalise, so a book the generator
+    cannot plan must not fail on the owner here — but the fallback drops every
+    page label and every level divider, which renders identically to a book that
+    genuinely has no page structure. No book this project prints is one, so the
+    screen has to *say* the labels are missing (F-002). And the one book the
+    plan is smaller than its membership — a member that builds no export payload
+    — must shift no other row's page (F-004).
+    """
+
+    @staticmethod
+    def _cannot_be_laid_out(panel, book_id: str) -> None:
+        """Store a trim outside KDP's bounds, so no sheet can be built.
+
+        The failure ``section_plan`` documents, reached the way a real book
+        reaches it: ``BookPDFGenerator``'s constructor asks
+        ``book_page_spec`` for the book's trim and it raises ``ValueError``
+        naming the column.
+        """
+        panel.books.books[book_id].trim_width_cm = "50.00"
+
+    def test_the_step_still_answers_when_the_book_cannot_be_planned(self, panel) -> None:
+        """200, every row listed, no page label — and the owner is told why."""
+        ids = [panel.puzzle("easy", size=10, teeth=3) for _ in range(3)]
+        book_id = panel.book_of(*ids)
+        self._cannot_be_laid_out(panel, book_id)
+
+        markup = panel.arrange(book_id)  # asserts the 200 itself
+
+        assert shown_orders(markup) == [1, 2, 3], "every row is still listed"
+        for puzzle_id in ids:
+            assert puzzle_id in markup, f"row {puzzle_id} is missing from the screen"
+        assert shown_labels(markup) == [], "there are no pages to label"
+        assert shown_rows(markup) == [None, None, None]
+        assert shown_plan(markup) == ({}, {})
+        assert 'id="page-plan-unavailable"' in markup, (
+            "a page-break-free list is what a book with no page structure looks "
+            "like, so the screen must say the breaks are unavailable"
+        )
+        assert "could not be worked out" in markup
+
+    def test_a_planned_book_shows_no_such_notice(self, panel) -> None:
+        """The control: the notice is the failure's, not part of the furniture."""
+        book_id = panel.book_of(panel.puzzle("easy", size=10, teeth=3))
+
+        markup = panel.arrange(book_id)
+
+        assert 'id="page-plan-unavailable"' not in markup
+        assert shown_labels(markup) == ["page 2 · Easy divider page", "page 3"]
+
+    def test_the_declared_failure_is_logged_as_a_warning(self, panel, caplog) -> None:
+        """A stored trim that is not a sheet is the book's fault, not a bug."""
+        book_id = panel.book_of(panel.puzzle("easy", size=10, teeth=3))
+        self._cannot_be_laid_out(panel, book_id)
+
+        with caplog.at_level(logging.DEBUG):
+            panel.arrange(book_id)
+
+        records = [record for record in caplog.records if "page plan" in record.message]
+        assert records, caplog.text
+        assert [record.levelno for record in records] == [logging.WARNING]
+        assert all(record.exc_info is None for record in records), (
+            "a declared failure needs no traceback"
+        )
+        assert "trim_width_cm" in caplog.text, "the log names the column at fault"
+
+    def test_a_bug_in_the_seam_itself_is_logged_with_its_traceback(
+        self, panel, monkeypatch, caplog
+    ) -> None:
+        """The regression class this card exists to make impossible.
+
+        A renamed plan field or a changed ``numbers`` index breaks
+        ``_printed_places`` itself, not the book — and a screen with no page
+        labels looks the same either way, so the two must be distinguishable in
+        the log. Simulated by a plan whose pages name puzzles it does not carry,
+        which is what either mistake leaves behind.
+        """
+        from nonogram.admin import book_pdf_generator
+
+        book_id = panel.book_of(panel.puzzle("easy", size=10, teeth=3))
+
+        original = book_pdf_generator.BookPDFGenerator.section_plan
+
+        def truncated(self, puzzles):
+            plan = original(self, puzzles)
+            return replace(plan, printed=[])
+
+        monkeypatch.setattr(
+            book_pdf_generator.BookPDFGenerator, "section_plan", truncated
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            markup = panel.arrange(book_id)  # asserts the 200 itself
+
+        assert 'id="page-plan-unavailable"' in markup, "the owner is still told"
+        assert shown_labels(markup) == []
+        failures = [record for record in caplog.records if record.levelno >= logging.ERROR]
+        assert failures, caplog.text
+        assert any(record.exc_info is not None for record in failures), (
+            "an unexpected failure is logged with its traceback, not as a "
+            "one-line warning, so it can be told apart from a book whose "
+            "stored specification is at fault"
+        )
+
+    def test_an_undrawable_member_shifts_no_other_rows_page(self, panel) -> None:
+        """A row that builds no export payload takes no puzzle number with it.
+
+        The one degenerate case in this card's review focus: the plan numbers
+        only the rows that built an ``ExportPayload``, while the screen's
+        ``item-order`` counts every member, so after a drop the two part company
+        and only the plan's own numbering describes the book. The middle row's
+        stored clues are replaced with a value ``_payload`` cannot read, which
+        stands in for any record the export has to drop (it logs and drops it,
+        exactly as the interior does).
+        """
+        ids = [panel.puzzle("easy", size=30, teeth=8) for _ in range(3)]
+        book_id = panel.book_of(*ids)
+        panel.store.puzzles[ids[1]]["clues_rows"] = 12
+        book = panel.book(book_id)
+        drawable = [
+            row for row in panel.rows_of(book_id) if isinstance(row["clues_rows"], list)
+        ]
+
+        markup = panel.arrange(book_id)
+        pages, dividers = shown_plan(markup)
+
+        assert shown_orders(markup) == [1, 2, 3], "the dropped row is still listed"
+        assert shown_rows(markup) == [3, None, 4], (
+            "the row the book cannot print carries no page, and the row after it "
+            "keeps the page the plan gives it"
+        )
+        assert dividers == {"easy": 2}
+        assert pages == {1: 3, 2: 4}, pages
+        assert (pages, dividers) == planned_by_hand(book, drawable)
+        assert (pages, dividers) == generated_plan(book, panel.rows_of(book_id))
+        assert shown_labels(markup) == [
+            "page 2 · Easy divider page",
+            "page 3",
+            "page 4",
+        ], "two printable puzzles, two pages, and no label for the third row"
