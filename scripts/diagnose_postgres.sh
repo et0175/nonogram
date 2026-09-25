@@ -105,7 +105,12 @@ else
     echo -e "${YELLOW}Trying Unix socket (no host)...${NC}"
     if psql -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Socket connection works${NC}"
-        echo "  Your DATABASE_URL should use: postgresql+psycopg://postgres:postgres@/nonogram_poc?host=/tmp"
+        # psycopg2, not psycopg (v3): psycopg2-binary is the DBAPI this project
+        # installs, and `normalized_url` deliberately leaves an explicitly named
+        # driver alone — so an operator who followed the old advice got
+        # `ModuleNotFoundError: No module named 'psycopg'`, the 2026-09-25
+        # outage's exact error, out of the repo's own diagnostic (CARD-148).
+        echo "  Your DATABASE_URL should use: postgresql+psycopg2://postgres:postgres@/nonogram_poc?host=/tmp"
     else
         echo -e "${RED}✗ Socket connection also failed${NC}"
         echo ""

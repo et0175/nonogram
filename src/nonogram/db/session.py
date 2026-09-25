@@ -88,16 +88,37 @@ def normalized_url(database_url: str) -> URL:
     Raises:
         RuntimeError: if ``database_url`` is not a URL SQLAlchemy can parse.
             The message names the scheme and nothing else, and the underlying
-            ``ArgumentError`` is deliberately *not* chained: SQLAlchemy has
-            echoed the offending string back in that message before, and that
-            string is the one place a password lives (EC-1).
+            exception is deliberately *not* chained: SQLAlchemy has echoed the
+            offending string back in that message before, and that string is
+            the one place a password lives (EC-1).
+
+            "Cannot parse" is two exception types, not one. ``make_url`` raises
+            ``ArgumentError`` for a malformed scheme, and a bare ``ValueError``
+            out of ``int(port)`` when the authority's port is not a number —
+            identically on SQLAlchemy 2.0.52 and 2.1.0. That second family is
+            not exotic: ``postgresql://u:p@2001:db8::1:5432/db``, an IPv6
+            address written without its brackets, is the commonest
+            ``DATABASE_URL`` typo there is, and ``…@host:/db`` is a truncated
+            port. Catching only the first let those spellings escape as
+            ``ValueError: invalid literal for int()``, so for them this
+            docstring was false and neither the scheme-only message nor the
+            ``from None`` shield ran at all.
     """
+    # Computed *before* the try, so that the handler's body cannot raise. An
+    # exception from inside the handler — from a non-``str`` argument, say —
+    # would resurface SQLAlchemy's own error, which echoes the whole URL and
+    # its password, as an unsuppressed ``__context__``: the exact traceback
+    # ``from None`` exists to block. The handler is therefore kept incapable of
+    # raising rather than merely unlikely to, and :func:`_scheme_of` is total
+    # for the same reason.
+    scheme = _scheme_of(database_url)
     try:
         url = make_url(database_url)
-    except ArgumentError:
+    except (ArgumentError, ValueError):
+        # Both are named because ``ArgumentError`` is not a ``ValueError``.
         raise RuntimeError(
             "DATABASE_URL is not a URL SQLAlchemy can parse "
-            f"(scheme: {_scheme_of(database_url)!r}). "
+            f"(scheme: {scheme!r}). "
             "Expected something like postgresql://user:password@host:5432/dbname"
         ) from None
 
@@ -109,13 +130,21 @@ def normalized_url(database_url: str) -> URL:
     )
 
 
-def _scheme_of(database_url: str) -> str:
+def _scheme_of(database_url: object) -> str:
     """The text before ``://``, which is the one part that cannot be a secret.
 
     Credentials follow the separator, and :meth:`str.partition` splits on its
     first occurrence, so what comes back is a scheme or nothing at all — never
     a password, however mangled the rest of the string is.
+
+    Total for *any* input, deliberately: this value goes into the message of an
+    error raised while another one is being handled, and a ``TypeError`` from a
+    ``bytes`` or ``None`` argument there would pull SQLAlchemy's URL-echoing
+    message into the traceback as the context of the new failure. Returning a
+    placeholder is worth more than a type error nobody wanted (EC-1).
     """
+    if not isinstance(database_url, str):
+        return "<not a string>"
     scheme, separator, _ = database_url.partition("://")
     return scheme if separator else "<no scheme>"
 

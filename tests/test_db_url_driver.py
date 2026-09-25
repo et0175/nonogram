@@ -30,12 +30,14 @@ on exactly the days it should.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import random
 import subprocess
 import sys
 import tomllib
+import traceback
 from pathlib import Path
 
 import pytest
@@ -79,24 +81,47 @@ class TestDbUrl_DriverIsNamedNotInherited:
         assert url.drivername == f"postgresql+{db_session.POSTGRES_DRIVER}"
 
     def test_the_shipped_driver_is_the_one_the_project_installs(self) -> None:
-        """The constant is not a guess — it is the package in the `db` extra.
+        """The constant is not a guess — it is the package both manifests ship.
 
-        `POSTGRES_DRIVER` and `psycopg2-binary` are two statements of the same
-        fact in two files, which is the shape that drifts. Asserted here rather
-        than trusted, because the drift would look exactly like the outage.
+        `POSTGRES_DRIVER` and `psycopg2-binary` are statements of the same fact
+        in *three* files, which is the shape that drifts. Asserted rather than
+        trusted, because the drift would look exactly like the outage.
+
+        Both manifests, not just pyproject's `db` extra: render.yaml's
+        buildCommand is `pip install -r requirements.txt`, so requirements.txt
+        is the file that decides what production actually has. Those two files
+        already drifted once on their SQLAlchemy line — which is why
+        `test_the_two_files_agree_on_the_sqlalchemy_requirement` exists — and
+        the DBAPI line is the same fact one line down.
+
+        Bidirectional in each file, because presence is not enough: adding
+        `psycopg` beside `psycopg2-binary`, or swapping one for the other, is
+        how the outage returns. So the set of PostgreSQL DBAPIs each manifest
+        names must contain nothing *but* the shipped one.
         """
-        extras = _pyproject()["project"]["optional-dependencies"]["db"]
-        installed_dbapis = {
-            requirement.split(">")[0].split("=")[0].split("<")[0].strip().lower()
-            for requirement in extras
-        }
         driver = db_session.POSTGRES_DRIVER
         # `psycopg2-binary` and `psycopg2` are the same DBAPI under two
         # distribution names, and either is a legitimate way to install it.
-        assert {driver, f"{driver}-binary"} & installed_dbapis, (
-            f"session.POSTGRES_DRIVER is {driver!r}, "
-            f"but the db extra installs {sorted(installed_dbapis)}"
-        )
+        acceptable = {driver, f"{driver}-binary"}
+        manifests = {
+            "pyproject.toml's db extra": _requirement_names(
+                _pyproject()["project"]["optional-dependencies"]["db"]
+            ),
+            "requirements.txt": _requirement_names(_requirements()),
+        }
+
+        for where, names in manifests.items():
+            dbapis = names & _POSTGRES_DBAPIS
+            assert dbapis, (
+                f"{where} installs no PostgreSQL DBAPI at all, so "
+                f"session.POSTGRES_DRIVER = {driver!r} names a package that is "
+                "not there"
+            )
+            assert dbapis <= acceptable, (
+                f"session.POSTGRES_DRIVER is {driver!r}, but {where} installs "
+                f"{sorted(dbapis)} — the panel would be asked for a DBAPI this "
+                "project does not ship, which is the 2026-09-25 outage"
+            )
 
     def test_an_explicitly_chosen_other_driver_is_left_alone(self) -> None:
         """A named driver is a decision; only an *absent* one is the defect.
@@ -250,6 +275,41 @@ class TestDbUrl_TheResolvedDriverIsInstalled:
 def _pyproject() -> dict:
     with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
         return tomllib.load(handle)
+
+
+#: Distribution names that install a PostgreSQL DBAPI. A manifest naming one of
+#: these that is not the shipped driver is the outage waiting to be redeployed,
+#: whichever of the two dependency files it hides in.
+_POSTGRES_DBAPIS = frozenset(
+    {
+        "psycopg2",
+        "psycopg2-binary",
+        "psycopg2cffi",
+        "psycopg",
+        "psycopg-binary",
+        "psycopg-c",
+        "pg8000",
+        "asyncpg",
+        "pygresql",
+    }
+)
+
+
+def _requirement_names(requirements: list[str]) -> set[str]:
+    """The distribution names in a requirement list, lowercased.
+
+    Version specifiers, extras (`psycopg[binary]`) and environment markers are
+    all stripped, because the name is the only part that says *which DBAPI*.
+    """
+    names = set()
+    for requirement in requirements:
+        name = requirement.split(";")[0]
+        for separator in (">", "<", "=", "!", "~", "["):
+            name = name.split(separator)[0]
+        name = name.strip().lower()
+        if name:
+            names.add(name)
+    return names
 
 
 def _requirements() -> list[str]:
@@ -647,6 +707,45 @@ class TestDbUrl_NormalisationChangesNothingElse:
                 assert result == make_url(raw), raw
                 assert result.database == make_url(raw).database, raw
 
+    def test_the_text_round_trip_that_alembic_forces_is_lossless(self) -> None:
+        """The one caller that must go through text, pinned over the corpus.
+
+        `migrations/env.py` is the exception to "never through text", and
+        necessarily so: `engine_from_config` takes a string-keyed dict, so the
+        `URL` has to be rendered there. `render_as_string(hide_password=False)`
+        is the right call — plain `str(url)` would render the password as
+        `***` and produce a URL that looks right in a log and cannot
+        authenticate — but "right" is a claim about SQLAlchemy's renderer and
+        parser agreeing with each other over every shape a `DATABASE_URL`
+        takes, which is worth asserting rather than assuming. This is the deploy
+        path: render.yaml's buildCommand ends in `alembic upgrade head`.
+
+        Field by field, and `:memory:` and a spaced path are in the list on
+        purpose: those are the two shapes where 2.0 and 2.1 render differently
+        (2.1 percent-encodes the colons), and a round trip must survive that
+        difference rather than notice it.
+        """
+        extra = [
+            make_url("sqlite:///:memory:"),
+            make_url("sqlite:////tmp/with space.db"),
+        ]
+        for source in [*_CORPUS, *extra]:
+            normalised = db_session.normalized_url(
+                source.render_as_string(hide_password=False)
+            )
+            through_text = make_url(
+                normalised.render_as_string(hide_password=False)
+            )
+
+            rendered = normalised.render_as_string(hide_password=True)
+            assert through_text.drivername == normalised.drivername, rendered
+            assert through_text.username == normalised.username, rendered
+            assert through_text.password == normalised.password, "password altered"
+            assert through_text.host == normalised.host, rendered
+            assert through_text.port == normalised.port, rendered
+            assert through_text.database == normalised.database, rendered
+            assert dict(through_text.query) == dict(normalised.query), rendered
+
     def test_no_password_in_the_corpus_reaches_a_log_record(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
@@ -677,6 +776,28 @@ class TestDbUrl_NormalisationChangesNothingElse:
             pytest.param("://panel:{secret}@db.example.com/nono", id="no-scheme"),
             pytest.param("postgresql//panel:{secret}@db.example.com/nono", id="no-colon"),
             pytest.param("", id="empty"),
+            # The three below fail through `ValueError` out of `int(port)`
+            # rather than `ArgumentError`, on 2.0.52 and 2.1.0 alike — a second
+            # failure family the handler used to miss entirely, so for these
+            # the docstring's promise of a RuntimeError was simply false and
+            # the `from None` shield never ran. The first is the reason this
+            # matters: an IPv6 address written without its brackets is the
+            # commonest DATABASE_URL typo there is. The corpus below could not
+            # have caught it — it builds its IPv6 host through `URL.create`,
+            # which always renders the brackets, so the malformed *spelling*
+            # only exists as raw text like this.
+            pytest.param(
+                "postgresql://panel:{secret}@2001:db8::1:5432/nono",
+                id="ipv6-host-without-brackets",
+            ),
+            pytest.param(
+                "postgresql://panel:{secret}@db.example.com:notaport/nono",
+                id="non-numeric-port",
+            ),
+            pytest.param(
+                "postgresql://panel:{secret}@db.example.com:/nono",
+                id="empty-port",
+            ),
         ],
     )
     def test_an_unparseable_url_is_rejected_without_quoting_the_password(
@@ -708,3 +829,247 @@ class TestDbUrl_NormalisationChangesNothingElse:
         # The scheme is fair game and is the only thing worth saying: it is
         # what makes the error actionable at all.
         assert "DATABASE_URL" in str(failure.value)
+
+    def test_a_non_string_cannot_resurface_sqlalchemys_url_echoing_message(
+        self,
+    ) -> None:
+        """The shield is a guarantee about the handler, not a hope about callers.
+
+        `from None` only takes effect once the `RuntimeError` exists. Anything
+        that raises *while it is being built* arrives with SQLAlchemy's
+        `ArgumentError` as an unsuppressed `__context__` — and that message
+        quotes the whole URL, password included:
+
+            ArgumentError: Expected string or URL object, got
+            b'postgresql://panel:hunter2@h/db'
+
+        which is precisely the traceback `from None` exists to prevent. The old
+        shape reached it by calling `_scheme_of` *inside* the handler, where a
+        `bytes` argument turned into a `TypeError` chained onto that message.
+        No caller can pass a non-`str` today — `os.getenv`,
+        `config.get_main_option` and the harness all hand over `str` — so this
+        is not a live leak; it is a two-line property worth having by
+        construction in a function three modules now import. The scheme is
+        computed before the `try` and `_scheme_of` is total, so the handler's
+        body cannot raise at all.
+
+        Asserted against the *formatted traceback*, since that is where the
+        leak would be visible — `str(error)` alone would pass even with the
+        chain intact.
+        """
+        secret = "hunter2-do-not-print-me"
+        for value in (
+            f"postgresql://panel:{secret}@db.example.com:5432/nono".encode(),
+            None,
+            5,
+            object(),
+        ):
+            with pytest.raises(RuntimeError) as failure:
+                db_session.normalized_url(value)  # type: ignore[arg-type]
+
+            rendered = "".join(
+                traceback.format_exception(
+                    type(failure.value), failure.value, failure.value.__traceback__
+                )
+            )
+            assert secret not in rendered, (
+                f"a {type(value).__name__} argument put the password back in "
+                "the traceback"
+            )
+            assert "During handling of the above exception" not in rendered
+            assert failure.value.__cause__ is None
+            assert failure.value.__suppress_context__ is True
+
+
+# --------------------------------------------------------------------------
+# SCOPE+ — the two other places a bare DATABASE_URL reached SQLAlchemy
+#
+# Neither is an AC. Both are on this card because the fix is only half a fix
+# without them: `migrations/env.py` runs in render.yaml's buildCommand, and
+# `tests/conftest.py`'s probe decides whether the database tests run at all.
+# Each got one argument changed and, until now, no test.
+# --------------------------------------------------------------------------
+
+
+#: Drives `migrations/env.py`'s ONLINE branch and reports the configuration it
+#: builds, without a database and without a migration running.
+#:
+#: `engine_from_config` is replaced on the `sqlalchemy` module *before* alembic
+#: loads env.py, so env.py's own module-level `from sqlalchemy import
+#: engine_from_config` picks up the replacement; it records the dict and raises,
+#: which is as far as the branch needs to run. A subprocess because alembic's
+#: env.py is a script, not an importable module: it runs `run_migrations_online`
+#: at import time under an `EnvironmentContext` that only alembic can establish.
+_ALEMBIC_ONLINE_PROBE = """
+import json
+import sqlalchemy
+
+
+class Captured(Exception):
+    pass
+
+
+def fake_engine_from_config(configuration, prefix="sqlalchemy.", **kwargs):
+    print("CONFIG:" + json.dumps(dict(configuration)))
+    raise Captured()
+
+
+sqlalchemy.engine_from_config = fake_engine_from_config
+
+from alembic import command
+from alembic.config import Config
+
+try:
+    command.upgrade(Config("alembic.ini"), "head")
+except Captured:
+    print("REACHED-ONLINE-BRANCH")
+"""
+
+
+class TestMigrations_TheDeployPathNamesTheDriver:
+    """`alembic upgrade head` was the other half of the outage.
+
+    render.yaml's buildCommand is `pip install -r requirements.txt && … &&
+    alembic upgrade head`, and the online branch reaches `create_engine` through
+    `engine_from_config`, which calls `import_dbapi()`. On 2.1.0 with psycopg v3
+    absent that is `ModuleNotFoundError: No module named 'psycopg'` — so fixing
+    only `session.py` would have got the panel booting and left the *build step*
+    dying of the same error on the next default change.
+
+    Only the online branch was ever broken. The offline branch
+    (`alembic upgrade head --sql`) needs `URL.get_dialect()`, which loads the
+    dialect class without importing the DBAPI, and worked throughout; its
+    normalisation is consistency, not a repair, so it is not what this test
+    pins.
+    """
+
+    def test_the_online_branch_names_the_driver_and_keeps_the_password(
+        self,
+    ) -> None:
+        secret = "s3cr3t-p@ss"
+        environment = dict(os.environ)
+        # A bare `postgresql://`, which is the only shape Render's managed
+        # Postgres hands out and the shape that failed.
+        environment["DATABASE_URL"] = (
+            "postgresql://panel:s3cr3t-p%40ss@db.example.com:5432/nono"
+        )
+        environment["PYTHONPATH"] = (
+            str(REPO_ROOT / "src") + os.pathsep + str(REPO_ROOT)
+        )
+
+        finished = subprocess.run(
+            [sys.executable, "-c", _ALEMBIC_ONLINE_PROBE],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            cwd=REPO_ROOT,
+            env=environment,
+        )
+
+        output = finished.stdout + finished.stderr
+        assert finished.returncode == 0, output
+        assert "REACHED-ONLINE-BRANCH" in finished.stdout, output
+        reported = [
+            line for line in finished.stdout.splitlines() if line.startswith("CONFIG:")
+        ]
+        assert reported, output
+
+        configuration = json.loads(reported[-1][len("CONFIG:") :])
+        url = make_url(configuration["sqlalchemy.url"])
+
+        assert url.drivername == f"postgresql+{db_session.POSTGRES_DRIVER}", (
+            "the migration step is back to inheriting SQLAlchemy's default, "
+            "which is the deploy half of the 2026-09-25 outage"
+        )
+        # Rendered through text here because alembic's API takes no `URL`; the
+        # password surviving that is the thing that makes it safe, and
+        # `str(url)` would have turned it into `***`.
+        assert url.password == secret, "the migration step cannot authenticate"
+        assert url.username == "panel"
+        assert url.host == "db.example.com"
+        assert url.port == 5432
+        assert url.database == "nono"
+
+
+class _ProbeNotAttempted(Exception):
+    """Raised instead of building a real engine in the test below."""
+
+
+class TestHarness_TheReachabilityProbeUsesTheSameNaming:
+    """The harness must not be able to lie about a database that is right there.
+
+    `tests/conftest.py::_unreachable_reason` decides whether every `db_required`
+    test runs or skips, and it decides by connecting. Probe through a bare URL
+    on a SQLAlchemy whose default DBAPI is not installed and the attempt dies in
+    `import_dbapi()` — which the probe's `except Exception` faithfully reports as
+    "unreachable". Every database test then skips **green** against a database
+    that answered nothing because nothing asked it. That is this repo's known
+    "DB-mode tests skip silently" failure mode, relocated into the harness, and
+    it is why the probe goes through `normalized_url`.
+
+    Counting probes and comparing two verdicts — which is what
+    `test_the_reachability_verdict_is_taken_once_per_url` does — cannot see any
+    of this: both assertions hold whichever argument the probe is handed,
+    because a `ModuleNotFoundError` is a perfectly stable, perfectly cached
+    reason. So this test asserts the *argument*: what `sqlalchemy.create_engine`
+    actually receives.
+    """
+
+    @pytest.mark.parametrize(
+        "scheme",
+        [
+            pytest.param("postgresql", id="bare-postgresql"),
+            pytest.param("postgres", id="legacy-postgres-alias"),
+            pytest.param("POSTGRESQL", id="uppercase-scheme"),
+        ],
+    )
+    def test_the_probe_builds_its_engine_from_a_named_url(
+        self, scheme: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import sqlalchemy
+
+        import tests.conftest as conftest
+
+        captured: list = []
+
+        def capturing(url, **kwargs):
+            captured.append(url)
+            # No engine, no connection, no ten-second deadline: the argument is
+            # the whole subject of this test.
+            raise _ProbeNotAttempted("not connecting during a unit test")
+
+        # A fresh verdict cache, so the probe is actually taken here rather than
+        # answered from another test's run, and so nothing is left memoised.
+        monkeypatch.setattr(conftest, "_DATABASE_VERDICTS", {})
+        # Patched on `sqlalchemy` itself, because the helper imports
+        # `create_engine` inside the function rather than at module scope.
+        monkeypatch.setattr(sqlalchemy, "create_engine", capturing)
+
+        reason = conftest._unreachable_reason(
+            f"{scheme}://panel:s3cr3t-p%40ss@db.example.com:5432/nonogram_test"
+        )
+
+        assert captured, "the probe never built an engine"
+        handed_over = captured[0]
+        assert isinstance(handed_over, URL), (
+            "the probe was handed the raw DATABASE_URL, so it resolves the "
+            "DBAPI from SQLAlchemy's default while the panel names one — on a "
+            f"SQLAlchemy whose default is absent every db_required test skips "
+            f"green: {handed_over!r}"
+        )
+        assert handed_over.drivername == f"postgresql+{db_session.POSTGRES_DRIVER}", (
+            f"the probe would connect through {handed_over.drivername!r}, not "
+            "the driver the panel uses"
+        )
+        # The same trap as the production path: through text the password would
+        # be `***` and the probe would report a healthy database as unreachable
+        # for the wrong reason.
+        assert handed_over.password == "s3cr3t-p@ss"
+        assert handed_over.host == "db.example.com"
+        assert handed_over.port == 5432
+        assert handed_over.database == "nonogram_test"
+
+        # Behaviour unchanged for the caller: a probe that cannot connect is
+        # still a reason to skip, and the reason is still memoised.
+        assert reason, "a failed probe must produce a reason, not None"
+        assert conftest._DATABASE_VERDICTS and len(captured) == 1
