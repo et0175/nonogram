@@ -704,14 +704,21 @@ class TestBookArrangeScreen_ShowsTheLevels:
     def test_the_page_break_indicator_counts_the_whole_book_not_each_level(
         self, panel
     ) -> None:
-        """Review cycle 1, F-001: four easy then three medium is pages 2 and 3.
+        """Review cycle 1, F-001: the page numbers run on across the levels.
 
         The divider used to count off the loop variable, which this card's
         nesting restarted at every level heading — so this book showed "page 2"
-        twice, never "page 3", and the medium level (three rows, the last of
-        the book) got no divider at all however deep it sat. Counting off the
-        route's whole-book ``order`` is what makes the two dividers land after
-        row 3 and row 6 and say 2 and 3.
+        twice and never "page 3". The numbers now come from the printed book's
+        page plan (CARD-140) rather than from any arithmetic on this page, and
+        they are still the **book's**: four easy 10x10s pair into interior pages
+        3 and 4, the medium level's divider takes 5, its first two rows pair on
+        6 and its last row has 7 to itself. Nothing restarts, and no number
+        appears twice.
+
+        What each of those numbers means is
+        ``tests/test_book_arrange_page_breaks.py``'s subject; what this test
+        keeps is the nesting posture the review found: the labels are read in
+        the order the page renders them, across the level headings.
         """
         book_id, _ids = a_book_of(
             panel, "easy", "easy", "easy", "easy", "medium", "medium", "medium"
@@ -720,22 +727,36 @@ class TestBookArrangeScreen_ShowsTheLevels:
         markup = panel.arrange(book_id).get_data(as_text=True)
 
         assert re.findall(r'item-order">(\d+)<', markup) == list("1234567")
-        assert re.findall(r'page-break-divider"><span>page (\d+)<', markup) == ["2", "3"]
-        # ... and the second divider is inside the medium level, after its own
-        # second row: the number is the book's, not the level's.
-        rows = [m.start() for m in re.finditer(r'item-order">\d+<', markup)]
-        divider = markup.index("page-break-divider")
-        second = markup.index("page-break-divider", divider + 1)
-        assert rows[2] < divider < rows[3], "the first divider follows row 3"
-        assert rows[5] < second < rows[6], "the second divider follows row 6"
-        assert markup.index("Medium level") < second, "and sits inside the medium level"
+        numbers = re.findall(r'page-break-divider" data-page="(\d+)"', markup)
+        assert numbers == ["2", "3", "4", "5", "6", "7"], numbers
+        # ... and the medium level's own pages are numbered on from the easy
+        # level's, inside the medium level: the number is the book's, not the
+        # level's.
+        medium = markup.index("Medium level")
+        assert markup.index('data-page="6"') > medium, "page 6 sits inside the medium level"
+        assert markup.index('data-page="4"') < medium, "page 4 is still the easy level's"
 
-    def test_no_page_break_indicator_follows_the_last_puzzle_of_the_book(
+    def test_the_last_page_of_the_book_is_labelled_like_any_other(
         self, panel
     ) -> None:
-        """A book of exactly three ends on a row, not on a divider."""
+        """A book of exactly three: every row sits under the page it prints on.
+
+        The screen used to rule off every third puzzle and therefore showed this
+        book no break at all. Since CARD-140 a break opens every page of the
+        printed interior — the two easy 10x10s share page 3 behind the easy
+        level's divider page, and the medium row has page 5 to itself behind its
+        own — so the last row is labelled like the rest, and there is still no
+        rule left dangling after it.
+        """
         book_id, _ids = a_book_of(panel, "easy", "easy", "medium")
 
         markup = panel.arrange(book_id).get_data(as_text=True)
 
-        assert "page-break-divider" not in markup, markup
+        assert re.findall(r'page-break-divider" data-page="(\d+)"', markup) == [
+            "2",
+            "3",
+            "4",
+            "5",
+        ]
+        last_row = markup.rindex('class="item-order"')
+        assert "page-break-divider" not in markup[last_row:], markup[last_row:]

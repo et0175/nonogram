@@ -29,6 +29,21 @@
             </div>
             <div class="card-body">
                 {% if puzzles %}
+                {# CARD-140: the page plan could not be built for this book, so
+                   there are no breaks to draw — and a list with no labels is
+                   exactly what a book with no page structure would look like,
+                   which no book this project prints is. So the screen says the
+                   labels are missing, where the first of them would have been,
+                   rather than letting their absence read as the truth. The
+                   Print setup step's own pattern for a stored specification it
+                   could not read (`alert alert-warning`, `role="status"`): no
+                   colour, size or font of its own lives here. #}
+                {% if page_plan_failed %}
+                <div class="alert alert-warning" role="status" id="page-plan-unavailable">
+                    <strong>The page breaks could not be worked out for this book.</strong>
+                    The puzzles are listed in reading order, with no page numbers. Step {{ stepper.book_step_number(4) }} reports what the book's print setup cannot lay out.
+                </div>
+                {% endif %}
                 {# FR-041/INV-009: one section per non-empty level, in book
                    order. The route hands these over already grouped by the
                    store's own grouping — the page never sorts anything
@@ -44,8 +59,28 @@
                         <small class="fw-normal">({{ level.count }} puzzle{{ '' if level.count == 1 else 's' }})</small>
                     </h3>
                 <div class="puzzle-list">
+                    {# CARD-128/INV-013: a level opens behind a divider page of
+                       its own, so the break that opens the level is a page of
+                       the printed interior and is labelled as one. Its number
+                       is the plan's, like every other number on this page. #}
+                    {% if level.divider_page %}
+                    <div class="page-break-divider" data-page="{{ level.divider_page }}" data-divider-level="{{ level.tier or 'ungraded' }}">
+                        <span>page {{ level.divider_page }} · {{ level.label }} divider page</span>
+                    </div>
+                    {% endif %}
                     {% for puzzle in level.puzzles %}
-                    <div class="puzzle-list-item">
+                    {# The break falls where the *plan* starts a new page, and
+                       says which interior page that is (FR-036, CARD-140). Two
+                       puzzles the book pairs (FR-040, INV-010) have no break
+                       between them, so they are shown sharing the one page the
+                       label names — and nothing here works that out: the route
+                       asked the generator (G-1). #}
+                    {% if puzzle.opens_page %}
+                    <div class="page-break-divider" data-page="{{ puzzle.page }}">
+                        <span>page {{ puzzle.page }}{% if puzzle.shares_page %} · two puzzles{% endif %}</span>
+                    </div>
+                    {% endif %}
+                    <div class="puzzle-list-item"{% if puzzle.page %} data-page="{{ puzzle.page }}"{% endif %}>
                         <div class="item-order">{{ puzzle.order }}</div>
 
                         <div class="item-preview thumb thumb-md">
@@ -103,17 +138,6 @@
                         </div>
                     </div>
 
-                    {# Page break indicator, every 3 puzzles. It counts off
-                       `puzzle.order` — the route's 1..n numbering across the
-                       whole book — and never off `loop.index`, which restarts
-                       at every level heading and would print "page 2" once per
-                       level (review cycle 1, F-001). The end check is the
-                       book's own end for the same reason: `loop.last` is only
-                       the last row of *this* level, so the last rendered row
-                       of the book is what the divider stops at. #}
-                    {% if puzzle.order % 3 == 0 and puzzle.order < puzzles[-1].order %}
-                    <div class="page-break-divider"><span>page {{ (puzzle.order // 3) + 1 }}</span></div>
-                    {% endif %}
                     {% endfor %}
                 </div>{# /puzzle-list #}
                 </div>{# /level-group #}
