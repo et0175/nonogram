@@ -131,7 +131,8 @@ run to edit `book_pdf_generator.py`, and wave 26 has already produced one
 unpredicted conflict on the shared book fixtures between two cards that both
 touched them.
 
-[Open for the owner] Whether the mode belongs per-book (proposed here, since
-Book 1 is black-and-white and Book 2 may not be) or as a global default with a
-per-book override. Proposed: per-book, defaulting to black-and-white, because
-every book that exists today is black-and-white in content.
+[DECIDED by the owner, 2026-09-25] **Per-book**, not a global default with an
+override. The mode is stored on the book beside its trim and margins, and
+defaults to black-and-white for any book that has none stored — which is every
+book that exists today, all of them black-and-white in content. Book 1 is
+black-and-white; colour is available per book from Book 2 onward.
