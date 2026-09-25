@@ -1,0 +1,149 @@
+version: 1
+generated_at: "2026-09-24T22:39:03Z"
+target: "card/144-book-puzzle-frame @ 837075b (git diff main..HEAD, 10 files, +1445/-49) — CARD-144 cycle 2 of 3"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/helpers/page_ink.py (full, HEAD and main and 3350c2a side by side)"
+    - "tests/helpers/two_up_ink.py (full)"
+    - "tests/helpers/pdf_pages.py, tests/helpers/book_corpus.py (full)"
+    - "src/nonogram/export/layout.py (frame path, _rule_widths, _axis_lines, _is_major, PageSpec.framed, _puzzle_frame)"
+    - "src/nonogram/export/png.py (_draw_frame, _draw_grid, render_image, render_answer_page)"
+    - "src/nonogram/export/pdf.py (docstring hunks)"
+    - "tests/test_book_puzzle_frame.py (the whole 837075b delta: the rewritten answer-tile test, the ast guard, its guard-the-guard companion)"
+    - "tests/fixtures/book_baseline_card144.json, book_baseline_card128.json (numeric digest comparison, not prose)"
+    - "meta/kanban/cards/CARD-144.md, meta/architecture/inputs/raw-requirements.md:265"
+    - "every drawing_of/drawings_of call site (61 calls across 10 test modules), the measured ones inspected"
+    - "src/nonogram/admin/book_pdf_generator.py (_stroke_drawing, create_guide_page), book_proof.py"
+  not_reached:
+    - "src/nonogram/admin/app.py, book_manager.py beyond the PageSpec/proof call sites"
+    - "tests/e2e/** (one known pre-existing failure, unrelated)"
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 1445, removed: 49 }
+  max_fan_in: { symbol: "tests.helpers.page_ink.drawing_of", callers: 61 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — 12-month churn on tests/helpers/page_ink.py is 4 commits (2 fix-tagged); no touched file clears a hotspot threshold on a repo this young"
+    cochange_missing: "no_eligible_fact — the 12-month co-change set of the touched export/ files is the files themselves; the history is too card-serialised to yield a peer set"
+
+system_contract:
+  rules_checked: 41
+  holds: 12
+  unchecked: 29
+  violated: 0
+  verdicts:
+    - "ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden + PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry re-run by me on 837075b (66 passed); and an independent render sweep of 110 default-spec A4 pages read back field-for-field identical to main's measurer with framed=False throughout"
+    - "CON-019 ✓ holds — same two runs green on this head; tests/fixtures/a4_golden/** absent from git diff main..HEAD --name-only; the ast guard test_the_book_is_the_only_thing_in_src_that_places_a_page passes and I confirmed it FAILS when a second parity-bearing PageSpec producer is added to src/"
+    - "ADR-0037/R2 ✓ holds — the fix round changed no production code (AST comparison of 672e23a vs 837075b with docstrings stripped: layout.py, png.py, pdf.py all code-identical); mutant M9 (PuzzleFrame width=thick//2) re-run and KILLED by 6+ tests"
+    - "ADR-0036/R2 ✓ holds — git diff main..HEAD -- src/nonogram/admin/ is 0 lines; _stroke_drawing still never references slot.frame (grep)"
+    - "ADR-0037/R1 ✓ holds — carried(cycle 1, delta-clean): the fix round touches no band code and no geometry; header_band is not in the 837075b delta"
+    - "ADR-0006/R1 ✓ holds — pyproject.toml not in the diff; the fix round adds only stdlib imports (ast, warnings, pathlib) to a test module"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py's ast import guard green in the full-suite run on this head; page_ink.py still imports nothing from nonogram.export"
+    - "ADR-0022/R1 ✓ holds — carried(cycle 1, delta-clean): PuzzleFrame's signature is untouched by 837075b"
+    - "ADR-0023/R1 ✓ holds — carried(cycle 1, delta-clean): no export metadata field in the delta"
+    - "ADR-0033/R1 ✓ holds — carried(cycle 1, delta-clean): nothing in the delta writes a puzzle field"
+    - "INV-011 ✓ holds — book_baseline_card144.json vs book_baseline_card128.json compared numerically: 11 pages each, exactly pages 5 and 7 differ, matching the fixture's own changed_pages [5, 7]; the fix round changed 0 sha256 lines in either fixture (grep -c on the commit's fixture hunks = 0)"
+    - "INV-013 ✓ holds — interior page count 11 in both fixtures; the re-measured export yields 11 interior pages"
+    - "ADR-0023/R2, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0035/R1, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-012 ⚠ unchecked — no_eligible_fact: the cycle-2 delta changes executable code in exactly one file, a test ink measurer; it touches no solver, recovery policy, density/extent validation, web socket, book status gate or clue encoding"
+
+root_causes:
+  - id: RC-1
+    title: "F-004's equivalence guard pins one construction idiom, not the property"
+    finding_ids: [F-101]
+
+findings:
+  - id: F-101
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_puzzle_frame.py
+    line: 838
+    title: "The new ast guard is blind to dataclasses.replace(spec, parity=...), an idiom already live in layout.py"
+    description: |
+      `_is_page_spec_call` matches only `PageSpec(...)` / `<anything>.PageSpec(...)`
+      (tests/test_book_puzzle_frame.py:833-838). A module that produces a parity-bearing
+      spec with `dataclasses.replace(DEFAULT_PAGE_SPEC, parity=PageParity.ODD)` is not a
+      `Call` to `PageSpec` and is not seen at all.
+
+      Demonstrated by execution, not argued. I added
+      `src/nonogram/export/_review_probe_second_producer.py` twice and ran the guard:
+        * with `PageSpec(width_mm=..., height_mm=..., parity=PageParity.ODD)` the guard
+          FAILS, naming the new module and its line — the fix works for the shape it was
+          written for;
+        * with `dataclasses.replace(DEFAULT_PAGE_SPEC, parity=PageParity.ODD)` the guard
+          PASSES. (Both probes removed; the working tree and all three touched files were
+          checksum-verified back to 837075b afterwards.)
+
+      The idiom is not hypothetical here: `src/nonogram/export/layout.py:1818` already
+      writes `replace(page_spec, band_mm=two_bands_mm)` on a PageSpec, so the shape the
+      guard cannot see is one this codebase already uses on this very type.
+
+      The test's own docstring over-claims: "The day a second producer appears this fails,
+      and the reading to take from it is *not* 'add the module to the allowlist'". It fails
+      for one of the two ways a second producer can appear.
+
+      Failure scenario: CARD-146 (or a poster/preview card) adds
+      `replace(DEFAULT_PAGE_SPEC, parity=PageParity.ODD)` in `src/nonogram/export/`. That
+      spec's `framed` is True, the sheet silently acquires a frame, the guard stays green,
+      and the a4_golden tripwires do not fire because they only exercise DEFAULT_PAGE_SPEC
+      itself. The exact silence F-004 was filed to end.
+    suggestion: |
+      Widen `_is_page_spec_call` to also match `replace(...)`/`dataclasses.replace(...)`
+      calls carrying a `parity=` keyword (the rest of `_carries_a_parity` already handles
+      the keyword analysis), and add the two shapes to
+      `test_the_placed_page_walk_reads_a_parity_where_there_is_one` so the widening is
+      itself pinned. Alternatively drop the "second producer is impossible" claim from the
+      docstring and state what the guard actually covers.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-144.md
+    line: 96
+    title: "The card's own Architecture context still declares FR: FR-041 — the source of F-002 is unfixed"
+    description: |
+      F-002's fix rewrote ~15 citations in code, tests and both fixtures, and the sweep is
+      clean: `git diff main..HEAD | grep '^+.*FR-041'` returns only the three deliberate
+      disclaimers ("in particular **not FR-041**", "it is NOT FR-041", "This card first
+      cited FR-041"), `requirements.yml` and `trace.yml` are untouched (0 files under
+      `meta/` in the diff), and no FR id was invented — `raw-requirements.md:265` is
+      verbatim the owner's frame intake.
+
+      But `meta/kanban/cards/CARD-144.md` still carries `- **FR:** FR-041 (book page
+      layout)` under `## Architecture context`, which cycle 1 identified as the
+      decompose-time mis-labelling the implementation propagated. The card is the artifact
+      the next reader (CARD-146, the merge record, the retrospective) opens first, so the
+      wrong id survives in the one place that re-seeds it.
+
+      This is not in the diff — `forge:commit` excludes `meta/` — so it does not gate the
+      code; it gates the delivery record.
+    suggestion: |
+      Change the card's `**FR:**` line to `— (untraced: owner intake,
+      meta/architecture/inputs/raw-requirements.md:265, 2026-09-23)`, matching what
+      layout.py's docstring now says, before the card is marked done.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

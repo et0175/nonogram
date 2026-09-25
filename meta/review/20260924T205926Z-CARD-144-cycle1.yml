@@ -1,0 +1,246 @@
+version: 1
+generated_at: "2026-09-24T20:59:26Z"
+target: "card/144-book-puzzle-frame @ 672e23a (git diff main..HEAD, 10 files) — CARD-144 cycle 1 of 3"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/export/layout.py (frame path, PageSpec, DEFAULT_PAGE_SPEC, _puzzle_frame, _slot_layout, compute_answer_page_layout)"
+    - "src/nonogram/export/png.py (_draw_frame, render_image)"
+    - "src/nonogram/export/pdf.py (module docstring, render_pages, _reveal)"
+    - "tests/helpers/page_ink.py (full)"
+    - "tests/helpers/two_up_ink.py (full)"
+    - "tests/helpers/book_corpus.py (diff)"
+    - "tests/test_book_puzzle_frame.py (full, 723 lines)"
+    - "tests/fixtures/book_baseline_card144.json, book_baseline_card128.json (diff + numeric comparison)"
+    - "src/nonogram/admin/book_page_spec.py, book_pdf_generator.py (_stroke_drawing), book_proof.py (call sites)"
+    - "every drawing_of/drawings_of/split_row call site in tests/ (grep-enumerated, 8 modules)"
+    - "meta/architecture/requirements.yml (FR-041, CON-019, CON-018), trace.yml (FR-041 row)"
+  not_reached:
+    - "src/nonogram/admin/app.py, book_manager.py beyond the book_page_spec call sites"
+    - "tests/e2e/** (one known pre-existing failure, unrelated)"
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 1169, removed: 49 }
+  max_fan_in: { symbol: "nonogram.export.layout.PageSpec", callers: 181 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — 12-month churn on every touched file is 2-6 commits with 0-1 fix commits (layout.py 6/0, png.py 5/1, pdf.py 3/0, page_ink.py 3/1, two_up_ink.py 2/0); no file clears a hotspot threshold"
+    cochange_missing: "no_eligible_fact — the 12-month co-change set of src/nonogram/export/layout.py is the file itself; the repository's export/ history is too short and too card-serialised to yield a peer set"
+
+system_contract:
+  rules_checked: 41
+  holds: 12
+  unchecked: 29
+  violated: 0
+  verdicts:
+    - "ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry run by me on this head (tests/test_export_a4_golden.py + tests/property/test_cli_exports_byte_identity.py: 66 passed); DEFAULT_PAGE_SPEC.frame is None -> framed False (layout.py:565,585)"
+    - "CON-019 ✓ holds — same two runs green; and no CLI or web path can reach a framed sheet: book_page_spec.py:271 is the only PageSpec(...) construction with a parity in all of src/ (grep), cli.py and web/*.py pass no page_spec at all"
+    - "ADR-0037/R2 ✓ holds — PuzzleFrame.width is Layout.thick_rule verbatim (layout.py:1382-1384); test_the_frame_carries_the_layouts_heavy_rule_and_no_new_weight plus the 240-case property assert {thin, thick} is the whole weight set; mutant M5 (width=thick//2) KILLED"
+    - "ADR-0036/R2 ✓ holds — the frame verdict lives in export/layout.py (COMP-007) as PageSpec.framed; git diff main..HEAD --name-only shows no file under src/nonogram/admin/**; test_the_panels_own_book_page_spec_is_framed asserts the panel's spec still carries frame is None"
+    - "ADR-0037/R1 ✓ holds — no diff hunk touches header_band or the band's text; the frame's top side sits 47 px below the band's lowest ink (measured on interior 5 and 7 of the real export)"
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not in the diff; the only new import is png.py -> layout.PuzzleFrame (stdlib/Pillow/NumPy untouched)"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py's ast import guard is green in the full-suite run on this head; the one import added inside src/ is png.py -> layout (same layer, existing direction)"
+    - "ADR-0022/R1 ✓ holds — PuzzleFrame carries left/top/right/bottom/width as four boundary ints plus a stroke width; no scalar \"size\" is introduced on any signature"
+    - "ADR-0023/R1 ✓ holds — no export metadata field added or changed; json/csv export modules are not in the diff"
+    - "ADR-0033/R1 ✓ holds — nothing in the diff writes any puzzle field; the frame is drawn from layout coordinates only"
+    - "INV-011 ✓ holds — answer-key ordering and capacity untouched; interiors 9, 10 and 11 of the re-recorded baseline are byte-identical to CARD-128's recording (verified numerically)"
+    - "INV-013 ✓ holds — interior page count stays 11 and the interior/cover split is untouched; the baseline fixture's page_count and all 11 page sizes are unchanged"
+    - "ADR-0023/R2, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0035/R1, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-012 ⚠ unchecked — no_eligible_fact: this diff adds one rectangle of ink to one renderer and rewrites two test measurers; it touches no solver, no recovery policy, no density or extent validation, no web socket, no book status gate and no clue encoding"
+
+root_causes:
+  - id: RC-1
+    title: "The frame is inferred from page ink rather than stated, and the inference has no second discriminator"
+    finding_ids: [F-001, F-003]
+  - id: RC-2
+    title: "The frame ships without a requirement of its own and borrows an unrelated FR's id"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/helpers/page_ink.py
+    line: 207
+    title: "The frame heuristic fires on the packed answer-key page, silently shifting columns/rows/cell/grid_left/grid_top there"
+    description: |
+      `drawing_of` decides a page is framed when the drawing's left edge falls inside the
+      leftmost vertical rule's pixel span and the drawing's top edge inside the topmost
+      horizontal rule's span (page_ink.py:207-209), then drops one rule group from each
+      axis (:210-213).
+
+      That condition is not unique to a frame. An FR-042 answer TILE carries no clue
+      gutter, so the tile's own left/top edge *is* its grid's left/top border and the
+      condition holds trivially. Measured against a verbatim reimplementation of main's
+      `drawing_of` over the real baseline-book export (all 11 interior pages):
+
+        interior 10 (answer key)  main: columns=15 rows=15 grid_left=234 grid_top=276 cell=59.00
+                                  HEAD: framed=True columns=14 rows=14 grid_left=294 grid_top=336 cell=58.93
+        interior 11 (answer key)  main: columns=30 rows=30 grid_left=148 grid_top=276 cell=37.73
+                                  HEAD: framed=True columns=29 rows=29 grid_left=187 grid_top=315 cell=37.69
+
+      Interiors 5 and 7 change too, and there the new reading is the correct one (15x15 and
+      30x30 with the frame discounted). Interior 9 escapes only because its heading changes
+      which group is topmost — so the misreading is data-dependent, not systematic, which is
+      worse.
+
+      No test breaks today: the full suite on this head is green bar the known e2e failure,
+      and the only assertions that touch an answer page through this helper read `.left` and
+      `.grid_right` (tests/property/test_book_pdf_geometry.py:399-407) — both computed before
+      the drop and therefore unchanged. `left`, `top`, `grid_right` and `grid_bottom` are
+      stable in every case I measured; `grid_left`, `grid_top`, `columns`, `rows` and `cell`
+      are not.
+
+      The new `Drawing.framed` field is documented (page_ink.py:86-87) as "whether the
+      drawing is closed off by a book page's frame, read off the page". It answers True for
+      pages that carry no frame. The card's own fixture note and
+      `test_the_frame_never_reaches_an_answer_tile` both assert the opposite property.
+
+      Failure scenario: CARD-146, or whoever next owns FR-042, writes
+      `assert not drawing.framed` on an answer page to prove the frame stayed out of the key —
+      it fails, and the cheapest-looking repair is to weaken the assertion. Or an answer-key
+      geometry card measures a tile's printed cell with `drawing_of` and is told a 30x30 tile
+      has 29 columns. Either way the instrument, not the page, is wrong, with everything green.
+    suggestion: |
+      Add a discriminator the answer tile cannot satisfy, or stop inferring. Two workable
+      shapes:
+        * have the caller state the page kind (`drawing_of(page, framed=...)`), which is
+          what every call site already knows; or
+        * keep the inference but require the frame candidate to be *outside* the grid's own
+          pitch — e.g. the first gap in BOTH axes differs from the modal gap of the rest,
+          which is true of a gutter and false of a uniform tile.
+      Whichever is chosen, `Drawing.framed` needs the same "blank puzzle pages only" caveat
+      the module already carries for `columns`/`rows` (page_ink.py:36-41), or an explicit
+      guard that raises on a tiled page.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 85
+    title: "The frame is traced to FR-041, which is the level-divider requirement, not a page-layout one"
+    description: |
+      Every new citation in this diff attributes the frame to FR-041. FR-041
+      (meta/architecture/requirements.yml:3082-3125) is entirely about print order — easy
+      then medium then hard, moves confined to a level, a divider page per non-empty level,
+      unbroken puzzle numbers. It is CARD-128's FR. trace.yml:1834-1848 confirms it: its
+      components are COMP-009/COMP-010 (not COMP-007), and its nine `tests:` are the
+      divider and ordering tests.
+
+      No FR, AC or EC anywhere in requirements.yml mentions a frame, a rectangle or a boxed
+      clue band (grep). The frame is untraced scope, and the card's own
+      "## Architecture context" declares `FR: FR-041 (book page layout)`, which is a
+      decompose-time mis-labelling the implementation then propagated.
+
+      Blast radius is documentation, but wide and permanent: layout.py:85, :421-426, :543,
+      :640, :808, :1370; png.py:187, :253; pdf.py:32; page_ink.py:86, :183; the new test
+      module's header; and the prose of both baseline fixtures. A reader following FR-041
+      out of layout.py lands on the divider-page requirement.
+    suggestion: |
+      Either add the frame to FR-030/FR-032 (the book page geometry FRs) as a dated
+      amendment with its own AC ids and retarget every citation, or state plainly in the
+      card that the frame is an owner-requested untraced addition and cite CARD-144 alone
+      rather than borrowing an FR id that means something else. The mechanical part —
+      rewriting the citations — is a sed away while the card is still open.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_puzzle_frame.py
+    line: 707
+    title: "test_the_frame_never_reaches_an_answer_tile cannot fail"
+    description: |
+      `assert not hasattr(tile, "frame")` over `compute_answer_page_layout(...).tiles`.
+      `AnswerTile` is a `slots=True` frozen dataclass that has never carried a `frame`
+      field, and nothing in this diff could add one — `_puzzle_frame` is called only from
+      `compute_layout` and `_slot_layout`. The assertion is a structural tautology: it is
+      true on main, true on HEAD, and true under every mutation of the frame code.
+
+      It is also the wrong property. The card's claim is that FR-042's tiles carry no frame
+      *on paper*; what would test that is the absence of a rule on a tile's outer edge, read
+      off the rendered answer page. F-001 shows the project's own ink measurer currently
+      reports `framed=True` on exactly those pages — so the untested property is not merely
+      untested, it is the one the instrument gets wrong.
+    suggestion: |
+      Replace with a rendered-ink assertion on a real answer page: render an answer-key page
+      and assert there is no full-height rule on the leftmost tile's own outer edge beyond
+      its grid border, and no full-width rule on its top edge. Keep the structural assertion
+      as a cheap companion if desired, but it must not be the whole test.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 565
+    title: "\"Placed page ⇒ framed\" is equivalent to \"book page ⇒ framed\" only by accident, and nothing pins it"
+    description: |
+      `PageSpec.framed` reads `self.parity is not None` when `frame` is None (layout.py:565).
+      The G-4 workaround is sound today — I verified it, not assumed it:
+      `src/nonogram/admin/book_page_spec.py:271` is the only `PageSpec(...)` construction
+      carrying a parity anywhere in `src/` (the other is `DEFAULT_PAGE_SPEC`, parity None),
+      and every consumer of a parity-bearing spec is book-side (`book_pdf_generator`,
+      `book_proof`, `book_manager`/`app` for cell measurement only). `cli.py` and
+      `src/nonogram/web/*.py` pass no `page_spec` at all. So "placed" and "book" name the
+      same set of pages today, and CON-019 is safe.
+
+      What is not safe is the statement. The rule is phrased as a property of *parity*, and
+      the equivalence that makes it correct — "nothing but the book lays a puzzle on a trim"
+      — is asserted in a docstring (layout.py:553-556) and pinned by no test. The first
+      non-book placed page (a single-sheet trim preview, a poster export, a marketing
+      render) silently acquires a frame, and the only thing that would catch it is someone
+      re-reading that docstring.
+
+      Note also that this already changes behaviour outside the book PDF: `book_proof.py:513`
+      renders proof pages through `render_pages` on a parity spec, so proof pages are now
+      framed. That is correct — they are proofs of book pages, and the card's proof renders
+      show them framed — but it is a second consumer the card's "book pages only" wording
+      does not name.
+    suggestion: |
+      Pin the equivalence rather than documenting it: a structural test in the spirit of
+      `tests/test_cli.py`'s import guard that walks `src/nonogram/**/*.py` with `ast` and
+      asserts `book_page_spec.py` is the only module constructing a `PageSpec` with a
+      non-None parity. One test, and the day someone adds a second placed-page producer the
+      suite says so instead of the docstring.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

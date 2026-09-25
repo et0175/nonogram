@@ -1,0 +1,378 @@
+version: 1
+generated_at: "2026-09-24T20:11:05Z"
+target: "CARD-131 cycle 1 of 3 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-131, branch card/131-published-book-confirm, commit fc8498d, diff main...HEAD (8 files, +1784/-39)"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_manager.py (whole diff + surrounding add/remove/reorder/save_plan/set_book_status)"
+    - "src/nonogram/admin/app.py (whole diff + all four membership routes, _fold_tab_into_selection, _submitted_overrides, delete_puzzle)"
+    - "src/nonogram/admin/templates/_confirm_membership_change.html, book_detail.html, book_select_puzzles.html"
+    - "tests/test_book_floor.py (old version on main and new version, both read in full)"
+    - "tests/test_book_published_confirm.py, tests/property/test_book_workflow.py (delegated deep read)"
+    - "meta/kanban/cards/CARD-131.md (in full, incl. System contract's 44 rules)"
+  not_reached:
+    - "src/nonogram/admin/book_plan.py internals (selection_cells) — only its call sites"
+    - "meta/architecture/trace.yml, requirements.yml — card's injected contract used instead"
+    - "meta/design/ (brief.md, tokens.css, components.md) — not read; the ConfirmChange gap is self-declared"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 1784, removed: 39 }
+  max_fan_in:
+    symbol: "BookManager.add_puzzles_reporting_refusals"
+    callers: 2
+    note: "production callers only (app.py:3150 select step, app.py:3841 paste-IDs). add_puzzles_to_book: 0 production callers, 21 test call sites. remove_puzzle_reporting_confirmation: 2 production (app.py:3354 arrange-delete, app.py:3894 remove route). remove_puzzle_from_book: 0 production callers after this diff."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_manager.py"
+    - "src/nonogram/admin/app.py"
+  cochange_missing: []
+  unmeasured:
+    churn: "tooling_failure — git history mined for touched files but per-file churn/defect-density counts were not derived; the two touched source files are self-evidently the wave's hotspots (CARD-100/101/121/122/123/124/126/130/131 all cite them)"
+    cochange_missing: "no_eligible_fact — every historical co-change peer of book_manager.py/app.py that bears on membership (tests/test_book_floor.py, tests/property/test_book_membership_floor.py, tests/property/test_book_order.py) is either in the diff or was verified green unchanged; no absent peer identified"
+
+system_contract:
+  rules_checked: 44
+  holds: 9
+  unchecked: 35
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is absent from the diff (git diff main...HEAD --stat: 8 files); neither changed module gained an import outside stdlib/Flask-already-present. TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full-suite run."
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green in my full-suite run on fc8498d."
+    - "ADR-0033/R1 ✓ holds — the only puzzle-row write on either changed path is _mirror_onto_puzzles(ids, book_id|None) at book_manager.py:1235/1287/1378/1429, unchanged by the diff; no grid/clues/tier/strategies assignment added anywhere in the diff (grep over the diff hunks)."
+    - "ADR-0035/R1 ✓ holds — the new writes only move status TO draft (_draft_after_membership_change, book_manager.py:434-449 returns DRAFT or the unchanged draft status, never any other value); every exit from draft still runs through set_book_status's gate, untouched by the diff. AC-282's test (tests/test_book_published_confirm.py:864-902) re-derives the offending 16-20 x medium cell and asserts the refusal."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-010, INV-011, INV-013 ⚠ unchecked — no_eligible_fact: this diff touches only book membership and status in the admin book store plus three templates; it adds no generation, solver, difficulty, export, layout, PDF, clue, server-binding or request-door code, and pyproject/db/migrations are untouched."
+    - "INV-006 ✓ holds — the floor pass (book_manager.py:1189-1191) is unmoved and runs identically on the confirmed path; tests/test_book_floor.py:748-757 asserts that confirming does not buy a way past the floor (the same below-floor id is still refused with its cell named). PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green in my own scoped run."
+    - "INV-007 ✓ holds — set_book_status's plan gate has no diff hunk; the card's AC-282 test drives a returned-to-draft book back through it and asserts the refusal."
+    - "INV-008 ✓ holds — the published question is the first thing after the book read on both paths (book_manager.py:1172-1179 add, 1350-1357 remove), before any puzzle row is read; mutants M7, M8, M12, M13, M14, M15, M16, M29, M30 (deleting or bypassing the question at the store and at each of the four routes) were all KILLED. Caveat: finding F-006 — the remove path makes its check against a cross-session snapshot with no in-session re-check, so a draft->published transition racing the write bypasses the question in DB mode."
+    - "INV-009 ✓ holds — the place_in_level call is unchanged at book_manager.py:1224/1266 and reorder_puzzles is untouched; PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green in my own scoped run."
+    - "INV-012 ✓ holds — one rule at four write sites (book_manager.py:1229, 1275, 1374, 1423), each inside the same store write as the membership; for the DB paths the assignment is an ORM attribute set inside the session opened at 1256 (add) / 1387 (remove) and before that session's single db.commit() at 1285 / 1427 — one UPDATE, no torn write. Mutants M1-M6 (deleting each site, and removing each `if new_puzzles` guard) were all KILLED. PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists checks the property after every step of a 180-op seeded corpus with promotions>=12 and membership_changes>=40 asserted in-test."
+
+root_causes:
+  - id: RC-1
+    title: "The confirmation page's carried submission is verified only for the single-puzzle, no-override case"
+    finding_ids: [F-001, F-002, F-005]
+  - id: RC-2
+    title: "Behaviour added on the fourth (arrange-delete) route and on the Cancel path has no test pinning it"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3160
+    title: "A confirmation page that dropped the owner's floor overrides passes every test (surviving mutant)"
+    description: |
+      [static] Mutation M19: replacing
+      `+ [(f"override_{pid}", "on") for pid in overrides]` with `+ []` in the
+      selection step's `_ask_to_confirm` call leaves the whole card scope green
+      (tests/test_book_published_confirm.py + tests/property/test_book_workflow.py
+      + tests/test_book_floor.py: 148 passed).
+
+      Failure scenario: the owner is on /book/<id>/select-puzzles for a published
+      book, ticks a puzzle that prints below the 4.8 mm floor AND ticks its
+      override control, and submits. The store asks for confirmation (nothing
+      measured, nothing written). The owner presses "Confirm change". If the
+      override hidden fields were ever lost from the carried submission, the
+      re-POST's `_submitted_overrides(kept_ids)` (app.py:2801) returns `[]`, the
+      store's floor pass refuses the puzzle by name, and the owner is told their
+      explicitly-overridden puzzle is below the floor — with no indication that
+      the confirmation screen is what ate their decision. INV-006 and INV-008
+      interact here and nothing tests the interaction.
+
+      Every confirmation test in the new file adds a single, above-floor puzzle,
+      so the `overrides` leg of the carried submission is exercised by nothing.
+    suggestion: |
+      Add a store-and-route test: published book, selection step, one below-floor
+      puzzle with `override_<id>=on` ticked; assert the confirmation page carries
+      the `override_<id>` hidden field, drive `resubmit_confirmation`, and assert
+      the puzzle joined AND `floor_overrides(book_id) == [that id]`. Both storage
+      modes for the store half.
+    confidence: high
+    source: static
+    violates: INV-006
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 8008a1b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3158
+    title: "A confirmation page that truncated the submission to one puzzle passes every test (surviving mutant)"
+    description: |
+      [static] Mutation M23: `[("puzzle_ids", pid) for pid in kept_ids]` ->
+      `... for pid in kept_ids[:1]` survives the whole card scope green.
+
+      Every confirmation test in tests/test_book_published_confirm.py confirms
+      exactly one puzzle (the `change` wording is pinned only in the singular,
+      :310 "Add 1 puzzle"), so nothing distinguishes "the page carries the whole
+      submission" from "the page carries its first element". The card's own
+      Increment-16 checkpoint is a published 120-puzzle book, and the selection
+      step's normal use is dozens of ticks at once.
+
+      Failure scenario: owner ticks 40 puzzles for a published book, confirms,
+      and 1 is added. The flash says "Added 1 puzzle(s) to book", the other 39
+      stay in the kept selection, and the owner has no way to tell this from a
+      floor refusal. The plural branch of the `change` wording is also untested.
+    suggestion: |
+      Parametrise at least one route-level confirm test over a 3-puzzle
+      submission: assert `len(confirmation_form(response)[1])` carries all three
+      `puzzle_ids` pairs, that the rendered `change` reads "Add 3 ... puzzles",
+      and that all three are members after `resubmit_confirmation`.
+    confidence: high
+    source: static
+    violates: AC-227
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 8008a1b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3362
+    title: "The arrange step's honest flash — the stated reason for pulling a fourth route into scope — is pinned by no test"
+    description: |
+      [static] Mutation M27: collapsing
+      `if removal.removed:\n    flash("Removed puzzle from book", "success")`
+      back to the unconditional `flash(...)` — i.e. restoring exactly the lie the
+      worktree notes cite to justify bringing POST /book/<id>/arrange-puzzles
+      under the confirmation rule — survives the card scope green.
+
+      So the code change is real and correct, but the specific defect used to
+      argue the route into scope is unverified. Note also that the `else` arm was
+      dropped: a delete that found nothing now flashes nothing at all, where the
+      sibling route at app.py:3905 flashes "Book or puzzle not found". A silent
+      no-op is better than a false success, but it is also untested in either
+      direction.
+
+      Failure scenario: a future edit (or a revert during a merge) restores the
+      unconditional flash; the arrange step tells the owner "Removed puzzle from
+      book" for a puzzle that is still in the book, and CI stays green.
+    suggestion: |
+      Two small route tests on the arrange step: (a) delete a puzzle the book does
+      not hold -> assert no "Removed puzzle from book" appears in the rendered
+      flashes and the membership is unchanged; (b) delete a real member on a draft
+      book -> assert the success flash IS present. Decide explicitly whether the
+      not-found case should flash like the /remove-puzzle route does.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: 8008a1b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3071
+    title: "The Cancel path is never driven, although the template claims an EC-026 guarantee for it"
+    description: |
+      [static] Mutation M26: `cancel_url=url_for("book_detail", book_id=book.book_id)`
+      -> `url_for("books_list")` survives green. No test GETs `cancel_url`, and
+      `_confirm_membership_change.html:65` renders it as a bare `<a>`.
+
+      The template's own comment asserts "cancelling leaves the book, its status
+      and its selection untouched (EC-026)" — an EC claim with no covering
+      assertion. A cancel_url that 404s, or that lands the owner somewhere that
+      drops their pending ticks, would ship.
+    suggestion: |
+      One test: trigger the selection-step confirmation, parse `href` off the
+      Cancel anchor, GET it, assert 200, assert the book's membership/status/
+      titles are unchanged, and assert the pending tick set survived
+      (`_kept_selection` is still the submitted ids).
+    confidence: high
+    source: static
+    violates: EC-026
+    root_cause: RC-2
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes (Cancel path); out of this fix cycle scope by instruction"
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3852
+    title: "The paste route's return_to carry is unverified (surviving mutant)"
+    description: |
+      [static] Mutation M25: deleting the two lines that append
+      `("return_to", ...)` to the confirmation's carried fields survives green.
+
+      Failure scenario: the owner opens the puzzle-review modal from a filtered
+      library list, adds the puzzle to a published book, confirms — and is
+      dropped on /book/<id> instead of back on the filtered list they came from,
+      losing their place. Cosmetic, but it is the one field on this route whose
+      whole purpose is navigation state.
+    suggestion: "Drive the paste route with `return_to` set, assert the confirmation form carries it, and assert the post-confirm response redirects to the puzzles list rather than book_detail."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes (paste routes return_to); out of this fix cycle scope by instruction"
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 1345
+    title: "The remove path's published check has no in-session re-check, unlike the add path's"
+    description: |
+      [static] `remove_puzzle_reporting_confirmation` reads the book through
+      `self.get_book(book_id)` (line 1346, its own session in DB mode), decides
+      the published question on that snapshot (1350-1357), then opens a *new*
+      session at 1387 and writes without re-asserting the status.
+
+      The add path deliberately does the opposite: it captures
+      `measured_on = _verdict_state(book)` at 1181 and refuses with
+      CONCURRENT_CHANGE_REFUSAL at 1250-1256 if the live row's status/print
+      columns/overrides moved — and its own comment (book_manager.py:1248-1249)
+      says the guard exists precisely so the published decision cannot go stale:
+      "the published refusal included, which is why no separate status re-check
+      is needed beside this one". The remove side now carries the same decision
+      with none of that protection.
+
+      Failure scenario (DB mode): the book is draft when `get_book` reads it and
+      is published by the time the write session commits; the puzzle is removed
+      from a published book with no confirmation — INV-008 bypassed. EC-033 still
+      holds through the race because the remove path demotes unconditionally.
+
+      Probability is genuinely low: the panel binds loopback only (CON-015) and
+      has one owner. Rated low for that reason, not because the asymmetry is
+      intended — nothing in the diff or the worktree notes explains it.
+    suggestion: |
+      Either re-read the row's status inside the writing session and return
+      `RemoveOutcome(False, needs_confirmation=True)` on drift, or adopt the add
+      path's `_verdict_state` comparison. If the asymmetry is deliberate, say so
+      in the docstring next to the add path's contrary comment.
+    confidence: medium
+    source: static
+    violates: INV-008
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes (remove paths in-session re-check); out of this fix cycle scope by instruction"
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_workflow.py
+    line: 196
+    title: "EC-026's property does not observe the pending tick set, and its passive POSTs assert nothing"
+    description: |
+      [static] The property compares `(membership, titles)` only (:225-232), but
+      EC-026 reads "the **selection set**, the arrangement order and the custom
+      titles change only through an explicit add, remove, reorder or retitle".
+      The selection set the owner actually builds on the step is the server-side
+      pending tick set, and it is never observed — although `clear_ticks`,
+      `switch_tab` and `page_of_tab` are classified PASSIVE (:169-179) and
+      `clear_ticks` exists precisely to clear ticks.
+
+      Second gap: the passive POSTs (`edit_plan` :256, `switch_tab`,
+      `page_of_tab`, `clear_ticks`) assert no status code and no effect. A plan
+      edit that 500'd or was rejected changes nothing, and therefore *passes* the
+      property. The EC-033 test in the same file does the opposite and is much
+      stronger for it (promotions>=12, membership_changes>=40 asserted in-test).
+
+      Third, smaller: nothing asserts that an explicit op ever actually changed
+      anything, so a corpus in which every add/remove silently no-op'd would be
+      green. (EC-033 does assert this; EC-026 does not.)
+    suggestion: |
+      Add `_kept_selection(book_id)` to the observed tuple; assert 302 on each
+      passive POST; add an in-test floor on the number of explicit ops that
+      actually moved `(membership, titles)`.
+    confidence: high
+    source: static
+    violates: EC-026
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes (EC-026 property does not observe the tick set); out of this fix cycle scope by instruction"
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_published_confirm.py
+    line: 904
+    title: "A test whose name and docstring promise a counterfactual asserts only what an earlier test already asserted"
+    description: |
+      [static] `test_without_the_return_to_draft_the_book_would_have_shipped`
+      (:904-915) promises to put the book back to pdf_generated and show that the
+      same membership behind a status is refused. Its body does none of that: its
+      single assertion `status_of(...) == DRAFT` (:913) is byte-identical to the
+      one already made at :878. It verifies nothing the file does not already
+      verify, while reading like the strongest test in the AC-282 group.
+
+      This is the aspirational-green pattern (forge:review Step 8c): the name is
+      the camouflage, not the coverage.
+    suggestion: "Either build the counterfactual the name promises (force the status back to pdf_generated with the new membership and assert set_book_status refuses / the gate would have passed the old membership), or delete the test."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 8008a1b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_workflow.py
+    line: 118
+    title: "Both property tests, AC-228 and the AC-281 route run in memory mode only, while DB mode is production"
+    description: |
+      [static] The `panel` fixture (:114-130) forces `BookManager(session_factory=None)`
+      via `monkeypatch.delenv("DATABASE_URL")`, so EC-026 and EC-033 — the two
+      engineering constraints this card exists to establish — never exercise the
+      DB write paths. AC-228 (all three tests) and AC-281's single route test are
+      likewise memory-only. Every route/confirmation-page test is memory-only.
+
+      This matters here specifically: the file's own preamble (:17-21) argues the
+      two storage modes "have twice already disagreed about what a membership
+      write does" (CARD-100's in-place list mutation, CARD-126's title pruning —
+      and this very diff closes the second one). EC-033's own wording is "over
+      every route ... for every sequence".
+
+      The store-level ACs (226, 227, 229, 277, 278, 279, 280, 282) ARE covered in
+      both modes, and the four DB write sites are mutation-killed, so this is a
+      coverage-shape gap rather than an unverified write.
+    suggestion: "Parametrise the `panel` fixture over both modes, or add a DB-mode variant of the EC-033 corpus at a smaller case count; at minimum cover AC-281's route in DB mode, since the paste route is the one AC that names a route explicitly."
+    confidence: high
+    source: static
+    violates: EC-033
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes (memory-mode-only route and property coverage); out of this fix cycle scope by instruction"
+    learned_pattern: null

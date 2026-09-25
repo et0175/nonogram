@@ -1,6 +1,6 @@
 # CARD-131: A published book confirms before its puzzles change, and going back never discards later work
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/131-published-book-confirm
-**Worktree:** ../PythonProject4-CARD-131
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-16 (FR-038 INV-008 + EC-026 half)
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-126, CARD-130
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/_confirm_membership_change.html, src/nonogram/admin/templates/book_detail.html, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_book_published_confirm.py, tests/property/test_book_workflow.py
-**Review score:** —
+**Review score:** 9.0 (cycle 3/3)
 **Started:** 2026-09-24T18:59:10Z
-**Closed:** —
+**Closed:** 2026-09-24T22:43:29Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 293f921
 **Blocked by:** —
 
 ## What to implement
@@ -312,3 +312,37 @@ pre-existing `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_
 [Touches drift] tests/test_book_floor.py (1 test) — declared SCOPE+. Nothing under tests/helpers/ or tests/fixtures/ touched, so no collision with CARD-128/CARD-144's shared-fixture conflict.
 [Scope gate] grown, small and declared. Also widened by one route beyond the card's three: POST /book/<id>/arrange-puzzles action=delete, a fourth route ending in the book store that previously ignored the store's return value and flashed "Removed puzzle from book" unconditionally. Reviewer to rule whether that is in-scope completion or scope creep.
 [Design debt] ConfirmChange is not registered in meta/design/components.md — the card's design context asks for it, but agents are barred from committing under meta/. States: asking / confirmed / cancelled (only `asking` has a screen). The page invents no new CSS.
+[Review 1/3] score 7.5 — 0 critical, 3 important, 6 minor. Risk MEDIUM. NO correctness bug found in the production code: all three importants are behaviours this card added that no test discriminates, all found by mutation.
+[Review sync] 1 report -> meta/review/
+[Mutation] 20 mutants, 14 killed, 6 survived (2 of them proven equivalent). Restores proved by checksum after every mutant.
+[Review] Retargeted test_book_floor.py test APPROVED — genuinely stricter, verified against main. The old test's whole content was one raises() assertion; the new one asserts five things, four of which the old one never checked. The old docstring did name CARD-131 verbatim.
+[Review] Contract change is safe: add_puzzles_to_book and remove_puzzle_from_book have ZERO production callers after this diff — all four routes go through the reporting variants and handle needs_confirmation first. M13-M16 and M29/M30 all killed.
+[Review] INV-012's same-transaction claim VERIFIED line by line at all four sites, DB paths included: both are ORM attribute sets on the already-dirtied book_row inside the same session, flushed by one commit into one UPDATE. Not a torn write under EC-033.
+[Review] The fourth route (arrange-delete) is IN SCOPE, not creep — EC-033 names "any future route ending in the book store" in as many words, and on main that route discarded the store's return value and flashed success unconditionally, so INV-008 was broken at a route reachable from the card's own workflow.
+[CARD PREMISE IS WRONG — correct the record] The card's item 1 and the worktree notes both say the two methods refused a published book outright and "answered by raising before". That is FALSE for the remove side: on main, remove_puzzle_from_book had NO published check at all, in either branch. This increment TIGHTENS remove (silently allowed -> asks) rather than relaxing it. Good change, wrong premise.
+[Owner/architect] save_plan (book_manager.py:746/757) demotes ANY book to draft with no published check, so a published book's membership can still be changed in two explicit steps: edit the plan (-> draft), then add unconfirmed. INV-008 is not violated as written (the book is no longer published when the add lands), but the two-step path defeats its intent and CARD-124's handover flagged exactly this. Undecided and unrecorded.
+[Architect] set_book_status still raises "Cannot change status of published book" while the membership paths now write status=draft on a published book directly. Authorised by AC-279, but published is no longer terminal and that message is now misleading.
+[Fix 1] Commit 8008a1b — F-001, F-002, F-003, F-008 fixed; F-004..F-007, F-009 recorded as dated handovers in the worktree notes. One production change only: the arrange-delete else arm now flashes "Book or puzzle not found", matching the sibling route's long-standing wording.
+[Fix 1 bite] All three gating mutants flipped SURVIVED -> KILLED, each named to the test that kills it: M19 (dropped floor overrides) -> test_pressing_confirm_carries_the_floor_override_with_it; M23 (truncated submission) -> test_pressing_confirm_adds_every_puzzle_the_question_named; M27 (unconditional flash) -> test_a_delete_that_found_nothing_announces_no_removal.
+[Fix 1] F-008's dead duplicate replaced by a test that earns its name: it compares the membership the pdf_generated pass was bought with against what the book now holds, and asserts the gate refuses the ship-ward jump straight to published (ADR-0035 (a)'s status-jump bypass), not merely the next rung.
+[Record corrected] Verified against git show main: add_puzzles_to_book DID raise "Cannot add puzzles to published book", but remove_puzzle_from_book had no published check in either branch. So this increment RELAXES the add side (refusal -> question) and TIGHTENS the remove side (silently allowed -> question). The card's "both refuse outright" premise was wrong and the notes now say so.
+[Review 2/3] score 8.5 (was 7.5) — 0 critical, 1 important, 4 minor + 1 info. Not a pass: the severity gate blocks on the important regardless of score.
+[Review sync] 2 reports -> meta/review/
+[Review] All three cycle-1 mutants independently RE-RUN and confirmed dead ON BEHAVIOUR, not on a string. For M19 the reviewer went further: with the field-presence assert temporarily removed and M19 still applied, the test still fails at the membership assertion, and the rendered page shows the real owner-facing damage — "Puzzle puzzle_000001 was not added: 4.61 mm against the 4.8 mm floor." F-001's scenario reproduced end to end.
+[Review] The one production change verified byte-for-byte against the sibling route, and the new else arm is structurally unreachable from the published-unconfirmed path (a return precedes it) — proved by mutant N3, killed.
+[Review] The helper extraction is clean and silently FIXED a wrong comment (the old inline said 30x30; BELOW_FLOOR is (30, 25, ...)).
+[Review] The corrected record verified against git show main: accurate on both halves.
+[FAMILY REGRESSION — declared] F-101 sits on app.py:3162, the EXACT line F-001 was raised against, in the same function and the same expression, and its cause is the exact pattern cycle 1 named in F-002 ("every confirmation test confirms exactly one puzzle"). The fix round generalised that pattern for the puzzle_ids leg and then wrote the brand-new override test in the single-item shape, re-opening the same class of hole one leg over. Mutant N4 (`for pid in overrides` -> `for pid in kept_ids`) leaves the whole card scope green.
+[F-101 scenario] Published book, owner ticks 40 puzzles, one below the 4.8 mm floor, does NOT tick its override, confirms. A screen carrying override_<id> for all 40 makes _submitted_overrides return all 40, the store admits the below-floor puzzle, and a floor override the owner never gave is PERSISTED — surviving every later trim change, which is exactly what CARD-121's override-pruning exists to prevent. Production code is correct; the defect is in the test.
+[Handovers worse than cycle 1 judged] F-006 is now the only carried item that is a production-behaviour risk rather than a test-coverage gap. F-009's memory/DB ratio moved further toward memory — all six new route tests are memory-only.
+[Fix 2] Commit 1b17bce — F-101 closed by GENERALISING THE SHAPE, not by another instance. One test, four ticked tiles on a published 120-puzzle book, driven through the rendered form: two below-floor WITH override (admitted, overrides persisted), one below-floor WITHOUT (refused by name, no override persisted), one ordinary. The three field legs now have three different lengths (4 ids / 4 shown / 2 overrides), and the arithmetic 1 < OVERRIDDEN < ADMITTED < TICKED is itself asserted, so the corpus cannot shrink back to the single-item shape.
+[Fix 2 mutants] 6 run, 6 killed, 0 survivors. N4 (the F-101 mutant), X1 (overrides[:1]) and X3 (a "be generous" reading feeding the override leg from both lists) are killed by NOTHING BUT the new test — which is the evidence that the generalisation closed the family rather than patching one hole. M19 and M23 stay killed.
+[Fix 2] F-105's new cross-route test given a teeth-check: rewording the SIBLING route's flash alone leaves the old test green and fails only the new agreement test — exactly the drift F-105 predicted.
+[Fix 2] F-102 resolved by documenting rather than deleting (the conservative arm): the shown_ids leg is now declared inert at the expression itself, with why it stays — a selection-step submission without shown_ids is a tab that offered nothing, a shape no browser sends.
+[Fix 2] F-104 fixed: the confirmation screen no longer promises unconditionally that confirming returns the book to draft. It now says whatever of the change actually moves a puzzle does, with the derivation in a template comment (INV-008's door is asked before INV-006's floor measures anything, so INV-012 correctly demotes nothing for a change that moves nothing).
+[FLAKE — watch] One unreproducible failure seen once in db mode: TestBookPublished_ConfirmedChangeReturnsToDraft::test_a_confirmed_removal_returns_it_to_draft[db] with uuid.UUID(hex=<float>). Did not recur in 12 further scope runs, 12 isolated runs, the mutation runs or the full suite. Store-level, untouched by this card's diff. Recorded rather than chased.
+[Bookkeeping] The cycle-2 review YAML still shows F-101..F-106 as status: open — the fix agent's write-back was refused by its permission classifier and it stopped rather than working around it, which is the right call. Statuses are stale in the YAML; this card's notes are the accurate record.
+[Review 3/3] score 9.0 — FAMILY CLOSED, 0 critical, 0 important, 1 minor. No escalation.
+[Review 3/3] Proved rather than accepted: with the mixed test deselected, N4/X1/X3 all SURVIVE again — one test discriminates three ways of mis-feeding the override leg. X3 renders a SUPERSET of the correct field list and still dies, so this is not field-list equality. The other three _ask_to_confirm call sites were probed (arrange action, detail-remove puzzle_id, paste puzzle_ids) — all die. 16 mutants, 12 killed, 4 survived, 3 of those proved equivalent.
+[F-201 fixed by orchestrator] 14b6b30 — the shown_ids inertness comment claimed too much. Carrying it whole or dropping it entirely is inert; a PARTIAL one is not, and reorders the joiners ([1,0,3] vs [0,1,3] measured), which is where a puzzle lands inside its level (INV-009) and the order the printed book runs in. The leg is still inert, but by what can send it, not by the dedupe.
+[Flake resolved as probable noise] The uuid.UUID(hex=<float>) failure is most likely the fix round observing its OWN mutation runs — a module read mid-rewrite, the hazard the mutation procedure warns about. No float-valued book_id is constructible: all 16 UUID sites take a string, and the only float() in book_manager.py is set_print_spec's trim check, which touches no id. No pytest-randomly. Not reproduced in 36+ executions.

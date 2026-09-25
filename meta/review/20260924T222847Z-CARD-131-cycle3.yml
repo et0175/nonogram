@@ -1,0 +1,531 @@
+version: 1
+generated_at: "2026-09-24T22:28:47Z"
+target: "CARD-131 cycle 3 of 3 — CONFIRMATION cycle, differential over fix delta 1b17bce. Worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-131, branch card/131-published-book-confirm, diff main...HEAD = fc8498d + 8008a1b + 1b17bce (8 files, +2226/-39; the cycle-3 delta itself is 3 files, +218/-9)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py — the whole 1b17bce delta (the three-leg comment, 3154-3178), the field expression it documents (3179-3187), _is_confirmed/_ask_to_confirm (3046-3073), _kept_selection/_keep_selection/_drop_selection/_fold_tab_into_selection/_submitted_overrides (2751-2801), and ALL FOUR _ask_to_confirm call sites (3179, 3380, 3880, 3926) — the last three read in full this cycle specifically to test whether the family extends past the selection step"
+    - "src/nonogram/admin/templates/_confirm_membership_change.html — whole file, re-read after the F-104 reword"
+    - "tests/test_book_published_confirm.py — the whole 1b17bce delta (the new mixed test at 631-716, recorded_flashes at 287-307, the cross-route test at 834-867, the two corrected docstrings), plus the fixture layer (stocked/one_more/below_the_floor/confirmation_form/resubmit_confirmation/asks_to_confirm, 100-329) and the anti-shrink guard (111-121)"
+    - "git show main:src/nonogram/admin/book_manager.py — remove_puzzle_from_book (from :1182), grepped for any published/status check: zero hits, which is what F-103's correction claims"
+    - "meta/kanban/cards/CARD-131.md in full (incl. the uncommitted Worktree-notes body); meta/review/20260924T210339Z-CARD-131-cycle2.yml in full"
+    - "tests/helpers/db.py (sqlite_session_scope), tests/test_book_ready_gate.py (Shelf, the shelf/panel fixtures, TestBookStatus_EveryExitFromDraftIsGatedOnThePlan at :698) — read for the flake investigation and the F-106 citation"
+  not_reached:
+    - "tests/property/test_book_workflow.py — not re-read line by line; the cycle-3 delta does not touch it, both its property tests were EXECUTED green this cycle (F-007/F-009 carried unchanged)"
+    - "src/nonogram/admin/book_manager.py — the cycle-3 delta does not touch it at all; read only at the add path's floor/override seam via the cycle-2 report's citations, not re-derived line by line"
+    - "meta/design/ — not read (the self-declared ConfirmChange gap is unchanged)"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 218, removed: 9 }
+  max_fan_in:
+    symbol: "create_app._ask_to_confirm"
+    callers: 4
+    note: "app.py:3179 (selection step), 3380 (arrange delete), 3880 (paste-IDs), 3926 (detail remove). Counted this cycle by grep; it is the symbol whose carried-fields argument IS the family under review. The cycle-3 delta adds no exported symbol and changes no signature — its only production edits are a 22-line comment and a template sentence."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py"
+  cochange_missing: []
+  unmeasured:
+    churn: "no_eligible_fact — confirmation cycle; per-file churn/defect-density not re-derived. The cycle-3 production delta is comment-and-prose only, so churn cannot weight a finding here."
+    cochange_missing: "no_eligible_fact — the delta is one production file and one template already in the diff plus their own test file; no co-change peer is absent."
+
+system_contract:
+  rules_checked: 44
+  holds: 9
+  unchecked: 35
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy green in my own run on this head (33 passed in the named-checks batch); pyproject.toml absent from the diff. The one new test import, `from flask import message_flashed`, is Flask's own signal API — no package joins the baseline."
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green in my own run on this head."
+    - "ADR-0033/R1 ✓ holds — re-derived this cycle: `git diff main...HEAD -- src/ | grep '^+' | grep -E '\\.(grid|clues|difficulty_tier|strategies)\\s*=|book_id\\s*='` yields only five `url_for(book_id=...)` kwargs. The cycle-3 production delta writes nothing at all."
+    - "ADR-0035/R1 ✓ holds — TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green in my own run (parametrised over every non-draft status); no status write in the delta."
+    - "INV-006 ✓ holds — PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green in my own run. Cycle 2's caveat is REMOVED: mutants N4, X1 and X3 — every way of feeding the `override_` leg from the wrong list — are now KILLED, and killed by the new mixed test alone (each SURVIVES with that one test deselected)."
+    - "INV-007 ✓ holds — PropertyTest_BookReady_GateIffEveryCellWithinTolerance green in my own run; set_book_status has no hunk in any of the three commits."
+    - "INV-008 ✓ holds — the whole card scope green (158 passed) on this head; the carried-field legs of the arrange site (Y6) and the detail-remove site (Y10) are both discriminated. Caveat carried: F-006 (the remove path's missing in-session re-check) remains wontfix/recorded."
+    - "INV-009 ✓ holds — PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green in my own run; place_in_level/reorder_puzzles untouched. Note (not a violation): finding F-201 shows the within-LEVEL order of newly joined puzzles is unobserved by any test in the scope — the tier grouping the rule states is held, the owner's order inside a level is not pinned."
+    - "INV-012 ✓ holds — PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists green in my own run; the four write sites have no hunk in the cycle-3 delta. carried(cycle 1) for the four-site mutation evidence."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-010, INV-011, INV-013 ⚠ unchecked — no_eligible_fact: carried(cycle 2, delta-clean). The cycle-3 delta is a 22-line comment in one admin route, one sentence of template prose and one test file; it adds no generation, solver, difficulty, export, layout, PDF, clue, server-binding or request-door code."
+
+# Step 8f mutation check — deferred by cycle 1 and cycle 2, run here in full.
+# Scope for every run: tests/test_book_published_confirm.py +
+# tests/property/test_book_workflow.py + tests/test_book_floor.py (158 tests,
+# green on this head before and after). Every mutant restored from a pristine
+# copy taken before the first edit and verified by sha256; final working tree
+# proved clean (see mutation_check.restore_proof).
+mutation_check:
+  ran: true
+  mutants: 16
+  killed: 12
+  survived: 4
+  new_test: "tests/test_book_published_confirm.py::TestBookPublished_ConfirmedPuzzleChangeApplied::test_a_mixed_submission_carries_each_decision_and_invents_none"
+  table:
+    # --- the six the fix round reported (site: app.py:3182-3184) ---
+    - { id: N4,  origin: fix-round, mutation: 'override_ leg: `for pid in overrides` -> `for pid in kept_ids`', verdict: KILLED, detail: "1 failed / 157 passed", without_new_test: SURVIVED }
+    - { id: M19, origin: fix-round, mutation: 'override_ leg -> `+ []`', verdict: KILLED, detail: "2 failed / 156 passed", without_new_test: KILLED }
+    - { id: M23, origin: fix-round, mutation: 'puzzle_ids leg: `kept_ids` -> `kept_ids[:1]`', verdict: KILLED, detail: "3 failed / 155 passed", without_new_test: KILLED }
+    - { id: X1,  origin: fix-round, mutation: 'override_ leg: `overrides` -> `overrides[:1]`', verdict: KILLED, detail: "1 failed / 157 passed", without_new_test: SURVIVED }
+    - { id: X2,  origin: fix-round, mutation: 'swap the lists between the puzzle_ids and override_ legs', verdict: KILLED, detail: "4 failed / 154 passed", without_new_test: KILLED }
+    - { id: X3,  origin: fix-round, mutation: 'override_ leg fed by `list(overrides) + list(kept_ids)`', verdict: KILLED, detail: "1 failed / 157 passed", without_new_test: SURVIVED }
+    # --- reviewer's own, aimed at the family rather than the instance ---
+    - { id: Y1,  origin: reviewer, mutation: 'shown_ids leg -> `+ []` (delete the leg)', verdict: SURVIVED, detail: "158 passed; EQUIVALENT MUTANT — probe shows identical join order. Confirms F-102's inertness reasoning." }
+    - { id: Y2,  origin: reviewer, mutation: 'shown_ids leg fed from the stale `overrides` list', verdict: SURVIVED, detail: "158 passed; NOT equivalent — reorders joiners inside their level. -> F-201" }
+    - { id: Y5,  origin: reviewer, mutation: 'shown_ids leg: `kept_ids` -> `kept_ids[:1]` (off-by-one on the third leg)', verdict: SURVIVED, detail: "158 passed; NOT equivalent — measured join order [0,1,3] -> [1,0,3]. -> F-201" }
+    - { id: Y3,  origin: reviewer, mutation: 'puzzle_ids leg reordered: `kept_ids[::-1]`', verdict: KILLED, detail: "2 failed / 156 passed" }
+    - { id: Y4,  origin: reviewer, mutation: 'puzzle_ids leg: `kept_ids[:-1]` (off-by-one at the other end than M23)', verdict: KILLED, detail: "5 failed / 153 passed" }
+    - { id: Y6,  origin: reviewer, mutation: 'arrange site (app.py:3383): drop the `("action", "delete")` leg', verdict: KILLED, detail: "1 failed / 157 passed" }
+    - { id: Y10, origin: reviewer, mutation: 'detail-remove site (app.py:3929): `("puzzle_id", puzzle_id)` -> `("puzzle_id", "")`', verdict: KILLED, detail: "1 failed / 157 passed" }
+    - { id: Y9,  origin: reviewer, mutation: 'paste site (app.py:3877): `("puzzle_ids", puzzle_ids_str)` -> `("puzzle_ids", "")`', verdict: KILLED, detail: "2 failed / 156 passed" }
+    - { id: Y7,  origin: reviewer, mutation: 'paste site (app.py:3878-3879): drop the conditional `return_to` leg', verdict: SURVIVED, detail: "158 passed; this is carried finding F-005, already a recorded handover — measured, not re-raised" }
+    - { id: Y8,  origin: reviewer, mutation: 'anti-shrink guard: MIXED_OVERRIDDEN 2 -> 1 in the test file', verdict: KILLED, detail: "2 failed / 156 passed — test_the_scenario_book_really_holds_a_hundred_and_twenty has teeth; the corpus cannot be returned to the single-item shape silently" }
+  teeth_check_f105:
+    mutation: 'sibling route app.py:3935 flash reworded ALONE ("Book or puzzle not found" -> "This book does not hold that puzzle"); arrange route left untouched'
+    result: "exactly 1 failure in the whole scope: test_both_delete_screens_answer_a_stranger_with_the_same_words. test_a_delete_that_found_nothing_announces_no_removal (the literal assertion) stayed green. Teeth confirmed."
+  restore_proof:
+    method: "every mutant restored from a pre-review pristine copy in the session scratchpad, sha256-compared after each run"
+    app_py_sha256_before_and_after: "015d5d41a75596a6a965c7ac5f1356cfe12a6ec7f612acd6e5fa8bd288db230b"
+    test_file_sha256_before_and_after: "cbc3bd19168edd062114f259c64157494a61f88342d9b5f910012eb028e47a9c"
+    template_sha256_before_and_after: "034c1e091d21c22de5f84fd1f6a9b17423da70a9c1869980a585c0b0466b2986"
+    final_git_status: "only meta/kanban/cards/CARD-131.md modified (pre-existing, untouched by this review) + the two prior review reports untracked; git diff --stat over src/ and tests/ is empty"
+
+# The one unreproducible db-mode failure the fix round saw.
+flake_investigation:
+  test: "tests/test_book_published_confirm.py::TestBookPublished_ConfirmedChangeReturnsToDraft::test_a_confirmed_removal_returns_it_to_draft[db]"
+  reported_symptom: "uuid.UUID(hex=<float>)"
+  verdict: "unresolved — most likely environment noise, NOT established as a latent bug; no float-valued book_id is constructible on that path"
+  evidence:
+    - "No float source on the path. The db-mode manager's only UUID construction is `uuid_module.UUID(book_id)` (16 sites in book_manager.py, all the same shape). book_id is produced by create_book, which returns `str(book_row.id)` in db mode and an f-string in memory mode. The only `float(...)` in book_manager.py is set_print_spec's trim-cm finiteness check (:816-818), which touches no id."
+    - "Test order is deterministic: pytest 9.1.1 with plugins base-url and playwright only — pytest-randomly is NOT installed, so a one-off ordering interaction cannot be the cause."
+    - "Not reproduced in 36+ executions this cycle: 15 isolated runs of the whole TestBookPublished_ConfirmedChangeReturnsToDraft class (5 passed each, incl. the [db] param), plus 21 full-scope runs across the mutation matrix, each of which executes it."
+    - "The card's diff does not touch that store path; the cycle-3 delta does not touch book_manager.py at all."
+    - "Full suite on this head, run by me: 5185 passed, 1 failed, 27 skipped in 587s — the single failure is the known pre-existing tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied. The uuid failure did not appear."
+  most_likely_explanation: "the fix round observed it during its own mutation runs, i.e. while a source file was being rewritten under a live interpreter — the exact hazard the mutation procedure warns about. A partially-written module read mid-edit explains a one-off type error that never recurs and has no code-level source."
+  residual_risk: "low but not zero — an unexplained flake is not a proven benign one. Note it interacts with carried F-009: the db half of the route layer is the least-exercised part of this card, so a db-only defect has the least chance of being seen."
+
+family_verdict:
+  status: FAMILY CLOSED
+  scope: "the decision-carrying legs of the confirmation's carried-fields expression, at every one of the four _ask_to_confirm call sites"
+  reasoning: |
+    The cycle-2 escalation was raised because F-101 landed on the exact line
+    F-001 had been raised against, with the same root cause, after a fix that
+    generalised one leg and reopened the hole one leg over. This cycle tested
+    whether the fix closed the SHAPE or patched a third instance.
+
+    Evidence that it closed the shape, not an instance:
+      1. All six reported mutants die, re-run independently (not taken on report).
+      2. The three the fix credits to the new test alone (N4, X1, X3) do
+         SURVIVE with that one test deselected — i.e. the claim is exactly true,
+         and one test now discriminates three different ways of mis-feeding the
+         override leg.
+      3. The new test kills by BEHAVIOUR, not by field list: it asserts the
+         stored `floor_overrides` set, the membership, the single named refusal,
+         and the count flashed. X3 (override leg fed by overrides+kept_ids)
+         renders a field list that is a SUPERSET of the correct one and still
+         dies — a field-list-equality test would have been fooled by a
+         subset-shaped mutant but this one is not.
+      4. Mutants I invented on the same expression that the fix round did not
+         run — a reordering (Y3), an off-by-one at the other end (Y4) — also die.
+      5. The family was probed at the three OTHER _ask_to_confirm sites, which
+         is where an instance-only fix would leave it open: Y6 (arrange
+         `action`), Y10 (detail-remove `puzzle_id`) and Y9 (paste `puzzle_ids`)
+         all die.
+      6. The anti-shrink guard has teeth (Y8 dies), so the corpus cannot be
+         returned to the single-item shape that caused both prior occurrences.
+
+    Two legs remain undiscriminated, and NEITHER is the escalation trigger:
+      - `shown_ids` (Y1/Y2/Y5). Deleting it is an equivalent mutant — proved,
+        not argued. Corrupting it reorders the joiners inside their level, which
+        is real but reversible and cosmetic beside a persisted floor override.
+        Recorded as F-201 (Minor) against the comment's overstated claim.
+      - the paste route's `return_to` (Y7). This is carried finding F-005, an
+        accepted handover from cycle 1; the damage is a landing page.
+
+    Neither warrants a fourth cycle. F-201's disposal is a one-line correction
+    of a comment; F-005's is already scheduled as a handover.
+  escalation_recommended: false
+
+root_causes:
+  - id: RC-1
+    title: "The `shown_ids` leg is now documented as inert on reasoning that covers only its deletion, while a corrupted leg silently reorders the puzzles the owner just added"
+    finding_ids: [F-201]
+
+findings:
+  - id: F-201
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3169
+    title: "The new comment claims `shown_ids` \"cannot change the outcome\"; deleting the leg is indeed inert, but corrupting it silently reorders the newly added puzzles"
+    description: |
+      [static + measured] The fix round chose cycle 2's F-102 option "keep it and
+      document why it is inert" over "drop it". The comment (app.py:3169-3178)
+      now reads: "`shown_ids` cannot change the outcome: `kept_ids` IS the whole
+      kept selection, so on the re-POST `_fold_tab_into_selection` either drops
+      everything and re-adds the ticks, or keeps everything and the
+      `dict.fromkeys` dedupe collapses the repeat — the same set either way."
+
+      The REASONING is correct, and I verified its conclusion rather than
+      accepting it: mutant Y1 (the leg replaced by `+ []`) SURVIVES the scope,
+      and a probe through the rendered form confirms it is a genuinely
+      equivalent mutant — the admitted puzzles land in the book in the same
+      order either way. So the leg is provably inert against DELETION, which is
+      the only case the reasoning covers.
+
+      The CLAIM is broader than the reasoning, and it is false. Two further
+      mutants of the same leg survive the whole scope (158 passed, exit 0) and
+      are NOT equivalent:
+        - Y5 `+ [("shown_ids", pid) for pid in kept_ids[:1]]`
+        - Y2 `+ [("shown_ids", pid) for pid in overrides]`
+      Measured through the rendered confirmation form on the mixed submission,
+      under Y5 the three admitted puzzles land in the book at ticked-positions
+      [1, 0, 3] where pristine gives [0, 1, 3] — the two overridden tiles swap.
+      Mechanism: a PARTIAL `shown_ids` makes `_fold_tab_into_selection`
+      (app.py:2786) keep `[pid for pid in _kept_selection(book_id) if pid not in
+      shown]` non-empty, so `kept + ticked` puts the unshown ids first and
+      `dict.fromkeys` then freezes that order. The order handed to
+      `add_puzzles_reporting_refusals` is the order new puzzles are placed
+      inside their level, i.e. INV-009's "within a level the order is the
+      owner's arrangement" — and it is what the printed book prints in.
+
+      Why this is Minor and not the family escalation: the leg's realistic
+      failure mode is deletion, which is genuinely inert; the damage under
+      corruption is a reversible within-level ordering (the arrange step can fix
+      it), not a store-persisted INV-006 override or a lost membership. But the
+      comment is now load-bearing documentation — the reason the leg was kept —
+      and the next reader will take "cannot change the outcome" at face value.
+      A plausible refactor that re-sources the leg (e.g. from
+      `request.form.getlist("shown_ids")` rather than `kept_ids`) lands exactly
+      in the uncovered case.
+    suggestion: |
+      One-line correction, not a code change: say what was proved — "dropping
+      `shown_ids` cannot change the outcome (the dedupe collapses the repeat);
+      a PARTIAL `shown_ids` would reorder the joiners inside their level, which
+      is why the leg carries the whole kept selection and nothing else." If the
+      leg is ever re-sourced, an assertion on the joiners' order in
+      test_a_mixed_submission_carries_each_decision_and_invents_none (it already
+      computes `[pid for pid in ticked if pid in held]`, which is order-blind by
+      construction — compare against `held`'s own order instead) closes it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: info
+    category: tech-debt
+    type: gap
+    file: tests/test_book_published_confirm.py
+    line: 686
+    title: "F-104's reworded promise is pinned only by the ABSENCE of the old sentence, and the case that made it false is still not driven through the screen"
+    description: |
+      [static] The reword is correct — I checked it against every case the add
+      and remove paths can reach. The demotion promise is now conditional
+      ("Whatever of it actually moves a puzzle into or out of the book sends the
+      book back to draft"), and it is true for: a fully admitted add, a partly
+      refused add, an add of ids already held, an add the floor refuses
+      ENTIRELY, and a confirmed removal (the remove path answers not-found
+      first, so a removal that asks is a removal that moves). The defect cycle 2
+      named is closed.
+
+      Two residues, both informational:
+      (a) The only pin is a negative assertion —
+          `assert "returns the book to draft" not in shown_question`
+          (:686). Nothing asserts the conditional clause is PRESENT, so a future
+          reword back to a flat promise in different words ("Confirming sends
+          the book back to draft") passes this test unchanged.
+      (b) Cycle 2 offered two remedies and the fix took the wording one; the
+          route case that made the old wording false — published + one
+          below-floor tile with no override + confirm, asserting the book is
+          still published — is still not driven through the screen. The new
+          mixed test drives a PARTIAL refusal, where the book correctly does
+          demote. The entirely-refused case is covered store-level only
+          (test_a_submission_the_floor_refused_entirely_demotes_nothing).
+      (c) Residual prose: the first sentence "Confirming applies this change"
+          is still flat, and in the entirely-refused case nothing is applied.
+          The load-bearing half (the demotion) is conditional, so this is a
+          phrasing nit, not the finding.
+    suggestion: "If touched again: assert a fragment of the new conditional clause positively, and add the entirely-refused route case — it is four lines given below_the_floor() and recorded_flashes()."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-101
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3162
+    title: "[cycle 2] A confirmation page that fabricated a floor override for every ticked puzzle passes every test (surviving mutant N4)"
+    description: |
+      CLOSED this cycle, re-derived rather than accepted. Mutant N4 (`override_`
+      leg fed from `kept_ids`) now FAILS the scope (1 failed, 157 passed), and
+      it is killed by the new test ALONE: with
+      TestBookPublished_ConfirmedPuzzleChangeApplied::test_a_mixed_submission_carries_each_decision_and_invents_none
+      deselected it SURVIVES again (157 passed, 1 deselected, exit 0). The same
+      holds for X1 (`overrides[:1]`) and X3 (`overrides + kept_ids`). The fix is
+      a generalisation, not another instance patch: the new test asserts the
+      resulting STORED state — the membership, the exact `floor_overrides` set,
+      the single floor refusal naming the one un-vouched tile and naming none of
+      the others, and the count flashed — not only the rendered field list, and
+      it drives four tiles whose three legs have three different lengths
+      (4 ids / 4 shown / 2 overrides).
+    suggestion: null
+    confidence: high
+    source: static
+    violates: INV-006
+    root_cause: null
+    status: fixed
+    fixed_in: "1b17bce"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3161
+    title: "[cycle 2] The confirmation's `shown_ids` leg is provably inert — the surviving mutant is dead weight, not missing coverage"
+    description: |
+      PARTLY closed. The fix documented the leg instead of deleting it, and the
+      inertness claim is true for the case cycle 2 tested (full presence vs full
+      absence) — confirmed here by mutant Y1 plus a behavioural probe. The
+      broader claim the comment now makes is refuted; see F-201, which carries
+      the residue forward at the same severity.
+    suggestion: "See F-201."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "1b17bce"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_published_confirm.py
+    line: 783
+    title: "[cycle 2] The test class's docstring states a history the fix round's own Correction refutes"
+    description: |
+      CLOSED, verified against main rather than against the commit message.
+      `git show main:src/nonogram/admin/book_manager.py` → `remove_puzzle_from_book`
+      at :1182, grepped over its whole body for published/status: ZERO hits, in
+      either storage branch. The new docstring says exactly that ("on `main`
+      `remove_puzzle_from_book` had no published check at all, in either storage
+      branch, so a published book simply lost the puzzle in silence") and
+      redirects the published-answer claim to
+      test_the_question_a_published_book_asks_is_not_an_announcement, which
+      exists in the same class.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "1b17bce"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/_confirm_membership_change.html
+    line: 57
+    title: "[cycle 2] The confirmation screen promises a return to draft a floor-refused confirm does not deliver"
+    description: |
+      CLOSED. The promise is conditional and true in every case the two paths
+      can reach — case analysis in F-202, which records the two informational
+      residues (the pin is a negative assertion; the entirely-refused case is
+      still store-level only).
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "1b17bce"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3393
+    title: "[cycle 2] The cross-route wording rule is pinned as two independent literals, not as an agreement"
+    description: |
+      CLOSED, teeth-check re-run here rather than taken on report. I reworded
+      the SIBLING route's flash alone (app.py:3935, "Book or puzzle not found" →
+      "This book does not hold that puzzle", the arrange route untouched) and
+      ran the whole card scope: exactly ONE test failed —
+      TestBookArrangeStep_DeleteReportsWhatTheStoreDid::test_both_delete_screens_answer_a_stranger_with_the_same_words
+      — while test_a_delete_that_found_nothing_announces_no_removal (the literal
+      assertion) stayed green. That is the failure mode cycle 2 described,
+      caught by the new test and by nothing else. File restored and
+      checksum-verified. Note for the record: grep shows the literal appears in
+      no other test file, so the new agreement test is now the only pin on that
+      wording anywhere.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "1b17bce"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_book_published_confirm.py
+    line: 1287
+    title: "[cycle 2] The docstring credited the test with every-target coverage that lives elsewhere"
+    description: |
+      CLOSED. The docstring now leads with the membership delta (the part that
+      is new here) and cites
+      tests/test_book_ready_gate.py::TestBookStatus_EveryExitFromDraftIsGatedOnThePlan
+      for the every-target claim — verified present at test_book_ready_gate.py:698
+      and green in my own run this cycle.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "1b17bce"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3072
+    title: "[carried cycle 1] The Cancel path is never driven, although the template claims an EC-026 guarantee for it"
+    description: "Carried, wontfix by instruction. Re-read this cycle: the template's EC-026 claim is at _confirm_membership_change.html:13-16 and cancel_url is still an untested bare anchor at :72. The cycle-3 delta does not make it worse."
+    suggestion: "See cycle 1 F-004."
+    confidence: high
+    source: static
+    violates: EC-026
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes; carried, not re-raised"
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3878
+    title: "[carried cycle 1] The paste route's return_to carry is unverified"
+    description: |
+      Carried, wontfix by instruction — but measured this cycle, because it is
+      the one remaining instance of the same SHAPE at a different site: mutant
+      Y7 (delete the two lines that append `("return_to", ...)` to the paste
+      route's carried fields, app.py:3878-3879) SURVIVES the whole card scope,
+      158 passed, exit 0. Reported here as evidence for the family verdict, not
+      as a new finding. The owner-visible damage is a landing page (the book
+      instead of the filtered puzzle list), not a membership or override.
+    suggestion: "See cycle 1 F-005."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes; carried, not re-raised"
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 1345
+    title: "[carried cycle 1] The remove path's published check has no in-session re-check, unlike the add path's"
+    description: |
+      Carried, wontfix by instruction. Cycle 2's assessment — that this is the
+      ONLY carried item which is a production-behaviour risk rather than a test
+      gap — STILL STANDS, and the cycle-3 delta did nothing to change it: F-004,
+      F-005, F-007 and F-009 are all coverage gaps (a path not driven, a mode
+      not parametrised), while this one is a real asymmetry in how two sibling
+      store writes guard the same invariant, with no comment saying why.
+      book_manager.py is untouched by the cycle-3 delta.
+    suggestion: "See cycle 1 F-006."
+    confidence: medium
+    source: static
+    violates: INV-008
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes; carried, not re-raised"
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_workflow.py
+    line: 196
+    title: "[carried cycle 1] EC-026's property does not observe the pending tick set, and its passive POSTs assert nothing"
+    description: "Carried, wontfix by instruction. The cycle-3 delta does not touch tests/property/test_book_workflow.py; both its property tests were executed green this cycle."
+    suggestion: "See cycle 1 F-007."
+    confidence: high
+    source: static
+    violates: EC-026
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes; carried, not re-raised"
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_workflow.py
+    line: 118
+    title: "[carried cycle 1] Both property tests, AC-228 and the AC-281 route run in memory mode only"
+    description: |
+      Carried, wontfix by instruction. Marginally wider again: the cycle-3 delta
+      adds two more route-level tests
+      (test_a_mixed_submission_carries_each_decision_and_invents_none,
+      test_both_delete_screens_answer_a_stranger_with_the_same_words) and both
+      use the memory-only `panel` fixture, so the memory/DB ratio moved further
+      toward memory for a third time. Relevant to the unreproducible db-mode
+      failure noted under Out-of-scope: the db mode of the route layer is the
+      least-exercised half of this card.
+    suggestion: "See cycle 1 F-009."
+    confidence: high
+    source: static
+    violates: EC-033
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "recorded as a named handover in CARD-131 Worktree notes; carried, not re-raised"
+    learned_pattern: null
