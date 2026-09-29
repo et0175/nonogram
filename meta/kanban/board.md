@@ -50,10 +50,10 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default (prod outage 2026-09-25) · 0.5d · wave 27 · run in parallel with CARD-140 (owner's go-ahead) · worktree ../PythonProject4-CARD-148
 
 
 ## Review
+- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default · score 7.5 (cycle 1/3), 6 findings fixed in f36c4ed · ⚠ BLOCKED: cycle-2 review never ran (reviewer hit an account spend limit); needs an independent review + a rebase onto main before merge · worktree ../PythonProject4-CARD-148
 
 ## Done
 - **CARD-140** The arrange screen shows the book's real page breaks · score 9.0 (2 cycles) · merged 5d54019

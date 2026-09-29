@@ -1,0 +1,556 @@
+version: 1
+generated_at: "2026-09-25T12:13:30Z"
+target: "card/148-name-the-db-driver @ a776d53 (merge base 25c54f5, `git diff 25c54f5...HEAD`: 6 files, +849/-20)"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py (full)"
+    - "migrations/env.py (full)"
+    - "tests/conftest.py (lines 1-140)"
+    - "tests/test_db_url_driver.py (full, 711 lines)"
+    - "tests/test_db_connect_timeout.py (the probe's claimed covering test)"
+    - "requirements.txt, pyproject.toml (diff)"
+    - "render.yaml, alembic.ini, start.sh, scripts/*.sh (DATABASE_URL sweep)"
+    - "meta/architecture/requirements.yml (CON-015), meta/kanban/config.yml"
+    - "tests/test_export_pdf.py (ADR-0006/R1's real baseline test)"
+  not_reached:
+    - "the ~5300-test remainder of the suite (the caller verified it green on both venvs; not re-derived)"
+    - "a live Postgres — the 7 known DB-mode skips could not be exercised, so the conftest probe's behaviour against a REACHABLE database was reasoned about, not observed"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 849, removed: 20 }
+  max_fan_in:
+    symbol: "nonogram.db.session.normalized_url"
+    callers: 3
+    detail: "src/nonogram/db/session.py::_init_engine, migrations/env.py (both branches), tests/conftest.py::_unreachable_reason — new symbol, all three call sites introduced by this diff"
+  tests_cover_change: true
+  tests_detail: "tests/test_db_url_driver.py — 28 tests, 28 executed (0 skipped) on BOTH SQLAlchemy 2.0.52 and 2.1.0; migrations/env.py has 0 covering tests; tests/conftest.py's change is not discriminated by any test (mutant survived)"
+  hotspots:
+    - "tests/conftest.py (11 commits/12mo, 5 fix-ish)"
+    - "pyproject.toml (9 commits, 5 fix-ish)"
+    - "requirements.txt (7 commits, 3 fix-ish)"
+    - "src/nonogram/db/session.py (6 commits, 4 fix-ish — defect density 0.67)"
+  unmeasured:
+    cochange_missing: "no_eligible_fact — `git log --name-only --since=12.months -- src/nonogram/db/session.py` yields only the file itself (6 of 6 commits are single-file or share no named peer), so the co-change gate produced no peer set to check against this diff"
+    bus_factor: "tooling_failure — `git shortlog -sn -- src/nonogram/db/session.py` returned no rows in this worktree (all commits carry the `Claude Code` committer identity), so authorship concentration is undecidable here"
+    learned_false_positives: "provider_unavailable — .claude/fix-suppress.yaml and ~/.forge/retro-signals.yml both absent"
+    audit_on_touch: "provider_unavailable — meta/audit/ absent"
+    positioning: "no_eligible_fact — meta/business/positioning.md and bets.md absent; no NFR/EC in this diff is a public pillar backing"
+    impact_report: "no_eligible_fact — meta/impact/ absent"
+
+system_contract:
+  rules_checked: 38
+  holds: 2
+  unchecked: 36
+  violated: 0
+  assembly: "python3 …/architect-validate/scripts/system_rules.py --card CARD-148 (card_scope: touches); 38 rules; diagnostics: unresolvable_scope [], scope_unmapped_model [], no_check [CON-002,004,006,007,008,013,017,018], sources_absent [threat-model.md, business/constraints.md]. The card carries no `## System contract` section, so N is the assembled set."
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — `git diff 25c54f5...HEAD -- pyproject.toml` touches only the `db` extra (comment rewrite + `SQLAlchemy>=2.0,<2.1` → `SQLAlchemy>=2.0`); `[project.dependencies]` is untouched and still exactly Pillow+NumPy. The rule's own check, `test_the_dependency_baseline_is_still_closed` (tests/test_export_pdf.py:1249 — the function whose docstring carries the rule's declared ref `TestDependencyBaseline_IsExactlyPillowAndNumpy`), PASSED in my scoped run on a776d53 (40 passed, exit 0). The card adds an independent second assertion of the same fact, tests/test_db_url_driver.py::TestDependencyBaseline_SqlalchemyIsNotCapped::test_the_runtime_baseline_is_still_pillow_and_numpy. Model note: the declared ref is not a collectible node id — `pytest -k TestDependencyBaseline_IsExactlyPillowAndNumpy` selects nothing; the binding lives in a docstring. Reported as ✓ rather than check_ref_missing because I ran the real test and cite it, but the ref should be re-pointed at the function's actual name."
+    - "ADR-0019/R1 ✓ holds — `test_every_import_in_the_package_points_inward` (tests/test_cli.py, the ast guard walking src/nonogram/**/*.py) PASSED on a776d53 in the same 40-test run. The only new imports in src/ are `from sqlalchemy.engine import URL, make_url` and `from sqlalchemy.exc import ArgumentError` in src/nonogram/db/session.py — third-party, not lateral or inward-pointing; no capability module gained an import of cli.py or the orchestrator."
+    - "ADR-0022/R1, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: these 36 rules govern grid extent, uniqueness/solver correctness, density validation, difficulty rungs, repair policy, book membership/pairing/answer-key/page geometry and the loopback bind. This diff changes only how a SQLAlchemy URL is spelled before create_engine sees it, the alembic env, the reachability probe in the test harness, and two dependency manifests; it constructs no grid, runs no solve, writes no schema, touches no book or layout code and names no bind address or debug flag. Mechanically: `git diff 25c54f5...HEAD --name-only` contains no file under src/nonogram/{solver,sourcing,export,admin,web}/ or clues.py/difficulty.py/orchestrator.py."
+    - "CON-015 ✓ holds (guardrail G-3, outside the assembled scope — the rule is scoped to src/nonogram/admin/** and the card's Touches does not reach it) — no file under src/nonogram/admin/ is in the diff; no bind address, host or debug flag appears anywhere in the 6 changed files (`git diff 25c54f5...HEAD | grep -iE '0\\.0\\.0\\.0|127\\.0\\.0\\.1|--host|debug'` matches only the unrelated `127.0.0.1` entry in the EC-1 corpus's _HOSTS tuple, a test fixture). CON-015's own check, tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault, PASSED in the same 40-test run."
+
+root_causes:
+  - id: RC-1
+    title: "Both SCOPE+ changes ship unpinned: the conftest probe's mutant survives, migrations/env.py has no test at all — and the card asserts coverage for the first that does not exist"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "`except ArgumentError` is narrower than make_url's failure taxonomy, so the documented RuntimeError contract and the `from None` password shield do not cover every parse failure"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/conftest.py
+    line: 71
+    title: "The conftest probe's driver naming is untested — mutant survived on both SQLAlchemy versions, and the card's claimed covering test does not discriminate it"
+    description: |
+      The change is correct and necessary: `_unreachable_reason` must probe through
+      `normalized_url`, or on a SQLAlchemy whose default DBAPI is not installed every
+      db_required test reports "unreachable" and skips GREEN against a database that is
+      right there — this repo's known "DB tests skip silently" failure mode, relocated
+      into the harness.
+
+      But nothing pins it. The card's "## SCOPE+" section states the change is "covered by
+      the existing `test_the_reachability_verdict_is_taken_once_per_url`". It is not.
+      That test (tests/test_db_connect_timeout.py:166) counts `create_engine` invocations
+      against a black-hole port and asserts `probes == 1` and `first == second`. Both hold
+      whichever argument the probe is handed: on 2.1.0 the raw-URL version raises
+      `ModuleNotFoundError: No module named 'psycopg'`, which `except Exception` catches and
+      turns into a stable, non-None reason — so the memoisation assertions still pass.
+
+      Mutation-verified (Step 8f, mutant 4): reverting line 71 to `database_url` and running
+      `test_the_reachability_verdict_is_taken_once_per_url` + the whole of
+      tests/test_db_url_driver.py gives **29 passed, exit 0 on SQLAlchemy 2.0.52 AND on
+      2.1.0**. The mutant survives under production's exact resolution. A future edit can
+      undo the one argument that stops the harness lying, and the suite will not notice.
+    suggestion: |
+      Add one discriminating assertion. The cheapest shape that needs no live database:
+      monkeypatch `sqlalchemy.create_engine` (the module attribute — `_unreachable_reason`
+      imports it inside the function, so patching `sqlalchemy.create_engine` works, exactly
+      as test_db_connect_timeout.py already does) and assert the captured first positional
+      argument is a `URL` whose `drivername == f"postgresql+{db_session.POSTGRES_DRIVER}"`
+      when the probe is handed a bare `postgres://`/`postgresql://`. That is the same
+      capture technique
+      `test_create_engine_receives_the_named_url_with_its_password_intact` already uses for
+      the production path; it kills the mutant on both versions.
+      Also correct the card's SCOPE+ claim, which currently reads as coverage that exists.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "f36c4ed"
+    fix_note: |
+      Fixed. `tests/test_db_url_driver.py::TestHarness_TheReachabilityProbeUsesTheSameNaming::
+      test_the_probe_builds_its_engine_from_a_named_url` (ids: bare-postgresql,
+      legacy-postgres-alias, uppercase-scheme) monkeypatches
+      `sqlalchemy.create_engine`, calls `conftest._unreachable_reason` with a
+      fresh verdict cache and asserts the captured first positional argument is
+      a `URL` with `drivername == "postgresql+psycopg2"`, the password intact
+      (`s3cr3t-p@ss`, not `***`) and host/port/database unchanged; it also
+      asserts the caller-visible behaviour is unchanged (a failed probe still
+      yields a reason, still memoised, still one probe).
+
+      M4 RE-MUTATED as instructed: `tests/conftest.py:71` reverted to the raw
+      `database_url`, whole file re-run on both venvs -> 3 failed on SQLAlchemy
+      2.0.52 and 3 failed on 2.1.0 (all three ids of the new test, on the
+      `isinstance(..., URL)` assertion). It survived with 29 passed/exit 0 on
+      both before. conftest.py restored from backup and verified byte-identical
+      to HEAD (`git status` clean for it).
+
+      The card's SCOPE+ claim of existing coverage is corrected in the card's
+      notes rather than left standing.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: migrations/env.py
+    line: 78
+    title: "The deploy-path normalisation in migrations/env.py has no covering test, and only its ONLINE branch was ever broken"
+    description: |
+      `migrations/env.py` is the second place a bare `DATABASE_URL` reached SQLAlchemy, and
+      it is on the deploy path — render.yaml's `buildCommand` ends in `alembic upgrade head`.
+      Including it in the card is right (see the verification below), but zero tests reach
+      this file: `grep -rl "run_migrations_online\|run_migrations_offline\|migrations.env" tests/`
+      returns nothing relevant, and the card's own AC→test table does not claim any. So the
+      half of the outage that lives in the build step is fixed by inspection only.
+
+      Two facts I verified that the card's SCOPE+ note gets slightly wrong, and that matter
+      for what a test should pin:
+
+      * The **online** branch was genuinely broken. `engine_from_config` → `create_engine`
+        → `import_dbapi()`; on 2.1.0 with psycopg v3 absent that is
+        `ModuleNotFoundError: No module named 'psycopg'`. Fixing it is load-bearing.
+      * The **offline** branch was never broken. `context.configure(url=...)` only needs
+        `URL.get_dialect()`, which loads the dialect CLASS without importing the DBAPI —
+        confirmed on 2.1.0: `make_url("postgresql://u:p@h/db").get_dialect()` returns the
+        psycopg dialect happily while `import_dbapi()` raises. The offline change is
+        harmless consistency, not a fix.
+
+      I did verify the offline branch still works end to end and leaks nothing: under the
+      2.1.0 venv with psycopg v3 absent,
+      `DATABASE_URL="postgresql://panel:<secret>@db.example.com:5432/nono" python -m alembic upgrade head --sql`
+      emits the full DDL (`Context impl PostgresqlImpl`, exit 0) and the secret appears
+      0 times in the output. The `if url:` guard correctly leaves alembic.ini's empty
+      `sqlalchemy.url` alone, so the no-DATABASE_URL path is unchanged.
+    suggestion: |
+      Pin the online branch — the one that failed. A test that imports nothing from alembic's
+      runtime can still assert the contract: monkeypatch `sqlalchemy.engine_from_config` and
+      exec/ invoke `run_migrations_online` with `DATABASE_URL` set to a bare `postgresql://`,
+      then assert the configuration dict's `sqlalchemy.url` parses to
+      `postgresql+psycopg2`. Failing that, a much cheaper alternative that still closes the
+      gap: assert in tests/test_db_url_driver.py that the string
+      `normalized_url` produces for env.py round-trips — i.e. that
+      `make_url(normalized_url(raw).render_as_string(hide_password=False))` equals
+      `normalized_url(raw)` field-for-field over the EC-1 corpus. I ran exactly that over all
+      260 corpus URLs on 2.0.52 and 2.1.0: **0 mismatches**, including the IPv6 literal, the
+      `@ : / ? #` and `%` passwords, and sqlite `:memory:`. It holds today; nothing keeps it
+      holding, and env.py is the only caller that goes through text.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "f36c4ed"
+    fix_note: |
+      Fixed, without restructuring env.py. Two tests:
+
+      * `TestMigrations_TheDeployPathNamesTheDriver::
+        test_the_online_branch_names_the_driver_and_keeps_the_password` drives
+        the ONLINE branch for real: a subprocess replaces
+        `sqlalchemy.engine_from_config` before alembic loads env.py (so env.py's
+        module-level `from sqlalchemy import engine_from_config` binds the
+        replacement), runs `alembic upgrade head` with a bare
+        `postgresql://` DATABASE_URL, and the test asserts the captured
+        configuration dict's `sqlalchemy.url` parses to `postgresql+psycopg2`
+        with password, username, host, port and database all intact.
+      * `TestDbUrl_NormalisationChangesNothingElse::
+        test_the_text_round_trip_that_alembic_forces_is_lossless` asserts
+        `make_url(normalized_url(raw).render_as_string(hide_password=False))`
+        equals `normalized_url(raw)` field by field over all 260 corpus URLs
+        plus sqlite `:memory:` and a spaced path — the reviewer's suggested
+        form, now an assertion rather than a one-off observation.
+
+      `render_as_string(hide_password=False)` in env.py is left as it is and
+      documented as correct (engine_from_config takes a string-keyed dict).
+      Mutation-checked: reverting the online branch to `{"sqlalchemy.url": url}`
+      fails the first test on 2.0.52 and on 2.1.0; restored afterwards. The
+      card's SCOPE+ sentence implying BOTH branches were broken is corrected —
+      offline never failed, since `URL.get_dialect()` loads the dialect class
+      without importing the DBAPI.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/db/session.py
+    line: 97
+    title: "`except ArgumentError` misses ValueError: a realistic malformed DATABASE_URL escapes the documented RuntimeError and the `from None` shield"
+    description: |
+      The docstring promises: "Raises RuntimeError: if ``database_url`` is not a URL
+      SQLAlchemy can parse." It does not, for a whole class of unparseable URLs. `make_url`
+      raises a bare `ValueError` (from `int(port)`), not `ArgumentError`, when the authority's
+      port is not an integer — and identically on SQLAlchemy 2.0.52 and 2.1.0:
+
+        postgresql://u:p@2001:db8::1:5432/db  -> ValueError: invalid literal for int() with base 10: 'db8::1:5432'
+        postgresql://u:p@h:notaport/db        -> ValueError: invalid literal for int() with base 10: 'notaport'
+        postgresql://u:p@h:/db                -> ValueError: invalid literal for int() with base 10: ''
+
+      The first is not a contrived input: an unbracketed IPv6 connection string is the single
+      most common `DATABASE_URL` typo, and the card's own EC-1 corpus includes `2001:db8::1`
+      as a host precisely because that shape is known to be delicate — but the corpus builds
+      it through `URL.create`, which always renders the brackets, so the malformed spelling
+      is never exercised. `test_an_unparseable_url_is_rejected_without_quoting_the_password`
+      parametrises four inputs, all of which happen to fail through `ArgumentError`.
+
+      Consequences, in order of seriousness:
+      1. The operator-facing contract is false. Instead of the actionable
+         "DATABASE_URL is not a URL SQLAlchemy can parse (scheme: 'postgresql')", the panel
+         raises a bare `ValueError: invalid literal for int()` out of `get_session()`.
+      2. EC-1's shield does not apply on this path — no `from None`, no `_scheme_of`. I
+         verified there is **no password leak** here: neither the ValueError message nor its
+         traceback contains the secret on either version, and `__context__` is None. So EC-1
+         itself still holds; what is missing is the guarantee, not the outcome.
+      3. It is a silent asymmetry between two spellings of "bad URL", which is exactly the
+         class of difference this card exists to abolish.
+    suggestion: |
+      Widen the handler to `except (ArgumentError, ValueError)` — `ArgumentError` is not a
+      `ValueError` subclass, so both are needed — and add the IPv6-without-brackets and
+      non-numeric-port spellings to
+      `test_an_unparseable_url_is_rejected_without_quoting_the_password`'s parametrisation.
+      That parametrised test already asserts the message, `__cause__ is None` and
+      `__suppress_context__ is True`, so two new ids give the widened handler the same
+      guarantees the ArgumentError path has. (Mutation-verified that those assertions bite:
+      dropping `from None` fails all four existing ids.)
+    confidence: high
+    source: static
+    violates: EC-1
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "f36c4ed"
+    fix_note: |
+      Fixed. `src/nonogram/db/session.py` now catches
+      `(ArgumentError, ValueError)` — both, since ArgumentError is not a
+      ValueError subclass — and the docstring says why, naming the
+      `int(port)` family explicitly. Three parametrise ids added to
+      `test_an_unparseable_url_is_rejected_without_quoting_the_password`:
+      `ipv6-host-without-brackets`
+      (`postgresql://panel:{secret}@2001:db8::1:5432/nono`), `non-numeric-port`
+      and `empty-port`. They inherit that test's existing message /
+      `__cause__ is None` / `__suppress_context__ is True` assertions, so the
+      widened handler carries the same EC-1 guarantees as the ArgumentError
+      path. Verified on both versions; narrowing the handler back to
+      `except ArgumentError` fails exactly those three ids on both.
+
+      WHY THE CORPUS MISSED IT, and what was decided: the corpus builds every
+      URL through `URL.create`, which always brackets an IPv6 host, so the
+      malformed spelling cannot exist in it. Decision: do NOT add raw-text
+      shapes to the corpus. Its whole value is that each expected field is the
+      `URL` object's own field, independent of the function under test;
+      hand-written text would mean reimplementing percent-encoding in the test,
+      which is how a test ends up agreeing with a bug (the card's own
+      reasoning). Raw text that SQLAlchemy *cannot* parse has no URL object to
+      come from anyway, so its home is the unparseable parametrisation — which
+      is where the three new ids went. Recorded in the card notes.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: compliance
+    type: risk
+    file: src/nonogram/db/session.py
+    line: 100
+    title: "`_scheme_of` runs INSIDE the except block, so a raise there re-exposes SQLAlchemy's URL-echoing ArgumentError as an unsuppressed __context__"
+    description: |
+      The `from None` on line 102 only takes effect once the `RuntimeError` is constructed.
+      `_scheme_of(database_url)` is evaluated first, inside the handler, and it calls
+      `str.partition` on the caller's value. Hand `normalized_url` a non-`str` and the
+      sequence is:
+
+        make_url(b"postgresql://u:hunter2@h/db")
+          -> ArgumentError("Expected string or URL object, got b'postgresql://u:hunter2@h/db'")
+        ...caught; then _scheme_of(bytes)
+          -> TypeError("a bytes-like object is required, not 'str'")
+             with __context__ = that ArgumentError and __suppress_context__ = False
+
+      The printed traceback therefore carries "During handling of the above exception,
+      another exception occurred" followed by SQLAlchemy's message **with the full URL and
+      its password in it** — literally the mechanism the docstring says `from None` exists to
+      block. Demonstrated on both 2.0.52 and 2.1.0 (secret present in the formatted
+      traceback and in the exception chain; `None` input takes the same route via
+      `AttributeError`).
+
+      Kept at Minor because it is **not reachable from any of today's three callers**:
+      `os.getenv` and `config.get_main_option` return `str` or `None`, `_init_engine` rejects
+      falsy values before calling, and conftest passes a str. It is a latent trap in a
+      function that is now imported from three modules, not a live leak.
+    suggestion: |
+      Compute the scheme before the try, or make `_scheme_of` total
+      (`if not isinstance(database_url, str): return "<not a string>"`). Either way the
+      handler's body becomes incapable of raising, which is the property the `from None` is
+      relying on.
+    confidence: high
+    source: static
+    violates: EC-1
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "f36c4ed"
+    fix_note: |
+      Fixed by construction. The scheme is computed BEFORE the `try`
+      (`scheme = _scheme_of(database_url)`) and `_scheme_of` is now total for
+      any input (`if not isinstance(database_url, str): return "<not a
+      string>"`), so the except block's body contains nothing that can raise
+      and SQLAlchemy's URL-echoing `ArgumentError` can never resurface as an
+      unsuppressed `__context__`. Both halves are commented with the reason.
+
+      Guarantee asserted:
+      `test_a_non_string_cannot_resurface_sqlalchemys_url_echoing_message`
+      passes bytes (carrying a secret), None, int and object, and checks the
+      FORMATTED TRACEBACK — not just `str(error)`, which would pass even with
+      the chain intact — for the secret and for "During handling of the above
+      exception", plus `__cause__ is None` and `__suppress_context__ is True`.
+      Mutation-checked: restoring `_scheme_of` inside the handler and making it
+      non-total fails this test on both versions.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_url_driver.py
+    line: 88
+    title: "POSTGRES_DRIVER is cross-checked against pyproject's `db` extra only — requirements.txt, the manifest the Render build installs, has its DBAPI line unchecked"
+    description: |
+      `test_the_shipped_driver_is_the_one_the_project_installs` reads
+      `pyproject.toml`'s `[project.optional-dependencies].db` and asserts
+      `{driver, f"{driver}-binary"}` intersects it. It works, in both directions —
+      mutation-verified: setting `POSTGRES_DRIVER = "psycopg"` fails 4 tests on 2.0.52,
+      including this one.
+
+      But render.yaml's buildCommand is `pip install -r requirements.txt`. pyproject's `db`
+      extra is not what production installs. The suite cross-checks the two files' **SQLAlchemy**
+      lines (`test_the_two_files_agree_on_the_sqlalchemy_requirement`, written because "they
+      drifted once already") and does not cross-check their **DBAPI** lines. So swapping
+      `psycopg2-binary` for `psycopg` in requirements.txt while leaving pyproject alone
+      passes the whole suite and reproduces the outage on the next deploy — the same
+      two-files-one-fact drift the card set out to close, one line over.
+
+      Also worth noting against the caller's question: the drift cross-check lives in
+      `TestDbUrl_DriverIsNamedNotInherited` (AC-1), not in
+      `TestDependencyBaseline_SqlalchemyIsNotCapped` (AC-3). AC-3's class asserts only the
+      absence of a `<` cap in both files, their mutual agreement on the SQLAlchemy line, and
+      G-1's Pillow+NumPy baseline.
+    suggestion: |
+      In `test_the_shipped_driver_is_the_one_the_project_installs`, union the requirement
+      names from `_requirements()` with the `db` extra's, or add a fourth assertion to
+      `TestDependencyBaseline_SqlalchemyIsNotCapped` extending
+      `test_the_two_files_agree_on_the_sqlalchemy_requirement` to the psycopg2 line.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "f36c4ed"
+    fix_note: |
+      Fixed as suggested, and made bidirectional in both files.
+      `test_the_shipped_driver_is_the_one_the_project_installs` now builds the
+      requirement-name set for BOTH manifests (pyproject's `db` extra and
+      requirements.txt, via a new `_requirement_names` helper that strips
+      specifiers, extras and markers) and, for each, asserts that the
+      PostgreSQL DBAPIs it names are non-empty AND a subset of
+      `{POSTGRES_DRIVER, POSTGRES_DRIVER + "-binary"}`. So presence is not
+      enough: adding `psycopg` beside `psycopg2-binary`, or swapping one for
+      the other, in EITHER file is now red. Mutation-checked: replacing
+      requirements.txt's `psycopg2-binary>=2.9` with `psycopg>=3.2` fails this
+      test on both versions (it passed before); restored. No existing test was
+      weakened or retargeted — `test_the_two_files_agree_on_the_sqlalchemy_requirement`
+      is untouched.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: ops
+    type: risk
+    file: scripts/diagnose_postgres.sh
+    line: 108
+    title: "The repo's own Postgres diagnostic tells the operator to set DATABASE_URL to `postgresql+psycopg://` — an explicitly named driver this project does not install, which normalized_url deliberately preserves"
+    description: |
+      `normalized_url` correctly leaves an explicitly named driver alone (that decision is
+      right — overriding an operator's stated choice would be the same defect with our name
+      on it). The consequence is that the one hole left in the outage class is an
+      explicitly-named-but-uninstalled driver — and the repository actively recommends
+      exactly that spelling:
+
+        scripts/diagnose_postgres.sh:108
+          echo "  Your DATABASE_URL should use: postgresql+psycopg://postgres:postgres@/nonogram_poc?host=/tmp"
+
+      An operator who follows the failure branch of the project's own diagnostic gets
+      `ModuleNotFoundError: No module named 'psycopg'` — the outage's exact error message —
+      and none of the 28 new tests covers it (they only assert that schemes which normalise
+      to psycopg2 resolve to an importable driver).
+    suggestion: |
+      Change the line to `postgresql+psycopg2://…?host=/tmp` — a one-word docs fix in an
+      already-touched problem area. Separately consider whether `_init_engine` should warn
+      (never raise) when an explicitly named PostgreSQL driver differs from
+      `POSTGRES_DRIVER`; that keeps the operator's choice authoritative while making the
+      mismatch visible before the connection is attempted.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "f36c4ed"
+    fix_note: |
+      Fixed. `scripts/diagnose_postgres.sh:108` now advises
+      `postgresql+psycopg2://postgres:postgres@/nonogram_poc?host=/tmp`, with a
+      short comment recording that `normalized_url` deliberately preserves an
+      explicitly named driver, so the old advice reproduced the outage's exact
+      `ModuleNotFoundError`. Recorded on the card as
+      `SCOPE+ scripts/diagnose_postgres.sh — the repo's own diagnostic told the
+      operator to name an uninstalled driver`. Nothing else in that script was
+      touched. The reviewer's secondary suggestion (a warning from
+      `_init_engine` on an explicit-but-different driver) is NOT implemented: it
+      is new behaviour in the production path, not a review fix, and belongs on
+      its own card.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: question
+    file: migrations/env.py
+    line: 20
+    title: "Out of scope: the new import is `src.`-prefixed, adding a second entry to the double-import shape start.sh documents as load-bearing"
+    description: |
+      `from src.nonogram.db.session import normalized_url` imports the package under a
+      second name (`src.nonogram.*`), which start.sh's comment documents as the trap that
+      put two distinct `LongestSideBucket` enums in one process and broke Print setup in
+      production; CARD-139 exists to remove the mixed-import trap. Consistent with the
+      pre-existing line 14 (`from src.nonogram.db.models import Base`) and harmless inside
+      alembic's single-purpose process — `normalized_url` is a pure function over a string
+      and shares no mutable state — so this is a note for CARD-139's sweep, not a defect of
+      this card.
+    suggestion: "Fold into CARD-139 rather than changing it here; env.py's two imports should move together."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    fix_note: |
+      No code change, by the reviewer's own routing: the `src.`-prefixed import
+      in migrations/env.py is consistent with the pre-existing line 14, harmless
+      in alembic's single-purpose process, and belongs to CARD-139's
+      mixed-import sweep where env.py's two imports can move together. Also
+      outside this fix's scope (info severity, non-gating).
+    dismissed_reason: "out of scope for this fix cycle by the reviewer's own routing; see fix_note"
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: compliance
+    type: question
+    file: meta/kanban/cards/CARD-148.md
+    line: 0
+    title: "Out of scope: AC-2 and AC-3 are literally mutually exclusive — routing to the architect station as a requirement defect is the right call"
+    description: |
+      Read literally, AC-2 ("a test fails if the installed SQLAlchemy would resolve a bare
+      `postgresql://` to a driver that is not installed") and AC-3 ("the cap is removed and
+      the suite passes uncapped") cannot both hold: on 2.1.x with only psycopg2 installed,
+      SQLAlchemy's bare default IS an uninstalled driver. I agree with the caller's routing:
+      record it as a requirement defect for the architect station rather than reword the
+      card to match the code. The implementation's reading — assert that the DBAPI **the
+      panel's engine resolves to** is importable, plus that the panel's answer is invariant
+      to SQLAlchemy's default — is the only reading that serves the card's stated intent, and
+      it is the stronger of the two: the literal reading would make a healthy 2.1.x install
+      red over a driver the project deliberately does not ship, and a test that can be
+      satisfied by pinning a version number tells nobody anything on the day the next
+      default moves. The architect station should also pick up the card's own "[Architect
+      station]" note: nothing in the model says who chooses a driver, or that a version
+      ceiling is a dated decision needing a review trigger. Both cost a production outage.
+    suggestion: "No code change. Requirement defect for the architect station; do not reword AC-2 to match the implementation."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    fix_note: |
+      No code change requested by the finding itself: AC-2/AC-3's literal mutual
+      exclusivity is a requirement defect for the architect station, and the
+      reviewer explicitly says not to reword AC-2 to match the implementation.
+      Left for the architect station along with the card's own
+      "[Architect station]" note. Info severity, non-gating.
+    dismissed_reason: "out of scope for this fix cycle by the reviewer's own routing; see fix_note"
+    learned_pattern: null
+
+mutation_check:
+  ran: true
+  reason: "no Critical/Important findings existed at the point the ladder reached Step 8f; the check itself then produced F-001"
+  venvs:
+    - "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python (SQLAlchemy 2.0.52) — read-only, nothing installed/upgraded/removed"
+    - "<scratchpad>/venv-sa21/bin/python (SQLAlchemy 2.1.0, psycopg2-binary 2.9.13, psycopg v3 absent = production's resolution) — read-only, unmodified"
+  mutants:
+    - id: M1
+      target: "src/nonogram/db/session.py — normalized_url body reduced to `return url` (pre-card behaviour)"
+      result: killed
+      detail: "7 failed on 2.0.52; 9 failed on 2.1.0 — exactly the card's claim. The extra two on 2.1.0 are AC-2's TestDbUrl_TheResolvedDriverIsInstalled::test_the_driver_the_panel_would_use_can_be_imported and ::test_the_resolution_does_not_depend_on_the_installed_default. This IS the outage reproducing as a red test."
+    - id: M2
+      target: "src/nonogram/db/session.py:105 — `backend.lower() not in` → `backend not in` (scheme detection)"
+      result: killed
+      detail: "3 failed on 2.0.52: uppercase-scheme param, test_every_scheme_the_environment_can_send_resolves_to_a_real_driver, test_every_postgres_url_in_the_corpus_comes_out_naming_a_driver"
+    - id: M3
+      target: "src/nonogram/db/session.py:102 — `raise RuntimeError(...) from None` → plain `raise RuntimeError(...)`"
+      result: killed
+      detail: "all 4 ids of test_an_unparseable_url_is_rejected_without_quoting_the_password failed — the __suppress_context__ assertion bites, as the card claims"
+    - id: M4
+      target: "tests/conftest.py:71 — `db_session.normalized_url(database_url)` → `database_url` (revert the SCOPE+ change)"
+      result: SURVIVED
+      detail: "29 passed, exit 0 on BOTH 2.0.52 and 2.1.0 (test_the_reachability_verdict_is_taken_once_per_url + all of tests/test_db_url_driver.py). → F-001"
+    - id: M5
+      target: "src/nonogram/db/session.py:60 — POSTGRES_DRIVER = 'psycopg2' → 'psycopg' (constant/package drift)"
+      result: killed
+      detail: "4 failed on 2.0.52 including test_the_shipped_driver_is_the_one_the_project_installs — the pyproject cross-check works in both directions"
+  restore_verified: "git diff HEAD --exit-code -- src/nonogram/db/session.py tests/conftest.py → clean; `git status --porcelain` shows only the pre-existing ` M meta/kanban/cards/CARD-148.md` (the card's own uncommitted Implementation notes). No file left mutated."
+
+visual_check:
+  status: "unavailable (not_applicable)"
+  reason: "review.visual: off in meta/kanban/config.yml, and the card renders no UI — the diff touches a DB session module, an alembic env, a conftest probe and two dependency manifests. No baseline-acceptance judgment was owed, so this is not a deferral."
