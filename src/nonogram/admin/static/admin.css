@@ -244,7 +244,6 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    rule under the count, never the only thing that says how far along a book
    is — the count and the per-cell hints beside it say it in words. */
 .plan-progress { --bs-progress-height: var(--space-2); margin-top: var(--space-1); }
-.table .stat-line { margin-bottom: 0; }
 
 /* ---------- Puzzle selection tiles (book step 2) ---------- */
 .puzzle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3); margin-top: var(--space-2); }

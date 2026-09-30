@@ -2244,6 +2244,15 @@ def create_app(debug=None):
         book that has no plan yet is not further along than a book that has
         one and has not started filling it.
 
+        The ratio is **clamped at 1**, so a book over its plan ties with one
+        exactly on it rather than outranking it (review cycle 1, F-005; the
+        owner's ruling of 2026-09-30). ``/books`` is a to-do list, and a book
+        ten over its plan still has work to do — decide which ten to drop —
+        so it must not sort ahead of a book that is exactly right. The clamp
+        is for the **order only**: the row still reads "160 / 150" and still
+        carries its "over 10" hint, and ``percent`` / ``complete`` cap on
+        their own account.
+
         Ties, and the whole plan-less tail, keep ``get_all_books``'s own order
         — newest first — because this is a stable sort over it.
         """
@@ -2251,7 +2260,10 @@ def create_app(debug=None):
             rows,
             key=lambda row: (
                 row["stats"]["planned"] is None,
-                -Fraction(row["stats"]["actual"], row["stats"]["planned"])
+                -min(
+                    Fraction(1),
+                    Fraction(row["stats"]["actual"], row["stats"]["planned"]),
+                )
                 if row["stats"]["planned"]
                 else Fraction(0),
             ),

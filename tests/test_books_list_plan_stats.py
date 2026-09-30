@@ -107,6 +107,15 @@ SELECTION_OVER_BY_1 = (
     (0, 6, 13),
 )
 
+#: CK-5 (review cycle 1, F-005): the same plan with ten puzzles too many in
+#: that cell — 160 puzzles against a plan of 150.
+SELECTION_OVER_BY_10 = (
+    (20, 7, 0),
+    (30, 27, 6),
+    (10, 20, 12),
+    (0, 6, 22),
+)
+
 #: AC-234's first book: a plan of 100, and 20 puzzles against it.
 PLAN_100 = DistributionPlan(
     count=100,
@@ -491,6 +500,56 @@ class TestBooksList_PlanlessBookSortsLast:
         full = shelf.book(PLAN_150_CELLS, plan=PLAN_150, title="Done")
 
         assert order_of(shelf.listing(), (plan_less, empty, full)) == [full, empty, plan_less]
+
+
+class TestBooksList_OverPlanBookTiesWithOnPlanBook:
+    """CK-5 — the recorded decision: the sort ratio is clamped at 1.
+
+    AC-234 pins 150 / 150 > 132 / 150 > 20 / 100 and says nothing about a book
+    over its plan. Uncapped, 160 / 150 is a ratio of 16/15 and would sort ahead
+    of everything, including a book that is exactly right. ``/books`` is a
+    to-do list, and a book ten over its plan still has work to do — decide
+    which ten to drop — so it must not outrank one that needs nothing. Clamped
+    at 1 the two are **one tie**, broken by ``get_all_books``' newest-first
+    order, which is what the two orderings below show.
+
+    The clamp is for the order only: the row still reads its real figures.
+    """
+
+    def test_an_over_plan_book_does_not_outrank_an_on_plan_one(self, shelf):
+        assert total_of(SELECTION_OVER_BY_10) == 160
+        assert total_of(PLAN_150_CELLS) == 150
+
+        over = shelf.book(SELECTION_OVER_BY_10, plan=PLAN_150, title="Ten too many")
+        exact = shelf.book(PLAN_150_CELLS, plan=PLAN_150, title="Exactly right")
+        behind = shelf.book(SELECTION_132, plan=PLAN_150, title="Still filling")
+
+        order = order_of(shelf.listing(), (over, exact, behind))
+
+        # `exact` is the newer of the two tied books, so it leads them; the
+        # uncapped ratio would have put `over` first instead.
+        assert order == [exact, over, behind], order
+
+    def test_the_tie_is_broken_by_creation_order_not_by_the_excess(self, shelf):
+        """The mirror image: the over-plan book made *later* leads the tie.
+
+        Which of the two comes first is ``get_all_books``' newest-first order
+        over a stable sort, not the excess — so this is a tie and not a
+        reversal of the ranking.
+        """
+        exact = shelf.book(PLAN_150_CELLS, plan=PLAN_150, title="Exactly right")
+        over = shelf.book(SELECTION_OVER_BY_10, plan=PLAN_150, title="Ten too many")
+
+        assert order_of(shelf.listing(), (exact, over)) == [over, exact]
+
+    def test_the_row_still_reads_its_real_figures(self, shelf):
+        """The clamp is in the sort key alone: 160 / 150, and "over 10"."""
+        book_id = shelf.book(SELECTION_OVER_BY_10, plan=PLAN_150)
+
+        row = row_of(shelf.listing(), book_id)
+
+        assert figures_of(row)[0] == "160 / 150", figures_of(row)
+        assert hints_of(row) == ["26-30 × hard: over 10"], text_of(row)
 
 
 class TestBooksList_SortsBackToNewestFirst:
