@@ -76,9 +76,9 @@ OUTSIDE_MM = 0.375 * 25.4
 
 #: Where the recorded per-page evidence of the interior's pages lives.
 #:
-#: Three recordings of this same book now sit side by side, each kept and none
-#: regenerated, because each of the two changes after the first was *deliberate*
-#: — the one reason CARD-145's fixture's own ``warning`` admits a successor:
+#: Five recordings of this same book now sit side by side, each kept and none
+#: regenerated, because every change after the first was *deliberate* — the one
+#: reason CARD-145's fixture's own ``warning`` admits a successor:
 #:
 #: * ``book_baseline_card145.json`` — the merge-base's eight pages, before a
 #:   line of CARD-145's refactor existed;
@@ -91,10 +91,13 @@ OUTSIDE_MM = 0.375 * 25.4
 #: * ``book_baseline_card149.json`` — CARD-149 sets the guide page's type from
 #:   points instead of pixels (11 pt body, 22 pt title, 17 pt leading, where it
 #:   was 6.7 pt under an 11.5 pt "title"), so interior page 1 — and only page 1
-#:   — moved on top of CARD-144's eleven.
+#:   — moved on top of CARD-144's eleven;
+#: * ``book_baseline_card146.json`` — CARD-146 carries CARD-144's frame onto the
+#:   **two-up** page, which composes its own drawings and so had never drawn
+#:   one, so interior page 3 — and only page 3 — moved on top of CARD-149's.
 #:
-#: All four files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card149.json"
+#: All five files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card146.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until
