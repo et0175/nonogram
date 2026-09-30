@@ -145,12 +145,27 @@ Tokens: --color-surface, --color-accent, --color-accent-tint, --thumb.
 Used by: book arrangement (step 4 of 5).
 States: default · first **of its level** (up disabled, "First in the <Level>
 level") · last **of its level** (down disabled, "Last in the <Level> level") ·
-title editing (inline input) · page-break divider after every 3 rows.
+title editing (inline input) · position typed (inline FormField, see below) ·
+position refused (that one box `is-invalid`, `#position-error` above the list) ·
+page-break divider where the printed plan starts a page — a
+`.page-break-divider` rule labelled with that interior page number, and a
+divider page of its own at each level's head (CARD-140/CARD-128), not a rule
+after every third row.
 The rows sit under one level heading per non-empty level (TierChip + "<Level>
 level" + count), easy then medium then hard: a move stays inside a level
 (INV-009, CARD-126), so the disabled state is at each level's own ends rather
 than the book's, while the row number still runs 1..n across the whole book.
-Tokens: --color-surface, --color-border, --font-num (#order).
+Two numbers, and they are not the same number: `.item-order` is the row's place
+in the **book**, and the position box in `.item-info` is its place in its own
+**level** ("Position in <Level>" … "of <count>"), which is what a move is
+confined to. The box is a `form-control form-control-sm num w-auto` sized by
+`size="3"`, submitting on `change` as the title field does, and it introduces no
+CSS of its own. Refusals follow FormField exactly: the range is named in prose
+in one page-local `alert alert-danger` with `id="position-error"`, and only the
+box the refusal named carries `is-invalid` + `aria-invalid="true"` +
+`aria-describedby="position-error"` (CARD-143). Nothing is clamped: an
+impossible position is refused and the order is unchanged.
+Tokens: --color-surface, --color-border, --font-num (#order and the box).
 
 ## ProgressBar
 Used by: batch status; books list (the `.plan-progress` variant — a

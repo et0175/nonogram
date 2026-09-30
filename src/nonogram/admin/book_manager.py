@@ -1546,6 +1546,38 @@ class BookManager:
         """
         return self._move_within_level(book_id, puzzle_id, +1)
 
+    def move_puzzle_within_level(self, book_id: str, puzzle_id: str, offset: int) -> bool:
+        """Move a puzzle ``offset`` places inside its own level (FR-036, INV-009).
+
+        The typed-position form of the two move buttons (CARD-143). The arrange
+        route knows where the puzzle sits in its level and what position the
+        owner typed, and subtracts; the move itself is the one the buttons make,
+        through the same
+        :func:`~nonogram.admin.book_plan.moved_within_level`, so INV-009 is
+        enforced in one place however the owner asks for the move — there is no
+        second ordering rule behind the box.
+
+        The move that function makes is a **swap**: the puzzle and whatever sits
+        ``offset`` places away in the level exchange places, which for the
+        buttons' ``-1``/``+1`` is exactly a one-step move.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle to move
+            offset: how many places to move it by, signed. Any integer works;
+                ``0`` is a no-op the caller should not bother the store with.
+
+        Returns:
+            True if moved, False if the book holds no position that far away at
+            all (the same answer the buttons give at the book's ends).
+
+        Raises:
+            LevelBoundary: the position the offset lands on belongs to another
+                level. Nothing is written (AC-258).
+            ValueError: If book not found or puzzle not in book
+        """
+        return self._move_within_level(book_id, puzzle_id, offset)
+
     def _move_within_level(self, book_id: str, puzzle_id: str, offset: int) -> bool:
         """One step of CMD-022 -> EVT-023: the swap both move buttons make.
 
