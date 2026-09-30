@@ -34,6 +34,11 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - CARD-135 F-008 export_book docstring
 - Pre-existing failure: test_size_configuration_applied
 - Stale assertion: test_wave3_e2e.py::test_batch_creation_form_renders expects the heading "Create Batch from Images"; f773015 (2026-09-14, Pressroom) renamed it "New batch". The page is fine — the test is not.
+- DB fixture isolation (surfaced 2026-09-30, pre-existing): `tests/conftest.py:206` has the
+  `db_session` fixture `DROP TABLE IF EXISTS puzzles/batches CASCADE` then `create_all`. With a
+  real `nonogram_test` present, running the `db_required` set shows 3 failures from tests that
+  use other fixtures hitting the window where those tables are gone. Invisible until now,
+  because without a database every one of them skipped.
 - CARD-140 F-005: the arrange screen's page labels are keyed by object identity (`id(row)`), which is safe today but fails *silently* if it ever stops holding — no labels and no notice. Remedy judged in review: keep the key, add a count check (labelled rows vs `len(plan.printed)`) that flips the existing `page_plan_failed`. A positional key would fail unsafely instead.
 - CARD-140 F-006: `puzzle_section`'s `ValueError("ids must be parallel to payloads")` is a caller precondition — the seam-bug class the ERROR clause exists for — but lands in the arrange route's WARNING clause with no traceback. Unreachable today.
 - CARD-140 F-007: a row the interior cannot draw renders between the "page 3" and "page 4" labels with no marker, so the screen implies it prints on page 3.

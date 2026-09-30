@@ -265,6 +265,32 @@ WHAT IS STILL OWED BEFORE MERGE: an independent cycle-2 review, and a rebase ont
 branch was cut at 25c54f5, before CARD-140 merged at 5d54019) with the gate re-run on the
 rebased result.
 
+### Live-Postgres verification (2026-09-30) — the gap I recorded as unprovable is now closed
+
+The local `postgres` role was missing, which is what made ~20 DB-backed tests skip on
+2026-09-29. It was created on the owner's instruction (superuser, login; the server listens on
+localhost only and `pg_hba` is `trust` for loopback, so the password is cosmetic), and
+`nonogram_test` was created and migrated. That made a first-hand end-to-end check possible for
+the first time:
+
+- **The deploy path was run for real, against a live server, under the resolution that broke
+  production.** From this branch, `alembic upgrade head` with
+  `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nonogram_test` (bare
+  `postgresql://`, no driver named) under **SQLAlchemy 2.1.1 with psycopg v3 absent**: all 12
+  migrations applied, 7 tables created. The one error encountered on the way (a `DuplicateTable`
+  from a half-created schema, since cleaned) came from **`psycopg2`** — not
+  `ModuleNotFoundError: No module named 'psycopg'`. So the migration step genuinely connects
+  through the named driver on a live server, which is what the card's "could not verify" note
+  said no one had shown. The panel's boot on Render remains unproven by anyone here, but the
+  deploy half is now proven locally.
+- **The skip drift is gone.** `main` is back to the baseline the project's records assume:
+  5307 tests, 5298 passed, 2 failed, 7 skipped — the two known stale-heading failures. On
+  2026-09-29 the same suite read 1 failed / 27 skipped, because `test_wave3_e2e::
+  test_batch_creation_form_renders` was skipping rather than failing.
+
+Still owed before merge, unchanged: an independent cycle-2 review (the reviewer died on an
+account spend limit) and a rebase onto main.
+
 ## Implementation (CARD-148)
 
 ### AC → test mapping
