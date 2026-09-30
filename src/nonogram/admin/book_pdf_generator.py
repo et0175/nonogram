@@ -134,7 +134,11 @@ payload and a spec, so neither can draw a two-up slot. :func:`_stroke_drawing`,
 already measured, natively here rather than through the renderers' private
 helpers — the precedent ``solver/propagate.py``'s ``mask_runs`` sets, and the
 only shape the import layering allows. They place nothing: every coordinate
-they are given came from COMP-007.
+they are given came from COMP-007. That includes each slot's **frame**
+(CARD-144's rectangle around clues and grid): ``compute_pair_layout`` measures
+one per slot, and :func:`_stroke_drawing` strokes it last of all, on its own
+four boundaries at the heavy rule (CARD-146) — so a printed pair is two framed
+puzzles, not two bare grids.
 
 Each slot carries **its own band**, "Puzzle N · Tier", measured by
 :func:`~nonogram.export.layout.header_band` on that slot and set with the same
@@ -531,17 +535,49 @@ def _band_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def _stroke_drawing(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
-    """Stroke every ruled line of ``slot``, thin ones first (FR-040).
+    """Stroke every ruled line of ``slot``, thin ones first, then its frame (FR-040).
 
-    Every number here — each line's axis position, its two ends and its width —
-    is COMP-007's, read off the :class:`~nonogram.export.layout.Layout` the
-    pair-aware call placed. Nothing is measured, rounded or offset.
+    Every number here — each line's axis position, its two ends and its width,
+    and the frame's four boundaries — is COMP-007's, read off the
+    :class:`~nonogram.export.layout.Layout` the pair-aware call placed. Nothing
+    is measured, rounded or offset.
 
     Thin rules first and the every-5th and border rules last, so that where a
     heavy line crosses a thin one the heavy line survives the overlap and stays
     visually continuous — the same order, and the same reason, as the PNG
     renderer's. It is reimplemented rather than imported: ``png._draw_grid`` is
     private, and ``export/`` exposes no call that draws a layout it is handed.
+
+    **The frame, last of all (CARD-146).** A two-up page used to stop at the
+    grid: this function was written before CARD-144 gave a book page's drawing
+    its frame, and a slot's :attr:`~nonogram.export.layout.Layout.frame` — which
+    :func:`~nonogram.export.layout.compute_pair_layout` computes for *both*
+    slots, exactly as it does for the single page each would otherwise have been
+    — was simply never stroked. Interior page 3 of the baseline book, the two-up
+    page, was byte-identical to its pre-frame recording while the single-puzzle
+    pages moved; that was the gap, and this is where it closes. A pair now reads
+    as two framed puzzles rather than two bare grids.
+
+    The four sides are stroked exactly as
+    :func:`~nonogram.export.png._draw_frame` strokes a single page's — the same
+    pure :data:`INK`, the same :attr:`~nonogram.export.layout.PuzzleFrame.width`
+    (:attr:`Layout.thick_rule`, the heavy rule, no new weight — ADR-0037/R2),
+    each side **on** its boundary coordinate so Pillow centres it there and half
+    a heavy rule hangs outside the box, as the grid's own outer border already
+    does. Nothing is re-derived: this card consumes ``slot.frame`` and places
+    nothing (ADR-0036/R2, G-3). Two of the four sides — right and bottom — land
+    on the grid's outer border the loop above has already stroked at the same
+    width on the same coordinates, so re-stroking them puts identical black in
+    identical pixels; the ink a frame *adds* is its left and top sides, the
+    outer edges of the two clue gutters.
+
+    Drawn after the grid, and for the same reason the grid draws its heavy rules
+    last: where the frame crosses a thin rule, the heavy line is the one that
+    survives the overlap and stays continuous. ``slot.frame`` is ``None`` only
+    on an unframed sheet, which a two-up slot never is — a pair is a placed page
+    (:class:`~nonogram.export.layout.PairLayout` refuses anything else) and a
+    placed page is framed — so the guard is a total function's, not a branch
+    this module's callers can take.
     """
     oriented: List[Tuple[Any, bool]] = [
         *((line, True) for line in slot.vertical_lines),
@@ -553,6 +589,18 @@ def _stroke_drawing(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
         else:
             ends = [(line.start, line.position), (line.end, line.position)]
         draw.line(ends, fill=INK, width=line.width)
+
+    frame = slot.frame
+    if frame is None:  # pragma: no cover - a two-up slot is a placed, framed page
+        return
+    left, top, right, bottom = frame.left, frame.top, frame.right, frame.bottom
+    for side in (
+        ((left, top), (right, top)),
+        ((left, bottom), (right, bottom)),
+        ((left, top), (left, bottom)),
+        ((right, top), (right, bottom)),
+    ):
+        draw.line(list(side), fill=INK, width=frame.width)
 
 
 def _write_clues(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
