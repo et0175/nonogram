@@ -143,5 +143,16 @@ echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 
-# Start Flask
-python -m flask --app src.nonogram.admin.app run --port $PORT
+# Start Flask.
+#
+# ``nonogram.admin.app``, not ``src.nonogram.admin.app`` (CARD-139): the two
+# spellings name the same file but are two different module trees to Python, so
+# launching by the ``src.``-prefixed one loaded the admin package twice and the
+# panel crashed on Print setup with ``ValueError: tuple.index(x): x not in
+# tuple`` out of ``book_plan.Plan.cell``. The package no longer contains a
+# relative import, so the two trees can no longer disagree — but there is
+# nothing to gain from the prefix either, and pointing the repo's own launcher
+# at the spelling that caused a live 500 is how the trap gets rediscovered.
+# ``nonogram`` resolves through the editable install activated above, from any
+# working directory.
+python -m flask --app nonogram.admin.app run --port $PORT

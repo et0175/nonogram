@@ -45,13 +45,13 @@ import uuid
 from pathlib import Path
 from io import BytesIO
 
-from .batch_generator import (
+from nonogram.admin.batch_generator import (
     get_batch_generator,
     BatchStatus,
     BatchGenerator,
     MIN_RANDOM_BATCH_COUNT,
 )
-from .puzzle_review import (
+from nonogram.admin.puzzle_review import (
     get_puzzle_review_service,
     BOOK_TAB_SORT,
     MAX_PUZZLE_NAME_LENGTH,
@@ -60,15 +60,15 @@ from .puzzle_review import (
     PuzzleStatus,
     STRATEGY_NAMES,
 )
-from .book_manager import (
+from nonogram.admin.book_manager import (
     BOOK_THEMES,
     InvalidBookDetails,
     get_book_manager,
     BookStatus,
     revise_plan,
 )
-from .book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
-from .book_plan import (
+from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
+from nonogram.admin.book_plan import (
     BUCKETS as PLAN_BUCKETS,
     DEFAULT_PLAN,
     TIERS as PLAN_TIERS,
@@ -79,22 +79,22 @@ from .book_plan import (
     planned_cells,
     selection_cells,
 )
-from .image_manager import (
+from nonogram.admin.image_manager import (
     CANNOT_FIT,
     MOVED_TO_LARGE,
     SIZE_PRESETS,
     floor_percent,
     get_image_manager,
 )
-from .grid_renderer import grid_to_svg
-from .print_specs import PrintSpecValidator
-from .book_pdf_generator import (
+from nonogram.admin.grid_renderer import grid_to_svg
+from nonogram.admin.print_specs import PrintSpecValidator
+from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
     interior_page_count,
     tier_breakdown,
 )
-from .book_proof import render_proof_pdf
+from nonogram.admin.book_proof import render_proof_pdf
 
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
@@ -4639,7 +4639,7 @@ def create_app(debug=None):
         here when there is no database configured, so the import only runs when
         there is one.
         """
-        from .regrade import regrade
+        from nonogram.admin.regrade import regrade
 
         return regrade
 

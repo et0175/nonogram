@@ -1,6 +1,6 @@
 """Admin panel services for nonogram platform."""
 
-from .batch_generator import (
+from nonogram.admin.batch_generator import (
     BatchGenerator,
     BatchStatus as BatchStatus,
     BatchJob,
@@ -8,14 +8,14 @@ from .batch_generator import (
     PuzzleMetrics,
     get_batch_generator,
 )
-from .puzzle_review import (
+from nonogram.admin.puzzle_review import (
     PuzzleReviewService,
     PuzzleStatus,
     PuzzleFilter,
     PuzzleListResponse,
     get_puzzle_review_service,
 )
-from .book_manager import (
+from nonogram.admin.book_manager import (
     BookManager,
     BookStatus,
     BookMetadata,
@@ -24,7 +24,7 @@ from .book_manager import (
 )
 
 try:
-    from .app import create_app
+    from nonogram.admin.app import create_app
 except ImportError:
     create_app = None
 
