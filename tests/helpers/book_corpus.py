@@ -87,10 +87,14 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   the interior became eleven pages and every page after the guide moved;
 #: * ``book_baseline_card144.json`` — CARD-144's frame closes a book puzzle page's
 #:   drawing off with one heavy rectangle, so the pages that carry a drawing
-#:   moved again on top of CARD-128's eleven.
+#:   moved again on top of CARD-128's eleven;
+#: * ``book_baseline_card149.json`` — CARD-149 sets the guide page's type from
+#:   points instead of pixels (11 pt body, 22 pt title, 17 pt leading, where it
+#:   was 6.7 pt under an 11.5 pt "title"), so interior page 1 — and only page 1
+#:   — moved on top of CARD-144's eleven.
 #:
-#: All three files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card144.json"
+#: All four files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card149.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until
@@ -263,14 +267,21 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
 #: ``ImageFont.truetype("/System/Library/Fonts/Arial.ttf", N)`` calls in
 #: ``src/nonogram/admin/book_pdf_generator.py``:
 #:
-#: * ``create_guide_page`` — ``title_font``, size **48**
-#: * ``create_guide_page`` — ``text_font``, size **28**
+#: * ``create_guide_page`` — ``title_font``, size **92**
+#: * ``create_guide_page`` — ``text_font``, size **46**
 #: * ``create_divider_page`` — ``divider_font``, size **60**
 #:
-#: The sizes are integer literals at those call sites, not named constants, so
-#: there is nothing to import; if one of them moves, this tuple has to be
-#: re-derived by hand or the fingerprint stops covering the face those two
-#: pages are really drawn in.
+#: The divider's 60 is an integer literal at its call site. The guide page's
+#: two are no longer literals: CARD-149 states that page's type in points
+#: (``GUIDE_TITLE_PT`` 22, ``GUIDE_BODY_PT`` 11) and converts it against the
+#: page's own resolution, so 92 px and 46 px are what 22 pt and 11 pt come to
+#: on the 300 DPI page a book is printed at (``type_px(22, 300)`` and
+#: ``type_px(11, 300)``). They are still transcribed by hand and not imported,
+#: which is the point of this tuple: it is a second statement of the sizes,
+#: and a size that moves in the module without moving here is caught as a
+#: fingerprint that stops matching rather than hidden by a shared constant.
+#: If a book is ever printed at another resolution, the pixels below are that
+#: page's and have to be re-derived for it.
 #:
 #: **Editing this tuple is a baseline change, not a test tweak.** It is what
 #: :func:`font_fingerprint` digests, so a changed tuple makes ``same_face``
@@ -281,8 +292,11 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
 #: ``tests/fixtures/book_baseline_card145.json``, where the "NEVER regenerate"
 #: warning lives. Treat a change here as a re-recording of the fixture: the
 #: same justification, and the fixture's own ``font_fingerprint`` re-recorded
-#: alongside it.
-MACHINE_FACE_SIZES = (48, 28, 60)
+#: alongside it. That is what CARD-149 did — the guide page's two sizes moved
+#: deliberately, so this tuple and ``book_baseline_card149.json``'s
+#: ``font_fingerprint`` moved together, in the same commit, with the machine
+#: first shown to reproduce CARD-144's recorded fingerprint at the old sizes.
+MACHINE_FACE_SIZES = (92, 46, 60)
 
 
 def font_fingerprint() -> str:
@@ -292,7 +306,10 @@ def font_fingerprint() -> str:
     ``ImageFont.load_default()`` when it is not there, so those two pages'
     pixels depend on the machine. This draws the guide page's own title with
     the same call, at **each** of :data:`MACHINE_FACE_SIZES`, into a small
-    image, and digests the three together: two machines with the same
+    image, and digests the three together (the image is the size it has always
+    been, so at CARD-149's 92 px the title's last nine pixels fall off its
+    right edge — deterministically, and the sample is a face's fingerprint
+    rather than a rendering of the page): two machines with the same
     fingerprint letter those two pages identically, and two with different
     fingerprints cannot compare *those two pages* at all. The other six pages
     of the baseline book are lettered in the bundled face and in Pillow's own
@@ -304,7 +321,16 @@ def font_fingerprint() -> str:
         try:
             font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
         except OSError:
-            font = ImageFont.load_default()
+            # The page's own fallback, transcribed like the sizes: Pillow's
+            # built-in face **at the same size** (CARD-149). A bare
+            # ``load_default()`` letters every size at a 10 px em, so this
+            # fingerprint would have read as one face on an Arial-less machine
+            # that draws the guide page at 46 px and on one that draws it at
+            # 10 px.
+            try:
+                font = ImageFont.load_default(size)
+            except TypeError:  # pragma: no cover - Pillow < 10.1
+                font = ImageFont.load_default()
         sample = Image.new("RGB", (900, 120), "white")
         ImageDraw.Draw(sample).text(
             (0, 0), "How to Use This Book", fill="black", font=font

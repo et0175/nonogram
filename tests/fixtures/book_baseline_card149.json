@@ -1,0 +1,117 @@
+{
+  "card": "CARD-149",
+  "supersedes": "tests/fixtures/book_baseline_card144.json",
+  "recorded_from_commit": "ce4adfe9d579fa9a46715f68e3e26f55b7530834",
+  "recorded_from_commit_note": "CARD-149's type fix on card/149-guide-page-type: the commit that states the guide page's type in points (11 pt body, 22 pt title, 17 pt leading) and converts it against the page's resolution, and the tree these eleven digests were taken from. A commit cannot carry its own hash, so this field was filled in by the commit that immediately follows ce4adfe — this one, which adds this file and repoints BASELINE_FIXTURE at it and changes no drawing, so it exports the same eleven pages and reproduces them too. ce4adfe itself is red on exactly the two assertions this file makes green (TestBookPdfMemory_PagesAreUnchanged's page comparison and its interior-byte length), which is the shape G-2 asks for: a deliberate change to a page's ink, then its new baseline in a commit of its own.",
+  "recorded_on": "2026-09-30",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-149 deliberately changes what interior page 1 prints, which is the one reason the predecessors' warning allows a new baseline to be recorded. The guide page was lettered in pixels on a 300 DPI surface — Arial at 28 px for its body and 48 px for its title, which is 6.7 pt of body under an 11.5 pt 'title', body text smaller than a legal footnote on the one page of every book that explains how to play it (EV-0003, a 2-star review of a competitor: 'Very tiny squares. Not good for older people.'). The sizes are now stated in points and converted against the page's own resolution, so page 1's ink moved: its type is 46 px and 92 px of Arial on 71 px of leading where it was 28 px and 48 px on 50 px, and its text block reaches x=1058 of a measure that ends at 2438 and y=1014 of a page whose bottom margin is at 3188, where it used to reach 706 and 788. No other page's ink moved, and none was expected to: the change is inside create_guide_page and touches neither the dividers' type (Arial at 60, G-1) nor any puzzle page, answer page or cover. The three predecessors are left in place, unregenerated, as the evidence they were recorded to be.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-149. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids. If a later card deliberately changes a page's content, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "changed_pages": [
+    1
+  ],
+  "changed_pages_note": "The 1-based interior page whose ink moved against the CARD-144 baseline, and the only one: interior 1, the guide page, whose type CARD-149 re-sized. The other ten digests are CARD-144's own, byte for byte — interiors 5 and 7 are that card's framed single-puzzle pages, 3 is the two-up page, 2, 4, 6 and 8 are the four divider pages (Arial at 60, untouched by G-1) and 9-11 are the packed answer key. That page 1 and only page 1 moved was checked against CARD-144's file page by page before this one was written; if a later card finds another page moved while claiming only the guide page changed, that is a bug in the change, not something to record here.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "The guide page and every divider page are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against the digests of the pages named in font_dependent_pages. **This value differs from CARD-144's (19f6bed7e82991d6f9ba6e1552b97aa9d863707e08b5fade368d4b5f31d710a5) and the machine has not changed.** font_fingerprint digests the guide page's title drawn at each of book_corpus.MACHINE_FACE_SIZES, the hand-transcribed sizes of the three system-font calls in book_pdf_generator; CARD-149 moved two of those sizes from 48 and 28 to 92 and 46, so the tuple was re-derived and the digest moved with it, exactly as that tuple's own comment requires. The machine was first shown to reproduce CARD-144's recorded fingerprint at the old sizes — font_fingerprint() returned 19f6bed7...d710a5 on this machine with MACHINE_FACE_SIZES still (48, 28, 60), before a byte of this card was written — so this recording is comparable with that one: same machine, same face, only the sizes the page asks that face for have changed. The fingerprint's fallback was re-transcribed in the same commit (Pillow's built-in face is now asked for at the page's size, as the page asks for it), which is a no-op on any machine that has Arial.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "The 1-based interior pages whose pixels depend on the machine's own font: page 1 is the guide page (Arial at 92 and 46 since CARD-149, load_default at the same sizes as the fallback), pages 2, 4 and 6 are the Easy, Medium and Hard level dividers and page 8 is the SOLUTIONS divider (Arial at 60, unchanged). The other six are drawn in the bundled band face and Pillow's built-in clue face, so their digests are comparable on any machine and are compared even when font_fingerprint differs — unlike CARD-144's two changed pages, this card's one changed page is font-dependent, so a machine with a different face cannot check this card's evidence at all and the comparison skips it. That is what the page is: lettering.",
+  "interior_bytes": 2666560,
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "5b6a12bc77f645906246169ab8c711e19a38d1213c1a4af7816ee47a497c83f8"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "84ee283a62de31507a8d8ee05c024e952cd499509262d9b8788e5e6bba2b91f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd36d4dc043f4af75b83f77fc147186e36dd021194e0b7d62e25028b695ded"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "3f3e7b686bbdb67d942d4244fdedd91d6aec3d511446a3674a19872fd7617955"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bcb474a056c470d6c6818204eec9f0f8ed03e6a9d244570f1e3e71b26b29a113"
+    }
+  ]
+}
