@@ -1,0 +1,576 @@
+version: 1
+generated_at: "2026-09-30T09:15:51Z"
+target: "branch card/132-books-list-plan-stats @ f94f29e (84728d0 implementation + f94f29e fix round), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-132. Reviewed diff: `git diff main...HEAD` (5 files, +932/-17) — see F-010: `git diff main..HEAD` is NOT the card's change on this head, main has advanced 3 commits past the merge-base a008fc0."
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+cycle: 2
+mode: confirmation
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (_book_plan_stats, _books_by_completeness, books_list — the whole CARD-132 section)"
+    - "src/nonogram/admin/templates/books_list.html (whole file, both macros)"
+    - "src/nonogram/admin/templates/_puzzle_table.html (sort_head macro + thead, for the components.md cross-check)"
+    - "src/nonogram/admin/templates/base.html (asset loads: Bootstrap 5.3 CDN + tokens.css + admin.css)"
+    - "src/nonogram/admin/templates/book_select_puzzles.html (both .stat-line call sites, for F-006)"
+    - "src/nonogram/admin/static/admin.css (every [data-status] / .progress / .stat-line / .plan-progress rule)"
+    - "src/nonogram/admin/static/tokens.css and meta/design/tokens.css (grepped for data-status / progress: no rules)"
+    - "tests/test_books_list_plan_stats.py (whole file; CK-4's floors and oracle line by line)"
+    - "meta/design/components.md (DataTable + ProgressBar entries, before and after)"
+    - "meta/kanban/cards/CARD-132.md (worktree copy: AC-230..235, G-1..G-4, the three recorded decisions)"
+    - "meta/review/20260930T083128Z-CARD-132-cycle1.yml (whole report)"
+    - "rendered /books HTML for 6 scenarios (thead in all three sort states; a 6-book shelf spanning exact / over / under / zero / plan-less)"
+  not_reached:
+    - "the rendered /books screen in a browser — review.visual off, no `make run` target. NO HUMAN HAS YET LOOKED AT /books RENDERED; the owner validates UI on rendered output and that step is still outstanding."
+    - "Bootstrap 5.3.0's own stylesheet (CDN, not vendored) — reasoned about rather than grepped: Bootstrap namespaces every data attribute as `data-bs-*` and ships no `[data-status]` selector"
+    - "src/nonogram/db/** (untouched by the diff; DB-mode read paths inferred from the in-memory equivalence test_book_ready_gate pins)"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 932, removed: 17 }
+  fix_delta: { files: 5, added: 109, removed: 9 }
+  max_fan_in: { symbol: "books_list (Flask endpoint)", callers: 18 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (high churn; 62 of its 12-month commits are fix/bug/hotfix — carried from cycle 1, unchanged by the fix delta)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — carried from cycle 1: books_list.html's 12-month history is 4 commits and its only co-change peer is itself; there is no peer set in which to find an absentee"
+    production_data_scale: "provider_unavailable — carried from cycle 1: the live panel runs on Postgres nonogram_poc (not to be touched); the repo's nonogram_admin.db snapshot holds 16 puzzles / 0 books, so it cannot bound F-001's per-page read count"
+    full_suite_on_f94f29e: "not_applicable — the orchestrator verified it independently (5355 passed / 2 failed / 7 skipped, the two failures being the long-known stale-heading assertions in tests/e2e/test_admin_workflow.py and tests/test_wave3_e2e.py, neither this card's). Nothing found in this cycle contradicts that. Re-run here was scoped instead: the card's own file (20 passed, 0 skipped), tests/test_admin_design_tokens.py (6 passed), the ast import guard (1 passed), and the four neighbouring book suites that touch /books (348 passed, 0 skipped)."
+
+system_contract:
+  rules_checked: 44
+  holds: 6
+  unchecked: 38
+  violated: 0
+  assembly: "fresh — python3 forge/skills/architect-validate/scripts/system_rules.py --card CARD-132 returned the same 44 rules as cycle 1 (card_scope: touches; diagnostics: unresolvable_scope [], scope_unmapped_model [], sources_absent [threat-model.md, business/constraints.md])"
+  note: "Cycle 1's YAML carried holds: 5 / unchecked: 39, which does not match its own verdict list (6 ✓ lines + 1 + 37 ⚠ ids = 44). Corrected here to 6 / 38; no verdict changed, only the count. Every rule's scope glob (src/nonogram/admin/**.py) intersects the fix delta, so nothing was carried under the confirmation-mode delta-clean rule — all 44 were re-derived against f94f29e."
+  verdicts:
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on f94f29e (1 passed, re-run this cycle). The fix delta adds no domain decision: `-min(Fraction(1), Fraction(actual, planned))` is arithmetic on two numbers the route already held; grep over the delta's added lines finds no bucket bound, no range check, no max(width,height), no size sort key and no bucket label string."
+    - "ADR-0032/R1 ✓ holds — the fix delta writes nothing: `git diff 84728d0 f94f29e --name-only` is app.py (one docstring paragraph + one lambda expression), books_list.html, admin.css (one deletion), components.md, the test file. No add_puzzle path touched."
+    - "ADR-0032/R2 ✓ holds — no quality_score or recognizability value is read or rendered; the fix delta touches only the sort key, two markup attributes and one CSS deletion."
+    - "ADR-0033/R1 ✓ holds — no puzzle field is written; the fix delta contains no store call at all."
+    - "ADR-0035/R1 ✓ holds — the gate is untouched (off_plan_cells / ready_refusal neither called nor edited) and the clamp lives in the sort key alone: `hints` is built before `_books_by_completeness` runs and is unchanged by the delta (verified by rendering — a 160/150 book still carries `26-30 × hard: over 10`). The list's exact-delta off-plan set is therefore still a strict SUPERSET of the gate's tolerance set (|d|>0 vs |d|*100 > 3*plan.count, plan.count >= 1 by INV-005), so \"On plan\" still implies the gate passes; the dangerous direction cannot occur."
+    - "INV-007 ✓ holds — same derivation. grep over the fix delta's added lines for toleran|percentage point|±3|3 pp|off_plan_cells|READY_ returns nothing, and the readiness gate's code and tests are unchanged (tests/test_book_ready_gate.py green on this head)."
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy does not exist (comment references only, tests/test_export_pdf.py:622,1250 and the ADR's own check ref). A model defect already routed to the architect station, not this card's, and not relitigated here. Manual read of the fix delta found no violation: `git diff 84728d0 f94f29e | grep -E '^\\+(import|from) '` is empty — the delta adds no import at all, and pyproject.toml is not in the diff."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: the fix delta is one clamp inside one sort key, two markup attribute values, one deleted CSS declaration, one documentation paragraph and three new tests. It runs no solver, no generation, no export, no layout, no PDF, no migration and no write; it changes no bind address, no request door, no size/density validation, no membership, no order, no pairing and no answer key. Nothing in it bears on these rules. (Re-derived against f94f29e, not carried.)"
+
+root_causes:
+  - id: RC-2
+    title: "The fix round's two markup changes (aria-sort values, the `partial` status word) ship with no assertion, in a card whose every other behaviour is pinned by a named CK-N test"
+    finding_ids: [F-008]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2155
+    title: "/books goes from one query to one store read per member of every book (N+1)"
+    description: |
+      Carried unchanged from cycle 1 (see 20260930T083128Z-CARD-132-cycle1.yml
+      for the full derivation). `_book_member_records` calls
+      `puzzle_review.get_puzzle` once per member id and `books_list` calls it
+      once per book, so the page goes from 1 query to
+      1 + B + sum(len(book.puzzle_ids)) round trips; at DEFAULT_PLAN of 150 a
+      shelf of 10 filled books is ~1500 sessions per render, paid on most
+      book-editing actions (18 `url_for("books_list")` redirects land here).
+
+      Re-derived this cycle: the fix delta does not touch this code path, and
+      does not make it worse — the clamp is a pure expression inside the sort
+      key, evaluated once per row over data already fetched.
+    suggestion: |
+      Unchanged from cycle 1: one filtered read per book (or per page) via
+      `PuzzleFilter.book_id` / `filter_puzzles`, noting `filter_puzzles` caps
+      `limit` at 100 so a 150-puzzle book needs paging or a bulk accessor.
+      Best served by the shared selection-records accessor F-007 also wants,
+      once CARD-131 releases book_manager.py.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    fix_note: |
+      Left open by decision, re-affirmed this cycle. No NFR pins admin page
+      latency, the panel is one Puzzle Creator at a desk (meta/design/brief.md),
+      and the same per-member read pattern is already what the readiness gate
+      and the selection screen do. On the backlog; revisit when a shelf grows
+      past a handful of full books or when CARD-131 releases book_manager.py.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2162
+    title: "Out-of-scope: the route drops an unresolvable member id silently where the gate logs it"
+    description: |
+      Carried unchanged from cycle 1. `_book_member_records` is
+      `BookManager._selection_records` minus its `logger.warning` for an id no
+      row can match. The duplication is forced — G-1 forbids editing
+      book_manager.py, which exposes no public selection-records accessor — but
+      a stale id shows as an unexplained shortfall on the list and nowhere in
+      the log. Untouched by the fix delta.
+    suggestion: |
+      When CARD-131 releases book_manager.py, expose the selection-records read
+      as one public method and have both the gate and this route call it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    fix_note: |
+      Out of scope by instruction, re-affirmed: the real remedy is the shared
+      accessor, so a mirrored warning line now would be duplicated logic to
+      delete later.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/books_list.html
+    line: 24
+    title: "Neither the aria-sort values nor the `partial` status word has an assertion — both mutants survive"
+    description: |
+      Two of the fix round's three production changes carry no test, in a file
+      whose 20 tests pin every other decision this card made by name (AC-230..235,
+      CK-1..CK-5). Verified by mutation on f94f29e, both restored and verified:
+
+        * `books_list.html:24` — swapping the macro's values to
+          `aria-sort="{{ 'none' if sort == column else 'descending' }}"`
+          (i.e. announcing the sorted column as unsorted and the unsorted one as
+          sorted descending) leaves the whole card file green: 20 passed.
+        * `books_list.html:84` — reverting `data-status="partial"` to the batch
+          lifecycle's `generating`, which is exactly what cycle-1 F-003 asked to
+          be removed, also leaves 20 passed.
+
+      `grep -rn aria-sort tests/ src/` finds the attribute only in the template
+      itself; the card's file asserts `aria-valuenow` (line 321) and its absence
+      for a plan-less book (line 587) but never the status word. So neither
+      F-003's nor F-004's fix is pinned, and either can be undone by a later
+      edit — or by an autoescape change — without a red test. The escaping risk
+      is not hypothetical: `{{ sort_order('completeness') }}` renders unescaped
+      only because a Jinja macro returns `Markup`; a future `|e`, a `|string`
+      filter, or moving the attribute into a Python-side string would emit
+      `aria-sort=&#34;descending&#34;` and silently drop the attribute.
+
+      Graded Minor, deliberately and against the letter of the mutation rule
+      (which defaults a survivor to Important): the mutated surface is two
+      presentational attributes on a single-user internal panel, cycle 1 graded
+      both underlying findings low/info, and no AC, EC or invariant depends on
+      either. It is a real coverage gap, not a behaviour defect — the rendered
+      output is correct today (verified directly, see below).
+    suggestion: |
+      Two assertions in tests/test_books_list_plan_stats.py close it, in the
+      style the file already uses:
+
+        assert 'aria-sort="descending"' in thead_of(shelf.listing())
+        assert 'aria-sort="none"' in thead_of(shelf.listing())
+        assert 'data-status="partial"' in row  # and "complete" for a full book
+
+      A third asserting `aria-sort="descending"` moves to the Created head under
+      `?sort=created` would pin the macro's argument too.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: 2046b80
+    fix_note: |
+      Seven tests added to tests/test_books_list_plan_stats.py, named in the
+      style the file already uses, and both surviving mutants now die.
+
+      CK-6 TestBooksList_SortableHeadsAnnounceTheirOrder (4 tests):
+        * the sorted head carries the raw text `aria-sort="descending"` and the
+          other sortable head `aria-sort="none"`;
+        * the pair SWAPS under `?sort=created`, which pins the macro's argument
+          as well as its values;
+        * exactly two heads carry the attribute, and they are Puzzles and
+          Created — a non-sortable head claims no sort state;
+        * `aria-sort=&` appears nowhere in the page and `aria-sort="` appears
+          exactly twice, so an escaped render is red.
+      CK-7 TestBooksList_PlanBarSaysWhichFillItIs (3 tests):
+        * 132/150 draws `data-status="partial"`, and `generating` appears
+          nowhere in the bar;
+        * 150/150 and 160/150 both draw `data-status="complete"`.
+
+      Three read helpers added beside the file's existing fragment readers —
+      `head_of`, `heads_of`, `plan_bar_of` — all returning RAW markup, because
+      whether the attribute is an attribute at all is the thing at stake.
+
+      MUTATION EVIDENCE (each applied, run, restored, restore verified by
+      sha256 e79dd668…fac4 on books_list.html):
+        * swap the macro's values to `'none' if sort == column else
+          'descending'` -> KILLED, 2 failed: CK-6's
+          test_the_sorted_head_is_descending_and_the_other_is_none and
+          test_the_pair_swaps_when_the_other_column_is_sorted. This is the
+          exact mutant that survived this cycle.
+        * revert `partial` to `generating` -> KILLED, 1 failed: CK-7's
+          test_a_partly_filled_book_is_partial. The second survivor.
+        * `{{ sort_order(...)|forceescape }}` on both call sites -> KILLED,
+          3 failed, including test_the_attribute_is_markup_and_not_escaped_text.
+          The escaping failure mode this finding named is therefore red.
+
+      One correction to this finding's own description: `|e` and `|string` are
+      NOT that failure mode — both were tried as mutants and both left 27
+      passed, because `escape()` and `soft_str()` are no-ops on `Markup`. The
+      reachable escaping mutations are `|forceescape` and moving the attribute
+      into a Python-side string the route passes in; the test is written against
+      the shape both produce, and the correction is recorded in CK-6's
+      docstring so the next reader does not re-derive it.
+
+      New tests EXECUTE, none skip: 7 passed, 0 skipped in in-memory mode (the
+      file's fixture deletes DATABASE_URL, so no database is consulted). The
+      card's file is 27 passed, up from 20.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 47
+    title: "components.md's DataTable sortable-head spec now over-claims: _puzzle_table.html has none of it"
+    description: |
+      The fix round rewrote DataTable's sortable-head state to read
+      "real `<a>` links, current column marked with ↑/↓ and `aria-current=\"true\"`,
+      its `<th>` carrying `aria-sort`; the arrow is `aria-hidden` and the
+      direction repeats in `visually-hidden` text" (components.md:47-50).
+
+      Only `/books` does that. `_puzzle_table.html:19-21` — the same component's
+      other and wider consumer (puzzle review, book puzzle selection, batch
+      results) — uses `href="#"` with JS, no `aria-sort` on any `<th>`
+      (`_puzzle_table.html:30-33`), a bare unwrapped `↑`/`↓` with no
+      `aria-hidden`, and no `visually-hidden` direction text.
+
+      This is the inverse of the cycle-1 finding it was fixing (RC-1: inventory
+      behind code) — the inventory is now ahead of code, and reads as done. The
+      same paragraph goes out of its way to document the other divergence
+      between the two consumers honestly ("two query-parameter names are in
+      use ... read the template before assuming which one a table takes"), which
+      makes the silence about the a11y half inconsistent rather than merely
+      incomplete. A later design-system card reading this entry to "reuse
+      DataTable" will believe the puzzle table already complies.
+
+      The deferral itself IS recorded — f94f29e's commit message and the card's
+      Fix 1 notes both say "_puzzle_table.html is deliberately untouched: the
+      same gap there is systemic and belongs in its own card" — so this is a
+      placement defect, not a hidden decision. Graded Minor rather than the
+      Important that Step 8c's intent↔reality-drift rule would default to,
+      because the drifting claim is a Minor a11y attribute on an internal panel
+      whose underlying finding cycle 1 graded low, and the honest deferral
+      exists in two durable places, just not in the document a future card
+      reads first.
+    suggestion: |
+      One clause in the same paragraph: "…its `<th>` carrying `aria-sort`
+      (`books_list.html` only; `_puzzle_table.html` has yet to follow, with
+      `sort_by`)". No backlog card is needed beyond the one the commit message
+      already names.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 2046b80
+    fix_note: |
+      One clause appended to the DataTable sortable-head state, inside the same
+      paragraph, leaving the `sort_by` vs `sort` half untouched:
+
+        "… the direction repeats in `visually-hidden` text) — that head
+         treatment is `books_list.html` only, and `_puzzle_table.html` has yet
+         to follow: it still sorts with `href="#"` plus script, carries no
+         `aria-sort`, and leaves its arrow unwrapped and its direction unsaid."
+
+      Each of the three claims re-read against `_puzzle_table.html:19-33`
+      before writing it: the macro emits `href="#" data-column="…"`, the `<th>`
+      elements at :29-33 carry `scope="col"` and nothing else, and the ↑/↓ is
+      a bare glyph in the link text with no `aria-hidden` wrapper and no
+      `visually-hidden` direction. No new card filed — the commit message of
+      f94f29e already names the deferral, as this finding notes.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: ops
+    type: question
+    file: meta/review/20260930T091551Z-CARD-132-cycle2.yml
+    line: 1
+    title: "Out-of-scope: the branch is 3 commits behind main, so `git diff main..HEAD` is not the card's change"
+    description: |
+      The review brief states the branch is based on current main and a two-dot
+      diff is correct. On this head it is not:
+
+        git merge-base main HEAD  -> a008fc0
+        git log --oneline HEAD..main -> 1b3212e, df4c240, 71fb062
+
+      So `git diff main..HEAD` reports 10 files / +939 / -1010, wrongly counting
+      main-only content as deletions — CARD-149's
+      docs/guides/how-to-solve-nonograms.md (182 lines) and
+      meta/kanban/cards/CARD-149.md (143 lines) appear as removals this card
+      never made. The card's real change is `git diff main...HEAD`: 5 files,
+      +932 / -17. This review is of the three-dot diff.
+
+      No merge risk in the code: the main-only commits touch only
+      docs/guides/, meta/kanban/ and meta/review/, and
+      `comm -12` over the two file lists is empty — zero overlap with the five
+      files this card changes. A rebase or merge is clean.
+    suggestion: |
+      Rebase card/132-books-list-plan-stats onto current main before merging (or
+      merge main into it), and re-run the card's file afterwards. Note also that
+      1b3212e is a kanban sync commit for THIS card made on main while the
+      review ran — the board already believes the fix round is synced.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  # ---- cycle-1 findings confirmed fixed this cycle (evidence re-derived, not
+  # taken from the fix agent's claim). Kept here so the card's history is in one
+  # file; none of them counts toward this cycle's score.
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 150
+    title: "ProgressBar and DataTable inventory entries are stale after this reuse"
+    description: |
+      Cycle-1 finding. Confirmed fixed in f94f29e: ProgressBar's "Used by" now
+      names the books list and the `.plan-progress` variant with its own
+      partial / complete states (components.md:153-160), and DataTable records
+      both query-parameter names with `sort` as the convention going forward
+      (components.md:51-57). The DataTable rewrite introduced a new, smaller
+      inaccuracy of its own — see F-009.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/books_list.html
+    line: 84
+    title: "The plan bar borrows the ProgressBar state word \"generating\" for a partially filled book"
+    description: |
+      Cycle-1 finding. Confirmed fixed in f94f29e, and the "rendering is
+      identical" claim independently verified rather than accepted:
+
+        * Every `[data-status]` rule in the CSS the panel actually serves is
+          admin.css:114-115 (`.progress-bar[data-status="complete"]`,
+          `"failed"`, `"cancelled"`), :128-131 (`.badge[...]`, which needs class
+          `badge`, not `progress-bar` — this is where `generating` did have a
+          rule, and it never reached this element) and :183
+          (`tr[data-status="rejected"]`). Neither `generating` nor `partial`
+          matches any `.progress-bar` rule, so both fall through to
+          `--bs-progress-bar-bg: var(--color-accent)` (admin.css:112).
+        * src/nonogram/admin/static/tokens.css and meta/design/tokens.css: grep
+          for data-status and progress returns nothing in either.
+        * base.html:8 loads Bootstrap 5.3.0 from the CDN; Bootstrap namespaces
+          every data attribute as `data-bs-*` and ships no `[data-status]`
+          selector, and in any case a rule that matched `partial` but not
+          `generating` would be needed to change anything.
+        * The other `data-status` occurrences in the repo are
+          meta/design/previews/*.html (standalone preview pages, not served by
+          the panel) and nonogram-web/.next (a different app).
+        * Rendered check: the bar emits `data-status="partial"` at a partial
+          fill and `data-status="complete"` at or over plan (a 160/150 book
+          renders `complete` at width 100%, exactly as it did before).
+
+      Rendering is identical. Not pinned by a test — see F-008.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/books_list.html
+    line: 23
+    title: "Sortable heads carry no aria-sort and the ↓ glyph is unlabelled"
+    description: |
+      Cycle-1 finding. Confirmed fixed in f94f29e and verified by rendering
+      /books in all three sort states (default, ?sort=created, ?sort=bogus):
+
+        <th scope="col" class="text-end" aria-sort="descending"><a class="sort"
+          href="/books?sort=completeness" aria-current="true">Puzzles
+          <span aria-hidden="true">↓</span>
+          <span class="visually-hidden">, sorted descending</span></a></th>
+        <th scope="col" aria-sort="none"><a class="sort"
+          href="/books?sort=created">Created</a></th>
+
+        * `aria-sort` is on the `<th>`, not on the `<a>` — correct: the
+          attribute belongs to the columnheader role, which `<th scope="col">`
+          maps to.
+        * Both values are valid ARIA tokens (`ascending | descending | none |
+          other`), and `none` is the honest value for a sortable-but-not-sorted
+          column — the list offers descending order only, so no ascending mode
+          is invented.
+        * The non-current sortable column claims no direction it does not have,
+          and the non-sortable columns carry no `aria-sort` at all.
+        * The values swap correctly under `?sort=created`, and an unknown
+          `sort` value falls back to the completeness head.
+        * No escaping artifact: the macro's output renders raw
+          (`aria-sort="descending"`, not `aria-sort=&#34;…&#34;`) because a
+          Jinja macro returns `Markup`. Searched for `aria-sort=&` in all three
+          renders: none. This is the fix's one fragile mechanism — see F-008.
+        * No double-announcement with `aria-current`, which announces "current",
+          a different word from the `visually-hidden` ", sorted descending".
+          There IS a redundancy between the `<th>`'s `aria-sort` and that
+          `visually-hidden` text — a screen reader navigating the header row
+          will hear the direction twice. Defensible belt-and-braces given
+          uneven `aria-sort` support, and not filed as a finding.
+        * Blast radius contained: both macros are local to books_list.html
+          (`sort_head` there shadows nothing — `_puzzle_table.html` defines its
+          own, and neither file imports the other), and `sort_order` is new. The
+          only markup that changed is books_list.html's two `<th>` elements and
+          the current head's link text; the other seven heads are byte-identical.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 2263
+    title: "An over-plan book outranks an exactly-on-plan one, and that third ordering decision is unrecorded"
+    description: |
+      Cycle-1 finding. Confirmed fixed in f94f29e exactly as the owner ruled on
+      2026-09-30, and no more than that. Evidence re-derived independently:
+
+      THE CLAMP DOES WHAT WAS RULED. The key is
+      `(planned is None, -min(Fraction(1), Fraction(actual, planned)) if planned
+      else Fraction(0))` (app.py:2258-2270). Rendered a 6-book shelf — 300/150,
+      160/150, 150/150, 149/150, 0/150, plan-less 40 — created in that reverse
+      order; the page renders:
+
+        150/150, 160/150, 300/150, 149/150, 0/150, plan-less
+
+      which is a TIE (not merely "sorts lower"): the three books at or over plan
+      share one rank, ordered among themselves by `get_all_books`' newest-first
+      order through the stable sort, NOT by the size of the excess (300 over
+      sits behind 160 over purely because it is older).
+
+      THE PIN IS REAL — verified by mutation, four mutants, all restored and the
+      restore verified:
+        * remove the clamp (back to the uncapped ratio) -> KILLED by
+          TestBooksList_OverPlanBookTiesWithOnPlanBook::test_an_over_plan_book_does_not_outrank_an_on_plan_one.
+          The fix agent's claim that it proved the pin this way is correct.
+        * penalise over-plan books strictly below on-plan ones (clamp at 1 only
+          when ratio <= 1, else 999/1000) -> KILLED by
+          test_the_tie_is_broken_by_creation_order_not_by_the_excess. So the
+          tests discriminate a tie from "sorts lower", which is the stronger
+          property the ruling actually asked for.
+        * order the tie by the size of the excess instead of creation order ->
+          KILLED by test_an_over_plan_book_does_not_outrank_an_on_plan_one.
+        * clamp at 999/1000 unconditionally -> SURVIVED, but this is a
+          non-discriminating mutant, not a coverage gap: the clamp applies to
+          both books equally, so 160/150 and 150/150 still tie and no asserted
+          behaviour changes. Not filed.
+
+      NOTHING ELSE MOVED. `git diff 84728d0 f94f29e -- app.py` is one docstring
+      paragraph and the lambda's second element; `percent = min(100, actual*100
+      // total)` and `complete = actual >= total` are untouched, and `hints` is
+      built before the sort runs. Rendered: a 160/150 row reads "160 / 150",
+      carries `26-30 × hard: over 10`, and draws the same full
+      `data-status="complete"` bar at width 100% it drew before the clamp.
+
+      NOTHING THE OLD KEY GOT RIGHT IS NOW WRONG. Checked the two orderings the
+      brief names and one more:
+        * exactly at plan vs fractionally under — 150/150 keys -1, 149/150 keys
+          -149/150 > -1, so the exact book still leads. Verified in the render
+          above. The clamp bites only at ratio > 1, i.e. strictly above the
+          boundary AC-234 pins.
+        * plan-less tail vs a clamped over-plan book — the first tuple element
+          (`planned is None`: False < True) decides before the ratio is
+          consulted, so the plan-less book still sorts after every planned book
+          including one at 300/150. Verified in the render above.
+        * two over-plan books — they now tie with each other where the old key
+          ranked the more over-plan one first. That is a strict improvement
+          under the ruling (the old key put the book furthest over its plan at
+          the very top), not a lost ordering.
+        * no ZeroDivisionError is reachable: `planned` is falsy for both None
+          and 0, so the `else Fraction(0)` branch takes both, and
+          DistributionPlan.__post_init__ refuses count < 1 anyway (carried).
+        * the sort is stable (`sorted`), so ties keep `get_all_books`'
+          newest-first order (carried, and re-confirmed by the render).
+
+      Recorded as decision 3 in the card's worktree notes and in
+      `_books_by_completeness`'s docstring.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 246
+    title: "Out-of-scope: `.table .stat-line { margin-bottom: 0 }` matches nothing that is not already mb-0"
+    description: |
+      Cycle-1 finding. Confirmed fixed in f94f29e, and "genuinely dead" verified
+      against every `.stat-line` in the repo, not two files:
+      `grep -rn stat-line src/nonogram/admin/ meta/design/` returns exactly five
+      hits — the base rule (admin.css:237) and four call sites.
+        * books_list.html:90 and :97 — both inside the `.table`, both
+          `class="stat-line mb-0"`, and Bootstrap's `.mb-0 { margin-bottom: 0
+          !important }` beat the deleted rule anyway, so nothing moves.
+        * book_select_puzzles.html:53 and :160 — read both: each sits in a
+          `<div class="card-body">` inside a `.card`, with no `<table>` anywhere
+          in the ancestor chain, so `.table .stat-line` never matched them.
+      No JS builds a `.stat-line` into a table either (no hit outside templates
+      and the stylesheet). The rule was dead as written; deleting it is a no-op.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    dismissed_reason: null
+    learned_pattern: null

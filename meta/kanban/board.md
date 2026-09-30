@@ -22,7 +22,7 @@ _Updated: 2026-09-25 UTC_
 | 23 | CARD-116 P1, CARD-121 P1 | ✓ done |
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
-| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 7/9 merged — CARD-132 next, CARD-139 last and alone (import sweep over app.py) · closes Increment 16 |
+| 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 8/9 merged — CARD-139 last and alone (import sweep over app.py) · closes Increment 16 |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ⏳ 1/5 — CARD-148 merged (pulled forward on the owner's instruction, 2026-09-25); the rest blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -64,12 +64,12 @@ _(none)_
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
-- **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · worktree ../PythonProject4-CARD-132
 
 
 ## Review
 
 ## Done
+- **CARD-132** Books list — actual vs planned, exact hints, sort by completeness · score 8.5 (2 cycles) · merged 32fcc52
 - **CARD-148** The DB driver is named, not inherited from a SQLAlchemy default · score 8.5 (2 cycles) · merged e292c1e
 - **CARD-140** The arrange screen shows the book's real page breaks · score 9.0 (2 cycles) · merged 5d54019
 - **CARD-144** A frame around the puzzle on book pages · score 9.0 (2 cycles) · merged e2a5b3b

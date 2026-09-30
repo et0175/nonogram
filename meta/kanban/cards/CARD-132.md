@@ -1,6 +1,6 @@
 # CARD-132: Books list — actual vs planned count and tier split, exact short/over hints, sort by completeness
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/132-books-list-plan-stats
-**Worktree:** ../PythonProject4-CARD-132
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-16 (FR-039)
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-123, CARD-124, CARD-130
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/books_list.html, tests/test_books_list_plan_stats.py
-**Review score:** 8.0 (cycle 1/3)
+**Review score:** 8.5 (2 cycles)
 **Started:** 2026-09-30T07:36:59Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-30T11:35:00Z
+**Actual:** 0.5d
+**Merge commit:** 32fcc52
 **Blocked by:** —
 
 ## What to implement
@@ -383,6 +383,59 @@ CK-4's asserted floors (`CORPUS_CASES = 24`, `seen_short >= 20`,
   design-system card renames it. Documentation only; no token, colour, px or
   font literal, and `meta/design/tokens.css` is untouched.
 
+### Cycle 2 (2026-09-30) — on the fix round
+
+- [Review 2/3] **8.5** (cycle 1: 8.0) · risk LOW · lane FAST ·
+  `meta/review/20260930T091551Z-CARD-132-cycle2.yml` · 0 critical, 0 important, 2 minor.
+  Certification ran, not deferred. **Ready to merge.**
+- **The clamp is right, and mutation-proven from three directions.** Rendered a six-book shelf
+  (300/150, 160/150, 150/150, 149/150, 0/150, plan-less) created in reverse order: the page
+  reads 150/150, 160/150, 300/150, 149/150, 0/150, plan-less. It is a genuine **tie** — the
+  300-over book sits behind the 160-over one purely because it is older, so the tie-break is
+  creation order and not the size of the excess, which is exactly what the owner ruled. Nothing
+  the old key got right is now wrong: 150/150 keys −1 and 149/150 keys −149/150, so exactly-at-
+  plan still leads a book fractionally under, and the plan-less tail is still decided by the
+  first tuple element before the ratio is looked at. Three mutants: the clamp removed (killed),
+  over-plan penalised strictly below instead of tied (killed — the tests discriminate a tie from
+  "merely sorts lower"), and the tie ordered by size of excess (killed).
+- `data-status="partial"` renders identically — verified by exhaustive grep, not by inspection
+  of one file: every `[data-status]` rule in the served CSS (`admin.css` only), `tokens.css` and
+  its mirror (none), and Bootstrap 5.3 (namespaces everything `data-bs-*`, ships no
+  `[data-status]`). The `generating` rule that did exist needed class `badge` and could never
+  have reached this element.
+- The `aria-sort` macro is correct, not merely present: on the `<th>`, valid tokens, the
+  non-current column claims no direction it lacks, values swap under `?sort=created`, no
+  escaping artifact, and blast radius contained (both macros local to `books_list.html`; the
+  other seven heads byte-identical).
+- The deleted CSS rule was genuinely dead — all five `.stat-line` uses in the repo checked, not
+  two files.
+- No test was weakened: the test file is **+59/−0** in the fix commit, and all four CK-4 floors
+  (24 / 20 / 20 / the independent `BUCKET_BOUNDS` oracle) are untouched. 20 tests, 20 execute.
+- Minor, both left open for the owner's call:
+  - **F-008** neither the `aria-sort` values nor `partial` has an assertion — **both mutants
+    SURVIVED**. Two of the fix round's three production changes are untested in a file whose 20
+    tests pin every other decision by name. The escaping mechanism is the fragile part: a future
+    `|e`, `|string`, or moving the attribute into Python would drop it silently with no red test.
+    Two lines close it.
+  - **F-009** `meta/design/components.md:47` now *over-claims*: it describes the `aria-sort`
+    treatment as the DataTable spec, true only for `/books` — `_puzzle_table.html` still has
+    `href="#"` + JS, no `aria-sort`, a bare arrow. The inverse of cycle 1's RC-1: the inventory
+    is now ahead of the code and reads as done. One clause fixes it.
+- **[The orchestrator's brief was wrong, and the reviewer caught it]** I told cycle 2 the branch
+  was based on current main. It was not: the merge base was a008fc0 and main had advanced three
+  commits (two of them mine, written after the brief). `git diff main..HEAD` therefore counted
+  CARD-149's card and the new doc as deletions this card never made. Verified independently —
+  `comm -12` over the two file lists is empty, so there was no code risk, and the reviewer
+  reviewed the correct three-dot diff. Rebased since: the branch is now c13e430 + 0876738 on
+  main at 1b3212e, and the two-dot diff reads honestly at 5 files, +932/−17.
+- [Build gate] PASSED on the REBASED commits: **5364 tests, 5355 passed, 2 failed, 7 skipped** —
+  the two long-known stale-heading failures.
+- [Review sync] 2 report(s) → meta/review/
+- **Still outstanding: nobody has looked at `/books` in a browser.** The reviewer's parting note
+  is worth acting on — look at an over-plan row specifically. It draws a full green "complete"
+  bar and now sits at the top tied with an exact book; only the words ("160 / 150", "over 10")
+  distinguish the two. The owner's ruling settled the *order*, not that appearance.
+
 ### Orchestrator gates (2026-09-30)
 
 - [Scope] src/nonogram/admin/app.py, src/nonogram/admin/templates/books_list.html,
@@ -418,3 +471,70 @@ CK-4's asserted floors (`CORPUS_CASES = 24`, `seen_short >= 20`,
   across by hand during the cycle-2 sync. Worth stating plainly because this card's whole value
   is that its open decisions are written down, and the one the owner personally ruled on was
   the one at risk of vanishing.
+
+### [Fix 2] — review cycle 2 (8.5, no Critical, no Important) → 2046b80
+
+Appended, not overwritten: the notes above (including decision 3, the owner's clamp ruling)
+are read and left exactly as they stand.
+
+Cycle 2 is not a gate failure — 8.5, no Critical, no Important, the card already mergeable.
+Two Minor findings closed because both are cheap and one of them is an untested attribute,
+which is how a fix rots.
+
+- **F-008 (the two unpinned markup changes) → fixed.** Seven tests in
+  `tests/test_books_list_plan_stats.py`, plus three raw-markup read helpers (`head_of`,
+  `heads_of`, `plan_bar_of`) beside the file's existing fragment readers.
+  - `CK-6 TestBooksList_SortableHeadsAnnounceTheirOrder` — the sorted head carries
+    `aria-sort="descending"` and the other sortable head `aria-sort="none"`; the pair SWAPS
+    under `?sort=created` (so the macro's argument is pinned too); exactly two heads carry the
+    attribute and they are Puzzles and Created; and `aria-sort=&` appears nowhere while
+    `aria-sort="` appears exactly twice, so an escaped render goes red.
+  - `CK-7 TestBooksList_PlanBarSaysWhichFillItIs` — 132/150 draws `data-status="partial"` with
+    `generating` nowhere in the bar; 150/150 and 160/150 both draw `complete`.
+  - Both surviving mutants now die, each applied then restored by exact copy with the restore
+    verified by sha256 (`e79dd668…fac4`): swapping the `aria-sort` values → 2 failed;
+    reverting `partial` to `generating` → 1 failed.
+  - **A correction to the finding itself, worth keeping:** `|e` and `|string` are *not* the
+    escaping failure mode it names. Both were tried as mutants and both left the file green —
+    `escape()` and `soft_str()` are no-ops on `Markup`. The reachable mutations are
+    `|forceescape` and moving the attribute into a Python-side string; `|forceescape` was run
+    and killed by 3 tests. The correction lives in CK-6's docstring so it is not re-derived.
+- **F-009 (components.md over-claiming) → fixed.** One clause appended inside the same
+  DataTable paragraph, saying the `aria-sort` head treatment is `books_list.html` only and
+  that `_puzzle_table.html` has yet to follow (`href="#"` plus script, no `aria-sort`, arrow
+  unwrapped, direction unsaid). The `sort_by` vs `sort` half is good and was left alone. All
+  three claims re-read against `_puzzle_table.html:19-33` before writing them. No new card:
+  f94f29e's commit message already names the deferral.
+- **F-001, F-007, F-010 left open** as the report has them — two by standing decision, one an
+  orchestrator concern (the branch has since been rebased; this Fix 2 sits on
+  c13e430 + 0876738 + 2046b80).
+
+- [Scope] Two files, tests and documentation only: `tests/test_books_list_plan_stats.py`
+  (+140) and `meta/design/components.md` (+4/-1). **No production behaviour changed** —
+  `app.py` and `books_list.html` are byte-identical to 0876738, which the mutation restores
+  verify by checksum.
+- [Guard] G-1/G-4: nothing under `src/nonogram/db/**` or `migrations/**`, and neither
+  `book_manager.py`, `book_pdf_generator.py`, `_confirm_membership_change.html` nor
+  `book_detail.html` appears in the diff. G-2: no bound, range check, `max(w,h)` or bucket
+  label added anywhere — `BUCKET_BOUNDS` is untouched and still independent of `book_plan`.
+  G-3: no tolerance introduced. No colour, px or font literal added
+  (`tests/test_admin_design_tokens.py` green in the full run below).
+- [Existing tests] None weakened, retargeted or deleted. CK-4's floors are verbatim:
+  `CORPUS_CASES = 24`, `seen_short >= 20`, `seen_over >= 20`.
+- [Suite] **5371 tests, 5362 passed, 2 failed, 7 skipped** (286.90s). 5371 = 5364 + the 7 new
+  tests; passed rises by exactly 7 and skipped does not move, so the new tests EXECUTE —
+  in-memory mode, the fixture deletes `DATABASE_URL` and no database is consulted. The two
+  failures are the known stale-heading assertions in
+  `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`
+  and `tests/test_wave3_e2e.py::TestWave3UIIntegration::test_batch_creation_form_renders`,
+  untouched. The card's own file: 27 passed, up from 20. No database was created, dropped or
+  recreated.
+
+- [Build gate] PASSED on 2046b80, re-run by the orchestrator: **5371 tests, 5362 passed,
+  2 failed, 7 skipped** — the two long-known stale-heading failures. Confirmed independently
+  that Fix 2 changed no production code: `git diff --name-only 0876738 HEAD -- src/` is empty.
+- [Correction carried from Fix 2, worth keeping] Cycle 2's F-008 named `|e` and `|string` as
+  the escaping failure mode. They are not: both are no-ops on `Markup`, so no test can go red
+  on them and none should claim to. The reachable mutations are `|forceescape` and moving the
+  attribute into a Python-side string — `|forceescape` is now killed by
+  `test_the_attribute_is_markup_and_not_escaped_text`. Recorded so nobody re-derives it.
