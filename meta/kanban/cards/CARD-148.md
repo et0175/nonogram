@@ -1,6 +1,6 @@
 # CARD-148: The database driver is named, not inherited from a default
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/148-name-the-db-driver
-**Worktree:** ../PythonProject4-CARD-148
+**Worktree:** —
 **Source:** production outage, 2026-09-25 (Render deploy failed: `ModuleNotFoundError: No module named 'psycopg'`)
 **Idea:** —
 **Wave:** 27
 **Depends on:** —
 **Touches:** src/nonogram/db/session.py, requirements.txt, pyproject.toml, tests/test_db_url_driver.py
-**Review score:** 7.5 (cycle 1/3)
+**Review score:** 8.5 (2 cycles)
 **Started:** 2026-09-25T10:30:09Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-09-30T07:05:00Z
+**Actual:** 0.6d
+**Merge commit:** e292c1e
 **Blocked by:** —
 
 ## What to implement
@@ -311,6 +311,60 @@ account spend limit) and a rebase onto main.
   `nonogram_test` exist. This supersedes the 2026-09-29 gate (27 skips), which was measured
   while the role was missing.
 
+### Cycle 2 (2026-09-30) — independent review, on the rebased commits
+
+- [Review 2/3] **8.5** · risk LOW · lane DEEP ·
+  `meta/review/20260930T064212Z-CARD-148-cycle2.yml` · 0 critical, 0 important, 3 minor, 6
+  out-of-scope. Above `min_score: 8`, certification ran rather than deferred, tree left clean.
+  This is the independent circuit the 2026-09-29 attempt could not provide (that reviewer died
+  on an account spend limit, and the orchestrator's inline pass was correctly refused as
+  self-approval). Nothing the orchestrator pre-verified turned out wrong.
+- **Mutation: 7 new mutants, 1 survivor and it is equivalent.** M6 env.py's online branch → raw
+  URL: killed. M7 `hide_password=False` → `True`: killed (`'***' != 's3cr3t-p@ss'`). M8
+  `psycopg2-binary` → `psycopg[binary]`: killed, which also proves the extras parsing against a
+  real manifest. M9 the DBAPI line deleted — the vacuous-pass case: killed on the non-empty
+  assertion. M10 handler narrowed back to `except ArgumentError`: killed, exactly the three new
+  ids. M11 `_scheme_of`'s guard removed: killed. M12 the hoisting reverted: **survived** → the
+  F-002 correction above.
+- **The live Postgres paid off, and this is the find of the cycle.** With `nonogram_test`
+  migrated, `tests/test_db_e2e_smoke.py` reads: on **main** under **2.1.1** → `ssssss`, six
+  `db_required` tests SKIP and the run exits 0; on **main** under **2.0.52** → three fail; on
+  **this branch** under **2.1.1** → the same three fail. So on main, under production's own
+  resolution, the harness reports a database that is demonstrably right there as *unreachable*:
+  `_unreachable_reason` hands `create_engine` the raw URL, the attempt dies in `import_dbapi()`
+  with `ModuleNotFoundError: No module named 'psycopg'`, and `except Exception` files it as a
+  skip reason. Every db_required test would have passed as a green skip. That is the repo's
+  "DB tests skip silently" hazard, inside the gate, under exactly the resolution that broke
+  production — and the branch's conftest change is what makes the harness tell the truth.
+  Cycle 1 could only reason about this; cycle 2 demonstrated it.
+- The three now-visible `test_db_e2e_smoke` failures are **pre-existing and not this card's**
+  (reproduced on main under 2.0.52 with none of the card applied). Likely root cause: `conftest`'s
+  `db_session` imports `engine` *by value* before `_init_engine()` rebuilds it, so `create_all`
+  targets a different engine than the session. They surface only when `DATABASE_URL` is set, and
+  the standard gate leaves it unset, so **this merge does not change the suite's result.**
+- AC-1 ✓ (9 tests) · AC-2 ✓ (3, under the implementation's reading; the literal text stays the
+  routed requirement defect) · AC-3 ✓ (cap absent from both manifests, 37/37 green under 2.1.1)
+  · AC-4 ✓ (2) · EC-1 ✓ across `normalized_url`, `_init_engine`, `migrations/env.py` and
+  `conftest.py`, with the three Minor caveats below.
+- System contract: 38 rules — 2 ✓ (ADR-0006/R1 with core deps read as exactly
+  `['Pillow>=10.0','numpy>=1.24']`; ADR-0019/R1 via the repo's own `ast` guard), 36 ⚠
+  no_eligible_fact, 0 ✗. G-1, G-2, G-3/CON-015 all ✓ (CON-015 verified directly, being outside
+  the assembled scope).
+- Minor findings, all left open and on the backlog rather than reopening a passing card:
+  - F-001 `session.py:146` — `_scheme_of` still echoes a secret placed *before* the first
+    `://`: `_scheme_of("postgresql:hunter2-do-not-print-me://h/db")` returns the whole thing,
+    and it lands verbatim in the `RuntimeError`. Contradicts its own docstring. Unreachable for
+    a realistic `DATABASE_URL` (credentials come after `://`). One-line fix.
+  - F-002 the card's own false coverage claim — corrected above.
+  - F-003 `migrations/env.py:78` — EC-1's no-log half is unpinned on the one path where the
+    password is necessarily plaintext. The property holds today by configuration
+    (`logger_sqlalchemy = WARNING`, no `echo`) rather than by assertion. ~2 lines to pin.
+  - Reviewer's judgement, which I agree with: the alembic subprocess test should NOT gain a
+    live-connection variant. It would be `db_required`-marked, and cycle 2 just demonstrated
+    that tier skips green when the URL is unreachable — the variant would inherit the exact
+    failure mode this card exists to remove.
+- [Review sync] 2 report(s) → meta/review/
+
 ## Implementation (CARD-148)
 
 ### AC → test mapping
@@ -503,7 +557,13 @@ unchanged.
   cannot resurface SQLAlchemy's URL-echoing `ArgumentError` as an unsuppressed
   `__context__`. `test_a_non_string_cannot_resurface_sqlalchemys_url_echoing_message`
   asserts it over `bytes`/`None`/`int`/`object` against the *formatted
-  traceback*. Reverting either half fails it on both versions.
+  traceback*. **Correction (cycle 2, F-002):** only the TOTALITY half is pinned. Reverting
+  `_scheme_of`'s `isinstance` guard fails the tests; reverting the HOISTING alone (moving the
+  call back inside the handler while keeping the guard) leaves the file 37/37 green — verified
+  independently by the orchestrator, not just by the reviewer. The mutant is *equivalent*
+  (with a total `_scheme_of` the behaviour is identical and EC-1 still holds), so the defect
+  was this note claiming a discrimination the tests do not make — the same "prose says the
+  coverage is there" pattern that let cycle 1's F-001 mutant survive.
 - **F-005 (minor) fixed** — `test_the_shipped_driver_is_the_one_the_project_installs`
   now checks **both** manifests (requirements.txt is what the Render build
   installs) and is bidirectional in each: the set of PostgreSQL DBAPIs a

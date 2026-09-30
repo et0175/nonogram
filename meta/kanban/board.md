@@ -23,7 +23,7 @@ _Updated: 2026-09-25 UTC_
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
 | 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ⏳ 7/9 merged — CARD-132 next, CARD-139 last and alone (import sweep over app.py) · closes Increment 16 |
-| 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1 | ⏳ CARD-148 pulled forward and running in parallel (owner, 2026-09-25); the rest blocked (→ wave 26) · closes Increment 15 |
+| 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1 | ⏳ 1/5 — CARD-148 merged (pulled forward on the owner's instruction, 2026-09-25); the rest blocked (→ wave 26) · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
 
@@ -34,6 +34,13 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - CARD-135 F-008 export_book docstring
 - Pre-existing failure: test_size_configuration_applied
 - Stale assertion: test_wave3_e2e.py::test_batch_creation_form_renders expects the heading "Create Batch from Images"; f773015 (2026-09-14, Pressroom) renamed it "New batch". The page is fine — the test is not.
+- CARD-148 F-001 (minor): `db/session.py`'s `_scheme_of` echoes anything placed before the first
+  `://` — `postgresql:hunter2://h/db` puts the lot in the RuntimeError, contradicting its own
+  docstring. Unreachable for a realistic DATABASE_URL; one-line fix (`scheme.partition(":")[0]`).
+- CARD-148 F-003 (minor): `migrations/env.py`'s plaintext URL (alembic's `engine_from_config`
+  takes a string-keyed dict, so the password is necessarily rendered) is verified absent from
+  logs and tracebacks, but only by configuration — `logger_sqlalchemy = WARNING` and no `echo` —
+  not by assertion. ~2 lines to pin, using the existing subprocess's stderr.
 - DB fixture isolation (surfaced 2026-09-30, pre-existing): `tests/conftest.py:206` has the
   `db_session` fixture `DROP TABLE IF EXISTS puzzles/batches CASCADE` then `create_all`. With a
   real `nonogram_test` present, running the `db_required` set shows 3 failures from tests that
@@ -58,9 +65,9 @@ _(none)_
 
 
 ## Review
-- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default · score 7.5 (cycle 1/3), 6 findings fixed · rebased onto main (e9e0ce6 + b88d74e), cycle-2 review re-running · worktree ../PythonProject4-CARD-148
 
 ## Done
+- **CARD-148** The DB driver is named, not inherited from a SQLAlchemy default · score 8.5 (2 cycles) · merged e292c1e
 - **CARD-140** The arrange screen shows the book's real page breaks · score 9.0 (2 cycles) · merged 5d54019
 - **CARD-144** A frame around the puzzle on book pages · score 9.0 (2 cycles) · merged e2a5b3b
 - **CARD-131** A published book asks before its puzzles change · score 9.0 (3 cycles) · merged 293f921
