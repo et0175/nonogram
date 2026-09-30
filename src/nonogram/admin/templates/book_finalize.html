@@ -79,7 +79,13 @@
                     <li>{{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}, in your order, with their titles</li>
                     {% if puzzle_count %}<li>Solutions divider and answer pages</li>{% endif %}
                 </ol>
-                <small class="text-muted d-block mb-3">About {{ page_count }} interior pages{% if trim_width_cm %} at {{ trim_width_cm }} × {{ trim_height_cm }} cm{% endif %}. The cover is not counted.</small>
+                {#- CARD-129 (FR-030, FR-043): the interior PDF's own page
+                    count, taken from the page plan the export walks rather
+                    than estimated — so it says "About" only when the book's
+                    stored print specification cannot be laid out and the
+                    figure really is a bound. The cover file is never one of
+                    these pages (AC-288). -#}
+                <small class="text-muted d-block mb-3">{% if page_count is none %}The interior's pages cannot be counted — check the book's puzzles and its print setup.{% else %}{% if not page_count_exact %}About {% endif %}{{ page_count }} interior page{{ '' if page_count == 1 else 's' }}{% if trim_width_cm %} at {{ trim_width_cm }} × {{ trim_height_cm }} cm{% endif %}. The cover is not counted.{% endif %}</small>
                 <h3 class="h6">Cover file</h3>
                 <p class="mb-0">One page: {% if cover_uploaded %}your cover image{% else %}a generated title cover{% endif %}. Front cover only.</p>
             </div>
@@ -92,7 +98,25 @@
             <div class="card-body">
                 <dl class="kv mb-3">
                     <dt>Puzzles</dt><dd class="num">{{ puzzle_count }}</dd>
-                    <dt>Interior pages</dt><dd class="num">~{{ page_count }}</dd>
+                    {#- CARD-129 (FR-030, FR-040, FR-042; Increment 15's
+                        checkpoint): the three interior figures — the page
+                        count KDP's gutter table is read at, what the same
+                        interior would take with every puzzle on a page of its
+                        own, and how many of the pages are answer pages. All
+                        three are the interior's; the cover is a separate file
+                        and is never counted (FR-043, AC-288). -#}
+                    <dt>Interior pages</dt>
+                    {%- if page_count is none %}
+                    <dd>Cannot be counted</dd>
+                    {%- else %}
+                    <dd class="num" data-interior-page-count="{{ page_count }}" data-interior-page-count-exact="{{ 'true' if page_count_exact else 'false' }}">{% if not page_count_exact %}~{% endif %}{{ page_count }}</dd>
+                    {%- endif %}
+                    {%- if unpaired_page_count is not none %}
+                    <dt>Before pairing</dt><dd class="num" data-unpaired-page-count="{{ unpaired_page_count }}">{{ unpaired_page_count }}{% if pages_saved_by_pairing %} <small class="text-muted fw-normal">− {{ pages_saved_by_pairing }} shared</small>{% endif %}</dd>
+                    {%- endif %}
+                    {%- if answer_page_count is not none %}
+                    <dt>Answer pages</dt><dd class="num" data-answer-page-count="{{ answer_page_count }}">{{ answer_page_count }}</dd>
+                    {%- endif %}
                     {#- CARD-136 (FR-030): the book's stored print columns —
                         the trim the cell figures below are measured on and
                         the one the PDF is printed at, never metadata.size.
