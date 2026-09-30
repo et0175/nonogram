@@ -34,6 +34,12 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 - CARD-135 F-008 export_book docstring
 - Pre-existing failure: test_size_configuration_applied
 - Stale assertion: test_wave3_e2e.py::test_batch_creation_form_renders expects the heading "Create Batch from Images"; f773015 (2026-09-14, Pressroom) renamed it "New batch". The page is fine — the test is not.
+- Guide page type is ~6.7 pt (found 2026-09-30 while drafting the guide text): `create_guide_page`
+  sets body 28 px / title 48 px, and the interior renders at 300 DPI, so the body is 6.7 pt and the
+  "title" 11.5 pt — smaller than a legal footnote, against an audience that already complains about
+  small print (EV-0003). Measured replacements that fit the same page: body 46 px (11 pt), title
+  92 px (22 pt), leading 71 px. Same method would carry worked example rows and the title wording,
+  so one card should do all three. Draft copy + measurements: docs/guides/how-to-solve-nonograms.md.
 - CARD-148 F-001 (minor): `db/session.py`'s `_scheme_of` echoes anything placed before the first
   `://` — `postgresql:hunter2://h/db` puts the lot in the RuntimeError, contradicting its own
   docstring. Unreachable for a realistic DATABASE_URL; one-line fix (`scheme.partition(":")[0]`).
@@ -56,12 +62,12 @@ _(none)_
 ## Ready
 - **CARD-147** P2 · The book PDF is written black-and-white or in colour (owner, print cost) · 1d · wave 27 · ⏸ blocked: after CARD-146
 - **CARD-146** P2 · The frame reaches the printed two-up page (CARD-144 gap, owner's ruling) · 0.25d · wave 27 · ⏸ blocked: after CARD-128 + CARD-144 merge
-- **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · after CARD-123, CARD-124, CARD-130
 - **CARD-139** P1 · One import style in admin/ — a duplicate module tree cannot exist (live Print setup 500) · 0.25d · wave 26 · runs last, alone
 - **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · after CARD-140
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-132** P3 · Books list — actual vs planned, exact hints, sort by completeness · 0.5d · wave 26 · Inc 16 · worktree ../PythonProject4-CARD-132
 
 
 ## Review
